@@ -20,35 +20,50 @@ echo    DnD-App-v2  -  one-click installer
 echo ============================================
 echo.
 
-REM ----- Need admin rights so winget can install software -----
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-  echo Requesting administrator privileges...
-  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
-  exit /b
+REM ----- Detect which prerequisites are missing (decides if we need admin) -----
+set "NEED_ADMIN="
+where git         >nul 2>nul || set "NEED_ADMIN=1"
+where node        >nul 2>nul || set "NEED_ADMIN=1"
+where cloudflared >nul 2>nul || set "NEED_ADMIN=1"
+
+REM ----- Only elevate if we actually have to install something. Running as a
+REM ----- normal user keeps the repo owned by YOU, which avoids git
+REM ----- "dubious ownership" errors when updating later. -----
+if defined NEED_ADMIN (
+  net session >nul 2>&1
+  if !errorlevel! neq 0 (
+    echo Installing prerequisites requires administrator rights...
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+  )
 )
 cd /d "%~dp0"
 
-REM ----- winget is required to auto-install the tools -----
-where winget >nul 2>nul
-if %errorlevel% neq 0 (
-  echo [ERROR] 'winget' was not found on this PC.
-  echo Update "App Installer" from the Microsoft Store, then re-run this file.
-  echo Or install these three manually and re-run:
-  echo    Git:         https://git-scm.com/download/win
-  echo    Node.js LTS: https://nodejs.org
-  echo    cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-  echo.
-  pause
-  exit /b 1
+REM ----- Install any missing tools via winget (uses the elevation above) -----
+if defined NEED_ADMIN (
+  where winget >nul 2>nul
+  if !errorlevel! neq 0 (
+    echo [ERROR] 'winget' was not found on this PC.
+    echo Update "App Installer" from the Microsoft Store, then re-run this file.
+    echo Or install these manually and re-run:
+    echo    Git:         https://git-scm.com/download/win
+    echo    Node.js LTS: https://nodejs.org
+    echo    cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+    echo.
+    pause
+    exit /b 1
+  )
+  call :ensure Git.Git           git          "Git"
+  call :ensure OpenJS.NodeJS.LTS node         "Node.js LTS"
+  call :ensure Cloudflare.cloudflared cloudflared "cloudflared"
+  REM Make freshly installed tools visible in THIS window.
+  for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%%P"
 )
 
-call :ensure Git.Git           git          "Git"
-call :ensure OpenJS.NodeJS.LTS node         "Node.js LTS"
-call :ensure Cloudflare.cloudflared cloudflared "cloudflared"
-
-REM ----- Make freshly installed tools visible in THIS window -----
-for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%%P"
+REM ----- Trust this folder for git, in case an earlier elevated run left it
+REM ----- owned by Administrators (which blocks git with "dubious ownership"). -----
+set "GITDIR=%INSTALL_DIR:\=/%"
+git config --global --add safe.directory "%GITDIR%" >nul 2>nul
 
 REM ----- Get the code (clone first time, update afterwards) -----
 REM Flat goto structure: all jumps come from single-line ifs, never from inside
