@@ -117,6 +117,22 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Delete spawn buttons [req].** ✕ on each creature template removes it
   (`monster:delete`) so the list stays short.
 
+## Persistent creature & item library [req]
+
+- ☐ **Save custom / AI creatures & items for reuse [req].** Store custom-made and
+  Gemini-generated creatures (and, later, items) in a **cross-session local
+  library** so they're searchable and reusable in any future session — not just
+  the session they were made in. Details:
+  - A library table (e.g. `library_creatures`, `library_items`) at the app level,
+    independent of any one session's templates.
+  - The creature search (`GET /api/creatures`) merges results from **SRD + your
+    saved library**, so your homebrew/AI creatures show up in autofill.
+  - **Cache AI lookups**: the first Gemini result for a name is saved to the
+    library, so repeat lookups are instant and work offline afterward (no repeat
+    API calls / cost).
+  - A DM "Save to library" action on a custom or edited creature/item.
+  - Pairs with item tracking (Phase 5) — saved items become a pickable catalog.
+
 ## Phase 5a — Characters, NPCs & editing [req]
 
 - ☐ **Create party characters [req].** Let the DM (and/or players) add new player
