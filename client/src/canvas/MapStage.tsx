@@ -77,16 +77,18 @@ export function MapStage({
   }
 
   const handleStageClick = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
-    // Click on empty space: deselect, or place a pending spawn.
-    if (e.target === e.target.getStage()) {
-      const stage = e.target.getStage();
-      const p = stage?.getPointerPosition();
-      if (p && onPlaceAt) {
-        onPlaceAt((p.x - offsetX) / scale, (p.y - offsetY) / scale);
-      } else {
-        onSelectToken(null);
-      }
+    const stage = e.target.getStage();
+    if (!stage) return;
+    // Clicks on an existing token are handled by the token itself (select/drag).
+    if (e.target.findAncestor('.token', true)) return;
+    // Anywhere else on the canvas — the map image, grid, or empty space —
+    // places a pending spawn, or otherwise deselects.
+    const p = stage.getPointerPosition();
+    if (onPlaceAt && p) {
+      onPlaceAt((p.x - offsetX) / scale, (p.y - offsetY) / scale);
+      return;
     }
+    onSelectToken(null);
   };
 
   return (

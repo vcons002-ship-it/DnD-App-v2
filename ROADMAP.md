@@ -23,10 +23,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   view. (Fit-to-window ◐ already auto-scales in `MapStage.tsx`; zoom/pan is new.)
 - ☐ **Collapsible *and* resizable side panels [req].** Drag-to-resize handles +
   collapse toggles on the DM and player control panels.
-- ☐ **Direct click-to-place on creation [req].** Creating/spawning a token should
-  drop straight into "click the map to place" mode (and allow placing several in
-  a row), instead of first selecting it from the side area.
-  (◐ click-to-place exists via a pending-spawn selection; streamline the flow.)
+- ◐ **Direct click-to-place on creation [req].** Fixed: clicking **directly on
+  the map image/grid** now places a pending unit (previously only the black
+  letterbox area registered). Remaining: have creation drop straight into placing
+  mode and allow placing several in a row, instead of first picking the unit in
+  the side panel.
 - ☐ **Delete token (DM) [req].** Remove a token from the map via floating menu /
   panel.
 - ☐ **Death marker [req].** Show a skull / death overlay on any token at 0 HP.

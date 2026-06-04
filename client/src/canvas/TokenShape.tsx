@@ -39,6 +39,7 @@ export function TokenShape({
 
   return (
     <Group
+      name="token"
       x={token.x}
       y={token.y}
       draggable={draggable}
