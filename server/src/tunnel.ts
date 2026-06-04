@@ -24,7 +24,9 @@ function hasCloudflared(): Promise<boolean> {
  * ngrok/Tailscale only means setting PUBLIC_URL or editing this file.
  */
 export async function startTunnel(): Promise<string> {
-  if (config.publicUrl) {
+  // Case A: an external tunnel is managed elsewhere (PUBLIC_URL set, no name to
+  // run here) — just trust the configured URL and don't spawn anything.
+  if (config.publicUrl && !config.cfTunnelName) {
     currentPublicUrl = config.publicUrl;
     return currentPublicUrl;
   }
@@ -38,46 +40,50 @@ export async function startTunnel(): Promise<string> {
     return publicUrl();
   }
 
-  const args = config.cfTunnelName
-    ? ['tunnel', 'run', config.cfTunnelName]
-    : ['tunnel', '--url', `http://localhost:${config.port}`];
+  // Case B: a pre-created named tunnel for a stable hostname. cloudflared reads
+  // its own config/ingress; the public URL comes from PUBLIC_URL.
+  if (config.cfTunnelName) {
+    const proc = spawn('cloudflared', ['tunnel', 'run', config.cfTunnelName]);
+    proc.on('error', () =>
+      console.warn('  Failed to start named tunnel; falling back to localhost.'),
+    );
+    currentPublicUrl = config.publicUrl || publicUrl();
+    if (!config.publicUrl) {
+      console.warn(
+        '  CF_TUNNEL_NAME is set but PUBLIC_URL is empty — set PUBLIC_URL to your\n' +
+          '  tunnel hostname so the shared links are correct.',
+      );
+    }
+    return currentPublicUrl;
+  }
 
+  // Case C: zero-config quick tunnel — cloudflared prints a random
+  // trycloudflare.com URL which we parse from its output.
   return new Promise((resolve) => {
-    const proc = spawn('cloudflared', args);
+    const proc = spawn('cloudflared', [
+      'tunnel',
+      '--url',
+      `http://localhost:${config.port}`,
+    ]);
     let resolved = false;
     const urlRe = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
 
+    const finish = (url: string) => {
+      if (resolved) return;
+      resolved = true;
+      currentPublicUrl = url.startsWith('http') ? url : '';
+      resolve(publicUrl());
+    };
+
     const onData = (buf: Buffer) => {
-      const text = buf.toString();
-      const match = text.match(urlRe);
-      if (match && !resolved) {
-        resolved = true;
-        currentPublicUrl = match[0];
-        resolve(currentPublicUrl);
-      }
+      const match = buf.toString().match(urlRe);
+      if (match) finish(match[0]);
     };
     proc.stdout.on('data', onData);
     proc.stderr.on('data', onData); // cloudflared logs the URL to stderr
-
-    proc.on('error', () => {
-      if (!resolved) {
-        resolved = true;
-        resolve(publicUrl());
-      }
-    });
-
-    // For named tunnels the URL is pre-configured; resolve quickly.
-    if (config.cfTunnelName && config.publicUrl) {
-      resolved = true;
-      resolve(config.publicUrl);
-    }
+    proc.on('error', () => finish(''));
 
     // Safety: never hang startup waiting on the tunnel.
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve(publicUrl());
-      }
-    }, 15000);
+    setTimeout(() => finish(''), 15000);
   });
 }
