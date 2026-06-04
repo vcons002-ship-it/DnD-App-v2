@@ -169,6 +169,8 @@ export type JoinPayload = {
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
 export type TokenResizePayload = { tokenId: string; size: number };
 export type TokenDeletePayload = { tokenId: string };
+/** Duplicate one placed token into a second, independently-tracked copy. */
+export type TokenDuplicatePayload = { tokenId: string };
 export type TokenSetHiddenPayload = { tokenId: string; hidden: boolean };
 /** Copy token placements from one map to another (statuses carry via refs). */
 export type TokenCopyPayload = {
@@ -217,7 +219,6 @@ export type MonsterCreatePayload = {
   icon?: string;
   source?: 'srd' | 'gemini' | 'manual';
 };
-export type MonsterCopyPayload = { monsterId: string };
 export type MonsterDeletePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
 export type TokenSetIconPayload = { tokenIds: string[]; icon: string };
@@ -237,6 +238,7 @@ export interface ClientToServerEvents {
   'token:resize': (payload: TokenResizePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;
+  'token:duplicate': (payload: TokenDuplicatePayload) => void;
   'token:setHidden': (payload: TokenSetHiddenPayload) => void;
   'tokens:setIcon': (payload: TokenSetIconPayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;
@@ -245,7 +247,6 @@ export interface ClientToServerEvents {
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
-  'monster:copy': (payload: MonsterCopyPayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;

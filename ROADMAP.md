@@ -95,8 +95,11 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Spawn multiple monsters at once [req].** Count field → N independent
   records, auto-numbered "Goblin 1..N"; checks existing names and continues the
   numbering so names never collide (verified by tests).
-- ☑ **Copy creature (DM) [req].** "Copy" duplicates a monster into a new
-  independent creature with the next available number.
+- ☑ **Duplicate token (DM) [req].** Right-click / long-press a placed token (or
+  the selected-token panel) → "Duplicate" drops a second, independently-tracked
+  copy one square over, carrying the source's current HP/conditions and taking
+  the next sequential name ("Goblin 2"). Replaces the old spawn-list "Copy"
+  template button, which sequential instancing already made redundant.
 - ☑ **Auto token icons [req].** Emoji icon auto-assigned by creature name/type
   (`iconForCreature`), rendered on the token (DM + players).
 - ☑ **Custom icon upload + bulk apply [req].** Upload an image (`POST /api/icons`)

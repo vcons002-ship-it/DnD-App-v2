@@ -40,6 +40,7 @@ type Store = {
   moveToken: (tokenId: string, x: number, y: number) => void;
   resizeToken: (tokenId: string, size: number) => void;
   deleteToken: (tokenId: string) => void;
+  duplicateToken: (tokenId: string) => void;
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
   copyTokens: (fromMapId: string, toMapId: string, kinds: TokenKind[]) => void;
   applyDamage: (kind: TokenKind, refId: string, amount: number) => void;
@@ -51,7 +52,6 @@ type Store = {
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
   createMonster: (input: MonsterCreatePayload) => void;
-  copyMonster: (monsterId: string) => void;
   deleteMonster: (monsterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
@@ -116,6 +116,8 @@ export const useStore = create<Store>((set, get) => ({
   resizeToken: (tokenId, size) =>
     get().socket?.emit('token:resize', { tokenId, size }),
   deleteToken: (tokenId) => get().socket?.emit('token:delete', { tokenId }),
+  duplicateToken: (tokenId) =>
+    get().socket?.emit('token:duplicate', { tokenId }),
   setTokenHidden: (tokenId, hidden) =>
     get().socket?.emit('token:setHidden', { tokenId, hidden }),
   copyTokens: (fromMapId, toMapId, kinds) =>
@@ -129,7 +131,6 @@ export const useStore = create<Store>((set, get) => ({
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
   createMonster: (input) => get().socket?.emit('monster:create', input),
-  copyMonster: (monsterId) => get().socket?.emit('monster:copy', { monsterId }),
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),
   setTokensIcon: (tokenIds, icon) =>

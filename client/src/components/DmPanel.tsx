@@ -31,7 +31,6 @@ export function DmPanel({
   const selectMap = useStore((s) => s.selectMap);
   const setActiveMap = useStore((s) => s.setActiveMap);
   const createMonster = useStore((s) => s.createMonster);
-  const copyMonster = useStore((s) => s.copyMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
@@ -284,13 +283,6 @@ export function DmPanel({
             >
               {m.icon && <span className="spawn-icon">{iconText(m.icon)}</span>}
               {m.name} <span className="muted">{m.maxHp} hp</span>
-            </button>
-            <button
-              className="btn tiny"
-              title="Duplicate this creature template"
-              onClick={() => copyMonster(m.id)}
-            >
-              Copy
             </button>
             <button
               className="btn tiny"

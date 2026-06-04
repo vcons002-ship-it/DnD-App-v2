@@ -17,6 +17,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const resizeToken = useStore((s) => s.resizeToken);
   const deleteToken = useStore((s) => s.deleteToken);
+  const duplicateToken = useStore((s) => s.duplicateToken);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
   const [amount, setAmount] = useState(1);
@@ -137,6 +138,13 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
             <p className="hint">Applies to {iconTargets.length} selected tokens</p>
           )}
 
+          <button
+            className="btn"
+            onClick={() => duplicateToken(token.id)}
+            title="Drop an identical, independently-tracked copy of this token"
+          >
+            ⧉ Duplicate token
+          </button>
           <button
             className={`btn ${token.isHidden ? 'on' : ''}`}
             onClick={() => setTokenHidden(token.id, !token.isHidden)}

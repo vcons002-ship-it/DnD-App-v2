@@ -323,6 +323,80 @@ export function copyTokens(
   }
 }
 
+/**
+ * Duplicate a single placed token into a second, independently-tracked copy
+ * dropped one grid square down-right. For a monster the referenced instance is
+ * cloned with its CURRENT state (HP + conditions) into a fresh instance that
+ * takes the next sequential name (Goblin 1 -> Goblin 3), so the two are
+ * "identical but uniquely tracked". PC tokens just re-place the same character.
+ */
+export function duplicateToken(tokenId: string): Token | null {
+  const token = getToken(tokenId);
+  if (!token) return null;
+  const map = getMap(token.mapId);
+  const off = map?.gridSizePx ?? 50;
+  const x = token.x + off;
+  const y = token.y + off;
+
+  let refId = token.refId;
+  if (token.kind === 'monster') {
+    const src = getMonster(token.refId);
+    if (!src) return null;
+    const { template_id } = (db
+      .prepare('SELECT template_id FROM monsters WHERE id = ?')
+      .get(token.refId) as { template_id: string | null } | undefined) ?? {
+      template_id: null,
+    };
+    // Next sequential name from the template (matches instantiateMonster), or a
+    // "(copy)" suffix when the instance has no template to count against.
+    let name = `${src.name} (copy)`;
+    if (template_id) {
+      const tmpl = getMonster(template_id);
+      const n =
+        (db
+          .prepare('SELECT COUNT(*) AS c FROM monsters WHERE template_id = ?')
+          .get(template_id) as { c: number }).c + 1;
+      name = `${tmpl?.name ?? src.name} ${n}`;
+    }
+    const inst = insertMonster(
+      src.sessionId,
+      {
+        name: src.name,
+        maxHp: src.maxHp,
+        creatureType: src.creatureType,
+        armorClass: src.armorClass,
+        speed: src.speed,
+        stats: src.stats,
+        resistances: src.resistances,
+        weaknesses: src.weaknesses,
+        actions: src.actions,
+        abilities: src.abilities,
+        icon: src.icon,
+        source: src.source,
+      },
+      { isTemplate: false, templateId: template_id, name },
+    );
+    // Carry the source instance's current HP + conditions onto the copy.
+    db.prepare('UPDATE monsters SET cur_hp = ?, conditions = ? WHERE id = ?').run(
+      src.curHp,
+      JSON.stringify(src.conditions),
+      inst.id,
+    );
+    refId = inst.id;
+  }
+
+  const copy = createToken({
+    mapId: token.mapId,
+    kind: token.kind,
+    refId,
+    x,
+    y,
+    isHidden: token.isHidden,
+  });
+  if (token.size !== 1) resizeToken(copy.id, token.size);
+  return getToken(copy.id);
+}
+
 // ---- Initiative turn order (operates on the active map) ----
 
 export function setActiveTurn(sessionId: string, tokenId: string | null): void {

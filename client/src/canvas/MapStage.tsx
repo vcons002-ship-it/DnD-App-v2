@@ -7,6 +7,7 @@ import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
+import { FloatingMenu } from '../components/FloatingMenu';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -36,6 +37,9 @@ export function MapStage({
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
+  const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
+    null,
+  );
   const map = snapshot.map;
   const image = useImage(map?.imagePath ?? null);
 
@@ -379,10 +383,22 @@ export function MapStage({
                   initiativeRank={initiativeRank.get(t.id) ?? null}
                   onSelect={onSelectToken}
                   onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
+                  onContextMenu={(tok, cx, cy) =>
+                    setMenu({ token: tok, x: cx, y: cy })
+                  }
                 />
               ))}
             </Layer>
           </Stage>
+          {menu && (
+            <FloatingMenu
+              snapshot={snapshot}
+              token={menu.token}
+              x={menu.x}
+              y={menu.y}
+              onClose={() => setMenu(null)}
+            />
+          )}
         </>
       )}
     </div>

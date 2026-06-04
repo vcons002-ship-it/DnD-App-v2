@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Group, Circle, Rect, Text, Image as KonvaImage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
@@ -20,6 +21,8 @@ type Props = {
   initiativeRank: number | null;
   onSelect: (token: Token, additive: boolean) => void;
   onMove: (token: Token, x: number, y: number) => void;
+  /** Right-click / long-press — opens the floating action menu at screen coords. */
+  onContextMenu?: (token: Token, clientX: number, clientY: number) => void;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -37,6 +40,7 @@ export function TokenShape({
   initiativeRank,
   onSelect,
   onMove,
+  onContextMenu,
 }: Props) {
   const radius = (gridSizePx * token.size) / 2;
   const auras = presentAuras(display.conditions);
@@ -54,6 +58,31 @@ export function TokenShape({
     onMove(token, e.target.x(), e.target.y());
   };
 
+  // Long-press (touch) mirrors right-click to open the floating menu.
+  const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearLongPress = () => {
+    if (longPress.current) clearTimeout(longPress.current);
+    longPress.current = null;
+  };
+  const openMenu = (clientX: number, clientY: number) =>
+    onContextMenu?.(token, clientX, clientY);
+
+  const handleContextMenu = (e: KonvaEventObject<PointerEvent>) => {
+    if (!onContextMenu) return;
+    e.evt.preventDefault();
+    e.cancelBubble = true;
+    openMenu(e.evt.clientX, e.evt.clientY);
+  };
+
+  const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    if (!onContextMenu) return;
+    const t = e.evt.touches[0];
+    if (!t) return;
+    const { clientX, clientY } = t;
+    clearLongPress();
+    longPress.current = setTimeout(() => openMenu(clientX, clientY), 500);
+  };
+
   return (
     <Group
       name="token"
@@ -62,7 +91,12 @@ export function TokenShape({
       draggable={draggable}
       onClick={(e) => onSelect(token, isAdditive(e))}
       onTap={(e) => onSelect(token, isAdditive(e))}
+      onDragStart={clearLongPress}
       onDragEnd={handleDragEnd}
+      onContextMenu={handleContextMenu}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={clearLongPress}
+      onTouchMove={clearLongPress}
       opacity={token.isHidden ? 0.45 : 1}
     >
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}

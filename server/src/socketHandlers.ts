@@ -16,8 +16,8 @@ import {
   claimCharacter,
   clearCondition,
   clearInitiative,
-  copyMonster,
   copyTokens,
+  duplicateToken,
   coverFog,
   createMonsterTemplate,
   createToken,
@@ -165,6 +165,12 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('token:duplicate', ({ tokenId }) => {
+      if (!isDm()) return; // duplicating tokens is a DM action
+      duplicateToken(tokenId);
+      afterChange();
+    });
+
     socket.on('token:setHidden', ({ tokenId, hidden }) => {
       if (!isDm()) return; // hiding tokens from players is a DM action
       setTokenHidden(tokenId, hidden);
@@ -219,12 +225,6 @@ export function registerSocketHandlers(io: IOServer): void {
         icon: p.icon,
         source: p.source,
       });
-      afterChange();
-    });
-
-    socket.on('monster:copy', ({ monsterId }) => {
-      if (!isDm()) return;
-      copyMonster(monsterId);
       afterChange();
     });
 

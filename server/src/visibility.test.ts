@@ -5,6 +5,10 @@ import {
   instantiateMonster,
   copyMonster,
   deleteMonster,
+  duplicateToken,
+  applyDamage,
+  getMonster,
+  listTokens,
   createSession,
   createMap,
   createToken,
@@ -173,5 +177,37 @@ describe('creature creation', () => {
 
     deleteMonster(dup.id);
     expect(listMonsterTemplates(s.id)).toHaveLength(1);
+  });
+
+  it('duplicates a placed token into a uniquely-tracked copy', () => {
+    const s = createSession('Dup');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 });
+    const g1 = instantiateMonster(tmpl.id)!; // "Goblin 1"
+    const tok = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: g1.id,
+      x: 10,
+      y: 10,
+    });
+    // Wound the source so we can prove current state is carried, not reset.
+    applyDamage('monster', g1.id, 3);
+
+    const copyTok = duplicateToken(tok.id)!;
+    // A second, distinct token + monster instance now exist.
+    expect(listTokens(map.id)).toHaveLength(2);
+    expect(copyTok.id).not.toBe(tok.id);
+    expect(copyTok.refId).not.toBe(g1.id);
+
+    const copyMon = getMonster(copyTok.refId)!;
+    expect(copyMon.name).toBe('Goblin 2'); // next sequential name
+    expect(copyMon.curHp).toBe(4); // identical current HP (7 - 3)
+
+    // Editing the copy must not affect the original (independent tracking).
+    applyDamage('monster', copyMon.id, 4);
+    expect(getMonster(g1.id)!.curHp).toBe(4);
+    expect(getMonster(copyMon.id)!.curHp).toBe(0);
   });
 });

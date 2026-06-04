@@ -10,7 +10,7 @@ exposed to remote players over a **Cloudflare Tunnel**.
 > visibility): zoom/pan, resizable panels, initiative tracker, multi-select,
 > carry-tokens, a resume directory, fog of war (map + token-only modes),
 > per-token hide, SRD creature search with Gemini fallback, multi-spawn with
-> sequential names, copy-creature, and token icons. See [`ROADMAP.md`](ROADMAP.md).
+> sequential names, duplicate-token, and token icons. See [`ROADMAP.md`](ROADMAP.md).
 
 ## Easiest install (one click)
 
@@ -113,6 +113,6 @@ directory, and player resource/item tracking).
 - **Phase 1 (done):** core loop — maps, tokens, sync, damage, conditions, views
 - **Phase 2 (done):** canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative tracker, multi-select, carry-tokens, session directory
 - **Phase 3 (done):** fog of war (map + token-only modes, reveal/hide brush with 1×/3×/5× sizes, cover-all), per-token hide-from-players, DM "curtain" via cover+reveal, DM-only token resize, initiative-order badges
-- **Phase 4 (done):** SRD creature search + Gemini fallback, multi-spawn with sequential names, copy-creature, auto emoji icons + custom icon upload
+- **Phase 4 (done):** SRD creature search + Gemini fallback, multi-spawn with sequential names, duplicate-token (right-click/long-press), auto emoji icons + custom icon upload
 - **Phase 5:** player spell-slot/resource + item tracking, Roll20 embed, dice
 - **Phase 6 (future):** AI spell resolution, rules lookup, enemy dialogue
