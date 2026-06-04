@@ -148,14 +148,17 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☐ **Create party characters [req].** Let the DM (and/or players) add new player
   characters beyond the seeded party — name, race, class, HP, stats — instead of
   only Vanec/Varis/Druk.
-- ☐ **DM-created NPCs with disposition [req].** The DM can create NPCs and toggle
-  each as Friendly / Neutral / Enemy, which controls what players see:
-  - **Friendly** — all stats visible (like a party member).
-  - **Neutral** — health + basic info visible only.
-  - **Enemy** — same restrictions as hostile creatures (name + status/condition
-    only).
-  Implement as a `disposition` field shaping the player payload in
-  `visibility.ts` (extends today's monster-vs-PC split into a 3+ tier model).
+- ☑ **Disposition on every creature [req].** Each creature carries a
+  `disposition` (`friendly` / `neutral` / `enemy`, default enemy) set via a
+  selector on the DM's selected-token panel (`monster:update`). It shapes the
+  player payload in `visibility.ts` (3-tier `toPlayerMonster`):
+  - **Friendly** — full stat block visible (like a party member).
+  - **Neutral** — name + HP + type + AC only.
+  - **Enemy** — name + conditions only (the original hostile view).
+  Instances inherit their template's disposition; a small green/amber/red dot on
+  the token shows it at a glance to DM and players (verified by per-tier tests).
+  *(NPCs are just creatures with a non-enemy disposition; explicit NPC/character
+  creation is the next item.)*
 - ☐ **Editable NPC/creature stats [req].** The DM can edit any non-player token's
   full stat block in-place — HP, AC, ability scores, attacks, abilities,
   descriptions, weapons, resistances/weaknesses, name, icon. (Makes `StatBlock`

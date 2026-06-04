@@ -17,6 +17,14 @@ export type Condition = {
 export type TokenKind = 'pc' | 'monster';
 
 /**
+ * How a creature relates to the party — drives how much players may see:
+ * - friendly: full stat block visible to players
+ * - neutral:  name + HP + type/AC only
+ * - enemy:    name + conditions only (default)
+ */
+export type Disposition = 'friendly' | 'neutral' | 'enemy';
+
+/**
  * Fog of war mode for a map:
  * - 'off'    no fog
  * - 'map'    covered cells black out the map for players (classic fog)
@@ -82,6 +90,8 @@ export type Monster = {
   abilities: CreatureAbility[];
   source: 'srd' | 'gemini' | 'manual';
   conditions: Condition[];
+  /** How much of this creature players may see (default enemy). */
+  disposition: Disposition;
   /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
   icon: string;
 };
@@ -119,12 +129,21 @@ export type MapState = {
   fogRevealed: string[];
 };
 
-/** Player-facing monster view: name + visible conditions + icon only. */
+/** Player-facing ENEMY view: name + visible conditions + icon only. */
 export type MonsterPublic = {
   id: string;
   name: string;
   conditions: Condition[];
+  disposition: Disposition;
   icon: string;
+};
+
+/** Player-facing NEUTRAL view: adds HP + type + AC on top of the public view. */
+export type MonsterNeutral = MonsterPublic & {
+  curHp: number;
+  maxHp: number;
+  creatureType: string;
+  armorClass: number;
 };
 
 /** Snapshot the server sends after join / on major changes, already role-shaped. */
@@ -140,9 +159,10 @@ export type StateSnapshot = {
   maps: MapState[];
   tokens: Token[];
   characters: Character[];
-  /** Monster *instances* placed on maps. DM gets full Monster[]; players
-   *  receive MonsterPublic[]. Tokens reference these by id. */
-  monsters: (Monster | MonsterPublic)[];
+  /** Monster *instances* placed on maps. The DM gets full Monster[]; players
+   *  receive a disposition-shaped view (full / neutral / public) per creature.
+   *  Tokens reference these by id. */
+  monsters: (Monster | MonsterNeutral | MonsterPublic)[];
   /** Reusable creature templates for the DM's spawn list (one per creature
    *  type). DM-only; players receive an empty array. */
   monsterTemplates: Monster[];
@@ -220,7 +240,13 @@ export type MonsterCreatePayload = {
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
   icon?: string;
+  disposition?: Disposition;
   source?: 'srd' | 'gemini' | 'manual';
+};
+/** Patch fields of one creature instance/template (DM-only). */
+export type MonsterUpdatePayload = {
+  monsterId: string;
+  disposition?: Disposition;
 };
 export type MonsterDeletePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
@@ -252,6 +278,7 @@ export interface ClientToServerEvents {
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'character:release': () => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
+  'monster:update': (payload: MonsterUpdatePayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;

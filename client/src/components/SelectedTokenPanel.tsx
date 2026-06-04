@@ -18,6 +18,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const resizeToken = useStore((s) => s.resizeToken);
   const deleteToken = useStore((s) => s.deleteToken);
   const duplicateToken = useStore((s) => s.duplicateToken);
+  const updateMonster = useStore((s) => s.updateMonster);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
   const [amount, setAmount] = useState(1);
@@ -99,6 +100,34 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           +
         </button>
       </div>
+
+      {monster && (
+        <div className="disposition-row">
+          <h4>Disposition</h4>
+          <div className="disposition-btns">
+            {(['friendly', 'neutral', 'enemy'] as const).map((d) => (
+              <button
+                key={d}
+                className={`btn tiny disp-${d} ${
+                  monster.disposition === d ? 'on' : ''
+                }`}
+                onClick={() =>
+                  updateMonster({ monsterId: monster.id, disposition: d })
+                }
+                title={
+                  d === 'friendly'
+                    ? 'Players see full stats'
+                    : d === 'neutral'
+                    ? 'Players see name + HP + type/AC'
+                    : 'Players see name + conditions only'
+                }
+              >
+                {d[0].toUpperCase() + d.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {monster && <StatBlock monster={monster} />}
 

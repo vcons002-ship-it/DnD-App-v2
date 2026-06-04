@@ -6,6 +6,7 @@ import type {
   FogMode,
   JoinAck,
   MonsterCreatePayload,
+  MonsterUpdatePayload,
   Role,
   ServerToClientEvents,
   StateSnapshot,
@@ -57,6 +58,7 @@ type Store = {
   claimCharacter: (characterId: string) => void;
   releaseCharacter: () => void;
   createMonster: (input: MonsterCreatePayload) => void;
+  updateMonster: (payload: MonsterUpdatePayload) => void;
   deleteMonster: (monsterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
@@ -143,6 +145,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('character:claim', { characterId }),
   releaseCharacter: () => get().socket?.emit('character:release'),
   createMonster: (input) => get().socket?.emit('monster:create', input),
+  updateMonster: (payload) => get().socket?.emit('monster:update', payload),
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),
   setTokensIcon: (tokenIds, icon) =>

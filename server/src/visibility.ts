@@ -10,15 +10,40 @@ import {
 } from './sessions.js';
 import type {
   Monster,
+  MonsterNeutral,
   MonsterPublic,
   Role,
   StateSnapshot,
   Token,
 } from '../../shared/types.js';
 
-/** Strip a monster down to what players are allowed to see: name + conditions. */
-function toPublicMonster(m: Monster): MonsterPublic {
-  return { id: m.id, name: m.name, conditions: m.conditions, icon: m.icon };
+/**
+ * Shape a monster for a player according to its disposition:
+ * - friendly: full stat block
+ * - neutral:  name + HP + type + AC (+ conditions/icon)
+ * - enemy:    name + conditions + icon only (default)
+ */
+function toPlayerMonster(
+  m: Monster,
+): Monster | MonsterNeutral | MonsterPublic {
+  if (m.disposition === 'friendly') return m;
+  const base: MonsterPublic = {
+    id: m.id,
+    name: m.name,
+    conditions: m.conditions,
+    disposition: m.disposition,
+    icon: m.icon,
+  };
+  if (m.disposition === 'neutral') {
+    return {
+      ...base,
+      curHp: m.curHp,
+      maxHp: m.maxHp,
+      creatureType: m.creatureType,
+      armorClass: m.armorClass,
+    };
+  }
+  return base;
 }
 
 /**
@@ -49,7 +74,8 @@ export function buildSnapshot(
     (role === 'dm' && activeMapId ? getMap(activeMapId) : null);
 
   let tokens: Token[] = map ? listTokens(map.id) : [];
-  let monsters: (Monster | MonsterPublic)[] = listMonsters(sessionId);
+  let monsters: (Monster | MonsterNeutral | MonsterPublic)[] =
+    listMonsters(sessionId);
 
   if (role === 'player') {
     // Individually-hidden tokens, and (in either fog mode) any token sitting
@@ -61,7 +87,7 @@ export function buildSnapshot(
       fogOn &&
       !revealed.has(`${Math.floor(t.x / grid)},${Math.floor(t.y / grid)}`);
     tokens = tokens.filter((t) => !t.isHidden && !covered(t));
-    monsters = monsters.map((m) => toPublicMonster(m as Monster));
+    monsters = monsters.map((m) => toPlayerMonster(m as Monster));
   }
 
   return {

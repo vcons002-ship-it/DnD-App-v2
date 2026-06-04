@@ -10,6 +10,13 @@ import { useImage } from './useImage';
 const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
 
+/** Battlefield disposition dot colours. */
+const DISPOSITION_HEX: Record<string, string> = {
+  friendly: '#39c46b',
+  neutral: '#f5c518',
+  enemy: '#e23b3b',
+};
+
 type Props = {
   token: Token;
   display: TokenDisplay;
@@ -208,6 +215,17 @@ export function TokenShape({
             cornerRadius={3}
           />
         </Group>
+      )}
+      {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
+      {display.disposition && (
+        <Circle
+          x={-radius * 0.8}
+          y={-radius * 0.8}
+          radius={Math.max(5, radius * 0.16)}
+          fill={DISPOSITION_HEX[display.disposition]}
+          stroke="#000"
+          strokeWidth={1}
+        />
       )}
       {initiativeRank !== null && (
         <Group x={radius * 0.8} y={-radius * 0.8}>

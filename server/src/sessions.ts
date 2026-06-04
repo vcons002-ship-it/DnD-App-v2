@@ -419,6 +419,7 @@ export function duplicateToken(tokenId: string): Token | null {
         actions: src.actions,
         abilities: src.abilities,
         icon: src.icon,
+        disposition: src.disposition,
         source: src.source,
       },
       { isTemplate: false, templateId: template_id, name },
@@ -571,6 +572,7 @@ export type MonsterInput = {
   actions?: Monster['actions'];
   abilities?: Monster['abilities'];
   icon?: string;
+  disposition?: Monster['disposition'];
   source?: Monster['source'];
 };
 
@@ -586,8 +588,9 @@ function insertMonster(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
-        armor_class, speed, stats, actions, is_template, template_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        armor_class, speed, stats, actions, is_template, template_id,
+        disposition)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -606,6 +609,7 @@ function insertMonster(
     JSON.stringify(opts.actions ?? []),
     meta.isTemplate ? 1 : 0,
     meta.templateId,
+    opts.disposition ?? 'enemy',
   );
   return getMonster(id)!;
 }
@@ -658,6 +662,7 @@ export function instantiateMonster(templateId: string): Monster | null {
       actions: tmpl.actions,
       abilities: tmpl.abilities,
       icon: tmpl.icon,
+      disposition: tmpl.disposition,
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -680,8 +685,25 @@ export function copyMonster(monsterId: string): Monster | null {
     actions: m.actions,
     abilities: m.abilities,
     icon: m.icon,
+    disposition: m.disposition,
     source: m.source,
   });
+}
+
+/** Patch editable fields of a creature (template or instance). DM-only. */
+export function updateMonster(
+  monsterId: string,
+  patch: { disposition?: Monster['disposition'] },
+): Monster | null {
+  const m = getMonster(monsterId);
+  if (!m) return null;
+  if (patch.disposition) {
+    db.prepare('UPDATE monsters SET disposition = ? WHERE id = ?').run(
+      patch.disposition,
+      monsterId,
+    );
+  }
+  return getMonster(monsterId);
 }
 
 /** Delete a monster (template or instance) and any tokens referencing it. */

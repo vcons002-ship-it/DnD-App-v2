@@ -42,6 +42,7 @@ import {
   setCondition,
   setTokenInitiative,
   touchSession,
+  updateMonster,
 } from './sessions.js';
 import type { Condition } from '../../shared/types.js';
 
@@ -249,8 +250,15 @@ export function registerSocketHandlers(io: IOServer): void {
         actions: p.actions,
         abilities: p.abilities,
         icon: p.icon,
+        disposition: p.disposition,
         source: p.source,
       });
+      afterChange();
+    });
+
+    socket.on('monster:update', ({ monsterId, disposition }) => {
+      if (!isDm()) return; // editing creature stats is a DM action
+      updateMonster(monsterId, { disposition });
       afterChange();
     });
 

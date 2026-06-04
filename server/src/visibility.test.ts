@@ -18,6 +18,7 @@ import {
   getActiveMapId,
   listMonsters,
   listMonsterTemplates,
+  updateMonster,
   setActiveMap,
   setFogMode,
   setTokenHidden,
@@ -66,6 +67,49 @@ describe('visibility role-shaping', () => {
     expect(player.tokens[0].isHidden).toBe(false);
     expect('maxHp' in player.monsters[0]).toBe(false);
     expect(player.monsters[0].name).toContain('Goblin');
+  });
+
+  it('shapes monsters for players by disposition tier', () => {
+    const session = createSession('Disp');
+    const map = createMap(session.id, { name: 'Field' });
+    setActiveMap(session.id, map.id);
+
+    const friend = spawnInstance(session.id, 'Knight', 20, 'humanoid');
+    const neutral = spawnInstance(session.id, 'Merchant', 9, 'humanoid');
+    const enemy = spawnInstance(session.id, 'Orc', 15, 'humanoid');
+    for (const m of [friend, neutral, enemy]) {
+      createToken({ mapId: map.id, kind: 'monster', refId: m.id, x: 1, y: 1 });
+    }
+    updateMonster(friend.id, { disposition: 'friendly' });
+    updateMonster(neutral.id, { disposition: 'neutral' });
+    // enemy stays default 'enemy'
+
+    const p = buildSnapshot(session.id, 'player')!;
+    const byId = (id: string) => p.monsters.find((m) => m.id === id)!;
+
+    // Friendly: full stat block (stats present).
+    const f = byId(friend.id) as Monster;
+    expect(f.maxHp).toBe(20);
+    expect(f.stats).toBeDefined();
+    expect(f.actions).toBeDefined();
+
+    // Neutral: HP + type + AC, but no stats/actions block.
+    const n = byId(neutral.id) as Record<string, unknown>;
+    expect(n.maxHp).toBe(9);
+    expect(n.creatureType).toBe('humanoid');
+    expect('armorClass' in n).toBe(true);
+    expect('stats' in n).toBe(false);
+    expect('actions' in n).toBe(false);
+
+    // Enemy: name + conditions only, no HP.
+    const e = byId(enemy.id) as Record<string, unknown>;
+    expect('maxHp' in e).toBe(false);
+    expect('armorClass' in e).toBe(false);
+    expect(e.name).toContain('Orc');
+
+    // The DM still sees every creature in full.
+    const dm = buildSnapshot(session.id, 'dm', map.id)!;
+    expect((dm.monsters.find((m) => m.id === enemy.id) as Monster).maxHp).toBe(15);
   });
 
   it('locks players to the active map regardless of requested map', () => {

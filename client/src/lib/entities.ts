@@ -1,7 +1,9 @@
 import type {
   Character,
   Condition,
+  Disposition,
   Monster,
+  MonsterNeutral,
   MonsterPublic,
   StateSnapshot,
   Token,
@@ -13,12 +15,15 @@ export type TokenDisplay = {
   curHp?: number;
   maxHp?: number;
   conditions: Condition[];
+  /** Monster disposition (undefined for PCs) — drives the battlefield dot. */
+  disposition?: Disposition;
   /** Token art (emoji or "/uploads/…"); empty for the default circle. */
   icon: string;
 };
 
-const isFullMonster = (m: Monster | MonsterPublic): m is Monster =>
-  'maxHp' in m;
+type AnyMonster = Monster | MonsterNeutral | MonsterPublic;
+/** Full or neutral monster views carry HP; the enemy (public) view does not. */
+const hasHp = (m: AnyMonster): m is Monster | MonsterNeutral => 'maxHp' in m;
 
 /** Resolve a token's referenced character/monster into display fields. */
 export function resolveToken(
@@ -38,16 +43,22 @@ export function resolveToken(
   }
   const m = snapshot.monsters.find((x) => x.id === token.refId);
   if (!m) return { name: 'Unknown', conditions: [], icon: '' };
-  if (isFullMonster(m)) {
+  if (hasHp(m)) {
     return {
       name: m.name,
       curHp: m.curHp,
       maxHp: m.maxHp,
       conditions: m.conditions,
+      disposition: m.disposition,
       icon: m.icon,
     };
   }
-  return { name: m.name, conditions: m.conditions, icon: m.icon };
+  return {
+    name: m.name,
+    conditions: m.conditions,
+    disposition: m.disposition,
+    icon: m.icon,
+  };
 }
 
 export const findCharacter = (

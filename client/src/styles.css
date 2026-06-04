@@ -292,3 +292,11 @@ input[type='number'] { width: 70px; }
 .claim-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .claim-cta { background: var(--accent); color: #fff; }
 .claimed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Disposition selector (DM) */
+.disposition-row { margin-top: 10px; }
+.disposition-btns { display: flex; gap: 6px; }
+.disposition-btns .btn { flex: 1; }
+.disp-friendly.on { background: #1f3a2a; border-color: var(--green); color: #fff; }
+.disp-neutral.on { background: #3a3320; border-color: #f5c518; color: #fff; }
+.disp-enemy.on { background: #3a2326; border-color: var(--red); color: #fff; }

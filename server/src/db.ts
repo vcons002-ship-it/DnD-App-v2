@@ -132,6 +132,11 @@ ensureColumn('monsters', 'stats', "stats TEXT NOT NULL DEFAULT '{}'");
 ensureColumn('monsters', 'actions', "actions TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('monsters', 'is_template', 'is_template INTEGER NOT NULL DEFAULT 0');
 ensureColumn('monsters', 'template_id', 'template_id TEXT');
+ensureColumn(
+  'monsters',
+  'disposition',
+  "disposition TEXT NOT NULL DEFAULT 'enemy'",
+);
 
 export const newId = (): string => randomUUID();
 
@@ -252,6 +257,7 @@ type MonsterRow = {
   speed: string;
   stats: string;
   actions: string;
+  disposition: Monster['disposition'];
 };
 
 export function rowToMonster(r: MonsterRow): Monster {
@@ -271,6 +277,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     abilities: JSON.parse(r.abilities),
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,
+    disposition: r.disposition ?? 'enemy',
     icon: r.icon ?? '',
   };
 }
