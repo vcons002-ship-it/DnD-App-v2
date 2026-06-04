@@ -1,18 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { buildSnapshot } from './visibility.js';
 import {
-  createMonsters,
+  createMonsterTemplate,
+  instantiateMonster,
   copyMonster,
+  deleteMonster,
   createSession,
   createMap,
   createToken,
   listMonsters,
+  listMonsterTemplates,
   setActiveMap,
   setFogMode,
   setTokenHidden,
   coverFog,
   paintFog,
 } from './sessions.js';
+
+/** Helper: make a template and place one numbered instance of it. */
+const spawnInstance = (
+  sessionId: string,
+  name: string,
+  maxHp: number,
+  creatureType = '',
+) => {
+  const tmpl = createMonsterTemplate(sessionId, { name, maxHp, creatureType });
+  return instantiateMonster(tmpl.id)!;
+};
 import type { Monster } from '../../shared/types.js';
 
 describe('visibility role-shaping', () => {
@@ -21,11 +35,7 @@ describe('visibility role-shaping', () => {
     const map = createMap(session.id, { name: 'Arena' });
     setActiveMap(session.id, map.id);
 
-    const goblin = createMonsters(session.id, {
-      name: 'Goblin',
-      maxHp: 7,
-      creatureType: 'humanoid',
-    })[0];
+    const goblin = spawnInstance(session.id, 'Goblin', 7, 'humanoid');
     createToken({ mapId: map.id, kind: 'monster', refId: goblin.id, x: 1, y: 1 });
     createToken({
       mapId: map.id,
@@ -47,7 +57,7 @@ describe('visibility role-shaping', () => {
     expect(player.tokens).toHaveLength(1);
     expect(player.tokens[0].isHidden).toBe(false);
     expect('maxHp' in player.monsters[0]).toBe(false);
-    expect(player.monsters[0].name).toBe('Goblin');
+    expect(player.monsters[0].name).toContain('Goblin');
   });
 
   it('locks players to the active map regardless of requested map', () => {
@@ -79,7 +89,7 @@ describe('visibility role-shaping', () => {
     const session = createSession('FogTest');
     const map = createMap(session.id, { name: 'Cavern', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
-    const orc = createMonsters(session.id, { name: 'Orc', maxHp: 15 })[0];
+    const orc = spawnInstance(session.id, 'Orc', 15);
     // grid default 50 -> (10,10) is cell "0,0"
     createToken({ mapId: map.id, kind: 'monster', refId: orc.id, x: 10, y: 10 });
 
@@ -101,7 +111,7 @@ describe('visibility role-shaping', () => {
     const session = createSession('TokenFog');
     const map = createMap(session.id, { name: 'Field', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
-    const orc = createMonsters(session.id, { name: 'Orc', maxHp: 15 })[0];
+    const orc = spawnInstance(session.id, 'Orc', 15);
     createToken({ mapId: map.id, kind: 'monster', refId: orc.id, x: 10, y: 10 });
 
     setFogMode(map.id, 'tokens');
@@ -117,7 +127,7 @@ describe('visibility role-shaping', () => {
     const session = createSession('HideOne');
     const map = createMap(session.id, { name: 'Room', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
-    const orc = createMonsters(session.id, { name: 'Orc', maxHp: 9 })[0];
+    const orc = spawnInstance(session.id, 'Orc', 9);
     const tok = createToken({
       mapId: map.id,
       kind: 'monster',
@@ -133,30 +143,35 @@ describe('visibility role-shaping', () => {
 });
 
 describe('creature creation', () => {
-  it('numbers multi-spawn sequentially and de-duplicates names', () => {
+  it('keeps one template and numbers instances on placement', () => {
     const s = createSession('Spawn');
-    // Single create with no clash -> bare name.
-    expect(createMonsters(s.id, { name: 'Goblin', maxHp: 7 })[0].name).toBe(
-      'Goblin',
-    );
-    // Adding more continues the numbering (dedupe past the bare "Goblin"=1).
-    const more = createMonsters(s.id, { name: 'Goblin', maxHp: 7, count: 2 });
-    expect(more.map((m) => m.name)).toEqual(['Goblin 2', 'Goblin 3']);
-    // Each is an independent record.
-    expect(new Set(more.map((m) => m.id)).size).toBe(2);
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 });
+    expect(tmpl.name).toBe('Goblin');
+    expect(tmpl.icon).toBeTruthy(); // emoji auto-assigned
+    expect(listMonsterTemplates(s.id)).toHaveLength(1);
 
-    // Fresh base numbers from 1 when count > 1.
-    const orcs = createMonsters(s.id, { name: 'Orc', maxHp: 15, count: 3 });
-    expect(orcs.map((m) => m.name)).toEqual(['Orc 1', 'Orc 2', 'Orc 3']);
+    const i1 = instantiateMonster(tmpl.id)!;
+    const i2 = instantiateMonster(tmpl.id)!;
+    const i3 = instantiateMonster(tmpl.id)!;
+    expect([i1.name, i2.name, i3.name]).toEqual([
+      'Goblin 1',
+      'Goblin 2',
+      'Goblin 3',
+    ]);
+    // Independent instance records; the template list still has just one entry.
+    expect(new Set([i1.id, i2.id, i3.id]).size).toBe(3);
+    expect(listMonsters(s.id)).toHaveLength(3);
+    expect(listMonsterTemplates(s.id)).toHaveLength(1);
   });
 
-  it('auto-assigns an icon and copies a creature independently', () => {
+  it('copies a template to a unique name and deletes templates', () => {
     const s = createSession('Copy');
-    const [gob] = createMonsters(s.id, { name: 'Goblin', maxHp: 7, count: 2 });
-    expect(gob.icon).toBeTruthy(); // emoji auto-assigned
-    const copy = copyMonster(gob.id)!;
-    expect(copy.name).toBe('Goblin 3'); // base "Goblin", next number
-    expect(copy.id).not.toBe(gob.id);
-    expect(listMonsters(s.id)).toHaveLength(3);
+    const tmpl = createMonsterTemplate(s.id, { name: 'Orc', maxHp: 15 });
+    const dup = copyMonster(tmpl.id)!;
+    expect(dup.name).toBe('Orc (2)');
+    expect(listMonsterTemplates(s.id)).toHaveLength(2);
+
+    deleteMonster(dup.id);
+    expect(listMonsterTemplates(s.id)).toHaveLength(1);
   });
 });

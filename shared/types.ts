@@ -70,8 +70,15 @@ export type Monster = {
   creatureType: string;
   maxHp: number;
   curHp: number;
+  armorClass: number;
+  speed: string;
+  /** Ability scores, e.g. { STR: 16, DEX: 12, … }. */
+  stats: Record<string, number>;
   resistances: string[];
   weaknesses: string[];
+  /** Attacks / actions (with to-hit & damage where known). */
+  actions: CreatureAbility[];
+  /** Traits / features. */
   abilities: CreatureAbility[];
   source: 'srd' | 'gemini' | 'manual';
   conditions: Condition[];
@@ -84,8 +91,12 @@ export type CreatureTemplate = {
   name: string;
   creatureType: string;
   maxHp: number;
+  armorClass: number;
+  speed: string;
+  stats: Record<string, number>;
   resistances: string[];
   weaknesses: string[];
+  actions: CreatureAbility[];
   abilities: CreatureAbility[];
   icon: string;
   source: 'srd' | 'gemini';
@@ -129,8 +140,12 @@ export type StateSnapshot = {
   maps: MapState[];
   tokens: Token[];
   characters: Character[];
-  /** DM receives full Monster[]; players receive MonsterPublic[]. */
+  /** Monster *instances* placed on maps. DM gets full Monster[]; players
+   *  receive MonsterPublic[]. Tokens reference these by id. */
   monsters: (Monster | MonsterPublic)[];
+  /** Reusable creature templates for the DM's spawn list (one per creature
+   *  type). DM-only; players receive an empty array. */
+  monsterTemplates: Monster[];
 };
 
 /** A past session, surfaced on the DM landing page for quick resume. */
@@ -187,19 +202,23 @@ export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean 
 /** Cover the whole map again (clear all revealed cells). */
 export type FogCoverPayload = { mapId: string };
 export type ClaimCharacterPayload = { characterId: string };
+/** Create a reusable creature *template* (one spawn button). */
 export type MonsterCreatePayload = {
   name: string;
   maxHp: number;
-  /** How many to spawn; >1 auto-numbers them (Goblin 1, Goblin 2, …). */
-  count?: number;
   creatureType?: string;
+  armorClass?: number;
+  speed?: string;
+  stats?: Record<string, number>;
   resistances?: string[];
   weaknesses?: string[];
+  actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
   icon?: string;
   source?: 'srd' | 'gemini' | 'manual';
 };
 export type MonsterCopyPayload = { monsterId: string };
+export type MonsterDeletePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
 export type TokenSetIconPayload = { tokenIds: string[]; icon: string };
 export type InitiativeSetPayload = { tokenId: string; initiative: number | null };
@@ -227,6 +246,7 @@ export interface ClientToServerEvents {
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:copy': (payload: MonsterCopyPayload) => void;
+  'monster:delete': (payload: MonsterDeletePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;
   'initiative:next': () => void;

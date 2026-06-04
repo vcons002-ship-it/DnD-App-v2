@@ -404,10 +404,26 @@ export function releaseClaims(socketId: string): void {
 }
 
 // ---- Monsters ----
+// A "template" (is_template = 1) is a reusable creature definition shown as one
+// spawn button. Each placement creates a numbered *instance* (is_template = 0,
+// template_id set) with its own HP/conditions, referenced by a token.
 
+/** Placed monster instances (referenced by tokens). */
 export function listMonsters(sessionId: string): Monster[] {
   const rows = db
-    .prepare('SELECT * FROM monsters WHERE session_id = ? ORDER BY name ASC')
+    .prepare(
+      'SELECT * FROM monsters WHERE session_id = ? AND is_template = 0 ORDER BY name ASC',
+    )
+    .all(sessionId) as Parameters<typeof rowToMonster>[0][];
+  return rows.map(rowToMonster);
+}
+
+/** Reusable creature templates (the DM's spawn buttons). */
+export function listMonsterTemplates(sessionId: string): Monster[] {
+  const rows = db
+    .prepare(
+      'SELECT * FROM monsters WHERE session_id = ? AND is_template = 1 ORDER BY name ASC',
+    )
     .all(sessionId) as Parameters<typeof rowToMonster>[0][];
   return rows.map(rowToMonster);
 }
@@ -422,28 +438,36 @@ export function getMonster(id: string): Monster | null {
 export type MonsterInput = {
   name: string;
   maxHp: number;
-  count?: number;
   creatureType?: string;
+  armorClass?: number;
+  speed?: string;
+  stats?: Record<string, number>;
   resistances?: string[];
   weaknesses?: string[];
+  actions?: Monster['actions'];
   abilities?: Monster['abilities'];
   icon?: string;
   source?: Monster['source'];
 };
 
-function insertMonster(sessionId: string, opts: MonsterInput): Monster {
+function insertMonster(
+  sessionId: string,
+  opts: MonsterInput,
+  meta: { isTemplate: boolean; templateId: string | null; name: string },
+): Monster {
   const id = newId();
   const type = opts.creatureType ?? '';
-  const icon = opts.icon || iconForCreature(opts.name, type);
+  const icon = opts.icon || iconForCreature(meta.name, type);
   db.prepare(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
-        resistances, weaknesses, abilities, source, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        resistances, weaknesses, abilities, source, icon,
+        armor_class, speed, stats, actions, is_template, template_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
-    opts.name,
+    meta.name,
     type,
     opts.maxHp,
     opts.maxHp,
@@ -452,68 +476,97 @@ function insertMonster(sessionId: string, opts: MonsterInput): Monster {
     JSON.stringify(opts.abilities ?? []),
     opts.source ?? 'manual',
     icon,
+    opts.armorClass ?? 0,
+    opts.speed ?? '',
+    JSON.stringify(opts.stats ?? {}),
+    JSON.stringify(opts.actions ?? []),
+    meta.isTemplate ? 1 : 0,
+    meta.templateId,
   );
   return getMonster(id)!;
 }
 
-const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** Highest existing suffix for a base name ("Goblin"=1, "Goblin 3"=3); 0 if none. */
-function existingMaxNumber(sessionId: string, base: string): number {
-  const rows = db
-    .prepare('SELECT name FROM monsters WHERE session_id = ?')
-    .all(sessionId) as { name: string }[];
-  const re = new RegExp(`^${escapeRegex(base)}(?:\\s+(\\d+))?$`, 'i');
-  let max = 0;
-  let found = false;
-  for (const r of rows) {
-    const m = r.name.match(re);
-    if (m) {
-      found = true;
-      const n = m[1] ? parseInt(m[1], 10) : 1;
-      if (n > max) max = n;
-    }
-  }
-  return found ? max : 0;
+/** Pick a unique template name (append " (2)", " (3)", … on collision). */
+function uniqueTemplateName(sessionId: string, base: string): string {
+  const names = new Set(
+    listMonsterTemplates(sessionId).map((m) => m.name.toLowerCase()),
+  );
+  if (!names.has(base.toLowerCase())) return base;
+  let n = 2;
+  while (names.has(`${base} (${n})`.toLowerCase())) n++;
+  return `${base} (${n})`;
 }
 
-/**
- * Create one or more monsters. With count > 1 (or when the base name already
- * exists) they are auto-numbered "Goblin 1", "Goblin 2", … and each is an
- * independent record with its own HP/conditions.
- */
-export function createMonsters(
+/** Create a reusable creature template (one spawn button). */
+export function createMonsterTemplate(
   sessionId: string,
   opts: MonsterInput,
-): Monster[] {
+): Monster {
   const base = opts.name.trim() || 'Creature';
-  const count = Math.max(1, Math.min(50, opts.count ?? 1));
-  const existingMax = existingMaxNumber(sessionId, base);
-  const created: Monster[] = [];
-  for (let i = 0; i < count; i++) {
-    const name =
-      count === 1 && existingMax === 0 ? base : `${base} ${existingMax + 1 + i}`;
-    created.push(insertMonster(sessionId, { ...opts, name }));
-  }
-  return created;
+  return insertMonster(sessionId, opts, {
+    isTemplate: true,
+    templateId: null,
+    name: uniqueTemplateName(sessionId, base),
+  });
 }
 
-/** Duplicate an existing monster into a new independent creature. */
+/** Spawn a numbered instance from a template (Goblin 1, Goblin 2, …). */
+export function instantiateMonster(templateId: string): Monster | null {
+  const tmpl = getMonster(templateId);
+  if (!tmpl) return null;
+  const n =
+    (db
+      .prepare(
+        'SELECT COUNT(*) AS c FROM monsters WHERE template_id = ?',
+      )
+      .get(templateId) as { c: number }).c + 1;
+  return insertMonster(
+    tmpl.sessionId,
+    {
+      name: tmpl.name,
+      maxHp: tmpl.maxHp,
+      creatureType: tmpl.creatureType,
+      armorClass: tmpl.armorClass,
+      speed: tmpl.speed,
+      stats: tmpl.stats,
+      resistances: tmpl.resistances,
+      weaknesses: tmpl.weaknesses,
+      actions: tmpl.actions,
+      abilities: tmpl.abilities,
+      icon: tmpl.icon,
+      source: tmpl.source,
+    },
+    { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
+  );
+}
+
+/** Duplicate a creature template into a new independent template. */
 export function copyMonster(monsterId: string): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
-  const base = m.name.replace(/\s+\d+$/, ''); // drop any trailing number
-  return createMonsters(m.sessionId, {
-    name: base,
+  return createMonsterTemplate(m.sessionId, {
+    name: m.name,
     maxHp: m.maxHp,
     creatureType: m.creatureType,
+    armorClass: m.armorClass,
+    speed: m.speed,
+    stats: m.stats,
     resistances: m.resistances,
     weaknesses: m.weaknesses,
+    actions: m.actions,
     abilities: m.abilities,
     icon: m.icon,
     source: m.source,
-    count: 1,
-  })[0];
+  });
+}
+
+/** Delete a monster (template or instance) and any tokens referencing it. */
+export function deleteMonster(monsterId: string): void {
+  db.prepare('DELETE FROM tokens WHERE kind = ? AND ref_id = ?').run(
+    'monster',
+    monsterId,
+  );
+  db.prepare('DELETE FROM monsters WHERE id = ?').run(monsterId);
 }
 
 /** Set the token art for a character or monster. */

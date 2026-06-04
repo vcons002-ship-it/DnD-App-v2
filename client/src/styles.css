@@ -160,6 +160,22 @@ input[type='number'] { width: 70px; }
 .icon-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .emoji-input { width: 52px; text-align: center; font-size: 18px; }
 .upload-icon { position: relative; overflow: hidden; }
+
+/* Monster stat block (DM) */
+.statblock {
+  margin: 10px 0; padding: 8px 10px; background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 8px; font-size: 13px;
+}
+.sb-type { font-style: italic; color: var(--muted); }
+.sb-meta { display: flex; gap: 12px; margin: 4px 0; font-weight: 600; }
+.sb-abilities { display: flex; gap: 4px; margin: 8px 0; text-align: center; }
+.sb-ability { flex: 1; background: var(--panel); border-radius: 6px; padding: 3px 0; }
+.sb-ab-name { font-size: 10px; color: var(--muted); }
+.sb-ab-val { font-size: 13px; font-weight: 600; }
+.sb-line { margin: 3px 0; }
+.sb-section { margin-top: 8px; }
+.sb-section h4 { margin: 6px 0 3px; color: var(--accent); }
+.sb-entry { margin: 3px 0; line-height: 1.35; }
 .init-row { padding: 4px 0; cursor: pointer; }
 .init-row.sel { background: var(--panel-2); border-radius: 6px; }
 .init-row.turn { background: #3a3320; border-radius: 6px; box-shadow: inset 2px 0 0 #f5c518; }

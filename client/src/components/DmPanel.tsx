@@ -32,6 +32,7 @@ export function DmPanel({
   const setActiveMap = useStore((s) => s.setActiveMap);
   const createMonster = useStore((s) => s.createMonster);
   const copyMonster = useStore((s) => s.copyMonster);
+  const deleteMonster = useStore((s) => s.deleteMonster);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
@@ -42,7 +43,6 @@ export function DmPanel({
   const [slides, setSlides] = useState('');
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
-  const [monCount, setMonCount] = useState(1);
   const [copyFrom, setCopyFrom] = useState('');
   const [busy, setBusy] = useState(false);
   // Creature search (SRD autofill + optional AI lookup).
@@ -92,16 +92,18 @@ export function DmPanel({
     createMonster({
       name: monName.trim(),
       maxHp: monHp,
-      count: monCount,
       creatureType: tmpl?.creatureType,
+      armorClass: tmpl?.armorClass,
+      speed: tmpl?.speed,
+      stats: tmpl?.stats,
       resistances: tmpl?.resistances,
       weaknesses: tmpl?.weaknesses,
+      actions: tmpl?.actions,
       abilities: tmpl?.abilities,
       icon: tmpl?.icon,
       source: tmpl?.source ?? 'manual',
     });
     setMonName('');
-    setMonCount(1);
     setTmpl(null);
   };
 
@@ -137,7 +139,8 @@ export function DmPanel({
     upload(fd);
   };
 
-  const monsters = snapshot.monsters as Monster[];
+  // One spawn button per creature template (placement makes numbered instances).
+  const monsters = snapshot.monsterTemplates as Monster[];
   const viewMap = snapshot.map;
   const otherMaps = snapshot.maps.filter((m) => m.id !== viewMap?.id);
 
@@ -269,24 +272,38 @@ export function DmPanel({
         ))}
 
         <h4>Monsters</h4>
+        {pending?.kind === 'monster' && (
+          <p className="hint">Click the map to drop a numbered instance.</p>
+        )}
         {monsters.map((m) => (
           <div key={m.id} className="spawn-line">
             <button
               className={`spawn-row ${pending?.refId === m.id ? 'picked' : ''}`}
               onClick={() => onPickSpawn('monster', m.id)}
+              title="Select, then click the map to place"
             >
               {m.icon && <span className="spawn-icon">{iconText(m.icon)}</span>}
-              {m.name} <span className="muted">{m.curHp}/{m.maxHp} hp</span>
+              {m.name} <span className="muted">{m.maxHp} hp</span>
             </button>
             <button
               className="btn tiny"
-              title="Duplicate this creature"
+              title="Duplicate this creature template"
               onClick={() => copyMonster(m.id)}
             >
               Copy
             </button>
+            <button
+              className="btn tiny"
+              title="Remove this spawn button"
+              onClick={() => deleteMonster(m.id)}
+            >
+              ✕
+            </button>
           </div>
         ))}
+        {monsters.length === 0 && (
+          <p className="muted">No creatures yet — add one below.</p>
+        )}
 
         <div className="add-monster">
           <div className="creature-search">
@@ -327,19 +344,8 @@ export function DmPanel({
                 onChange={(e) => setMonHp(Number(e.target.value))}
               />
             </label>
-            <label className="mini">
-              ×
-              <input
-                type="number"
-                min={1}
-                value={monCount}
-                onChange={(e) =>
-                  setMonCount(Math.max(1, Number(e.target.value) || 1))
-                }
-              />
-            </label>
             <button className="btn" onClick={addMonster}>
-              Add
+              Add creature
             </button>
             {aiAvailable && (
               <button className="btn" disabled={aiBusy} onClick={aiFill}>

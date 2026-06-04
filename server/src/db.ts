@@ -86,7 +86,13 @@ db.exec(`
     abilities     TEXT NOT NULL DEFAULT '[]',
     conditions    TEXT NOT NULL DEFAULT '[]',
     source        TEXT NOT NULL DEFAULT 'manual',
-    icon          TEXT NOT NULL DEFAULT ''
+    icon          TEXT NOT NULL DEFAULT '',
+    armor_class   INTEGER NOT NULL DEFAULT 0,
+    speed         TEXT NOT NULL DEFAULT '',
+    stats         TEXT NOT NULL DEFAULT '{}',
+    actions       TEXT NOT NULL DEFAULT '[]',
+    is_template   INTEGER NOT NULL DEFAULT 0,
+    template_id   TEXT
   );
 `);
 
@@ -120,6 +126,12 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
 }
 ensureColumn('monsters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
+ensureColumn('monsters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
+ensureColumn('monsters', 'speed', "speed TEXT NOT NULL DEFAULT ''");
+ensureColumn('monsters', 'stats', "stats TEXT NOT NULL DEFAULT '{}'");
+ensureColumn('monsters', 'actions', "actions TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('monsters', 'is_template', 'is_template INTEGER NOT NULL DEFAULT 0');
+ensureColumn('monsters', 'template_id', 'template_id TEXT');
 
 export const newId = (): string => randomUUID();
 
@@ -236,6 +248,10 @@ type MonsterRow = {
   conditions: string;
   source: Monster['source'];
   icon: string;
+  armor_class: number;
+  speed: string;
+  stats: string;
+  actions: string;
 };
 
 export function rowToMonster(r: MonsterRow): Monster {
@@ -246,8 +262,12 @@ export function rowToMonster(r: MonsterRow): Monster {
     creatureType: r.creature_type,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
+    armorClass: r.armor_class ?? 0,
+    speed: r.speed ?? '',
+    stats: JSON.parse(r.stats ?? '{}'),
     resistances: JSON.parse(r.resistances),
     weaknesses: JSON.parse(r.weaknesses),
+    actions: JSON.parse(r.actions ?? '[]'),
     abilities: JSON.parse(r.abilities),
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,

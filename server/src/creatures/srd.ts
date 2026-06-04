@@ -5,12 +5,16 @@ import type { CreatureTemplate } from '../../../shared/types.js';
  * works with zero network/keys. Gemini (creatures/gemini.ts) covers anything
  * not listed here. HP values are the SRD averages.
  */
-type SrdEntry = Omit<CreatureTemplate, 'icon' | 'source'>;
+type SrdEntry = Omit<
+  CreatureTemplate,
+  'icon' | 'source' | 'armorClass' | 'speed' | 'stats' | 'actions'
+> &
+  Partial<Pick<CreatureTemplate, 'armorClass' | 'speed' | 'stats' | 'actions'>>;
 
 const SRD: SrdEntry[] = [
-  { name: 'Goblin', creatureType: 'humanoid (goblinoid)', maxHp: 7, resistances: [], weaknesses: [], abilities: [{ name: 'Nimble Escape', description: 'Can Disengage or Hide as a bonus action.' }] },
+  { name: 'Goblin', creatureType: 'humanoid (goblinoid)', maxHp: 7, armorClass: 15, speed: '30 ft.', stats: { STR: 8, DEX: 14, CON: 10, INT: 10, WIS: 8, CHA: 8 }, resistances: [], weaknesses: [], actions: [{ name: 'Scimitar', description: '+4 to hit, 1d6+2 slashing.' }, { name: 'Shortbow', description: '+4 to hit, range 80/320, 1d6+2 piercing.' }], abilities: [{ name: 'Nimble Escape', description: 'Can Disengage or Hide as a bonus action.' }] },
   { name: 'Hobgoblin', creatureType: 'humanoid (goblinoid)', maxHp: 11, resistances: [], weaknesses: [], abilities: [{ name: 'Martial Advantage', description: 'Once per turn, +2d6 damage to a creature near an ally.' }] },
-  { name: 'Orc', creatureType: 'humanoid (orc)', maxHp: 15, resistances: [], weaknesses: [], abilities: [{ name: 'Aggressive', description: 'Bonus action move toward a hostile creature.' }] },
+  { name: 'Orc', creatureType: 'humanoid (orc)', maxHp: 15, armorClass: 13, speed: '30 ft.', stats: { STR: 16, DEX: 12, CON: 16, INT: 7, WIS: 11, CHA: 10 }, resistances: [], weaknesses: [], actions: [{ name: 'Greataxe', description: '+5 to hit, 1d12+3 slashing.' }, { name: 'Javelin', description: '+5 to hit, 1d6+3 piercing.' }], abilities: [{ name: 'Aggressive', description: 'Bonus action move toward a hostile creature.' }] },
   { name: 'Kobold', creatureType: 'humanoid (kobold)', maxHp: 5, resistances: [], weaknesses: [], abilities: [{ name: 'Pack Tactics', description: 'Advantage on attacks if an ally is adjacent to the target.' }, { name: 'Sunlight Sensitivity', description: 'Disadvantage in sunlight.' }] },
   { name: 'Bandit', creatureType: 'humanoid', maxHp: 11, resistances: [], weaknesses: [], abilities: [] },
   { name: 'Guard', creatureType: 'humanoid', maxHp: 11, resistances: [], weaknesses: [], abilities: [] },
@@ -27,7 +31,7 @@ const SRD: SrdEntry[] = [
   { name: 'Giant Rat', creatureType: 'beast', maxHp: 7, resistances: [], weaknesses: [], abilities: [{ name: 'Pack Tactics', description: 'Advantage on attacks with an adjacent ally.' }] },
   { name: 'Giant Bat', creatureType: 'beast', maxHp: 22, resistances: [], weaknesses: [], abilities: [] },
   { name: 'Boar', creatureType: 'beast', maxHp: 11, resistances: [], weaknesses: [], abilities: [{ name: 'Relentless', description: 'Drop to 1 HP instead of 0 once per turn.' }] },
-  { name: 'Owlbear', creatureType: 'monstrosity', maxHp: 59, resistances: [], weaknesses: [], abilities: [{ name: 'Multiattack', description: 'One beak and one claw attack.' }] },
+  { name: 'Owlbear', creatureType: 'monstrosity', maxHp: 59, armorClass: 13, speed: '40 ft.', stats: { STR: 20, DEX: 12, CON: 17, INT: 3, WIS: 12, CHA: 7 }, resistances: [], weaknesses: [], actions: [{ name: 'Multiattack', description: 'One beak and one claws attack.' }, { name: 'Beak', description: '+7 to hit, 1d10+5 piercing.' }, { name: 'Claws', description: '+7 to hit, 2d8+5 slashing.' }], abilities: [{ name: 'Keen Sight & Smell', description: 'Advantage on Perception using sight or smell.' }] },
   { name: 'Bugbear', creatureType: 'humanoid (goblinoid)', maxHp: 27, resistances: [], weaknesses: [], abilities: [{ name: 'Brute', description: 'Extra die of damage on melee weapon hits.' }] },
   { name: 'Gnoll', creatureType: 'humanoid (gnoll)', maxHp: 22, resistances: [], weaknesses: [], abilities: [{ name: 'Rampage', description: 'Bonus action bite after reducing a creature to 0 HP.' }] },
   { name: 'Ogre', creatureType: 'giant', maxHp: 59, resistances: [], weaknesses: [], abilities: [] },
@@ -41,7 +45,7 @@ const SRD: SrdEntry[] = [
   { name: 'Quasit', creatureType: 'fiend (demon)', maxHp: 7, resistances: ['fire', 'cold', 'lightning', 'nonmagical attacks'], weaknesses: [], abilities: [{ name: 'Scare', description: 'Frightens a target on a failed save.' }] },
   { name: 'Fire Elemental', creatureType: 'elemental', maxHp: 102, resistances: ['nonmagical bludgeoning/piercing/slashing'], weaknesses: [], abilities: [{ name: 'Fire Form', description: 'Ignites creatures and objects it touches.' }] },
   { name: 'Water Elemental', creatureType: 'elemental', maxHp: 114, resistances: ['acid', 'nonmagical attacks'], weaknesses: [], abilities: [{ name: 'Whelm', description: 'Can engulf creatures in its space.' }] },
-  { name: 'Young Red Dragon', creatureType: 'dragon', maxHp: 178, resistances: [], weaknesses: [], abilities: [{ name: 'Fire Breath', description: 'Recharge 5–6, cone of fire.' }] },
+  { name: 'Young Red Dragon', creatureType: 'dragon', maxHp: 178, armorClass: 18, speed: '40 ft., fly 80 ft.', stats: { STR: 23, DEX: 10, CON: 21, INT: 14, WIS: 11, CHA: 19 }, resistances: ['fire'], weaknesses: [], actions: [{ name: 'Multiattack', description: 'One bite and two claw attacks.' }, { name: 'Bite', description: '+10 to hit, 2d10+6 piercing plus 1d6 fire.' }, { name: 'Fire Breath (Recharge 5–6)', description: '30-ft. cone, DC 17 DEX, 16d6 fire (half on save).' }], abilities: [] },
   { name: 'Giant Snake', creatureType: 'beast', maxHp: 11, resistances: [], weaknesses: [], abilities: [] },
   { name: 'Specter', creatureType: 'undead', maxHp: 22, resistances: ['necrotic', 'nonmagical attacks'], weaknesses: [], abilities: [{ name: 'Life Drain', description: 'Reduces target max HP on hit.' }] },
 ];
@@ -78,7 +82,16 @@ export function iconForCreature(name: string, type: string): string {
 }
 
 const toTemplate = (e: SrdEntry): CreatureTemplate => ({
-  ...e,
+  name: e.name,
+  creatureType: e.creatureType,
+  maxHp: e.maxHp,
+  armorClass: e.armorClass ?? 0,
+  speed: e.speed ?? '',
+  stats: e.stats ?? {},
+  resistances: e.resistances,
+  weaknesses: e.weaknesses,
+  actions: e.actions ?? [],
+  abilities: e.abilities,
   icon: iconForCreature(e.name, e.creatureType),
   source: 'srd',
 });

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { StateSnapshot, Token } from '../../../shared/types';
+import type { Monster, StateSnapshot, Token } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
+import { StatBlock } from './StatBlock';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -25,6 +26,11 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
   const isDm = snapshot.role === 'dm';
+  // Full stat block for the DM when a monster is selected.
+  const monster =
+    isDm && token.kind === 'monster'
+      ? (snapshot.monsters.find((m) => m.id === token.refId) as Monster | undefined)
+      : undefined;
   const iconTargets =
     selectedIds && selectedIds.length ? selectedIds : [token.id];
 
@@ -92,6 +98,8 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           +
         </button>
       </div>
+
+      {monster && <StatBlock monster={monster} />}
 
       <h4>Conditions</h4>
       <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />

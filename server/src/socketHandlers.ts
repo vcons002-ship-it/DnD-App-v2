@@ -19,9 +19,11 @@ import {
   copyMonster,
   copyTokens,
   coverFog,
-  createMonsters,
+  createMonsterTemplate,
   createToken,
+  deleteMonster,
   deleteToken,
+  instantiateMonster,
   setEntityIcon,
   paintFog,
   setFogMode,
@@ -131,13 +133,15 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('token:spawn', (p) => {
       if (!isDm()) return; // spawning is a DM action in the MVP
       if (!getMap(p.mapId)) return;
-      createToken({
-        mapId: p.mapId,
-        kind: p.kind,
-        refId: p.refId,
-        x: p.x,
-        y: p.y,
-      });
+      // Monsters spawn from a template -> each placement is a fresh numbered
+      // instance (Goblin 1, 2, …). PCs reference their character directly.
+      let refId = p.refId;
+      if (p.kind === 'monster') {
+        const inst = instantiateMonster(p.refId);
+        if (!inst) return;
+        refId = inst.id;
+      }
+      createToken({ mapId: p.mapId, kind: p.kind, refId, x: p.x, y: p.y });
       afterChange();
     });
 
@@ -201,13 +205,16 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('monster:create', (p) => {
       const sid = sessionId();
       if (!sid || !isDm() || !p.name?.trim()) return; // DM action
-      createMonsters(sid, {
+      createMonsterTemplate(sid, {
         name: p.name,
         maxHp: p.maxHp,
-        count: p.count,
         creatureType: p.creatureType,
+        armorClass: p.armorClass,
+        speed: p.speed,
+        stats: p.stats,
         resistances: p.resistances,
         weaknesses: p.weaknesses,
+        actions: p.actions,
         abilities: p.abilities,
         icon: p.icon,
         source: p.source,
@@ -218,6 +225,12 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('monster:copy', ({ monsterId }) => {
       if (!isDm()) return;
       copyMonster(monsterId);
+      afterChange();
+    });
+
+    socket.on('monster:delete', ({ monsterId }) => {
+      if (!isDm()) return;
+      deleteMonster(monsterId);
       afterChange();
     });
 

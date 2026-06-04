@@ -5,6 +5,7 @@ import {
   listCharacters,
   listMaps,
   listMonsters,
+  listMonsterTemplates,
   listTokens,
 } from './sessions.js';
 import type {
@@ -70,5 +71,7 @@ export function buildSnapshot(
     tokens,
     characters,
     monsters,
+    // Spawn templates are a DM-only tool.
+    monsterTemplates: role === 'dm' ? listMonsterTemplates(sessionId) : [],
   };
 }

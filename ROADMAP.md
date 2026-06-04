@@ -96,6 +96,21 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Custom icon upload + bulk apply [req].** Upload an image (`POST /api/icons`)
   or set an emoji on the selected token; applies to the whole multi-selection.
 
+### Phase 4 refinements (later pass)
+
+- ☑ **Gemini env fix.** `.env` is now loaded from the repo root even when the
+  server runs with cwd = `server/` (npm workspaces) — that's why the key wasn't
+  picked up. Failures are also logged server-side now.
+- ☑ **Full stat blocks.** Monsters carry AC, speed, ability scores, actions and
+  traits (SRD + Gemini); the DM sees a full stat block (`StatBlock.tsx`) on the
+  selected token.
+- ☑ **One button per creature [req].** Creating a creature makes a reusable
+  *template* (one spawn button); each click-to-place spawns a unique **numbered
+  instance** (Goblin 1, 2, 3…) with its own HP/conditions. Templates vs instances
+  via `is_template`/`template_id`.
+- ☑ **Delete spawn buttons [req].** ✕ on each creature template removes it
+  (`monster:delete`) so the list stays short.
+
 ## Phase 5 — Player resources, items, Roll20, dice
 
 - ☐ **Class-specific limited-use resources [req].** Track and update spell slots,

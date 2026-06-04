@@ -52,6 +52,7 @@ type Store = {
   claimCharacter: (characterId: string) => void;
   createMonster: (input: MonsterCreatePayload) => void;
   copyMonster: (monsterId: string) => void;
+  deleteMonster: (monsterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
   rollAllInitiative: () => void;
@@ -129,6 +130,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('character:claim', { characterId }),
   createMonster: (input) => get().socket?.emit('monster:create', input),
   copyMonster: (monsterId) => get().socket?.emit('monster:copy', { monsterId }),
+  deleteMonster: (monsterId) =>
+    get().socket?.emit('monster:delete', { monsterId }),
   setTokensIcon: (tokenIds, icon) =>
     get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
   setInitiative: (tokenId, initiative) =>
