@@ -274,6 +274,19 @@ export type MonsterCreatePayload = {
 export type MonsterUpdatePayload = {
   monsterId: string;
   disposition?: Disposition;
+  name?: string;
+  maxHp?: number;
+  curHp?: number;
+  creatureType?: string;
+  armorClass?: number;
+  speed?: string;
+  stats?: Record<string, number>;
+  resistances?: string[];
+  weaknesses?: string[];
+  weapons?: Weapon[];
+  actions?: CreatureAbility[];
+  abilities?: CreatureAbility[];
+  icon?: string;
 };
 export type MonsterDeletePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */

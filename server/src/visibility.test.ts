@@ -146,6 +146,34 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBeNull();
   });
 
+  it('patches editable creature fields and clamps curHp to a lowered max', () => {
+    const session = createSession('Edit');
+    const tmpl = createMonsterTemplate(session.id, { name: 'Ogre', maxHp: 59 });
+    const ogre = instantiateMonster(tmpl.id)!;
+
+    updateMonster(ogre.id, {
+      armorClass: 11,
+      speed: '40 ft',
+      stats: { STR: 19, DEX: 8 },
+      resistances: ['fire'],
+      weapons: [{ name: 'Greatclub', kind: 'melee', damage: '2d8+4' }],
+      actions: [{ name: 'Smash', description: 'Hits hard.' }],
+    });
+    let m = getMonster(ogre.id)!;
+    expect(m.armorClass).toBe(11);
+    expect(m.speed).toBe('40 ft');
+    expect(m.stats.STR).toBe(19);
+    expect(m.resistances).toEqual(['fire']);
+    expect(m.weapons[0]).toMatchObject({ name: 'Greatclub', kind: 'melee' });
+    expect(m.actions[0].name).toBe('Smash');
+
+    // Lowering maxHp below curHp clamps curHp down.
+    updateMonster(ogre.id, { maxHp: 10 });
+    m = getMonster(ogre.id)!;
+    expect(m.maxHp).toBe(10);
+    expect(m.curHp).toBe(10);
+  });
+
   it('locks players to the active map regardless of requested map', () => {
     const session = createSession('Test2');
     const active = createMap(session.id, { name: 'Town' });

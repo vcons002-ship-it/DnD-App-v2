@@ -258,9 +258,9 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('monster:update', ({ monsterId, disposition }) => {
-      if (!isDm()) return; // editing creature stats is a DM action
-      updateMonster(monsterId, { disposition });
+    socket.on('monster:update', ({ monsterId, ...patch }) => {
+      if (!isDm() || !monsterId) return; // editing creature stats is a DM action
+      updateMonster(monsterId, patch);
       afterChange();
     });
 

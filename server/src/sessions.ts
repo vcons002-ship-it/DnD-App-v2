@@ -720,15 +720,64 @@ export function copyMonster(monsterId: string): Monster | null {
 /** Patch editable fields of a creature (template or instance). DM-only. */
 export function updateMonster(
   monsterId: string,
-  patch: { disposition?: Monster['disposition'] },
+  patch: Partial<{
+    disposition: Monster['disposition'];
+    name: string;
+    maxHp: number;
+    curHp: number;
+    creatureType: string;
+    armorClass: number;
+    speed: string;
+    stats: Record<string, number>;
+    resistances: string[];
+    weaknesses: string[];
+    weapons: Monster['weapons'];
+    actions: Monster['actions'];
+    abilities: Monster['abilities'];
+    icon: string;
+  }>,
 ): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
-  if (patch.disposition) {
-    db.prepare('UPDATE monsters SET disposition = ? WHERE id = ?').run(
-      patch.disposition,
+
+  // Map each patchable field to its column + serialized value.
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  const put = (col: string, v: unknown) => {
+    sets.push(`${col} = ?`);
+    vals.push(v);
+  };
+  if (patch.disposition !== undefined) put('disposition', patch.disposition);
+  if (patch.name !== undefined) put('name', patch.name);
+  if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
+  if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
+  if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
+  if (patch.speed !== undefined) put('speed', patch.speed);
+  if (patch.icon !== undefined) put('icon', patch.icon);
+  if (patch.stats !== undefined) put('stats', JSON.stringify(patch.stats));
+  if (patch.resistances !== undefined)
+    put('resistances', JSON.stringify(patch.resistances));
+  if (patch.weaknesses !== undefined)
+    put('weaknesses', JSON.stringify(patch.weaknesses));
+  if (patch.weapons !== undefined) put('weapons', JSON.stringify(patch.weapons));
+  if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
+  if (patch.abilities !== undefined)
+    put('abilities', JSON.stringify(patch.abilities));
+
+  // Clamp curHp to a (possibly new) maxHp so the bar never overflows.
+  if (sets.length) {
+    db.prepare(`UPDATE monsters SET ${sets.join(', ')} WHERE id = ?`).run(
+      ...vals,
       monsterId,
     );
+    const after = getMonster(monsterId)!;
+    if (after.curHp > after.maxHp) {
+      db.prepare('UPDATE monsters SET cur_hp = ? WHERE id = ?').run(
+        after.maxHp,
+        monsterId,
+      );
+    }
   }
   return getMonster(monsterId);
 }
