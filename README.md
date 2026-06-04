@@ -9,6 +9,26 @@ exposed to remote players over a **Cloudflare Tunnel**.
 > real-time token sync, damage, conditions with color auras, and DM-vs-player
 > visibility. See `PLAN`-style roadmap below for what's next.
 
+## Easiest install (one click)
+
+You don't need to know any commands. The installer checks for and installs
+everything (Git, Node.js, cloudflared), downloads the app, and sets it up.
+
+**Windows**
+
+1. Download **`install.bat`** from this repo (open the file on GitHub → **Download raw file**) into your Downloads folder.
+2. **Double-click `install.bat`** and approve the admin prompt. It installs the prerequisites, clones the app to `%USERPROFILE%\DnD-App-v2`, installs dependencies, and offers to launch.
+3. After that, start the app any time by double-clicking **`start.bat`** in that folder (or `start-dev.bat` for local-only testing). Re-running `install.bat` updates to the latest version.
+
+**macOS / Linux**
+
+```bash
+curl -fsSL -O https://raw.githubusercontent.com/vcons002-ship-it/DnD-App-v2/claude/app-concept-architecture-sJbvy/install.sh
+bash install.sh
+```
+
+Prefer to do it by hand? Follow **Setup** and **Run** below.
+
 ## Stack
 
 - **Client:** React + TypeScript + Vite, Konva (`react-konva`) for the map canvas
