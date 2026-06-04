@@ -51,6 +51,8 @@ REM ----- Make freshly installed tools visible in THIS window -----
 for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%%P"
 
 REM ----- Get the code (clone first time, update afterwards) -----
+REM (Uses goto rather than a parenthesized else so that parentheses inside
+REM  echo text can't prematurely close the block.)
 if exist "%INSTALL_DIR%\.git" (
   echo.
   echo Updating existing install at "%INSTALL_DIR%" ...
@@ -59,18 +61,26 @@ if exist "%INSTALL_DIR%\.git" (
   git checkout %BRANCH%
   git pull origin %BRANCH%
   popd
-) else (
-  echo.
-  echo Cloning repository to "%INSTALL_DIR%" ...
-  echo (If the repo is private, a GitHub sign-in window will appear.)
-  git clone --branch %BRANCH% "%REPO_URL%" "%INSTALL_DIR%"
-  if !errorlevel! neq 0 (
-    echo.
-    echo [ERROR] git clone failed. If the repo is private, sign in when prompted and re-run this file.
-    pause
-    exit /b 1
-  )
+  goto code_ready
 )
+if exist "%INSTALL_DIR%" (
+  echo.
+  echo [ERROR] "%INSTALL_DIR%" already exists but is not a git checkout.
+  echo Rename or remove that folder, then re-run this installer.
+  pause
+  exit /b 1
+)
+echo.
+echo Cloning repository to "%INSTALL_DIR%" ...
+echo If the repo is private, a GitHub sign-in window will appear.
+git clone --branch %BRANCH% "%REPO_URL%" "%INSTALL_DIR%"
+if errorlevel 1 (
+  echo.
+  echo [ERROR] git clone failed. If the repo is private, sign in when prompted and re-run this file.
+  pause
+  exit /b 1
+)
+:code_ready
 
 REM ----- Install dependencies -----
 pushd "%INSTALL_DIR%"
