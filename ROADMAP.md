@@ -127,10 +127,12 @@ Smaller refinements on top of the shipped Phase 2 work.
     independent of any one session's templates.
   - The creature search (`GET /api/creatures`) merges results from **SRD + your
     saved library**, so your homebrew/AI creatures show up in autofill.
-  - **Cache AI lookups**: the first Gemini result for a name is saved to the
-    library, so repeat lookups are instant and work offline afterward (no repeat
-    API calls / cost).
-  - A DM "Save to library" action on a custom or edited creature/item.
+  - **DM-controlled save only — no auto-save.** AI results are *not* saved
+    automatically; the DM saves explicitly via a "Save to library" button.
+  - **Save under a DM-edited name.** The name saved is whatever the DM enters at
+    save time, not the query. e.g. query AI for "bandit with a short sword", then
+    save it as just "bandit" — future searches for "bandit" hit the library and
+    **don't call the AI again**.
   - Pairs with item tracking (Phase 5) — saved items become a pickable catalog.
 
 ## Phase 5a — Characters, NPCs & editing [req]
