@@ -47,19 +47,22 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 Smaller refinements on top of the shipped Phase 2 work.
 
-- ☐ **Hover token menu [req].** Hovering a token shows a small floating menu with
-  key info (name, HP where visible, conditions) for both DM and players;
-  right-click / long-press opens the fuller editable menu.
+- ☑ **Hover token menu [req].** Hovering a token shows a small read-only card
+  (`TokenHoverCard`) with name, HP where visible, and conditions for both DM and
+  players; **right-click / 500ms long-press** opens the fuller floating action
+  menu (`FloatingMenu` — Duplicate / Hide / Delete for the DM), wired in
+  `TokenShape` and rendered as an overlay by `MapStage`.
 - ☑ **Players cannot resize tokens [req].** `token:resize` is now DM-only and the
   size buttons are disabled for players (they may still move tokens).
 - ☑ **Initiative *order* on token [req].** The on-token badge now shows turn ORDER
   (1, 2, 3 …); the DM initiative list shows BOTH the order (#) and the roll.
-- ☐ **Carry-tokens confirmation [req].** Brief toast confirming how many tokens
-  were brought over between maps.
-- ☐ **Clearer player character selection [req].** Make picking a character an
-  explicit, prominent step and allow changing it. (No auto-claim exists today;
-  the roster just lists alphabetically — Druk first — which reads like a default.)
-  Will tie into the Roll20 sheet import below.
+- ☑ **Carry-tokens confirmation [req].** `copyTokens` returns a count; the server
+  sends a `notice` the DM surfaces as a bottom toast ("Brought N tokens to this
+  map"), auto-dismissed after 3s.
+- ☑ **Clearer player character selection [req].** Explicit per-character "Play"
+  CTA, a "you" badge on the claimed character, and a "Change" button that releases
+  it and reopens the chooser. New `character:release`; `claimCharacter` now frees
+  any prior claim so a player holds exactly one.
 
 ## Phase 3 — Fog of war & map masking ✅ (mostly done)
 
