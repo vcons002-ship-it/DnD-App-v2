@@ -25,6 +25,9 @@ type Store = {
 
   selectMap: (mapId: string) => void;
   setActiveMap: (mapId: string) => void;
+  toggleFog: (mapId: string, enabled: boolean) => void;
+  paintFog: (mapId: string, cells: string[], reveal: boolean) => void;
+  coverFog: (mapId: string) => void;
   spawnToken: (
     mapId: string,
     kind: TokenKind,
@@ -95,6 +98,11 @@ export const useStore = create<Store>((set, get) => ({
 
   selectMap: (mapId) => get().socket?.emit('map:select', { mapId }),
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
+  toggleFog: (mapId, enabled) =>
+    get().socket?.emit('fog:toggle', { mapId, enabled }),
+  paintFog: (mapId, cells, reveal) =>
+    get().socket?.emit('fog:paint', { mapId, cells, reveal }),
+  coverFog: (mapId) => get().socket?.emit('fog:cover', { mapId }),
   spawnToken: (mapId, kind, refId, x, y) =>
     get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
   moveToken: (tokenId, x, y) =>

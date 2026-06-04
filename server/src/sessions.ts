@@ -170,6 +170,37 @@ export function updateMapGrid(
   ).run(gridSizePx, feetPerSquare, mapId);
 }
 
+export function setFogEnabled(mapId: string, enabled: boolean): void {
+  db.prepare('UPDATE maps SET fog_enabled = ? WHERE id = ?').run(
+    enabled ? 1 : 0,
+    mapId,
+  );
+}
+
+/** Reveal or re-hide a set of "col,row" cells on a map's fog layer. */
+export function paintFog(
+  mapId: string,
+  cells: string[],
+  reveal: boolean,
+): void {
+  const map = getMap(mapId);
+  if (!map) return;
+  const set = new Set(map.fogRevealed);
+  for (const c of cells) {
+    if (reveal) set.add(c);
+    else set.delete(c);
+  }
+  db.prepare('UPDATE maps SET fog_revealed = ? WHERE id = ?').run(
+    JSON.stringify([...set]),
+    mapId,
+  );
+}
+
+/** Re-cover the entire map (clear all revealed cells). */
+export function coverFog(mapId: string): void {
+  db.prepare("UPDATE maps SET fog_revealed = '[]' WHERE id = ?").run(mapId);
+}
+
 export function setActiveMap(sessionId: string, mapId: string): void {
   db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
     mapId,

@@ -107,6 +107,9 @@ input[type='number'] { width: 70px; }
   align-items: center; gap: 6px; background: #0008; padding: 3px 6px; border-radius: 6px;
 }
 .zoom-label { color: var(--muted); font-size: 12px; min-width: 38px; text-align: right; }
+.stage-controls { flex-wrap: wrap; max-width: 70%; justify-content: flex-end; }
+.ctrl-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.btn.tiny.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .stage-empty {
   position: absolute; inset: 0; display: flex; align-items: center;
   justify-content: center; color: var(--muted);
@@ -134,6 +137,11 @@ input[type='number'] { width: 70px; }
 .init-row.turn { background: #3a3320; border-radius: 6px; box-shadow: inset 2px 0 0 #f5c518; }
 .init-input { width: 46px; }
 .init-name { flex: 1; }
+.init-order {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; background: #f5c518; color: #000;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
 .init-header { display: flex; align-items: center; justify-content: space-between; }
 .init-actions { display: flex; gap: 4px; }
 

@@ -47,7 +47,14 @@ export function buildSnapshot(
   let monsters: (Monster | MonsterPublic)[] = listMonsters(sessionId);
 
   if (role === 'player') {
-    tokens = tokens.filter((t) => !t.isHidden);
+    // Hidden tokens, and (when fog is on) any token sitting under a covered
+    // cell, are never sent to players.
+    const revealed = new Set(map?.fogRevealed ?? []);
+    const grid = map?.gridSizePx ?? 50;
+    const covered = (t: Token) =>
+      !!map?.fogEnabled &&
+      !revealed.has(`${Math.floor(t.x / grid)},${Math.floor(t.y / grid)}`);
+    tokens = tokens.filter((t) => !t.isHidden && !covered(t));
     monsters = monsters.map((m) => toPublicMonster(m as Monster));
   }
 

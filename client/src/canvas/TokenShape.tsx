@@ -11,6 +11,8 @@ type Props = {
   draggable: boolean;
   selected: boolean;
   activeTurn: boolean;
+  /** 1-based position in initiative order (not the raw roll), or null. */
+  initiativeRank: number | null;
   onSelect: (token: Token, additive: boolean) => void;
   onMove: (token: Token, x: number, y: number) => void;
 };
@@ -27,6 +29,7 @@ export function TokenShape({
   draggable,
   selected,
   activeTurn,
+  initiativeRank,
   onSelect,
   onMove,
 }: Props) {
@@ -112,11 +115,11 @@ export function TokenShape({
           />
         </Group>
       )}
-      {token.initiative !== null && (
+      {initiativeRank !== null && (
         <Group x={radius * 0.8} y={-radius * 0.8}>
           <Circle radius={11} fill="#f5c518" stroke="#000" strokeWidth={1} />
           <Text
-            text={String(token.initiative)}
+            text={String(initiativeRank)}
             fontSize={13}
             fill="#000"
             width={22}

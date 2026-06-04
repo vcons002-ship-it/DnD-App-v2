@@ -77,6 +77,11 @@ export function DmPanel({
     if (b.initiative === null) return -1;
     return b.initiative - a.initiative;
   });
+  // 1-based turn order for tokens that have rolled.
+  const rankOf = new Map<string, number>();
+  orderedTokens
+    .filter((t) => t.initiative !== null)
+    .forEach((t, i) => rankOf.set(t.id, i + 1));
 
   const bring = (kinds: TokenKind[]) => {
     if (copyFrom && viewMap) copyTokens(copyFrom, viewMap.id, kinds);
@@ -253,11 +258,15 @@ export function DmPanel({
               }`}
               onClick={() => onSelectToken(t)}
             >
+              <span className="init-order" title="Turn order">
+                {rankOf.get(t.id) ?? '–'}
+              </span>
               <input
                 className="init-input"
                 type="number"
                 value={t.initiative ?? ''}
-                placeholder="–"
+                placeholder="roll"
+                title="Initiative roll"
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   setInitiative(

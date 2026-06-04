@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line, Rect } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { resolveToken } from '../lib/entities';
+import { useStore } from '../state/socket';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -53,6 +54,23 @@ export function MapStage({
   const imgH = image?.naturalHeight ?? 700;
   const grid = map?.gridSizePx ?? 50;
 
+  // ---- Fog of war ----
+  const isDm = snapshot.role === 'dm';
+  const toggleFog = useStore((s) => s.toggleFog);
+  const paintFog = useStore((s) => s.paintFog);
+  const coverFog = useStore((s) => s.coverFog);
+  const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
+  const cols = Math.max(1, Math.ceil(imgW / grid));
+  const rows = Math.max(1, Math.ceil(imgH / grid));
+  const fogOn = !!map?.fogEnabled;
+  const revealedSet = useMemo(
+    () => new Set(map?.fogRevealed ?? []),
+    [map?.fogRevealed],
+  );
+  const fogActive = isDm && fogOn && fogBrush !== 'off';
+  const paintingRef = useRef(false);
+  const strokeRef = useRef<Set<string>>(new Set());
+
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
     const s = Math.min(size.w / imgW, size.h / imgH) || 1;
@@ -72,6 +90,16 @@ export function MapStage({
   useEffect(() => {
     if (!userAdjusted.current) setView(fit);
   }, [fit]);
+
+  // Map each token to its 1-based position in initiative order (highest first).
+  const initiativeRank = useMemo(() => {
+    const ranked = snapshot.tokens
+      .filter((t) => t.initiative !== null)
+      .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
+    const m = new Map<string, number>();
+    ranked.forEach((t, i) => m.set(t.id, i + 1));
+    return m;
+  }, [snapshot.tokens]);
 
   const gridLines = useMemo(() => {
     const lines: number[][] = [];
@@ -107,9 +135,28 @@ export function MapStage({
     return { x: (p.x - view.x) / view.scale, y: (p.y - view.y) / view.scale };
   };
 
-  const handleStageClick = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+  /** Paint the fog cell under the cursor (reveal/hide), once per stroke. */
+  const emitFogCell = (stage: Konva.Stage) => {
+    const pos = pointerToImage(stage);
+    if (!pos || !map) return;
+    const c = Math.floor(pos.x / grid);
+    const r = Math.floor(pos.y / grid);
+    if (c < 0 || r < 0 || c >= cols || r >= rows) return;
+    const key = `${c},${r}`;
+    if (strokeRef.current.has(key)) return;
+    strokeRef.current.add(key);
+    paintFog(map.id, [key], fogBrush === 'reveal');
+  };
+
+  const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    if (fogActive) {
+      paintingRef.current = true;
+      strokeRef.current = new Set();
+      emitFogCell(stage);
+      return;
+    }
     // Clicks on an existing token are handled by the token itself (select/drag).
     if (e.target.findAncestor('.token', true)) return;
     // Anywhere else on the canvas — the map image, grid, or empty space —
@@ -120,6 +167,24 @@ export function MapStage({
       return;
     }
     onSelectToken(null);
+  };
+
+  const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!fogActive || !paintingRef.current) return;
+    const stage = e.target.getStage();
+    if (stage) emitFogCell(stage);
+  };
+
+  const endStroke = () => {
+    paintingRef.current = false;
+  };
+
+  const revealAll = () => {
+    if (!map) return;
+    const all: string[] = [];
+    for (let c = 0; c < cols; c++)
+      for (let r = 0; r < rows; r++) all.push(`${c},${r}`);
+    paintFog(map.id, all, true);
   };
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -141,8 +206,8 @@ export function MapStage({
     });
   };
 
-  // Pan by dragging empty canvas (disabled while placing a token).
-  const panning = !onPlaceAt;
+  // Pan by dragging empty canvas (disabled while placing or painting fog).
+  const panning = !onPlaceAt && !fogActive;
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
     if (e.target.getClassName() !== 'Layer') return;
@@ -165,14 +230,61 @@ export function MapStage({
               Fit
             </button>
             <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
+            {isDm && (
+              <>
+                <span className="ctrl-sep" />
+                <button
+                  className={`btn tiny ${fogOn ? 'on' : ''}`}
+                  onClick={() => map && toggleFog(map.id, !fogOn)}
+                  title="Toggle fog of war"
+                >
+                  Fog {fogOn ? 'On' : 'Off'}
+                </button>
+                {fogOn && (
+                  <>
+                    <button
+                      className={`btn tiny ${fogBrush === 'reveal' ? 'on' : ''}`}
+                      onClick={() =>
+                        setFogBrush((b) => (b === 'reveal' ? 'off' : 'reveal'))
+                      }
+                    >
+                      Reveal
+                    </button>
+                    <button
+                      className={`btn tiny ${fogBrush === 'hide' ? 'on' : ''}`}
+                      onClick={() =>
+                        setFogBrush((b) => (b === 'hide' ? 'off' : 'hide'))
+                      }
+                    >
+                      Hide
+                    </button>
+                    <button
+                      className="btn tiny"
+                      onClick={() => map && coverFog(map.id)}
+                      title="Re-cover the whole map"
+                    >
+                      Cover all
+                    </button>
+                    <button className="btn tiny" onClick={revealAll}>
+                      Reveal all
+                    </button>
+                  </>
+                )}
+              </>
+            )}
           </div>
           <Stage
             width={size.w}
             height={size.h}
-            onMouseDown={handleStageClick}
-            onTouchStart={handleStageClick}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onTouchMove={handleMouseMove}
+            onMouseUp={endStroke}
+            onTouchEnd={endStroke}
+            onMouseLeave={endStroke}
             onWheel={handleWheel}
-            style={{ cursor: onPlaceAt ? 'crosshair' : 'default' }}
+            style={{ cursor: onPlaceAt || fogActive ? 'crosshair' : 'default' }}
           >
             <Layer
               ref={layerRef}
@@ -191,15 +303,32 @@ export function MapStage({
               {gridLines.map((pts, i) => (
                 <Line key={i} points={pts} stroke="#ffffff22" strokeWidth={1} />
               ))}
+              {fogOn && (
+                <Shape
+                  listening={false}
+                  opacity={isDm ? 0.5 : 1}
+                  sceneFunc={(ctx: Konva.Context) => {
+                    ctx.fillStyle = '#04060a';
+                    for (let c = 0; c < cols; c++) {
+                      for (let r = 0; r < rows; r++) {
+                        if (!revealedSet.has(`${c},${r}`)) {
+                          ctx.fillRect(c * grid, r * grid, grid, grid);
+                        }
+                      }
+                    }
+                  }}
+                />
+              )}
               {snapshot.tokens.map((t) => (
                 <TokenShape
                   key={t.id}
                   token={t}
                   display={resolveToken(snapshot, t)}
                   gridSizePx={grid}
-                  draggable={draggableTokens}
+                  draggable={draggableTokens && !fogActive}
                   selected={selectedIds.includes(t.id)}
                   activeTurn={t.id === activeTurnTokenId}
+                  initiativeRank={initiativeRank.get(t.id) ?? null}
                   onSelect={onSelectToken}
                   onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
                 />

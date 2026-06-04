@@ -75,6 +75,10 @@ export type MapState = {
   feetPerSquare: number;
   /** Whether fog of war is enabled on this map. */
   fogEnabled: boolean;
+  /** Grid cells the DM has revealed, as "col,row" keys. Everything else is
+   *  covered when fogEnabled (this also powers the "curtain" workflow: cover
+   *  all, then reveal the starting area). */
+  fogRevealed: string[];
 };
 
 /** Player-facing monster view: name + visible conditions only. */
@@ -148,6 +152,11 @@ export type ConditionClearPayload = {
 };
 export type MapSetActivePayload = { mapId: string };
 export type MapSelectPayload = { mapId: string };
+export type FogTogglePayload = { mapId: string; enabled: boolean };
+/** Reveal (true) or re-hide (false) the given "col,row" cells on a map. */
+export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean };
+/** Cover the whole map again (clear all revealed cells). */
+export type FogCoverPayload = { mapId: string };
 export type ClaimCharacterPayload = { characterId: string };
 export type MonsterCreatePayload = {
   name: string;
@@ -163,6 +172,9 @@ export interface ClientToServerEvents {
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
+  'fog:toggle': (payload: FogTogglePayload) => void;
+  'fog:paint': (payload: FogPaintPayload) => void;
+  'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;

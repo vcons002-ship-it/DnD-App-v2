@@ -38,6 +38,7 @@ db.exec(`
     grid_size_px    INTEGER NOT NULL DEFAULT 50,
     feet_per_square INTEGER NOT NULL DEFAULT 5,
     fog_enabled     INTEGER NOT NULL DEFAULT 0,
+    fog_revealed    TEXT NOT NULL DEFAULT '[]',
     created_at      INTEGER NOT NULL
   );
 
@@ -102,6 +103,7 @@ ensureColumn(
   'last_played_at',
   'last_played_at INTEGER NOT NULL DEFAULT 0',
 );
+ensureColumn('maps', 'fog_revealed', "fog_revealed TEXT NOT NULL DEFAULT '[]'");
 
 export const newId = (): string => randomUUID();
 
@@ -126,6 +128,7 @@ type MapRow = {
   grid_size_px: number;
   feet_per_square: number;
   fog_enabled: number;
+  fog_revealed: string;
 };
 
 export function rowToMap(r: MapRow): MapState {
@@ -138,6 +141,7 @@ export function rowToMap(r: MapRow): MapState {
     gridSizePx: r.grid_size_px,
     feetPerSquare: r.feet_per_square,
     fogEnabled: !!r.fog_enabled,
+    fogRevealed: JSON.parse(r.fog_revealed ?? '[]') as string[],
   };
 }
 

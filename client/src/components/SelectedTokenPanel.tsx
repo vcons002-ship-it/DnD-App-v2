@@ -50,11 +50,19 @@ export function SelectedTokenPanel({ snapshot, token }: Props) {
 
       <div className="size-row">
         <span>Size</span>
-        <button className="btn" onClick={() => resizeToken(token.id, token.size - 0.5)}>
+        <button
+          className="btn"
+          disabled={!isDm}
+          onClick={() => resizeToken(token.id, token.size - 0.5)}
+        >
           −
         </button>
         <span>{token.size}</span>
-        <button className="btn" onClick={() => resizeToken(token.id, token.size + 0.5)}>
+        <button
+          className="btn"
+          disabled={!isDm}
+          onClick={() => resizeToken(token.id, token.size + 0.5)}
+        >
           +
         </button>
       </div>

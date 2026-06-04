@@ -45,29 +45,32 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☐ **Hover token menu [req].** Hovering a token shows a small floating menu with
   key info (name, HP where visible, conditions) for both DM and players;
   right-click / long-press opens the fuller editable menu.
-- ☐ **Players cannot resize tokens [req].** Resize controls and the
-  `token:resize` handler must be DM-only (players may still move tokens).
-  Correction to current behavior where the size buttons show for everyone.
-- ☐ **Initiative *order* on token [req].** The on-token badge shows turn ORDER
-  (1, 2, 3 … from sorted initiative), not the raw d20. The side panel shows BOTH
-  the roll value and the order.
+- ☑ **Players cannot resize tokens [req].** `token:resize` is now DM-only and the
+  size buttons are disabled for players (they may still move tokens).
+- ☑ **Initiative *order* on token [req].** The on-token badge now shows turn ORDER
+  (1, 2, 3 …); the DM initiative list shows BOTH the order (#) and the roll.
 - ☐ **Carry-tokens confirmation [req].** Brief toast confirming how many tokens
   were brought over between maps.
+- ☐ **Clearer player character selection [req].** Make picking a character an
+  explicit, prominent step and allow changing it. (No auto-claim exists today;
+  the roster just lists alphabetically — Druk first — which reads like a default.)
+  Will tie into the Roll20 sheet import below.
 
-## Phase 3 — Fog of war & map masking
+## Phase 3 — Fog of war & map masking ✅ (mostly done)
 
-- ☐ Fog of war: DM toggle, paint/reveal brush, stored per map; monsters in fog
-  default hidden.
-- ☐ **DM region mask / "curtain" [req].** Separate from fog: let the DM hide a
-  portion of a map so a large map appears smaller to players until they
-  investigate, then reveal regions on demand. (Distinct mechanic from the
-  paintable fog — think hard-cropped/blocked areas.)
+- ☑ Fog of war: per-map grid-cell fog stored in SQLite (`maps.fog_revealed`).
+  DM toggle + Reveal/Hide brush (drag to paint) + Cover-all / Reveal-all.
+  DM sees through (translucent); players see solid cover; fog-covered tokens are
+  filtered out server-side in `visibility.ts` (covered tests).
+- ☑ **DM "curtain" [req].** Served by the same system: **Cover all**, then reveal
+  the starting area — a large map appears smaller until players investigate.
+  (If a distinct hard-rectangular crop is ever wanted, revisit.)
+- ☑ Save/load is provided by the durable-session invariant — fog, tokens, and
+  board state persist by session code and reload on restart (verified by tests).
 - ☐ **Live tokens over Google Slides (stretch, if feasible) [req].** Overlay the
   interactive token layer on top of a linked Slides embed so tokens can be placed
   on Slides maps. Technically tricky (cross-origin iframe) — investigate an
   absolutely-positioned transparent canvas over the iframe.
-- ☐ Explicit save/load of full map+token state for future sessions (reinforces
-  the durability invariant).
 
 ## Phase 4 — Creature data & token art
 
@@ -91,6 +94,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   second wind, superiority dice, sorcery points, etc. on the player token/panel.
 - ☐ **Item / inventory tracking [req].** Let players track items on their
   character.
+- ☐ **Import character tracker from Roll20 sheet [req].** Pull stats, modifiers,
+  spell-slot counts, and limited-use resources from a player's linked Roll20
+  character sheet to auto-populate the tracker (ties into the character-selection
+  cleanup above).
+- ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
+  the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
+  persisted per role like panel width/collapse.
 - ☐ Buff/nerf buttons with custom text (drive the green/red rings).
 - ☐ Collapsible Roll20 `<iframe>` (DM roll logs; player character sheet).
 - ☐ **Sidebar layout for Roll20 [req].**

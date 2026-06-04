@@ -17,9 +17,12 @@ import {
   clearCondition,
   clearInitiative,
   copyTokens,
+  coverFog,
   createMonster,
   createToken,
   deleteToken,
+  paintFog,
+  setFogEnabled,
   getMap,
   getSessionById,
   getSessionByCode,
@@ -103,6 +106,24 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('fog:toggle', ({ mapId, enabled }) => {
+      if (!isDm() || !getMap(mapId)) return;
+      setFogEnabled(mapId, enabled);
+      afterChange();
+    });
+
+    socket.on('fog:paint', ({ mapId, cells, reveal }) => {
+      if (!isDm() || !getMap(mapId) || !Array.isArray(cells)) return;
+      paintFog(mapId, cells, reveal);
+      afterChange();
+    });
+
+    socket.on('fog:cover', ({ mapId }) => {
+      if (!isDm() || !getMap(mapId)) return;
+      coverFog(mapId);
+      afterChange();
+    });
+
     socket.on('token:spawn', (p) => {
       if (!isDm()) return; // spawning is a DM action in the MVP
       if (!getMap(p.mapId)) return;
@@ -125,7 +146,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('token:resize', ({ tokenId, size }) => {
-      if (!sessionId()) return;
+      if (!isDm()) return; // resizing is a DM action; players may only move
       resizeToken(tokenId, size);
       afterChange();
     });
