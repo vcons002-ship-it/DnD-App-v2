@@ -56,13 +56,15 @@ export function MapStage({
 
   // ---- Fog of war ----
   const isDm = snapshot.role === 'dm';
-  const toggleFog = useStore((s) => s.toggleFog);
+  const setFogMode = useStore((s) => s.setFogMode);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
+  const [brushSize, setBrushSize] = useState(1); // cells per side (1,3,5)
   const cols = Math.max(1, Math.ceil(imgW / grid));
   const rows = Math.max(1, Math.ceil(imgH / grid));
-  const fogOn = !!map?.fogEnabled;
+  const fogMode = map?.fogMode ?? 'off';
+  const fogOn = fogMode !== 'off';
   const revealedSet = useMemo(
     () => new Set(map?.fogRevealed ?? []),
     [map?.fogRevealed],
@@ -135,17 +137,26 @@ export function MapStage({
     return { x: (p.x - view.x) / view.scale, y: (p.y - view.y) / view.scale };
   };
 
-  /** Paint the fog cell under the cursor (reveal/hide), once per stroke. */
+  /** Paint the brush footprint under the cursor (reveal/hide), once per stroke. */
   const emitFogCell = (stage: Konva.Stage) => {
     const pos = pointerToImage(stage);
     if (!pos || !map) return;
-    const c = Math.floor(pos.x / grid);
-    const r = Math.floor(pos.y / grid);
-    if (c < 0 || r < 0 || c >= cols || r >= rows) return;
-    const key = `${c},${r}`;
-    if (strokeRef.current.has(key)) return;
-    strokeRef.current.add(key);
-    paintFog(map.id, [key], fogBrush === 'reveal');
+    const cc = Math.floor(pos.x / grid);
+    const cr = Math.floor(pos.y / grid);
+    const half = Math.floor(brushSize / 2);
+    const fresh: string[] = [];
+    for (let dc = -half; dc <= half; dc++) {
+      for (let dr = -half; dr <= half; dr++) {
+        const c = cc + dc;
+        const r = cr + dr;
+        if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
+        const key = `${c},${r}`;
+        if (strokeRef.current.has(key)) continue;
+        strokeRef.current.add(key);
+        fresh.push(key);
+      }
+    }
+    if (fresh.length) paintFog(map.id, fresh, fogBrush === 'reveal');
   };
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -185,6 +196,15 @@ export function MapStage({
     for (let c = 0; c < cols; c++)
       for (let r = 0; r < rows; r++) all.push(`${c},${r}`);
     paintFog(map.id, all, true);
+  };
+
+  const chooseFogMode = (mode: 'off' | 'map' | 'tokens') => {
+    if (!map) return;
+    setFogMode(map.id, mode);
+    if (mode === 'off') setFogBrush('off');
+    // 'tokens' fog reads best starting fully visible (DM hides spots), whereas
+    // 'map' fog starts covered (DM reveals). Seed the sensible default once.
+    if (mode === 'tokens' && revealedSet.size === 0) revealAll();
   };
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -233,15 +253,31 @@ export function MapStage({
             {isDm && (
               <>
                 <span className="ctrl-sep" />
+                <span className="zoom-label">Fog:</span>
                 <button
-                  className={`btn tiny ${fogOn ? 'on' : ''}`}
-                  onClick={() => map && toggleFog(map.id, !fogOn)}
-                  title="Toggle fog of war"
+                  className={`btn tiny ${fogMode === 'off' ? 'on' : ''}`}
+                  onClick={() => chooseFogMode('off')}
+                  title="No fog"
                 >
-                  Fog {fogOn ? 'On' : 'Off'}
+                  Off
+                </button>
+                <button
+                  className={`btn tiny ${fogMode === 'map' ? 'on' : ''}`}
+                  onClick={() => chooseFogMode('map')}
+                  title="Hide the map and tokens under fog"
+                >
+                  Map
+                </button>
+                <button
+                  className={`btn tiny ${fogMode === 'tokens' ? 'on' : ''}`}
+                  onClick={() => chooseFogMode('tokens')}
+                  title="Hide only tokens; map stays visible"
+                >
+                  Tokens
                 </button>
                 {fogOn && (
                   <>
+                    <span className="ctrl-sep" />
                     <button
                       className={`btn tiny ${fogBrush === 'reveal' ? 'on' : ''}`}
                       onClick={() =>
@@ -258,10 +294,20 @@ export function MapStage({
                     >
                       Hide
                     </button>
+                    {[1, 3, 5].map((n) => (
+                      <button
+                        key={n}
+                        className={`btn tiny ${brushSize === n ? 'on' : ''}`}
+                        onClick={() => setBrushSize(n)}
+                        title={`Brush ${n}×${n}`}
+                      >
+                        {n}×
+                      </button>
+                    ))}
                     <button
                       className="btn tiny"
                       onClick={() => map && coverFog(map.id)}
-                      title="Re-cover the whole map"
+                      title="Re-cover everything"
                     >
                       Cover all
                     </button>
@@ -303,12 +349,14 @@ export function MapStage({
               {gridLines.map((pts, i) => (
                 <Line key={i} points={pts} stroke="#ffffff22" strokeWidth={1} />
               ))}
-              {fogOn && (
+              {fogOn && (fogMode === 'map' || isDm) && (
                 <Shape
                   listening={false}
-                  opacity={isDm ? 0.5 : 1}
+                  opacity={fogMode === 'map' ? (isDm ? 0.5 : 1) : 0.35}
                   sceneFunc={(ctx: Konva.Context) => {
-                    ctx.fillStyle = '#04060a';
+                    // 'map' fog blacks out the terrain; 'tokens' fog is a
+                    // DM-only purple marker showing where tokens are hidden.
+                    ctx.fillStyle = fogMode === 'map' ? '#04060a' : '#7a3df0';
                     for (let c = 0; c < cols; c++) {
                       for (let r = 0; r < rows; r++) {
                         if (!revealedSet.has(`${c},${r}`)) {

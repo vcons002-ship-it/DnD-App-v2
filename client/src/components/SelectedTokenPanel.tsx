@@ -11,6 +11,7 @@ export function SelectedTokenPanel({ snapshot, token }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const resizeToken = useStore((s) => s.resizeToken);
   const deleteToken = useStore((s) => s.deleteToken);
+  const setTokenHidden = useStore((s) => s.setTokenHidden);
   const [amount, setAmount] = useState(1);
 
   const d = resolveToken(snapshot, token);
@@ -71,12 +72,21 @@ export function SelectedTokenPanel({ snapshot, token }: Props) {
       <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />
 
       {isDm && (
-        <button
-          className="btn red delete-token"
-          onClick={() => deleteToken(token.id)}
-        >
-          Delete token
-        </button>
+        <div className="dm-token-actions">
+          <button
+            className={`btn ${token.isHidden ? 'on' : ''}`}
+            onClick={() => setTokenHidden(token.id, !token.isHidden)}
+            title="Hidden tokens are not shown to players"
+          >
+            {token.isHidden ? '🙈 Hidden from players' : 'Hide from players'}
+          </button>
+          <button
+            className="btn red delete-token"
+            onClick={() => deleteToken(token.id)}
+          >
+            Delete token
+          </button>
+        </div>
       )}
     </div>
   );

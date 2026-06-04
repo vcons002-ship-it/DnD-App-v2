@@ -6,7 +6,8 @@ import {
   createMap,
   createToken,
   setActiveMap,
-  setFogEnabled,
+  setFogMode,
+  setTokenHidden,
   coverFog,
   paintFog,
 } from './sessions.js';
@@ -84,7 +85,7 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(1);
 
     // Fog on + fully covered: player blind, DM still sees it.
-    setFogEnabled(map.id, true);
+    setFogMode(map.id, 'map');
     coverFog(map.id);
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(0);
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(1);
@@ -92,5 +93,39 @@ describe('visibility role-shaping', () => {
     // Reveal the token's cell: player sees it again.
     paintFog(map.id, ['0,0'], true);
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(1);
+  });
+
+  it("'tokens' fog mode hides covered tokens but keeps the map visible", () => {
+    const session = createSession('TokenFog');
+    const map = createMap(session.id, { name: 'Field', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    const orc = createMonster(session.id, { name: 'Orc', maxHp: 15 });
+    createToken({ mapId: map.id, kind: 'monster', refId: orc.id, x: 10, y: 10 });
+
+    setFogMode(map.id, 'tokens');
+    coverFog(map.id);
+    const player = buildSnapshot(session.id, 'player')!;
+    // Token hidden, but the player still receives the map itself.
+    expect(player.tokens).toHaveLength(0);
+    expect(player.map?.id).toBe(map.id);
+    expect(player.map?.fogMode).toBe('tokens');
+  });
+
+  it('per-token hide keeps a token from players regardless of fog', () => {
+    const session = createSession('HideOne');
+    const map = createMap(session.id, { name: 'Room', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    const orc = createMonster(session.id, { name: 'Orc', maxHp: 9 });
+    const tok = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: orc.id,
+      x: 10,
+      y: 10,
+    });
+    expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(1);
+    setTokenHidden(tok.id, true);
+    expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(0);
+    expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(1);
   });
 });

@@ -5,6 +5,7 @@ import { config } from './config.js';
 import type {
   Character,
   Condition,
+  FogMode,
   MapState,
   Monster,
   Token,
@@ -38,6 +39,7 @@ db.exec(`
     grid_size_px    INTEGER NOT NULL DEFAULT 50,
     feet_per_square INTEGER NOT NULL DEFAULT 5,
     fog_enabled     INTEGER NOT NULL DEFAULT 0,
+    fog_mode        TEXT NOT NULL DEFAULT 'off',
     fog_revealed    TEXT NOT NULL DEFAULT '[]',
     created_at      INTEGER NOT NULL
   );
@@ -88,13 +90,14 @@ db.exec(`
 
 // ---- Lightweight migrations for DBs created by earlier versions ----
 // (Durability requirement: existing saved games must keep working across upgrades.)
-function ensureColumn(table: string, column: string, ddl: string): void {
+/** Adds a column if missing; returns true if it was just added (for migrations). */
+function ensureColumn(table: string, column: string, ddl: string): boolean {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
     name: string;
   }[];
-  if (!cols.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
-  }
+  if (cols.some((c) => c.name === column)) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  return true;
 }
 
 ensureColumn('sessions', 'active_turn_token_id', 'active_turn_token_id TEXT');
@@ -104,6 +107,15 @@ ensureColumn(
   'last_played_at INTEGER NOT NULL DEFAULT 0',
 );
 ensureColumn('maps', 'fog_revealed', "fog_revealed TEXT NOT NULL DEFAULT '[]'");
+// fog_enabled (legacy boolean) -> fog_mode (off/map/tokens).
+if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
+  const hasFogEnabled = (
+    db.prepare('PRAGMA table_info(maps)').all() as { name: string }[]
+  ).some((c) => c.name === 'fog_enabled');
+  if (hasFogEnabled) {
+    db.exec("UPDATE maps SET fog_mode = 'map' WHERE fog_enabled = 1");
+  }
+}
 
 export const newId = (): string => randomUUID();
 
@@ -127,7 +139,7 @@ type MapRow = {
   slides_url: string | null;
   grid_size_px: number;
   feet_per_square: number;
-  fog_enabled: number;
+  fog_mode: FogMode;
   fog_revealed: string;
 };
 
@@ -140,7 +152,7 @@ export function rowToMap(r: MapRow): MapState {
     slidesUrl: r.slides_url,
     gridSizePx: r.grid_size_px,
     feetPerSquare: r.feet_per_square,
-    fogEnabled: !!r.fog_enabled,
+    fogMode: r.fog_mode ?? 'off',
     fogRevealed: JSON.parse(r.fog_revealed ?? '[]') as string[],
   };
 }

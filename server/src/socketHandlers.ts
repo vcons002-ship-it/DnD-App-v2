@@ -22,7 +22,8 @@ import {
   createToken,
   deleteToken,
   paintFog,
-  setFogEnabled,
+  setFogMode,
+  setTokenHidden,
   getMap,
   getSessionById,
   getSessionByCode,
@@ -106,9 +107,9 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('fog:toggle', ({ mapId, enabled }) => {
+    socket.on('fog:setMode', ({ mapId, mode }) => {
       if (!isDm() || !getMap(mapId)) return;
-      setFogEnabled(mapId, enabled);
+      setFogMode(mapId, mode);
       afterChange();
     });
 
@@ -154,6 +155,12 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('token:delete', ({ tokenId }) => {
       if (!isDm()) return; // removing tokens is a DM action
       deleteToken(tokenId);
+      afterChange();
+    });
+
+    socket.on('token:setHidden', ({ tokenId, hidden }) => {
+      if (!isDm()) return; // hiding tokens from players is a DM action
+      setTokenHidden(tokenId, hidden);
       afterChange();
     });
 

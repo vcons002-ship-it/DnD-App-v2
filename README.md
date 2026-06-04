@@ -112,7 +112,7 @@ directory, and player resource/item tracking).
 
 - **Phase 1 (done):** core loop — maps, tokens, sync, damage, conditions, views
 - **Phase 2 (done):** canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative tracker, multi-select, carry-tokens, session directory
-- **Phase 3 (done):** fog of war (toggle, reveal/hide brush, cover-all), DM "curtain" via cover+reveal, player token-hiding under fog, DM-only token resize, initiative-order badges
+- **Phase 3 (done):** fog of war (map + token-only modes, reveal/hide brush with 1×/3×/5× sizes, cover-all), per-token hide-from-players, DM "curtain" via cover+reveal, DM-only token resize, initiative-order badges
 - **Phase 4:** SRD + Gemini creature lookup, multi-spawn, token icons
 - **Phase 5:** player spell-slot/resource + item tracking, Roll20 embed, dice
 - **Phase 6 (future):** AI spell resolution, rules lookup, enemy dialogue

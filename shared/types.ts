@@ -16,6 +16,15 @@ export type Condition = {
 
 export type TokenKind = 'pc' | 'monster';
 
+/**
+ * Fog of war mode for a map:
+ * - 'off'    no fog
+ * - 'map'    covered cells black out the map for players (classic fog)
+ * - 'tokens' map stays visible; only tokens in covered cells are hidden from
+ *            players (DM sees a translucent marker of the covered region)
+ */
+export type FogMode = 'off' | 'map' | 'tokens';
+
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
   id: string;
@@ -73,10 +82,10 @@ export type MapState = {
   slidesUrl: string | null;
   gridSizePx: number;
   feetPerSquare: number;
-  /** Whether fog of war is enabled on this map. */
-  fogEnabled: boolean;
+  /** Fog of war mode for this map (off / map / tokens). */
+  fogMode: FogMode;
   /** Grid cells the DM has revealed, as "col,row" keys. Everything else is
-   *  covered when fogEnabled (this also powers the "curtain" workflow: cover
+   *  covered when fog is on (this also powers the "curtain" workflow: cover
    *  all, then reveal the starting area). */
   fogRevealed: string[];
 };
@@ -126,6 +135,7 @@ export type JoinPayload = {
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
 export type TokenResizePayload = { tokenId: string; size: number };
 export type TokenDeletePayload = { tokenId: string };
+export type TokenSetHiddenPayload = { tokenId: string; hidden: boolean };
 /** Copy token placements from one map to another (statuses carry via refs). */
 export type TokenCopyPayload = {
   fromMapId: string;
@@ -152,7 +162,7 @@ export type ConditionClearPayload = {
 };
 export type MapSetActivePayload = { mapId: string };
 export type MapSelectPayload = { mapId: string };
-export type FogTogglePayload = { mapId: string; enabled: boolean };
+export type FogModePayload = { mapId: string; mode: FogMode };
 /** Reveal (true) or re-hide (false) the given "col,row" cells on a map. */
 export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean };
 /** Cover the whole map again (clear all revealed cells). */
@@ -172,13 +182,14 @@ export interface ClientToServerEvents {
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
-  'fog:toggle': (payload: FogTogglePayload) => void;
+  'fog:setMode': (payload: FogModePayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;
+  'token:setHidden': (payload: TokenSetHiddenPayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;
   'damage:apply': (payload: DamagePayload) => void;
   'condition:set': (payload: ConditionSetPayload) => void;

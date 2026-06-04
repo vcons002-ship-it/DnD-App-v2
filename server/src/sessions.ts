@@ -10,6 +10,7 @@ import {
 import type {
   Character,
   Condition,
+  FogMode,
   MapState,
   Monster,
   SessionSummary,
@@ -170,11 +171,8 @@ export function updateMapGrid(
   ).run(gridSizePx, feetPerSquare, mapId);
 }
 
-export function setFogEnabled(mapId: string, enabled: boolean): void {
-  db.prepare('UPDATE maps SET fog_enabled = ? WHERE id = ?').run(
-    enabled ? 1 : 0,
-    mapId,
-  );
+export function setFogMode(mapId: string, mode: FogMode): void {
+  db.prepare('UPDATE maps SET fog_mode = ? WHERE id = ?').run(mode, mapId);
 }
 
 /** Reveal or re-hide a set of "col,row" cells on a map's fog layer. */
@@ -279,6 +277,14 @@ export function setTokenInitiative(
 
 export function deleteToken(tokenId: string): void {
   db.prepare('DELETE FROM tokens WHERE id = ?').run(tokenId);
+}
+
+export function setTokenHidden(tokenId: string, hidden: boolean): Token | null {
+  db.prepare('UPDATE tokens SET is_hidden = ? WHERE id = ?').run(
+    hidden ? 1 : 0,
+    tokenId,
+  );
+  return getToken(tokenId);
 }
 
 /**

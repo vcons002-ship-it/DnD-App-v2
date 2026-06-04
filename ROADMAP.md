@@ -59,9 +59,16 @@ Smaller refinements on top of the shipped Phase 2 work.
 ## Phase 3 — Fog of war & map masking ✅ (mostly done)
 
 - ☑ Fog of war: per-map grid-cell fog stored in SQLite (`maps.fog_revealed`).
-  DM toggle + Reveal/Hide brush (drag to paint) + Cover-all / Reveal-all.
+  DM Reveal/Hide brush with **1×/3×/5× brush sizes** + Cover-all / Reveal-all.
   DM sees through (translucent); players see solid cover; fog-covered tokens are
   filtered out server-side in `visibility.ts` (covered tests).
+- ☑ **Token-only fog [req].** Per-map fog *mode* (`off` / `map` / `tokens`).
+  In `tokens` mode the map stays fully visible to players but creature tokens in
+  covered cells are hidden; the DM sees a translucent purple marker of the hidden
+  region. (`tokens` mode seeds revealed so the DM paints spots to hide.)
+- ☑ **Hide individual tokens [req].** DM "Hide from players" toggle on the
+  selected-token panel (`token:setHidden`); hidden tokens never reach players
+  regardless of fog.
 - ☑ **DM "curtain" [req].** Served by the same system: **Cover all**, then reveal
   the starting area — a large map appears smaller until players investigate.
   (If a distinct hard-rectangular crop is ever wanted, revisit.)

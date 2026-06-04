@@ -109,7 +109,9 @@ input[type='number'] { width: 70px; }
 .zoom-label { color: var(--muted); font-size: 12px; min-width: 38px; text-align: right; }
 .stage-controls { flex-wrap: wrap; max-width: 70%; justify-content: flex-end; }
 .ctrl-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
-.btn.tiny.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dm-token-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.dm-token-actions .delete-token { margin-top: 0; }
 .stage-empty {
   position: absolute; inset: 0; display: flex; align-items: center;
   justify-content: center; color: var(--muted);
