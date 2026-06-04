@@ -78,6 +78,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   interactive token layer on top of a linked Slides embed so tokens can be placed
   on Slides maps. Technically tricky (cross-origin iframe) — investigate an
   absolutely-positioned transparent canvas over the iframe.
+- ☐ **Combined map + token fog, painted separately [req].** Let a single map use
+  BOTH map fog and token fog at the same time, as two independent painted layers
+  (separate Reveal/Hide per layer) — so the DM can hide terrain and hide
+  creatures in different areas. Requires splitting the current single fog mode +
+  `fogRevealed` set into two layers (e.g. `mapFogRevealed` / `tokenFogRevealed`)
+  with a layer selector on the brush.
 
 ## Phase 4 — Creature data & token art ✅ (done)
 
@@ -110,6 +116,24 @@ Smaller refinements on top of the shipped Phase 2 work.
   via `is_template`/`template_id`.
 - ☑ **Delete spawn buttons [req].** ✕ on each creature template removes it
   (`monster:delete`) so the list stays short.
+
+## Phase 5a — Characters, NPCs & editing [req]
+
+- ☐ **Create party characters [req].** Let the DM (and/or players) add new player
+  characters beyond the seeded party — name, race, class, HP, stats — instead of
+  only Vanec/Varis/Druk.
+- ☐ **DM-created NPCs with disposition [req].** The DM can create NPCs and toggle
+  each as Friendly / Neutral / Enemy, which controls what players see:
+  - **Friendly** — all stats visible (like a party member).
+  - **Neutral** — health + basic info visible only.
+  - **Enemy** — same restrictions as hostile creatures (name + status/condition
+    only).
+  Implement as a `disposition` field shaping the player payload in
+  `visibility.ts` (extends today's monster-vs-PC split into a 3+ tier model).
+- ☐ **Editable NPC/creature stats [req].** The DM can edit any non-player token's
+  full stat block in-place — HP, AC, ability scores, attacks, abilities,
+  descriptions, weapons, resistances/weaknesses, name, icon. (Makes `StatBlock`
+  an editable form for the DM; pairs with the disposition work above.)
 
 ## Phase 5 — Player resources, items, Roll20, dice
 
