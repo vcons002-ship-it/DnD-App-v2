@@ -30,6 +30,7 @@ export function DmPanel({
 }: Props) {
   const selectMap = useStore((s) => s.selectMap);
   const setActiveMap = useStore((s) => s.setActiveMap);
+  const deleteMap = useStore((s) => s.deleteMap);
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
   const setInitiative = useStore((s) => s.setInitiative);
@@ -188,6 +189,20 @@ export function DmPanel({
                   Make active
                 </button>
               )}
+              <button
+                className="btn tiny danger"
+                title="Delete this map (removes its tokens)"
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Delete map "${m.name}"? Its token placements will be removed. This cannot be undone.`,
+                    )
+                  )
+                    deleteMap(m.id);
+                }}
+              >
+                ✕
+              </button>
             </div>
           ))}
           {snapshot.maps.length === 0 && <p className="muted">No maps yet.</p>}

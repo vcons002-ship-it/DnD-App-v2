@@ -6,12 +6,16 @@ import {
   copyMonster,
   deleteMonster,
   duplicateToken,
+  deleteMap,
   applyDamage,
+  getMap,
   getMonster,
+  listMaps,
   listTokens,
   createSession,
   createMap,
   createToken,
+  getActiveMapId,
   listMonsters,
   listMonsterTemplates,
   setActiveMap,
@@ -209,5 +213,41 @@ describe('creature creation', () => {
     applyDamage('monster', copyMon.id, 4);
     expect(getMonster(g1.id)!.curHp).toBe(4);
     expect(getMonster(copyMon.id)!.curHp).toBe(0);
+  });
+
+  it('deletes a map with its tokens + orphaned instances and re-homes active', () => {
+    const s = createSession('DelMap');
+    const m1 = createMap(s.id, { name: 'One' }); // becomes active
+    const m2 = createMap(s.id, { name: 'Two' });
+    expect(getActiveMapId(s.id)).toBe(m1.id);
+
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 });
+    const onM1 = instantiateMonster(tmpl.id)!;
+    const shared = instantiateMonster(tmpl.id)!;
+    createToken({ mapId: m1.id, kind: 'monster', refId: onM1.id, x: 1, y: 1 });
+    // `shared` is placed on both maps, so it must survive m1's deletion.
+    createToken({ mapId: m1.id, kind: 'monster', refId: shared.id, x: 2, y: 2 });
+    createToken({ mapId: m2.id, kind: 'monster', refId: shared.id, x: 3, y: 3 });
+
+    deleteMap(m1.id);
+
+    expect(getMap(m1.id)).toBeNull();
+    expect(listMaps(s.id)).toHaveLength(1);
+    expect(listTokens(m1.id)).toHaveLength(0);
+    // Instance only on m1 is gone; the one still placed on m2 remains.
+    expect(getMonster(onM1.id)).toBeNull();
+    expect(getMonster(shared.id)).not.toBeNull();
+    // Template is untouched; active map promoted to the survivor.
+    expect(listMonsterTemplates(s.id)).toHaveLength(1);
+    expect(getActiveMapId(s.id)).toBe(m2.id);
+  });
+
+  it('clears the active map when the last one is deleted', () => {
+    const s = createSession('DelLast');
+    const only = createMap(s.id, { name: 'Solo' });
+    expect(getActiveMapId(s.id)).toBe(only.id);
+    deleteMap(only.id);
+    expect(listMaps(s.id)).toHaveLength(0);
+    expect(getActiveMapId(s.id)).toBeNull();
   });
 });

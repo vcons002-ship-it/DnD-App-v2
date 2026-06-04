@@ -35,6 +35,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   (dashed ring) and in the panel.
 - ☑ **Multi-select + map thumbnails [req].** Shift/Ctrl-click multi-select with
   group drag; image thumbnails in the map switcher.
+- ☑ **Delete map [req].** Per-map ✕ in the DM map switcher (`map:delete`, with a
+  confirm). Removes the map plus its token placements and any monster instances
+  those tokens uniquely referenced; templates and instances still placed on other
+  maps are kept. Deleting the active map promotes the next remaining map (or
+  none) and clears a dangling turn marker.
 - ☑ **Carry tokens between maps [req].** "Bring tokens to this map" (PCs /
   Monsters / All); source map retains its tokens; HP/conditions carry via refs.
 

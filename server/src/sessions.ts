@@ -207,6 +207,50 @@ export function setActiveMap(sessionId: string, mapId: string): void {
   );
 }
 
+/**
+ * Delete a map and everything anchored to it: its token placements and any
+ * monster instances those tokens uniquely referenced (templates and instances
+ * still placed elsewhere are kept). If the deleted map was active, promote the
+ * next remaining map (or none) and clear a now-dangling turn marker.
+ */
+export function deleteMap(mapId: string): void {
+  const map = getMap(mapId);
+  if (!map) return;
+  const { sessionId } = map;
+
+  const monsterRefs = new Set(
+    listTokens(mapId)
+      .filter((t) => t.kind === 'monster')
+      .map((t) => t.refId),
+  );
+  db.prepare('DELETE FROM tokens WHERE map_id = ?').run(mapId);
+
+  // Drop monster instances no token references anymore (skip templates).
+  const stillReferenced = db.prepare(
+    'SELECT COUNT(*) AS c FROM tokens WHERE kind = ? AND ref_id = ?',
+  );
+  const dropInstance = db.prepare(
+    'DELETE FROM monsters WHERE id = ? AND is_template = 0',
+  );
+  for (const refId of monsterRefs) {
+    const { c } = stillReferenced.get('monster', refId) as { c: number };
+    if (c === 0) dropInstance.run(refId);
+  }
+
+  db.prepare('DELETE FROM maps WHERE id = ?').run(mapId);
+
+  // Promote a replacement active map and clear the stale turn marker.
+  const session = getSessionById(sessionId);
+  if (session?.activeMapId === mapId) {
+    const next = listMaps(sessionId)[0]?.id ?? null;
+    db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
+      next,
+      sessionId,
+    );
+    setActiveTurn(sessionId, null);
+  }
+}
+
 export function getActiveMapId(sessionId: string): string | null {
   return getSessionById(sessionId)?.activeMapId ?? null;
 }

@@ -198,6 +198,7 @@ export type ConditionClearPayload = {
 };
 export type MapSetActivePayload = { mapId: string };
 export type MapSelectPayload = { mapId: string };
+export type MapDeletePayload = { mapId: string };
 export type FogModePayload = { mapId: string; mode: FogMode };
 /** Reveal (true) or re-hide (false) the given "col,row" cells on a map. */
 export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean };
@@ -231,6 +232,7 @@ export interface ClientToServerEvents {
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
+  'map:delete': (payload: MapDeletePayload) => void;
   'fog:setMode': (payload: FogModePayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;

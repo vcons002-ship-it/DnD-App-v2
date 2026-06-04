@@ -42,7 +42,11 @@ export function buildSnapshot(
   // Players are locked to the active map; the DM may view any map for prep.
   const viewMapId =
     role === 'dm' ? dmViewMapId ?? activeMapId : activeMapId;
-  const map = viewMapId ? getMap(viewMapId) : null;
+  // Fall back to the active map if the requested one is gone (e.g. the DM was
+  // viewing a map that just got deleted).
+  const map =
+    (viewMapId ? getMap(viewMapId) : null) ??
+    (role === 'dm' && activeMapId ? getMap(activeMapId) : null);
 
   let tokens: Token[] = map ? listTokens(map.id) : [];
   let monsters: (Monster | MonsterPublic)[] = listMonsters(sessionId);

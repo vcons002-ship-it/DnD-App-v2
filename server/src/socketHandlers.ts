@@ -21,6 +21,7 @@ import {
   coverFog,
   createMonsterTemplate,
   createToken,
+  deleteMap,
   deleteMonster,
   deleteToken,
   instantiateMonster,
@@ -28,6 +29,7 @@ import {
   paintFog,
   setFogMode,
   setTokenHidden,
+  getActiveMapId,
   getMap,
   getSessionById,
   getSessionByCode,
@@ -109,6 +111,19 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm() || !getMap(mapId)) return;
       setActiveMap(sid, mapId);
+      afterChange();
+    });
+
+    socket.on('map:delete', ({ mapId }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || conn.role !== 'dm' || !getMap(mapId)) return;
+      deleteMap(mapId);
+      // If this DM was prepping the deleted map, drop the stale view so their
+      // snapshot falls back to the (possibly new) active map.
+      if (conn.viewMapId === mapId) {
+        setConn(socket.id, { ...conn, viewMapId: getActiveMapId(sid) });
+      }
       afterChange();
     });
 
