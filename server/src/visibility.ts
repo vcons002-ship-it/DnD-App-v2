@@ -1,6 +1,8 @@
 import {
   getActiveMapId,
+  getCharacter,
   getMap,
+  getMonster,
   getSessionById,
   listCharacters,
   listMaps,
@@ -9,6 +11,7 @@ import {
   listTokens,
 } from './sessions.js';
 import type {
+  CombatRole,
   Monster,
   MonsterNeutral,
   MonsterPublic,
@@ -16,6 +19,21 @@ import type {
   StateSnapshot,
   Token,
 } from '../../shared/types.js';
+import { deriveCombatRole } from '../../shared/combatRole.js';
+
+/** Effective combat role for a token: hidden → null, override → it, else derive. */
+function tokenCombatRole(t: Token): CombatRole | null {
+  if (t.hideCombatRole) return null;
+  if (t.combatRoleOverride) return t.combatRoleOverride;
+  if (t.kind === 'pc') {
+    const c = getCharacter(t.refId);
+    return c
+      ? deriveCombatRole({ weapons: c.weapons, className: c.className })
+      : null;
+  }
+  const m = getMonster(t.refId);
+  return m ? deriveCombatRole(m) : null;
+}
 
 /**
  * Shape a monster for a player according to its disposition:
@@ -73,7 +91,12 @@ export function buildSnapshot(
     (viewMapId ? getMap(viewMapId) : null) ??
     (role === 'dm' && activeMapId ? getMap(activeMapId) : null);
 
-  let tokens: Token[] = map ? listTokens(map.id) : [];
+  // Compute each token's effective combat role (shown to DM AND players, so the
+  // badge works even for Enemy creatures whose stats players never receive).
+  let tokens: Token[] = (map ? listTokens(map.id) : []).map((t) => ({
+    ...t,
+    combatRole: tokenCombatRole(t),
+  }));
   let monsters: (Monster | MonsterNeutral | MonsterPublic)[] =
     listMonsters(sessionId);
 

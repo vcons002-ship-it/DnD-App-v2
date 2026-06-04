@@ -3,6 +3,7 @@ import { Group, Circle, Rect, Text, Image as KonvaImage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
 import type { Token } from '../../../shared/types';
+import { COMBAT_ROLE_ICON } from '../../../shared/combatRole';
 import { presentAuras, AURA_HEX } from '../lib/conditions';
 import type { TokenDisplay } from '../lib/entities';
 import { useImage } from './useImage';
@@ -225,6 +226,16 @@ export function TokenShape({
           fill={DISPOSITION_HEX[display.disposition]}
           stroke="#000"
           strokeWidth={1}
+        />
+      )}
+      {/* Combat-role badge (bottom-left): ⚔️ melee · 🏹 ranged · ✨ caster. */}
+      {token.combatRole && (
+        <Text
+          text={COMBAT_ROLE_ICON[token.combatRole]}
+          fontSize={Math.max(13, radius * 0.5)}
+          x={-radius}
+          y={radius * 0.5}
+          align="center"
         />
       )}
       {initiativeRank !== null && (

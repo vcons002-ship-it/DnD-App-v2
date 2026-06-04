@@ -20,6 +20,8 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const duplicateToken = useStore((s) => s.duplicateToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
+  const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
+  const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
   const [amount, setAmount] = useState(1);
   const [emoji, setEmoji] = useState('');
@@ -166,6 +168,40 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           {iconTargets.length > 1 && (
             <p className="hint">Applies to {iconTargets.length} selected tokens</p>
           )}
+
+          <h4>Combat role</h4>
+          <div className="disposition-btns">
+            {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {
+              const active = (token.combatRoleOverride ?? null) === r;
+              const label =
+                r === null
+                  ? 'Auto'
+                  : r === 'melee'
+                  ? '⚔️'
+                  : r === 'ranged'
+                  ? '🏹'
+                  : '✨';
+              return (
+                <button
+                  key={r ?? 'auto'}
+                  className={`btn tiny ${active ? 'on' : ''}`}
+                  title={r === null ? 'Derive from stats' : r}
+                  onClick={() => setTokensCombatRole(iconTargets, r)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            className={`btn tiny ${token.hideCombatRole ? 'on' : ''}`}
+            onClick={() =>
+              setTokensHideCombatRole(iconTargets, !token.hideCombatRole)
+            }
+            title="Hide the role badge from everyone"
+          >
+            {token.hideCombatRole ? '🙈 Role badge hidden' : 'Hide role badge'}
+          </button>
 
           <button
             className="btn"

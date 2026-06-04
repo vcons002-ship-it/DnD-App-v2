@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import type {
   ClientToServerEvents,
+  CombatRole,
   Condition,
   FogMode,
   JoinAck,
@@ -61,6 +62,11 @@ type Store = {
   updateMonster: (payload: MonsterUpdatePayload) => void;
   deleteMonster: (monsterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
+  setTokensHideCombatRole: (tokenIds: string[], hide: boolean) => void;
+  setTokensCombatRole: (
+    tokenIds: string[],
+    role: CombatRole | null,
+  ) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
   rollAllInitiative: () => void;
   nextTurn: () => void;
@@ -150,6 +156,10 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('monster:delete', { monsterId }),
   setTokensIcon: (tokenIds, icon) =>
     get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
+  setTokensHideCombatRole: (tokenIds, hide) =>
+    get().socket?.emit('tokens:setHideCombatRole', { tokenIds, hide }),
+  setTokensCombatRole: (tokenIds, role) =>
+    get().socket?.emit('tokens:setCombatRole', { tokenIds, role }),
   setInitiative: (tokenId, initiative) =>
     get().socket?.emit('initiative:set', { tokenId, initiative }),
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),

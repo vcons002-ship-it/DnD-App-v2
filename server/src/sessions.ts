@@ -332,6 +332,28 @@ export function setTokenHidden(tokenId: string, hidden: boolean): Token | null {
   return getToken(tokenId);
 }
 
+/** Hide/show the combat-role badge across one or more tokens (DM). */
+export function setTokensHideCombatRole(
+  tokenIds: string[],
+  hide: boolean,
+): void {
+  const stmt = db.prepare(
+    'UPDATE tokens SET hide_combat_role = ? WHERE id = ?',
+  );
+  for (const id of tokenIds) stmt.run(hide ? 1 : 0, id);
+}
+
+/** Override (role) or clear (null → auto-derive) the combat role across tokens. */
+export function setTokensCombatRole(
+  tokenIds: string[],
+  role: Token['combatRoleOverride'],
+): void {
+  const stmt = db.prepare(
+    'UPDATE tokens SET combat_role_override = ? WHERE id = ?',
+  );
+  for (const id of tokenIds) stmt.run(role, id);
+}
+
 /**
  * Copy token placements from one map to another. Tokens reference characters /
  * monsters, so HP and conditions automatically carry over ("statuses carry").
@@ -418,6 +440,7 @@ export function duplicateToken(tokenId: string): Token | null {
         weaknesses: src.weaknesses,
         actions: src.actions,
         abilities: src.abilities,
+        weapons: src.weapons,
         icon: src.icon,
         disposition: src.disposition,
         source: src.source,
@@ -571,6 +594,7 @@ export type MonsterInput = {
   weaknesses?: string[];
   actions?: Monster['actions'];
   abilities?: Monster['abilities'];
+  weapons?: Monster['weapons'];
   icon?: string;
   disposition?: Monster['disposition'];
   source?: Monster['source'];
@@ -589,8 +613,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -610,6 +634,7 @@ function insertMonster(
     meta.isTemplate ? 1 : 0,
     meta.templateId,
     opts.disposition ?? 'enemy',
+    JSON.stringify(opts.weapons ?? []),
   );
   return getMonster(id)!;
 }
@@ -661,6 +686,7 @@ export function instantiateMonster(templateId: string): Monster | null {
       weaknesses: tmpl.weaknesses,
       actions: tmpl.actions,
       abilities: tmpl.abilities,
+      weapons: tmpl.weapons,
       icon: tmpl.icon,
       disposition: tmpl.disposition,
       source: tmpl.source,
@@ -684,6 +710,7 @@ export function copyMonster(monsterId: string): Monster | null {
     weaknesses: m.weaknesses,
     actions: m.actions,
     abilities: m.abilities,
+    weapons: m.weapons,
     icon: m.icon,
     disposition: m.disposition,
     source: m.source,

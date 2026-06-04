@@ -137,6 +137,13 @@ ensureColumn(
   'disposition',
   "disposition TEXT NOT NULL DEFAULT 'enemy'",
 );
+ensureColumn('monsters', 'weapons', "weapons TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('tokens', 'combat_role_override', 'combat_role_override TEXT');
+ensureColumn(
+  'tokens',
+  'hide_combat_role',
+  'hide_combat_role INTEGER NOT NULL DEFAULT 0',
+);
 
 export const newId = (): string => randomUUID();
 
@@ -188,6 +195,8 @@ type TokenRow = {
   size: number;
   initiative: number | null;
   is_hidden: number;
+  combat_role_override: Token['combatRoleOverride'];
+  hide_combat_role: number;
 };
 
 export function rowToToken(r: TokenRow): Token {
@@ -201,6 +210,10 @@ export function rowToToken(r: TokenRow): Token {
     size: r.size,
     initiative: r.initiative,
     isHidden: !!r.is_hidden,
+    combatRoleOverride: r.combat_role_override ?? null,
+    hideCombatRole: !!r.hide_combat_role,
+    // Effective role is filled in by buildSnapshot (needs creature context).
+    combatRole: null,
   };
 }
 
@@ -257,6 +270,7 @@ type MonsterRow = {
   speed: string;
   stats: string;
   actions: string;
+  weapons: string;
   disposition: Monster['disposition'];
 };
 
@@ -274,6 +288,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     resistances: JSON.parse(r.resistances),
     weaknesses: JSON.parse(r.weaknesses),
     actions: JSON.parse(r.actions ?? '[]'),
+    weapons: JSON.parse(r.weapons ?? '[]'),
     abilities: JSON.parse(r.abilities),
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,

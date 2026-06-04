@@ -29,6 +29,8 @@ import {
   paintFog,
   setFogMode,
   setTokenHidden,
+  setTokensHideCombatRole,
+  setTokensCombatRole,
   getActiveMapId,
   getMap,
   getSessionById,
@@ -274,6 +276,18 @@ export function registerSocketHandlers(io: IOServer): void {
         const t = getToken(id);
         if (t) setEntityIcon(t.kind, t.refId, icon);
       }
+      afterChange();
+    });
+
+    socket.on('tokens:setHideCombatRole', ({ tokenIds, hide }) => {
+      if (!isDm() || !Array.isArray(tokenIds)) return;
+      setTokensHideCombatRole(tokenIds, hide);
+      afterChange();
+    });
+
+    socket.on('tokens:setCombatRole', ({ tokenIds, role }) => {
+      if (!isDm() || !Array.isArray(tokenIds)) return;
+      setTokensCombatRole(tokenIds, role);
       afterChange();
     });
 

@@ -24,6 +24,25 @@ export type TokenKind = 'pc' | 'monster';
  */
 export type Disposition = 'friendly' | 'neutral' | 'enemy';
 
+/** At-a-glance battlefield role shown as a token badge (⚔️ / 🏹 / ✨). */
+export type CombatRole = 'melee' | 'ranged' | 'caster';
+
+/**
+ * A tagged weapon entry — structured so missing fields are obvious to fill and
+ * reusable by later features (combat-role detection now; attack rolls in WP11).
+ */
+export type Weapon = {
+  name: string;
+  /** Melee or ranged — drives combat-role detection. */
+  kind: 'melee' | 'ranged';
+  /** Damage dice expression, e.g. "1d8+3". */
+  damage?: string;
+  /** To-hit bonus, e.g. 5 for "+5". */
+  attackBonus?: number;
+  /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
+  range?: string;
+};
+
 /**
  * Fog of war mode for a map:
  * - 'off'    no fog
@@ -48,6 +67,12 @@ export type Token = {
   initiative: number | null;
   /** Hidden tokens are never sent to players. */
   isHidden: boolean;
+  /** DM override of the auto-derived combat role; null = derive from stats. */
+  combatRoleOverride: CombatRole | null;
+  /** Hide the combat-role badge for this token. */
+  hideCombatRole: boolean;
+  /** Effective role to render (server-computed in buildSnapshot); null = none. */
+  combatRole: CombatRole | null;
 };
 
 export type Character = {
@@ -84,6 +109,8 @@ export type Monster = {
   stats: Record<string, number>;
   resistances: string[];
   weaknesses: string[];
+  /** Tagged weapons (name + melee/ranged + damage/to-hit where known). */
+  weapons: Weapon[];
   /** Attacks / actions (with to-hit & damage where known). */
   actions: CreatureAbility[];
   /** Traits / features. */
@@ -251,6 +278,13 @@ export type MonsterUpdatePayload = {
 export type MonsterDeletePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
 export type TokenSetIconPayload = { tokenIds: string[]; icon: string };
+/** Hide/show the combat-role badge across one or more tokens. */
+export type TokenSetHideRolePayload = { tokenIds: string[]; hide: boolean };
+/** Override (or clear, with null) the combat role across one or more tokens. */
+export type TokenSetRolePayload = {
+  tokenIds: string[];
+  role: CombatRole | null;
+};
 export type InitiativeSetPayload = { tokenId: string; initiative: number | null };
 
 export type ServerError = { code: string; message: string };
@@ -271,6 +305,8 @@ export interface ClientToServerEvents {
   'token:duplicate': (payload: TokenDuplicatePayload) => void;
   'token:setHidden': (payload: TokenSetHiddenPayload) => void;
   'tokens:setIcon': (payload: TokenSetIconPayload) => void;
+  'tokens:setHideCombatRole': (payload: TokenSetHideRolePayload) => void;
+  'tokens:setCombatRole': (payload: TokenSetRolePayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;
   'damage:apply': (payload: DamagePayload) => void;
   'condition:set': (payload: ConditionSetPayload) => void;

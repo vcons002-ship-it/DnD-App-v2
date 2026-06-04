@@ -19,6 +19,8 @@ import {
   listMonsters,
   listMonsterTemplates,
   updateMonster,
+  setTokensHideCombatRole,
+  setTokensCombatRole,
   setActiveMap,
   setFogMode,
   setTokenHidden,
@@ -110,6 +112,38 @@ describe('visibility role-shaping', () => {
     // The DM still sees every creature in full.
     const dm = buildSnapshot(session.id, 'dm', map.id)!;
     expect((dm.monsters.find((m) => m.id === enemy.id) as Monster).maxHp).toBe(15);
+  });
+
+  it('computes combat-role badge for players even on enemies, and hides on request', () => {
+    const session = createSession('Role');
+    const map = createMap(session.id, { name: 'Arena' });
+    setActiveMap(session.id, map.id);
+
+    // Enemy archer: players never get its stats, but should still get the role.
+    const tmpl = createMonsterTemplate(session.id, {
+      name: 'Archer',
+      maxHp: 12,
+      weapons: [{ name: 'Longbow', kind: 'ranged' }],
+    });
+    const archer = instantiateMonster(tmpl.id)!;
+    const tok = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: archer.id,
+      x: 1,
+      y: 1,
+    });
+
+    const player = buildSnapshot(session.id, 'player')!;
+    expect(player.tokens[0].combatRole).toBe('ranged');
+    // Enemy stats are still withheld.
+    expect('maxHp' in player.monsters[0]).toBe(false);
+
+    // Override to caster, then hide entirely.
+    setTokensCombatRole([tok.id], 'caster');
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('caster');
+    setTokensHideCombatRole([tok.id], true);
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBeNull();
   });
 
   it('locks players to the active map regardless of requested map', () => {
