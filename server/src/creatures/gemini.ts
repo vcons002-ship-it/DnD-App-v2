@@ -20,9 +20,53 @@ let resolvedModel: string | null = null;
 /** Whether AI creature lookup is available (a key is configured). */
 export const geminiEnabled = (): boolean => !!config.geminiApiKey;
 
-/** Call Gemini, rotating through candidate models if one is unavailable. */
+/**
+ * Ask the API which models THIS key can use for generateContent, and pick a
+ * fast one (prefer "flash"). This adapts to whatever the user's key/project has
+ * access to, so we never call a retired model.
+ */
+async function discoverModel(): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${config.geminiApiKey}`,
+      { signal: AbortSignal.timeout(15000) },
+    );
+    if (!res.ok) {
+      console.warn(`  [gemini] ListModels HTTP ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as {
+      models?: { name: string; supportedGenerationMethods?: string[] }[];
+    };
+    const usable = (data.models ?? [])
+      .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+      .map((m) => m.name.replace(/^models\//, ''))
+      .filter((n) => !/embedding|aqa|vision/i.test(n));
+    const pick =
+      usable.find((n) => /flash/i.test(n) && !/lite|thinking/i.test(n)) ||
+      usable.find((n) => /flash/i.test(n)) ||
+      usable.find((n) => /gemini/i.test(n)) ||
+      usable[0];
+    if (pick) console.log(`  [gemini] using model: ${pick}`);
+    return pick ?? null;
+  } catch (err) {
+    console.warn('  [gemini] ListModels error:', (err as Error).message);
+    return null;
+  }
+}
+
+/** Call Gemini, discovering/rotating models so a retired one never blocks us. */
 async function callGemini(prompt: string): Promise<string | null> {
-  const models = resolvedModel ? [resolvedModel] : CANDIDATE_MODELS;
+  let models: string[];
+  if (resolvedModel) {
+    models = [resolvedModel];
+  } else {
+    const discovered = await discoverModel();
+    // Try the discovered model first, then the static candidates as a backup.
+    models = (discovered ? [discovered, ...CANDIDATE_MODELS] : CANDIDATE_MODELS).filter(
+      (m, i, a) => a.indexOf(m) === i,
+    );
+  }
   for (const model of models) {
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
@@ -43,7 +87,6 @@ async function callGemini(prompt: string): Promise<string | null> {
       return null;
     }
     if (res.status === 404) {
-      // Model retired/unknown — try the next candidate.
       console.warn(`  [gemini] model ${model} unavailable, trying next…`);
       resolvedModel = null;
       continue;
@@ -60,7 +103,7 @@ async function callGemini(prompt: string): Promise<string | null> {
     };
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
   }
-  console.warn('  [gemini] no available model found among:', CANDIDATE_MODELS.join(', '));
+  console.warn('  [gemini] no usable model found');
   return null;
 }
 
