@@ -19,6 +19,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const deleteToken = useStore((s) => s.deleteToken);
   const duplicateToken = useStore((s) => s.duplicateToken);
   const updateMonster = useStore((s) => s.updateMonster);
+  const aiFillCreature = useStore((s) => s.aiFillCreature);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
@@ -131,7 +132,18 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         </div>
       )}
 
-      {monster && <StatBlock monster={monster} />}
+      {monster && (
+        <>
+          <button
+            className="btn tiny ai-fill"
+            onClick={() => aiFillCreature(monster.id)}
+            title="Use AI to fill only the empty fields (stats, weapons, actions…)"
+          >
+            ✨ Fill missing details with AI
+          </button>
+          <StatBlock monster={monster} />
+        </>
+      )}
 
       <h4>Conditions</h4>
       <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />

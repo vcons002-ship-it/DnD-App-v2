@@ -159,10 +159,23 @@ Smaller refinements on top of the shipped Phase 2 work.
   the token shows it at a glance to DM and players (verified by per-tier tests).
   *(NPCs are just creatures with a non-enemy disposition; explicit NPC/character
   creation is the next item.)*
-- ☐ **Editable NPC/creature stats [req].** The DM can edit any non-player token's
-  full stat block in-place — HP, AC, ability scores, attacks, abilities,
-  descriptions, weapons, resistances/weaknesses, name, icon. (Makes `StatBlock`
-  an editable form for the DM; pairs with the disposition work above.)
+- ☑ **Editable NPC/creature stats [req].** `StatBlock` has a display ↔ edit
+  toggle; the DM can patch every tagged field in place — name, type, HP/AC/speed,
+  ability scores, resist/vulnerable, Weapons, Actions, Traits — via
+  `monster:update` (dynamic patch, clamps curHp to a lowered max).
+- ☑ **Tagged creature data [req].** Creatures carry structured `weapons`
+  (name + melee/ranged + damage + to-hit) alongside stats/actions/abilities, so
+  missing data is obvious and reusable by later features (combat-role now, attack
+  rolls in WP11).
+- ☑ **AI back-fill of missing fields [req].** "✨ Fill missing details with AI"
+  on the stat panel → `ai:fillCreature` asks Gemini for the SRD block and merges
+  ONLY empty fields (type/HP/AC/speed/stats/resist/weapons/actions/traits),
+  never overwriting DM edits. Fails safe with no/invalid key (tested).
+- ☑ **Combat-role badge [req].** Each token shows ⚔️ melee / 🏹 ranged / ✨ caster,
+  derived from creature data (`shared/combatRole.ts`) and computed server-side so
+  it reaches players even on enemies. DM can override (Auto/⚔️/🏹/✨) or hide the
+  badge across a multi-selection (`tokens:setCombatRole` /
+  `tokens:setHideCombatRole`).
 
 ## Phase 5 — Player resources, items, Roll20, dice
 

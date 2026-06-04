@@ -135,6 +135,8 @@ export type CreatureTemplate = {
   weaknesses: string[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  /** Tagged weapons (AI may supply these; SRD entries usually omit them). */
+  weapons?: Weapon[];
   icon: string;
   source: 'srd' | 'gemini';
 };
@@ -289,6 +291,8 @@ export type MonsterUpdatePayload = {
   icon?: string;
 };
 export type MonsterDeletePayload = { monsterId: string };
+/** Ask the AI to back-fill only the empty fields of a creature (DM-only). */
+export type AiFillCreaturePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
 export type TokenSetIconPayload = { tokenIds: string[]; icon: string };
 /** Hide/show the combat-role badge across one or more tokens. */
@@ -329,6 +333,7 @@ export interface ClientToServerEvents {
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:update': (payload: MonsterUpdatePayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;
+  'ai:fillCreature': (payload: AiFillCreaturePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;
   'initiative:next': () => void;

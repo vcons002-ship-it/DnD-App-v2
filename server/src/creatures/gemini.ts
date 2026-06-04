@@ -1,5 +1,9 @@
 import { config } from '../config.js';
-import type { CreatureAbility, CreatureTemplate } from '../../../shared/types.js';
+import type {
+  CreatureAbility,
+  CreatureTemplate,
+  Weapon,
+} from '../../../shared/types.js';
 import { iconForCreature } from './srd.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
@@ -123,8 +127,10 @@ export async function lookupCreatureAI(
     `{"creatureType":string,"maxHp":number,"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
+    `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
     `"actions":[{"name":string,"description":string}],` +
     `"abilities":[{"name":string,"description":string}]}. ` +
+    `"weapons" are its attacks as tagged data (damage like "1d8+3"); ` +
     `"actions" are attacks/actions (include to-hit and damage); "abilities" are ` +
     `traits/features. Use SRD/average HP. Keep each description under 30 words.`;
 
@@ -136,6 +142,22 @@ export async function lookupCreatureAI(
             name: String(a.name),
             description: String(a.description ?? ''),
           }))
+      : [];
+
+  const weaponList = (v: unknown): Weapon[] =>
+    Array.isArray(v)
+      ? v
+          .filter((w): w is Record<string, unknown> => !!w && typeof w === 'object')
+          .filter((w) => typeof w.name === 'string' && w.name)
+          .map((w) => {
+            const bonus = Number(w.attackBonus);
+            return {
+              name: String(w.name),
+              kind: w.kind === 'ranged' ? 'ranged' : 'melee',
+              damage: w.damage ? String(w.damage) : undefined,
+              attackBonus: Number.isFinite(bonus) ? bonus : undefined,
+            };
+          })
       : [];
 
   const text = await callGemini(prompt);
@@ -161,6 +183,7 @@ export async function lookupCreatureAI(
       weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.map(String) : [],
       actions: abilityList(parsed.actions),
       abilities: abilityList(parsed.abilities),
+      weapons: weaponList(parsed.weapons),
       icon: iconForCreature(name, creatureType),
       source: 'gemini',
     };

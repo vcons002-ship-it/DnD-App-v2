@@ -60,6 +60,7 @@ type Store = {
   releaseCharacter: () => void;
   createMonster: (input: MonsterCreatePayload) => void;
   updateMonster: (payload: MonsterUpdatePayload) => void;
+  aiFillCreature: (monsterId: string) => void;
   deleteMonster: (monsterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setTokensHideCombatRole: (tokenIds: string[], hide: boolean) => void;
@@ -152,6 +153,8 @@ export const useStore = create<Store>((set, get) => ({
   releaseCharacter: () => get().socket?.emit('character:release'),
   createMonster: (input) => get().socket?.emit('monster:create', input),
   updateMonster: (payload) => get().socket?.emit('monster:update', payload),
+  aiFillCreature: (monsterId) =>
+    get().socket?.emit('ai:fillCreature', { monsterId }),
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),
   setTokensIcon: (tokenIds, icon) =>

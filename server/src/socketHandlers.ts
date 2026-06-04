@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { newId } from './db.js';
+import { aiFillCreature } from './creatures/fill.js';
 import {
   broadcastSnapshots,
   dropConn,
@@ -268,6 +269,27 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!isDm()) return;
       deleteMonster(monsterId);
       afterChange();
+    });
+
+    socket.on('ai:fillCreature', async ({ monsterId }) => {
+      if (!isDm()) return;
+      const res = await aiFillCreature(monsterId);
+      if (res.ok) {
+        afterChange();
+        socket.emit('notice', {
+          message: `Filled ${res.filled} missing field${
+            res.filled === 1 ? '' : 's'
+          } with AI`,
+        });
+      } else {
+        const msg =
+          res.reason === 'no-key'
+            ? 'No AI key configured'
+            : res.reason === 'nothing'
+            ? 'Nothing missing to fill'
+            : 'AI lookup failed';
+        socket.emit('notice', { message: msg });
+      }
     });
 
     socket.on('tokens:setIcon', ({ tokenIds, icon }) => {
