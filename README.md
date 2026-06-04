@@ -101,9 +101,15 @@ Local data (`server/data/`, `server/uploads/`) and `.env` are git-ignored.
 
 ## Roadmap
 
+See **[`ROADMAP.md`](ROADMAP.md)** for the detailed backlog (including requested
+refinements like map zoom/pan, resizable panels, three concentric status rings,
+multi-monster spawning with sequential names + per-token HP, token icons,
+DM map-region masking, death markers, token deletion, a persistent session
+directory, and player resource/item tracking).
+
 - **Phase 1 (done):** core loop — maps, tokens, sync, damage, conditions, views
-- **Phase 2:** initiative tracker polish, multi-select, map thumbnails, carry tokens between maps
-- **Phase 3:** fog of war + save/load
-- **Phase 4:** SRD + Gemini creature lookup
-- **Phase 5:** Roll20 embed, dice roller, spell-slot/resource tracking
+- **Phase 2:** canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative, multi-select, session directory
+- **Phase 3:** fog of war + DM map-region masking + save/load
+- **Phase 4:** SRD + Gemini creature lookup, multi-spawn, token icons
+- **Phase 5:** player spell-slot/resource + item tracking, Roll20 embed, dice
 - **Phase 6 (future):** AI spell resolution, rules lookup, enemy dialogue
