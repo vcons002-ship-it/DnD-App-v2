@@ -1,8 +1,13 @@
-import { Group, Circle, Rect, Text } from 'react-konva';
+import { Group, Circle, Rect, Text, Image as KonvaImage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import type Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import { presentAuras, AURA_HEX } from '../lib/conditions';
 import type { TokenDisplay } from '../lib/entities';
+import { useImage } from './useImage';
+
+const isImageIcon = (icon: string): boolean =>
+  icon.startsWith('/') || icon.startsWith('http');
 
 type Props = {
   token: Token;
@@ -36,6 +41,9 @@ export function TokenShape({
   const radius = (gridSizePx * token.size) / 2;
   const auras = presentAuras(display.conditions);
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
+  const hasImageIcon = !!display.icon && isImageIcon(display.icon);
+  const hasEmojiIcon = !!display.icon && !hasImageIcon;
+  const iconImg = useImage(hasImageIcon ? display.icon : null);
   const hpFrac =
     display.maxHp && display.maxHp > 0 && display.curHp !== undefined
       ? Math.max(0, Math.min(1, display.curHp / display.maxHp))
@@ -74,13 +82,51 @@ export function TokenShape({
           dash={[8, 6]}
         />
       )}
-      <Circle
-        radius={radius}
-        fill={fill}
-        stroke={selected ? '#ffffff' : '#1118'}
-        strokeWidth={selected ? 4 : 2}
-        opacity={isDead ? 0.5 : 1}
-      />
+      {hasImageIcon && iconImg ? (
+        <>
+          <Group
+            opacity={isDead ? 0.5 : 1}
+            clipFunc={(ctx: Konva.Context) => {
+              ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
+            }}
+          >
+            <KonvaImage
+              image={iconImg}
+              x={-radius}
+              y={-radius}
+              width={radius * 2}
+              height={radius * 2}
+            />
+          </Group>
+          <Circle
+            radius={radius}
+            stroke={selected ? '#ffffff' : '#1118'}
+            strokeWidth={selected ? 4 : 2}
+          />
+        </>
+      ) : (
+        <>
+          <Circle
+            radius={radius}
+            fill={fill}
+            stroke={selected ? '#ffffff' : '#1118'}
+            strokeWidth={selected ? 4 : 2}
+            opacity={isDead ? 0.5 : 1}
+          />
+          {hasEmojiIcon && !isDead && (
+            <Text
+              text={display.icon}
+              fontSize={radius * 1.1}
+              width={radius * 2}
+              height={radius * 2}
+              offsetX={radius}
+              offsetY={radius}
+              align="center"
+              verticalAlign="middle"
+            />
+          )}
+        </>
+      )}
       {/* Death marker when downed (only where HP is visible to this viewer). */}
       {isDead && (
         <Text

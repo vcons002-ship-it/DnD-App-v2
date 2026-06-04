@@ -17,7 +17,7 @@ import type {
 
 /** Strip a monster down to what players are allowed to see: name + conditions. */
 function toPublicMonster(m: Monster): MonsterPublic {
-  return { id: m.id, name: m.name, conditions: m.conditions };
+  return { id: m.id, name: m.name, conditions: m.conditions, icon: m.icon };
 }
 
 /**

@@ -134,6 +134,32 @@ input[type='number'] { width: 70px; }
   border-radius: 6px; padding: 6px 8px; margin: 3px 0; cursor: pointer;
 }
 .spawn-row.picked { border-color: var(--accent); }
+.spawn-line { display: flex; gap: 6px; align-items: stretch; }
+.spawn-line .spawn-row { flex: 1; }
+.spawn-icon { margin-right: 4px; }
+
+/* Creature search / autofill */
+.creature-search { position: relative; }
+.suggest {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 6;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  max-height: 220px; overflow-y: auto; box-shadow: 0 6px 18px #0008;
+}
+.suggest-row {
+  display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text); cursor: pointer;
+  padding: 6px 8px;
+}
+.suggest-row:hover { background: var(--accent); }
+.suggest-row .muted { margin-left: auto; font-size: 12px; }
+.add-monster-row { display: flex; gap: 6px; align-items: flex-end; margin-top: 6px; }
+.mini { display: flex; flex-direction: column; font-size: 11px; color: var(--muted); }
+.mini input { width: 56px; margin: 2px 0 0; }
+
+/* Token icon tools */
+.icon-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.emoji-input { width: 52px; text-align: center; font-size: 18px; }
+.upload-icon { position: relative; overflow: hidden; }
 .init-row { padding: 4px 0; cursor: pointer; }
 .init-row.sel { background: var(--panel-2); border-radius: 6px; }
 .init-row.turn { background: #3a3320; border-radius: 6px; box-shadow: inset 2px 0 0 #f5c518; }

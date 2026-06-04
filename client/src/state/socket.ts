@@ -5,6 +5,7 @@ import type {
   Condition,
   FogMode,
   JoinAck,
+  MonsterCreatePayload,
   Role,
   ServerToClientEvents,
   StateSnapshot,
@@ -49,7 +50,9 @@ type Store = {
   ) => void;
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
-  createMonster: (name: string, maxHp: number, creatureType?: string) => void;
+  createMonster: (input: MonsterCreatePayload) => void;
+  copyMonster: (monsterId: string) => void;
+  setTokensIcon: (tokenIds: string[], icon: string) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
   rollAllInitiative: () => void;
   nextTurn: () => void;
@@ -124,8 +127,10 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('condition:clear', { kind, refId, conditionId }),
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
-  createMonster: (name, maxHp, creatureType) =>
-    get().socket?.emit('monster:create', { name, maxHp, creatureType }),
+  createMonster: (input) => get().socket?.emit('monster:create', input),
+  copyMonster: (monsterId) => get().socket?.emit('monster:copy', { monsterId }),
+  setTokensIcon: (tokenIds, icon) =>
+    get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
   setInitiative: (tokenId, initiative) =>
     get().socket?.emit('initiative:set', { tokenId, initiative }),
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),

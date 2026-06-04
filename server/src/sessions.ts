@@ -7,6 +7,7 @@ import {
   rowToMonster,
   rowToToken,
 } from './db.js';
+import { iconForCreature } from './creatures/srd.js';
 import type {
   Character,
   Condition,
@@ -418,16 +419,111 @@ export function getMonster(id: string): Monster | null {
   return row ? rowToMonster(row) : null;
 }
 
-export function createMonster(
-  sessionId: string,
-  opts: { name: string; maxHp: number; creatureType?: string },
-): Monster {
+export type MonsterInput = {
+  name: string;
+  maxHp: number;
+  count?: number;
+  creatureType?: string;
+  resistances?: string[];
+  weaknesses?: string[];
+  abilities?: Monster['abilities'];
+  icon?: string;
+  source?: Monster['source'];
+};
+
+function insertMonster(sessionId: string, opts: MonsterInput): Monster {
   const id = newId();
+  const type = opts.creatureType ?? '';
+  const icon = opts.icon || iconForCreature(opts.name, type);
   db.prepare(
-    `INSERT INTO monsters (id, session_id, name, creature_type, max_hp, cur_hp)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, sessionId, opts.name, opts.creatureType ?? '', opts.maxHp, opts.maxHp);
+    `INSERT INTO monsters
+       (id, session_id, name, creature_type, max_hp, cur_hp,
+        resistances, weaknesses, abilities, source, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    opts.name,
+    type,
+    opts.maxHp,
+    opts.maxHp,
+    JSON.stringify(opts.resistances ?? []),
+    JSON.stringify(opts.weaknesses ?? []),
+    JSON.stringify(opts.abilities ?? []),
+    opts.source ?? 'manual',
+    icon,
+  );
   return getMonster(id)!;
+}
+
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Highest existing suffix for a base name ("Goblin"=1, "Goblin 3"=3); 0 if none. */
+function existingMaxNumber(sessionId: string, base: string): number {
+  const rows = db
+    .prepare('SELECT name FROM monsters WHERE session_id = ?')
+    .all(sessionId) as { name: string }[];
+  const re = new RegExp(`^${escapeRegex(base)}(?:\\s+(\\d+))?$`, 'i');
+  let max = 0;
+  let found = false;
+  for (const r of rows) {
+    const m = r.name.match(re);
+    if (m) {
+      found = true;
+      const n = m[1] ? parseInt(m[1], 10) : 1;
+      if (n > max) max = n;
+    }
+  }
+  return found ? max : 0;
+}
+
+/**
+ * Create one or more monsters. With count > 1 (or when the base name already
+ * exists) they are auto-numbered "Goblin 1", "Goblin 2", … and each is an
+ * independent record with its own HP/conditions.
+ */
+export function createMonsters(
+  sessionId: string,
+  opts: MonsterInput,
+): Monster[] {
+  const base = opts.name.trim() || 'Creature';
+  const count = Math.max(1, Math.min(50, opts.count ?? 1));
+  const existingMax = existingMaxNumber(sessionId, base);
+  const created: Monster[] = [];
+  for (let i = 0; i < count; i++) {
+    const name =
+      count === 1 && existingMax === 0 ? base : `${base} ${existingMax + 1 + i}`;
+    created.push(insertMonster(sessionId, { ...opts, name }));
+  }
+  return created;
+}
+
+/** Duplicate an existing monster into a new independent creature. */
+export function copyMonster(monsterId: string): Monster | null {
+  const m = getMonster(monsterId);
+  if (!m) return null;
+  const base = m.name.replace(/\s+\d+$/, ''); // drop any trailing number
+  return createMonsters(m.sessionId, {
+    name: base,
+    maxHp: m.maxHp,
+    creatureType: m.creatureType,
+    resistances: m.resistances,
+    weaknesses: m.weaknesses,
+    abilities: m.abilities,
+    icon: m.icon,
+    source: m.source,
+    count: 1,
+  })[0];
+}
+
+/** Set the token art for a character or monster. */
+export function setEntityIcon(
+  kind: TokenKind,
+  refId: string,
+  icon: string,
+): void {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  db.prepare(`UPDATE ${table} SET icon = ? WHERE id = ?`).run(icon, refId);
 }
 
 // ---- Shared HP / condition mutations across kinds ----

@@ -94,7 +94,11 @@ export function DmView() {
 
         <SidePanel side="right" storageKey="dm-right">
           {selectedToken ? (
-            <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
+            <SelectedTokenPanel
+              snapshot={snapshot}
+              token={selectedToken}
+              selectedIds={selectedIds}
+            />
           ) : (
             <p className="muted pad">Select a token to edit it.</p>
           )}

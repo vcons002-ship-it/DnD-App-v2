@@ -12,6 +12,8 @@ import {
 } from './sessions.js';
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
+import { searchSrd, getSrd } from './creatures/srd.js';
+import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, config.uploadsDir),
@@ -46,6 +48,29 @@ export function createApiRouter(io: IOServer): Router {
   // Saved-session directory for the DM resume screen.
   router.get('/sessions', (_req, res) => {
     res.json(listSessions());
+  });
+
+  // SRD creature search (offline) for the monster autofill box.
+  router.get('/creatures', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json({ results: searchSrd(q), aiAvailable: geminiEnabled() });
+  });
+
+  // Full creature lookup: exact SRD match, else Gemini (if a key is set).
+  router.post('/creatures/lookup', async (req, res) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const srd = getSrd(name);
+    if (srd) return res.json(srd);
+    const ai = await lookupCreatureAI(name);
+    if (ai) return res.json(ai);
+    return res.status(404).json({ error: 'Not found in SRD; AI unavailable.' });
+  });
+
+  // DM uploads a custom token icon image; returns its served path.
+  router.post('/icons', upload.single('image'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'image required' });
+    res.status(201).json({ icon: `/uploads/${req.file.filename}` });
   });
 
   // Lightweight existence check used by the join screen.

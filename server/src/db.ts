@@ -70,7 +70,8 @@ db.exec(`
     resources   TEXT NOT NULL DEFAULT '{}',
     weapons     TEXT NOT NULL DEFAULT '[]',
     conditions  TEXT NOT NULL DEFAULT '[]',
-    claimed_by  TEXT
+    claimed_by  TEXT,
+    icon        TEXT NOT NULL DEFAULT ''
   );
 
   CREATE TABLE IF NOT EXISTS monsters (
@@ -84,7 +85,8 @@ db.exec(`
     weaknesses    TEXT NOT NULL DEFAULT '[]',
     abilities     TEXT NOT NULL DEFAULT '[]',
     conditions    TEXT NOT NULL DEFAULT '[]',
-    source        TEXT NOT NULL DEFAULT 'manual'
+    source        TEXT NOT NULL DEFAULT 'manual',
+    icon          TEXT NOT NULL DEFAULT ''
   );
 `);
 
@@ -116,6 +118,8 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
     db.exec("UPDATE maps SET fog_mode = 'map' WHERE fog_enabled = 1");
   }
 }
+ensureColumn('monsters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
+ensureColumn('characters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 
 export const newId = (): string => randomUUID();
 
@@ -197,6 +201,7 @@ type CharacterRow = {
   weapons: string;
   conditions: string;
   claimed_by: string | null;
+  icon: string;
 };
 
 export function rowToCharacter(r: CharacterRow): Character {
@@ -214,6 +219,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     weapons: JSON.parse(r.weapons),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
+    icon: r.icon ?? '',
   };
 }
 
@@ -229,6 +235,7 @@ type MonsterRow = {
   abilities: string;
   conditions: string;
   source: Monster['source'];
+  icon: string;
 };
 
 export function rowToMonster(r: MonsterRow): Monster {
@@ -244,5 +251,6 @@ export function rowToMonster(r: MonsterRow): Monster {
     abilities: JSON.parse(r.abilities),
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,
+    icon: r.icon ?? '',
   };
 }

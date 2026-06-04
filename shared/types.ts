@@ -57,7 +57,11 @@ export type Character = {
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
+  /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
+  icon: string;
 };
+
+export type CreatureAbility = { name: string; description: string };
 
 export type Monster = {
   id: string;
@@ -68,9 +72,23 @@ export type Monster = {
   curHp: number;
   resistances: string[];
   weaknesses: string[];
-  abilities: { name: string; description: string }[];
+  abilities: CreatureAbility[];
   source: 'srd' | 'gemini' | 'manual';
   conditions: Condition[];
+  /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
+  icon: string;
+};
+
+/** A creature template returned by SRD search or Gemini lookup. */
+export type CreatureTemplate = {
+  name: string;
+  creatureType: string;
+  maxHp: number;
+  resistances: string[];
+  weaknesses: string[];
+  abilities: CreatureAbility[];
+  icon: string;
+  source: 'srd' | 'gemini';
 };
 
 export type MapState = {
@@ -90,11 +108,12 @@ export type MapState = {
   fogRevealed: string[];
 };
 
-/** Player-facing monster view: name + visible conditions only. */
+/** Player-facing monster view: name + visible conditions + icon only. */
 export type MonsterPublic = {
   id: string;
   name: string;
   conditions: Condition[];
+  icon: string;
 };
 
 /** Snapshot the server sends after join / on major changes, already role-shaped. */
@@ -171,8 +190,18 @@ export type ClaimCharacterPayload = { characterId: string };
 export type MonsterCreatePayload = {
   name: string;
   maxHp: number;
+  /** How many to spawn; >1 auto-numbers them (Goblin 1, Goblin 2, …). */
+  count?: number;
   creatureType?: string;
+  resistances?: string[];
+  weaknesses?: string[];
+  abilities?: CreatureAbility[];
+  icon?: string;
+  source?: 'srd' | 'gemini' | 'manual';
 };
+export type MonsterCopyPayload = { monsterId: string };
+/** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
+export type TokenSetIconPayload = { tokenIds: string[]; icon: string };
 export type InitiativeSetPayload = { tokenId: string; initiative: number | null };
 
 export type ServerError = { code: string; message: string };
@@ -190,12 +219,14 @@ export interface ClientToServerEvents {
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;
   'token:setHidden': (payload: TokenSetHiddenPayload) => void;
+  'tokens:setIcon': (payload: TokenSetIconPayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;
   'damage:apply': (payload: DamagePayload) => void;
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
+  'monster:copy': (payload: MonsterCopyPayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;
   'initiative:next': () => void;

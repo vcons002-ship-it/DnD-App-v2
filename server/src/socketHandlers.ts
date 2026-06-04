@@ -16,17 +16,20 @@ import {
   claimCharacter,
   clearCondition,
   clearInitiative,
+  copyMonster,
   copyTokens,
   coverFog,
-  createMonster,
+  createMonsters,
   createToken,
   deleteToken,
+  setEntityIcon,
   paintFog,
   setFogMode,
   setTokenHidden,
   getMap,
   getSessionById,
   getSessionByCode,
+  getToken,
   moveToken,
   releaseClaims,
   resizeToken,
@@ -195,10 +198,35 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('monster:create', ({ name, maxHp, creatureType }) => {
+    socket.on('monster:create', (p) => {
       const sid = sessionId();
-      if (!sid || !isDm()) return; // monster creation is a DM action
-      createMonster(sid, { name, maxHp, creatureType });
+      if (!sid || !isDm() || !p.name?.trim()) return; // DM action
+      createMonsters(sid, {
+        name: p.name,
+        maxHp: p.maxHp,
+        count: p.count,
+        creatureType: p.creatureType,
+        resistances: p.resistances,
+        weaknesses: p.weaknesses,
+        abilities: p.abilities,
+        icon: p.icon,
+        source: p.source,
+      });
+      afterChange();
+    });
+
+    socket.on('monster:copy', ({ monsterId }) => {
+      if (!isDm()) return;
+      copyMonster(monsterId);
+      afterChange();
+    });
+
+    socket.on('tokens:setIcon', ({ tokenIds, icon }) => {
+      if (!isDm() || !Array.isArray(tokenIds)) return;
+      for (const id of tokenIds) {
+        const t = getToken(id);
+        if (t) setEntityIcon(t.kind, t.refId, icon);
+      }
       afterChange();
     });
 

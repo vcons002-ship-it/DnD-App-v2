@@ -13,6 +13,8 @@ export type TokenDisplay = {
   curHp?: number;
   maxHp?: number;
   conditions: Condition[];
+  /** Token art (emoji or "/uploads/…"); empty for the default circle. */
+  icon: string;
 };
 
 const isFullMonster = (m: Monster | MonsterPublic): m is Monster =>
@@ -25,25 +27,27 @@ export function resolveToken(
 ): TokenDisplay {
   if (token.kind === 'pc') {
     const c = snapshot.characters.find((x) => x.id === token.refId);
-    if (!c) return { name: 'Unknown', conditions: [] };
+    if (!c) return { name: 'Unknown', conditions: [], icon: '' };
     return {
       name: c.name,
       curHp: c.curHp,
       maxHp: c.maxHp,
       conditions: c.conditions,
+      icon: c.icon,
     };
   }
   const m = snapshot.monsters.find((x) => x.id === token.refId);
-  if (!m) return { name: 'Unknown', conditions: [] };
+  if (!m) return { name: 'Unknown', conditions: [], icon: '' };
   if (isFullMonster(m)) {
     return {
       name: m.name,
       curHp: m.curHp,
       maxHp: m.maxHp,
       conditions: m.conditions,
+      icon: m.icon,
     };
   }
-  return { name: m.name, conditions: m.conditions };
+  return { name: m.name, conditions: m.conditions, icon: m.icon };
 }
 
 export const findCharacter = (

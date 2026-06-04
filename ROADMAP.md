@@ -79,21 +79,22 @@ Smaller refinements on top of the shipped Phase 2 work.
   on Slides maps. Technically tricky (cross-origin iframe) — investigate an
   absolutely-positioned transparent canvas over the iframe.
 
-## Phase 4 — Creature data & token art
+## Phase 4 — Creature data & token art ✅ (done)
 
-- ☐ SRD/Open5e search (cached, offline) + Gemini fallback for custom creatures,
-  auto-filling monster token info.
-- ☐ **Spawn multiple monsters at once [req].** Create N copies in one action,
-  **named sequentially** (e.g. Goblin 1..N), each an **independent token with its
-  own HP/conditions** (no shared health). Before adding, check whether a
-  same-named creature already exists and auto-increment the number so names never
-  collide.
-- ☐ **Copy creature (DM) [req].** Duplicate an existing monster into a new,
-  fully independent creature (auto-incremented name, fresh HP/conditions).
-- ☐ **Auto token icons [req].** Pull a creature icon/art based on name when
-  created from the DB or via Gemini.
-- ☐ **Custom icon upload + bulk apply [req].** Upload an image to use as a
-  token's icon, and apply that icon to multiple selected tokens at once.
+- ☑ SRD creature search (offline, curated subset in `server/src/creatures/srd.ts`)
+  with autofill, plus a key-gated **Gemini fallback** (`creatures/gemini.ts`,
+  fails safe) for names not in the SRD. Surfaced via `GET /api/creatures` and
+  `POST /api/creatures/lookup`. *(Future: optional live Open5e fetch for the full
+  bestiary; the curated list keeps it fully offline today.)*
+- ☑ **Spawn multiple monsters at once [req].** Count field → N independent
+  records, auto-numbered "Goblin 1..N"; checks existing names and continues the
+  numbering so names never collide (verified by tests).
+- ☑ **Copy creature (DM) [req].** "Copy" duplicates a monster into a new
+  independent creature with the next available number.
+- ☑ **Auto token icons [req].** Emoji icon auto-assigned by creature name/type
+  (`iconForCreature`), rendered on the token (DM + players).
+- ☑ **Custom icon upload + bulk apply [req].** Upload an image (`POST /api/icons`)
+  or set an emoji on the selected token; applies to the whole multi-selection.
 
 ## Phase 5 — Player resources, items, Roll20, dice
 

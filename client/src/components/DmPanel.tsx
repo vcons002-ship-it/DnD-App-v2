@@ -1,7 +1,17 @@
-import { useRef, useState } from 'react';
-import type { Monster, StateSnapshot, Token, TokenKind } from '../../../shared/types';
+import { useEffect, useRef, useState } from 'react';
+import type {
+  CreatureTemplate,
+  Monster,
+  StateSnapshot,
+  Token,
+  TokenKind,
+} from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
+
+/** Show emoji icons inline; image-path icons get a placeholder glyph. */
+const iconText = (icon: string): string =>
+  icon.startsWith('/') || icon.startsWith('http') ? '🖼️' : icon;
 
 type Props = {
   snapshot: StateSnapshot;
@@ -21,6 +31,7 @@ export function DmPanel({
   const selectMap = useStore((s) => s.selectMap);
   const setActiveMap = useStore((s) => s.setActiveMap);
   const createMonster = useStore((s) => s.createMonster);
+  const copyMonster = useStore((s) => s.copyMonster);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
@@ -31,8 +42,68 @@ export function DmPanel({
   const [slides, setSlides] = useState('');
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
+  const [monCount, setMonCount] = useState(1);
   const [copyFrom, setCopyFrom] = useState('');
   const [busy, setBusy] = useState(false);
+  // Creature search (SRD autofill + optional AI lookup).
+  const [suggest, setSuggest] = useState<CreatureTemplate[]>([]);
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [tmpl, setTmpl] = useState<CreatureTemplate | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+
+  // Debounced SRD search as the DM types a monster name.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetch(`/api/creatures?q=${encodeURIComponent(monName)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setSuggest(d.results ?? []);
+          setAiAvailable(!!d.aiAvailable);
+        })
+        .catch(() => setSuggest([]));
+    }, 150);
+    return () => clearTimeout(t);
+  }, [monName]);
+
+  const applyTemplate = (t: CreatureTemplate) => {
+    setTmpl(t);
+    setMonName(t.name);
+    setMonHp(t.maxHp);
+    setSuggest([]);
+  };
+
+  const aiFill = async () => {
+    if (!monName.trim()) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch('/api/creatures/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: monName.trim() }),
+      });
+      if (res.ok) applyTemplate(await res.json());
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const addMonster = () => {
+    if (!monName.trim()) return;
+    createMonster({
+      name: monName.trim(),
+      maxHp: monHp,
+      count: monCount,
+      creatureType: tmpl?.creatureType,
+      resistances: tmpl?.resistances,
+      weaknesses: tmpl?.weaknesses,
+      abilities: tmpl?.abilities,
+      icon: tmpl?.icon,
+      source: tmpl?.source ?? 'manual',
+    });
+    setMonName('');
+    setMonCount(1);
+    setTmpl(null);
+  };
 
   const upload = async (body: FormData) => {
     setBusy(true);
@@ -199,36 +270,88 @@ export function DmPanel({
 
         <h4>Monsters</h4>
         {monsters.map((m) => (
-          <button
-            key={m.id}
-            className={`spawn-row ${pending?.refId === m.id ? 'picked' : ''}`}
-            onClick={() => onPickSpawn('monster', m.id)}
-          >
-            {m.name} <span className="muted">{m.curHp}/{m.maxHp} hp</span>
-          </button>
+          <div key={m.id} className="spawn-line">
+            <button
+              className={`spawn-row ${pending?.refId === m.id ? 'picked' : ''}`}
+              onClick={() => onPickSpawn('monster', m.id)}
+            >
+              {m.icon && <span className="spawn-icon">{iconText(m.icon)}</span>}
+              {m.name} <span className="muted">{m.curHp}/{m.maxHp} hp</span>
+            </button>
+            <button
+              className="btn tiny"
+              title="Duplicate this creature"
+              onClick={() => copyMonster(m.id)}
+            >
+              Copy
+            </button>
+          </div>
         ))}
+
         <div className="add-monster">
-          <input
-            placeholder="Monster name"
-            value={monName}
-            onChange={(e) => setMonName(e.target.value)}
-          />
-          <input
-            type="number"
-            value={monHp}
-            onChange={(e) => setMonHp(Number(e.target.value))}
-          />
-          <button
-            className="btn"
-            onClick={() => {
-              if (monName.trim()) {
-                createMonster(monName.trim(), monHp);
-                setMonName('');
-              }
-            }}
-          >
-            Add monster
-          </button>
+          <div className="creature-search">
+            <input
+              placeholder="Search SRD or type a name…"
+              value={monName}
+              onChange={(e) => {
+                setMonName(e.target.value);
+                setTmpl(null); // manual edit drops the autofilled stat block
+              }}
+            />
+            {suggest.length > 0 &&
+              monName.trim() &&
+              !(tmpl && tmpl.name === monName) && (
+              <div className="suggest">
+                {suggest.map((s) => (
+                  <button
+                    key={s.name}
+                    className="suggest-row"
+                    onClick={() => applyTemplate(s)}
+                  >
+                    <span className="spawn-icon">{s.icon}</span>
+                    {s.name}
+                    <span className="muted">
+                      {s.maxHp} hp · {s.creatureType}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="add-monster-row">
+            <label className="mini">
+              HP
+              <input
+                type="number"
+                value={monHp}
+                onChange={(e) => setMonHp(Number(e.target.value))}
+              />
+            </label>
+            <label className="mini">
+              ×
+              <input
+                type="number"
+                min={1}
+                value={monCount}
+                onChange={(e) =>
+                  setMonCount(Math.max(1, Number(e.target.value) || 1))
+                }
+              />
+            </label>
+            <button className="btn" onClick={addMonster}>
+              Add
+            </button>
+            {aiAvailable && (
+              <button className="btn" disabled={aiBusy} onClick={aiFill}>
+                {aiBusy ? '✨…' : '✨ AI'}
+              </button>
+            )}
+          </div>
+          {tmpl && (
+            <p className="hint">
+              Autofilled from {tmpl.source.toUpperCase()}: {tmpl.creatureType}
+            </p>
+          )}
         </div>
       </div>
 
