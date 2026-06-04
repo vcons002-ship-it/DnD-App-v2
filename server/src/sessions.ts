@@ -341,7 +341,7 @@ export function copyTokens(
   fromMapId: string,
   toMapId: string,
   kinds: TokenKind[],
-): void {
+): number {
   const existing = new Set(
     listTokens(toMapId).map((t) => `${t.kind}:${t.refId}`),
   );
@@ -349,6 +349,7 @@ export function copyTokens(
     `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
+  let copied = 0;
   for (const t of listTokens(fromMapId)) {
     if (!kinds.includes(t.kind)) continue;
     if (existing.has(`${t.kind}:${t.refId}`)) continue;
@@ -364,7 +365,9 @@ export function copyTokens(
       t.isHidden ? 1 : 0,
       Date.now(),
     );
+    copied++;
   }
+  return copied;
 }
 
 /**
@@ -508,6 +511,9 @@ export function claimCharacter(
   characterId: string,
   socketId: string,
 ): Character | null {
+  // A player holds exactly one character — release any prior claim first so
+  // "change character" frees the old one instead of orphaning it.
+  releaseClaims(socketId);
   db.prepare('UPDATE characters SET claimed_by = ? WHERE id = ?').run(
     socketId,
     characterId,

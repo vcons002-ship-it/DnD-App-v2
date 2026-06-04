@@ -266,3 +266,29 @@ input[type='number'] { width: 70px; }
 .floating-menu-item:hover { background: var(--panel-2); }
 .floating-menu-item.danger:hover { background: #3a2326; color: var(--red); }
 .floating-menu-note { padding: 4px 8px; font-size: 12px; }
+
+/* Toast (server notices) */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  z-index: 60; background: var(--panel); color: var(--text);
+  border: 1px solid var(--accent); border-radius: 8px;
+  padding: 10px 16px; font-size: 14px; box-shadow: 0 6px 24px #0008;
+  cursor: pointer; max-width: 80vw;
+}
+
+/* Token hover card */
+.hover-card {
+  position: fixed; z-index: 45; pointer-events: none; min-width: 120px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 9px; box-shadow: 0 4px 16px #0007;
+}
+.hover-card-name { font-weight: 700; font-size: 13px; }
+.hover-card-hp { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.hover-card-conds { list-style: none; padding: 0; margin: 4px 0 0; }
+.hover-card-conds li { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 0; }
+.hover-card-empty { font-size: 12px; margin-top: 2px; }
+
+/* Player character claiming */
+.claim-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.claim-cta { background: var(--accent); color: #fff; }
+.claimed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

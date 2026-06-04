@@ -6,9 +6,10 @@ type Props = {
   snapshot: StateSnapshot;
   claimedId: string | null;
   onClaim: (characterId: string) => void;
+  onRelease: () => void;
 };
 
-export function PlayerPanel({ snapshot, claimedId, onClaim }: Props) {
+export function PlayerPanel({ snapshot, claimedId, onClaim, onRelease }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const mine = snapshot.characters.find((c) => c.id === claimedId) ?? null;
 
@@ -17,25 +18,45 @@ export function PlayerPanel({ snapshot, claimedId, onClaim }: Props) {
       {!mine && (
         <div className="panel-section">
           <h3>Choose your character</h3>
+          <p className="hint">Tap a character below to play as them.</p>
           {snapshot.characters.map((c) => (
             <button
               key={c.id}
-              className="spawn-row"
+              className="spawn-row claim-row"
               disabled={!!c.claimedBy}
               onClick={() => onClaim(c.id)}
+              title={c.claimedBy ? 'Already taken by another player' : 'Play as this character'}
             >
-              {c.name} <span className="muted">{c.race} {c.className}</span>
-              {c.claimedBy && <span className="badge">taken</span>}
+              <span>
+                {c.name} <span className="muted">{c.race} {c.className}</span>
+              </span>
+              {c.claimedBy ? (
+                <span className="badge">taken</span>
+              ) : (
+                <span className="badge claim-cta">Play</span>
+              )}
             </button>
           ))}
+          {snapshot.characters.length === 0 && (
+            <p className="muted">No characters in this session yet.</p>
+          )}
         </div>
       )}
 
       {mine && (
         <div className="panel-section">
-          <h3>{mine.name}</h3>
+          <div className="claimed-head">
+            <h3>{mine.name}</h3>
+            <button
+              className="btn tiny"
+              onClick={onRelease}
+              title="Release this character and pick a different one"
+            >
+              Change
+            </button>
+          </div>
           <div className="muted">
-            {mine.race} · {mine.className}
+            {mine.race} · {mine.className} <span className="badge">you</span>
           </div>
           <div className="hp-line">
             HP: {mine.curHp} / {mine.maxHp}

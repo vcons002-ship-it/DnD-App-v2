@@ -8,6 +8,7 @@ import { TokenShape } from './TokenShape';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
+import { TokenHoverCard } from '../components/TokenHoverCard';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -38,6 +39,9 @@ export function MapStage({
   const layerRef = useRef<Konva.Layer>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
+    null,
+  );
+  const [hover, setHover] = useState<{ token: Token; x: number; y: number } | null>(
     null,
   );
   const map = snapshot.map;
@@ -383,13 +387,26 @@ export function MapStage({
                   initiativeRank={initiativeRank.get(t.id) ?? null}
                   onSelect={onSelectToken}
                   onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
-                  onContextMenu={(tok, cx, cy) =>
-                    setMenu({ token: tok, x: cx, y: cy })
+                  onContextMenu={(tok, cx, cy) => {
+                    setHover(null);
+                    setMenu({ token: tok, x: cx, y: cy });
+                  }}
+                  onHover={(tok, cx, cy) =>
+                    setHover({ token: tok, x: cx, y: cy })
                   }
+                  onHoverEnd={() => setHover(null)}
                 />
               ))}
             </Layer>
           </Stage>
+          {hover && !menu && (
+            <TokenHoverCard
+              snapshot={snapshot}
+              token={hover.token}
+              x={hover.x}
+              y={hover.y}
+            />
+          )}
           {menu && (
             <FloatingMenu
               snapshot={snapshot}

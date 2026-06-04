@@ -4,11 +4,13 @@ import { MapStage } from '../canvas/MapStage';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { SidePanel } from '../components/SidePanel';
+import { Toast } from '../components/Toast';
 import { useSelection } from '../lib/useSelection';
 
 export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
   const claimCharacter = useStore((s) => s.claimCharacter);
+  const releaseCharacter = useStore((s) => s.releaseCharacter);
   const { selectedIds, handleSelect, handleMove, primaryId } =
     useSelection(snapshot);
   const [claimedId, setClaimedId] = useState<string | null>(null);
@@ -37,6 +39,10 @@ export function PlayerView() {
               setClaimedId(id);
               claimCharacter(id);
             }}
+            onRelease={() => {
+              setClaimedId(null);
+              releaseCharacter();
+            }}
           />
         </SidePanel>
 
@@ -59,6 +65,7 @@ export function PlayerView() {
           )}
         </SidePanel>
       </div>
+      <Toast />
     </div>
   );
 }

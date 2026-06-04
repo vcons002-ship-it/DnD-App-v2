@@ -4,6 +4,7 @@ import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { SidePanel } from '../components/SidePanel';
+import { Toast } from '../components/Toast';
 import { useSelection } from '../lib/useSelection';
 
 export function DmView() {
@@ -104,6 +105,7 @@ export function DmView() {
           )}
         </SidePanel>
       </div>
+      <Toast />
     </div>
   );
 }

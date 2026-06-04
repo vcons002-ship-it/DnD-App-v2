@@ -21,6 +21,9 @@ type Store = {
   status: Status;
   error: string | null;
   snapshot: StateSnapshot | null;
+  /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
+  toast: { id: number; message: string } | null;
+  dismissToast: () => void;
 
   connect: (code: string, role: Role, dmPassphrase?: string) => void;
   disconnect: () => void;
@@ -52,6 +55,7 @@ type Store = {
   ) => void;
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
+  releaseCharacter: () => void;
   createMonster: (input: MonsterCreatePayload) => void;
   deleteMonster: (monsterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
@@ -66,6 +70,8 @@ export const useStore = create<Store>((set, get) => ({
   status: 'idle',
   error: null,
   snapshot: null,
+  toast: null,
+  dismissToast: () => set({ toast: null }),
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
@@ -75,6 +81,9 @@ export const useStore = create<Store>((set, get) => ({
 
     socket.on('state:snapshot', (snapshot) => set({ snapshot }));
     socket.on('error', (err) => set({ error: err.message }));
+    socket.on('notice', ({ message }) =>
+      set({ toast: { id: Date.now(), message } }),
+    );
 
     socket.on('connect', () => {
       socket.emit(
@@ -132,6 +141,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('condition:clear', { kind, refId, conditionId }),
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
+  releaseCharacter: () => get().socket?.emit('character:release'),
   createMonster: (input) => get().socket?.emit('monster:create', input),
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),

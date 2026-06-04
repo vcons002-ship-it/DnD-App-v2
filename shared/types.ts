@@ -205,6 +205,8 @@ export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean 
 /** Cover the whole map again (clear all revealed cells). */
 export type FogCoverPayload = { mapId: string };
 export type ClaimCharacterPayload = { characterId: string };
+/** A transient message the server asks a client to surface (e.g. a toast). */
+export type NoticePayload = { message: string };
 /** Create a reusable creature *template* (one spawn button). */
 export type MonsterCreatePayload = {
   name: string;
@@ -248,6 +250,7 @@ export interface ClientToServerEvents {
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
+  'character:release': () => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
@@ -264,4 +267,5 @@ export type JoinAck =
 export interface ServerToClientEvents {
   'state:snapshot': (snapshot: StateSnapshot) => void;
   error: (err: ServerError) => void;
+  notice: (payload: NoticePayload) => void;
 }

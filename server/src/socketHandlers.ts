@@ -194,8 +194,13 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on('tokens:copy', ({ fromMapId, toMapId, kinds }) => {
       if (!isDm() || !getMap(fromMapId) || !getMap(toMapId)) return;
-      copyTokens(fromMapId, toMapId, kinds);
+      const n = copyTokens(fromMapId, toMapId, kinds);
       afterChange();
+      socket.emit('notice', {
+        message: n
+          ? `Brought ${n} token${n === 1 ? '' : 's'} to this map`
+          : 'No new tokens to bring (already here)',
+      });
     });
 
     socket.on('damage:apply', ({ kind, refId, amount }) => {
@@ -220,6 +225,12 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('character:claim', ({ characterId }) => {
       if (!sessionId()) return;
       claimCharacter(characterId, socket.id);
+      afterChange();
+    });
+
+    socket.on('character:release', () => {
+      if (!sessionId()) return;
+      releaseClaims(socket.id);
       afterChange();
     });
 

@@ -23,6 +23,9 @@ type Props = {
   onMove: (token: Token, x: number, y: number) => void;
   /** Right-click / long-press — opens the floating action menu at screen coords. */
   onContextMenu?: (token: Token, clientX: number, clientY: number) => void;
+  /** Pointer hover over the token (desktop) — drives the hover card. */
+  onHover?: (token: Token, clientX: number, clientY: number) => void;
+  onHoverEnd?: (token: Token) => void;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -41,6 +44,8 @@ export function TokenShape({
   onSelect,
   onMove,
   onContextMenu,
+  onHover,
+  onHoverEnd,
 }: Props) {
   const radius = (gridSizePx * token.size) / 2;
   const auras = presentAuras(display.conditions);
@@ -83,6 +88,12 @@ export function TokenShape({
     longPress.current = setTimeout(() => openMenu(clientX, clientY), 500);
   };
 
+  const handleMouseOver = (e: KonvaEventObject<MouseEvent>) =>
+    onHover?.(token, e.evt.clientX, e.evt.clientY);
+  const handleMouseMove = (e: KonvaEventObject<MouseEvent>) =>
+    onHover?.(token, e.evt.clientX, e.evt.clientY);
+  const handleMouseOut = () => onHoverEnd?.(token);
+
   return (
     <Group
       name="token"
@@ -97,6 +108,9 @@ export function TokenShape({
       onTouchStart={handleTouchStart}
       onTouchEnd={clearLongPress}
       onTouchMove={clearLongPress}
+      onMouseOver={handleMouseOver}
+      onMouseMove={handleMouseMove}
+      onMouseOut={handleMouseOut}
       opacity={token.isHidden ? 0.45 : 1}
     >
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
