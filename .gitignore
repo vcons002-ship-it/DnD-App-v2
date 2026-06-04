@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+
+# Local game state & uploads (never commit)
+server/data/
+server/uploads/
+
+# Secrets / config
+.env
+*.local
+
+# Logs & OS cruft
+*.log
+.DS_Store

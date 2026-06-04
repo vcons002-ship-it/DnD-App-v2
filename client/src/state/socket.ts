@@ -1,0 +1,111 @@
+import { io, type Socket } from 'socket.io-client';
+import { create } from 'zustand';
+import type {
+  ClientToServerEvents,
+  Condition,
+  JoinAck,
+  Role,
+  ServerToClientEvents,
+  StateSnapshot,
+  TokenKind,
+} from '../../../shared/types';
+
+type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+type Status = 'idle' | 'connecting' | 'connected' | 'error';
+
+type Store = {
+  socket: TypedSocket | null;
+  status: Status;
+  error: string | null;
+  snapshot: StateSnapshot | null;
+
+  connect: (code: string, role: Role, dmPassphrase?: string) => void;
+  disconnect: () => void;
+
+  selectMap: (mapId: string) => void;
+  setActiveMap: (mapId: string) => void;
+  spawnToken: (
+    mapId: string,
+    kind: TokenKind,
+    refId: string,
+    x: number,
+    y: number,
+  ) => void;
+  moveToken: (tokenId: string, x: number, y: number) => void;
+  resizeToken: (tokenId: string, size: number) => void;
+  applyDamage: (kind: TokenKind, refId: string, amount: number) => void;
+  setCondition: (
+    kind: TokenKind,
+    refId: string,
+    condition: Omit<Condition, 'id'>,
+  ) => void;
+  clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
+  claimCharacter: (characterId: string) => void;
+  createMonster: (name: string, maxHp: number, creatureType?: string) => void;
+  setInitiative: (tokenId: string, initiative: number | null) => void;
+};
+
+export const useStore = create<Store>((set, get) => ({
+  socket: null,
+  status: 'idle',
+  error: null,
+  snapshot: null,
+
+  connect: (code, role, dmPassphrase) => {
+    get().socket?.disconnect();
+    set({ status: 'connecting', error: null });
+
+    const socket: TypedSocket = io({ transports: ['websocket', 'polling'] });
+
+    socket.on('state:snapshot', (snapshot) => set({ snapshot }));
+    socket.on('error', (err) => set({ error: err.message }));
+
+    socket.on('connect', () => {
+      socket.emit(
+        'join',
+        { sessionCode: code, role, dmPassphrase },
+        (ack: JoinAck) => {
+          if (ack.ok) {
+            set({ status: 'connected', snapshot: ack.snapshot, error: null });
+          } else {
+            set({ status: 'error', error: ack.error.message });
+            socket.disconnect();
+          }
+        },
+      );
+    });
+
+    socket.on('connect_error', () =>
+      set({ status: 'error', error: 'Could not reach the server' }),
+    );
+
+    set({ socket });
+  },
+
+  disconnect: () => {
+    get().socket?.disconnect();
+    set({ socket: null, status: 'idle', snapshot: null });
+  },
+
+  selectMap: (mapId) => get().socket?.emit('map:select', { mapId }),
+  setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
+  spawnToken: (mapId, kind, refId, x, y) =>
+    get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
+  moveToken: (tokenId, x, y) =>
+    get().socket?.emit('token:move', { tokenId, x, y }),
+  resizeToken: (tokenId, size) =>
+    get().socket?.emit('token:resize', { tokenId, size }),
+  applyDamage: (kind, refId, amount) =>
+    get().socket?.emit('damage:apply', { kind, refId, amount }),
+  setCondition: (kind, refId, condition) =>
+    get().socket?.emit('condition:set', { kind, refId, condition }),
+  clearCondition: (kind, refId, conditionId) =>
+    get().socket?.emit('condition:clear', { kind, refId, conditionId }),
+  claimCharacter: (characterId) =>
+    get().socket?.emit('character:claim', { characterId }),
+  createMonster: (name, maxHp, creatureType) =>
+    get().socket?.emit('monster:create', { name, maxHp, creatureType }),
+  setInitiative: (tokenId, initiative) =>
+    get().socket?.emit('initiative:set', { tokenId, initiative }),
+}));
