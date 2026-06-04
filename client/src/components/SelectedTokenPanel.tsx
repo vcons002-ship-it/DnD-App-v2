@@ -10,10 +10,12 @@ type Props = { snapshot: StateSnapshot; token: Token };
 export function SelectedTokenPanel({ snapshot, token }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const resizeToken = useStore((s) => s.resizeToken);
+  const deleteToken = useStore((s) => s.deleteToken);
   const [amount, setAmount] = useState(1);
 
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
+  const isDm = snapshot.role === 'dm';
 
   return (
     <div className="panel-section">
@@ -59,6 +61,15 @@ export function SelectedTokenPanel({ snapshot, token }: Props) {
 
       <h4>Conditions</h4>
       <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />
+
+      {isDm && (
+        <button
+          className="btn red delete-token"
+          onClick={() => deleteToken(token.id)}
+        >
+          Delete token
+        </button>
+      )}
     </div>
   );
 }

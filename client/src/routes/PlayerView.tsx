@@ -3,17 +3,19 @@ import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { SidePanel } from '../components/SidePanel';
+import { useSelection } from '../lib/useSelection';
 
 export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
-  const moveToken = useStore((s) => s.moveToken);
   const claimCharacter = useStore((s) => s.claimCharacter);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { selectedIds, handleSelect, handleMove, primaryId } =
+    useSelection(snapshot);
   const [claimedId, setClaimedId] = useState<string | null>(null);
 
   const selectedToken = useMemo(
-    () => snapshot?.tokens.find((t) => t.id === selectedId) ?? null,
-    [snapshot, selectedId],
+    () => snapshot?.tokens.find((t) => t.id === primaryId) ?? null,
+    [snapshot, primaryId],
   );
 
   if (!snapshot) return <div className="loading">Loading…</div>;
@@ -27,7 +29,7 @@ export function PlayerView() {
       </header>
 
       <div className="body">
-        <aside className="left">
+        <SidePanel side="left" storageKey="player-left">
           <PlayerPanel
             snapshot={snapshot}
             claimedId={claimedId}
@@ -36,26 +38,26 @@ export function PlayerView() {
               claimCharacter(id);
             }}
           />
-        </aside>
+        </SidePanel>
 
         <main className="center">
           <MapStage
             snapshot={snapshot}
             draggableTokens
-            selectedTokenId={selectedId}
-            activeTurnTokenId={null}
-            onSelectToken={(t) => setSelectedId(t?.id ?? null)}
-            onMoveToken={moveToken}
+            selectedIds={selectedIds}
+            activeTurnTokenId={snapshot.activeTurnTokenId}
+            onSelectToken={handleSelect}
+            onMoveToken={handleMove}
           />
         </main>
 
-        <aside className="right">
+        <SidePanel side="right" storageKey="player-right">
           {selectedToken ? (
             <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
           ) : (
             <p className="muted pad">Select a token to view it.</p>
           )}
-        </aside>
+        </SidePanel>
       </div>
     </div>
   );

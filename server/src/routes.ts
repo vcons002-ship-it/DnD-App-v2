@@ -8,6 +8,7 @@ import {
   createSession,
   getSessionByCode,
   listMaps,
+  listSessions,
 } from './sessions.js';
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
@@ -40,6 +41,11 @@ export function createApiRouter(io: IOServer): Router {
       dmUrl: `${base}/dm?code=${session.code}`,
       playerUrl: `${base}/join?code=${session.code}`,
     });
+  });
+
+  // Saved-session directory for the DM resume screen.
+  router.get('/sessions', (_req, res) => {
+    res.json(listSessions());
   });
 
   // Lightweight existence check used by the join screen.

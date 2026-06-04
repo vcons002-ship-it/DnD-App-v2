@@ -91,12 +91,23 @@ export type StateSnapshot = {
   /** Map currently shown to this client (active map for players; selected map for DM). */
   map: MapState | null;
   activeMapId: string | null;
+  /** Token whose initiative turn it currently is (on the active map), or null. */
+  activeTurnTokenId: string | null;
   /** All maps in the session (DM only sees the full list). */
   maps: MapState[];
   tokens: Token[];
   characters: Character[];
   /** DM receives full Monster[]; players receive MonsterPublic[]. */
   monsters: (Monster | MonsterPublic)[];
+};
+
+/** A past session, surfaced on the DM landing page for quick resume. */
+export type SessionSummary = {
+  code: string;
+  name: string;
+  createdAt: number;
+  lastPlayedAt: number;
+  mapCount: number;
 };
 
 // ---- Socket.IO event payloads ----
@@ -110,6 +121,13 @@ export type JoinPayload = {
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
 export type TokenResizePayload = { tokenId: string; size: number };
+export type TokenDeletePayload = { tokenId: string };
+/** Copy token placements from one map to another (statuses carry via refs). */
+export type TokenCopyPayload = {
+  fromMapId: string;
+  toMapId: string;
+  kinds: TokenKind[];
+};
 export type TokenSpawnPayload = {
   mapId: string;
   kind: TokenKind;
@@ -148,12 +166,17 @@ export interface ClientToServerEvents {
   'token:move': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
+  'token:delete': (payload: TokenDeletePayload) => void;
+  'tokens:copy': (payload: TokenCopyPayload) => void;
   'damage:apply': (payload: DamagePayload) => void;
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
+  'initiative:rollAll': () => void;
+  'initiative:next': () => void;
+  'initiative:clear': () => void;
 }
 
 export type JoinAck =

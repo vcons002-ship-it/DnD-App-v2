@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { Monster, StateSnapshot, Token } from '../../../shared/types';
+import type { Monster, StateSnapshot, Token, TokenKind } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
 
@@ -22,11 +22,16 @@ export function DmPanel({
   const setActiveMap = useStore((s) => s.setActiveMap);
   const createMonster = useStore((s) => s.createMonster);
   const setInitiative = useStore((s) => s.setInitiative);
+  const rollAllInitiative = useStore((s) => s.rollAllInitiative);
+  const nextTurn = useStore((s) => s.nextTurn);
+  const clearInitiative = useStore((s) => s.clearInitiative);
+  const copyTokens = useStore((s) => s.copyTokens);
   const fileRef = useRef<HTMLInputElement>(null);
   const [mapName, setMapName] = useState('');
   const [slides, setSlides] = useState('');
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
+  const [copyFrom, setCopyFrom] = useState('');
   const [busy, setBusy] = useState(false);
 
   const upload = async (body: FormData) => {
@@ -62,6 +67,20 @@ export function DmPanel({
   };
 
   const monsters = snapshot.monsters as Monster[];
+  const viewMap = snapshot.map;
+  const otherMaps = snapshot.maps.filter((m) => m.id !== viewMap?.id);
+
+  // Tokens on the viewed map, ordered for initiative (rolled first, desc).
+  const orderedTokens = [...snapshot.tokens].sort((a, b) => {
+    if (a.initiative === null && b.initiative === null) return 0;
+    if (a.initiative === null) return 1;
+    if (b.initiative === null) return -1;
+    return b.initiative - a.initiative;
+  });
+
+  const bring = (kinds: TokenKind[]) => {
+    if (copyFrom && viewMap) copyTokens(copyFrom, viewMap.id, kinds);
+  };
 
   return (
     <div className="panel">
@@ -73,9 +92,18 @@ export function DmPanel({
               key={m.id}
               className={`map-row ${snapshot.map?.id === m.id ? 'viewing' : ''}`}
             >
-              <button className="link" onClick={() => selectMap(m.id)}>
-                {m.name}
-                {m.id === snapshot.activeMapId && <span className="badge">LIVE</span>}
+              <button className="map-thumb-btn" onClick={() => selectMap(m.id)}>
+                {m.imagePath ? (
+                  <img className="map-thumb" src={m.imagePath} alt="" />
+                ) : (
+                  <span className="map-thumb placeholder">▦</span>
+                )}
+                <span className="map-thumb-name">
+                  {m.name}
+                  {m.id === snapshot.activeMapId && (
+                    <span className="badge">LIVE</span>
+                  )}
+                </span>
               </button>
               {m.id !== snapshot.activeMapId && (
                 <button className="btn tiny" onClick={() => setActiveMap(m.id)}>
@@ -106,20 +134,58 @@ export function DmPanel({
             Add
           </button>
         </div>
+
+        {viewMap && otherMaps.length > 0 && (
+          <div className="carry-row">
+            <h4>Bring tokens to this map</h4>
+            <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
+              <option value="">From map…</option>
+              {otherMaps.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <div className="carry-btns">
+              <button
+                className="btn tiny"
+                disabled={!copyFrom}
+                onClick={() => bring(['pc'])}
+              >
+                PCs
+              </button>
+              <button
+                className="btn tiny"
+                disabled={!copyFrom}
+                onClick={() => bring(['monster'])}
+              >
+                Monsters
+              </button>
+              <button
+                className="btn tiny"
+                disabled={!copyFrom}
+                onClick={() => bring(['pc', 'monster'])}
+              >
+                All
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="panel-section">
         <h3>Spawn</h3>
         {pending && (
-          <p className="hint">Click the map to place the selected unit.</p>
+          <p className="hint">
+            Click the map to place — place several, then press Esc or click the
+            unit again to stop.
+          </p>
         )}
         <h4>Player characters</h4>
         {snapshot.characters.map((c) => (
           <button
             key={c.id}
-            className={`spawn-row ${
-              pending?.refId === c.id ? 'picked' : ''
-            }`}
+            className={`spawn-row ${pending?.refId === c.id ? 'picked' : ''}`}
             onClick={() => onPickSpawn('pc', c.id)}
           >
             {c.name} <span className="muted">{c.className}</span>
@@ -162,13 +228,29 @@ export function DmPanel({
       </div>
 
       <div className="panel-section">
-        <h3>On this map</h3>
-        {snapshot.tokens.map((t) => {
+        <div className="init-header">
+          <h3>Initiative</h3>
+          <div className="init-actions">
+            <button className="btn tiny" onClick={rollAllInitiative}>
+              Roll all
+            </button>
+            <button className="btn tiny" onClick={nextTurn}>
+              Next ▸
+            </button>
+            <button className="btn tiny" onClick={clearInitiative}>
+              Clear
+            </button>
+          </div>
+        </div>
+        {orderedTokens.map((t) => {
           const d = resolveToken(snapshot, t);
+          const isTurn = t.id === snapshot.activeTurnTokenId;
           return (
             <div
               key={t.id}
-              className={`init-row ${t.id === selectedTokenId ? 'sel' : ''}`}
+              className={`init-row ${t.id === selectedTokenId ? 'sel' : ''} ${
+                isTurn ? 'turn' : ''
+              }`}
               onClick={() => onSelectToken(t)}
             >
               <input
@@ -184,7 +266,10 @@ export function DmPanel({
                   )
                 }
               />
-              <span className="init-name">{d.name}</span>
+              <span className="init-name">
+                {isTurn && '▸ '}
+                {d.name}
+              </span>
               {d.curHp !== undefined && (
                 <span className="muted">
                   {d.curHp}/{d.maxHp}

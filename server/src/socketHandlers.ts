@@ -11,19 +11,26 @@ import {
 } from './connections.js';
 import { buildSnapshot } from './visibility.js';
 import {
+  advanceTurn,
   applyDamage,
   claimCharacter,
   clearCondition,
+  clearInitiative,
+  copyTokens,
   createMonster,
   createToken,
+  deleteToken,
   getMap,
+  getSessionById,
   getSessionByCode,
   moveToken,
   releaseClaims,
   resizeToken,
+  rollAllInitiative,
   setActiveMap,
   setCondition,
   setTokenInitiative,
+  touchSession,
 } from './sessions.js';
 import type { Condition } from '../../shared/types.js';
 
@@ -63,6 +70,7 @@ export function registerSocketHandlers(io: IOServer): void {
         viewMapId: session.activeMapId,
       });
       socket.join(roomName(session.id));
+      touchSession(session.id); // keep the resume directory fresh
 
       const snapshot = buildSnapshot(
         session.id,
@@ -122,6 +130,18 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('token:delete', ({ tokenId }) => {
+      if (!isDm()) return; // removing tokens is a DM action
+      deleteToken(tokenId);
+      afterChange();
+    });
+
+    socket.on('tokens:copy', ({ fromMapId, toMapId, kinds }) => {
+      if (!isDm() || !getMap(fromMapId) || !getMap(toMapId)) return;
+      copyTokens(fromMapId, toMapId, kinds);
+      afterChange();
+    });
+
     socket.on('damage:apply', ({ kind, refId, amount }) => {
       if (!sessionId() || !Number.isFinite(amount)) return;
       applyDamage(kind, refId, amount);
@@ -157,6 +177,29 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('initiative:set', ({ tokenId, initiative }) => {
       if (!sessionId() || !isDm()) return;
       setTokenInitiative(tokenId, initiative);
+      afterChange();
+    });
+
+    socket.on('initiative:rollAll', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const activeMapId = getSessionById(sid)?.activeMapId;
+      if (!activeMapId) return;
+      rollAllInitiative(activeMapId);
+      afterChange();
+    });
+
+    socket.on('initiative:next', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      advanceTurn(sid);
+      afterChange();
+    });
+
+    socket.on('initiative:clear', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      clearInitiative(sid);
       afterChange();
     });
 

@@ -5,9 +5,12 @@ connect through **separate links** to one shared session and see role-specific
 views over the same live map and tokens. The server runs on your PC and is
 exposed to remote players over a **Cloudflare Tunnel**.
 
-> Status: **Phase 1 MVP** — sessions, remote map upload, DM map prep/staging,
-> real-time token sync, damage, conditions with color auras, and DM-vs-player
-> visibility. See `PLAN`-style roadmap below for what's next.
+> Status: **Phase 2 complete** — on top of the Phase 1 core (sessions, remote
+> map upload, DM staging, real-time token sync, damage, conditions, DM-vs-player
+> visibility): map zoom/pan, collapsible+resizable panels, click-to-place,
+> token deletion, death markers, three concentric status rings, an initiative
+> tracker, multi-select, carry-tokens-between-maps, and a resume directory.
+> See [`ROADMAP.md`](ROADMAP.md) for what's next.
 
 ## Easiest install (one click)
 
@@ -108,7 +111,7 @@ DM map-region masking, death markers, token deletion, a persistent session
 directory, and player resource/item tracking).
 
 - **Phase 1 (done):** core loop — maps, tokens, sync, damage, conditions, views
-- **Phase 2:** canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative, multi-select, session directory
+- **Phase 2 (done):** canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative tracker, multi-select, carry-tokens, session directory
 - **Phase 3:** fog of war + DM map-region masking + save/load
 - **Phase 4:** SRD + Gemini creature lookup, multi-spawn, token icons
 - **Phase 5:** player spell-slot/resource + item tracking, Roll20 embed, dice

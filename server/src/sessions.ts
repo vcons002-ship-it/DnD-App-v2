@@ -12,6 +12,7 @@ import type {
   Condition,
   MapState,
   Monster,
+  SessionSummary,
   Token,
   TokenKind,
 } from '../../shared/types.js';
@@ -21,6 +22,7 @@ export type Session = {
   code: string;
   name: string;
   activeMapId: string | null;
+  activeTurnTokenId: string | null;
 };
 
 type SessionRow = {
@@ -28,6 +30,7 @@ type SessionRow = {
   code: string;
   name: string;
   active_map_id: string | null;
+  active_turn_token_id: string | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -35,6 +38,7 @@ const rowToSession = (r: SessionRow): Session => ({
   code: r.code,
   name: r.name,
   activeMapId: r.active_map_id,
+  activeTurnTokenId: r.active_turn_token_id,
 });
 
 // ---- Sessions ----
@@ -46,11 +50,46 @@ export function createSession(name = 'New Campaign'): Session {
   while (db.prepare('SELECT 1 FROM sessions WHERE code = ?').get(code)) {
     code = newSessionCode();
   }
+  const now = Date.now();
   db.prepare(
-    'INSERT INTO sessions (id, code, name, active_map_id, created_at) VALUES (?, ?, ?, NULL, ?)',
-  ).run(id, code, name, Date.now());
+    `INSERT INTO sessions (id, code, name, active_map_id, created_at, last_played_at)
+     VALUES (?, ?, ?, NULL, ?, ?)`,
+  ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null };
+}
+
+/** Bump a session's last-played time (used for the resume directory). */
+export function touchSession(sessionId: string): void {
+  db.prepare('UPDATE sessions SET last_played_at = ? WHERE id = ?').run(
+    Date.now(),
+    sessionId,
+  );
+}
+
+/** All saved sessions, most-recently-played first (DM resume directory). */
+export function listSessions(): SessionSummary[] {
+  const rows = db
+    .prepare(
+      `SELECT s.code, s.name, s.created_at, s.last_played_at,
+              (SELECT COUNT(*) FROM maps m WHERE m.session_id = s.id) AS map_count
+       FROM sessions s
+       ORDER BY s.last_played_at DESC, s.created_at DESC`,
+    )
+    .all() as {
+    code: string;
+    name: string;
+    created_at: number;
+    last_played_at: number;
+    map_count: number;
+  }[];
+  return rows.map((r) => ({
+    code: r.code,
+    name: r.name,
+    createdAt: r.created_at,
+    lastPlayedAt: r.last_played_at,
+    mapCount: r.map_count,
+  }));
 }
 
 export function getSessionByCode(code: string): Session | null {
@@ -205,6 +244,92 @@ export function setTokenInitiative(
     tokenId,
   );
   return getToken(tokenId);
+}
+
+export function deleteToken(tokenId: string): void {
+  db.prepare('DELETE FROM tokens WHERE id = ?').run(tokenId);
+}
+
+/**
+ * Copy token placements from one map to another. Tokens reference characters /
+ * monsters, so HP and conditions automatically carry over ("statuses carry").
+ * Skips refs already present on the target map so re-copying won't duplicate.
+ */
+export function copyTokens(
+  fromMapId: string,
+  toMapId: string,
+  kinds: TokenKind[],
+): void {
+  const existing = new Set(
+    listTokens(toMapId).map((t) => `${t.kind}:${t.refId}`),
+  );
+  const insert = db.prepare(
+    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const t of listTokens(fromMapId)) {
+    if (!kinds.includes(t.kind)) continue;
+    if (existing.has(`${t.kind}:${t.refId}`)) continue;
+    insert.run(
+      newId(),
+      toMapId,
+      t.kind,
+      t.refId,
+      t.x,
+      t.y,
+      t.size,
+      t.initiative,
+      t.isHidden ? 1 : 0,
+      Date.now(),
+    );
+  }
+}
+
+// ---- Initiative turn order (operates on the active map) ----
+
+export function setActiveTurn(sessionId: string, tokenId: string | null): void {
+  db.prepare(
+    'UPDATE sessions SET active_turn_token_id = ? WHERE id = ?',
+  ).run(tokenId, sessionId);
+}
+
+/** Roll a d20 for every token on a map and clear the active turn marker. */
+export function rollAllInitiative(mapId: string): void {
+  const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
+  for (const t of listTokens(mapId)) {
+    roll.run(Math.floor(Math.random() * 20) + 1, t.id);
+  }
+}
+
+/** Tokens with initiative on a map, ordered for turn-taking (desc, ties stable). */
+function initiativeOrder(mapId: string): Token[] {
+  return listTokens(mapId)
+    .filter((t) => t.initiative !== null)
+    .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
+}
+
+/** Advance the active-turn marker to the next token in initiative order. */
+export function advanceTurn(sessionId: string): void {
+  const session = getSessionById(sessionId);
+  if (!session?.activeMapId) return;
+  const order = initiativeOrder(session.activeMapId);
+  if (order.length === 0) {
+    setActiveTurn(sessionId, null);
+    return;
+  }
+  const idx = order.findIndex((t) => t.id === session.activeTurnTokenId);
+  const next = order[(idx + 1) % order.length];
+  setActiveTurn(sessionId, next.id);
+}
+
+export function clearInitiative(sessionId: string): void {
+  const session = getSessionById(sessionId);
+  if (session?.activeMapId) {
+    db.prepare(
+      'UPDATE tokens SET initiative = NULL WHERE map_id = ?',
+    ).run(session.activeMapId);
+  }
+  setActiveTurn(sessionId, null);
 }
 
 // ---- Characters ----

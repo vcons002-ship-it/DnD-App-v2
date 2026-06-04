@@ -6,40 +6,37 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Cross-cutting invariants (must always hold)
 
-- **Durable sessions [req].** Every session code, its game state (maps, tokens,
-  token/board positions, HP, conditions, initiative), and a created/last-played
-  **date** persist in local SQLite. Re-running `start.bat` (or restarting the
-  server) any number of times must **never** reset state — loading a session by
-  its code always restores the exact board. `data/` and `uploads/` are never
-  wiped by start/build.
-- **Session directory [req].** A locally-stored, browsable list of past session
-  codes + names + dates (DM landing page and/or a `sessions.json`/DB view) so the
-  DM can find and resume the right game.
+- ☑ **Durable sessions [req].** Every session code, its game state (maps, tokens,
+  positions, HP, conditions, initiative), and created/last-played **dates**
+  persist in local SQLite (`server/src/db.ts`). Restarting the server / re-running
+  `start.bat` never resets state; loading a code restores the exact board.
+  Schema upgrades use idempotent `ensureColumn` migrations so old saves keep
+  working. `data/` and `uploads/` are never wiped by start/build.
+- ☑ **Session directory [req].** `GET /api/sessions` lists past sessions
+  (code, name, map count, dates), surfaced on the DM landing page for one-click
+  resume.
 
-## Phase 2 — Canvas UX, DM combat tooling, persistence polish
+## Phase 2 — Canvas UX, DM combat tooling, persistence polish ✅ (done)
 
-- ☐ **Map zoom & pan [req].** Mouse-wheel / pinch zoom and click-drag (or
-  scroll) panning for large maps; keep **fit-to-window** as the default/reset
-  view. (Fit-to-window ◐ already auto-scales in `MapStage.tsx`; zoom/pan is new.)
-- ☐ **Collapsible *and* resizable side panels [req].** Drag-to-resize handles +
-  collapse toggles on the DM and player control panels.
-- ◐ **Direct click-to-place on creation [req].** Fixed: clicking **directly on
-  the map image/grid** now places a pending unit (previously only the black
-  letterbox area registered). Remaining: have creation drop straight into placing
-  mode and allow placing several in a row, instead of first picking the unit in
-  the side panel.
-- ☐ **Delete token (DM) [req].** Remove a token from the map via floating menu /
-  panel.
-- ☐ **Death marker [req].** Show a skull / death overlay on any token at 0 HP.
-- ☐ **Three concentric status rings [req].** Render buff (green), negative (red),
-  and concentration (blue) as **separate concentric rings simultaneously** rather
-  than one dominant color. Replaces `dominantAura()` in
-  `client/src/lib/conditions.ts` + the single `Circle` in `TokenShape.tsx` with
-  up to three nested rings (only the present categories shown).
-- ☐ Initiative tracker polish, highlight active token, initiative badges.
-- ☐ Multi-select tokens; map thumbnails in the switcher.
-- ☐ Carry tokens between maps with status sync (both maps retain state).
-- ☐ Session directory UI + dates (see invariants).
+- ☑ **Map zoom & pan [req].** Wheel-zoom toward the cursor + drag-to-pan in
+  `MapStage.tsx`, with a **Fit** button to reset to fit-to-window.
+- ☑ **Collapsible *and* resizable side panels [req].** `SidePanel.tsx` —
+  drag handle + collapse toggle, width/collapsed persisted to localStorage.
+- ☑ **Direct click-to-place + multi-placement [req].** Clicking anywhere on the
+  map places; placing mode stays active to drop several in a row (Esc or
+  re-clicking the unit stops).
+- ☑ **Delete token (DM) [req].** Delete button on the selected-token panel +
+  Delete/Backspace removes the whole selection.
+- ☑ **Death marker [req].** 💀 overlay + dimmed token at 0 HP.
+- ☑ **Three concentric status rings [req].** `presentAuras()` + nested rings in
+  `TokenShape.tsx`; buff/negative/concentration show together.
+- ☑ **Initiative tracker [req].** Roll-all (d20), Next (advances active turn,
+  wraps), Clear; list sorted by initiative; active turn highlighted on the token
+  (dashed ring) and in the panel.
+- ☑ **Multi-select + map thumbnails [req].** Shift/Ctrl-click multi-select with
+  group drag; image thumbnails in the map switcher.
+- ☑ **Carry tokens between maps [req].** "Bring tokens to this map" (PCs /
+  Monsters / All); source map retains its tokens; HP/conditions carry via refs.
 
 ## Phase 3 — Fog of war & map masking
 

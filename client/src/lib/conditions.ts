@@ -19,14 +19,17 @@ export const STANDARD_CONDITIONS = [
 ];
 
 /**
- * Resolve the strongest aura among a set of conditions, in priority order:
- * red (negative) > green (buff) > blue (concentration). Returns null if none.
+ * Which aura colors are present, as concentric rings (innermost first):
+ * red (negative), green (buff), blue (concentration). A buff and a negative
+ * status therefore show as two rings rather than one overriding the other.
  */
-export function dominantAura(conditions: Condition[]): AuraColor | null {
-  if (conditions.some((c) => c.aura === 'red')) return 'red';
-  if (conditions.some((c) => c.aura === 'green')) return 'green';
-  if (conditions.some((c) => c.aura === 'blue' || c.isConcentration)) return 'blue';
-  return null;
+export function presentAuras(conditions: Condition[]): AuraColor[] {
+  const auras: AuraColor[] = [];
+  if (conditions.some((c) => c.aura === 'red')) auras.push('red');
+  if (conditions.some((c) => c.aura === 'green')) auras.push('green');
+  if (conditions.some((c) => c.aura === 'blue' || c.isConcentration))
+    auras.push('blue');
+  return auras;
 }
 
 export const AURA_HEX: Record<AuraColor, string> = {

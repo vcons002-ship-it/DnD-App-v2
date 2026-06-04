@@ -1,23 +1,41 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { SidePanel } from '../components/SidePanel';
+import { useSelection } from '../lib/useSelection';
 
 export function DmView() {
   const snapshot = useStore((s) => s.snapshot);
-  const moveToken = useStore((s) => s.moveToken);
   const spawnToken = useStore((s) => s.spawnToken);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const deleteToken = useStore((s) => s.deleteToken);
+  const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
+    useSelection(snapshot);
   const [pending, setPending] = useState<{
     kind: 'pc' | 'monster';
     refId: string;
   } | null>(null);
 
   const selectedToken = useMemo(
-    () => snapshot?.tokens.find((t) => t.id === selectedId) ?? null,
-    [snapshot, selectedId],
+    () => snapshot?.tokens.find((t) => t.id === primaryId) ?? null,
+    [snapshot, primaryId],
   );
+
+  // Delete / Backspace removes the current selection (DM only).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length) {
+        selectedIds.forEach((id) => deleteToken(id));
+        setSelectedIds([]);
+      }
+      if (e.key === 'Escape') setPending(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedIds, deleteToken, setSelectedIds]);
 
   if (!snapshot) return <div className="loading">Loading…</div>;
 
@@ -43,42 +61,44 @@ export function DmView() {
       </header>
 
       <div className="body">
-        <aside className="left">
+        <SidePanel side="left" storageKey="dm-left">
           <DmPanel
             snapshot={snapshot}
             pending={pending}
-            onPickSpawn={(kind, refId) => setPending({ kind, refId })}
-            selectedTokenId={selectedId}
-            onSelectToken={(t) => setSelectedId(t.id)}
+            onPickSpawn={(kind, refId) =>
+              setPending((cur) =>
+                cur?.refId === refId ? null : { kind, refId },
+              )
+            }
+            selectedTokenId={primaryId}
+            onSelectToken={(t) => handleSelect(t, false)}
           />
-        </aside>
+        </SidePanel>
 
         <main className="center">
           <MapStage
             snapshot={snapshot}
             draggableTokens
-            selectedTokenId={selectedId}
-            activeTurnTokenId={null}
-            onSelectToken={(t) => setSelectedId(t?.id ?? null)}
-            onMoveToken={moveToken}
+            selectedIds={selectedIds}
+            activeTurnTokenId={snapshot.activeTurnTokenId}
+            onSelectToken={handleSelect}
+            onMoveToken={handleMove}
             onPlaceAt={
               pending && snapshot.map
-                ? (x, y) => {
-                    spawnToken(snapshot.map!.id, pending.kind, pending.refId, x, y);
-                    setPending(null);
-                  }
+                ? (x, y) =>
+                    spawnToken(snapshot.map!.id, pending.kind, pending.refId, x, y)
                 : undefined
             }
           />
         </main>
 
-        <aside className="right">
+        <SidePanel side="right" storageKey="dm-right">
           {selectedToken ? (
             <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
           ) : (
             <p className="muted pad">Select a token to edit it.</p>
           )}
-        </aside>
+        </SidePanel>
       </div>
     </div>
   );

@@ -34,6 +34,8 @@ type Store = {
   ) => void;
   moveToken: (tokenId: string, x: number, y: number) => void;
   resizeToken: (tokenId: string, size: number) => void;
+  deleteToken: (tokenId: string) => void;
+  copyTokens: (fromMapId: string, toMapId: string, kinds: TokenKind[]) => void;
   applyDamage: (kind: TokenKind, refId: string, amount: number) => void;
   setCondition: (
     kind: TokenKind,
@@ -44,6 +46,9 @@ type Store = {
   claimCharacter: (characterId: string) => void;
   createMonster: (name: string, maxHp: number, creatureType?: string) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
+  rollAllInitiative: () => void;
+  nextTurn: () => void;
+  clearInitiative: () => void;
 };
 
 export const useStore = create<Store>((set, get) => ({
@@ -96,6 +101,9 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:move', { tokenId, x, y }),
   resizeToken: (tokenId, size) =>
     get().socket?.emit('token:resize', { tokenId, size }),
+  deleteToken: (tokenId) => get().socket?.emit('token:delete', { tokenId }),
+  copyTokens: (fromMapId, toMapId, kinds) =>
+    get().socket?.emit('tokens:copy', { fromMapId, toMapId, kinds }),
   applyDamage: (kind, refId, amount) =>
     get().socket?.emit('damage:apply', { kind, refId, amount }),
   setCondition: (kind, refId, condition) =>
@@ -108,4 +116,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('monster:create', { name, maxHp, creatureType }),
   setInitiative: (tokenId, initiative) =>
     get().socket?.emit('initiative:set', { tokenId, initiative }),
+  rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
+  nextTurn: () => get().socket?.emit('initiative:next'),
+  clearInitiative: () => get().socket?.emit('initiative:clear'),
 }));

@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import type { SessionSummary } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { DmView } from './DmView';
+
+const fmtDate = (ms: number) =>
+  ms ? new Date(ms).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }) : '—';
 
 export function DmRoute() {
   const [params] = useSearchParams();
@@ -11,11 +19,19 @@ export function DmRoute() {
   const [code, setCode] = useState(params.get('code') ?? '');
   const [passphrase, setPassphrase] = useState('');
   const [creating, setCreating] = useState(false);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
 
   useEffect(() => {
     const c = params.get('code');
     if (c) setCode(c);
   }, [params]);
+
+  useEffect(() => {
+    fetch('/api/sessions')
+      .then((r) => r.json())
+      .then(setSessions)
+      .catch(() => setSessions([]));
+  }, []);
 
   const createSession = async () => {
     setCreating(true);
@@ -66,6 +82,26 @@ export function DmRoute() {
       </button>
 
       {error && <p className="err">{error}</p>}
+
+      {sessions.length > 0 && (
+        <div className="session-dir">
+          <div className="entry-divider">saved sessions</div>
+          {sessions.map((s) => (
+            <button
+              key={s.code}
+              className="session-row"
+              onClick={() => connect(s.code, 'dm', passphrase)}
+              title={`Created ${fmtDate(s.createdAt)}`}
+            >
+              <span className="session-code">{s.code}</span>
+              <span className="session-meta">
+                {s.mapCount} map{s.mapCount === 1 ? '' : 's'} · played{' '}
+                {fmtDate(s.lastPlayedAt)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

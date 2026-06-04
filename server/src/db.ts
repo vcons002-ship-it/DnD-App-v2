@@ -20,11 +20,13 @@ db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
-    id            TEXT PRIMARY KEY,
-    code          TEXT UNIQUE NOT NULL,
-    name          TEXT NOT NULL,
-    active_map_id TEXT,
-    created_at    INTEGER NOT NULL
+    id                  TEXT PRIMARY KEY,
+    code                TEXT UNIQUE NOT NULL,
+    name                TEXT NOT NULL,
+    active_map_id       TEXT,
+    active_turn_token_id TEXT,
+    created_at          INTEGER NOT NULL,
+    last_played_at      INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS maps (
@@ -82,6 +84,24 @@ db.exec(`
     source        TEXT NOT NULL DEFAULT 'manual'
   );
 `);
+
+// ---- Lightweight migrations for DBs created by earlier versions ----
+// (Durability requirement: existing saved games must keep working across upgrades.)
+function ensureColumn(table: string, column: string, ddl: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
+    name: string;
+  }[];
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+ensureColumn('sessions', 'active_turn_token_id', 'active_turn_token_id TEXT');
+ensureColumn(
+  'sessions',
+  'last_played_at',
+  'last_played_at INTEGER NOT NULL DEFAULT 0',
+);
 
 export const newId = (): string => randomUUID();
 
