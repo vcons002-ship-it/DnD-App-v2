@@ -2,13 +2,70 @@ import { config } from '../config.js';
 import type { CreatureAbility, CreatureTemplate } from '../../../shared/types.js';
 import { iconForCreature } from './srd.js';
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+// Models get deprecated over time, so try a list of current ones and fall
+// through on "model not found" (404). A single GEMINI_MODEL override wins.
+const CANDIDATE_MODELS = process.env.GEMINI_MODEL
+  ? [process.env.GEMINI_MODEL]
+  : [
+      'gemini-flash-latest',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-pro-latest',
+      'gemini-2.5-pro',
+    ];
+
+/** The model we last reached successfully, cached for the process. */
+let resolvedModel: string | null = null;
 
 /** Whether AI creature lookup is available (a key is configured). */
 export const geminiEnabled = (): boolean => !!config.geminiApiKey;
 
+/** Call Gemini, rotating through candidate models if one is unavailable. */
+async function callGemini(prompt: string): Promise<string | null> {
+  const models = resolvedModel ? [resolvedModel] : CANDIDATE_MODELS;
+  for (const model of models) {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
+      `?key=${config.geminiApiKey}`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (err) {
+      console.warn(`  [gemini] request error on ${model}:`, (err as Error).message);
+      return null;
+    }
+    if (res.status === 404) {
+      // Model retired/unknown — try the next candidate.
+      console.warn(`  [gemini] model ${model} unavailable, trying next…`);
+      resolvedModel = null;
+      continue;
+    }
+    if (!res.ok) {
+      console.warn(
+        `  [gemini] HTTP ${res.status} on ${model}: ${(await res.text()).slice(0, 300)}`,
+      );
+      return null;
+    }
+    resolvedModel = model; // cache the working model
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  }
+  console.warn('  [gemini] no available model found among:', CANDIDATE_MODELS.join(', '));
+  return null;
+}
+
 /**
- * Ask Gemini for a D&D 5e creature's stat block as structured JSON. Returns null
+ * Ask Gemini for a D&D 5e creature stat block as structured JSON. Returns null
  * if no key is set, the request fails, or the response can't be parsed — callers
  * fall back gracefully (the app never depends on AI being reachable).
  */
@@ -38,36 +95,9 @@ export async function lookupCreatureAI(
           }))
       : [];
 
+  const text = await callGemini(prompt);
+  if (!text) return null;
   try {
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent` +
-      `?key=${config.geminiApiKey}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json' },
-      }),
-      // Don't let a slow API stall token creation.
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!res.ok) {
-      console.warn(
-        `  [gemini] lookup "${name}" failed: HTTP ${res.status} ` +
-          `(${(await res.text()).slice(0, 300)})`,
-      );
-      return null;
-    }
-    const data = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.warn(`  [gemini] lookup "${name}": empty response`);
-      return null;
-    }
-
     const parsed = JSON.parse(text) as Record<string, unknown>;
     const creatureType = String(parsed.creatureType ?? 'unknown');
     const stats: Record<string, number> = {};
@@ -92,7 +122,7 @@ export async function lookupCreatureAI(
       source: 'gemini',
     };
   } catch (err) {
-    console.warn(`  [gemini] lookup "${name}" error:`, (err as Error).message);
-    return null; // network/parse/timeout — degrade gracefully
+    console.warn(`  [gemini] parse error for "${name}":`, (err as Error).message);
+    return null;
   }
 }
