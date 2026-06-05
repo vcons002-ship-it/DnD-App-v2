@@ -228,3 +228,41 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☐ AI-assisted spell-effect resolution and rules/item lookup from current D&D
   rules.
 - ☐ AI-generated enemy combat dialogue on hit/miss/target.
+
+## Phase 7 — UX shell & integrations (future)
+
+- ☐ **DM Data mode (second-screen dashboard) [req].** A toggle that opens a
+  full-screen, information-dense battlefield view — designed to live in a second
+  browser window / second monitor / tablet so the DM can free the map screen of
+  its sidebars. Read-mostly dashboard surfacing everything at a glance:
+  initiative order + whose turn it is, every creature/PC with HP, conditions,
+  combat role, disposition, AC, and quick stat blocks, plus quick damage/heal and
+  condition controls. Implement as a separate route (e.g. `/dm/data?code=…`) that
+  reuses the same socket store + `state:snapshot` (no new server state — it's
+  another role-shaped client), with a responsive grid/table layout instead of the
+  canvas. Add a "Open Data view" button (new tab) on the DM screen; it stays live
+  via the existing broadcast loop. Later: make panels selectable/toggleable so a
+  DM can compose their ideal layout.
+- ☐ **Top app toolbar [req].** A slim top bar across the screen consolidating
+  global actions, so they're not buried in the side panels:
+  - **Load / import session** — switch to or import another session (reuses the
+    resume directory / session-code flow from the landing page).
+  - **Settings** — opens a modal to edit the **Gemini API key** and **model**
+    (today these live in server `.env` / `config.ts`), plus other current/future
+    options (e.g. default fog, grid size, theme). Needs a small DM-only server
+    endpoint to read/update runtime config; treat the key as sensitive (never
+    sent to players, masked in the field). Build the modal so new settings can be
+    added as simple rows.
+  - **Session info** — the existing code / active-map readout (moved here).
+  - **Copy player link** — the existing button (moved here).
+  Replaces the ad-hoc header in `DmView` / `PlayerView` with one shared toolbar
+  component; role-aware (players see info + link only, not settings).
+- ☐ **Discord video integration [req].** Bring the table's Discord voice/video
+  into the app so players don't need to juggle windows. Feasibility caveat (like
+  Roll20): Discord has no general embeddable video iframe — viable paths are
+  (a) a **Discord Activity** via the Embedded App SDK (richest, requires a
+  registered Discord app + running inside Discord), or (b) a **launch / deep-link**
+  button that opens the table's voice/video channel (`discord://` / invite URL),
+  optionally remembered per session. Start with (b) — a "Join voice" button in
+  the new top toolbar with a per-session channel/invite setting — and investigate
+  (a) as the deeper integration.
