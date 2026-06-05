@@ -109,7 +109,8 @@ export function DmPanel({
       abilities: tmpl?.abilities,
       weapons: tmpl?.weapons,
       icon: tmpl?.icon,
-      source: tmpl?.source ?? 'manual',
+      // Library creatures are stored as 'manual' instances once placed.
+      source: tmpl?.source === 'library' ? 'manual' : tmpl?.source ?? 'manual',
     });
     setMonName('');
     setTmpl(null);

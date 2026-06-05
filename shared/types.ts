@@ -155,7 +155,15 @@ export type CreatureTemplate = {
   /** Tagged weapons (AI may supply these; SRD entries usually omit them). */
   weapons?: Weapon[];
   icon: string;
-  source: 'srd' | 'gemini';
+  source: 'srd' | 'gemini' | 'library';
+};
+
+/** A saved library item the DM can drop into a character's inventory. */
+export type LibraryItem = {
+  id: string;
+  name: string;
+  description: string;
+  qtyDefault: number;
 };
 
 export type MapState = {

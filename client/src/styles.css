@@ -440,3 +440,10 @@ input[type='number'] { width: 70px; }
 /* Flow the (tall) token panel into responsive columns so it fits without scroll. */
 .data-modal-body .panel-section { border-bottom: none; column-width: 300px; column-gap: 18px; }
 .data-modal-body .panel-section > * { break-inside: avoid; }
+
+/* Library save dialog */
+.btn.save-library { width: 100%; margin-top: 6px; }
+.lib-conflict { margin-top: 4px; }
+.lib-compare { display: flex; gap: 12px; }
+.lib-compare > div { flex: 1; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.lib-compare h4 { margin: 0 0 4px; }

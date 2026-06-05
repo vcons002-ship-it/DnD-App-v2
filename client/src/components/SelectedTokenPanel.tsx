@@ -5,6 +5,7 @@ import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
+import { LibrarySaveDialog } from './LibrarySaveDialog';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -29,6 +30,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const [amount, setAmount] = useState(1);
   const [emoji, setEmoji] = useState('');
   const [iconBusy, setIconBusy] = useState(false);
+  const [savingMonster, setSavingMonster] = useState<Monster | null>(null);
 
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
@@ -168,6 +170,16 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         />
       )}
 
+      {isDm && monster && (
+        <button
+          className="btn tiny save-library"
+          onClick={() => setSavingMonster(monster)}
+          title="Save this creature to the cross-session library"
+        >
+          💾 Save to library
+        </button>
+      )}
+
       {character && (
         <CharacterSheet character={character} editable={canEditCharacter} />
       )}
@@ -263,6 +275,13 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
             Delete token
           </button>
         </div>
+      )}
+
+      {savingMonster && (
+        <LibrarySaveDialog
+          monster={savingMonster}
+          onClose={() => setSavingMonster(null)}
+        />
       )}
     </div>
   );

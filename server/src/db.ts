@@ -93,6 +93,35 @@ db.exec(`
     is_template   INTEGER NOT NULL DEFAULT 0,
     template_id   TEXT
   );
+
+  -- Cross-session library: homebrew/AI creatures + items saved by the DM, kept
+  -- app-wide (no session_id) so they're reusable across campaigns.
+  CREATE TABLE IF NOT EXISTS library_creatures (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    creature_type TEXT NOT NULL DEFAULT '',
+    level         REAL NOT NULL DEFAULT 0,
+    max_hp        INTEGER NOT NULL DEFAULT 1,
+    armor_class   INTEGER NOT NULL DEFAULT 0,
+    speed         TEXT NOT NULL DEFAULT '',
+    stats         TEXT NOT NULL DEFAULT '{}',
+    resistances   TEXT NOT NULL DEFAULT '[]',
+    weaknesses    TEXT NOT NULL DEFAULT '[]',
+    weapons       TEXT NOT NULL DEFAULT '[]',
+    actions       TEXT NOT NULL DEFAULT '[]',
+    abilities     TEXT NOT NULL DEFAULT '[]',
+    icon          TEXT NOT NULL DEFAULT '',
+    created_at    INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS library_items (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    qty_default INTEGER NOT NULL DEFAULT 1,
+    data        TEXT NOT NULL DEFAULT '{}',
+    created_at  INTEGER NOT NULL
+  );
 `);
 
 // ---- Lightweight migrations for DBs created by earlier versions ----
