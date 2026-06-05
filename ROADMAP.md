@@ -270,13 +270,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   upcast by the chosen slot level, cantrips scaled by caster level
   (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
   owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
-- ☑ **Weapon masteries (2024), tag-driven [req].** The 8 mastery properties (plus
-  **Great Weapon Master** — the 2024 feat, same format) in
-  `server/src/masteries/srd.ts` are searchable in the Spells & Abilities menu and
-  added as `type:'mastery'` sheet entries (shown by their real name). **Weapons
-  carry `tags`** (a type + props, e.g. `["halberd","heavy"]`, edited in `StatBlock`);
-  a mastery declares `appliesToTags`, and an **active** mastery in the abilities list
-  triggers on any attack with a weapon whose tags overlap — no per-weapon binding.
+- ☑ **Weapon masteries (2024), tag-driven [req].** Modeled per the books: you gain
+  mastery in specific weapons, so entries are named **"<Weapon> Mastery"**
+  (e.g. "Longbow Mastery") and carry that weapon's mechanic as `weaponLabel`
+  (e.g. "Slow"). `server/src/masteries/srd.ts` maps every 2024 weapon → its mastery
+  property (plus **Great Weapon Master**, a feat, same format); searchable by weapon
+  OR mechanic. **Weapons carry `tags`** (a type + props, e.g. `["halberd","heavy"]`,
+  edited in `StatBlock`); a mastery declares `appliesToTags`, and an **active**
+  mastery in the abilities list triggers on any attack with a weapon whose tags
+  overlap — no per-weapon binding.
   `resolveAttack` then adjusts the attack server-side: **Graze** (ability-mod damage
   on a miss), **Cleave** (weapon damage minus the ability modifier to the target,
   then one-shot toggles off), **Great Weapon Master** (proficiency-bonus damage on a

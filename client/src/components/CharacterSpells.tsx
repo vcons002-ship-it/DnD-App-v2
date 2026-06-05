@@ -255,7 +255,7 @@ export function CharacterSpells({
             <div className="spell-add">
               <input
                 autoFocus
-                placeholder="Search e.g. Fireball, Graze, Second Wind…"
+                placeholder="Search e.g. Fireball, Longbow Mastery, Second Wind…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
