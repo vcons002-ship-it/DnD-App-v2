@@ -14,6 +14,7 @@ import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
 import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
+import { publicSettings, updateSettings } from './settings.js';
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, config.uploadsDir),
@@ -48,6 +49,29 @@ export function createApiRouter(io: IOServer): Router {
   // Saved-session directory for the DM resume screen.
   router.get('/sessions', (_req, res) => {
     res.json(listSessions());
+  });
+
+  // ---- DM-editable runtime settings (API key / model) ----
+  // The raw key is never returned — only whether one is set.
+  router.get('/settings', (_req, res) => {
+    res.json(publicSettings());
+  });
+
+  router.post('/settings', (req, res) => {
+    // Gate behind the DM passphrase when one is configured (matches the DM join
+    // gate); otherwise this is a local-trust action like the rest of the app.
+    if (
+      config.dmPassphrase &&
+      req.body?.dmPassphrase !== config.dmPassphrase
+    ) {
+      return res.status(403).json({ error: 'Incorrect DM passphrase' });
+    }
+    const patch: { geminiApiKey?: string; geminiModel?: string } = {};
+    if (typeof req.body?.geminiApiKey === 'string')
+      patch.geminiApiKey = req.body.geminiApiKey;
+    if (typeof req.body?.geminiModel === 'string')
+      patch.geminiModel = req.body.geminiModel;
+    res.json(updateSettings(patch));
   });
 
   // SRD creature search (offline) for the monster autofill box.

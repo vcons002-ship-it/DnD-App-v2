@@ -7,6 +7,7 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
+import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
 
 export function DmView() {
@@ -42,26 +43,9 @@ export function DmView() {
 
   if (!snapshot) return <div className="loading">Loading…</div>;
 
-  const playerLink = `${location.origin}/join?code=${snapshot.sessionCode}`;
-
   return (
     <div className="layout">
-      <header className="topbar">
-        <strong>DM</strong>
-        <span className="code">Code: {snapshot.sessionCode}</span>
-        <span className="active-map">
-          Active: {snapshot.maps.find((m) => m.id === snapshot.activeMapId)?.name ?? '—'}
-          {snapshot.map && snapshot.map.id !== snapshot.activeMapId && (
-            <em> · prepping: {snapshot.map.name}</em>
-          )}
-        </span>
-        <button
-          className="btn tiny"
-          onClick={() => navigator.clipboard?.writeText(playerLink)}
-        >
-          Copy player link
-        </button>
-      </header>
+      <TopToolbar snapshot={snapshot} />
 
       <div className="body">
         <SidePanel side="left" storageKey="dm-left">

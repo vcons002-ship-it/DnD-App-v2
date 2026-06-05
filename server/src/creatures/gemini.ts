@@ -7,19 +7,22 @@ import type {
 import { iconForCreature } from './srd.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
-// through on "model not found" (404). A single GEMINI_MODEL override wins.
-const CANDIDATE_MODELS = process.env.GEMINI_MODEL
-  ? [process.env.GEMINI_MODEL]
-  : [
-      'gemini-flash-latest',
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-pro-latest',
-      'gemini-2.5-pro',
-    ];
+// through on "model not found" (404). A configured model override wins.
+const FALLBACK_MODELS = [
+  'gemini-flash-latest',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-pro-latest',
+  'gemini-2.5-pro',
+];
 
 /** The model we last reached successfully, cached for the process. */
 let resolvedModel: string | null = null;
+
+/** Reset the cached model (call when the configured model changes). */
+export const clearResolvedModel = (): void => {
+  resolvedModel = null;
+};
 
 /** Whether AI creature lookup is available (a key is configured). */
 export const geminiEnabled = (): boolean => !!config.geminiApiKey;
@@ -105,10 +108,13 @@ async function callGemini(prompt: string): Promise<string | null> {
   let models: string[];
   if (resolvedModel) {
     models = [resolvedModel];
+  } else if (config.geminiModel) {
+    // An explicit override wins — don't auto-discover around it.
+    models = [config.geminiModel];
   } else {
     const discovered = await discoverModel();
     // Try the discovered model first, then the static candidates as a backup.
-    models = (discovered ? [discovered, ...CANDIDATE_MODELS] : CANDIDATE_MODELS).filter(
+    models = (discovered ? [discovered, ...FALLBACK_MODELS] : FALLBACK_MODELS).filter(
       (m, i, a) => a.indexOf(m) === i,
     );
   }

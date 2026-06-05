@@ -3,10 +3,13 @@ import fs from 'node:fs';
 import express from 'express';
 import { Server } from 'socket.io';
 import { config } from './config.js';
+import { loadSettings } from './settings.js';
 import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
 import { startTunnel, publicUrl } from './tunnel.js';
 import type { IOServer } from './connections.js';
+
+loadSettings(); // apply any DM-saved API key / model overrides on top of env
 
 const app = express();
 app.set('trust proxy', true); // we sit behind the Cloudflare Tunnel

@@ -7,6 +7,7 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
+import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
 
 export function PlayerView() {
@@ -41,11 +42,7 @@ export function PlayerView() {
 
   return (
     <div className="layout">
-      <header className="topbar">
-        <strong>Player</strong>
-        <span className="code">Code: {snapshot.sessionCode}</span>
-        <span className="active-map">Map: {snapshot.map?.name ?? '—'}</span>
-      </header>
+      <TopToolbar snapshot={snapshot} />
 
       <div className="body">
         <SidePanel side="left" storageKey="player-left">

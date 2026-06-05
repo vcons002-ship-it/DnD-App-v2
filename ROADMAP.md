@@ -243,20 +243,19 @@ Smaller refinements on top of the shipped Phase 2 work.
   canvas. Add a "Open Data view" button (new tab) on the DM screen; it stays live
   via the existing broadcast loop. Later: make panels selectable/toggleable so a
   DM can compose their ideal layout.
-- ☐ **Top app toolbar [req].** A slim top bar across the screen consolidating
-  global actions, so they're not buried in the side panels:
-  - **Load / import session** — switch to or import another session (reuses the
-    resume directory / session-code flow from the landing page).
-  - **Settings** — opens a modal to edit the **Gemini API key** and **model**
-    (today these live in server `.env` / `config.ts`), plus other current/future
-    options (e.g. default fog, grid size, theme). Needs a small DM-only server
-    endpoint to read/update runtime config; treat the key as sensitive (never
-    sent to players, masked in the field). Build the modal so new settings can be
-    added as simple rows.
-  - **Session info** — the existing code / active-map readout (moved here).
-  - **Copy player link** — the existing button (moved here).
-  Replaces the ad-hoc header in `DmView` / `PlayerView` with one shared toolbar
-  component; role-aware (players see info + link only, not settings).
+- ☑ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
+  `DmView` / `PlayerView`, role-aware:
+  - **Load session** (DM) / **Leave** (player) — disconnects and returns to the
+    landing/resume screen.
+  - **Settings** (DM) — `SettingsModal` edits the **Gemini API key** (masked,
+    write-only — blank keeps the current one) and **model** (auto-detect when
+    blank), via `GET/POST /api/settings` (`settings.ts`). The raw key is never
+    returned to clients; saves persist to `data/settings.json`, apply on top of
+    env at boot, and reset the Gemini model cache. Gated by the DM passphrase
+    when one is configured. Built so new settings are simple rows.
+  - **Session info** and **Copy player link** (DM) moved here.
+  *(Future settings to add as rows: default fog, grid size, theme, Discord
+  channel for the integration below.)*
 - ☐ **Discord video integration [req].** Bring the table's Discord voice/video
   into the app so players don't need to juggle windows. Feasibility caveat (like
   Roll20): Discord has no general embeddable video iframe — viable paths are

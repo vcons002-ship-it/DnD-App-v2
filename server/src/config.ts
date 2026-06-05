@@ -20,10 +20,14 @@ export const config = {
   cfTunnelName: process.env.CF_TUNNEL_NAME || '',
   dmPassphrase: process.env.DM_PASSPHRASE || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
+  /** Explicit Gemini model override; blank = auto-discover a fast model. */
+  geminiModel: process.env.GEMINI_MODEL || '',
   /** Absolute paths to local storage (created on boot). */
   dataDir: path.join(serverRoot, 'data'),
   uploadsDir: path.join(serverRoot, 'uploads'),
   dbPath: path.join(serverRoot, 'data', 'game.db'),
+  /** Runtime settings overrides (API key / model) editable from the UI. */
+  settingsPath: path.join(serverRoot, 'data', 'settings.json'),
   /** Where the built client lives (served in production). */
   clientDist: path.resolve(serverRoot, '..', 'client', 'dist'),
 };
