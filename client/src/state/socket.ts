@@ -27,6 +27,9 @@ type Store = {
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
   toast: { id: number; message: string } | null;
   dismissToast: () => void;
+  /** True while an AI request (stat-fill / creature lookup) is in flight. */
+  aiBusy: boolean;
+  setAiBusy: (busy: boolean) => void;
 
   connect: (code: string, role: Role, dmPassphrase?: string) => void;
   disconnect: () => void;
@@ -90,6 +93,8 @@ export const useStore = create<Store>((set, get) => ({
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
+  aiBusy: false,
+  setAiBusy: (aiBusy) => set({ aiBusy }),
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
@@ -100,7 +105,8 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('state:snapshot', (snapshot) => set({ snapshot }));
     socket.on('error', (err) => set({ error: err.message }));
     socket.on('notice', ({ message }) =>
-      set({ toast: { id: Date.now(), message } }),
+      // A notice is the completion signal for AI requests too — clear the spinner.
+      set({ toast: { id: Date.now(), message }, aiBusy: false }),
     );
 
     socket.on('connect', () => {
@@ -171,8 +177,10 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('tokens:clearConditions', { tokenIds }),
   createMonster: (input) => get().socket?.emit('monster:create', input),
   updateMonster: (payload) => get().socket?.emit('monster:update', payload),
-  aiFillCreature: (monsterId) =>
-    get().socket?.emit('ai:fillCreature', { monsterId }),
+  aiFillCreature: (monsterId) => {
+    set({ aiBusy: true });
+    get().socket?.emit('ai:fillCreature', { monsterId });
+  },
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),
   setTokensIcon: (tokenIds, icon) =>

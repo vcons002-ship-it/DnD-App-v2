@@ -6,6 +6,7 @@ import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
+import { AiStatus } from '../components/AiStatus';
 import { useSelection } from '../lib/useSelection';
 
 export function DmView() {
@@ -112,6 +113,7 @@ export function DmView() {
           )}
         </SidePanel>
       </div>
+      <AiStatus />
       <Toast />
     </div>
   );

@@ -35,6 +35,7 @@ export function DmPanel({
   const deleteMap = useStore((s) => s.deleteMap);
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
+  const setGlobalAiBusy = useStore((s) => s.setAiBusy);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
@@ -78,6 +79,7 @@ export function DmPanel({
   const aiFill = async () => {
     if (!monName.trim()) return;
     setAiBusy(true);
+    setGlobalAiBusy(true); // show the shared "AI is working…" banner
     try {
       const res = await fetch('/api/creatures/lookup', {
         method: 'POST',
@@ -87,6 +89,7 @@ export function DmPanel({
       if (res.ok) applyTemplate(await res.json());
     } finally {
       setAiBusy(false);
+      setGlobalAiBusy(false);
     }
   };
 
