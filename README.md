@@ -1,16 +1,20 @@
 # DnD App v2
 
-A locally-hosted, real-time **virtual tabletop** for D&D. The DM and players
+A locally-hosted, real-time **virtual tabletop** for D&D 5e. The DM and players
 connect through **separate links** to one shared session and see role-specific
-views over the same live map and tokens. The server runs on your PC and is
-exposed to remote players over a **Cloudflare Tunnel**.
+views over the same live map, tokens, and combat state. The server runs on your
+PC and is exposed to remote players over a **Cloudflare Tunnel** (or any tunnel,
+via `PUBLIC_URL`).
 
-> Status: **Phase 4 complete.** On top of the core VTT (sessions, remote map
-> upload, DM staging, real-time sync, damage, conditions, DM-vs-player
-> visibility): zoom/pan, resizable panels, initiative tracker, multi-select,
-> carry-tokens, a resume directory, fog of war (map + token-only modes),
-> per-token hide, SRD creature search with Gemini fallback, multi-spawn with
-> sequential names, duplicate-token, and token icons. See [`ROADMAP.md`](ROADMAP.md).
+> **Status:** core VTT plus combat tooling, characters, creatures, and a DM
+> second screen are all shipped. Done: durable sessions & resume directory,
+> canvas zoom/pan + resizable panels, fog of war (map + token-only modes),
+> initiative tracker, **automated weapon attacks & saving throws**, a **dice
+> roller with a shared, color-coded roll log**, full **character sheets**
+> (skills, class resources, inventory, import/export), **SRD + AI (Gemini)
+> creature creation**, a **cross-session creature/item library**, and a
+> standalone **DM Data dashboard**. Up next is deeper AI assistance (spell
+> resolution, rules lookup, enemy dialogue). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Easiest install (one click)
 
@@ -32,23 +36,59 @@ bash install.sh
 
 Prefer to do it by hand? Follow **Setup** and **Run** below.
 
+## Features
+
+**Maps & fog**
+- Upload any image as a map; DM stages tokens, grid, and fog without players seeing it, then **Make active** to reveal.
+- Fog of war per map: `off` / `map` / `tokens-only` modes, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
+- Zoom toward the cursor, drag-to-pan, **Fit** to reset; resizable/collapsible side panels (persisted).
+
+**Tokens**
+- Click-to-place (stays active for dropping several), multi-select with group drag, duplicate, delete, per-token hide-from-players.
+- Three concentric **status rings** (buff / negative / concentration), 💀 death marker at 0 HP, combat-role badge (⚔️ / 🏹 / ✨), initiative-order badge, hover card, and a right-click / long-press floating action menu.
+- Players can place and move their own claimed token; resizing is DM-only.
+
+**Combat**
+- **Initiative tracker:** roll-all (d20), roll-missing, Next (wraps), Clear; active turn highlighted on the board and in the panel.
+- **Automated weapon attacks** and **saving throws** resolve hit/miss and damage from stat blocks (`shared/combatMath.ts`).
+- **Dice roller** with a **shared roll log** visible to everyone — quick dice, custom expressions (`2d6+3`), advantage/disadvantage, a **Clear** button, and color-coding by roller and by roll type (attacks / saves / plain rolls).
+- Buff/nerf buttons with custom text drive the green/red status rings.
+
+**Characters**
+- Players claim a character, then view and edit their own sheet and see the party / friendly sheets.
+- 18 skills with proficiency + computed bonuses, class-specific limited-use resources (`server/data/classTables.ts`), and item/inventory tracking.
+- Robust **import/export** of a character sheet (`shared/sheetIO.ts`), with overwrite preview/confirm.
+
+**Creatures & art**
+- Offline **SRD** creature search (curated subset) with a **Gemini** AI fallback for anything else, plus AI back-fill of missing stat-block fields and AI character creation from a description.
+- Full editable stat blocks (AC, speed, abilities, weapons, actions), reusable one-click spawn templates, multi-spawn with sequential names, disposition (full / neutral / public) controlling what players see.
+- Auto emoji icons by name/type + custom icon upload with bulk apply.
+- **Cross-session library** of custom/AI creatures and items for reuse across games.
+
+**DM second screen & shell**
+- `/dm/data` — a standalone **DM Data dashboard** (compact stat cards, large expand overlay, status popovers) for a second monitor.
+- Shared top toolbar, copy-player-link with the join code baked in, optional DM passphrase gate, editable map & session names, and a persistent resume directory.
+
 ## Stack
 
-- **Client:** React + TypeScript + Vite, Konva (`react-konva`) for the map canvas
-- **Server:** Node.js + Express + Socket.IO, SQLite (`better-sqlite3`)
-- **Remote access:** `cloudflared` (Cloudflare Tunnel), tunnel-agnostic via `PUBLIC_URL`
+- **Client:** React + TypeScript + Vite, Konva (`react-konva`) for the map canvas, Zustand for state, Socket.IO client.
+- **Server:** Node.js + Express + Socket.IO, SQLite (`better-sqlite3`).
+- **Shared:** pure, unit-tested game logic in `shared/` (dice, combat math, skills, sheet import/export) used by both sides.
+- **Remote access:** `cloudflared` (Cloudflare Tunnel), tunnel-agnostic via `PUBLIC_URL`.
+- **AI:** Google Gemini (Generative Language API) for creature/character generation — entirely optional.
 
 ## Requirements
 
 - Node.js 20+ (developed on 22)
 - [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
   for remote access (optional — the app still runs locally without it)
+- A Gemini API key (optional — only for AI creature/character generation; SRD search and everything else work without it)
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # adjust PORT / PUBLIC_URL / DM_PASSPHRASE if you like
+cp .env.example .env   # adjust PORT / PUBLIC_URL / DM_PASSPHRASE / GEMINI_API_KEY if you like
 ```
 
 ## Run
@@ -75,20 +115,32 @@ Players: https://<random>.trycloudflare.com/join
 
 Open the **DM** link, click **Create new session**, then share the **player
 link** (the DM console has a "Copy player link" button with the join code baked
-in). Players open it, enter the code, and claim a character.
+in). Players open it, enter the code, and claim a character. The DM can also open
+**`/dm/data`** on a second screen for the at-a-glance combat dashboard.
+
+Other useful scripts:
+
+```bash
+npm run typecheck   # type-check server + client
+npm test            # run the server/shared unit tests (vitest)
+```
 
 ## How it works
 
 - **Server-authoritative:** all game state lives in SQLite on your PC. Clients
-  send intents (move token, apply damage…); the server validates by role,
+  send intents (move token, apply damage, attack…); the server validates by role,
   persists, and broadcasts **role-shaped** snapshots. Players never receive
   hidden monsters or full monster stats — that filtering happens server-side
   (`server/src/visibility.ts`).
 - **Map prep / staging:** the DM can upload and fully arrange any map (tokens,
-  grid) without affecting players. Players only ever see the **active** map, and
-  it only changes when the DM clicks **Make active**.
-- **Remote upload:** the DM uploads maps through the browser; files are stored
-  on the server's PC (`server/uploads/`). No filesystem access needed for anyone.
+  grid, fog) without affecting players. Players only ever see the **active** map,
+  and it only changes when the DM clicks **Make active**.
+- **Remote upload:** the DM uploads maps and icons through the browser; files are
+  stored on the server's PC (`server/uploads/`). No filesystem access needed for
+  anyone.
+- **Durable by default:** sessions, maps, tokens, HP, conditions, initiative, fog,
+  and the roll log persist across restarts. Schema changes use idempotent
+  migrations so old saves keep working.
 
 Local data (`server/data/`, `server/uploads/`) and `.env` are git-ignored.
 
@@ -100,19 +152,18 @@ Local data (`server/data/`, `server/uploads/`) and `.env` are git-ignored.
 | `PUBLIC_URL` | Override the public base URL (named tunnel / other provider) |
 | `CF_TUNNEL_NAME` | Use a pre-created Cloudflare named tunnel for a stable URL |
 | `DM_PASSPHRASE` | Optional gate on the DM view |
-| `GEMINI_API_KEY` | For AI creature creation (Phase 4) |
+| `GEMINI_API_KEY` | Optional — enables AI creature/character generation |
+| `GEMINI_MODEL` | Optional — pin a Gemini model (blank auto-picks a current one) |
 
 ## Roadmap
 
-See **[`ROADMAP.md`](ROADMAP.md)** for the detailed backlog (including requested
-refinements like map zoom/pan, resizable panels, three concentric status rings,
-multi-monster spawning with sequential names + per-token HP, token icons,
-DM map-region masking, death markers, token deletion, a persistent session
-directory, and player resource/item tracking).
+See **[`ROADMAP.md`](ROADMAP.md)** for the detailed, authoritative backlog and the
+per-feature status. High-level status:
 
-- **Phase 1 (done):** core loop — maps, tokens, sync, damage, conditions, views
-- **Phase 2 (done):** canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative tracker, multi-select, carry-tokens, session directory
-- **Phase 3 (done):** fog of war (map + token-only modes, reveal/hide brush with 1×/3×/5× sizes, cover-all), per-token hide-from-players, DM "curtain" via cover+reveal, DM-only token resize, initiative-order badges
-- **Phase 4 (done):** SRD creature search + Gemini fallback, multi-spawn with sequential names, duplicate-token (right-click/long-press), auto emoji icons + custom icon upload
-- **Phase 5:** player spell-slot/resource + item tracking, Roll20 embed, dice
-- **Phase 6 (future):** AI spell resolution, rules lookup, enemy dialogue
+- **Phase 1–2 (done):** core loop — maps, tokens, sync, damage, conditions, views; canvas zoom/pan, resizable panels, click-to-place, delete token, death markers, 3 status rings, initiative tracker, multi-select, carry-tokens, session directory.
+- **Phase 3 (done):** fog of war (map + token-only modes, reveal/hide brush, cover-all curtain), per-token hide-from-players, DM-only token resize, initiative-order badges.
+- **Phase 4 (done):** SRD creature search + Gemini fallback, full stat blocks, reusable spawn templates, multi-spawn with sequential names, duplicate-token, auto + custom token icons.
+- **Phase 5 / 5a (done):** character sheets with skills, disposition, editable NPC stats, AI back-fill; class resources, inventory, sheet import/export; cross-session creature/item library; Roll20 embed; dice roller + shared roll log; automated weapon attacks & saving throws.
+- **Phase 7 (done):** DM Data second-screen dashboard and shared top toolbar.
+- **Phase 6 (future):** AI-assisted spell-effect resolution, rules/item lookup, and AI-generated enemy combat dialogue.
+- **Phase 7 (future):** Discord voice/video integration.
