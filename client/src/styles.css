@@ -315,3 +315,8 @@ input[type='number'] { width: 70px; }
 .sb-entry-edit { display: flex; gap: 4px; align-items: flex-start; margin: 4px 0; }
 .sb-entry-edit textarea { flex: 1; min-height: 38px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px; font: inherit; resize: vertical; }
 .sb-edit-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+/* Floating menu: quick damage/heal + HP label */
+.floating-menu-title .fm-hp { float: right; color: var(--muted); font-weight: 600; }
+.fm-dmg { display: flex; gap: 4px; align-items: center; padding: 4px; }
+.fm-dmg input { width: 52px; margin: 0; }
