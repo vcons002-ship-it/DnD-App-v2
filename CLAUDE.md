@@ -29,6 +29,13 @@ Always run `npm run typecheck` and `npm run test` before committing. Manual UX
 is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
 `claude/Main`.
 
+**PR convention:** when opening a PR, also add a `test-pr-<N>.bat` launcher to
+**`claude/Main`** (a thin wrapper over `tools/pr-test-runner.bat` that sets
+`PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`). The runner checks the PR branch out into an
+isolated sibling folder (`%USERPROFILE%\DnD-App-v2-pr-<N>`) on port `4100+N`
+with its own data, so users can test a PR without touching their main install
+(`start.bat` keeps running `claude/Main`). Drop the launcher when the PR merges.
+
 ## Stack
 
 - **Client:** React + TypeScript + Vite, **Konva** (`react-konva`) for the map
