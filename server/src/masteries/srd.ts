@@ -1,13 +1,13 @@
 import type { SheetAbility } from '../../../shared/types.js';
 
 /**
- * The eight 2024 weapon-mastery properties (plus the Great Weapon Master feat,
- * offered in the same toggleable format) as addable sheet entries. They live in
- * the character sheet's Spells & Abilities section and are searched alongside
- * spells. Effects that adjust an attack's damage are automated — Graze
+ * The eight 2024 weapon-mastery properties (plus Hew — the Great Weapon Master
+ * feat, offered in the same toggleable format) as addable sheet entries. They
+ * live in the character sheet's Spells & Abilities section and are searched
+ * alongside spells. Effects that adjust an attack's damage are automated — Graze
  * (ability-mod damage on a miss), Cleave (rolls the second-creature damage), and
- * a generic on-hit damage bonus (Great Weapon Master's +10). The rest are
- * descriptive and resolved manually (conditions, movement, effects on later rolls).
+ * Hew (proficiency-bonus damage on a hit). The rest are descriptive and resolved
+ * manually (conditions, movement, extra attacks, effects on later rolls).
  */
 export type MasteryEntry = Omit<SheetAbility, 'id' | 'source'>;
 
@@ -77,14 +77,14 @@ const MASTERIES: MasteryEntry[] = [
     mastery: { weapon: '', active: false },
   },
   {
-    // Not a mastery property — the Great Weapon Master feat's power-attack damage,
-    // offered in the same toggleable format (weapon binding + on/off + effect).
-    name: 'Great Weapon Master',
+    // The 2024 Great Weapon Master feat, offered in the same toggleable mastery
+    // format. The proficiency-bonus damage is automated; the bonus attack is manual.
+    name: 'Hew',
     type: 'mastery',
-    meta: 'Feat · Heavy melee weapons',
+    meta: 'Heavy melee weapons',
     description:
-      'While toggled on, your hits with the bound Heavy weapon deal +10 damage (the Great Weapon Master power attack). Toggle off to attack normally. The classic −5 to-hit tradeoff is not applied automatically.',
-    mastery: { weapon: '', active: false, effect: { bonusDamage: '10' } },
+      'Great Weapon Master. Damage: when you hit a creature with a Heavy melee weapon as part of the Attack action on your turn, you can deal extra damage to the target equal to your proficiency bonus (once per turn). While toggled on, that proficiency-bonus damage is added to your hits with the bound weapon. Extra attack: immediately after you score a Critical Hit, or reduce a creature to 0 HP, with a Heavy melee weapon, you can make one attack with it as a Bonus Action (resolve that attack manually).',
+    mastery: { weapon: '', active: true, effect: { profBonusDamage: true } },
   },
 ];
 

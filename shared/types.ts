@@ -35,8 +35,14 @@ export type Weapon = {
   name: string;
   /** Melee or ranged — drives combat-role detection. */
   kind: 'melee' | 'ranged';
-  /** Damage dice expression, e.g. "1d8+3". */
+  /** Base damage dice + ability modifier, e.g. "1d8+3". */
   damage?: string;
+  /**
+   * Magic damage bonus (e.g. 1 for a +1 weapon), kept SEPARATE from `damage` so
+   * it survives effects that strip the ability modifier (e.g. a mastery's Cleave
+   * rolls the weapon dice + magic, without the ability mod). Added to every hit.
+   */
+  magicBonus?: number;
   /** To-hit bonus, e.g. 5 for "+5". */
   attackBonus?: number;
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
@@ -149,12 +155,14 @@ export type WeaponMastery = {
   effect?: {
     /** Extra damage added to the target on a HIT, e.g. "1d4" or a flat "10". */
     bonusDamage?: string;
+    /** On a HIT, add the attacker's proficiency bonus to the damage (2024 Hew). */
+    profBonusDamage?: boolean;
     /** On a MISS, deal damage equal to the attacker's ability modifier (Graze). */
     grazeOnMiss?: boolean;
     /**
-     * On a HIT, roll the weapon's damage DICE only (no ability modifier) as the
-     * Cleave hit against a second creature — rolled and logged for the DM to
-     * apply manually, not applied to the primary target.
+     * On a HIT, roll the weapon's damage DICE (+ magic bonus, no ability modifier)
+     * as the Cleave hit against a second creature — rolled and logged for the DM
+     * to apply manually, not applied to the primary target.
      */
     cleave?: boolean;
   };

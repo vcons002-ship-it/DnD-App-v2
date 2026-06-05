@@ -32,6 +32,7 @@ function masteryFight(opts: {
   mastery: SheetAbility['mastery'];
   str?: number;
   damage?: string;
+  magicBonus?: number;
 }) {
   const { s, map } = arena();
   const ch = createCharacter(s.id, {
@@ -39,7 +40,13 @@ function masteryFight(opts: {
     className: 'Fighter',
     level: 1,
     stats: { STR: opts.str ?? 16 },
-    weapons: [{ name: opts.weapon, kind: 'melee', damage: opts.damage ?? '2d6', attackBonus: opts.attackBonus }],
+    weapons: [{
+      name: opts.weapon,
+      kind: 'melee',
+      damage: opts.damage ?? '2d6',
+      attackBonus: opts.attackBonus,
+      magicBonus: opts.magicBonus,
+    }],
   });
   setSheetAbility(ch.id, {
     id: 'm1',
@@ -177,14 +184,15 @@ describe('weapon masteries', () => {
     expect(listRollLog(s).every((e) => !e.detail.includes('graze'))).toBe(true);
   });
 
-  it('Cleave rolls 2nd-creature damage on a hit but does not apply it to the target', () => {
-    // "2d1" is a constant 2, so a clean (non-crit) hit deals exactly 2 to the
-    // primary target; Cleave's 2 must be logged but NOT added on top.
+  it('Cleave rolls 2nd-creature damage (dice + magic, no ability mod) without applying it', () => {
+    // "2d1" is a constant 2; +1 magic. A clean (non-crit) hit deals 2+1=3 to the
+    // primary target, and Cleave logs 2(dice)+1(magic)=3 for the 2nd creature.
     const { s, atk, tgt } = masteryFight({
       weapon: 'Greatsword',
       attackBonus: 50,
       targetAc: 1,
       damage: '2d1',
+      magicBonus: 1,
       mastery: { weapon: 'Greatsword', active: true, effect: { cleave: true } },
     });
     const ref = getToken(tgt)!.refId;
@@ -195,8 +203,33 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
-        expect(last.detail).toContain('to a 2nd creature [2d1, no mod]');
-        expect(before - getMonster(ref)!.curHp).toBe(2); // cleave not double-applied
+        expect(last.detail).toContain('to a 2nd creature [2d1 +1 magic, no mod]');
+        expect(before - getMonster(ref)!.curHp).toBe(3); // primary 2 + 1 magic, cleave not added
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it('Hew adds the attacker proficiency bonus to damage on a hit', () => {
+    // Level-1 fighter → proficiency +2. "2d1" = constant 2, so a non-crit hit
+    // deals 2 + 2 (prof) = 4.
+    const { s, atk, tgt } = masteryFight({
+      weapon: 'Greataxe',
+      attackBonus: 50,
+      targetAc: 1,
+      damage: '2d1',
+      mastery: { weapon: 'Greataxe', active: true, effect: { profBonusDamage: true } },
+    });
+    const ref = getToken(tgt)!.refId;
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s, 'Striker', atk, tgt, 0);
+      const last = listRollLog(s).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(last.detail).toContain('+2 (prof)');
+        expect(before - getMonster(ref)!.curHp).toBe(4); // 2 weapon + 2 prof
       }
     }
     expect(checked).toBe(true);

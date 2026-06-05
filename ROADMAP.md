@@ -270,16 +270,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   upcast by the chosen slot level, cantrips scaled by caster level
   (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
   owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
-- ☑ **Weapon masteries (2024) [req].** The 8 mastery properties (plus the Great
-  Weapon Master feat, same format) in `server/src/masteries/srd.ts` are searchable
-  in the Spells & Abilities menu and added as `type:'mastery'` sheet entries.
-  Effect-bearing entries get a **weapon binding + on/off toggle**; when active and
-  bound to the attacking weapon, `resolveAttack` adjusts that attack server-side:
-  **Graze** (ability-mod damage on a miss), **Cleave** (rolls the second-creature
-  damage — weapon dice, no ability mod — logged for manual application), and a
-  generic **on-hit damage bonus** (Great Weapon Master's +10; also for homebrew/AI).
-  Masteries that don't change a roll (Push/Sap/Slow/Topple/Vex/Nick) are
+- ☑ **Weapon masteries (2024) [req].** The 8 mastery properties (plus **Hew** —
+  the 2024 Great Weapon Master feat, same format) in `server/src/masteries/srd.ts`
+  are searchable in the Spells & Abilities menu and added as `type:'mastery'` sheet
+  entries. Effect-bearing entries get a **weapon binding + on/off toggle**; when
+  active and bound to the attacking weapon, `resolveAttack` adjusts that attack
+  server-side: **Graze** (ability-mod damage on a miss), **Cleave** (rolls the
+  second-creature damage — weapon dice + magic, no ability mod — logged for manual
+  application), **Hew** (proficiency-bonus damage on a hit), and a generic on-hit
+  `bonusDamage` lever (homebrew/AI). The rest (Push/Sap/Slow/Topple/Vex/Nick) are
   collapsible descriptions handled manually.
+- ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` keeps a
+  weapon's magic damage distinct from its ability modifier (which lives in the
+  `damage` string), so mastery effects that strip the ability mod (Cleave) keep
+  the magic damage. `rollWeaponAttack` adds it to every hit (not doubled on a
+  crit); editable in `StatBlock`.
 
 ## Phase 6 — AI assistance (future)
 

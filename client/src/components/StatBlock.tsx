@@ -304,6 +304,7 @@ function ReadView({
               {w.attackBonus !== undefined &&
                 `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
               {w.damage}
+              {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
               {w.range ? ` (${w.range})` : ''}
             </p>
           ))}
@@ -380,11 +381,25 @@ function WeaponEditor({
           <input
             className="sb-tohit"
             type="number"
-            placeholder="+"
+            placeholder="hit"
+            title="To-hit bonus"
             value={w.attackBonus ?? ''}
             onChange={(e) =>
               setAt(i, {
                 attackBonus:
+                  e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+          />
+          <input
+            className="sb-tohit"
+            type="number"
+            placeholder="magic"
+            title="Magic damage bonus (e.g. 1 for a +1 weapon)"
+            value={w.magicBonus ?? ''}
+            onChange={(e) =>
+              setAt(i, {
+                magicBonus:
                   e.target.value === '' ? undefined : Number(e.target.value),
               })
             }

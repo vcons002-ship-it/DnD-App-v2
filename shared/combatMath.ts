@@ -90,8 +90,9 @@ export function rollWeaponAttack(
   let dmgText = '';
   if (hit) {
     const { dice, flat } = damageParts(weapon.damage?.trim() || '1d4');
+    const magic = weapon.magicBonus ?? 0;
     const r1 = dice ? rollDice(dice) : null;
-    let sum = flat;
+    let sum = flat + magic; // magic damage applies on every hit, not doubled on a crit
     const diceStrs: string[] = [];
     if (r1) {
       sum += r1.total;
@@ -103,7 +104,9 @@ export function rollWeaponAttack(
       diceStrs.push(`crit[${r2.rolls.join(',')}]`);
     }
     damage = Math.max(1, sum);
-    dmgText = `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''} = ${damage}`;
+    dmgText =
+      `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''}` +
+      `${magic ? ` ${signed(magic)} magic` : ''} = ${damage}`;
   }
 
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';

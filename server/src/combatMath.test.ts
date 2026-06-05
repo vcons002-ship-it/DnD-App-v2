@@ -40,6 +40,20 @@ describe('combat math', () => {
     }
   });
 
+  it('adds a weapon magic bonus to damage (once, not doubled on a crit)', () => {
+    const atk: Combatant = { stats: { STR: 16 }, level: 1, isMonster: true };
+    // "1d1" is a constant 1 die; +2 magic → 1 + 2 = 3 on a normal hit, and on a
+    // crit the dice (only) double: 1 + 1 + 2 = 4 (magic added once).
+    const w: Weapon = { name: 'Mace +2', kind: 'melee', damage: '1d1', attackBonus: 100, magicBonus: 2 };
+    for (let i = 0; i < 300; i++) {
+      const o = rollWeaponAttack(atk, w, 1);
+      if (o.hit) {
+        expect(o.damage).toBe(o.crit ? 4 : 3);
+        expect(o.detail).toContain('magic');
+      }
+    }
+  });
+
   it('auto-hits on nat 20 (crit) and auto-misses on nat 1', () => {
     const atk: Combatant = { stats: { STR: 20 }, level: 1, isMonster: true };
     const w: Weapon = { name: 'X', kind: 'melee', damage: '1d6', attackBonus: 99 };

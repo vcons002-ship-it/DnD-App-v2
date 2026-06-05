@@ -17,12 +17,12 @@ describe('weapon mastery database', () => {
     // Cleave now rolls the second-creature damage.
     expect(getMastery('Cleave')?.mastery?.effect?.cleave).toBe(true);
 
-    // Great Weapon Master is offered in the same toggleable format (+10 on hit).
-    const gwm = getMastery('Great Weapon Master');
-    expect(gwm?.type).toBe('mastery');
-    expect(gwm?.mastery?.effect?.bonusDamage).toBe('10');
-    expect(gwm?.mastery?.active).toBe(false);
-    expect(searchMasteries('great').some((m) => m.name === 'Great Weapon Master')).toBe(true);
+    // Hew (2024 Great Weapon Master) adds proficiency-bonus damage on a hit.
+    const hew = getMastery('Hew');
+    expect(hew?.type).toBe('mastery');
+    expect(hew?.mastery?.effect?.profBonusDamage).toBe(true);
+    expect(hew?.mastery?.active).toBe(true);
+    expect(searchMasteries('hew').some((m) => m.name === 'Hew')).toBe(true);
 
     // A purely manual mastery has no auto effect.
     expect(getMastery('Push')?.mastery?.effect).toBeUndefined();

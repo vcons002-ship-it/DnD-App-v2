@@ -7,6 +7,7 @@ import {
 } from './sessions.js';
 import {
   damageParts,
+  profBonusFor,
   rollSavingThrow,
   rollWeaponAttack,
   weaponAbilityMod,
@@ -97,12 +98,20 @@ export function resolveAttack(
           masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
         }
       }
+      if (out.hit && m.effect.profBonusDamage) {
+        const pb = profBonusFor(a.c);
+        extra += pb;
+        masteryNotes.push(`${ab.name} +${pb} (prof)`);
+      }
       if (out.hit && m.effect.cleave) {
-        // Weapon dice only (no ability modifier) — the 2nd-creature hit. Rolled
-        // and logged for manual application, NOT applied to the primary target.
+        // Weapon dice + magic bonus (NO ability modifier) — the 2nd-creature hit.
+        // Rolled and logged for manual application, NOT applied to the primary target.
         const { dice } = damageParts(weapon.damage?.trim() || '1d4');
-        const r = dice ? rollDice(dice) : null;
-        masteryNotes.push(`${ab.name} ${r?.total ?? 0} to a 2nd creature [${dice || '0'}, no mod]`);
+        const magic = weapon.magicBonus ?? 0;
+        const total = (dice ? rollDice(dice)!.total : 0) + magic;
+        masteryNotes.push(
+          `${ab.name} ${total} to a 2nd creature [${dice || '0'}${magic ? ` +${magic} magic` : ''}, no mod]`,
+        );
       }
       if (!out.hit && m.effect.grazeOnMiss) {
         const g = Math.max(0, weaponAbilityMod(a.c, weapon));
