@@ -23,6 +23,10 @@ type Props = {
 
 type View = { scale: number; x: number; y: number };
 
+/** The off-map backdrop colour. MUST match `.center` in styles.css so covered
+ *  map-fog cells blend seamlessly into the empty space beyond the map. */
+const CANVAS_BG = '#0e0f12';
+
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
@@ -385,18 +389,30 @@ export function MapStage({
               {gridLines.map((pts, i) => (
                 <Line key={i} points={pts} stroke="#ffffff22" strokeWidth={1} />
               ))}
-              {/* Map fog: blacks out covered terrain — solid for players,
-                  translucent for the DM. Both layers can render at once. */}
+              {/* Map fog: covered terrain. For players the cover is opaque and
+                  EXACTLY the off-map backdrop colour (CANVAS_BG), so a covered
+                  area is indistinguishable from empty space beyond the map — no
+                  grid, image, or tell-tale darker rectangle leaks through. The DM
+                  sees a translucent dark wash so they can still work under it. */}
               {mapFogEnabled && (
                 <Shape
                   listening={false}
                   opacity={isDm ? 0.5 : 1}
                   sceneFunc={(ctx: Konva.Context) => {
-                    ctx.fillStyle = '#04060a';
+                    ctx.fillStyle = isDm ? '#04060a' : CANVAS_BG;
+                    // For the opaque player cover, overlap cells by 1px so the
+                    // grid never bleeds through sub-pixel seams. (No overlap for
+                    // the DM's translucent wash — it would darken at seams.)
+                    const pad = isDm ? 0 : 1;
                     for (let c = 0; c < cols; c++) {
                       for (let r = 0; r < rows; r++) {
                         if (!mapRevealed.has(`${c},${r}`)) {
-                          ctx.fillRect(c * grid, r * grid, grid, grid);
+                          ctx.fillRect(
+                            c * grid - pad,
+                            r * grid - pad,
+                            grid + pad * 2,
+                            grid + pad * 2,
+                          );
                         }
                       }
                     }
