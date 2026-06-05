@@ -499,6 +499,7 @@ input[type='number'] { width: 70px; }
 .spell-entry { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
 .spell-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
 .spell-adv { display: flex; gap: 2px; }
+.mastery-weapons { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
 .spell-toggle { flex: 1; display: flex; align-items: baseline; gap: 6px; background: none; border: none; color: var(--text); text-align: left; cursor: pointer; padding: 2px; font-size: 13px; }
 .spell-caret { color: var(--muted); font-size: 11px; }
 .spell-name { font-weight: 600; }

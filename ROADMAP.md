@@ -280,7 +280,9 @@ Smaller refinements on top of the shipped Phase 2 work.
   one-shot toggles itself off), **Hew** (proficiency-bonus damage on a hit), and a
   generic on-hit `bonusDamage` lever (homebrew/AI). The rest
   (Push/Sap/Slow/Topple/Vex/Nick) are collapsible descriptions handled manually.
-  Multiple masteries can bind to the same weapon and all active ones stack.
+  A mastery binds to a **list** of weapons (`mastery.weapons`, multi-select chips
+  in the UI) so one entry covers a whole loadout; multiple masteries can also
+  share a weapon and all active ones stack.
 - ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` keeps a
   weapon's magic damage distinct from its ability modifier (which lives in the
   `damage` string), so mastery effects that strip the ability mod (Cleave) keep

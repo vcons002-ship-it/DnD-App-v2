@@ -94,7 +94,7 @@ export function resolveAttack(
     for (const ab of ch?.sheetAbilities ?? []) {
       const m = ab.mastery;
       if (ab.type !== 'mastery' || !m?.active || !m.effect) continue;
-      if (!m.weapon || m.weapon.trim().toLowerCase() !== wn) continue;
+      if (!(m.weapons ?? []).some((w) => w.trim().toLowerCase() === wn)) continue;
       if (out.hit && m.effect.bonusDamage) {
         const r = rollDice(m.effect.bonusDamage);
         if (r && r.total > 0) {

@@ -142,13 +142,14 @@ export type AbilityRoll = {
 
 /**
  * A weapon mastery (2024 rules) attached to a sheet entry. When `active` and
- * bound to a `weapon` that matches an attack, the optional `effect` adjusts that
- * attack's damage server-side. Masteries without an `effect` are descriptive and
- * handled manually at the table.
+ * bound to one of `weapons` that matches an attack, the optional `effect` adjusts
+ * that attack's damage server-side. A single mastery can apply to several weapons
+ * (so one entry covers a whole loadout). Masteries without an `effect` are
+ * descriptive and handled manually at the table.
  */
 export type WeaponMastery = {
-  /** The weapon name this mastery is bound to (matched against the attack's weapon). */
-  weapon: string;
+  /** Weapon names this mastery applies to (exact, case-insensitive match). */
+  weapons: string[];
   /** Toggle — only an active mastery applies its effect. */
   active: boolean;
   /** Auto-effect on attacks with the bound weapon; absent = descriptive/manual. */

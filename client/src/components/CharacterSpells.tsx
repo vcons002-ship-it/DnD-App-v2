@@ -127,6 +127,16 @@ export function CharacterSpells({
     setSheetAbility(character.id, { ...a, mastery: { ...a.mastery, ...patch } });
   };
 
+  // Link/unlink one of the character's weapons to a mastery (it can cover several).
+  const toggleWeapon = (a: SheetAbility, name: string) => {
+    if (!a.mastery) return;
+    const bound = a.mastery.weapons ?? [];
+    const next = bound.includes(name)
+      ? bound.filter((w) => w !== name)
+      : [...bound, name];
+    patchMastery(a, { weapons: next });
+  };
+
   return (
     <div className="spells">
       <h4>Spells, Abilities &amp; Masteries</h4>
@@ -150,20 +160,23 @@ export function CharacterSpells({
                 </button>
 
                 {editable && autoMastery(a) && (
-                  <>
-                    <select
-                      className="spell-level"
-                      value={a.mastery!.weapon}
-                      title="Weapon this mastery applies to"
-                      onChange={(e) => patchMastery(a, { weapon: e.target.value })}
-                    >
-                      <option value="">— weapon —</option>
-                      {character.weapons.map((w) => (
-                        <option key={w.name} value={w.name}>
+                  <span className="mastery-weapons">
+                    {character.weapons.length === 0 && (
+                      <span className="muted">add a weapon to bind</span>
+                    )}
+                    {character.weapons.map((w) => {
+                      const on = (a.mastery!.weapons ?? []).includes(w.name);
+                      return (
+                        <button
+                          key={w.name}
+                          className={`btn tiny ${on ? 'on' : ''}`}
+                          title={on ? `Applies to ${w.name} — click to unlink` : `Link to ${w.name}`}
+                          onClick={() => toggleWeapon(a, w.name)}
+                        >
                           {w.name}
-                        </option>
-                      ))}
-                    </select>
+                        </button>
+                      );
+                    })}
                     <button
                       className={`btn tiny ${a.mastery!.active ? 'on' : ''}`}
                       title={a.mastery!.active ? 'Active — click to disable' : 'Inactive — click to enable'}
@@ -171,7 +184,7 @@ export function CharacterSpells({
                     >
                       {a.mastery!.active ? 'On' : 'Off'}
                     </button>
-                  </>
+                  </span>
                 )}
 
                 {editable && a.roll && upcastable(a) && (
@@ -241,6 +254,14 @@ export function CharacterSpells({
               {open[a.id] && (
                 <div className="spell-body">
                   {a.meta && <p className="muted spell-meta">{a.meta}</p>}
+                  {autoMastery(a) && (
+                    <p className="muted spell-meta">
+                      Applies to:{' '}
+                      {(a.mastery!.weapons ?? []).length
+                        ? a.mastery!.weapons.join(', ')
+                        : 'no weapons yet'}
+                    </p>
+                  )}
                   <p>{a.description}</p>
                 </div>
               )}
