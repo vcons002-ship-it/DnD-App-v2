@@ -42,6 +42,19 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
         </button>
         {isDm && (
           <>
+            <button
+              className="btn tiny"
+              onClick={() =>
+                window.open(
+                  `/dm/data?code=${snapshot.sessionCode}`,
+                  '_blank',
+                  'noopener',
+                )
+              }
+              title="Open the battlefield dashboard in a new window (second screen / tablet)"
+            >
+              🗔 Data view
+            </button>
             <button className="btn tiny" onClick={() => setSettingsOpen(true)}>
               ⚙ Settings
             </button>

@@ -231,18 +231,16 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Phase 7 — UX shell & integrations (future)
 
-- ☐ **DM Data mode (second-screen dashboard) [req].** A toggle that opens a
-  full-screen, information-dense battlefield view — designed to live in a second
-  browser window / second monitor / tablet so the DM can free the map screen of
-  its sidebars. Read-mostly dashboard surfacing everything at a glance:
-  initiative order + whose turn it is, every creature/PC with HP, conditions,
-  combat role, disposition, AC, and quick stat blocks, plus quick damage/heal and
-  condition controls. Implement as a separate route (e.g. `/dm/data?code=…`) that
-  reuses the same socket store + `state:snapshot` (no new server state — it's
-  another role-shaped client), with a responsive grid/table layout instead of the
-  canvas. Add a "Open Data view" button (new tab) on the DM screen; it stays live
-  via the existing broadcast loop. Later: make panels selectable/toggleable so a
-  DM can compose their ideal layout.
+- ☑ **DM Data mode (second-screen dashboard) [req].** A standalone `/dm/data`
+  route (`DmDataRoute` → `DmDataView`) opened in a new window via a 🗔 **Data
+  view** button in the DM toolbar — for a second monitor / tablet, freeing the map
+  screen of its sidebars. It connects as another DM client (no new server state)
+  and always mirrors the LIVE active map (re-selects it if the main DM switches).
+  A responsive card grid shows every combatant in initiative order with HP bar,
+  AC, level/CR, ability scores, combat-role + disposition, condition chips, and
+  quick damage/heal + a collapsible `ConditionPicker`; the header has the turn
+  readout + Roll-all / Next / Clear. Stays live via the existing broadcast loop.
+  *(Future: selectable/toggleable panels so a DM can compose their layout.)*
 - ☑ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
   `DmView` / `PlayerView`, role-aware:
   - **Load session** (DM) / **Leave** (player) — disconnects and returns to the

@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { DmRoute } from './routes/DmRoute';
+import { DmDataRoute } from './routes/DmDataRoute';
 import { PlayerRoute } from './routes/PlayerRoute';
 import './styles.css';
 
@@ -28,6 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/dm" element={<DmRoute />} />
+        <Route path="/dm/data" element={<DmDataRoute />} />
         <Route path="/join" element={<PlayerRoute />} />
         <Route path="/play" element={<PlayerRoute />} />
       </Routes>
