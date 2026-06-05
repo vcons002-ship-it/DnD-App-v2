@@ -31,8 +31,9 @@ is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
 
 **PR convention:** when opening a PR, also add a launcher named
 `PR #<N> - <Title>.bat` to **`claude/Main`** (a thin wrapper over
-`tools/pr-test-runner.bat` that sets `PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`; sanitize
-the title of `\ / : * ? " < > |`, keeping `#`/spaces). The runner checks the PR
+`tools/pr-test-runner.bat` that sets `PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`; in the
+filename strip `\ / : * ? " < > |` (keep `#`/spaces), and in `PR_TITLE` avoid cmd
+metacharacters — replace `&` with "and", drop `% ^ < > | ( )`). The runner checks the PR
 branch out into an isolated sibling folder (`%USERPROFILE%\DnD-App-v2-pr-<N>`) on
 port `4100+N` with its own data, so users can test without touching their main
 install (`start.bat` keeps running `claude/Main`). Cleanup is automatic:

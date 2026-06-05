@@ -45,7 +45,8 @@ del "%TEMP%\ddpr_%PR_NUMBER%.txt" >nul 2>nul
 
 echo ============================================================
 echo   Testing PR #%PR_NUMBER%
-echo   %PR_TITLE%
+REM Delayed expansion so any special chars in the title can't break echo.
+echo   !PR_TITLE!
 echo.
 echo   branch : %PR_BRANCH%
 echo   folder : %TEST_DIR%
