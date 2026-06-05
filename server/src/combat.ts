@@ -11,7 +11,14 @@ import {
   type Advantage,
   type Combatant,
 } from '../../shared/combatMath.js';
-import type { Token, Weapon } from '../../shared/types.js';
+import { rollDice } from '../../shared/dice.js';
+import {
+  effectiveDice,
+  spellAttackBonus,
+  spellSaveDC,
+} from '../../shared/spellMath.js';
+import { signed } from '../../shared/skills.js';
+import type { Character, SheetAbility, Token, Weapon } from '../../shared/types.js';
 
 type Resolved = {
   c: Combatant;
@@ -103,4 +110,93 @@ export function resolveSaves(
       detail: `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}) vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}`,
     });
   }
+}
+
+const d20 = (): number => 1 + Math.floor(Math.random() * 20);
+
+/** Roll a d20 honoring advantage/disadvantage, with a display breakdown. */
+function rollD20(advantage?: Advantage): { face: number; detail: string } {
+  const a = d20();
+  if (!advantage) return { face: a, detail: `d20[${a}]` };
+  const b = d20();
+  const face = advantage === 'adv' ? Math.max(a, b) : Math.min(a, b);
+  return { face, detail: `d20[${a},${b}]→${advantage} ${face}` };
+}
+
+/**
+ * Resolve a character-sheet spell/ability roll authoritatively and log it.
+ * Spell attack bonus / save DC are derived from the caster; damage/heal dice are
+ * upcast by the chosen slot level (cantrips scale by caster level). Returns false
+ * for purely descriptive entries (no roll).
+ */
+export function resolveAbilityRoll(
+  sessionId: string,
+  roller: string,
+  character: Character,
+  ability: SheetAbility,
+  castLevel?: number,
+  advantage?: Advantage,
+): boolean {
+  const roll = ability.roll;
+  if (!roll) return false;
+  const { stats, level } = character;
+  const dice = effectiveDice(roll, { castLevel, casterLevel: level });
+  const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
+  const upcast =
+    (roll.baseLevel ?? 0) >= 1 && castLevel && castLevel > (roll.baseLevel ?? 1)
+      ? ` (L${castLevel})`
+      : '';
+  const title = `${ability.name}${upcast}`;
+
+  if (roll.kind === 'attack') {
+    const { face, detail: d20detail } = rollD20(advantage);
+    const bonus = spellAttackBonus(level, stats);
+    const attackTotal = face + bonus;
+    const crit = face === 20;
+    let dmgVal = 0;
+    if (dice) {
+      dmgVal = rollDice(dice)!.total;
+      if (crit) dmgVal += rollDice(dice)!.total; // crit doubles the dice
+    }
+    addRollLog(sessionId, {
+      roller,
+      label: 'Attack',
+      expr: title,
+      total: attackTotal,
+      detail:
+        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
+        (crit ? ' — CRIT' : ''),
+    });
+    return true;
+  }
+
+  if (roll.kind === 'heal') {
+    const val = dice ? rollDice(dice)!.total : 0;
+    addRollLog(sessionId, {
+      roller,
+      label: ability.name,
+      expr: title,
+      total: val,
+      detail: `${title}: ${val} healing [${dice}] (+ spellcasting mod where applicable)`,
+    });
+    return true;
+  }
+
+  // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
+  const val = dice ? rollDice(dice)!.total : 0;
+  const note =
+    roll.kind === 'save' && roll.save
+      ? ` — DC ${spellSaveDC(level, stats)} ${roll.save} save for half`
+      : roll.kind === 'damage'
+        ? ' (auto-hit)'
+        : '';
+  addRollLog(sessionId, {
+    roller,
+    label: ability.name,
+    expr: title,
+    total: val,
+    detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+  });
+  return true;
 }

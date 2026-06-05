@@ -102,6 +102,8 @@ export type Character = {
   proficientSkills: string[];
   /** Inventory items the player tracks. */
   items: InventoryItem[];
+  /** Spells & abilities with collapsible text + optional rollable actions. */
+  sheetAbilities: SheetAbility[];
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
@@ -110,6 +112,51 @@ export type Character = {
 };
 
 export type CreatureAbility = { name: string; description: string };
+
+/**
+ * A structured roll attached to a sheet spell/ability, resolved server-side so
+ * the dice/to-hit/DC are never trusted from the client. `dice` is the base
+ * damage/heal expression at `baseLevel`; `scaleDice` is added per slot level
+ * above it (or, for cantrips at level 0, per caster-level tier).
+ */
+export type AbilityRoll = {
+  /** What the roll button does. */
+  kind: 'attack' | 'save' | 'damage' | 'heal';
+  /** Base dice for damage/heal, e.g. "8d6" or "3d4+3". */
+  dice?: string;
+  /** Damage/heal flavor, e.g. "fire", "radiant", "healing". */
+  damageType?: string;
+  /** For `save` rolls: the ability targets save with, e.g. "DEX". */
+  save?: string;
+  /** Dice added per slot level above `baseLevel` (or per cantrip tier). */
+  scaleDice?: string;
+  /** Spell level the base dice are written for (0 = cantrip). */
+  baseLevel?: number;
+};
+
+/**
+ * A spell or ability added to a character sheet. Has a collapsible
+ * `description` and, when applicable, a structured `roll` powering a roll
+ * button (upcastable for leveled spells via the chosen slot level).
+ */
+export type SheetAbility = {
+  id: string;
+  name: string;
+  /** `spell` enables an upcast level selector; `ability` is a feature/action. */
+  type: 'spell' | 'ability';
+  /** Spell level (0 = cantrip); omitted for non-spell abilities. */
+  level?: number;
+  /** School or short tag, e.g. "Evocation", "Class feature". */
+  school?: string;
+  /** One-line meta, e.g. "1 action · 120 ft · V,S". */
+  meta?: string;
+  /** Full rules text shown in the collapsible body. */
+  description: string;
+  /** Optional structured roll; absent for purely descriptive entries. */
+  roll?: AbilityRoll;
+  /** Where it came from. */
+  source?: 'srd' | 'gemini' | 'custom';
+};
 
 export type Monster = {
   id: string;
@@ -366,6 +413,20 @@ export type ResourceSetPayload = {
 export type ItemSetPayload = { characterId: string; item: InventoryItem };
 /** Remove an inventory item from a character. */
 export type ItemRemovePayload = { characterId: string; itemId: string };
+/** Upsert a spell/ability on a character's sheet. */
+export type AbilitySetPayload = { characterId: string; ability: SheetAbility };
+/** Remove a spell/ability from a character's sheet. */
+export type AbilityRemovePayload = { characterId: string; abilityId: string };
+/**
+ * Roll a sheet spell/ability into the shared log (server-authoritative).
+ * `castLevel` upcasts a leveled spell; omit for cantrips/abilities.
+ */
+export type AbilityRollPayload = {
+  characterId: string;
+  abilityId: string;
+  castLevel?: number;
+  advantage?: 'adv' | 'dis';
+};
 /** Roll dice into the shared log. `advantage` rolls twice (d20 adv/dis). */
 export type DiceRollPayload = {
   expr: string;
@@ -491,6 +552,9 @@ export interface ClientToServerEvents {
   'resource:set': (payload: ResourceSetPayload) => void;
   'item:set': (payload: ItemSetPayload) => void;
   'item:remove': (payload: ItemRemovePayload) => void;
+  'ability:set': (payload: AbilitySetPayload) => void;
+  'ability:remove': (payload: AbilityRemovePayload) => void;
+  'ability:roll': (payload: AbilityRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;

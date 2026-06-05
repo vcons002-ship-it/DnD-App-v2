@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { newId } from './db.js';
 import { rollDice } from '../../shared/dice.js';
-import { resolveAttack, resolveSaves } from './combat.js';
+import { resolveAttack, resolveAbilityRoll, resolveSaves } from './combat.js';
 import {
   aiCreateCharacter,
   aiFillCharacter,
@@ -33,6 +33,8 @@ import {
   setResource,
   setItem,
   removeItem,
+  setSheetAbility,
+  removeSheetAbility,
   damageTokens,
   duplicateToken,
   setTokensHidden,
@@ -331,6 +333,37 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!ownsCharacter(characterId)) return;
       removeItem(characterId, itemId);
       afterChange();
+    });
+
+    // ---- Sheet spells/abilities (DM or the owning player) ----
+    socket.on('ability:set', ({ characterId, ability }) => {
+      if (!ability?.name?.trim() || !ownsCharacter(characterId)) return;
+      setSheetAbility(characterId, ability);
+      afterChange();
+    });
+
+    socket.on('ability:remove', ({ characterId, abilityId }) => {
+      if (!ownsCharacter(characterId)) return;
+      removeSheetAbility(characterId, abilityId);
+      afterChange();
+    });
+
+    socket.on('ability:roll', ({ characterId, abilityId, castLevel, advantage }) => {
+      const sid = sessionId();
+      if (!sid || !ownsCharacter(characterId)) return;
+      const c = getCharacter(characterId);
+      const ability = c?.sheetAbilities.find((a) => a.id === abilityId);
+      if (!c || !ability) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const ok = resolveAbilityRoll(
+        sid,
+        rollerName(sid, socket.id, isDm()),
+        c,
+        ability,
+        typeof castLevel === 'number' ? castLevel : undefined,
+        adv,
+      );
+      if (ok) afterChange();
     });
 
     socket.on('ai:fillCharacter', async ({ characterId }) => {

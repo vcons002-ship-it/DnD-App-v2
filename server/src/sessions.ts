@@ -801,6 +801,35 @@ export function removeItem(characterId: string, itemId: string): Character | nul
   return getCharacter(characterId);
 }
 
+/** Upsert a spell/ability on a character's sheet (by id). */
+export function setSheetAbility(
+  characterId: string,
+  ability: Character['sheetAbilities'][number],
+): Character | null {
+  const c = getCharacter(characterId);
+  if (!c) return null;
+  const list = c.sheetAbilities.filter((a) => a.id !== ability.id);
+  list.push({ ...ability, id: ability.id || newId() });
+  db.prepare('UPDATE characters SET sheet_abilities = ? WHERE id = ?').run(
+    JSON.stringify(list),
+    characterId,
+  );
+  return getCharacter(characterId);
+}
+
+export function removeSheetAbility(
+  characterId: string,
+  abilityId: string,
+): Character | null {
+  const c = getCharacter(characterId);
+  if (!c) return null;
+  db.prepare('UPDATE characters SET sheet_abilities = ? WHERE id = ?').run(
+    JSON.stringify(c.sheetAbilities.filter((a) => a.id !== abilityId)),
+    characterId,
+  );
+  return getCharacter(characterId);
+}
+
 /** Patch editable fields of a character (DM or the owning player). */
 export function updateCharacter(
   characterId: string,

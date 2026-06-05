@@ -100,6 +100,9 @@ is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
   `skillBonus`.
 - `shared/combatMath.ts` — `rollWeaponAttack` (to-hit vs AC, crit doubles dice,
   nat-20 hit / nat-1 miss), `rollSavingThrow`, `profBonusForCR`.
+- `shared/spellMath.ts` — `effectiveDice` (upcast: +scaleDice per slot above
+  base; cantrips scale by caster level at 5/11/17), `spellAttackBonus`,
+  `spellSaveDC` (8 + prof + best of INT/WIS/CHA).
 - `shared/combatRole.ts` — `deriveCombatRole` (caster > ranged > melee) +
   `COMBAT_ROLE_ICON`.
 - `shared/sheetIO.ts` — `parseSheet` (auto-detect text vs JSON), `parseSheetText`
@@ -134,6 +137,9 @@ is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
 - **Characters:** DM + player creation, shared tagged sheet (editable), **skills**
   with proficiency/bonuses, **resources** auto-filled from 5e class/level tables
   (+ custom counters, pip trackers), **inventory items** (+ library picker),
+  **spells & abilities** (`CharacterSpells`: search a local rules DB
+  `spells/srd.ts` → Gemini fallback; collapsible text; server-resolved
+  `ability:roll` with upcast/cantrip scaling into the roll log),
   player places/edits own token, **high-visibility PC tokens**, party + friendly
   sheets read-only, sheet import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
@@ -157,9 +163,11 @@ is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
   **deep-link "Join voice"** button (per-session channel/invite), investigate the
   **Embedded App SDK** (Activity) as the deeper integration.
 - **WP7 leftover — drag-reorder toolbar sections** (deferred; lower value).
-- **WP11 follow-up — structured spell attacks:** spells currently live as
-  free-text `actions`, so only **weapon** attacks auto-roll. Adding a structured
-  spell field (to-hit/save/damage/slot) would let spells be rolled + spend slots.
+- **WP11 follow-up — structured spell attacks:** DONE for the character sheet —
+  `sheetAbilities` carry a structured `roll` (attack/save/damage/heal + upcast),
+  rolled server-side via `ability:roll`. Still open: **auto-spending a spell
+  slot** on cast (players track slots manually in the resources UI), structured
+  rolls for monster/NPC `actions`, and adv/dis on spell attack rolls.
 - **Phase 3 stretch — Google Slides:** live token layer over a Slides embed; map
   refresh from Slides.
 - **Phase 6 AI:** spell-effect/rules resolution and AI-generated enemy dialogue.

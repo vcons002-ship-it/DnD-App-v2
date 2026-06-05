@@ -492,6 +492,22 @@ input[type='number'] { width: 70px; }
 .qbtn { width: 20px; height: 20px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 4px; cursor: pointer; padding: 0; }
 .item-picker { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; max-height: 180px; overflow-y: auto; margin-top: 4px; }
 
+/* Spells & abilities */
+.spells { margin-top: 10px; }
+.spell-list { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; }
+.spell-entry { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.spell-head { display: flex; align-items: center; gap: 6px; }
+.spell-toggle { flex: 1; display: flex; align-items: baseline; gap: 6px; background: none; border: none; color: var(--text); text-align: left; cursor: pointer; padding: 2px; font-size: 13px; }
+.spell-caret { color: var(--muted); font-size: 11px; }
+.spell-name { font-weight: 600; }
+.spell-tag { font-size: 11px; }
+.spell-level { width: auto; margin: 0; padding: 2px 4px; font-size: 12px; }
+.spell-body { padding: 4px 6px 4px 22px; font-size: 12px; line-height: 1.4; }
+.spell-body p { margin: 2px 0; }
+.spell-meta { font-size: 11px; }
+.spell-add { margin-top: 6px; }
+.spell-none { font-size: 12px; padding: 6px; margin: 0; }
+
 /* Dice roller + shared roll log */
 .dice-quick { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .dice-row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }

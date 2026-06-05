@@ -104,7 +104,7 @@ async function discoverModel(): Promise<string | null> {
 }
 
 /** Call Gemini, discovering/rotating models so a retired one never blocks us. */
-async function callGemini(prompt: string): Promise<string | null> {
+export async function callGemini(prompt: string): Promise<string | null> {
   let models: string[];
   if (resolvedModel) {
     models = [resolvedModel];

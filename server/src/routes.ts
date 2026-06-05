@@ -14,6 +14,8 @@ import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
 import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
+import { searchSpells, getSpell } from './spells/srd.js';
+import { lookupSpellAI } from './spells/gemini.js';
 import { publicSettings, updateSettings } from './settings.js';
 import {
   deleteLibraryCreature,
@@ -105,6 +107,24 @@ export function createApiRouter(io: IOServer): Router {
     const ai = await lookupCreatureAI(name);
     if (ai) return res.json(ai);
     return res.status(404).json({ error: 'Not found in SRD; AI unavailable.' });
+  });
+
+  // Spell/ability search for the character-sheet "add" menu: local SRD list
+  // first (no network), with AI available as a fallback for anything missing.
+  router.get('/spells', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json({ results: searchSpells(q), aiAvailable: geminiEnabled() });
+  });
+
+  // Full spell/ability lookup: local list first, then Gemini.
+  router.post('/spells/lookup', async (req, res) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const local = getSpell(name);
+    if (local) return res.json({ ...local, source: 'srd' });
+    const ai = await lookupSpellAI(name);
+    if (ai) return res.json(ai);
+    return res.status(404).json({ error: 'Not found locally; AI unavailable.' });
   });
 
   // ---- Cross-session library (DM-curated creatures + items) ----

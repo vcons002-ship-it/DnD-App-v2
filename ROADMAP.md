@@ -256,11 +256,22 @@ Smaller refinements on top of the shipped Phase 2 work.
   or the player who owns the attacking PC. `AttackControls` on the selected-token
   panel rolls each weapon at a chosen target (adv/dis). `combat:save` rolls a
   DC-X ability save for the whole multi-selection from `BulkActionsPanel`. (WP11)
+- ☑ **Spells & abilities on the character sheet [req].** `CharacterSpells`
+  adds a searchable spell/ability menu to the sheet: a local rules database
+  (`server/src/spells/srd.ts`, curated SRD spells + class features with
+  structured rolls) is queried first via `GET /api/spells`, with a key-gated
+  **Gemini** fallback (`POST /api/spells/lookup`). Each entry has a collapsible
+  description and, where applicable, a **roll button** resolved authoritatively
+  (`ability:roll`): spell attack bonus / save DC derived from the caster, damage
+  upcast by the chosen slot level, cantrips scaled by caster level
+  (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
+  owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
 
 ## Phase 6 — AI assistance (future)
 
-- ☐ AI-assisted spell-effect resolution and rules/item lookup from current D&D
-  rules.
+- ◐ AI-assisted spell/ability lookup is **done** for the sheet (Gemini fills a
+  structured spell when it's not in the local database); full spell-effect
+  resolution (auto-applying area damage to targets) and rules/item lookup remain.
 - ☐ AI-generated enemy combat dialogue on hit/miss/target.
 
 ## Phase 7 — UX shell & integrations (future)

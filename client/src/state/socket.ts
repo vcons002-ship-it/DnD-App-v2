@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import type {
+  AbilityRollPayload,
   CharacterCreatePayload,
   CharacterUpdatePayload,
   ClientToServerEvents,
@@ -17,6 +18,7 @@ import type {
   MonsterUpdatePayload,
   Role,
   ServerToClientEvents,
+  SheetAbility,
   StateSnapshot,
   TokenKind,
 } from '../../../shared/types';
@@ -82,6 +84,9 @@ type Store = {
   setResource: (payload: ResourceSetPayload) => void;
   setItem: (characterId: string, item: InventoryItem) => void;
   removeItem: (characterId: string, itemId: string) => void;
+  setSheetAbility: (characterId: string, ability: SheetAbility) => void;
+  removeSheetAbility: (characterId: string, abilityId: string) => void;
+  rollAbility: (payload: AbilityRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -208,6 +213,11 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('item:set', { characterId, item }),
   removeItem: (characterId, itemId) =>
     get().socket?.emit('item:remove', { characterId, itemId }),
+  setSheetAbility: (characterId, ability) =>
+    get().socket?.emit('ability:set', { characterId, ability }),
+  removeSheetAbility: (characterId, abilityId) =>
+    get().socket?.emit('ability:remove', { characterId, abilityId }),
+  rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>
