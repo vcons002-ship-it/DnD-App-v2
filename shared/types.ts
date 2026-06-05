@@ -427,6 +427,16 @@ export type AbilityRollPayload = {
   castLevel?: number;
   advantage?: 'adv' | 'dis';
 };
+/**
+ * Roll a 5e skill check for a character (server-authoritative): d20 + the
+ * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
+ * name from `shared/skills.ts` (e.g. "Stealth").
+ */
+export type SkillRollPayload = {
+  characterId: string;
+  skill: string;
+  advantage?: 'adv' | 'dis';
+};
 /** Roll dice into the shared log. `advantage` rolls twice (d20 adv/dis). */
 export type DiceRollPayload = {
   expr: string;
@@ -555,6 +565,7 @@ export interface ClientToServerEvents {
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;

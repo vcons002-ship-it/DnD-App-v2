@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { resolveAttack, resolveSaves } from './combat.js';
+import { resolveAttack, resolveSaves, resolveSkillRoll } from './combat.js';
 import {
   createSession,
   createMap,
   setActiveMap,
   createToken,
+  createCharacter,
   createMonsterTemplate,
   instantiateMonster,
   updateMonster,
@@ -55,5 +56,36 @@ describe('combat resolution', () => {
     expect(log).toHaveLength(2);
     expect(log.every((e) => e.label === 'DEX save')).toBe(true);
     expect(log.every((e) => /PASS|FAIL/.test(e.detail))).toBe(true);
+  });
+
+  it('rolls a skill check using the sheet ability mod + proficiency', () => {
+    const s = createSession('Skills');
+    // DEX 16 (+3); level 5 → proficiency +3. Stealth is a DEX skill.
+    const c = createCharacter(s.id, {
+      name: 'Rogue',
+      className: 'Rogue',
+      level: 5,
+      stats: { DEX: 16 },
+      proficientSkills: ['Stealth'],
+    });
+
+    expect(resolveSkillRoll(s.id, 'Rogue', c, 'Stealth')).toBe(true);
+    const stealth = listRollLog(s.id).at(-1)!;
+    expect(stealth.label).toBe('Stealth check'); // drives skill color-coding
+    expect(stealth.detail).toContain('(proficient)');
+    // d20 (1-20) + 3 mod + 3 prof = 7..26.
+    expect(stealth.total).toBeGreaterThanOrEqual(7);
+    expect(stealth.total).toBeLessThanOrEqual(26);
+
+    // Non-proficient skill: ability mod only (+3), no proficiency note.
+    resolveSkillRoll(s.id, 'Rogue', c, 'Arcana');
+    const arcana = listRollLog(s.id).at(-1)!;
+    expect(arcana.label).toBe('Arcana check');
+    expect(arcana.detail).not.toContain('proficient');
+
+    // Unknown skill name → no roll logged.
+    const before = listRollLog(s.id).length;
+    expect(resolveSkillRoll(s.id, 'Rogue', c, 'Juggling')).toBe(false);
+    expect(listRollLog(s.id).length).toBe(before);
   });
 });

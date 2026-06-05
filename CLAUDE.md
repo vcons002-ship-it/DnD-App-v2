@@ -146,7 +146,9 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   **cross-session library** (save with side-by-side conflict prompt that also
   detects SRD-name shadowing; lookup checks library → SRD → AI).
 - **Characters:** DM + player creation, shared tagged sheet (editable), **skills**
-  with proficiency/bonuses, **resources** auto-filled from 5e class/level tables
+  with proficiency/bonuses + **click-to-roll skill checks** (server-resolved
+  `skill:roll` using the sheet's mod + proficiency, adv/dis, into the roll log),
+  **resources** auto-filled from 5e class/level tables
   (+ custom counters, pip trackers), **inventory items** (+ library picker),
   **spells & abilities** (`CharacterSpells`: search a local rules DB
   `spells/srd.ts` → Gemini fallback; collapsible text; server-resolved

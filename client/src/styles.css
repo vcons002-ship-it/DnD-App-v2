@@ -10,6 +10,7 @@
   --green: #39c46b;
   --blue: #3b82f6;
   --purple: #a855f7;
+  --cyan: #22b8cf;
 }
 
 * { box-sizing: border-box; }
@@ -508,6 +509,30 @@ input[type='number'] { width: 70px; }
 .spell-add { margin-top: 6px; }
 .spell-none { font-size: 12px; padding: 6px; margin: 0; }
 
+/* Skills (proficiency toggle + click-to-roll) */
+.skills { margin-top: 10px; }
+.skills-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.skills-head h4 { margin: 0; }
+.skill-adv { display: flex; gap: 2px; margin-left: auto; }
+.skill-list { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; }
+.skill-row { display: flex; align-items: center; gap: 4px; }
+.skill-prof { background: none; border: none; padding: 4px; cursor: pointer; line-height: 0; }
+.skill-prof:disabled { cursor: default; }
+.skill-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); box-sizing: border-box; }
+.skill-row.prof .skill-dot { background: var(--accent); border-color: var(--accent); }
+.skill-roll {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  background: none; border: 1px solid transparent; color: var(--text);
+  border-radius: 6px; padding: 3px 6px; cursor: pointer; text-align: left; font-size: 13px;
+}
+.skill-roll:enabled:hover { border-color: var(--accent); background: var(--panel-2); }
+.skill-roll:disabled { cursor: default; }
+.skill-name { flex: 1; }
+.skill-abil { font-size: 11px; }
+.skill-bonus { font-weight: 600; min-width: 26px; text-align: right; }
+.skill-die { font-size: 11px; opacity: 0; }
+.skill-roll:enabled:hover .skill-die { opacity: 0.8; }
+
 /* Dice roller + shared roll log */
 .dice-quick { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .dice-row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
@@ -522,6 +547,7 @@ input[type='number'] { width: 70px; }
 /* Roll type — the total is tinted so attacks and saves stand apart from plain rolls. */
 .roll-entry.cat-attack .roll-total { color: var(--red); }
 .roll-entry.cat-save .roll-total { color: var(--purple); }
+.roll-entry.cat-skill .roll-total { color: var(--cyan); }
 
 /* Roll20 */
 .roll20-frame { width: 100%; height: 320px; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; background: #fff; }
