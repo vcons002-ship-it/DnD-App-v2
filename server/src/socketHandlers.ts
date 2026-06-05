@@ -26,6 +26,9 @@ import {
   createCharacter,
   updateCharacter,
   getCharacter,
+  setResource,
+  setItem,
+  removeItem,
   damageTokens,
   duplicateToken,
   setTokensHidden,
@@ -280,6 +283,30 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('character:release', () => {
       if (!sessionId()) return;
       releaseClaims(socket.id);
+      afterChange();
+    });
+
+    // ---- Resources & items (DM or the owning player) ----
+    const ownsCharacter = (characterId: string): boolean => {
+      const c = getCharacter(characterId);
+      return !!c && (isDm() || c.claimedBy === socket.id);
+    };
+
+    socket.on('resource:set', ({ characterId, group, key, max, used, remove }) => {
+      if (!key || !ownsCharacter(characterId)) return;
+      setResource(characterId, group, key, { max, used, remove });
+      afterChange();
+    });
+
+    socket.on('item:set', ({ characterId, item }) => {
+      if (!item?.name?.trim() || !ownsCharacter(characterId)) return;
+      setItem(characterId, item);
+      afterChange();
+    });
+
+    socket.on('item:remove', ({ characterId, itemId }) => {
+      if (!ownsCharacter(characterId)) return;
+      removeItem(characterId, itemId);
       afterChange();
     });
 

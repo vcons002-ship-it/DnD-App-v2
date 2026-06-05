@@ -100,6 +100,8 @@ export type Character = {
   abilities: CreatureAbility[];
   /** Names of skills this character is proficient in (see shared/skills.ts). */
   proficientSkills: string[];
+  /** Inventory items the player tracks. */
+  items: InventoryItem[];
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
@@ -164,6 +166,14 @@ export type LibraryItem = {
   name: string;
   description: string;
   qtyDefault: number;
+};
+
+/** An item in a character's inventory. */
+export type InventoryItem = {
+  id: string;
+  name: string;
+  qty: number;
+  note: string;
 };
 
 export type MapState = {
@@ -318,6 +328,19 @@ export type CharacterUpdatePayload = {
   abilities?: CreatureAbility[];
   proficientSkills?: string[];
 };
+/** Adjust or add/remove a limited-use counter (spell slot or class resource). */
+export type ResourceSetPayload = {
+  characterId: string;
+  group: 'spellSlots' | 'resources';
+  key: string;
+  max?: number;
+  used?: number;
+  remove?: boolean;
+};
+/** Upsert an inventory item on a character. */
+export type ItemSetPayload = { characterId: string; item: InventoryItem };
+/** Remove an inventory item from a character. */
+export type ItemRemovePayload = { characterId: string; itemId: string };
 /** Ask the AI to back-fill only the empty fields of a character. */
 export type AiFillCharacterPayload = { characterId: string };
 /** Generate a whole character/NPC from a free-text description (DM or player). */
@@ -418,6 +441,9 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
   'character:release': () => void;
+  'resource:set': (payload: ResourceSetPayload) => void;
+  'item:set': (payload: ItemSetPayload) => void;
+  'item:remove': (payload: ItemRemovePayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;

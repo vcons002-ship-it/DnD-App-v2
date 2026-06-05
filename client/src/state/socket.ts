@@ -7,6 +7,8 @@ import type {
   CombatRole,
   Condition,
   FogLayer,
+  InventoryItem,
+  ResourceSetPayload,
   JoinAck,
   MonsterCreatePayload,
   MonsterUpdatePayload,
@@ -72,6 +74,9 @@ type Store = {
   aiFillCharacter: (characterId: string) => void;
   aiCreateCharacter: (description: string) => void;
   releaseCharacter: () => void;
+  setResource: (payload: ResourceSetPayload) => void;
+  setItem: (characterId: string, item: InventoryItem) => void;
+  removeItem: (characterId: string, itemId: string) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -186,6 +191,11 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('ai:createCharacter', { description });
   },
   releaseCharacter: () => get().socket?.emit('character:release'),
+  setResource: (payload) => get().socket?.emit('resource:set', payload),
+  setItem: (characterId, item) =>
+    get().socket?.emit('item:set', { characterId, item }),
+  removeItem: (characterId, itemId) =>
+    get().socket?.emit('item:remove', { characterId, itemId }),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>

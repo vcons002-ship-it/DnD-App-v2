@@ -206,6 +206,7 @@ ensureColumn(
   'proficient_skills',
   "proficient_skills TEXT NOT NULL DEFAULT '[]'",
 );
+ensureColumn('characters', 'items', "items TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('tokens', 'combat_role_override', 'combat_role_override TEXT');
 ensureColumn(
   'tokens',
@@ -309,6 +310,7 @@ type CharacterRow = {
   actions: string;
   abilities: string;
   proficient_skills: string;
+  items: string;
   conditions: string;
   claimed_by: string | null;
   icon: string;
@@ -335,6 +337,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     actions: JSON.parse(r.actions ?? '[]'),
     abilities: JSON.parse(r.abilities ?? '[]'),
     proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
+    items: JSON.parse(r.items ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
     icon: r.icon ?? '',

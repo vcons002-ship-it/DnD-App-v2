@@ -447,3 +447,28 @@ input[type='number'] { width: 70px; }
 .lib-compare { display: flex; gap: 12px; }
 .lib-compare > div { flex: 1; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .lib-compare h4 { margin: 0 0 4px; }
+
+/* Resource trackers (spell slots + class resources) */
+.resources { margin-top: 10px; }
+.res-group { margin-bottom: 6px; }
+.res-sub { font-size: 11px; margin: 2px 0; }
+.res-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.res-name { flex: 1; font-size: 12px; }
+.res-count { font-size: 11px; min-width: 34px; text-align: right; }
+.pips { display: flex; flex-wrap: wrap; gap: 3px; }
+.pip { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--muted); background: transparent; cursor: pointer; padding: 0; }
+.pip.on { background: var(--accent); border-color: var(--accent); }
+.pip:disabled { cursor: default; }
+.res-x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; }
+.res-add, .item-add { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
+.res-add input:first-child, .item-add input:first-child { flex: 1; }
+.res-add input[type=number], .item-add input[type=number] { width: 48px; }
+
+/* Items */
+.items { margin-top: 10px; }
+.item-list { list-style: none; padding: 0; margin: 4px 0; }
+.item-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.item-name { flex: 1; font-size: 13px; }
+.item-qty { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.qbtn { width: 20px; height: 20px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 4px; cursor: pointer; padding: 0; }
+.item-picker { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; max-height: 180px; overflow-y: auto; margin-top: 4px; }

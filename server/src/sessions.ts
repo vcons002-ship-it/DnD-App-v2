@@ -8,6 +8,7 @@ import {
   rowToToken,
 } from './db.js';
 import { iconForCreature } from './creatures/srd.js';
+import { deriveClassResources } from './data/classTables.js';
 import type {
   Character,
   Condition,
@@ -610,19 +611,26 @@ export function createCharacter(
 ): Character {
   const id = newId();
   const maxHp = opts.maxHp && opts.maxHp > 0 ? Math.round(opts.maxHp) : 10;
+  const level = opts.level && opts.level > 0 ? opts.level : 1;
+  // Auto-fill spell slots + class resources from 5e class/level tables.
+  const { spellSlots, resources } = deriveClassResources(
+    opts.className ?? '',
+    level,
+    opts.stats ?? {},
+  );
   db.prepare(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
-        actions, abilities, proficient_skills, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        actions, abilities, proficient_skills, spell_slots, resources, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     opts.name.trim() || 'Adventurer',
     opts.race ?? '',
     opts.className ?? '',
-    opts.level && opts.level > 0 ? opts.level : 1,
+    level,
     maxHp,
     maxHp,
     opts.armorClass ?? 0,
@@ -634,9 +642,77 @@ export function createCharacter(
     JSON.stringify(opts.actions ?? []),
     JSON.stringify(opts.abilities ?? []),
     JSON.stringify(opts.proficientSkills ?? []),
+    JSON.stringify(spellSlots),
+    JSON.stringify(resources),
     opts.icon ?? '',
   );
   return getCharacter(id)!;
+}
+
+type Counters = Record<string, { max: number; used: number }>;
+/** Apply derived counter maxes onto existing counters, preserving used + custom. */
+function mergeCounters(existing: Counters, derived: Counters): Counters {
+  const out: Counters = { ...existing };
+  for (const [key, d] of Object.entries(derived)) {
+    out[key] = { max: d.max, used: Math.min(existing[key]?.used ?? 0, d.max) };
+  }
+  return out;
+}
+
+/** Set/clear a single counter (spell slot or class resource) on a character. */
+export function setResource(
+  characterId: string,
+  group: 'spellSlots' | 'resources',
+  key: string,
+  patch: { max?: number; used?: number; remove?: boolean },
+): Character | null {
+  const c = getCharacter(characterId);
+  if (!c) return null;
+  const map: Counters = { ...(group === 'spellSlots' ? c.spellSlots : c.resources) };
+  if (patch.remove) {
+    delete map[key];
+  } else {
+    const cur = map[key] ?? { max: 0, used: 0 };
+    const max = patch.max ?? cur.max;
+    const used = Math.max(0, Math.min(max, patch.used ?? cur.used));
+    map[key] = { max, used };
+  }
+  const col = group === 'spellSlots' ? 'spell_slots' : 'resources';
+  db.prepare(`UPDATE characters SET ${col} = ? WHERE id = ?`).run(
+    JSON.stringify(map),
+    characterId,
+  );
+  return getCharacter(characterId);
+}
+
+export function setItem(
+  characterId: string,
+  item: Character['items'][number],
+): Character | null {
+  const c = getCharacter(characterId);
+  if (!c) return null;
+  const items = c.items.filter((i) => i.id !== item.id);
+  items.push({
+    id: item.id || newId(),
+    name: item.name,
+    qty: item.qty,
+    note: item.note ?? '',
+  });
+  db.prepare('UPDATE characters SET items = ? WHERE id = ?').run(
+    JSON.stringify(items),
+    characterId,
+  );
+  return getCharacter(characterId);
+}
+
+export function removeItem(characterId: string, itemId: string): Character | null {
+  const c = getCharacter(characterId);
+  if (!c) return null;
+  db.prepare('UPDATE characters SET items = ? WHERE id = ?').run(
+    JSON.stringify(c.items.filter((i) => i.id !== itemId)),
+    characterId,
+  );
+  return getCharacter(characterId);
 }
 
 /** Patch editable fields of a character (DM or the owning player). */
@@ -658,6 +734,9 @@ export function updateCharacter(
     actions: Character['actions'];
     abilities: Character['abilities'];
     proficientSkills: string[];
+    items: Character['items'];
+    spellSlots: Character['spellSlots'];
+    resources: Character['resources'];
     icon: string;
   }>,
 ): Character | null {
@@ -689,6 +768,27 @@ export function updateCharacter(
     put('abilities', JSON.stringify(patch.abilities));
   if (patch.proficientSkills !== undefined)
     put('proficient_skills', JSON.stringify(patch.proficientSkills));
+  if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
+  if (patch.spellSlots !== undefined)
+    put('spell_slots', JSON.stringify(patch.spellSlots));
+  if (patch.resources !== undefined)
+    put('resources', JSON.stringify(patch.resources));
+
+  // Re-derive spell slots / class resources when level or class changes, unless
+  // the caller passed them explicitly (preserve `used` + any custom counters).
+  if (
+    (patch.level !== undefined || patch.className !== undefined) &&
+    patch.spellSlots === undefined &&
+    patch.resources === undefined
+  ) {
+    const derived = deriveClassResources(
+      patch.className ?? c.className,
+      patch.level ?? c.level,
+      patch.stats ?? c.stats,
+    );
+    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots)));
+    put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources)));
+  }
 
   if (sets.length) {
     db.prepare(`UPDATE characters SET ${sets.join(', ')} WHERE id = ?`).run(
