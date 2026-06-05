@@ -254,4 +254,38 @@ describe('weapon masteries', () => {
     }
     expect(checked).toBe(true);
   });
+
+  it('stacks multiple masteries bound to the same weapon', () => {
+    // One weapon, two active masteries: Hew (+prof) and a custom +5 — both apply.
+    const { s, atk, tgt } = masteryFight({
+      weapon: 'Greataxe',
+      attackBonus: 50,
+      targetAc: 1,
+      damage: '2d1', // constant 2
+      mastery: { weapon: 'Greataxe', active: true, effect: { profBonusDamage: true } },
+    });
+    const chId = getToken(atk)!.refId;
+    setSheetAbility(chId, {
+      id: 'm2',
+      name: 'Crusher',
+      type: 'mastery',
+      description: '',
+      mastery: { weapon: 'Greataxe', active: true, effect: { bonusDamage: '5d1' } },
+    });
+    const ref = getToken(tgt)!.refId;
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s, 'Striker', atk, tgt, 0);
+      const last = listRollLog(s).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        // 2 weapon + 2 prof (Hew) + 5 (Crusher) = 9, and both notes appear.
+        expect(before - getMonster(ref)!.curHp).toBe(9);
+        expect(last.detail).toContain('+2 (prof)');
+        expect(last.detail).toContain('Crusher +5');
+      }
+    }
+    expect(checked).toBe(true);
+  });
 });
