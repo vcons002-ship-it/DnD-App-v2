@@ -17,7 +17,7 @@ import {
   spellAttackBonus,
   spellSaveDC,
 } from '../../shared/spellMath.js';
-import { signed } from '../../shared/skills.js';
+import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
 import type { Character, SheetAbility, Token, Weapon } from '../../shared/types.js';
 
 type Resolved = {
@@ -197,6 +197,38 @@ export function resolveAbilityRoll(
     expr: title,
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+  });
+  return true;
+}
+
+/**
+ * Resolve a 5e skill check authoritatively and log it: d20 (with adv/dis) +
+ * the character's ability modifier + proficiency bonus when proficient in that
+ * skill. Returns false for an unknown skill name.
+ */
+export function resolveSkillRoll(
+  sessionId: string,
+  roller: string,
+  character: Character,
+  skillName: string,
+  advantage?: Advantage,
+): boolean {
+  const skill = SKILLS.find(
+    (s) => s.name.toLowerCase() === skillName.trim().toLowerCase(),
+  );
+  if (!skill) return false;
+  const proficient = character.proficientSkills.includes(skill.name);
+  const bonus = skillBonus(character.stats, skill.ability, character.level, proficient);
+  const { face, detail: d20detail } = rollD20(advantage);
+  const total = face + bonus;
+  addRollLog(sessionId, {
+    roller,
+    label: `${skill.name} check`,
+    expr: `${skill.ability}${proficient ? ' (prof)' : ''}`,
+    total,
+    detail:
+      `${character.name} — ${skill.name}: ${d20detail} ${signed(bonus)} = ${total}` +
+      (proficient ? ' (proficient)' : ''),
   });
   return true;
 }

@@ -1,7 +1,12 @@
 import { config } from './config.js';
 import { newId } from './db.js';
 import { rollDice } from '../../shared/dice.js';
-import { resolveAttack, resolveAbilityRoll, resolveSaves } from './combat.js';
+import {
+  resolveAttack,
+  resolveAbilityRoll,
+  resolveSkillRoll,
+  resolveSaves,
+} from './combat.js';
 import {
   aiCreateCharacter,
   aiFillCharacter,
@@ -376,6 +381,22 @@ export function registerSocketHandlers(io: IOServer): void {
           });
         }
       }
+      if (ok) afterChange();
+    });
+
+    socket.on('skill:roll', ({ characterId, skill, advantage }) => {
+      const sid = sessionId();
+      if (!sid || typeof skill !== 'string' || !ownsCharacter(characterId)) return;
+      const c = getCharacter(characterId);
+      if (!c) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const ok = resolveSkillRoll(
+        sid,
+        rollerName(sid, socket.id, isDm()),
+        c,
+        skill,
+        adv,
+      );
       if (ok) afterChange();
     });
 

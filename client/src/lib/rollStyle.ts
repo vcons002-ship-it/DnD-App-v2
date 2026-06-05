@@ -1,15 +1,17 @@
 import type { RollEntry } from '../../../shared/types';
 
 /** Broad category of a roll, derived from its label, for color-coding the log. */
-export type RollCategory = 'attack' | 'save' | 'roll';
+export type RollCategory = 'attack' | 'save' | 'skill' | 'roll';
 
-/** Bucket a roll entry by its label so attacks and saves stand out from
- *  plain dice rolls. Attacks are logged with the label "Attack" and saves
- *  with "<ABILITY> save" (see server/src/combat.ts). */
+/** Bucket a roll entry by its label so attacks, saves, and skill checks stand
+ *  out from plain dice rolls. Attacks are logged with the label "Attack",
+ *  saves with "<ABILITY> save", and skill checks with "<Skill> check"
+ *  (see server/src/combat.ts). */
 export function rollCategory(entry: RollEntry): RollCategory {
   const label = entry.label.trim().toLowerCase();
   if (label === 'attack') return 'attack';
   if (label.endsWith('save')) return 'save';
+  if (label.endsWith('check')) return 'skill';
   return 'roll';
 }
 

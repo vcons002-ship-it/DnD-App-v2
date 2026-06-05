@@ -169,6 +169,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   store `proficientSkills`; `CharacterSkills` shows each skill's ability, a
   proficiency toggle (owner/DM editable), the proficiency bonus, and the computed
   stat-based total. AI character generation/fill can set proficiencies.
+- ☑ **Automated skill checks [req].** Clicking a skill rolls it server-side
+  (`skill:roll` → `resolveSkillRoll`): d20 (with a section adv/dis toggle) + the
+  sheet's ability modifier + proficiency bonus when proficient, logged to the
+  shared roll log as "<Skill> check" (own color tier). Owner/DM-gated.
 - ☑ **Create party characters [req].** Both the DM (DmPanel) and players
   (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
   a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can
