@@ -6,11 +6,22 @@ import { NewCharacterForm } from './NewCharacterForm';
 type Props = {
   snapshot: StateSnapshot;
   claimedId: string | null;
+  placing: boolean;
+  isPlaced: boolean;
   onClaim: (characterId: string) => void;
   onRelease: () => void;
+  onPlaceToken: () => void;
 };
 
-export function PlayerPanel({ snapshot, claimedId, onClaim, onRelease }: Props) {
+export function PlayerPanel({
+  snapshot,
+  claimedId,
+  placing,
+  isPlaced,
+  onClaim,
+  onRelease,
+  onPlaceToken,
+}: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const mine = snapshot.characters.find((c) => c.id === claimedId) ?? null;
 
@@ -65,6 +76,16 @@ export function PlayerPanel({ snapshot, claimedId, onClaim, onRelease }: Props) 
           <div className="hp-line">
             HP: {mine.curHp} / {mine.maxHp}
           </div>
+          {isPlaced ? (
+            <p className="hint">Your token is on the map.</p>
+          ) : (
+            <button
+              className={`btn ${placing ? 'on' : ''}`}
+              onClick={onPlaceToken}
+            >
+              {placing ? 'Click the map to place…' : '📍 Place my token'}
+            </button>
+          )}
           <div className="dmg-row">
             <button className="btn red" onClick={() => applyDamage('pc', mine.id, 1)}>
               −1

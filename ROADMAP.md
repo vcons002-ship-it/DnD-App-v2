@@ -54,6 +54,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   `TokenShape` and rendered as an overlay by `MapStage`.
 - ☑ **Players cannot resize tokens [req].** `token:resize` is now DM-only and the
   size buttons are disabled for players (they may still move tokens).
+- ☑ **Players place their own token [req].** A "📍 Place my token" button in
+  PlayerPanel lets a player click the active map to drop their claimed
+  character once (`token:spawn` now allows a player to place only their own
+  claimed PC, on the active map, no duplicates).
+- ☑ **High-visibility PC tokens [req].** Player-character tokens render a bright
+  glowing cyan halo so the party stands out clearly from creature tokens.
 - ☑ **Initiative *order* on token [req].** The on-token badge now shows turn ORDER
   (1, 2, 3 …); the DM initiative list shows BOTH the order (#) and the roll.
 - ☑ **Carry-tokens confirmation [req].** `copyTokens` returns a count; the server

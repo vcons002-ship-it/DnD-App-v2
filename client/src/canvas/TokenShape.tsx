@@ -177,6 +177,18 @@ export function TokenShape({
           shadowOpacity={0.95}
         />
       )}
+      {/* Player-character tokens get a bright glowing halo so the party stands
+          out clearly from creatures. */}
+      {token.kind === 'pc' && (
+        <Circle
+          radius={radius + 3}
+          stroke="#5ce1ff"
+          strokeWidth={4}
+          shadowColor="#5ce1ff"
+          shadowBlur={14}
+          shadowOpacity={0.95}
+        />
+      )}
       {hasImageIcon && iconImg ? (
         <>
           <Group

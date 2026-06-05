@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { PlayerPanel } from '../components/PlayerPanel';
@@ -13,9 +13,24 @@ export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
   const claimCharacter = useStore((s) => s.claimCharacter);
   const releaseCharacter = useStore((s) => s.releaseCharacter);
+  const spawnToken = useStore((s) => s.spawnToken);
   const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
     useSelection(snapshot);
   const [claimedId, setClaimedId] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
+
+  // Players can place their own claimed character once; clear when it's down.
+  const alreadyPlaced =
+    !!claimedId &&
+    !!snapshot?.tokens.some((t) => t.kind === 'pc' && t.refId === claimedId);
+  useEffect(() => {
+    if (alreadyPlaced) setPlacing(false);
+  }, [alreadyPlaced]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPlacing(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const selectedToken = useMemo(
     () => snapshot?.tokens.find((t) => t.id === primaryId) ?? null,
@@ -37,6 +52,8 @@ export function PlayerView() {
           <PlayerPanel
             snapshot={snapshot}
             claimedId={claimedId}
+            placing={placing}
+            isPlaced={alreadyPlaced}
             onClaim={(id) => {
               setClaimedId(id);
               claimCharacter(id);
@@ -45,6 +62,7 @@ export function PlayerView() {
               setClaimedId(null);
               releaseCharacter();
             }}
+            onPlaceToken={() => setPlacing((p) => !p)}
           />
         </SidePanel>
 
@@ -56,6 +74,14 @@ export function PlayerView() {
             activeTurnTokenId={snapshot.activeTurnTokenId}
             onSelectToken={handleSelect}
             onMoveToken={handleMove}
+            onPlaceAt={
+              placing && claimedId && snapshot.map && !alreadyPlaced
+                ? (x, y) => {
+                    spawnToken(snapshot.map!.id, 'pc', claimedId, x, y);
+                    setPlacing(false);
+                  }
+                : undefined
+            }
           />
         </main>
 

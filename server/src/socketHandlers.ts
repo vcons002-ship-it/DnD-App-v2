@@ -48,6 +48,7 @@ import {
   getSessionById,
   getSessionByCode,
   getToken,
+  listTokens,
   moveToken,
   releaseClaims,
   resizeToken,
@@ -161,8 +162,20 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('token:spawn', (p) => {
-      if (!isDm()) return; // spawning is a DM action in the MVP
-      if (!getMap(p.mapId)) return;
+      const sid = sessionId();
+      if (!sid || !getMap(p.mapId)) return;
+      if (!isDm()) {
+        // Players may place ONLY their own claimed character, on the active map.
+        if (p.kind !== 'pc') return;
+        const c = getCharacter(p.refId);
+        if (!c || c.claimedBy !== socket.id) return;
+        if (p.mapId !== getActiveMapId(sid)) return;
+        // Don't pile up duplicates: skip if their token is already on this map.
+        const exists = listTokens(p.mapId).some(
+          (t) => t.kind === 'pc' && t.refId === p.refId,
+        );
+        if (exists) return;
+      }
       // Monsters spawn from a template -> each placement is a fresh numbered
       // instance (Goblin 1, 2, …). PCs reference their character directly.
       let refId = p.refId;
