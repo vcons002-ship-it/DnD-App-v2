@@ -25,7 +25,7 @@ const MASTERIES: MasteryEntry[] = [
     type: 'mastery',
     meta: 'Greataxe, Halberd',
     description:
-      'If you hit a creature with a melee attack using this weapon, you can make a melee attack roll with the weapon against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon’s damage (no ability modifier). Once per turn. While toggled on, a hit rolls that second-creature damage (the weapon’s dice, no ability modifier) for you to apply manually.',
+      'If you hit a creature with a melee attack using this weapon, you can make a melee attack roll with the weapon against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon’s damage but no ability modifier. Once per turn. To use: after your normal hit, toggle this on and attack the second creature (make it the target) — on a hit it takes the weapon’s damage minus your ability modifier, and Cleave switches itself back off.',
     mastery: { weapon: '', active: false, effect: { cleave: true } },
   },
   {

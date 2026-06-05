@@ -4,6 +4,7 @@ import {
   getCharacter,
   getMonster,
   getToken,
+  setSheetAbility,
 } from './sessions.js';
 import {
   damageParts,
@@ -80,10 +81,13 @@ export function resolveAttack(
 
   const out = rollWeaponAttack(a.c, weapon, t.ac, advantage);
 
-  // Active weapon masteries bound to THIS weapon adjust the damage: extra dice
-  // on a hit, or Graze (ability-mod damage) on a miss. Only PCs carry masteries.
+  // Active weapon masteries bound to THIS weapon adjust the damage applied to the
+  // target: extra on a hit, Cleave strips the ability modifier (and one-shot
+  // disables itself), or Graze on a miss. Only PCs carry masteries.
   let extra = 0;
+  let cleaveCut = 0; // ability modifier removed by an active Cleave on a hit
   const masteryNotes: string[] = [];
+  let cleaveToDisable: { characterId: string; ability: SheetAbility } | null = null;
   if (at.kind === 'pc') {
     const ch = getCharacter(at.refId);
     const wn = weapon.name.trim().toLowerCase();
@@ -103,15 +107,20 @@ export function resolveAttack(
         extra += pb;
         masteryNotes.push(`${ab.name} +${pb} (prof)`);
       }
-      if (out.hit && m.effect.cleave) {
-        // Weapon dice + magic bonus (NO ability modifier) — the 2nd-creature hit.
-        // Rolled and logged for manual application, NOT applied to the primary target.
-        const { dice } = damageParts(weapon.damage?.trim() || '1d4');
-        const magic = weapon.magicBonus ?? 0;
-        const total = (dice ? rollDice(dice)!.total : 0) + magic;
-        masteryNotes.push(
-          `${ab.name} ${total} to a 2nd creature [${dice || '0'}${magic ? ` +${magic} magic` : ''}, no mod]`,
-        );
+      if (m.effect.cleave) {
+        // This is the cleave attack against the second creature (now the target):
+        // it deals the weapon's damage WITHOUT the ability modifier (the flat part
+        // of the damage string), and toggles itself off after the attack roll.
+        cleaveToDisable = { characterId: ch!.id, ability: ab };
+        if (out.hit) {
+          const { flat } = damageParts(weapon.damage?.trim() || '1d4');
+          if (flat > 0) {
+            cleaveCut += flat;
+            masteryNotes.push(`${ab.name} (no ability modifier −${flat})`);
+          } else {
+            masteryNotes.push(`${ab.name} (no ability modifier)`);
+          }
+        }
       }
       if (!out.hit && m.effect.grazeOnMiss) {
         const g = Math.max(0, weaponAbilityMod(a.c, weapon));
@@ -123,7 +132,8 @@ export function resolveAttack(
     }
   }
 
-  const applied = (out.hit ? out.damage : 0) + extra;
+  let applied = (out.hit ? out.damage : 0) + extra - cleaveCut;
+  if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
   if (applied > 0) applyDamage(t.kind, t.refId, applied);
   addRollLog(sessionId, {
     roller,
@@ -134,6 +144,14 @@ export function resolveAttack(
       `${a.name} → ${t.name}: ${out.detail}` +
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : ''),
   });
+  // Cleave is a one-shot: disable it after the attack roll (hit or miss).
+  if (cleaveToDisable) {
+    const ab = cleaveToDisable.ability;
+    setSheetAbility(cleaveToDisable.characterId, {
+      ...ab,
+      mastery: { ...ab.mastery!, active: false },
+    });
+  }
   return true;
 }
 

@@ -9,6 +9,7 @@ import {
   createMonsterTemplate,
   instantiateMonster,
   setSheetAbility,
+  getCharacter,
   updateMonster,
   getMonster,
   getToken,
@@ -184,27 +185,46 @@ describe('weapon masteries', () => {
     expect(listRollLog(s).every((e) => !e.detail.includes('graze'))).toBe(true);
   });
 
-  it('Cleave rolls 2nd-creature damage (dice + magic, no ability mod) without applying it', () => {
-    // "2d1" is a constant 2; +1 magic. A clean (non-crit) hit deals 2+1=3 to the
-    // primary target, and Cleave logs 2(dice)+1(magic)=3 for the 2nd creature.
+  it('Cleave toggles itself off after an attack (hit or miss)', () => {
     const { s, atk, tgt } = masteryFight({
-      weapon: 'Greatsword',
+      weapon: 'Greataxe',
       attackBonus: 50,
       targetAc: 1,
-      damage: '2d1',
-      magicBonus: 1,
-      mastery: { weapon: 'Greatsword', active: true, effect: { cleave: true } },
+      damage: '1d6+3',
+      mastery: { weapon: 'Greataxe', active: true, effect: { cleave: true } },
     });
+    const chId = getToken(atk)!.refId;
+    expect(getCharacter(chId)!.sheetAbilities[0].mastery!.active).toBe(true);
+    resolveAttack(s, 'Striker', atk, tgt, 0);
+    expect(getCharacter(chId)!.sheetAbilities[0].mastery!.active).toBe(false);
+  });
+
+  it('Cleave applies the weapon damage to the target without the ability modifier', () => {
+    // "2d1" = constant 2, "+3" ability mod, +1 magic. Normal hit = 6; Cleave
+    // strips the +3 ability mod → 3 applied (dice 2 + magic 1). Re-enable each
+    // loop since Cleave one-shots itself off.
+    const { s, atk, tgt } = masteryFight({
+      weapon: 'Greataxe',
+      attackBonus: 50,
+      targetAc: 1,
+      damage: '2d1+3',
+      magicBonus: 1,
+      str: 16,
+      mastery: { weapon: 'Greataxe', active: true, effect: { cleave: true } },
+    });
+    const chId = getToken(atk)!.refId;
     const ref = getToken(tgt)!.refId;
     let checked = false;
-    for (let i = 0; i < 80 && !checked; i++) {
+    for (let i = 0; i < 100 && !checked; i++) {
+      const ab = getCharacter(chId)!.sheetAbilities[0];
+      setSheetAbility(chId, { ...ab, mastery: { ...ab.mastery!, active: true } });
       const before = getMonster(ref)!.curHp;
       resolveAttack(s, 'Striker', atk, tgt, 0);
       const last = listRollLog(s).at(-1)!;
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
-        expect(last.detail).toContain('to a 2nd creature [2d1 +1 magic, no mod]');
-        expect(before - getMonster(ref)!.curHp).toBe(3); // primary 2 + 1 magic, cleave not added
+        expect(last.detail).toContain('no ability modifier');
+        expect(before - getMonster(ref)!.curHp).toBe(3); // 6 normal − 3 ability mod
       }
     }
     expect(checked).toBe(true);

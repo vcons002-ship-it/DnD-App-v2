@@ -275,11 +275,11 @@ Smaller refinements on top of the shipped Phase 2 work.
   are searchable in the Spells & Abilities menu and added as `type:'mastery'` sheet
   entries. Effect-bearing entries get a **weapon binding + on/off toggle**; when
   active and bound to the attacking weapon, `resolveAttack` adjusts that attack
-  server-side: **Graze** (ability-mod damage on a miss), **Cleave** (rolls the
-  second-creature damage — weapon dice + magic, no ability mod — logged for manual
-  application), **Hew** (proficiency-bonus damage on a hit), and a generic on-hit
-  `bonusDamage` lever (homebrew/AI). The rest (Push/Sap/Slow/Topple/Vex/Nick) are
-  collapsible descriptions handled manually.
+  server-side: **Graze** (ability-mod damage on a miss), **Cleave** (deals the
+  weapon's damage — dice + magic, no ability modifier — to the target, then
+  one-shot toggles itself off), **Hew** (proficiency-bonus damage on a hit), and a
+  generic on-hit `bonusDamage` lever (homebrew/AI). The rest
+  (Push/Sap/Slow/Topple/Vex/Nick) are collapsible descriptions handled manually.
 - ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` keeps a
   weapon's magic damage distinct from its ability modifier (which lives in the
   `damage` string), so mastery effects that strip the ability mod (Cleave) keep
