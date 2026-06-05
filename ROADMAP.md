@@ -92,12 +92,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   interactive token layer on top of a linked Slides embed so tokens can be placed
   on Slides maps. Technically tricky (cross-origin iframe) — investigate an
   absolutely-positioned transparent canvas over the iframe.
-- ☐ **Combined map + token fog, painted separately [req].** Let a single map use
-  BOTH map fog and token fog at the same time, as two independent painted layers
-  (separate Reveal/Hide per layer) — so the DM can hide terrain and hide
-  creatures in different areas. Requires splitting the current single fog mode +
-  `fogRevealed` set into two layers (e.g. `mapFogRevealed` / `tokenFogRevealed`)
-  with a layer selector on the brush.
+- ☑ **Combined map + token fog, painted separately [req].** A map now has two
+  independent fog layers, each with its own enabled flag + revealed-cell set
+  (`mapFogRevealed` / `tokenFogRevealed`), both active at once. The fog toolbar
+  toggles each layer on/off and a **Paint: Map / Tokens** selector picks which
+  layer the Reveal/Hide brush (and Cover-all / Reveal-all) affects. `visibility.ts`
+  hides a player's token if it's covered by EITHER enabled layer; map fog blacks
+  out terrain (solid for players, translucent for the DM) while token fog shows a
+  DM-only purple marker. The old single `fogMode` migrates into the matching
+  layer (verified by a two-layer test).
 
 ## Phase 4 — Creature data & token art ✅ (done)
 

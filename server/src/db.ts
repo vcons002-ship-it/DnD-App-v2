@@ -5,7 +5,6 @@ import { config } from './config.js';
 import type {
   Character,
   Condition,
-  FogMode,
   MapState,
   Monster,
   Token,
@@ -124,6 +123,32 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
     db.exec("UPDATE maps SET fog_mode = 'map' WHERE fog_enabled = 1");
   }
 }
+// fog_mode (single layer) -> two independent layers (map fog + token fog).
+ensureColumn('maps', 'map_fog_enabled', 'map_fog_enabled INTEGER NOT NULL DEFAULT 0');
+ensureColumn('maps', 'token_fog_enabled', 'token_fog_enabled INTEGER NOT NULL DEFAULT 0');
+const addedMapRev = ensureColumn(
+  'maps',
+  'map_fog_revealed',
+  "map_fog_revealed TEXT NOT NULL DEFAULT '[]'",
+);
+const addedTokRev = ensureColumn(
+  'maps',
+  'token_fog_revealed',
+  "token_fog_revealed TEXT NOT NULL DEFAULT '[]'",
+);
+if (addedMapRev || addedTokRev) {
+  const hasMode = (
+    db.prepare('PRAGMA table_info(maps)').all() as { name: string }[]
+  ).some((c) => c.name === 'fog_mode');
+  if (hasMode) {
+    db.exec(
+      "UPDATE maps SET map_fog_enabled = 1, map_fog_revealed = fog_revealed WHERE fog_mode = 'map'",
+    );
+    db.exec(
+      "UPDATE maps SET token_fog_enabled = 1, token_fog_revealed = fog_revealed WHERE fog_mode = 'tokens'",
+    );
+  }
+}
 ensureColumn('monsters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('monsters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
@@ -176,8 +201,10 @@ type MapRow = {
   slides_url: string | null;
   grid_size_px: number;
   feet_per_square: number;
-  fog_mode: FogMode;
-  fog_revealed: string;
+  map_fog_enabled: number;
+  token_fog_enabled: number;
+  map_fog_revealed: string;
+  token_fog_revealed: string;
 };
 
 export function rowToMap(r: MapRow): MapState {
@@ -189,8 +216,10 @@ export function rowToMap(r: MapRow): MapState {
     slidesUrl: r.slides_url,
     gridSizePx: r.grid_size_px,
     feetPerSquare: r.feet_per_square,
-    fogMode: r.fog_mode ?? 'off',
-    fogRevealed: JSON.parse(r.fog_revealed ?? '[]') as string[],
+    mapFogEnabled: !!r.map_fog_enabled,
+    tokenFogEnabled: !!r.token_fog_enabled,
+    mapFogRevealed: JSON.parse(r.map_fog_revealed ?? '[]') as string[],
+    tokenFogRevealed: JSON.parse(r.token_fog_revealed ?? '[]') as string[],
   };
 }
 

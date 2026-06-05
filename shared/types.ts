@@ -44,13 +44,14 @@ export type Weapon = {
 };
 
 /**
- * Fog of war mode for a map:
- * - 'off'    no fog
- * - 'map'    covered cells black out the map for players (classic fog)
- * - 'tokens' map stays visible; only tokens in covered cells are hidden from
+ * The two independent fog layers a map can use AT THE SAME TIME:
+ * - 'map'    covered cells black out the terrain for players (classic fog)
+ * - 'tokens' terrain stays visible; tokens in covered cells are hidden from
  *            players (DM sees a translucent marker of the covered region)
+ * Each layer has its own enabled flag and its own revealed-cell set, so the DM
+ * can, on one map, black out area A while hiding only creatures in area B.
  */
-export type FogMode = 'off' | 'map' | 'tokens';
+export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
@@ -164,12 +165,13 @@ export type MapState = {
   slidesUrl: string | null;
   gridSizePx: number;
   feetPerSquare: number;
-  /** Fog of war mode for this map (off / map / tokens). */
-  fogMode: FogMode;
-  /** Grid cells the DM has revealed, as "col,row" keys. Everything else is
-   *  covered when fog is on (this also powers the "curtain" workflow: cover
-   *  all, then reveal the starting area). */
-  fogRevealed: string[];
+  /** Whether each fog layer is active on this map. */
+  mapFogEnabled: boolean;
+  tokenFogEnabled: boolean;
+  /** Revealed "col,row" cells per layer; everything else on an enabled layer is
+   *  covered (also powers the "curtain": cover all, then reveal the start). */
+  mapFogRevealed: string[];
+  tokenFogRevealed: string[];
 };
 
 /** Player-facing ENEMY view: name + visible conditions + icon only. */
@@ -262,11 +264,21 @@ export type ConditionClearPayload = {
 export type MapSetActivePayload = { mapId: string };
 export type MapSelectPayload = { mapId: string };
 export type MapDeletePayload = { mapId: string };
-export type FogModePayload = { mapId: string; mode: FogMode };
-/** Reveal (true) or re-hide (false) the given "col,row" cells on a map. */
-export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean };
-/** Cover the whole map again (clear all revealed cells). */
-export type FogCoverPayload = { mapId: string };
+/** Enable/disable one fog layer on a map. */
+export type FogSetLayerPayload = {
+  mapId: string;
+  layer: FogLayer;
+  enabled: boolean;
+};
+/** Reveal (true) or re-hide (false) cells on one fog layer of a map. */
+export type FogPaintPayload = {
+  mapId: string;
+  layer: FogLayer;
+  cells: string[];
+  reveal: boolean;
+};
+/** Re-cover the whole map on one fog layer (clear that layer's revealed cells). */
+export type FogCoverPayload = { mapId: string; layer: FogLayer };
 export type ClaimCharacterPayload = { characterId: string };
 /** Create a player character (DM or player). */
 export type CharacterCreatePayload = {
@@ -371,7 +383,7 @@ export interface ClientToServerEvents {
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
   'map:delete': (payload: MapDeletePayload) => void;
-  'fog:setMode': (payload: FogModePayload) => void;
+  'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload) => void;

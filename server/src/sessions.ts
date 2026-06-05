@@ -11,7 +11,7 @@ import { iconForCreature } from './creatures/srd.js';
 import type {
   Character,
   Condition,
-  FogMode,
+  FogLayer,
   MapState,
   Monster,
   SessionSummary,
@@ -172,32 +172,48 @@ export function updateMapGrid(
   ).run(gridSizePx, feetPerSquare, mapId);
 }
 
-export function setFogMode(mapId: string, mode: FogMode): void {
-  db.prepare('UPDATE maps SET fog_mode = ? WHERE id = ?').run(mode, mapId);
+/** Columns for each fog layer (enabled flag + revealed-cell set). */
+const FOG_COLS: Record<FogLayer, { enabled: string; revealed: string }> = {
+  map: { enabled: 'map_fog_enabled', revealed: 'map_fog_revealed' },
+  tokens: { enabled: 'token_fog_enabled', revealed: 'token_fog_revealed' },
+};
+
+export function setFogLayer(
+  mapId: string,
+  layer: FogLayer,
+  enabled: boolean,
+): void {
+  db.prepare(
+    `UPDATE maps SET ${FOG_COLS[layer].enabled} = ? WHERE id = ?`,
+  ).run(enabled ? 1 : 0, mapId);
 }
 
-/** Reveal or re-hide a set of "col,row" cells on a map's fog layer. */
+/** Reveal or re-hide "col,row" cells on one fog layer of a map. */
 export function paintFog(
   mapId: string,
+  layer: FogLayer,
   cells: string[],
   reveal: boolean,
 ): void {
   const map = getMap(mapId);
   if (!map) return;
-  const set = new Set(map.fogRevealed);
+  const current =
+    layer === 'map' ? map.mapFogRevealed : map.tokenFogRevealed;
+  const set = new Set(current);
   for (const c of cells) {
     if (reveal) set.add(c);
     else set.delete(c);
   }
-  db.prepare('UPDATE maps SET fog_revealed = ? WHERE id = ?').run(
-    JSON.stringify([...set]),
-    mapId,
-  );
+  db.prepare(
+    `UPDATE maps SET ${FOG_COLS[layer].revealed} = ? WHERE id = ?`,
+  ).run(JSON.stringify([...set]), mapId);
 }
 
-/** Re-cover the entire map (clear all revealed cells). */
-export function coverFog(mapId: string): void {
-  db.prepare("UPDATE maps SET fog_revealed = '[]' WHERE id = ?").run(mapId);
+/** Re-cover the entire map on one fog layer (clear that layer's revealed cells). */
+export function coverFog(mapId: string, layer: FogLayer): void {
+  db.prepare(
+    `UPDATE maps SET ${FOG_COLS[layer].revealed} = '[]' WHERE id = ?`,
+  ).run(mapId);
 }
 
 export function setActiveMap(sessionId: string, mapId: string): void {

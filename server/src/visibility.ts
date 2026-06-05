@@ -101,14 +101,17 @@ export function buildSnapshot(
     listMonsters(sessionId);
 
   if (role === 'player') {
-    // Individually-hidden tokens, and (in either fog mode) any token sitting
-    // under a covered cell, are never sent to players.
-    const revealed = new Set(map?.fogRevealed ?? []);
+    // Individually-hidden tokens, and any token sitting under a covered cell of
+    // EITHER enabled fog layer (map or token fog), are never sent to players.
     const grid = map?.gridSizePx ?? 50;
-    const fogOn = map?.fogMode === 'map' || map?.fogMode === 'tokens';
-    const covered = (t: Token) =>
-      fogOn &&
-      !revealed.has(`${Math.floor(t.x / grid)},${Math.floor(t.y / grid)}`);
+    const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
+    const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
+    const covered = (t: Token) => {
+      const key = `${Math.floor(t.x / grid)},${Math.floor(t.y / grid)}`;
+      return (
+        (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key))
+      );
+    };
     tokens = tokens.filter((t) => !t.isHidden && !covered(t));
     monsters = monsters.map((m) => toPlayerMonster(m as Monster));
   }

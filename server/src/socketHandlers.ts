@@ -39,7 +39,7 @@ import {
   instantiateMonster,
   setEntityIcon,
   paintFog,
-  setFogMode,
+  setFogLayer,
   setTokenHidden,
   setTokensHideCombatRole,
   setTokensCombatRole,
@@ -143,21 +143,21 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('fog:setMode', ({ mapId, mode }) => {
+    socket.on('fog:setLayer', ({ mapId, layer, enabled }) => {
       if (!isDm() || !getMap(mapId)) return;
-      setFogMode(mapId, mode);
+      setFogLayer(mapId, layer, enabled);
       afterChange();
     });
 
-    socket.on('fog:paint', ({ mapId, cells, reveal }) => {
+    socket.on('fog:paint', ({ mapId, layer, cells, reveal }) => {
       if (!isDm() || !getMap(mapId) || !Array.isArray(cells)) return;
-      paintFog(mapId, cells, reveal);
+      paintFog(mapId, layer, cells, reveal);
       afterChange();
     });
 
-    socket.on('fog:cover', ({ mapId }) => {
+    socket.on('fog:cover', ({ mapId, layer }) => {
       if (!isDm() || !getMap(mapId)) return;
-      coverFog(mapId);
+      coverFog(mapId, layer);
       afterChange();
     });
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
-import type { StateSnapshot, Token } from '../../../shared/types';
+import type { FogLayer, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { resolveToken } from '../lib/entities';
@@ -62,22 +62,27 @@ export function MapStage({
   const imgH = image?.naturalHeight ?? 700;
   const grid = map?.gridSizePx ?? 50;
 
-  // ---- Fog of war ----
+  // ---- Fog of war (two independent layers: map fog + token fog) ----
   const isDm = snapshot.role === 'dm';
-  const setFogMode = useStore((s) => s.setFogMode);
+  const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
+  const [paintLayer, setPaintLayer] = useState<FogLayer>('map');
   const [brushSize, setBrushSize] = useState(1); // cells per side (1,3,5)
   const cols = Math.max(1, Math.ceil(imgW / grid));
   const rows = Math.max(1, Math.ceil(imgH / grid));
-  const fogMode = map?.fogMode ?? 'off';
-  const fogOn = fogMode !== 'off';
-  const revealedSet = useMemo(
-    () => new Set(map?.fogRevealed ?? []),
-    [map?.fogRevealed],
+  const mapFogEnabled = map?.mapFogEnabled ?? false;
+  const tokenFogEnabled = map?.tokenFogEnabled ?? false;
+  const mapRevealed = useMemo(
+    () => new Set(map?.mapFogRevealed ?? []),
+    [map?.mapFogRevealed],
   );
-  const fogActive = isDm && fogOn && fogBrush !== 'off';
+  const tokenRevealed = useMemo(
+    () => new Set(map?.tokenFogRevealed ?? []),
+    [map?.tokenFogRevealed],
+  );
+  const fogActive = isDm && fogBrush !== 'off';
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
 
@@ -164,7 +169,7 @@ export function MapStage({
         fresh.push(key);
       }
     }
-    if (fresh.length) paintFog(map.id, fresh, fogBrush === 'reveal');
+    if (fresh.length) paintFog(map.id, paintLayer, fresh, fogBrush === 'reveal');
   };
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -198,21 +203,30 @@ export function MapStage({
     paintingRef.current = false;
   };
 
-  const revealAll = () => {
-    if (!map) return;
+  const allCells = (): string[] => {
     const all: string[] = [];
     for (let c = 0; c < cols; c++)
       for (let r = 0; r < rows; r++) all.push(`${c},${r}`);
-    paintFog(map.id, all, true);
+    return all;
+  };
+  const revealAll = (layer: FogLayer) => {
+    if (map) paintFog(map.id, layer, allCells(), true);
   };
 
-  const chooseFogMode = (mode: 'off' | 'map' | 'tokens') => {
+  const toggleLayer = (layer: FogLayer) => {
     if (!map) return;
-    setFogMode(map.id, mode);
-    if (mode === 'off') setFogBrush('off');
-    // 'tokens' fog reads best starting fully visible (DM hides spots), whereas
-    // 'map' fog starts covered (DM reveals). Seed the sensible default once.
-    if (mode === 'tokens' && revealedSet.size === 0) revealAll();
+    const enabled = layer === 'map' ? mapFogEnabled : tokenFogEnabled;
+    setFogLayer(map.id, layer, !enabled);
+    if (!enabled) {
+      // Token fog reads best starting fully visible (DM paints spots to hide);
+      // map fog starts fully covered (DM reveals). Seed the sensible default.
+      const revealed = layer === 'map' ? mapRevealed : tokenRevealed;
+      if (layer === 'tokens' && revealed.size === 0) revealAll('tokens');
+      // Auto-target the brush at the layer the DM just turned on.
+      setPaintLayer(layer);
+    } else if (layer === paintLayer) {
+      setFogBrush('off');
+    }
   };
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -263,28 +277,39 @@ export function MapStage({
                 <span className="ctrl-sep" />
                 <span className="zoom-label">Fog:</span>
                 <button
-                  className={`btn tiny ${fogMode === 'off' ? 'on' : ''}`}
-                  onClick={() => chooseFogMode('off')}
-                  title="No fog"
-                >
-                  Off
-                </button>
-                <button
-                  className={`btn tiny ${fogMode === 'map' ? 'on' : ''}`}
-                  onClick={() => chooseFogMode('map')}
-                  title="Hide the map and tokens under fog"
+                  className={`btn tiny ${mapFogEnabled ? 'on' : ''}`}
+                  onClick={() => toggleLayer('map')}
+                  title="Black out terrain under fog for players"
                 >
                   Map
                 </button>
                 <button
-                  className={`btn tiny ${fogMode === 'tokens' ? 'on' : ''}`}
-                  onClick={() => chooseFogMode('tokens')}
-                  title="Hide only tokens; map stays visible"
+                  className={`btn tiny ${tokenFogEnabled ? 'on' : ''}`}
+                  onClick={() => toggleLayer('tokens')}
+                  title="Hide only tokens under fog; terrain stays visible"
                 >
                   Tokens
                 </button>
-                {fogOn && (
+                {(mapFogEnabled || tokenFogEnabled) && (
                   <>
+                    <span className="ctrl-sep" />
+                    <span className="zoom-label">Paint:</span>
+                    <button
+                      className={`btn tiny ${paintLayer === 'map' ? 'on' : ''}`}
+                      onClick={() => setPaintLayer('map')}
+                      disabled={!mapFogEnabled}
+                      title="Brush affects the map-fog layer"
+                    >
+                      Map
+                    </button>
+                    <button
+                      className={`btn tiny ${paintLayer === 'tokens' ? 'on' : ''}`}
+                      onClick={() => setPaintLayer('tokens')}
+                      disabled={!tokenFogEnabled}
+                      title="Brush affects the token-fog layer"
+                    >
+                      Tokens
+                    </button>
                     <span className="ctrl-sep" />
                     <button
                       className={`btn tiny ${fogBrush === 'reveal' ? 'on' : ''}`}
@@ -314,12 +339,15 @@ export function MapStage({
                     ))}
                     <button
                       className="btn tiny"
-                      onClick={() => map && coverFog(map.id)}
-                      title="Re-cover everything"
+                      onClick={() => map && coverFog(map.id, paintLayer)}
+                      title="Re-cover everything on the painted layer"
                     >
                       Cover all
                     </button>
-                    <button className="btn tiny" onClick={revealAll}>
+                    <button
+                      className="btn tiny"
+                      onClick={() => revealAll(paintLayer)}
+                    >
                       Reveal all
                     </button>
                   </>
@@ -357,17 +385,35 @@ export function MapStage({
               {gridLines.map((pts, i) => (
                 <Line key={i} points={pts} stroke="#ffffff22" strokeWidth={1} />
               ))}
-              {fogOn && (fogMode === 'map' || isDm) && (
+              {/* Map fog: blacks out covered terrain — solid for players,
+                  translucent for the DM. Both layers can render at once. */}
+              {mapFogEnabled && (
                 <Shape
                   listening={false}
-                  opacity={fogMode === 'map' ? (isDm ? 0.5 : 1) : 0.35}
+                  opacity={isDm ? 0.5 : 1}
                   sceneFunc={(ctx: Konva.Context) => {
-                    // 'map' fog blacks out the terrain; 'tokens' fog is a
-                    // DM-only purple marker showing where tokens are hidden.
-                    ctx.fillStyle = fogMode === 'map' ? '#04060a' : '#7a3df0';
+                    ctx.fillStyle = '#04060a';
                     for (let c = 0; c < cols; c++) {
                       for (let r = 0; r < rows; r++) {
-                        if (!revealedSet.has(`${c},${r}`)) {
+                        if (!mapRevealed.has(`${c},${r}`)) {
+                          ctx.fillRect(c * grid, r * grid, grid, grid);
+                        }
+                      }
+                    }
+                  }}
+                />
+              )}
+              {/* Token fog: a DM-only purple marker of where tokens are hidden
+                  (players just don't receive those tokens). */}
+              {tokenFogEnabled && isDm && (
+                <Shape
+                  listening={false}
+                  opacity={0.35}
+                  sceneFunc={(ctx: Konva.Context) => {
+                    ctx.fillStyle = '#7a3df0';
+                    for (let c = 0; c < cols; c++) {
+                      for (let r = 0; r < rows; r++) {
+                        if (!tokenRevealed.has(`${c},${r}`)) {
                           ctx.fillRect(c * grid, r * grid, grid, grid);
                         }
                       }

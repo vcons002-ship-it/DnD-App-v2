@@ -6,7 +6,7 @@ import type {
   ClientToServerEvents,
   CombatRole,
   Condition,
-  FogMode,
+  FogLayer,
   JoinAck,
   MonsterCreatePayload,
   MonsterUpdatePayload,
@@ -38,9 +38,14 @@ type Store = {
   selectMap: (mapId: string) => void;
   setActiveMap: (mapId: string) => void;
   deleteMap: (mapId: string) => void;
-  setFogMode: (mapId: string, mode: FogMode) => void;
-  paintFog: (mapId: string, cells: string[], reveal: boolean) => void;
-  coverFog: (mapId: string) => void;
+  setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
+  paintFog: (
+    mapId: string,
+    layer: FogLayer,
+    cells: string[],
+    reveal: boolean,
+  ) => void;
+  coverFog: (mapId: string, layer: FogLayer) => void;
   spawnToken: (
     mapId: string,
     kind: TokenKind,
@@ -143,11 +148,12 @@ export const useStore = create<Store>((set, get) => ({
   selectMap: (mapId) => get().socket?.emit('map:select', { mapId }),
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
-  setFogMode: (mapId, mode) =>
-    get().socket?.emit('fog:setMode', { mapId, mode }),
-  paintFog: (mapId, cells, reveal) =>
-    get().socket?.emit('fog:paint', { mapId, cells, reveal }),
-  coverFog: (mapId) => get().socket?.emit('fog:cover', { mapId }),
+  setFogLayer: (mapId, layer, enabled) =>
+    get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
+  paintFog: (mapId, layer, cells, reveal) =>
+    get().socket?.emit('fog:paint', { mapId, layer, cells, reveal }),
+  coverFog: (mapId, layer) =>
+    get().socket?.emit('fog:cover', { mapId, layer }),
   spawnToken: (mapId, kind, refId, x, y) =>
     get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
   moveToken: (tokenId, x, y) =>

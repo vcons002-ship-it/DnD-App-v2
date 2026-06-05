@@ -29,7 +29,7 @@ import {
   setTokensCondition,
   clearTokensConditions,
   setActiveMap,
-  setFogMode,
+  setFogLayer,
   setTokenHidden,
   coverFog,
   paintFog,
@@ -284,31 +284,55 @@ describe('visibility role-shaping', () => {
     // Fog off: player sees the token.
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(1);
 
-    // Fog on + fully covered: player blind, DM still sees it.
-    setFogMode(map.id, 'map');
-    coverFog(map.id);
+    // Map fog on + fully covered: player blind, DM still sees it.
+    setFogLayer(map.id, 'map', true);
+    coverFog(map.id, 'map');
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(0);
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(1);
 
     // Reveal the token's cell: player sees it again.
-    paintFog(map.id, ['0,0'], true);
+    paintFog(map.id, 'map', ['0,0'], true);
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(1);
   });
 
-  it("'tokens' fog mode hides covered tokens but keeps the map visible", () => {
+  it('token fog hides covered tokens but keeps the map visible', () => {
     const session = createSession('TokenFog');
     const map = createMap(session.id, { name: 'Field', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
     const orc = spawnInstance(session.id, 'Orc', 15);
     createToken({ mapId: map.id, kind: 'monster', refId: orc.id, x: 10, y: 10 });
 
-    setFogMode(map.id, 'tokens');
-    coverFog(map.id);
+    setFogLayer(map.id, 'tokens', true);
+    coverFog(map.id, 'tokens');
     const player = buildSnapshot(session.id, 'player')!;
     // Token hidden, but the player still receives the map itself.
     expect(player.tokens).toHaveLength(0);
     expect(player.map?.id).toBe(map.id);
-    expect(player.map?.fogMode).toBe('tokens');
+    expect(player.map?.tokenFogEnabled).toBe(true);
+  });
+
+  it('map fog and token fog work independently on one map', () => {
+    const session = createSession('TwoLayer');
+    const map = createMap(session.id, { name: 'Split', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    const a = spawnInstance(session.id, 'Goblin A', 7);
+    const b = spawnInstance(session.id, 'Goblin B', 7);
+    // a in cell 0,0 ; b in cell 2,2 (grid 50)
+    createToken({ mapId: map.id, kind: 'monster', refId: a.id, x: 10, y: 10 });
+    createToken({ mapId: map.id, kind: 'monster', refId: b.id, x: 110, y: 110 });
+
+    // Map fog blacks out area A; token fog hides creatures in area B.
+    setFogLayer(map.id, 'map', true);
+    coverFog(map.id, 'map');
+    paintFog(map.id, 'map', ['2,2'], true); // reveal B's cell on the map layer
+    setFogLayer(map.id, 'tokens', true);
+    paintFog(map.id, 'tokens', ['0,0'], true); // token layer hides only 2,2
+
+    const player = buildSnapshot(session.id, 'player')!;
+    // A is under map fog; B is under token fog → player sees neither.
+    expect(player.tokens).toHaveLength(0);
+    // DM sees both regardless.
+    expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(2);
   });
 
   it('per-token hide keeps a token from players regardless of fog', () => {
