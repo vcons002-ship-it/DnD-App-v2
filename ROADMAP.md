@@ -293,6 +293,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   `damage` string), so mastery effects that strip the ability mod (Cleave) keep
   the magic damage. `rollWeaponAttack` adds it to every hit (not doubled on a
   crit); editable in `StatBlock`.
+- ☑ **Off-hand, versatile (2H), and finesse [req].** `AttackControls` has
+  **Off-hand** and (when a weapon is versatile) **2H** toggles alongside adv/dis,
+  threaded through `combat:attack` → `resolveAttack`. Off-hand drops the ability
+  modifier from damage (shared with Cleave's cut, applied once); 2H rolls the
+  weapon's `versatileDamage` dice. `weaponAbility` is now tag-aware — only
+  `finesse` melee weapons use the better of STR/DEX (others use STR). The `light`
+  tag is reserved for future off-hand feats. Weapon editor gains a 2H-damage field;
+  tags carry the mechanics.
 
 ## Phase 6 — AI assistance (future)
 

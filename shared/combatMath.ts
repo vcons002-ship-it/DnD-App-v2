@@ -29,9 +29,12 @@ export const profBonusFor = (c: Combatant): number =>
   c.isMonster ? profBonusForCR(c.level) : proficiencyBonus(c.level || 1);
 
 /** Ranged → DEX; melee → the better of STR/DEX (covers finesse). */
+/** Ranged → DEX; melee `finesse` weapons → better of STR/DEX; other melee → STR. */
 function weaponAbility(c: Combatant, w: Weapon): 'STR' | 'DEX' {
   if (w.kind === 'ranged') return 'DEX';
-  return abilityMod(c.stats.DEX) > abilityMod(c.stats.STR) ? 'DEX' : 'STR';
+  const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
+  if (finesse) return abilityMod(c.stats.DEX) > abilityMod(c.stats.STR) ? 'DEX' : 'STR';
+  return 'STR';
 }
 
 /** A weapon's to-hit: the tagged value if present, else ability mod + prof. */
@@ -78,6 +81,7 @@ export function rollWeaponAttack(
   weapon: Weapon,
   targetAC: number,
   advantage?: Advantage,
+  opts?: { twoHanded?: boolean },
 ): AttackOutcome {
   const face = rollWithAdv(advantage);
   const bonus = weaponAttackBonus(attacker, weapon);
@@ -86,10 +90,14 @@ export function rollWeaponAttack(
   const fumble = face === 1;
   const hit = crit || (!fumble && attackTotal >= targetAC);
 
+  // Versatile weapons use their two-handed dice when wielded 2H.
+  const expr =
+    (opts?.twoHanded && weapon.versatileDamage?.trim()) || weapon.damage?.trim() || '1d4';
+
   let damage = 0;
   let dmgText = '';
   if (hit) {
-    const { dice, flat } = damageParts(weapon.damage?.trim() || '1d4');
+    const { dice, flat } = damageParts(expr);
     const magic = weapon.magicBonus ?? 0;
     const r1 = dice ? rollDice(dice) : null;
     let sum = flat + magic; // magic damage applies on every hit, not doubled on a crit
@@ -109,9 +117,10 @@ export function rollWeaponAttack(
       `${magic ? ` ${signed(magic)} magic` : ''} = ${damage}`;
   }
 
+  const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';
   const detail =
-    `${weapon.name}: d20[${face}] ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
+    `${weapon.name}${twoH}: d20[${face}] ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
     (hit ? `, ${damage} dmg (${dmgText})` : '');
 
   return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };

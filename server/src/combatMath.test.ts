@@ -40,6 +40,31 @@ describe('combat math', () => {
     }
   });
 
+  it('uses DEX for finesse melee weapons and STR otherwise', () => {
+    // PC: STR 12 (+1), DEX 18 (+4); level 1 → proficiency +2.
+    const c: Combatant = { stats: { STR: 12, DEX: 18 }, level: 1, isMonster: false };
+    const finesse: Weapon = { name: 'Rapier', kind: 'melee', tags: ['finesse'] };
+    const plain: Weapon = { name: 'Mace', kind: 'melee' };
+    expect(weaponAttackBonus(c, finesse)).toBe(6); // DEX +4 + prof +2
+    expect(weaponAttackBonus(c, plain)).toBe(3); // STR +1 + prof +2
+  });
+
+  it('uses versatile (2H) damage dice when wielded two-handed', () => {
+    const atk: Combatant = { stats: { STR: 10 }, level: 1, isMonster: true }; // mod 0
+    const w: Weapon = {
+      name: 'Longsword', kind: 'melee', damage: '2d1', versatileDamage: '6d1', attackBonus: 100,
+    };
+    for (let i = 0; i < 200; i++) {
+      const oneH = rollWeaponAttack(atk, w, 1);
+      const twoH = rollWeaponAttack(atk, w, 1, undefined, { twoHanded: true });
+      if (oneH.hit && !oneH.crit) expect(oneH.damage).toBe(2);
+      if (twoH.hit && !twoH.crit) {
+        expect(twoH.damage).toBe(6);
+        expect(twoH.detail).toContain('(2H)');
+      }
+    }
+  });
+
   it('adds a weapon magic bonus to damage (once, not doubled on a crit)', () => {
     const atk: Combatant = { stats: { STR: 16 }, level: 1, isMonster: true };
     // "1d1" is a constant 1 die; +2 magic → 1 + 2 = 3 on a normal hit, and on a

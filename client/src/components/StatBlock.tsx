@@ -333,6 +333,7 @@ function ReadView({
                 {w.attackBonus !== undefined &&
                   `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
                 {w.damage}
+                {w.versatileDamage ? ` (2H ${w.versatileDamage})` : ''}
                 {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
                 {w.range ? ` (${w.range})` : ''}
                 {w.tags && w.tags.length > 0 && (
@@ -414,8 +415,16 @@ function WeaponEditor({
           <input
             className="sb-dmg"
             placeholder="1d8+3"
+            title="One-handed damage (dice + ability modifier)"
             value={w.damage ?? ''}
             onChange={(e) => setAt(i, { damage: e.target.value })}
+          />
+          <input
+            className="sb-dmg"
+            placeholder="2H dmg"
+            title="Two-handed damage for a versatile weapon, e.g. 1d10+3"
+            value={w.versatileDamage ?? ''}
+            onChange={(e) => setAt(i, { versatileDamage: e.target.value })}
           />
           <input
             className="sb-tohit"
@@ -445,8 +454,8 @@ function WeaponEditor({
           />
           <input
             className="sb-tags"
-            placeholder="tags: heavy, greataxe"
-            title="Comma-separated tags. Weapon masteries trigger on matching tags."
+            placeholder="tags: heavy, finesse, versatile, light"
+            title="Comma-separated tags. finesse → DEX; versatile → 2H toggle; light → off-hand (future feats); weapon masteries trigger on matching tags."
             value={(w.tags ?? []).join(', ')}
             onChange={(e) =>
               setAt(i, {

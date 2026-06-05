@@ -38,6 +38,11 @@ export type Weapon = {
   /** Base damage dice + ability modifier, e.g. "1d8+3". */
   damage?: string;
   /**
+   * Two-handed damage for a `versatile` weapon, e.g. "1d10+3". When the attacker
+   * toggles 2H, this is rolled instead of `damage`.
+   */
+  versatileDamage?: string;
+  /**
    * Magic damage bonus (e.g. 1 for a +1 weapon), kept SEPARATE from `damage` so
    * it survives effects that strip the ability modifier (e.g. a mastery's Cleave
    * rolls the weapon dice + magic, without the ability mod). Added to every hit.
@@ -48,9 +53,12 @@ export type Weapon = {
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
   range?: string;
   /**
-   * Descriptive tags — a weapon type plus properties, e.g. ["halberd", "heavy"].
-   * A weapon mastery in the character's abilities list triggers on any weapon
-   * whose tags overlap the mastery's `appliesToTags`.
+   * Descriptive tags — a weapon type plus properties, e.g.
+   * ["halberd", "heavy", "versatile"] or ["dagger", "light", "finesse"].
+   * Drive mechanics: `finesse` → use the better of STR/DEX; `versatile` → a 2H
+   * damage toggle; `light` is reserved for future off-hand feats. A weapon
+   * mastery in the abilities list triggers on any weapon whose tags overlap the
+   * mastery's `appliesToTags`.
    */
   tags?: string[];
 };
@@ -506,6 +514,10 @@ export type CombatAttackPayload = {
   targetTokenId: string;
   weaponIndex: number;
   advantage?: 'adv' | 'dis';
+  /** Off-hand attack: drop the ability modifier from the damage. */
+  offhand?: boolean;
+  /** Two-handed: use the weapon's `versatileDamage` dice. */
+  twoHanded?: boolean;
 };
 /** Roll a saving throw (DC vs ability) for one or more tokens. */
 export type CombatSavePayload = {

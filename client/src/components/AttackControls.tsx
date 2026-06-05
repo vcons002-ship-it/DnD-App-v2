@@ -21,8 +21,15 @@ export function AttackControls({
   const targets = snapshot.tokens.filter((t) => t.id !== attacker.id);
   const [targetId, setTargetId] = useState(targets[0]?.id ?? '');
   const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
+  const [offhand, setOffhand] = useState(false);
+  const [twoHanded, setTwoHanded] = useState(false);
 
   if (weapons.length === 0 || targets.length === 0) return null;
+
+  // A 2H toggle only matters when some weapon is versatile (has 2H damage).
+  const anyVersatile = weapons.some(
+    (w) => w.versatileDamage?.trim() || (w.tags ?? []).some((t) => t.toLowerCase() === 'versatile'),
+  );
 
   return (
     <div className="attack-controls">
@@ -48,6 +55,24 @@ export function AttackControls({
           Dis
         </button>
       </div>
+      <div className="dice-row">
+        <button
+          className={`btn tiny ${offhand ? 'on' : ''}`}
+          title="Off-hand attack: drop the ability modifier from damage"
+          onClick={() => setOffhand((o) => !o)}
+        >
+          Off-hand
+        </button>
+        {anyVersatile && (
+          <button
+            className={`btn tiny ${twoHanded ? 'on' : ''}`}
+            title="Two-handed: use a versatile weapon's 2H damage dice"
+            onClick={() => setTwoHanded((t) => !t)}
+          >
+            2H
+          </button>
+        )}
+      </div>
       {weapons.map((w, i) => (
         <button
           key={i}
@@ -59,11 +84,16 @@ export function AttackControls({
               targetTokenId: targetId,
               weaponIndex: i,
               advantage: adv ?? undefined,
+              offhand: offhand || undefined,
+              twoHanded: twoHanded || undefined,
             })
           }
         >
           {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}
-          {w.damage ? <span className="muted"> {w.damage}</span> : null}
+          {(() => {
+            const dmg = twoHanded && w.versatileDamage?.trim() ? w.versatileDamage : w.damage;
+            return dmg ? <span className="muted"> {dmg}</span> : null;
+          })()}
         </button>
       ))}
     </div>

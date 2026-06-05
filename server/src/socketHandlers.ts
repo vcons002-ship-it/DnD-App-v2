@@ -613,7 +613,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on(
       'combat:attack',
-      ({ attackerTokenId, targetTokenId, weaponIndex, advantage }) => {
+      ({ attackerTokenId, targetTokenId, weaponIndex, advantage, offhand, twoHanded }) => {
         const sid = sessionId();
         if (!sid) return;
         const at = getToken(attackerTokenId);
@@ -631,6 +631,8 @@ export function registerSocketHandlers(io: IOServer): void {
           targetTokenId,
           weaponIndex,
           advantage,
+          !!offhand,
+          !!twoHanded,
         );
         afterChange();
       },

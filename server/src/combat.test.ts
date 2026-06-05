@@ -334,3 +334,56 @@ describe('weapon masteries', () => {
     expectProf(2, false); // Dagger — not heavy
   });
 });
+
+describe('off-hand & versatile attacks', () => {
+  function pcFight(weapon: { name: string; damage?: string; versatileDamage?: string; attackBonus?: number }) {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Duelist',
+      className: 'Fighter',
+      level: 1,
+      stats: { STR: 16 },
+      weapons: [{ kind: 'melee', ...weapon }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 1, y: 1 });
+    return { sid: s.id, atk: atk.id, tgt: tgt.id, ref: getToken(tgt.id)!.refId };
+  }
+
+  it('off-hand attack drops the ability modifier from damage', () => {
+    // "2d1+3" → dice 2, +3 ability mod. Normal hit = 5; off-hand drops the +3 → 2.
+    const { sid, atk, tgt, ref } = pcFight({ name: 'Shortsword', damage: '2d1+3', attackBonus: 50 });
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(sid, 'Duelist', atk, tgt, 0, undefined, true); // offhand
+      const last = listRollLog(sid).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(last.detail).toContain('Off-hand (no ability modifier −3)');
+        expect(before - getMonster(ref)!.curHp).toBe(2);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it('two-handed attack uses the versatile damage dice', () => {
+    // 1H "2d1" = 2; 2H "6d1" = 6 (STR 16 mod not in these constant dice strings).
+    const { sid, atk, tgt, ref } = pcFight({
+      name: 'Longsword', damage: '2d1', versatileDamage: '6d1', attackBonus: 50,
+    });
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(sid, 'Duelist', atk, tgt, 0, undefined, false, true); // twoHanded
+      const last = listRollLog(sid).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(last.detail).toContain('(2H)');
+        expect(before - getMonster(ref)!.curHp).toBe(6);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+});
