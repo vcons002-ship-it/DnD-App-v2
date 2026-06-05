@@ -22,6 +22,7 @@ import {
   setTokensHideCombatRole,
   setTokensCombatRole,
   createCharacter,
+  updateCharacter,
   getCharacter,
   listCharacters,
   damageTokens,
@@ -194,7 +195,26 @@ describe('visibility role-shaping', () => {
     expect(c.maxHp).toBe(22);
     expect(c.curHp).toBe(22);
     expect(c.stats.DEX).toBe(16);
+    expect(c.level).toBe(1);
     expect(listCharacters(s.id)).toHaveLength(before + 1);
+  });
+
+  it('patches a character with the shared tagged fields + level', () => {
+    const s = createSession('EditPC');
+    const c = createCharacter(s.id, { name: 'Aria', maxHp: 30 });
+    updateCharacter(c.id, {
+      level: 5,
+      armorClass: 16,
+      weapons: [{ name: 'Longbow', kind: 'ranged', damage: '1d8+3' }],
+      abilities: [{ name: 'Sneak Attack', description: '+3d6' }],
+      resistances: ['poison'],
+    });
+    const after = getCharacter(c.id)!;
+    expect(after.level).toBe(5);
+    expect(after.armorClass).toBe(16);
+    expect(after.weapons[0]).toMatchObject({ name: 'Longbow', kind: 'ranged' });
+    expect(after.abilities[0].name).toBe('Sneak Attack');
+    expect(after.resistances).toEqual(['poison']);
   });
 
   it('applies bulk AOE damage and conditions across selected tokens', () => {

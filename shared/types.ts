@@ -81,12 +81,22 @@ export type Character = {
   name: string;
   race: string;
   className: string;
+  /** Character level (PCs) — also used by the AI to scale stats. */
+  level: number;
   maxHp: number;
   curHp: number;
+  armorClass: number;
+  speed: string;
   stats: Record<string, number>;
   spellSlots: Record<string, { max: number; used: number }>;
   resources: Record<string, { max: number; used: number }>;
-  weapons: string[];
+  /** Tagged weapons, shared shape with monsters for consistency. */
+  weapons: Weapon[];
+  resistances: string[];
+  weaknesses: string[];
+  /** Attacks / actions and traits / features (same tags as creatures). */
+  actions: CreatureAbility[];
+  abilities: CreatureAbility[];
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
@@ -101,6 +111,8 @@ export type Monster = {
   sessionId: string;
   name: string;
   creatureType: string;
+  /** Level (PCs) / challenge rating (monsters) — used by the AI to scale stats. */
+  level: number;
   maxHp: number;
   curHp: number;
   armorClass: number;
@@ -127,6 +139,8 @@ export type Monster = {
 export type CreatureTemplate = {
   name: string;
   creatureType: string;
+  /** Challenge rating / level chosen by the AI (or SRD), used to scale stats. */
+  level?: number;
   maxHp: number;
   armorClass: number;
   speed: string;
@@ -259,9 +273,32 @@ export type CharacterCreatePayload = {
   name: string;
   race?: string;
   className?: string;
+  level?: number;
   maxHp?: number;
   stats?: Record<string, number>;
 };
+/** Patch fields of one character (DM or the owning player). */
+export type CharacterUpdatePayload = {
+  characterId: string;
+  name?: string;
+  race?: string;
+  className?: string;
+  level?: number;
+  maxHp?: number;
+  curHp?: number;
+  armorClass?: number;
+  speed?: string;
+  stats?: Record<string, number>;
+  resistances?: string[];
+  weaknesses?: string[];
+  weapons?: Weapon[];
+  actions?: CreatureAbility[];
+  abilities?: CreatureAbility[];
+};
+/** Ask the AI to back-fill only the empty fields of a character. */
+export type AiFillCharacterPayload = { characterId: string };
+/** Generate a whole character/NPC from a free-text description (DM or player). */
+export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
 export type NoticePayload = { message: string };
 /** Create a reusable creature *template* (one spawn button). */
@@ -269,6 +306,7 @@ export type MonsterCreatePayload = {
   name: string;
   maxHp: number;
   creatureType?: string;
+  level?: number;
   armorClass?: number;
   speed?: string;
   stats?: Record<string, number>;
@@ -276,6 +314,7 @@ export type MonsterCreatePayload = {
   weaknesses?: string[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  weapons?: Weapon[];
   icon?: string;
   disposition?: Disposition;
   source?: 'srd' | 'gemini' | 'manual';
@@ -285,6 +324,7 @@ export type MonsterUpdatePayload = {
   monsterId: string;
   disposition?: Disposition;
   name?: string;
+  level?: number;
   maxHp?: number;
   curHp?: number;
   creatureType?: string;
@@ -353,7 +393,10 @@ export interface ClientToServerEvents {
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'character:create': (payload: CharacterCreatePayload) => void;
+  'character:update': (payload: CharacterUpdatePayload) => void;
   'character:release': () => void;
+  'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
+  'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:update': (payload: MonsterUpdatePayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;

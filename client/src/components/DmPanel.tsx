@@ -99,6 +99,7 @@ export function DmPanel({
       name: monName.trim(),
       maxHp: monHp,
       creatureType: tmpl?.creatureType,
+      level: tmpl?.level,
       armorClass: tmpl?.armorClass,
       speed: tmpl?.speed,
       stats: tmpl?.stats,
@@ -106,6 +107,7 @@ export function DmPanel({
       weaknesses: tmpl?.weaknesses,
       actions: tmpl?.actions,
       abilities: tmpl?.abilities,
+      weapons: tmpl?.weapons,
       icon: tmpl?.icon,
       source: tmpl?.source ?? 'manual',
     });
@@ -335,8 +337,9 @@ export function DmPanel({
 
         <div className="add-monster">
           <div className="creature-search">
-            <input
-              placeholder="Search SRD or type a name…"
+            <textarea
+              className="creature-desc"
+              placeholder="Search SRD, or describe a creature for AI — e.g. 'goblin with a longbow', 'orc fighter with a halberd'"
               value={monName}
               onChange={(e) => {
                 setMonName(e.target.value);

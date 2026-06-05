@@ -24,6 +24,47 @@ let resolvedModel: string | null = null;
 /** Whether AI creature lookup is available (a key is configured). */
 export const geminiEnabled = (): boolean => !!config.geminiApiKey;
 
+// ---- Shared JSON parsers (used by creature + character generators) ----
+
+function parseAbilities(v: unknown): CreatureAbility[] {
+  return Array.isArray(v)
+    ? v
+        .filter((a): a is CreatureAbility => !!a && typeof a.name === 'string')
+        .map((a) => ({
+          name: String(a.name),
+          description: String(a.description ?? ''),
+        }))
+    : [];
+}
+
+function parseWeapons(v: unknown): Weapon[] {
+  return Array.isArray(v)
+    ? v
+        .filter((w): w is Record<string, unknown> => !!w && typeof w === 'object')
+        .filter((w) => typeof w.name === 'string' && w.name)
+        .map((w) => {
+          const bonus = Number(w.attackBonus);
+          return {
+            name: String(w.name),
+            kind: w.kind === 'ranged' ? ('ranged' as const) : ('melee' as const),
+            damage: w.damage ? String(w.damage) : undefined,
+            attackBonus: Number.isFinite(bonus) ? bonus : undefined,
+          };
+        })
+    : [];
+}
+
+function parseStats(v: unknown): Record<string, number> {
+  const stats: Record<string, number> = {};
+  if (v && typeof v === 'object') {
+    for (const [k, val] of Object.entries(v as object)) {
+      const n = Number(val);
+      if (Number.isFinite(n)) stats[k.toUpperCase()] = n;
+    }
+  }
+  return stats;
+}
+
 /**
  * Ask the API which models THIS key can use for generateContent, and pick a
  * fast one (prefer "flash"). This adapts to whatever the user's key/project has
@@ -122,73 +163,119 @@ export async function lookupCreatureAI(
   if (!config.geminiApiKey || !name.trim()) return null;
 
   const prompt =
-    `Give the Dungeons & Dragons 5e stat block for "${name}". ` +
+    `Give a Dungeons & Dragons 5e stat block for "${name}". This may be a plain ` +
+    `creature name or a short description (e.g. "goblin with a longbow", ` +
+    `"orc fighter with a halberd") — honor the described gear/role. ` +
     `Respond ONLY with minified JSON of shape ` +
-    `{"creatureType":string,"maxHp":number,"armorClass":number,"speed":string,` +
+    `{"creatureType":string,"level":number,"maxHp":number,"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
     `"actions":[{"name":string,"description":string}],` +
     `"abilities":[{"name":string,"description":string}]}. ` +
+    `"level" is the challenge rating as a number (e.g. 0.25, 1, 5). ` +
     `"weapons" are its attacks as tagged data (damage like "1d8+3"); ` +
     `"actions" are attacks/actions (include to-hit and damage); "abilities" are ` +
     `traits/features. Use SRD/average HP. Keep each description under 30 words.`;
-
-  const abilityList = (v: unknown): CreatureAbility[] =>
-    Array.isArray(v)
-      ? v
-          .filter((a): a is CreatureAbility => !!a && typeof a.name === 'string')
-          .map((a) => ({
-            name: String(a.name),
-            description: String(a.description ?? ''),
-          }))
-      : [];
-
-  const weaponList = (v: unknown): Weapon[] =>
-    Array.isArray(v)
-      ? v
-          .filter((w): w is Record<string, unknown> => !!w && typeof w === 'object')
-          .filter((w) => typeof w.name === 'string' && w.name)
-          .map((w) => {
-            const bonus = Number(w.attackBonus);
-            return {
-              name: String(w.name),
-              kind: w.kind === 'ranged' ? 'ranged' : 'melee',
-              damage: w.damage ? String(w.damage) : undefined,
-              attackBonus: Number.isFinite(bonus) ? bonus : undefined,
-            };
-          })
-      : [];
 
   const text = await callGemini(prompt);
   if (!text) return null;
   try {
     const parsed = JSON.parse(text) as Record<string, unknown>;
     const creatureType = String(parsed.creatureType ?? 'unknown');
-    const stats: Record<string, number> = {};
-    if (parsed.stats && typeof parsed.stats === 'object') {
-      for (const [k, v] of Object.entries(parsed.stats as object)) {
-        const n = Number(v);
-        if (Number.isFinite(n)) stats[k.toUpperCase()] = n;
-      }
-    }
+    const stats = parseStats(parsed.stats);
     return {
       name: name.trim(),
       creatureType,
+      level: Number.isFinite(Number(parsed.level)) ? Number(parsed.level) : 0,
       maxHp: Number(parsed.maxHp) > 0 ? Math.round(Number(parsed.maxHp)) : 10,
       armorClass: Number(parsed.armorClass) > 0 ? Math.round(Number(parsed.armorClass)) : 0,
       speed: typeof parsed.speed === 'string' ? parsed.speed : '',
       stats,
       resistances: Array.isArray(parsed.resistances) ? parsed.resistances.map(String) : [],
       weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.map(String) : [],
-      actions: abilityList(parsed.actions),
-      abilities: abilityList(parsed.abilities),
-      weapons: weaponList(parsed.weapons),
+      actions: parseAbilities(parsed.actions),
+      abilities: parseAbilities(parsed.abilities),
+      weapons: parseWeapons(parsed.weapons),
       icon: iconForCreature(name, creatureType),
       source: 'gemini',
     };
   } catch (err) {
     console.warn(`  [gemini] parse error for "${name}":`, (err as Error).message);
+    return null;
+  }
+}
+
+/** An AI-generated player character / NPC stat sheet. */
+export type GeneratedCharacter = {
+  name: string;
+  race: string;
+  className: string;
+  level: number;
+  maxHp: number;
+  armorClass: number;
+  speed: string;
+  stats: Record<string, number>;
+  weapons: Weapon[];
+  resistances: string[];
+  weaknesses: string[];
+  actions: CreatureAbility[];
+  abilities: CreatureAbility[];
+  icon: string;
+};
+
+/**
+ * Generate a whole D&D 5e character / NPC from a free-text description
+ * (e.g. "grizzled dwarf cleric, level 5", "elf rogue archer"). Returns null and
+ * lets callers fall back gracefully when no key is set or the call fails.
+ */
+export async function generateCharacterAI(
+  description: string,
+): Promise<GeneratedCharacter | null> {
+  if (!config.geminiApiKey || !description.trim()) return null;
+
+  const prompt =
+    `Create a Dungeons & Dragons 5e character or NPC from this description: ` +
+    `"${description.trim()}". Choose a sensible level if none is given. ` +
+    `Respond ONLY with minified JSON of shape ` +
+    `{"name":string,"race":string,"className":string,"level":number,"maxHp":number,` +
+    `"armorClass":number,"speed":string,` +
+    `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
+    `"resistances":string[],"weaknesses":string[],` +
+    `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
+    `"actions":[{"name":string,"description":string}],` +
+    `"abilities":[{"name":string,"description":string}]}. ` +
+    `"name" is a fitting proper name; "weapons" are tagged attacks (damage like ` +
+    `"1d8+3"); "actions" are attacks/features; "abilities" are class/racial traits. ` +
+    `Use level-appropriate HP. Keep each description under 30 words.`;
+
+  const text = await callGemini(prompt);
+  if (!text) return null;
+  try {
+    const p = JSON.parse(text) as Record<string, unknown>;
+    const className = String(p.className ?? '');
+    const name = String(p.name ?? description.trim());
+    return {
+      name,
+      race: String(p.race ?? ''),
+      className,
+      level: Number(p.level) > 0 ? Number(p.level) : 1,
+      maxHp: Number(p.maxHp) > 0 ? Math.round(Number(p.maxHp)) : 10,
+      armorClass: Number(p.armorClass) > 0 ? Math.round(Number(p.armorClass)) : 0,
+      speed: typeof p.speed === 'string' ? p.speed : '',
+      stats: parseStats(p.stats),
+      resistances: Array.isArray(p.resistances) ? p.resistances.map(String) : [],
+      weaknesses: Array.isArray(p.weaknesses) ? p.weaknesses.map(String) : [],
+      weapons: parseWeapons(p.weapons),
+      actions: parseAbilities(p.actions),
+      abilities: parseAbilities(p.abilities),
+      icon: iconForCreature(name, className),
+    };
+  } catch (err) {
+    console.warn(
+      `  [gemini] character parse error for "${description}":`,
+      (err as Error).message,
+    );
     return null;
   }
 }

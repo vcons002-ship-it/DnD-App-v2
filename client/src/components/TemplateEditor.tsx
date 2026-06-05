@@ -11,24 +11,26 @@ import { IconTools } from './IconTools';
 export function TemplateEditor({ monster }: { monster: Monster }) {
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const updateMonster = useStore((s) => s.updateMonster);
+  const aiBusy = useStore((s) => s.aiBusy);
 
   return (
     <div className="template-editor">
-      <button
-        className="btn tiny ai-fill"
-        onClick={() => aiFillCreature(monster.id)}
-        title="Use AI to fill only the empty fields (stats, weapons, actions…)"
-      >
-        ✨ Fill missing details with AI
-      </button>
       <h4>Token image</h4>
       <IconTools
         onApply={(icon) => updateMonster({ monsterId: monster.id, icon })}
       />
-      <StatBlock monster={monster} />
-      <p className="hint">
-        Edits apply to every {monster.name} you place next.
-      </p>
+      <StatBlock
+        creature={monster}
+        subtitle={monster.creatureType}
+        identity={[
+          { key: 'creatureType', label: 'Type', value: monster.creatureType },
+        ]}
+        levelLabel="CR"
+        aiBusy={aiBusy}
+        onAiFill={() => aiFillCreature(monster.id)}
+        onSave={(patch) => updateMonster({ monsterId: monster.id, ...patch })}
+      />
+      <p className="hint">Edits apply to every {monster.name} you place next.</p>
     </div>
   );
 }

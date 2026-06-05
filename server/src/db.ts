@@ -138,6 +138,15 @@ ensureColumn(
   "disposition TEXT NOT NULL DEFAULT 'enemy'",
 );
 ensureColumn('monsters', 'weapons', "weapons TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('monsters', 'level', 'level REAL NOT NULL DEFAULT 0');
+// Characters share the creatures' tagged stat-block shape for consistency.
+ensureColumn('characters', 'level', 'level REAL NOT NULL DEFAULT 1');
+ensureColumn('characters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
+ensureColumn('characters', 'speed', "speed TEXT NOT NULL DEFAULT ''");
+ensureColumn('characters', 'resistances', "resistances TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('characters', 'weaknesses', "weaknesses TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('characters', 'actions', "actions TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('characters', 'abilities', "abilities TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('tokens', 'combat_role_override', 'combat_role_override TEXT');
 ensureColumn(
   'tokens',
@@ -223,12 +232,19 @@ type CharacterRow = {
   name: string;
   race: string;
   class_name: string;
+  level: number;
   max_hp: number;
   cur_hp: number;
+  armor_class: number;
+  speed: string;
   stats: string;
   spell_slots: string;
   resources: string;
   weapons: string;
+  resistances: string;
+  weaknesses: string;
+  actions: string;
+  abilities: string;
   conditions: string;
   claimed_by: string | null;
   icon: string;
@@ -241,12 +257,19 @@ export function rowToCharacter(r: CharacterRow): Character {
     name: r.name,
     race: r.race,
     className: r.class_name,
+    level: r.level ?? 1,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
+    armorClass: r.armor_class ?? 0,
+    speed: r.speed ?? '',
     stats: JSON.parse(r.stats),
     spellSlots: JSON.parse(r.spell_slots),
     resources: JSON.parse(r.resources),
     weapons: JSON.parse(r.weapons),
+    resistances: JSON.parse(r.resistances ?? '[]'),
+    weaknesses: JSON.parse(r.weaknesses ?? '[]'),
+    actions: JSON.parse(r.actions ?? '[]'),
+    abilities: JSON.parse(r.abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
     icon: r.icon ?? '',
@@ -272,6 +295,7 @@ type MonsterRow = {
   actions: string;
   weapons: string;
   disposition: Monster['disposition'];
+  level: number;
 };
 
 export function rowToMonster(r: MonsterRow): Monster {
@@ -280,6 +304,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     sessionId: r.session_id,
     name: r.name,
     creatureType: r.creature_type,
+    level: r.level ?? 0,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
     armorClass: r.armor_class ?? 0,

@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import type { CreatureAbility, Monster, Weapon } from '../../../shared/types';
-import { useStore } from '../state/socket';
+import type { CreatureAbility, Weapon } from '../../../shared/types';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -8,56 +7,87 @@ const mod = (score: number) => {
   return `${m >= 0 ? '+' : ''}${m}`;
 };
 
-/** Editable draft mirroring a monster's tagged stat-block fields. */
-type Draft = {
+/** The shared, tagged stat fields edited for both creatures and characters. */
+export type StatSheet = {
+  id: string;
   name: string;
-  creatureType: string;
-  maxHp: number;
+  level: number;
   curHp: number;
+  maxHp: number;
   armorClass: number;
   speed: string;
   stats: Record<string, number>;
-  resistances: string;
-  weaknesses: string;
+  resistances: string[];
+  weaknesses: string[];
   weapons: Weapon[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
 };
 
-const toDraft = (m: Monster): Draft => ({
-  name: m.name,
-  creatureType: m.creatureType,
-  maxHp: m.maxHp,
-  curHp: m.curHp,
-  armorClass: m.armorClass,
-  speed: m.speed,
-  stats: { ...m.stats },
-  resistances: m.resistances.join(', '),
-  weaknesses: m.weaknesses.join(', '),
-  weapons: m.weapons.map((w) => ({ ...w })),
-  actions: m.actions.map((a) => ({ ...a })),
-  abilities: m.abilities.map((a) => ({ ...a })),
-});
+/** An extra identity text field (Type for monsters; Race/Class for PCs). */
+export type IdentityField = { key: string; label: string; value: string };
+
+type Props = {
+  creature: StatSheet;
+  /** Read-view subtitle line (e.g. creature type, or "Elf · Wizard · Lvl 5"). */
+  subtitle?: string;
+  /** Extra editable identity fields, keyed by their update-payload field name. */
+  identity?: IdentityField[];
+  /** Label for the level field ("Level" for PCs, "CR" for monsters). */
+  levelLabel?: string;
+  onSave: (patch: Record<string, unknown>) => void;
+  onAiFill?: () => void;
+  aiBusy?: boolean;
+};
+
+type Draft = Omit<StatSheet, 'id' | 'resistances' | 'weaknesses'> & {
+  resistances: string;
+  weaknesses: string;
+  identity: Record<string, string>;
+};
 
 const splitList = (s: string) =>
   s.split(',').map((x) => x.trim()).filter(Boolean);
 
-/** DM-only full creature stat block — read-only view with an inline edit form. */
-export function StatBlock({ monster }: { monster: Monster }) {
-  const updateMonster = useStore((s) => s.updateMonster);
+export function StatBlock({
+  creature,
+  subtitle,
+  identity = [],
+  levelLabel = 'Level',
+  onSave,
+  onAiFill,
+  aiBusy,
+}: Props) {
   const [editing, setEditing] = useState(false);
-  const [d, setD] = useState<Draft>(() => toDraft(monster));
+  const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
+
+  function toDraft(c: StatSheet, ids: IdentityField[]): Draft {
+    return {
+      name: c.name,
+      level: c.level,
+      curHp: c.curHp,
+      maxHp: c.maxHp,
+      armorClass: c.armorClass,
+      speed: c.speed,
+      stats: { ...c.stats },
+      resistances: c.resistances.join(', '),
+      weaknesses: c.weaknesses.join(', '),
+      weapons: c.weapons.map((w) => ({ ...w })),
+      actions: c.actions.map((a) => ({ ...a })),
+      abilities: c.abilities.map((a) => ({ ...a })),
+      identity: Object.fromEntries(ids.map((f) => [f.key, f.value])),
+    };
+  }
 
   const startEdit = () => {
-    setD(toDraft(monster));
+    setD(toDraft(creature, identity));
     setEditing(true);
   };
 
   const save = () => {
-    updateMonster({
-      monsterId: monster.id,
-      name: d.name.trim() || monster.name,
-      creatureType: d.creatureType.trim(),
+    onSave({
+      name: d.name.trim() || creature.name,
+      level: d.level,
       maxHp: d.maxHp,
       curHp: d.curHp,
       armorClass: d.armorClass,
@@ -68,12 +98,22 @@ export function StatBlock({ monster }: { monster: Monster }) {
       weapons: d.weapons.filter((w) => w.name.trim()),
       actions: d.actions.filter((a) => a.name.trim()),
       abilities: d.abilities.filter((a) => a.name.trim()),
+      ...d.identity,
     });
     setEditing(false);
   };
 
   if (!editing) {
-    return <ReadView monster={monster} onEdit={startEdit} />;
+    return (
+      <ReadView
+        creature={creature}
+        subtitle={subtitle}
+        levelLabel={levelLabel}
+        onEdit={startEdit}
+        onAiFill={onAiFill}
+        aiBusy={aiBusy}
+      />
+    );
   }
 
   const set = (patch: Partial<Draft>) => setD((cur) => ({ ...cur, ...patch }));
@@ -85,14 +125,26 @@ export function StatBlock({ monster }: { monster: Monster }) {
         Name
         <input value={d.name} onChange={(e) => set({ name: e.target.value })} />
       </label>
-      <label className="sb-field">
-        Type
-        <input
-          value={d.creatureType}
-          onChange={(e) => set({ creatureType: e.target.value })}
-        />
-      </label>
+      {identity.map((f) => (
+        <label key={f.key} className="sb-field">
+          {f.label}
+          <input
+            value={d.identity[f.key] ?? ''}
+            onChange={(e) =>
+              set({ identity: { ...d.identity, [f.key]: e.target.value } })
+            }
+          />
+        </label>
+      ))}
       <div className="sb-meta-edit">
+        <label className="mini">
+          {levelLabel}
+          <input
+            type="number"
+            value={d.level}
+            onChange={(e) => set({ level: num(e.target.value) })}
+          />
+        </label>
         <label className="mini">
           HP
           <input
@@ -153,10 +205,7 @@ export function StatBlock({ monster }: { monster: Monster }) {
         />
       </label>
 
-      <WeaponEditor
-        weapons={d.weapons}
-        onChange={(weapons) => set({ weapons })}
-      />
+      <WeaponEditor weapons={d.weapons} onChange={(weapons) => set({ weapons })} />
       <EntryEditor
         title="Actions"
         entries={d.actions}
@@ -181,29 +230,47 @@ export function StatBlock({ monster }: { monster: Monster }) {
 }
 
 function ReadView({
-  monster,
+  creature,
+  subtitle,
+  levelLabel,
   onEdit,
+  onAiFill,
+  aiBusy,
 }: {
-  monster: Monster;
+  creature: StatSheet;
+  subtitle?: string;
+  levelLabel: string;
   onEdit: () => void;
+  onAiFill?: () => void;
+  aiBusy?: boolean;
 }) {
-  const hasStats = ABILITIES.some((a) => monster.stats[a] !== undefined);
+  const m = creature;
+  const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
   return (
     <div className="statblock">
       <div className="sb-head">
-        {monster.creatureType && (
-          <div className="sb-type">{monster.creatureType}</div>
-        )}
+        {subtitle && <div className="sb-type">{subtitle}</div>}
         <button className="btn tiny" onClick={onEdit}>
           Edit
         </button>
       </div>
+      {onAiFill && (
+        <button
+          className="btn tiny ai-fill"
+          disabled={aiBusy}
+          onClick={onAiFill}
+          title="Use AI to fill only the empty fields (stats, weapons, actions…)"
+        >
+          {aiBusy ? '✨ …' : '✨ Fill missing details with AI'}
+        </button>
+      )}
       <div className="sb-meta">
-        {monster.armorClass > 0 && <span>AC {monster.armorClass}</span>}
+        {m.level > 0 && <span>{levelLabel} {m.level}</span>}
+        {m.armorClass > 0 && <span>AC {m.armorClass}</span>}
         <span>
-          HP {monster.curHp}/{monster.maxHp}
+          HP {m.curHp}/{m.maxHp}
         </span>
-        {monster.speed && <span>{monster.speed}</span>}
+        {m.speed && <span>{m.speed}</span>}
       </div>
 
       {hasStats && (
@@ -212,9 +279,9 @@ function ReadView({
             <div key={a} className="sb-ability">
               <div className="sb-ab-name">{a}</div>
               <div className="sb-ab-val">
-                {monster.stats[a] ?? '—'}
-                {monster.stats[a] !== undefined && (
-                  <span className="muted"> ({mod(monster.stats[a])})</span>
+                {m.stats[a] ?? '—'}
+                {m.stats[a] !== undefined && (
+                  <span className="muted"> ({mod(m.stats[a])})</span>
                 )}
               </div>
             </div>
@@ -222,13 +289,16 @@ function ReadView({
         </div>
       )}
 
-      {monster.weapons.length > 0 && (
+      {m.weapons.length > 0 && (
         <div className="sb-section">
           <h4>Weapons</h4>
-          {monster.weapons.map((w, i) => (
+          {m.weapons.map((w, i) => (
             <p key={i} className="sb-entry">
-              <strong>{w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.</strong>{' '}
-              {w.attackBonus !== undefined && `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
+              <strong>
+                {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
+              </strong>{' '}
+              {w.attackBonus !== undefined &&
+                `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
               {w.damage}
               {w.range ? ` (${w.range})` : ''}
             </p>
@@ -236,31 +306,31 @@ function ReadView({
         </div>
       )}
 
-      {monster.resistances.length > 0 && (
+      {m.resistances.length > 0 && (
         <div className="sb-line">
-          <strong>Resist:</strong> {monster.resistances.join(', ')}
+          <strong>Resist:</strong> {m.resistances.join(', ')}
         </div>
       )}
-      {monster.weaknesses.length > 0 && (
+      {m.weaknesses.length > 0 && (
         <div className="sb-line">
-          <strong>Vulnerable:</strong> {monster.weaknesses.join(', ')}
+          <strong>Vulnerable:</strong> {m.weaknesses.join(', ')}
         </div>
       )}
 
-      {monster.actions.length > 0 && (
+      {m.actions.length > 0 && (
         <div className="sb-section">
           <h4>Actions</h4>
-          {monster.actions.map((a, i) => (
+          {m.actions.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
             </p>
           ))}
         </div>
       )}
-      {monster.abilities.length > 0 && (
+      {m.abilities.length > 0 && (
         <div className="sb-section">
           <h4>Traits</h4>
-          {monster.abilities.map((a, i) => (
+          {m.abilities.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
             </p>
@@ -292,9 +362,7 @@ function WeaponEditor({
           />
           <select
             value={w.kind}
-            onChange={(e) =>
-              setAt(i, { kind: e.target.value as Weapon['kind'] })
-            }
+            onChange={(e) => setAt(i, { kind: e.target.value as Weapon['kind'] })}
           >
             <option value="melee">melee</option>
             <option value="ranged">ranged</option>

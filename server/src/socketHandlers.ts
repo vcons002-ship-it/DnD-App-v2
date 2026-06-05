@@ -1,6 +1,10 @@
 import { config } from './config.js';
 import { newId } from './db.js';
-import { aiFillCreature } from './creatures/fill.js';
+import {
+  aiCreateCharacter,
+  aiFillCharacter,
+  aiFillCreature,
+} from './creatures/fill.js';
 import {
   broadcastSnapshots,
   dropConn,
@@ -20,6 +24,8 @@ import {
   clearTokensConditions,
   copyTokens,
   createCharacter,
+  updateCharacter,
+  getCharacter,
   damageTokens,
   duplicateToken,
   setTokensHidden,
@@ -250,10 +256,56 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('character:update', ({ characterId, ...patch }) => {
+      const c = getCharacter(characterId);
+      // The DM or the owning player may edit a character's stat sheet.
+      if (!c || (!isDm() && c.claimedBy !== socket.id)) return;
+      updateCharacter(characterId, patch);
+      afterChange();
+    });
+
     socket.on('character:release', () => {
       if (!sessionId()) return;
       releaseClaims(socket.id);
       afterChange();
+    });
+
+    socket.on('ai:fillCharacter', async ({ characterId }) => {
+      const c = getCharacter(characterId);
+      if (!c || (!isDm() && c.claimedBy !== socket.id)) return;
+      const res = await aiFillCharacter(characterId);
+      if (res.ok) {
+        afterChange();
+        socket.emit('notice', {
+          message: `Filled ${res.filled} missing field${
+            res.filled === 1 ? '' : 's'
+          } with AI`,
+        });
+      } else {
+        socket.emit('notice', {
+          message:
+            res.reason === 'no-key'
+              ? 'No AI key configured'
+              : res.reason === 'nothing'
+              ? 'Nothing missing to fill'
+              : 'AI lookup failed',
+        });
+      }
+    });
+
+    socket.on('ai:createCharacter', async ({ description }) => {
+      const sid = sessionId();
+      if (!sid || !description?.trim()) return; // DM or player may generate
+      const res = await aiCreateCharacter(sid, description.trim());
+      if (res.ok) {
+        afterChange();
+        socket.emit('notice', { message: `Created ${res.character.name} with AI` });
+      } else {
+        socket.emit('notice', {
+          message:
+            res.reason === 'no-key' ? 'No AI key configured' : 'AI lookup failed',
+        });
+      }
     });
 
     // ---- Bulk multi-select token edits ----
@@ -290,6 +342,7 @@ export function registerSocketHandlers(io: IOServer): void {
         name: p.name,
         maxHp: p.maxHp,
         creatureType: p.creatureType,
+        level: p.level,
         armorClass: p.armorClass,
         speed: p.speed,
         stats: p.stats,
@@ -297,6 +350,7 @@ export function registerSocketHandlers(io: IOServer): void {
         weaknesses: p.weaknesses,
         actions: p.actions,
         abilities: p.abilities,
+        weapons: p.weapons,
         icon: p.icon,
         disposition: p.disposition,
         source: p.source,

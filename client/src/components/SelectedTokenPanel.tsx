@@ -20,6 +20,9 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const duplicateToken = useStore((s) => s.duplicateToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
+  const updateCharacter = useStore((s) => s.updateCharacter);
+  const aiFillCharacter = useStore((s) => s.aiFillCharacter);
+  const aiBusy = useStore((s) => s.aiBusy);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
@@ -31,11 +34,19 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
   const isDm = snapshot.role === 'dm';
+  const mySocketId = useStore((s) => s.socket?.id);
   // Full stat block for the DM when a monster is selected.
   const monster =
     isDm && token.kind === 'monster'
       ? (snapshot.monsters.find((m) => m.id === token.refId) as Monster | undefined)
       : undefined;
+  // The PC's character, editable by the DM or the owning player.
+  const character =
+    token.kind === 'pc'
+      ? snapshot.characters.find((c) => c.id === token.refId)
+      : undefined;
+  const canEditCharacter =
+    !!character && (isDm || character.claimedBy === mySocketId);
   const iconTargets =
     selectedIds && selectedIds.length ? selectedIds : [token.id];
 
@@ -133,16 +144,34 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       )}
 
       {monster && (
-        <>
-          <button
-            className="btn tiny ai-fill"
-            onClick={() => aiFillCreature(monster.id)}
-            title="Use AI to fill only the empty fields (stats, weapons, actions…)"
-          >
-            ✨ Fill missing details with AI
-          </button>
-          <StatBlock monster={monster} />
-        </>
+        <StatBlock
+          creature={monster}
+          subtitle={monster.creatureType}
+          identity={[
+            { key: 'creatureType', label: 'Type', value: monster.creatureType },
+          ]}
+          levelLabel="CR"
+          aiBusy={aiBusy}
+          onAiFill={() => aiFillCreature(monster.id)}
+          onSave={(patch) => updateMonster({ monsterId: monster.id, ...patch })}
+        />
+      )}
+
+      {canEditCharacter && character && (
+        <StatBlock
+          creature={character}
+          subtitle={`${character.race} · ${character.className}`}
+          identity={[
+            { key: 'race', label: 'Race', value: character.race },
+            { key: 'className', label: 'Class', value: character.className },
+          ]}
+          levelLabel="Level"
+          aiBusy={aiBusy}
+          onAiFill={() => aiFillCharacter(character.id)}
+          onSave={(patch) =>
+            updateCharacter({ characterId: character.id, ...patch })
+          }
+        />
       )}
 
       <h4>Conditions</h4>

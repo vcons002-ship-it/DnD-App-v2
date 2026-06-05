@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import type {
   CharacterCreatePayload,
+  CharacterUpdatePayload,
   ClientToServerEvents,
   CombatRole,
   Condition,
@@ -62,6 +63,9 @@ type Store = {
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
   createCharacter: (input: CharacterCreatePayload) => void;
+  updateCharacter: (payload: CharacterUpdatePayload) => void;
+  aiFillCharacter: (characterId: string) => void;
+  aiCreateCharacter: (description: string) => void;
   releaseCharacter: () => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
@@ -166,6 +170,15 @@ export const useStore = create<Store>((set, get) => ({
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
+  updateCharacter: (payload) => get().socket?.emit('character:update', payload),
+  aiFillCharacter: (characterId) => {
+    set({ aiBusy: true });
+    get().socket?.emit('ai:fillCharacter', { characterId });
+  },
+  aiCreateCharacter: (description) => {
+    set({ aiBusy: true });
+    get().socket?.emit('ai:createCharacter', { description });
+  },
   releaseCharacter: () => get().socket?.emit('character:release'),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),

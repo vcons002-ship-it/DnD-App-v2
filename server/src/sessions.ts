@@ -478,6 +478,7 @@ export function duplicateToken(tokenId: string): Token | null {
         actions: src.actions,
         abilities: src.abilities,
         weapons: src.weapons,
+        level: src.level,
         icon: src.icon,
         disposition: src.disposition,
         source: src.source,
@@ -568,34 +569,120 @@ export function getCharacter(id: string): Character | null {
   return row ? rowToCharacter(row) : null;
 }
 
+export type CharacterInput = {
+  name: string;
+  race?: string;
+  className?: string;
+  level?: number;
+  maxHp?: number;
+  armorClass?: number;
+  speed?: string;
+  stats?: Record<string, number>;
+  weapons?: Character['weapons'];
+  resistances?: string[];
+  weaknesses?: string[];
+  actions?: Character['actions'];
+  abilities?: Character['abilities'];
+  icon?: string;
+};
+
 /** Create a player character (DM or a player may add one). */
 export function createCharacter(
   sessionId: string,
-  opts: {
-    name: string;
-    race?: string;
-    className?: string;
-    maxHp?: number;
-    stats?: Record<string, number>;
-  },
+  opts: CharacterInput,
 ): Character {
   const id = newId();
   const maxHp = opts.maxHp && opts.maxHp > 0 ? Math.round(opts.maxHp) : 10;
   db.prepare(
     `INSERT INTO characters
-       (id, session_id, name, race, class_name, max_hp, cur_hp, stats)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, session_id, name, race, class_name, level, max_hp, cur_hp,
+        armor_class, speed, stats, weapons, resistances, weaknesses,
+        actions, abilities, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     opts.name.trim() || 'Adventurer',
     opts.race ?? '',
     opts.className ?? '',
+    opts.level && opts.level > 0 ? opts.level : 1,
     maxHp,
     maxHp,
+    opts.armorClass ?? 0,
+    opts.speed ?? '',
     JSON.stringify(opts.stats ?? {}),
+    JSON.stringify(opts.weapons ?? []),
+    JSON.stringify(opts.resistances ?? []),
+    JSON.stringify(opts.weaknesses ?? []),
+    JSON.stringify(opts.actions ?? []),
+    JSON.stringify(opts.abilities ?? []),
+    opts.icon ?? '',
   );
   return getCharacter(id)!;
+}
+
+/** Patch editable fields of a character (DM or the owning player). */
+export function updateCharacter(
+  characterId: string,
+  patch: Partial<{
+    name: string;
+    race: string;
+    className: string;
+    level: number;
+    maxHp: number;
+    curHp: number;
+    armorClass: number;
+    speed: string;
+    stats: Record<string, number>;
+    resistances: string[];
+    weaknesses: string[];
+    weapons: Character['weapons'];
+    actions: Character['actions'];
+    abilities: Character['abilities'];
+    icon: string;
+  }>,
+): Character | null {
+  const c = getCharacter(characterId);
+  if (!c) return null;
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  const put = (col: string, v: unknown) => {
+    sets.push(`${col} = ?`);
+    vals.push(v);
+  };
+  if (patch.name !== undefined) put('name', patch.name);
+  if (patch.race !== undefined) put('race', patch.race);
+  if (patch.className !== undefined) put('class_name', patch.className);
+  if (patch.level !== undefined) put('level', patch.level);
+  if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
+  if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
+  if (patch.speed !== undefined) put('speed', patch.speed);
+  if (patch.icon !== undefined) put('icon', patch.icon);
+  if (patch.stats !== undefined) put('stats', JSON.stringify(patch.stats));
+  if (patch.resistances !== undefined)
+    put('resistances', JSON.stringify(patch.resistances));
+  if (patch.weaknesses !== undefined)
+    put('weaknesses', JSON.stringify(patch.weaknesses));
+  if (patch.weapons !== undefined) put('weapons', JSON.stringify(patch.weapons));
+  if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
+  if (patch.abilities !== undefined)
+    put('abilities', JSON.stringify(patch.abilities));
+
+  if (sets.length) {
+    db.prepare(`UPDATE characters SET ${sets.join(', ')} WHERE id = ?`).run(
+      ...vals,
+      characterId,
+    );
+    const after = getCharacter(characterId)!;
+    if (after.curHp > after.maxHp) {
+      db.prepare('UPDATE characters SET cur_hp = ? WHERE id = ?').run(
+        after.maxHp,
+        characterId,
+      );
+    }
+  }
+  return getCharacter(characterId);
 }
 
 export function claimCharacter(
@@ -654,6 +741,7 @@ export type MonsterInput = {
   name: string;
   maxHp: number;
   creatureType?: string;
+  level?: number;
   armorClass?: number;
   speed?: string;
   stats?: Record<string, number>;
@@ -680,8 +768,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -702,6 +790,7 @@ function insertMonster(
     meta.templateId,
     opts.disposition ?? 'enemy',
     JSON.stringify(opts.weapons ?? []),
+    opts.level ?? 0,
   );
   return getMonster(id)!;
 }
@@ -754,6 +843,7 @@ export function instantiateMonster(templateId: string): Monster | null {
       actions: tmpl.actions,
       abilities: tmpl.abilities,
       weapons: tmpl.weapons,
+      level: tmpl.level,
       icon: tmpl.icon,
       disposition: tmpl.disposition,
       source: tmpl.source,
@@ -778,6 +868,7 @@ export function copyMonster(monsterId: string): Monster | null {
     actions: m.actions,
     abilities: m.abilities,
     weapons: m.weapons,
+    level: m.level,
     icon: m.icon,
     disposition: m.disposition,
     source: m.source,
@@ -790,6 +881,7 @@ export function updateMonster(
   patch: Partial<{
     disposition: Monster['disposition'];
     name: string;
+    level: number;
     maxHp: number;
     curHp: number;
     creatureType: string;
@@ -816,6 +908,7 @@ export function updateMonster(
   };
   if (patch.disposition !== undefined) put('disposition', patch.disposition);
   if (patch.name !== undefined) put('name', patch.name);
+  if (patch.level !== undefined) put('level', patch.level);
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
