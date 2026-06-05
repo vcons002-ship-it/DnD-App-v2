@@ -271,18 +271,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
   owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
 - ☑ **Weapon masteries (2024), tag-driven [req].** The 8 mastery properties (plus
-  **Hew** — the 2024 Great Weapon Master feat, same format) in
+  **Great Weapon Master** — the 2024 feat, same format) in
   `server/src/masteries/srd.ts` are searchable in the Spells & Abilities menu and
-  added as `type:'mastery'` sheet entries. **Weapons carry `tags`** (a type + props,
-  e.g. `["halberd","heavy"]`, edited in `StatBlock`); a mastery declares
-  `appliesToTags`, and an **active** mastery in the abilities list triggers on any
-  attack with a weapon whose tags overlap — no per-weapon binding. `resolveAttack`
-  then adjusts the attack server-side: **Graze** (ability-mod damage on a miss),
-  **Cleave** (weapon damage minus the ability modifier to the target, then one-shot
-  toggles off), **Hew** (proficiency-bonus damage on a hit), and a generic on-hit
-  `bonusDamage` lever (homebrew/AI). The rest (Push/Sap/Slow/Topple/Vex/Nick) are
-  collapsible descriptions handled manually. The weapon display **bold-lists the
-  character's masteries that apply** to each weapon (tag cross-check) for clarity.
+  added as `type:'mastery'` sheet entries (shown by their real name). **Weapons
+  carry `tags`** (a type + props, e.g. `["halberd","heavy"]`, edited in `StatBlock`);
+  a mastery declares `appliesToTags`, and an **active** mastery in the abilities list
+  triggers on any attack with a weapon whose tags overlap — no per-weapon binding.
+  `resolveAttack` then adjusts the attack server-side: **Graze** (ability-mod damage
+  on a miss), **Cleave** (weapon damage minus the ability modifier to the target,
+  then one-shot toggles off), **Great Weapon Master** (proficiency-bonus damage on a
+  hit, all Heavy weapons), and a generic on-hit `bonusDamage` lever (homebrew/AI).
+  The rest (Push/Sap/Slow/Topple/Vex/Nick) are collapsible descriptions handled
+  manually. The weapon display **bold-lists the mechanic** of each applicable
+  mastery via `weaponLabel` (defaults to the name) — e.g. a `[longbow][heavy]`
+  weapon shows `Slow, GWM`, and a heavy melee weapon also shows the melee-only
+  `meleeLabel` `Hew` (GWM's extra-attack mechanic).
 - ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` keeps a
   weapon's magic damage distinct from its ability modifier (which lives in the
   `damage` string), so mastery effects that strip the ability mod (Cleave) keep

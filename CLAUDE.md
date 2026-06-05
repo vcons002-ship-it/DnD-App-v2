@@ -159,9 +159,10 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   (+ custom counters, pip trackers), **inventory items** (+ library picker),
   **spells, abilities & weapon masteries** (`CharacterSpells`: search a local
   rules DB `spells/srd.ts` + `masteries/srd.ts` → Gemini fallback; collapsible
-  text; server-resolved `ability:roll` with upcast/cantrip scaling; masteries
-  carry a weapon binding + on/off toggle and adjust the matching weapon's attack
-  in `resolveAttack`, e.g. Graze damage on a miss),
+  text; server-resolved `ability:roll` with upcast/cantrip scaling; masteries are
+  **tag-driven** — weapons carry `tags`, a mastery has `appliesToTags` + on/off
+  toggle and adjusts any tagged weapon's attack in `resolveAttack`, e.g. Graze
+  damage on a miss; the weapon line bold-lists applicable mastery mechanics),
   player places/edits own token, **high-visibility PC tokens**, party + friendly
   sheets read-only, sheet import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text

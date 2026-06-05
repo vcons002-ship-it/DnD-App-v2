@@ -18,14 +18,16 @@ describe('weapon mastery database', () => {
     expect(getMastery('Cleave')?.mastery?.effect?.cleave).toBe(true);
     expect(getMastery('Cleave')?.mastery?.appliesToTags).toEqual(['greataxe', 'halberd']);
 
-    // Hew (2024 Great Weapon Master) adds proficiency-bonus damage on a hit and
-    // triggers on any weapon tagged "heavy".
-    const hew = getMastery('Hew');
-    expect(hew?.type).toBe('mastery');
-    expect(hew?.mastery?.effect?.profBonusDamage).toBe(true);
-    expect(hew?.mastery?.active).toBe(true);
-    expect(hew?.mastery?.appliesToTags).toEqual(['heavy']);
-    expect(searchMasteries('hew').some((m) => m.name === 'Hew')).toBe(true);
+    // Great Weapon Master: +prof damage on a hit, triggers on "heavy"; the weapon
+    // shows "GWM" (damage, all heavy) plus "Hew" (extra attack, melee only).
+    const gwm = getMastery('Great Weapon Master');
+    expect(gwm?.type).toBe('mastery');
+    expect(gwm?.mastery?.effect?.profBonusDamage).toBe(true);
+    expect(gwm?.mastery?.active).toBe(true);
+    expect(gwm?.mastery?.appliesToTags).toEqual(['heavy']);
+    expect(gwm?.mastery?.weaponLabel).toBe('GWM');
+    expect(gwm?.mastery?.meleeLabel).toBe('Hew');
+    expect(searchMasteries('weapon master').some((m) => m.name === 'Great Weapon Master')).toBe(true);
 
     // A purely manual mastery has no auto effect.
     expect(getMastery('Push')?.mastery?.effect).toBeUndefined();

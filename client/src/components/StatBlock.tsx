@@ -45,18 +45,24 @@ type Props = {
   masteries?: SheetAbility[];
 };
 
-/** Names of the character's masteries that trigger on a weapon (tag overlap). */
+/**
+ * The mechanic labels to show on a weapon for the character's masteries that
+ * trigger on it (tag overlap). A mastery shows its `weaponLabel` (the mechanic,
+ * e.g. "Slow"; defaults to the entry name), plus a `meleeLabel` (e.g. GWM's
+ * "Hew") only when the weapon is melee.
+ */
 function masteryNamesForWeapon(w: Weapon, masteries: SheetAbility[]): string[] {
   const wtags = (w.tags ?? []).map((t) => t.trim().toLowerCase());
   if (!wtags.length) return [];
-  return masteries
-    .filter(
-      (a) =>
-        a.type === 'mastery' &&
-        a.mastery &&
-        (a.mastery.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase())),
-    )
-    .map((a) => a.name);
+  const labels: string[] = [];
+  for (const a of masteries) {
+    const m = a.mastery;
+    if (a.type !== 'mastery' || !m) continue;
+    if (!(m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()))) continue;
+    labels.push(m.weaponLabel || a.name);
+    if (m.meleeLabel && w.kind === 'melee') labels.push(m.meleeLabel);
+  }
+  return labels;
 }
 
 type Draft = Omit<StatSheet, 'id' | 'resistances' | 'weaknesses'> & {

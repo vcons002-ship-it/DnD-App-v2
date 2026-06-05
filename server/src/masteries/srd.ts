@@ -94,13 +94,20 @@ const MASTERIES: MasteryEntry[] = [
   },
   {
     // The 2024 Great Weapon Master feat, offered in the same toggleable mastery
-    // format. The proficiency-bonus damage is automated; the bonus attack is manual.
-    name: 'Hew',
+    // format. The proficiency-bonus damage (shown as "GWM") is automated and
+    // applies to ALL Heavy weapons; the "Hew" extra attack is melee-only + manual.
+    name: 'Great Weapon Master',
     type: 'mastery',
-    meta: 'Heavy melee weapons (tag: heavy)',
+    meta: 'Heavy weapons (tag: heavy)',
     description:
-      'Great Weapon Master. Damage: when you hit a creature with a Heavy weapon as part of the Attack action on your turn, you can deal extra damage to the target equal to your proficiency bonus (once per turn). While toggled on, that proficiency-bonus damage is added to your hits with any weapon tagged "heavy". Extra attack: immediately after you score a Critical Hit, or reduce a creature to 0 HP, with a Heavy weapon, you can make one attack with it as a Bonus Action (resolve that attack manually).',
-    mastery: { appliesToTags: ['heavy'], active: true, effect: { profBonusDamage: true } },
+      'Damage (GWM): when you hit a creature with a Heavy weapon as part of the Attack action on your turn, you can deal extra damage to the target equal to your proficiency bonus (once per turn). While toggled on, that proficiency-bonus damage is added automatically to your hits with any weapon tagged "heavy" (melee or ranged). Extra attack (Hew): immediately after you score a Critical Hit, or reduce a creature to 0 HP, with a Heavy MELEE weapon, you can make one attack with it as a Bonus Action (resolve that attack manually).',
+    mastery: {
+      appliesToTags: ['heavy'],
+      active: true,
+      effect: { profBonusDamage: true },
+      weaponLabel: 'GWM',
+      meleeLabel: 'Hew',
+    },
   },
 ];
 

@@ -158,6 +158,17 @@ export type WeaponMastery = {
   appliesToTags: string[];
   /** Toggle — only an active mastery applies its effect. */
   active: boolean;
+  /**
+   * Label shown on a matching weapon's stat line (the mechanic, e.g. "Slow").
+   * Defaults to the sheet entry's name. Great Weapon Master uses "GWM".
+   */
+  weaponLabel?: string;
+  /**
+   * Extra label shown only on a matching MELEE weapon — e.g. Great Weapon
+   * Master's "Hew" extra-attack mechanic, which is melee-only while its damage
+   * applies to all Heavy weapons.
+   */
+  meleeLabel?: string;
   /** Auto-effect on attacks with the bound weapon; absent = descriptive/manual. */
   effect?: {
     /** Extra damage added to the target on a HIT, e.g. "1d4" or a flat "10". */
