@@ -227,6 +227,7 @@ export type GeneratedCharacter = {
   weaknesses: string[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  proficientSkills: string[];
   icon: string;
 };
 
@@ -250,7 +251,10 @@ export async function generateCharacterAI(
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
     `"actions":[{"name":string,"description":string}],` +
-    `"abilities":[{"name":string,"description":string}]}. ` +
+    `"abilities":[{"name":string,"description":string}],` +
+    `"proficientSkills":string[]}. ` +
+    `"proficientSkills" are class/background skill proficiencies from the 5e ` +
+    `skill list (e.g. "Perception","Stealth","Arcana"). ` +
     `"name" is a fitting proper name; "weapons" are tagged attacks (damage like ` +
     `"1d8+3"); "actions" are attacks/features; "abilities" are class/racial traits. ` +
     `Use level-appropriate HP. Keep each description under 30 words.`;
@@ -275,6 +279,9 @@ export async function generateCharacterAI(
       weapons: parseWeapons(p.weapons),
       actions: parseAbilities(p.actions),
       abilities: parseAbilities(p.abilities),
+      proficientSkills: Array.isArray(p.proficientSkills)
+        ? p.proficientSkills.map(String)
+        : [],
       icon: iconForCreature(name, className),
     };
   } catch (err) {

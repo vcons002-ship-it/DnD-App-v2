@@ -157,6 +157,18 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Phase 5a — Characters, NPCs & editing [req]
 
+- ☑ **Players see & edit their own character; view party + friendly sheets [req].**
+  A character's full sheet (`CharacterSheet` = tagged `StatBlock` + skills) is now
+  shown to players: editable for their own character (and the DM), read-only for
+  party members (expandable in PlayerPanel) and for any **Friendly** creature.
+  `SelectedTokenPanel` shows the read-only block to players when the snapshot
+  carries full data (friendly creatures / other PCs); `StatBlock` gained a
+  read-only mode (no Edit/AI when `onSave` is omitted).
+- ☑ **Skills with proficiency + bonuses [req].** `shared/skills.ts` defines the 18
+  5e skills (ability map), `proficiencyBonus(level)`, and `skillBonus`. Characters
+  store `proficientSkills`; `CharacterSkills` shows each skill's ability, a
+  proficiency toggle (owner/DM editable), the proficiency bonus, and the computed
+  stat-based total. AI character generation/fill can set proficiencies.
 - ☑ **Create party characters [req].** Both the DM (DmPanel) and players
   (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
   a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can

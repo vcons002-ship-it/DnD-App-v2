@@ -84,6 +84,8 @@ export async function aiFillCharacter(characterId: string): Promise<FillResult> 
   if (c.actions.length === 0 && gen.actions.length > 0) patch.actions = gen.actions;
   if (c.abilities.length === 0 && gen.abilities.length > 0)
     patch.abilities = gen.abilities;
+  if (c.proficientSkills.length === 0 && gen.proficientSkills.length > 0)
+    patch.proficientSkills = gen.proficientSkills;
 
   const filled = Object.keys(patch).length - 1;
   if (filled === 0) return { ok: false, reason: 'nothing' };

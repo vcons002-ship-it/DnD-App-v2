@@ -599,6 +599,7 @@ export type CharacterInput = {
   weaknesses?: string[];
   actions?: Character['actions'];
   abilities?: Character['abilities'];
+  proficientSkills?: string[];
   icon?: string;
 };
 
@@ -613,8 +614,8 @@ export function createCharacter(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
-        actions, abilities, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        actions, abilities, proficient_skills, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -632,6 +633,7 @@ export function createCharacter(
     JSON.stringify(opts.weaknesses ?? []),
     JSON.stringify(opts.actions ?? []),
     JSON.stringify(opts.abilities ?? []),
+    JSON.stringify(opts.proficientSkills ?? []),
     opts.icon ?? '',
   );
   return getCharacter(id)!;
@@ -655,6 +657,7 @@ export function updateCharacter(
     weapons: Character['weapons'];
     actions: Character['actions'];
     abilities: Character['abilities'];
+    proficientSkills: string[];
     icon: string;
   }>,
 ): Character | null {
@@ -684,6 +687,8 @@ export function updateCharacter(
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)
     put('abilities', JSON.stringify(patch.abilities));
+  if (patch.proficientSkills !== undefined)
+    put('proficient_skills', JSON.stringify(patch.proficientSkills));
 
   if (sets.length) {
     db.prepare(`UPDATE characters SET ${sets.join(', ')} WHERE id = ?`).run(

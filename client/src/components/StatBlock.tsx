@@ -35,7 +35,9 @@ type Props = {
   identity?: IdentityField[];
   /** Label for the level field ("Level" for PCs, "CR" for monsters). */
   levelLabel?: string;
-  onSave: (patch: Record<string, unknown>) => void;
+  /** Omit to render read-only (no Edit / AI-fill) — e.g. a player viewing an
+   *  ally or a friendly creature's sheet. */
+  onSave?: (patch: Record<string, unknown>) => void;
   onAiFill?: () => void;
   aiBusy?: boolean;
 };
@@ -85,7 +87,7 @@ export function StatBlock({
   };
 
   const save = () => {
-    onSave({
+    onSave?.({
       name: d.name.trim() || creature.name,
       level: d.level,
       maxHp: d.maxHp,
@@ -109,7 +111,7 @@ export function StatBlock({
         creature={creature}
         subtitle={subtitle}
         levelLabel={levelLabel}
-        onEdit={startEdit}
+        onEdit={onSave ? startEdit : undefined}
         onAiFill={onAiFill}
         aiBusy={aiBusy}
       />
@@ -240,7 +242,7 @@ function ReadView({
   creature: StatSheet;
   subtitle?: string;
   levelLabel: string;
-  onEdit: () => void;
+  onEdit?: () => void;
   onAiFill?: () => void;
   aiBusy?: boolean;
 }) {
@@ -250,9 +252,11 @@ function ReadView({
     <div className="statblock">
       <div className="sb-head">
         {subtitle && <div className="sb-type">{subtitle}</div>}
-        <button className="btn tiny" onClick={onEdit}>
-          Edit
-        </button>
+        {onEdit && (
+          <button className="btn tiny" onClick={onEdit}>
+            Edit
+          </button>
+        )}
       </div>
       {onAiFill && (
         <button

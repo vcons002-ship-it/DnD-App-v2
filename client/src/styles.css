@@ -413,3 +413,24 @@ input[type='number'] { width: 70px; }
 .data-hp-bar span { display: block; height: 100%; }
 /* The embedded selected-token panel fills the card without its own divider. */
 .data-card .panel-section { border-bottom: none; }
+
+/* Character skills */
+.skills { margin-top: 10px; }
+.skills-head { display: flex; align-items: center; justify-content: space-between; }
+.skill-list { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.skill-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer;
+}
+.skill-row:disabled { cursor: default; }
+.skill-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--muted); flex-shrink: 0; }
+.skill-row.prof .skill-dot { background: var(--green); border-color: var(--green); }
+.skill-name { flex: 1; }
+.skill-abil { font-size: 10px; }
+.skill-bonus { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 26px; text-align: right; }
+.skill-row.prof .skill-bonus { color: var(--green); }
+
+/* Party member expandable sheet */
+.party-member > summary { cursor: pointer; list-style: revert; padding: 4px 0; display: flex; gap: 8px; }
+.party-member[open] > summary { font-weight: 600; }

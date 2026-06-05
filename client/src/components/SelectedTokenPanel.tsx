@@ -4,6 +4,7 @@ import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock } from './StatBlock';
+import { CharacterSheet } from './CharacterSheet';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -20,8 +21,6 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const duplicateToken = useStore((s) => s.duplicateToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
-  const updateCharacter = useStore((s) => s.updateCharacter);
-  const aiFillCharacter = useStore((s) => s.aiFillCharacter);
   const aiBusy = useStore((s) => s.aiBusy);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
@@ -35,12 +34,18 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
   const isDm = snapshot.role === 'dm';
   const mySocketId = useStore((s) => s.socket?.id);
-  // Full stat block for the DM when a monster is selected.
-  const monster =
-    isDm && token.kind === 'monster'
-      ? (snapshot.monsters.find((m) => m.id === token.refId) as Monster | undefined)
+  // The full monster stat block, when available to this viewer: always for the
+  // DM, and for players when the creature is Friendly (the server sends them the
+  // full Monster — Neutral/Enemy views lack `stats`, so no block).
+  const monsterEntity =
+    token.kind === 'monster'
+      ? snapshot.monsters.find((m) => m.id === token.refId)
       : undefined;
-  // The PC's character, editable by the DM or the owning player.
+  const monster =
+    monsterEntity && 'stats' in monsterEntity
+      ? (monsterEntity as Monster)
+      : undefined;
+  // The PC's character — anyone may VIEW the sheet; the DM or owning player edits.
   const character =
     token.kind === 'pc'
       ? snapshot.characters.find((c) => c.id === token.refId)
@@ -115,7 +120,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         </button>
       </div>
 
-      {monster && (
+      {isDm && monster && (
         <div className="disposition-row">
           <h4>Disposition</h4>
           <div className="disposition-btns">
@@ -147,31 +152,24 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         <StatBlock
           creature={monster}
           subtitle={monster.creatureType}
-          identity={[
-            { key: 'creatureType', label: 'Type', value: monster.creatureType },
-          ]}
+          identity={
+            isDm
+              ? [{ key: 'creatureType', label: 'Type', value: monster.creatureType }]
+              : undefined
+          }
           levelLabel="CR"
           aiBusy={aiBusy}
-          onAiFill={() => aiFillCreature(monster.id)}
-          onSave={(patch) => updateMonster({ monsterId: monster.id, ...patch })}
+          onAiFill={isDm ? () => aiFillCreature(monster.id) : undefined}
+          onSave={
+            isDm
+              ? (patch) => updateMonster({ monsterId: monster.id, ...patch })
+              : undefined
+          }
         />
       )}
 
-      {canEditCharacter && character && (
-        <StatBlock
-          creature={character}
-          subtitle={`${character.race} · ${character.className}`}
-          identity={[
-            { key: 'race', label: 'Race', value: character.race },
-            { key: 'className', label: 'Class', value: character.className },
-          ]}
-          levelLabel="Level"
-          aiBusy={aiBusy}
-          onAiFill={() => aiFillCharacter(character.id)}
-          onSave={(patch) =>
-            updateCharacter({ characterId: character.id, ...patch })
-          }
-        />
+      {character && (
+        <CharacterSheet character={character} editable={canEditCharacter} />
       )}
 
       <h4>Conditions</h4>

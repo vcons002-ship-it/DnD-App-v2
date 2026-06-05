@@ -2,6 +2,7 @@ import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { NewCharacterForm } from './NewCharacterForm';
+import { CharacterSheet } from './CharacterSheet';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -102,6 +103,7 @@ export function PlayerPanel({
           </div>
           <h4>Conditions</h4>
           <ConditionPicker kind="pc" refId={mine.id} conditions={mine.conditions} />
+          <CharacterSheet character={mine} editable />
         </div>
       )}
 
@@ -110,13 +112,19 @@ export function PlayerPanel({
         {snapshot.characters
           .filter((c) => c.id !== claimedId)
           .map((c) => (
-            <div key={c.id} className="init-row">
-              <span className="init-name">{c.name}</span>
-              <span className="muted">
-                {c.curHp}/{c.maxHp}
-              </span>
-            </div>
+            <details key={c.id} className="party-member">
+              <summary className="init-row">
+                <span className="init-name">{c.name}</span>
+                <span className="muted">
+                  {c.curHp}/{c.maxHp}
+                </span>
+              </summary>
+              <CharacterSheet character={c} editable={false} />
+            </details>
           ))}
+        {snapshot.characters.filter((c) => c.id !== claimedId).length === 0 && (
+          <p className="muted">No other party members.</p>
+        )}
       </div>
     </div>
   );

@@ -208,6 +208,7 @@ describe('visibility role-shaping', () => {
       weapons: [{ name: 'Longbow', kind: 'ranged', damage: '1d8+3' }],
       abilities: [{ name: 'Sneak Attack', description: '+3d6' }],
       resistances: ['poison'],
+      proficientSkills: ['Stealth', 'Perception'],
     });
     const after = getCharacter(c.id)!;
     expect(after.level).toBe(5);
@@ -215,6 +216,7 @@ describe('visibility role-shaping', () => {
     expect(after.weapons[0]).toMatchObject({ name: 'Longbow', kind: 'ranged' });
     expect(after.abilities[0].name).toBe('Sneak Attack');
     expect(after.resistances).toEqual(['poison']);
+    expect(after.proficientSkills).toEqual(['Stealth', 'Perception']);
   });
 
   it('applies bulk AOE damage and conditions across selected tokens', () => {

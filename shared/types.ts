@@ -98,6 +98,8 @@ export type Character = {
   /** Attacks / actions and traits / features (same tags as creatures). */
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  /** Names of skills this character is proficient in (see shared/skills.ts). */
+  proficientSkills: string[];
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
@@ -306,6 +308,7 @@ export type CharacterUpdatePayload = {
   weapons?: Weapon[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  proficientSkills?: string[];
 };
 /** Ask the AI to back-fill only the empty fields of a character. */
 export type AiFillCharacterPayload = { characterId: string };
