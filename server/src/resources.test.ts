@@ -95,9 +95,18 @@ describe('initiative rolls', () => {
     setTokenInitiative(b.id, 5);
     expect(firstInInitiative(map.id)).toBe(a.id);
 
-    // Roll all overwrites both.
+    // Roll all overwrites everyone with a fresh d20 (1–20). Seed a sentinel a
+    // d20 can never produce so the overwrite is asserted deterministically
+    // (the old `not.toBe(17)` flaked 1 run in 20 when the reroll landed on 17).
+    setTokenInitiative(a.id, 99);
+    setTokenInitiative(b.id, 99);
     rollAllInitiative(map.id);
-    expect(getToken(a.id)!.initiative).not.toBe(17);
+    for (const id of [a.id, b.id]) {
+      const init = getToken(id)!.initiative!;
+      expect(init).not.toBe(99); // was overwritten
+      expect(init).toBeGreaterThanOrEqual(1);
+      expect(init).toBeLessThanOrEqual(20);
+    }
   });
 });
 

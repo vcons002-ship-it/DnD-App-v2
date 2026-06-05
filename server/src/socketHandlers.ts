@@ -35,6 +35,7 @@ import {
   removeItem,
   setSheetAbility,
   removeSheetAbility,
+  spendSpellSlot,
   damageTokens,
   duplicateToken,
   setTokensHidden,
@@ -363,6 +364,18 @@ export function registerSocketHandlers(io: IOServer): void {
         typeof castLevel === 'number' ? castLevel : undefined,
         adv,
       );
+      // Casting a leveled spell spends a slot at the level it was cast.
+      if (ok && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
+        const base = ability.level as number;
+        const cast = typeof castLevel === 'number' ? Math.floor(castLevel) : base;
+        const slotLevel = Math.min(9, Math.max(base, cast));
+        const { hasSlot, spent } = spendSpellSlot(characterId, slotLevel);
+        if (hasSlot && !spent) {
+          socket.emit('notice', {
+            message: `No level-${slotLevel} spell slot remaining for ${ability.name}.`,
+          });
+        }
+      }
       if (ok) afterChange();
     });
 
