@@ -11,6 +11,7 @@ import {
   setSheetAbility,
   updateMonster,
   getMonster,
+  getToken,
   listRollLog,
 } from './sessions.js';
 import type { SheetAbility } from '../../shared/types.js';
@@ -30,6 +31,7 @@ function masteryFight(opts: {
   targetAc: number;
   mastery: SheetAbility['mastery'];
   str?: number;
+  damage?: string;
 }) {
   const { s, map } = arena();
   const ch = createCharacter(s.id, {
@@ -37,7 +39,7 @@ function masteryFight(opts: {
     className: 'Fighter',
     level: 1,
     stats: { STR: opts.str ?? 16 },
-    weapons: [{ name: opts.weapon, kind: 'melee', damage: '2d6', attackBonus: opts.attackBonus }],
+    weapons: [{ name: opts.weapon, kind: 'melee', damage: opts.damage ?? '2d6', attackBonus: opts.attackBonus }],
   });
   setSheetAbility(ch.id, {
     id: 'm1',
@@ -173,5 +175,30 @@ describe('weapon masteries', () => {
     });
     for (let i = 0; i < 20; i++) resolveAttack(s, 'Striker', atk, tgt, 0);
     expect(listRollLog(s).every((e) => !e.detail.includes('graze'))).toBe(true);
+  });
+
+  it('Cleave rolls 2nd-creature damage on a hit but does not apply it to the target', () => {
+    // "2d1" is a constant 2, so a clean (non-crit) hit deals exactly 2 to the
+    // primary target; Cleave's 2 must be logged but NOT added on top.
+    const { s, atk, tgt } = masteryFight({
+      weapon: 'Greatsword',
+      attackBonus: 50,
+      targetAc: 1,
+      damage: '2d1',
+      mastery: { weapon: 'Greatsword', active: true, effect: { cleave: true } },
+    });
+    const ref = getToken(tgt)!.refId;
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s, 'Striker', atk, tgt, 0);
+      const last = listRollLog(s).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(last.detail).toContain('to a 2nd creature [2d1, no mod]');
+        expect(before - getMonster(ref)!.curHp).toBe(2); // cleave not double-applied
+      }
+    }
+    expect(checked).toBe(true);
   });
 });

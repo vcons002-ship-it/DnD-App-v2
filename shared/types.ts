@@ -147,10 +147,16 @@ export type WeaponMastery = {
   active: boolean;
   /** Auto-effect on attacks with the bound weapon; absent = descriptive/manual. */
   effect?: {
-    /** Extra damage dice added on a HIT, e.g. "1d4". */
+    /** Extra damage added to the target on a HIT, e.g. "1d4" or a flat "10". */
     bonusDamage?: string;
     /** On a MISS, deal damage equal to the attacker's ability modifier (Graze). */
     grazeOnMiss?: boolean;
+    /**
+     * On a HIT, roll the weapon's damage DICE only (no ability modifier) as the
+     * Cleave hit against a second creature — rolled and logged for the DM to
+     * apply manually, not applied to the primary target.
+     */
+    cleave?: boolean;
   };
 };
 

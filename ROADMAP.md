@@ -270,13 +270,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   upcast by the chosen slot level, cantrips scaled by caster level
   (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
   owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
-- ☑ **Weapon masteries (2024) [req].** The 8 mastery properties
-  (`server/src/masteries/srd.ts`) are searchable in the same Spells & Abilities
-  menu and added as `type:'mastery'` sheet entries. Effect-bearing masteries
-  (e.g. Graze) get a **weapon binding + on/off toggle**; when active and bound to
-  the attacking weapon, `resolveAttack` adjusts that attack server-side (Graze:
-  ability-mod damage on a miss; generic bonus damage on a hit, for homebrew/AI).
-  Masteries that don't change a roll (Push/Sap/Slow/Topple/Vex/Cleave/Nick) are
+- ☑ **Weapon masteries (2024) [req].** The 8 mastery properties (plus the Great
+  Weapon Master feat, same format) in `server/src/masteries/srd.ts` are searchable
+  in the Spells & Abilities menu and added as `type:'mastery'` sheet entries.
+  Effect-bearing entries get a **weapon binding + on/off toggle**; when active and
+  bound to the attacking weapon, `resolveAttack` adjusts that attack server-side:
+  **Graze** (ability-mod damage on a miss), **Cleave** (rolls the second-creature
+  damage — weapon dice, no ability mod — logged for manual application), and a
+  generic **on-hit damage bonus** (Great Weapon Master's +10; also for homebrew/AI).
+  Masteries that don't change a roll (Push/Sap/Slow/Topple/Vex/Nick) are
   collapsible descriptions handled manually.
 
 ## Phase 6 — AI assistance (future)

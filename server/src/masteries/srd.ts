@@ -1,11 +1,13 @@
 import type { SheetAbility } from '../../../shared/types.js';
 
 /**
- * The eight 2024 weapon-mastery properties as addable sheet entries. They live
- * in the character sheet's Spells & Abilities section and are searched alongside
- * spells. Only effects that adjust the SAME attack's damage are automated
- * (Graze: damage on a miss); the rest are descriptive and resolved manually
- * (extra attacks, conditions, and effects on later rolls).
+ * The eight 2024 weapon-mastery properties (plus the Great Weapon Master feat,
+ * offered in the same toggleable format) as addable sheet entries. They live in
+ * the character sheet's Spells & Abilities section and are searched alongside
+ * spells. Effects that adjust an attack's damage are automated — Graze
+ * (ability-mod damage on a miss), Cleave (rolls the second-creature damage), and
+ * a generic on-hit damage bonus (Great Weapon Master's +10). The rest are
+ * descriptive and resolved manually (conditions, movement, effects on later rolls).
  */
 export type MasteryEntry = Omit<SheetAbility, 'id' | 'source'>;
 
@@ -23,8 +25,8 @@ const MASTERIES: MasteryEntry[] = [
     type: 'mastery',
     meta: 'Greataxe, Halberd',
     description:
-      'If you hit a creature with a melee attack using this weapon, you can make a melee attack roll with the weapon against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon’s damage (no ability modifier). Once per turn. (Resolve the extra attack manually.)',
-    mastery: { weapon: '', active: false },
+      'If you hit a creature with a melee attack using this weapon, you can make a melee attack roll with the weapon against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon’s damage (no ability modifier). Once per turn. While toggled on, a hit rolls that second-creature damage (the weapon’s dice, no ability modifier) for you to apply manually.',
+    mastery: { weapon: '', active: false, effect: { cleave: true } },
   },
   {
     name: 'Nick',
@@ -74,10 +76,20 @@ const MASTERIES: MasteryEntry[] = [
       'If you hit a creature with this weapon and deal damage, you have Advantage on your next attack roll against that creature before the end of your next turn. (Apply the Advantage manually.)',
     mastery: { weapon: '', active: false },
   },
+  {
+    // Not a mastery property — the Great Weapon Master feat's power-attack damage,
+    // offered in the same toggleable format (weapon binding + on/off + effect).
+    name: 'Great Weapon Master',
+    type: 'mastery',
+    meta: 'Feat · Heavy melee weapons',
+    description:
+      'While toggled on, your hits with the bound Heavy weapon deal +10 damage (the Great Weapon Master power attack). Toggle off to attack normally. The classic −5 to-hit tradeoff is not applied automatically.',
+    mastery: { weapon: '', active: false, effect: { bonusDamage: '10' } },
+  },
 ];
 
 /** Search the local mastery list (prefix-first, then substring). */
-export function searchMasteries(query: string, limit = 8): MasteryEntry[] {
+export function searchMasteries(query: string, limit = 12): MasteryEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return MASTERIES.slice(0, limit);
   const matches = MASTERIES.filter((m) => m.name.toLowerCase().includes(q));

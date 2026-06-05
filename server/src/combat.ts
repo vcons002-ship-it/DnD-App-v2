@@ -6,6 +6,7 @@ import {
   getToken,
 } from './sessions.js';
 import {
+  damageParts,
   rollSavingThrow,
   rollWeaponAttack,
   weaponAbilityMod,
@@ -95,7 +96,15 @@ export function resolveAttack(
           extra += r.total;
           masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
         }
-      } else if (!out.hit && m.effect.grazeOnMiss) {
+      }
+      if (out.hit && m.effect.cleave) {
+        // Weapon dice only (no ability modifier) — the 2nd-creature hit. Rolled
+        // and logged for manual application, NOT applied to the primary target.
+        const { dice } = damageParts(weapon.damage?.trim() || '1d4');
+        const r = dice ? rollDice(dice) : null;
+        masteryNotes.push(`${ab.name} ${r?.total ?? 0} to a 2nd creature [${dice || '0'}, no mod]`);
+      }
+      if (!out.hit && m.effect.grazeOnMiss) {
         const g = Math.max(0, weaponAbilityMod(a.c, weapon));
         if (g > 0) {
           extra += g;

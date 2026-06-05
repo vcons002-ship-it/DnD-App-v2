@@ -46,7 +46,7 @@ export function weaponAbilityMod(c: Combatant, w: Weapon): number {
 }
 
 /** Split "1d8+3" into its dice expression and flat modifier. */
-function damageParts(expr: string): { dice: string; flat: number } {
+export function damageParts(expr: string): { dice: string; flat: number } {
   const cleaned = expr.replace(/\s+/g, '');
   let dice = '';
   const diceRe = /([+-]?)(\d*)d(\d+)/gi;
