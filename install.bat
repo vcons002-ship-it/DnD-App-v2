@@ -11,7 +11,7 @@ REM ============================================================
 
 REM ----- Settings you can edit -----
 set "REPO_URL=https://github.com/vcons002-ship-it/DnD-App-v2.git"
-set "BRANCH=claude/app-concept-architecture-sJbvy"
+set "BRANCH=claude/Main"
 set "INSTALL_DIR=%USERPROFILE%\DnD-App-v2"
 REM ---------------------------------
 

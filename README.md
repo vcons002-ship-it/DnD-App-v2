@@ -26,7 +26,7 @@ everything (Git, Node.js, cloudflared), downloads the app, and sets it up.
 **macOS / Linux**
 
 ```bash
-curl -fsSL -O https://raw.githubusercontent.com/vcons002-ship-it/DnD-App-v2/claude/app-concept-architecture-sJbvy/install.sh
+curl -fsSL -O https://raw.githubusercontent.com/vcons002-ship-it/DnD-App-v2/claude/Main/install.sh
 bash install.sh
 ```
 

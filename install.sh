@@ -5,7 +5,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/vcons002-ship-it/DnD-App-v2.git"
-BRANCH="claude/app-concept-architecture-sJbvy"
+BRANCH="claude/Main"
 INSTALL_DIR="$HOME/DnD-App-v2"
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$1"; }
