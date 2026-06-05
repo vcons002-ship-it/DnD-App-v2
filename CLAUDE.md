@@ -29,8 +29,14 @@ Always run `npm run typecheck` and `npm run test` before committing. Manual UX
 is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
 `claude/Main`.
 
-**PR convention:** when opening a PR, also add a launcher named
-`PR #<N> - <Title>.bat` to **`claude/Main`** (a thin wrapper over
+**Workflow — default to committing directly to `claude/Main`.** Commit changes
+straight to `claude/Main` (after `typecheck` + `test`). **Only open a PR when the
+user explicitly asks for one** in their request — never proactively, since each
+PR also requires creating a test launcher (extra work/tokens). Small changes
+never warrant a PR on their own.
+
+**PR convention (only when a PR is requested):** when opening a PR, also add a
+launcher named `PR #<N> - <Title>.bat` to **`claude/Main`** (a thin wrapper over
 `tools/pr-test-runner.bat` that sets `PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`; in the
 filename strip `\ / : * ? " < > |` (keep `#`/spaces), and in `PR_TITLE` avoid cmd
 metacharacters — replace `&` with "and", drop `% ^ < > | ( )`). The runner checks the PR
