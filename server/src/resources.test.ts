@@ -74,7 +74,7 @@ describe('roll log', () => {
 import {
   createMap, setActiveMap, createToken, instantiateMonster,
   createMonsterTemplate, rollAllInitiative, rollMissingInitiative,
-  firstInInitiative, setTokenInitiative, getSessionById, getToken,
+  firstInInitiative, setTokenInitiative, getToken,
 } from './sessions.js';
 
 describe('initiative rolls', () => {
@@ -101,7 +101,7 @@ describe('initiative rolls', () => {
   });
 });
 
-import { renameMap, renameSession, getMap } from './sessions.js';
+import { renameMap, renameSession, getMap, getSessionById } from './sessions.js';
 
 describe('rename', () => {
   it('renames maps and sessions; ignores blank names', () => {
