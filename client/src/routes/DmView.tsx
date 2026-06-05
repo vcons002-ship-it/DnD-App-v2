@@ -15,7 +15,7 @@ export function DmView() {
   const spawnToken = useStore((s) => s.spawnToken);
   const deleteToken = useStore((s) => s.deleteToken);
   const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
-    useSelection(snapshot);
+    useSelection(snapshot, snapshot ? `dm-sel-${snapshot.sessionCode}` : undefined);
   const [pending, setPending] = useState<{
     kind: 'pc' | 'monster';
     refId: string;

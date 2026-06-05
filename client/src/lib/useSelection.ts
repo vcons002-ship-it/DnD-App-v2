@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
 
@@ -6,10 +6,41 @@ import { useStore } from '../state/socket';
  * Token selection shared by the DM and player views. Supports additive
  * (shift/ctrl-click) multi-select and moves the whole selection together when
  * one of its members is dragged.
+ *
+ * Pass `syncKey` to mirror the selection across same-browser tabs via a
+ * BroadcastChannel — e.g. so multi-selecting in the DM Data window also selects
+ * those tokens on the map window (and vice-versa).
  */
-export function useSelection(snapshot: StateSnapshot | null) {
+export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
   const moveTokenSocket = useStore((s) => s.moveToken);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Cross-tab sync (best-effort; no-op where BroadcastChannel is unavailable).
+  const channel = useMemo(
+    () =>
+      syncKey && typeof BroadcastChannel !== 'undefined'
+        ? new BroadcastChannel(syncKey)
+        : null,
+    [syncKey],
+  );
+  const fromRemote = useRef(false);
+  useEffect(() => {
+    if (!channel) return;
+    channel.onmessage = (e: MessageEvent) => {
+      fromRemote.current = true;
+      setSelectedIds(e.data as string[]);
+    };
+    return () => channel.close();
+  }, [channel]);
+  useEffect(() => {
+    if (!channel) return;
+    // Don't echo a selection we just received from another tab.
+    if (fromRemote.current) {
+      fromRemote.current = false;
+      return;
+    }
+    channel.postMessage(selectedIds);
+  }, [selectedIds, channel]);
 
   const handleSelect = useCallback((token: Token | null, additive?: boolean) => {
     if (!token) {

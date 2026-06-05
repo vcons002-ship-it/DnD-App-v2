@@ -248,14 +248,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   view** button in the DM toolbar — for a second monitor / tablet, freeing the map
   screen of its sidebars. It connects as another DM client (no new server state)
   and always mirrors the LIVE active map (re-selects it if the main DM switches).
-  A responsive card grid shows every combatant in initiative order; each card has
-  an at-a-glance strip (rank, turn, disposition, combat role, HP bar) above the
-  **exact same `SelectedTokenPanel`** the map screen uses — so every token exposes
-  all its data and the full side-toolbar functionality (editable stat block + AI
-  fill, disposition, combat-role override/hide, icon tools, conditions,
-  duplicate/hide/delete, damage/heal, resize). The header has the turn readout +
-  Roll-all / Next / Clear. Stays live via the existing broadcast loop.
-  *(Future: selectable/toggleable panels so a DM can compose their layout.)*
+  A grid of **small cards** (rank, turn, disposition, combat role, HP bar) that
+  **expand** to the exact same `SelectedTokenPanel` the map uses — so every token
+  exposes all its data and the full side-toolbar functionality (editable stat
+  block + AI fill, disposition, combat-role, icon tools, conditions,
+  duplicate/hide/delete, damage/heal, resize). **Sort** by initiative / A–Z /
+  type (players first, then creatures grouped by type), then **drag-reorder**
+  cards into a custom arrangement. A per-card **checkbox multi-selects**, which
+  mirrors to the map window (BroadcastChannel between DM tabs via `useSelection`
+  `syncKey`) and drives the `BulkActionsPanel` (AOE damage/heal, conditions,
+  image, hide, delete) right from the Data screen. Header has the turn readout +
+  Roll-all / Next / Clear. *(Future: selectable/toggleable panels.)*
 - ☑ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
   `DmView` / `PlayerView`, role-aware:
   - **Load session** (DM) / **Leave** (player) — disconnects and returns to the
