@@ -218,6 +218,20 @@ export function coverFog(mapId: string, layer: FogLayer): void {
   ).run(mapId);
 }
 
+/** Rename a map (DM). Empty names are ignored. */
+export function renameMap(mapId: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  db.prepare('UPDATE maps SET name = ? WHERE id = ?').run(trimmed, mapId);
+}
+
+/** Rename the session/campaign (DM). Empty names are ignored. */
+export function renameSession(sessionId: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  db.prepare('UPDATE sessions SET name = ? WHERE id = ?').run(trimmed, sessionId);
+}
+
 export function setActiveMap(sessionId: string, mapId: string): void {
   db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
     mapId,

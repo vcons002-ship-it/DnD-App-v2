@@ -43,6 +43,8 @@ type Store = {
   selectMap: (mapId: string) => void;
   setActiveMap: (mapId: string) => void;
   deleteMap: (mapId: string) => void;
+  renameMap: (mapId: string, name: string) => void;
+  renameSession: (name: string) => void;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   paintFog: (
     mapId: string,
@@ -160,6 +162,8 @@ export const useStore = create<Store>((set, get) => ({
   selectMap: (mapId) => get().socket?.emit('map:select', { mapId }),
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
+  renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
+  renameSession: (name) => get().socket?.emit('session:rename', { name }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
   paintFog: (mapId, layer, cells, reveal) =>

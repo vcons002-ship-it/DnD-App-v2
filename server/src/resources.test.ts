@@ -90,3 +90,18 @@ describe('initiative rolls', () => {
     expect(getToken(a.id)!.initiative).not.toBe(17);
   });
 });
+
+import { renameMap, renameSession, getMap, getSessionById } from './sessions.js';
+
+describe('rename', () => {
+  it('renames maps and sessions; ignores blank names', () => {
+    const s = createSession('Old Campaign');
+    const map = createMap(s.id, { name: 'Map 1' });
+    renameMap(map.id, 'The Sunken Keep');
+    expect(getMap(map.id)!.name).toBe('The Sunken Keep');
+    renameMap(map.id, '   '); // blank ignored
+    expect(getMap(map.id)!.name).toBe('The Sunken Keep');
+    renameSession(s.id, 'Curse of Strahd');
+    expect(getSessionById(s.id)!.name).toBe('Curse of Strahd');
+  });
+});

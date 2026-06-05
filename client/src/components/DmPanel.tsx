@@ -10,6 +10,7 @@ import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
 import { NewCharacterForm } from './NewCharacterForm';
 import { TemplateEditor } from './TemplateEditor';
+import { EditableName } from './EditableName';
 
 /** Show emoji icons inline; image-path icons get a placeholder glyph. */
 const iconText = (icon: string): string =>
@@ -33,6 +34,7 @@ export function DmPanel({
   const selectMap = useStore((s) => s.selectMap);
   const setActiveMap = useStore((s) => s.setActiveMap);
   const deleteMap = useStore((s) => s.deleteMap);
+  const renameMap = useStore((s) => s.renameMap);
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
   const setGlobalAiBusy = useStore((s) => s.setAiBusy);
@@ -181,19 +183,21 @@ export function DmPanel({
               key={m.id}
               className={`map-row ${snapshot.map?.id === m.id ? 'viewing' : ''}`}
             >
-              <button className="map-thumb-btn" onClick={() => selectMap(m.id)}>
+              <button
+                className="map-thumb-btn"
+                onClick={() => selectMap(m.id)}
+                title="View this map"
+              >
                 {m.imagePath ? (
                   <img className="map-thumb" src={m.imagePath} alt="" />
                 ) : (
                   <span className="map-thumb placeholder">▦</span>
                 )}
-                <span className="map-thumb-name">
-                  {m.name}
-                  {m.id === snapshot.activeMapId && (
-                    <span className="badge">LIVE</span>
-                  )}
-                </span>
               </button>
+              <span className="map-thumb-name">
+                <EditableName value={m.name} onSave={(n) => renameMap(m.id, n)} />
+                {m.id === snapshot.activeMapId && <span className="badge">LIVE</span>}
+              </span>
               {m.id !== snapshot.activeMapId && (
                 <button className="btn tiny" onClick={() => setActiveMap(m.id)}>
                   Make active

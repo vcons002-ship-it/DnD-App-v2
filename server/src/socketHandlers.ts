@@ -58,6 +58,8 @@ import {
   moveToken,
   firstInInitiative,
   releaseClaims,
+  renameMap,
+  renameSession,
   resizeToken,
   rollAllInitiative,
   rollMissingInitiative,
@@ -137,6 +139,19 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm() || !getMap(mapId)) return;
       setActiveMap(sid, mapId);
+      afterChange();
+    });
+
+    socket.on('map:rename', ({ mapId, name }) => {
+      if (!isDm() || !getMap(mapId)) return;
+      renameMap(mapId, name);
+      afterChange();
+    });
+
+    socket.on('session:rename', ({ name }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      renameSession(sid, name);
       afterChange();
     });
 

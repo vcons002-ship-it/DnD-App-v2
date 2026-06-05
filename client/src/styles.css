@@ -192,7 +192,7 @@ input[type='number'] { width: 70px; }
 
 /* Map thumbnails */
 .map-thumb-btn {
-  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+  display: flex; align-items: center; flex-shrink: 0;
   background: none; border: none; color: var(--text); cursor: pointer;
   text-align: left; padding: 2px;
 }
@@ -205,7 +205,25 @@ input[type='number'] { width: 70px; }
   display: flex; align-items: center; justify-content: center;
   background: var(--panel-2); color: var(--muted);
 }
-.map-thumb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-thumb-name {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  overflow: hidden;
+}
+
+/* Inline-editable name (maps, session) */
+.editable-name {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0;
+  background: none; border: none; color: inherit; font: inherit; cursor: pointer;
+  text-align: left; padding: 0;
+}
+.editable-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edit-pencil { opacity: 0; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.editable-name:hover .edit-pencil { opacity: 1; }
+.editable-name-input {
+  width: auto; min-width: 90px; max-width: 220px; margin: 0;
+  padding: 2px 6px; font: inherit;
+}
+.session-title { font-weight: 600; max-width: 240px; }
 
 /* Carry tokens between maps */
 .carry-row { margin-top: 10px; }

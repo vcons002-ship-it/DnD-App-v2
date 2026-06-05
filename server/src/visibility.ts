@@ -120,6 +120,7 @@ export function buildSnapshot(
   return {
     role,
     sessionCode: session.code,
+    sessionName: session.name,
     map,
     activeMapId,
     activeTurnTokenId: session.activeTurnTokenId,

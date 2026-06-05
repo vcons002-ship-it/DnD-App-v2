@@ -215,6 +215,8 @@ export type MonsterNeutral = MonsterPublic & {
 export type StateSnapshot = {
   role: Role;
   sessionCode: string;
+  /** The campaign/session name (DM-editable). */
+  sessionName: string;
   /** Map currently shown to this client (active map for players; selected map for DM). */
   map: MapState | null;
   activeMapId: string | null;
@@ -299,6 +301,10 @@ export type ConditionClearPayload = {
 export type MapSetActivePayload = { mapId: string };
 export type MapSelectPayload = { mapId: string };
 export type MapDeletePayload = { mapId: string };
+/** Rename a map (DM). */
+export type MapRenamePayload = { mapId: string; name: string };
+/** Rename the session/campaign (DM). */
+export type SessionRenamePayload = { name: string };
 /** Enable/disable one fog layer on a map. */
 export type FogSetLayerPayload = {
   mapId: string;
@@ -456,6 +462,8 @@ export interface ClientToServerEvents {
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
   'map:delete': (payload: MapDeletePayload) => void;
+  'map:rename': (payload: MapRenamePayload) => void;
+  'session:rename': (payload: SessionRenamePayload) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;

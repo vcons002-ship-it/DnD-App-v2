@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { SettingsModal } from './SettingsModal';
+import { EditableName } from './EditableName';
 
 /**
  * Shared top app bar: global actions (load session, settings, copy link) plus
@@ -10,6 +11,7 @@ import { SettingsModal } from './SettingsModal';
  */
 export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
   const disconnect = useStore((s) => s.disconnect);
+  const renameSession = useStore((s) => s.renameSession);
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const isDm = snapshot.role === 'dm';
@@ -30,6 +32,17 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
   return (
     <header className="topbar">
       <strong>{isDm ? 'DM' : 'Player'}</strong>
+      <span className="session-title">
+        {isDm ? (
+          <EditableName
+            value={snapshot.sessionName}
+            onSave={renameSession}
+            title="Rename campaign"
+          />
+        ) : (
+          snapshot.sessionName
+        )}
+      </span>
       <span className="code">Code: {snapshot.sessionCode}</span>
       <span className="active-map">
         {isDm ? 'Active' : 'Map'}: {isDm ? activeMap : snapshot.map?.name ?? '—'}
