@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
+import { abilityMod, signed } from '../../../shared/skills';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -232,7 +233,11 @@ export function StatBlock({
         />
       </label>
 
-      <WeaponEditor weapons={d.weapons} onChange={(weapons) => set({ weapons })} />
+      <WeaponEditor
+        weapons={d.weapons}
+        onChange={(weapons) => set({ weapons })}
+        stats={d.stats}
+      />
       <EntryEditor
         title="Actions"
         entries={d.actions}
@@ -334,6 +339,7 @@ function ReadView({
                   `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
                 {w.damage}
                 {w.versatileDamage ? ` (2H ${w.versatileDamage})` : ''}
+                {w.damageType ? ` ${w.damageType}` : ''}
                 {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
                 {w.range ? ` (${w.range})` : ''}
                 {w.tags && w.tags.length > 0 && (
@@ -386,15 +392,69 @@ function ReadView({
   );
 }
 
+/** A 2024-book weapon as returned by GET /api/weapons. */
+type WeaponData = {
+  name: string;
+  kind: Weapon['kind'];
+  damage: string;
+  damageType: string;
+  versatileDamage?: string;
+  range?: string;
+  properties: string[];
+};
+
 function WeaponEditor({
   weapons,
   onChange,
+  stats,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
+  /** Wielder ability scores — used to bake the modifier into picked weapons. */
+  stats?: Record<string, number>;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+
+  const [picking, setPicking] = useState(false);
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<WeaponData[]>([]);
+  useEffect(() => {
+    if (!picking) return;
+    let live = true;
+    fetch(`/api/weapons?q=${encodeURIComponent(q)}`)
+      .then((r) => r.json())
+      .then((d) => live && setHits(d.results ?? []))
+      .catch(() => live && setHits([]));
+    return () => {
+      live = false;
+    };
+  }, [q, picking]);
+
+  // Add a book weapon, baking in the wielder's ability modifier (finesse-aware).
+  const addFromBook = (w: WeaponData) => {
+    const useDex =
+      w.kind === 'ranged' ||
+      (w.properties.includes('finesse') &&
+        abilityMod(stats?.DEX ?? 10) >= abilityMod(stats?.STR ?? 10));
+    const m = abilityMod(stats?.[useDex ? 'DEX' : 'STR'] ?? 10);
+    const withMod = (dice: string) => (m ? `${dice}${signed(m)}` : dice);
+    onChange([
+      ...weapons,
+      {
+        name: w.name,
+        kind: w.kind,
+        damage: withMod(w.damage),
+        versatileDamage: w.versatileDamage ? withMod(w.versatileDamage) : undefined,
+        damageType: w.damageType,
+        range: w.range,
+        tags: [w.name.toLowerCase(), ...w.properties],
+      },
+    ]);
+    setPicking(false);
+    setQ('');
+  };
+
   return (
     <div className="sb-section">
       <h4>Weapons</h4>
@@ -474,12 +534,45 @@ function WeaponEditor({
           </button>
         </div>
       ))}
-      <button
-        className="btn tiny"
-        onClick={() => onChange([...weapons, { name: '', kind: 'melee' }])}
-      >
-        + Weapon
-      </button>
+      <div className="dice-row">
+        <button
+          className="btn tiny"
+          onClick={() => onChange([...weapons, { name: '', kind: 'melee' }])}
+        >
+          + Weapon
+        </button>
+        <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
+          {picking ? 'Close' : '+ From book'}
+        </button>
+      </div>
+      {picking && (
+        <div className="weapon-picker">
+          <input
+            autoFocus
+            placeholder="Search 2024 weapons e.g. Longsword, finesse…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="item-picker">
+            {hits.map((w) => (
+              <button
+                key={w.name}
+                className="suggest-row"
+                onClick={() => addFromBook(w)}
+                title={`${w.damage}${w.versatileDamage ? `/${w.versatileDamage}` : ''} ${w.damageType}`}
+              >
+                {w.name}
+                <span className="muted">
+                  {w.damage}
+                  {w.versatileDamage ? `/${w.versatileDamage}` : ''}
+                  {w.properties.length ? ` · ${w.properties.join(', ')}` : ''}
+                </span>
+              </button>
+            ))}
+            {hits.length === 0 && q.trim() && <p className="muted spell-none">No match.</p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -301,6 +301,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   `finesse` melee weapons use the better of STR/DEX (others use STR). The `light`
   tag is reserved for future off-hand feats. Weapon editor gains a 2H-damage field;
   tags carry the mechanics.
+- ☑ **2024 weapon database [req].** `server/src/weapons/srd.ts` holds every 2024
+  PHB weapon with dice, damage type, properties, range, versatile dice, and its
+  mastery property; `GET /api/weapons` searches it. The weapon editor’s **“+ From
+  book”** picker fills a sheet weapon from it — baking the wielder’s ability
+  modifier into the damage (finesse-aware) and setting `tags` = type + properties
+  (so masteries/finesse/versatile/heavy all light up automatically).
 
 ## Phase 6 — AI assistance (future)
 

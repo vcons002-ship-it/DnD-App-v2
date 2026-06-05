@@ -333,6 +333,7 @@ input[type='number'] { width: 70px; }
 .sb-weapon-edit .sb-dmg { width: 70px; }
 .sb-weapon-edit .sb-tohit { width: 44px; }
 .sb-weapon-edit .sb-tags { flex: 1; min-width: 110px; }
+.weapon-picker { margin-top: 6px; }
 .weapon-masteries strong { color: var(--accent); }
 .sb-entry-edit { display: flex; gap: 4px; align-items: flex-start; margin: 4px 0; }
 .sb-entry-edit textarea { flex: 1; min-height: 38px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px; font: inherit; resize: vertical; }

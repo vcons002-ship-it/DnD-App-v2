@@ -37,6 +37,8 @@ export type Weapon = {
   kind: 'melee' | 'ranged';
   /** Base damage dice + ability modifier, e.g. "1d8+3". */
   damage?: string;
+  /** Damage type, e.g. "slashing" (from the weapon book; display only). */
+  damageType?: string;
   /**
    * Two-handed damage for a `versatile` weapon, e.g. "1d10+3". When the attacker
    * toggles 2H, this is rolled instead of `damage`.

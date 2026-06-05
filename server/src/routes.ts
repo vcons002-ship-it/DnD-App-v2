@@ -17,6 +17,7 @@ import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
 import { searchSpells, getSpell } from './spells/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
+import { searchWeapons } from './weapons/srd.js';
 import { publicSettings, updateSettings } from './settings.js';
 import {
   deleteLibraryCreature,
@@ -108,6 +109,12 @@ export function createApiRouter(io: IOServer): Router {
     const ai = await lookupCreatureAI(name);
     if (ai) return res.json(ai);
     return res.status(404).json({ error: 'Not found in SRD; AI unavailable.' });
+  });
+
+  // Canonical 2024 weapons for the weapon editor's "from book" picker.
+  router.get('/weapons', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json({ results: searchWeapons(q) });
   });
 
   // Spell/ability/mastery search for the character-sheet "add" menu: local lists
