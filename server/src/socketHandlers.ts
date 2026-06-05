@@ -24,6 +24,7 @@ import {
   claimCharacter,
   clearCondition,
   clearInitiative,
+  clearRollLog,
   clearTokensConditions,
   copyTokens,
   createCharacter,
@@ -533,6 +534,13 @@ export function registerSocketHandlers(io: IOServer): void {
         total: result.total,
         detail: result.detail,
       });
+      afterChange();
+    });
+
+    socket.on('dice:clearLog', () => {
+      const sid = sessionId();
+      if (!sid) return;
+      clearRollLog(sid);
       afterChange();
     });
 

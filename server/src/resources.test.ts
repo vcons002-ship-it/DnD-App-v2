@@ -47,7 +47,7 @@ describe('class resources', () => {
   });
 });
 
-import { addRollLog, listRollLog } from './sessions.js';
+import { addRollLog, clearRollLog, listRollLog } from './sessions.js';
 
 describe('roll log', () => {
   it('stores rolls and returns them oldest-first', () => {
@@ -58,6 +58,16 @@ describe('roll log', () => {
     expect(log).toHaveLength(2);
     expect(log[0].label).toBe('a'); // oldest first
     expect(log[1].roller).toBe('Mage');
+  });
+
+  it('clears the log for a session without touching others', () => {
+    const a = createSession('A');
+    const b = createSession('B');
+    addRollLog(a.id, { roller: 'DM', label: 'x', expr: 'd20', total: 9, detail: 'd20=9' });
+    addRollLog(b.id, { roller: 'DM', label: 'y', expr: 'd20', total: 3, detail: 'd20=3' });
+    clearRollLog(a.id);
+    expect(listRollLog(a.id)).toHaveLength(0);
+    expect(listRollLog(b.id)).toHaveLength(1); // other sessions are unaffected
   });
 });
 
@@ -91,7 +101,7 @@ describe('initiative rolls', () => {
   });
 });
 
-import { renameMap, renameSession, getMap, getSessionById } from './sessions.js';
+import { renameMap, renameSession, getMap } from './sessions.js';
 
 describe('rename', () => {
   it('renames maps and sessions; ignores blank names', () => {

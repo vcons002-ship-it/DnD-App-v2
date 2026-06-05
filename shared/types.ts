@@ -503,6 +503,8 @@ export interface ClientToServerEvents {
   'initiative:next': () => void;
   'initiative:clear': () => void;
   'dice:roll': (payload: DiceRollPayload) => void;
+  /** Wipe the shared roll log for everyone in the session. */
+  'dice:clearLog': () => void;
   'combat:attack': (payload: CombatAttackPayload) => void;
   'combat:save': (payload: CombatSavePayload) => void;
 }

@@ -9,6 +9,7 @@
   --red: #e23b3b;
   --green: #39c46b;
   --blue: #3b82f6;
+  --purple: #a855f7;
 }
 
 * { box-sizing: border-box; }
@@ -495,10 +496,16 @@ input[type='number'] { width: 70px; }
 .dice-quick { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .dice-row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 .dice-row input { flex: 1; }
-.roll-log { margin-top: 8px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-.roll-entry { display: flex; gap: 8px; align-items: baseline; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.roll-log-header { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.roll-log-header span { font-size: 12px; }
+.roll-log { margin-top: 4px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+/* Left border is tinted per-roller (inline style) so each character is easy to scan. */
+.roll-entry { display: flex; gap: 8px; align-items: baseline; background: var(--panel-2); border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; padding: 4px 8px; }
 .roll-total { font-weight: 700; font-size: 16px; min-width: 28px; text-align: right; color: var(--accent); }
 .roll-meta { font-size: 12px; line-height: 1.3; }
+/* Roll type — the total is tinted so attacks and saves stand apart from plain rolls. */
+.roll-entry.cat-attack .roll-total { color: var(--red); }
+.roll-entry.cat-save .roll-total { color: var(--purple); }
 
 /* Roll20 */
 .roll20-frame { width: 100%; height: 320px; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; background: #fff; }
