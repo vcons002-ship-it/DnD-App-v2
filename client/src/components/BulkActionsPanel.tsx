@@ -24,9 +24,12 @@ export function BulkActionsPanel({
   const setTokensHidden = useStore((s) => s.setTokensHidden);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
+  const combatSave = useStore((s) => s.combatSave);
   const isDm = snapshot.role === 'dm';
   const [amount, setAmount] = useState(5);
   const [cond, setCond] = useState(STANDARD_CONDITIONS[0]);
+  const [saveAbility, setSaveAbility] = useState('DEX');
+  const [saveDc, setSaveDc] = useState(13);
 
   const tokens = snapshot.tokens.filter((t) => selectedIds.includes(t.id));
   const names = tokens.map((t) => resolveToken(snapshot, t).name);
@@ -93,6 +96,34 @@ export function BulkActionsPanel({
 
       {isDm && (
         <>
+          <h4>Saving throw (all)</h4>
+          <div className="bulk-cond">
+            <select
+              value={saveAbility}
+              onChange={(e) => setSaveAbility(e.target.value)}
+            >
+              {['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+            <span className="muted">DC</span>
+            <input
+              type="number"
+              value={saveDc}
+              onChange={(e) => setSaveDc(Number(e.target.value))}
+            />
+            <button
+              className="btn tiny"
+              onClick={() =>
+                combatSave({ tokenIds: selectedIds, ability: saveAbility, dc: saveDc })
+              }
+            >
+              Roll saves
+            </button>
+          </div>
+
           <h4>Token image (all)</h4>
           <IconTools
             onApply={(icon) => setTokensIcon(selectedIds, icon)}

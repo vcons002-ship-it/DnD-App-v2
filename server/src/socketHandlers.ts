@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { newId } from './db.js';
 import { rollDice } from '../../shared/dice.js';
+import { resolveAttack, resolveSaves } from './combat.js';
 import {
   aiCreateCharacter,
   aiFillCharacter,
@@ -517,6 +518,39 @@ export function registerSocketHandlers(io: IOServer): void {
         total: result.total,
         detail: result.detail,
       });
+      afterChange();
+    });
+
+    socket.on(
+      'combat:attack',
+      ({ attackerTokenId, targetTokenId, weaponIndex, advantage }) => {
+        const sid = sessionId();
+        if (!sid) return;
+        const at = getToken(attackerTokenId);
+        if (!at) return;
+        // DM, or the player who owns the attacking PC token.
+        if (!isDm()) {
+          if (at.kind !== 'pc') return;
+          const ch = getCharacter(at.refId);
+          if (!ch || ch.claimedBy !== socket.id) return;
+        }
+        resolveAttack(
+          sid,
+          rollerName(sid, socket.id, isDm()),
+          attackerTokenId,
+          targetTokenId,
+          weaponIndex,
+          advantage,
+        );
+        afterChange();
+      },
+    );
+
+    socket.on('combat:save', ({ tokenIds, ability, dc, advantage }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || !Array.isArray(tokenIds) || !Number.isFinite(dc))
+        return;
+      resolveSaves(sid, 'DM', tokenIds, String(ability), dc, advantage);
       afterChange();
     });
 

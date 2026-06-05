@@ -366,6 +366,20 @@ export type DiceRollPayload = {
   label?: string;
   advantage?: 'adv' | 'dis';
 };
+/** Resolve a weapon attack from one token against another (server-authoritative). */
+export type CombatAttackPayload = {
+  attackerTokenId: string;
+  targetTokenId: string;
+  weaponIndex: number;
+  advantage?: 'adv' | 'dis';
+};
+/** Roll a saving throw (DC vs ability) for one or more tokens. */
+export type CombatSavePayload = {
+  tokenIds: string[];
+  ability: string;
+  dc: number;
+  advantage?: 'adv' | 'dis';
+};
 /** Ask the AI to back-fill only the empty fields of a character. */
 export type AiFillCharacterPayload = { characterId: string };
 /** Generate a whole character/NPC from a free-text description (DM or player). */
@@ -481,6 +495,8 @@ export interface ClientToServerEvents {
   'initiative:next': () => void;
   'initiative:clear': () => void;
   'dice:roll': (payload: DiceRollPayload) => void;
+  'combat:attack': (payload: CombatAttackPayload) => void;
+  'combat:save': (payload: CombatSavePayload) => void;
 }
 
 export type JoinAck =

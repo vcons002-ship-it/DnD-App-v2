@@ -501,3 +501,8 @@ input[type='number'] { width: 70px; }
   padding: 10px; box-shadow: 0 10px 36px #000b;
 }
 .data-status-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+/* Attack controls */
+.attack-controls { margin-top: 10px; }
+.attack-controls select { flex: 1; }
+.attack-row { display: block; width: 100%; text-align: left; margin: 3px 0; }

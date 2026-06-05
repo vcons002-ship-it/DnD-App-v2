@@ -247,6 +247,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   the server and written to a persisted `roll_log`, surfaced in every snapshot.
   `DicePanel` (quick dice, expression, adv/dis, label) + a shared log visible to
   all, in both views' left sidebar. (WP7)
+- ☑ **Automated combat rolls [req].** `shared/combatMath.ts` (pure, tested):
+  proficiency by PC level OR monster CR, weapon to-hit (tagged value or
+  ability mod + prof; ranged→DEX, melee→better of STR/DEX), damage parse with
+  crit (double dice on nat-20, auto-miss on nat-1), and saving throws. The
+  server resolves `combat:attack` authoritatively (to-hit vs the target's AC,
+  damage auto-applied on a hit, logged to the shared roll log) — gated to the DM
+  or the player who owns the attacking PC. `AttackControls` on the selected-token
+  panel rolls each weapon at a chosen target (adv/dis). `combat:save` rolls a
+  DC-X ability save for the whole multi-selection from `BulkActionsPanel`. (WP11)
 
 ## Phase 6 — AI assistance (future)
 

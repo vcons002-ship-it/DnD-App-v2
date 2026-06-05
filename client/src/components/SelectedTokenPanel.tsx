@@ -6,6 +6,7 @@ import { ConditionPicker } from './ConditionPicker';
 import { StatBlock } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
+import { AttackControls } from './AttackControls';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -54,6 +55,9 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       : undefined;
   const canEditCharacter =
     !!character && (isDm || character.claimedBy === mySocketId);
+  // The viewer can roll this token's attacks if they're the DM or own the PC.
+  const canAttack = isDm || (!!character && character.claimedBy === mySocketId);
+  const attackerWeapons = monster?.weapons ?? character?.weapons ?? [];
   const iconTargets =
     selectedIds && selectedIds.length ? selectedIds : [token.id];
 
@@ -182,6 +186,14 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
 
       {character && (
         <CharacterSheet character={character} editable={canEditCharacter} />
+      )}
+
+      {canAttack && attackerWeapons.length > 0 && (
+        <AttackControls
+          snapshot={snapshot}
+          attacker={token}
+          weapons={attackerWeapons}
+        />
       )}
 
       <h4>Conditions</h4>
