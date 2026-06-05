@@ -93,14 +93,15 @@ export function createApiRouter(io: IOServer): Router {
     res.json({ results: [...lib, ...srd], aiAvailable: geminiEnabled() });
   });
 
-  // Full creature lookup: exact SRD match, then library, then Gemini.
+  // Full creature lookup: library first (a DM's saved/edited copy is
+  // authoritative and shadows the SRD, matching search), then SRD, then Gemini.
   router.post('/creatures/lookup', async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
-    const srd = getSrd(name);
-    if (srd) return res.json(srd);
     const lib = getLibraryCreature(name);
     if (lib) return res.json(lib);
+    const srd = getSrd(name);
+    if (srd) return res.json(srd);
     const ai = await lookupCreatureAI(name);
     if (ai) return res.json(ai);
     return res.status(404).json({ error: 'Not found in SRD; AI unavailable.' });

@@ -6,6 +6,13 @@ type Existing = {
   creatureType: string;
   maxHp: number;
   armorClass: number;
+  source?: 'srd' | 'gemini' | 'library';
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  srd: 'built-in SRD',
+  library: 'library',
+  gemini: 'AI',
 };
 
 /**
@@ -88,10 +95,14 @@ export function LibrarySaveDialog({
 
         {conflict ? (
           <div className="lib-conflict">
-            <p className="err">A library creature named “{conflict.name}” already exists.</p>
+            <p className="err">
+              A {SOURCE_LABEL[conflict.source ?? 'library']} creature named “
+              {conflict.name}” already exists — saving will shadow it in
+              search.
+            </p>
             <div className="lib-compare">
               <div>
-                <h4>Existing</h4>
+                <h4>Existing ({SOURCE_LABEL[conflict.source ?? 'library']})</h4>
                 <p className="muted">
                   {conflict.creatureType || '—'} · HP {conflict.maxHp} · AC{' '}
                   {conflict.armorClass}

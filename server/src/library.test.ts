@@ -37,6 +37,18 @@ describe('creature library', () => {
     expect(getLibraryCreature('Bandit Captain')).toBeNull();
   });
 
+  it('flags a name that exists only in the SRD as a conflict (shadowing)', () => {
+    deleteLibraryCreature('Hobgoblin');
+    // Hobgoblin is a built-in SRD creature, not yet in the library.
+    const res = saveLibraryCreature({ name: 'Hobgoblin', maxHp: 99 }, false);
+    expect('conflict' in res).toBe(true);
+    if ('conflict' in res) expect(res.conflict.source).toBe('srd');
+    // Overwriting creates the shadowing library copy.
+    expect('saved' in saveLibraryCreature({ name: 'Hobgoblin', maxHp: 99 }, true)).toBe(true);
+    expect(getLibraryCreature('Hobgoblin')!.maxHp).toBe(99);
+    deleteLibraryCreature('Hobgoblin');
+  });
+
   it('stores library items', () => {
     const it1 = saveLibraryItem({ name: 'Potion of Healing', description: '2d4+2', qtyDefault: 1 });
     expect(it1.name).toBe('Potion of Healing');

@@ -5,7 +5,7 @@ import type {
   LibraryItem,
   Weapon,
 } from '../../shared/types.js';
-import { iconForCreature } from './creatures/srd.js';
+import { getSrd, iconForCreature } from './creatures/srd.js';
 
 // ---- Cross-session creature library ----
 
@@ -92,16 +92,17 @@ export type SaveCreatureInput = {
 };
 
 /**
- * Save a creature to the library under `name`. If an entry with that name
- * already exists and `overwrite` is false, returns the existing entry so the
- * caller can prompt (cancel / rename / overwrite); otherwise writes it.
+ * Save a creature to the library under `name`. A name that already exists —
+ * either in the library OR as a built-in SRD creature (which the saved copy
+ * would shadow in search/lookup) — returns the existing entry so the caller can
+ * prompt (cancel / rename / overwrite); otherwise it writes it.
  */
 export function saveLibraryCreature(
   input: SaveCreatureInput,
   overwrite: boolean,
 ): { saved: CreatureTemplate } | { conflict: CreatureTemplate } {
   const name = input.name.trim();
-  const existing = getLibraryCreature(name);
+  const existing = getLibraryCreature(name) ?? getSrd(name);
   if (existing && !overwrite) return { conflict: existing };
 
   const id =
