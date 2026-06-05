@@ -388,30 +388,28 @@ input[type='number'] { width: 70px; }
 .data-init-actions { margin-left: auto; display: flex; gap: 6px; }
 .data-grid {
   flex: 1; overflow-y: auto; padding: 14px;
-  display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  display: grid; gap: 12px; align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
 }
 .data-card {
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 10px 12px; display: flex; flex-direction: column; gap: 7px;
+  overflow: hidden;
 }
 .data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff55; }
 .data-card.turn { border-color: #ffd21a; box-shadow: 0 0 0 2px #ffd21a66; }
-.data-card-head { display: flex; align-items: center; gap: 6px; font-size: 15px; }
-.data-card-name { font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.data-card-strip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+}
 .data-rank {
   background: #f5c518; color: #000; font-size: 11px; font-weight: 700;
   border-radius: 4px; padding: 1px 5px;
 }
-.data-hp { display: flex; align-items: center; gap: 8px; }
+.data-turn-badge {
+  background: #ffd21a; color: #000; font-size: 10px; font-weight: 700;
+  border-radius: 4px; padding: 1px 5px; letter-spacing: 0.5px;
+}
 .data-hp-bar { flex: 1; height: 9px; background: #0007; border-radius: 5px; overflow: hidden; }
 .data-hp-bar span { display: block; height: 100%; }
-.data-hp-num { font-size: 12px; font-variant-numeric: tabular-nums; }
-.data-meta { display: flex; gap: 12px; font-size: 12px; }
-.data-stats { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; }
-.data-stats em { color: var(--muted); font-style: normal; }
-.data-dmg { display: flex; gap: 5px; align-items: center; }
-.data-dmg input { width: 56px; margin: 0; }
-.data-conds { display: flex; flex-wrap: wrap; gap: 4px; }
-.data-cond-chip { font-size: 11px; border: 1px solid; border-radius: 10px; padding: 1px 7px; }
-.data-cond-edit summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+/* The embedded selected-token panel fills the card without its own divider. */
+.data-card .panel-section { border-bottom: none; }

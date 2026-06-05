@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Character, Monster, StateSnapshot, Token } from '../../../shared/types';
+import { useEffect, useMemo } from 'react';
+import type { StateSnapshot, Token } from '../../../shared/types';
 import { COMBAT_ROLE_ICON } from '../../../shared/combatRole';
 import { resolveToken } from '../lib/entities';
-import { AURA_HEX } from '../lib/conditions';
 import { useStore } from '../state/socket';
-import { ConditionPicker } from '../components/ConditionPicker';
+import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 
 const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
@@ -107,8 +106,6 @@ export function DmDataView() {
   );
 }
 
-const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
-
 function CombatantCard({
   snapshot,
   token,
@@ -120,25 +117,16 @@ function CombatantCard({
   rank: number | null;
   isTurn: boolean;
 }) {
-  const applyDamage = useStore((s) => s.applyDamage);
-  const [amount, setAmount] = useState(5);
   const d = resolveToken(snapshot, token);
-
-  // Full entity (DM sees everything) for AC / level / ability scores.
-  const entity =
-    token.kind === 'pc'
-      ? (snapshot.characters.find((c) => c.id === token.refId) as
-          | Character
-          | undefined)
-      : (snapshot.monsters.find((m) => m.id === token.refId) as
-          | Monster
-          | undefined);
   const hpFrac =
     d.maxHp && d.curHp !== undefined ? Math.max(0, Math.min(1, d.curHp / d.maxHp)) : null;
 
   return (
     <div className={`data-card ${isTurn ? 'turn' : ''} ${token.kind}`}>
-      <div className="data-card-head">
+      {/* At-a-glance strip; the panel below carries every control + all data. */}
+      <div className="data-card-strip">
+        {rank !== null && <span className="data-rank">#{rank}</span>}
+        {isTurn && <span className="data-turn-badge">TURN</span>}
         {d.disposition && (
           <span
             className="dot"
@@ -146,94 +134,23 @@ function CombatantCard({
           />
         )}
         {token.combatRole && <span>{COMBAT_ROLE_ICON[token.combatRole]}</span>}
-        <span className="data-card-name">{d.name}</span>
-        {rank !== null && <span className="data-rank">#{rank}</span>}
-      </div>
-
-      <div className="data-hp">
-        {d.curHp !== undefined && d.maxHp !== undefined ? (
-          <>
-            <div className="data-hp-bar">
-              <span
-                style={{
-                  width: `${(hpFrac ?? 0) * 100}%`,
-                  background:
-                    (hpFrac ?? 0) > 0.5
-                      ? '#39c46b'
-                      : (hpFrac ?? 0) > 0.25
-                      ? '#f5c518'
-                      : '#e23b3b',
-                }}
-              />
-            </div>
-            <span className="data-hp-num">
-              {d.curHp}/{d.maxHp}
-            </span>
-          </>
-        ) : (
-          <span className="muted">HP hidden</span>
-        )}
-      </div>
-
-      <div className="data-meta muted">
-        {entity && entity.level > 0 && (
-          <span>{token.kind === 'pc' ? 'Lvl' : 'CR'} {entity.level}</span>
-        )}
-        {entity && entity.armorClass > 0 && <span>AC {entity.armorClass}</span>}
-      </div>
-
-      {entity && ABILITIES.some((a) => entity.stats[a] !== undefined) && (
-        <div className="data-stats">
-          {ABILITIES.map((a) => (
-            <span key={a}>
-              <em>{a}</em> {entity.stats[a] ?? '—'}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="data-dmg">
-        <input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-        />
-        <button
-          className="btn tiny red"
-          onClick={() => applyDamage(token.kind, token.refId, amount)}
-        >
-          −HP
-        </button>
-        <button
-          className="btn tiny green"
-          onClick={() => applyDamage(token.kind, token.refId, -amount)}
-        >
-          +HP
-        </button>
-      </div>
-
-      {d.conditions.length > 0 && (
-        <div className="data-conds">
-          {d.conditions.map((c) => (
+        {hpFrac !== null && (
+          <div className="data-hp-bar">
             <span
-              key={c.id}
-              className="data-cond-chip"
-              style={{ borderColor: AURA_HEX[c.aura] }}
-            >
-              {c.label}
-            </span>
-          ))}
-        </div>
-      )}
+              style={{
+                width: `${hpFrac * 100}%`,
+                background:
+                  hpFrac > 0.5 ? '#39c46b' : hpFrac > 0.25 ? '#f5c518' : '#e23b3b',
+              }}
+            />
+          </div>
+        )}
+      </div>
 
-      <details className="data-cond-edit">
-        <summary>Conditions</summary>
-        <ConditionPicker
-          kind={token.kind}
-          refId={token.refId}
-          conditions={d.conditions}
-        />
-      </details>
+      {/* The exact same panel the map screen uses — full stat block (editable +
+          AI fill), disposition, combat role, icon tools, conditions, duplicate /
+          hide / delete. */}
+      <SelectedTokenPanel snapshot={snapshot} token={token} />
     </div>
   );
 }
