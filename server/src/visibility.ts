@@ -8,6 +8,7 @@ import {
   listMaps,
   listMonsters,
   listMonsterTemplates,
+  listRollLog,
   listTokens,
 } from './sessions.js';
 import type {
@@ -129,5 +130,6 @@ export function buildSnapshot(
     monsters,
     // Spawn templates are a DM-only tool.
     monsterTemplates: role === 'dm' ? listMonsterTemplates(sessionId) : [],
+    rollLog: listRollLog(sessionId),
   };
 }

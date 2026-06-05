@@ -6,6 +6,7 @@ import type {
   ClientToServerEvents,
   CombatRole,
   Condition,
+  DiceRollPayload,
   FogLayer,
   InventoryItem,
   ResourceSetPayload,
@@ -98,6 +99,7 @@ type Store = {
   rollAllInitiative: () => void;
   nextTurn: () => void;
   clearInitiative: () => void;
+  rollDice: (payload: DiceRollPayload) => void;
 };
 
 export const useStore = create<Store>((set, get) => ({
@@ -223,4 +225,5 @@ export const useStore = create<Store>((set, get) => ({
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
   nextTurn: () => get().socket?.emit('initiative:next'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
+  rollDice: (payload) => get().socket?.emit('dice:roll', payload),
 }));

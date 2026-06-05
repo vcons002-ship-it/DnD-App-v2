@@ -214,26 +214,34 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Phase 5 — Player resources, items, Roll20, dice
 
-- ☐ **Class-specific limited-use resources [req].** Track and update spell slots,
-  second wind, superiority dice, sorcery points, etc. on the player token/panel.
-- ☐ **Item / inventory tracking [req].** Let players track items on their
-  character.
-- ☐ **Import character tracker from Roll20 sheet [req].** Pull stats, modifiers,
-  spell-slot counts, and limited-use resources from a player's linked Roll20
-  character sheet to auto-populate the tracker (ties into the character-selection
-  cleanup above).
+- ☑ **Cross-session library (creatures + items) [req].** App-wide
+  `library_creatures` / `library_items` (`server/library.ts`); creature search +
+  lookup merge the library (a hit skips Gemini), "💾 Save to library" with a
+  side-by-side conflict prompt, and items feed the inventory "add from library"
+  picker. (WP5)
+- ☑ **Class-specific limited-use resources [req].** `server/data/classTables.ts`
+  (5e spell-slot + class-resource tables) auto-fills `spellSlots`/`resources` on
+  create and re-derives on level/class change (preserving used + custom).
+  `CharacterResources` shows clickable pip trackers + custom counters
+  (`resource:set`). (WP6)
+- ☑ **Item / inventory tracking [req].** Characters carry `items`;
+  `CharacterItems` is an editable list (qty steppers, free-form add, "add from
+  library") via `item:set`/`item:remove`. (WP6)
+- ☑ **Import character tracker from Roll20 sheet [req].** Best-effort: the
+  `Roll20Panel` "paste sheet export" box parses HP/AC/level/ability scores into a
+  `character:update` (no public Roll20 API exists). (WP7)
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
-  persisted per role like panel width/collapse.
-- ☐ Buff/nerf buttons with custom text (drive the green/red rings).
-- ☐ Collapsible Roll20 `<iframe>` (DM roll logs; player character sheet).
-- ☐ **Sidebar layout for Roll20 [req].**
-  - Players: fold the selected-token info into the LEFT sidebar (with the
-    character tracker) or the hover/floating menu, freeing the RIGHT sidebar for
-    the Roll20 character sheet + roll log.
-  - DM: keep the right toolbar for token editing but include a *small* Roll20
-    roll-log panel — the roll log is the only Roll20 piece the DM needs.
-- ☐ Optional in-app dice roller.
+  persisted per role like panel width/collapse. *(Deferred.)*
+- ☑ Buff/nerf buttons with custom text (drive the green/red rings) — via the
+  existing `ConditionPicker` custom buff/nerf + auras.
+- ☑ **Collapsible Roll20 embed [req].** `Roll20Panel`: a collapsible `<iframe>`
+  with an "Open ↗" pop-out fallback (Roll20 blocks framing via X-Frame-Options).
+- ☑ **Dice roller + shared roll log [req].** `shared/dice.ts` parser
+  (`NdM±K`, multi-term, d20 adv/dis); `dice:roll` is computed authoritatively on
+  the server and written to a persisted `roll_log`, surfaced in every snapshot.
+  `DicePanel` (quick dice, expression, adv/dis, label) + a shared log visible to
+  all, in both views' left sidebar. (WP7)
 
 ## Phase 6 — AI assistance (future)
 

@@ -46,3 +46,17 @@ describe('class resources', () => {
     expect(getCharacter(c.id)!.items).toHaveLength(0);
   });
 });
+
+import { addRollLog, listRollLog } from './sessions.js';
+
+describe('roll log', () => {
+  it('stores rolls and returns them oldest-first', () => {
+    const s = createSession('Rolls');
+    addRollLog(s.id, { roller: 'DM', label: 'a', expr: 'd20', total: 5, detail: 'd20=5' });
+    addRollLog(s.id, { roller: 'Mage', label: 'b', expr: 'd6', total: 4, detail: 'd6=4' });
+    const log = listRollLog(s.id);
+    expect(log).toHaveLength(2);
+    expect(log[0].label).toBe('a'); // oldest first
+    expect(log[1].roller).toBe('Mage');
+  });
+});

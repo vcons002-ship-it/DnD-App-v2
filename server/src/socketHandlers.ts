@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { newId } from './db.js';
+import { rollDice } from '../../shared/dice.js';
 import {
   aiCreateCharacter,
   aiFillCharacter,
@@ -16,6 +17,7 @@ import {
 } from './connections.js';
 import { buildSnapshot } from './visibility.js';
 import {
+  addRollLog,
   advanceTurn,
   applyDamage,
   claimCharacter,
@@ -56,6 +58,7 @@ import {
   releaseClaims,
   resizeToken,
   rollAllInitiative,
+  rollerName,
   setActiveMap,
   setCondition,
   setTokenInitiative,
@@ -478,6 +481,24 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       clearInitiative(sid);
+      afterChange();
+    });
+
+    socket.on('dice:roll', ({ expr, label, advantage }) => {
+      const sid = sessionId();
+      if (!sid || typeof expr !== 'string') return;
+      const result = rollDice(expr.trim(), advantage);
+      if (!result) {
+        socket.emit('notice', { message: `Invalid dice: "${expr}"` });
+        return;
+      }
+      addRollLog(sid, {
+        roller: rollerName(sid, socket.id, isDm()),
+        label: (label ?? '').slice(0, 40),
+        expr: result.expr,
+        total: result.total,
+        detail: result.detail,
+      });
       afterChange();
     });
 

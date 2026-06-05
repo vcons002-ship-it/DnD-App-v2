@@ -15,6 +15,7 @@ import type {
   FogLayer,
   MapState,
   Monster,
+  RollEntry,
   SessionSummary,
   Token,
   TokenKind,
@@ -568,6 +569,59 @@ export function clearInitiative(sessionId: string): void {
     ).run(session.activeMapId);
   }
   setActiveTurn(sessionId, null);
+}
+
+// ---- Shared dice roll log ----
+
+export function addRollLog(
+  sessionId: string,
+  entry: { roller: string; label: string; expr: string; total: number; detail: string },
+): RollEntry {
+  const id = newId();
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, sessionId, entry.roller, entry.label, entry.expr, entry.total, entry.detail, createdAt);
+  return { id, ...entry, createdAt };
+}
+
+/** Most-recent rolls, returned oldest-first for display (capped). */
+export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
+  const rows = db
+    .prepare(
+      // rowid disambiguates rolls made within the same millisecond.
+      'SELECT * FROM roll_log WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+    )
+    .all(sessionId, limit) as {
+    id: string;
+    roller: string;
+    label: string;
+    expr: string;
+    total: number;
+    detail: string;
+    created_at: number;
+  }[];
+  return rows
+    .map((r) => ({
+      id: r.id,
+      roller: r.roller,
+      label: r.label,
+      expr: r.expr,
+      total: r.total,
+      detail: r.detail,
+      createdAt: r.created_at,
+    }))
+    .reverse();
+}
+
+/** A roll's "who" — the player's claimed character name, "DM", or "Player". */
+export function rollerName(sessionId: string, socketId: string, isDm: boolean): string {
+  if (isDm) return 'DM';
+  const c = db
+    .prepare('SELECT name FROM characters WHERE session_id = ? AND claimed_by = ?')
+    .get(sessionId, socketId) as { name: string } | undefined;
+  return c?.name ?? 'Player';
 }
 
 // ---- Characters ----

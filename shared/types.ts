@@ -231,6 +231,21 @@ export type StateSnapshot = {
   /** Reusable creature templates for the DM's spawn list (one per creature
    *  type). DM-only; players receive an empty array. */
   monsterTemplates: Monster[];
+  /** Shared dice roll log (most recent last), visible to everyone. */
+  rollLog: RollEntry[];
+};
+
+/** An entry in the session's shared dice roll log. */
+export type RollEntry = {
+  id: string;
+  /** Who rolled — a character name, "DM", or "Player". */
+  roller: string;
+  /** Optional label, e.g. "Attack", "Stealth". */
+  label: string;
+  expr: string;
+  total: number;
+  detail: string;
+  createdAt: number;
 };
 
 /** A past session, surfaced on the DM landing page for quick resume. */
@@ -341,6 +356,12 @@ export type ResourceSetPayload = {
 export type ItemSetPayload = { characterId: string; item: InventoryItem };
 /** Remove an inventory item from a character. */
 export type ItemRemovePayload = { characterId: string; itemId: string };
+/** Roll dice into the shared log. `advantage` rolls twice (d20 adv/dis). */
+export type DiceRollPayload = {
+  expr: string;
+  label?: string;
+  advantage?: 'adv' | 'dis';
+};
 /** Ask the AI to back-fill only the empty fields of a character. */
 export type AiFillCharacterPayload = { characterId: string };
 /** Generate a whole character/NPC from a free-text description (DM or player). */
@@ -454,6 +475,7 @@ export interface ClientToServerEvents {
   'initiative:rollAll': () => void;
   'initiative:next': () => void;
   'initiative:clear': () => void;
+  'dice:roll': (payload: DiceRollPayload) => void;
 }
 
 export type JoinAck =

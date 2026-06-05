@@ -4,6 +4,8 @@ import { MapStage } from '../canvas/MapStage';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
+import { DicePanel } from '../components/DicePanel';
+import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
@@ -60,6 +62,10 @@ export function PlayerView() {
               releaseCharacter();
             }}
             onPlaceToken={() => setPlacing((p) => !p)}
+          />
+          <DicePanel snapshot={snapshot} />
+          <Roll20Panel
+            character={snapshot.characters.find((c) => c.id === claimedId)}
           />
         </SidePanel>
 

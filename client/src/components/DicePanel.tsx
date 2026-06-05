@@ -1,0 +1,75 @@
+import { useState } from 'react';
+import type { StateSnapshot } from '../../../shared/types';
+import { useStore } from '../state/socket';
+
+const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
+
+/** Dice roller + shared roll log (visible to everyone). */
+export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
+  const rollDice = useStore((s) => s.rollDice);
+  const [expr, setExpr] = useState('1d20');
+  const [label, setLabel] = useState('');
+  const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
+
+  const roll = (e: string) =>
+    rollDice({ expr: e, label: label.trim() || undefined, advantage: adv ?? undefined });
+
+  return (
+    <div className="panel-section dice-panel">
+      <h3>Dice</h3>
+      <div className="dice-quick">
+        {QUICK.map((q) => (
+          <button key={q} className="btn tiny" onClick={() => roll(`1${q}`)}>
+            {q}
+          </button>
+        ))}
+      </div>
+      <div className="dice-row">
+        <input
+          value={expr}
+          onChange={(e) => setExpr(e.target.value)}
+          placeholder="2d6+3"
+          onKeyDown={(e) => e.key === 'Enter' && roll(expr)}
+        />
+        <button className="btn" onClick={() => roll(expr)}>
+          Roll
+        </button>
+      </div>
+      <div className="dice-row">
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label (optional)"
+        />
+        <button
+          className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
+          onClick={() => setAdv((a) => (a === 'adv' ? null : 'adv'))}
+          title="Roll twice, keep higher"
+        >
+          Adv
+        </button>
+        <button
+          className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
+          onClick={() => setAdv((a) => (a === 'dis' ? null : 'dis'))}
+          title="Roll twice, keep lower"
+        >
+          Dis
+        </button>
+      </div>
+
+      <div className="roll-log">
+        {snapshot.rollLog.length === 0 && <p className="muted">No rolls yet.</p>}
+        {[...snapshot.rollLog].reverse().map((r) => (
+          <div key={r.id} className="roll-entry">
+            <span className="roll-total">{r.total}</span>
+            <span className="roll-meta">
+              <strong>{r.roller}</strong>
+              {r.label ? ` · ${r.label}` : ''}{' '}
+              <span className="muted">{r.detail}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

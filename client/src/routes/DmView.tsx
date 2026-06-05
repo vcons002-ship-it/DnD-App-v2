@@ -4,6 +4,8 @@ import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
+import { DicePanel } from '../components/DicePanel';
+import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
@@ -60,6 +62,8 @@ export function DmView() {
             selectedTokenId={primaryId}
             onSelectToken={(t) => handleSelect(t, false)}
           />
+          <DicePanel snapshot={snapshot} />
+          <Roll20Panel />
         </SidePanel>
 
         <main className="center">

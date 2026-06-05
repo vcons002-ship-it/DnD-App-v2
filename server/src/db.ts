@@ -122,6 +122,18 @@ db.exec(`
     data        TEXT NOT NULL DEFAULT '{}',
     created_at  INTEGER NOT NULL
   );
+
+  -- Shared dice roll log per session.
+  CREATE TABLE IF NOT EXISTS roll_log (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    roller     TEXT NOT NULL DEFAULT '',
+    label      TEXT NOT NULL DEFAULT '',
+    expr       TEXT NOT NULL DEFAULT '',
+    total      INTEGER NOT NULL DEFAULT 0,
+    detail     TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
 `);
 
 // ---- Lightweight migrations for DBs created by earlier versions ----
