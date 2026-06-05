@@ -4,9 +4,6 @@
 > [`ROADMAP.md`](ROADMAP.md)** (kept ticked as work lands); install/run details
 > in [`README.md`](README.md). This file is the architecture + conventions +
 > status summary — keep it concise (it loads into every session).
->
-> ⚠️ The README's status line ("Phase 4 complete") is **stale** — trust
-> `ROADMAP.md` and this file instead.
 
 ## What this is
 
@@ -30,7 +27,7 @@ npm run build      # client (vite) + server (tsc)
 
 Always run `npm run typecheck` and `npm run test` before committing. Manual UX
 is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
-`claude/app-concept-architecture-sJbvy`.
+`claude/Main`.
 
 ## Stack
 
