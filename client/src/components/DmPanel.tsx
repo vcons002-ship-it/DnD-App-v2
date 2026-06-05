@@ -38,6 +38,7 @@ export function DmPanel({
   const setGlobalAiBusy = useStore((s) => s.setAiBusy);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
+  const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
   const clearInitiative = useStore((s) => s.clearInitiative);
   const copyTokens = useStore((s) => s.copyTokens);
@@ -397,8 +398,19 @@ export function DmPanel({
         <div className="init-header">
           <h3>Initiative</h3>
           <div className="init-actions">
-            <button className="btn tiny" onClick={rollAllInitiative}>
+            <button
+              className="btn tiny"
+              onClick={rollAllInitiative}
+              title="Reset combat: re-roll everyone and start at the top"
+            >
               Roll all
+            </button>
+            <button
+              className="btn tiny"
+              onClick={rollMissingInitiative}
+              title="Roll only for combatants who haven't rolled"
+            >
+              Add rolls
             </button>
             <button className="btn tiny" onClick={nextTurn}>
               Next ▸

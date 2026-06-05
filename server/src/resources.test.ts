@@ -60,3 +60,33 @@ describe('roll log', () => {
     expect(log[1].roller).toBe('Mage');
   });
 });
+
+import {
+  createMap, setActiveMap, createToken, instantiateMonster,
+  createMonsterTemplate, rollAllInitiative, rollMissingInitiative,
+  firstInInitiative, setTokenInitiative, getSessionById, getToken,
+} from './sessions.js';
+
+describe('initiative rolls', () => {
+  it('Add rolls only rolls un-rolled tokens; Roll all resets everyone', () => {
+    const s = createSession('Init');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const b = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 1, y: 1 });
+
+    setTokenInitiative(a.id, 17); // a already rolled
+    rollMissingInitiative(map.id);
+    expect(getToken(a.id)!.initiative).toBe(17); // unchanged
+    expect(getToken(b.id)!.initiative).not.toBeNull(); // b got a roll
+
+    // firstInInitiative returns the highest.
+    setTokenInitiative(b.id, 5);
+    expect(firstInInitiative(map.id)).toBe(a.id);
+
+    // Roll all overwrites both.
+    rollAllInitiative(map.id);
+    expect(getToken(a.id)!.initiative).not.toBe(17);
+  });
+});

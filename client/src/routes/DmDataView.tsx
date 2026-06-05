@@ -12,7 +12,7 @@ import { useSelection } from '../lib/useSelection';
 import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
-import { ConditionPicker } from '../components/ConditionPicker';
+import { ConditionPopover } from '../components/ConditionPopover';
 
 const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
@@ -33,6 +33,7 @@ export function DmDataView() {
   const snapshot = useStore((s) => s.snapshot)!;
   const selectMap = useStore((s) => s.selectMap);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
+  const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
   const clearInitiative = useStore((s) => s.clearInitiative);
 
@@ -177,8 +178,11 @@ export function DmDataView() {
           ))}
         </div>
         <div className="data-init-actions">
-          <button className="btn tiny" onClick={rollAllInitiative}>
+          <button className="btn tiny" onClick={rollAllInitiative} title="Reset combat: re-roll everyone and start at the top">
             Roll all
+          </button>
+          <button className="btn tiny" onClick={rollMissingInitiative} title="Roll only for combatants who haven't rolled">
+            Add rolls
           </button>
           <button className="btn tiny" onClick={nextTurn}>
             Next ▸
@@ -359,30 +363,24 @@ function DataCard({
           </button>
         </div>
 
-        {d.conditions.length > 0 && (
-          <div className="data-conds">
-            {d.conditions.map((c) => (
-              <button
-                key={c.id}
-                className="data-cond-chip"
-                style={{ borderColor: AURA_HEX[c.aura] }}
-                title="Click to clear"
-                onClick={() => clearCondition(token.kind, token.refId, c.id)}
-              >
-                {c.label} ✕
-              </button>
-            ))}
-          </div>
-        )}
-
-        <details className="data-cond-edit">
-          <summary>Status</summary>
-          <ConditionPicker
+        <div className="data-status-row">
+          {d.conditions.map((c) => (
+            <button
+              key={c.id}
+              className="data-cond-chip"
+              style={{ borderColor: AURA_HEX[c.aura] }}
+              title="Click to clear"
+              onClick={() => clearCondition(token.kind, token.refId, c.id)}
+            >
+              {c.label} ✕
+            </button>
+          ))}
+          <ConditionPopover
             kind={token.kind}
             refId={token.refId}
             conditions={d.conditions}
           />
-        </details>
+        </div>
       </div>
     </div>
   );

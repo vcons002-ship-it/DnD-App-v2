@@ -477,6 +477,7 @@ export interface ClientToServerEvents {
   'ai:fillCreature': (payload: AiFillCreaturePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;
+  'initiative:rollMissing': () => void;
   'initiative:next': () => void;
   'initiative:clear': () => void;
   'dice:roll': (payload: DiceRollPayload) => void;

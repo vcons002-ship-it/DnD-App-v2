@@ -55,11 +55,14 @@ import {
   getToken,
   listTokens,
   moveToken,
+  firstInInitiative,
   releaseClaims,
   resizeToken,
   rollAllInitiative,
+  rollMissingInitiative,
   rollerName,
   setActiveMap,
+  setActiveTurn,
   setCondition,
   setTokenInitiative,
   touchSession,
@@ -466,7 +469,22 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
+      // Roll-all resets the round: re-roll everyone, then start at the top.
       rollAllInitiative(activeMapId);
+      setActiveTurn(sid, firstInInitiative(activeMapId));
+      afterChange();
+    });
+
+    socket.on('initiative:rollMissing', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const activeMapId = getSessionById(sid)?.activeMapId;
+      if (!activeMapId) return;
+      // Only roll latecomers; if combat hasn't started, highlight the top.
+      rollMissingInitiative(activeMapId);
+      if (!getSessionById(sid)?.activeTurnTokenId) {
+        setActiveTurn(sid, firstInInitiative(activeMapId));
+      }
       afterChange();
     });
 

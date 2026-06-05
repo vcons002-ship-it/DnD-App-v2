@@ -264,14 +264,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   A grid of **compact cards** (name, HP bar, quick damage/heal, AC, ability
   scores, condition chips + a Status picker) that **expand into a large overlay**
   (over everything, flowed into responsive columns so the full token panel fits
-  on screen without a skinny scrolling card). The overlay reuses the exact same
-  `SelectedTokenPanel` the map uses — editable stat block + AI fill, disposition,
-  combat-role, icon tools, conditions, duplicate/hide/delete, damage/heal, resize.
-  **Sort** by initiative / A–Z / type (players first, then creatures grouped by
-  type), then **drag-reorder** cards. A per-card **checkbox multi-selects**, which
-  mirrors to the map window (BroadcastChannel between DM tabs via `useSelection`
-  `syncKey`) and drives the `BulkActionsPanel` from the Data screen. Header has the
-  turn readout + Roll-all / Next / Clear. *(Future: selectable/toggleable panels.)*
+  on screen without a skinny scrolling card). The per-card **Status** picker opens
+  in a floating popover ABOVE the grid (no longer clipped behind cards). The
+  overlay reuses the exact same `SelectedTokenPanel` the map uses — editable stat
+  block + AI fill, disposition, combat-role, icon tools, conditions,
+  duplicate/hide/delete, damage/heal, resize. **Sort** by initiative / A–Z / type
+  (players first, then creatures grouped by type), then **drag-reorder** cards. A
+  per-card **checkbox multi-selects**, which mirrors to the map window
+  (BroadcastChannel between DM tabs via `useSelection` `syncKey`) and drives the
+  `BulkActionsPanel` from the Data screen. Initiative header: **Roll all** resets
+  the round (re-roll everyone, auto-highlight the top), **Add rolls** rolls only
+  combatants who haven't yet, Next / Clear. *(Future: selectable/toggleable panels.)*
 - ☑ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
   `DmView` / `PlayerView`, role-aware:
   - **Load session** (DM) / **Leave** (player) — disconnects and returns to the

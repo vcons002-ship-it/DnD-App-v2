@@ -492,3 +492,12 @@ input[type='number'] { width: 70px; }
 
 .import-confirm { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 6px; }
 .import-confirm .muted { font-size: 12px; word-break: break-word; }
+
+/* Floating condition (status) popover — opens above the data cards */
+.popover-backdrop { position: fixed; inset: 0; z-index: 70; }
+.status-popover {
+  position: fixed; z-index: 71; width: 260px; max-height: 60vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 10px; box-shadow: 0 10px 36px #000b;
+}
+.data-status-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }

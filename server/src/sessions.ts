@@ -532,11 +532,19 @@ export function setActiveTurn(sessionId: string, tokenId: string | null): void {
   ).run(tokenId, sessionId);
 }
 
-/** Roll a d20 for every token on a map and clear the active turn marker. */
+/** Roll a d20 for EVERY token on a map (resets the round). */
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
     roll.run(Math.floor(Math.random() * 20) + 1, t.id);
+  }
+}
+
+/** Roll only for tokens that haven't rolled yet (e.g. latecomers to combat). */
+export function rollMissingInitiative(mapId: string): void {
+  const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
+  for (const t of listTokens(mapId)) {
+    if (t.initiative === null) roll.run(Math.floor(Math.random() * 20) + 1, t.id);
   }
 }
 
@@ -545,6 +553,11 @@ function initiativeOrder(mapId: string): Token[] {
   return listTokens(mapId)
     .filter((t) => t.initiative !== null)
     .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
+}
+
+/** The token at the top of the initiative order, or null. */
+export function firstInInitiative(mapId: string): string | null {
+  return initiativeOrder(mapId)[0]?.id ?? null;
 }
 
 /** Advance the active-turn marker to the next token in initiative order. */

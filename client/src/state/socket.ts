@@ -97,6 +97,7 @@ type Store = {
   ) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
   rollAllInitiative: () => void;
+  rollMissingInitiative: () => void;
   nextTurn: () => void;
   clearInitiative: () => void;
   rollDice: (payload: DiceRollPayload) => void;
@@ -223,6 +224,7 @@ export const useStore = create<Store>((set, get) => ({
   setInitiative: (tokenId, initiative) =>
     get().socket?.emit('initiative:set', { tokenId, initiative }),
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
+  rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
   rollDice: (payload) => get().socket?.emit('dice:roll', payload),
