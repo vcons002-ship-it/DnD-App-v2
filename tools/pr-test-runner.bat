@@ -31,6 +31,18 @@ for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "[Environment]
 where node >nul 2>nul || goto no_node
 where git  >nul 2>nul || goto no_git
 
+REM ----- If the PR is merged/closed, clean up instead of testing -----
+REM A missing remote branch means the PR is done. We act ONLY on a definite
+REM "branch is gone" answer; any network/other error skips this check so an
+REM offline run never wrongly deletes a folder.
+git ls-remote --heads "%REPO_URL%" "%PR_BRANCH%" > "%TEMP%\ddpr_%PR_NUMBER%.txt" 2>nul
+if errorlevel 1 goto branch_checked
+set "LSSIZE=1"
+for %%A in ("%TEMP%\ddpr_%PR_NUMBER%.txt") do set "LSSIZE=%%~zA"
+if "!LSSIZE!"=="0" goto pr_closed
+:branch_checked
+del "%TEMP%\ddpr_%PR_NUMBER%.txt" >nul 2>nul
+
 echo ============================================================
 echo   Testing PR #%PR_NUMBER%
 echo   %PR_TITLE%
@@ -104,9 +116,27 @@ echo.
 pause
 exit /b 0
 
+:pr_closed
+del "%TEMP%\ddpr_%PR_NUMBER%.txt" >nul 2>nul
+echo ============================================================
+echo   PR #%PR_NUMBER% has been merged or closed.
+echo   Its code (if merged) is already in your main install - run start.bat.
+echo.
+if exist "%TEST_DIR%" (
+  echo   Removing throwaway test folder:
+  echo     %TEST_DIR%
+  rmdir /s /q "%TEST_DIR%"
+)
+echo.
+echo   This launcher removes itself the next time you run install.bat.
+echo ============================================================
+echo.
+pause
+exit /b 0
+
 :helper_misuse
-echo This is a helper used by the test-pr-^<N^>.bat launchers.
-echo Double-click a test-pr-^<N^>.bat instead.
+echo This is a helper used by the PR test launchers.
+echo Double-click a "PR #^<N^> - ^<title^>.bat" file instead.
 pause
 exit /b 1
 :no_node

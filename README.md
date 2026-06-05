@@ -127,13 +127,13 @@ npm test            # run the server/shared unit tests (vitest)
 
 ## Testing a pull request (Windows)
 
-When a PR is opened, a matching **`test-pr-<N>.bat`** launcher is added to
+When a PR is opened, a matching **`PR #<N> - <Title>.bat`** launcher is added to
 `claude/Main`, so you can try a proposed change without disturbing your real
 game:
 
 1. Double-click **`install.bat`** — this updates your main install to the latest
-   approved `claude/Main` and pulls in the new `test-pr-<N>.bat`.
-2. Double-click **`test-pr-<N>.bat`**. It checks the PR's branch out into a
+   approved `claude/Main` and pulls in the new `PR #<N> - <Title>.bat` launcher.
+2. Double-click **`PR #<N> - <Title>.bat`**. It checks the PR's branch out into a
    **separate folder** (`%USERPROFILE%\DnD-App-v2-pr-<N>`), runs it on its **own
    port** (`4100 + N`) with its **own save data**, and opens the DM + player
    views. Your main install and its game data are never touched.
@@ -141,8 +141,12 @@ game:
    runs the approved `claude/Main` code — never a PR build.
 
 Several PRs can be tested at once: each has its own launcher, folder, and port.
-The isolated folders are throwaway — delete `%USERPROFILE%\DnD-App-v2-pr-<N>`
-once a PR is merged or closed.
+
+**Cleanup is automatic.** When a PR is merged or closed, a GitHub Action removes
+its launcher from `claude/Main`; the next `install.bat` deletes the local
+launcher (it's pulled away) **and** its throwaway test folder. If you double-click
+a launcher whose PR has already merged, it just cleans up its folder and exits
+instead of testing.
 
 ## How it works
 

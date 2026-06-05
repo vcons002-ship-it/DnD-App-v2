@@ -1,0 +1,38 @@
+name: Clean up PR test launcher
+
+# When a PR into claude/Main is merged or closed, remove its
+# "PR #<N> - <title>.bat" launcher from claude/Main so it stops being pulled
+# by install.bat. The throwaway test folder on the user's machine is then
+# cleaned up locally by install.bat (and by the launcher's own merge guard).
+on:
+  pull_request:
+    types: [closed]
+    branches: [claude/Main]
+
+permissions:
+  contents: write
+
+jobs:
+  remove-launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/Main
+
+      - name: Remove this PR's test launcher
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          shopt -s nullglob
+          files=( "PR #${PR_NUMBER} - "*.bat )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No test launcher found for PR #${PR_NUMBER}; nothing to remove."
+            exit 0
+          fi
+          echo "Removing: ${files[*]}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -- "${files[@]}"
+          git commit -m "chore: remove PR #${PR_NUMBER} test launcher (PR closed)"
+          git push origin claude/Main

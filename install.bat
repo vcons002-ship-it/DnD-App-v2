@@ -103,6 +103,12 @@ exit /b 1
 
 :code_ready
 
+REM ----- Clean up throwaway PR test folders whose launcher is gone -----
+REM Once a PR merges/closes, the cleanup Action removes its "PR #N - *.bat"
+REM launcher from claude/Main (pulled above), so any matching local test folder
+REM at %USERPROFILE%\DnD-App-v2-pr-N is now stale and safe to delete.
+for /d %%D in ("%USERPROFILE%\DnD-App-v2-pr-*") do call :clean_stale_pr "%%~fD"
+
 REM ----- Install dependencies -----
 pushd "%INSTALL_DIR%"
 echo.
@@ -143,6 +149,17 @@ if /i "!LAUNCH!"=="Y" (
 echo.
 pause
 exit /b 0
+
+REM ===== helper: delete a PR test folder if its launcher is gone =====
+:clean_stale_pr
+set "PRDIR=%~1"
+set "LEAF=%~nx1"
+set "NUM=!LEAF:DnD-App-v2-pr-=!"
+if not exist "%INSTALL_DIR%\PR #!NUM! - *.bat" (
+  echo Removing test folder for merged/closed PR #!NUM! ...
+  rmdir /s /q "%PRDIR%"
+)
+goto :eof
 
 REM ===== helper: ensure <wingetId> <command> <friendlyName> =====
 :ensure
