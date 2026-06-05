@@ -342,6 +342,10 @@ export type CharacterUpdatePayload = {
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
   proficientSkills?: string[];
+  /** Bulk import paths (e.g. JSON sheet) may set these directly. */
+  spellSlots?: Record<string, { max: number; used: number }>;
+  resources?: Record<string, { max: number; used: number }>;
+  items?: InventoryItem[];
 };
 /** Adjust or add/remove a limited-use counter (spell slot or class resource). */
 export type ResourceSetPayload = {

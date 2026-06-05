@@ -4,6 +4,7 @@ import { StatBlock } from './StatBlock';
 import { CharacterSkills } from './CharacterSkills';
 import { CharacterResources } from './CharacterResources';
 import { CharacterItems } from './CharacterItems';
+import { SheetImportExport } from './SheetImportExport';
 
 /**
  * A character's full sheet: the shared tagged stat block (editable + AI fill when
@@ -46,6 +47,7 @@ export function CharacterSheet({
       <CharacterResources character={character} editable={editable} />
       <CharacterItems character={character} editable={editable} />
       <CharacterSkills character={character} editable={editable} />
+      {editable && <SheetImportExport character={character} />}
     </>
   );
 }

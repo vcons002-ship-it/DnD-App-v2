@@ -227,9 +227,14 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Item / inventory tracking [req].** Characters carry `items`;
   `CharacterItems` is an editable list (qty steppers, free-form add, "add from
   library") via `item:set`/`item:remove`. (WP6)
-- ☑ **Import character tracker from Roll20 sheet [req].** Best-effort: the
-  `Roll20Panel` "paste sheet export" box parses HP/AC/level/ability scores into a
-  `character:update` (no public Roll20 API exists). (WP7)
+- ☑ **Import/export character sheet [req].** `shared/sheetIO.ts`: a robust
+  PLAIN-TEXT scraper (any sheet — name/race/class/level, HP `x/y`, AC, speed,
+  ability scores via abbreviations OR full words, marker-based skill
+  proficiencies, spell slots) AND a lossless JSON round-trip (Export JSON +
+  import). `SheetImportExport` (on the editable character sheet) previews exactly
+  which fields will be **overwritten** and confirms before applying; everything
+  it doesn't recognize is preserved. (No public Roll20 API, so this works for any
+  pasted sheet, not just Roll20.) (WP7)
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
   persisted per role like panel width/collapse. *(Deferred.)*

@@ -485,3 +485,10 @@ input[type='number'] { width: 70px; }
 /* Roll20 */
 .roll20-frame { width: 100%; height: 320px; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; background: #fff; }
 .roll20-import summary { font-size: 12px; color: var(--muted); cursor: pointer; margin-top: 6px; }
+
+/* Sheet import/export */
+.sheet-io { margin-top: 10px; }
+.sheet-io > summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+
+.import-confirm { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 6px; }
+.import-confirm .muted { font-size: 12px; word-break: break-word; }

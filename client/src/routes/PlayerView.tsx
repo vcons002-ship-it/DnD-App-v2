@@ -64,9 +64,7 @@ export function PlayerView() {
             onPlaceToken={() => setPlacing((p) => !p)}
           />
           <DicePanel snapshot={snapshot} />
-          <Roll20Panel
-            character={snapshot.characters.find((c) => c.id === claimedId)}
-          />
+          <Roll20Panel />
         </SidePanel>
 
         <main className="center">
