@@ -613,6 +613,11 @@ export function addRollLog(
   return { id, ...entry, createdAt };
 }
 
+/** Wipe the shared roll log for a session. */
+export function clearRollLog(sessionId: string): void {
+  db.prepare('DELETE FROM roll_log WHERE session_id = ?').run(sessionId);
+}
+
 /** Most-recent rolls, returned oldest-first for display (capped). */
 export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
   const rows = db

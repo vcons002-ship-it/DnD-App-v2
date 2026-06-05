@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { rollCategory, rollerColor } from '../lib/rollStyle';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 
 /** Dice roller + shared roll log (visible to everyone). */
 export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const rollDice = useStore((s) => s.rollDice);
+  const clearRollLog = useStore((s) => s.clearRollLog);
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
@@ -57,18 +59,39 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
         </button>
       </div>
 
+      <div className="roll-log-header">
+        <span className="muted">Roll log</span>
+        {snapshot.rollLog.length > 0 && (
+          <button
+            className="btn tiny danger"
+            onClick={() => {
+              if (window.confirm('Clear the roll log for everyone?')) clearRollLog();
+            }}
+            title="Remove all entries from the shared roll log"
+          >
+            Clear
+          </button>
+        )}
+      </div>
       <div className="roll-log">
         {snapshot.rollLog.length === 0 && <p className="muted">No rolls yet.</p>}
-        {[...snapshot.rollLog].reverse().map((r) => (
-          <div key={r.id} className="roll-entry">
-            <span className="roll-total">{r.total}</span>
-            <span className="roll-meta">
-              <strong>{r.roller}</strong>
-              {r.label ? ` · ${r.label}` : ''}{' '}
-              <span className="muted">{r.detail}</span>
-            </span>
-          </div>
-        ))}
+        {[...snapshot.rollLog].reverse().map((r) => {
+          const color = rollerColor(r.roller);
+          return (
+            <div
+              key={r.id}
+              className={`roll-entry cat-${rollCategory(r)}`}
+              style={{ borderLeftColor: color }}
+            >
+              <span className="roll-total">{r.total}</span>
+              <span className="roll-meta">
+                <strong style={{ color }}>{r.roller}</strong>
+                {r.label ? ` · ${r.label}` : ''}{' '}
+                <span className="muted">{r.detail}</span>
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
