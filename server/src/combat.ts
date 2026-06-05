@@ -7,7 +7,6 @@ import {
   setSheetAbility,
 } from './sessions.js';
 import {
-  damageParts,
   profBonusFor,
   rollSavingThrow,
   rollWeaponAttack,
@@ -81,68 +80,61 @@ export function resolveAttack(
   const weapon = a.weapons[weaponIndex];
   if (!weapon) return false;
 
-  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage, { twoHanded });
-  // The damage expression actually rolled (2H vs 1H), used to find the ability
-  // modifier (its flat) that Cleave / off-hand attacks strip out.
-  const usedDamage =
-    (twoHanded && weapon.versatileDamage?.trim()) || weapon.damage?.trim() || '1d4';
+  // Only PCs carry masteries (and add their ability mod to damage).
+  const ch = at.kind === 'pc' ? getCharacter(at.refId) : null;
+  const wtags = (weapon.tags ?? []).map((t) => t.trim().toLowerCase());
+  const triggers = (m: NonNullable<SheetAbility['mastery']>) =>
+    (m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()));
 
-  // Active weapon masteries bound to THIS weapon adjust the damage applied to the
-  // target: extra on a hit, Cleave strips the ability modifier (and one-shot
-  // disables itself), or Graze on a miss. Only PCs carry masteries.
-  let extra = 0;
-  let abilityCut = 0; // ability modifier removed by Cleave or an off-hand attack
-  const masteryNotes: string[] = [];
+  // Pre-scan: an active Cleave bound to this weapon omits the ability modifier
+  // (like an off-hand attack), so it must be decided BEFORE rolling damage.
   let cleaveToDisable: { characterId: string; ability: SheetAbility } | null = null;
-  if (at.kind === 'pc') {
-    const ch = getCharacter(at.refId);
-    const wtags = (weapon.tags ?? []).map((t) => t.trim().toLowerCase());
-    for (const ab of ch?.sheetAbilities ?? []) {
-      const m = ab.mastery;
-      if (ab.type !== 'mastery' || !m?.active || !m.effect) continue;
-      // Triggers when the weapon carries a tag the mastery applies to.
-      if (!(m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()))) continue;
-      if (out.hit && m.effect.bonusDamage) {
-        const r = rollDice(m.effect.bonusDamage);
-        if (r && r.total > 0) {
-          extra += r.total;
-          masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
-        }
+  for (const ab of ch?.sheetAbilities ?? []) {
+    const m = ab.mastery;
+    if (ab.type === 'mastery' && m?.active && m.effect?.cleave && triggers(m)) {
+      cleaveToDisable = { characterId: ch!.id, ability: ab };
+      break;
+    }
+  }
+  const noAbilityMod = !!offhand || !!cleaveToDisable;
+
+  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage, { twoHanded, noAbilityMod });
+
+  // Outcome-dependent mastery effects: extra damage / prof on a hit, Graze on a miss.
+  let extra = 0;
+  const masteryNotes: string[] = [];
+  for (const ab of ch?.sheetAbilities ?? []) {
+    const m = ab.mastery;
+    if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
+    if (out.hit && m.effect.bonusDamage) {
+      const r = rollDice(m.effect.bonusDamage);
+      if (r && r.total > 0) {
+        extra += r.total;
+        masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
       }
-      if (out.hit && m.effect.profBonusDamage) {
-        const pb = profBonusFor(a.c);
-        extra += pb;
-        masteryNotes.push(`${ab.name} +${pb} (prof)`);
-      }
-      if (m.effect.cleave) {
-        // This is the cleave attack against the second creature (now the target):
-        // it deals the weapon's damage WITHOUT the ability modifier (the flat part
-        // of the damage string), and toggles itself off after the attack roll.
-        cleaveToDisable = { characterId: ch!.id, ability: ab };
-        if (out.hit) {
-          const { flat } = damageParts(usedDamage);
-          abilityCut = flat; // strip the ability modifier (at most once)
-          masteryNotes.push(`${ab.name} (no ability modifier${flat ? ` −${flat}` : ''})`);
-        }
-      }
-      if (!out.hit && m.effect.grazeOnMiss) {
-        const g = Math.max(0, weaponAbilityMod(a.c, weapon));
-        if (g > 0) {
-          extra += g;
-          masteryNotes.push(`${ab.name} ${g} (graze)`);
-        }
+    }
+    if (out.hit && m.effect.profBonusDamage) {
+      const pb = profBonusFor(a.c);
+      extra += pb;
+      masteryNotes.push(`${ab.name} +${pb} (prof)`);
+    }
+    if (!out.hit && m.effect.grazeOnMiss) {
+      const g = Math.max(0, weaponAbilityMod(a.c, weapon));
+      if (g > 0) {
+        extra += g;
+        masteryNotes.push(`${ab.name} ${g} (graze)`);
       }
     }
   }
 
-  // Off-hand attacks also drop the ability modifier (unless Cleave already did).
-  if (out.hit && offhand && abilityCut === 0) {
-    const { flat } = damageParts(usedDamage);
-    abilityCut = flat;
-    masteryNotes.push(`Off-hand (no ability modifier${flat ? ` −${flat}` : ''})`);
+  // Note the ability modifier omitted by Cleave / an off-hand attack.
+  if (out.hit && noAbilityMod) {
+    const dropped = a.c.isMonster ? 0 : weaponAbilityMod(a.c, weapon);
+    const who = cleaveToDisable ? cleaveToDisable.ability.name : 'Off-hand';
+    masteryNotes.push(`${who} (no ability modifier${dropped > 0 ? ` −${dropped}` : ''})`);
   }
 
-  let applied = (out.hit ? out.damage : 0) + extra - abilityCut;
+  let applied = (out.hit ? out.damage : 0) + extra;
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
   if (applied > 0) applyDamage(t.kind, t.refId, applied);
   addRollLog(sessionId, {

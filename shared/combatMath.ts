@@ -81,7 +81,7 @@ export function rollWeaponAttack(
   weapon: Weapon,
   targetAC: number,
   advantage?: Advantage,
-  opts?: { twoHanded?: boolean },
+  opts?: { twoHanded?: boolean; noAbilityMod?: boolean },
 ): AttackOutcome {
   const face = rollWithAdv(advantage);
   const bonus = weaponAttackBonus(attacker, weapon);
@@ -99,8 +99,12 @@ export function rollWeaponAttack(
   if (hit) {
     const { dice, flat } = damageParts(expr);
     const magic = weapon.magicBonus ?? 0;
+    // PCs add their ability modifier to damage at roll time (weapons store dice
+    // only); monster stat blocks already bake it in. Off-hand / Cleave omit it.
+    const abil =
+      !attacker.isMonster && !opts?.noAbilityMod ? weaponAbilityMod(attacker, weapon) : 0;
     const r1 = dice ? rollDice(dice) : null;
-    let sum = flat + magic; // magic damage applies on every hit, not doubled on a crit
+    let sum = flat + magic + abil; // magic + ability mod added once, not doubled on a crit
     const diceStrs: string[] = [];
     if (r1) {
       sum += r1.total;
@@ -114,7 +118,7 @@ export function rollWeaponAttack(
     damage = Math.max(1, sum);
     dmgText =
       `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''}` +
-      `${magic ? ` ${signed(magic)} magic` : ''} = ${damage}`;
+      `${abil ? ` ${signed(abil)}` : ''}${magic ? ` ${signed(magic)} magic` : ''} = ${damage}`;
   }
 
   const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';

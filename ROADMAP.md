@@ -288,25 +288,29 @@ Smaller refinements on top of the shipped Phase 2 work.
   mastery via `weaponLabel` (defaults to the name) — e.g. a `[longbow][heavy]`
   weapon shows `Slow, GWM`, and a heavy melee weapon also shows the melee-only
   `meleeLabel` `Hew` (GWM's extra-attack mechanic).
-- ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` keeps a
-  weapon's magic damage distinct from its ability modifier (which lives in the
-  `damage` string), so mastery effects that strip the ability mod (Cleave) keep
-  the magic damage. `rollWeaponAttack` adds it to every hit (not doubled on a
-  crit); editable in `StatBlock`.
+- ☑ **Ability modifier added at roll time (PCs).** PC weapons store **dice only**;
+  `rollWeaponAttack` adds the wielder's ability modifier (finesse-aware) from their
+  live stat on a hit. Monsters' stat-block damage is left pre-baked (no auto-add).
+  Off-hand / Cleave attacks omit that modifier. The sheet shows the effective
+  damage (dice + current mod).
+- ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` is its own
+  damage modifier (not the ability mod), so it survives effects that strip the
+  ability mod (Cleave / off-hand). `rollWeaponAttack` adds it to every hit (not
+  doubled on a crit); editable in `StatBlock`.
 - ☑ **Off-hand, versatile (2H), and finesse [req].** `AttackControls` has
   **Off-hand** and (when a weapon is versatile) **2H** toggles alongside adv/dis,
-  threaded through `combat:attack` → `resolveAttack`. Off-hand drops the ability
-  modifier from damage (shared with Cleave's cut, applied once); 2H rolls the
-  weapon's `versatileDamage` dice. `weaponAbility` is now tag-aware — only
-  `finesse` melee weapons use the better of STR/DEX (others use STR). The `light`
-  tag is reserved for future off-hand feats. Weapon editor gains a 2H-damage field;
-  tags carry the mechanics.
+  threaded through `combat:attack` → `resolveAttack`. Off-hand omits the ability
+  modifier (decided before the roll, unified with Cleave); 2H rolls the weapon's
+  `versatileDamage` dice. `weaponAbility` is tag-aware — only `finesse` melee
+  weapons use the better of STR/DEX (others use STR). The `light` tag is reserved
+  for future off-hand feats. Weapon editor gains a 2H-damage field; tags carry the
+  mechanics.
 - ☑ **2024 weapon database [req].** `server/src/weapons/srd.ts` holds every 2024
   PHB weapon with dice, damage type, properties, range, versatile dice, and its
   mastery property; `GET /api/weapons` searches it. The weapon editor’s **“+ From
-  book”** picker fills a sheet weapon from it — baking the wielder’s ability
-  modifier into the damage (finesse-aware) and setting `tags` = type + properties
-  (so masteries/finesse/versatile/heavy all light up automatically).
+  book”** picker fills a sheet weapon from it — **dice-only** damage (the wielder’s
+  modifier is added at roll time) and `tags` = type + properties (so
+  masteries/finesse/versatile/heavy all light up automatically).
 
 ## Phase 6 — AI assistance (future)
 

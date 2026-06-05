@@ -202,14 +202,14 @@ describe('weapon masteries', () => {
   });
 
   it('Cleave applies the weapon damage to the target without the ability modifier', () => {
-    // "2d1" = constant 2, "+3" ability mod, +1 magic. Normal hit = 6; Cleave
-    // strips the +3 ability mod → 3 applied (dice 2 + magic 1). Re-enable each
-    // loop since Cleave one-shots itself off.
+    // "2d1" = constant 2 dice, +1 magic; STR 16 → +3 added at roll. Normal hit =
+    // 2 + 3 + 1 = 6; Cleave omits the +3 ability mod → 3 applied (dice 2 + magic
+    // 1). Re-enable each loop since Cleave one-shots itself off.
     const { s, atk, tgt } = masteryFight({
       weapon: 'Greataxe',
       attackBonus: 50,
       targetAc: 1,
-      damage: '2d1+3',
+      damage: '2d1',
       magicBonus: 1,
       str: 16,
       mastery: { appliesToTags: ['test'], active: true, effect: { cleave: true } },
@@ -233,13 +233,13 @@ describe('weapon masteries', () => {
   });
 
   it('Hew adds the attacker proficiency bonus to damage on a hit', () => {
-    // Level-1 fighter → proficiency +2. "2d1" = constant 2, so a non-crit hit
-    // deals 2 + 2 (prof) = 4.
+    // STR 10 (mod 0) isolates the prof bonus: "2d1" = 2, level-1 prof +2 → 4.
     const { s, atk, tgt } = masteryFight({
       weapon: 'Greataxe',
       attackBonus: 50,
       targetAc: 1,
       damage: '2d1',
+      str: 10,
       mastery: { appliesToTags: ['test'], active: true, effect: { profBonusDamage: true } },
     });
     const ref = getToken(tgt)!.refId;
@@ -264,6 +264,7 @@ describe('weapon masteries', () => {
       attackBonus: 50,
       targetAc: 1,
       damage: '2d1', // constant 2
+      str: 10, // mod 0, so the bonuses are isolated
       mastery: { appliesToTags: ['test'], active: true, effect: { profBonusDamage: true } },
     });
     const chId = getToken(atk)!.refId;
@@ -352,8 +353,9 @@ describe('off-hand & versatile attacks', () => {
   }
 
   it('off-hand attack drops the ability modifier from damage', () => {
-    // "2d1+3" → dice 2, +3 ability mod. Normal hit = 5; off-hand drops the +3 → 2.
-    const { sid, atk, tgt, ref } = pcFight({ name: 'Shortsword', damage: '2d1+3', attackBonus: 50 });
+    // "2d1" = 2 dice; STR 16 → +3 added at roll. Normal hit = 5; off-hand omits
+    // the +3 → 2.
+    const { sid, atk, tgt, ref } = pcFight({ name: 'Shortsword', damage: '2d1', attackBonus: 50 });
     let checked = false;
     for (let i = 0; i < 80 && !checked; i++) {
       const before = getMonster(ref)!.curHp;
@@ -369,7 +371,8 @@ describe('off-hand & versatile attacks', () => {
   });
 
   it('two-handed attack uses the versatile damage dice', () => {
-    // 1H "2d1" = 2; 2H "6d1" = 6 (STR 16 mod not in these constant dice strings).
+    // 1H "2d1" = 2; 2H "6d1" = 6, plus STR 16 → +3. So a 2H non-crit hit = 9
+    // (vs 5 one-handed), proving the 2H dice were used.
     const { sid, atk, tgt, ref } = pcFight({
       name: 'Longsword', damage: '2d1', versatileDamage: '6d1', attackBonus: 50,
     });
@@ -381,7 +384,7 @@ describe('off-hand & versatile attacks', () => {
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
         expect(last.detail).toContain('(2H)');
-        expect(before - getMonster(ref)!.curHp).toBe(6);
+        expect(before - getMonster(ref)!.curHp).toBe(9);
       }
     }
     expect(checked).toBe(true);

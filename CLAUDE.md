@@ -163,10 +163,11 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   **tag-driven** — weapons carry `tags`, a mastery has `appliesToTags` + on/off
   toggle and adjusts any tagged weapon's attack in `resolveAttack`, e.g. Graze
   damage on a miss; the weapon line bold-lists applicable mastery mechanics),
-  **weapons** carry dice/`magicBonus`/`tags`/`versatileDamage`; combat honors
-  finesse (tag→DEX), off-hand + versatile-2H toggles (`AttackControls`), and a
-  **2024 weapon book** (`weapons/srd.ts`, `GET /api/weapons`, "+ From book" picker
-  that bakes the ability mod + sets tags), player places/edits own token,
+  **weapons** store dice-only damage (PCs add the ability mod at roll time,
+  finesse→DEX; monsters stay pre-baked) plus `magicBonus`/`tags`/`versatileDamage`;
+  combat honors off-hand + versatile-2H toggles (`AttackControls`) and a **2024
+  weapon book** (`weapons/srd.ts`, `GET /api/weapons`, "+ From book" picker that
+  sets dice + tags), player places/edits own token,
   **high-visibility PC tokens**, party + friendly sheets read-only, sheet import
   (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text

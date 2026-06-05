@@ -233,11 +233,7 @@ export function StatBlock({
         />
       </label>
 
-      <WeaponEditor
-        weapons={d.weapons}
-        onChange={(weapons) => set({ weapons })}
-        stats={d.stats}
-      />
+      <WeaponEditor weapons={d.weapons} onChange={(weapons) => set({ weapons })} />
       <EntryEditor
         title="Actions"
         entries={d.actions}
@@ -280,6 +276,19 @@ function ReadView({
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
+  // PCs (masteries passed) store dice-only damage; show it with the live ability
+  // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
+  const isPc = masteries !== undefined;
+  const dmgWithMod = (dice: string | undefined, w: Weapon): string => {
+    if (!dice) return '';
+    if (!isPc) return dice;
+    const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
+    const useDex =
+      w.kind === 'ranged' ||
+      (finesse && abilityMod(m.stats.DEX) >= abilityMod(m.stats.STR));
+    const mod = abilityMod(m.stats[useDex ? 'DEX' : 'STR'] ?? 10);
+    return mod ? `${dice}${signed(mod)}` : dice;
+  };
   return (
     <div className="statblock">
       <div className="sb-head">
@@ -337,8 +346,8 @@ function ReadView({
                 </strong>{' '}
                 {w.attackBonus !== undefined &&
                   `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
-                {w.damage}
-                {w.versatileDamage ? ` (2H ${w.versatileDamage})` : ''}
+                {dmgWithMod(w.damage, w)}
+                {w.versatileDamage ? ` (2H ${dmgWithMod(w.versatileDamage, w)})` : ''}
                 {w.damageType ? ` ${w.damageType}` : ''}
                 {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
                 {w.range ? ` (${w.range})` : ''}
@@ -406,12 +415,9 @@ type WeaponData = {
 function WeaponEditor({
   weapons,
   onChange,
-  stats,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
-  /** Wielder ability scores — used to bake the modifier into picked weapons. */
-  stats?: Record<string, number>;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
@@ -431,21 +437,16 @@ function WeaponEditor({
     };
   }, [q, picking]);
 
-  // Add a book weapon, baking in the wielder's ability modifier (finesse-aware).
+  // Add a book weapon: store DICE ONLY (the ability modifier is added at roll
+  // time from the wielder's live stat) and set tags = type + properties.
   const addFromBook = (w: WeaponData) => {
-    const useDex =
-      w.kind === 'ranged' ||
-      (w.properties.includes('finesse') &&
-        abilityMod(stats?.DEX ?? 10) >= abilityMod(stats?.STR ?? 10));
-    const m = abilityMod(stats?.[useDex ? 'DEX' : 'STR'] ?? 10);
-    const withMod = (dice: string) => (m ? `${dice}${signed(m)}` : dice);
     onChange([
       ...weapons,
       {
         name: w.name,
         kind: w.kind,
-        damage: withMod(w.damage),
-        versatileDamage: w.versatileDamage ? withMod(w.versatileDamage) : undefined,
+        damage: w.damage,
+        versatileDamage: w.versatileDamage,
         damageType: w.damageType,
         range: w.range,
         tags: [w.name.toLowerCase(), ...w.properties],
