@@ -90,11 +90,12 @@ export function resolveAttack(
   let cleaveToDisable: { characterId: string; ability: SheetAbility } | null = null;
   if (at.kind === 'pc') {
     const ch = getCharacter(at.refId);
-    const wn = weapon.name.trim().toLowerCase();
+    const wtags = (weapon.tags ?? []).map((t) => t.trim().toLowerCase());
     for (const ab of ch?.sheetAbilities ?? []) {
       const m = ab.mastery;
       if (ab.type !== 'mastery' || !m?.active || !m.effect) continue;
-      if (!(m.weapons ?? []).some((w) => w.trim().toLowerCase() === wn)) continue;
+      // Triggers when the weapon carries a tag the mastery applies to.
+      if (!(m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()))) continue;
       if (out.hit && m.effect.bonusDamage) {
         const r = rollDice(m.effect.bonusDamage);
         if (r && r.total > 0) {

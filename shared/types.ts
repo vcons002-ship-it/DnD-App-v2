@@ -47,6 +47,12 @@ export type Weapon = {
   attackBonus?: number;
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
   range?: string;
+  /**
+   * Descriptive tags — a weapon type plus properties, e.g. ["halberd", "heavy"].
+   * A weapon mastery in the character's abilities list triggers on any weapon
+   * whose tags overlap the mastery's `appliesToTags`.
+   */
+  tags?: string[];
 };
 
 /**
@@ -141,15 +147,15 @@ export type AbilityRoll = {
 };
 
 /**
- * A weapon mastery (2024 rules) attached to a sheet entry. When `active` and
- * bound to one of `weapons` that matches an attack, the optional `effect` adjusts
- * that attack's damage server-side. A single mastery can apply to several weapons
- * (so one entry covers a whole loadout). Masteries without an `effect` are
- * descriptive and handled manually at the table.
+ * A weapon mastery (2024 rules) attached to a sheet entry. When `active`, it
+ * triggers on any attack whose weapon has a tag in `appliesToTags` (e.g. a
+ * "greataxe" or "heavy" weapon) — no per-weapon binding needed; just tag your
+ * weapons. The optional `effect` then adjusts that attack's damage server-side.
+ * Masteries without an `effect` are descriptive and handled manually.
  */
 export type WeaponMastery = {
-  /** Weapon names this mastery applies to (exact, case-insensitive match). */
-  weapons: string[];
+  /** Weapon tags this mastery triggers on (case-insensitive overlap). */
+  appliesToTags: string[];
   /** Toggle — only an active mastery applies its effect. */
   active: boolean;
   /** Auto-effect on attacks with the bound weapon; absent = descriptive/manual. */

@@ -14,14 +14,17 @@ describe('weapon mastery database', () => {
     expect(graze?.mastery?.effect?.grazeOnMiss).toBe(true);
     expect(graze?.mastery?.active).toBe(true);
 
-    // Cleave now rolls the second-creature damage.
+    // Cleave rolls the second-creature damage; triggers on greataxe/halberd tags.
     expect(getMastery('Cleave')?.mastery?.effect?.cleave).toBe(true);
+    expect(getMastery('Cleave')?.mastery?.appliesToTags).toEqual(['greataxe', 'halberd']);
 
-    // Hew (2024 Great Weapon Master) adds proficiency-bonus damage on a hit.
+    // Hew (2024 Great Weapon Master) adds proficiency-bonus damage on a hit and
+    // triggers on any weapon tagged "heavy".
     const hew = getMastery('Hew');
     expect(hew?.type).toBe('mastery');
     expect(hew?.mastery?.effect?.profBonusDamage).toBe(true);
     expect(hew?.mastery?.active).toBe(true);
+    expect(hew?.mastery?.appliesToTags).toEqual(['heavy']);
     expect(searchMasteries('hew').some((m) => m.name === 'Hew')).toBe(true);
 
     // A purely manual mastery has no auto effect.

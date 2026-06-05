@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CreatureAbility, Weapon } from '../../../shared/types';
+import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -40,7 +40,24 @@ type Props = {
   onSave?: (patch: Record<string, unknown>) => void;
   onAiFill?: () => void;
   aiBusy?: boolean;
+  /** The character's sheet abilities — used to show which masteries apply to
+   *  each weapon (cross-checking weapon tags against masteries' appliesToTags). */
+  masteries?: SheetAbility[];
 };
+
+/** Names of the character's masteries that trigger on a weapon (tag overlap). */
+function masteryNamesForWeapon(w: Weapon, masteries: SheetAbility[]): string[] {
+  const wtags = (w.tags ?? []).map((t) => t.trim().toLowerCase());
+  if (!wtags.length) return [];
+  return masteries
+    .filter(
+      (a) =>
+        a.type === 'mastery' &&
+        a.mastery &&
+        (a.mastery.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase())),
+    )
+    .map((a) => a.name);
+}
 
 type Draft = Omit<StatSheet, 'id' | 'resistances' | 'weaknesses'> & {
   resistances: string;
@@ -59,6 +76,7 @@ export function StatBlock({
   onSave,
   onAiFill,
   aiBusy,
+  masteries,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -114,6 +132,7 @@ export function StatBlock({
         onEdit={onSave ? startEdit : undefined}
         onAiFill={onAiFill}
         aiBusy={aiBusy}
+        masteries={masteries}
       />
     );
   }
@@ -238,6 +257,7 @@ function ReadView({
   onEdit,
   onAiFill,
   aiBusy,
+  masteries,
 }: {
   creature: StatSheet;
   subtitle?: string;
@@ -245,6 +265,7 @@ function ReadView({
   onEdit?: () => void;
   onAiFill?: () => void;
   aiBusy?: boolean;
+  masteries?: SheetAbility[];
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
@@ -296,18 +317,30 @@ function ReadView({
       {m.weapons.length > 0 && (
         <div className="sb-section">
           <h4>Weapons</h4>
-          {m.weapons.map((w, i) => (
-            <p key={i} className="sb-entry">
-              <strong>
-                {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
-              </strong>{' '}
-              {w.attackBonus !== undefined &&
-                `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
-              {w.damage}
-              {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
-              {w.range ? ` (${w.range})` : ''}
-            </p>
-          ))}
+          {m.weapons.map((w, i) => {
+            const mNames = masteryNamesForWeapon(w, masteries ?? []);
+            return (
+              <p key={i} className="sb-entry">
+                <strong>
+                  {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
+                </strong>{' '}
+                {w.attackBonus !== undefined &&
+                  `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
+                {w.damage}
+                {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
+                {w.range ? ` (${w.range})` : ''}
+                {w.tags && w.tags.length > 0 && (
+                  <span className="muted"> · {w.tags.map((t) => `[${t}]`).join(' ')}</span>
+                )}
+                {mNames.length > 0 && (
+                  <span className="weapon-masteries">
+                    {' '}
+                    · <strong>{mNames.join(', ')}</strong>
+                  </span>
+                )}
+              </p>
+            );
+          })}
         </div>
       )}
 
@@ -401,6 +434,20 @@ function WeaponEditor({
               setAt(i, {
                 magicBonus:
                   e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+          />
+          <input
+            className="sb-tags"
+            placeholder="tags: heavy, greataxe"
+            title="Comma-separated tags. Weapon masteries trigger on matching tags."
+            value={(w.tags ?? []).join(', ')}
+            onChange={(e) =>
+              setAt(i, {
+                tags: e.target.value
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter(Boolean),
               })
             }
           />

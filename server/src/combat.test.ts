@@ -34,6 +34,7 @@ function masteryFight(opts: {
   str?: number;
   damage?: string;
   magicBonus?: number;
+  tags?: string[];
 }) {
   const { s, map } = arena();
   const ch = createCharacter(s.id, {
@@ -47,6 +48,7 @@ function masteryFight(opts: {
       damage: opts.damage ?? '2d6',
       attackBonus: opts.attackBonus,
       magicBonus: opts.magicBonus,
+      tags: opts.tags ?? ['test'],
     }],
   });
   setSheetAbility(ch.id, {
@@ -140,7 +142,7 @@ describe('weapon masteries', () => {
       attackBonus: -50,
       targetAc: 50,
       str: 16, // +3
-      mastery: { weapons: ['Greatsword'], active: true, effect: { grazeOnMiss: true } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { grazeOnMiss: true } },
     });
     let sawMiss = false;
     for (let i = 0; i < 80 && !sawMiss; i++) {
@@ -160,7 +162,7 @@ describe('weapon masteries', () => {
       weapon: 'Maul',
       attackBonus: 50,
       targetAc: 1,
-      mastery: { weapons: ['Maul'], active: true, effect: { bonusDamage: '5d1' } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { bonusDamage: '5d1' } },
     });
     let sawHit = false;
     for (let i = 0; i < 80 && !sawHit; i++) {
@@ -179,7 +181,7 @@ describe('weapon masteries', () => {
       weapon: 'Greatsword',
       attackBonus: -50,
       targetAc: 50,
-      mastery: { weapons: ['Greatsword'], active: false, effect: { grazeOnMiss: true } },
+      mastery: { appliesToTags: ['test'], active: false, effect: { grazeOnMiss: true } },
     });
     for (let i = 0; i < 20; i++) resolveAttack(s, 'Striker', atk, tgt, 0);
     expect(listRollLog(s).every((e) => !e.detail.includes('graze'))).toBe(true);
@@ -191,7 +193,7 @@ describe('weapon masteries', () => {
       attackBonus: 50,
       targetAc: 1,
       damage: '1d6+3',
-      mastery: { weapons: ['Greataxe'], active: true, effect: { cleave: true } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { cleave: true } },
     });
     const chId = getToken(atk)!.refId;
     expect(getCharacter(chId)!.sheetAbilities[0].mastery!.active).toBe(true);
@@ -210,7 +212,7 @@ describe('weapon masteries', () => {
       damage: '2d1+3',
       magicBonus: 1,
       str: 16,
-      mastery: { weapons: ['Greataxe'], active: true, effect: { cleave: true } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { cleave: true } },
     });
     const chId = getToken(atk)!.refId;
     const ref = getToken(tgt)!.refId;
@@ -238,7 +240,7 @@ describe('weapon masteries', () => {
       attackBonus: 50,
       targetAc: 1,
       damage: '2d1',
-      mastery: { weapons: ['Greataxe'], active: true, effect: { profBonusDamage: true } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { profBonusDamage: true } },
     });
     const ref = getToken(tgt)!.refId;
     let checked = false;
@@ -262,7 +264,7 @@ describe('weapon masteries', () => {
       attackBonus: 50,
       targetAc: 1,
       damage: '2d1', // constant 2
-      mastery: { weapons: ['Greataxe'], active: true, effect: { profBonusDamage: true } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { profBonusDamage: true } },
     });
     const chId = getToken(atk)!.refId;
     setSheetAbility(chId, {
@@ -270,7 +272,7 @@ describe('weapon masteries', () => {
       name: 'Crusher',
       type: 'mastery',
       description: '',
-      mastery: { weapons: ['Greataxe'], active: true, effect: { bonusDamage: '5d1' } },
+      mastery: { appliesToTags: ['test'], active: true, effect: { bonusDamage: '5d1' } },
     });
     const ref = getToken(tgt)!.refId;
     let checked = false;
@@ -289,7 +291,7 @@ describe('weapon masteries', () => {
     expect(checked).toBe(true);
   });
 
-  it('one mastery applies to multiple bound weapons', () => {
+  it('triggers by tag on any matching weapon (and not on unmatched ones)', () => {
     const { s: sid, map } = arena();
     const ch = createCharacter(sid.id, {
       name: 'Striker',
@@ -297,37 +299,38 @@ describe('weapon masteries', () => {
       level: 1,
       stats: { STR: 16 },
       weapons: [
-        { name: 'Greataxe', kind: 'melee', damage: '2d1', attackBonus: 50 },
-        { name: 'Greatsword', kind: 'melee', damage: '2d1', attackBonus: 50 },
+        { name: 'Magic Halberd +1', kind: 'melee', damage: '2d1', attackBonus: 50, tags: ['halberd', 'heavy'] },
+        { name: 'Battered Greatsword', kind: 'melee', damage: '2d1', attackBonus: 50, tags: ['greatsword', 'heavy'] },
+        { name: 'Dagger', kind: 'melee', damage: '2d1', attackBonus: 50, tags: ['dagger', 'light'] },
       ],
     });
+    // One Hew entry (no per-weapon binding): triggers on any weapon tagged "heavy".
     setSheetAbility(ch.id, {
       id: 'm1',
       name: 'Hew',
       type: 'mastery',
       description: '',
-      mastery: {
-        weapons: ['Greataxe', 'Greatsword'],
-        active: true,
-        effect: { profBonusDamage: true },
-      },
+      mastery: { appliesToTags: ['heavy'], active: true, effect: { profBonusDamage: true } },
     });
     const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
-    const tmpl = createMonsterTemplate(sid.id, { name: 'Dummy', maxHp: 999, armorClass: 1 });
+    const tmpl = createMonsterTemplate(sid.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
     const tgt = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 1, y: 1 });
 
-    // Both weapon 0 (Greataxe) and weapon 1 (Greatsword) get the +2 prof bonus.
-    for (const idx of [0, 1]) {
+    // Heavy weapons (index 0, 1) get +2 prof; the light Dagger (index 2) does not.
+    const expectProf = (idx: number, want: boolean) => {
       let hit = false;
       for (let i = 0; i < 80 && !hit; i++) {
         resolveAttack(sid.id, 'Striker', atk.id, tgt.id, idx);
         const last = listRollLog(sid.id).at(-1)!;
         if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
           hit = true;
-          expect(last.detail).toContain('+2 (prof)');
+          expect(last.detail.includes('(prof)')).toBe(want);
         }
       }
       expect(hit).toBe(true);
-    }
+    };
+    expectProf(0, true); // Magic Halberd +1 — heavy
+    expectProf(1, true); // Battered Greatsword — heavy
+    expectProf(2, false); // Dagger — not heavy
   });
 });
