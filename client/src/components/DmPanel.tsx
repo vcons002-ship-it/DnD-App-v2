@@ -8,6 +8,8 @@ import type {
 } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
+import { NewCharacterForm } from './NewCharacterForm';
+import { TemplateEditor } from './TemplateEditor';
 
 /** Show emoji icons inline; image-path icons get a placeholder glyph. */
 const iconText = (icon: string): string =>
@@ -43,6 +45,7 @@ export function DmPanel({
   const [slides, setSlides] = useState('');
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [copyFrom, setCopyFrom] = useState('');
   const [busy, setBusy] = useState(false);
   // Creature search (SRD autofill + optional AI lookup).
@@ -284,28 +287,43 @@ export function DmPanel({
             {c.name} <span className="muted">{c.className}</span>
           </button>
         ))}
+        <div className="new-char-wrap">
+          <NewCharacterForm />
+        </div>
 
         <h4>Monsters</h4>
         {pending?.kind === 'monster' && (
           <p className="hint">Click the map to drop a numbered instance.</p>
         )}
         {monsters.map((m) => (
-          <div key={m.id} className="spawn-line">
-            <button
-              className={`spawn-row ${pending?.refId === m.id ? 'picked' : ''}`}
-              onClick={() => onPickSpawn('monster', m.id)}
-              title="Select, then click the map to place"
-            >
-              {m.icon && <span className="spawn-icon">{iconText(m.icon)}</span>}
-              {m.name} <span className="muted">{m.maxHp} hp</span>
-            </button>
-            <button
-              className="btn tiny"
-              title="Remove this spawn button"
-              onClick={() => deleteMonster(m.id)}
-            >
-              ✕
-            </button>
+          <div key={m.id}>
+            <div className="spawn-line">
+              <button
+                className={`spawn-row ${pending?.refId === m.id ? 'picked' : ''}`}
+                onClick={() => onPickSpawn('monster', m.id)}
+                title="Select, then click the map to place"
+              >
+                {m.icon && <span className="spawn-icon">{iconText(m.icon)}</span>}
+                {m.name} <span className="muted">{m.maxHp} hp</span>
+              </button>
+              <button
+                className={`btn tiny ${editingId === m.id ? 'on' : ''}`}
+                title="Adjust stats / image before placing"
+                onClick={() =>
+                  setEditingId((cur) => (cur === m.id ? null : m.id))
+                }
+              >
+                Edit
+              </button>
+              <button
+                className="btn tiny"
+                title="Remove this spawn button"
+                onClick={() => deleteMonster(m.id)}
+              >
+                ✕
+              </button>
+            </div>
+            {editingId === m.id && <TemplateEditor monster={m} />}
           </div>
         ))}
         {monsters.length === 0 && (

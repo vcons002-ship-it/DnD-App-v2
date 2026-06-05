@@ -354,6 +354,43 @@ export function setTokensCombatRole(
   for (const id of tokenIds) stmt.run(role, id);
 }
 
+/** Damage (+) / heal (−) every listed token's creature (AOE). */
+export function damageTokens(tokenIds: string[], amount: number): void {
+  for (const id of tokenIds) {
+    const t = getToken(id);
+    if (t) applyDamage(t.kind, t.refId, amount);
+  }
+}
+
+/** Hide/show every listed token from players. */
+export function setTokensHidden(tokenIds: string[], hidden: boolean): void {
+  const stmt = db.prepare('UPDATE tokens SET is_hidden = ? WHERE id = ?');
+  for (const id of tokenIds) stmt.run(hidden ? 1 : 0, id);
+}
+
+/** Apply one condition to every listed token's creature (own id per creature). */
+export function setTokensCondition(
+  tokenIds: string[],
+  condition: Omit<Condition, 'id'>,
+): void {
+  for (const id of tokenIds) {
+    const t = getToken(id);
+    if (t) setCondition(t.kind, t.refId, { id: newId(), ...condition });
+  }
+}
+
+/** Clear ALL conditions from every listed token's creature. */
+export function clearTokensConditions(tokenIds: string[]): void {
+  for (const id of tokenIds) {
+    const t = getToken(id);
+    if (!t) continue;
+    const table = t.kind === 'pc' ? 'characters' : 'monsters';
+    db.prepare(`UPDATE ${table} SET conditions = '[]' WHERE id = ?`).run(
+      t.refId,
+    );
+  }
+}
+
 /**
  * Copy token placements from one map to another. Tokens reference characters /
  * monsters, so HP and conditions automatically carry over ("statuses carry").
@@ -529,6 +566,36 @@ export function getCharacter(id: string): Character | null {
     | Parameters<typeof rowToCharacter>[0]
     | undefined;
   return row ? rowToCharacter(row) : null;
+}
+
+/** Create a player character (DM or a player may add one). */
+export function createCharacter(
+  sessionId: string,
+  opts: {
+    name: string;
+    race?: string;
+    className?: string;
+    maxHp?: number;
+    stats?: Record<string, number>;
+  },
+): Character {
+  const id = newId();
+  const maxHp = opts.maxHp && opts.maxHp > 0 ? Math.round(opts.maxHp) : 10;
+  db.prepare(
+    `INSERT INTO characters
+       (id, session_id, name, race, class_name, max_hp, cur_hp, stats)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    opts.name.trim() || 'Adventurer',
+    opts.race ?? '',
+    opts.className ?? '',
+    maxHp,
+    maxHp,
+    JSON.stringify(opts.stats ?? {}),
+  );
+  return getCharacter(id)!;
 }
 
 export function claimCharacter(

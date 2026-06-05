@@ -21,6 +21,12 @@ import {
   updateMonster,
   setTokensHideCombatRole,
   setTokensCombatRole,
+  createCharacter,
+  getCharacter,
+  listCharacters,
+  damageTokens,
+  setTokensCondition,
+  clearTokensConditions,
   setActiveMap,
   setFogMode,
   setTokenHidden,
@@ -172,6 +178,54 @@ describe('visibility role-shaping', () => {
     m = getMonster(ogre.id)!;
     expect(m.maxHp).toBe(10);
     expect(m.curHp).toBe(10);
+  });
+
+  it('creates a player character with stats', () => {
+    const s = createSession('NewPC');
+    const before = listCharacters(s.id).length; // seeded party
+    const c = createCharacter(s.id, {
+      name: 'Mira',
+      race: 'Tiefling',
+      className: 'Rogue',
+      maxHp: 22,
+      stats: { DEX: 16 },
+    });
+    expect(c.name).toBe('Mira');
+    expect(c.maxHp).toBe(22);
+    expect(c.curHp).toBe(22);
+    expect(c.stats.DEX).toBe(16);
+    expect(listCharacters(s.id)).toHaveLength(before + 1);
+  });
+
+  it('applies bulk AOE damage and conditions across selected tokens', () => {
+    const s = createSession('Bulk');
+    const map = createMap(s.id, { name: 'Blast' });
+    setActiveMap(s.id, map.id);
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 10 });
+    const a = instantiateMonster(tmpl.id)!;
+    const b = instantiateMonster(tmpl.id)!;
+    const ta = createToken({ mapId: map.id, kind: 'monster', refId: a.id, x: 1, y: 1 });
+    const tb = createToken({ mapId: map.id, kind: 'monster', refId: b.id, x: 2, y: 2 });
+
+    damageTokens([ta.id, tb.id], 4);
+    expect(getMonster(a.id)!.curHp).toBe(6);
+    expect(getMonster(b.id)!.curHp).toBe(6);
+
+    setTokensCondition([ta.id, tb.id], {
+      label: 'Prone',
+      aura: 'red',
+      isConcentration: false,
+    });
+    expect(getMonster(a.id)!.conditions[0].label).toBe('Prone');
+    expect(getMonster(b.id)!.conditions[0].label).toBe('Prone');
+    // Each creature gets its own condition id.
+    expect(getMonster(a.id)!.conditions[0].id).not.toBe(
+      getMonster(b.id)!.conditions[0].id,
+    );
+
+    clearTokensConditions([ta.id, tb.id]);
+    expect(getMonster(a.id)!.conditions).toHaveLength(0);
+    expect(getMonster(b.id)!.conditions).toHaveLength(0);
   });
 
   it('locks players to the active map regardless of requested map', () => {

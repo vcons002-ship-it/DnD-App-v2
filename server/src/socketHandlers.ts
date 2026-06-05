@@ -17,8 +17,13 @@ import {
   claimCharacter,
   clearCondition,
   clearInitiative,
+  clearTokensConditions,
   copyTokens,
+  createCharacter,
+  damageTokens,
   duplicateToken,
+  setTokensHidden,
+  setTokensCondition,
   coverFog,
   createMonsterTemplate,
   createToken,
@@ -232,9 +237,49 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('character:create', (p) => {
+      const sid = sessionId();
+      if (!sid || !p.name?.trim()) return; // DM or player may add a character
+      createCharacter(sid, {
+        name: p.name,
+        race: p.race,
+        className: p.className,
+        maxHp: p.maxHp,
+        stats: p.stats,
+      });
+      afterChange();
+    });
+
     socket.on('character:release', () => {
       if (!sessionId()) return;
       releaseClaims(socket.id);
+      afterChange();
+    });
+
+    // ---- Bulk multi-select token edits ----
+
+    socket.on('tokens:damage', ({ tokenIds, amount }) => {
+      if (!sessionId() || !Array.isArray(tokenIds) || !Number.isFinite(amount))
+        return;
+      damageTokens(tokenIds, amount);
+      afterChange();
+    });
+
+    socket.on('tokens:setHidden', ({ tokenIds, hidden }) => {
+      if (!isDm() || !Array.isArray(tokenIds)) return;
+      setTokensHidden(tokenIds, hidden);
+      afterChange();
+    });
+
+    socket.on('tokens:setCondition', ({ tokenIds, condition }) => {
+      if (!sessionId() || !Array.isArray(tokenIds) || !condition) return;
+      setTokensCondition(tokenIds, condition);
+      afterChange();
+    });
+
+    socket.on('tokens:clearConditions', ({ tokenIds }) => {
+      if (!sessionId() || !Array.isArray(tokenIds)) return;
+      clearTokensConditions(tokenIds);
       afterChange();
     });
 

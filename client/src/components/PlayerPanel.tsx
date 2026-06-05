@@ -1,6 +1,7 @@
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
+import { NewCharacterForm } from './NewCharacterForm';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -40,6 +41,9 @@ export function PlayerPanel({ snapshot, claimedId, onClaim, onRelease }: Props) 
           {snapshot.characters.length === 0 && (
             <p className="muted">No characters in this session yet.</p>
           )}
+          <div className="new-char-wrap">
+            <NewCharacterForm />
+          </div>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import type {
+  CharacterCreatePayload,
   ClientToServerEvents,
   CombatRole,
   Condition,
@@ -57,7 +58,15 @@ type Store = {
   ) => void;
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
+  createCharacter: (input: CharacterCreatePayload) => void;
   releaseCharacter: () => void;
+  damageTokens: (tokenIds: string[], amount: number) => void;
+  setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
+  setTokensCondition: (
+    tokenIds: string[],
+    condition: Omit<Condition, 'id'>,
+  ) => void;
+  clearTokensConditions: (tokenIds: string[]) => void;
   createMonster: (input: MonsterCreatePayload) => void;
   updateMonster: (payload: MonsterUpdatePayload) => void;
   aiFillCreature: (monsterId: string) => void;
@@ -150,7 +159,16 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('condition:clear', { kind, refId, conditionId }),
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
+  createCharacter: (input) => get().socket?.emit('character:create', input),
   releaseCharacter: () => get().socket?.emit('character:release'),
+  damageTokens: (tokenIds, amount) =>
+    get().socket?.emit('tokens:damage', { tokenIds, amount }),
+  setTokensHidden: (tokenIds, hidden) =>
+    get().socket?.emit('tokens:setHidden', { tokenIds, hidden }),
+  setTokensCondition: (tokenIds, condition) =>
+    get().socket?.emit('tokens:setCondition', { tokenIds, condition }),
+  clearTokensConditions: (tokenIds) =>
+    get().socket?.emit('tokens:clearConditions', { tokenIds }),
   createMonster: (input) => get().socket?.emit('monster:create', input),
   updateMonster: (payload) => get().socket?.emit('monster:update', payload),
   aiFillCreature: (monsterId) =>

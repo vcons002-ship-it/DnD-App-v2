@@ -148,9 +148,20 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Phase 5a — Characters, NPCs & editing [req]
 
-- ☐ **Create party characters [req].** Let the DM (and/or players) add new player
-  characters beyond the seeded party — name, race, class, HP, stats — instead of
-  only Vanec/Varis/Druk.
+- ☑ **Create party characters [req].** Both the DM (DmPanel) and players
+  (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
+  a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can
+  create one and immediately claim it.
+- ☑ **Pre-placement creature editing [req].** Each DM spawn-list creature has an
+  "Edit" toggle opening a `TemplateEditor`: adjust the full tagged stat block,
+  "✨ Fill missing details with AI", and set the token image (emoji/upload) BEFORE
+  placing. Edits target the template, so every instance placed afterwards
+  inherits them.
+- ☑ **Bulk multi-select token edits [req].** Selecting >1 token shows a
+  `BulkActionsPanel`: AOE Damage/Heal all, apply/clear conditions on all, set one
+  token image on all (`tokens:setIcon`), and (DM) hide/show, hide/show role
+  badges, and delete the whole selection. New `tokens:damage` /
+  `tokens:setCondition` / `tokens:clearConditions` / `tokens:setHidden` events.
 - ☑ **Disposition on every creature [req].** Each creature carries a
   `disposition` (`friendly` / `neutral` / `enemy`, default enemy) set via a
   selector on the DM's selected-token panel (`monster:update`). It shapes the

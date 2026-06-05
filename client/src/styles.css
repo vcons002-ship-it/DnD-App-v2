@@ -320,3 +320,19 @@ input[type='number'] { width: 70px; }
 .floating-menu-title .fm-hp { float: right; color: var(--muted); font-weight: 600; }
 .fm-dmg { display: flex; gap: 4px; align-items: center; padding: 4px; }
 .fm-dmg input { width: 52px; margin: 0; }
+
+/* New character form */
+.new-char-wrap { margin-top: 8px; }
+.new-char-form { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.new-char-row { display: flex; gap: 6px; align-items: flex-end; }
+.new-char-actions { display: flex; gap: 6px; margin-top: 6px; }
+
+/* Template pre-placement editor */
+.template-editor { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 2px 0 8px; }
+.btn.ai-fill { width: 100%; margin-bottom: 6px; }
+
+/* Bulk multi-select actions */
+.bulk-names { font-size: 12px; max-height: 48px; overflow-y: auto; }
+.bulk-cond { display: flex; gap: 6px; align-items: center; }
+.bulk-cond select { flex: 1; }
+.bulk-vis { display: flex; flex-wrap: wrap; gap: 6px; }

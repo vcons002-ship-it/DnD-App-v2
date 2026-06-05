@@ -3,6 +3,7 @@ import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
 import { useSelection } from '../lib/useSelection';
@@ -11,7 +12,7 @@ export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
   const claimCharacter = useStore((s) => s.claimCharacter);
   const releaseCharacter = useStore((s) => s.releaseCharacter);
-  const { selectedIds, handleSelect, handleMove, primaryId } =
+  const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
     useSelection(snapshot);
   const [claimedId, setClaimedId] = useState<string | null>(null);
 
@@ -58,7 +59,13 @@ export function PlayerView() {
         </main>
 
         <SidePanel side="right" storageKey="player-right">
-          {selectedToken ? (
+          {selectedIds.length > 1 ? (
+            <BulkActionsPanel
+              snapshot={snapshot}
+              selectedIds={selectedIds}
+              onClearSelection={() => setSelectedIds([])}
+            />
+          ) : selectedToken ? (
             <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
           ) : (
             <p className="muted pad">Select a token to view it.</p>

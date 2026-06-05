@@ -254,6 +254,14 @@ export type FogPaintPayload = { mapId: string; cells: string[]; reveal: boolean 
 /** Cover the whole map again (clear all revealed cells). */
 export type FogCoverPayload = { mapId: string };
 export type ClaimCharacterPayload = { characterId: string };
+/** Create a player character (DM or player). */
+export type CharacterCreatePayload = {
+  name: string;
+  race?: string;
+  className?: string;
+  maxHp?: number;
+  stats?: Record<string, number>;
+};
 /** A transient message the server asks a client to surface (e.g. a toast). */
 export type NoticePayload = { message: string };
 /** Create a reusable creature *template* (one spawn button). */
@@ -302,6 +310,17 @@ export type TokenSetRolePayload = {
   tokenIds: string[];
   role: CombatRole | null;
 };
+/** Damage (+) or heal (−) every listed token's creature at once (AOE). */
+export type TokensDamagePayload = { tokenIds: string[]; amount: number };
+/** Hide/show every listed token from players at once. */
+export type TokensSetHiddenPayload = { tokenIds: string[]; hidden: boolean };
+/** Apply one condition to every listed token's creature. */
+export type TokensSetConditionPayload = {
+  tokenIds: string[];
+  condition: Omit<Condition, 'id'>;
+};
+/** Clear ALL conditions from every listed token's creature. */
+export type TokensClearConditionsPayload = { tokenIds: string[] };
 export type InitiativeSetPayload = { tokenId: string; initiative: number | null };
 
 export type ServerError = { code: string; message: string };
@@ -324,11 +343,16 @@ export interface ClientToServerEvents {
   'tokens:setIcon': (payload: TokenSetIconPayload) => void;
   'tokens:setHideCombatRole': (payload: TokenSetHideRolePayload) => void;
   'tokens:setCombatRole': (payload: TokenSetRolePayload) => void;
+  'tokens:damage': (payload: TokensDamagePayload) => void;
+  'tokens:setHidden': (payload: TokensSetHiddenPayload) => void;
+  'tokens:setCondition': (payload: TokensSetConditionPayload) => void;
+  'tokens:clearConditions': (payload: TokensClearConditionsPayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;
   'damage:apply': (payload: DamagePayload) => void;
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
+  'character:create': (payload: CharacterCreatePayload) => void;
   'character:release': () => void;
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:update': (payload: MonsterUpdatePayload) => void;

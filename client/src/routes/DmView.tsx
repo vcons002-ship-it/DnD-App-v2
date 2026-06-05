@@ -3,6 +3,7 @@ import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { SidePanel } from '../components/SidePanel';
 import { Toast } from '../components/Toast';
 import { useSelection } from '../lib/useSelection';
@@ -94,7 +95,13 @@ export function DmView() {
         </main>
 
         <SidePanel side="right" storageKey="dm-right">
-          {selectedToken ? (
+          {selectedIds.length > 1 ? (
+            <BulkActionsPanel
+              snapshot={snapshot}
+              selectedIds={selectedIds}
+              onClearSelection={() => setSelectedIds([])}
+            />
+          ) : selectedToken ? (
             <SelectedTokenPanel
               snapshot={snapshot}
               token={selectedToken}
