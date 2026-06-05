@@ -135,15 +135,38 @@ export type AbilityRoll = {
 };
 
 /**
- * A spell or ability added to a character sheet. Has a collapsible
- * `description` and, when applicable, a structured `roll` powering a roll
- * button (upcastable for leveled spells via the chosen slot level).
+ * A weapon mastery (2024 rules) attached to a sheet entry. When `active` and
+ * bound to a `weapon` that matches an attack, the optional `effect` adjusts that
+ * attack's damage server-side. Masteries without an `effect` are descriptive and
+ * handled manually at the table.
+ */
+export type WeaponMastery = {
+  /** The weapon name this mastery is bound to (matched against the attack's weapon). */
+  weapon: string;
+  /** Toggle — only an active mastery applies its effect. */
+  active: boolean;
+  /** Auto-effect on attacks with the bound weapon; absent = descriptive/manual. */
+  effect?: {
+    /** Extra damage dice added on a HIT, e.g. "1d4". */
+    bonusDamage?: string;
+    /** On a MISS, deal damage equal to the attacker's ability modifier (Graze). */
+    grazeOnMiss?: boolean;
+  };
+};
+
+/**
+ * A spell, ability, or weapon mastery added to a character sheet. Has a
+ * collapsible `description` and, when applicable, a structured `roll` powering a
+ * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
  */
 export type SheetAbility = {
   id: string;
   name: string;
-  /** `spell` enables an upcast level selector; `ability` is a feature/action. */
-  type: 'spell' | 'ability';
+  /**
+   * `spell` enables an upcast level selector; `ability` is a feature/action;
+   * `mastery` is a weapon mastery (toggle + weapon binding).
+   */
+  type: 'spell' | 'ability' | 'mastery';
   /** Spell level (0 = cantrip); omitted for non-spell abilities. */
   level?: number;
   /** School or short tag, e.g. "Evocation", "Class feature". */
@@ -154,6 +177,8 @@ export type SheetAbility = {
   description: string;
   /** Optional structured roll; absent for purely descriptive entries. */
   roll?: AbilityRoll;
+  /** Weapon-mastery config (only when `type` is `mastery`). */
+  mastery?: WeaponMastery;
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };

@@ -40,6 +40,11 @@ export function weaponAttackBonus(c: Combatant, w: Weapon): number {
   return abilityMod(c.stats[weaponAbility(c, w)]) + profBonusFor(c);
 }
 
+/** The ability modifier a weapon uses to attack (STR/DEX per the rules above). */
+export function weaponAbilityMod(c: Combatant, w: Weapon): number {
+  return abilityMod(c.stats[weaponAbility(c, w)]);
+}
+
 /** Split "1d8+3" into its dice expression and flat modifier. */
 function damageParts(expr: string): { dice: string; flat: number } {
   const cleaned = expr.replace(/\s+/g, '');

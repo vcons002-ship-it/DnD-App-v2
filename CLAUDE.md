@@ -155,9 +155,11 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
 - **Characters:** DM + player creation, shared tagged sheet (editable), **skills**
   with proficiency/bonuses, **resources** auto-filled from 5e class/level tables
   (+ custom counters, pip trackers), **inventory items** (+ library picker),
-  **spells & abilities** (`CharacterSpells`: search a local rules DB
-  `spells/srd.ts` → Gemini fallback; collapsible text; server-resolved
-  `ability:roll` with upcast/cantrip scaling into the roll log),
+  **spells, abilities & weapon masteries** (`CharacterSpells`: search a local
+  rules DB `spells/srd.ts` + `masteries/srd.ts` → Gemini fallback; collapsible
+  text; server-resolved `ability:roll` with upcast/cantrip scaling; masteries
+  carry a weapon binding + on/off toggle and adjust the matching weapon's attack
+  in `resolveAttack`, e.g. Graze damage on a miss),
   player places/edits own token, **high-visibility PC tokens**, party + friendly
   sheets read-only, sheet import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text

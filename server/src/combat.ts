@@ -8,6 +8,7 @@ import {
 import {
   rollSavingThrow,
   rollWeaponAttack,
+  weaponAbilityMod,
   type Advantage,
   type Combatant,
 } from '../../shared/combatMath.js';
@@ -76,13 +77,44 @@ export function resolveAttack(
   if (!weapon) return false;
 
   const out = rollWeaponAttack(a.c, weapon, t.ac, advantage);
-  if (out.hit && out.damage > 0) applyDamage(t.kind, t.refId, out.damage);
+
+  // Active weapon masteries bound to THIS weapon adjust the damage: extra dice
+  // on a hit, or Graze (ability-mod damage) on a miss. Only PCs carry masteries.
+  let extra = 0;
+  const masteryNotes: string[] = [];
+  if (at.kind === 'pc') {
+    const ch = getCharacter(at.refId);
+    const wn = weapon.name.trim().toLowerCase();
+    for (const ab of ch?.sheetAbilities ?? []) {
+      const m = ab.mastery;
+      if (ab.type !== 'mastery' || !m?.active || !m.effect) continue;
+      if (!m.weapon || m.weapon.trim().toLowerCase() !== wn) continue;
+      if (out.hit && m.effect.bonusDamage) {
+        const r = rollDice(m.effect.bonusDamage);
+        if (r && r.total > 0) {
+          extra += r.total;
+          masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
+        }
+      } else if (!out.hit && m.effect.grazeOnMiss) {
+        const g = Math.max(0, weaponAbilityMod(a.c, weapon));
+        if (g > 0) {
+          extra += g;
+          masteryNotes.push(`${ab.name} ${g} (graze)`);
+        }
+      }
+    }
+  }
+
+  const applied = (out.hit ? out.damage : 0) + extra;
+  if (applied > 0) applyDamage(t.kind, t.refId, applied);
   addRollLog(sessionId, {
     roller,
     label: 'Attack',
     expr: weapon.name,
     total: out.attackTotal,
-    detail: `${a.name} → ${t.name}: ${out.detail}`,
+    detail:
+      `${a.name} → ${t.name}: ${out.detail}` +
+      (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : ''),
   });
   return true;
 }
