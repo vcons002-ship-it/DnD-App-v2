@@ -1,24 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Monster, StateSnapshot, Token } from '../../../shared/types';
+import type {
+  Character,
+  Monster,
+  StateSnapshot,
+  Token,
+} from '../../../shared/types';
 import { COMBAT_ROLE_ICON } from '../../../shared/combatRole';
 import { resolveToken } from '../lib/entities';
+import { AURA_HEX } from '../lib/conditions';
 import { useSelection } from '../lib/useSelection';
 import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
+import { ConditionPicker } from '../components/ConditionPicker';
 
 const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
   neutral: '#f5c518',
   enemy: '#e23b3b',
 };
+const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
 type SortMode = 'initiative' | 'az' | 'type';
 
 /**
- * Full-screen battlefield dashboard for a second screen / tablet. Small cards by
- * default (expand for the full token panel), sortable, drag-reorderable, with a
- * multiselect that mirrors to the map window and drives bulk actions here.
+ * Full-screen battlefield dashboard for a second screen / tablet. Compact cards
+ * (name, HP, quick damage/heal + status) that expand into a large overlay with
+ * the full token panel. Sortable, drag-reorderable, with a multiselect that
+ * mirrors to the map window and drives bulk actions here.
  */
 export function DmDataView() {
   const snapshot = useStore((s) => s.snapshot)!;
@@ -33,7 +42,7 @@ export function DmDataView() {
   );
   const [sortMode, setSortMode] = useState<SortMode>('initiative');
   const [manualOrder, setManualOrder] = useState<string[] | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const dragId = useRef<string | null>(null);
 
   // Always mirror the LIVE active map even if the main DM switches it.
@@ -43,9 +52,15 @@ export function DmDataView() {
     }
   }, [snapshot.activeMapId, snapshot.map?.id, selectMap]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && setExpandedId(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const tokens = snapshot.tokens;
 
-  // 1-based initiative rank (independent of the chosen sort).
   const rankOf = useMemo(() => {
     const m = new Map<string, number>();
     [...tokens]
@@ -67,7 +82,6 @@ export function DmDataView() {
     if (sortMode === 'az') {
       arr.sort((a, b) => name(a).localeCompare(name(b)));
     } else if (sortMode === 'type') {
-      // Players first, then creatures grouped by type, each group A–Z.
       arr.sort((a, b) => {
         if (a.kind !== b.kind) return a.kind === 'pc' ? -1 : 1;
         const ta = typeOf(a);
@@ -87,7 +101,6 @@ export function DmDataView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokens, sortMode, snapshot]);
 
-  // Effective order: manual drag order (reconciled with adds/removes) or sort.
   const orderIds = useMemo(() => {
     if (!manualOrder) return sorted;
     const present = new Set(tokens.map((t) => t.id));
@@ -102,7 +115,7 @@ export function DmDataView() {
 
   const chooseSort = (m: SortMode) => {
     setSortMode(m);
-    setManualOrder(null); // re-sorting drops a manual arrangement
+    setManualOrder(null);
   };
 
   const onDrop = (targetId: string) => {
@@ -122,13 +135,6 @@ export function DmDataView() {
     setSelectedIds((cur) =>
       cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
     );
-  const toggleExpand = (id: string) =>
-    setExpanded((cur) => {
-      const next = new Set(cur);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   const turnName = snapshot.activeTurnTokenId
     ? resolveToken(
@@ -138,6 +144,9 @@ export function DmDataView() {
     : null;
   const activeMapName =
     snapshot.maps.find((m) => m.id === snapshot.activeMapId)?.name ?? '—';
+  const expandedToken = expandedId
+    ? tokens.find((t) => t.id === expandedId)
+    : null;
 
   return (
     <div className="data-view">
@@ -202,13 +211,28 @@ export function DmDataView() {
               rank={rankOf.get(t.id) ?? null}
               isTurn={t.id === snapshot.activeTurnTokenId}
               selected={selectedIds.includes(t.id)}
-              expanded={expanded.has(t.id)}
               onToggleSelect={() => toggleSelect(t.id)}
-              onToggleExpand={() => toggleExpand(t.id)}
+              onExpand={() => setExpandedId(t.id)}
               onDragStart={() => (dragId.current = t.id)}
               onDrop={() => onDrop(t.id)}
             />
           ))}
+        </div>
+      )}
+
+      {expandedToken && (
+        <div className="data-modal-backdrop" onClick={() => setExpandedId(null)}>
+          <div className="data-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="data-modal-head">
+              <strong>{resolveToken(snapshot, expandedToken).name}</strong>
+              <button className="btn tiny" onClick={() => setExpandedId(null)}>
+                ✕ Close
+              </button>
+            </div>
+            <div className="data-modal-body">
+              <SelectedTokenPanel snapshot={snapshot} token={expandedToken} />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -221,9 +245,8 @@ function DataCard({
   rank,
   isTurn,
   selected,
-  expanded,
   onToggleSelect,
-  onToggleExpand,
+  onExpand,
   onDragStart,
   onDrop,
 }: {
@@ -232,15 +255,24 @@ function DataCard({
   rank: number | null;
   isTurn: boolean;
   selected: boolean;
-  expanded: boolean;
   onToggleSelect: () => void;
-  onToggleExpand: () => void;
+  onExpand: () => void;
   onDragStart: () => void;
   onDrop: () => void;
 }) {
+  const applyDamage = useStore((s) => s.applyDamage);
+  const clearCondition = useStore((s) => s.clearCondition);
+  const [amount, setAmount] = useState(5);
   const d = resolveToken(snapshot, token);
   const hpFrac =
     d.maxHp && d.curHp !== undefined ? Math.max(0, Math.min(1, d.curHp / d.maxHp)) : null;
+
+  const entity =
+    token.kind === 'pc'
+      ? (snapshot.characters.find((c) => c.id === token.refId) as Character | undefined)
+      : (snapshot.monsters.find((m) => m.id === token.refId) as Monster | undefined);
+  const showStats =
+    entity && 'stats' in entity && ABILITIES.some((a) => entity.stats[a] !== undefined);
 
   return (
     <div
@@ -263,32 +295,95 @@ function DataCard({
         />
         {rank !== null && <span className="data-rank">#{rank}</span>}
         {d.disposition && (
-          <span
-            className="dot"
-            style={{ background: DISPOSITION_HEX[d.disposition] }}
-          />
+          <span className="dot" style={{ background: DISPOSITION_HEX[d.disposition] }} />
         )}
         {token.combatRole && <span>{COMBAT_ROLE_ICON[token.combatRole]}</span>}
-        <button className="data-name-btn" onClick={onToggleExpand} title="Expand">
-          {d.name}
-        </button>
-        {hpFrac !== null && (
-          <div className="data-hp-bar" title={`${d.curHp}/${d.maxHp}`}>
-            <span
-              style={{
-                width: `${hpFrac * 100}%`,
-                background:
-                  hpFrac > 0.5 ? '#39c46b' : hpFrac > 0.25 ? '#f5c518' : '#e23b3b',
-              }}
-            />
-          </div>
-        )}
-        <button className="data-expand" onClick={onToggleExpand}>
-          {expanded ? '▾' : '▸'}
+        <span className="data-card-name">{d.name}</span>
+        <button className="data-expand" onClick={onExpand} title="Expand full sheet">
+          ⤢
         </button>
       </div>
 
-      {expanded && <SelectedTokenPanel snapshot={snapshot} token={token} />}
+      <div className="data-card-body">
+        <div className="data-hp">
+          {hpFrac !== null ? (
+            <>
+              <div className="data-hp-bar">
+                <span
+                  style={{
+                    width: `${hpFrac * 100}%`,
+                    background:
+                      hpFrac > 0.5 ? '#39c46b' : hpFrac > 0.25 ? '#f5c518' : '#e23b3b',
+                  }}
+                />
+              </div>
+              <span className="data-hp-num">
+                {d.curHp}/{d.maxHp}
+              </span>
+            </>
+          ) : (
+            <span className="muted">HP hidden</span>
+          )}
+          {entity && 'armorClass' in entity && entity.armorClass > 0 && (
+            <span className="data-ac muted">AC {entity.armorClass}</span>
+          )}
+        </div>
+
+        {showStats && entity && (
+          <div className="data-stats">
+            {ABILITIES.map((a) => (
+              <span key={a}>
+                <em>{a}</em> {entity.stats[a] ?? '—'}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="data-dmg">
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(Number(e.target.value))}
+          />
+          <button
+            className="btn tiny red"
+            onClick={() => applyDamage(token.kind, token.refId, amount)}
+          >
+            −HP
+          </button>
+          <button
+            className="btn tiny green"
+            onClick={() => applyDamage(token.kind, token.refId, -amount)}
+          >
+            +HP
+          </button>
+        </div>
+
+        {d.conditions.length > 0 && (
+          <div className="data-conds">
+            {d.conditions.map((c) => (
+              <button
+                key={c.id}
+                className="data-cond-chip"
+                style={{ borderColor: AURA_HEX[c.aura] }}
+                title="Click to clear"
+                onClick={() => clearCondition(token.kind, token.refId, c.id)}
+              >
+                {c.label} ✕
+              </button>
+            ))}
+          </div>
+        )}
+
+        <details className="data-cond-edit">
+          <summary>Status</summary>
+          <ConditionPicker
+            kind={token.kind}
+            refId={token.refId}
+            conditions={d.conditions}
+          />
+        </details>
+      </div>
     </div>
   );
 }

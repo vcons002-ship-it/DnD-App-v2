@@ -248,17 +248,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   view** button in the DM toolbar — for a second monitor / tablet, freeing the map
   screen of its sidebars. It connects as another DM client (no new server state)
   and always mirrors the LIVE active map (re-selects it if the main DM switches).
-  A grid of **small cards** (rank, turn, disposition, combat role, HP bar) that
-  **expand** to the exact same `SelectedTokenPanel` the map uses — so every token
-  exposes all its data and the full side-toolbar functionality (editable stat
-  block + AI fill, disposition, combat-role, icon tools, conditions,
-  duplicate/hide/delete, damage/heal, resize). **Sort** by initiative / A–Z /
-  type (players first, then creatures grouped by type), then **drag-reorder**
-  cards into a custom arrangement. A per-card **checkbox multi-selects**, which
+  A grid of **compact cards** (name, HP bar, quick damage/heal, AC, ability
+  scores, condition chips + a Status picker) that **expand into a large overlay**
+  (over everything, flowed into responsive columns so the full token panel fits
+  on screen without a skinny scrolling card). The overlay reuses the exact same
+  `SelectedTokenPanel` the map uses — editable stat block + AI fill, disposition,
+  combat-role, icon tools, conditions, duplicate/hide/delete, damage/heal, resize.
+  **Sort** by initiative / A–Z / type (players first, then creatures grouped by
+  type), then **drag-reorder** cards. A per-card **checkbox multi-selects**, which
   mirrors to the map window (BroadcastChannel between DM tabs via `useSelection`
-  `syncKey`) and drives the `BulkActionsPanel` (AOE damage/heal, conditions,
-  image, hide, delete) right from the Data screen. Header has the turn readout +
-  Roll-all / Next / Clear. *(Future: selectable/toggleable panels.)*
+  `syncKey`) and drives the `BulkActionsPanel` from the Data screen. Header has the
+  turn readout + Roll-all / Next / Clear. *(Future: selectable/toggleable panels.)*
 - ☑ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
   `DmView` / `PlayerView`, role-aware:
   - **Load session** (DM) / **Leave** (player) — disconnects and returns to the
