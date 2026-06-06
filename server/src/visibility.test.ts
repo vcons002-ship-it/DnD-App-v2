@@ -22,6 +22,7 @@ import {
   setTokensHideCombatRole,
   setTokensCombatRole,
   createCharacter,
+  claimCharacter,
   updateCharacter,
   getCharacter,
   listCharacters,
@@ -336,6 +337,26 @@ describe('visibility role-shaping', () => {
     expect(player.tokens).toHaveLength(0);
     // DM sees both regardless.
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(2);
+  });
+
+  it("never hides a player's own claimed PC token under fog (but hides it from others)", () => {
+    const session = createSession('OwnToken');
+    const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    const pc = createCharacter(session.id, { name: 'Hero', maxHp: 12 });
+    claimCharacter(pc.id, 'socket-A');
+    createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 10, y: 10 });
+
+    // Cover the whole map with token fog → the PC token sits under cover.
+    setFogLayer(map.id, 'tokens', true);
+    coverFog(map.id, 'tokens');
+
+    // The owning player still receives their own token...
+    const owner = buildSnapshot(session.id, 'player', null, 'socket-A')!;
+    expect(owner.tokens).toHaveLength(1);
+    // ...but a different player does not see it through the fog.
+    const other = buildSnapshot(session.id, 'player', null, 'socket-B')!;
+    expect(other.tokens).toHaveLength(0);
   });
 
   it('per-token hide keeps a token from players regardless of fog', () => {

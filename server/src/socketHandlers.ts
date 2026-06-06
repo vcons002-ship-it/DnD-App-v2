@@ -133,6 +133,7 @@ export function registerSocketHandlers(io: IOServer): void {
         session.id,
         payload.role,
         session.activeMapId,
+        socket.id,
       );
       if (!snapshot) {
         return ack({

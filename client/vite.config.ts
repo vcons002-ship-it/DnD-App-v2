@@ -13,4 +13,16 @@ export default defineConfig({
       '/socket.io': { target: 'http://localhost:4000', ws: true },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy vendors into their own chunks so the main bundle
+        // stays under Vite's 500 kB warning and the libs cache/parallel-load.
+        manualChunks: {
+          konva: ['konva', 'react-konva'],
+          react: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
 });

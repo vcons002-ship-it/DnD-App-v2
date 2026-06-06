@@ -77,6 +77,8 @@ export function buildSnapshot(
   role: Role,
   /** DM's currently-selected (possibly staging) map; ignored for players. */
   dmViewMapId?: string | null,
+  /** Requesting socket — a player always sees their own claimed PC token. */
+  socketId?: string,
 ): StateSnapshot | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
@@ -115,7 +117,13 @@ export function buildSnapshot(
         (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key))
       );
     };
-    tokens = tokens.filter((t) => !t.isHidden && !covered(t));
+    // A player always sees their own claimed PC token, even under fog — they
+    // know where they are; only OTHER players are kept from seeing it.
+    const ownedBy = (t: Token) =>
+      t.kind === 'pc' && getCharacter(t.refId)?.claimedBy === socketId;
+    tokens = tokens.filter(
+      (t) => !t.isHidden && (!covered(t) || ownedBy(t)),
+    );
     monsters = monsters.map((m) => toPlayerMonster(m as Monster));
   }
 
