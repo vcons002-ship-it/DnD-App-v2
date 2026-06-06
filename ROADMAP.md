@@ -330,8 +330,9 @@ Smaller refinements on top of the shipped Phase 2 work.
   **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) shows a compact,
   **click-through** (`pointer-events:none`) `RollLogOverlay` pinned to the
   **bottom-left** of the map — a single line with just the latest roll, so it stays
-  out of the way while keeping the map fully clickable underneath. DM **Clear**
-  stays in the left UI.
+  out of the way while keeping the map fully clickable underneath. It fades in on a
+  new roll or on hover (detected by cursor-vs-rect since pointer-events are off) and
+  fades out when idle. DM **Clear** stays in the left UI.
 - ☑ **Monster attack rolls (parse `actions` → `weapons`) [req].** SRD/AI monsters
   store attacks as free-text `actions`; `shared/monsterAttacks.ts`
   (`weaponsFromActions`, pure + tested) turns any action that has **both** a

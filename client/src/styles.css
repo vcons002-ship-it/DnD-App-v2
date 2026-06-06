@@ -351,6 +351,7 @@ input[type='number'] { width: 70px; }
   position: absolute; left: 8px; bottom: 8px; z-index: 4;
   pointer-events: none; max-width: 60%; margin: 0;
   background: #0b0d12cc; white-space: nowrap; overflow: hidden;
+  transition: opacity .4s;
 }
 .roll-log-overlay .roll-meta { overflow: hidden; text-overflow: ellipsis; }
 
