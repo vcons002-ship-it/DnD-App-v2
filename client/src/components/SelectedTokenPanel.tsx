@@ -81,6 +81,9 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
             {canSeeHp && (
               <div className="hp-line">
                 HP: {d.curHp} / {d.maxHp}
+                {!!d.tempHp && d.tempHp > 0 && (
+                  <span className="temp-hp"> +{d.tempHp} temp</span>
+                )}
               </div>
             )}
           </>
@@ -106,6 +109,9 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       {canSeeHp ? (
         <div className="hp-line">
           HP: {d.curHp} / {d.maxHp}
+          {!!d.tempHp && d.tempHp > 0 && (
+            <span className="temp-hp"> +{d.tempHp} temp</span>
+          )}
         </div>
       ) : (
         <div className="hp-line muted">HP hidden</div>

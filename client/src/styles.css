@@ -251,6 +251,8 @@ input[type='number'] { width: 70px; }
 .session-meta { color: var(--muted); font-size: 12px; }
 
 .hp-line { font-size: 16px; margin: 6px 0; }
+/* Temporary-HP buffer pool: a flat 2024-rules cyan accent next to real HP. */
+.temp-hp { color: #5ce1ff; font-weight: 600; }
 .size-row { margin-top: 8px; }
 
 /* Conditions */

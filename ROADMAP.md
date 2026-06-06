@@ -58,8 +58,19 @@ Smaller refinements on top of the shipped Phase 2 work.
   PlayerPanel lets a player click the active map to drop their claimed
   character once (`token:spawn` now allows a player to place only their own
   claimed PC, on the active map, no duplicates).
-- ☑ **High-visibility PC tokens [req].** Player-character tokens render a bright
-  glowing cyan halo so the party stands out clearly from creature tokens.
+- ☑ **High-visibility PC tokens [req].** Player-character tokens wear a 👑 crown
+  above the rim (with the name lifted to clear it) so the party stands out clearly
+  from creature tokens, without the old glowing halo crowding the status rings.
+- ☑ **Temporary HP [req].** Characters and monsters carry a flat 2024-rules
+  temp-HP buffer pool (`tempHp`, server-side `temp_hp`), set via the stat block's
+  "Temp" field (DM for creatures, owning player for their own PC). Damage drains
+  temp HP first with overflow to real HP, and healing never refills it
+  (`applyDamage`, the single chokepoint for direct/AOE/combat damage). Shown as a
+  cyan "+N" on the token HP bar and a "+N temp" suffix in panels/cards; visible to
+  players for their own PCs and friendly/neutral creatures.
+- ☑ **Short AI creature names [req].** The Gemini creature lookup now returns a
+  short, flavorful name (e.g. "Bandit Captain") instead of echoing the whole
+  free-text description; applies on the create flow only (back-fill leaves names).
 - ☑ **Initiative *order* on token [req].** The on-token badge now shows turn ORDER
   (1, 2, 3 …); the DM initiative list shows BOTH the order (#) and the roll.
 - ☑ **Carry-tokens confirmation [req].** `copyTokens` returns a count; the server

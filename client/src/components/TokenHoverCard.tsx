@@ -22,6 +22,9 @@ export function TokenHoverCard({ snapshot, token, x, y }: Props) {
       {canSeeHp && (
         <div className="hover-card-hp">
           HP {d.curHp} / {d.maxHp}
+          {!!d.tempHp && d.tempHp > 0 && (
+            <span className="temp-hp"> +{d.tempHp} temp</span>
+          )}
         </div>
       )}
       {d.conditions.length > 0 && (

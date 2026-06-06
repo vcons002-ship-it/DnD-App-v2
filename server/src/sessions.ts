@@ -999,6 +999,7 @@ export function updateCharacter(
     level: number;
     maxHp: number;
     curHp: number;
+    tempHp: number;
     armorClass: number;
     speed: string;
     stats: Record<string, number>;
@@ -1028,6 +1029,7 @@ export function updateCharacter(
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  if (patch.tempHp !== undefined) put('temp_hp', Math.max(0, patch.tempHp));
   if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
   if (patch.speed !== undefined) put('speed', patch.speed);
   if (patch.icon !== undefined) put('icon', patch.icon);
@@ -1286,6 +1288,7 @@ export function updateMonster(
     level: number;
     maxHp: number;
     curHp: number;
+    tempHp: number;
     creatureType: string;
     armorClass: number;
     speed: string;
@@ -1314,6 +1317,7 @@ export function updateMonster(
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  if (patch.tempHp !== undefined) put('temp_hp', Math.max(0, patch.tempHp));
   if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
   if (patch.speed !== undefined) put('speed', patch.speed);
   if (patch.icon !== undefined) put('icon', patch.icon);
@@ -1373,8 +1377,22 @@ export function applyDamage(
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity) return null;
-  const next = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
-  db.prepare(`UPDATE ${table} SET cur_hp = ? WHERE id = ?`).run(next, refId);
+  // 2024 rules: damage drains the temporary-HP buffer first, then real HP;
+  // healing (amount < 0) only restores real HP and never refills temp HP.
+  let nextTemp = entity.tempHp;
+  let nextCur: number;
+  if (amount > 0) {
+    const absorbed = Math.min(nextTemp, amount);
+    nextTemp -= absorbed;
+    nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - (amount - absorbed)));
+  } else {
+    nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
+  }
+  db.prepare(`UPDATE ${table} SET cur_hp = ?, temp_hp = ? WHERE id = ?`).run(
+    nextCur,
+    nextTemp,
+    refId,
+  );
   return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
 }
 

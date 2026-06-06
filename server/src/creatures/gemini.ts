@@ -173,12 +173,14 @@ export async function lookupCreatureAI(
     `creature name or a short description (e.g. "goblin with a longbow", ` +
     `"orc fighter with a halberd") — honor the described gear/role. ` +
     `Respond ONLY with minified JSON of shape ` +
-    `{"creatureType":string,"level":number,"maxHp":number,"armorClass":number,"speed":string,` +
+    `{"name":string,"creatureType":string,"level":number,"maxHp":number,"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
     `"actions":[{"name":string,"description":string}],` +
     `"abilities":[{"name":string,"description":string}]}. ` +
+    `"name" is a short, flavorful creature name (≈2–4 words, e.g. "Bandit Captain" ` +
+    `or "Ashfang Wolf") — NOT the full description text. ` +
     `"level" is the challenge rating as a number (e.g. 0.25, 1, 5). ` +
     `"weapons" are its attacks as tagged data (damage like "1d8+3"); ` +
     `"actions" are attacks/actions (include to-hit and damage); "abilities" are ` +
@@ -191,7 +193,9 @@ export async function lookupCreatureAI(
     const creatureType = String(parsed.creatureType ?? 'unknown');
     const stats = parseStats(parsed.stats);
     return {
-      name: name.trim(),
+      // The model picks a short, flavorful name; fall back to the raw input so
+      // the create flow always has a sensible label even if the field is missing.
+      name: String(parsed.name ?? '').trim() || name.trim(),
       creatureType,
       level: Number.isFinite(Number(parsed.level)) ? Number(parsed.level) : 0,
       maxHp: Number(parsed.maxHp) > 0 ? Math.round(Number(parsed.maxHp)) : 10,

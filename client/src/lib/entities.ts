@@ -14,6 +14,8 @@ export type TokenDisplay = {
   /** Undefined when the viewer isn't allowed to see HP (players vs monsters). */
   curHp?: number;
   maxHp?: number;
+  /** Temporary HP buffer pool (undefined/0 when none or HP isn't visible). */
+  tempHp?: number;
   conditions: Condition[];
   /** Monster disposition (undefined for PCs) — drives the battlefield dot. */
   disposition?: Disposition;
@@ -37,6 +39,7 @@ export function resolveToken(
       name: c.name,
       curHp: c.curHp,
       maxHp: c.maxHp,
+      tempHp: c.tempHp,
       conditions: c.conditions,
       icon: c.icon,
     };
@@ -48,6 +51,7 @@ export function resolveToken(
       name: m.name,
       curHp: m.curHp,
       maxHp: m.maxHp,
+      tempHp: m.tempHp,
       conditions: m.conditions,
       disposition: m.disposition,
       icon: m.icon,

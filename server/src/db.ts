@@ -186,7 +186,15 @@ function ensureColumn(table: string, column: string, ddl: string): boolean {
     name: string;
   }[];
   if (cols.some((c) => c.name === column)) return false;
-  db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  } catch (err) {
+    // The test suite opens this shared DB file from several parallel workers, so
+    // two can race to add the same brand-new column; the loser sees a harmless
+    // "duplicate column" error. Swallow only that — anything else is a real bug.
+    if (!/duplicate column/i.test((err as Error).message)) throw err;
+    return false;
+  }
   return true;
 }
 
@@ -274,6 +282,9 @@ ensureColumn(
   'hide_combat_role',
   'hide_combat_role INTEGER NOT NULL DEFAULT 0',
 );
+// Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
+ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
+ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 // Optional long text on a roll entry (e.g. a cast spell's full description).
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 // Emanation measurements follow a token by id.
@@ -366,6 +377,7 @@ type CharacterRow = {
   level: number;
   max_hp: number;
   cur_hp: number;
+  temp_hp: number;
   armor_class: number;
   speed: string;
   stats: string;
@@ -394,6 +406,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     level: r.level ?? 1,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
+    tempHp: r.temp_hp ?? 0,
     armorClass: r.armor_class ?? 0,
     speed: r.speed ?? '',
     stats: JSON.parse(r.stats),
@@ -420,6 +433,7 @@ type MonsterRow = {
   creature_type: string;
   max_hp: number;
   cur_hp: number;
+  temp_hp: number;
   resistances: string;
   weaknesses: string;
   abilities: string;
@@ -444,6 +458,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     level: r.level ?? 0,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
+    tempHp: r.temp_hp ?? 0,
     armorClass: r.armor_class ?? 0,
     speed: r.speed ?? '',
     stats: JSON.parse(r.stats ?? '{}'),

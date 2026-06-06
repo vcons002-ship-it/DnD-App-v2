@@ -329,6 +329,9 @@ function DataCard({
               </div>
               <span className="data-hp-num">
                 {d.curHp}/{d.maxHp}
+                {!!d.tempHp && d.tempHp > 0 && (
+                  <span className="temp-hp"> +{d.tempHp}</span>
+                )}
               </span>
             </>
           ) : (

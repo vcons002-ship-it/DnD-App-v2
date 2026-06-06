@@ -78,6 +78,9 @@ export function PlayerPanel({
           </div>
           <div className="hp-line">
             HP: {mine.curHp} / {mine.maxHp}
+            {mine.tempHp > 0 && (
+              <span className="temp-hp"> +{mine.tempHp} temp</span>
+            )}
           </div>
           {isPlaced ? (
             <p className="hint">Your token is on the map.</p>
@@ -119,6 +122,9 @@ export function PlayerPanel({
                 <span className="init-name">{c.name}</span>
                 <span className="muted">
                   {c.curHp}/{c.maxHp}
+                  {c.tempHp > 0 && (
+                    <span className="temp-hp"> +{c.tempHp}</span>
+                  )}
                 </span>
               </summary>
               <CharacterSheet character={c} editable={false} />

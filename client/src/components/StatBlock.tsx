@@ -16,6 +16,8 @@ export type StatSheet = {
   level: number;
   curHp: number;
   maxHp: number;
+  /** Temporary HP buffer pool (0 = none). */
+  tempHp: number;
   armorClass: number;
   speed: string;
   stats: Record<string, number>;
@@ -100,6 +102,7 @@ export function StatBlock({
       level: c.level,
       curHp: c.curHp,
       maxHp: c.maxHp,
+      tempHp: c.tempHp,
       armorClass: c.armorClass,
       speed: c.speed,
       stats: { ...c.stats },
@@ -123,6 +126,7 @@ export function StatBlock({
       level: d.level,
       maxHp: d.maxHp,
       curHp: d.curHp,
+      tempHp: d.tempHp,
       armorClass: d.armorClass,
       speed: d.speed.trim(),
       stats: d.stats,
@@ -193,6 +197,14 @@ export function StatBlock({
             type="number"
             value={d.maxHp}
             onChange={(e) => set({ maxHp: num(e.target.value) })}
+          />
+        </label>
+        <label className="mini">
+          Temp
+          <input
+            type="number"
+            value={d.tempHp}
+            onChange={(e) => set({ tempHp: Math.max(0, num(e.target.value)) })}
           />
         </label>
         <label className="mini">
@@ -338,6 +350,7 @@ function ReadView({
         {m.armorClass > 0 && <span>AC {m.armorClass}</span>}
         <span>
           HP {m.curHp}/{m.maxHp}
+          {m.tempHp > 0 && <span className="temp-hp"> +{m.tempHp} temp</span>}
         </span>
         {m.speed && <span>{m.speed}</span>}
       </div>

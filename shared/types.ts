@@ -115,6 +115,9 @@ export type Character = {
   level: number;
   maxHp: number;
   curHp: number;
+  /** Temporary HP — a flat 2024-rules buffer pool depleted by damage before real
+   *  HP; never restored by healing, has no maximum (0 = none). */
+  tempHp: number;
   armorClass: number;
   speed: string;
   stats: Record<string, number>;
@@ -241,6 +244,9 @@ export type Monster = {
   level: number;
   maxHp: number;
   curHp: number;
+  /** Temporary HP — a flat 2024-rules buffer pool depleted by damage before real
+   *  HP; never restored by healing, has no maximum (0 = none). */
+  tempHp: number;
   armorClass: number;
   speed: string;
   /** Ability scores, e.g. { STR: 16, DEX: 12, … }. */
@@ -359,6 +365,7 @@ export type MonsterPublic = {
 export type MonsterNeutral = MonsterPublic & {
   curHp: number;
   maxHp: number;
+  tempHp: number;
   creatureType: string;
   armorClass: number;
 };
@@ -537,6 +544,7 @@ export type CharacterUpdatePayload = {
   level?: number;
   maxHp?: number;
   curHp?: number;
+  tempHp?: number;
   armorClass?: number;
   speed?: string;
   stats?: Record<string, number>;
@@ -644,6 +652,7 @@ export type MonsterUpdatePayload = {
   level?: number;
   maxHp?: number;
   curHp?: number;
+  tempHp?: number;
   creatureType?: string;
   armorClass?: number;
   speed?: string;

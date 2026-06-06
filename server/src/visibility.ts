@@ -59,6 +59,7 @@ function toPlayerMonster(
       ...base,
       curHp: m.curHp,
       maxHp: m.maxHp,
+      tempHp: m.tempHp,
       creatureType: m.creatureType,
       armorClass: m.armorClass,
     };

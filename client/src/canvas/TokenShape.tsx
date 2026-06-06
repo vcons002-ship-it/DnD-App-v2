@@ -188,18 +188,6 @@ export function TokenShape({
           shadowOpacity={0.95}
         />
       )}
-      {/* Player-character tokens get a bright glowing halo so the party stands
-          out clearly from creatures. */}
-      {token.kind === 'pc' && (
-        <Circle
-          radius={radius + 3}
-          stroke="#5ce1ff"
-          strokeWidth={4}
-          shadowColor="#5ce1ff"
-          shadowBlur={14}
-          shadowOpacity={0.95}
-        />
-      )}
       {hasImageIcon && iconImg ? (
         <>
           <Group
@@ -265,7 +253,8 @@ export function TokenShape({
         align="center"
         width={radius * 4}
         offsetX={radius * 2}
-        y={-radius - 18}
+        // PC names sit a little higher to make room for the crown above the rim.
+        y={-radius - (token.kind === 'pc' ? 34 : 18)}
       />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
@@ -277,6 +266,18 @@ export function TokenShape({
             fill={hpFrac > 0.5 ? '#39c46b' : hpFrac > 0.25 ? '#f5c518' : '#e23b3b'}
             cornerRadius={3}
           />
+          {/* Temporary HP — a single flat buffer pool (no max), so it shows as a
+              "+N" to the right of the bar rather than a second bar. */}
+          {!!display.tempHp && display.tempHp > 0 && (
+            <Text
+              text={`+${display.tempHp}`}
+              fontSize={Math.max(10, radius * 0.4)}
+              fontStyle="bold"
+              fill="#5ce1ff"
+              x={radius * 2 + 3}
+              y={-1}
+            />
+          )}
         </Group>
       )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
@@ -326,6 +327,25 @@ export function TokenShape({
           />
         </Group>
       )}
+      {/* Player-character tokens wear a crown just above the rim (with the name
+          lifted above it) so the party stands out from creatures without the old
+          halo crowding the status rings. */}
+      {token.kind === 'pc' &&
+        (() => {
+          const crown = Math.min(22, Math.max(14, radius * 0.6));
+          return (
+            <Text
+              text="👑"
+              fontSize={crown}
+              width={radius * 2}
+              offsetX={radius}
+              offsetY={crown / 2}
+              y={-radius - crown / 2 - 2}
+              align="center"
+              verticalAlign="middle"
+            />
+          );
+        })()}
     </Group>
   );
 }
