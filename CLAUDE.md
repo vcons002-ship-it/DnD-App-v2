@@ -35,15 +35,22 @@ user explicitly asks for one** in their request — never proactively, since eac
 PR also requires creating a test launcher (extra work/tokens). Small changes
 never warrant a PR on their own.
 
+**Two-branch model:** `claude/Dev` is the active development branch (day-to-day
+commits). `claude/Main` is the **stable** branch the user's local install tracks
+(`install.bat`/`install.sh` are hardcoded to `claude/Main`, and `start.bat` runs
+that checkout). PRs target `claude/Main` as their base, and their test launchers
+are committed to `claude/Main`, so `install.bat` pulls them into the user's local
+folder for testing.
+
 **PR convention (only when a PR is requested):** when opening a PR, also add a
-launcher named `PR #<N> - <Title>.bat` to **`claude/Dev`** (a thin wrapper over
+launcher named `PR #<N> - <Title>.bat` to **`claude/Main`** (a thin wrapper over
 `tools/pr-test-runner.bat` that sets `PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`; in the
 filename strip `\ / : * ? " < > |` (keep `#`/spaces), and in `PR_TITLE` avoid cmd
 metacharacters — replace `&` with "and", drop `% ^ < > | ( )`). The runner checks the PR
 branch out into an isolated sibling folder (`%USERPROFILE%\DnD-App-v2-pr-<N>`) on
 port `4100+N` with its own data, so users can test without touching their main
-install (`start.bat` keeps running `claude/Dev`). Cleanup is automatic:
-`.github/workflows/pr-test-cleanup.yml` removes the launcher from `claude/Dev`
+install (`start.bat` keeps running `claude/Main`). Cleanup is automatic:
+`.github/workflows/pr-test-cleanup.yml` removes the launcher from `claude/Main`
 on PR close, `install.bat` then deletes the stale local folder, and the runner
 self-cleans if a merged launcher is double-clicked — no manual teardown.
 
