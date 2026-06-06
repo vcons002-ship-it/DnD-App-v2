@@ -7,7 +7,7 @@ import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
-import { FootprintTrails, TRAIL_LIFETIME, type Trail } from './FootprintTrails';
+import { FootprintTrails, type Trail } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
@@ -302,9 +302,10 @@ export function MapStage({
 
   // ---- Token movement footprint trails ------------------------------------
   // Diff token positions across snapshots so a move (local drag OR another
-  // client's) leaves a short fading trail of footprints from old spot to new.
+  // client's) leaves a lingering fading trail of footprints from old spot to new.
+  // FootprintTrails self-ticks the long (~30s) fade, so MapStage only re-renders
+  // when a new move is detected, not for the whole fade.
   const [trails, setTrails] = useState<Trail[]>([]);
-  const [trailNow, setTrailNow] = useState(0);
   const prevPos = useRef<Map<string, { x: number; y: number }>>(new Map());
   useEffect(() => {
     const next = new Map<string, { x: number; y: number }>();
@@ -324,20 +325,8 @@ export function MapStage({
       }
     }
     prevPos.current = next;
-    if (fresh.length) {
-      setTrails((cur) => [...cur, ...fresh].slice(-12));
-      setTrailNow(Date.now());
-    }
+    if (fresh.length) setTrails((cur) => [...cur, ...fresh].slice(-12));
   }, [snapshot.tokens, grid]);
-  // Tick while trails exist to drive the fade, pruning expired ones.
-  useEffect(() => {
-    if (!trails.length) return;
-    const iv = setInterval(() => {
-      setTrailNow(Date.now());
-      setTrails((cur) => cur.filter((tr) => Date.now() - tr.start < TRAIL_LIFETIME));
-    }, 60);
-    return () => clearInterval(iv);
-  }, [trails.length]);
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
@@ -837,7 +826,7 @@ export function MapStage({
                 <Line
                   key={i}
                   points={pts}
-                  stroke={gridHot ? '#ffffffcc' : '#ffffff40'}
+                  stroke={gridHot ? '#ffffffcc' : '#ffffff5c'}
                   strokeWidth={gridHot ? 1.5 : 1}
                   listening={false}
                 />
@@ -890,7 +879,7 @@ export function MapStage({
                   }}
                 />
               )}
-              <FootprintTrails trails={trails} gridSizePx={grid} now={trailNow} />
+              <FootprintTrails trails={trails} gridSizePx={grid} />
               {snapshot.tokens.map((t) => (
                 <TokenShape
                   key={t.id}

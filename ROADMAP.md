@@ -438,15 +438,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   square always means real feet. Changing the map width re-derives px to preserve the
   chosen feet-per-square. Client-side derivation only — the `map:setGrid` payload is
   unchanged. Legacy maps with no width fall back to the px field.
-- ☑ **More visible grid [req].** Grid lines are brighter at rest (`#ffffff40`) and
+- ☑ **More visible grid [req].** Grid lines are visible at rest (`#ffffff5c`) and
   **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
   tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
   `onDragActive` signal from `TokenShape`).
 - ☑ **Token footprint trail [req].** A move (local drag OR another client's, diffed
-  from the snapshot) leaves a short **fading line of 👣** from the old spot to the
-  new one, fading **oldest-first** (old location vanishes first, the print nearest
-  the token last). Decorative/non-listening (`FootprintTrails` + `MapStage` position
-  diff).
+  from the snapshot) leaves a lingering trail of **white footprints** (alternating
+  left/right ellipses) from the old spot to the new one, fading **oldest-first** over
+  **~30s** (old location vanishes first, the print nearest the token lingers longest)
+  so players remember where a token came from. Decorative/non-listening;
+  `FootprintTrails` self-ticks the slow fade so it doesn't re-render the rest of the
+  map (`MapStage` position diff).
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
