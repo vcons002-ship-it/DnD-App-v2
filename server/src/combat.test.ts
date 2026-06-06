@@ -4,6 +4,7 @@ import {
   resolveSaves,
   resolveSkillRoll,
   resolveAbilityRoll,
+  resolveMonsterAction,
 } from './combat.js';
 import {
   createSession,
@@ -551,5 +552,54 @@ describe('condition-aware combat', () => {
 
     resolveSaves(s.id, 'DM', [tok.id], 'STR', 10);
     expect(listRollLog(s.id).at(-1)!.detail).not.toContain('prof');
+  });
+});
+
+describe('resolveMonsterAction (structured monster actions)', () => {
+  const drake = (level: number, stats: Record<string, number>) => {
+    const { s } = arena();
+    const tmpl = createMonsterTemplate(s.id, { name: 'Drake', maxHp: 40, level, stats });
+    return { s, m: getMonster(tmpl.id)! };
+  };
+
+  it('logs a save action with a DC derived from CR + casting mod', () => {
+    const { s, m } = drake(5, { CHA: 16 }); // CR 5 → prof +3; CHA 16 → +3 ⇒ DC 14
+    const ok = resolveMonsterAction(s.id, 'DM', m, {
+      name: 'Fire Breath',
+      description: '30-ft cone',
+      roll: { kind: 'save', dice: '4d6', save: 'DEX', damageType: 'fire' },
+    });
+    expect(ok).toBe(true);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('DC 14 DEX save for half');
+    expect(last.total).toBeGreaterThanOrEqual(4);
+    expect(last.total).toBeLessThanOrEqual(24);
+  });
+
+  it('honors an explicit DC from the stat block', () => {
+    const { s, m } = drake(10, { INT: 20 });
+    resolveMonsterAction(s.id, 'DM', m, {
+      name: 'Necrotic Blast',
+      description: '',
+      roll: { kind: 'save', dice: '6d6', dc: 18, save: 'CON' },
+    });
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('DC 18 CON save for half');
+  });
+
+  it('adds CR proficiency + casting mod to an attack, and skips free-text actions', () => {
+    const { s, m } = drake(1, { CHA: 14 });
+    // No structured roll → not rollable.
+    expect(
+      resolveMonsterAction(s.id, 'DM', m, { name: 'Multiattack', description: 'two attacks' }),
+    ).toBe(false);
+    // Attack roll logs a "to hit" line.
+    expect(
+      resolveMonsterAction(s.id, 'DM', m, {
+        name: 'Sting',
+        description: '',
+        roll: { kind: 'attack', dice: '1d4', damageType: 'poison' },
+      }),
+    ).toBe(true);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('to hit');
   });
 });

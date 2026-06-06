@@ -4,6 +4,7 @@ import { rollDice } from '../../shared/dice.js';
 import {
   resolveAttack,
   resolveAbilityRoll,
+  resolveMonsterAction,
   resolveSkillRoll,
   resolveSaves,
 } from './combat.js';
@@ -470,6 +471,17 @@ export function registerSocketHandlers(io: IOServer): void {
         }
       }
       if (ok) afterChange();
+    });
+
+    // Roll a monster's structured action (breath weapon / spell-like) — DM only.
+    socket.on('monster:action', ({ monsterId, actionIndex, advantage }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const monster = getMonster(monsterId);
+      const action = monster?.actions[actionIndex];
+      if (!monster || !action) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      if (resolveMonsterAction(sid, 'DM', monster, action, adv)) afterChange();
     });
 
     socket.on('skill:roll', ({ characterId, skill, advantage }) => {

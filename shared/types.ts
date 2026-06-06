@@ -146,7 +146,12 @@ export type Character = {
   icon: string;
 };
 
-export type CreatureAbility = { name: string; description: string };
+export type CreatureAbility = {
+  name: string;
+  description: string;
+  /** Optional structured roll (monster actions), resolved server-side like a PC's. */
+  roll?: AbilityRoll;
+};
 
 /**
  * A structured roll attached to a sheet spell/ability, resolved server-side so
@@ -163,6 +168,8 @@ export type AbilityRoll = {
   damageType?: string;
   /** For `save` rolls: the ability targets save with, e.g. "DEX". */
   save?: string;
+  /** Explicit save DC (monster stat blocks give one); when unset it's derived. */
+  dc?: number;
   /** Dice added per slot level above `baseLevel` (or per cantrip tier). */
   scaleDice?: string;
   /** Spell level the base dice are written for (0 = cantrip). */
@@ -596,6 +603,12 @@ export type AbilityRollPayload = {
   castLevel?: number;
   advantage?: 'adv' | 'dis';
 };
+/** Roll a monster's structured `action` (DM-only), resolved server-side. */
+export type MonsterActionRollPayload = {
+  monsterId: string;
+  actionIndex: number;
+  advantage?: 'adv' | 'dis';
+};
 /**
  * Roll a 5e skill check for a character (server-authoritative): d20 + the
  * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
@@ -746,6 +759,7 @@ export interface ClientToServerEvents {
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'monster:action': (payload: MonsterActionRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;

@@ -250,11 +250,14 @@ sanitization rules above and commit it to `claude/Main`.
   **deep-link "Join voice"** button (per-session channel/invite), investigate the
   **Embedded App SDK** (Activity) as the deeper integration.
 - **WP7 leftover — drag-reorder toolbar sections** (deferred; lower value).
-- **WP11 follow-up — structured spell attacks:** DONE for the character sheet —
-  `sheetAbilities` carry a structured `roll` (attack/save/damage/heal + upcast),
-  rolled server-side via `ability:roll`. Still open: **auto-spending a spell
-  slot** on cast (players track slots manually in the resources UI), structured
-  rolls for monster/NPC `actions`, and adv/dis on spell attack rolls.
+- **WP11 follow-up — structured spell attacks:** DONE. `sheetAbilities` carry a
+  structured `roll` (attack/save/damage/heal + upcast), rolled server-side via
+  `ability:roll`; casting a leveled spell **auto-spends a slot** (`spendSpellSlot`)
+  and spell attacks support adv/dis. **Monster `actions`** now carry the same
+  structured `roll` too — `resolveMonsterAction` (DC/to-hit from the monster's CR +
+  casting mod) via the DM-only `monster:action` event, authored in `StatBlock`. Still
+  open: one-click **per-target auto-resolution** of save actions (roll each target's
+  save + auto-apply half/full) — today targets use the existing bulk-save tooling.
 - **Phase 3 stretch — Google Slides:** live token layer over a Slides embed; map
   refresh from Slides.
 - **Phase 6 AI:** spell-effect/rules resolution and AI-generated enemy dialogue.

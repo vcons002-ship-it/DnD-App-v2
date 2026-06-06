@@ -20,10 +20,18 @@ import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
   spellAttackBonus,
+  spellcastingMod,
   spellSaveDC,
 } from '../../shared/spellMath.js';
 import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
-import type { Character, SheetAbility, Token, Weapon } from '../../shared/types.js';
+import type {
+  Character,
+  CreatureAbility,
+  Monster,
+  SheetAbility,
+  Token,
+  Weapon,
+} from '../../shared/types.js';
 
 type Resolved = {
   c: Combatant;
@@ -315,6 +323,88 @@ export function resolveAbilityRoll(
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
     description: ability.description || undefined,
+  });
+  return true;
+}
+
+/**
+ * Resolve a monster's structured `action` roll authoritatively and log it,
+ * mirroring `resolveAbilityRoll` but with the to-hit / save DC derived from the
+ * MONSTER's CR + stats: proficiency by CR (`profBonusFor`) and the casting mod =
+ * best of INT/WIS/CHA. An explicit `roll.dc` (from the stat block) wins over the
+ * derived DC. No spell slots; damage isn't auto-applied (parity with PC spell
+ * rolls — targets use the bulk-save + damage tooling). Returns false for a
+ * free-text action with no roll.
+ */
+export function resolveMonsterAction(
+  sessionId: string,
+  roller: string,
+  monster: Monster,
+  action: CreatureAbility,
+  advantage?: Advantage,
+): boolean {
+  const roll = action.roll;
+  if (!roll) return false;
+  const c: Combatant = { stats: monster.stats, level: monster.level, isMonster: true };
+  const prof = profBonusFor(c);
+  const castMod = spellcastingMod(monster.stats);
+  const dice = effectiveDice(roll, {});
+  const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
+  const title = action.name;
+
+  if (roll.kind === 'attack') {
+    const { face, detail: d20detail } = rollD20(advantage);
+    const bonus = prof + castMod;
+    const attackTotal = face + bonus;
+    const crit = face === 20;
+    let dmgVal = 0;
+    if (dice) {
+      dmgVal = rollDice(dice)!.total;
+      if (crit) dmgVal += rollDice(dice)!.total; // crit doubles the dice
+    }
+    addRollLog(sessionId, {
+      roller,
+      label: 'Attack',
+      expr: title,
+      total: attackTotal,
+      detail:
+        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
+        (crit ? ' — CRIT' : ''),
+      description: action.description || undefined,
+    });
+    return true;
+  }
+
+  if (roll.kind === 'heal') {
+    const val = dice ? rollDice(dice)!.total : 0;
+    addRollLog(sessionId, {
+      roller,
+      label: action.name,
+      expr: title,
+      total: val,
+      detail: `${title}: ${val} healing [${dice}]`,
+      description: action.description || undefined,
+    });
+    return true;
+  }
+
+  // 'save' and 'damage' both roll the dice; 'save' notes the (explicit or derived) DC.
+  const val = dice ? rollDice(dice)!.total : 0;
+  const dc = roll.dc ?? 8 + prof + castMod;
+  const note =
+    roll.kind === 'save' && roll.save
+      ? ` — DC ${dc} ${roll.save} save for half`
+      : roll.kind === 'damage'
+        ? ' (auto-hit)'
+        : '';
+  addRollLog(sessionId, {
+    roller,
+    label: action.name,
+    expr: title,
+    total: val,
+    detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+    description: action.description || undefined,
   });
   return true;
 }

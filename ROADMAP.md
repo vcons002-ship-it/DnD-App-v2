@@ -403,6 +403,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   finesse so STR/DEX is chosen correctly). Pre-baked SRD/parsed/hand-typed monster
   damage stays as-is (no flag), so it isn't double-counted. A **↻ Pull attacks from
   description** button re-runs the parser on the creature's `actions` on demand.
+- ☑ **Structured monster action rolls [req].** A monster `action` can carry the same
+  structured `roll` (`AbilityRoll`) PCs use, so the DM one-clicks a breath weapon /
+  spell-like action: the server (`resolveMonsterAction`, mirror of `resolveAbilityRoll`)
+  rolls the damage and shows the **save DC computed from the monster's CR + casting
+  mod** (`8 + profBonusFor(CR) + best-of-INT/WIS/CHA`), or an explicit `roll.dc` from
+  the stat block, logged with the action's description. Kinds: attack (to-hit + dmg),
+  save (dmg + "DC N <ability> save for half"), damage, heal. DM-gated socket
+  `monster:action`; authored/edited in the creature `StatBlock` (kind/dice/save/DC/type)
+  with a **↻ Derive rolls from descriptions** button (`parseActionRoll` scrapes DC +
+  dice from SRD/AI text). Per-target saves + damage reuse the existing bulk-save +
+  damage tooling (parity with PC spell rolls); `roll`/`dc` optional so old saves load.
 - ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
   `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.
