@@ -81,7 +81,7 @@ export function rollWeaponAttack(
   weapon: Weapon,
   targetAC: number,
   advantage?: Advantage,
-  opts?: { twoHanded?: boolean; noAbilityMod?: boolean },
+  opts?: { twoHanded?: boolean; noAbilityMod?: boolean; bonusDamage?: number; bonusLabel?: string },
 ): AttackOutcome {
   const face = rollWithAdv(advantage);
   const bonus = weaponAttackBonus(attacker, weapon);
@@ -103,8 +103,9 @@ export function rollWeaponAttack(
     // only); monster stat blocks already bake it in. Off-hand / Cleave omit it.
     const abil =
       !attacker.isMonster && !opts?.noAbilityMod ? weaponAbilityMod(attacker, weapon) : 0;
+    const bonus2 = opts?.bonusDamage ?? 0; // flat on-hit mastery damage (e.g. GWM), folded in
     const r1 = dice ? rollDice(dice) : null;
-    let sum = flat + magic + abil; // magic + ability mod added once, not doubled on a crit
+    let sum = flat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit
     const diceStrs: string[] = [];
     if (r1) {
       sum += r1.total;
@@ -118,7 +119,8 @@ export function rollWeaponAttack(
     damage = Math.max(1, sum);
     dmgText =
       `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''}` +
-      `${abil ? ` ${signed(abil)}` : ''}${magic ? ` ${signed(magic)} magic` : ''} = ${damage}`;
+      `${abil ? ` ${signed(abil)}` : ''}${magic ? ` ${signed(magic)} magic` : ''}` +
+      `${bonus2 ? ` ${signed(bonus2)}${opts?.bonusLabel ? ` ${opts.bonusLabel}` : ''}` : ''} = ${damage}`;
   }
 
   const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';

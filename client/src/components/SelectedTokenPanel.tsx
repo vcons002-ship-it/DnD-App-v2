@@ -5,6 +5,7 @@ import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
+import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
 import { AttackControls } from './AttackControls';
 
@@ -61,6 +62,16 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const iconTargets =
     selectedIds && selectedIds.length ? selectedIds : [token.id];
 
+  // A player's own claimed PC + its token on the map — their right panel becomes
+  // a combat console (attacks targeting the selected token + abilities/masteries)
+  // instead of duplicating the full sheet already shown in the left PlayerPanel.
+  const myChar = !isDm
+    ? snapshot.characters.find((c) => c.claimedBy === mySocketId)
+    : undefined;
+  const myToken = myChar
+    ? snapshot.tokens.find((t) => t.kind === 'pc' && t.refId === myChar.id)
+    : undefined;
+
   const uploadIcon = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -75,6 +86,38 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       e.target.value = '';
     }
   };
+
+  // Player combat console: their attacks (vs the clicked token) + abilities.
+  if (myChar) {
+    const selectingOwn = !!myToken && token.id === myToken.id;
+    return (
+      <div className="panel-section">
+        {selectingOwn ? (
+          <h3>Your attacks &amp; abilities</h3>
+        ) : (
+          <>
+            <h3>{d.name}</h3>
+            {canSeeHp && (
+              <div className="hp-line">
+                HP: {d.curHp} / {d.maxHp}
+              </div>
+            )}
+          </>
+        )}
+        {myToken ? (
+          <AttackControls
+            snapshot={snapshot}
+            attacker={myToken}
+            weapons={myChar.weapons}
+            defaultTargetId={selectingOwn ? undefined : token.id}
+          />
+        ) : (
+          <p className="muted">Place your token on the map to attack.</p>
+        )}
+        <CharacterSpells character={myChar} editable />
+      </div>
+    );
+  }
 
   return (
     <div className="panel-section">

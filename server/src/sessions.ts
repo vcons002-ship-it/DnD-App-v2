@@ -9,6 +9,7 @@ import {
 } from './db.js';
 import { iconForCreature } from './creatures/srd.js';
 import { deriveClassResources } from './data/classTables.js';
+import { weaponsFromActions } from '../../shared/monsterAttacks.js';
 import type {
   Character,
   Condition,
@@ -1072,7 +1073,14 @@ export function createMonsterTemplate(
   opts: MonsterInput,
 ): Monster {
   const base = opts.name.trim() || 'Creature';
-  return insertMonster(sessionId, opts, {
+  // Give monsters rollable attacks: when no structured weapons are supplied,
+  // derive them from the free-text actions (e.g. "+4 to hit, 1d6+2 slashing").
+  let input = opts;
+  if ((!opts.weapons || opts.weapons.length === 0) && opts.actions?.length) {
+    const { weapons, actions } = weaponsFromActions(opts.actions);
+    if (weapons.length) input = { ...opts, weapons, actions };
+  }
+  return insertMonster(sessionId, input, {
     isTemplate: true,
     templateId: null,
     name: uniqueTemplateName(sessionId, base),

@@ -39,6 +39,9 @@ type Store = {
   /** True while an AI request (stat-fill / creature lookup) is in flight. */
   aiBusy: boolean;
   setAiBusy: (busy: boolean) => void;
+  /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
+  showRollOverlay: boolean;
+  toggleRollOverlay: () => void;
 
   connect: (code: string, role: Role, dmPassphrase?: string) => void;
   disconnect: () => void;
@@ -126,6 +129,8 @@ export const useStore = create<Store>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   aiBusy: false,
   setAiBusy: (aiBusy) => set({ aiBusy }),
+  showRollOverlay: false,
+  toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();

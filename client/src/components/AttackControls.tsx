@@ -1,28 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { StateSnapshot, Token, Weapon } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 
 /**
- * Weapon-attack roller for the selected token: pick a target, optionally adv/dis,
- * and roll each weapon. The server resolves to-hit vs the target's AC, rolls
- * damage on a hit (auto-applied), and logs it to the shared roll log.
+ * Weapon-attack roller: pick a target, optionally adv/dis, and roll each weapon.
+ * The server resolves to-hit vs the target's AC, rolls damage on a hit
+ * (auto-applied), and logs it. `defaultTargetId` pre-selects the target (the
+ * token a player clicked); players can't target friendly creatures.
  */
 export function AttackControls({
   snapshot,
   attacker,
   weapons,
+  defaultTargetId,
 }: {
   snapshot: StateSnapshot;
   attacker: Token;
   weapons: Weapon[];
+  defaultTargetId?: string;
 }) {
   const combatAttack = useStore((s) => s.combatAttack);
-  const targets = snapshot.tokens.filter((t) => t.id !== attacker.id);
-  const [targetId, setTargetId] = useState(targets[0]?.id ?? '');
+  // Players can't target friendly creatures (friendly-disposition monsters or
+  // allied PCs); the DM may target anyone.
+  const isFriendly = (t: Token) => {
+    if (t.kind === 'pc') return true;
+    return snapshot.monsters.find((m) => m.id === t.refId)?.disposition === 'friendly';
+  };
+  const targets = snapshot.tokens.filter(
+    (t) => t.id !== attacker.id && (snapshot.role !== 'player' || !isFriendly(t)),
+  );
+  const validDefault =
+    defaultTargetId && targets.some((t) => t.id === defaultTargetId) ? defaultTargetId : undefined;
+  const [targetId, setTargetId] = useState(validDefault ?? targets[0]?.id ?? '');
   const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
   const [offhand, setOffhand] = useState(false);
   const [twoHanded, setTwoHanded] = useState(false);
+
+  // Pre-select the clicked token as the target when it changes.
+  useEffect(() => {
+    if (validDefault) setTargetId(validDefault);
+  }, [validDefault]);
 
   if (weapons.length === 0 || targets.length === 0) return null;
 

@@ -343,6 +343,21 @@ input[type='number'] { width: 70px; }
 .floating-menu-title .fm-hp { float: right; color: var(--muted); font-weight: 600; }
 .fm-dmg { display: flex; gap: 4px; align-items: center; padding: 4px; }
 .fm-dmg input { width: 52px; margin: 0; }
+.fm-attacks { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+
+/* Transparent, click-through roll-log overlay on the map (Feature: DicePanel toggle) */
+.roll-log-overlay {
+  position: absolute; top: 44px; right: 8px; z-index: 4;
+  pointer-events: none; transition: opacity .4s; overflow: hidden;
+  border-radius: 8px; background: #0b0d12aa; padding: 6px;
+}
+.roll-log-overlay-list { height: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+.roll-log-overlay .roll-entry { background: #1f232bcc; }
+.roll-log-resize {
+  position: absolute; left: 0; bottom: 0; width: 14px; height: 14px; padding: 0;
+  pointer-events: auto; cursor: nwse-resize; border: none;
+  background: linear-gradient(45deg, transparent 50%, var(--muted) 50%); opacity: .6;
+}
 
 /* New character form */
 .new-char-wrap { margin-top: 8px; }

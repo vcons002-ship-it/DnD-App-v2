@@ -117,6 +117,15 @@ export function buildSnapshot(
     monsters = monsters.map((m) => toPlayerMonster(m as Monster));
   }
 
+  // Players see the attack resolution (HIT/MISS) but not the target's AC.
+  const rollLog =
+    role === 'player'
+      ? listRollLog(sessionId).map((e) => ({
+          ...e,
+          detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
+        }))
+      : listRollLog(sessionId);
+
   return {
     role,
     sessionCode: session.code,
@@ -131,6 +140,6 @@ export function buildSnapshot(
     monsters,
     // Spawn templates are a DM-only tool.
     monsterTemplates: role === 'dm' ? listMonsterTemplates(sessionId) : [],
-    rollLog: listRollLog(sessionId),
+    rollLog,
   };
 }

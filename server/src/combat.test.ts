@@ -250,7 +250,8 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
-        expect(last.detail).toContain('+2 (prof)');
+        // GWM prof bonus is folded into the damage breakdown (labelled), not appended.
+        expect(last.detail).toContain('+2 TestMastery');
         expect(before - getMonster(ref)!.curHp).toBe(4); // 2 weapon + 2 prof
       }
     }
@@ -283,10 +284,10 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
-        // 2 weapon + 2 prof (Hew) + 5 (Crusher) = 9, and both notes appear.
+        // 2 weapon + 2 prof (folded into the roll) + 5 (Crusher, dice, post-roll) = 9.
         expect(before - getMonster(ref)!.curHp).toBe(9);
-        expect(last.detail).toContain('+2 (prof)');
-        expect(last.detail).toContain('Crusher +5');
+        expect(last.detail).toContain('+2 TestMastery'); // GWM folded in
+        expect(last.detail).toContain('Crusher +5'); // dice bonus stays a note
       }
     }
     expect(checked).toBe(true);
@@ -325,7 +326,7 @@ describe('weapon masteries', () => {
         const last = listRollLog(sid.id).at(-1)!;
         if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
           hit = true;
-          expect(last.detail.includes('(prof)')).toBe(want);
+          expect(last.detail.includes('Hew')).toBe(want); // GWM bonus folded in, labelled
         }
       }
       expect(hit).toBe(true);

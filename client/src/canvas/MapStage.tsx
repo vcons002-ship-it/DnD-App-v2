@@ -9,6 +9,7 @@ import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
+import { RollLogOverlay } from '../components/RollLogOverlay';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -68,6 +69,7 @@ export function MapStage({
 
   // ---- Fog of war (two independent layers: map fog + token fog) ----
   const isDm = snapshot.role === 'dm';
+  const showRollOverlay = useStore((s) => s.showRollOverlay);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
@@ -478,6 +480,7 @@ export function MapStage({
               onClose={() => setMenu(null)}
             />
           )}
+          {showRollOverlay && <RollLogOverlay rollLog={snapshot.rollLog} />}
         </>
       )}
     </div>

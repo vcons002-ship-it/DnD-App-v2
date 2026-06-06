@@ -86,37 +86,46 @@ export function resolveAttack(
   const triggers = (m: NonNullable<SheetAbility['mastery']>) =>
     (m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()));
 
-  // Pre-scan: an active Cleave bound to this weapon omits the ability modifier
-  // (like an off-hand attack), so it must be decided BEFORE rolling damage.
+  // Pre-scan (before rolling): an active Cleave omits the ability modifier (like
+  // an off-hand attack), and FLAT on-hit mastery damage (Great Weapon Master's
+  // proficiency bonus, flat homebrew bonuses) is folded INTO the damage roll so
+  // it appears in the initial damage number, not as a trailing note.
   let cleaveToDisable: { characterId: string; ability: SheetAbility } | null = null;
+  let flatBonus = 0;
+  const flatLabels: string[] = [];
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
-    if (ab.type === 'mastery' && m?.active && m.effect?.cleave && triggers(m)) {
-      cleaveToDisable = { characterId: ch!.id, ability: ab };
-      break;
+    if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
+    if (m.effect.cleave && !cleaveToDisable) cleaveToDisable = { characterId: ch!.id, ability: ab };
+    if (m.effect.profBonusDamage) {
+      flatBonus += profBonusFor(a.c);
+      flatLabels.push(m.weaponLabel || ab.name);
+    } else if (m.effect.bonusDamage && /^[+-]?\d+$/.test(m.effect.bonusDamage.trim())) {
+      flatBonus += parseInt(m.effect.bonusDamage.trim(), 10);
+      flatLabels.push(m.weaponLabel || ab.name);
     }
   }
   const noAbilityMod = !!offhand || !!cleaveToDisable;
 
-  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage, { twoHanded, noAbilityMod });
+  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage, {
+    twoHanded,
+    noAbilityMod,
+    bonusDamage: flatBonus || undefined,
+    bonusLabel: flatLabels.length ? flatLabels.join('+') : undefined,
+  });
 
-  // Outcome-dependent mastery effects: extra damage / prof on a hit, Graze on a miss.
+  // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
   const masteryNotes: string[] = [];
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
     if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
-    if (out.hit && m.effect.bonusDamage) {
+    if (out.hit && m.effect.bonusDamage && /d\d/i.test(m.effect.bonusDamage)) {
       const r = rollDice(m.effect.bonusDamage);
       if (r && r.total > 0) {
         extra += r.total;
         masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
       }
-    }
-    if (out.hit && m.effect.profBonusDamage) {
-      const pb = profBonusFor(a.c);
-      extra += pb;
-      masteryNotes.push(`${ab.name} +${pb} (prof)`);
     }
     if (!out.hit && m.effect.grazeOnMiss) {
       const g = Math.max(0, weaponAbilityMod(a.c, weapon));

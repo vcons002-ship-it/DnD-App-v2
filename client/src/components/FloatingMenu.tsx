@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { StateSnapshot, Token } from '../../../shared/types';
+import type { StateSnapshot, Token, Weapon } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 
@@ -22,10 +22,29 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
+  const combatAttack = useStore((s) => s.combatAttack);
+  const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
   const [amount, setAmount] = useState(1);
+
+  // Attacks for the active-initiative token, targeting THIS (right-clicked) token.
+  const active = snapshot.activeTurnTokenId
+    ? snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId)
+    : undefined;
+  const aChar =
+    active?.kind === 'pc' ? snapshot.characters.find((c) => c.id === active.refId) : undefined;
+  const aMon =
+    active?.kind === 'monster' ? snapshot.monsters.find((m) => m.id === active.refId) : undefined;
+  const aWeapons: Weapon[] =
+    (aMon as { weapons?: Weapon[] } | undefined)?.weapons ?? aChar?.weapons ?? [];
+  // Mirror the server's combat:attack gate: DM, or the owner of the active PC.
+  const canAttackAsActive =
+    !!active &&
+    active.id !== token.id &&
+    aWeapons.length > 0 &&
+    (isDm || (active.kind === 'pc' && aChar?.claimedBy === mySocketId));
 
   // Dismiss on outside click, scroll, or Escape.
   useEffect(() => {
@@ -85,6 +104,30 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
         </div>
       )}
 
+      {canAttackAsActive && (
+        <div className="fm-attacks" onPointerDown={(e) => e.stopPropagation()}>
+          <div className="floating-menu-note">
+            {resolveToken(snapshot, active!).name} attacks {d.name}:
+          </div>
+          {aWeapons.map((w, i) => (
+            <button
+              key={i}
+              className="floating-menu-item"
+              onClick={run(() =>
+                combatAttack({
+                  attackerTokenId: active!.id,
+                  targetTokenId: token.id,
+                  weaponIndex: i,
+                }),
+              )}
+            >
+              {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}
+              {w.damage ? ` (${w.damage})` : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isDm ? (
         <>
           <button
@@ -115,7 +158,8 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
           </button>
         </>
       ) : (
-        !canSeeHp && (
+        !canSeeHp &&
+        !canAttackAsActive && (
           <div className="floating-menu-note muted">No actions available</div>
         )
       )}

@@ -311,6 +311,42 @@ Smaller refinements on top of the shipped Phase 2 work.
   book”** picker fills a sheet weapon from it — **dice-only** damage (the wielder’s
   modifier is added at roll time) and `tags` = type + properties (so
   masteries/finesse/versatile/heavy all light up automatically).
+- ☑ **Player combat console (right panel) [req].** For a player, selecting ANY
+  token turns the right `SelectedTokenPanel` into a combat console for THEIR own
+  PC: `AttackControls` (attacker = the player's own token) defaults its target to
+  the clicked token, plus `CharacterSpells` (abilities/masteries). The player's
+  full editable sheet is no longer duplicated here (it lives in the left
+  `PlayerPanel`); a visible creature's read-only StatBlock still shows for target
+  context. The attack **target dropdown excludes friendly creatures** (friendly
+  monsters + other PCs) for players. DM behavior is unchanged (DM still attacks
+  AS the selected token).
+- ☑ **Floating-menu active-initiative attacks [req].** The right-click / long-press
+  `FloatingMenu` offers attack options for whoever holds the **active initiative**,
+  targeting the right-clicked token. Gated exactly like the server `combat:attack`
+  (DM, or the owner of the active PC; hidden when the active token is a monster a
+  player doesn't control). One button per weapon → `combatAttack`.
+- ☑ **Transparent roll-log overlay [req].** The shared roll log stays in the left
+  panel; a **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) pops
+  a transparent, **click-through** (`pointer-events:none`), **resizeable**
+  `RollLogOverlay` onto the map. It fades in on a new roll or hover (detected by
+  cursor-vs-rect since pointer-events are off) and fades out when idle; the size
+  persists to localStorage via a bottom-left drag handle (the only interactive
+  part). DM **Clear** stays in the left UI.
+- ☑ **Monster attack rolls (parse `actions` → `weapons`) [req].** SRD/AI monsters
+  store attacks as free-text `actions`; `shared/monsterAttacks.ts`
+  (`weaponsFromActions`, pure + tested) turns any action that has **both** a
+  `+N to hit` and damage dice into a rollable `Weapon` (melee/ranged inferred from
+  text, damage type + range captured), leaving non-attack actions (Multiattack,
+  save/recharge breath) as leftovers. Wired into `createMonsterTemplate` (the
+  single SRD/AI/library/copy chokepoint) so spawned monsters get rollable weapons.
+- ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
+  `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
+  role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.
+- ☑ **GWM folded into the initial damage [req].** Flat mastery damage (Great Weapon
+  Master's proficiency bonus, flat homebrew `bonusDamage`) is pre-computed before
+  the roll and folded into the damage number/breakdown via `rollWeaponAttack`'s
+  `bonusDamage`/`bonusLabel`, instead of being appended as a trailing note.
+  Dice-based bonuses and Graze (on a miss) still roll separately.
 
 ## Phase 6 — AI assistance (future)
 

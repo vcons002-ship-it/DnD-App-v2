@@ -177,7 +177,16 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   latecomers, Next/Clear), **dice roller + shared persisted roll log**,
   **automated weapon attacks** (server-authoritative, auto-applies damage on hit)
   and **saving throws** (bulk). Roll log has a clear button + color-coding by
-  roller/roll type.
+  roller/roll type; for players enemy **AC is redacted** (`vs AC ?`) while HIT/MISS
+  stays visible, and flat mastery damage (GWM prof bonus) is **folded into the
+  damage number** rather than appended. **Monster attacks are auto-derived**: SRD/AI
+  free-text `actions` are parsed into rollable `weapons` (`shared/monsterAttacks.ts`).
+  A player's right panel is a **combat console** — selecting any token shows the
+  player's own attacks (defaulting their target to the clicked token, friendly
+  creatures excluded) + abilities, not a duplicate sheet; the right-click
+  **floating menu** offers attacks for whoever holds active initiative. The roll
+  log can also pop out as a transparent, click-through, resizeable **overlay** on
+  the map (`RollLogOverlay`, toggled from `DicePanel`).
 - **DM Data mode** (`/dm/data`): compact sortable (init/A–Z/type) + drag-reorder
   cards, expand into a large overlay reusing `SelectedTokenPanel`, checkbox
   multiselect synced to the map window driving bulk AOE/conditions/etc.
