@@ -38,9 +38,15 @@ export function DmRoute() {
       .then(setSessions)
       .catch(() => setSessions([]));
 
+  // Refresh the saved-session list whenever we're on this screen — including
+  // after "Load session" disconnects us from a session (status → 'idle') — so a
+  // session you just played or created shows up immediately and can be renamed
+  // or deleted. (Sessions persist server-side on every change, so there's
+  // nothing to "save" first; the old list was simply stale until a full reload.)
   useEffect(() => {
-    refreshSessions();
-  }, []);
+    if (status !== 'connected') refreshSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const startEdit = (s: SessionSummary) => {
     setEditing(s.code);
