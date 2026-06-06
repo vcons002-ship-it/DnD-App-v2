@@ -6,6 +6,7 @@ import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
+import { FootprintTrails, TRAIL_LIFETIME, type Trail } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
@@ -290,6 +291,45 @@ export function MapStage({
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const gridHot = draggingToken || measureActive;
+
+  // ---- Token movement footprint trails ------------------------------------
+  // Diff token positions across snapshots so a move (local drag OR another
+  // client's) leaves a short fading trail of footprints from old spot to new.
+  const [trails, setTrails] = useState<Trail[]>([]);
+  const [trailNow, setTrailNow] = useState(0);
+  const prevPos = useRef<Map<string, { x: number; y: number }>>(new Map());
+  useEffect(() => {
+    const next = new Map<string, { x: number; y: number }>();
+    const fresh: Trail[] = [];
+    for (const t of snapshot.tokens) {
+      const prev = prevPos.current.get(t.id);
+      next.set(t.id, { x: t.x, y: t.y });
+      // Ignore sub-half-cell jitter; only real moves leave a trail.
+      if (prev && Math.hypot(t.x - prev.x, t.y - prev.y) > grid * 0.5) {
+        fresh.push({
+          id: `${t.id}-${Date.now()}`,
+          from: prev,
+          to: { x: t.x, y: t.y },
+          start: Date.now(),
+          size: t.size,
+        });
+      }
+    }
+    prevPos.current = next;
+    if (fresh.length) {
+      setTrails((cur) => [...cur, ...fresh].slice(-12));
+      setTrailNow(Date.now());
+    }
+  }, [snapshot.tokens, grid]);
+  // Tick while trails exist to drive the fade, pruning expired ones.
+  useEffect(() => {
+    if (!trails.length) return;
+    const iv = setInterval(() => {
+      setTrailNow(Date.now());
+      setTrails((cur) => cur.filter((tr) => Date.now() - tr.start < TRAIL_LIFETIME));
+    }, 60);
+    return () => clearInterval(iv);
+  }, [trails.length]);
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
@@ -836,6 +876,7 @@ export function MapStage({
                   }}
                 />
               )}
+              <FootprintTrails trails={trails} gridSizePx={grid} now={trailNow} />
               {snapshot.tokens.map((t) => (
                 <TokenShape
                   key={t.id}

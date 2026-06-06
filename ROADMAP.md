@@ -434,6 +434,11 @@ Smaller refinements on top of the shipped Phase 2 work.
   **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
   tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
   `onDragActive` signal from `TokenShape`).
+- ☑ **Token footprint trail [req].** A move (local drag OR another client's, diffed
+  from the snapshot) leaves a short **fading line of 👣** from the old spot to the
+  new one, fading **oldest-first** (old location vanishes first, the print nearest
+  the token last). Decorative/non-listening (`FootprintTrails` + `MapStage` position
+  diff).
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
