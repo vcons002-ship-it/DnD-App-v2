@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
+import { renderRollDetail } from '../lib/rollDetail';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 
@@ -16,9 +17,10 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const isDm = snapshot.role === 'dm';
+  const adv = useStore((s) => s.manualAdvantage);
+  const setAdv = useStore((s) => s.setManualAdvantage);
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
-  const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
 
   const roll = (e: string) =>
     rollDice({ expr: e, label: label.trim() || undefined, advantage: adv ?? undefined });
@@ -52,15 +54,15 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
         />
         <button
           className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-          onClick={() => setAdv((a) => (a === 'adv' ? null : 'adv'))}
-          title="Roll twice, keep higher"
+          onClick={() => setAdv(adv === 'adv' ? null : 'adv')}
+          title="Roll twice, keep higher (applies to the next roll, then clears)"
         >
           Adv
         </button>
         <button
           className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-          onClick={() => setAdv((a) => (a === 'dis' ? null : 'dis'))}
-          title="Roll twice, keep lower"
+          onClick={() => setAdv(adv === 'dis' ? null : 'dis')}
+          title="Roll twice, keep lower (applies to the next roll, then clears)"
         >
           Dis
         </button>
@@ -108,7 +110,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
               <span className="roll-meta">
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}
-                <span className="muted">{r.detail}</span>
+                <span className="muted">{renderRollDetail(r.detail)}</span>
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
                 )}

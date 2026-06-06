@@ -46,6 +46,10 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
+  /** One shared advantage/disadvantage toggle for the NEXT roll (dice, attack,
+   *  skill). It auto-clears after a roll is emitted so it never sticks. */
+  manualAdvantage: 'adv' | 'dis' | null;
+  setManualAdvantage: (a: 'adv' | 'dis' | null) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
   saveResolve: { rollId: string; dc: number; save?: string; label: string } | null;
@@ -155,6 +159,8 @@ export const useStore = create<Store>((set, get) => ({
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
+  manualAdvantage: null,
+  setManualAdvantage: (manualAdvantage) => set({ manualAdvantage }),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
     set((s) => ({ saveResolve: s.saveResolve?.rollId === saveResolve.rollId ? null : saveResolve })),
@@ -269,7 +275,10 @@ export const useStore = create<Store>((set, get) => ({
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   rollMonsterAction: (monsterId, actionIndex, advantage) =>
     get().socket?.emit('monster:action', { monsterId, actionIndex, advantage }),
-  rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
+  rollSkill: (payload) => {
+    get().socket?.emit('skill:roll', payload);
+    set({ manualAdvantage: null }); // adv/dis is per-roll: clear after emitting
+  },
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>
@@ -298,8 +307,14 @@ export const useStore = create<Store>((set, get) => ({
   rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
-  rollDice: (payload) => get().socket?.emit('dice:roll', payload),
+  rollDice: (payload) => {
+    get().socket?.emit('dice:roll', payload);
+    set({ manualAdvantage: null }); // adv/dis is per-roll: clear after emitting
+  },
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
-  combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
+  combatAttack: (payload) => {
+    get().socket?.emit('combat:attack', payload);
+    set({ manualAdvantage: null }); // adv/dis is per-roll: clear after emitting
+  },
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
 }));

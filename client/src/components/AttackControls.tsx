@@ -22,6 +22,8 @@ export function AttackControls({
   defaultTargetId?: string;
 }) {
   const combatAttack = useStore((s) => s.combatAttack);
+  const adv = useStore((s) => s.manualAdvantage);
+  const setAdv = useStore((s) => s.setManualAdvantage);
   // Players can't target friendly creatures (friendly-disposition monsters or
   // allied PCs); the DM may target anyone.
   const isFriendly = (t: Token) => {
@@ -34,7 +36,6 @@ export function AttackControls({
   const validDefault =
     defaultTargetId && targets.some((t) => t.id === defaultTargetId) ? defaultTargetId : undefined;
   const [targetId, setTargetId] = useState(validDefault ?? targets[0]?.id ?? '');
-  const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
   const [offhand, setOffhand] = useState(false);
   const [twoHanded, setTwoHanded] = useState(false);
 
@@ -63,13 +64,15 @@ export function AttackControls({
         </select>
         <button
           className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-          onClick={() => setAdv((a) => (a === 'adv' ? null : 'adv'))}
+          onClick={() => setAdv(adv === 'adv' ? null : 'adv')}
+          title="Advantage on the next roll, then clears"
         >
           Adv
         </button>
         <button
           className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-          onClick={() => setAdv((a) => (a === 'dis' ? null : 'dis'))}
+          onClick={() => setAdv(adv === 'dis' ? null : 'dis')}
+          title="Disadvantage on the next roll, then clears"
         >
           Dis
         </button>

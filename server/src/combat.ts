@@ -11,6 +11,7 @@ import {
 import {
   damageMultiplier,
   profBonusFor,
+  rollD20Detail,
   rollSavingThrow,
   rollWeaponAttack,
   weaponAbilityMod,
@@ -156,14 +157,14 @@ export function resolveAttack(
       const r = rollDice(m.effect.bonusDamage);
       if (r && r.total > 0) {
         extra += r.total;
-        masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
+        masteryNotes.push(`+${r.total}[${ab.name}]`);
       }
     }
     if (!out.hit && m.effect.grazeOnMiss) {
       const g = Math.max(0, weaponAbilityMod(a.c, weapon));
       if (g > 0) {
         extra += g;
-        masteryNotes.push(`${ab.name} ${g} (graze)`);
+        masteryNotes.push(`+${g}[GRAZE]`);
       }
     }
   }
@@ -235,7 +236,7 @@ export function resolveSaves(
       expr: `DC ${dc}`,
       total: out.total,
       detail:
-        `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}` +
+        `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}` +
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     });
   }
@@ -273,7 +274,7 @@ export function resolveForcedSave(
     const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
     dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
     detail =
-      `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'} · takes ${dmg}${typeTxt}` +
+      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'} · takes ${dmg}${typeTxt}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
   } else {
     dmg = Math.floor(apply.amount * mult);
@@ -287,17 +288,6 @@ export function resolveForcedSave(
     total: dmg,
     detail,
   });
-}
-
-const d20 = (): number => 1 + Math.floor(Math.random() * 20);
-
-/** Roll a d20 honoring advantage/disadvantage, with a display breakdown. */
-function rollD20(advantage?: Advantage): { face: number; detail: string } {
-  const a = d20();
-  if (!advantage) return { face: a, detail: `d20[${a}]` };
-  const b = d20();
-  const face = advantage === 'adv' ? Math.max(a, b) : Math.min(a, b);
-  return { face, detail: `d20[${a},${b}]→${advantage} ${face}` };
 }
 
 /**
@@ -328,7 +318,7 @@ export function resolveAbilityRoll(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
-    const { face, detail: d20detail } = rollD20(advantage);
+    const { face, detail: d20detail } = rollD20Detail(advantage);
     const bonus = spellAttackBonus(level, stats);
     const attackTotal = face + bonus;
     const crit = face === 20;
@@ -427,7 +417,7 @@ export function resolveMonsterAction(
   const title = action.name;
 
   if (roll.kind === 'attack') {
-    const { face, detail: d20detail } = rollD20(advantage);
+    const { face, detail: d20detail } = rollD20Detail(advantage);
     const bonus = prof + castMod;
     const attackTotal = face + bonus;
     const crit = face === 20;
@@ -502,7 +492,7 @@ export function resolveSkillRoll(
   if (!skill) return false;
   const proficient = character.proficientSkills.includes(skill.name);
   const bonus = skillBonus(character.stats, skill.ability, character.level, proficient);
-  const { face, detail: d20detail } = rollD20(advantage);
+  const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   addRollLog(sessionId, {
     roller,

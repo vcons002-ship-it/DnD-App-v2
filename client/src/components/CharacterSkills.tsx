@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Character } from '../../../shared/types';
 import {
   SKILLS,
@@ -24,7 +23,8 @@ export function CharacterSkills({
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const rollSkill = useStore((s) => s.rollSkill);
-  const [adv, setAdv] = useState<'adv' | 'dis' | undefined>(undefined);
+  const adv = useStore((s) => s.manualAdvantage);
+  const setAdv = useStore((s) => s.setManualAdvantage);
   const prof = new Set(character.proficientSkills);
   const pb = proficiencyBonus(character.level);
 
@@ -37,7 +37,7 @@ export function CharacterSkills({
   };
 
   const roll = (name: string) =>
-    rollSkill({ characterId: character.id, skill: name, advantage: adv });
+    rollSkill({ characterId: character.id, skill: name, advantage: adv ?? undefined });
 
   return (
     <div className="skills">
@@ -48,15 +48,15 @@ export function CharacterSkills({
           <span className="skill-adv">
             <button
               className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-              title="Roll skills with advantage"
-              onClick={() => setAdv((a) => (a === 'adv' ? undefined : 'adv'))}
+              title="Advantage on the next roll, then clears"
+              onClick={() => setAdv(adv === 'adv' ? null : 'adv')}
             >
               Adv
             </button>
             <button
               className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-              title="Roll skills with disadvantage"
-              onClick={() => setAdv((a) => (a === 'dis' ? undefined : 'dis'))}
+              title="Disadvantage on the next roll, then clears"
+              onClick={() => setAdv(adv === 'dis' ? null : 'dis')}
             >
               Dis
             </button>

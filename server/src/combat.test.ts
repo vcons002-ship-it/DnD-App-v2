@@ -162,7 +162,7 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (last.detail.includes('MISS')) {
         sawMiss = true;
-        expect(last.detail).toContain('TestMastery 3 (graze)'); // STR +3
+        expect(last.detail).toContain('+3[GRAZE]'); // STR +3
       }
     }
     expect(sawMiss).toBe(true);
@@ -182,7 +182,7 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (/\bHIT\b|CRIT/.test(last.detail)) {
         sawHit = true;
-        expect(last.detail).toContain('TestMastery +5 [5d1]');
+        expect(last.detail).toContain('+5[TestMastery]');
       }
     }
     expect(sawHit).toBe(true);
@@ -196,7 +196,7 @@ describe('weapon masteries', () => {
       mastery: { appliesToTags: ['test'], active: false, effect: { grazeOnMiss: true } },
     });
     for (let i = 0; i < 20; i++) resolveAttack(s, 'Striker', atk, tgt, 0);
-    expect(listRollLog(s).every((e) => !e.detail.includes('graze'))).toBe(true);
+    expect(listRollLog(s).every((e) => !e.detail.includes('GRAZE'))).toBe(true);
   });
 
   it('Cleave toggles itself off after an attack (hit or miss)', () => {
@@ -263,7 +263,7 @@ describe('weapon masteries', () => {
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
         // GWM prof bonus is folded into the damage breakdown (labelled), not appended.
-        expect(last.detail).toContain('+2 TestMastery');
+        expect(last.detail).toContain('+2[TestMastery]');
         expect(before - getMonster(ref)!.curHp).toBe(4); // 2 weapon + 2 prof
       }
     }
@@ -298,8 +298,8 @@ describe('weapon masteries', () => {
         checked = true;
         // 2 weapon + 2 prof (folded into the roll) + 5 (Crusher, dice, post-roll) = 9.
         expect(before - getMonster(ref)!.curHp).toBe(9);
-        expect(last.detail).toContain('+2 TestMastery'); // GWM folded in
-        expect(last.detail).toContain('Crusher +5'); // dice bonus stays a note
+        expect(last.detail).toContain('+2[TestMastery]'); // GWM folded in
+        expect(last.detail).toContain('+5[Crusher]'); // dice bonus stays a note
       }
     }
     expect(checked).toBe(true);

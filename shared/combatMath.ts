@@ -14,12 +14,19 @@ export type Combatant = {
 };
 
 const d20 = () => 1 + Math.floor(Math.random() * 20);
-const rollWithAdv = (advantage?: Advantage): number => {
+
+/**
+ * Roll a d20 honoring advantage/disadvantage, returning the chosen face plus a
+ * display breakdown that shows BOTH dice: `d20[a,b]→adv face` (or `d20[a]` for a
+ * straight roll). Shared by every server-side d20 roll so the log is uniform.
+ */
+export function rollD20Detail(advantage?: Advantage): { face: number; detail: string } {
   const a = d20();
-  if (!advantage) return a;
+  if (!advantage) return { face: a, detail: `d20[${a}]` };
   const b = d20();
-  return advantage === 'adv' ? Math.max(a, b) : Math.min(a, b);
-};
+  const face = advantage === 'adv' ? Math.max(a, b) : Math.min(a, b);
+  return { face, detail: `d20[${a},${b}]→${advantage} ${face}` };
+}
 
 /** Monster proficiency bonus by challenge rating (CR 0–4 → +2, 5–8 → +3, …). */
 export const profBonusForCR = (cr: number): number =>
@@ -83,7 +90,7 @@ export function rollWeaponAttack(
   advantage?: Advantage,
   opts?: { twoHanded?: boolean; noAbilityMod?: boolean; bonusDamage?: number; bonusLabel?: string },
 ): AttackOutcome {
-  const face = rollWithAdv(advantage);
+  const { face, detail: d20detail } = rollD20Detail(advantage);
   const bonus = weaponAttackBonus(attacker, weapon);
   const attackTotal = face + bonus;
   const crit = face === 20;
@@ -109,27 +116,29 @@ export function rollWeaponAttack(
     const bonus2 = opts?.bonusDamage ?? 0; // flat on-hit mastery damage (e.g. GWM), folded in
     const r1 = dice ? rollDice(dice) : null;
     let sum = flat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit
-    const diceStrs: string[] = [];
+    // Compact, labelled breakdown, e.g. "2d6[4,6]+[3,5][CRIT]+4[STR]+1[MAGIC]+3[GWM]".
+    const parts: string[] = [];
     if (r1) {
       sum += r1.total;
-      diceStrs.push(`[${r1.rolls.join(',')}]`);
+      parts.push(`${dice}[${r1.rolls.join(',')}]`);
     }
     if (crit && dice) {
       const r2 = rollDice(dice)!;
       sum += r2.total;
-      diceStrs.push(`crit[${r2.rolls.join(',')}]`);
+      parts.push(`+[${r2.rolls.join(',')}][CRIT]`);
     }
+    if (flat) parts.push(signed(flat));
+    if (abil) parts.push(`${signed(abil)}[${weaponAbility(attacker, weapon)}]`);
+    if (magic) parts.push(`${signed(magic)}[MAGIC]`);
+    if (bonus2) parts.push(`${signed(bonus2)}[${opts?.bonusLabel || 'BONUS'}]`);
     damage = Math.max(1, sum);
-    dmgText =
-      `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''}` +
-      `${abil ? ` ${signed(abil)}` : ''}${magic ? ` ${signed(magic)} magic` : ''}` +
-      `${bonus2 ? ` ${signed(bonus2)}${opts?.bonusLabel ? ` ${opts.bonusLabel}` : ''}` : ''} = ${damage}`;
+    dmgText = parts.join('') || `${damage}`;
   }
 
   const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';
   const detail =
-    `${weapon.name}${twoH}: d20[${face}] ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
+    `${weapon.name}${twoH}: ${d20detail} ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
     (hit ? `, ${damage} dmg (${dmgText})` : '');
 
   return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };
@@ -142,6 +151,8 @@ export type SaveOutcome = {
   pass: boolean;
   /** Whether the proficiency bonus was added (proficient save). */
   proficient: boolean;
+  /** Both-dice display breakdown for the d20, e.g. `d20[14,3]→dis 3`. */
+  d20Detail: string;
 };
 
 /**
@@ -155,10 +166,10 @@ export function rollSavingThrow(
   advantage?: Advantage,
   proficient = false,
 ): SaveOutcome {
-  const face = rollWithAdv(advantage);
+  const { face, detail: d20Detail } = rollD20Detail(advantage);
   const mod = abilityMod(c.stats[ability.toUpperCase()]) + (proficient ? profBonusFor(c) : 0);
   const total = face + mod;
-  return { face, mod, total, pass: total >= dc, proficient };
+  return { face, mod, total, pass: total >= dc, proficient, d20Detail };
 }
 
 /**

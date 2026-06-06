@@ -4,6 +4,7 @@ import {
   weaponAttackBonus,
   rollWeaponAttack,
   rollSavingThrow,
+  rollD20Detail,
   damageMultiplier,
   type Combatant,
 } from '../../shared/combatMath.js';
@@ -66,6 +67,34 @@ describe('combat math', () => {
     }
   });
 
+  it('shows both dice and the chosen face under advantage/disadvantage', () => {
+    for (let i = 0; i < 200; i++) {
+      const straight = rollD20Detail();
+      expect(straight.detail).toMatch(/^d20\[\d+\]$/);
+      const adv = rollD20Detail('adv');
+      expect(adv.detail).toMatch(/^d20\[\d+,\d+\]→adv \d+$/);
+      expect(adv.detail.endsWith(`adv ${adv.face}`)).toBe(true);
+      const dis = rollD20Detail('dis');
+      expect(dis.detail).toMatch(/^d20\[\d+,\d+\]→dis \d+$/);
+    }
+  });
+
+  it('writes a compact labelled damage breakdown with bracketed sources', () => {
+    // PC longsword 1d8, STR 16 (+3), +1 magic vs AC 1 → almost always a hit.
+    const pc: Combatant = { stats: { STR: 16 }, level: 1, isMonster: false };
+    const w: Weapon = { name: 'Longsword', kind: 'melee', damage: '1d8', attackBonus: 99, magicBonus: 1 };
+    let sawHit = false;
+    for (let i = 0; i < 100 && !sawHit; i++) {
+      const o = rollWeaponAttack(pc, w, 1);
+      if (o.hit && !o.crit) {
+        sawHit = true;
+        // e.g. "… dmg (1d8[5]+3[STR]+1[MAGIC])"
+        expect(o.detail).toMatch(/dmg \(1d8\[\d+\]\+3\[STR\]\+1\[MAGIC\]\)/);
+      }
+    }
+    expect(sawHit).toBe(true);
+  });
+
   it('adds a weapon magic bonus to damage (once, not doubled on a crit)', () => {
     const atk: Combatant = { stats: { STR: 16 }, level: 1, isMonster: true };
     // "1d1" is a constant 1 die; +2 magic → 1 + 2 = 3 on a normal hit, and on a
@@ -75,7 +104,7 @@ describe('combat math', () => {
       const o = rollWeaponAttack(atk, w, 1);
       if (o.hit) {
         expect(o.damage).toBe(o.crit ? 4 : 3);
-        expect(o.detail).toContain('magic');
+        expect(o.detail).toContain('[MAGIC]');
       }
     }
   });
