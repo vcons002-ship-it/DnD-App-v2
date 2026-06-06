@@ -359,6 +359,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   context. The attack **target dropdown excludes friendly creatures** (friendly
   monsters + other PCs) for players. DM behavior is unchanged (DM still attacks
   AS the selected token).
+- ☑ **Collapsible creature "Details" for players [req].** A player's combat
+  console now leads with a collapsible, read-only **Details** panel (below the
+  name/HP), **collapsed by default** and sticky (`detailsExpanded` in the store).
+  Expanding it shows exactly what the creature's disposition tier grants — a full
+  read-only `StatBlock` for a Friendly creature, type/AC/conditions for Neutral,
+  conditions only for Enemy, or a read-only `CharacterSheet` for an allied PC.
+  **Double-clicking a token** selects it and auto-expands the panel (`onActivate`
+  on `TokenShape` → `MapStage`).
 - ☑ **Floating-menu select-then-attack [req].** Select a token (the attacker),
   then right-click another token to attack it: the `FloatingMenu` offers the
   **selected token's** weapons, targeting the right-clicked token. Gated exactly

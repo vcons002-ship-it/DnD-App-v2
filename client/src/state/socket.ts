@@ -52,6 +52,10 @@ type Store = {
    *  skill). It auto-clears after a roll is emitted so it never sticks. */
   manualAdvantage: 'adv' | 'dis' | null;
   setManualAdvantage: (a: 'adv' | 'dis' | null) => void;
+  /** Player UI: whether the selected creature's read-only "Details" panel is
+   *  expanded. Sticky; double-clicking a token forces it open. */
+  detailsExpanded: boolean;
+  setDetailsExpanded: (open: boolean) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
   saveResolve: { rollId: string; dc: number; save?: string; label: string } | null;
@@ -164,6 +168,8 @@ export const useStore = create<Store>((set, get) => ({
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
   manualAdvantage: null,
   setManualAdvantage: (manualAdvantage) => set({ manualAdvantage }),
+  detailsExpanded: false,
+  setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
     set((s) => ({ saveResolve: s.saveResolve?.rollId === saveResolve.rollId ? null : saveResolve })),

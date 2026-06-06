@@ -31,6 +31,8 @@ type Props = {
    *  events so clicks/drags fall through to the stage. */
   listening?: boolean;
   onSelect: (token: Token, additive: boolean) => void;
+  /** Double-click / double-tap — select + expand the player's details panel. */
+  onActivate?: (token: Token) => void;
   onMove: (token: Token, x: number, y: number) => void;
   /** Right-click / long-press — opens the floating action menu at screen coords. */
   onContextMenu?: (token: Token, clientX: number, clientY: number) => void;
@@ -56,6 +58,7 @@ export function TokenShape({
   initiativeRank,
   listening = true,
   onSelect,
+  onActivate,
   onMove,
   onContextMenu,
   onHover,
@@ -161,6 +164,11 @@ export function TokenShape({
         onSelect(token, isAdditive(e));
       }}
       onTap={(e) => onSelect(token, isAdditive(e))}
+      onDblClick={(e) => {
+        if ((e.evt as MouseEvent).button !== 0) return;
+        onActivate?.(token);
+      }}
+      onDblTap={() => onActivate?.(token)}
       onDragStart={() => {
         clearLongPress();
         onDragActive?.(true);

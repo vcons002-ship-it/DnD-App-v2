@@ -722,6 +722,17 @@ details.dm-token-tools > summary::-webkit-details-marker { display: none; }
 details.dm-token-tools > summary::before { content: '▸ '; }
 details.dm-token-tools[open] > summary::before { content: '▾ '; }
 
+/* Player combat console: collapsible read-only Details for the selected creature. */
+details.creature-details { margin: 4px 0 8px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+details.creature-details > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 0; list-style: none;
+}
+details.creature-details > summary::-webkit-details-marker { display: none; }
+details.creature-details > summary::before { content: '▸ '; }
+details.creature-details[open] > summary::before { content: '▾ '; }
+.creature-details-body { font-size: 13px; display: grid; gap: 2px; padding: 4px 0; }
+
 /* Character sheet: Actions & Traits collapsed at the bottom of the sheet. */
 details.sheet-actions-traits { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
 details.sheet-actions-traits > summary {

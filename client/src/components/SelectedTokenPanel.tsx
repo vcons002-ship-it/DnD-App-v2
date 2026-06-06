@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import type { Monster, StateSnapshot, Token } from '../../../shared/types';
+import type {
+  Character,
+  Monster,
+  MonsterNeutral,
+  MonsterPublic,
+  StateSnapshot,
+  Token,
+} from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
@@ -87,6 +94,11 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
                 )}
               </div>
             )}
+            <CreatureDetails
+              monster={monster}
+              monsterEntity={monsterEntity}
+              character={character}
+            />
           </>
         )}
         {myToken ? (
@@ -276,5 +288,62 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * A collapsible, read-only "Details" panel for the selected creature, shown at
+ * the top of a player's combat console. Collapsed by default (sticky via the
+ * store; double-clicking a token forces it open). The content is exactly what
+ * the player's disposition tier already grants — the server pre-shapes it, so a
+ * friendly creature yields a full read-only stat block while a neutral/enemy one
+ * exposes only the few fields the snapshot carries.
+ */
+function CreatureDetails({
+  monster,
+  monsterEntity,
+  character,
+}: {
+  monster?: Monster;
+  monsterEntity?: Monster | MonsterNeutral | MonsterPublic;
+  character?: Character;
+}) {
+  const open = useStore((s) => s.detailsExpanded);
+  const setOpen = useStore((s) => s.setDetailsExpanded);
+  const hasType =
+    !!monsterEntity && 'creatureType' in monsterEntity && !!monsterEntity.creatureType;
+  return (
+    <details
+      className="creature-details"
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+    >
+      <summary>Details</summary>
+      {monster ? (
+        <StatBlock
+          creature={monster}
+          subtitle={monster.creatureType}
+          levelLabel="CR"
+          monster
+        />
+      ) : character ? (
+        <CharacterSheet character={character} editable={false} />
+      ) : monsterEntity ? (
+        <div className="muted creature-details-body">
+          {hasType && <div>Type: {(monsterEntity as MonsterNeutral).creatureType}</div>}
+          {'armorClass' in monsterEntity && monsterEntity.armorClass ? (
+            <div>AC {monsterEntity.armorClass}</div>
+          ) : null}
+          {monsterEntity.conditions.length > 0 ? (
+            <div>Conditions: {monsterEntity.conditions.map((c) => c.label).join(', ')}</div>
+          ) : (
+            <div>No conditions.</div>
+          )}
+          {!hasType && <div>No further details available.</div>}
+        </div>
+      ) : (
+        <p className="muted">No details available.</p>
+      )}
+    </details>
   );
 }
