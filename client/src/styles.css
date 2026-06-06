@@ -345,19 +345,14 @@ input[type='number'] { width: 70px; }
 .fm-dmg input { width: 52px; margin: 0; }
 .fm-attacks { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 
-/* Transparent, click-through roll-log overlay on the map (Feature: DicePanel toggle) */
+/* Compact, click-through latest-roll readout pinned bottom-left of the map
+   (Feature: DicePanel toggle). One line, just wide enough for the latest roll. */
 .roll-log-overlay {
-  position: absolute; top: 44px; right: 8px; z-index: 4;
-  pointer-events: none; transition: opacity .4s; overflow: hidden;
-  border-radius: 8px; background: #0b0d12aa; padding: 6px;
+  position: absolute; left: 8px; bottom: 8px; z-index: 4;
+  pointer-events: none; max-width: 60%; margin: 0;
+  background: #0b0d12cc; white-space: nowrap; overflow: hidden;
 }
-.roll-log-overlay-list { height: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
-.roll-log-overlay .roll-entry { background: #1f232bcc; }
-.roll-log-resize {
-  position: absolute; left: 0; bottom: 0; width: 14px; height: 14px; padding: 0;
-  pointer-events: auto; cursor: nwse-resize; border: none;
-  background: linear-gradient(45deg, transparent 50%, var(--muted) 50%); opacity: .6;
-}
+.roll-log-overlay .roll-meta { overflow: hidden; text-overflow: ellipsis; }
 
 /* New character form */
 .new-char-wrap { margin-top: 8px; }

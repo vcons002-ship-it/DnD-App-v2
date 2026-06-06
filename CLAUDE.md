@@ -185,9 +185,9 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   player's own attacks (defaulting their target to the clicked token, friendly
   creatures excluded) + abilities, not a duplicate sheet; the right-click
   **floating menu** offers the **selected** token's attacks against the
-  right-clicked token (select attacker, right-click target). The roll
-  log can also pop out as a transparent, click-through, resizeable **overlay** on
-  the map (`RollLogOverlay`, toggled from `DicePanel`).
+  right-clicked token (select attacker, right-click target). A compact,
+  click-through **latest-roll overlay** can be pinned to the map's bottom-left
+  corner (`RollLogOverlay`, toggled from `DicePanel`).
 - **DM Data mode** (`/dm/data`): compact sortable (init/A–Z/type) + drag-reorder
   cards, expand into a large overlay reusing `SelectedTokenPanel`, checkbox
   multiselect synced to the map window driving bulk AOE/conditions/etc.

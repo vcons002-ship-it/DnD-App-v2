@@ -326,13 +326,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   like the server `combat:attack` (DM, or the owner of the attacking PC; no
   attacks when nothing else is selected or you right-click your own selection).
   One button per weapon → `combatAttack`.
-- ☑ **Transparent roll-log overlay [req].** The shared roll log stays in the left
-  panel; a **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) pops
-  a transparent, **click-through** (`pointer-events:none`), **resizeable**
-  `RollLogOverlay` onto the map. It fades in on a new roll or hover (detected by
-  cursor-vs-rect since pointer-events are off) and fades out when idle; the size
-  persists to localStorage via a bottom-left drag handle (the only interactive
-  part). DM **Clear** stays in the left UI.
+- ☑ **Latest-roll overlay [req].** The shared roll log stays in the left panel; a
+  **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) shows a compact,
+  **click-through** (`pointer-events:none`) `RollLogOverlay` pinned to the
+  **bottom-left** of the map — a single line with just the latest roll, so it stays
+  out of the way while keeping the map fully clickable underneath. DM **Clear**
+  stays in the left UI.
 - ☑ **Monster attack rolls (parse `actions` → `weapons`) [req].** SRD/AI monsters
   store attacks as free-text `actions`; `shared/monsterAttacks.ts`
   (`weaponsFromActions`, pure + tested) turns any action that has **both** a
