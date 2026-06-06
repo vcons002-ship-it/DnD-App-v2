@@ -15,6 +15,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - ☑ **Session directory [req].** `GET /api/sessions` lists past sessions
   (code, name, map count, dates), surfaced on the DM landing page for one-click
   resume.
+- ☑ **Edit / delete saved sessions [req].** Each saved-session row on the DM
+  landing page shows its **name** and has **✎ edit** (rename + change the join
+  **code**) and **🗑 delete** actions. Because all data is keyed by `sessions.id`
+  (not `code`), changing the code is a one-line `UPDATE` that **preserves every map,
+  token and log** — only links to the old code stop working. Delete cascades via
+  `ON DELETE CASCADE`. Server: `changeSessionCode` / `deleteSession`
+  (`sessions.ts`) + `PATCH`/`DELETE /api/sessions/:code` (gated by the DM passphrase
+  when configured); validated by tests.
 
 ## Phase 2 — Canvas UX, DM combat tooling, persistence polish ✅ (done)
 

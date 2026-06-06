@@ -252,6 +252,32 @@ export function renameSession(sessionId: string, name: string): void {
   db.prepare('UPDATE sessions SET name = ? WHERE id = ?').run(trimmed, sessionId);
 }
 
+/**
+ * Change a session's join code in place. All data is keyed by the session **id**
+ * (not the code), so every map/token/character/log is preserved; only links to
+ * the previous code stop working. Validates like a DM-chosen custom code.
+ */
+export function changeSessionCode(sessionId: string, rawCode: string): string {
+  const code = normalizeSessionCode(rawCode);
+  if (code.length < 3)
+    throw new SessionCodeError('Code must be at least 3 letters or digits.');
+  const taken = db
+    .prepare('SELECT 1 FROM sessions WHERE code = ? AND id != ?')
+    .get(code, sessionId);
+  if (taken) throw new SessionCodeError(`Code "${code}" is already in use.`);
+  db.prepare('UPDATE sessions SET code = ? WHERE id = ?').run(code, sessionId);
+  return code;
+}
+
+/**
+ * Delete a session and everything under it. Maps → tokens, characters, monsters,
+ * measurements and the roll log all cascade via `ON DELETE CASCADE`
+ * (`foreign_keys = ON`). Uploaded map images are left on disk (harmless orphans).
+ */
+export function deleteSession(sessionId: string): void {
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+}
+
 export function setActiveMap(sessionId: string, mapId: string): void {
   db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
     mapId,

@@ -248,7 +248,19 @@ input[type='number'] { width: 70px; }
 }
 .session-row:hover { border-color: var(--accent); }
 .session-code { font-weight: 700; letter-spacing: 1px; }
+.session-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-meta { color: var(--muted); font-size: 12px; }
+/* Row = the join button plus small edit/delete actions. */
+.session-row-wrap { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.session-row-wrap .session-row { flex: 1; margin: 0; }
+.session-action { flex-shrink: 0; }
+.session-edit {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0;
+  background: var(--panel-2); border: 1px solid var(--accent);
+  border-radius: 6px; padding: 8px 10px;
+}
+.session-edit input { flex: 1; min-width: 120px; margin: 0; }
+.session-edit-actions { display: flex; gap: 6px; }
 
 .hp-line { font-size: 16px; margin: 6px 0; }
 /* Temporary-HP buffer pool: a flat 2024-rules cyan accent next to real HP. */
