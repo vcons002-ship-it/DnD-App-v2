@@ -1,0 +1,80 @@
+name: Create PR test launcher
+
+# When a PR into claude/Main is opened or reopened, generate its
+# "PR #<N> - <title>.bat" launcher on claude/Main so install.bat pulls it into
+# the user's folder for testing. Mirror of pr-test-cleanup.yml, which removes
+# the launcher again on close. A pull_request workflow runs from the BASE branch,
+# so this file must live on claude/Main to fire.
+on:
+  pull_request:
+    types: [opened, reopened]
+    branches: [claude/Main]
+
+# Avoid two runs racing to commit the same launcher for one PR.
+concurrency:
+  group: pr-test-launcher-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  add-launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/Main
+
+      - name: Generate this PR's test launcher
+        # Pass PR fields through the environment (never inline ${{ }} in the
+        # script) so a crafted PR title can't inject shell commands.
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Already have a launcher for this PR (e.g. reopened)? Nothing to do.
+          existing=( "PR #${PR_NUMBER} - "*.bat )
+          if [ ${#existing[@]} -gt 0 ]; then
+            echo "Launcher already present for PR #${PR_NUMBER}: ${existing[*]}"
+            exit 0
+          fi
+
+          # Filename title: strip the chars Windows forbids in filenames
+          # (\ / : * ? " < > |); keep '#'/spaces. Squeeze + trim blanks.
+          fname_title="$(printf '%s' "$PR_TITLE" | tr -d '\\/:*?"<>|' | sed -e 's/[[:space:]]\{1,\}/ /g' -e 's/^ //' -e 's/ $//')"
+          # In-file title: must survive a batch  set "PR_TITLE=..."  and the
+          # runner's delayed-expansion  echo !PR_TITLE! . Replace &->"and" and drop
+          # cmd metacharacters plus quotes/bangs: % ^ < > | ( ) " !
+          bat_title="$(printf '%s' "$PR_TITLE" | sed -e 's/&/and/g' -e 's/[%^<>|()"!]//g' -e 's/[[:space:]]\{1,\}/ /g' -e 's/^ //' -e 's/ $//')"
+
+          file="PR #${PR_NUMBER} - ${fname_title}.bat"
+          echo "Creating launcher: ${file}"
+
+          # Thin wrapper over tools/pr-test-runner.bat (it does all the real work).
+          # .gitattributes re-encodes *.bat to CRLF on checkout, so LF here is fine.
+          cat > "${file}" <<EOF
+          @echo off
+          REM ============================================================
+          REM   Test launcher for PR #${PR_NUMBER} - ${bat_title}
+          REM
+          REM   Double-click to spin up this PR's branch in an isolated folder/port
+          REM   for testing. Your main install (run by start.bat) is untouched.
+          REM   Auto-removes itself + its test folder once the PR is merged/closed.
+          REM ============================================================
+          set "PR_NUMBER=${PR_NUMBER}"
+          set "PR_BRANCH=${PR_BRANCH}"
+          set "PR_TITLE=${bat_title}"
+          set "MAIN_DIR=%~dp0"
+          call "%~dp0tools\pr-test-runner.bat"
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${file}"
+          git commit -m "chore: add PR #${PR_NUMBER} test launcher (PR opened)"
+          git push origin claude/Main
