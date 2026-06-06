@@ -547,6 +547,12 @@ Smaller refinements on top of the shipped Phase 2 work.
     env at boot, and reset the Gemini model cache. Gated by the DM passphrase
     when one is configured. Built so new settings are simple rows.
   - **Session info** and **Copy player link** (DM) moved here.
+  - **Map tool menus in the top bar [req].** The **Measure / Scale / Fog** dropdowns
+    now live in the top toolbar (above the map) instead of the in-canvas corner.
+    They're **portaled** (`createPortal`) into a `#map-tool-slot` in `TopToolbar`
+    but keep all their state/handlers in `MapStage`, so the canvas interactions are
+    unchanged — a low-risk relocation. **Fit + zoom %** stay in the canvas corner
+    (they're tied to pan/zoom). Measure shows for everyone; Scale/Fog are DM-only.
   *(Future settings to add as rows: default fog, grid size, theme, Discord
   channel for the integration below.)*
 - ☐ **Discord video integration [req].** Bring the table's Discord voice/video

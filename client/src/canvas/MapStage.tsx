@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -291,6 +292,13 @@ export function MapStage({
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const gridHot = draggingToken || measureActive;
+
+  // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
+  // toolbar above the map; grab that slot once the toolbar has mounted.
+  const [toolSlot, setToolSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setToolSlot(document.getElementById('map-tool-slot'));
+  }, []);
 
   // ---- Token movement footprint trails ------------------------------------
   // Diff token positions across snapshots so a move (local drag OR another
@@ -726,70 +734,76 @@ export function MapStage({
               Fit
             </button>
             <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
-
-            {/* Measuring tools — available to everyone; shapes are shared. */}
-            <span className="ctrl-sep" />
-            <MeasureMenu
-              tool={tool}
-              snap={snap}
-              removeMode={removeMode}
-              hasMeasurements={snapshot.measurements.length > 0}
-              isDm={isDm}
-              onPick={(shape, sz) => {
-                setRemoveMode(false);
-                pendingRef.current = false;
-                setDraft(null);
-                setTool((cur) =>
-                  cur && cur.shape === shape && cur.size === sz ? null : { shape, size: sz },
-                );
-              }}
-              onToggleSnap={() => setSnap((s) => !s)}
-              onToggleRemove={() => {
-                setTool(null);
-                pendingRef.current = false;
-                setDraft(null);
-                setRemoveMode((r) => !r);
-              }}
-              onClearMine={() => map && clearMeasurements(map.id, true)}
-              onClearAll={() => map && clearMeasurements(map.id, false)}
-            />
-
-            {isDm && (
-              <>
-                <span className="ctrl-sep" />
-                <ScaleMenu
-                  feetPerSquare={derivedFtPerSquare}
-                  widthFt={widthFt}
-                  gridPx={gridPx}
-                  scaleMode={scaleMode}
-                  onCommit={(ft, width) => {
-                    setWidthFt(width);
-                    commitScaleFeet(ft, width);
-                  }}
-                  onToggleScaleMode={() => {
-                    setTool(null);
-                    setRemoveMode(false);
-                    setScaleLine(null);
-                    setScalePrompt(null);
-                    setScaleMode((s) => !s);
-                  }}
-                />
-                <FogMenu
-                  mapFogEnabled={mapFogEnabled}
-                  tokenFogEnabled={tokenFogEnabled}
-                  paintLayer={paintLayer}
-                  fogBrush={fogBrush}
-                  brushSize={brushSize}
-                  onToggleLayer={toggleLayer}
-                  onSetPaintLayer={setPaintLayer}
-                  onSetBrush={(b) => setFogBrush(b)}
-                  onSetBrushSize={setBrushSize}
-                  onCoverAll={() => map && coverFog(map.id, paintLayer)}
-                  onRevealAll={() => revealAll(paintLayer)}
-                />
-              </>
-            )}
           </div>
+          {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
+              via a portal, but keep all their state/handlers here in MapStage. */}
+          {toolSlot &&
+            createPortal(
+              <div className="map-tool-menus">
+                {/* Measuring tools — available to everyone; shapes are shared. */}
+                <MeasureMenu
+                  tool={tool}
+                  snap={snap}
+                  removeMode={removeMode}
+                  hasMeasurements={snapshot.measurements.length > 0}
+                  isDm={isDm}
+                  onPick={(shape, sz) => {
+                    setRemoveMode(false);
+                    pendingRef.current = false;
+                    setDraft(null);
+                    setTool((cur) =>
+                      cur && cur.shape === shape && cur.size === sz
+                        ? null
+                        : { shape, size: sz },
+                    );
+                  }}
+                  onToggleSnap={() => setSnap((s) => !s)}
+                  onToggleRemove={() => {
+                    setTool(null);
+                    pendingRef.current = false;
+                    setDraft(null);
+                    setRemoveMode((r) => !r);
+                  }}
+                  onClearMine={() => map && clearMeasurements(map.id, true)}
+                  onClearAll={() => map && clearMeasurements(map.id, false)}
+                />
+                {isDm && (
+                  <>
+                    <ScaleMenu
+                      feetPerSquare={derivedFtPerSquare}
+                      widthFt={widthFt}
+                      gridPx={gridPx}
+                      scaleMode={scaleMode}
+                      onCommit={(ft, width) => {
+                        setWidthFt(width);
+                        commitScaleFeet(ft, width);
+                      }}
+                      onToggleScaleMode={() => {
+                        setTool(null);
+                        setRemoveMode(false);
+                        setScaleLine(null);
+                        setScalePrompt(null);
+                        setScaleMode((s) => !s);
+                      }}
+                    />
+                    <FogMenu
+                      mapFogEnabled={mapFogEnabled}
+                      tokenFogEnabled={tokenFogEnabled}
+                      paintLayer={paintLayer}
+                      fogBrush={fogBrush}
+                      brushSize={brushSize}
+                      onToggleLayer={toggleLayer}
+                      onSetPaintLayer={setPaintLayer}
+                      onSetBrush={(b) => setFogBrush(b)}
+                      onSetBrushSize={setBrushSize}
+                      onCoverAll={() => map && coverFog(map.id, paintLayer)}
+                      onRevealAll={() => revealAll(paintLayer)}
+                    />
+                  </>
+                )}
+              </div>,
+              toolSlot,
+            )}
           <Stage
             width={size.w}
             height={size.h}

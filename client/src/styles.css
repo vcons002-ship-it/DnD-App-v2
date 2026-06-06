@@ -71,10 +71,13 @@ input[type='number'] { width: 70px; }
 /* App layout */
 .layout { display: flex; flex-direction: column; height: 100%; }
 .topbar {
-  display: flex; align-items: center; gap: 16px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line);
 }
 .topbar .code { color: var(--muted); }
+/* Map Measure/Scale/Fog menus portaled up from the canvas; sits before actions. */
+.map-tool-slot { display: flex; align-items: center; }
+.map-tool-menus { display: flex; align-items: center; gap: 6px; }
 .active-map em { color: var(--accent); font-style: italic; }
 .body { display: flex; flex: 1; min-height: 0; }
 .center { flex: 1; min-width: 0; background: #0e0f12; }
