@@ -369,14 +369,15 @@ input[type='number'] { width: 70px; }
    (Feature: DicePanel toggle). One line, just wide enough for the latest roll. */
 .roll-log-overlay {
   position: absolute; left: 8px; bottom: 8px; z-index: 4;
-  pointer-events: none; max-width: 60%; margin: 0;
+  /* Hoverable (to fade in / reveal), but only a small bottom-left footprint. */
+  pointer-events: auto; max-width: 380px; margin: 0;
   display: flex; flex-direction: column; gap: 4px;
 }
 .roll-log-overlay .roll-entry {
-  background: #0b0d12cc; white-space: nowrap; overflow: hidden;
+  background: #0b0d12cc; white-space: normal; overflow-wrap: anywhere;
   transition: opacity .4s; animation: overlayIn .3s ease;
 }
-.roll-log-overlay .roll-meta { overflow: hidden; text-overflow: ellipsis; }
+.roll-log-overlay .roll-meta { overflow: visible; }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* Quick-roll D20 button pinned bottom-right of the map (Feature: DicePanel toggle).

@@ -287,6 +287,9 @@ export function MapStage({
   const [scaleFt, setScaleFt] = useState('');
   const scaleDrawRef = useRef(false);
   const measureActive = !!tool || removeMode || scaleMode;
+  // While a token is dragging (or measuring) the grid brightens for alignment.
+  const [draggingToken, setDraggingToken] = useState(false);
+  const gridHot = draggingToken || measureActive;
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
@@ -319,7 +322,14 @@ export function MapStage({
     const derivedFps = Math.max(1, Math.round((ftWide / imgW) * px));
     setMapGrid(map.id, px, derivedFps, ftWide);
   };
-  const commitGrid = () => commitScale(gridPx, widthFt);
+  // The DM sets the grid in FEET per square; the pixel cell is derived from the
+  // map scale (width in feet ÷ image width), so a square always means real feet.
+  const commitScaleFeet = (ftPerSquare: number, ftWide: number) => {
+    if (!map || !imgW || ftWide <= 0 || ftPerSquare <= 0) return;
+    const px = Math.max(1, Math.round((ftPerSquare * imgW) / ftWide));
+    setGridPx(px);
+    setMapGrid(map.id, px, Math.max(1, Math.round(ftPerSquare)), ftWide);
+  };
   const derivedFtPerSquare = imgW ? (widthFt / imgW) * gridPx : feetPerSquare;
 
   // Confirm the reference-line prompt: its real length sets the map width.
@@ -708,13 +718,14 @@ export function MapStage({
               <>
                 <span className="ctrl-sep" />
                 <ScaleMenu
-                  gridPx={gridPx}
+                  feetPerSquare={derivedFtPerSquare}
                   widthFt={widthFt}
-                  derivedFtPerSquare={derivedFtPerSquare}
+                  gridPx={gridPx}
                   scaleMode={scaleMode}
-                  onGridPx={setGridPx}
-                  onWidthFt={setWidthFt}
-                  onCommit={commitGrid}
+                  onCommit={(ft, width) => {
+                    setWidthFt(width);
+                    commitScaleFeet(ft, width);
+                  }}
                   onToggleScaleMode={() => {
                     setTool(null);
                     setRemoveMode(false);
@@ -769,7 +780,13 @@ export function MapStage({
                 <Rect width={imgW} height={imgH} fill="#2a2f3a" />
               )}
               {gridLines.map((pts, i) => (
-                <Line key={i} points={pts} stroke="#ffffff22" strokeWidth={1} />
+                <Line
+                  key={i}
+                  points={pts}
+                  stroke={gridHot ? '#ffffffcc' : '#ffffff40'}
+                  strokeWidth={gridHot ? 1.5 : 1}
+                  listening={false}
+                />
               ))}
               {/* Map fog: covered terrain. For players the cover is opaque and
                   EXACTLY the off-map backdrop colour (CANVAS_BG), so a covered
@@ -840,6 +857,7 @@ export function MapStage({
                     setHover({ token: tok, x: cx, y: cy })
                   }
                   onHoverEnd={() => setHover(null)}
+                  onDragActive={setDraggingToken}
                 />
               ))}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}

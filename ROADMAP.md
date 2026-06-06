@@ -356,6 +356,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   above it; clicking the d20 rolls `1d20`, clicking a die rolls one of it — all through the
   same server-authoritative `dice:roll` path into the shared roll log. Shown for DM + players
   (rendered once in shared `MapStage`).
+- ☑ **Roll-overlay rework [req].** Each overlay line now shows its **full text**
+  (wraps, never truncated). New rolls fade in and, when idle, fade out **~20s**
+  later, leaving a faint latest line as a hover target. **Hovering** fades the panel
+  to full opacity — within a minute it reveals the recent stack; once the latest roll
+  is **over a minute** old, hovering shows only that single latest roll
+  (`RollLogOverlay` + `.roll-log-overlay` CSS).
 - ☑ **Player roll log on the right [req].** In the PLAYER view the shared roll log
   (`DicePanel`) lives in the RIGHT panel **beneath** the combat console, so clicking
   an attack shows the result immediately below. The DM keeps the left-panel log.
@@ -410,6 +416,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   and a fresh map's width is **derived from its pixel size** (default 5 ft/50 px)
   and prefilled for the DM to adjust. Placed AOEs **keep their footprint** when
   scale changes (stored in px; labels recompute).
+- ☑ **Grid square set in FEET [req].** The DM's `ScaleMenu` now takes the **grid
+  square size in feet** (e.g. 5) instead of pixels; the pixel cell is **derived**
+  from the map scale (`feet × image width ÷ width_ft`) and shown as a read-out, so a
+  square always means real feet. Changing the map width re-derives px to preserve the
+  chosen feet-per-square. Client-side derivation only — the `map:setGrid` payload is
+  unchanged. Legacy maps with no width fall back to the px field.
+- ☑ **More visible grid [req].** Grid lines are brighter at rest (`#ffffff40`) and
+  **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
+  tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
+  `onDragActive` signal from `TokenShape`).
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,

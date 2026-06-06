@@ -1,33 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * The map toolbar's "Scale" dropdown (DM only): the grid cell size (visual), the
- * real-world map width in feet (the scale source of truth), a derived
- * feet-per-square read-out, and the "set scale from a drawn line" toggle. Mirrors
- * MeasureMenu's popover pattern; presentational — state lives in MapStage.
+ * The map toolbar's "Scale" dropdown (DM only): the grid square size in **feet**
+ * (e.g. 5 ft — the standard D&D square), the real-world map width in feet (the
+ * scale source of truth), a derived pixel-cell read-out, and the "set scale from
+ * a drawn line" toggle. The pixel grid is derived from feet ÷ map scale, so a
+ * square always means real feet. Mirrors MeasureMenu's popover pattern;
+ * presentational — the canonical state lives in MapStage.
  */
 export function ScaleMenu({
-  gridPx,
+  feetPerSquare,
   widthFt,
-  derivedFtPerSquare,
+  gridPx,
   scaleMode,
-  onGridPx,
-  onWidthFt,
   onCommit,
   onToggleScaleMode,
 }: {
-  gridPx: number;
+  feetPerSquare: number;
   widthFt: number;
-  derivedFtPerSquare: number;
+  gridPx: number;
   scaleMode: boolean;
-  onGridPx: (n: number) => void;
-  onWidthFt: (n: number) => void;
-  onCommit: () => void;
+  /** Commit a new grid-square (ft) and/or map width (ft); MapStage derives px. */
+  onCommit: (feetPerSquare: number, widthFt: number) => void;
   onToggleScaleMode: () => void;
 }) {
   const btn = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  // Local edit buffers so typing doesn't fight the derived round-trip; they
+  // re-seed from props whenever the committed values change.
+  const [ftStr, setFtStr] = useState(String(Math.round(feetPerSquare) || 5));
+  const [widthStr, setWidthStr] = useState(String(Math.round(widthFt)));
+  useEffect(() => setFtStr(String(Math.round(feetPerSquare) || 5)), [feetPerSquare]);
+  useEffect(() => setWidthStr(String(Math.round(widthFt))), [widthFt]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,6 +48,12 @@ export function ScaleMenu({
       setPos({ x: Math.max(8, Math.min(r.left, window.innerWidth - W - 8)), y: r.bottom + 4 });
     }
     setOpen((o) => !o);
+  };
+
+  const commit = () => {
+    const ft = Number(ftStr);
+    const width = Number(widthStr);
+    if (ft > 0 && width > 0) onCommit(ft, width);
   };
 
   return (
@@ -61,32 +72,32 @@ export function ScaleMenu({
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
           <div className="measure-menu scale-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
             <label className="scale-field">
-              <span>Grid cell</span>
+              <span>Grid square</span>
               <input
                 className="grid-input"
                 type="number"
-                value={gridPx}
-                onChange={(e) => onGridPx(Number(e.target.value))}
-                onBlur={onCommit}
-                onKeyDown={(e) => e.key === 'Enter' && onCommit()}
-                title="Grid cell size in pixels (visual only)"
+                value={ftStr}
+                onChange={(e) => setFtStr(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => e.key === 'Enter' && commit()}
+                title="Grid square size in feet (e.g. 5). The pixel cell is derived from the map scale."
               />
-              <span className="muted">px</span>
+              <span className="muted">ft</span>
             </label>
             <label className="scale-field">
               <span>Map width</span>
               <input
                 className="grid-input"
                 type="number"
-                value={widthFt}
-                onChange={(e) => onWidthFt(Number(e.target.value))}
-                onBlur={onCommit}
-                onKeyDown={(e) => e.key === 'Enter' && onCommit()}
+                value={widthStr}
+                onChange={(e) => setWidthStr(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => e.key === 'Enter' && commit()}
                 title="Real-world map width in feet — drives the scale"
               />
               <span className="muted">ft</span>
             </label>
-            <div className="measure-label">≈ {Math.round(derivedFtPerSquare)} ft / square</div>
+            <div className="measure-label">≈ {Math.round(gridPx)} px / square</div>
             <div className="measure-sep" />
             <button
               className={`measure-row ${scaleMode ? 'on' : ''}`}
