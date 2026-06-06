@@ -444,11 +444,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   `onDragActive` signal from `TokenShape`).
 - ☑ **Token footprint trail [req].** A move (local drag OR another client's, diffed
   from the snapshot) leaves a lingering trail of **white footprints** (alternating
-  left/right ellipses) from the old spot to the new one, fading **oldest-first** over
-  **~30s** (old location vanishes first, the print nearest the token lingers longest)
-  so players remember where a token came from. Decorative/non-listening;
-  `FootprintTrails` self-ticks the slow fade so it doesn't re-render the rest of the
-  map (`MapStage` position diff).
+  left/right ellipses with a **faint dark outline** for contrast) from the old spot
+  to the new one, fading **oldest-first** over **~30s** so players remember where a
+  token came from. Only the **6 most-recent** trails are kept — a 7th move **fades
+  the oldest out** (~2s) instead of popping. Decorative/non-listening; the
+  self-contained `FootprintLayer` owns the position-diff + fade tick so the long
+  fade never re-renders the rest of the map.
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,

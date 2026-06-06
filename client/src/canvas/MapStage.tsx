@@ -7,7 +7,7 @@ import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
-import { FootprintTrails, type Trail } from './FootprintTrails';
+import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
@@ -300,33 +300,6 @@ export function MapStage({
     setToolSlot(document.getElementById('map-tool-slot'));
   }, []);
 
-  // ---- Token movement footprint trails ------------------------------------
-  // Diff token positions across snapshots so a move (local drag OR another
-  // client's) leaves a lingering fading trail of footprints from old spot to new.
-  // FootprintTrails self-ticks the long (~30s) fade, so MapStage only re-renders
-  // when a new move is detected, not for the whole fade.
-  const [trails, setTrails] = useState<Trail[]>([]);
-  const prevPos = useRef<Map<string, { x: number; y: number }>>(new Map());
-  useEffect(() => {
-    const next = new Map<string, { x: number; y: number }>();
-    const fresh: Trail[] = [];
-    for (const t of snapshot.tokens) {
-      const prev = prevPos.current.get(t.id);
-      next.set(t.id, { x: t.x, y: t.y });
-      // Ignore sub-half-cell jitter; only real moves leave a trail.
-      if (prev && Math.hypot(t.x - prev.x, t.y - prev.y) > grid * 0.5) {
-        fresh.push({
-          id: `${t.id}-${Date.now()}`,
-          from: prev,
-          to: { x: t.x, y: t.y },
-          start: Date.now(),
-          size: t.size,
-        });
-      }
-    }
-    prevPos.current = next;
-    if (fresh.length) setTrails((cur) => [...cur, ...fresh].slice(-12));
-  }, [snapshot.tokens, grid]);
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
@@ -879,7 +852,7 @@ export function MapStage({
                   }}
                 />
               )}
-              <FootprintTrails trails={trails} gridSizePx={grid} />
+              <FootprintLayer tokens={snapshot.tokens} gridSizePx={grid} />
               {snapshot.tokens.map((t) => (
                 <TokenShape
                   key={t.id}
