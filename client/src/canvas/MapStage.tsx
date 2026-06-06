@@ -14,6 +14,7 @@ import { FogMenu } from '../components/FogMenu';
 import { ScaleMenu } from '../components/ScaleMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { RollLogOverlay } from '../components/RollLogOverlay';
+import { DiceButtonOverlay } from '../components/DiceButtonOverlay';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -240,6 +241,7 @@ export function MapStage({
   const isDm = snapshot.role === 'dm';
   const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
+  const showDiceButton = useStore((s) => s.showDiceButton);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
@@ -919,6 +921,7 @@ export function MapStage({
             />
           )}
           {showRollOverlay && <RollLogOverlay rollLog={snapshot.rollLog} />}
+          {showDiceButton && <DiceButtonOverlay />}
           {scaleMode && !scalePrompt && (
             <div className="scale-hint">Drag a line across a known distance…</div>
           )}

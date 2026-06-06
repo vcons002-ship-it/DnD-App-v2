@@ -43,6 +43,9 @@ type Store = {
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
   showRollOverlay: boolean;
   toggleRollOverlay: () => void;
+  /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
+  showDiceButton: boolean;
+  toggleDiceButton: () => void;
 
   connect: (code: string, role: Role, dmPassphrase?: string) => void;
   disconnect: () => void;
@@ -142,6 +145,8 @@ export const useStore = create<Store>((set, get) => ({
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
+  showDiceButton: true,
+  toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
