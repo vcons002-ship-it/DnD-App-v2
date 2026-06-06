@@ -393,11 +393,16 @@ export type StateSnapshot = {
 export type Measurement = {
   id: string;
   mapId: string;
-  kind: 'cone' | 'circle' | 'line';
-  /** Image-space anchor (apex for a cone, centre for a circle, start for a line). */
+  /** `ruler` = thin two-point measure; `line` = 5-ft-wide AOE; `emanation` =
+   *  radius centred on (and following) a token. */
+  kind: 'cone' | 'circle' | 'line' | 'square' | 'emanation' | 'ruler';
+  /** Image-space anchor (apex for a cone, centre for a circle/square, start for
+   *  a line). For an emanation this is unused — the centre is the token. */
   origin: { x: number; y: number };
   /** Image-space far point (aims/sizes the shape). */
   target: { x: number; y: number };
+  /** Token an emanation is centred on (rendered at its live position). */
+  tokenId?: string;
   /** Display name of who drew it (the client colours it via `rollerColor`). */
   createdBy: string;
 };
@@ -482,6 +487,7 @@ export type MeasureAddPayload = {
   kind: Measurement['kind'];
   origin: { x: number; y: number };
   target: { x: number; y: number };
+  tokenId?: string;
 };
 /** Remove a single measuring shape by id (any role). */
 export type MeasureRemovePayload = { id: string };

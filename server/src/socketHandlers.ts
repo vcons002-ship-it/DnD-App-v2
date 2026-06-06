@@ -171,11 +171,11 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Measuring shapes — any session member may draw/clear them; they're shared.
-    socket.on('measure:add', ({ kind, origin, target }) => {
+    const MEASURE_KINDS = ['cone', 'circle', 'line', 'square', 'emanation', 'ruler'];
+    socket.on('measure:add', ({ kind, origin, target, tokenId }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
-      if (!sid || !conn) return;
-      if (kind !== 'cone' && kind !== 'circle' && kind !== 'line') return;
+      if (!sid || !conn || !MEASURE_KINDS.includes(kind)) return;
       const mapId =
         conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
       if (!mapId || !getMap(mapId)) return;
@@ -184,14 +184,21 @@ export function registerSocketHandlers(io: IOServer): void {
         kind,
         origin: { x: Number(origin?.x) || 0, y: Number(origin?.y) || 0 },
         target: { x: Number(target?.x) || 0, y: Number(target?.y) || 0 },
+        tokenId: typeof tokenId === 'string' ? tokenId : undefined,
         createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
       });
       afterChange();
     });
 
     socket.on('measure:remove', ({ id }) => {
-      if (!sessionId() || !id) return;
-      removeMeasurement(id);
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || !id) return;
+      // The DM may remove any; a player only their own.
+      removeMeasurement(
+        id,
+        conn.role === 'dm' ? undefined : rollerName(sid, socket.id, false),
+      );
       afterChange();
     });
 

@@ -27,6 +27,9 @@ type Props = {
   activeTurn: boolean;
   /** 1-based position in initiative order (not the raw roll), or null. */
   initiativeRank: number | null;
+  /** When false (e.g. a measure tool is active), the token ignores all pointer
+   *  events so clicks/drags fall through to the stage. */
+  listening?: boolean;
   onSelect: (token: Token, additive: boolean) => void;
   onMove: (token: Token, x: number, y: number) => void;
   /** Right-click / long-press — opens the floating action menu at screen coords. */
@@ -49,6 +52,7 @@ export function TokenShape({
   selected,
   activeTurn,
   initiativeRank,
+  listening = true,
   onSelect,
   onMove,
   onContextMenu,
@@ -143,6 +147,7 @@ export function TokenShape({
       name="token"
       x={token.x}
       y={token.y}
+      listening={listening}
       draggable={draggable}
       // Konva synthesizes a `click` for the right mouse button too (unlike the
       // DOM); ignore non-primary buttons so a right-click only opens the menu

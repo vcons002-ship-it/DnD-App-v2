@@ -593,6 +593,23 @@ input[type='number'] { width: 70px; }
 }
 .data-status-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 
+/* Measure dropdown (map toolbar) */
+.measure-menu {
+  position: fixed; z-index: 71; width: 230px; max-height: 70vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 6px; box-shadow: 0 10px 36px #000b; display: flex; flex-direction: column; gap: 2px;
+}
+.measure-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left; background: none; border: none; color: var(--text);
+  border-radius: 6px; padding: 6px 8px; font-size: 13px; cursor: pointer;
+}
+.measure-row:hover { background: var(--panel-2); }
+.measure-row.on { background: var(--accent); color: #fff; }
+.measure-sizes { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 6px; }
+.measure-sep { height: 1px; background: var(--line); margin: 4px 0; }
+.measure-clear { display: flex; gap: 6px; padding: 4px 8px 2px; }
+
 /* Attack controls */
 .attack-controls { margin-top: 10px; }
 .attack-controls select { flex: 1; }

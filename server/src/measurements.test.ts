@@ -39,8 +39,10 @@ describe('measurements', () => {
     expect(snap.measurements).toHaveLength(2);
     expect(snap.measurements[0]).toMatchObject({ kind: 'cone', createdBy: 'DM' });
 
-    // Remove a single one.
-    removeMeasurement(a.id);
+    // Ownership-gated remove: wrong creator is a no-op; matching creator deletes.
+    removeMeasurement(a.id, 'Aria');
+    expect(listMeasurements(map.id)).toHaveLength(2);
+    removeMeasurement(a.id, 'DM');
     expect(listMeasurements(map.id)).toHaveLength(1);
 
     // Clear only one drawer's.
@@ -57,6 +59,22 @@ describe('measurements', () => {
     // Clear all.
     clearMeasurements(map.id);
     expect(listMeasurements(map.id)).toHaveLength(0);
+  });
+
+  it('round-trips an emanation anchored to a token', () => {
+    const s = createSession('Emanate');
+    const map = createMap(s.id, { name: 'Hall' });
+    setActiveMap(s.id, map.id);
+    const m = addMeasurement(s.id, {
+      mapId: map.id,
+      kind: 'emanation',
+      origin: { x: 100, y: 100 },
+      target: { x: 130, y: 100 },
+      tokenId: 'tok-1',
+      createdBy: 'Aria',
+    });
+    expect(m.tokenId).toBe('tok-1');
+    expect(listMeasurements(map.id)[0]).toMatchObject({ kind: 'emanation', tokenId: 'tok-1' });
   });
 });
 

@@ -384,13 +384,20 @@ Smaller refinements on top of the shipped Phase 2 work.
   map's cell size (px) and feet-per-square (`map:setGrid` → the existing
   `updateMapGrid`, broadcast); grid/fog/labels recompute, token image-space
   positions stay put.
-- ☑ **Measuring tools (cone / circle / line) [req].** Toolbar tools for everyone;
-  drag on the canvas to draw a 5e **cone** (length = base width), **circle**
-  (radius), or **line/ruler**, snapped to grid intersections with a live feet
-  label. Shapes are **shared** (server-persisted `measurements` table, broadcast
-  in the snapshot, coloured per drawer via `rollerColor`) and **persist** until
-  cleared (players clear their own; the DM clears all). Reuses the fog-brush
-  interaction + `pointerToImage`.
+- ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
+  toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
+  Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
+  plus a **snap-to-grid** toggle, a **click-to-remove** mode, and Clear mine /
+  Clear all. **Standard** (small/large) shapes use classic 5e sizes (Circle r
+  15/20, Cone 15/60, Line 30/100 ×5 ft, Square 10/20, Emanation 10/30 ft) with
+  feet markers that track the grid; they're placed **click-anchor → rotate →
+  click** (Circle/Square commit on one click). **Custom** keeps the drag-between-
+  two-points mechanic (custom Line = a thin ruler; standard Line = a 5-ft AOE).
+  **Emanation** centres on a token and follows it. Shapes are **shared**
+  (server-persisted `measurements` table — `kind` ∈ cone/circle/line/square/
+  emanation/ruler, optional `tokenId` — broadcast in the snapshot, coloured per
+  drawer) and **persist** until cleared; players remove/clear only their own, the
+  DM any. Tokens become non-listening while measuring so clicks never select them.
 - ☑ **Roll log in the DM Data view [req].** The `/dm/data` dashboard gains a fixed
   **right column** with the full `DicePanel` (roller + shared log) beside the card
   grid, so rolls are visible on the second screen.

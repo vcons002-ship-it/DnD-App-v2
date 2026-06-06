@@ -204,9 +204,14 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   (`library_characters` + `/api/library/characters`, mirroring the creature
   library) — players + DM, via `LibraryCharacterDialog` (save) and
   `LibraryCharacterPicker` (load → `character:loadFromLibrary`).
-- **Map tools:** DM-resizable grid (`map:setGrid`) and shared, snap-to-grid,
-  persistent **measuring shapes** (cone/circle/line) — a `measurements` table
-  broadcast in the snapshot, drawn on the Konva canvas and coloured per drawer.
+- **Map tools:** DM-resizable grid (`map:setGrid`) and shared, persistent
+  **measuring shapes** via a toolbar **"Measure" dropdown** (`MeasureMenu`):
+  Circle/Cone/Line/Square/Emanation, each Custom (drag) or Small/Large (classic 5e
+  sizes, click-anchor→rotate→click), a snap-to-grid toggle, and click-to-remove +
+  Clear mine/all. A `measurements` table (kinds cone/circle/line/square/emanation/
+  ruler, optional `tokenId` for token-following emanations) is broadcast in the
+  snapshot, drawn on the Konva canvas and coloured per drawer; tokens go
+  non-listening while measuring.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
   Settings, copy link, open Data view), editable map names, Roll20 collapsible
   embed + pop-out.

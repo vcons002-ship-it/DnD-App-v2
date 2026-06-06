@@ -3,12 +3,13 @@ import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text } fr
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
-import type { FogLayer, StateSnapshot, Token } from '../../../shared/types';
+import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
+import { MeasureMenu } from '../components/MeasureMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { RollLogOverlay } from '../components/RollLogOverlay';
 
@@ -26,6 +27,26 @@ type Props = {
 type View = { scale: number; x: number; y: number };
 type Pt = { x: number; y: number };
 
+/** Shapes offered by the Measure menu (Line custom → a thin "ruler"). */
+export type MeasureShapeKind = 'circle' | 'cone' | 'line' | 'square' | 'emanation';
+export type MeasureSize = 'custom' | 'small' | 'large';
+export type MeasureTool = { shape: MeasureShapeKind; size: MeasureSize };
+type DraftMeasure = {
+  kind: Measurement['kind'];
+  origin: Pt;
+  target: Pt;
+  tokenId?: string;
+};
+
+/** Standard (small/large) sizes in feet — classic 5e spell footprints. */
+export const MEASURE_FT: Record<MeasureShapeKind, { small: number; large: number }> = {
+  circle: { small: 15, large: 20 },
+  cone: { small: 15, large: 60 },
+  line: { small: 30, large: 100 },
+  square: { small: 10, large: 20 },
+  emanation: { small: 10, large: 30 },
+};
+
 /** The off-map backdrop colour. MUST match `.center` in styles.css so covered
  *  map-fog cells blend seamlessly into the empty space beyond the map. */
 const CANVAS_BG = '#0e0f12';
@@ -33,8 +54,10 @@ const CANVAS_BG = '#0e0f12';
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
-/** A single measuring shape (cone/circle/line) drawn in image-space, plus a
- *  distance label in feet. Non-listening so it never blocks token interaction. */
+/** A single measuring shape drawn in image-space, plus a distance label in feet.
+ *  Non-listening by default so it never blocks tokens; in remove mode `onRemove`
+ *  makes it clickable. `emanation` is rendered by the caller as a `circle`
+ *  centred on its token. */
 function MeasureShape({
   kind,
   origin,
@@ -42,73 +65,99 @@ function MeasureShape({
   color,
   grid,
   feetPerSquare,
+  onRemove,
 }: {
-  kind: 'cone' | 'circle' | 'line';
+  kind: Measurement['kind'];
   origin: Pt;
   target: Pt;
   color: string;
   grid: number;
   feetPerSquare: number;
+  onRemove?: () => void;
 }) {
   const dx = target.x - origin.x;
   const dy = target.y - origin.y;
   const len = Math.hypot(dx, dy);
-  const feet = Math.round((len / grid) * feetPerSquare);
+  const px2ft = (px: number) => Math.round((px / grid) * feetPerSquare);
   const stroke = Math.max(1.5, grid * 0.05);
   const fontSize = Math.max(11, grid * 0.34);
+  const fill = { stroke: color, strokeWidth: stroke, fill: color, opacity: 0.18 };
+  const listen = !!onRemove;
+  const hit = listen ? { listening: true, onClick: onRemove, onTap: onRemove } : { listening: false };
+
+  // Label text + anchor depend on the shape.
+  let label = `${px2ft(len)} ft`;
+  let labelAt = target;
 
   let shape = null;
-  if (kind === 'circle') {
+  if (kind === 'circle' || kind === 'emanation') {
+    label = `${px2ft(len)} ft r`;
+    labelAt = { x: origin.x + len * 0.71, y: origin.y - len * 0.71 };
+    shape = <Circle x={origin.x} y={origin.y} radius={len} {...fill} {...hit} />;
+  } else if (kind === 'square') {
+    const half = len; // stored distance is the half-side
+    label = `${px2ft(half * 2)} ft`;
+    labelAt = { x: origin.x + half, y: origin.y - half };
     shape = (
-      <Circle
-        x={origin.x}
-        y={origin.y}
-        radius={len}
-        stroke={color}
-        strokeWidth={stroke}
-        fill={color}
-        opacity={0.18}
-        listening={false}
+      <Rect
+        x={origin.x - half}
+        y={origin.y - half}
+        width={half * 2}
+        height={half * 2}
+        {...fill}
+        {...hit}
       />
     );
-  } else if (kind === 'line') {
-    shape = (
-      <Line
-        points={[origin.x, origin.y, target.x, target.y]}
-        stroke={color}
-        strokeWidth={stroke}
-        listening={false}
-      />
-    );
-  } else if (len >= 1) {
-    // 5e cone: an isosceles triangle whose base width equals its length.
+  } else if (kind === 'ruler') {
+    shape = <Line points={[origin.x, origin.y, target.x, target.y]} stroke={color} strokeWidth={stroke} {...hit} />;
+  } else if (len >= 1 && (kind === 'cone' || kind === 'line')) {
     const ux = dx / len;
     const uy = dy / len;
     const px = -uy;
     const py = ux;
     const bx = origin.x + ux * len;
     const by = origin.y + uy * len;
-    const h = len / 2;
-    shape = (
-      <Line
-        closed
-        points={[origin.x, origin.y, bx + px * h, by + py * h, bx - px * h, by - py * h]}
-        stroke={color}
-        strokeWidth={stroke}
-        fill={color}
-        opacity={0.18}
-        listening={false}
-      />
-    );
+    if (kind === 'cone') {
+      // 5e cone: an isosceles triangle whose base width equals its length.
+      const h = len / 2;
+      shape = (
+        <Line
+          closed
+          points={[origin.x, origin.y, bx + px * h, by + py * h, bx - px * h, by - py * h]}
+          {...fill}
+          {...hit}
+        />
+      );
+    } else {
+      // 5e line AOE: a 5-ft-wide rectangle along the direction.
+      const hw = (2.5 / feetPerSquare) * grid; // half of 5 ft
+      shape = (
+        <Line
+          closed
+          points={[
+            origin.x + px * hw,
+            origin.y + py * hw,
+            bx + px * hw,
+            by + py * hw,
+            bx - px * hw,
+            by - py * hw,
+            origin.x - px * hw,
+            origin.y - py * hw,
+          ]}
+          {...fill}
+          {...hit}
+        />
+      );
+    }
   }
 
   return (
     <>
       {shape}
       <Text
-        x={target.x + 4}
-        y={target.y + 4}
-        text={`${feet} ft`}
+        x={labelAt.x + 4}
+        y={labelAt.y + 4}
+        text={label}
         fontSize={fontSize}
         fill={color}
         stroke="#000"
@@ -163,6 +212,7 @@ export function MapStage({
   const coverFog = useStore((s) => s.coverFog);
   const setMapGrid = useStore((s) => s.setMapGrid);
   const addMeasurement = useStore((s) => s.addMeasurement);
+  const removeMeasurement = useStore((s) => s.removeMeasurement);
   const clearMeasurements = useStore((s) => s.clearMeasurements);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
   const [paintLayer, setPaintLayer] = useState<FogLayer>('map');
@@ -183,16 +233,26 @@ export function MapStage({
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
 
-  // ---- Measuring tools (cone/circle/line): shared, snap-to-grid, persistent ----
+  // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
   const feetPerSquare = map?.feetPerSquare ?? 5;
-  const [measureTool, setMeasureTool] = useState<'off' | 'cone' | 'circle' | 'line'>('off');
-  const measureActive = measureTool !== 'off';
-  const [draft, setDraft] = useState<{ origin: Pt; target: Pt } | null>(null);
-  const drawingRef = useRef(false);
-  const snapPt = (p: Pt): Pt => ({
-    x: Math.round(p.x / grid) * grid,
-    y: Math.round(p.y / grid) * grid,
-  });
+  const [tool, setTool] = useState<MeasureTool | null>(null);
+  const [snap, setSnap] = useState(true);
+  const [removeMode, setRemoveMode] = useState(false);
+  const measureActive = !!tool || removeMode;
+  const [draft, setDraft] = useState<DraftMeasure | null>(null);
+  const drawingRef = useRef(false); // a custom drag is in progress
+  const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
+  const snapPt = (p: Pt): Pt =>
+    snap ? { x: Math.round(p.x / grid) * grid, y: Math.round(p.y / grid) * grid } : p;
+  // Feet -> stored image-space distance (square stores HALF its side; circle/
+  // emanation a radius; cone/line a length).
+  const presetPx = (shape: MeasureShapeKind, ft: number): number =>
+    (shape === 'square' ? ft / 2 : ft) * (grid / feetPerSquare);
+  // The persisted Measurement.kind for a (shape,size) pick.
+  const kindOf = (t: MeasureTool): Measurement['kind'] =>
+    t.shape === 'line' ? (t.size === 'custom' ? 'ruler' : 'line') : t.shape;
+  const tokenAt = (p: Pt): Token | undefined =>
+    snapshot.tokens.find((t) => Math.hypot(p.x - t.x, p.y - t.y) <= (grid * t.size) / 2);
 
   // DM grid-size control (committed on blur/Enter; synced from the live map).
   const [gridPx, setGridPx] = useState(grid);
@@ -202,6 +262,21 @@ export function MapStage({
   const commitGrid = () => {
     if (map) setMapGrid(map.id, gridPx, gridFt);
   };
+
+  // Esc cancels the active measure tool / pending placement.
+  useEffect(() => {
+    if (!measureActive) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      drawingRef.current = false;
+      pendingRef.current = false;
+      setDraft(null);
+      setTool(null);
+      setRemoveMode(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [measureActive]);
 
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
@@ -289,16 +364,89 @@ export function MapStage({
     if (fresh.length) paintFog(map.id, paintLayer, fresh, fogBrush === 'reveal');
   };
 
+  // Place/size a measurement. Custom = drag; standard circle/square = one click;
+  // standard cone/line = click-anchor then rotate then click; emanation = click a
+  // token (then optionally drag the radius for custom).
+  const measureDown = (pos: Pt) => {
+    if (!tool) return;
+    // Second click of a two-step placement (cone/line rotate, emanation radius)
+    // commits the current preview.
+    if (pendingRef.current && draft) {
+      addMeasurement({
+        kind: draft.kind,
+        origin: draft.origin,
+        target: draft.target,
+        tokenId: draft.tokenId,
+      });
+      pendingRef.current = false;
+      setDraft(null);
+      return;
+    }
+    const { shape, size } = tool;
+    const kind = kindOf(tool);
+
+    if (shape === 'emanation') {
+      const tok = tokenAt(pos);
+      if (!tok) return;
+      const center = { x: tok.x, y: tok.y };
+      if (size === 'custom') {
+        pendingRef.current = true; // radius follows the cursor until the next click
+        setDraft({ kind, origin: center, target: center, tokenId: tok.id });
+      } else {
+        const r = presetPx('emanation', MEASURE_FT.emanation[size]);
+        addMeasurement({ kind, origin: center, target: { x: center.x + r, y: center.y }, tokenId: tok.id });
+      }
+      return;
+    }
+
+    if (size === 'custom') {
+      drawingRef.current = true;
+      const o = snapPt(pos);
+      setDraft({ kind, origin: o, target: o });
+      return;
+    }
+
+    const len = presetPx(shape, MEASURE_FT[shape][size]);
+    if (shape === 'circle' || shape === 'square') {
+      const o = snapPt(pos);
+      addMeasurement({ kind, origin: o, target: { x: o.x + len, y: o.y } });
+      return;
+    }
+    // cone / line: first click anchors; the angle then follows the cursor.
+    const o = snapPt(pos);
+    pendingRef.current = true;
+    setDraft({ kind, origin: o, target: { x: o.x + len, y: o.y } });
+  };
+
+  const measureMove = (pos: Pt) => {
+    if (drawingRef.current) {
+      setDraft((d) => (d ? { ...d, target: snapPt(pos) } : d));
+      return;
+    }
+    if (pendingRef.current && draft && tool) {
+      if (tool.shape === 'emanation') {
+        // Radius follows the cursor from the token centre.
+        setDraft((d) => (d ? { ...d, target: pos } : d));
+      } else {
+        // Lock the preset length; the angle follows the cursor (free rotation).
+        const len = presetPx(tool.shape, MEASURE_FT[tool.shape][tool.size as 'small' | 'large']);
+        const dx = pos.x - draft.origin.x;
+        const dy = pos.y - draft.origin.y;
+        const m = Math.hypot(dx, dy) || 1;
+        setDraft((d) =>
+          d ? { ...d, target: { x: d.origin.x + (dx / m) * len, y: d.origin.y + (dy / m) * len } } : d,
+        );
+      }
+    }
+  };
+
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
-    if (measureActive) {
+    if (removeMode) return; // removal is handled by clicking a shape
+    if (tool) {
       const pos = pointerToImage(stage);
-      if (pos) {
-        drawingRef.current = true;
-        const s = snapPt(pos);
-        setDraft({ origin: s, target: s });
-      }
+      if (pos) measureDown(pos);
       return;
     }
     if (fogActive) {
@@ -320,10 +468,10 @@ export function MapStage({
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
-    if (measureActive && drawingRef.current) {
+    if (tool && (drawingRef.current || pendingRef.current)) {
       const stage = e.target.getStage();
       const pos = stage ? pointerToImage(stage) : null;
-      if (pos) setDraft((d) => (d ? { ...d, target: snapPt(pos) } : d));
+      if (pos) measureMove(pos);
       return;
     }
     if (!fogActive || !paintingRef.current) return;
@@ -332,16 +480,21 @@ export function MapStage({
   };
 
   const endStroke = () => {
-    // Commit a measuring shape on release (if it has any size).
+    // A custom drag commits on release (the click-rotate flows commit on click).
     if (drawingRef.current) {
       drawingRef.current = false;
-      if (draft && measureTool !== 'off') {
+      if (draft) {
         const len = Math.hypot(
           draft.target.x - draft.origin.x,
           draft.target.y - draft.origin.y,
         );
         if (len >= grid * 0.25) {
-          addMeasurement({ kind: measureTool, origin: draft.origin, target: draft.target });
+          addMeasurement({
+            kind: draft.kind,
+            origin: draft.origin,
+            target: draft.target,
+            tokenId: draft.tokenId,
+          });
         }
       }
       setDraft(null);
@@ -422,37 +575,30 @@ export function MapStage({
 
             {/* Measuring tools — available to everyone; shapes are shared. */}
             <span className="ctrl-sep" />
-            <span className="zoom-label">Measure:</span>
-            <button
-              className={`btn tiny ${measureTool === 'cone' ? 'on' : ''}`}
-              onClick={() => setMeasureTool((t) => (t === 'cone' ? 'off' : 'cone'))}
-              title="Cone (drag from the caster to aim)"
-            >
-              △ Cone
-            </button>
-            <button
-              className={`btn tiny ${measureTool === 'circle' ? 'on' : ''}`}
-              onClick={() => setMeasureTool((t) => (t === 'circle' ? 'off' : 'circle'))}
-              title="Circle / radius (drag from the centre)"
-            >
-              ◯ Circle
-            </button>
-            <button
-              className={`btn tiny ${measureTool === 'line' ? 'on' : ''}`}
-              onClick={() => setMeasureTool((t) => (t === 'line' ? 'off' : 'line'))}
-              title="Line / ruler (drag end to end)"
-            >
-              📏 Line
-            </button>
-            {snapshot.measurements.length > 0 && (
-              <button
-                className="btn tiny"
-                onClick={() => map && clearMeasurements(map.id, !isDm)}
-                title={isDm ? 'Clear all measurements' : 'Clear your measurements'}
-              >
-                Clear{isDm ? ' all' : ''}
-              </button>
-            )}
+            <MeasureMenu
+              tool={tool}
+              snap={snap}
+              removeMode={removeMode}
+              hasMeasurements={snapshot.measurements.length > 0}
+              isDm={isDm}
+              onPick={(shape, sz) => {
+                setRemoveMode(false);
+                pendingRef.current = false;
+                setDraft(null);
+                setTool((cur) =>
+                  cur && cur.shape === shape && cur.size === sz ? null : { shape, size: sz },
+                );
+              }}
+              onToggleSnap={() => setSnap((s) => !s)}
+              onToggleRemove={() => {
+                setTool(null);
+                pendingRef.current = false;
+                setDraft(null);
+                setRemoveMode((r) => !r);
+              }}
+              onClearMine={() => map && clearMeasurements(map.id, true)}
+              onClearAll={() => map && clearMeasurements(map.id, false)}
+            />
 
             {isDm && (
               <>
@@ -646,6 +792,7 @@ export function MapStage({
                   display={resolveToken(snapshot, t)}
                   gridSizePx={grid}
                   draggable={draggableTokens && !fogActive && !measureActive}
+                  listening={!measureActive}
                   selected={selectedIds.includes(t.id)}
                   activeTurn={t.id === activeTurnTokenId}
                   initiativeRank={initiativeRank.get(t.id) ?? null}
@@ -662,20 +809,35 @@ export function MapStage({
                 />
               ))}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
-              {snapshot.measurements.map((m) => (
+              {snapshot.measurements.map((m) => {
+                // An emanation re-centres on its token's live position each frame.
+                let origin = m.origin;
+                let target = m.target;
+                if (m.kind === 'emanation') {
+                  const tok = m.tokenId
+                    ? snapshot.tokens.find((t) => t.id === m.tokenId)
+                    : undefined;
+                  if (!tok) return null;
+                  const radius = Math.hypot(m.target.x - m.origin.x, m.target.y - m.origin.y);
+                  origin = { x: tok.x, y: tok.y };
+                  target = { x: tok.x + radius, y: tok.y };
+                }
+                return (
+                  <MeasureShape
+                    key={m.id}
+                    kind={m.kind}
+                    origin={origin}
+                    target={target}
+                    color={rollerColor(m.createdBy)}
+                    grid={grid}
+                    feetPerSquare={feetPerSquare}
+                    onRemove={removeMode ? () => removeMeasurement(m.id) : undefined}
+                  />
+                );
+              })}
+              {draft && (
                 <MeasureShape
-                  key={m.id}
-                  kind={m.kind}
-                  origin={m.origin}
-                  target={m.target}
-                  color={rollerColor(m.createdBy)}
-                  grid={grid}
-                  feetPerSquare={feetPerSquare}
-                />
-              ))}
-              {draft && measureTool !== 'off' && (
-                <MeasureShape
-                  kind={measureTool}
+                  kind={draft.kind}
                   origin={draft.origin}
                   target={draft.target}
                   color="#ffd21a"

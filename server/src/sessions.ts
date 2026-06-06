@@ -680,6 +680,7 @@ type MeasurementRow = {
   origin_y: number;
   target_x: number;
   target_y: number;
+  token_id: string | null;
   created_by: string;
 };
 
@@ -689,6 +690,7 @@ const rowToMeasurement = (r: MeasurementRow): Measurement => ({
   kind: r.kind as Measurement['kind'],
   origin: { x: r.origin_x, y: r.origin_y },
   target: { x: r.target_x, y: r.target_y },
+  ...(r.token_id ? { tokenId: r.token_id } : {}),
   createdBy: r.created_by,
 });
 
@@ -699,6 +701,7 @@ export function addMeasurement(
     kind: Measurement['kind'];
     origin: { x: number; y: number };
     target: { x: number; y: number };
+    tokenId?: string;
     createdBy: string;
   },
 ): Measurement {
@@ -706,8 +709,8 @@ export function addMeasurement(
   db.prepare(
     `INSERT INTO measurements
        (id, session_id, map_id, kind, origin_x, origin_y, target_x, target_y,
-        created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        token_id, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -717,6 +720,7 @@ export function addMeasurement(
     input.origin.y,
     input.target.x,
     input.target.y,
+    input.tokenId ?? null,
     input.createdBy,
     Date.now(),
   );
@@ -733,8 +737,16 @@ export function listMeasurements(mapId: string): Measurement[] {
   ).map(rowToMeasurement);
 }
 
-export function removeMeasurement(id: string): void {
-  db.prepare('DELETE FROM measurements WHERE id = ?').run(id);
+/** Remove one measurement; when `requireCreatedBy` is set, only its creator's. */
+export function removeMeasurement(id: string, requireCreatedBy?: string): void {
+  if (requireCreatedBy !== undefined) {
+    db.prepare('DELETE FROM measurements WHERE id = ? AND created_by = ?').run(
+      id,
+      requireCreatedBy,
+    );
+  } else {
+    db.prepare('DELETE FROM measurements WHERE id = ?').run(id);
+  }
 }
 
 /** Clear a map's measurements — all of them, or only one drawer's (`createdBy`). */

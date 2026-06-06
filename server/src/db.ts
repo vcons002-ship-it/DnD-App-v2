@@ -159,6 +159,7 @@ db.exec(`
     origin_y   REAL NOT NULL,
     target_x   REAL NOT NULL,
     target_y   REAL NOT NULL,
+    token_id   TEXT,
     created_by TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
   );
@@ -272,6 +273,8 @@ ensureColumn(
 );
 // Optional long text on a roll entry (e.g. a cast spell's full description).
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
+// Emanation measurements follow a token by id.
+ensureColumn('measurements', 'token_id', 'token_id TEXT');
 
 export const newId = (): string => randomUUID();
 
