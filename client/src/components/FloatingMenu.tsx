@@ -6,6 +6,8 @@ import { useStore } from '../state/socket';
 type Props = {
   snapshot: StateSnapshot;
   token: Token;
+  /** The currently-selected token — used as the attacker when attacking `token`. */
+  attacker: Token | null;
   /** Screen position (clientX/clientY) where the menu was summoned. */
   x: number;
   y: number;
@@ -16,7 +18,7 @@ type Props = {
  * Right-click / long-press action menu anchored at a token. Quick combat actions
  * (damage/heal where HP is visible) for everyone; DM gets the editing actions.
  */
-export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
+export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const duplicateToken = useStore((s) => s.duplicateToken);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
@@ -29,22 +31,24 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
   const [amount, setAmount] = useState(1);
 
-  // Attacks for the active-initiative token, targeting THIS (right-clicked) token.
-  const active = snapshot.activeTurnTokenId
-    ? snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId)
-    : undefined;
+  // Attack flow: the SELECTED token is the attacker, the right-clicked `token`
+  // is the target. (Select a token, then right-click another to attack it.)
   const aChar =
-    active?.kind === 'pc' ? snapshot.characters.find((c) => c.id === active.refId) : undefined;
+    attacker?.kind === 'pc'
+      ? snapshot.characters.find((c) => c.id === attacker.refId)
+      : undefined;
   const aMon =
-    active?.kind === 'monster' ? snapshot.monsters.find((m) => m.id === active.refId) : undefined;
+    attacker?.kind === 'monster'
+      ? snapshot.monsters.find((m) => m.id === attacker.refId)
+      : undefined;
   const aWeapons: Weapon[] =
     (aMon as { weapons?: Weapon[] } | undefined)?.weapons ?? aChar?.weapons ?? [];
-  // Mirror the server's combat:attack gate: DM, or the owner of the active PC.
-  const canAttackAsActive =
-    !!active &&
-    active.id !== token.id &&
+  // Mirror the server's combat:attack gate: DM, or the owner of the attacking PC.
+  const canAttackAsSelected =
+    !!attacker &&
+    attacker.id !== token.id &&
     aWeapons.length > 0 &&
-    (isDm || (active.kind === 'pc' && aChar?.claimedBy === mySocketId));
+    (isDm || (attacker.kind === 'pc' && aChar?.claimedBy === mySocketId));
 
   // Dismiss on outside click, scroll, or Escape.
   useEffect(() => {
@@ -104,10 +108,10 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
         </div>
       )}
 
-      {canAttackAsActive && (
+      {canAttackAsSelected && (
         <div className="fm-attacks" onPointerDown={(e) => e.stopPropagation()}>
           <div className="floating-menu-note">
-            {resolveToken(snapshot, active!).name} attacks {d.name}:
+            {resolveToken(snapshot, attacker!).name} attacks {d.name}:
           </div>
           {aWeapons.map((w, i) => (
             <button
@@ -115,7 +119,7 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
               className="floating-menu-item"
               onClick={run(() =>
                 combatAttack({
-                  attackerTokenId: active!.id,
+                  attackerTokenId: attacker!.id,
                   targetTokenId: token.id,
                   weaponIndex: i,
                 }),
@@ -159,7 +163,7 @@ export function FloatingMenu({ snapshot, token, x, y, onClose }: Props) {
         </>
       ) : (
         !canSeeHp &&
-        !canAttackAsActive && (
+        !canAttackAsSelected && (
           <div className="floating-menu-note muted">No actions available</div>
         )
       )}

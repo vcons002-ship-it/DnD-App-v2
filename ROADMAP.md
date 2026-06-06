@@ -320,11 +320,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   context. The attack **target dropdown excludes friendly creatures** (friendly
   monsters + other PCs) for players. DM behavior is unchanged (DM still attacks
   AS the selected token).
-- ☑ **Floating-menu active-initiative attacks [req].** The right-click / long-press
-  `FloatingMenu` offers attack options for whoever holds the **active initiative**,
-  targeting the right-clicked token. Gated exactly like the server `combat:attack`
-  (DM, or the owner of the active PC; hidden when the active token is a monster a
-  player doesn't control). One button per weapon → `combatAttack`.
+- ☑ **Floating-menu select-then-attack [req].** Select a token (the attacker),
+  then right-click another token to attack it: the `FloatingMenu` offers the
+  **selected token's** weapons, targeting the right-clicked token. Gated exactly
+  like the server `combat:attack` (DM, or the owner of the attacking PC; no
+  attacks when nothing else is selected or you right-click your own selection).
+  One button per weapon → `combatAttack`.
 - ☑ **Transparent roll-log overlay [req].** The shared roll log stays in the left
   panel; a **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) pops
   a transparent, **click-through** (`pointer-events:none`), **resizeable**

@@ -475,6 +475,11 @@ export function MapStage({
             <FloatingMenu
               snapshot={snapshot}
               token={menu.token}
+              attacker={
+                snapshot.tokens.find(
+                  (t) => selectedIds.includes(t.id) && t.id !== menu.token.id,
+                ) ?? null
+              }
               x={menu.x}
               y={menu.y}
               onClose={() => setMenu(null)}

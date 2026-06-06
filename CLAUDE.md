@@ -184,7 +184,8 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   A player's right panel is a **combat console** — selecting any token shows the
   player's own attacks (defaulting their target to the clicked token, friendly
   creatures excluded) + abilities, not a duplicate sheet; the right-click
-  **floating menu** offers attacks for whoever holds active initiative. The roll
+  **floating menu** offers the **selected** token's attacks against the
+  right-clicked token (select attacker, right-click target). The roll
   log can also pop out as a transparent, click-through, resizeable **overlay** on
   the map (`RollLogOverlay`, toggled from `DicePanel`).
 - **DM Data mode** (`/dm/data`): compact sortable (init/A–Z/type) + drag-reorder
