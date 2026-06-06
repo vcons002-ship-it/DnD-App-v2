@@ -397,6 +397,36 @@ describe('off-hand & versatile attacks', () => {
   });
 });
 
+describe('diceOnly creature attacks (live stats)', () => {
+  it('adds the creature\'s live ability modifier to a diceOnly attack', () => {
+    const { s, map } = arena();
+    // STR 20 → +5. A diceOnly "1d4" should roll 6–9 (dice + mod); a pre-baked
+    // "1d4" would only ever be 1–4.
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Bandit',
+      maxHp: 30,
+      stats: { STR: 20, DEX: 10 },
+      weapons: [{ name: 'Club', kind: 'melee', damage: '1d4', diceOnly: true, tags: ['club'] }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dTmpl.id)!.id;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'Bandit', atk.id, tgt.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(before - getMonster(ref)!.curHp).toBeGreaterThanOrEqual(6);
+        expect(last.detail).toContain('+5'); // STR mod folded into the damage breakdown
+      }
+    }
+    expect(checked).toBe(true);
+  });
+});
+
 describe('spell roll description', () => {
   it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
     const { s } = arena();

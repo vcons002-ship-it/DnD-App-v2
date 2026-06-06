@@ -100,9 +100,12 @@ export function rollWeaponAttack(
     const { dice, flat } = damageParts(expr);
     const magic = weapon.magicBonus ?? 0;
     // PCs add their ability modifier to damage at roll time (weapons store dice
-    // only); monster stat blocks already bake it in. Off-hand / Cleave omit it.
-    const abil =
-      !attacker.isMonster && !opts?.noAbilityMod ? weaponAbilityMod(attacker, weapon) : 0;
+    // only); monster stat blocks already bake it in — EXCEPT weapons flagged
+    // `diceOnly` (e.g. a creature attack picked from the weapon/natural library),
+    // which behave like a PC weapon and pull the mod from live stats. Off-hand /
+    // Cleave omit it.
+    const addAbilityMod = (!attacker.isMonster || weapon.diceOnly) && !opts?.noAbilityMod;
+    const abil = addAbilityMod ? weaponAbilityMod(attacker, weapon) : 0;
     const bonus2 = opts?.bonusDamage ?? 0; // flat on-hit mastery damage (e.g. GWM), folded in
     const r1 = dice ? rollDice(dice) : null;
     let sum = flat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { abilityMod, signed } from '../../../shared/skills';
-import { weaponsFromActions, bakeMonsterAttack } from '../../../shared/monsterAttacks';
+import { weaponsFromActions } from '../../../shared/monsterAttacks';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -243,8 +243,6 @@ export function StatBlock({
         weapons={d.weapons}
         onChange={(weapons) => set({ weapons })}
         monster={monster}
-        creatureStats={d.stats}
-        creatureLevel={d.level}
       />
       {monster && d.actions.length > 0 && (
         <button
@@ -303,9 +301,11 @@ function ReadView({
   // PCs (masteries passed) store dice-only damage; show it with the live ability
   // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
   const isPc = masteries !== undefined;
+  // PCs and `diceOnly` creature attacks show the live ability modifier; other
+  // monster attacks keep their pre-baked damage string as-is.
   const dmgWithMod = (dice: string | undefined, w: Weapon): string => {
     if (!dice) return '';
-    if (!isPc) return dice;
+    if (!isPc && !w.diceOnly) return dice;
     const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
     const useDex =
       w.kind === 'ranged' ||
@@ -441,16 +441,11 @@ function WeaponEditor({
   weapons,
   onChange,
   monster = false,
-  creatureStats = {},
-  creatureLevel = 0,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
-  /** Creature attacks: picks bake the mod (no roll-time mod for monsters). */
+  /** Creature attacks: library picks are flagged `diceOnly` (mod/to-hit live). */
   monster?: boolean;
-  /** The creature's stats / CR — used to bake a monster pick's mod + to-hit. */
-  creatureStats?: Record<string, number>;
-  creatureLevel?: number;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
@@ -475,21 +470,22 @@ function WeaponEditor({
     };
   }, [q, picking, monster]);
 
-  // Add a library attack. Monsters BAKE the ability mod + a CR-derived to-hit
-  // (the engine never adds a monster's mod at roll time). PCs store DICE ONLY
-  // (mod added at roll time) plus versatile/tags.
+  // Add a library attack. Both PCs and creatures store DICE ONLY and pull the
+  // ability modifier + to-hit from LIVE stats at roll time; creatures get the
+  // `diceOnly` flag so the engine adds the mod for them too (their stat-block
+  // damage is otherwise pre-baked). Tags carry finesse/versatile so the live
+  // ability choice (STR/DEX) and the 2H toggle still work.
   const addFromLibrary = (w: PickRow) => {
-    const next: Weapon = monster
-      ? bakeMonsterAttack(w, creatureStats, creatureLevel)
-      : {
-          name: w.name,
-          kind: w.kind,
-          damage: w.damage,
-          versatileDamage: w.versatileDamage,
-          damageType: w.damageType,
-          range: w.range,
-          tags: [w.name.toLowerCase(), ...w.properties],
-        };
+    const next: Weapon = {
+      name: w.name,
+      kind: w.kind,
+      damage: w.damage,
+      versatileDamage: w.versatileDamage,
+      damageType: w.damageType,
+      range: w.range,
+      tags: [w.name.toLowerCase(), ...w.properties],
+      ...(monster ? { diceOnly: true } : {}),
+    };
     onChange([...weapons, next]);
     setPicking(false);
     setQ('');

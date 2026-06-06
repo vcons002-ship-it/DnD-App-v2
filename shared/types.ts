@@ -63,6 +63,13 @@ export type Weapon = {
    * mastery's `appliesToTags`.
    */
   tags?: string[];
+  /**
+   * `damage` is DICE ONLY — add the wielder's ability modifier (and derive the
+   * to-hit) from LIVE stats at roll time, like a PC weapon. Set on creature
+   * attacks picked from the weapon/natural library so a creature's attacks track
+   * its current stats. (Monster stat-block damage is otherwise pre-baked.)
+   */
+  diceOnly?: boolean;
 };
 
 /**

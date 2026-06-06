@@ -185,8 +185,10 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   rollable `weapons` (`shared/monsterAttacks.ts`), and the DM can build/edit attacks
   via the `StatBlock` **"+ Attack"** picker that spans the 2024 weapon book
   (`/api/weapons`) AND a natural-attacks library (`/api/attacks`, Bite/Claw/Slam…);
-  creature picks are **baked** to the creature's stats (`bakeMonsterAttack`) so they
-  roll right, and **↻ Pull attacks from description** re-parses on demand. A player's
+  creature picks are stored **dice-only (`Weapon.diceOnly`)** so the mod + to-hit come
+  from the creature's **live stats** like a PC weapon (`rollWeaponAttack` adds the mod
+  for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is), and
+  **↻ Pull attacks from description** re-parses on demand. A player's
   right panel is a **combat console** — selecting any token shows the player's own
   attacks (defaulting their target to the clicked token, friendly creatures excluded)
   + abilities, not a duplicate sheet, with the **roll log right below it**; the

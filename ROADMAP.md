@@ -356,11 +356,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   single **"+ Attack"** picker pulls from BOTH libraries — the 2024 weapon book
   (`/api/weapons`) and a new **natural-attacks library** (`server/src/attacks/natural.ts`,
   `/api/attacks`: Bite, Claw, Slam…) — plus a **Custom (blank)** row. A creature pick
-  is **baked** to the creature's stats via `bakeMonsterAttack` (dice get the ability
-  mod, `attackBonus` = mod + CR prof) so e.g. a bandit's shortsword rolls correctly
-  (the engine never adds a monster's mod at roll time). A **↻ Pull attacks from
-  description** button re-runs the parser on the creature's `actions` on demand. PCs
-  keep the weapon-book-only, dice-only behavior (mod added at roll time).
+  is stored **dice-only with a `diceOnly` flag**, so — exactly like a PC weapon — the
+  ability modifier and to-hit are pulled from the creature's **live stats** at roll
+  time (`rollWeaponAttack` adds the mod for `!isMonster || weapon.diceOnly`; tags carry
+  finesse so STR/DEX is chosen correctly). Pre-baked SRD/parsed/hand-typed monster
+  damage stays as-is (no flag), so it isn't double-counted. A **↻ Pull attacks from
+  description** button re-runs the parser on the creature's `actions` on demand.
 - ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
   `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.
