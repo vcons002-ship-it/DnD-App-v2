@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { StateSnapshot, Token, Weapon } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
+import { WeaponButtons } from './WeaponButtons';
 
 /**
  * Weapon-attack roller: pick a target, optionally adv/dis, and roll each weapon.
@@ -91,29 +92,21 @@ export function AttackControls({
           </button>
         )}
       </div>
-      {weapons.map((w, i) => (
-        <button
-          key={i}
-          className="btn tiny attack-row"
-          disabled={!targetId}
-          onClick={() =>
-            combatAttack({
-              attackerTokenId: attacker.id,
-              targetTokenId: targetId,
-              weaponIndex: i,
-              advantage: adv ?? undefined,
-              offhand: offhand || undefined,
-              twoHanded: twoHanded || undefined,
-            })
-          }
-        >
-          {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}
-          {(() => {
-            const dmg = twoHanded && w.versatileDamage?.trim() ? w.versatileDamage : w.damage;
-            return dmg ? <span className="muted"> {dmg}</span> : null;
-          })()}
-        </button>
-      ))}
+      <WeaponButtons
+        weapons={weapons}
+        twoHanded={twoHanded}
+        disabled={!targetId}
+        onAttack={(i) =>
+          combatAttack({
+            attackerTokenId: attacker.id,
+            targetTokenId: targetId,
+            weaponIndex: i,
+            advantage: adv ?? undefined,
+            offhand: offhand || undefined,
+            twoHanded: twoHanded || undefined,
+          })
+        }
+      />
     </div>
   );
 }

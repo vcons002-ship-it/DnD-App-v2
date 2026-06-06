@@ -137,6 +137,14 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
 - **`SelectedTokenPanel`** — the full right-side token panel; **also reused**
   inside the Data view's expand overlay (so they never diverge).
 - **`CharacterSheet`** = `StatBlock` + skills + resources + items + sheet I/O.
+- **Shared action widgets (reuse, don't re-inline):** `DamageHealControls`
+  (amount + Damage/Heal, `compact` for the floating menu), `WeaponButtons`
+  (attack-button list, `variant` menu/inline), `TokenAdminButtons` (DM
+  duplicate/hide/role-badge/delete, `variant` menu/panel), and `IconTools`
+  (emoji/upload/clear) — used by both `FloatingMenu` and `SelectedTokenPanel`/
+  `BulkActionsPanel`/`AttackControls` so the right-click menu and panels can't
+  drift. Map toolbar dropdowns `MeasureMenu`/`ScaleMenu`/`FogMenu` share the
+  `.measure-menu`/`.popover-backdrop` popover pattern.
 - **`useSelection`** — multi-select with optional cross-tab **BroadcastChannel
   sync** (`syncKey`), used to mirror selection between the map and Data windows.
 - Helpers: `resolveToken` (`lib/entities.ts`), `presentAuras`/`STANDARD_CONDITIONS`

@@ -10,6 +10,8 @@ import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
+import { FogMenu } from '../components/FogMenu';
+import { ScaleMenu } from '../components/ScaleMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { RollLogOverlay } from '../components/RollLogOverlay';
 
@@ -672,121 +674,35 @@ export function MapStage({
             {isDm && (
               <>
                 <span className="ctrl-sep" />
-                <span className="zoom-label">Grid:</span>
-                <input
-                  className="grid-input"
-                  type="number"
-                  value={gridPx}
-                  onChange={(e) => setGridPx(Number(e.target.value))}
-                  onBlur={commitGrid}
-                  onKeyDown={(e) => e.key === 'Enter' && commitGrid()}
-                  title="Grid cell size in pixels (visual only)"
-                />
-                <span className="zoom-label">px ·</span>
-                <span className="zoom-label">Map:</span>
-                <input
-                  className="grid-input"
-                  type="number"
-                  value={widthFt}
-                  onChange={(e) => setWidthFt(Number(e.target.value))}
-                  onBlur={commitGrid}
-                  onKeyDown={(e) => e.key === 'Enter' && commitGrid()}
-                  title="Real-world map width in feet — drives the scale"
-                />
-                <span className="zoom-label" title="Derived feet per grid square">
-                  ft wide · ≈{Math.round(derivedFtPerSquare)} ft/sq
-                </span>
-                <button
-                  className={`btn tiny ${scaleMode ? 'on' : ''}`}
-                  onClick={() => {
+                <ScaleMenu
+                  gridPx={gridPx}
+                  widthFt={widthFt}
+                  derivedFtPerSquare={derivedFtPerSquare}
+                  scaleMode={scaleMode}
+                  onGridPx={setGridPx}
+                  onWidthFt={setWidthFt}
+                  onCommit={commitGrid}
+                  onToggleScaleMode={() => {
                     setTool(null);
                     setRemoveMode(false);
                     setScaleLine(null);
                     setScalePrompt(null);
                     setScaleMode((s) => !s);
                   }}
-                  title="Set scale by dragging a line of known length"
-                >
-                  Set scale
-                </button>
-                <span className="ctrl-sep" />
-                <span className="zoom-label">Fog:</span>
-                <button
-                  className={`btn tiny ${mapFogEnabled ? 'on' : ''}`}
-                  onClick={() => toggleLayer('map')}
-                  title="Black out terrain under fog for players"
-                >
-                  Map
-                </button>
-                <button
-                  className={`btn tiny ${tokenFogEnabled ? 'on' : ''}`}
-                  onClick={() => toggleLayer('tokens')}
-                  title="Hide only tokens under fog; terrain stays visible"
-                >
-                  Tokens
-                </button>
-                {(mapFogEnabled || tokenFogEnabled) && (
-                  <>
-                    <span className="ctrl-sep" />
-                    <span className="zoom-label">Paint:</span>
-                    <button
-                      className={`btn tiny ${paintLayer === 'map' ? 'on' : ''}`}
-                      onClick={() => setPaintLayer('map')}
-                      disabled={!mapFogEnabled}
-                      title="Brush affects the map-fog layer"
-                    >
-                      Map
-                    </button>
-                    <button
-                      className={`btn tiny ${paintLayer === 'tokens' ? 'on' : ''}`}
-                      onClick={() => setPaintLayer('tokens')}
-                      disabled={!tokenFogEnabled}
-                      title="Brush affects the token-fog layer"
-                    >
-                      Tokens
-                    </button>
-                    <span className="ctrl-sep" />
-                    <button
-                      className={`btn tiny ${fogBrush === 'reveal' ? 'on' : ''}`}
-                      onClick={() =>
-                        setFogBrush((b) => (b === 'reveal' ? 'off' : 'reveal'))
-                      }
-                    >
-                      Reveal
-                    </button>
-                    <button
-                      className={`btn tiny ${fogBrush === 'hide' ? 'on' : ''}`}
-                      onClick={() =>
-                        setFogBrush((b) => (b === 'hide' ? 'off' : 'hide'))
-                      }
-                    >
-                      Hide
-                    </button>
-                    {[1, 3, 5].map((n) => (
-                      <button
-                        key={n}
-                        className={`btn tiny ${brushSize === n ? 'on' : ''}`}
-                        onClick={() => setBrushSize(n)}
-                        title={`Brush ${n}×${n}`}
-                      >
-                        {n}×
-                      </button>
-                    ))}
-                    <button
-                      className="btn tiny"
-                      onClick={() => map && coverFog(map.id, paintLayer)}
-                      title="Re-cover everything on the painted layer"
-                    >
-                      Cover all
-                    </button>
-                    <button
-                      className="btn tiny"
-                      onClick={() => revealAll(paintLayer)}
-                    >
-                      Reveal all
-                    </button>
-                  </>
-                )}
+                />
+                <FogMenu
+                  mapFogEnabled={mapFogEnabled}
+                  tokenFogEnabled={tokenFogEnabled}
+                  paintLayer={paintLayer}
+                  fogBrush={fogBrush}
+                  brushSize={brushSize}
+                  onToggleLayer={toggleLayer}
+                  onSetPaintLayer={setPaintLayer}
+                  onSetBrush={(b) => setFogBrush(b)}
+                  onSetBrushSize={setBrushSize}
+                  onCoverAll={() => map && coverFog(map.id, paintLayer)}
+                  onRevealAll={() => revealAll(paintLayer)}
+                />
               </>
             )}
           </div>

@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { StateSnapshot, Token, Weapon } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
+import { DamageHealControls } from './DamageHealControls';
+import { WeaponButtons } from './WeaponButtons';
+import { TokenAdminButtons } from './TokenAdminButtons';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -20,16 +23,11 @@ type Props = {
  */
 export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
-  const duplicateToken = useStore((s) => s.duplicateToken);
-  const setTokenHidden = useStore((s) => s.setTokenHidden);
-  const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
-  const deleteToken = useStore((s) => s.deleteToken);
   const combatAttack = useStore((s) => s.combatAttack);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
-  const [amount, setAmount] = useState(1);
 
   // Attack flow: the SELECTED token is the attacker, the right-clicked `token`
   // is the target. (Select a token, then right-click another to attack it.)
@@ -87,80 +85,35 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
 
       {/* Quick damage/heal — kept open so several can be applied in a row. */}
       {canSeeHp && (
-        <div className="fm-dmg" onPointerDown={(e) => e.stopPropagation()}>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-          />
-          <button
-            className="btn tiny red"
-            onClick={() => applyDamage(token.kind, token.refId, amount)}
-          >
-            −HP
-          </button>
-          <button
-            className="btn tiny green"
-            onClick={() => applyDamage(token.kind, token.refId, -amount)}
-          >
-            +HP
-          </button>
-        </div>
+        <DamageHealControls
+          compact
+          onApply={(delta) => applyDamage(token.kind, token.refId, delta)}
+        />
       )}
 
       {canAttackAsSelected && (
-        <div className="fm-attacks" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="fm-attacks">
           <div className="floating-menu-note">
             {resolveToken(snapshot, attacker!).name} attacks {d.name}:
           </div>
-          {aWeapons.map((w, i) => (
-            <button
-              key={i}
-              className="floating-menu-item"
-              onClick={run(() =>
+          <WeaponButtons
+            weapons={aWeapons}
+            variant="menu"
+            onAttack={(i) =>
+              run(() =>
                 combatAttack({
                   attackerTokenId: attacker!.id,
                   targetTokenId: token.id,
                   weaponIndex: i,
                 }),
-              )}
-            >
-              {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}
-              {w.damage ? ` (${w.damage})` : ''}
-            </button>
-          ))}
+              )()
+            }
+          />
         </div>
       )}
 
       {isDm ? (
-        <>
-          <button
-            className="floating-menu-item"
-            onClick={run(() => duplicateToken(token.id))}
-          >
-            ⧉ Duplicate
-          </button>
-          <button
-            className="floating-menu-item"
-            onClick={run(() => setTokenHidden(token.id, !token.isHidden))}
-          >
-            {token.isHidden ? '🙈 Show to players' : 'Hide from players'}
-          </button>
-          <button
-            className="floating-menu-item"
-            onClick={run(() =>
-              setTokensHideCombatRole([token.id], !token.hideCombatRole),
-            )}
-          >
-            {token.hideCombatRole ? '◎ Show role badge' : '◎ Hide role badge'}
-          </button>
-          <button
-            className="floating-menu-item danger"
-            onClick={run(() => deleteToken(token.id))}
-          >
-            ✕ Delete
-          </button>
-        </>
+        <TokenAdminButtons token={token} variant="menu" onAfter={onClose} />
       ) : (
         !canSeeHp &&
         !canAttackAsSelected && (

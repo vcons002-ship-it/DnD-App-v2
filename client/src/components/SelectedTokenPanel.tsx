@@ -8,6 +8,9 @@ import { CharacterSheet } from './CharacterSheet';
 import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
 import { AttackControls } from './AttackControls';
+import { DamageHealControls } from './DamageHealControls';
+import { IconTools } from './IconTools';
+import { TokenAdminButtons } from './TokenAdminButtons';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -20,18 +23,11 @@ type Props = {
 export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const resizeToken = useStore((s) => s.resizeToken);
-  const deleteToken = useStore((s) => s.deleteToken);
-  const duplicateToken = useStore((s) => s.duplicateToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const aiBusy = useStore((s) => s.aiBusy);
-  const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
-  const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
-  const [amount, setAmount] = useState(1);
-  const [emoji, setEmoji] = useState('');
-  const [iconBusy, setIconBusy] = useState(false);
   const [savingMonster, setSavingMonster] = useState<Monster | null>(null);
 
   const d = resolveToken(snapshot, token);
@@ -71,21 +67,6 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const myToken = myChar
     ? snapshot.tokens.find((t) => t.kind === 'pc' && t.refId === myChar.id)
     : undefined;
-
-  const uploadIcon = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIconBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append('image', file);
-      const res = await fetch('/api/icons', { method: 'POST', body: fd });
-      if (res.ok) setTokensIcon(iconTargets, (await res.json()).icon);
-    } finally {
-      setIconBusy(false);
-      e.target.value = '';
-    }
-  };
 
   // Player combat console: their attacks (vs the clicked token) + abilities.
   if (myChar) {
@@ -130,25 +111,9 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         <div className="hp-line muted">HP hidden</div>
       )}
 
-      <div className="dmg-row">
-        <input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-        />
-        <button
-          className="btn red"
-          onClick={() => applyDamage(token.kind, token.refId, amount)}
-        >
-          Damage
-        </button>
-        <button
-          className="btn green"
-          onClick={() => applyDamage(token.kind, token.refId, -amount)}
-        >
-          Heal
-        </button>
-      </div>
+      <DamageHealControls
+        onApply={(delta) => applyDamage(token.kind, token.refId, delta)}
+      />
 
       <div className="size-row">
         <span>Size</span>
@@ -244,93 +209,51 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />
 
       {isDm && (
-        <div className="dm-token-actions">
-          <h4>Token icon</h4>
-          <div className="icon-tools">
-            <input
-              className="emoji-input"
-              maxLength={2}
-              placeholder="🐉"
-              value={emoji}
-              onChange={(e) => setEmoji(e.target.value)}
+        <details className="dm-token-tools">
+          <summary>DM tools</summary>
+          <div className="dm-token-actions">
+            <h4>Token icon</h4>
+            <IconTools
+              onApply={(icon) => setTokensIcon(iconTargets, icon)}
+              note={
+                iconTargets.length > 1
+                  ? `Applies to ${iconTargets.length} selected tokens`
+                  : undefined
+              }
             />
-            <button
-              className="btn tiny"
-              disabled={!emoji}
-              onClick={() => setTokensIcon(iconTargets, emoji)}
-            >
-              Set
-            </button>
-            <label className="btn tiny upload-icon">
-              {iconBusy ? '…' : 'Upload'}
-              <input type="file" accept="image/*" hidden onChange={uploadIcon} />
-            </label>
-            <button
-              className="btn tiny"
-              onClick={() => setTokensIcon(iconTargets, '')}
-            >
-              Clear
-            </button>
-          </div>
-          {iconTargets.length > 1 && (
-            <p className="hint">Applies to {iconTargets.length} selected tokens</p>
-          )}
 
-          <h4>Combat role</h4>
-          <div className="disposition-btns">
-            {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {
-              const active = (token.combatRoleOverride ?? null) === r;
-              const label =
-                r === null
-                  ? 'Auto'
-                  : r === 'melee'
-                  ? '⚔️'
-                  : r === 'ranged'
-                  ? '🏹'
-                  : '✨';
-              return (
-                <button
-                  key={r ?? 'auto'}
-                  className={`btn tiny ${active ? 'on' : ''}`}
-                  title={r === null ? 'Derive from stats' : r}
-                  onClick={() => setTokensCombatRole(iconTargets, r)}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            className={`btn tiny ${token.hideCombatRole ? 'on' : ''}`}
-            onClick={() =>
-              setTokensHideCombatRole(iconTargets, !token.hideCombatRole)
-            }
-            title="Hide the role badge from everyone"
-          >
-            {token.hideCombatRole ? '🙈 Role badge hidden' : 'Hide role badge'}
-          </button>
+            <h4>Combat role</h4>
+            <div className="disposition-btns">
+              {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {
+                const active = (token.combatRoleOverride ?? null) === r;
+                const label =
+                  r === null
+                    ? 'Auto'
+                    : r === 'melee'
+                    ? '⚔️'
+                    : r === 'ranged'
+                    ? '🏹'
+                    : '✨';
+                return (
+                  <button
+                    key={r ?? 'auto'}
+                    className={`btn tiny ${active ? 'on' : ''}`}
+                    title={r === null ? 'Derive from stats' : r}
+                    onClick={() => setTokensCombatRole(iconTargets, r)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
-          <button
-            className="btn"
-            onClick={() => duplicateToken(token.id)}
-            title="Drop an identical, independently-tracked copy of this token"
-          >
-            ⧉ Duplicate token
-          </button>
-          <button
-            className={`btn ${token.isHidden ? 'on' : ''}`}
-            onClick={() => setTokenHidden(token.id, !token.isHidden)}
-            title="Hidden tokens are not shown to players"
-          >
-            {token.isHidden ? '🙈 Hidden from players' : 'Hide from players'}
-          </button>
-          <button
-            className="btn red delete-token"
-            onClick={() => deleteToken(token.id)}
-          >
-            Delete token
-          </button>
-        </div>
+            <TokenAdminButtons
+              token={token}
+              variant="panel"
+              roleBadgeTargets={iconTargets}
+            />
+          </div>
+        </details>
       )}
 
       {savingMonster && (

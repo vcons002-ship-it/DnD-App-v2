@@ -4,6 +4,7 @@ import { STANDARD_CONDITIONS } from '../lib/conditions';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { IconTools } from './IconTools';
+import { DamageHealControls } from './DamageHealControls';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -26,7 +27,6 @@ export function BulkActionsPanel({
   const deleteToken = useStore((s) => s.deleteToken);
   const combatSave = useStore((s) => s.combatSave);
   const isDm = snapshot.role === 'dm';
-  const [amount, setAmount] = useState(5);
   const [cond, setCond] = useState(STANDARD_CONDITIONS[0]);
   const [saveAbility, setSaveAbility] = useState('DEX');
   const [saveDc, setSaveDc] = useState(13);
@@ -45,25 +45,10 @@ export function BulkActionsPanel({
       <p className="muted bulk-names">{names.join(', ')}</p>
 
       <h4>Damage / heal all (AOE)</h4>
-      <div className="dmg-row">
-        <input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-        />
-        <button
-          className="btn red"
-          onClick={() => damageTokens(selectedIds, amount)}
-        >
-          Damage
-        </button>
-        <button
-          className="btn green"
-          onClick={() => damageTokens(selectedIds, -amount)}
-        >
-          Heal
-        </button>
-      </div>
+      <DamageHealControls
+        initial={5}
+        onApply={(delta) => damageTokens(selectedIds, delta)}
+      />
 
       <h4>Conditions (all)</h4>
       <div className="bulk-cond">

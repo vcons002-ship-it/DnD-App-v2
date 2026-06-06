@@ -609,6 +609,20 @@ input[type='number'] { width: 70px; }
 .measure-sizes { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 6px; }
 .measure-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .measure-clear { display: flex; gap: 6px; padding: 4px 8px 2px; }
+.measure-label { font-size: 11px; color: var(--muted); padding: 4px 8px 0; text-transform: uppercase; letter-spacing: 0.04em; }
+.scale-menu .scale-field { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 13px; }
+.scale-menu .scale-field > span:first-child { flex: 1; }
+.scale-menu .scale-field .grid-input { width: 70px; }
+
+/* Collapsible DM token tools in the selected-token panel */
+details.dm-token-tools { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+details.dm-token-tools > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 0; list-style: none;
+}
+details.dm-token-tools > summary::-webkit-details-marker { display: none; }
+details.dm-token-tools > summary::before { content: '▸ '; }
+details.dm-token-tools[open] > summary::before { content: '▾ '; }
 
 /* Scale-by-reference-line prompt + hint (map canvas) */
 .scale-hint, .scale-prompt {
