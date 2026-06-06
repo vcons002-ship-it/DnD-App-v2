@@ -349,6 +349,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   just the **most-recent roll, which always stays visible**. The map stays fully
   clickable underneath. DM **Clear** stays in the left UI. The overlay shows only the
   one-line `detail` (never a roll's long `description`).
+- ☑ **Quick-dice D20 button [req].** A **D20-shaped** quick-roll button (`DiceButtonOverlay`)
+  pinned to the **bottom-right** of the map, toggled by a **🎲 Dice** button (`DicePanel`
+  → `showDiceButton` store flag, **on by default**). Sits **semi-transparent/unobtrusive**
+  until hovered, then fades to full opacity and reveals the basic dice (d4–d20, d100)
+  above it; clicking the d20 rolls `1d20`, clicking a die rolls one of it — all through the
+  same server-authoritative `dice:roll` path into the shared roll log. Shown for DM + players
+  (rendered once in shared `MapStage`).
 - ☑ **Player roll log on the right [req].** In the PLAYER view the shared roll log
   (`DicePanel`) lives in the RIGHT panel **beneath** the combat console, so clicking
   an attack shows the result immediately below. The DM keeps the left-panel log.

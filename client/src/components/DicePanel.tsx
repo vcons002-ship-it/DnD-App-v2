@@ -11,6 +11,8 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const clearRollLog = useStore((s) => s.clearRollLog);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
+  const showDiceButton = useStore((s) => s.showDiceButton);
+  const toggleDiceButton = useStore((s) => s.toggleDiceButton);
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
@@ -69,6 +71,13 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           title="Show the roll log as a transparent overlay on the map"
         >
           ⤢ Overlay
+        </button>
+        <button
+          className={`btn tiny ${showDiceButton ? 'on' : ''}`}
+          onClick={toggleDiceButton}
+          title="Show a quick-roll d20 button in the corner of the map"
+        >
+          🎲 Dice
         </button>
         {snapshot.rollLog.length > 0 && (
           <button
