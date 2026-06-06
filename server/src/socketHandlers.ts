@@ -36,6 +36,7 @@ import {
   createCharacterFromLibrary,
   updateCharacter,
   getCharacter,
+  getMonster,
   addMeasurement,
   clearMeasurements,
   removeMeasurement,
@@ -85,7 +86,7 @@ import {
   touchSession,
   updateMonster,
 } from './sessions.js';
-import type { Condition } from '../../shared/types.js';
+import type { Condition, TokenKind } from '../../shared/types.js';
 
 export function registerSocketHandlers(io: IOServer): void {
   io.on('connection', (socket) => {
@@ -328,15 +329,20 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    // A player may only change status on their own claimed PC; the DM may change
+    // any creature's. (Creatures stay DM-controlled.)
+    const canEditConditions = (kind: TokenKind, refId: string): boolean =>
+      isDm() || (kind === 'pc' && getCharacter(refId)?.claimedBy === socket.id);
+
     socket.on('condition:set', ({ kind, refId, condition }) => {
-      if (!sessionId()) return;
+      if (!sessionId() || !canEditConditions(kind, refId)) return;
       const full: Condition = { id: newId(), ...condition };
       setCondition(kind, refId, full);
       afterChange();
     });
 
     socket.on('condition:clear', ({ kind, refId, conditionId }) => {
-      if (!sessionId()) return;
+      if (!sessionId() || !canEditConditions(kind, refId)) return;
       clearCondition(kind, refId, conditionId);
       afterChange();
     });
@@ -520,13 +526,14 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('tokens:setCondition', ({ tokenIds, condition }) => {
-      if (!sessionId() || !Array.isArray(tokenIds) || !condition) return;
+      // Bulk condition edits are a DM-only (Data view) tool.
+      if (!isDm() || !Array.isArray(tokenIds) || !condition) return;
       setTokensCondition(tokenIds, condition);
       afterChange();
     });
 
     socket.on('tokens:clearConditions', ({ tokenIds }) => {
-      if (!sessionId() || !Array.isArray(tokenIds)) return;
+      if (!isDm() || !Array.isArray(tokenIds)) return;
       clearTokensConditions(tokenIds);
       afterChange();
     });
@@ -684,11 +691,16 @@ export function registerSocketHandlers(io: IOServer): void {
         if (!sid) return;
         const at = getToken(attackerTokenId);
         if (!at) return;
-        // DM, or the player who owns the attacking PC token.
+        // DM may attack with anyone. A player may attack with their own claimed
+        // PC, or with a friendly creature (e.g. a companion/summon they control).
         if (!isDm()) {
-          if (at.kind !== 'pc') return;
-          const ch = getCharacter(at.refId);
-          if (!ch || ch.claimedBy !== socket.id) return;
+          if (at.kind === 'pc') {
+            const ch = getCharacter(at.refId);
+            if (!ch || ch.claimedBy !== socket.id) return;
+          } else {
+            const m = getMonster(at.refId);
+            if (!m || m.disposition !== 'friendly') return;
+          }
         }
         resolveAttack(
           sid,

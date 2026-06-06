@@ -331,6 +331,12 @@ input[type='number'] { width: 70px; }
 .statblock.editing label.sb-field input { margin-top: 2px; }
 .sb-meta-edit { display: flex; gap: 6px; flex-wrap: wrap; }
 .sb-meta-edit .mini input { width: 56px; }
+/* Saving-throw proficiency toggles (one chip per ability). */
+.sb-saves-edit { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+.sb-saves-label { font-size: 11px; color: var(--muted); width: 100%; }
+.sb-save-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.sb-save-chip.on { background: rgba(57, 196, 107, 0.18); border-color: var(--ok, #39c46b); }
+.sb-save-chip input { margin: 0; }
 .sb-ability-edit input { width: 100%; text-align: center; padding: 2px; }
 .sb-weapon-edit { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 3px 0; }
 .sb-weapon-edit input { margin: 0; }
@@ -348,6 +354,16 @@ input[type='number'] { width: 70px; }
 .fm-dmg { display: flex; gap: 4px; align-items: center; padding: 4px; }
 .fm-dmg input { width: 52px; margin: 0; }
 .fm-attacks { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+/* Make it obvious WHO the attack comes from before a weapon is clicked. */
+.fm-attacker {
+  padding: 5px 8px;
+  font-size: 12px;
+  background: rgba(226, 59, 59, 0.12);
+  border-bottom: 1px solid var(--line);
+}
+.fm-attacker strong { color: var(--text); }
+.fm-attacker-icon { margin-right: 4px; }
+.fm-attacker-target { color: var(--muted); }
 
 /* Compact, click-through latest-roll readout pinned bottom-left of the map
    (Feature: DicePanel toggle). One line, just wide enough for the latest roll. */

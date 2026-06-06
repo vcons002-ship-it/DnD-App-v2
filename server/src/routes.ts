@@ -9,6 +9,7 @@ import {
   getSessionByCode,
   listMaps,
   listSessions,
+  SessionCodeError,
 } from './sessions.js';
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
@@ -51,10 +52,20 @@ const upload = multer({
 export function createApiRouter(io: IOServer): Router {
   const router = Router();
 
-  // Create a new session; returns the shareable DM + player links.
+  // Create a new session; returns the shareable DM + player links. An optional
+  // `code` lets the DM pick a memorable, stable link (e.g. "TAVERN").
   router.post('/sessions', (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name : undefined;
-    const session = createSession(name);
+    const code = typeof req.body?.code === 'string' ? req.body.code : undefined;
+    let session;
+    try {
+      session = createSession(name, code);
+    } catch (err) {
+      if (err instanceof SessionCodeError) {
+        return res.status(409).json({ error: err.message });
+      }
+      throw err;
+    }
     const base = publicUrl();
     res.json({
       code: session.code,

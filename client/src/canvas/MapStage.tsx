@@ -29,6 +29,36 @@ type Props = {
 type View = { scale: number; x: number; y: number };
 type Pt = { x: number; y: number };
 
+/**
+ * Who the floating menu attacks `target` as. The DM uses the selected token.
+ * A player defaults to their own claimed PC, unless they've selected a friendly
+ * creature (e.g. a companion/summon) — then that creature attacks. Never the
+ * target itself.
+ */
+function floatingAttacker(
+  snapshot: StateSnapshot,
+  selectedIds: string[],
+  target: Token,
+  isDm: boolean,
+  mySocketId: string | undefined,
+): Token | null {
+  const selected = snapshot.tokens.filter(
+    (t) => selectedIds.includes(t.id) && t.id !== target.id,
+  );
+  if (isDm) return selected[0] ?? null;
+  const friendly = selected.find(
+    (t) =>
+      t.kind === 'monster' &&
+      snapshot.monsters.find((m) => m.id === t.refId)?.disposition === 'friendly',
+  );
+  if (friendly) return friendly;
+  const myChar = snapshot.characters.find((c) => c.claimedBy === mySocketId);
+  const myToken = myChar
+    ? snapshot.tokens.find((t) => t.kind === 'pc' && t.refId === myChar.id)
+    : undefined;
+  return myToken && myToken.id !== target.id ? myToken : null;
+}
+
 /** Shapes offered by the Measure menu (Line custom → a thin "ruler"). */
 export type MeasureShapeKind = 'circle' | 'cone' | 'line' | 'square' | 'emanation';
 export type MeasureSize = 'custom' | 'small' | 'large';
@@ -208,6 +238,7 @@ export function MapStage({
 
   // ---- Fog of war (two independent layers: map fog + token fog) ----
   const isDm = snapshot.role === 'dm';
+  const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
@@ -875,11 +906,13 @@ export function MapStage({
             <FloatingMenu
               snapshot={snapshot}
               token={menu.token}
-              attacker={
-                snapshot.tokens.find(
-                  (t) => selectedIds.includes(t.id) && t.id !== menu.token.id,
-                ) ?? null
-              }
+              attacker={floatingAttacker(
+                snapshot,
+                selectedIds,
+                menu.token,
+                isDm,
+                mySocketId,
+              )}
               x={menu.x}
               y={menu.y}
               onClose={() => setMenu(null)}

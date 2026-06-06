@@ -132,6 +132,9 @@ export type Character = {
   abilities: CreatureAbility[];
   /** Names of skills this character is proficient in (see shared/skills.ts). */
   proficientSkills: string[];
+  /** Ability codes this character is proficient in for SAVING THROWS (e.g.
+   *  ["CON","WIS"]) — adds the proficiency bonus to those saves. */
+  saveProficiencies: string[];
   /** Inventory items the player tracks. */
   items: InventoryItem[];
   /** Spells & abilities with collapsible text + optional rollable actions. */
@@ -253,6 +256,8 @@ export type Monster = {
   stats: Record<string, number>;
   resistances: string[];
   weaknesses: string[];
+  /** Ability codes proficient in for SAVING THROWS (adds the proficiency bonus). */
+  saveProficiencies: string[];
   /** Tagged weapons (name + melee/ranged + damage/to-hit where known). */
   weapons: Weapon[];
   /** Attacks / actions (with to-hit & damage where known). */
@@ -318,6 +323,8 @@ export type LibraryCharacter = {
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
   proficientSkills: string[];
+  /** Saving-throw proficiencies (ability codes); optional on older saves. */
+  saveProficiencies?: string[];
   items: InventoryItem[];
   sheetAbilities: SheetAbility[];
   icon: string;
@@ -554,6 +561,7 @@ export type CharacterUpdatePayload = {
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
   proficientSkills?: string[];
+  saveProficiencies?: string[];
   /** Bulk import paths (e.g. JSON sheet) may set these directly. */
   spellSlots?: Record<string, { max: number; used: number }>;
   resources?: Record<string, { max: number; used: number }>;
@@ -659,6 +667,7 @@ export type MonsterUpdatePayload = {
   stats?: Record<string, number>;
   resistances?: string[];
   weaknesses?: string[];
+  saveProficiencies?: string[];
   weapons?: Weapon[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];

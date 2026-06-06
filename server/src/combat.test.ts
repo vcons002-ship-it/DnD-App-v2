@@ -18,6 +18,7 @@ import {
   updateMonster,
   getMonster,
   getToken,
+  setCondition,
   listRollLog,
 } from './sessions.js';
 import type { SheetAbility } from '../../shared/types.js';
@@ -451,5 +452,104 @@ describe('spell roll description', () => {
     // …while the one-line detail stays the compact result (no description in it).
     expect(last.detail).toContain('Fire Bolt');
     expect(last.detail).not.toContain('Hurl a mote');
+  });
+});
+
+describe('condition-aware combat', () => {
+  // A flat-damage flame attacker that always hits (huge to-hit vs AC 1).
+  function flameFight(targetPatch: Parameters<typeof updateMonster>[1]) {
+    const { s, map } = arena();
+    const atk = createMonsterTemplate(s.id, {
+      name: 'Flamer',
+      maxHp: 30,
+      stats: { STR: 10 },
+      weapons: [
+        { name: 'Flame', kind: 'melee', damage: '10', damageType: 'fire', attackBonus: 50 },
+      ],
+    });
+    const tgtTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 100, armorClass: 1 });
+    const tInst = instantiateMonster(tgtTmpl.id)!;
+    updateMonster(tInst.id, targetPatch);
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atk.id)!.id, x: 0, y: 0 });
+    const t = createToken({ mapId: map.id, kind: 'monster', refId: tInst.id, x: 1, y: 1 });
+    return { s: s.id, a: a.id, t: t.id, tRef: tInst.id };
+  }
+
+  it('halves applied damage against a resistant target', () => {
+    const { s, a, t, tRef } = flameFight({ resistances: ['fire'] });
+    let sawHit = false;
+    for (let i = 0; i < 40; i++) {
+      updateMonster(tRef, { curHp: 100 });
+      resolveAttack(s, 'DM', a, t, 0);
+      const after = getMonster(tRef)!.curHp;
+      if (after < 100) {
+        sawHit = true;
+        expect(after).toBe(95); // 10 fire damage, resisted to 5
+      }
+    }
+    expect(sawHit).toBe(true);
+    expect(listRollLog(s).some((e) => /resisted/.test(e.detail))).toBe(true);
+  });
+
+  it('doubles applied damage against a vulnerable target', () => {
+    const { s, a, t, tRef } = flameFight({ weaknesses: ['fire'] });
+    let sawHit = false;
+    for (let i = 0; i < 40; i++) {
+      updateMonster(tRef, { curHp: 100 });
+      resolveAttack(s, 'DM', a, t, 0);
+      const after = getMonster(tRef)!.curHp;
+      if (after < 100) {
+        sawHit = true;
+        expect(after).toBe(80); // 10 fire damage, doubled to 20
+      }
+    }
+    expect(sawHit).toBe(true);
+    expect(listRollLog(s).some((e) => /vulnerable/.test(e.detail))).toBe(true);
+  });
+
+  it('notes advantage in the log when attacking a prone target (melee)', () => {
+    const { s, map } = arena();
+    const atk = createMonsterTemplate(s.id, {
+      name: 'Goblin',
+      maxHp: 7,
+      weapons: [{ name: 'Scimitar', kind: 'melee', damage: '1d6', attackBonus: 4 }],
+    });
+    const tgtTmpl = createMonsterTemplate(s.id, { name: 'Knight', maxHp: 50, armorClass: 18 });
+    const tInst = instantiateMonster(tgtTmpl.id)!;
+    setCondition('monster', tInst.id, {
+      id: 'c-prone',
+      label: 'Prone',
+      aura: 'red',
+      isConcentration: false,
+    });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atk.id)!.id, x: 0, y: 0 });
+    const t = createToken({ mapId: map.id, kind: 'monster', refId: tInst.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'DM', a.id, t.id, 0);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toMatch(/adv: .*prone/i);
+  });
+
+  it('adds the proficiency bonus to a proficient saving throw', () => {
+    const s = createSession('Saves');
+    const map = createMap(s.id, { name: 'M' });
+    setActiveMap(s.id, map.id);
+    // CON 10 (mod 0), level 1 (prof +2). Proficient in CON, not STR.
+    const ch = createCharacter(s.id, {
+      name: 'Cleric',
+      level: 1,
+      stats: { CON: 10, STR: 10 },
+      saveProficiencies: ['CON'],
+    });
+    const tok = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+
+    resolveSaves(s.id, 'DM', [tok.id], 'CON', 10);
+    const conSave = listRollLog(s.id).at(-1)!;
+    expect(conSave.detail).toContain('prof');
+    // d20 + 0 mod + 2 prof = 3..22.
+    expect(conSave.total).toBeGreaterThanOrEqual(3);
+    expect(conSave.total).toBeLessThanOrEqual(22);
+
+    resolveSaves(s.id, 'DM', [tok.id], 'STR', 10);
+    expect(listRollLog(s.id).at(-1)!.detail).not.toContain('prof');
   });
 });

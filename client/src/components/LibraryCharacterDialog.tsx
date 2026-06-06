@@ -39,6 +39,7 @@ export function LibraryCharacterDialog({
     actions: character.actions,
     abilities: character.abilities,
     proficientSkills: character.proficientSkills,
+    saveProficiencies: character.saveProficiencies,
     items: character.items,
     sheetAbilities: character.sheetAbilities,
     icon: character.icon,

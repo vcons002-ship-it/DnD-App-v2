@@ -135,17 +135,50 @@ export function rollWeaponAttack(
   return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };
 }
 
-export type SaveOutcome = { face: number; mod: number; total: number; pass: boolean };
+export type SaveOutcome = {
+  face: number;
+  mod: number;
+  total: number;
+  pass: boolean;
+  /** Whether the proficiency bonus was added (proficient save). */
+  proficient: boolean;
+};
 
-/** Roll a saving throw: d20 + ability modifier vs a DC. */
+/**
+ * Roll a saving throw: d20 + ability modifier (+ proficiency bonus when the
+ * creature is proficient in that save) vs a DC.
+ */
 export function rollSavingThrow(
   c: Combatant,
   ability: string,
   dc: number,
   advantage?: Advantage,
+  proficient = false,
 ): SaveOutcome {
   const face = rollWithAdv(advantage);
-  const mod = abilityMod(c.stats[ability.toUpperCase()]);
+  const mod = abilityMod(c.stats[ability.toUpperCase()]) + (proficient ? profBonusFor(c) : 0);
   const total = face + mod;
-  return { face, mod, total, pass: total >= dc };
+  return { face, mod, total, pass: total >= dc, proficient };
+}
+
+/**
+ * Damage multiplier from a target's resistances/vulnerabilities for a damage
+ * type: 0.5 if resistant, 2 if vulnerable, else 1. Per 5e you can't be both at
+ * once — if a type is listed in both, we treat it as normal. Matched on the
+ * type word, case-insensitive.
+ */
+export function damageMultiplier(
+  damageType: string | undefined,
+  resistances: string[],
+  weaknesses: string[],
+): number {
+  const dt = (damageType ?? '').trim().toLowerCase();
+  if (!dt) return 1;
+  const has = (arr: string[]) => arr.some((x) => x.trim().toLowerCase() === dt);
+  const resist = has(resistances);
+  const vuln = has(weaknesses);
+  if (resist && vuln) return 1;
+  if (resist) return 0.5;
+  if (vuln) return 2;
+  return 1;
 }

@@ -285,6 +285,22 @@ ensureColumn(
 // Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
 ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
+// Saving-throw proficiencies (ability codes) — add the proficiency bonus to saves.
+ensureColumn(
+  'characters',
+  'save_proficiencies',
+  "save_proficiencies TEXT NOT NULL DEFAULT '[]'",
+);
+ensureColumn(
+  'monsters',
+  'save_proficiencies',
+  "save_proficiencies TEXT NOT NULL DEFAULT '[]'",
+);
+ensureColumn(
+  'library_characters',
+  'save_proficiencies',
+  "save_proficiencies TEXT NOT NULL DEFAULT '[]'",
+);
 // Optional long text on a roll entry (e.g. a cast spell's full description).
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 // Emanation measurements follow a token by id.
@@ -389,6 +405,7 @@ type CharacterRow = {
   actions: string;
   abilities: string;
   proficient_skills: string;
+  save_proficiencies: string;
   items: string;
   sheet_abilities: string;
   conditions: string;
@@ -418,6 +435,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     actions: JSON.parse(r.actions ?? '[]'),
     abilities: JSON.parse(r.abilities ?? '[]'),
     proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
+    saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
     items: JSON.parse(r.items ?? '[]'),
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
@@ -436,6 +454,7 @@ type MonsterRow = {
   temp_hp: number;
   resistances: string;
   weaknesses: string;
+  save_proficiencies: string;
   abilities: string;
   conditions: string;
   source: Monster['source'];
@@ -464,6 +483,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     stats: JSON.parse(r.stats ?? '{}'),
     resistances: JSON.parse(r.resistances),
     weaknesses: JSON.parse(r.weaknesses),
+    saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
     actions: JSON.parse(r.actions ?? '[]'),
     weapons: JSON.parse(r.weapons ?? '[]'),
     abilities: JSON.parse(r.abilities),

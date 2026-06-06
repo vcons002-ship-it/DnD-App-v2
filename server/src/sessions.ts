@@ -10,6 +10,7 @@ import {
 import { iconForCreature } from './creatures/srd.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
+import { abilityMod } from '../../shared/skills.js';
 import { weaponsFromActions } from '../../shared/monsterAttacks.js';
 import type {
   Character,
@@ -50,12 +51,27 @@ const rowToSession = (r: SessionRow): Session => ({
 
 // ---- Sessions ----
 
-export function createSession(name = 'New Campaign'): Session {
+/** A rejected custom session code (already taken / too short) — mapped to 409. */
+export class SessionCodeError extends Error {}
+
+/** Normalize a human-typed code: uppercase, A–Z/0–9 only, max 12 chars. */
+export function normalizeSessionCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+}
+
+export function createSession(name = 'New Campaign', customCode?: string): Session {
   const id = newId();
-  let code = newSessionCode();
-  // Avoid the (very unlikely) code collision.
-  while (db.prepare('SELECT 1 FROM sessions WHERE code = ?').get(code)) {
+  const taken = (c: string) => !!db.prepare('SELECT 1 FROM sessions WHERE code = ?').get(c);
+  let code: string;
+  if (customCode && customCode.trim()) {
+    // A DM-chosen memorable code (e.g. "TAVERN") for a stable, shareable link.
+    code = normalizeSessionCode(customCode);
+    if (code.length < 3)
+      throw new SessionCodeError('Code must be at least 3 letters or digits.');
+    if (taken(code)) throw new SessionCodeError(`Code "${code}" is already in use.`);
+  } else {
     code = newSessionCode();
+    while (taken(code)) code = newSessionCode(); // avoid the (very unlikely) collision
   }
   const now = Date.now();
   db.prepare(
@@ -550,11 +566,22 @@ export function setActiveTurn(sessionId: string, tokenId: string | null): void {
   ).run(tokenId, sessionId);
 }
 
-/** Roll a d20 for EVERY token on a map (resets the round). */
+/** A token's initiative bonus = its creature's DEX modifier (0 if unknown). */
+function initiativeBonus(token: Token): number {
+  const entity =
+    token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId);
+  return entity ? abilityMod(entity.stats.DEX) : 0;
+}
+
+/** A d20 + DEX modifier for a token (5e initiative). */
+const rollInitiative = (token: Token): number =>
+  Math.floor(Math.random() * 20) + 1 + initiativeBonus(token);
+
+/** Roll initiative (d20 + DEX) for EVERY token on a map (resets the round). */
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
-    roll.run(Math.floor(Math.random() * 20) + 1, t.id);
+    roll.run(rollInitiative(t), t.id);
   }
 }
 
@@ -562,7 +589,7 @@ export function rollAllInitiative(mapId: string): void {
 export function rollMissingInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
-    if (t.initiative === null) roll.run(Math.floor(Math.random() * 20) + 1, t.id);
+    if (t.initiative === null) roll.run(rollInitiative(t), t.id);
   }
 }
 
@@ -803,6 +830,7 @@ export type CharacterInput = {
   actions?: Character['actions'];
   abilities?: Character['abilities'];
   proficientSkills?: string[];
+  saveProficiencies?: string[];
   items?: Character['items'];
   sheetAbilities?: Character['sheetAbilities'];
   /** When provided (e.g. loading a saved sheet), used verbatim instead of being
@@ -830,9 +858,9 @@ export function createCharacter(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
-        actions, abilities, proficient_skills, items, sheet_abilities,
-        spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        actions, abilities, proficient_skills, save_proficiencies, items,
+        sheet_abilities, spell_slots, resources, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -851,6 +879,7 @@ export function createCharacter(
     JSON.stringify(opts.actions ?? []),
     JSON.stringify(opts.abilities ?? []),
     JSON.stringify(opts.proficientSkills ?? []),
+    JSON.stringify(opts.saveProficiencies ?? []),
     JSON.stringify(opts.items ?? []),
     JSON.stringify(opts.sheetAbilities ?? []),
     JSON.stringify(spellSlots),
@@ -1009,6 +1038,7 @@ export function updateCharacter(
     actions: Character['actions'];
     abilities: Character['abilities'];
     proficientSkills: string[];
+    saveProficiencies: string[];
     items: Character['items'];
     spellSlots: Character['spellSlots'];
     resources: Character['resources'];
@@ -1044,6 +1074,8 @@ export function updateCharacter(
     put('abilities', JSON.stringify(patch.abilities));
   if (patch.proficientSkills !== undefined)
     put('proficient_skills', JSON.stringify(patch.proficientSkills));
+  if (patch.saveProficiencies !== undefined)
+    put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
   if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
   if (patch.spellSlots !== undefined)
     put('spell_slots', JSON.stringify(patch.spellSlots));
@@ -1295,6 +1327,7 @@ export function updateMonster(
     stats: Record<string, number>;
     resistances: string[];
     weaknesses: string[];
+    saveProficiencies: string[];
     weapons: Monster['weapons'];
     actions: Monster['actions'];
     abilities: Monster['abilities'];
@@ -1326,6 +1359,8 @@ export function updateMonster(
     put('resistances', JSON.stringify(patch.resistances));
   if (patch.weaknesses !== undefined)
     put('weaknesses', JSON.stringify(patch.weaknesses));
+  if (patch.saveProficiencies !== undefined)
+    put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
   if (patch.weapons !== undefined) put('weapons', JSON.stringify(patch.weapons));
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)

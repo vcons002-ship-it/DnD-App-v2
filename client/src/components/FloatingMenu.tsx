@@ -41,12 +41,18 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
       : undefined;
   const aWeapons: Weapon[] =
     (aMon as { weapons?: Weapon[] } | undefined)?.weapons ?? aChar?.weapons ?? [];
-  // Mirror the server's combat:attack gate: DM, or the owner of the attacking PC.
+  // Mirror the server's combat:attack gate: the DM, the owner of the attacking
+  // PC, or a player using a friendly creature (companion/summon).
+  const friendlyAttacker =
+    attacker?.kind === 'monster' &&
+    (aMon as { disposition?: string } | undefined)?.disposition === 'friendly';
   const canAttackAsSelected =
     !!attacker &&
     attacker.id !== token.id &&
     aWeapons.length > 0 &&
-    (isDm || (attacker.kind === 'pc' && aChar?.claimedBy === mySocketId));
+    (isDm ||
+      (attacker.kind === 'pc' && aChar?.claimedBy === mySocketId) ||
+      friendlyAttacker);
 
   // Dismiss on outside click, scroll, or Escape.
   useEffect(() => {
@@ -93,8 +99,10 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
 
       {canAttackAsSelected && (
         <div className="fm-attacks">
-          <div className="floating-menu-note">
-            {resolveToken(snapshot, attacker!).name} attacks {d.name}:
+          <div className="fm-attacker">
+            <span className="fm-attacker-icon">⚔️</span>
+            Attacking as <strong>{resolveToken(snapshot, attacker!).name}</strong>
+            <span className="fm-attacker-target"> → {d.name}</span>
           </div>
           <WeaponButtons
             weapons={aWeapons}

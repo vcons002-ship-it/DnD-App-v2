@@ -420,6 +420,49 @@ Smaller refinements on top of the shipped Phase 2 work.
   **right column** with the full `DicePanel` (roller + shared log) beside the card
   grid, so rolls are visible on the second screen.
 
+## Combat & startup QOL (req)
+
+- ☑ **Players restricted to their own PC's status.** `condition:set`/`condition:clear`
+  are now role-gated in `socketHandlers.ts`: a player may only change conditions on
+  the PC they've claimed (`claimedBy === socket.id`); creatures stay DM-controlled,
+  and bulk `tokens:setCondition`/`tokens:clearConditions` are DM-only.
+- ☑ **Floating-menu attacker defaults to the player's own PC.** `floatingAttacker`
+  (`MapStage`) makes the right-click menu attack **as the player's claimed PC** by
+  default, unless a **friendly creature is selected** (companion/summon) — then that
+  creature attacks. Players may now attack with friendly creatures: the `combat:attack`
+  gate allows a non-PC attacker when its disposition is `friendly`. DM behavior
+  unchanged (attacks as the selected token).
+- ☑ **Floating menu shows who's attacking.** A prominent `.fm-attacker` header
+  (“⚔️ Attacking as **X** → Y”) replaces the subtle note, so the attacker is clear
+  before a weapon is clicked.
+- ☑ **Condition-driven advantage/disadvantage (conservative).** `shared/conditionEffects.ts`
+  (pure + tested) maps a conservative subset of 5e conditions to adv/dis on attacks
+  (prone target = melee adv / ranged dis; restrained/blinded/paralyzed/stunned/
+  unconscious/petrified target = adv; invisible attacker = adv; blinded/poisoned/
+  prone/restrained/frightened attacker = dis; invisible target = dis) and saves
+  (restrained → DEX-save dis). It folds the manually-requested adv/dis in and applies
+  the **5e cancel rule** (any adv + any dis → straight). Wired into `resolveAttack`
+  and `resolveSaves`; the reasons are noted in the roll log.
+- ☑ **Resistances/vulnerabilities applied to damage.** `damageMultiplier`
+  (`shared/combatMath.ts`) halves (resist) / doubles (vulnerable) auto-attack damage by
+  the weapon's `damageType` in `resolveAttack`, noting it in the log. (Data already
+  existed on creatures/PCs; now it's mechanical.)
+- ☑ **DEX modifier added to initiative.** `rollAllInitiative`/`rollMissingInitiative`
+  roll `d20 + DEX mod` from the token's creature instead of a flat d20.
+- ☑ **Saving-throw proficiencies.** `Character`/`Monster` carry `saveProficiencies`
+  (ability codes; idempotent `save_proficiencies` columns). `rollSavingThrow` adds the
+  proficiency bonus on a proficient save; edited via a “Save proficiencies” chip row in
+  `StatBlock` and shown read-only.
+- ☑ **Custom memorable session codes.** The DM may choose a vanity code (e.g. `TAVERN`)
+  when creating a session (`createSession(name, code)` + `normalizeSessionCode`,
+  `SessionCodeError` → HTTP 409), giving a stable `/join?code=TAVERN` link; random codes
+  remain the default. Input + inline error in `DmRoute`.
+- ☐ **5e mechanics still NOT automated** (audit, for later): mechanical condition
+  effects beyond adv/dis (auto-fail saves while paralyzed/stunned, movement from
+  restrained/grappled), **concentration checks**, **death saving throws**, **cover**,
+  **exhaustion levels**, **timed/duration effects**, **action economy** (action/bonus/
+  reaction tracking), and **spell-slot auto-spend** on cast.
+
 ## Phase 6 — AI assistance (future)
 
 - ◐ AI-assisted spell/ability lookup is **done** for the sheet (Gemini fills a

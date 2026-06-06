@@ -165,6 +165,7 @@ type LibCharacterRow = {
   actions: string;
   abilities: string;
   proficient_skills: string;
+  save_proficiencies: string;
   items: string;
   sheet_abilities: string;
   icon: string;
@@ -189,6 +190,7 @@ function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
     actions: JSON.parse(r.actions ?? '[]') as CreatureAbility[],
     abilities: JSON.parse(r.abilities ?? '[]') as CreatureAbility[],
     proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
+    saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
     items: JSON.parse(r.items ?? '[]') as InventoryItem[],
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]') as SheetAbility[],
     icon: r.icon,
@@ -249,8 +251,9 @@ export function saveLibraryCharacter(
     `INSERT OR REPLACE INTO library_characters
        (id, name, race, class_name, level, max_hp, cur_hp, armor_class, speed,
         stats, spell_slots, resources, weapons, resistances, weaknesses, actions,
-        abilities, proficient_skills, items, sheet_abilities, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        abilities, proficient_skills, save_proficiencies, items,
+        sheet_abilities, icon, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -270,6 +273,7 @@ export function saveLibraryCharacter(
     JSON.stringify(input.actions ?? []),
     JSON.stringify(input.abilities ?? []),
     JSON.stringify(input.proficientSkills ?? []),
+    JSON.stringify(input.saveProficiencies ?? []),
     JSON.stringify(input.items ?? []),
     JSON.stringify(input.sheetAbilities ?? []),
     input.icon ?? '',

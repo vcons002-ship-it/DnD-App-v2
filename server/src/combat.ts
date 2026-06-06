@@ -7,6 +7,7 @@ import {
   setSheetAbility,
 } from './sessions.js';
 import {
+  damageMultiplier,
   profBonusFor,
   rollSavingThrow,
   rollWeaponAttack,
@@ -14,6 +15,7 @@ import {
   type Advantage,
   type Combatant,
 } from '../../shared/combatMath.js';
+import { attackAdvantage, saveAdvantage } from '../../shared/conditionEffects.js';
 import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
@@ -30,6 +32,12 @@ type Resolved = {
   ac: number;
   kind: Token['kind'];
   refId: string;
+  /** Active condition labels (for advantage/disadvantage rules). */
+  conditionLabels: string[];
+  resistances: string[];
+  weaknesses: string[];
+  /** Ability codes proficient in for saving throws. */
+  saveProficiencies: string[];
 };
 
 function resolve(token: Token): Resolved | null {
@@ -43,6 +51,10 @@ function resolve(token: Token): Resolved | null {
       ac: ch.armorClass,
       kind: 'pc',
       refId: ch.id,
+      conditionLabels: ch.conditions.map((c) => c.label),
+      resistances: ch.resistances,
+      weaknesses: ch.weaknesses,
+      saveProficiencies: ch.saveProficiencies,
     };
   }
   const m = getMonster(token.refId);
@@ -54,6 +66,10 @@ function resolve(token: Token): Resolved | null {
     ac: m.armorClass,
     kind: 'monster',
     refId: m.id,
+    conditionLabels: m.conditions.map((c) => c.label),
+    resistances: m.resistances,
+    weaknesses: m.weaknesses,
+    saveProficiencies: m.saveProficiencies,
   };
 }
 
@@ -107,7 +123,11 @@ export function resolveAttack(
   }
   const noAbilityMod = !!offhand || !!cleaveToDisable;
 
-  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage, {
+  // Fold the attacker's & target's conditions into the requested adv/dis (5e:
+  // any advantage + any disadvantage cancel to a straight roll).
+  const adv = attackAdvantage(a.conditionLabels, t.conditionLabels, weapon.kind, advantage);
+
+  const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
     twoHanded,
     noAbilityMod,
     bonusDamage: flatBonus || undefined,
@@ -144,6 +164,14 @@ export function resolveAttack(
   }
 
   let applied = (out.hit ? out.damage : 0) + extra;
+  // Apply the target's resistance/vulnerability to the weapon's damage type.
+  const mult = damageMultiplier(weapon.damageType, t.resistances, t.weaknesses);
+  if (mult !== 1 && applied > 0) {
+    applied = Math.floor(applied * mult);
+    masteryNotes.push(
+      mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
+    );
+  }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
   if (applied > 0) applyDamage(t.kind, t.refId, applied);
   addRollLog(sessionId, {
@@ -153,7 +181,8 @@ export function resolveAttack(
     total: out.attackTotal,
     detail:
       `${a.name} → ${t.name}: ${out.detail}` +
-      (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : ''),
+      (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
   });
   // Cleave is a one-shot: disable it after the attack roll (hit or miss).
   if (cleaveToDisable) {
@@ -180,13 +209,20 @@ export function resolveSaves(
     if (!tok) continue;
     const r = resolve(tok);
     if (!r) continue;
-    const out = rollSavingThrow(r.c, ability, dc, advantage);
+    const proficient = r.saveProficiencies.some(
+      (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
+    );
+    // Conditions (e.g. restrained → DEX-save disadvantage) fold into the request.
+    const adv = saveAdvantage(r.conditionLabels, ability, advantage);
+    const out = rollSavingThrow(r.c, ability, dc, adv.state, proficient);
     addRollLog(sessionId, {
       roller,
       label: `${ability.toUpperCase()} save`,
       expr: `DC ${dc}`,
       total: out.total,
-      detail: `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}) vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}`,
+      detail:
+        `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}` +
+        (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     });
   }
 }

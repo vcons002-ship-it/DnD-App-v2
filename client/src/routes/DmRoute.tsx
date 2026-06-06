@@ -17,6 +17,8 @@ export function DmRoute() {
   const error = useStore((s) => s.error);
   const connect = useStore((s) => s.connect);
   const [code, setCode] = useState(params.get('code') ?? '');
+  const [customCode, setCustomCode] = useState('');
+  const [createErr, setCreateErr] = useState<string | null>(null);
   const [passphrase, setPassphrase] = useState('');
   const [creating, setCreating] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -35,13 +37,19 @@ export function DmRoute() {
 
   const createSession = async () => {
     setCreating(true);
+    setCreateErr(null);
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(customCode.trim() ? { code: customCode.trim() } : {}),
       });
       const data = await res.json();
+      if (!res.ok) {
+        // e.g. a custom code that's already taken / too short (409).
+        setCreateErr(data.error ?? 'Could not create the session.');
+        return;
+      }
       setCode(data.code);
       connect(data.code, 'dm', passphrase);
     } finally {
@@ -56,9 +64,16 @@ export function DmRoute() {
       <h1>DM Console</h1>
       <p>Start a new session or rejoin an existing one.</p>
 
+      <input
+        placeholder="Custom code (optional, e.g. TAVERN)"
+        value={customCode}
+        onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+        title="Pick a memorable code for a stable, shareable join link. Leave blank for a random one."
+      />
       <button className="btn big" disabled={creating} onClick={createSession}>
         {creating ? 'Creating…' : 'Create new session'}
       </button>
+      {createErr && <p className="err">{createErr}</p>}
 
       <div className="entry-divider">or rejoin</div>
 

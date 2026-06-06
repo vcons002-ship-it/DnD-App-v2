@@ -4,6 +4,7 @@ import {
   weaponAttackBonus,
   rollWeaponAttack,
   rollSavingThrow,
+  damageMultiplier,
   type Combatant,
 } from '../../shared/combatMath.js';
 import type { Weapon } from '../../shared/types.js';
@@ -100,5 +101,20 @@ describe('combat math', () => {
     expect(o.mod).toBe(2);
     expect(o.total).toBe(o.face + 2);
     expect(o.pass).toBe(o.total >= 10);
+  });
+
+  it('adds the proficiency bonus to a proficient save', () => {
+    // CON 14 (+2); level 5 → proficiency +3.
+    const c: Combatant = { stats: { CON: 14 }, level: 5, isMonster: false };
+    expect(rollSavingThrow(c, 'CON', 10, undefined, true).mod).toBe(5); // +2 +3
+    expect(rollSavingThrow(c, 'CON', 10, undefined, false).mod).toBe(2);
+  });
+
+  it('applies resistance (½) and vulnerability (×2) by damage type', () => {
+    expect(damageMultiplier('fire', ['fire'], [])).toBe(0.5);
+    expect(damageMultiplier('Fire', [], ['fire'])).toBe(2); // case-insensitive
+    expect(damageMultiplier('cold', ['fire'], [])).toBe(1);
+    expect(damageMultiplier(undefined, ['fire'], [])).toBe(1);
+    expect(damageMultiplier('fire', ['fire'], ['fire'])).toBe(1); // both → normal
   });
 });

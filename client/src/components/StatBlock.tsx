@@ -23,6 +23,8 @@ export type StatSheet = {
   stats: Record<string, number>;
   resistances: string[];
   weaknesses: string[];
+  /** Ability codes proficient in for saving throws (adds the proficiency bonus). */
+  saveProficiencies: string[];
   weapons: Weapon[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
@@ -108,6 +110,7 @@ export function StatBlock({
       stats: { ...c.stats },
       resistances: c.resistances.join(', '),
       weaknesses: c.weaknesses.join(', '),
+      saveProficiencies: [...c.saveProficiencies],
       weapons: c.weapons.map((w) => ({ ...w })),
       actions: c.actions.map((a) => ({ ...a })),
       abilities: c.abilities.map((a) => ({ ...a })),
@@ -132,6 +135,7 @@ export function StatBlock({
       stats: d.stats,
       resistances: splitList(d.resistances),
       weaknesses: splitList(d.weaknesses),
+      saveProficiencies: d.saveProficiencies,
       weapons: d.weapons.filter((w) => w.name.trim()),
       actions: d.actions.filter((a) => a.name.trim()),
       abilities: d.abilities.filter((a) => a.name.trim()),
@@ -234,6 +238,29 @@ export function StatBlock({
             />
           </label>
         ))}
+      </div>
+
+      <div className="sb-saves-edit">
+        <span className="sb-saves-label">Save proficiencies</span>
+        {ABILITIES.map((a) => {
+          const on = d.saveProficiencies.includes(a);
+          return (
+            <label key={a} className={`sb-save-chip ${on ? 'on' : ''}`}>
+              <input
+                type="checkbox"
+                checked={on}
+                onChange={() =>
+                  set({
+                    saveProficiencies: on
+                      ? d.saveProficiencies.filter((x) => x !== a)
+                      : [...d.saveProficiencies, a],
+                  })
+                }
+              />
+              {a}
+            </label>
+          );
+        })}
       </div>
 
       <label className="sb-field">
@@ -403,6 +430,11 @@ function ReadView({
         </div>
       )}
 
+      {m.saveProficiencies.length > 0 && (
+        <div className="sb-line">
+          <strong>Saves:</strong> {m.saveProficiencies.join(', ')}
+        </div>
+      )}
       {m.resistances.length > 0 && (
         <div className="sb-line">
           <strong>Resist:</strong> {m.resistances.join(', ')}
