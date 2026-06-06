@@ -1163,6 +1163,17 @@ export function setSheetAbility(
     JSON.stringify(list),
     characterId,
   );
+  // Adding the first maneuver seeds the Battle Master pool: a Superiority Dice
+  // counter + a default d8 die size (left alone if the character already has them).
+  if (ability.type === 'maneuver') {
+    if (!c.resources['Superiority Dice'])
+      setResource(characterId, 'resources', 'Superiority Dice', { max: 4, used: 0 });
+    if (!c.superiorityDie)
+      db.prepare('UPDATE characters SET superiority_die = ? WHERE id = ?').run(
+        'd8',
+        characterId,
+      );
+  }
   return getCharacter(characterId);
 }
 

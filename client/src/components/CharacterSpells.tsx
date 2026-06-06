@@ -7,6 +7,7 @@ type SpellHit = Omit<SheetAbility, 'id'>;
 /** Short tag line for an entry, e.g. "Cantrip · Evocation" or "Mastery". */
 function tagFor(a: SheetAbility): string {
   if (a.type === 'mastery') return a.mastery?.effect ? 'Mastery' : 'Mastery · manual';
+  if (a.type === 'maneuver') return 'Maneuver';
   const bits: string[] = [];
   if (a.type === 'spell') {
     bits.push(a.level === 0 ? 'Cantrip' : `Lvl ${a.level ?? '?'}`);
@@ -37,6 +38,10 @@ const upcastable = (a: SheetAbility): boolean =>
 /** An effect-bearing mastery gets a weapon binding + active toggle. */
 const autoMastery = (a: SheetAbility): boolean =>
   a.type === 'mastery' && !!a.mastery?.effect;
+
+/** A maneuver gets an on/off toggle (it spends a Superiority Die on the next attack). */
+const isManeuver = (a: SheetAbility): boolean =>
+  a.type === 'maneuver' && !!a.maneuver;
 
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
@@ -127,6 +132,14 @@ export function CharacterSpells({
     setSheetAbility(character.id, { ...a, mastery: { ...a.mastery, ...patch } });
   };
 
+  const patchManeuver = (
+    a: SheetAbility,
+    patch: Partial<NonNullable<SheetAbility['maneuver']>>,
+  ) => {
+    if (!a.maneuver) return;
+    setSheetAbility(character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
+  };
+
   return (
     <div className="spells">
       <h4>Spells, Abilities &amp; Masteries</h4>
@@ -160,6 +173,20 @@ export function CharacterSpells({
                     onClick={() => patchMastery(a, { active: !a.mastery!.active })}
                   >
                     {a.mastery!.active ? 'On' : 'Off'}
+                  </button>
+                )}
+
+                {editable && isManeuver(a) && (
+                  <button
+                    className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
+                    title={
+                      a.maneuver!.active
+                        ? 'Armed — spends a Superiority Die on your next attack'
+                        : 'Off — click to arm for your next attack'
+                    }
+                    onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
+                  >
+                    {a.maneuver!.active ? 'Armed' : 'Off'}
                   </button>
                 )}
 
@@ -236,6 +263,21 @@ export function CharacterSpells({
                       {(a.mastery!.appliesToTags ?? []).length
                         ? a.mastery!.appliesToTags.map((t) => `[${t}]`).join(' ')
                         : '—'}
+                    </p>
+                  )}
+                  {isManeuver(a) && (
+                    <p className="muted spell-meta">
+                      Spends a Superiority Die
+                      {a.maneuver!.addDieTo === 'attack'
+                        ? ' → added to the attack roll'
+                        : a.maneuver!.addDieTo === 'damage'
+                          ? ' → added to damage on a hit'
+                          : a.maneuver!.addDieTo === 'heal'
+                            ? ' → temp HP'
+                            : ''}
+                      {a.maneuver!.save
+                        ? ` · ${a.maneuver!.save.ability} save${a.maneuver!.save.onFail ? ` or ${a.maneuver!.save.onFail}` : ''}`
+                        : ''}
                     </p>
                   )}
                   <p>{a.description}</p>

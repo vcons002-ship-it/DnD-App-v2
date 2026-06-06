@@ -88,11 +88,19 @@ export function rollWeaponAttack(
   weapon: Weapon,
   targetAC: number,
   advantage?: Advantage,
-  opts?: { twoHanded?: boolean; noAbilityMod?: boolean; bonusDamage?: number; bonusLabel?: string },
+  opts?: {
+    twoHanded?: boolean;
+    noAbilityMod?: boolean;
+    bonusDamage?: number;
+    bonusLabel?: string;
+    /** Extra added to the attack roll itself (e.g. a Precision maneuver die). */
+    attackRollBonus?: number;
+  },
 ): AttackOutcome {
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const bonus = weaponAttackBonus(attacker, weapon);
-  const attackTotal = face + bonus;
+  const toHitExtra = opts?.attackRollBonus ?? 0;
+  const attackTotal = face + bonus + toHitExtra;
   const crit = face === 20;
   const fumble = face === 1;
   const hit = crit || (!fumble && attackTotal >= targetAC);
@@ -138,7 +146,7 @@ export function rollWeaponAttack(
   const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';
   const detail =
-    `${weapon.name}${twoH}: ${d20detail} ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
+    `${weapon.name}${twoH}: ${d20detail} ${signed(bonus)}${toHitExtra ? ` ${signed(toHitExtra)}[maneuver]` : ''} = ${attackTotal} vs AC ${targetAC} — ${result}` +
     (hit ? `, ${damage} dmg (${dmgText})` : '');
 
   return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };

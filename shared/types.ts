@@ -139,6 +139,9 @@ export type Character = {
   items: InventoryItem[];
   /** Spells & abilities with collapsible text + optional rollable actions. */
   sheetAbilities: SheetAbility[];
+  /** Battle Master Superiority Die size (e.g. "d8"); the pool is the
+   *  `resources['Superiority Dice']` counter. Unset → d8 default. */
+  superiorityDie?: string;
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
@@ -220,6 +223,29 @@ export type WeaponMastery = {
 };
 
 /**
+ * A Battle Master combat maneuver attached to a sheet entry. Like a mastery it
+ * has an on/off toggle and (optionally) a weapon-tag trigger, but it spends a
+ * Superiority Die: when active with a die left in the pool, the next attack with
+ * a matching weapon rolls the die and applies it per `addDieTo`, optionally
+ * forcing a save (failing which applies `save.onFail`). One-shot — it toggles
+ * itself off and spends a die after firing (exactly like Cleave).
+ */
+export type ManeuverSpec = {
+  /** Toggle — only an active maneuver fires. */
+  active: boolean;
+  /** Where the rolled Superiority Die goes. `none` = positional/reaction only. */
+  addDieTo: 'damage' | 'attack' | 'heal' | 'none';
+  /** Weapon tags this triggers on (empty = any weapon). */
+  appliesToTags?: string[];
+  /** Optional forced save the target makes; on a failure `onFail` is applied. */
+  save?: { ability: 'STR' | 'DEX' | 'CON' | 'WIS' | 'INT' | 'CHA'; onFail?: string };
+  /** Whether the maneuver grants advantage (resolved manually / noted). */
+  grantsAdvantage?: boolean;
+  /** Short note appended to the log (e.g. "push 15 ft", "knock prone"). */
+  note?: string;
+};
+
+/**
  * A spell, ability, or weapon mastery added to a character sheet. Has a
  * collapsible `description` and, when applicable, a structured `roll` powering a
  * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
@@ -229,9 +255,10 @@ export type SheetAbility = {
   name: string;
   /**
    * `spell` enables an upcast level selector; `ability` is a feature/action;
-   * `mastery` is a weapon mastery (toggle + weapon binding).
+   * `mastery` is a weapon mastery (toggle + weapon binding); `maneuver` is a
+   * Battle Master maneuver (toggle + Superiority Die spend).
    */
-  type: 'spell' | 'ability' | 'mastery';
+  type: 'spell' | 'ability' | 'mastery' | 'maneuver';
   /** Spell level (0 = cantrip); omitted for non-spell abilities. */
   level?: number;
   /** School or short tag, e.g. "Evocation", "Class feature". */
@@ -244,6 +271,8 @@ export type SheetAbility = {
   roll?: AbilityRoll;
   /** Weapon-mastery config (only when `type` is `mastery`). */
   mastery?: WeaponMastery;
+  /** Battle Master maneuver config (only when `type` is `maneuver`). */
+  maneuver?: ManeuverSpec;
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -453,7 +482,14 @@ export type RollEntry = {
   /** DM-only: present on a save/damage spell's damage roll so the log can offer an
    *  "Apply damage" button that starts click-to-target save resolution. Stripped
    *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
-  apply?: { amount: number; dc: number; save?: string; damageType?: string };
+  apply?: {
+    amount: number;
+    dc: number;
+    save?: string;
+    damageType?: string;
+    /** Condition applied to a target that FAILS the save (Battle Master riders). */
+    onFail?: string;
+  };
   createdAt: number;
 };
 

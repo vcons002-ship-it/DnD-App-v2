@@ -311,6 +311,8 @@ ensureColumn('measurements', 'token_id', 'token_id TEXT');
 // follows the weapon last used (null until it attacks).
 ensureColumn('characters', 'last_attack_role', 'last_attack_role TEXT');
 ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
+// Battle Master Superiority Die size (the pool lives in the resources counters).
+ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 
 export const newId = (): string => randomUUID();
 
@@ -417,6 +419,7 @@ type CharacterRow = {
   conditions: string;
   claimed_by: string | null;
   last_attack_role: string | null;
+  superiority_die: string | null;
   icon: string;
 };
 
@@ -448,6 +451,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
     lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
+    superiorityDie: r.superiority_die ?? undefined,
     icon: r.icon ?? '',
   };
 }

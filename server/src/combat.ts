@@ -6,7 +6,9 @@ import {
   getRollEntry,
   getToken,
   setLastAttackRole,
+  setResource,
   setSheetAbility,
+  setTokensCondition,
 } from './sessions.js';
 import {
   damageMultiplier,
@@ -31,6 +33,7 @@ import type {
   AbilityRoll,
   Character,
   CreatureAbility,
+  ManeuverSpec,
   Monster,
   RollEntry,
   SheetAbility,
@@ -136,15 +139,51 @@ export function resolveAttack(
   }
   const noAbilityMod = !!offhand || !!cleaveToDisable;
 
+  // Battle Master: fire at most one active maneuver whose weapon tag matches (or
+  // that has no tag) when a Superiority Die is left. Roll the die up front so a
+  // Precision-style maneuver (addDieTo 'attack') can add it to the to-hit roll;
+  // a 'damage' maneuver folds it into the damage like flat mastery damage.
+  let maneuverFired:
+    | { ability: SheetAbility; spec: ManeuverSpec; die: number }
+    | null = null;
+  let maneuverToHit = 0;
+  if (ch) {
+    const pool = ch.resources['Superiority Dice'];
+    const hasDie = !!pool && pool.used < pool.max;
+    const man = ch.sheetAbilities.find(
+      (ab) =>
+        ab.type === 'maneuver' &&
+        ab.maneuver?.active &&
+        ((ab.maneuver.appliesToTags ?? []).length === 0 ||
+          (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
+    );
+    if (man?.maneuver && hasDie) {
+      const die = rollDice(ch.superiorityDie || 'd8')?.total ?? 0;
+      maneuverFired = { ability: man, spec: man.maneuver, die };
+      if (man.maneuver.addDieTo === 'attack') maneuverToHit = die;
+      else if (man.maneuver.addDieTo === 'damage') {
+        flatBonus += die;
+        flatLabels.push(man.name);
+      }
+    }
+  }
+
   // Fold the attacker's & target's conditions into the requested adv/dis (5e:
-  // any advantage + any disadvantage cancel to a straight roll).
-  const adv = attackAdvantage(a.conditionLabels, t.conditionLabels, weapon.kind, advantage);
+  // any advantage + any disadvantage cancel to a straight roll). A maneuver that
+  // grants advantage contributes one too.
+  const adv = attackAdvantage(
+    a.conditionLabels,
+    t.conditionLabels,
+    weapon.kind,
+    advantage ?? (maneuverFired?.spec.grantsAdvantage ? 'adv' : undefined),
+  );
 
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
     twoHanded,
     noAbilityMod,
     bonusDamage: flatBonus || undefined,
     bonusLabel: flatLabels.length ? flatLabels.join('+') : undefined,
+    attackRollBonus: maneuverToHit || undefined,
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
@@ -176,6 +215,16 @@ export function resolveAttack(
     masteryNotes.push(`${who} (no ability modifier${dropped > 0 ? ` −${dropped}` : ''})`);
   }
 
+  // Battle Master maneuver note (the die itself is already folded into the
+  // attack/damage above; here we surface what fired and any rider text).
+  if (maneuverFired) {
+    const { ability, spec, die } = maneuverFired;
+    const bits = [`${ability.name} (${ch!.superiorityDie || 'd8'}→${die})`];
+    if (spec.grantsAdvantage) bits.push('Advantage');
+    if (spec.note) bits.push(spec.note);
+    masteryNotes.push(bits.join(': '));
+  }
+
   let applied = (out.hit ? out.damage : 0) + extra;
   // Apply the target's resistance/vulnerability to the weapon's damage type.
   const mult = damageMultiplier(weapon.damageType, t.resistances, t.weaknesses);
@@ -199,6 +248,39 @@ export function resolveAttack(
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
+
+  // Resolve the fired maneuver: a save rider becomes its own click-to-target
+  // entry (on a hit), then spend a die and toggle the maneuver off (one-shot).
+  if (maneuverFired && ch) {
+    const { ability, spec } = maneuverFired;
+    if (spec.save && out.hit) {
+      const save = spec.save.ability;
+      const dc = 8 + profBonusFor(a.c) + weaponAbilityMod(a.c, weapon);
+      const onFailTxt = spec.save.onFail
+        ? ` or be ${spec.save.onFail}`
+        : spec.note
+          ? ` or ${spec.note}`
+          : '';
+      addRollLog(sessionId, {
+        roller,
+        label: `${save} save`,
+        expr: `DC ${dc}`,
+        total: dc,
+        detail: `${ability.name}: ${t.name} must make a DC ${dc} ${save} save${onFailTxt}`,
+        apply: {
+          amount: 0,
+          dc,
+          save,
+          damageType: weapon.damageType,
+          onFail: spec.save.onFail,
+        },
+      });
+    }
+    const pool = ch.resources['Superiority Dice'];
+    if (pool) setResource(ch.id, 'resources', 'Superiority Dice', { used: pool.used + 1 });
+    setSheetAbility(ch.id, { ...ability, maneuver: { ...spec, active: false } });
+  }
+
   // Cleave is a one-shot: disable it after the attack roll (hit or miss).
   if (cleaveToDisable) {
     const ab = cleaveToDisable.ability;
@@ -273,8 +355,19 @@ export function resolveForcedSave(
     const adv = saveAdvantage(r.conditionLabels, ability, undefined);
     const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
     dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
+    // A Battle Master rider applies its condition to a target that FAILS.
+    const condTxt =
+      apply.onFail && !out.pass
+        ? ` · ${apply.onFail}`
+        : '';
+    if (apply.onFail && !out.pass)
+      setTokensCondition([tokenId], {
+        label: apply.onFail,
+        aura: 'red',
+        isConcentration: false,
+      });
     detail =
-      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'} · takes ${dmg}${typeTxt}` +
+      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
   } else {
     dmg = Math.floor(apply.amount * mult);

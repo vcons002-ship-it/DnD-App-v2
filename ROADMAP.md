@@ -315,6 +315,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   mastery via `weaponLabel` (defaults to the name) — e.g. a `[longbow][heavy]`
   weapon shows `Slow, GWM`, and a heavy melee weapon also shows the melee-only
   `meleeLabel` `Hew` (GWM's extra-attack mechanic).
+- ☑ **Battle Master maneuvers, tag-driven [req].** `server/src/maneuvers/srd.ts`
+  carries the full 2024 maneuver set (`GET /api/maneuvers`, also folded into the
+  sheet "add" search). A maneuver is a toggleable sheet entry (`type: 'maneuver'`)
+  that spends a **Superiority Die** (`Character.superiorityDie`, default d8; the
+  pool is a normal `resources['Superiority Dice']` counter seeded on first add).
+  When **armed**, the next attack with a matching weapon rolls the die and applies
+  it per `addDieTo`: **attack** (Precision, added to the to-hit), **damage** (folded
+  into the hit), **heal**/**none** (rolled + noted). A `save` rider logs its own
+  click-to-target save (DC 8 + prof + STR/DEX mod) whose **failure applies a
+  condition** via the existing force-save tool (`apply.onFail` → Prone/Frightened/
+  Grappled). The maneuver spends a die and one-shot toggles itself off, exactly
+  like Cleave; positional/reaction effects are noted for manual resolution.
 - ☑ **Ability modifier added at roll time (PCs).** PC weapons store **dice only**;
   `rollWeaponAttack` adds the wielder's ability modifier (finesse-aware) from their
   live stat on a hit. Monsters' stat-block damage is left pre-baked (no auto-add).

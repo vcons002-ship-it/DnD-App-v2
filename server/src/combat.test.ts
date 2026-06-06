@@ -16,6 +16,7 @@ import {
   createMonsterTemplate,
   instantiateMonster,
   setSheetAbility,
+  setResource,
   getCharacter,
   updateMonster,
   getMonster,
@@ -654,5 +655,79 @@ describe('Apply damage → click-to-target saves', () => {
     const { inst, tok } = target(s, map, { name: 'Bob', maxHp: 10 });
     resolveForcedSave(s.id, 'nonexistent', tok.id);
     expect(getMonster(inst.id)!.curHp).toBe(10);
+  });
+});
+
+describe('Battle Master maneuvers', () => {
+  /** A fighter with a weapon + one maneuver armed; returns ids for an attack. */
+  function fight(maneuver: SheetAbility['maneuver'], weapon = {
+    name: 'Greatsword', kind: 'melee' as const, damage: '1d1', attackBonus: 50,
+  }) {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Fighter', level: 1, stats: { STR: 10 }, weapons: [weapon] });
+    setSheetAbility(ch.id, { id: 'man', name: 'Maneuver', type: 'maneuver', description: '', maneuver });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 999, armorClass: 1, stats: { STR: 1 } });
+    const tInst = instantiateMonster(tmpl.id)!;
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: tInst.id, x: 1, y: 1 });
+    return { s: s.id, chId: ch.id, tInst, atk: atk.id, tgt: tgt.id };
+  }
+
+  it('seeds the Superiority Dice pool + d8 die when a maneuver is added', () => {
+    const { chId } = fight({ active: true, addDieTo: 'damage' });
+    expect(getCharacter(chId)!.resources['Superiority Dice']).toEqual({ max: 4, used: 0 });
+    expect(getCharacter(chId)!.superiorityDie).toBe('d8');
+  });
+
+  it('a damage maneuver spends a die, disarms itself, and notes what fired', () => {
+    const { s, chId, atk, tgt } = fight({ active: true, addDieTo: 'damage' });
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(1);
+    expect(getCharacter(chId)!.sheetAbilities[0].maneuver!.active).toBe(false);
+    expect(listRollLog(s).at(-1)!.detail).toContain('Maneuver (d8→');
+  });
+
+  it('Precision adds the Superiority Die to the attack roll', () => {
+    const { s, chId, atk, tgt } = fight({ active: true, addDieTo: 'attack' });
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    expect(listRollLog(s).at(-1)!.detail).toContain('[maneuver]');
+    expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(1);
+  });
+
+  it('a save-rider forces a save whose failure applies the condition', () => {
+    const { s, chId, tInst, atk, tgt } = fight({
+      active: true,
+      addDieTo: 'damage',
+      save: { ability: 'STR', onFail: 'Prone' },
+    });
+    // Land a hit that logs the save rider (re-arm + refill each loop).
+    let saveRollId: string | undefined;
+    for (let i = 0; i < 60 && !saveRollId; i++) {
+      const ab = getCharacter(chId)!.sheetAbilities[0];
+      setSheetAbility(chId, { ...ab, maneuver: { ...ab.maneuver!, active: true } });
+      setResource(chId, 'resources', 'Superiority Dice', { used: 0 });
+      resolveAttack(s, 'Fighter', atk, tgt, 0);
+      saveRollId = listRollLog(s).find(
+        (e) => e.label === 'STR save' && e.apply?.onFail === 'Prone',
+      )?.id;
+    }
+    expect(saveRollId).toBeTruthy();
+    // The STR-1 target fails most DC-10 saves → it ends up Prone within a few tries.
+    let prone = false;
+    for (let i = 0; i < 60 && !prone; i++) {
+      resolveForcedSave(s, saveRollId!, tgt);
+      prone = getMonster(tInst.id)!.conditions.some((c) => c.label === 'Prone');
+    }
+    expect(prone).toBe(true);
+  });
+
+  it('does not fire when no Superiority Die is left', () => {
+    const { s, chId, atk, tgt } = fight({ active: true, addDieTo: 'damage' });
+    setResource(chId, 'resources', 'Superiority Dice', { max: 4, used: 4 }); // empty pool
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    // Still armed (never fired) and no die spent beyond the empty pool.
+    expect(getCharacter(chId)!.sheetAbilities[0].maneuver!.active).toBe(true);
+    expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(4);
+    expect(listRollLog(s).at(-1)!.detail).not.toContain('Maneuver (d8→');
   });
 });
