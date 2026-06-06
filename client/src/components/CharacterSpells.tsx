@@ -61,6 +61,7 @@ export function CharacterSpells({
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const rollAbility = useStore((s) => s.rollAbility);
+  const notify = useStore((s) => s.notify);
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
@@ -99,17 +100,25 @@ export function CharacterSpells({
   };
 
   const askAI = async () => {
-    if (!q.trim() || aiBusy) return;
+    const name = q.trim();
+    if (!name || aiBusy) return;
     setAiBusy(true);
+    notify(`✨ Asking AI for "${name}"…`);
     try {
       const r = await fetch('/api/spells/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: q.trim() }),
+        body: JSON.stringify({ name }),
       });
-      if (r.ok) add(await r.json());
+      if (r.ok) {
+        add(await r.json());
+        notify(`Added "${name}".`);
+      } else {
+        const msg = await r.json().catch(() => null);
+        notify(msg?.error ?? `No result for "${name}".`);
+      }
     } catch {
-      /* network/AI errors fail quietly — local search still works */
+      notify('AI lookup failed — check your connection. Local search still works.');
     } finally {
       setAiBusy(false);
     }

@@ -37,6 +37,8 @@ type Store = {
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
   toast: { id: number; message: string } | null;
   dismissToast: () => void;
+  /** Show a transient toast from the client (e.g. AI start/failure notices). */
+  notify: (message: string) => void;
   /** True while an AI request (stat-fill / creature lookup) is in flight. */
   aiBusy: boolean;
   setAiBusy: (busy: boolean) => void;
@@ -153,6 +155,7 @@ export const useStore = create<Store>((set, get) => ({
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
+  notify: (message) => set({ toast: { id: Date.now(), message } }),
   aiBusy: false,
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
@@ -255,11 +258,11 @@ export const useStore = create<Store>((set, get) => ({
   createCharacter: (input) => get().socket?.emit('character:create', input),
   updateCharacter: (payload) => get().socket?.emit('character:update', payload),
   aiFillCharacter: (characterId) => {
-    set({ aiBusy: true });
+    set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:fillCharacter', { characterId });
   },
   aiCreateCharacter: (description) => {
-    set({ aiBusy: true });
+    set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:createCharacter', { description });
   },
   releaseCharacter: () => get().socket?.emit('character:release'),
@@ -290,7 +293,7 @@ export const useStore = create<Store>((set, get) => ({
   createMonster: (input) => get().socket?.emit('monster:create', input),
   updateMonster: (payload) => get().socket?.emit('monster:update', payload),
   aiFillCreature: (monsterId) => {
-    set({ aiBusy: true });
+    set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:fillCreature', { monsterId });
   },
   deleteMonster: (monsterId) =>

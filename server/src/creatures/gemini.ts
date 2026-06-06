@@ -122,21 +122,31 @@ export async function callGemini(prompt: string): Promise<string | null> {
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
       `?key=${config.geminiApiKey}`;
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' },
-        }),
-        signal: AbortSignal.timeout(20000),
-      });
-    } catch (err) {
-      console.warn(`  [gemini] request error on ${model}:`, (err as Error).message);
-      return null;
+    // Transient timeouts/network blips are common; retry up to 3 times with
+    // exponential backoff (1s/2s/4s) before giving up on this model. Each try
+    // keeps its own 20s budget.
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: 'application/json' },
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
+        break;
+      } catch (err) {
+        console.warn(
+          `  [gemini] request error on ${model} (attempt ${attempt + 1}/3):`,
+          (err as Error).message,
+        );
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      }
     }
+    if (!res) continue; // retries exhausted → try the next model, else give up
     if (res.status === 404) {
       console.warn(`  [gemini] model ${model} unavailable, trying next…`);
       resolvedModel = null;
