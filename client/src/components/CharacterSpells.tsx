@@ -62,10 +62,12 @@ export function CharacterSpells({
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
+  // Spell-attack adv/dis comes from this character's shared toggle (set above the
+  // skill list / roll log), so it's one switch for all of the character's rolls.
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
-  const [adv, setAdv] = useState<Record<string, 'adv' | 'dis' | undefined>>({});
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SpellHit[]>([]);
@@ -129,8 +131,9 @@ export function CharacterSpells({
       characterId: character.id,
       abilityId: a.id,
       castLevel: upcastable(a) ? castLevel[a.id] ?? a.roll?.baseLevel : undefined,
-      // Advantage/disadvantage only affects the d20 of an attack roll.
-      advantage: a.roll?.kind === 'attack' ? adv[a.id] : undefined,
+      // Advantage/disadvantage only affects the d20 of an attack roll; it comes
+      // from the character's shared toggle and is consumed when the attack fires.
+      advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
     });
 
   const patchMastery = (
@@ -219,34 +222,6 @@ export function CharacterSpells({
                       },
                     )}
                   </select>
-                )}
-                {editable && a.roll?.kind === 'attack' && (
-                  <span className="spell-adv">
-                    <button
-                      className={`btn tiny ${adv[a.id] === 'adv' ? 'on' : ''}`}
-                      title="Advantage on the attack roll"
-                      onClick={() =>
-                        setAdv((m) => ({
-                          ...m,
-                          [a.id]: m[a.id] === 'adv' ? undefined : 'adv',
-                        }))
-                      }
-                    >
-                      Adv
-                    </button>
-                    <button
-                      className={`btn tiny ${adv[a.id] === 'dis' ? 'on' : ''}`}
-                      title="Disadvantage on the attack roll"
-                      onClick={() =>
-                        setAdv((m) => ({
-                          ...m,
-                          [a.id]: m[a.id] === 'dis' ? undefined : 'dis',
-                        }))
-                      }
-                    >
-                      Dis
-                    </button>
-                  </span>
                 )}
                 {editable && a.roll && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>

@@ -24,6 +24,7 @@ type Props = {
 export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const combatAttack = useStore((s) => s.combatAttack);
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
   const d = resolveToken(snapshot, token);
@@ -113,6 +114,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
                   attackerTokenId: attacker!.id,
                   targetTokenId: token.id,
                   weaponIndex: i,
+                  advantage: consumeAdvantage(attacker!.refId),
                 }),
               )()
             }

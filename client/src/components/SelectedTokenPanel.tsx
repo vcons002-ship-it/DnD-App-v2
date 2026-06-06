@@ -18,6 +18,7 @@ import { AttackControls } from './AttackControls';
 import { DamageHealControls } from './DamageHealControls';
 import { IconTools } from './IconTools';
 import { TokenAdminButtons } from './TokenAdminButtons';
+import { AdvantageToggle } from './AdvantageToggle';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -33,6 +34,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const rollMonsterAction = useStore((s) => s.rollMonsterAction);
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
@@ -181,6 +183,13 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         </div>
       )}
 
+      {isDm && monster && (
+        <div className="creature-adv-row">
+          <span className="muted">Next roll</span>
+          <AdvantageToggle entityId={monster.id} />
+        </div>
+      )}
+
       {monster && (
         <StatBlock
           creature={monster}
@@ -201,8 +210,12 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           }
           onRollAction={
             isDm
-              ? (actionIndex, advantage) =>
-                  rollMonsterAction(monster.id, actionIndex, advantage)
+              ? (actionIndex) =>
+                  rollMonsterAction(
+                    monster.id,
+                    actionIndex,
+                    consumeAdvantage(monster.id),
+                  )
               : undefined
           }
         />

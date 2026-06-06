@@ -3,6 +3,7 @@ import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
+import { AdvantageToggle } from './AdvantageToggle';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 
@@ -17,13 +18,23 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const isDm = snapshot.role === 'dm';
-  const adv = useStore((s) => s.manualAdvantage);
-  const setAdv = useStore((s) => s.setManualAdvantage);
+  // A player's dice toggle is keyed to THEIR character (so it's the same switch
+  // shown above their skill list); the DM's generic roller gets its own key.
+  const mySocketId = useStore((s) => s.socket?.id);
+  const myChar = !isDm
+    ? snapshot.characters.find((c) => c.claimedBy === mySocketId)
+    : undefined;
+  const advKey = myChar?.id ?? 'dm-dice';
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
 
   const roll = (e: string) =>
-    rollDice({ expr: e, label: label.trim() || undefined, advantage: adv ?? undefined });
+    rollDice({
+      expr: e,
+      label: label.trim() || undefined,
+      advantage: consumeAdvantage(advKey),
+    });
 
   return (
     <div className="panel-section dice-panel">
@@ -52,20 +63,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (optional)"
         />
-        <button
-          className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-          onClick={() => setAdv(adv === 'adv' ? null : 'adv')}
-          title="Roll twice, keep higher (applies to the next roll, then clears)"
-        >
-          Adv
-        </button>
-        <button
-          className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-          onClick={() => setAdv(adv === 'dis' ? null : 'dis')}
-          title="Roll twice, keep lower (applies to the next roll, then clears)"
-        >
-          Dis
-        </button>
+        <AdvantageToggle entityId={advKey} />
       </div>
 
       <div className="roll-log-header">

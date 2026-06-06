@@ -22,8 +22,10 @@ export function AttackControls({
   defaultTargetId?: string;
 }) {
   const combatAttack = useStore((s) => s.combatAttack);
-  const adv = useStore((s) => s.manualAdvantage);
-  const setAdv = useStore((s) => s.setManualAdvantage);
+  // Advantage/disadvantage is the attacking creature's shared per-entity toggle
+  // (set in the skills panel for a PC, or the creature panel for a monster);
+  // we just consume it when an attack fires.
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   // Players can't target friendly creatures (friendly-disposition monsters or
   // allied PCs); the DM may target anyone.
   const isFriendly = (t: Token) => {
@@ -62,20 +64,6 @@ export function AttackControls({
             </option>
           ))}
         </select>
-        <button
-          className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-          onClick={() => setAdv(adv === 'adv' ? null : 'adv')}
-          title="Advantage on the next roll, then clears"
-        >
-          Adv
-        </button>
-        <button
-          className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-          onClick={() => setAdv(adv === 'dis' ? null : 'dis')}
-          title="Disadvantage on the next roll, then clears"
-        >
-          Dis
-        </button>
       </div>
       <div className="dice-row">
         <button
@@ -104,7 +92,7 @@ export function AttackControls({
             attackerTokenId: attacker.id,
             targetTokenId: targetId,
             weaponIndex: i,
-            advantage: adv ?? undefined,
+            advantage: consumeAdvantage(attacker.refId),
             offhand: offhand || undefined,
             twoHanded: twoHanded || undefined,
           })

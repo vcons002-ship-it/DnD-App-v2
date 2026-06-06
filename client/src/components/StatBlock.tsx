@@ -506,7 +506,7 @@ function ActionsTraitsReadSections({
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
               {a.roll && onRollAction && (
-                <ActionRollButton roll={a.roll} onRoll={(adv) => onRollAction(i, adv)} />
+                <ActionRollButton roll={a.roll} onRoll={() => onRollAction(i)} />
               )}
             </p>
           ))}
@@ -600,39 +600,13 @@ export function ActionsTraitsView({
   );
 }
 
-/** DM roll button for a monster action's structured roll (Adv/Dis for attacks). */
-function ActionRollButton({
-  roll,
-  onRoll,
-}: {
-  roll: AbilityRoll;
-  onRoll: (advantage?: 'adv' | 'dis') => void;
-}) {
-  const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
+/** DM roll button for a monster action's structured roll. Advantage/disadvantage
+ *  comes from the creature's shared per-entity toggle (consumed by the caller),
+ *  so there are no per-action adv/dis buttons here. */
+function ActionRollButton({ roll, onRoll }: { roll: AbilityRoll; onRoll: () => void }) {
   return (
     <span className="sb-action-roll">
-      {roll.kind === 'attack' && (
-        <>
-          <button
-            className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-            onClick={() => setAdv((a) => (a === 'adv' ? null : 'adv'))}
-            title="Roll the attack with advantage"
-          >
-            Adv
-          </button>
-          <button
-            className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-            onClick={() => setAdv((a) => (a === 'dis' ? null : 'dis'))}
-            title="Roll the attack with disadvantage"
-          >
-            Dis
-          </button>
-        </>
-      )}
-      <button
-        className="btn tiny"
-        onClick={() => onRoll(roll.kind === 'attack' ? adv ?? undefined : undefined)}
-      >
+      <button className="btn tiny" onClick={onRoll}>
         {rollLabel(roll)}
       </button>
     </span>

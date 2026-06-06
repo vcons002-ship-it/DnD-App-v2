@@ -48,10 +48,17 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
-  /** One shared advantage/disadvantage toggle for the NEXT roll (dice, attack,
-   *  skill). It auto-clears after a roll is emitted so it never sticks. */
-  manualAdvantage: 'adv' | 'dis' | null;
-  setManualAdvantage: (a: 'adv' | 'dis' | null) => void;
+  /**
+   * Per-entity advantage/disadvantage toggle, keyed by a character or monster id.
+   * Each creature/PC has its OWN armed adv/dis that applies to ITS next roll of
+   * any kind (attack, skill, spell/ability attack, monster action, or dice) and
+   * is consumed (cleared) when that roll fires. A player's dice-panel and skill
+   * toggles share their character's key, so they're one switch.
+   */
+  manualAdvantage: Record<string, 'adv' | 'dis'>;
+  setManualAdvantage: (key: string, a: 'adv' | 'dis' | null) => void;
+  /** Read an entity's armed adv/dis AND clear it (called at roll time). */
+  consumeAdvantage: (key: string) => 'adv' | 'dis' | undefined;
   /** Player UI: whether the selected creature's read-only "Details" panel is
    *  expanded. Sticky; double-clicking a token forces it open. */
   detailsExpanded: boolean;
@@ -166,8 +173,24 @@ export const useStore = create<Store>((set, get) => ({
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
-  manualAdvantage: null,
-  setManualAdvantage: (manualAdvantage) => set({ manualAdvantage }),
+  manualAdvantage: {},
+  setManualAdvantage: (key, a) =>
+    set((s) => {
+      const next = { ...s.manualAdvantage };
+      if (a) next[key] = a;
+      else delete next[key];
+      return { manualAdvantage: next };
+    }),
+  consumeAdvantage: (key) => {
+    const cur = get().manualAdvantage[key];
+    if (cur)
+      set((s) => {
+        const next = { ...s.manualAdvantage };
+        delete next[key];
+        return { manualAdvantage: next };
+      });
+    return cur;
+  },
   detailsExpanded: false,
   setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
   saveResolve: null,
@@ -284,10 +307,7 @@ export const useStore = create<Store>((set, get) => ({
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   rollMonsterAction: (monsterId, actionIndex, advantage) =>
     get().socket?.emit('monster:action', { monsterId, actionIndex, advantage }),
-  rollSkill: (payload) => {
-    get().socket?.emit('skill:roll', payload);
-    set({ manualAdvantage: null }); // adv/dis is per-roll: clear after emitting
-  },
+  rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>
@@ -316,14 +336,8 @@ export const useStore = create<Store>((set, get) => ({
   rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
-  rollDice: (payload) => {
-    get().socket?.emit('dice:roll', payload);
-    set({ manualAdvantage: null }); // adv/dis is per-roll: clear after emitting
-  },
+  rollDice: (payload) => get().socket?.emit('dice:roll', payload),
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
-  combatAttack: (payload) => {
-    get().socket?.emit('combat:attack', payload);
-    set({ manualAdvantage: null }); // adv/dis is per-roll: clear after emitting
-  },
+  combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
 }));
