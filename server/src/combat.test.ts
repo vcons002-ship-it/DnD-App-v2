@@ -83,7 +83,8 @@ describe('combat resolution', () => {
       weapons: [{ name: 'Slam', kind: 'melee', damage: '2d6+4', attackBonus: 50 }],
     });
     const target = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 40, armorClass: 1 });
-    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atkTmpl.id)!.id, x: 0, y: 0 });
+    const aInst = instantiateMonster(atkTmpl.id)!;
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: aInst.id, x: 0, y: 0 });
     const tInst = instantiateMonster(target.id)!;
     const t = createToken({ mapId: map.id, kind: 'monster', refId: tInst.id, x: 1, y: 1 });
 
@@ -96,6 +97,8 @@ describe('combat resolution', () => {
     // +50 to hit vs AC 1 lands on anything but a nat 1, so usually damages.
     const after = getMonster(tInst.id)!.curHp;
     expect(after).toBeLessThanOrEqual(before);
+    // The attacker's badge now follows the weapon last used (a melee Slam).
+    expect(getMonster(aInst.id)!.lastAttackRole).toBe('melee');
   });
 
   it('rolls a save for each token and logs pass/fail', () => {

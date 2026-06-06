@@ -21,6 +21,7 @@ import {
   updateMonster,
   setTokensHideCombatRole,
   setTokensCombatRole,
+  setLastAttackRole,
   createCharacter,
   claimCharacter,
   updateCharacter,
@@ -153,6 +154,31 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('caster');
     setTokensHideCombatRole([tok.id], true);
     expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBeNull();
+  });
+
+  it('badge follows the most recent attack, overriding the derived role', () => {
+    const session = createSession('LastAttack');
+    const map = createMap(session.id, { name: 'Arena' });
+    setActiveMap(session.id, map.id);
+
+    // A sword-only brute derives 'melee' from its stat block.
+    const tmpl = createMonsterTemplate(session.id, {
+      name: 'Brute',
+      maxHp: 20,
+      weapons: [{ name: 'Greatsword', kind: 'melee' }],
+    });
+    const brute = instantiateMonster(tmpl.id)!;
+    createToken({ mapId: map.id, kind: 'monster', refId: brute.id, x: 1, y: 1 });
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('melee');
+
+    // After throwing a ranged attack, the badge follows the weapon last used.
+    setLastAttackRole('monster', brute.id, 'ranged');
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('ranged');
+
+    // A manual override still wins over the recorded last-attack role.
+    const tok = buildSnapshot(session.id, 'dm', map.id)!.tokens[0];
+    setTokensCombatRole([tok.id], 'caster');
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('caster');
   });
 
   it('patches editable creature fields and clamps curHp to a lowered max', () => {

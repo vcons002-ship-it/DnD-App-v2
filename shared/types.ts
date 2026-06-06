@@ -142,6 +142,9 @@ export type Character = {
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
+  /** The combat role of this creature's most recent attack (melee/ranged/caster),
+   *  so the token badge follows the weapon last used; null until it attacks. */
+  lastAttackRole: CombatRole | null;
   /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
   icon: string;
 };
@@ -275,6 +278,9 @@ export type Monster = {
   conditions: Condition[];
   /** How much of this creature players may see (default enemy). */
   disposition: Disposition;
+  /** The combat role of this creature's most recent attack (melee/ranged/caster),
+   *  so the token badge follows the weapon last used; null until it attacks. */
+  lastAttackRole: CombatRole | null;
   /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
   icon: string;
 };

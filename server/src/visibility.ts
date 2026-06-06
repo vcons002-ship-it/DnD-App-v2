@@ -23,18 +23,24 @@ import type {
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
 
-/** Effective combat role for a token: hidden → null, override → it, else derive. */
+/**
+ * Effective combat role for a token: hidden → null, override → it, else the
+ * creature's most recent attack role (so the badge follows the weapon last
+ * used), falling back to deriving from its stat block.
+ */
 function tokenCombatRole(t: Token): CombatRole | null {
   if (t.hideCombatRole) return null;
   if (t.combatRoleOverride) return t.combatRoleOverride;
   if (t.kind === 'pc') {
     const c = getCharacter(t.refId);
-    return c
-      ? deriveCombatRole({ weapons: c.weapons, className: c.className })
-      : null;
+    if (!c) return null;
+    return (
+      c.lastAttackRole ??
+      deriveCombatRole({ weapons: c.weapons, className: c.className })
+    );
   }
   const m = getMonster(t.refId);
-  return m ? deriveCombatRole(m) : null;
+  return m ? m.lastAttackRole ?? deriveCombatRole(m) : null;
 }
 
 /**

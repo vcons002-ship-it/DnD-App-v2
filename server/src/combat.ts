@@ -5,6 +5,7 @@ import {
   getMonster,
   getRollEntry,
   getToken,
+  setLastAttackRole,
   setSheetAbility,
 } from './sessions.js';
 import {
@@ -195,6 +196,8 @@ export function resolveAttack(
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
   });
+  // The token badge follows the weapon last attacked with.
+  setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
   // Cleave is a one-shot: disable it after the attack roll (hit or miss).
   if (cleaveToDisable) {
     const ab = cleaveToDisable.ability;
@@ -313,6 +316,8 @@ export function resolveAbilityRoll(
 ): boolean {
   const roll = ability.roll;
   if (!roll) return false;
+  // Casting a spell/ability makes this creature read as a caster on its badge.
+  setLastAttackRole('pc', character.id, 'caster');
   const { stats, level } = character;
   const dice = effectiveDice(roll, { castLevel, casterLevel: level });
   const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
@@ -412,6 +417,8 @@ export function resolveMonsterAction(
 ): boolean {
   const roll = action.roll;
   if (!roll) return false;
+  // A spell/ability action makes this creature read as a caster on its badge.
+  setLastAttackRole('monster', monster.id, 'caster');
   const c: Combatant = { stats: monster.stats, level: monster.level, isMonster: true };
   const prof = profBonusFor(c);
   const castMod = spellcastingMod(monster.stats);
