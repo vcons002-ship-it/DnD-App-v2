@@ -144,7 +144,13 @@ export function TokenShape({
       x={token.x}
       y={token.y}
       draggable={draggable}
-      onClick={(e) => onSelect(token, isAdditive(e))}
+      // Konva synthesizes a `click` for the right mouse button too (unlike the
+      // DOM); ignore non-primary buttons so a right-click only opens the menu
+      // and never changes selection (keeps the selected attacker intact).
+      onClick={(e) => {
+        if ((e.evt as MouseEvent).button !== 0) return;
+        onSelect(token, isAdditive(e));
+      }}
       onTap={(e) => onSelect(token, isAdditive(e))}
       onDragStart={clearLongPress}
       onDragEnd={handleDragEnd}

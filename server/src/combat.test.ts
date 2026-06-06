@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { resolveAttack, resolveSaves, resolveSkillRoll } from './combat.js';
+import {
+  resolveAttack,
+  resolveSaves,
+  resolveSkillRoll,
+  resolveAbilityRoll,
+} from './combat.js';
 import {
   createSession,
   createMap,
@@ -389,5 +394,32 @@ describe('off-hand & versatile attacks', () => {
       }
     }
     expect(checked).toBe(true);
+  });
+});
+
+describe('spell roll description', () => {
+  it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
+    const { s } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Mage',
+      className: 'Wizard',
+      level: 5,
+      stats: { INT: 16 },
+    });
+    const ability: SheetAbility = {
+      id: 'sp1',
+      name: 'Fire Bolt',
+      type: 'spell',
+      description: 'Hurl a mote of fire at a creature or object within range.',
+      roll: { kind: 'damage', dice: '2d10', damageType: 'fire', baseLevel: 0 },
+    };
+    setSheetAbility(ch.id, ability);
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability);
+    const last = listRollLog(s.id).at(-1)!;
+    // The full description rides along for the full log…
+    expect(last.description).toBe('Hurl a mote of fire at a creature or object within range.');
+    // …while the one-line detail stays the compact result (no description in it).
+    expect(last.detail).toContain('Fire Bolt');
+    expect(last.detail).not.toContain('Hurl a mote');
   });
 });

@@ -361,6 +361,9 @@ export type RollEntry = {
   expr: string;
   total: number;
   detail: string;
+  /** Optional long text (e.g. a cast spell's full rules text) — shown in the
+   *  full roll log for others to read, but NOT in the compact map overlay. */
+  description?: string;
   createdAt: number;
 };
 

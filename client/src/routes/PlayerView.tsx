@@ -63,7 +63,6 @@ export function PlayerView() {
             }}
             onPlaceToken={() => setPlacing((p) => !p)}
           />
-          <DicePanel snapshot={snapshot} />
           <Roll20Panel />
         </SidePanel>
 
@@ -98,6 +97,9 @@ export function PlayerView() {
           ) : (
             <p className="muted pad">Select a token to view it.</p>
           )}
+          {/* Roll log lives here (under the combat console) so clicking an attack
+              shows the result immediately below. */}
+          <DicePanel snapshot={snapshot} />
         </SidePanel>
       </div>
       <AiStatus />

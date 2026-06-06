@@ -603,14 +603,32 @@ export function clearInitiative(sessionId: string): void {
 
 export function addRollLog(
   sessionId: string,
-  entry: { roller: string; label: string; expr: string; total: number; detail: string },
+  entry: {
+    roller: string;
+    label: string;
+    expr: string;
+    total: number;
+    detail: string;
+    /** Optional long text (e.g. a cast spell's full description). */
+    description?: string;
+  },
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, sessionId, entry.roller, entry.label, entry.expr, entry.total, entry.detail, createdAt);
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    entry.roller,
+    entry.label,
+    entry.expr,
+    entry.total,
+    entry.detail,
+    entry.description ?? '',
+    createdAt,
+  );
   return { id, ...entry, createdAt };
 }
 
@@ -633,6 +651,7 @@ export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
     expr: string;
     total: number;
     detail: string;
+    description: string | null;
     created_at: number;
   }[];
   return rows
@@ -643,6 +662,7 @@ export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
       expr: r.expr,
       total: r.total,
       detail: r.detail,
+      ...(r.description ? { description: r.description } : {}),
       createdAt: r.created_at,
     }))
     .reverse();

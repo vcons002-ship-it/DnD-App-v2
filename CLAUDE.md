@@ -179,15 +179,21 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   and **saving throws** (bulk). Roll log has a clear button + color-coding by
   roller/roll type; for players enemy **AC is redacted** (`vs AC ?`) while HIT/MISS
   stays visible, and flat mastery damage (GWM prof bonus) is **folded into the
-  damage number** rather than appended. **Monster attacks are auto-derived**: SRD/AI
-  free-text `actions` are parsed into rollable `weapons` (`shared/monsterAttacks.ts`).
-  A player's right panel is a **combat console** — selecting any token shows the
-  player's own attacks (defaulting their target to the clicked token, friendly
-  creatures excluded) + abilities, not a duplicate sheet; the right-click
-  **floating menu** offers the **selected** token's attacks against the
-  right-clicked token (select attacker, right-click target). A compact,
-  click-through **latest-roll overlay** can be pinned to the map's bottom-left
-  corner (`RollLogOverlay`, toggled from `DicePanel`).
+  damage number** rather than appended. A cast spell/ability's full `description`
+  rides on its `RollEntry` and shows in the **full** log (overlay shows only the
+  one-line result). **Monster attacks**: SRD/AI free-text `actions` are parsed into
+  rollable `weapons` (`shared/monsterAttacks.ts`), and the DM can build/edit attacks
+  via the `StatBlock` **"+ Attack"** picker that spans the 2024 weapon book
+  (`/api/weapons`) AND a natural-attacks library (`/api/attacks`, Bite/Claw/Slam…);
+  creature picks are **baked** to the creature's stats (`bakeMonsterAttack`) so they
+  roll right, and **↻ Pull attacks from description** re-parses on demand. A player's
+  right panel is a **combat console** — selecting any token shows the player's own
+  attacks (defaulting their target to the clicked token, friendly creatures excluded)
+  + abilities, not a duplicate sheet, with the **roll log right below it**; the
+  right-click **floating menu** offers the **selected** token's attacks against the
+  right-clicked token (select attacker, right-click target — right-click never
+  changes selection). A compact, click-through **latest-roll overlay** can be pinned
+  to the map's bottom-left corner (`RollLogOverlay`, toggled from `DicePanel`).
 - **DM Data mode** (`/dm/data`): compact sortable (init/A–Z/type) + drag-reorder
   cards, expand into a large overlay reusing `SelectedTokenPanel`, checkbox
   multiselect synced to the map window driving bulk AOE/conditions/etc.

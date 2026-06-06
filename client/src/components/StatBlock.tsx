@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { abilityMod, signed } from '../../../shared/skills';
+import { weaponsFromActions, bakeMonsterAttack } from '../../../shared/monsterAttacks';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -242,7 +243,21 @@ export function StatBlock({
         weapons={d.weapons}
         onChange={(weapons) => set({ weapons })}
         monster={monster}
+        creatureStats={d.stats}
+        creatureLevel={d.level}
       />
+      {monster && d.actions.length > 0 && (
+        <button
+          className="btn tiny"
+          title="Turn the creature's '+N to hit … NdM' actions into rollable attacks"
+          onClick={() => {
+            const { weapons, actions } = weaponsFromActions(d.actions);
+            set({ weapons: [...d.weapons, ...weapons], actions });
+          }}
+        >
+          ↻ Pull attacks from description
+        </button>
+      )}
       <EntryEditor
         title="Actions"
         entries={d.actions}
@@ -410,8 +425,8 @@ function ReadView({
   );
 }
 
-/** A 2024-book weapon as returned by GET /api/weapons. */
-type WeaponData = {
+/** A picker row: a 2024 weapon OR a creature natural attack (shape-compatible). */
+type PickRow = {
   name: string;
   kind: Weapon['kind'];
   damage: string;
@@ -419,51 +434,69 @@ type WeaponData = {
   versatileDamage?: string;
   range?: string;
   properties: string[];
+  natural?: boolean;
 };
 
 function WeaponEditor({
   weapons,
   onChange,
   monster = false,
+  creatureStats = {},
+  creatureLevel = 0,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
-  /** Creature attacks: baked damage + type/range, no PC weapon-book picker. */
+  /** Creature attacks: picks bake the mod (no roll-time mod for monsters). */
   monster?: boolean;
+  /** The creature's stats / CR — used to bake a monster pick's mod + to-hit. */
+  creatureStats?: Record<string, number>;
+  creatureLevel?: number;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
 
   const [picking, setPicking] = useState(false);
   const [q, setQ] = useState('');
-  const [hits, setHits] = useState<WeaponData[]>([]);
+  const [hits, setHits] = useState<PickRow[]>([]);
   useEffect(() => {
     if (!picking) return;
     let live = true;
-    fetch(`/api/weapons?q=${encodeURIComponent(q)}`)
-      .then((r) => r.json())
-      .then((d) => live && setHits(d.results ?? []))
+    const qs = encodeURIComponent(q);
+    // Creatures pick from BOTH libraries (natural attacks first, then weapons);
+    // PCs pick from the weapon book only.
+    const sources = monster
+      ? [fetch(`/api/attacks?q=${qs}`), fetch(`/api/weapons?q=${qs}`)]
+      : [fetch(`/api/weapons?q=${qs}`)];
+    Promise.all(sources.map((p) => p.then((r) => r.json()).catch(() => ({ results: [] }))))
+      .then((ds) => live && setHits(ds.flatMap((d) => d.results ?? [])))
       .catch(() => live && setHits([]));
     return () => {
       live = false;
     };
-  }, [q, picking]);
+  }, [q, picking, monster]);
 
-  // Add a book weapon: store DICE ONLY (the ability modifier is added at roll
-  // time from the wielder's live stat) and set tags = type + properties.
-  const addFromBook = (w: WeaponData) => {
-    onChange([
-      ...weapons,
-      {
-        name: w.name,
-        kind: w.kind,
-        damage: w.damage,
-        versatileDamage: w.versatileDamage,
-        damageType: w.damageType,
-        range: w.range,
-        tags: [w.name.toLowerCase(), ...w.properties],
-      },
-    ]);
+  // Add a library attack. Monsters BAKE the ability mod + a CR-derived to-hit
+  // (the engine never adds a monster's mod at roll time). PCs store DICE ONLY
+  // (mod added at roll time) plus versatile/tags.
+  const addFromLibrary = (w: PickRow) => {
+    const next: Weapon = monster
+      ? bakeMonsterAttack(w, creatureStats, creatureLevel)
+      : {
+          name: w.name,
+          kind: w.kind,
+          damage: w.damage,
+          versatileDamage: w.versatileDamage,
+          damageType: w.damageType,
+          range: w.range,
+          tags: [w.name.toLowerCase(), ...w.properties],
+        };
+    onChange([...weapons, next]);
+    setPicking(false);
+    setQ('');
+  };
+
+  const addCustom = () => {
+    onChange([...weapons, { name: '', kind: 'melee' }]);
     setPicking(false);
     setQ('');
   };
@@ -577,39 +610,39 @@ function WeaponEditor({
         </div>
       ))}
       <div className="dice-row">
-        <button
-          className="btn tiny"
-          onClick={() => onChange([...weapons, { name: '', kind: 'melee' }])}
-        >
-          {monster ? '+ Attack' : '+ Weapon'}
+        <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
+          {picking ? 'Close' : monster ? '+ Attack' : '+ Weapon'}
         </button>
-        {!monster && (
-          <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
-            {picking ? 'Close' : '+ From book'}
-          </button>
-        )}
       </div>
-      {!monster && picking && (
+      {picking && (
         <div className="weapon-picker">
           <input
             autoFocus
-            placeholder="Search 2024 weapons e.g. Longsword, finesse…"
+            placeholder={
+              monster
+                ? 'Search attacks e.g. Bite, Claw, Longsword…'
+                : 'Search 2024 weapons e.g. Longsword, finesse…'
+            }
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <div className="item-picker">
-            {hits.map((w) => (
+            <button className="suggest-row" onClick={addCustom}>
+              ✛ Custom (blank)
+              <span className="muted">build an attack by hand</span>
+            </button>
+            {hits.map((w, i) => (
               <button
-                key={w.name}
+                key={`${w.name}-${i}`}
                 className="suggest-row"
-                onClick={() => addFromBook(w)}
+                onClick={() => addFromLibrary(w)}
                 title={`${w.damage}${w.versatileDamage ? `/${w.versatileDamage}` : ''} ${w.damageType}`}
               >
                 {w.name}
                 <span className="muted">
                   {w.damage}
-                  {w.versatileDamage ? `/${w.versatileDamage}` : ''}
-                  {w.properties.length ? ` · ${w.properties.join(', ')}` : ''}
+                  {w.versatileDamage ? `/${w.versatileDamage}` : ''} {w.damageType}
+                  {w.natural ? ' · natural' : w.properties.length ? ` · ${w.properties.join(', ')}` : ''}
                 </span>
               </button>
             ))}

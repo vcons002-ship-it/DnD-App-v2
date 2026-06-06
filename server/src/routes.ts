@@ -18,6 +18,7 @@ import { searchSpells, getSpell } from './spells/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
 import { searchWeapons } from './weapons/srd.js';
+import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
 import {
   deleteLibraryCreature,
@@ -115,6 +116,12 @@ export function createApiRouter(io: IOServer): Router {
   router.get('/weapons', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
     res.json({ results: searchWeapons(q) });
+  });
+
+  // Common creature natural attacks (Bite, Claw…) for the creature attack picker.
+  router.get('/attacks', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json({ results: searchNaturalAttacks(q) });
   });
 
   // Spell/ability/mastery search for the character-sheet "add" menu: local lists

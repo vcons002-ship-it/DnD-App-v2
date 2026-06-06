@@ -230,6 +230,8 @@ ensureColumn(
   'hide_combat_role',
   'hide_combat_role INTEGER NOT NULL DEFAULT 0',
 );
+// Optional long text on a roll entry (e.g. a cast spell's full description).
+ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 
 export const newId = (): string => randomUUID();
 

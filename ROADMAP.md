@@ -325,14 +325,26 @@ Smaller refinements on top of the shipped Phase 2 work.
   **selected token's** weapons, targeting the right-clicked token. Gated exactly
   like the server `combat:attack` (DM, or the owner of the attacking PC; no
   attacks when nothing else is selected or you right-click your own selection).
-  One button per weapon → `combatAttack`.
+  One button per weapon → `combatAttack`. A right-click never changes selection
+  (`TokenShape` ignores non-primary mouse buttons in its click handler — Konva
+  otherwise synthesizes a left-click for the right button), so the attacker stays
+  selected without needing Ctrl.
 - ☑ **Latest-roll overlay [req].** The shared roll log stays in the left panel; a
   **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) shows a compact,
   **click-through** (`pointer-events:none`) `RollLogOverlay` pinned to the
   **bottom-left** of the map — a single line with just the latest roll, so it stays
   out of the way while keeping the map fully clickable underneath. It fades in on a
   new roll or on hover (detected by cursor-vs-rect since pointer-events are off) and
-  fades out when idle. DM **Clear** stays in the left UI.
+  fades out when idle. DM **Clear** stays in the left UI. The overlay shows only the
+  one-line `detail` (never a roll's long `description`).
+- ☑ **Player roll log on the right [req].** In the PLAYER view the shared roll log
+  (`DicePanel`) lives in the RIGHT panel **beneath** the combat console, so clicking
+  an attack shows the result immediately below. The DM keeps the left-panel log.
+- ☑ **Spell descriptions in the full log [req].** `RollEntry` carries an optional
+  `description`; `resolveAbilityRoll` attaches the cast spell/ability's full rules
+  text. The **full** roll log (`DicePanel`) renders it (so others can read it); the
+  compact overlay shows only the one-line result. Persisted via an idempotent
+  `ensureColumn('roll_log','description',…)`.
 - ☑ **Monster attack rolls (parse `actions` → `weapons`) [req].** SRD/AI monsters
   store attacks as free-text `actions`; `shared/monsterAttacks.ts`
   (`weaponsFromActions`, pure + tested) turns any action that has **both** a
@@ -340,10 +352,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   text, damage type + range captured), leaving non-attack actions (Multiattack,
   save/recharge breath) as leftovers. Wired into `createMonsterTemplate` (the
   single SRD/AI/library/copy chokepoint) so spawned monsters get rollable weapons.
-  The DM can also **add/edit attacks manually** in the creature's `StatBlock`
-  editor: a creature-specific weapon editor (`monster` flag) treats attacks like
-  weapons but as **natural attacks** — baked damage + to-hit + damage-type + reach/
-  range, and **no PC weapon-book picker** (monster attacks aren't PHB weapons).
+  The DM can also **build/edit attacks** in the creature's `StatBlock` editor: a
+  single **"+ Attack"** picker pulls from BOTH libraries — the 2024 weapon book
+  (`/api/weapons`) and a new **natural-attacks library** (`server/src/attacks/natural.ts`,
+  `/api/attacks`: Bite, Claw, Slam…) — plus a **Custom (blank)** row. A creature pick
+  is **baked** to the creature's stats via `bakeMonsterAttack` (dice get the ability
+  mod, `attackBonus` = mod + CR prof) so e.g. a bandit's shortsword rolls correctly
+  (the engine never adds a monster's mod at roll time). A **↻ Pull attacks from
+  description** button re-runs the parser on the creature's `actions` on demand. PCs
+  keep the weapon-book-only, dice-only behavior (mod added at roll time).
 - ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
   `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.

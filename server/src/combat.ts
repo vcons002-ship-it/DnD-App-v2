@@ -246,6 +246,7 @@ export function resolveAbilityRoll(
         `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
         (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
         (crit ? ' — CRIT' : ''),
+      description: ability.description || undefined,
     });
     return true;
   }
@@ -258,6 +259,7 @@ export function resolveAbilityRoll(
       expr: title,
       total: val,
       detail: `${title}: ${val} healing [${dice}] (+ spellcasting mod where applicable)`,
+      description: ability.description || undefined,
     });
     return true;
   }
@@ -276,6 +278,7 @@ export function resolveAbilityRoll(
     expr: title,
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+    description: ability.description || undefined,
   });
   return true;
 }
