@@ -444,6 +444,10 @@ export type RollEntry = {
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
   description?: string;
+  /** DM-only: present on a save/damage spell's damage roll so the log can offer an
+   *  "Apply damage" button that starts click-to-target save resolution. Stripped
+   *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
+  apply?: { amount: number; dc: number; save?: string; damageType?: string };
   createdAt: number;
 };
 
@@ -609,6 +613,10 @@ export type MonsterActionRollPayload = {
   actionIndex: number;
   advantage?: 'adv' | 'dis';
 };
+/** DM-only: resolve a damage roll's save against one clicked target (rolls the
+ *  save, auto-applies full/half of the rolled amount). `rollId` is the log entry
+ *  carrying the `apply` payload. */
+export type SaveResolvePayload = { rollId: string; tokenId: string };
 /**
  * Roll a 5e skill check for a character (server-authoritative): d20 + the
  * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
@@ -760,6 +768,7 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'monster:action': (payload: MonsterActionRollPayload) => void;
+  'save:resolve': (payload: SaveResolvePayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;

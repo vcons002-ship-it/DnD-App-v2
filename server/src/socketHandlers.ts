@@ -5,6 +5,7 @@ import {
   resolveAttack,
   resolveAbilityRoll,
   resolveMonsterAction,
+  resolveForcedSave,
   resolveSkillRoll,
   resolveSaves,
 } from './combat.js';
@@ -482,6 +483,16 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!monster || !action) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       if (resolveMonsterAction(sid, 'DM', monster, action, adv)) afterChange();
+    });
+
+    // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
+    // DC and auto-apply full/half of the rolled amount — DM only.
+    socket.on('save:resolve', ({ rollId, tokenId }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
+      resolveForcedSave(sid, rollId, tokenId);
+      afterChange();
     });
 
     socket.on('skill:roll', ({ characterId, skill, advantage }) => {

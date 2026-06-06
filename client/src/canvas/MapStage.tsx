@@ -244,6 +244,9 @@ export function MapStage({
   const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
+  const saveResolve = useStore((s) => s.saveResolve);
+  const resolveSaveAt = useStore((s) => s.resolveSaveAt);
+  const clearSaveResolve = useStore((s) => s.clearSaveResolve);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
@@ -299,6 +302,14 @@ export function MapStage({
   useEffect(() => {
     setToolSlot(document.getElementById('map-tool-slot'));
   }, []);
+
+  // Esc exits the "Apply damage" click-to-target save mode.
+  useEffect(() => {
+    if (!saveResolve) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && clearSaveResolve();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [saveResolve, clearSaveResolve]);
 
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
@@ -859,12 +870,14 @@ export function MapStage({
                   token={t}
                   display={resolveToken(snapshot, t)}
                   gridSizePx={grid}
-                  draggable={draggableTokens && !fogActive && !measureActive}
+                  draggable={draggableTokens && !fogActive && !measureActive && !saveResolve}
                   listening={!measureActive}
                   selected={selectedIds.includes(t.id)}
                   activeTurn={t.id === activeTurnTokenId}
                   initiativeRank={initiativeRank.get(t.id) ?? null}
-                  onSelect={onSelectToken}
+                  onSelect={
+                    saveResolve ? (tok) => resolveSaveAt(tok.id) : onSelectToken
+                  }
                   onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
                   onContextMenu={(tok, cx, cy) => {
                     setHover(null);
@@ -957,6 +970,18 @@ export function MapStage({
           )}
           {showRollOverlay && <RollLogOverlay rollLog={snapshot.rollLog} />}
           {showDiceButton && <DiceButtonOverlay />}
+          {saveResolve && (
+            <div className="save-resolve-banner">
+              <span>
+                {saveResolve.save
+                  ? `Apply ${saveResolve.label} — click targets to roll DC ${saveResolve.dc} ${saveResolve.save} saves`
+                  : `Apply ${saveResolve.label} — click targets to apply damage`}
+              </span>
+              <button className="btn tiny" onClick={clearSaveResolve}>
+                Done (Esc)
+              </button>
+            </div>
+          )}
           {scaleMode && !scalePrompt && (
             <div className="scale-hint">Drag a line across a known distance…</div>
           )}

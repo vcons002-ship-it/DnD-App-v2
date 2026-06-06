@@ -3,6 +3,7 @@ import {
   applyDamage,
   getCharacter,
   getMonster,
+  getRollEntry,
   getToken,
   setSheetAbility,
 } from './sessions.js';
@@ -25,9 +26,11 @@ import {
 } from '../../shared/spellMath.js';
 import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
 import type {
+  AbilityRoll,
   Character,
   CreatureAbility,
   Monster,
+  RollEntry,
   SheetAbility,
   Token,
   Weapon,
@@ -235,6 +238,54 @@ export function resolveSaves(
   }
 }
 
+/**
+ * Resolve a save/damage roll's "Apply damage" against ONE clicked target: roll the
+ * target's save vs the stored DC (its own ability + proficiency + conditions), then
+ * auto-apply full (fail) / half (pass) of the rolled amount, × resist/vuln. For a
+ * save-less (auto-hit) payload, apply full with no save roll. Logs one entry. The
+ * source roll keeps its `apply` so the DM can keep clicking more targets.
+ */
+export function resolveForcedSave(
+  sessionId: string,
+  rollId: string,
+  tokenId: string,
+): void {
+  const apply = getRollEntry(rollId)?.apply;
+  if (!apply) return;
+  const tok = getToken(tokenId);
+  if (!tok) return;
+  const r = resolve(tok);
+  if (!r) return;
+  const mult = damageMultiplier(apply.damageType, r.resistances, r.weaknesses);
+  const typeTxt = apply.damageType ? ` ${apply.damageType}` : '';
+
+  let dmg: number;
+  let detail: string;
+  if (apply.save) {
+    const ability = apply.save;
+    const proficient = r.saveProficiencies.some(
+      (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
+    );
+    const adv = saveAdvantage(r.conditionLabels, ability, undefined);
+    const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
+    dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
+    detail =
+      `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'} · takes ${dmg}${typeTxt}` +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
+  } else {
+    dmg = Math.floor(apply.amount * mult);
+    detail = `${r.name}: takes ${dmg}${typeTxt}`;
+  }
+  applyDamage(r.kind, r.refId, dmg);
+  addRollLog(sessionId, {
+    roller: 'DM',
+    label: apply.save ? `${apply.save.toUpperCase()} save` : 'Damage',
+    expr: `DC ${apply.dc}`,
+    total: dmg,
+    detail,
+  });
+}
+
 const d20 = (): number => 1 + Math.floor(Math.random() * 20);
 
 /** Roll a d20 honoring advantage/disadvantage, with a display breakdown. */
@@ -310,9 +361,10 @@ export function resolveAbilityRoll(
 
   // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
   const val = dice ? rollDice(dice)!.total : 0;
+  const dc = spellSaveDC(level, stats);
   const note =
     roll.kind === 'save' && roll.save
-      ? ` — DC ${spellSaveDC(level, stats)} ${roll.save} save for half`
+      ? ` — DC ${dc} ${roll.save} save for half`
       : roll.kind === 'damage'
         ? ' (auto-hit)'
         : '';
@@ -323,8 +375,23 @@ export function resolveAbilityRoll(
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
     description: ability.description || undefined,
+    apply: applyPayload(roll, val, dc),
   });
   return true;
+}
+
+/** The "Apply damage" payload for a save/damage roll (none for attack/heal or
+ *  a roll with no dice). Lets the DM click-to-target saves from the roll log. */
+function applyPayload(
+  roll: AbilityRoll,
+  amount: number,
+  dc: number,
+): RollEntry['apply'] {
+  if (!roll.dice) return undefined;
+  if (roll.kind === 'save' && roll.save)
+    return { amount, dc, save: roll.save, damageType: roll.damageType };
+  if (roll.kind === 'damage') return { amount, dc, damageType: roll.damageType };
+  return undefined;
 }
 
 /**
@@ -405,6 +472,7 @@ export function resolveMonsterAction(
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
     description: action.description || undefined,
+    apply: applyPayload(roll, val, dc),
   });
   return true;
 }

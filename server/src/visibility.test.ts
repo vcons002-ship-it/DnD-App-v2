@@ -33,6 +33,7 @@ import {
   setTokenHidden,
   coverFog,
   paintFog,
+  addRollLog,
 } from './sessions.js';
 
 /** Helper: make a template and place one numbered instance of it. */
@@ -455,5 +456,23 @@ describe('creature creation', () => {
     deleteMap(only.id);
     expect(listMaps(s.id)).toHaveLength(0);
     expect(getActiveMapId(s.id)).toBeNull();
+  });
+});
+
+describe('roll-log "Apply damage" payload visibility', () => {
+  it('keeps apply for the DM but strips it for players', () => {
+    const session = createSession('Vis');
+    const map = createMap(session.id, { name: 'M' });
+    setActiveMap(session.id, map.id);
+    addRollLog(session.id, {
+      roller: 'Wizard',
+      label: 'Fireball',
+      expr: 'Fireball',
+      total: 28,
+      detail: 'Fireball: 28 fire — DC 15 DEX save for half',
+      apply: { amount: 28, dc: 15, save: 'DEX', damageType: 'fire' },
+    });
+    expect(buildSnapshot(session.id, 'dm', map.id)!.rollLog.at(-1)!.apply).toBeTruthy();
+    expect(buildSnapshot(session.id, 'player')!.rollLog.at(-1)!.apply).toBeUndefined();
   });
 });

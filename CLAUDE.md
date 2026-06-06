@@ -255,9 +255,11 @@ sanitization rules above and commit it to `claude/Main`.
   `ability:roll`; casting a leveled spell **auto-spends a slot** (`spendSpellSlot`)
   and spell attacks support adv/dis. **Monster `actions`** now carry the same
   structured `roll` too — `resolveMonsterAction` (DC/to-hit from the monster's CR +
-  casting mod) via the DM-only `monster:action` event, authored in `StatBlock`. Still
-  open: one-click **per-target auto-resolution** of save actions (roll each target's
-  save + auto-apply half/full) — today targets use the existing bulk-save tooling.
+  casting mod) via the DM-only `monster:action` event, authored in `StatBlock`. A
+  save/damage roll's `RollEntry` carries a DM-only `apply` payload, so the full log's
+  **"Apply damage"** button arms a **click-to-target** mode (`save:resolve` →
+  `resolveForcedSave`): each clicked creature rolls its own save and takes auto half/full
+  damage (× resist/vuln); `apply` is stripped for players in `visibility.ts`.
 - **Phase 3 stretch — Google Slides:** live token layer over a Slides embed; map
   refresh from Slides.
 - **Phase 6 AI:** spell-effect/rules resolution and AI-generated enemy dialogue.

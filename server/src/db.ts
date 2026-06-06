@@ -303,6 +303,8 @@ ensureColumn(
 );
 // Optional long text on a roll entry (e.g. a cast spell's full description).
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
+// Optional "Apply damage" payload on a save/damage roll (DM click-to-target saves).
+ensureColumn('roll_log', 'apply', "apply TEXT NOT NULL DEFAULT ''");
 // Emanation measurements follow a token by id.
 ensureColumn('measurements', 'token_id', 'token_id TEXT');
 

@@ -414,6 +414,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   with a **↻ Derive rolls from descriptions** button (`parseActionRoll` scrapes DC +
   dice from SRD/AI text). Per-target saves + damage reuse the existing bulk-save +
   damage tooling (parity with PC spell rolls); `roll`/`dc` optional so old saves load.
+- ☑ **"Apply damage" → click-to-target saves [req].** A save/damage spell's damage roll
+  (PC `resolveAbilityRoll` or monster `resolveMonsterAction`) carries a DM-only `apply`
+  payload (rolled **amount** + server-computed **DC** + save ability) on its `RollEntry`.
+  In the full log the DM gets an **"🎯 Apply damage"** button that arms a **click-to-target
+  mode** on the map: each creature clicked rolls **its own** save (ability + proficiency +
+  conditions) vs the DC and **auto-applies full (fail) / half (pass)** of the amount
+  × resist/vuln (`resolveForcedSave` reuses `rollSavingThrow`/`saveAdvantage`/`applyDamage`/
+  `damageMultiplier`); every save is logged. Keep clicking targets until **Esc**; the
+  source roll keeps its payload so many targets reuse one roll. Save-less (`damage`-kind)
+  applies full with no save. `apply` is **stripped for players** in `visibility.ts`; the
+  bulk-selection manual path stays as the alternative. Persisted via
+  `ensureColumn('roll_log','apply',…)`; DM-gated socket `save:resolve`.
 - ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
   `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.

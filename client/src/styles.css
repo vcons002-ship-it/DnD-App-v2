@@ -725,6 +725,14 @@ details.dm-token-tools[open] > summary::before { content: '▾ '; }
   padding: 6px 10px; box-shadow: 0 6px 24px #000a;
 }
 .scale-prompt .grid-input { width: 64px; }
+/* "Apply damage" click-to-target save mode: top banner + the log button. */
+.save-resolve-banner {
+  position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 30;
+  display: flex; gap: 8px; align-items: center; font-size: 13px;
+  background: var(--panel); border: 1px solid var(--red); border-radius: 8px;
+  padding: 6px 10px; box-shadow: 0 6px 24px #000a;
+}
+.roll-entry .apply-dmg { margin-left: 6px; vertical-align: middle; }
 
 /* Attack controls */
 .attack-controls { margin-top: 10px; }

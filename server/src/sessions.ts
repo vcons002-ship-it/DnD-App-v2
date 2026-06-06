@@ -770,13 +770,15 @@ export function addRollLog(
     detail: string;
     /** Optional long text (e.g. a cast spell's full description). */
     description?: string;
+    /** Optional "Apply damage" payload (save/damage spell → click-to-target saves). */
+    apply?: RollEntry['apply'];
   },
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -786,6 +788,7 @@ export function addRollLog(
     entry.total,
     entry.detail,
     entry.description ?? '',
+    entry.apply ? JSON.stringify(entry.apply) : '',
     createdAt,
   );
   return { id, ...entry, createdAt };
@@ -803,28 +806,42 @@ export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
       // rowid disambiguates rolls made within the same millisecond.
       'SELECT * FROM roll_log WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
     )
-    .all(sessionId, limit) as {
-    id: string;
-    roller: string;
-    label: string;
-    expr: string;
-    total: number;
-    detail: string;
-    description: string | null;
-    created_at: number;
-  }[];
-  return rows
-    .map((r) => ({
-      id: r.id,
-      roller: r.roller,
-      label: r.label,
-      expr: r.expr,
-      total: r.total,
-      detail: r.detail,
-      ...(r.description ? { description: r.description } : {}),
-      createdAt: r.created_at,
-    }))
-    .reverse();
+    .all(sessionId, limit) as RollLogRow[];
+  return rows.map(rowToRollEntry).reverse();
+}
+
+type RollLogRow = {
+  id: string;
+  roller: string;
+  label: string;
+  expr: string;
+  total: number;
+  detail: string;
+  description: string | null;
+  apply: string | null;
+  created_at: number;
+};
+
+function rowToRollEntry(r: RollLogRow): RollEntry {
+  return {
+    id: r.id,
+    roller: r.roller,
+    label: r.label,
+    expr: r.expr,
+    total: r.total,
+    detail: r.detail,
+    ...(r.description ? { description: r.description } : {}),
+    ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
+    createdAt: r.created_at,
+  };
+}
+
+/** A single roll-log entry by id (for "Apply damage" save resolution). */
+export function getRollEntry(id: string): RollEntry | null {
+  const r = db.prepare('SELECT * FROM roll_log WHERE id = ?').get(id) as
+    | RollLogRow
+    | undefined;
+  return r ? rowToRollEntry(r) : null;
 }
 
 // ---- Measuring shapes (cone/circle/line) ----

@@ -46,6 +46,12 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
+  /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
+   *  save and auto-applies full/half. Null = not arming. (DM-only.) */
+  saveResolve: { rollId: string; dc: number; save?: string; label: string } | null;
+  armSaveResolve: (s: { rollId: string; dc: number; save?: string; label: string }) => void;
+  clearSaveResolve: () => void;
+  resolveSaveAt: (tokenId: string) => void;
 
   connect: (code: string, role: Role, dmPassphrase?: string) => void;
   disconnect: () => void;
@@ -149,6 +155,14 @@ export const useStore = create<Store>((set, get) => ({
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
+  saveResolve: null,
+  armSaveResolve: (saveResolve) =>
+    set((s) => ({ saveResolve: s.saveResolve?.rollId === saveResolve.rollId ? null : saveResolve })),
+  clearSaveResolve: () => set({ saveResolve: null }),
+  resolveSaveAt: (tokenId) => {
+    const arm = get().saveResolve;
+    if (arm) get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId });
+  },
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
