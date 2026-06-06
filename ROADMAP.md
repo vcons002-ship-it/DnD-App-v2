@@ -197,9 +197,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   proficiency toggle (owner/DM editable), the proficiency bonus, and the computed
   stat-based total. AI character generation/fill can set proficiencies.
 - ☑ **Automated skill checks [req].** Clicking a skill rolls it server-side
-  (`skill:roll` → `resolveSkillRoll`): d20 (with a section adv/dis toggle) + the
-  sheet's ability modifier + proficiency bonus when proficient, logged to the
+  (`skill:roll` → `resolveSkillRoll`): d20 (with the creature's adv/dis toggle) +
+  the sheet's ability modifier + proficiency bonus when proficient, logged to the
   shared roll log as "<Skill> check" (own color tier). Owner/DM-gated.
+- ☑ **Click a stat block to roll its save [req].** Each ability score in a
+  `StatBlock` is clickable to roll that creature's saving throw (`save:roll` →
+  `resolveSave`): d20 + ability modifier + proficiency when proficient in the save,
+  honoring the creature's adv/dis toggle and conditions. Works for a PC (owner/DM)
+  and a monster (DM). The per-creature adv/dis toggle also now drives **bulk saves**
+  (`combat:save` carries an `advantageByToken` map from each selected creature's
+  toggle) and the **"Apply damage" click-to-target save** (`save:resolve` carries
+  the clicked creature's advantage).
 - ☑ **Create party characters [req].** Both the DM (DmPanel) and players
   (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
   a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can

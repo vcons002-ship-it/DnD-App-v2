@@ -19,6 +19,7 @@ import type {
   MonsterUpdatePayload,
   Role,
   ServerToClientEvents,
+  SaveRollPayload,
   SheetAbility,
   SkillRollPayload,
   StateSnapshot,
@@ -131,6 +132,7 @@ type Store = {
   rollAbility: (payload: AbilityRollPayload) => void;
   rollMonsterAction: (monsterId: string, actionIndex: number, advantage?: 'adv' | 'dis') => void;
   rollSkill: (payload: SkillRollPayload) => void;
+  rollSave: (payload: SaveRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -199,7 +201,11 @@ export const useStore = create<Store>((set, get) => ({
   clearSaveResolve: () => set({ saveResolve: null }),
   resolveSaveAt: (tokenId) => {
     const arm = get().saveResolve;
-    if (arm) get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId });
+    if (!arm) return;
+    // The clicked creature's own armed adv/dis toggle applies to its save.
+    const tok = get().snapshot?.tokens.find((t) => t.id === tokenId);
+    const advantage = tok ? get().consumeAdvantage(tok.refId) : undefined;
+    get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId, advantage });
   },
 
   connect: (code, role, dmPassphrase) => {
@@ -308,6 +314,7 @@ export const useStore = create<Store>((set, get) => ({
   rollMonsterAction: (monsterId, actionIndex, advantage) =>
     get().socket?.emit('monster:action', { monsterId, actionIndex, advantage }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
+  rollSave: (payload) => get().socket?.emit('save:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>

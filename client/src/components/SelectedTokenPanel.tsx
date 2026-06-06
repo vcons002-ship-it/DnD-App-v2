@@ -34,6 +34,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const rollMonsterAction = useStore((s) => s.rollMonsterAction);
+  const rollSave = useStore((s) => s.rollSave);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
@@ -216,6 +217,17 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
                     actionIndex,
                     consumeAdvantage(monster.id),
                   )
+              : undefined
+          }
+          onRollSave={
+            isDm
+              ? (ability) =>
+                  rollSave({
+                    kind: 'monster',
+                    refId: monster.id,
+                    ability,
+                    advantage: consumeAdvantage(monster.id),
+                  })
               : undefined
           }
         />

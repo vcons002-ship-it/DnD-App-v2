@@ -657,8 +657,21 @@ export type MonsterActionRollPayload = {
 };
 /** DM-only: resolve a damage roll's save against one clicked target (rolls the
  *  save, auto-applies full/half of the rolled amount). `rollId` is the log entry
- *  carrying the `apply` payload. */
-export type SaveResolvePayload = { rollId: string; tokenId: string };
+ *  carrying the `apply` payload. `advantage` is the clicked creature's armed
+ *  adv/dis toggle. */
+export type SaveResolvePayload = {
+  rollId: string;
+  tokenId: string;
+  advantage?: 'adv' | 'dis';
+};
+/** Roll ONE creature's saving throw for an ability (click a stat block to roll a
+ *  save). Server-authoritative: d20 + ability mod + proficiency when proficient. */
+export type SaveRollPayload = {
+  kind: TokenKind;
+  refId: string;
+  ability: string;
+  advantage?: 'adv' | 'dis';
+};
 /**
  * Roll a 5e skill check for a character (server-authoritative): d20 + the
  * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
@@ -686,12 +699,14 @@ export type CombatAttackPayload = {
   /** Two-handed: use the weapon's `versatileDamage` dice. */
   twoHanded?: boolean;
 };
-/** Roll a saving throw (DC vs ability) for one or more tokens. */
+/** Roll a saving throw (DC vs ability) for one or more tokens. `advantageByToken`
+ *  carries each creature's armed adv/dis toggle (keyed by token id). */
 export type CombatSavePayload = {
   tokenIds: string[];
   ability: string;
   dc: number;
   advantage?: 'adv' | 'dis';
+  advantageByToken?: Record<string, 'adv' | 'dis'>;
 };
 /** Ask the AI to back-fill only the empty fields of a character. */
 export type AiFillCharacterPayload = { characterId: string };
@@ -811,6 +826,7 @@ export interface ClientToServerEvents {
   'ability:roll': (payload: AbilityRollPayload) => void;
   'monster:action': (payload: MonsterActionRollPayload) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
+  'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;

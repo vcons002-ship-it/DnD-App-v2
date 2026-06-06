@@ -66,6 +66,9 @@ type Props = {
   /** DM-only: roll a monster action that carries a structured `roll`. When given,
    *  each such action shows a roll button (server-resolved via `monster:action`). */
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  /** When given, each ability score becomes clickable to roll that saving throw
+   *  (server-resolved via `save:roll`, honoring the creature's adv/dis toggle). */
+  onRollSave?: (ability: string) => void;
   /** Omit the Actions & Traits blocks here so a parent can render them elsewhere
    *  (the character sheet collapses them to the bottom via `ActionsTraitsView`). */
   deferActionsTraits?: boolean;
@@ -111,6 +114,7 @@ export function StatBlock({
   masteries,
   monster = false,
   onRollAction,
+  onRollSave,
   deferActionsTraits = false,
 }: Props) {
   const [editing, setEditing] = useState(false);
@@ -173,6 +177,7 @@ export function StatBlock({
         aiBusy={aiBusy}
         masteries={masteries}
         onRollAction={onRollAction}
+        onRollSave={onRollSave}
         deferActionsTraits={deferActionsTraits}
       />
     );
@@ -352,6 +357,7 @@ function ReadView({
   aiBusy,
   masteries,
   onRollAction,
+  onRollSave,
   deferActionsTraits = false,
 }: {
   creature: StatSheet;
@@ -362,6 +368,7 @@ function ReadView({
   aiBusy?: boolean;
   masteries?: SheetAbility[];
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  onRollSave?: (ability: string) => void;
   deferActionsTraits?: boolean;
 }) {
   const m = creature;
@@ -413,17 +420,34 @@ function ReadView({
 
       {hasStats && (
         <div className="sb-abilities">
-          {ABILITIES.map((a) => (
-            <div key={a} className="sb-ability">
-              <div className="sb-ab-name">{a}</div>
-              <div className="sb-ab-val">
-                {m.stats[a] ?? '—'}
-                {m.stats[a] !== undefined && (
-                  <span className="muted"> ({mod(m.stats[a])})</span>
-                )}
+          {ABILITIES.map((a) => {
+            const score = m.stats[a];
+            const cell = (
+              <>
+                <div className="sb-ab-name">{a}</div>
+                <div className="sb-ab-val">
+                  {score ?? '—'}
+                  {score !== undefined && <span className="muted"> ({mod(score)})</span>}
+                </div>
+              </>
+            );
+            // Clicking an ability rolls that saving throw when enabled.
+            return onRollSave && score !== undefined ? (
+              <button
+                key={a}
+                type="button"
+                className="sb-ability sb-ability-roll"
+                title={`Roll a ${a} saving throw`}
+                onClick={() => onRollSave(a)}
+              >
+                {cell}
+              </button>
+            ) : (
+              <div key={a} className="sb-ability">
+                {cell}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

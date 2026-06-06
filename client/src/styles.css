@@ -180,6 +180,9 @@ input[type='number'] { width: 70px; }
 .sb-ability { flex: 1; background: var(--panel); border-radius: 6px; padding: 3px 0; }
 .sb-ab-name { font-size: 10px; color: var(--muted); }
 .sb-ab-val { font-size: 13px; font-weight: 600; }
+/* Click an ability score to roll its saving throw. */
+button.sb-ability-roll { border: 1px solid var(--line); color: var(--text); cursor: pointer; }
+button.sb-ability-roll:hover { border-color: var(--accent); background: var(--panel-2); }
 .sb-line { margin: 3px 0; }
 .sb-section { margin-top: 8px; }
 .sb-section h4 { margin: 6px 0 3px; color: var(--accent); }

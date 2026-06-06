@@ -26,6 +26,7 @@ export function BulkActionsPanel({
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
   const combatSave = useStore((s) => s.combatSave);
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const isDm = snapshot.role === 'dm';
   const [cond, setCond] = useState(STANDARD_CONDITIONS[0]);
   const [saveAbility, setSaveAbility] = useState('DEX');
@@ -101,9 +102,20 @@ export function BulkActionsPanel({
             />
             <button
               className="btn tiny"
-              onClick={() =>
-                combatSave({ tokenIds: selectedIds, ability: saveAbility, dc: saveDc })
-              }
+              onClick={() => {
+                // Each creature's own armed adv/dis toggle applies to its save.
+                const advantageByToken: Record<string, 'adv' | 'dis'> = {};
+                for (const t of tokens) {
+                  const a = consumeAdvantage(t.refId);
+                  if (a) advantageByToken[t.id] = a;
+                }
+                combatSave({
+                  tokenIds: selectedIds,
+                  ability: saveAbility,
+                  dc: saveDc,
+                  advantageByToken,
+                });
+              }}
             >
               Roll saves
             </button>

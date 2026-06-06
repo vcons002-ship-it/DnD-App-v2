@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveAttack,
   resolveSaves,
+  resolveSave,
   resolveSkillRoll,
   resolveAbilityRoll,
   resolveMonsterAction,
@@ -655,6 +656,42 @@ describe('Apply damage → click-to-target saves', () => {
     const { inst, tok } = target(s, map, { name: 'Bob', maxHp: 10 });
     resolveForcedSave(s.id, 'nonexistent', tok.id);
     expect(getMonster(inst.id)!.curHp).toBe(10);
+  });
+});
+
+describe('saving throws (stat-block click + per-creature advantage)', () => {
+  it('rolls a single ability save for a PC and a monster', () => {
+    const { s } = arena();
+    const pc = createCharacter(s.id, {
+      name: 'Cleric',
+      level: 5,
+      stats: { WIS: 16 },
+      saveProficiencies: ['WIS'],
+    });
+    expect(resolveSave(s.id, 'Cleric', 'pc', pc.id, 'WIS')).toBe(true);
+    const pcLog = listRollLog(s.id).at(-1)!;
+    expect(pcLog.label).toBe('WIS save');
+    expect(pcLog.detail).toContain('Cleric — WIS save');
+    expect(pcLog.detail).toContain('prof'); // proficient in WIS
+
+    const tmpl = createMonsterTemplate(s.id, { name: 'Golem', maxHp: 100, stats: { CON: 14 } });
+    const golem = instantiateMonster(tmpl.id)!;
+    expect(resolveSave(s.id, 'DM', 'monster', golem.id, 'CON')).toBe(true);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('Golem 1 — CON save');
+  });
+
+  it('applies each creature’s own advantage in a bulk save', () => {
+    const { s, map } = arena();
+    const ta = createMonsterTemplate(s.id, { name: 'A', maxHp: 10 });
+    const tb = createMonsterTemplate(s.id, { name: 'B', maxHp: 10 });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(ta.id)!.id, x: 0, y: 0 });
+    const b = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tb.id)!.id, x: 1, y: 1 });
+    resolveSaves(s.id, 'DM', [a.id, b.id], 'DEX', 10, undefined, { [a.id]: 'adv' });
+    const log = listRollLog(s.id);
+    const la = log.find((e) => e.detail.startsWith('A 1'))!;
+    const lb = log.find((e) => e.detail.startsWith('B 1'))!;
+    expect(la.detail).toContain('→adv'); // A rolled with advantage (two d20s)
+    expect(lb.detail).not.toContain('→adv'); // B rolled straight
   });
 });
 

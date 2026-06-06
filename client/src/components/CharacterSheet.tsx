@@ -23,6 +23,8 @@ export function CharacterSheet({
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCharacter = useStore((s) => s.aiFillCharacter);
+  const rollSave = useStore((s) => s.rollSave);
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
   const [saving, setSaving] = useState(false);
 
@@ -43,6 +45,17 @@ export function CharacterSheet({
         aiBusy={aiBusy}
         masteries={character.sheetAbilities}
         deferActionsTraits
+        onRollSave={
+          editable
+            ? (ability) =>
+                rollSave({
+                  kind: 'pc',
+                  refId: character.id,
+                  ability,
+                  advantage: consumeAdvantage(character.id),
+                })
+            : undefined
+        }
         onAiFill={editable ? () => aiFillCharacter(character.id) : undefined}
         onSave={
           editable

@@ -292,7 +292,9 @@ export function resolveAttack(
   return true;
 }
 
-/** Roll a saving throw for each token vs a DC and log pass/fail. */
+/** Roll a saving throw for each token vs a DC and log pass/fail. Each token may
+ *  carry its own manual advantage (its creature's armed adv/dis toggle) via
+ *  `advantageByToken`, falling back to the shared `advantage`. */
 export function resolveSaves(
   sessionId: string,
   roller: string,
@@ -300,6 +302,7 @@ export function resolveSaves(
   ability: string,
   dc: number,
   advantage?: Advantage,
+  advantageByToken?: Record<string, Advantage>,
 ): void {
   for (const id of tokenIds) {
     const tok = getToken(id);
@@ -309,8 +312,9 @@ export function resolveSaves(
     const proficient = r.saveProficiencies.some(
       (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
     );
-    // Conditions (e.g. restrained → DEX-save disadvantage) fold into the request.
-    const adv = saveAdvantage(r.conditionLabels, ability, advantage);
+    // The creature's own armed adv/dis (if any) plus conditions (e.g. restrained
+    // → DEX-save disadvantage) fold into the request (any adv + any dis cancel).
+    const adv = saveAdvantage(r.conditionLabels, ability, advantageByToken?.[id] ?? advantage);
     const out = rollSavingThrow(r.c, ability, dc, adv.state, proficient);
     addRollLog(sessionId, {
       roller,
@@ -325,6 +329,39 @@ export function resolveSaves(
 }
 
 /**
+ * Roll ONE creature's saving throw for an ability (no contested DC — just the
+ * roll), used by click-to-roll on a stat block. d20 + ability modifier (+ the
+ * proficiency bonus when proficient in that save), with the creature's armed
+ * adv/dis toggle and conditions folded in. Works for a PC or a monster.
+ */
+export function resolveSave(
+  sessionId: string,
+  roller: string,
+  kind: Token['kind'],
+  refId: string,
+  ability: string,
+  advantage?: Advantage,
+): boolean {
+  const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!ent) return false;
+  const ab = ability.trim().toUpperCase();
+  const c: Combatant = { stats: ent.stats, level: ent.level, isMonster: kind !== 'pc' };
+  const proficient = ent.saveProficiencies.some((s) => s.trim().toUpperCase() === ab);
+  const adv = saveAdvantage(ent.conditions.map((x) => x.label), ab, advantage);
+  const out = rollSavingThrow(c, ab, 0, adv.state, proficient); // dc 0 → pass unused
+  addRollLog(sessionId, {
+    roller,
+    label: `${ab} save`,
+    expr: proficient ? `${ab} (prof)` : ab,
+    total: out.total,
+    detail:
+      `${ent.name} — ${ab} save: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total}` +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+  });
+  return true;
+}
+
+/**
  * Resolve a save/damage roll's "Apply damage" against ONE clicked target: roll the
  * target's save vs the stored DC (its own ability + proficiency + conditions), then
  * auto-apply full (fail) / half (pass) of the rolled amount, × resist/vuln. For a
@@ -335,6 +372,7 @@ export function resolveForcedSave(
   sessionId: string,
   rollId: string,
   tokenId: string,
+  advantage?: Advantage,
 ): void {
   const apply = getRollEntry(rollId)?.apply;
   if (!apply) return;
@@ -352,7 +390,8 @@ export function resolveForcedSave(
     const proficient = r.saveProficiencies.some(
       (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
     );
-    const adv = saveAdvantage(r.conditionLabels, ability, undefined);
+    // The clicked creature's own armed adv/dis toggle folds in with its conditions.
+    const adv = saveAdvantage(r.conditionLabels, ability, advantage);
     const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
     dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
     // A Battle Master rider applies its condition to a target that FAILS.
