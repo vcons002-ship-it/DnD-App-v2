@@ -23,6 +23,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   `ON DELETE CASCADE`. Server: `changeSessionCode` / `deleteSession`
   (`sessions.ts`) + `PATCH`/`DELETE /api/sessions/:code` (gated by the DM passphrase
   when configured); validated by tests.
+- ☑ **Import maps from another session [req].** A DM **"⇪ Import maps from another
+  session"** dialog (`ImportMapsDialog` in `DmPanel`): enter a code, preview its maps
+  (`GET /api/sessions/:code/maps`) with token counts, **pick** which, and deep-copy
+  each picked map + its tokens + the creatures/PCs they reference into the current
+  session (`importMaps` in `sessions.ts`, a transactional generic `cloneRow`; fresh
+  ids, monster template links + player claims dropped, images shared by global path).
+  DM-gated socket `session:importMaps` → `afterChange()`. Source session untouched;
+  validated by tests.
 
 ## Phase 2 — Canvas UX, DM combat tooling, persistence polish ✅ (done)
 

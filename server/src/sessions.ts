@@ -508,6 +508,109 @@ export function copyTokens(
 }
 
 /**
+ * Generic row clone: copies a row (all columns, including migrated ones) under a
+ * fresh id, applying `overrides`. Used to import content between sessions.
+ */
+function cloneRow(
+  table: string,
+  srcId: string,
+  overrides: Record<string, unknown>,
+): string {
+  const cols = (
+    db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
+  ).map((c) => c.name);
+  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(srcId) as
+    | Record<string, unknown>
+    | undefined;
+  if (!row) throw new Error(`cloneRow: ${table} ${srcId} not found`);
+  const out: Record<string, unknown> = { ...row, ...overrides };
+  out.id = (overrides.id as string) ?? newId();
+  db.prepare(
+    `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols
+      .map(() => '?')
+      .join(', ')})`,
+  ).run(...cols.map((c) => out[c]));
+  return out.id as string;
+}
+
+/** A source session's maps with token counts, for the import picker. */
+export function listMapsForImport(
+  sourceCode: string,
+): { id: string; name: string; tokenCount: number }[] {
+  const source = getSessionByCode(sourceCode);
+  if (!source) return [];
+  return listMaps(source.id).map((m) => ({
+    id: m.id,
+    name: m.name,
+    tokenCount: listTokens(m.id).length,
+  }));
+}
+
+/**
+ * Import selected maps from another session (by code) into `targetSessionId`,
+ * deep-copying each map plus its tokens and the monsters/characters those tokens
+ * reference (fresh ids; monster template links and player claims are dropped so
+ * the copies are independent). Uploaded images are shared by path (the uploads
+ * folder is global). Returns the number of maps imported.
+ */
+export const importMaps = db.transaction(
+  (targetSessionId: string, sourceCode: string, mapIds: string[]): number => {
+    const source = getSessionByCode(sourceCode);
+    if (!source || source.id === targetSessionId) return 0;
+    const sourceMapIds = new Set(listMaps(source.id).map((m) => m.id));
+    const now = Date.now();
+    const refCache = new Map<string, string>(); // `${kind}:${oldRef}` -> newRef
+    const cloneRef = (kind: TokenKind, oldRef: string): string => {
+      const key = `${kind}:${oldRef}`;
+      const hit = refCache.get(key);
+      if (hit) return hit;
+      const newRef =
+        kind === 'monster'
+          ? cloneRow('monsters', oldRef, {
+              session_id: targetSessionId,
+              template_id: null,
+              is_template: 0,
+            })
+          : cloneRow('characters', oldRef, {
+              session_id: targetSessionId,
+              claimed_by: null,
+            });
+      refCache.set(key, newRef);
+      return newRef;
+    };
+    const insertTok = db.prepare(
+      `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    let imported = 0;
+    for (const mapId of mapIds) {
+      if (!sourceMapIds.has(mapId)) continue;
+      const newMapId = cloneRow('maps', mapId, {
+        session_id: targetSessionId,
+        created_at: now,
+      });
+      for (const t of listTokens(mapId)) {
+        const newRef = cloneRef(t.kind, t.refId);
+        insertTok.run(
+          newId(),
+          newMapId,
+          t.kind,
+          newRef,
+          t.x,
+          t.y,
+          t.size,
+          t.initiative ?? null,
+          t.isHidden ? 1 : 0,
+          now,
+        );
+      }
+      imported++;
+    }
+    return imported;
+  },
+);
+
+/**
  * Duplicate a single placed token into a second, independently-tracked copy
  * dropped one grid square down-right. For a monster the referenced instance is
  * cloned with its CURRENT state (HP + conditions) into a fresh instance that

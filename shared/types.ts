@@ -514,6 +514,8 @@ export type MeasureRemovePayload = { id: string };
 export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
+/** Import selected maps (and their tokens) from another session into this one. */
+export type SessionImportMapsPayload = { sourceCode: string; mapIds: string[] };
 /** Enable/disable one fog layer on a map. */
 export type FogSetLayerPayload = {
   mapId: string;
@@ -712,6 +714,7 @@ export interface ClientToServerEvents {
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
+  'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;

@@ -260,7 +260,23 @@ input[type='number'] { width: 70px; }
   border-radius: 6px; padding: 8px 10px;
 }
 .session-edit input { flex: 1; min-width: 120px; margin: 0; }
-.session-edit-actions { display: flex; gap: 6px; }
+.session-edit-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+/* Import-maps-from-another-session dialog */
+.import-maps-dialog {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 30; width: min(420px, 92vw); max-height: 80vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; box-shadow: 0 12px 40px #000a;
+}
+.import-map-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.import-map-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  cursor: pointer;
+}
+.import-map-row input { width: auto; margin: 0; flex-shrink: 0; }
+.import-map-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .hp-line { font-size: 16px; margin: 6px 0; }
 /* Temporary-HP buffer pool: a flat 2024-rules cyan accent next to real HP. */

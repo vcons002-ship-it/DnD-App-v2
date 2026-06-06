@@ -65,6 +65,7 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
+  importMapsFromSession: (sourceCode: string, mapIds: string[]) => void;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   paintFog: (
     mapId: string,
@@ -201,6 +202,8 @@ export const useStore = create<Store>((set, get) => ({
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
+  importMapsFromSession: (sourceCode, mapIds) =>
+    get().socket?.emit('session:importMaps', { sourceCode, mapIds }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
   paintFog: (mapId, layer, cells, reveal) =>

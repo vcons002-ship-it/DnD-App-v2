@@ -10,6 +10,7 @@ import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
 import { NewCharacterForm } from './NewCharacterForm';
 import { LibraryCharacterPicker } from './LibraryCharacterPicker';
+import { ImportMapsDialog } from './ImportMapsDialog';
 import { TemplateEditor } from './TemplateEditor';
 import { EditableName } from './EditableName';
 
@@ -48,6 +49,7 @@ export function DmPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const [mapName, setMapName] = useState('');
   const [slides, setSlides] = useState('');
+  const [importing, setImporting] = useState(false);
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -242,6 +244,14 @@ export function DmPanel({
             Add
           </button>
         </div>
+        <button
+          className="btn tiny"
+          onClick={() => setImporting(true)}
+          title="Copy maps and their tokens from another session into this one"
+        >
+          ⇪ Import maps from another session
+        </button>
+        {importing && <ImportMapsDialog onClose={() => setImporting(false)} />}
 
         {viewMap && otherMaps.length > 0 && (
           <div className="carry-row">

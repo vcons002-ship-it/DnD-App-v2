@@ -10,6 +10,7 @@ import {
   deleteSession,
   getSessionByCode,
   listMaps,
+  listMapsForImport,
   listSessions,
   normalizeSessionCode,
   renameSession,
@@ -108,6 +109,11 @@ export function createApiRouter(io: IOServer): Router {
       }
       throw err;
     }
+  });
+
+  // Preview another session's maps (with token counts) for the import picker.
+  router.get('/sessions/:code/maps', (req, res) => {
+    res.json(listMapsForImport(req.params.code));
   });
 
   // Delete a saved session and all of its data (cascade). Gated by the DM

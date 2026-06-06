@@ -7,6 +7,8 @@ import {
   deleteSession,
   getSessionByCode,
   listMaps,
+  listTokens,
+  importMaps,
   createMap,
   createMonsterTemplate,
   instantiateMonster,
@@ -77,6 +79,45 @@ describe('editing & deleting saved sessions', () => {
     expect(getSessionByCode(s.code)).toBeNull();
     expect(listMaps(s.id)).toHaveLength(0);
     expect(getToken(tok.id)).toBeFalsy();
+  });
+});
+
+describe('importing maps from another session', () => {
+  it('deep-copies picked maps + their tokens + referenced creatures', () => {
+    const src = createSession('Source');
+    const map = createMap(src.id, { name: 'Crypt' });
+    const tmpl = createMonsterTemplate(src.id, { name: 'Skeleton', maxHp: 13 });
+    createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 10,
+      y: 20,
+    });
+
+    const dest = createSession('Dest');
+    const n = importMaps(dest.id, src.code, [map.id]);
+    expect(n).toBe(1);
+
+    // Dest gained a NEW map (different id) carrying a copied token.
+    const destMaps = listMaps(dest.id);
+    expect(destMaps).toHaveLength(1);
+    expect(destMaps[0].id).not.toBe(map.id);
+    expect(destMaps[0].name).toBe('Crypt');
+    const destTokens = listTokens(destMaps[0].id);
+    expect(destTokens).toHaveLength(1);
+    expect(destTokens[0].x).toBe(10);
+
+    // The source is untouched, and the copy references a NEW creature row.
+    expect(listMaps(src.id)).toHaveLength(1);
+    expect(destTokens[0].refId).not.toBe(listTokens(map.id)[0].refId);
+  });
+
+  it('ignores map ids that do not belong to the source session', () => {
+    const src = createSession('S2');
+    const dest = createSession('D2');
+    expect(importMaps(dest.id, src.code, ['nope'])).toBe(0);
+    expect(listMaps(dest.id)).toHaveLength(0);
   });
 });
 

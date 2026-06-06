@@ -74,6 +74,7 @@ import {
   releaseClaims,
   renameMap,
   renameSession,
+  importMaps,
   resizeToken,
   updateMapGrid,
   rollAllInitiative,
@@ -220,6 +221,21 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       renameSession(sid, name);
       afterChange();
+    });
+
+    // Import selected maps + their tokens from another session (DM only).
+    socket.on('session:importMaps', ({ sourceCode, mapIds }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      if (typeof sourceCode !== 'string' || !Array.isArray(mapIds)) return;
+      const ids = mapIds.filter((m): m is string => typeof m === 'string').slice(0, 200);
+      const n = importMaps(sid, sourceCode, ids);
+      socket.emit('notice', {
+        message: n
+          ? `Imported ${n} map${n === 1 ? '' : 's'} from ${sourceCode.toUpperCase()}.`
+          : `No maps imported from "${sourceCode}".`,
+      });
+      if (n) afterChange();
     });
 
     socket.on('map:delete', ({ mapId }) => {
