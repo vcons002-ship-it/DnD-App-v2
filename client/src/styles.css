@@ -722,6 +722,16 @@ details.dm-token-tools > summary::-webkit-details-marker { display: none; }
 details.dm-token-tools > summary::before { content: '▸ '; }
 details.dm-token-tools[open] > summary::before { content: '▾ '; }
 
+/* Character sheet: Actions & Traits collapsed at the bottom of the sheet. */
+details.sheet-actions-traits { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+details.sheet-actions-traits > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 0; list-style: none;
+}
+details.sheet-actions-traits > summary::-webkit-details-marker { display: none; }
+details.sheet-actions-traits > summary::before { content: '▸ '; }
+details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
+
 /* Scale-by-reference-line prompt + hint (map canvas) */
 .scale-hint, .scale-prompt {
   position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 30;

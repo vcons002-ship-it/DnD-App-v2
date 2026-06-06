@@ -66,6 +66,9 @@ type Props = {
   /** DM-only: roll a monster action that carries a structured `roll`. When given,
    *  each such action shows a roll button (server-resolved via `monster:action`). */
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  /** Omit the Actions & Traits blocks here so a parent can render them elsewhere
+   *  (the character sheet collapses them to the bottom via `ActionsTraitsView`). */
+  deferActionsTraits?: boolean;
 };
 
 /**
@@ -108,6 +111,7 @@ export function StatBlock({
   masteries,
   monster = false,
   onRollAction,
+  deferActionsTraits = false,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -169,6 +173,7 @@ export function StatBlock({
         aiBusy={aiBusy}
         masteries={masteries}
         onRollAction={onRollAction}
+        deferActionsTraits={deferActionsTraits}
       />
     );
   }
@@ -310,17 +315,21 @@ export function StatBlock({
           ↻ Pull attacks from description
         </button>
       )}
-      <EntryEditor
-        title="Actions"
-        entries={d.actions}
-        onChange={(actions) => set({ actions })}
-        withRoll={monster}
-      />
-      <EntryEditor
-        title="Traits"
-        entries={d.abilities}
-        onChange={(abilities) => set({ abilities })}
-      />
+      {!deferActionsTraits && (
+        <>
+          <EntryEditor
+            title="Actions"
+            entries={d.actions}
+            onChange={(actions) => set({ actions })}
+            withRoll={monster}
+          />
+          <EntryEditor
+            title="Traits"
+            entries={d.abilities}
+            onChange={(abilities) => set({ abilities })}
+          />
+        </>
+      )}
 
       <div className="sb-edit-actions">
         <button className="btn tiny green" onClick={save}>
@@ -343,6 +352,7 @@ function ReadView({
   aiBusy,
   masteries,
   onRollAction,
+  deferActionsTraits = false,
 }: {
   creature: StatSheet;
   subtitle?: string;
@@ -352,6 +362,7 @@ function ReadView({
   aiBusy?: boolean;
   masteries?: SheetAbility[];
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  deferActionsTraits?: boolean;
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
@@ -464,10 +475,34 @@ function ReadView({
         </div>
       )}
 
-      {m.actions.length > 0 && (
+      {!deferActionsTraits && (
+        <ActionsTraitsReadSections
+          actions={m.actions}
+          abilities={m.abilities}
+          onRollAction={onRollAction}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The read-only Actions + Traits sections, shared by the inline stat block and
+ *  the character sheet's collapsed bottom panel. */
+function ActionsTraitsReadSections({
+  actions,
+  abilities,
+  onRollAction,
+}: {
+  actions: CreatureAbility[];
+  abilities: CreatureAbility[];
+  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+}) {
+  return (
+    <>
+      {actions.length > 0 && (
         <div className="sb-section">
           <h4>Actions</h4>
-          {m.actions.map((a, i) => (
+          {actions.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
               {a.roll && onRollAction && (
@@ -477,16 +512,90 @@ function ReadView({
           ))}
         </div>
       )}
-      {m.abilities.length > 0 && (
+      {abilities.length > 0 && (
         <div className="sb-section">
           <h4>Traits</h4>
-          {m.abilities.map((a, i) => (
+          {abilities.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
             </p>
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+/**
+ * Self-contained, read/edit Actions & Traits panel — the character sheet renders
+ * it collapsed at the bottom (so the stat block leads with stats/health/weapons).
+ * It carries its own Edit toggle + drafts and saves via `onSave`, reusing the same
+ * EntryEditor as the inline stat block so the two never diverge.
+ */
+export function ActionsTraitsView({
+  actions,
+  abilities,
+  editable = false,
+  onSave,
+  onRollAction,
+}: {
+  actions: CreatureAbility[];
+  abilities: CreatureAbility[];
+  editable?: boolean;
+  onSave?: (patch: { actions: CreatureAbility[]; abilities: CreatureAbility[] }) => void;
+  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [dActions, setDActions] = useState<CreatureAbility[]>(actions);
+  const [dAbilities, setDAbilities] = useState<CreatureAbility[]>(abilities);
+
+  const startEdit = () => {
+    setDActions(actions.map((a) => ({ ...a })));
+    setDAbilities(abilities.map((a) => ({ ...a })));
+    setEditing(true);
+  };
+  const save = () => {
+    onSave?.({
+      actions: dActions.filter((a) => a.name.trim()),
+      abilities: dAbilities.filter((a) => a.name.trim()),
+    });
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <div className="statblock">
+        {editable && onSave && (
+          <div className="sb-head">
+            <button className="btn tiny" onClick={startEdit}>
+              Edit
+            </button>
+          </div>
+        )}
+        {actions.length === 0 && abilities.length === 0 ? (
+          <p className="muted">None yet.</p>
+        ) : (
+          <ActionsTraitsReadSections
+            actions={actions}
+            abilities={abilities}
+            onRollAction={onRollAction}
+          />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="statblock editing">
+      <EntryEditor title="Actions" entries={dActions} onChange={setDActions} />
+      <EntryEditor title="Traits" entries={dAbilities} onChange={setDAbilities} />
+      <div className="sb-edit-actions">
+        <button className="btn tiny green" onClick={save}>
+          Save
+        </button>
+        <button className="btn tiny" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
