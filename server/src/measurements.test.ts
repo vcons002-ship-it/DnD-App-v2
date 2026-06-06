@@ -79,12 +79,15 @@ describe('measurements', () => {
 });
 
 describe('map grid resize', () => {
-  it('persists a new cell size + feet-per-square', () => {
+  it('persists a new cell size + feet-per-square + map width', () => {
     const s = createSession('Grid');
     const map = createMap(s.id, { name: 'Tac' });
-    updateMapGrid(map.id, 64, 10);
+    // A fresh map has no real-world width set (falls back to feet-per-square).
+    expect(getMap(map.id)!.mapWidthFt).toBe(0);
+    updateMapGrid(map.id, 64, 10, 200);
     const m = getMap(map.id)!;
     expect(m.gridSizePx).toBe(64);
     expect(m.feetPerSquare).toBe(10);
+    expect(m.mapWidthFt).toBe(200);
   });
 });

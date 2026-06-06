@@ -171,10 +171,11 @@ export function updateMapGrid(
   mapId: string,
   gridSizePx: number,
   feetPerSquare: number,
+  widthFt: number,
 ): void {
   db.prepare(
-    'UPDATE maps SET grid_size_px = ?, feet_per_square = ? WHERE id = ?',
-  ).run(gridSizePx, feetPerSquare, mapId);
+    'UPDATE maps SET grid_size_px = ?, feet_per_square = ?, width_ft = ? WHERE id = ?',
+  ).run(gridSizePx, feetPerSquare, widthFt, mapId);
 }
 
 /** Columns for each fog layer (enabled flag + revealed-cell set). */

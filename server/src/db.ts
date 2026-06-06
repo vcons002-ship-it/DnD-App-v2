@@ -37,6 +37,7 @@ db.exec(`
     slides_url      TEXT,
     grid_size_px    INTEGER NOT NULL DEFAULT 50,
     feet_per_square INTEGER NOT NULL DEFAULT 5,
+    width_ft        REAL NOT NULL DEFAULT 0,
     fog_enabled     INTEGER NOT NULL DEFAULT 0,
     fog_mode        TEXT NOT NULL DEFAULT 'off',
     fog_revealed    TEXT NOT NULL DEFAULT '[]',
@@ -208,6 +209,8 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
 // fog_mode (single layer) -> two independent layers (map fog + token fog).
 ensureColumn('maps', 'map_fog_enabled', 'map_fog_enabled INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'token_fog_enabled', 'token_fog_enabled INTEGER NOT NULL DEFAULT 0');
+// Real-world map width in feet (0 = unset → fall back to feet-per-square scale).
+ensureColumn('maps', 'width_ft', 'width_ft REAL NOT NULL DEFAULT 0');
 const addedMapRev = ensureColumn(
   'maps',
   'map_fog_revealed',
@@ -298,6 +301,7 @@ type MapRow = {
   slides_url: string | null;
   grid_size_px: number;
   feet_per_square: number;
+  width_ft: number;
   map_fog_enabled: number;
   token_fog_enabled: number;
   map_fog_revealed: string;
@@ -313,6 +317,7 @@ export function rowToMap(r: MapRow): MapState {
     slidesUrl: r.slides_url,
     gridSizePx: r.grid_size_px,
     feetPerSquare: r.feet_per_square,
+    mapWidthFt: r.width_ft,
     mapFogEnabled: !!r.map_fog_enabled,
     tokenFogEnabled: !!r.token_fog_enabled,
     mapFogRevealed: JSON.parse(r.map_fog_revealed ?? '[]') as string[],

@@ -204,7 +204,13 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   (`library_characters` + `/api/library/characters`, mirroring the creature
   library) — players + DM, via `LibraryCharacterDialog` (save) and
   `LibraryCharacterPicker` (load → `character:loadFromLibrary`).
-- **Map tools:** DM-resizable grid (`map:setGrid`) and shared, persistent
+- **Map tools:** DM-resizable grid + **map scale** (`map:setGrid` carries
+  `widthFt`): a map's **real-world width in feet** (`maps.width_ft`) is the source
+  of truth for distances (feet-per-pixel = width ÷ image width, computed
+  client-side); the grid cell is visual-only and feet-per-square is a derived
+  read-out. Scale is also settable by **dragging a reference line** ("Set scale").
+  Maps with no width fall back to the legacy feet-per-square model (old saves
+  unchanged); a fresh map's width derives from its pixel size. Shared, persistent
   **measuring shapes** via a toolbar **"Measure" dropdown** (`MeasureMenu`):
   Circle/Cone/Line/Square/Emanation, each Custom (drag) or Small/Large (classic 5e
   sizes, click-anchor→rotate→click), a snap-to-grid toggle, and click-to-remove +

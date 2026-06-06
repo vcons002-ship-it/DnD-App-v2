@@ -610,6 +610,15 @@ input[type='number'] { width: 70px; }
 .measure-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .measure-clear { display: flex; gap: 6px; padding: 4px 8px 2px; }
 
+/* Scale-by-reference-line prompt + hint (map canvas) */
+.scale-hint, .scale-prompt {
+  position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 30;
+  display: flex; gap: 6px; align-items: center; font-size: 13px;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 6px 10px; box-shadow: 0 6px 24px #000a;
+}
+.scale-prompt .grid-input { width: 64px; }
+
 /* Attack controls */
 .attack-controls { margin-top: 10px; }
 .attack-controls select { flex: 1; }

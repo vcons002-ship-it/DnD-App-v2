@@ -380,10 +380,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   character" picker (`LibraryCharacterPicker`) in `PlayerPanel` (claims it) and
   `DmPanel` (unclaimed) instantiates it via `character:loadFromLibrary` →
   `createCharacterFromLibrary`.
-- ☑ **Resizable grid [req].** A DM **Grid** control in the map toolbar sets a
-  map's cell size (px) and feet-per-square (`map:setGrid` → the existing
-  `updateMapGrid`, broadcast); grid/fog/labels recompute, token image-space
-  positions stay put.
+- ☑ **Resizable grid + map scale [req].** A DM control in the map toolbar sets a
+  map's cell size (px, visual only) and its **real-world width in feet**
+  (`maps.width_ft`, the source of truth for scale → feet-per-pixel = width ÷ image
+  width). Feet-per-square is shown as a **derived read-out**, and scale can also
+  be set by **dragging a reference line** of known length ("Set scale"). Scale is
+  persisted via `map:setGrid` (carries `widthFt`) → `updateMapGrid`, broadcast.
+  Distances are computed **client-side** from feet-per-pixel; maps with no width
+  set fall back to the legacy feet-per-square model (so old saves are unchanged),
+  and a fresh map's width is **derived from its pixel size** (default 5 ft/50 px)
+  and prefilled for the DM to adjust. Placed AOEs **keep their footprint** when
+  scale changes (stored in px; labels recompute).
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,

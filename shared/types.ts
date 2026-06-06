@@ -334,6 +334,9 @@ export type MapState = {
   slidesUrl: string | null;
   gridSizePx: number;
   feetPerSquare: number;
+  /** Real-world width the map image represents, in feet (0 = unset → distances
+   *  fall back to the feet-per-square scale). The source of truth for scale. */
+  mapWidthFt: number;
   /** Whether each fog layer is active on this map. */
   mapFogEnabled: boolean;
   tokenFogEnabled: boolean;
@@ -481,6 +484,8 @@ export type MapSetGridPayload = {
   mapId: string;
   gridSizePx: number;
   feetPerSquare: number;
+  /** Real-world map width in feet (0 = unset). Source of truth for scale. */
+  widthFt: number;
 };
 /** Add a measuring shape to a map (any role). */
 export type MeasureAddPayload = {

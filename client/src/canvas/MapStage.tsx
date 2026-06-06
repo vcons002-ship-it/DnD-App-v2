@@ -64,7 +64,7 @@ function MeasureShape({
   target,
   color,
   grid,
-  feetPerSquare,
+  feetPerPixel,
   onRemove,
 }: {
   kind: Measurement['kind'];
@@ -72,13 +72,13 @@ function MeasureShape({
   target: Pt;
   color: string;
   grid: number;
-  feetPerSquare: number;
+  feetPerPixel: number;
   onRemove?: () => void;
 }) {
   const dx = target.x - origin.x;
   const dy = target.y - origin.y;
   const len = Math.hypot(dx, dy);
-  const px2ft = (px: number) => Math.round((px / grid) * feetPerSquare);
+  const px2ft = (px: number) => Math.round(px * feetPerPixel);
   const stroke = Math.max(1.5, grid * 0.05);
   const fontSize = Math.max(11, grid * 0.34);
   const fill = { stroke: color, strokeWidth: stroke, fill: color, opacity: 0.18 };
@@ -130,7 +130,7 @@ function MeasureShape({
       );
     } else {
       // 5e line AOE: a 5-ft-wide rectangle along the direction.
-      const hw = (2.5 / feetPerSquare) * grid; // half of 5 ft
+      const hw = 2.5 / feetPerPixel; // half of 5 ft, in px
       shape = (
         <Line
           closed
@@ -233,12 +233,25 @@ export function MapStage({
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
 
-  // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
+  // ---- Map scale ----------------------------------------------------------
+  // Feet-per-pixel is the single source of truth for distances. When the DM has
+  // set a real map width it is exact (width / image width); otherwise we fall
+  // back to the legacy feet-per-square model so old saves are unchanged.
   const feetPerSquare = map?.feetPerSquare ?? 5;
+  const mapWidthFt = map?.mapWidthFt ?? 0;
+  const fpp = mapWidthFt > 0 && imgW ? mapWidthFt / imgW : feetPerSquare / grid;
+
+  // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
   const [tool, setTool] = useState<MeasureTool | null>(null);
   const [snap, setSnap] = useState(true);
   const [removeMode, setRemoveMode] = useState(false);
-  const measureActive = !!tool || removeMode;
+  // A reference-line drag that sets the map scale (DM only).
+  const [scaleMode, setScaleMode] = useState(false);
+  const [scaleLine, setScaleLine] = useState<{ origin: Pt; target: Pt } | null>(null);
+  const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
+  const [scaleFt, setScaleFt] = useState('');
+  const scaleDrawRef = useRef(false);
+  const measureActive = !!tool || removeMode || scaleMode;
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
@@ -247,32 +260,59 @@ export function MapStage({
   // Feet -> stored image-space distance (square stores HALF its side; circle/
   // emanation a radius; cone/line a length).
   const presetPx = (shape: MeasureShapeKind, ft: number): number =>
-    (shape === 'square' ? ft / 2 : ft) * (grid / feetPerSquare);
+    (shape === 'square' ? ft / 2 : ft) / fpp;
   // The persisted Measurement.kind for a (shape,size) pick.
   const kindOf = (t: MeasureTool): Measurement['kind'] =>
     t.shape === 'line' ? (t.size === 'custom' ? 'ruler' : 'line') : t.shape;
   const tokenAt = (p: Pt): Token | undefined =>
     snapshot.tokens.find((t) => Math.hypot(p.x - t.x, p.y - t.y) <= (grid * t.size) / 2);
 
-  // DM grid-size control (committed on blur/Enter; synced from the live map).
+  // DM scale control (committed on blur/Enter; synced from the live map). The
+  // grid cell is purely visual; the map width (ft) drives the scale, prefilled
+  // from the current implied width so legacy maps show their existing scale.
   const [gridPx, setGridPx] = useState(grid);
-  const [gridFt, setGridFt] = useState(feetPerSquare);
+  const [widthFt, setWidthFt] = useState(0);
   useEffect(() => setGridPx(grid), [grid]);
-  useEffect(() => setGridFt(feetPerSquare), [feetPerSquare]);
-  const commitGrid = () => {
-    if (map) setMapGrid(map.id, gridPx, gridFt);
+  useEffect(
+    () => setWidthFt(mapWidthFt > 0 ? mapWidthFt : Math.round(fpp * imgW)),
+    [mapWidthFt, fpp, imgW],
+  );
+  // Persist a scale: width (ft) is the source of truth; feet-per-square is kept
+  // in sync as the derived read-out / legacy fallback.
+  const commitScale = (px: number, ftWide: number) => {
+    if (!map || !imgW || ftWide <= 0) return;
+    const derivedFps = Math.max(1, Math.round((ftWide / imgW) * px));
+    setMapGrid(map.id, px, derivedFps, ftWide);
+  };
+  const commitGrid = () => commitScale(gridPx, widthFt);
+  const derivedFtPerSquare = imgW ? (widthFt / imgW) * gridPx : feetPerSquare;
+
+  // Confirm the reference-line prompt: its real length sets the map width.
+  const applyScaleFromLine = () => {
+    const ft = parseFloat(scaleFt);
+    if (scalePrompt && imgW && ft > 0) {
+      commitScale(gridPx, (ft * imgW) / scalePrompt.lenPx);
+    }
+    setScaleMode(false);
+    setScaleLine(null);
+    setScalePrompt(null);
+    setScaleFt('');
   };
 
-  // Esc cancels the active measure tool / pending placement.
+  // Esc cancels the active measure tool / pending placement / scale line.
   useEffect(() => {
     if (!measureActive) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       drawingRef.current = false;
       pendingRef.current = false;
+      scaleDrawRef.current = false;
       setDraft(null);
       setTool(null);
       setRemoveMode(false);
+      setScaleMode(false);
+      setScaleLine(null);
+      setScalePrompt(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -443,6 +483,16 @@ export function MapStage({
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    if (scaleMode) {
+      // Drag a reference line; its real length is entered on release.
+      const pos = pointerToImage(stage);
+      if (pos) {
+        scaleDrawRef.current = true;
+        setScalePrompt(null);
+        setScaleLine({ origin: pos, target: pos });
+      }
+      return;
+    }
     if (removeMode) return; // removal is handled by clicking a shape
     if (tool) {
       const pos = pointerToImage(stage);
@@ -468,6 +518,12 @@ export function MapStage({
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (scaleMode && scaleDrawRef.current) {
+      const stage = e.target.getStage();
+      const pos = stage ? pointerToImage(stage) : null;
+      if (pos) setScaleLine((l) => (l ? { ...l, target: pos } : l));
+      return;
+    }
     if (tool && (drawingRef.current || pendingRef.current)) {
       const stage = e.target.getStage();
       const pos = stage ? pointerToImage(stage) : null;
@@ -480,6 +536,19 @@ export function MapStage({
   };
 
   const endStroke = () => {
+    if (scaleDrawRef.current) {
+      scaleDrawRef.current = false;
+      if (scaleLine) {
+        const len = Math.hypot(
+          scaleLine.target.x - scaleLine.origin.x,
+          scaleLine.target.y - scaleLine.origin.y,
+        );
+        // A meaningful drag opens the "this line = ___ ft" prompt; otherwise reset.
+        if (len >= grid * 0.25) setScalePrompt({ lenPx: len });
+        else setScaleLine(null);
+      }
+      return;
+    }
     // A custom drag commits on release (the click-rotate flows commit on click).
     if (drawingRef.current) {
       drawingRef.current = false;
@@ -611,19 +680,35 @@ export function MapStage({
                   onChange={(e) => setGridPx(Number(e.target.value))}
                   onBlur={commitGrid}
                   onKeyDown={(e) => e.key === 'Enter' && commitGrid()}
-                  title="Grid cell size in pixels"
+                  title="Grid cell size in pixels (visual only)"
                 />
                 <span className="zoom-label">px ·</span>
+                <span className="zoom-label">Map:</span>
                 <input
                   className="grid-input"
                   type="number"
-                  value={gridFt}
-                  onChange={(e) => setGridFt(Number(e.target.value))}
+                  value={widthFt}
+                  onChange={(e) => setWidthFt(Number(e.target.value))}
                   onBlur={commitGrid}
                   onKeyDown={(e) => e.key === 'Enter' && commitGrid()}
-                  title="Feet represented by one square"
+                  title="Real-world map width in feet — drives the scale"
                 />
-                <span className="zoom-label">ft/sq</span>
+                <span className="zoom-label" title="Derived feet per grid square">
+                  ft wide · ≈{Math.round(derivedFtPerSquare)} ft/sq
+                </span>
+                <button
+                  className={`btn tiny ${scaleMode ? 'on' : ''}`}
+                  onClick={() => {
+                    setTool(null);
+                    setRemoveMode(false);
+                    setScaleLine(null);
+                    setScalePrompt(null);
+                    setScaleMode((s) => !s);
+                  }}
+                  title="Set scale by dragging a line of known length"
+                >
+                  Set scale
+                </button>
                 <span className="ctrl-sep" />
                 <span className="zoom-label">Fog:</span>
                 <button
@@ -830,7 +915,7 @@ export function MapStage({
                     target={target}
                     color={rollerColor(m.createdBy)}
                     grid={grid}
-                    feetPerSquare={feetPerSquare}
+                    feetPerPixel={fpp}
                     onRemove={removeMode ? () => removeMeasurement(m.id) : undefined}
                   />
                 );
@@ -842,7 +927,22 @@ export function MapStage({
                   target={draft.target}
                   color="#ffd21a"
                   grid={grid}
-                  feetPerSquare={feetPerSquare}
+                  feetPerPixel={fpp}
+                />
+              )}
+              {/* The scale reference line (a dashed ruler while the DM sets scale). */}
+              {scaleLine && (
+                <Line
+                  points={[
+                    scaleLine.origin.x,
+                    scaleLine.origin.y,
+                    scaleLine.target.x,
+                    scaleLine.target.y,
+                  ]}
+                  stroke="#4fd1ff"
+                  strokeWidth={Math.max(2, grid * 0.06)}
+                  dash={[grid * 0.3, grid * 0.2]}
+                  listening={false}
                 />
               )}
             </Layer>
@@ -870,6 +970,37 @@ export function MapStage({
             />
           )}
           {showRollOverlay && <RollLogOverlay rollLog={snapshot.rollLog} />}
+          {scaleMode && !scalePrompt && (
+            <div className="scale-hint">Drag a line across a known distance…</div>
+          )}
+          {scalePrompt && (
+            <div className="scale-prompt">
+              <span>This line is</span>
+              <input
+                className="grid-input"
+                type="number"
+                autoFocus
+                value={scaleFt}
+                onChange={(e) => setScaleFt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && applyScaleFromLine()}
+              />
+              <span>ft</span>
+              <button className="btn tiny" onClick={applyScaleFromLine}>
+                Apply
+              </button>
+              <button
+                className="btn tiny"
+                onClick={() => {
+                  setScaleMode(false);
+                  setScaleLine(null);
+                  setScalePrompt(null);
+                  setScaleFt('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
