@@ -44,6 +44,10 @@ type Props = {
   /** The character's sheet abilities — used to show which masteries apply to
    *  each weapon (cross-checking weapon tags against masteries' appliesToTags). */
   masteries?: SheetAbility[];
+  /** A creature (monster/NPC) rather than a PC. Its attacks are edited like
+   *  weapons but as natural attacks — baked damage + to-hit + type/range, and
+   *  NOT sourced from the 2024 PC weapon book. */
+  monster?: boolean;
 };
 
 /**
@@ -84,6 +88,7 @@ export function StatBlock({
   onAiFill,
   aiBusy,
   masteries,
+  monster = false,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -233,7 +238,11 @@ export function StatBlock({
         />
       </label>
 
-      <WeaponEditor weapons={d.weapons} onChange={(weapons) => set({ weapons })} />
+      <WeaponEditor
+        weapons={d.weapons}
+        onChange={(weapons) => set({ weapons })}
+        monster={monster}
+      />
       <EntryEditor
         title="Actions"
         entries={d.actions}
@@ -336,7 +345,7 @@ function ReadView({
 
       {m.weapons.length > 0 && (
         <div className="sb-section">
-          <h4>Weapons</h4>
+          <h4>{isPc ? 'Weapons' : 'Attacks'}</h4>
           {m.weapons.map((w, i) => {
             const mNames = masteryNamesForWeapon(w, masteries ?? []);
             return (
@@ -415,9 +424,12 @@ type WeaponData = {
 function WeaponEditor({
   weapons,
   onChange,
+  monster = false,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
+  /** Creature attacks: baked damage + type/range, no PC weapon-book picker. */
+  monster?: boolean;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
@@ -458,7 +470,7 @@ function WeaponEditor({
 
   return (
     <div className="sb-section">
-      <h4>Weapons</h4>
+      <h4>{monster ? 'Attacks' : 'Weapons'}</h4>
       {weapons.map((w, i) => (
         <div key={i} className="sb-weapon-edit">
           <input
@@ -475,18 +487,24 @@ function WeaponEditor({
           </select>
           <input
             className="sb-dmg"
-            placeholder="1d8+3"
-            title="One-handed damage (dice + ability modifier)"
+            placeholder={monster ? '2d6+3' : '1d8+3'}
+            title={
+              monster
+                ? 'Damage (dice + modifier, baked in), e.g. 2d6+3'
+                : 'One-handed damage (dice + ability modifier)'
+            }
             value={w.damage ?? ''}
             onChange={(e) => setAt(i, { damage: e.target.value })}
           />
-          <input
-            className="sb-dmg"
-            placeholder="2H dmg"
-            title="Two-handed damage for a versatile weapon, e.g. 1d10+3"
-            value={w.versatileDamage ?? ''}
-            onChange={(e) => setAt(i, { versatileDamage: e.target.value })}
-          />
+          {!monster && (
+            <input
+              className="sb-dmg"
+              placeholder="2H dmg"
+              title="Two-handed damage for a versatile weapon, e.g. 1d10+3"
+              value={w.versatileDamage ?? ''}
+              onChange={(e) => setAt(i, { versatileDamage: e.target.value })}
+            />
+          )}
           <input
             className="sb-tohit"
             type="number"
@@ -500,33 +518,56 @@ function WeaponEditor({
               })
             }
           />
-          <input
-            className="sb-tohit"
-            type="number"
-            placeholder="magic"
-            title="Magic damage bonus (e.g. 1 for a +1 weapon)"
-            value={w.magicBonus ?? ''}
-            onChange={(e) =>
-              setAt(i, {
-                magicBonus:
-                  e.target.value === '' ? undefined : Number(e.target.value),
-              })
-            }
-          />
-          <input
-            className="sb-tags"
-            placeholder="tags: heavy, finesse, versatile, light"
-            title="Comma-separated tags. finesse → DEX; versatile → 2H toggle; light → off-hand (future feats); weapon masteries trigger on matching tags."
-            value={(w.tags ?? []).join(', ')}
-            onChange={(e) =>
-              setAt(i, {
-                tags: e.target.value
-                  .split(',')
-                  .map((t) => t.trim())
-                  .filter(Boolean),
-              })
-            }
-          />
+          {monster ? (
+            <>
+              <input
+                className="sb-dmg"
+                placeholder="type"
+                title="Damage type, e.g. slashing, fire"
+                value={w.damageType ?? ''}
+                onChange={(e) =>
+                  setAt(i, { damageType: e.target.value || undefined })
+                }
+              />
+              <input
+                className="sb-dmg"
+                placeholder="reach/range"
+                title="Reach or range text, e.g. reach 5 ft. or range 80/320"
+                value={w.range ?? ''}
+                onChange={(e) => setAt(i, { range: e.target.value || undefined })}
+              />
+            </>
+          ) : (
+            <>
+              <input
+                className="sb-tohit"
+                type="number"
+                placeholder="magic"
+                title="Magic damage bonus (e.g. 1 for a +1 weapon)"
+                value={w.magicBonus ?? ''}
+                onChange={(e) =>
+                  setAt(i, {
+                    magicBonus:
+                      e.target.value === '' ? undefined : Number(e.target.value),
+                  })
+                }
+              />
+              <input
+                className="sb-tags"
+                placeholder="tags: heavy, finesse, versatile, light"
+                title="Comma-separated tags. finesse → DEX; versatile → 2H toggle; light → off-hand (future feats); weapon masteries trigger on matching tags."
+                value={(w.tags ?? []).join(', ')}
+                onChange={(e) =>
+                  setAt(i, {
+                    tags: e.target.value
+                      .split(',')
+                      .map((t) => t.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+            </>
+          )}
           <button
             className="btn tiny"
             onClick={() => onChange(weapons.filter((_, j) => j !== i))}
@@ -540,13 +581,15 @@ function WeaponEditor({
           className="btn tiny"
           onClick={() => onChange([...weapons, { name: '', kind: 'melee' }])}
         >
-          + Weapon
+          {monster ? '+ Attack' : '+ Weapon'}
         </button>
-        <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
-          {picking ? 'Close' : '+ From book'}
-        </button>
+        {!monster && (
+          <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
+            {picking ? 'Close' : '+ From book'}
+          </button>
+        )}
       </div>
-      {picking && (
+      {!monster && picking && (
         <div className="weapon-picker">
           <input
             autoFocus

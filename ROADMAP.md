@@ -340,6 +340,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   text, damage type + range captured), leaving non-attack actions (Multiattack,
   save/recharge breath) as leftovers. Wired into `createMonsterTemplate` (the
   single SRD/AI/library/copy chokepoint) so spawned monsters get rollable weapons.
+  The DM can also **add/edit attacks manually** in the creature's `StatBlock`
+  editor: a creature-specific weapon editor (`monster` flag) treats attacks like
+  weapons but as **natural attacks** — baked damage + to-hit + damage-type + reach/
+  range, and **no PC weapon-book picker** (monster attacks aren't PHB weapons).
 - ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
   `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.

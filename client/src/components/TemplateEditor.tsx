@@ -26,6 +26,7 @@ export function TemplateEditor({ monster }: { monster: Monster }) {
           { key: 'creatureType', label: 'Type', value: monster.creatureType },
         ]}
         levelLabel="CR"
+        monster
         aiBusy={aiBusy}
         onAiFill={() => aiFillCreature(monster.id)}
         onSave={(patch) => updateMonster({ monsterId: monster.id, ...patch })}

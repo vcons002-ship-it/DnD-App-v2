@@ -207,6 +207,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
               : undefined
           }
           levelLabel="CR"
+          monster
           aiBusy={aiBusy}
           onAiFill={isDm ? () => aiFillCreature(monster.id) : undefined}
           onSave={
