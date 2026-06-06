@@ -2,6 +2,7 @@ import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { NewCharacterForm } from './NewCharacterForm';
+import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { CharacterSheet } from './CharacterSheet';
 
 type Props = {
@@ -55,6 +56,7 @@ export function PlayerPanel({
           )}
           <div className="new-char-wrap">
             <NewCharacterForm />
+            <LibraryCharacterPicker claim />
           </div>
         </div>
       )}

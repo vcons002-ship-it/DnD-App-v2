@@ -6,6 +6,7 @@ import {
   getSessionById,
   listCharacters,
   listMaps,
+  listMeasurements,
   listMonsters,
   listMonsterTemplates,
   listRollLog,
@@ -141,5 +142,6 @@ export function buildSnapshot(
     // Spawn templates are a DM-only tool.
     monsterTemplates: role === 'dm' ? listMonsterTemplates(sessionId) : [],
     rollLog,
+    measurements: map ? listMeasurements(map.id) : [],
   };
 }

@@ -123,6 +123,46 @@ db.exec(`
     created_at  INTEGER NOT NULL
   );
 
+  -- Cross-session character library: full sheets minus session state, app-wide.
+  CREATE TABLE IF NOT EXISTS library_characters (
+    id                TEXT PRIMARY KEY,
+    name              TEXT NOT NULL,
+    race              TEXT NOT NULL DEFAULT '',
+    class_name        TEXT NOT NULL DEFAULT '',
+    level             REAL NOT NULL DEFAULT 1,
+    max_hp            INTEGER NOT NULL DEFAULT 10,
+    cur_hp            INTEGER NOT NULL DEFAULT 10,
+    armor_class       INTEGER NOT NULL DEFAULT 0,
+    speed             TEXT NOT NULL DEFAULT '',
+    stats             TEXT NOT NULL DEFAULT '{}',
+    spell_slots       TEXT NOT NULL DEFAULT '{}',
+    resources         TEXT NOT NULL DEFAULT '{}',
+    weapons           TEXT NOT NULL DEFAULT '[]',
+    resistances       TEXT NOT NULL DEFAULT '[]',
+    weaknesses        TEXT NOT NULL DEFAULT '[]',
+    actions           TEXT NOT NULL DEFAULT '[]',
+    abilities         TEXT NOT NULL DEFAULT '[]',
+    proficient_skills TEXT NOT NULL DEFAULT '[]',
+    items             TEXT NOT NULL DEFAULT '[]',
+    sheet_abilities   TEXT NOT NULL DEFAULT '[]',
+    icon              TEXT NOT NULL DEFAULT '',
+    created_at        INTEGER NOT NULL
+  );
+
+  -- Persistent measuring shapes (cone/circle/line) per map.
+  CREATE TABLE IF NOT EXISTS measurements (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    map_id     TEXT NOT NULL,
+    kind       TEXT NOT NULL,
+    origin_x   REAL NOT NULL,
+    origin_y   REAL NOT NULL,
+    target_x   REAL NOT NULL,
+    target_y   REAL NOT NULL,
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+
   -- Shared dice roll log per session.
   CREATE TABLE IF NOT EXISTS roll_log (
     id         TEXT PRIMARY KEY,

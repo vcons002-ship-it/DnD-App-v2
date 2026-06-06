@@ -21,12 +21,15 @@ import { searchWeapons } from './weapons/srd.js';
 import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
 import {
+  deleteLibraryCharacter,
   deleteLibraryCreature,
   deleteLibraryItem,
   getLibraryCreature,
   listLibraryItems,
+  saveLibraryCharacter,
   saveLibraryCreature,
   saveLibraryItem,
+  searchLibraryCharacters,
   searchLibraryCreatures,
 } from './library.js';
 
@@ -183,6 +186,28 @@ export function createApiRouter(io: IOServer): Router {
 
   router.delete('/library/items/:id', (req, res) => {
     deleteLibraryItem(req.params.id);
+    res.status(204).end();
+  });
+
+  // Cross-session character library (players + DM save/load full sheets).
+  router.get('/library/characters', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json(searchLibraryCharacters(q, 50));
+  });
+
+  router.post('/library/characters', (req, res) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const overwrite = req.query.overwrite === 'true';
+    const result = saveLibraryCharacter({ ...req.body, name }, overwrite);
+    if ('conflict' in result) {
+      return res.status(409).json({ existing: result.conflict });
+    }
+    res.status(201).json(result.saved);
+  });
+
+  router.delete('/library/characters/:name', (req, res) => {
+    deleteLibraryCharacter(req.params.name);
     res.status(204).end();
   });
 

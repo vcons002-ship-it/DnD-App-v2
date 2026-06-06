@@ -12,6 +12,7 @@ import type {
   DiceRollPayload,
   FogLayer,
   InventoryItem,
+  MeasureAddPayload,
   ResourceSetPayload,
   JoinAck,
   MonsterCreatePayload,
@@ -50,6 +51,11 @@ type Store = {
   setActiveMap: (mapId: string) => void;
   deleteMap: (mapId: string) => void;
   renameMap: (mapId: string, name: string) => void;
+  setMapGrid: (mapId: string, gridSizePx: number, feetPerSquare: number) => void;
+  addMeasurement: (payload: MeasureAddPayload) => void;
+  removeMeasurement: (id: string) => void;
+  clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
+  loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   paintFog: (
@@ -176,6 +182,14 @@ export const useStore = create<Store>((set, get) => ({
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
+  setMapGrid: (mapId, gridSizePx, feetPerSquare) =>
+    get().socket?.emit('map:setGrid', { mapId, gridSizePx, feetPerSquare }),
+  addMeasurement: (payload) => get().socket?.emit('measure:add', payload),
+  removeMeasurement: (id) => get().socket?.emit('measure:remove', { id }),
+  clearMeasurements: (mapId, mineOnly) =>
+    get().socket?.emit('measure:clear', { mapId, mineOnly }),
+  loadCharacterFromLibrary: (name, claim) =>
+    get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),

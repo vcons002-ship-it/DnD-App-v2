@@ -33,8 +33,12 @@ import {
   clearTokensConditions,
   copyTokens,
   createCharacter,
+  createCharacterFromLibrary,
   updateCharacter,
   getCharacter,
+  addMeasurement,
+  clearMeasurements,
+  removeMeasurement,
   setResource,
   setItem,
   removeItem,
@@ -70,6 +74,7 @@ import {
   renameMap,
   renameSession,
   resizeToken,
+  updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
   rollerName,
@@ -154,6 +159,49 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('map:rename', ({ mapId, name }) => {
       if (!isDm() || !getMap(mapId)) return;
       renameMap(mapId, name);
+      afterChange();
+    });
+
+    socket.on('map:setGrid', ({ mapId, gridSizePx, feetPerSquare }) => {
+      if (!isDm() || !getMap(mapId)) return;
+      const px = Math.round(Math.max(10, Math.min(400, gridSizePx)));
+      const ft = Math.round(Math.max(1, Math.min(100, feetPerSquare)));
+      updateMapGrid(mapId, px, ft);
+      afterChange();
+    });
+
+    // Measuring shapes — any session member may draw/clear them; they're shared.
+    socket.on('measure:add', ({ kind, origin, target }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn) return;
+      if (kind !== 'cone' && kind !== 'circle' && kind !== 'line') return;
+      const mapId =
+        conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
+      if (!mapId || !getMap(mapId)) return;
+      addMeasurement(sid, {
+        mapId,
+        kind,
+        origin: { x: Number(origin?.x) || 0, y: Number(origin?.y) || 0 },
+        target: { x: Number(target?.x) || 0, y: Number(target?.y) || 0 },
+        createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
+      });
+      afterChange();
+    });
+
+    socket.on('measure:remove', ({ id }) => {
+      if (!sessionId() || !id) return;
+      removeMeasurement(id);
+      afterChange();
+    });
+
+    socket.on('measure:clear', ({ mapId, mineOnly }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || !getMap(mapId)) return;
+      // Players may only clear their own; the DM may clear everyone's.
+      const onlyMine = mineOnly || conn.role !== 'dm';
+      clearMeasurements(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
       afterChange();
     });
 
@@ -300,6 +348,15 @@ export function registerSocketHandlers(io: IOServer): void {
         maxHp: p.maxHp,
         stats: p.stats,
       });
+      afterChange();
+    });
+
+    socket.on('character:loadFromLibrary', ({ name, claim }) => {
+      const sid = sessionId();
+      if (!sid || !name?.trim()) return; // DM or player may load a saved sheet
+      const created = createCharacterFromLibrary(sid, name);
+      // A player loading their own sheet claims it immediately.
+      if (created && claim && !isDm()) claimCharacter(created.id, socket.id);
       afterChange();
     });
 

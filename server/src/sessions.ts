@@ -8,6 +8,7 @@ import {
   rowToToken,
 } from './db.js';
 import { iconForCreature } from './creatures/srd.js';
+import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { weaponsFromActions } from '../../shared/monsterAttacks.js';
 import type {
@@ -15,6 +16,7 @@ import type {
   Condition,
   FogLayer,
   MapState,
+  Measurement,
   Monster,
   RollEntry,
   SessionSummary,
@@ -668,6 +670,85 @@ export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
     .reverse();
 }
 
+// ---- Measuring shapes (cone/circle/line) ----
+
+type MeasurementRow = {
+  id: string;
+  map_id: string;
+  kind: string;
+  origin_x: number;
+  origin_y: number;
+  target_x: number;
+  target_y: number;
+  created_by: string;
+};
+
+const rowToMeasurement = (r: MeasurementRow): Measurement => ({
+  id: r.id,
+  mapId: r.map_id,
+  kind: r.kind as Measurement['kind'],
+  origin: { x: r.origin_x, y: r.origin_y },
+  target: { x: r.target_x, y: r.target_y },
+  createdBy: r.created_by,
+});
+
+export function addMeasurement(
+  sessionId: string,
+  input: {
+    mapId: string;
+    kind: Measurement['kind'];
+    origin: { x: number; y: number };
+    target: { x: number; y: number };
+    createdBy: string;
+  },
+): Measurement {
+  const id = newId();
+  db.prepare(
+    `INSERT INTO measurements
+       (id, session_id, map_id, kind, origin_x, origin_y, target_x, target_y,
+        created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    input.mapId,
+    input.kind,
+    input.origin.x,
+    input.origin.y,
+    input.target.x,
+    input.target.y,
+    input.createdBy,
+    Date.now(),
+  );
+  return rowToMeasurement(
+    db.prepare('SELECT * FROM measurements WHERE id = ?').get(id) as MeasurementRow,
+  );
+}
+
+export function listMeasurements(mapId: string): Measurement[] {
+  return (
+    db
+      .prepare('SELECT * FROM measurements WHERE map_id = ? ORDER BY created_at ASC')
+      .all(mapId) as MeasurementRow[]
+  ).map(rowToMeasurement);
+}
+
+export function removeMeasurement(id: string): void {
+  db.prepare('DELETE FROM measurements WHERE id = ?').run(id);
+}
+
+/** Clear a map's measurements — all of them, or only one drawer's (`createdBy`). */
+export function clearMeasurements(mapId: string, createdBy?: string): void {
+  if (createdBy !== undefined) {
+    db.prepare('DELETE FROM measurements WHERE map_id = ? AND created_by = ?').run(
+      mapId,
+      createdBy,
+    );
+  } else {
+    db.prepare('DELETE FROM measurements WHERE map_id = ?').run(mapId);
+  }
+}
+
 /** A roll's "who" — the player's claimed character name, "DM", or "Player". */
 export function rollerName(sessionId: string, socketId: string, isDm: boolean): string {
   if (isDm) return 'DM';
@@ -699,6 +780,7 @@ export type CharacterInput = {
   className?: string;
   level?: number;
   maxHp?: number;
+  curHp?: number;
   armorClass?: number;
   speed?: string;
   stats?: Record<string, number>;
@@ -708,6 +790,12 @@ export type CharacterInput = {
   actions?: Character['actions'];
   abilities?: Character['abilities'];
   proficientSkills?: string[];
+  items?: Character['items'];
+  sheetAbilities?: Character['sheetAbilities'];
+  /** When provided (e.g. loading a saved sheet), used verbatim instead of being
+   *  derived from class/level — preserves used counts + custom counters. */
+  spellSlots?: Character['spellSlots'];
+  resources?: Character['resources'];
   icon?: string;
 };
 
@@ -718,19 +806,20 @@ export function createCharacter(
 ): Character {
   const id = newId();
   const maxHp = opts.maxHp && opts.maxHp > 0 ? Math.round(opts.maxHp) : 10;
+  const curHp = opts.curHp !== undefined ? Math.round(opts.curHp) : maxHp;
   const level = opts.level && opts.level > 0 ? opts.level : 1;
-  // Auto-fill spell slots + class resources from 5e class/level tables.
-  const { spellSlots, resources } = deriveClassResources(
-    opts.className ?? '',
-    level,
-    opts.stats ?? {},
-  );
+  // Auto-fill spell slots + class resources from 5e class/level tables, unless
+  // the caller supplied them (e.g. loading a saved sheet).
+  const derived = deriveClassResources(opts.className ?? '', level, opts.stats ?? {});
+  const spellSlots = opts.spellSlots ?? derived.spellSlots;
+  const resources = opts.resources ?? derived.resources;
   db.prepare(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
-        actions, abilities, proficient_skills, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        actions, abilities, proficient_skills, items, sheet_abilities,
+        spell_slots, resources, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -739,7 +828,7 @@ export function createCharacter(
     opts.className ?? '',
     level,
     maxHp,
-    maxHp,
+    Math.max(0, Math.min(maxHp, curHp)),
     opts.armorClass ?? 0,
     opts.speed ?? '',
     JSON.stringify(opts.stats ?? {}),
@@ -749,11 +838,23 @@ export function createCharacter(
     JSON.stringify(opts.actions ?? []),
     JSON.stringify(opts.abilities ?? []),
     JSON.stringify(opts.proficientSkills ?? []),
+    JSON.stringify(opts.items ?? []),
+    JSON.stringify(opts.sheetAbilities ?? []),
     JSON.stringify(spellSlots),
     JSON.stringify(resources),
     opts.icon ?? '',
   );
   return getCharacter(id)!;
+}
+
+/** Instantiate a saved library character into a session as a fresh PC. */
+export function createCharacterFromLibrary(
+  sessionId: string,
+  name: string,
+): Character | null {
+  const lib = getLibraryCharacter(name);
+  if (!lib) return null;
+  return createCharacter(sessionId, { ...lib });
 }
 
 type Counters = Record<string, { max: number; used: number }>;

@@ -9,6 +9,7 @@ import type {
 import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
 import { NewCharacterForm } from './NewCharacterForm';
+import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { TemplateEditor } from './TemplateEditor';
 import { EditableName } from './EditableName';
 
@@ -300,6 +301,7 @@ export function DmPanel({
         ))}
         <div className="new-char-wrap">
           <NewCharacterForm />
+          <LibraryCharacterPicker />
         </div>
 
         <h4>Monsters</h4>

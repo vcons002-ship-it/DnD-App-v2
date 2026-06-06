@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { StatBlock } from './StatBlock';
@@ -6,6 +7,7 @@ import { CharacterResources } from './CharacterResources';
 import { CharacterSpells } from './CharacterSpells';
 import { CharacterItems } from './CharacterItems';
 import { SheetImportExport } from './SheetImportExport';
+import { LibraryCharacterDialog } from './LibraryCharacterDialog';
 
 /**
  * A character's full sheet: the shared tagged stat block (editable + AI fill when
@@ -22,6 +24,7 @@ export function CharacterSheet({
   const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCharacter = useStore((s) => s.aiFillCharacter);
   const aiBusy = useStore((s) => s.aiBusy);
+  const [saving, setSaving] = useState(false);
 
   return (
     <>
@@ -50,7 +53,21 @@ export function CharacterSheet({
       <CharacterSpells character={character} editable={editable} />
       <CharacterItems character={character} editable={editable} />
       <CharacterSkills character={character} editable={editable} />
-      {editable && <SheetImportExport character={character} />}
+      {editable && (
+        <>
+          <SheetImportExport character={character} />
+          <button
+            className="btn tiny save-library"
+            onClick={() => setSaving(true)}
+            title="Save this character to the cross-session library"
+          >
+            💾 Save to library
+          </button>
+        </>
+      )}
+      {saving && (
+        <LibraryCharacterDialog character={character} onClose={() => setSaving(false)} />
+      )}
     </>
   );
 }

@@ -370,6 +370,30 @@ Smaller refinements on top of the shipped Phase 2 work.
   the roll and folded into the damage number/breakdown via `rollWeaponAttack`'s
   `bonusDamage`/`bonusLabel`, instead of being appended as a trailing note.
   Dice-based bonuses and Graze (on a miss) still roll separately.
+- ☑ **Save/load characters between sessions [req].** A cross-session
+  **character library** mirroring the creature one: `library_characters`
+  (`db.ts`), `saveLibraryCharacter`/`search`/`get`/`delete` (`library.ts`),
+  `/api/library/characters` routes, and a `LibraryCharacterDialog`. **Players and
+  the DM** both use it — a "💾 Save to library" button on the editable
+  `CharacterSheet` saves the full sheet minus session state (keeps
+  `sheetAbilities`/`items`/`spellSlots`/`resources`), and a "📂 Load saved
+  character" picker (`LibraryCharacterPicker`) in `PlayerPanel` (claims it) and
+  `DmPanel` (unclaimed) instantiates it via `character:loadFromLibrary` →
+  `createCharacterFromLibrary`.
+- ☑ **Resizable grid [req].** A DM **Grid** control in the map toolbar sets a
+  map's cell size (px) and feet-per-square (`map:setGrid` → the existing
+  `updateMapGrid`, broadcast); grid/fog/labels recompute, token image-space
+  positions stay put.
+- ☑ **Measuring tools (cone / circle / line) [req].** Toolbar tools for everyone;
+  drag on the canvas to draw a 5e **cone** (length = base width), **circle**
+  (radius), or **line/ruler**, snapped to grid intersections with a live feet
+  label. Shapes are **shared** (server-persisted `measurements` table, broadcast
+  in the snapshot, coloured per drawer via `rollerColor`) and **persist** until
+  cleared (players clear their own; the DM clears all). Reuses the fog-brush
+  interaction + `pointerToImage`.
+- ☑ **Roll log in the DM Data view [req].** The `/dm/data` dashboard gains a fixed
+  **right column** with the full `DicePanel` (roller + shared log) beside the card
+  grid, so rolls are visible on the second screen.
 
 ## Phase 6 — AI assistance (future)
 

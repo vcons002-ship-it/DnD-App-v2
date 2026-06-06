@@ -289,6 +289,34 @@ export type LibraryItem = {
   qtyDefault: number;
 };
 
+/**
+ * A character saved to the cross-session library — the full sheet minus session
+ * state (`id`/`sessionId`/`claimedBy`/`conditions`). Loading one creates a fresh
+ * `Character` in the current session.
+ */
+export type LibraryCharacter = {
+  name: string;
+  race: string;
+  className: string;
+  level: number;
+  maxHp: number;
+  curHp: number;
+  armorClass: number;
+  speed: string;
+  stats: Record<string, number>;
+  spellSlots: Record<string, { max: number; used: number }>;
+  resources: Record<string, { max: number; used: number }>;
+  weapons: Weapon[];
+  resistances: string[];
+  weaknesses: string[];
+  actions: CreatureAbility[];
+  abilities: CreatureAbility[];
+  proficientSkills: string[];
+  items: InventoryItem[];
+  sheetAbilities: SheetAbility[];
+  icon: string;
+};
+
 /** An item in a character's inventory. */
 export type InventoryItem = {
   id: string;
@@ -356,6 +384,22 @@ export type StateSnapshot = {
   monsterTemplates: Monster[];
   /** Shared dice roll log (most recent last), visible to everyone. */
   rollLog: RollEntry[];
+  /** Persistent measuring shapes (cone/circle/line) on the shown map, drawn by
+   *  any role and visible to everyone. */
+  measurements: Measurement[];
+};
+
+/** A persistent measuring shape on a map (a spell AOE or a ruler). */
+export type Measurement = {
+  id: string;
+  mapId: string;
+  kind: 'cone' | 'circle' | 'line';
+  /** Image-space anchor (apex for a cone, centre for a circle, start for a line). */
+  origin: { x: number; y: number };
+  /** Image-space far point (aims/sizes the shape). */
+  target: { x: number; y: number };
+  /** Display name of who drew it (the client colours it via `rollerColor`). */
+  createdBy: string;
 };
 
 /** An entry in the session's shared dice roll log. */
@@ -427,6 +471,22 @@ export type MapSelectPayload = { mapId: string };
 export type MapDeletePayload = { mapId: string };
 /** Rename a map (DM). */
 export type MapRenamePayload = { mapId: string; name: string };
+/** Resize a map's grid (DM): cell size in px + feet represented by one square. */
+export type MapSetGridPayload = {
+  mapId: string;
+  gridSizePx: number;
+  feetPerSquare: number;
+};
+/** Add a measuring shape to a map (any role). */
+export type MeasureAddPayload = {
+  kind: Measurement['kind'];
+  origin: { x: number; y: number };
+  target: { x: number; y: number };
+};
+/** Remove a single measuring shape by id (any role). */
+export type MeasureRemovePayload = { id: string };
+/** Clear measurements on a map: everyone's, or only the caller's (`mineOnly`). */
+export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
 /** Enable/disable one fog layer on a map. */
@@ -454,6 +514,9 @@ export type CharacterCreatePayload = {
   maxHp?: number;
   stats?: Record<string, number>;
 };
+/** Load a saved character from the cross-session library into this session.
+ *  `claim` (player) also claims the new character for the caller. */
+export type CharacterLoadFromLibraryPayload = { name: string; claim?: boolean };
 /** Patch fields of one character (DM or the owning player). */
 export type CharacterUpdatePayload = {
   characterId: string;
@@ -615,6 +678,10 @@ export interface ClientToServerEvents {
   'map:setActive': (payload: MapSetActivePayload) => void;
   'map:delete': (payload: MapDeletePayload) => void;
   'map:rename': (payload: MapRenamePayload) => void;
+  'map:setGrid': (payload: MapSetGridPayload) => void;
+  'measure:add': (payload: MeasureAddPayload) => void;
+  'measure:remove': (payload: MeasureRemovePayload) => void;
+  'measure:clear': (payload: MeasureClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
@@ -638,6 +705,7 @@ export interface ClientToServerEvents {
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'character:create': (payload: CharacterCreatePayload) => void;
+  'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
   'character:release': () => void;
   'resource:set': (payload: ResourceSetPayload) => void;

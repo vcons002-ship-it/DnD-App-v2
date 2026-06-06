@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text } from 'react-konva';
+import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
 import type { FogLayer, StateSnapshot, Token } from '../../../shared/types';
@@ -23,6 +24,7 @@ type Props = {
 };
 
 type View = { scale: number; x: number; y: number };
+type Pt = { x: number; y: number };
 
 /** The off-map backdrop colour. MUST match `.center` in styles.css so covered
  *  map-fog cells blend seamlessly into the empty space beyond the map. */
@@ -30,6 +32,92 @@ const CANVAS_BG = '#0e0f12';
 
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
+
+/** A single measuring shape (cone/circle/line) drawn in image-space, plus a
+ *  distance label in feet. Non-listening so it never blocks token interaction. */
+function MeasureShape({
+  kind,
+  origin,
+  target,
+  color,
+  grid,
+  feetPerSquare,
+}: {
+  kind: 'cone' | 'circle' | 'line';
+  origin: Pt;
+  target: Pt;
+  color: string;
+  grid: number;
+  feetPerSquare: number;
+}) {
+  const dx = target.x - origin.x;
+  const dy = target.y - origin.y;
+  const len = Math.hypot(dx, dy);
+  const feet = Math.round((len / grid) * feetPerSquare);
+  const stroke = Math.max(1.5, grid * 0.05);
+  const fontSize = Math.max(11, grid * 0.34);
+
+  let shape = null;
+  if (kind === 'circle') {
+    shape = (
+      <Circle
+        x={origin.x}
+        y={origin.y}
+        radius={len}
+        stroke={color}
+        strokeWidth={stroke}
+        fill={color}
+        opacity={0.18}
+        listening={false}
+      />
+    );
+  } else if (kind === 'line') {
+    shape = (
+      <Line
+        points={[origin.x, origin.y, target.x, target.y]}
+        stroke={color}
+        strokeWidth={stroke}
+        listening={false}
+      />
+    );
+  } else if (len >= 1) {
+    // 5e cone: an isosceles triangle whose base width equals its length.
+    const ux = dx / len;
+    const uy = dy / len;
+    const px = -uy;
+    const py = ux;
+    const bx = origin.x + ux * len;
+    const by = origin.y + uy * len;
+    const h = len / 2;
+    shape = (
+      <Line
+        closed
+        points={[origin.x, origin.y, bx + px * h, by + py * h, bx - px * h, by - py * h]}
+        stroke={color}
+        strokeWidth={stroke}
+        fill={color}
+        opacity={0.18}
+        listening={false}
+      />
+    );
+  }
+
+  return (
+    <>
+      {shape}
+      <Text
+        x={target.x + 4}
+        y={target.y + 4}
+        text={`${feet} ft`}
+        fontSize={fontSize}
+        fill={color}
+        stroke="#000"
+        strokeWidth={0.5}
+        listening={false}
+      />
+    </>
+  );
+}
 
 export function MapStage({
   snapshot,
@@ -73,6 +161,9 @@ export function MapStage({
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
+  const setMapGrid = useStore((s) => s.setMapGrid);
+  const addMeasurement = useStore((s) => s.addMeasurement);
+  const clearMeasurements = useStore((s) => s.clearMeasurements);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
   const [paintLayer, setPaintLayer] = useState<FogLayer>('map');
   const [brushSize, setBrushSize] = useState(1); // cells per side (1,3,5)
@@ -91,6 +182,26 @@ export function MapStage({
   const fogActive = isDm && fogBrush !== 'off';
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
+
+  // ---- Measuring tools (cone/circle/line): shared, snap-to-grid, persistent ----
+  const feetPerSquare = map?.feetPerSquare ?? 5;
+  const [measureTool, setMeasureTool] = useState<'off' | 'cone' | 'circle' | 'line'>('off');
+  const measureActive = measureTool !== 'off';
+  const [draft, setDraft] = useState<{ origin: Pt; target: Pt } | null>(null);
+  const drawingRef = useRef(false);
+  const snapPt = (p: Pt): Pt => ({
+    x: Math.round(p.x / grid) * grid,
+    y: Math.round(p.y / grid) * grid,
+  });
+
+  // DM grid-size control (committed on blur/Enter; synced from the live map).
+  const [gridPx, setGridPx] = useState(grid);
+  const [gridFt, setGridFt] = useState(feetPerSquare);
+  useEffect(() => setGridPx(grid), [grid]);
+  useEffect(() => setGridFt(feetPerSquare), [feetPerSquare]);
+  const commitGrid = () => {
+    if (map) setMapGrid(map.id, gridPx, gridFt);
+  };
 
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
@@ -181,6 +292,15 @@ export function MapStage({
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    if (measureActive) {
+      const pos = pointerToImage(stage);
+      if (pos) {
+        drawingRef.current = true;
+        const s = snapPt(pos);
+        setDraft({ origin: s, target: s });
+      }
+      return;
+    }
     if (fogActive) {
       paintingRef.current = true;
       strokeRef.current = new Set();
@@ -200,12 +320,33 @@ export function MapStage({
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (measureActive && drawingRef.current) {
+      const stage = e.target.getStage();
+      const pos = stage ? pointerToImage(stage) : null;
+      if (pos) setDraft((d) => (d ? { ...d, target: snapPt(pos) } : d));
+      return;
+    }
     if (!fogActive || !paintingRef.current) return;
     const stage = e.target.getStage();
     if (stage) emitFogCell(stage);
   };
 
   const endStroke = () => {
+    // Commit a measuring shape on release (if it has any size).
+    if (drawingRef.current) {
+      drawingRef.current = false;
+      if (draft && measureTool !== 'off') {
+        const len = Math.hypot(
+          draft.target.x - draft.origin.x,
+          draft.target.y - draft.origin.y,
+        );
+        if (len >= grid * 0.25) {
+          addMeasurement({ kind: measureTool, origin: draft.origin, target: draft.target });
+        }
+      }
+      setDraft(null);
+      return;
+    }
     paintingRef.current = false;
   };
 
@@ -255,7 +396,7 @@ export function MapStage({
   };
 
   // Pan by dragging empty canvas (disabled while placing or painting fog).
-  const panning = !onPlaceAt && !fogActive;
+  const panning = !onPlaceAt && !fogActive && !measureActive;
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
     if (e.target.getClassName() !== 'Layer') return;
@@ -278,8 +419,65 @@ export function MapStage({
               Fit
             </button>
             <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
+
+            {/* Measuring tools — available to everyone; shapes are shared. */}
+            <span className="ctrl-sep" />
+            <span className="zoom-label">Measure:</span>
+            <button
+              className={`btn tiny ${measureTool === 'cone' ? 'on' : ''}`}
+              onClick={() => setMeasureTool((t) => (t === 'cone' ? 'off' : 'cone'))}
+              title="Cone (drag from the caster to aim)"
+            >
+              △ Cone
+            </button>
+            <button
+              className={`btn tiny ${measureTool === 'circle' ? 'on' : ''}`}
+              onClick={() => setMeasureTool((t) => (t === 'circle' ? 'off' : 'circle'))}
+              title="Circle / radius (drag from the centre)"
+            >
+              ◯ Circle
+            </button>
+            <button
+              className={`btn tiny ${measureTool === 'line' ? 'on' : ''}`}
+              onClick={() => setMeasureTool((t) => (t === 'line' ? 'off' : 'line'))}
+              title="Line / ruler (drag end to end)"
+            >
+              📏 Line
+            </button>
+            {snapshot.measurements.length > 0 && (
+              <button
+                className="btn tiny"
+                onClick={() => map && clearMeasurements(map.id, !isDm)}
+                title={isDm ? 'Clear all measurements' : 'Clear your measurements'}
+              >
+                Clear{isDm ? ' all' : ''}
+              </button>
+            )}
+
             {isDm && (
               <>
+                <span className="ctrl-sep" />
+                <span className="zoom-label">Grid:</span>
+                <input
+                  className="grid-input"
+                  type="number"
+                  value={gridPx}
+                  onChange={(e) => setGridPx(Number(e.target.value))}
+                  onBlur={commitGrid}
+                  onKeyDown={(e) => e.key === 'Enter' && commitGrid()}
+                  title="Grid cell size in pixels"
+                />
+                <span className="zoom-label">px ·</span>
+                <input
+                  className="grid-input"
+                  type="number"
+                  value={gridFt}
+                  onChange={(e) => setGridFt(Number(e.target.value))}
+                  onBlur={commitGrid}
+                  onKeyDown={(e) => e.key === 'Enter' && commitGrid()}
+                  title="Feet represented by one square"
+                />
+                <span className="zoom-label">ft/sq</span>
                 <span className="ctrl-sep" />
                 <span className="zoom-label">Fog:</span>
                 <button
@@ -372,7 +570,9 @@ export function MapStage({
             onTouchEnd={endStroke}
             onMouseLeave={endStroke}
             onWheel={handleWheel}
-            style={{ cursor: onPlaceAt || fogActive ? 'crosshair' : 'default' }}
+            style={{
+              cursor: onPlaceAt || fogActive || measureActive ? 'crosshair' : 'default',
+            }}
           >
             <Layer
               ref={layerRef}
@@ -445,7 +645,7 @@ export function MapStage({
                   token={t}
                   display={resolveToken(snapshot, t)}
                   gridSizePx={grid}
-                  draggable={draggableTokens && !fogActive}
+                  draggable={draggableTokens && !fogActive && !measureActive}
                   selected={selectedIds.includes(t.id)}
                   activeTurn={t.id === activeTurnTokenId}
                   initiativeRank={initiativeRank.get(t.id) ?? null}
@@ -461,6 +661,28 @@ export function MapStage({
                   onHoverEnd={() => setHover(null)}
                 />
               ))}
+              {/* Shared measuring shapes (persisted) + the live drag preview. */}
+              {snapshot.measurements.map((m) => (
+                <MeasureShape
+                  key={m.id}
+                  kind={m.kind}
+                  origin={m.origin}
+                  target={m.target}
+                  color={rollerColor(m.createdBy)}
+                  grid={grid}
+                  feetPerSquare={feetPerSquare}
+                />
+              ))}
+              {draft && measureTool !== 'off' && (
+                <MeasureShape
+                  kind={measureTool}
+                  origin={draft.origin}
+                  target={draft.target}
+                  color="#ffd21a"
+                  grid={grid}
+                  feetPerSquare={feetPerSquare}
+                />
+              )}
             </Layer>
           </Stage>
           {hover && !menu && (

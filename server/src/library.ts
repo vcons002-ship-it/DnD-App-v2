@@ -2,7 +2,10 @@ import { db, newId } from './db.js';
 import type {
   CreatureAbility,
   CreatureTemplate,
+  InventoryItem,
+  LibraryCharacter,
   LibraryItem,
+  SheetAbility,
   Weapon,
 } from '../../shared/types.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
@@ -137,6 +140,146 @@ export function saveLibraryCreature(
 
 export function deleteLibraryCreature(name: string): void {
   db.prepare('DELETE FROM library_creatures WHERE LOWER(name) = ?').run(
+    name.trim().toLowerCase(),
+  );
+}
+
+// ---- Cross-session character library ----
+
+type LibCharacterRow = {
+  id: string;
+  name: string;
+  race: string;
+  class_name: string;
+  level: number;
+  max_hp: number;
+  cur_hp: number;
+  armor_class: number;
+  speed: string;
+  stats: string;
+  spell_slots: string;
+  resources: string;
+  weapons: string;
+  resistances: string;
+  weaknesses: string;
+  actions: string;
+  abilities: string;
+  proficient_skills: string;
+  items: string;
+  sheet_abilities: string;
+  icon: string;
+};
+
+function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
+  return {
+    name: r.name,
+    race: r.race,
+    className: r.class_name,
+    level: r.level ?? 1,
+    maxHp: r.max_hp,
+    curHp: r.cur_hp,
+    armorClass: r.armor_class,
+    speed: r.speed,
+    stats: JSON.parse(r.stats ?? '{}'),
+    spellSlots: JSON.parse(r.spell_slots ?? '{}'),
+    resources: JSON.parse(r.resources ?? '{}'),
+    weapons: JSON.parse(r.weapons ?? '[]') as Weapon[],
+    resistances: JSON.parse(r.resistances ?? '[]'),
+    weaknesses: JSON.parse(r.weaknesses ?? '[]'),
+    actions: JSON.parse(r.actions ?? '[]') as CreatureAbility[],
+    abilities: JSON.parse(r.abilities ?? '[]') as CreatureAbility[],
+    proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
+    items: JSON.parse(r.items ?? '[]') as InventoryItem[],
+    sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]') as SheetAbility[],
+    icon: r.icon,
+  };
+}
+
+/** Library characters whose name contains the query (prefix-first), capped. */
+export function searchLibraryCharacters(query: string, limit = 50): LibraryCharacter[] {
+  const q = query.trim().toLowerCase();
+  const rows = (
+    q
+      ? db
+          .prepare(
+            'SELECT * FROM library_characters WHERE LOWER(name) LIKE ? ORDER BY name ASC',
+          )
+          .all(`%${q}%`)
+      : db
+          .prepare('SELECT * FROM library_characters ORDER BY name ASC LIMIT ?')
+          .all(limit)
+  ) as LibCharacterRow[];
+  rows.sort((a, b) => {
+    const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+    const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+    return ap - bp || a.name.localeCompare(b.name);
+  });
+  return rows.slice(0, limit).map(rowToLibraryCharacter);
+}
+
+/** Exact (case-insensitive) library lookup. */
+export function getLibraryCharacter(name: string): LibraryCharacter | null {
+  const row = db
+    .prepare('SELECT * FROM library_characters WHERE LOWER(name) = ?')
+    .get(name.trim().toLowerCase()) as LibCharacterRow | undefined;
+  return row ? rowToLibraryCharacter(row) : null;
+}
+
+export type SaveCharacterInput = Partial<LibraryCharacter> & { name: string };
+
+/**
+ * Save a character to the library under `name`. A name already in the library
+ * returns the existing entry so the caller can prompt (cancel / rename /
+ * overwrite); otherwise it writes the full sheet (minus session state).
+ */
+export function saveLibraryCharacter(
+  input: SaveCharacterInput,
+  overwrite: boolean,
+): { saved: LibraryCharacter } | { conflict: LibraryCharacter } {
+  const name = input.name.trim();
+  const existing = getLibraryCharacter(name);
+  if (existing && !overwrite) return { conflict: existing };
+
+  const id =
+    (db
+      .prepare('SELECT id FROM library_characters WHERE LOWER(name) = ?')
+      .get(name.toLowerCase()) as { id: string } | undefined)?.id ?? newId();
+
+  db.prepare(
+    `INSERT OR REPLACE INTO library_characters
+       (id, name, race, class_name, level, max_hp, cur_hp, armor_class, speed,
+        stats, spell_slots, resources, weapons, resistances, weaknesses, actions,
+        abilities, proficient_skills, items, sheet_abilities, icon, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    name,
+    input.race ?? '',
+    input.className ?? '',
+    input.level ?? 1,
+    input.maxHp ?? 10,
+    input.curHp ?? input.maxHp ?? 10,
+    input.armorClass ?? 0,
+    input.speed ?? '',
+    JSON.stringify(input.stats ?? {}),
+    JSON.stringify(input.spellSlots ?? {}),
+    JSON.stringify(input.resources ?? {}),
+    JSON.stringify(input.weapons ?? []),
+    JSON.stringify(input.resistances ?? []),
+    JSON.stringify(input.weaknesses ?? []),
+    JSON.stringify(input.actions ?? []),
+    JSON.stringify(input.abilities ?? []),
+    JSON.stringify(input.proficientSkills ?? []),
+    JSON.stringify(input.items ?? []),
+    JSON.stringify(input.sheetAbilities ?? []),
+    input.icon ?? '',
+    Date.now(),
+  );
+  return { saved: getLibraryCharacter(name)! };
+}
+
+export function deleteLibraryCharacter(name: string): void {
+  db.prepare('DELETE FROM library_characters WHERE LOWER(name) = ?').run(
     name.trim().toLowerCase(),
   );
 }

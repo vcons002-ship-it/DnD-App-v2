@@ -11,6 +11,7 @@ import { AURA_HEX } from '../lib/conditions';
 import { useSelection } from '../lib/useSelection';
 import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { DicePanel } from '../components/DicePanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { ConditionPopover } from '../components/ConditionPopover';
 
@@ -203,26 +204,31 @@ export function DmDataView() {
         </div>
       )}
 
-      {orderedTokens.length === 0 ? (
-        <p className="muted pad">No tokens on the active map yet.</p>
-      ) : (
-        <div className="data-grid">
-          {orderedTokens.map((t) => (
-            <DataCard
-              key={t.id}
-              snapshot={snapshot}
-              token={t}
-              rank={rankOf.get(t.id) ?? null}
-              isTurn={t.id === snapshot.activeTurnTokenId}
-              selected={selectedIds.includes(t.id)}
-              onToggleSelect={() => toggleSelect(t.id)}
-              onExpand={() => setExpandedId(t.id)}
-              onDragStart={() => (dragId.current = t.id)}
-              onDrop={() => onDrop(t.id)}
-            />
-          ))}
-        </div>
-      )}
+      <div className="data-body">
+        {orderedTokens.length === 0 ? (
+          <p className="muted pad data-grid-empty">No tokens on the active map yet.</p>
+        ) : (
+          <div className="data-grid">
+            {orderedTokens.map((t) => (
+              <DataCard
+                key={t.id}
+                snapshot={snapshot}
+                token={t}
+                rank={rankOf.get(t.id) ?? null}
+                isTurn={t.id === snapshot.activeTurnTokenId}
+                selected={selectedIds.includes(t.id)}
+                onToggleSelect={() => toggleSelect(t.id)}
+                onExpand={() => setExpandedId(t.id)}
+                onDragStart={() => (dragId.current = t.id)}
+                onDrop={() => onDrop(t.id)}
+              />
+            ))}
+          </div>
+        )}
+        <aside className="data-roll-sidebar">
+          <DicePanel snapshot={snapshot} />
+        </aside>
+      </div>
 
       {expandedToken && (
         <div className="data-modal-backdrop" onClick={() => setExpandedId(null)}>

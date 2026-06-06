@@ -112,6 +112,8 @@ input[type='number'] { width: 70px; }
 .zoom-label { color: var(--muted); font-size: 12px; min-width: 38px; text-align: right; }
 .stage-controls { flex-wrap: wrap; max-width: 70%; justify-content: flex-end; }
 .ctrl-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.grid-input { width: 46px; padding: 2px 4px; font-size: 12px; }
+.zoom-label.min0 { min-width: 0; }
 .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .dm-token-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .dm-token-actions .delete-token { margin-top: 0; }
@@ -422,10 +424,16 @@ input[type='number'] { width: 70px; }
 .data-sort { display: flex; align-items: center; gap: 5px; }
 .data-init-actions { margin-left: auto; display: flex; gap: 6px; }
 .data-bulk { border-bottom: 1px solid var(--line); background: var(--panel); }
+.data-body { flex: 1; min-height: 0; display: flex; }
 .data-grid {
   flex: 1; overflow-y: auto; padding: 12px;
   display: grid; gap: 10px; align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+.data-grid-empty { flex: 1; }
+.data-roll-sidebar {
+  width: 300px; flex: none; border-left: 1px solid var(--line);
+  min-height: 0; overflow-y: auto; background: var(--panel);
 }
 .data-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff44; }

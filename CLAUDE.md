@@ -198,7 +198,15 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   to the map's bottom-left corner (`RollLogOverlay`, toggled from `DicePanel`).
 - **DM Data mode** (`/dm/data`): compact sortable (init/A–Z/type) + drag-reorder
   cards, expand into a large overlay reusing `SelectedTokenPanel`, checkbox
-  multiselect synced to the map window driving bulk AOE/conditions/etc.
+  multiselect synced to the map window driving bulk AOE/conditions/etc., plus a
+  right-column roll log (full `DicePanel`).
+- **Character library:** cross-session save/load of full PC sheets
+  (`library_characters` + `/api/library/characters`, mirroring the creature
+  library) — players + DM, via `LibraryCharacterDialog` (save) and
+  `LibraryCharacterPicker` (load → `character:loadFromLibrary`).
+- **Map tools:** DM-resizable grid (`map:setGrid`) and shared, snap-to-grid,
+  persistent **measuring shapes** (cone/circle/line) — a `measurements` table
+  broadcast in the snapshot, drawn on the Konva canvas and coloured per drawer.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
   Settings, copy link, open Data view), editable map names, Roll20 collapsible
   embed + pop-out.
