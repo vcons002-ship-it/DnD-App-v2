@@ -4,10 +4,13 @@ import {
   getCharacter,
   getMonster,
   getToken,
+  setSheetAbility,
 } from './sessions.js';
 import {
+  profBonusFor,
   rollSavingThrow,
   rollWeaponAttack,
+  weaponAbilityMod,
   type Advantage,
   type Combatant,
 } from '../../shared/combatMath.js';
@@ -17,7 +20,7 @@ import {
   spellAttackBonus,
   spellSaveDC,
 } from '../../shared/spellMath.js';
-import { signed } from '../../shared/skills.js';
+import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
 import type { Character, SheetAbility, Token, Weapon } from '../../shared/types.js';
 
 type Resolved = {
@@ -65,6 +68,8 @@ export function resolveAttack(
   targetTokenId: string,
   weaponIndex: number,
   advantage?: Advantage,
+  offhand?: boolean,
+  twoHanded?: boolean,
 ): boolean {
   const at = getToken(attackerTokenId);
   const tt = getToken(targetTokenId);
@@ -75,15 +80,80 @@ export function resolveAttack(
   const weapon = a.weapons[weaponIndex];
   if (!weapon) return false;
 
-  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage);
-  if (out.hit && out.damage > 0) applyDamage(t.kind, t.refId, out.damage);
+  // Only PCs carry masteries (and add their ability mod to damage).
+  const ch = at.kind === 'pc' ? getCharacter(at.refId) : null;
+  const wtags = (weapon.tags ?? []).map((t) => t.trim().toLowerCase());
+  const triggers = (m: NonNullable<SheetAbility['mastery']>) =>
+    (m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()));
+
+  // Pre-scan: an active Cleave bound to this weapon omits the ability modifier
+  // (like an off-hand attack), so it must be decided BEFORE rolling damage.
+  let cleaveToDisable: { characterId: string; ability: SheetAbility } | null = null;
+  for (const ab of ch?.sheetAbilities ?? []) {
+    const m = ab.mastery;
+    if (ab.type === 'mastery' && m?.active && m.effect?.cleave && triggers(m)) {
+      cleaveToDisable = { characterId: ch!.id, ability: ab };
+      break;
+    }
+  }
+  const noAbilityMod = !!offhand || !!cleaveToDisable;
+
+  const out = rollWeaponAttack(a.c, weapon, t.ac, advantage, { twoHanded, noAbilityMod });
+
+  // Outcome-dependent mastery effects: extra damage / prof on a hit, Graze on a miss.
+  let extra = 0;
+  const masteryNotes: string[] = [];
+  for (const ab of ch?.sheetAbilities ?? []) {
+    const m = ab.mastery;
+    if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
+    if (out.hit && m.effect.bonusDamage) {
+      const r = rollDice(m.effect.bonusDamage);
+      if (r && r.total > 0) {
+        extra += r.total;
+        masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
+      }
+    }
+    if (out.hit && m.effect.profBonusDamage) {
+      const pb = profBonusFor(a.c);
+      extra += pb;
+      masteryNotes.push(`${ab.name} +${pb} (prof)`);
+    }
+    if (!out.hit && m.effect.grazeOnMiss) {
+      const g = Math.max(0, weaponAbilityMod(a.c, weapon));
+      if (g > 0) {
+        extra += g;
+        masteryNotes.push(`${ab.name} ${g} (graze)`);
+      }
+    }
+  }
+
+  // Note the ability modifier omitted by Cleave / an off-hand attack.
+  if (out.hit && noAbilityMod) {
+    const dropped = a.c.isMonster ? 0 : weaponAbilityMod(a.c, weapon);
+    const who = cleaveToDisable ? cleaveToDisable.ability.name : 'Off-hand';
+    masteryNotes.push(`${who} (no ability modifier${dropped > 0 ? ` −${dropped}` : ''})`);
+  }
+
+  let applied = (out.hit ? out.damage : 0) + extra;
+  if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  if (applied > 0) applyDamage(t.kind, t.refId, applied);
   addRollLog(sessionId, {
     roller,
     label: 'Attack',
     expr: weapon.name,
     total: out.attackTotal,
-    detail: `${a.name} → ${t.name}: ${out.detail}`,
+    detail:
+      `${a.name} → ${t.name}: ${out.detail}` +
+      (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : ''),
   });
+  // Cleave is a one-shot: disable it after the attack roll (hit or miss).
+  if (cleaveToDisable) {
+    const ab = cleaveToDisable.ability;
+    setSheetAbility(cleaveToDisable.characterId, {
+      ...ab,
+      mastery: { ...ab.mastery!, active: false },
+    });
+  }
   return true;
 }
 
@@ -197,6 +267,38 @@ export function resolveAbilityRoll(
     expr: title,
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+  });
+  return true;
+}
+
+/**
+ * Resolve a 5e skill check authoritatively and log it: d20 (with adv/dis) +
+ * the character's ability modifier + proficiency bonus when proficient in that
+ * skill. Returns false for an unknown skill name.
+ */
+export function resolveSkillRoll(
+  sessionId: string,
+  roller: string,
+  character: Character,
+  skillName: string,
+  advantage?: Advantage,
+): boolean {
+  const skill = SKILLS.find(
+    (s) => s.name.toLowerCase() === skillName.trim().toLowerCase(),
+  );
+  if (!skill) return false;
+  const proficient = character.proficientSkills.includes(skill.name);
+  const bonus = skillBonus(character.stats, skill.ability, character.level, proficient);
+  const { face, detail: d20detail } = rollD20(advantage);
+  const total = face + bonus;
+  addRollLog(sessionId, {
+    roller,
+    label: `${skill.name} check`,
+    expr: `${skill.ability}${proficient ? ' (prof)' : ''}`,
+    total,
+    detail:
+      `${character.name} — ${skill.name}: ${d20detail} ${signed(bonus)} = ${total}` +
+      (proficient ? ' (proficient)' : ''),
   });
   return true;
 }

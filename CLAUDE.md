@@ -153,13 +153,23 @@ self-cleans if a merged launcher is double-clicked — no manual teardown.
   **cross-session library** (save with side-by-side conflict prompt that also
   detects SRD-name shadowing; lookup checks library → SRD → AI).
 - **Characters:** DM + player creation, shared tagged sheet (editable), **skills**
-  with proficiency/bonuses, **resources** auto-filled from 5e class/level tables
+  with proficiency/bonuses + **click-to-roll skill checks** (server-resolved
+  `skill:roll` using the sheet's mod + proficiency, adv/dis, into the roll log),
+  **resources** auto-filled from 5e class/level tables
   (+ custom counters, pip trackers), **inventory items** (+ library picker),
-  **spells & abilities** (`CharacterSpells`: search a local rules DB
-  `spells/srd.ts` → Gemini fallback; collapsible text; server-resolved
-  `ability:roll` with upcast/cantrip scaling into the roll log),
-  player places/edits own token, **high-visibility PC tokens**, party + friendly
-  sheets read-only, sheet import (text/JSON) + export.
+  **spells, abilities & weapon masteries** (`CharacterSpells`: search a local
+  rules DB `spells/srd.ts` + `masteries/srd.ts` → Gemini fallback; collapsible
+  text; server-resolved `ability:roll` with upcast/cantrip scaling; masteries are
+  **tag-driven** — weapons carry `tags`, a mastery has `appliesToTags` + on/off
+  toggle and adjusts any tagged weapon's attack in `resolveAttack`, e.g. Graze
+  damage on a miss; the weapon line bold-lists applicable mastery mechanics),
+  **weapons** store dice-only damage (PCs add the ability mod at roll time,
+  finesse→DEX; monsters stay pre-baked) plus `magicBonus`/`tags`/`versatileDamage`;
+  combat honors off-hand + versatile-2H toggles (`AttackControls`) and a **2024
+  weapon book** (`weapons/srd.ts`, `GET /api/weapons`, "+ From book" picker that
+  sets dice + tags), player places/edits own token,
+  **high-visibility PC tokens**, party + friendly sheets read-only, sheet import
+  (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
   descriptions; AI picks level/CR; global "AI is working" banner; editable API
   key + model in **Settings**.

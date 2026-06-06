@@ -29,9 +29,12 @@ export const profBonusFor = (c: Combatant): number =>
   c.isMonster ? profBonusForCR(c.level) : proficiencyBonus(c.level || 1);
 
 /** Ranged → DEX; melee → the better of STR/DEX (covers finesse). */
+/** Ranged → DEX; melee `finesse` weapons → better of STR/DEX; other melee → STR. */
 function weaponAbility(c: Combatant, w: Weapon): 'STR' | 'DEX' {
   if (w.kind === 'ranged') return 'DEX';
-  return abilityMod(c.stats.DEX) > abilityMod(c.stats.STR) ? 'DEX' : 'STR';
+  const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
+  if (finesse) return abilityMod(c.stats.DEX) > abilityMod(c.stats.STR) ? 'DEX' : 'STR';
+  return 'STR';
 }
 
 /** A weapon's to-hit: the tagged value if present, else ability mod + prof. */
@@ -40,8 +43,13 @@ export function weaponAttackBonus(c: Combatant, w: Weapon): number {
   return abilityMod(c.stats[weaponAbility(c, w)]) + profBonusFor(c);
 }
 
+/** The ability modifier a weapon uses to attack (STR/DEX per the rules above). */
+export function weaponAbilityMod(c: Combatant, w: Weapon): number {
+  return abilityMod(c.stats[weaponAbility(c, w)]);
+}
+
 /** Split "1d8+3" into its dice expression and flat modifier. */
-function damageParts(expr: string): { dice: string; flat: number } {
+export function damageParts(expr: string): { dice: string; flat: number } {
   const cleaned = expr.replace(/\s+/g, '');
   let dice = '';
   const diceRe = /([+-]?)(\d*)d(\d+)/gi;
@@ -73,6 +81,7 @@ export function rollWeaponAttack(
   weapon: Weapon,
   targetAC: number,
   advantage?: Advantage,
+  opts?: { twoHanded?: boolean; noAbilityMod?: boolean },
 ): AttackOutcome {
   const face = rollWithAdv(advantage);
   const bonus = weaponAttackBonus(attacker, weapon);
@@ -81,12 +90,21 @@ export function rollWeaponAttack(
   const fumble = face === 1;
   const hit = crit || (!fumble && attackTotal >= targetAC);
 
+  // Versatile weapons use their two-handed dice when wielded 2H.
+  const expr =
+    (opts?.twoHanded && weapon.versatileDamage?.trim()) || weapon.damage?.trim() || '1d4';
+
   let damage = 0;
   let dmgText = '';
   if (hit) {
-    const { dice, flat } = damageParts(weapon.damage?.trim() || '1d4');
+    const { dice, flat } = damageParts(expr);
+    const magic = weapon.magicBonus ?? 0;
+    // PCs add their ability modifier to damage at roll time (weapons store dice
+    // only); monster stat blocks already bake it in. Off-hand / Cleave omit it.
+    const abil =
+      !attacker.isMonster && !opts?.noAbilityMod ? weaponAbilityMod(attacker, weapon) : 0;
     const r1 = dice ? rollDice(dice) : null;
-    let sum = flat;
+    let sum = flat + magic + abil; // magic + ability mod added once, not doubled on a crit
     const diceStrs: string[] = [];
     if (r1) {
       sum += r1.total;
@@ -98,12 +116,15 @@ export function rollWeaponAttack(
       diceStrs.push(`crit[${r2.rolls.join(',')}]`);
     }
     damage = Math.max(1, sum);
-    dmgText = `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''} = ${damage}`;
+    dmgText =
+      `${diceStrs.join(' + ')}${flat ? ` ${signed(flat)}` : ''}` +
+      `${abil ? ` ${signed(abil)}` : ''}${magic ? ` ${signed(magic)} magic` : ''} = ${damage}`;
   }
 
+  const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';
   const detail =
-    `${weapon.name}: d20[${face}] ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
+    `${weapon.name}${twoH}: d20[${face}] ${signed(bonus)} = ${attackTotal} vs AC ${targetAC} — ${result}` +
     (hit ? `, ${damage} dmg (${dmgText})` : '');
 
   return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };

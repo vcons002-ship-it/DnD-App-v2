@@ -4,8 +4,9 @@ import { useStore } from '../state/socket';
 
 type SpellHit = Omit<SheetAbility, 'id'>;
 
-/** Short tag line for an entry, e.g. "Cantrip · Evocation" or "Lvl 3 · Fire". */
+/** Short tag line for an entry, e.g. "Cantrip · Evocation" or "Mastery". */
 function tagFor(a: SheetAbility): string {
+  if (a.type === 'mastery') return a.mastery?.effect ? 'Mastery' : 'Mastery · manual';
   const bits: string[] = [];
   if (a.type === 'spell') {
     bits.push(a.level === 0 ? 'Cantrip' : `Lvl ${a.level ?? '?'}`);
@@ -33,11 +34,17 @@ function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
 const upcastable = (a: SheetAbility): boolean =>
   !!a.roll?.scaleDice && (a.roll.baseLevel ?? 0) >= 1;
 
+/** An effect-bearing mastery gets a weapon binding + active toggle. */
+const autoMastery = (a: SheetAbility): boolean =>
+  a.type === 'mastery' && !!a.mastery?.effect;
+
 /**
- * A character's spells & abilities: each is collapsible (name + tag + a roll
- * button that resolves server-side and lands in the shared roll log). Leveled
- * spells get an upcast selector. Owners/DM can add from the local rules database
- * (with an AI fallback) and remove entries.
+ * A character's spells, abilities & weapon masteries. Each entry is collapsible
+ * (name + tag + details). Spells/abilities with a `roll` get a roll button
+ * (upcastable spells get a level selector). Masteries with an effect get a
+ * weapon binding + an on/off toggle that, when on, adjusts that weapon's attack
+ * server-side; manual masteries are description-only. Owners/DM can add from the
+ * local rules database (with an AI fallback for spells) and remove entries.
  */
 export function CharacterSpells({
   character,
@@ -52,6 +59,7 @@ export function CharacterSpells({
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
+  const [adv, setAdv] = useState<Record<string, 'adv' | 'dis' | undefined>>({});
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SpellHit[]>([]);
@@ -107,11 +115,21 @@ export function CharacterSpells({
       characterId: character.id,
       abilityId: a.id,
       castLevel: upcastable(a) ? castLevel[a.id] ?? a.roll?.baseLevel : undefined,
+      // Advantage/disadvantage only affects the d20 of an attack roll.
+      advantage: a.roll?.kind === 'attack' ? adv[a.id] : undefined,
     });
+
+  const patchMastery = (
+    a: SheetAbility,
+    patch: Partial<NonNullable<SheetAbility['mastery']>>,
+  ) => {
+    if (!a.mastery) return;
+    setSheetAbility(character.id, { ...a, mastery: { ...a.mastery, ...patch } });
+  };
 
   return (
     <div className="spells">
-      <h4>Spells &amp; Abilities</h4>
+      <h4>Spells, Abilities &amp; Masteries</h4>
       {character.sheetAbilities.length === 0 && (
         <p className="muted">None yet.</p>
       )}
@@ -130,6 +148,21 @@ export function CharacterSpells({
                   <span className="spell-name">{a.name}</span>
                   {tagFor(a) && <span className="muted spell-tag">{tagFor(a)}</span>}
                 </button>
+
+                {editable && autoMastery(a) && (
+                  <button
+                    className={`btn tiny ${a.mastery!.active ? 'on' : ''}`}
+                    title={
+                      a.mastery!.active
+                        ? 'Active — triggers on weapons with a matching tag'
+                        : 'Inactive — click to enable'
+                    }
+                    onClick={() => patchMastery(a, { active: !a.mastery!.active })}
+                  >
+                    {a.mastery!.active ? 'On' : 'Off'}
+                  </button>
+                )}
+
                 {editable && a.roll && upcastable(a) && (
                   <select
                     className="spell-level"
@@ -151,6 +184,34 @@ export function CharacterSpells({
                     )}
                   </select>
                 )}
+                {editable && a.roll?.kind === 'attack' && (
+                  <span className="spell-adv">
+                    <button
+                      className={`btn tiny ${adv[a.id] === 'adv' ? 'on' : ''}`}
+                      title="Advantage on the attack roll"
+                      onClick={() =>
+                        setAdv((m) => ({
+                          ...m,
+                          [a.id]: m[a.id] === 'adv' ? undefined : 'adv',
+                        }))
+                      }
+                    >
+                      Adv
+                    </button>
+                    <button
+                      className={`btn tiny ${adv[a.id] === 'dis' ? 'on' : ''}`}
+                      title="Disadvantage on the attack roll"
+                      onClick={() =>
+                        setAdv((m) => ({
+                          ...m,
+                          [a.id]: m[a.id] === 'dis' ? undefined : 'dis',
+                        }))
+                      }
+                    >
+                      Dis
+                    </button>
+                  </span>
+                )}
                 {editable && a.roll && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>
                     {rollLabel(a.roll)}
@@ -169,6 +230,14 @@ export function CharacterSpells({
               {open[a.id] && (
                 <div className="spell-body">
                   {a.meta && <p className="muted spell-meta">{a.meta}</p>}
+                  {autoMastery(a) && (
+                    <p className="muted spell-meta">
+                      Triggers on weapons tagged:{' '}
+                      {(a.mastery!.appliesToTags ?? []).length
+                        ? a.mastery!.appliesToTags.map((t) => `[${t}]`).join(' ')
+                        : '—'}
+                    </p>
+                  )}
                   <p>{a.description}</p>
                 </div>
               )}
@@ -180,13 +249,13 @@ export function CharacterSpells({
       {editable && (
         <>
           <button className="btn tiny" onClick={() => setAdding((p) => !p)}>
-            {adding ? 'Close' : '+ Add spell / ability'}
+            {adding ? 'Close' : '+ Add spell / ability / mastery'}
           </button>
           {adding && (
             <div className="spell-add">
               <input
                 autoFocus
-                placeholder="Search e.g. Fireball, Cure Wounds…"
+                placeholder="Search e.g. Fireball, Longbow Mastery, Second Wind…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Character } from '../../../shared/types';
 import {
   SKILLS,
@@ -8,9 +9,11 @@ import {
 import { useStore } from '../state/socket';
 
 /**
- * D&D 5e skill list with a proficiency tag, the character's proficiency bonus,
- * and each skill's stat-based total (ability mod + prof bonus when proficient).
- * Editable (toggle proficiency) for the owner/DM; read-only for everyone else.
+ * D&D 5e skill list. Each skill shows its proficiency tag and stat-based total
+ * (ability mod + proficiency bonus when proficient). For the owner/DM the dot
+ * toggles proficiency and the row rolls the check server-side (d20 + that total,
+ * with the section's adv/dis selection) into the shared log. Read-only for
+ * everyone else.
  */
 export function CharacterSkills({
   character,
@@ -20,6 +23,8 @@ export function CharacterSkills({
   editable: boolean;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
+  const rollSkill = useStore((s) => s.rollSkill);
+  const [adv, setAdv] = useState<'adv' | 'dis' | undefined>(undefined);
   const prof = new Set(character.proficientSkills);
   const pb = proficiencyBonus(character.level);
 
@@ -31,30 +36,70 @@ export function CharacterSkills({
     updateCharacter({ characterId: character.id, proficientSkills: [...next] });
   };
 
+  const roll = (name: string) =>
+    rollSkill({ characterId: character.id, skill: name, advantage: adv });
+
   return (
     <div className="skills">
       <div className="skills-head">
         <h4>Skills</h4>
         <span className="muted">Proficiency {signed(pb)}</span>
+        {editable && (
+          <span className="skill-adv">
+            <button
+              className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
+              title="Roll skills with advantage"
+              onClick={() => setAdv((a) => (a === 'adv' ? undefined : 'adv'))}
+            >
+              Adv
+            </button>
+            <button
+              className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
+              title="Roll skills with disadvantage"
+              onClick={() => setAdv((a) => (a === 'dis' ? undefined : 'dis'))}
+            >
+              Dis
+            </button>
+          </span>
+        )}
       </div>
       <div className="skill-list">
         {SKILLS.map((s) => {
           const isProf = prof.has(s.name);
           const bonus = skillBonus(character.stats, s.ability, character.level, isProf);
           return (
-            <button
-              key={s.name}
-              type="button"
-              className={`skill-row ${isProf ? 'prof' : ''}`}
-              disabled={!editable}
-              onClick={() => toggle(s.name)}
-              title={editable ? 'Toggle proficiency' : undefined}
-            >
-              <span className="skill-dot" />
-              <span className="skill-name">{s.name}</span>
-              <span className="skill-abil muted">{s.ability}</span>
-              <span className="skill-bonus">{signed(bonus)}</span>
-            </button>
+            <div key={s.name} className={`skill-row ${isProf ? 'prof' : ''}`}>
+              <button
+                type="button"
+                className="skill-prof"
+                disabled={!editable}
+                onClick={() => toggle(s.name)}
+                aria-pressed={isProf}
+                title={
+                  editable
+                    ? isProf
+                      ? 'Proficient — click to remove'
+                      : 'Click to mark proficient'
+                    : isProf
+                      ? 'Proficient'
+                      : undefined
+                }
+              >
+                <span className="skill-dot" />
+              </button>
+              <button
+                type="button"
+                className="skill-roll"
+                disabled={!editable}
+                onClick={() => roll(s.name)}
+                title={editable ? `Roll ${s.name} (d20 ${signed(bonus)})` : undefined}
+              >
+                <span className="skill-name">{s.name}</span>
+                <span className="skill-abil muted">{s.ability}</span>
+                <span className="skill-bonus">{signed(bonus)}</span>
+                {editable && <span className="skill-die" aria-hidden="true">🎲</span>}
+              </button>
+            </div>
           );
         })}
       </div>

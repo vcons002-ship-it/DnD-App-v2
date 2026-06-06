@@ -35,12 +35,34 @@ export type Weapon = {
   name: string;
   /** Melee or ranged — drives combat-role detection. */
   kind: 'melee' | 'ranged';
-  /** Damage dice expression, e.g. "1d8+3". */
+  /** Base damage dice + ability modifier, e.g. "1d8+3". */
   damage?: string;
+  /** Damage type, e.g. "slashing" (from the weapon book; display only). */
+  damageType?: string;
+  /**
+   * Two-handed damage for a `versatile` weapon, e.g. "1d10+3". When the attacker
+   * toggles 2H, this is rolled instead of `damage`.
+   */
+  versatileDamage?: string;
+  /**
+   * Magic damage bonus (e.g. 1 for a +1 weapon), kept SEPARATE from `damage` so
+   * it survives effects that strip the ability modifier (e.g. a mastery's Cleave
+   * rolls the weapon dice + magic, without the ability mod). Added to every hit.
+   */
+  magicBonus?: number;
   /** To-hit bonus, e.g. 5 for "+5". */
   attackBonus?: number;
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
   range?: string;
+  /**
+   * Descriptive tags — a weapon type plus properties, e.g.
+   * ["halberd", "heavy", "versatile"] or ["dagger", "light", "finesse"].
+   * Drive mechanics: `finesse` → use the better of STR/DEX; `versatile` → a 2H
+   * damage toggle; `light` is reserved for future off-hand feats. A weapon
+   * mastery in the abilities list triggers on any weapon whose tags overlap the
+   * mastery's `appliesToTags`.
+   */
+  tags?: string[];
 };
 
 /**
@@ -135,15 +157,58 @@ export type AbilityRoll = {
 };
 
 /**
- * A spell or ability added to a character sheet. Has a collapsible
- * `description` and, when applicable, a structured `roll` powering a roll
- * button (upcastable for leveled spells via the chosen slot level).
+ * A weapon mastery (2024 rules) attached to a sheet entry. When `active`, it
+ * triggers on any attack whose weapon has a tag in `appliesToTags` (e.g. a
+ * "greataxe" or "heavy" weapon) — no per-weapon binding needed; just tag your
+ * weapons. The optional `effect` then adjusts that attack's damage server-side.
+ * Masteries without an `effect` are descriptive and handled manually.
+ */
+export type WeaponMastery = {
+  /** Weapon tags this mastery triggers on (case-insensitive overlap). */
+  appliesToTags: string[];
+  /** Toggle — only an active mastery applies its effect. */
+  active: boolean;
+  /**
+   * Label shown on a matching weapon's stat line (the mechanic, e.g. "Slow").
+   * Defaults to the sheet entry's name. Great Weapon Master uses "GWM".
+   */
+  weaponLabel?: string;
+  /**
+   * Extra label shown only on a matching MELEE weapon — e.g. Great Weapon
+   * Master's "Hew" extra-attack mechanic, which is melee-only while its damage
+   * applies to all Heavy weapons.
+   */
+  meleeLabel?: string;
+  /** Auto-effect on attacks with the bound weapon; absent = descriptive/manual. */
+  effect?: {
+    /** Extra damage added to the target on a HIT, e.g. "1d4" or a flat "10". */
+    bonusDamage?: string;
+    /** On a HIT, add the attacker's proficiency bonus to the damage (2024 Hew). */
+    profBonusDamage?: boolean;
+    /** On a MISS, deal damage equal to the attacker's ability modifier (Graze). */
+    grazeOnMiss?: boolean;
+    /**
+     * On a HIT, roll the weapon's damage DICE (+ magic bonus, no ability modifier)
+     * as the Cleave hit against a second creature — rolled and logged for the DM
+     * to apply manually, not applied to the primary target.
+     */
+    cleave?: boolean;
+  };
+};
+
+/**
+ * A spell, ability, or weapon mastery added to a character sheet. Has a
+ * collapsible `description` and, when applicable, a structured `roll` powering a
+ * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
  */
 export type SheetAbility = {
   id: string;
   name: string;
-  /** `spell` enables an upcast level selector; `ability` is a feature/action. */
-  type: 'spell' | 'ability';
+  /**
+   * `spell` enables an upcast level selector; `ability` is a feature/action;
+   * `mastery` is a weapon mastery (toggle + weapon binding).
+   */
+  type: 'spell' | 'ability' | 'mastery';
   /** Spell level (0 = cantrip); omitted for non-spell abilities. */
   level?: number;
   /** School or short tag, e.g. "Evocation", "Class feature". */
@@ -154,6 +219,8 @@ export type SheetAbility = {
   description: string;
   /** Optional structured roll; absent for purely descriptive entries. */
   roll?: AbilityRoll;
+  /** Weapon-mastery config (only when `type` is `mastery`). */
+  mastery?: WeaponMastery;
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -427,6 +494,16 @@ export type AbilityRollPayload = {
   castLevel?: number;
   advantage?: 'adv' | 'dis';
 };
+/**
+ * Roll a 5e skill check for a character (server-authoritative): d20 + the
+ * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
+ * name from `shared/skills.ts` (e.g. "Stealth").
+ */
+export type SkillRollPayload = {
+  characterId: string;
+  skill: string;
+  advantage?: 'adv' | 'dis';
+};
 /** Roll dice into the shared log. `advantage` rolls twice (d20 adv/dis). */
 export type DiceRollPayload = {
   expr: string;
@@ -439,6 +516,10 @@ export type CombatAttackPayload = {
   targetTokenId: string;
   weaponIndex: number;
   advantage?: 'adv' | 'dis';
+  /** Off-hand attack: drop the ability modifier from the damage. */
+  offhand?: boolean;
+  /** Two-handed: use the weapon's `versatileDamage` dice. */
+  twoHanded?: boolean;
 };
 /** Roll a saving throw (DC vs ability) for one or more tokens. */
 export type CombatSavePayload = {
@@ -555,6 +636,7 @@ export interface ClientToServerEvents {
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;
   'monster:create': (payload: MonsterCreatePayload) => void;

@@ -771,6 +771,30 @@ export function setResource(
   return getCharacter(characterId);
 }
 
+/**
+ * Spend one spell slot of `level` on a character (used when casting from the
+ * sheet). Reports whether the character tracks that level (`hasSlot`) and
+ * whether a slot was actually consumed (`spent` is false when a caster is
+ * tapped out, so the caller can warn without blocking the roll).
+ */
+export function spendSpellSlot(
+  characterId: string,
+  level: number,
+): { hasSlot: boolean; spent: boolean } {
+  const c = getCharacter(characterId);
+  if (!c) return { hasSlot: false, spent: false };
+  const key = `L${level}`;
+  const slot = c.spellSlots[key];
+  if (!slot) return { hasSlot: false, spent: false };
+  if (slot.used >= slot.max) return { hasSlot: true, spent: false };
+  const next = { ...c.spellSlots, [key]: { max: slot.max, used: slot.used + 1 } };
+  db.prepare('UPDATE characters SET spell_slots = ? WHERE id = ?').run(
+    JSON.stringify(next),
+    characterId,
+  );
+  return { hasSlot: true, spent: true };
+}
+
 export function setItem(
   characterId: string,
   item: Character['items'][number],

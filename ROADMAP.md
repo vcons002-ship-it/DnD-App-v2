@@ -169,6 +169,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   store `proficientSkills`; `CharacterSkills` shows each skill's ability, a
   proficiency toggle (owner/DM editable), the proficiency bonus, and the computed
   stat-based total. AI character generation/fill can set proficiencies.
+- ☑ **Automated skill checks [req].** Clicking a skill rolls it server-side
+  (`skill:roll` → `resolveSkillRoll`): d20 (with a section adv/dis toggle) + the
+  sheet's ability modifier + proficiency bonus when proficient, logged to the
+  shared roll log as "<Skill> check" (own color tier). Owner/DM-gated.
 - ☑ **Create party characters [req].** Both the DM (DmPanel) and players
   (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
   a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can
@@ -266,6 +270,47 @@ Smaller refinements on top of the shipped Phase 2 work.
   upcast by the chosen slot level, cantrips scaled by caster level
   (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
   owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
+- ☑ **Weapon masteries (2024), tag-driven [req].** Modeled per the books: you gain
+  mastery in specific weapons, so entries are named **"<Weapon> Mastery"**
+  (e.g. "Longbow Mastery") and carry that weapon's mechanic as `weaponLabel`
+  (e.g. "Slow"). `server/src/masteries/srd.ts` maps every 2024 weapon → its mastery
+  property (plus **Great Weapon Master**, a feat, same format); searchable by weapon
+  OR mechanic. **Weapons carry `tags`** (a type + props, e.g. `["halberd","heavy"]`,
+  edited in `StatBlock`); a mastery declares `appliesToTags`, and an **active**
+  mastery in the abilities list triggers on any attack with a weapon whose tags
+  overlap — no per-weapon binding.
+  `resolveAttack` then adjusts the attack server-side: **Graze** (ability-mod damage
+  on a miss), **Cleave** (weapon damage minus the ability modifier to the target,
+  then one-shot toggles off), **Great Weapon Master** (proficiency-bonus damage on a
+  hit, all Heavy weapons), and a generic on-hit `bonusDamage` lever (homebrew/AI).
+  The rest (Push/Sap/Slow/Topple/Vex/Nick) are collapsible descriptions handled
+  manually. The weapon display **bold-lists the mechanic** of each applicable
+  mastery via `weaponLabel` (defaults to the name) — e.g. a `[longbow][heavy]`
+  weapon shows `Slow, GWM`, and a heavy melee weapon also shows the melee-only
+  `meleeLabel` `Hew` (GWM's extra-attack mechanic).
+- ☑ **Ability modifier added at roll time (PCs).** PC weapons store **dice only**;
+  `rollWeaponAttack` adds the wielder's ability modifier (finesse-aware) from their
+  live stat on a hit. Monsters' stat-block damage is left pre-baked (no auto-add).
+  Off-hand / Cleave attacks omit that modifier. The sheet shows the effective
+  damage (dice + current mod).
+- ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` is its own
+  damage modifier (not the ability mod), so it survives effects that strip the
+  ability mod (Cleave / off-hand). `rollWeaponAttack` adds it to every hit (not
+  doubled on a crit); editable in `StatBlock`.
+- ☑ **Off-hand, versatile (2H), and finesse [req].** `AttackControls` has
+  **Off-hand** and (when a weapon is versatile) **2H** toggles alongside adv/dis,
+  threaded through `combat:attack` → `resolveAttack`. Off-hand omits the ability
+  modifier (decided before the roll, unified with Cleave); 2H rolls the weapon's
+  `versatileDamage` dice. `weaponAbility` is tag-aware — only `finesse` melee
+  weapons use the better of STR/DEX (others use STR). The `light` tag is reserved
+  for future off-hand feats. Weapon editor gains a 2H-damage field; tags carry the
+  mechanics.
+- ☑ **2024 weapon database [req].** `server/src/weapons/srd.ts` holds every 2024
+  PHB weapon with dice, damage type, properties, range, versatile dice, and its
+  mastery property; `GET /api/weapons` searches it. The weapon editor’s **“+ From
+  book”** picker fills a sheet weapon from it — **dice-only** damage (the wielder’s
+  modifier is added at roll time) and `tags` = type + properties (so
+  masteries/finesse/versatile/heavy all light up automatically).
 
 ## Phase 6 — AI assistance (future)
 

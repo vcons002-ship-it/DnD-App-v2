@@ -6,6 +6,7 @@ import {
   listRollLog,
   setSheetAbility,
   removeSheetAbility,
+  spendSpellSlot,
 } from './sessions.js';
 import { resolveAbilityRoll } from './combat.js';
 import { searchSpells, getSpell } from './spells/srd.js';
@@ -79,6 +80,20 @@ describe('sheet abilities', () => {
     expect(last.detail).toContain('DEX save');
     expect(last.detail).toContain('L5');
     expect(last.total).toBeGreaterThanOrEqual(10);
+  });
+
+  it('spends spell slots and reports availability', () => {
+    const s = createSession('Slots');
+    const c = createCharacter(s.id, { name: 'Wiz', className: 'Wizard', level: 3 });
+    expect(c.spellSlots.L2.max).toBe(2); // full caster has 2nd-level slots at L3
+
+    expect(spendSpellSlot(c.id, 2)).toEqual({ hasSlot: true, spent: true });
+    expect(getCharacter(c.id)!.spellSlots.L2.used).toBe(1);
+
+    spendSpellSlot(c.id, 2); // now 2/2 used
+    expect(spendSpellSlot(c.id, 2)).toEqual({ hasSlot: true, spent: false }); // tapped out
+    // A level-3 wizard has no 9th-level slot at all.
+    expect(spendSpellSlot(c.id, 9)).toEqual({ hasSlot: false, spent: false });
   });
 
   it('returns false for a descriptive ability with no roll', () => {

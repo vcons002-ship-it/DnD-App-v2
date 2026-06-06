@@ -10,6 +10,7 @@
   --green: #39c46b;
   --blue: #3b82f6;
   --purple: #a855f7;
+  --cyan: #22b8cf;
 }
 
 * { box-sizing: border-box; }
@@ -327,10 +328,13 @@ input[type='number'] { width: 70px; }
 .sb-meta-edit { display: flex; gap: 6px; flex-wrap: wrap; }
 .sb-meta-edit .mini input { width: 56px; }
 .sb-ability-edit input { width: 100%; text-align: center; padding: 2px; }
-.sb-weapon-edit { display: flex; gap: 4px; align-items: center; margin: 3px 0; }
+.sb-weapon-edit { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 3px 0; }
 .sb-weapon-edit input { margin: 0; }
 .sb-weapon-edit .sb-dmg { width: 70px; }
 .sb-weapon-edit .sb-tohit { width: 44px; }
+.sb-weapon-edit .sb-tags { flex: 1; min-width: 110px; }
+.weapon-picker { margin-top: 6px; }
+.weapon-masteries strong { color: var(--accent); }
 .sb-entry-edit { display: flex; gap: 4px; align-items: flex-start; margin: 4px 0; }
 .sb-entry-edit textarea { flex: 1; min-height: 38px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px; font: inherit; resize: vertical; }
 .sb-edit-actions { display: flex; gap: 6px; margin-top: 8px; }
@@ -496,7 +500,8 @@ input[type='number'] { width: 70px; }
 .spells { margin-top: 10px; }
 .spell-list { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; }
 .spell-entry { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
-.spell-head { display: flex; align-items: center; gap: 6px; }
+.spell-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+.spell-adv { display: flex; gap: 2px; }
 .spell-toggle { flex: 1; display: flex; align-items: baseline; gap: 6px; background: none; border: none; color: var(--text); text-align: left; cursor: pointer; padding: 2px; font-size: 13px; }
 .spell-caret { color: var(--muted); font-size: 11px; }
 .spell-name { font-weight: 600; }
@@ -507,6 +512,30 @@ input[type='number'] { width: 70px; }
 .spell-meta { font-size: 11px; }
 .spell-add { margin-top: 6px; }
 .spell-none { font-size: 12px; padding: 6px; margin: 0; }
+
+/* Skills (proficiency toggle + click-to-roll) */
+.skills { margin-top: 10px; }
+.skills-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.skills-head h4 { margin: 0; }
+.skill-adv { display: flex; gap: 2px; margin-left: auto; }
+.skill-list { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; }
+.skill-row { display: flex; align-items: center; gap: 4px; }
+.skill-prof { background: none; border: none; padding: 4px; cursor: pointer; line-height: 0; }
+.skill-prof:disabled { cursor: default; }
+.skill-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); box-sizing: border-box; }
+.skill-row.prof .skill-dot { background: var(--accent); border-color: var(--accent); }
+.skill-roll {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  background: none; border: 1px solid transparent; color: var(--text);
+  border-radius: 6px; padding: 3px 6px; cursor: pointer; text-align: left; font-size: 13px;
+}
+.skill-roll:enabled:hover { border-color: var(--accent); background: var(--panel-2); }
+.skill-roll:disabled { cursor: default; }
+.skill-name { flex: 1; }
+.skill-abil { font-size: 11px; }
+.skill-bonus { font-weight: 600; min-width: 26px; text-align: right; }
+.skill-die { font-size: 11px; opacity: 0; }
+.skill-roll:enabled:hover .skill-die { opacity: 0.8; }
 
 /* Dice roller + shared roll log */
 .dice-quick { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
@@ -522,6 +551,7 @@ input[type='number'] { width: 70px; }
 /* Roll type — the total is tinted so attacks and saves stand apart from plain rolls. */
 .roll-entry.cat-attack .roll-total { color: var(--red); }
 .roll-entry.cat-save .roll-total { color: var(--purple); }
+.roll-entry.cat-skill .roll-total { color: var(--cyan); }
 
 /* Roll20 */
 .roll20-frame { width: 100%; height: 320px; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; background: #fff; }

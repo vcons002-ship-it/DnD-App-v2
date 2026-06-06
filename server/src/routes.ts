@@ -16,6 +16,8 @@ import { searchSrd, getSrd } from './creatures/srd.js';
 import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
 import { searchSpells, getSpell } from './spells/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
+import { searchMasteries, getMastery } from './masteries/srd.js';
+import { searchWeapons } from './weapons/srd.js';
 import { publicSettings, updateSettings } from './settings.js';
 import {
   deleteLibraryCreature,
@@ -109,19 +111,30 @@ export function createApiRouter(io: IOServer): Router {
     return res.status(404).json({ error: 'Not found in SRD; AI unavailable.' });
   });
 
-  // Spell/ability search for the character-sheet "add" menu: local SRD list
+  // Canonical 2024 weapons for the weapon editor's "from book" picker.
+  router.get('/weapons', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json({ results: searchWeapons(q) });
+  });
+
+  // Spell/ability/mastery search for the character-sheet "add" menu: local lists
   // first (no network), with AI available as a fallback for anything missing.
   router.get('/spells', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
-    res.json({ results: searchSpells(q), aiAvailable: geminiEnabled() });
+    res.json({
+      results: [...searchSpells(q), ...searchMasteries(q)],
+      aiAvailable: geminiEnabled(),
+    });
   });
 
-  // Full spell/ability lookup: local list first, then Gemini.
+  // Full lookup: local spells, then local masteries, then Gemini (spells only).
   router.post('/spells/lookup', async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
-    const local = getSpell(name);
-    if (local) return res.json({ ...local, source: 'srd' });
+    const spell = getSpell(name);
+    if (spell) return res.json({ ...spell, source: 'srd' });
+    const mastery = getMastery(name);
+    if (mastery) return res.json({ ...mastery, source: 'srd' });
     const ai = await lookupSpellAI(name);
     if (ai) return res.json(ai);
     return res.status(404).json({ error: 'Not found locally; AI unavailable.' });

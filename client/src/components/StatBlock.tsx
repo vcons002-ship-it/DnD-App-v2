@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import type { CreatureAbility, Weapon } from '../../../shared/types';
+import { useEffect, useState } from 'react';
+import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
+import { abilityMod, signed } from '../../../shared/skills';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -40,7 +41,30 @@ type Props = {
   onSave?: (patch: Record<string, unknown>) => void;
   onAiFill?: () => void;
   aiBusy?: boolean;
+  /** The character's sheet abilities — used to show which masteries apply to
+   *  each weapon (cross-checking weapon tags against masteries' appliesToTags). */
+  masteries?: SheetAbility[];
 };
+
+/**
+ * The mechanic labels to show on a weapon for the character's masteries that
+ * trigger on it (tag overlap). A mastery shows its `weaponLabel` (the mechanic,
+ * e.g. "Slow"; defaults to the entry name), plus a `meleeLabel` (e.g. GWM's
+ * "Hew") only when the weapon is melee.
+ */
+function masteryNamesForWeapon(w: Weapon, masteries: SheetAbility[]): string[] {
+  const wtags = (w.tags ?? []).map((t) => t.trim().toLowerCase());
+  if (!wtags.length) return [];
+  const labels: string[] = [];
+  for (const a of masteries) {
+    const m = a.mastery;
+    if (a.type !== 'mastery' || !m) continue;
+    if (!(m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()))) continue;
+    labels.push(m.weaponLabel || a.name);
+    if (m.meleeLabel && w.kind === 'melee') labels.push(m.meleeLabel);
+  }
+  return labels;
+}
 
 type Draft = Omit<StatSheet, 'id' | 'resistances' | 'weaknesses'> & {
   resistances: string;
@@ -59,6 +83,7 @@ export function StatBlock({
   onSave,
   onAiFill,
   aiBusy,
+  masteries,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -114,6 +139,7 @@ export function StatBlock({
         onEdit={onSave ? startEdit : undefined}
         onAiFill={onAiFill}
         aiBusy={aiBusy}
+        masteries={masteries}
       />
     );
   }
@@ -238,6 +264,7 @@ function ReadView({
   onEdit,
   onAiFill,
   aiBusy,
+  masteries,
 }: {
   creature: StatSheet;
   subtitle?: string;
@@ -245,9 +272,23 @@ function ReadView({
   onEdit?: () => void;
   onAiFill?: () => void;
   aiBusy?: boolean;
+  masteries?: SheetAbility[];
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
+  // PCs (masteries passed) store dice-only damage; show it with the live ability
+  // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
+  const isPc = masteries !== undefined;
+  const dmgWithMod = (dice: string | undefined, w: Weapon): string => {
+    if (!dice) return '';
+    if (!isPc) return dice;
+    const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
+    const useDex =
+      w.kind === 'ranged' ||
+      (finesse && abilityMod(m.stats.DEX) >= abilityMod(m.stats.STR));
+    const mod = abilityMod(m.stats[useDex ? 'DEX' : 'STR'] ?? 10);
+    return mod ? `${dice}${signed(mod)}` : dice;
+  };
   return (
     <div className="statblock">
       <div className="sb-head">
@@ -296,17 +337,32 @@ function ReadView({
       {m.weapons.length > 0 && (
         <div className="sb-section">
           <h4>Weapons</h4>
-          {m.weapons.map((w, i) => (
-            <p key={i} className="sb-entry">
-              <strong>
-                {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
-              </strong>{' '}
-              {w.attackBonus !== undefined &&
-                `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
-              {w.damage}
-              {w.range ? ` (${w.range})` : ''}
-            </p>
-          ))}
+          {m.weapons.map((w, i) => {
+            const mNames = masteryNamesForWeapon(w, masteries ?? []);
+            return (
+              <p key={i} className="sb-entry">
+                <strong>
+                  {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
+                </strong>{' '}
+                {w.attackBonus !== undefined &&
+                  `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
+                {dmgWithMod(w.damage, w)}
+                {w.versatileDamage ? ` (2H ${dmgWithMod(w.versatileDamage, w)})` : ''}
+                {w.damageType ? ` ${w.damageType}` : ''}
+                {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
+                {w.range ? ` (${w.range})` : ''}
+                {w.tags && w.tags.length > 0 && (
+                  <span className="muted"> · {w.tags.map((t) => `[${t}]`).join(' ')}</span>
+                )}
+                {mNames.length > 0 && (
+                  <span className="weapon-masteries">
+                    {' '}
+                    · <strong>{mNames.join(', ')}</strong>
+                  </span>
+                )}
+              </p>
+            );
+          })}
         </div>
       )}
 
@@ -345,6 +401,17 @@ function ReadView({
   );
 }
 
+/** A 2024-book weapon as returned by GET /api/weapons. */
+type WeaponData = {
+  name: string;
+  kind: Weapon['kind'];
+  damage: string;
+  damageType: string;
+  versatileDamage?: string;
+  range?: string;
+  properties: string[];
+};
+
 function WeaponEditor({
   weapons,
   onChange,
@@ -354,6 +421,41 @@ function WeaponEditor({
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+
+  const [picking, setPicking] = useState(false);
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<WeaponData[]>([]);
+  useEffect(() => {
+    if (!picking) return;
+    let live = true;
+    fetch(`/api/weapons?q=${encodeURIComponent(q)}`)
+      .then((r) => r.json())
+      .then((d) => live && setHits(d.results ?? []))
+      .catch(() => live && setHits([]));
+    return () => {
+      live = false;
+    };
+  }, [q, picking]);
+
+  // Add a book weapon: store DICE ONLY (the ability modifier is added at roll
+  // time from the wielder's live stat) and set tags = type + properties.
+  const addFromBook = (w: WeaponData) => {
+    onChange([
+      ...weapons,
+      {
+        name: w.name,
+        kind: w.kind,
+        damage: w.damage,
+        versatileDamage: w.versatileDamage,
+        damageType: w.damageType,
+        range: w.range,
+        tags: [w.name.toLowerCase(), ...w.properties],
+      },
+    ]);
+    setPicking(false);
+    setQ('');
+  };
+
   return (
     <div className="sb-section">
       <h4>Weapons</h4>
@@ -374,18 +476,54 @@ function WeaponEditor({
           <input
             className="sb-dmg"
             placeholder="1d8+3"
+            title="One-handed damage (dice + ability modifier)"
             value={w.damage ?? ''}
             onChange={(e) => setAt(i, { damage: e.target.value })}
           />
           <input
+            className="sb-dmg"
+            placeholder="2H dmg"
+            title="Two-handed damage for a versatile weapon, e.g. 1d10+3"
+            value={w.versatileDamage ?? ''}
+            onChange={(e) => setAt(i, { versatileDamage: e.target.value })}
+          />
+          <input
             className="sb-tohit"
             type="number"
-            placeholder="+"
+            placeholder="hit"
+            title="To-hit bonus"
             value={w.attackBonus ?? ''}
             onChange={(e) =>
               setAt(i, {
                 attackBonus:
                   e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+          />
+          <input
+            className="sb-tohit"
+            type="number"
+            placeholder="magic"
+            title="Magic damage bonus (e.g. 1 for a +1 weapon)"
+            value={w.magicBonus ?? ''}
+            onChange={(e) =>
+              setAt(i, {
+                magicBonus:
+                  e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+          />
+          <input
+            className="sb-tags"
+            placeholder="tags: heavy, finesse, versatile, light"
+            title="Comma-separated tags. finesse → DEX; versatile → 2H toggle; light → off-hand (future feats); weapon masteries trigger on matching tags."
+            value={(w.tags ?? []).join(', ')}
+            onChange={(e) =>
+              setAt(i, {
+                tags: e.target.value
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter(Boolean),
               })
             }
           />
@@ -397,12 +535,45 @@ function WeaponEditor({
           </button>
         </div>
       ))}
-      <button
-        className="btn tiny"
-        onClick={() => onChange([...weapons, { name: '', kind: 'melee' }])}
-      >
-        + Weapon
-      </button>
+      <div className="dice-row">
+        <button
+          className="btn tiny"
+          onClick={() => onChange([...weapons, { name: '', kind: 'melee' }])}
+        >
+          + Weapon
+        </button>
+        <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
+          {picking ? 'Close' : '+ From book'}
+        </button>
+      </div>
+      {picking && (
+        <div className="weapon-picker">
+          <input
+            autoFocus
+            placeholder="Search 2024 weapons e.g. Longsword, finesse…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="item-picker">
+            {hits.map((w) => (
+              <button
+                key={w.name}
+                className="suggest-row"
+                onClick={() => addFromBook(w)}
+                title={`${w.damage}${w.versatileDamage ? `/${w.versatileDamage}` : ''} ${w.damageType}`}
+              >
+                {w.name}
+                <span className="muted">
+                  {w.damage}
+                  {w.versatileDamage ? `/${w.versatileDamage}` : ''}
+                  {w.properties.length ? ` · ${w.properties.join(', ')}` : ''}
+                </span>
+              </button>
+            ))}
+            {hits.length === 0 && q.trim() && <p className="muted spell-none">No match.</p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

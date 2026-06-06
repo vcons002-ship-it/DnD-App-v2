@@ -38,6 +38,7 @@ export function CharacterSheet({
         }
         levelLabel="Level"
         aiBusy={aiBusy}
+        masteries={character.sheetAbilities}
         onAiFill={editable ? () => aiFillCharacter(character.id) : undefined}
         onSave={
           editable

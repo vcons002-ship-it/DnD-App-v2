@@ -19,6 +19,7 @@ import type {
   Role,
   ServerToClientEvents,
   SheetAbility,
+  SkillRollPayload,
   StateSnapshot,
   TokenKind,
 } from '../../../shared/types';
@@ -87,6 +88,7 @@ type Store = {
   setSheetAbility: (characterId: string, ability: SheetAbility) => void;
   removeSheetAbility: (characterId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
+  rollSkill: (payload: SkillRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -218,6 +220,7 @@ export const useStore = create<Store>((set, get) => ({
   removeSheetAbility: (characterId, abilityId) =>
     get().socket?.emit('ability:remove', { characterId, abilityId }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
+  rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>
