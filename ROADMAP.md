@@ -341,12 +341,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   otherwise synthesizes a left-click for the right button), so the attacker stays
   selected without needing Ctrl.
 - ☑ **Latest-roll overlay [req].** The shared roll log stays in the left panel; a
-  **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag) shows a compact,
-  **click-through** (`pointer-events:none`) `RollLogOverlay` pinned to the
-  **bottom-left** of the map — a single line with just the latest roll, so it stays
-  out of the way while keeping the map fully clickable underneath. It fades in on a
-  new roll or on hover (detected by cursor-vs-rect since pointer-events are off) and
-  fades out when idle. DM **Clear** stays in the left UI. The overlay shows only the
+  **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag, **on by default**)
+  shows a compact, **click-through** (`pointer-events:none`) `RollLogOverlay` pinned to
+  the **bottom-left** of the map. It's a live feed: every roll under a minute old is
+  **stacked** as a single line (newest nearest the corner, capped at 6), each fading in
+  on arrival; as lines age past ~60s they **fade out** and the stack shrinks back to
+  just the **most-recent roll, which always stays visible**. The map stays fully
+  clickable underneath. DM **Clear** stays in the left UI. The overlay shows only the
   one-line `detail` (never a roll's long `description`).
 - ☑ **Player roll log on the right [req].** In the PLAYER view the shared roll log
   (`DicePanel`) lives in the RIGHT panel **beneath** the combat console, so clicking

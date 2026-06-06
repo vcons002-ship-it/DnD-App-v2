@@ -140,7 +140,7 @@ export const useStore = create<Store>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   aiBusy: false,
   setAiBusy: (aiBusy) => set({ aiBusy }),
-  showRollOverlay: false,
+  showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
 
   connect: (code, role, dmPassphrase) => {
