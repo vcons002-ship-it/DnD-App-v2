@@ -42,17 +42,24 @@ that checkout). PRs target `claude/Main` as their base, and their test launchers
 are committed to `claude/Main`, so `install.bat` pulls them into the user's local
 folder for testing.
 
-**PR convention (only when a PR is requested):** when opening a PR, also add a
-launcher named `PR #<N> - <Title>.bat` to **`claude/Main`** (a thin wrapper over
-`tools/pr-test-runner.bat` that sets `PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`; in the
-filename strip `\ / : * ? " < > |` (keep `#`/spaces), and in `PR_TITLE` avoid cmd
-metacharacters — replace `&` with "and", drop `% ^ < > | ( )`). The runner checks the PR
-branch out into an isolated sibling folder (`%USERPROFILE%\DnD-App-v2-pr-<N>`) on
-port `4100+N` with its own data, so users can test without touching their main
-install (`start.bat` keeps running `claude/Main`). Cleanup is automatic:
-`.github/workflows/pr-test-cleanup.yml` removes the launcher from `claude/Main`
-on PR close, `install.bat` then deletes the stale local folder, and the runner
-self-cleans if a merged launcher is double-clicked — no manual teardown.
+**PR convention (only when a PR is requested):** each PR gets a `PR #<N> - <Title>.bat`
+launcher on **`claude/Main`** — a thin wrapper over `tools/pr-test-runner.bat` that sets
+`PR_NUMBER`/`PR_BRANCH`/`PR_TITLE`. **Both ends are automated by workflows** (base
+`claude/Main`), so opening a PR normally needs no manual launcher work:
+- **Create** — `.github/workflows/pr-test-launcher.yml` (on PR **opened/reopened**) generates
+  the launcher and commits it to `claude/Main` (skips if one already exists). It sanitizes the
+  title: in the **filename** `\`/`/`→`-`, `:`→space, drop `* ? " < > |` (keep `#`/spaces); in
+  **`PR_TITLE`** replace `&`→"and" and drop cmd-unsafe chars `% ^ < > | ( ) " !`. PR fields are
+  passed via env (never inlined) to avoid title-driven shell injection.
+- **Clean up** — `.github/workflows/pr-test-cleanup.yml` (on PR **closed**) removes the launcher
+  from `claude/Main`; `install.bat` then deletes the stale local folder, and the runner
+  self-cleans if a merged launcher is double-clicked — no manual teardown.
+
+The runner checks the PR branch out into an isolated sibling folder
+(`%USERPROFILE%\DnD-App-v2-pr-<N>`) on port `4100+N` with its own data, so users can test
+without touching their main install (`start.bat` keeps running `claude/Main`). To hand-make a
+launcher (rare — e.g. for a PR opened before the workflow existed), follow the same naming +
+sanitization rules above and commit it to `claude/Main`.
 
 ## Stack
 
