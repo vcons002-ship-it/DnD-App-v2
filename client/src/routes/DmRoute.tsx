@@ -22,18 +22,75 @@ export function DmRoute() {
   const [passphrase, setPassphrase] = useState('');
   const [creating, setCreating] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [editing, setEditing] = useState<string | null>(null); // code being edited
+  const [editName, setEditName] = useState('');
+  const [editCode, setEditCode] = useState('');
+  const [rowErr, setRowErr] = useState<string | null>(null);
 
   useEffect(() => {
     const c = params.get('code');
     if (c) setCode(c);
   }, [params]);
 
-  useEffect(() => {
+  const refreshSessions = () =>
     fetch('/api/sessions')
       .then((r) => r.json())
       .then(setSessions)
       .catch(() => setSessions([]));
-  }, []);
+
+  // Refresh the saved-session list whenever we're on this screen — including
+  // after "Load session" disconnects us from a session (status → 'idle') — so a
+  // session you just played or created shows up immediately and can be renamed
+  // or deleted. (Sessions persist server-side on every change, so there's
+  // nothing to "save" first; the old list was simply stale until a full reload.)
+  useEffect(() => {
+    if (status !== 'connected') refreshSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  const startEdit = (s: SessionSummary) => {
+    setEditing(s.code);
+    setEditName(s.name);
+    setEditCode(s.code);
+    setRowErr(null);
+  };
+
+  const saveEdit = async (origCode: string) => {
+    setRowErr(null);
+    const res = await fetch(`/api/sessions/${origCode}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editName, code: editCode, dmPassphrase: passphrase }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setRowErr(data.error ?? 'Could not save the changes.');
+      return;
+    }
+    setEditing(null);
+    await refreshSessions();
+  };
+
+  const removeSession = async (s: SessionSummary) => {
+    if (
+      !window.confirm(
+        `Delete session "${s.name}" (${s.code}) and ALL its maps, tokens and data?\nThis cannot be undone.`,
+      )
+    )
+      return;
+    setRowErr(null);
+    const res = await fetch(`/api/sessions/${s.code}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dmPassphrase: passphrase }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setRowErr(data.error ?? 'Could not delete the session.');
+      return;
+    }
+    await refreshSessions();
+  };
 
   const createSession = async () => {
     setCreating(true);
@@ -101,20 +158,61 @@ export function DmRoute() {
       {sessions.length > 0 && (
         <div className="session-dir">
           <div className="entry-divider">saved sessions</div>
-          {sessions.map((s) => (
-            <button
-              key={s.code}
-              className="session-row"
-              onClick={() => connect(s.code, 'dm', passphrase)}
-              title={`Created ${fmtDate(s.createdAt)}`}
-            >
-              <span className="session-code">{s.code}</span>
-              <span className="session-meta">
-                {s.mapCount} map{s.mapCount === 1 ? '' : 's'} · played{' '}
-                {fmtDate(s.lastPlayedAt)}
-              </span>
-            </button>
-          ))}
+          {rowErr && <p className="err">{rowErr}</p>}
+          {sessions.map((s) =>
+            editing === s.code ? (
+              <div key={s.code} className="session-edit">
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Session name"
+                />
+                <input
+                  value={editCode}
+                  onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+                  placeholder="Join code"
+                  title="Changing the code keeps all maps & data; links to the old code stop working."
+                />
+                <div className="session-edit-actions">
+                  <button className="btn tiny green" onClick={() => saveEdit(s.code)}>
+                    Save
+                  </button>
+                  <button className="btn tiny" onClick={() => setEditing(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div key={s.code} className="session-row-wrap">
+                <button
+                  className="session-row"
+                  onClick={() => connect(s.code, 'dm', passphrase)}
+                  title={`Created ${fmtDate(s.createdAt)} · click to open`}
+                >
+                  <span className="session-code">{s.code}</span>
+                  <span className="session-name">{s.name}</span>
+                  <span className="session-meta">
+                    {s.mapCount} map{s.mapCount === 1 ? '' : 's'} · played{' '}
+                    {fmtDate(s.lastPlayedAt)}
+                  </span>
+                </button>
+                <button
+                  className="btn tiny session-action"
+                  title="Edit name / join code"
+                  onClick={() => startEdit(s)}
+                >
+                  ✎
+                </button>
+                <button
+                  className="btn tiny danger session-action"
+                  title="Delete session"
+                  onClick={() => removeSession(s)}
+                >
+                  🗑
+                </button>
+              </div>
+            ),
+          )}
         </div>
       )}
     </div>

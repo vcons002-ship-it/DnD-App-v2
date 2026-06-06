@@ -49,6 +49,9 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
         {prepping && <em> · prepping: {prepping}</em>}
       </span>
 
+      {/* The map's Measure/Scale/Fog menus are portaled in here by MapStage. */}
+      <div id="map-tool-slot" className="map-tool-slot" />
+
       <div className="topbar-actions">
         <button className="btn tiny" onClick={leave} title="Load or import another session">
           {isDm ? 'Load session' : 'Leave'}

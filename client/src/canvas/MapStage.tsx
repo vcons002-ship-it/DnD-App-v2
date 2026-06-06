@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -6,6 +7,7 @@ import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
+import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
@@ -242,6 +244,9 @@ export function MapStage({
   const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
+  const saveResolve = useStore((s) => s.saveResolve);
+  const resolveSaveAt = useStore((s) => s.resolveSaveAt);
+  const clearSaveResolve = useStore((s) => s.clearSaveResolve);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
@@ -287,6 +292,25 @@ export function MapStage({
   const [scaleFt, setScaleFt] = useState('');
   const scaleDrawRef = useRef(false);
   const measureActive = !!tool || removeMode || scaleMode;
+  // While a token is dragging (or measuring) the grid brightens for alignment.
+  const [draggingToken, setDraggingToken] = useState(false);
+  const gridHot = draggingToken || measureActive;
+
+  // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
+  // toolbar above the map; grab that slot once the toolbar has mounted.
+  const [toolSlot, setToolSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setToolSlot(document.getElementById('map-tool-slot'));
+  }, []);
+
+  // Esc exits the "Apply damage" click-to-target save mode.
+  useEffect(() => {
+    if (!saveResolve) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && clearSaveResolve();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [saveResolve, clearSaveResolve]);
+
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
@@ -319,7 +343,14 @@ export function MapStage({
     const derivedFps = Math.max(1, Math.round((ftWide / imgW) * px));
     setMapGrid(map.id, px, derivedFps, ftWide);
   };
-  const commitGrid = () => commitScale(gridPx, widthFt);
+  // The DM sets the grid in FEET per square; the pixel cell is derived from the
+  // map scale (width in feet ÷ image width), so a square always means real feet.
+  const commitScaleFeet = (ftPerSquare: number, ftWide: number) => {
+    if (!map || !imgW || ftWide <= 0 || ftPerSquare <= 0) return;
+    const px = Math.max(1, Math.round((ftPerSquare * imgW) / ftWide));
+    setGridPx(px);
+    setMapGrid(map.id, px, Math.max(1, Math.round(ftPerSquare)), ftWide);
+  };
   const derivedFtPerSquare = imgW ? (widthFt / imgW) * gridPx : feetPerSquare;
 
   // Confirm the reference-line prompt: its real length sets the map width.
@@ -676,69 +707,76 @@ export function MapStage({
               Fit
             </button>
             <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
-
-            {/* Measuring tools — available to everyone; shapes are shared. */}
-            <span className="ctrl-sep" />
-            <MeasureMenu
-              tool={tool}
-              snap={snap}
-              removeMode={removeMode}
-              hasMeasurements={snapshot.measurements.length > 0}
-              isDm={isDm}
-              onPick={(shape, sz) => {
-                setRemoveMode(false);
-                pendingRef.current = false;
-                setDraft(null);
-                setTool((cur) =>
-                  cur && cur.shape === shape && cur.size === sz ? null : { shape, size: sz },
-                );
-              }}
-              onToggleSnap={() => setSnap((s) => !s)}
-              onToggleRemove={() => {
-                setTool(null);
-                pendingRef.current = false;
-                setDraft(null);
-                setRemoveMode((r) => !r);
-              }}
-              onClearMine={() => map && clearMeasurements(map.id, true)}
-              onClearAll={() => map && clearMeasurements(map.id, false)}
-            />
-
-            {isDm && (
-              <>
-                <span className="ctrl-sep" />
-                <ScaleMenu
-                  gridPx={gridPx}
-                  widthFt={widthFt}
-                  derivedFtPerSquare={derivedFtPerSquare}
-                  scaleMode={scaleMode}
-                  onGridPx={setGridPx}
-                  onWidthFt={setWidthFt}
-                  onCommit={commitGrid}
-                  onToggleScaleMode={() => {
-                    setTool(null);
-                    setRemoveMode(false);
-                    setScaleLine(null);
-                    setScalePrompt(null);
-                    setScaleMode((s) => !s);
-                  }}
-                />
-                <FogMenu
-                  mapFogEnabled={mapFogEnabled}
-                  tokenFogEnabled={tokenFogEnabled}
-                  paintLayer={paintLayer}
-                  fogBrush={fogBrush}
-                  brushSize={brushSize}
-                  onToggleLayer={toggleLayer}
-                  onSetPaintLayer={setPaintLayer}
-                  onSetBrush={(b) => setFogBrush(b)}
-                  onSetBrushSize={setBrushSize}
-                  onCoverAll={() => map && coverFog(map.id, paintLayer)}
-                  onRevealAll={() => revealAll(paintLayer)}
-                />
-              </>
-            )}
           </div>
+          {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
+              via a portal, but keep all their state/handlers here in MapStage. */}
+          {toolSlot &&
+            createPortal(
+              <div className="map-tool-menus">
+                {/* Measuring tools — available to everyone; shapes are shared. */}
+                <MeasureMenu
+                  tool={tool}
+                  snap={snap}
+                  removeMode={removeMode}
+                  hasMeasurements={snapshot.measurements.length > 0}
+                  isDm={isDm}
+                  onPick={(shape, sz) => {
+                    setRemoveMode(false);
+                    pendingRef.current = false;
+                    setDraft(null);
+                    setTool((cur) =>
+                      cur && cur.shape === shape && cur.size === sz
+                        ? null
+                        : { shape, size: sz },
+                    );
+                  }}
+                  onToggleSnap={() => setSnap((s) => !s)}
+                  onToggleRemove={() => {
+                    setTool(null);
+                    pendingRef.current = false;
+                    setDraft(null);
+                    setRemoveMode((r) => !r);
+                  }}
+                  onClearMine={() => map && clearMeasurements(map.id, true)}
+                  onClearAll={() => map && clearMeasurements(map.id, false)}
+                />
+                {isDm && (
+                  <>
+                    <ScaleMenu
+                      feetPerSquare={derivedFtPerSquare}
+                      widthFt={widthFt}
+                      gridPx={gridPx}
+                      scaleMode={scaleMode}
+                      onCommit={(ft, width) => {
+                        setWidthFt(width);
+                        commitScaleFeet(ft, width);
+                      }}
+                      onToggleScaleMode={() => {
+                        setTool(null);
+                        setRemoveMode(false);
+                        setScaleLine(null);
+                        setScalePrompt(null);
+                        setScaleMode((s) => !s);
+                      }}
+                    />
+                    <FogMenu
+                      mapFogEnabled={mapFogEnabled}
+                      tokenFogEnabled={tokenFogEnabled}
+                      paintLayer={paintLayer}
+                      fogBrush={fogBrush}
+                      brushSize={brushSize}
+                      onToggleLayer={toggleLayer}
+                      onSetPaintLayer={setPaintLayer}
+                      onSetBrush={(b) => setFogBrush(b)}
+                      onSetBrushSize={setBrushSize}
+                      onCoverAll={() => map && coverFog(map.id, paintLayer)}
+                      onRevealAll={() => revealAll(paintLayer)}
+                    />
+                  </>
+                )}
+              </div>,
+              toolSlot,
+            )}
           <Stage
             width={size.w}
             height={size.h}
@@ -769,7 +807,13 @@ export function MapStage({
                 <Rect width={imgW} height={imgH} fill="#2a2f3a" />
               )}
               {gridLines.map((pts, i) => (
-                <Line key={i} points={pts} stroke="#ffffff22" strokeWidth={1} />
+                <Line
+                  key={i}
+                  points={pts}
+                  stroke={gridHot ? '#ffffffcc' : '#ffffff5c'}
+                  strokeWidth={gridHot ? 1.5 : 1}
+                  listening={false}
+                />
               ))}
               {/* Map fog: covered terrain. For players the cover is opaque and
                   EXACTLY the off-map backdrop colour (CANVAS_BG), so a covered
@@ -819,18 +863,21 @@ export function MapStage({
                   }}
                 />
               )}
+              <FootprintLayer tokens={snapshot.tokens} gridSizePx={grid} />
               {snapshot.tokens.map((t) => (
                 <TokenShape
                   key={t.id}
                   token={t}
                   display={resolveToken(snapshot, t)}
                   gridSizePx={grid}
-                  draggable={draggableTokens && !fogActive && !measureActive}
+                  draggable={draggableTokens && !fogActive && !measureActive && !saveResolve}
                   listening={!measureActive}
                   selected={selectedIds.includes(t.id)}
                   activeTurn={t.id === activeTurnTokenId}
                   initiativeRank={initiativeRank.get(t.id) ?? null}
-                  onSelect={onSelectToken}
+                  onSelect={
+                    saveResolve ? (tok) => resolveSaveAt(tok.id) : onSelectToken
+                  }
                   onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
                   onContextMenu={(tok, cx, cy) => {
                     setHover(null);
@@ -840,6 +887,7 @@ export function MapStage({
                     setHover({ token: tok, x: cx, y: cy })
                   }
                   onHoverEnd={() => setHover(null)}
+                  onDragActive={setDraggingToken}
                 />
               ))}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
@@ -922,6 +970,18 @@ export function MapStage({
           )}
           {showRollOverlay && <RollLogOverlay rollLog={snapshot.rollLog} />}
           {showDiceButton && <DiceButtonOverlay />}
+          {saveResolve && (
+            <div className="save-resolve-banner">
+              <span>
+                {saveResolve.save
+                  ? `Apply ${saveResolve.label} — click targets to roll DC ${saveResolve.dc} ${saveResolve.save} saves`
+                  : `Apply ${saveResolve.label} — click targets to apply damage`}
+              </span>
+              <button className="btn tiny" onClick={clearSaveResolve}>
+                Done (Esc)
+              </button>
+            </div>
+          )}
           {scaleMode && !scalePrompt && (
             <div className="scale-hint">Drag a line across a known distance…</div>
           )}

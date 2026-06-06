@@ -4,6 +4,8 @@ import {
   resolveSaves,
   resolveSkillRoll,
   resolveAbilityRoll,
+  resolveMonsterAction,
+  resolveForcedSave,
 } from './combat.js';
 import {
   createSession,
@@ -20,6 +22,7 @@ import {
   getToken,
   setCondition,
   listRollLog,
+  getRollEntry,
 } from './sessions.js';
 import type { SheetAbility } from '../../shared/types.js';
 
@@ -551,5 +554,102 @@ describe('condition-aware combat', () => {
 
     resolveSaves(s.id, 'DM', [tok.id], 'STR', 10);
     expect(listRollLog(s.id).at(-1)!.detail).not.toContain('prof');
+  });
+});
+
+describe('resolveMonsterAction (structured monster actions)', () => {
+  const drake = (level: number, stats: Record<string, number>) => {
+    const { s } = arena();
+    const tmpl = createMonsterTemplate(s.id, { name: 'Drake', maxHp: 40, level, stats });
+    return { s, m: getMonster(tmpl.id)! };
+  };
+
+  it('logs a save action with a DC derived from CR + casting mod', () => {
+    const { s, m } = drake(5, { CHA: 16 }); // CR 5 → prof +3; CHA 16 → +3 ⇒ DC 14
+    const ok = resolveMonsterAction(s.id, 'DM', m, {
+      name: 'Fire Breath',
+      description: '30-ft cone',
+      roll: { kind: 'save', dice: '4d6', save: 'DEX', damageType: 'fire' },
+    });
+    expect(ok).toBe(true);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('DC 14 DEX save for half');
+    expect(last.total).toBeGreaterThanOrEqual(4);
+    expect(last.total).toBeLessThanOrEqual(24);
+  });
+
+  it('honors an explicit DC from the stat block', () => {
+    const { s, m } = drake(10, { INT: 20 });
+    resolveMonsterAction(s.id, 'DM', m, {
+      name: 'Necrotic Blast',
+      description: '',
+      roll: { kind: 'save', dice: '6d6', dc: 18, save: 'CON' },
+    });
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('DC 18 CON save for half');
+  });
+
+  it('adds CR proficiency + casting mod to an attack, and skips free-text actions', () => {
+    const { s, m } = drake(1, { CHA: 14 });
+    // No structured roll → not rollable.
+    expect(
+      resolveMonsterAction(s.id, 'DM', m, { name: 'Multiattack', description: 'two attacks' }),
+    ).toBe(false);
+    // Attack roll logs a "to hit" line.
+    expect(
+      resolveMonsterAction(s.id, 'DM', m, {
+        name: 'Sting',
+        description: '',
+        roll: { kind: 'attack', dice: '1d4', damageType: 'poison' },
+      }),
+    ).toBe(true);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('to hit');
+  });
+});
+
+describe('Apply damage → click-to-target saves', () => {
+  const caster = (s: { id: string }) => {
+    const t = createMonsterTemplate(s.id, { name: 'Mage', maxHp: 30, level: 5, stats: { INT: 16 } });
+    return getMonster(t.id)!;
+  };
+  const target = (s: { id: string }, map: { id: string }, opts: Parameters<typeof createMonsterTemplate>[1]) => {
+    const tmpl = createMonsterTemplate(s.id, opts);
+    const inst = instantiateMonster(tmpl.id)!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+    return { inst, tok };
+  };
+
+  it('attaches an apply payload to a save action and applies FULL on a fail', () => {
+    const { s, map } = arena();
+    resolveMonsterAction(s.id, 'DM', caster(s), {
+      name: 'Blast', description: '',
+      roll: { kind: 'save', dice: '10d1', dc: 99, save: 'DEX', damageType: 'fire' },
+    });
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply).toEqual({ amount: 10, dc: 99, save: 'DEX', damageType: 'fire' });
+
+    const { inst, tok } = target(s, map, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
+    resolveForcedSave(s.id, entry.id, tok.id); // DC 99 → always FAIL → full 10
+    expect(getMonster(inst.id)!.curHp).toBe(10);
+    // The source roll keeps its payload so more targets can be clicked.
+    expect(getRollEntry(entry.id)!.apply).toBeTruthy();
+  });
+
+  it('applies HALF on a pass, doubled by vulnerability', () => {
+    const { s, map } = arena();
+    resolveMonsterAction(s.id, 'DM', caster(s), {
+      name: 'Blast', description: '',
+      roll: { kind: 'save', dice: '10d1', dc: 1, save: 'DEX', damageType: 'fire' },
+    });
+    const entry = listRollLog(s.id).at(-1)!;
+    const { inst, tok } = target(s, map, { name: 'Straw', maxHp: 40, stats: { DEX: 10 }, weaknesses: ['fire'] });
+    resolveForcedSave(s.id, entry.id, tok.id); // DC 1 → PASS → half 5, ×2 vuln = 10
+    expect(getMonster(inst.id)!.curHp).toBe(30);
+  });
+
+  it('no-ops for a roll with no apply payload', () => {
+    const { s, map } = arena();
+    const { inst, tok } = target(s, map, { name: 'Bob', maxHp: 10 });
+    resolveForcedSave(s.id, 'nonexistent', tok.id);
+    expect(getMonster(inst.id)!.curHp).toBe(10);
   });
 });

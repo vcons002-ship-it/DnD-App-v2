@@ -25,6 +25,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
+  const rollMonsterAction = useStore((s) => s.rollMonsterAction);
   const aiBusy = useStore((s) => s.aiBusy);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
@@ -184,6 +185,12 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           onSave={
             isDm
               ? (patch) => updateMonster({ monsterId: monster.id, ...patch })
+              : undefined
+          }
+          onRollAction={
+            isDm
+              ? (actionIndex, advantage) =>
+                  rollMonsterAction(monster.id, actionIndex, advantage)
               : undefined
           }
         />

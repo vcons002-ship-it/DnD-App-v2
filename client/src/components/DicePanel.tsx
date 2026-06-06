@@ -13,6 +13,9 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
   const toggleDiceButton = useStore((s) => s.toggleDiceButton);
+  const saveResolve = useStore((s) => s.saveResolve);
+  const armSaveResolve = useStore((s) => s.armSaveResolve);
+  const isDm = snapshot.role === 'dm';
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
@@ -108,6 +111,26 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                 <span className="muted">{r.detail}</span>
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
+                )}
+                {isDm && r.apply && (
+                  <button
+                    className={`btn tiny apply-dmg ${saveResolve?.rollId === r.id ? 'on' : ''}`}
+                    onClick={() =>
+                      armSaveResolve({
+                        rollId: r.id,
+                        dc: r.apply!.dc,
+                        save: r.apply!.save,
+                        label: r.expr,
+                      })
+                    }
+                    title={
+                      r.apply.save
+                        ? `Click targets on the map to roll DC ${r.apply.dc} ${r.apply.save} saves and auto-apply full/half`
+                        : `Click targets on the map to apply ${r.apply.amount} damage`
+                    }
+                  >
+                    {saveResolve?.rollId === r.id ? '🎯 Targeting… (Esc)' : '🎯 Apply damage'}
+                  </button>
                 )}
               </span>
             </div>

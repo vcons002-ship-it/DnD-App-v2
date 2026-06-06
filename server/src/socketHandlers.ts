@@ -4,6 +4,8 @@ import { rollDice } from '../../shared/dice.js';
 import {
   resolveAttack,
   resolveAbilityRoll,
+  resolveMonsterAction,
+  resolveForcedSave,
   resolveSkillRoll,
   resolveSaves,
 } from './combat.js';
@@ -74,6 +76,7 @@ import {
   releaseClaims,
   renameMap,
   renameSession,
+  importMaps,
   resizeToken,
   updateMapGrid,
   rollAllInitiative,
@@ -220,6 +223,21 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       renameSession(sid, name);
       afterChange();
+    });
+
+    // Import selected maps + their tokens from another session (DM only).
+    socket.on('session:importMaps', ({ sourceCode, mapIds }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      if (typeof sourceCode !== 'string' || !Array.isArray(mapIds)) return;
+      const ids = mapIds.filter((m): m is string => typeof m === 'string').slice(0, 200);
+      const n = importMaps(sid, sourceCode, ids);
+      socket.emit('notice', {
+        message: n
+          ? `Imported ${n} map${n === 1 ? '' : 's'} from ${sourceCode.toUpperCase()}.`
+          : `No maps imported from "${sourceCode}".`,
+      });
+      if (n) afterChange();
     });
 
     socket.on('map:delete', ({ mapId }) => {
@@ -454,6 +472,27 @@ export function registerSocketHandlers(io: IOServer): void {
         }
       }
       if (ok) afterChange();
+    });
+
+    // Roll a monster's structured action (breath weapon / spell-like) — DM only.
+    socket.on('monster:action', ({ monsterId, actionIndex, advantage }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const monster = getMonster(monsterId);
+      const action = monster?.actions[actionIndex];
+      if (!monster || !action) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      if (resolveMonsterAction(sid, 'DM', monster, action, adv)) afterChange();
+    });
+
+    // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
+    // DC and auto-apply full/half of the rolled amount — DM only.
+    socket.on('save:resolve', ({ rollId, tokenId }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
+      resolveForcedSave(sid, rollId, tokenId);
+      afterChange();
     });
 
     socket.on('skill:roll', ({ characterId, skill, advantage }) => {

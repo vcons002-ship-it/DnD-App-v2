@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
+import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { abilityMod, signed } from '../../../shared/skills';
-import { weaponsFromActions } from '../../../shared/monsterAttacks';
+import { parseActionRoll, weaponsFromActions } from '../../../shared/monsterAttacks';
+
+/** Short button label for a structured action roll. */
+const rollLabel = (r: AbilityRoll): string =>
+  r.kind === 'attack'
+    ? '🎯 Attack'
+    : r.kind === 'heal'
+      ? '✚ Heal'
+      : r.kind === 'save'
+        ? `🎲 Damage (${r.save ?? 'save'})`
+        : '🎲 Damage';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -53,6 +63,9 @@ type Props = {
    *  weapons but as natural attacks — baked damage + to-hit + type/range, and
    *  NOT sourced from the 2024 PC weapon book. */
   monster?: boolean;
+  /** DM-only: roll a monster action that carries a structured `roll`. When given,
+   *  each such action shows a roll button (server-resolved via `monster:action`). */
+  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
 };
 
 /**
@@ -94,6 +107,7 @@ export function StatBlock({
   aiBusy,
   masteries,
   monster = false,
+  onRollAction,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -154,6 +168,7 @@ export function StatBlock({
         onAiFill={onAiFill}
         aiBusy={aiBusy}
         masteries={masteries}
+        onRollAction={onRollAction}
       />
     );
   }
@@ -299,6 +314,7 @@ export function StatBlock({
         title="Actions"
         entries={d.actions}
         onChange={(actions) => set({ actions })}
+        withRoll={monster}
       />
       <EntryEditor
         title="Traits"
@@ -326,6 +342,7 @@ function ReadView({
   onAiFill,
   aiBusy,
   masteries,
+  onRollAction,
 }: {
   creature: StatSheet;
   subtitle?: string;
@@ -334,6 +351,7 @@ function ReadView({
   onAiFill?: () => void;
   aiBusy?: boolean;
   masteries?: SheetAbility[];
+  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
@@ -452,6 +470,9 @@ function ReadView({
           {m.actions.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
+              {a.roll && onRollAction && (
+                <ActionRollButton roll={a.roll} onRoll={(adv) => onRollAction(i, adv)} />
+              )}
             </p>
           ))}
         </div>
@@ -467,6 +488,45 @@ function ReadView({
         </div>
       )}
     </div>
+  );
+}
+
+/** DM roll button for a monster action's structured roll (Adv/Dis for attacks). */
+function ActionRollButton({
+  roll,
+  onRoll,
+}: {
+  roll: AbilityRoll;
+  onRoll: (advantage?: 'adv' | 'dis') => void;
+}) {
+  const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
+  return (
+    <span className="sb-action-roll">
+      {roll.kind === 'attack' && (
+        <>
+          <button
+            className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
+            onClick={() => setAdv((a) => (a === 'adv' ? null : 'adv'))}
+            title="Roll the attack with advantage"
+          >
+            Adv
+          </button>
+          <button
+            className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
+            onClick={() => setAdv((a) => (a === 'dis' ? null : 'dis'))}
+            title="Roll the attack with disadvantage"
+          >
+            Dis
+          </button>
+        </>
+      )}
+      <button
+        className="btn tiny"
+        onClick={() => onRoll(roll.kind === 'attack' ? adv ?? undefined : undefined)}
+      >
+        {rollLabel(roll)}
+      </button>
+    </span>
   );
 }
 
@@ -699,13 +759,18 @@ function EntryEditor({
   title,
   entries,
   onChange,
+  withRoll = false,
 }: {
   title: string;
   entries: CreatureAbility[];
   onChange: (e: CreatureAbility[]) => void;
+  /** Monster actions: also edit an optional structured `roll` + derive from text. */
+  withRoll?: boolean;
 }) {
   const setAt = (i: number, patch: Partial<CreatureAbility>) =>
     onChange(entries.map((e, j) => (j === i ? { ...e, ...patch } : e)));
+  const setRoll = (i: number, patch: Partial<AbilityRoll>) =>
+    setAt(i, { roll: { ...(entries[i].roll ?? { kind: 'save' }), ...patch } });
   return (
     <div className="sb-section">
       <h4>{title}</h4>
@@ -721,6 +786,68 @@ function EntryEditor({
             value={e.description}
             onChange={(ev) => setAt(i, { description: ev.target.value })}
           />
+          {withRoll && (
+            <div className="sb-roll-edit">
+              <select
+                value={e.roll?.kind ?? ''}
+                title="Make this action rollable"
+                onChange={(ev) =>
+                  ev.target.value
+                    ? setRoll(i, { kind: ev.target.value as AbilityRoll['kind'] })
+                    : setAt(i, { roll: undefined })
+                }
+              >
+                <option value="">(no roll)</option>
+                <option value="save">Save</option>
+                <option value="attack">Attack</option>
+                <option value="damage">Damage</option>
+                <option value="heal">Heal</option>
+              </select>
+              {e.roll && (
+                <>
+                  <input
+                    className="sb-roll-dice"
+                    placeholder="8d6"
+                    value={e.roll.dice ?? ''}
+                    onChange={(ev) => setRoll(i, { dice: ev.target.value })}
+                  />
+                  {e.roll.kind === 'save' && (
+                    <>
+                      <select
+                        value={e.roll.save ?? 'DEX'}
+                        onChange={(ev) => setRoll(i, { save: ev.target.value })}
+                      >
+                        {ABILITIES.map((a) => (
+                          <option key={a} value={a}>
+                            {a}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="sb-roll-dc"
+                        type="number"
+                        placeholder="DC"
+                        value={e.roll.dc ?? ''}
+                        onChange={(ev) =>
+                          setRoll(i, {
+                            dc: ev.target.value === '' ? undefined : Number(ev.target.value),
+                          })
+                        }
+                      />
+                    </>
+                  )}
+                  {e.roll.kind !== 'heal' && (
+                    <input
+                      className="sb-roll-type"
+                      placeholder="fire"
+                      value={e.roll.damageType ?? ''}
+                      onChange={(ev) => setRoll(i, { damageType: ev.target.value })}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <button
             className="btn tiny"
             onClick={() => onChange(entries.filter((_, j) => j !== i))}
@@ -729,6 +856,23 @@ function EntryEditor({
           </button>
         </div>
       ))}
+      {withRoll && entries.some((e) => e.description && !e.roll) && (
+        <button
+          className="btn tiny"
+          title="Scrape a save DC + damage dice from each action's description"
+          onClick={() =>
+            onChange(
+              entries.map((e) => {
+                if (e.roll || !e.description) return e;
+                const r = parseActionRoll(e.description);
+                return r ? { ...e, roll: r } : e;
+              }),
+            )
+          }
+        >
+          ↻ Derive rolls from descriptions
+        </button>
+      )}
       <button
         className="btn tiny"
         onClick={() => onChange([...entries, { name: '', description: '' }])}

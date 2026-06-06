@@ -15,6 +15,22 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - ☑ **Session directory [req].** `GET /api/sessions` lists past sessions
   (code, name, map count, dates), surfaced on the DM landing page for one-click
   resume.
+- ☑ **Edit / delete saved sessions [req].** Each saved-session row on the DM
+  landing page shows its **name** and has **✎ edit** (rename + change the join
+  **code**) and **🗑 delete** actions. Because all data is keyed by `sessions.id`
+  (not `code`), changing the code is a one-line `UPDATE` that **preserves every map,
+  token and log** — only links to the old code stop working. Delete cascades via
+  `ON DELETE CASCADE`. Server: `changeSessionCode` / `deleteSession`
+  (`sessions.ts`) + `PATCH`/`DELETE /api/sessions/:code` (gated by the DM passphrase
+  when configured); validated by tests.
+- ☑ **Import maps from another session [req].** A DM **"⇪ Import maps from another
+  session"** dialog (`ImportMapsDialog` in `DmPanel`): enter a code, preview its maps
+  (`GET /api/sessions/:code/maps`) with token counts, **pick** which, and deep-copy
+  each picked map + its tokens + the creatures/PCs they reference into the current
+  session (`importMaps` in `sessions.ts`, a transactional generic `cloneRow`; fresh
+  ids, monster template links + player claims dropped, images shared by global path).
+  DM-gated socket `session:importMaps` → `afterChange()`. Source session untouched;
+  validated by tests.
 
 ## Phase 2 — Canvas UX, DM combat tooling, persistence polish ✅ (done)
 
@@ -356,6 +372,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   above it; clicking the d20 rolls `1d20`, clicking a die rolls one of it — all through the
   same server-authoritative `dice:roll` path into the shared roll log. Shown for DM + players
   (rendered once in shared `MapStage`).
+- ☑ **Roll-overlay rework [req].** Each overlay line now shows its **full text**
+  (wraps, never truncated). New rolls fade in and, when idle, fade out **~20s**
+  later, leaving a faint latest line as a hover target. **Hovering** fades the panel
+  to full opacity — within a minute it reveals the recent stack; once the latest roll
+  is **over a minute** old, hovering shows only that single latest roll
+  (`RollLogOverlay` + `.roll-log-overlay` CSS).
 - ☑ **Player roll log on the right [req].** In the PLAYER view the shared roll log
   (`DicePanel`) lives in the RIGHT panel **beneath** the combat console, so clicking
   an attack shows the result immediately below. The DM keeps the left-panel log.
@@ -381,6 +403,29 @@ Smaller refinements on top of the shipped Phase 2 work.
   finesse so STR/DEX is chosen correctly). Pre-baked SRD/parsed/hand-typed monster
   damage stays as-is (no flag), so it isn't double-counted. A **↻ Pull attacks from
   description** button re-runs the parser on the creature's `actions` on demand.
+- ☑ **Structured monster action rolls [req].** A monster `action` can carry the same
+  structured `roll` (`AbilityRoll`) PCs use, so the DM one-clicks a breath weapon /
+  spell-like action: the server (`resolveMonsterAction`, mirror of `resolveAbilityRoll`)
+  rolls the damage and shows the **save DC computed from the monster's CR + casting
+  mod** (`8 + profBonusFor(CR) + best-of-INT/WIS/CHA`), or an explicit `roll.dc` from
+  the stat block, logged with the action's description. Kinds: attack (to-hit + dmg),
+  save (dmg + "DC N <ability> save for half"), damage, heal. DM-gated socket
+  `monster:action`; authored/edited in the creature `StatBlock` (kind/dice/save/DC/type)
+  with a **↻ Derive rolls from descriptions** button (`parseActionRoll` scrapes DC +
+  dice from SRD/AI text). Per-target saves + damage reuse the existing bulk-save +
+  damage tooling (parity with PC spell rolls); `roll`/`dc` optional so old saves load.
+- ☑ **"Apply damage" → click-to-target saves [req].** A save/damage spell's damage roll
+  (PC `resolveAbilityRoll` or monster `resolveMonsterAction`) carries a DM-only `apply`
+  payload (rolled **amount** + server-computed **DC** + save ability) on its `RollEntry`.
+  In the full log the DM gets an **"🎯 Apply damage"** button that arms a **click-to-target
+  mode** on the map: each creature clicked rolls **its own** save (ability + proficiency +
+  conditions) vs the DC and **auto-applies full (fail) / half (pass)** of the amount
+  × resist/vuln (`resolveForcedSave` reuses `rollSavingThrow`/`saveAdvantage`/`applyDamage`/
+  `damageMultiplier`); every save is logged. Keep clicking targets until **Esc**; the
+  source roll keeps its payload so many targets reuse one roll. Save-less (`damage`-kind)
+  applies full with no save. `apply` is **stripped for players** in `visibility.ts`; the
+  bulk-selection manual path stays as the alternative. Persisted via
+  `ensureColumn('roll_log','apply',…)`; DM-gated socket `save:resolve`.
 - ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
   `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.
@@ -410,6 +455,24 @@ Smaller refinements on top of the shipped Phase 2 work.
   and a fresh map's width is **derived from its pixel size** (default 5 ft/50 px)
   and prefilled for the DM to adjust. Placed AOEs **keep their footprint** when
   scale changes (stored in px; labels recompute).
+- ☑ **Grid square set in FEET [req].** The DM's `ScaleMenu` now takes the **grid
+  square size in feet** (e.g. 5) instead of pixels; the pixel cell is **derived**
+  from the map scale (`feet × image width ÷ width_ft`) and shown as a read-out, so a
+  square always means real feet. Changing the map width re-derives px to preserve the
+  chosen feet-per-square. Client-side derivation only — the `map:setGrid` payload is
+  unchanged. Legacy maps with no width fall back to the px field.
+- ☑ **More visible grid [req].** Grid lines are visible at rest (`#ffffff5c`) and
+  **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
+  tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
+  `onDragActive` signal from `TokenShape`).
+- ☑ **Token footprint trail [req].** A move (local drag OR another client's, diffed
+  from the snapshot) leaves a lingering trail of **white footprints** (alternating
+  left/right ellipses with a **faint dark outline** for contrast) from the old spot
+  to the new one, fading **oldest-first** over **~30s** so players remember where a
+  token came from. Only the **6 most-recent** trails are kept — a 7th move **fades
+  the oldest out** (~2s) instead of popping. Decorative/non-listening; the
+  self-contained `FootprintLayer` owns the position-diff + fade tick so the long
+  fade never re-renders the rest of the map.
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
@@ -510,6 +573,12 @@ Smaller refinements on top of the shipped Phase 2 work.
     env at boot, and reset the Gemini model cache. Gated by the DM passphrase
     when one is configured. Built so new settings are simple rows.
   - **Session info** and **Copy player link** (DM) moved here.
+  - **Map tool menus in the top bar [req].** The **Measure / Scale / Fog** dropdowns
+    now live in the top toolbar (above the map) instead of the in-canvas corner.
+    They're **portaled** (`createPortal`) into a `#map-tool-slot` in `TopToolbar`
+    but keep all their state/handlers in `MapStage`, so the canvas interactions are
+    unchanged — a low-risk relocation. **Fit + zoom %** stay in the canvas corner
+    (they're tied to pan/zoom). Measure shows for everyone; Scale/Fog are DM-only.
   *(Future settings to add as rows: default fog, grid size, theme, Discord
   channel for the integration below.)*
 - ☐ **Discord video integration [req].** Bring the table's Discord voice/video

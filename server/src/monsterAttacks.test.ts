@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaponsFromActions } from '../../shared/monsterAttacks.js';
+import { parseActionRoll, weaponsFromActions } from '../../shared/monsterAttacks.js';
 
 describe('weaponsFromActions', () => {
   it('parses Goblin attacks into melee + ranged weapons', () => {
@@ -32,5 +32,24 @@ describe('weaponsFromActions', () => {
     expect(weapons).toHaveLength(1);
     expect(weapons[0]).toMatchObject({ name: 'Bite', damage: '2d10+6', damageType: 'piercing', attackBonus: 10 });
     expect(actions.map((a) => a.name)).toEqual(['Fire Breath (Recharge 5–6)']); // save, no "to hit"
+  });
+});
+
+describe('parseActionRoll', () => {
+  it('scrapes a save DC + dice + type from a breath weapon', () => {
+    expect(
+      parseActionRoll('30-ft. cone, DC 17 Dexterity saving throw, 16d6 fire damage (half on save).'),
+    ).toEqual({ kind: 'save', dice: '16d6', dc: 17, save: 'DEX', damageType: 'fire' });
+  });
+
+  it('falls back to a bare damage roll when there is no DC', () => {
+    expect(parseActionRoll('Searing aura deals 2d10 fire to anyone who ends their turn nearby.')).toEqual(
+      { kind: 'damage', dice: '2d10', damageType: 'fire' },
+    );
+  });
+
+  it('returns null for a weapon attack or non-rollable prose', () => {
+    expect(parseActionRoll('+10 to hit, 2d10+6 piercing.')).toBeNull(); // attacks handled elsewhere
+    expect(parseActionRoll('The dragon makes three attacks.')).toBeNull(); // no dice
   });
 });

@@ -252,6 +252,32 @@ export function renameSession(sessionId: string, name: string): void {
   db.prepare('UPDATE sessions SET name = ? WHERE id = ?').run(trimmed, sessionId);
 }
 
+/**
+ * Change a session's join code in place. All data is keyed by the session **id**
+ * (not the code), so every map/token/character/log is preserved; only links to
+ * the previous code stop working. Validates like a DM-chosen custom code.
+ */
+export function changeSessionCode(sessionId: string, rawCode: string): string {
+  const code = normalizeSessionCode(rawCode);
+  if (code.length < 3)
+    throw new SessionCodeError('Code must be at least 3 letters or digits.');
+  const taken = db
+    .prepare('SELECT 1 FROM sessions WHERE code = ? AND id != ?')
+    .get(code, sessionId);
+  if (taken) throw new SessionCodeError(`Code "${code}" is already in use.`);
+  db.prepare('UPDATE sessions SET code = ? WHERE id = ?').run(code, sessionId);
+  return code;
+}
+
+/**
+ * Delete a session and everything under it. Maps → tokens, characters, monsters,
+ * measurements and the roll log all cascade via `ON DELETE CASCADE`
+ * (`foreign_keys = ON`). Uploaded map images are left on disk (harmless orphans).
+ */
+export function deleteSession(sessionId: string): void {
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+}
+
 export function setActiveMap(sessionId: string, mapId: string): void {
   db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
     mapId,
@@ -482,6 +508,109 @@ export function copyTokens(
 }
 
 /**
+ * Generic row clone: copies a row (all columns, including migrated ones) under a
+ * fresh id, applying `overrides`. Used to import content between sessions.
+ */
+function cloneRow(
+  table: string,
+  srcId: string,
+  overrides: Record<string, unknown>,
+): string {
+  const cols = (
+    db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
+  ).map((c) => c.name);
+  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(srcId) as
+    | Record<string, unknown>
+    | undefined;
+  if (!row) throw new Error(`cloneRow: ${table} ${srcId} not found`);
+  const out: Record<string, unknown> = { ...row, ...overrides };
+  out.id = (overrides.id as string) ?? newId();
+  db.prepare(
+    `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols
+      .map(() => '?')
+      .join(', ')})`,
+  ).run(...cols.map((c) => out[c]));
+  return out.id as string;
+}
+
+/** A source session's maps with token counts, for the import picker. */
+export function listMapsForImport(
+  sourceCode: string,
+): { id: string; name: string; tokenCount: number }[] {
+  const source = getSessionByCode(sourceCode);
+  if (!source) return [];
+  return listMaps(source.id).map((m) => ({
+    id: m.id,
+    name: m.name,
+    tokenCount: listTokens(m.id).length,
+  }));
+}
+
+/**
+ * Import selected maps from another session (by code) into `targetSessionId`,
+ * deep-copying each map plus its tokens and the monsters/characters those tokens
+ * reference (fresh ids; monster template links and player claims are dropped so
+ * the copies are independent). Uploaded images are shared by path (the uploads
+ * folder is global). Returns the number of maps imported.
+ */
+export const importMaps = db.transaction(
+  (targetSessionId: string, sourceCode: string, mapIds: string[]): number => {
+    const source = getSessionByCode(sourceCode);
+    if (!source || source.id === targetSessionId) return 0;
+    const sourceMapIds = new Set(listMaps(source.id).map((m) => m.id));
+    const now = Date.now();
+    const refCache = new Map<string, string>(); // `${kind}:${oldRef}` -> newRef
+    const cloneRef = (kind: TokenKind, oldRef: string): string => {
+      const key = `${kind}:${oldRef}`;
+      const hit = refCache.get(key);
+      if (hit) return hit;
+      const newRef =
+        kind === 'monster'
+          ? cloneRow('monsters', oldRef, {
+              session_id: targetSessionId,
+              template_id: null,
+              is_template: 0,
+            })
+          : cloneRow('characters', oldRef, {
+              session_id: targetSessionId,
+              claimed_by: null,
+            });
+      refCache.set(key, newRef);
+      return newRef;
+    };
+    const insertTok = db.prepare(
+      `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    let imported = 0;
+    for (const mapId of mapIds) {
+      if (!sourceMapIds.has(mapId)) continue;
+      const newMapId = cloneRow('maps', mapId, {
+        session_id: targetSessionId,
+        created_at: now,
+      });
+      for (const t of listTokens(mapId)) {
+        const newRef = cloneRef(t.kind, t.refId);
+        insertTok.run(
+          newId(),
+          newMapId,
+          t.kind,
+          newRef,
+          t.x,
+          t.y,
+          t.size,
+          t.initiative ?? null,
+          t.isHidden ? 1 : 0,
+          now,
+        );
+      }
+      imported++;
+    }
+    return imported;
+  },
+);
+
+/**
  * Duplicate a single placed token into a second, independently-tracked copy
  * dropped one grid square down-right. For a monster the referenced instance is
  * cloned with its CURRENT state (HP + conditions) into a fresh instance that
@@ -641,13 +770,15 @@ export function addRollLog(
     detail: string;
     /** Optional long text (e.g. a cast spell's full description). */
     description?: string;
+    /** Optional "Apply damage" payload (save/damage spell → click-to-target saves). */
+    apply?: RollEntry['apply'];
   },
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -657,6 +788,7 @@ export function addRollLog(
     entry.total,
     entry.detail,
     entry.description ?? '',
+    entry.apply ? JSON.stringify(entry.apply) : '',
     createdAt,
   );
   return { id, ...entry, createdAt };
@@ -674,28 +806,42 @@ export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
       // rowid disambiguates rolls made within the same millisecond.
       'SELECT * FROM roll_log WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
     )
-    .all(sessionId, limit) as {
-    id: string;
-    roller: string;
-    label: string;
-    expr: string;
-    total: number;
-    detail: string;
-    description: string | null;
-    created_at: number;
-  }[];
-  return rows
-    .map((r) => ({
-      id: r.id,
-      roller: r.roller,
-      label: r.label,
-      expr: r.expr,
-      total: r.total,
-      detail: r.detail,
-      ...(r.description ? { description: r.description } : {}),
-      createdAt: r.created_at,
-    }))
-    .reverse();
+    .all(sessionId, limit) as RollLogRow[];
+  return rows.map(rowToRollEntry).reverse();
+}
+
+type RollLogRow = {
+  id: string;
+  roller: string;
+  label: string;
+  expr: string;
+  total: number;
+  detail: string;
+  description: string | null;
+  apply: string | null;
+  created_at: number;
+};
+
+function rowToRollEntry(r: RollLogRow): RollEntry {
+  return {
+    id: r.id,
+    roller: r.roller,
+    label: r.label,
+    expr: r.expr,
+    total: r.total,
+    detail: r.detail,
+    ...(r.description ? { description: r.description } : {}),
+    ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
+    createdAt: r.created_at,
+  };
+}
+
+/** A single roll-log entry by id (for "Apply damage" save resolution). */
+export function getRollEntry(id: string): RollEntry | null {
+  const r = db.prepare('SELECT * FROM roll_log WHERE id = ?').get(id) as
+    | RollLogRow
+    | undefined;
+  return r ? rowToRollEntry(r) : null;
 }
 
 // ---- Measuring shapes (cone/circle/line) ----

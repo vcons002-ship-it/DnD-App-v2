@@ -3,6 +3,7 @@ import {
   applyDamage,
   getCharacter,
   getMonster,
+  getRollEntry,
   getToken,
   setSheetAbility,
 } from './sessions.js';
@@ -20,10 +21,20 @@ import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
   spellAttackBonus,
+  spellcastingMod,
   spellSaveDC,
 } from '../../shared/spellMath.js';
 import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
-import type { Character, SheetAbility, Token, Weapon } from '../../shared/types.js';
+import type {
+  AbilityRoll,
+  Character,
+  CreatureAbility,
+  Monster,
+  RollEntry,
+  SheetAbility,
+  Token,
+  Weapon,
+} from '../../shared/types.js';
 
 type Resolved = {
   c: Combatant;
@@ -227,6 +238,54 @@ export function resolveSaves(
   }
 }
 
+/**
+ * Resolve a save/damage roll's "Apply damage" against ONE clicked target: roll the
+ * target's save vs the stored DC (its own ability + proficiency + conditions), then
+ * auto-apply full (fail) / half (pass) of the rolled amount, × resist/vuln. For a
+ * save-less (auto-hit) payload, apply full with no save roll. Logs one entry. The
+ * source roll keeps its `apply` so the DM can keep clicking more targets.
+ */
+export function resolveForcedSave(
+  sessionId: string,
+  rollId: string,
+  tokenId: string,
+): void {
+  const apply = getRollEntry(rollId)?.apply;
+  if (!apply) return;
+  const tok = getToken(tokenId);
+  if (!tok) return;
+  const r = resolve(tok);
+  if (!r) return;
+  const mult = damageMultiplier(apply.damageType, r.resistances, r.weaknesses);
+  const typeTxt = apply.damageType ? ` ${apply.damageType}` : '';
+
+  let dmg: number;
+  let detail: string;
+  if (apply.save) {
+    const ability = apply.save;
+    const proficient = r.saveProficiencies.some(
+      (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
+    );
+    const adv = saveAdvantage(r.conditionLabels, ability, undefined);
+    const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
+    dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
+    detail =
+      `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'} · takes ${dmg}${typeTxt}` +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
+  } else {
+    dmg = Math.floor(apply.amount * mult);
+    detail = `${r.name}: takes ${dmg}${typeTxt}`;
+  }
+  applyDamage(r.kind, r.refId, dmg);
+  addRollLog(sessionId, {
+    roller: 'DM',
+    label: apply.save ? `${apply.save.toUpperCase()} save` : 'Damage',
+    expr: `DC ${apply.dc}`,
+    total: dmg,
+    detail,
+  });
+}
+
 const d20 = (): number => 1 + Math.floor(Math.random() * 20);
 
 /** Roll a d20 honoring advantage/disadvantage, with a display breakdown. */
@@ -302,9 +361,10 @@ export function resolveAbilityRoll(
 
   // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
   const val = dice ? rollDice(dice)!.total : 0;
+  const dc = spellSaveDC(level, stats);
   const note =
     roll.kind === 'save' && roll.save
-      ? ` — DC ${spellSaveDC(level, stats)} ${roll.save} save for half`
+      ? ` — DC ${dc} ${roll.save} save for half`
       : roll.kind === 'damage'
         ? ' (auto-hit)'
         : '';
@@ -315,6 +375,104 @@ export function resolveAbilityRoll(
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
     description: ability.description || undefined,
+    apply: applyPayload(roll, val, dc),
+  });
+  return true;
+}
+
+/** The "Apply damage" payload for a save/damage roll (none for attack/heal or
+ *  a roll with no dice). Lets the DM click-to-target saves from the roll log. */
+function applyPayload(
+  roll: AbilityRoll,
+  amount: number,
+  dc: number,
+): RollEntry['apply'] {
+  if (!roll.dice) return undefined;
+  if (roll.kind === 'save' && roll.save)
+    return { amount, dc, save: roll.save, damageType: roll.damageType };
+  if (roll.kind === 'damage') return { amount, dc, damageType: roll.damageType };
+  return undefined;
+}
+
+/**
+ * Resolve a monster's structured `action` roll authoritatively and log it,
+ * mirroring `resolveAbilityRoll` but with the to-hit / save DC derived from the
+ * MONSTER's CR + stats: proficiency by CR (`profBonusFor`) and the casting mod =
+ * best of INT/WIS/CHA. An explicit `roll.dc` (from the stat block) wins over the
+ * derived DC. No spell slots; damage isn't auto-applied (parity with PC spell
+ * rolls — targets use the bulk-save + damage tooling). Returns false for a
+ * free-text action with no roll.
+ */
+export function resolveMonsterAction(
+  sessionId: string,
+  roller: string,
+  monster: Monster,
+  action: CreatureAbility,
+  advantage?: Advantage,
+): boolean {
+  const roll = action.roll;
+  if (!roll) return false;
+  const c: Combatant = { stats: monster.stats, level: monster.level, isMonster: true };
+  const prof = profBonusFor(c);
+  const castMod = spellcastingMod(monster.stats);
+  const dice = effectiveDice(roll, {});
+  const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
+  const title = action.name;
+
+  if (roll.kind === 'attack') {
+    const { face, detail: d20detail } = rollD20(advantage);
+    const bonus = prof + castMod;
+    const attackTotal = face + bonus;
+    const crit = face === 20;
+    let dmgVal = 0;
+    if (dice) {
+      dmgVal = rollDice(dice)!.total;
+      if (crit) dmgVal += rollDice(dice)!.total; // crit doubles the dice
+    }
+    addRollLog(sessionId, {
+      roller,
+      label: 'Attack',
+      expr: title,
+      total: attackTotal,
+      detail:
+        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
+        (crit ? ' — CRIT' : ''),
+      description: action.description || undefined,
+    });
+    return true;
+  }
+
+  if (roll.kind === 'heal') {
+    const val = dice ? rollDice(dice)!.total : 0;
+    addRollLog(sessionId, {
+      roller,
+      label: action.name,
+      expr: title,
+      total: val,
+      detail: `${title}: ${val} healing [${dice}]`,
+      description: action.description || undefined,
+    });
+    return true;
+  }
+
+  // 'save' and 'damage' both roll the dice; 'save' notes the (explicit or derived) DC.
+  const val = dice ? rollDice(dice)!.total : 0;
+  const dc = roll.dc ?? 8 + prof + castMod;
+  const note =
+    roll.kind === 'save' && roll.save
+      ? ` — DC ${dc} ${roll.save} save for half`
+      : roll.kind === 'damage'
+        ? ' (auto-hit)'
+        : '';
+  addRollLog(sessionId, {
+    roller,
+    label: action.name,
+    expr: title,
+    total: val,
+    detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+    description: action.description || undefined,
+    apply: applyPayload(roll, val, dc),
   });
   return true;
 }

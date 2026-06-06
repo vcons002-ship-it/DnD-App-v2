@@ -37,6 +37,8 @@ type Props = {
   /** Pointer hover over the token (desktop) — drives the hover card. */
   onHover?: (token: Token, clientX: number, clientY: number) => void;
   onHoverEnd?: (token: Token) => void;
+  /** Signals drag start/stop so the map can brighten the grid while a token moves. */
+  onDragActive?: (active: boolean) => void;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -58,6 +60,7 @@ export function TokenShape({
   onContextMenu,
   onHover,
   onHoverEnd,
+  onDragActive,
 }: Props) {
   const radius = (gridSizePx * token.size) / 2;
   const auras = presentAuras(display.conditions);
@@ -72,6 +75,7 @@ export function TokenShape({
   const isDead = display.curHp !== undefined && display.curHp <= 0;
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
+    onDragActive?.(false);
     onMove(token, e.target.x(), e.target.y());
   };
 
@@ -157,7 +161,10 @@ export function TokenShape({
         onSelect(token, isAdditive(e));
       }}
       onTap={(e) => onSelect(token, isAdditive(e))}
-      onDragStart={clearLongPress}
+      onDragStart={() => {
+        clearLongPress();
+        onDragActive?.(true);
+      }}
       onDragEnd={handleDragEnd}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}

@@ -146,7 +146,12 @@ export type Character = {
   icon: string;
 };
 
-export type CreatureAbility = { name: string; description: string };
+export type CreatureAbility = {
+  name: string;
+  description: string;
+  /** Optional structured roll (monster actions), resolved server-side like a PC's. */
+  roll?: AbilityRoll;
+};
 
 /**
  * A structured roll attached to a sheet spell/ability, resolved server-side so
@@ -163,6 +168,8 @@ export type AbilityRoll = {
   damageType?: string;
   /** For `save` rolls: the ability targets save with, e.g. "DEX". */
   save?: string;
+  /** Explicit save DC (monster stat blocks give one); when unset it's derived. */
+  dc?: number;
   /** Dice added per slot level above `baseLevel` (or per cantrip tier). */
   scaleDice?: string;
   /** Spell level the base dice are written for (0 = cantrip). */
@@ -437,6 +444,10 @@ export type RollEntry = {
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
   description?: string;
+  /** DM-only: present on a save/damage spell's damage roll so the log can offer an
+   *  "Apply damage" button that starts click-to-target save resolution. Stripped
+   *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
+  apply?: { amount: number; dc: number; save?: string; damageType?: string };
   createdAt: number;
 };
 
@@ -514,6 +525,8 @@ export type MeasureRemovePayload = { id: string };
 export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
+/** Import selected maps (and their tokens) from another session into this one. */
+export type SessionImportMapsPayload = { sourceCode: string; mapIds: string[] };
 /** Enable/disable one fog layer on a map. */
 export type FogSetLayerPayload = {
   mapId: string;
@@ -594,6 +607,16 @@ export type AbilityRollPayload = {
   castLevel?: number;
   advantage?: 'adv' | 'dis';
 };
+/** Roll a monster's structured `action` (DM-only), resolved server-side. */
+export type MonsterActionRollPayload = {
+  monsterId: string;
+  actionIndex: number;
+  advantage?: 'adv' | 'dis';
+};
+/** DM-only: resolve a damage roll's save against one clicked target (rolls the
+ *  save, auto-applies full/half of the rolled amount). `rollId` is the log entry
+ *  carrying the `apply` payload. */
+export type SaveResolvePayload = { rollId: string; tokenId: string };
 /**
  * Roll a 5e skill check for a character (server-authoritative): d20 + the
  * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
@@ -712,6 +735,7 @@ export interface ClientToServerEvents {
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
+  'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
@@ -743,6 +767,8 @@ export interface ClientToServerEvents {
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'monster:action': (payload: MonsterActionRollPayload) => void;
+  'save:resolve': (payload: SaveResolvePayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;

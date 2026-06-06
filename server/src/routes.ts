@@ -4,11 +4,16 @@ import path from 'node:path';
 import { config } from './config.js';
 import { newId } from './db.js';
 import {
+  changeSessionCode,
   createMap,
   createSession,
+  deleteSession,
   getSessionByCode,
   listMaps,
+  listMapsForImport,
   listSessions,
+  normalizeSessionCode,
+  renameSession,
   SessionCodeError,
 } from './sessions.js';
 import { broadcastSnapshots, type IOServer } from './connections.js';
@@ -77,6 +82,50 @@ export function createApiRouter(io: IOServer): Router {
   // Saved-session directory for the DM resume screen.
   router.get('/sessions', (_req, res) => {
     res.json(listSessions());
+  });
+
+  // Edit a saved session from the DM landing page: rename and/or change its join
+  // code. Data is keyed by session id, so changing the code preserves everything
+  // (only links to the previous code stop working). Gated by the DM passphrase
+  // when one is configured, like the other DM-only mutations.
+  router.patch('/sessions/:code', (req, res) => {
+    if (config.dmPassphrase && req.body?.dmPassphrase !== config.dmPassphrase) {
+      return res.status(403).json({ error: 'Incorrect DM passphrase' });
+    }
+    const session = getSessionByCode(req.params.code);
+    if (!session) return res.status(404).json({ error: 'Session not found.' });
+    const name = typeof req.body?.name === 'string' ? req.body.name : undefined;
+    const newCode = typeof req.body?.code === 'string' ? req.body.code : undefined;
+    try {
+      if (name !== undefined && name.trim()) renameSession(session.id, name);
+      let code = session.code;
+      if (newCode !== undefined && normalizeSessionCode(newCode) !== session.code) {
+        code = changeSessionCode(session.id, newCode);
+      }
+      return res.json({ code });
+    } catch (err) {
+      if (err instanceof SessionCodeError) {
+        return res.status(409).json({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  // Preview another session's maps (with token counts) for the import picker.
+  router.get('/sessions/:code/maps', (req, res) => {
+    res.json(listMapsForImport(req.params.code));
+  });
+
+  // Delete a saved session and all of its data (cascade). Gated by the DM
+  // passphrase when configured.
+  router.delete('/sessions/:code', (req, res) => {
+    if (config.dmPassphrase && req.body?.dmPassphrase !== config.dmPassphrase) {
+      return res.status(403).json({ error: 'Incorrect DM passphrase' });
+    }
+    const session = getSessionByCode(req.params.code);
+    if (!session) return res.status(404).json({ error: 'Session not found.' });
+    deleteSession(session.id);
+    res.json({ ok: true });
   });
 
   // ---- DM-editable runtime settings (API key / model) ----

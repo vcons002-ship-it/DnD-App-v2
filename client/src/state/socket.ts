@@ -46,6 +46,12 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
+  /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
+   *  save and auto-applies full/half. Null = not arming. (DM-only.) */
+  saveResolve: { rollId: string; dc: number; save?: string; label: string } | null;
+  armSaveResolve: (s: { rollId: string; dc: number; save?: string; label: string }) => void;
+  clearSaveResolve: () => void;
+  resolveSaveAt: (tokenId: string) => void;
 
   connect: (code: string, role: Role, dmPassphrase?: string) => void;
   disconnect: () => void;
@@ -65,6 +71,7 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
+  importMapsFromSession: (sourceCode: string, mapIds: string[]) => void;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   paintFog: (
     mapId: string,
@@ -105,6 +112,7 @@ type Store = {
   setSheetAbility: (characterId: string, ability: SheetAbility) => void;
   removeSheetAbility: (characterId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
+  rollMonsterAction: (monsterId: string, actionIndex: number, advantage?: 'adv' | 'dis') => void;
   rollSkill: (payload: SkillRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
@@ -147,6 +155,14 @@ export const useStore = create<Store>((set, get) => ({
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
+  saveResolve: null,
+  armSaveResolve: (saveResolve) =>
+    set((s) => ({ saveResolve: s.saveResolve?.rollId === saveResolve.rollId ? null : saveResolve })),
+  clearSaveResolve: () => set({ saveResolve: null }),
+  resolveSaveAt: (tokenId) => {
+    const arm = get().saveResolve;
+    if (arm) get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId });
+  },
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
@@ -201,6 +217,8 @@ export const useStore = create<Store>((set, get) => ({
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
+  importMapsFromSession: (sourceCode, mapIds) =>
+    get().socket?.emit('session:importMaps', { sourceCode, mapIds }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
   paintFog: (mapId, layer, cells, reveal) =>
@@ -249,6 +267,8 @@ export const useStore = create<Store>((set, get) => ({
   removeSheetAbility: (characterId, abilityId) =>
     get().socket?.emit('ability:remove', { characterId, abilityId }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
+  rollMonsterAction: (monsterId, actionIndex, advantage) =>
+    get().socket?.emit('monster:action', { monsterId, actionIndex, advantage }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),

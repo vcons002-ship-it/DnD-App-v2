@@ -3,6 +3,12 @@ import {
   createSession,
   normalizeSessionCode,
   SessionCodeError,
+  changeSessionCode,
+  deleteSession,
+  getSessionByCode,
+  listMaps,
+  listTokens,
+  importMaps,
   createMap,
   createMonsterTemplate,
   instantiateMonster,
@@ -28,6 +34,90 @@ describe('custom session codes', () => {
     createSession('First', code);
     expect(() => createSession('Second', code)).toThrow(SessionCodeError);
     expect(() => createSession('Tiny', 'A')).toThrow(SessionCodeError);
+  });
+});
+
+describe('editing & deleting saved sessions', () => {
+  const uniq = (p: string) =>
+    `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
+      .toUpperCase()
+      .slice(0, 12);
+
+  it('changes the join code in place, preserving all data', () => {
+    const s = createSession('Campaign');
+    const map = createMap(s.id, { name: 'Cavern' });
+    const newCode = uniq('R');
+    const result = changeSessionCode(s.id, newCode);
+    expect(result).toBe(normalizeSessionCode(newCode));
+    // The old code no longer resolves; the new code resolves to the SAME session
+    // and the SAME data (data is keyed by session id, not code).
+    expect(getSessionByCode(s.code)).toBeNull();
+    const moved = getSessionByCode(newCode);
+    expect(moved?.id).toBe(s.id);
+    expect(listMaps(s.id).map((m) => m.id)).toContain(map.id);
+  });
+
+  it('rejects a duplicate or too-short new code', () => {
+    const a = createSession('A', uniq('X'));
+    const b = createSession('B');
+    expect(() => changeSessionCode(b.id, a.code)).toThrow(SessionCodeError);
+    expect(() => changeSessionCode(b.id, 'A')).toThrow(SessionCodeError);
+  });
+
+  it('deletes a session and cascades to its maps/tokens', () => {
+    const s = createSession('Doomed');
+    const map = createMap(s.id, { name: 'Field' });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Rat', maxHp: 1 });
+    const tok = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 0,
+      y: 0,
+    });
+    deleteSession(s.id);
+    expect(getSessionByCode(s.code)).toBeNull();
+    expect(listMaps(s.id)).toHaveLength(0);
+    expect(getToken(tok.id)).toBeFalsy();
+  });
+});
+
+describe('importing maps from another session', () => {
+  it('deep-copies picked maps + their tokens + referenced creatures', () => {
+    const src = createSession('Source');
+    const map = createMap(src.id, { name: 'Crypt' });
+    const tmpl = createMonsterTemplate(src.id, { name: 'Skeleton', maxHp: 13 });
+    createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 10,
+      y: 20,
+    });
+
+    const dest = createSession('Dest');
+    const n = importMaps(dest.id, src.code, [map.id]);
+    expect(n).toBe(1);
+
+    // Dest gained a NEW map (different id) carrying a copied token.
+    const destMaps = listMaps(dest.id);
+    expect(destMaps).toHaveLength(1);
+    expect(destMaps[0].id).not.toBe(map.id);
+    expect(destMaps[0].name).toBe('Crypt');
+    const destTokens = listTokens(destMaps[0].id);
+    expect(destTokens).toHaveLength(1);
+    expect(destTokens[0].x).toBe(10);
+
+    // The source is untouched, and the copy references a NEW creature row.
+    expect(listMaps(src.id)).toHaveLength(1);
+    expect(destTokens[0].refId).not.toBe(listTokens(map.id)[0].refId);
+  });
+
+  it('ignores map ids that do not belong to the source session', () => {
+    const src = createSession('S2');
+    const dest = createSession('D2');
+    expect(importMaps(dest.id, src.code, ['nope'])).toBe(0);
+    expect(listMaps(dest.id)).toHaveLength(0);
   });
 });
 

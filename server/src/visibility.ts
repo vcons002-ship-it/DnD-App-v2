@@ -125,6 +125,8 @@ export function buildSnapshot(
       ? listRollLog(sessionId).map((e) => ({
           ...e,
           detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
+          // The "Apply damage" payload is a DM-only adjudication tool.
+          apply: undefined,
         }))
       : listRollLog(sessionId);
 
