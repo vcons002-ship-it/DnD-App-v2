@@ -1,4 +1,5 @@
 import type { SheetAbility } from '../../../shared/types.js';
+import { SPELL_LIST } from './spellList.js';
 
 /**
  * A curated, offline subset of common 5e SRD spells (plus a few class
@@ -11,7 +12,10 @@ import type { SheetAbility } from '../../../shared/types.js';
  */
 export type SpellEntry = Omit<SheetAbility, 'id' | 'source'>;
 
-const SPELLS: SpellEntry[] = [
+// Curated extras: bundled class abilities (Divine Smite/Second Wind/Sneak Attack)
+// plus a few hand-tuned spell entries. Merged with the full SRD list below, which
+// takes precedence on any name collision.
+const CURATED: SpellEntry[] = [
   // ---- Cantrips (scale by caster level) ----
   {
     name: 'Fire Bolt',
@@ -209,6 +213,24 @@ const SPELLS: SpellEntry[] = [
     roll: { kind: 'damage', dice: '1d6' },
   },
 ];
+
+/**
+ * The full searchable list: the comprehensive SRD 5.2 spells plus the curated
+ * extras, de-duplicated by name (the full list wins on a collision, so any
+ * hand-tuned curated spell is shadowed — only its unique entries, like the class
+ * abilities, survive).
+ */
+const SPELLS: SpellEntry[] = (() => {
+  const seen = new Set<string>();
+  const out: SpellEntry[] = [];
+  for (const s of [...SPELL_LIST, ...CURATED]) {
+    const key = s.name.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+})();
 
 /** Everything searched for an entry: name + school + classes + tags + damage type,
  *  so a spell is findable by what it does (e.g. "cantrip", "fire", "wizard"). */

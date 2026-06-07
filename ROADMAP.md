@@ -675,3 +675,32 @@ Smaller refinements on top of the shipped Phase 2 work.
   and the read view strips it. (4) A creature's **to-hit is shown** and
   auto-derives from ability modifier + proficiency **by CR** (2024 rule: CR 0–4
   +2, 5–8 +3, 9–12 +4…), with an editor blurb; the "hit" field overrides.
+- ☑ **Full 2024 SRD spell list + Spellbook + tag search.** Bundled the complete
+  **SRD 5.2 spell set** (`spells/spellList.ts`, ~317 spells across all classes;
+  merged into `srd.ts`, full list wins, curated class abilities preserved). Each
+  spell carries `classes` + `tags` (school, classes, damage type, `cantrip`/
+  `concentration`/`ritual`, descriptive flags). The sheet's add-search now matches
+  **name OR tag/class/damage type** (find by "fire", "cantrip", "wizard"); maneuvers
+  & masteries are likewise findable by their category words. A new **Spellbook**
+  modal (`Spellbook.tsx`, `GET /api/spells/all`) browses the whole list with a
+  class filter + keyword search, grouped by level, add-to-sheet (marks owned).
+- ☑ **Magic Missile / split-damage spells.** Multi-instance damage spells declare
+  separate `instances` (Magic Missile: 3 darts of `1d4+1`, +1 per slot above 1st);
+  the server rolls each dart into `apply.split`, and the DM assigns **one dart per
+  clicked target** (the button counts down "Dart n/N") instead of the full total
+  hitting everyone. Resist/vuln still apply per dart.
+- ☑ **Drag-reorder DM panel sections.** The DM's left panel (Maps/Spawn/Initiative,
+  Dice & Roll Log, Roll20) reorders by dragging each section's handle; order
+  persists per browser (`ReorderableSections`, native HTML5 DnD — same pattern as
+  the Data view cards). _(Closes the deferred WP7 "drag-reorder toolbar sections".)_
+- ☑ **Attack-as-the-acting-creature.** A player attacking with a friendly
+  companion/summon (the floating menu's "Attacking as …") is now attributed in the
+  roll log to **that creature**, not the player's own PC (server derives the roller
+  from the attacking token; a player's own token is unchanged; DM stays "DM").
+- ☑ **Weapon damage types as a set list + secondary damage.** Damage type is picked
+  from the canonical 5e list (`shared/damage.ts`, incl. the magical types) via a
+  select in the weapon editor for **both** creatures and PCs (legacy values
+  preserved). Weapons gained a **secondary typed rider** (`extraDamage` +
+  `extraDamageType`, e.g. a flaming sword's 1d8 slashing + 1d6 fire) — rolled on a
+  hit, doubled on a crit, resisted on its **own** type independently of the main
+  damage. The magic-bonus field is **restored on creature attacks** (was PC-only).

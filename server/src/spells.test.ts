@@ -9,7 +9,7 @@ import {
   spendSpellSlot,
 } from './sessions.js';
 import { resolveAbilityRoll } from './combat.js';
-import { searchSpells, getSpell } from './spells/srd.js';
+import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import type { SheetAbility } from '../../shared/types.js';
 
 describe('local spell/ability database', () => {
@@ -21,6 +21,26 @@ describe('local spell/ability database', () => {
     expect(fb?.roll?.kind).toBe('save');
     expect(fb?.roll?.save).toBe('DEX');
     expect(getSpell('Nonexistent Spell')).toBeNull();
+  });
+
+  it('bundles the full SRD list with no duplicate names', () => {
+    const all = getAllSpells();
+    expect(all.length).toBeGreaterThan(300);
+    const names = all.map((s) => s.name.toLowerCase());
+    expect(new Set(names).size).toBe(names.length); // deduped
+    // The curated class abilities survive the merge.
+    expect(all.some((s) => s.name === 'Divine Smite')).toBe(true);
+  });
+
+  it('finds entries by tag/class, not just by name', () => {
+    // By class membership…
+    expect(searchSpells('wizard', 100).length).toBeGreaterThan(5);
+    // …by damage type/tag…
+    expect(searchSpells('fire', 100).some((s) => s.name === 'Fireball')).toBe(true);
+    // …and by the cantrip flag (all results are actually cantrips).
+    const cantrips = searchSpells('cantrip', 100);
+    expect(cantrips.length).toBeGreaterThan(5);
+    expect(cantrips.every((s) => s.level === 0)).toBe(true);
   });
 });
 
