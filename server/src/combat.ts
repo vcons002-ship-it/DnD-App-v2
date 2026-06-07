@@ -234,6 +234,20 @@ export function resolveAttack(
       mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
     );
   }
+  // Secondary damage rider of a different type (e.g. a flaming sword's fire),
+  // rolled on a hit (doubled on a crit) and resisted on its OWN type.
+  if (out.hit && weapon.extraDamage) {
+    let ex = rollDice(weapon.extraDamage)?.total ?? 0;
+    if (out.crit) ex += rollDice(weapon.extraDamage)?.total ?? 0;
+    const exMult = damageMultiplier(weapon.extraDamageType, t.resistances, t.weaknesses);
+    ex = Math.floor(ex * exMult);
+    if (ex > 0) {
+      applied += ex;
+      const exType = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
+      const exNote = exMult < 1 ? ' (½ resisted)' : exMult > 1 ? ' (×2 vuln)' : '';
+      masteryNotes.push(`+${ex}${exType}${exNote}`);
+    }
+  }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
   if (applied > 0) applyDamage(t.kind, t.refId, applied);
   addRollLog(sessionId, {

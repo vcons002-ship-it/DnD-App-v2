@@ -50,6 +50,15 @@ export type Weapon = {
    * rolls the weapon dice + magic, without the ability mod). Added to every hit.
    */
   magicBonus?: number;
+  /**
+   * A secondary damage rider of a DIFFERENT type — e.g. a flaming sword's
+   * `extraDamage: "1d6"`, `extraDamageType: "fire"` on top of its slashing
+   * `damage`. Rolled on a hit (doubled on a crit) and resisted/amplified by the
+   * target separately from the main type. Works for PC and creature weapons.
+   */
+  extraDamage?: string;
+  /** Damage type of `extraDamage` (e.g. "fire"); display + resistance only. */
+  extraDamageType?: string;
   /** To-hit bonus, e.g. 5 for "+5". */
   attackBonus?: number;
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */

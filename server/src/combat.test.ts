@@ -530,6 +530,70 @@ describe('to-hit breakdown + no double-count', () => {
   });
 });
 
+describe('secondary weapon damage (flaming sword)', () => {
+  // Always-hit attacker (huge to-hit vs AC 1) with 10 slashing + a fire rider.
+  const flameSword = (extraDamage: string) => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Flamebrand',
+      maxHp: 30,
+      stats: { STR: 10 },
+      weapons: [
+        {
+          name: 'Flame Sword',
+          kind: 'melee',
+          damage: '10',
+          damageType: 'slashing',
+          attackBonus: 50,
+          extraDamage,
+          extraDamageType: 'fire',
+        },
+      ],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    return { s, map, atk };
+  };
+
+  it('adds the typed rider on a hit (10 slashing + 1d6 fire = 11..16)', () => {
+    const { s, map, atk } = flameSword('1d6');
+    const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 60 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'F', atk.id, tok.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        const dealt = before - getMonster(ref)!.curHp;
+        expect(dealt).toBeGreaterThanOrEqual(11);
+        expect(dealt).toBeLessThanOrEqual(16);
+        expect(last.detail).toMatch(/fire/);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it('resists ONLY the rider type (fire 6 → 3; slashing 10 unaffected = 13)', () => {
+    const { s, map, atk } = flameSword('6d1'); // always 6 fire
+    const dt = createMonsterTemplate(s.id, { name: 'Salamander', maxHp: 9999, armorClass: 1, resistances: ['fire'] });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 60 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'F', atk.id, tok.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(before - getMonster(ref)!.curHp).toBe(13); // 10 + floor(6/2)
+      }
+    }
+    expect(checked).toBe(true);
+  });
+});
+
 describe('spell roll description', () => {
   it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
     const { s } = arena();

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { abilityMod, signed } from '../../../shared/skills';
 import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
+import { DAMAGE_TYPES } from '../../../shared/damage';
 import { parseActionRoll, weaponsFromActions } from '../../../shared/monsterAttacks';
 
 /** Common 5e weapon tags, offered as add-suggestions in the tag editor. */
@@ -482,6 +483,7 @@ function ReadView({
                 {w.versatileDamage ? ` (2H ${dmgWithMod(w.versatileDamage, w)})` : ''}
                 {w.damageType ? ` ${w.damageType}` : ''}
                 {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
+                {w.extraDamage ? ` + ${w.extraDamage}${w.extraDamageType ? ` ${w.extraDamageType}` : ''}` : ''}
                 {w.range ? ` (${w.range})` : ''}
                 {w.tags && w.tags.length > 0 && (
                   <span className="muted"> · {w.tags.map((t) => `[${t}]`).join(' ')}</span>
@@ -725,6 +727,39 @@ function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) 
   );
 }
 
+/** A damage-type picker over the canonical 5e set list. Preserves any legacy
+ *  custom value already stored (shown as an extra option) so old data isn't lost. */
+function DamageTypeSelect({
+  value,
+  onChange,
+  title,
+  placeholder,
+}: {
+  value?: string;
+  onChange: (t: string | undefined) => void;
+  title?: string;
+  placeholder?: string;
+}) {
+  const v = value ?? '';
+  const known = (DAMAGE_TYPES as readonly string[]).includes(v.toLowerCase());
+  return (
+    <select
+      className="sb-dmg-type"
+      title={title}
+      value={v}
+      onChange={(e) => onChange(e.target.value || undefined)}
+    >
+      <option value="">{placeholder ?? 'type'}</option>
+      {DAMAGE_TYPES.map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
+      {v && !known && <option value={v}>{v}</option>}
+    </select>
+  );
+}
+
 function WeaponEditor({
   weapons,
   onChange,
@@ -847,38 +882,45 @@ function WeaponEditor({
               })
             }
           />
-          {monster ? (
-            <>
-              <input
-                className="sb-dmg"
-                placeholder="type"
-                title="Damage type, e.g. slashing, fire"
-                value={w.damageType ?? ''}
-                onChange={(e) =>
-                  setAt(i, { damageType: e.target.value || undefined })
-                }
-              />
-              <input
-                className="sb-dmg"
-                placeholder="reach/range"
-                title="Reach or range text, e.g. reach 5 ft. or range 80/320"
-                value={w.range ?? ''}
-                onChange={(e) => setAt(i, { range: e.target.value || undefined })}
-              />
-            </>
-          ) : (
+          <DamageTypeSelect
+            value={w.damageType}
+            onChange={(damageType) => setAt(i, { damageType })}
+            title="Damage type — drives resistance/vulnerability"
+            placeholder="type"
+          />
+          <input
+            className="sb-tohit"
+            type="number"
+            placeholder="magic"
+            title="Magic damage bonus (e.g. 1 for a +1 weapon), added to every hit"
+            value={w.magicBonus ?? ''}
+            onChange={(e) =>
+              setAt(i, {
+                magicBonus:
+                  e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+          />
+          <input
+            className="sb-dmg"
+            placeholder="+dmg 1d6"
+            title="Secondary damage dice of a different type (e.g. a flaming sword's 1d6 fire), rolled on a hit and doubled on a crit"
+            value={w.extraDamage ?? ''}
+            onChange={(e) => setAt(i, { extraDamage: e.target.value || undefined })}
+          />
+          <DamageTypeSelect
+            value={w.extraDamageType}
+            onChange={(extraDamageType) => setAt(i, { extraDamageType })}
+            title="Type of the secondary (+dmg) damage"
+            placeholder="+type"
+          />
+          {monster && (
             <input
-              className="sb-tohit"
-              type="number"
-              placeholder="magic"
-              title="Magic damage bonus (e.g. 1 for a +1 weapon)"
-              value={w.magicBonus ?? ''}
-              onChange={(e) =>
-                setAt(i, {
-                  magicBonus:
-                    e.target.value === '' ? undefined : Number(e.target.value),
-                })
-              }
+              className="sb-dmg"
+              placeholder="reach/range"
+              title="Reach or range text, e.g. reach 5 ft. or range 80/320"
+              value={w.range ?? ''}
+              onChange={(e) => setAt(i, { range: e.target.value || undefined })}
             />
           )}
           <TagInput tags={w.tags ?? []} onChange={(tags) => setAt(i, { tags })} />
