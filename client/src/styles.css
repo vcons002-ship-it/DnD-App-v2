@@ -135,7 +135,9 @@ input[type='number'] { width: 70px; }
   margin-left: 6px; font-size: 10px; background: var(--green);
   color: #04210f; padding: 1px 5px; border-radius: 4px; vertical-align: middle;
 }
-.slides-row, .add-monster, .buff-row, .dmg-row, .size-row { display: flex; gap: 6px; align-items: center; }
+.slides-row, .buff-row, .dmg-row, .size-row { display: flex; gap: 6px; align-items: center; }
+/* Creature add: full-width search box, controls (HP / Add / AI) on the row below. */
+.add-monster { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .spawn-row {
   width: 100%; text-align: left; background: var(--panel-2);
   border: 1px solid var(--line); color: var(--text);
@@ -147,7 +149,7 @@ input[type='number'] { width: 70px; }
 .spawn-icon { margin-right: 4px; }
 
 /* Creature search / autofill */
-.creature-search { position: relative; }
+.creature-search { position: relative; width: 100%; }
 .suggest {
   position: absolute; left: 0; right: 0; top: 100%; z-index: 6;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;

@@ -23,6 +23,11 @@ describe('class resources', () => {
     const pal = deriveClassResources('Paladin', 1);
     expect(pal.resources['Lay on Hands'].max).toBe(5);
     expect(Object.keys(pal.spellSlots)).toHaveLength(0); // half-caster: no slots at 1
+
+    // 2024 PHB Fighter: Second Wind uses scale 2 (L1-3) / 3 (L4-9) / 4 (L10+).
+    expect(deriveClassResources('Fighter', 1).resources['Second Wind'].max).toBe(2);
+    expect(deriveClassResources('Fighter', 4).resources['Second Wind'].max).toBe(3);
+    expect(deriveClassResources('Fighter', 10).resources['Second Wind'].max).toBe(4);
   });
 
   it('auto-fills slots on create and tracks usage + items', () => {

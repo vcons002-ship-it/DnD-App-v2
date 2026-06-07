@@ -40,18 +40,28 @@ function parseAbilities(v: unknown): CreatureAbility[] {
     : [];
 }
 
-function parseWeapons(v: unknown): Weapon[] {
+/**
+ * Parse AI weapon JSON. For PCs, pass `diceOnly` so the ability mod + proficiency
+ * are added live at roll time (the combat system expects character weapons to be
+ * dice-only): any baked-in flat modifier on the damage is stripped and the to-hit
+ * `attackBonus` is dropped. Monsters keep their pre-baked damage + to-hit.
+ */
+function parseWeapons(v: unknown, diceOnly = false): Weapon[] {
   return Array.isArray(v)
     ? v
         .filter((w): w is Record<string, unknown> => !!w && typeof w === 'object')
         .filter((w) => typeof w.name === 'string' && w.name)
         .map((w) => {
           const bonus = Number(w.attackBonus);
+          let damage = w.damage ? String(w.damage) : undefined;
+          // Strip a trailing flat modifier (e.g. "1d8+3" -> "1d8") for PC weapons.
+          if (diceOnly && damage) damage = damage.replace(/\s*[+-]\s*\d+\s*$/, '').trim();
           return {
             name: String(w.name),
             kind: w.kind === 'ranged' ? ('ranged' as const) : ('melee' as const),
-            damage: w.damage ? String(w.damage) : undefined,
-            attackBonus: Number.isFinite(bonus) ? bonus : undefined,
+            damage: damage || undefined,
+            attackBonus: diceOnly || !Number.isFinite(bonus) ? undefined : bonus,
+            ...(diceOnly ? { diceOnly: true as const } : {}),
           };
         })
     : [];
@@ -263,14 +273,17 @@ export async function generateCharacterAI(
     `"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
-    `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
+    `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string}],` +
     `"actions":[{"name":string,"description":string}],` +
     `"abilities":[{"name":string,"description":string}],` +
     `"proficientSkills":string[]}. ` +
     `"proficientSkills" are class/background skill proficiencies from the 5e ` +
     `skill list (e.g. "Perception","Stealth","Arcana"). ` +
-    `"name" is a fitting proper name; "weapons" are tagged attacks (damage like ` +
-    `"1d8+3"); "actions" are attacks/features; "abilities" are class/racial traits. ` +
+    `"name" is a fitting proper name; "weapons" are attacks whose "damage" is the ` +
+    `weapon's damage DICE ONLY with NO ability modifier and NO flat bonus ` +
+    `(e.g. "1d8" or "2d6", never "1d8+3") — the character's ability modifier and ` +
+    `to-hit are added automatically from their stats; ` +
+    `"actions" are attacks/features; "abilities" are class/racial traits. ` +
     `Use level-appropriate HP. Keep each description under 30 words.`;
 
   const text = await callGemini(prompt);
@@ -290,7 +303,7 @@ export async function generateCharacterAI(
       stats: parseStats(p.stats),
       resistances: Array.isArray(p.resistances) ? p.resistances.map(String) : [],
       weaknesses: Array.isArray(p.weaknesses) ? p.weaknesses.map(String) : [],
-      weapons: parseWeapons(p.weapons),
+      weapons: parseWeapons(p.weapons, true),
       actions: parseAbilities(p.actions),
       abilities: parseAbilities(p.abilities),
       proficientSkills: Array.isArray(p.proficientSkills)
