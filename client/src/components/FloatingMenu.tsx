@@ -1,5 +1,11 @@
 import { useEffect } from 'react';
-import type { StateSnapshot, Token, Weapon } from '../../../shared/types';
+import type {
+  CreatureAbility,
+  SheetAbility,
+  StateSnapshot,
+  Token,
+  Weapon,
+} from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { DamageHealControls } from './DamageHealControls';
@@ -24,6 +30,8 @@ type Props = {
 export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const combatAttack = useStore((s) => s.combatAttack);
+  const rollAbility = useStore((s) => s.rollAbility);
+  const rollMonsterAction = useStore((s) => s.rollMonsterAction);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
@@ -54,6 +62,22 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
     (isDm ||
       (attacker.kind === 'pc' && aChar?.claimedBy === mySocketId) ||
       friendlyAttacker);
+
+  // Attack-roll spells/abilities the attacker can cast at the right-clicked token,
+  // resolved server-side to-hit vs its AC with typed damage — like a weapon attack.
+  const targetingSelf = !!attacker && attacker.id === token.id;
+  const pcAttackAbilities: SheetAbility[] =
+    aChar && !targetingSelf && (isDm || aChar.claimedBy === mySocketId)
+      ? aChar.sheetAbilities.filter((a) => a.roll?.kind === 'attack')
+      : [];
+  // Monster actions are DM-only (monster:action gate); full `actions` only on the DM snapshot.
+  const monAttackActions: { a: CreatureAbility; i: number }[] =
+    isDm && aMon && !targetingSelf
+      ? ((aMon as { actions?: CreatureAbility[] }).actions ?? [])
+          .map((a, i) => ({ a, i }))
+          .filter((x) => x.a.roll?.kind === 'attack')
+      : [];
+  const canCastAsSelected = pcAttackAbilities.length > 0 || monAttackActions.length > 0;
 
   // Dismiss on outside click, scroll, or Escape.
   useEffect(() => {
@@ -98,27 +122,64 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
         />
       )}
 
-      {canAttackAsSelected && (
+      {(canAttackAsSelected || canCastAsSelected) && (
         <div className="fm-attacks">
           <div className="fm-attacker">
             <span className="fm-attacker-icon">⚔️</span>
             Attacking as <strong>{resolveToken(snapshot, attacker!).name}</strong>
             <span className="fm-attacker-target"> → {d.name}</span>
           </div>
-          <WeaponButtons
-            weapons={aWeapons}
-            variant="menu"
-            onAttack={(i) =>
-              run(() =>
-                combatAttack({
-                  attackerTokenId: attacker!.id,
-                  targetTokenId: token.id,
-                  weaponIndex: i,
+          {canAttackAsSelected && (
+            <WeaponButtons
+              weapons={aWeapons}
+              variant="menu"
+              onAttack={(i) =>
+                run(() =>
+                  combatAttack({
+                    attackerTokenId: attacker!.id,
+                    targetTokenId: token.id,
+                    weaponIndex: i,
+                    advantage: consumeAdvantage(attacker!.refId),
+                  }),
+                )()
+              }
+            />
+          )}
+          {pcAttackAbilities.map((a) => (
+            <button
+              key={a.id}
+              className="btn tiny fm-spell-attack"
+              title={a.description || 'Spell attack'}
+              onClick={run(() =>
+                rollAbility({
+                  characterId: aChar!.id,
+                  abilityId: a.id,
+                  castLevel: a.roll?.baseLevel,
                   advantage: consumeAdvantage(attacker!.refId),
+                  targetTokenId: token.id,
                 }),
-              )()
-            }
-          />
+              )}
+            >
+              ✨ {a.name}
+            </button>
+          ))}
+          {monAttackActions.map(({ a, i }) => (
+            <button
+              key={i}
+              className="btn tiny fm-spell-attack"
+              title={a.description || 'Attack action'}
+              onClick={run(() =>
+                rollMonsterAction(
+                  aMon!.id,
+                  i,
+                  consumeAdvantage(attacker!.refId),
+                  token.id,
+                ),
+              )}
+            >
+              ✨ {a.name}
+            </button>
+          ))}
         </div>
       )}
 
@@ -126,7 +187,8 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
         <TokenAdminButtons token={token} variant="menu" onAfter={onClose} />
       ) : (
         !canSeeHp &&
-        !canAttackAsSelected && (
+        !canAttackAsSelected &&
+        !canCastAsSelected && (
           <div className="floating-menu-note muted">No actions available</div>
         )
       )}

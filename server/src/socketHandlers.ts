@@ -19,6 +19,7 @@ import {
   broadcastSnapshots,
   dropConn,
   getConn,
+  isConnected,
   roomName,
   sendSnapshot,
   setConn,
@@ -58,6 +59,8 @@ import {
   createToken,
   deleteMap,
   deleteMonster,
+  deleteCharacter,
+  setMonsterPlayerNotes,
   deleteToken,
   instantiateMonster,
   setEntityIcon,
@@ -78,6 +81,7 @@ import {
   renameMap,
   renameSession,
   importMaps,
+  previewImportCharacters,
   resizeToken,
   updateMapGrid,
   rollAllInitiative,
@@ -228,12 +232,27 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Import selected maps + their tokens from another session (DM only).
-    socket.on('session:importMaps', ({ sourceCode, mapIds }) => {
+    socket.on('session:importPreview', ({ sourceCode, mapIds }, ack) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || typeof ack !== 'function') {
+        if (typeof ack === 'function') ack([]);
+        return;
+      }
+      const ids = Array.isArray(mapIds)
+        ? mapIds.filter((m): m is string => typeof m === 'string').slice(0, 200)
+        : [];
+      ack(previewImportCharacters(sid, sourceCode, ids));
+    });
+
+    socket.on('session:importMaps', ({ sourceCode, mapIds, resolutions }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       if (typeof sourceCode !== 'string' || !Array.isArray(mapIds)) return;
       const ids = mapIds.filter((m): m is string => typeof m === 'string').slice(0, 200);
-      const n = importMaps(sid, sourceCode, ids);
+      const n = importMaps(sid, sourceCode, ids, {
+        resolutions: resolutions ?? {},
+        isClaimActive: isConnected,
+      });
       socket.emit('notice', {
         message: n
           ? `Imported ${n} map${n === 1 ? '' : 's'} from ${sourceCode.toUpperCase()}.`
@@ -308,9 +327,9 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('token:resize', ({ tokenId, size }) => {
+    socket.on('token:resize', ({ tokenId, widthFt }) => {
       if (!isDm()) return; // resizing is a DM action; players may only move
-      resizeToken(tokenId, size);
+      resizeToken(tokenId, widthFt);
       afterChange();
     });
 
@@ -403,6 +422,21 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('character:delete', ({ characterId }) => {
+      if (!isDm()) return; // DM-only: prune a PC from the spawn list
+      const c = getCharacter(characterId);
+      if (!c) return;
+      // Never delete a character a player is actively holding (still connected).
+      if (isConnected(c.claimedBy)) {
+        socket.emit('notice', {
+          message: `Can't remove ${c.name} — it's claimed by an active player.`,
+        });
+        return;
+      }
+      deleteCharacter(characterId);
+      afterChange();
+    });
+
     socket.on('character:release', () => {
       if (!sessionId()) return;
       releaseClaims(socket.id);
@@ -446,7 +480,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('ability:roll', ({ characterId, abilityId, castLevel, advantage }) => {
+    socket.on('ability:roll', ({ characterId, abilityId, castLevel, advantage, targetTokenId }) => {
       const sid = sessionId();
       if (!sid || !ownsCharacter(characterId)) return;
       const c = getCharacter(characterId);
@@ -460,6 +494,7 @@ export function registerSocketHandlers(io: IOServer): void {
         ability,
         typeof castLevel === 'number' ? castLevel : undefined,
         adv,
+        typeof targetTokenId === 'string' ? targetTokenId : undefined,
       );
       // Casting a leveled spell spends a slot at the level it was cast.
       if (ok && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
@@ -477,14 +512,15 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Roll a monster's structured action (breath weapon / spell-like) — DM only.
-    socket.on('monster:action', ({ monsterId, actionIndex, advantage }) => {
+    socket.on('monster:action', ({ monsterId, actionIndex, advantage, targetTokenId }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const monster = getMonster(monsterId);
       const action = monster?.actions[actionIndex];
       if (!monster || !action) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      if (resolveMonsterAction(sid, 'DM', monster, action, adv)) afterChange();
+      const target = typeof targetTokenId === 'string' ? targetTokenId : undefined;
+      if (resolveMonsterAction(sid, 'DM', monster, action, adv, target)) afterChange();
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
@@ -624,6 +660,15 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('monster:delete', ({ monsterId }) => {
       if (!isDm()) return;
       deleteMonster(monsterId);
+      afterChange();
+    });
+
+    // Shared party notes — any joined client (DM or player) may edit, scoped to
+    // their own session so notes can't leak/write across sessions.
+    socket.on('creature:setNotes', ({ monsterId, notes }) => {
+      const sid = sessionId();
+      if (!sid || getMonster(monsterId)?.sessionId !== sid) return;
+      setMonsterPlayerNotes(monsterId, notes);
       afterChange();
     });
 

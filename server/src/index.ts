@@ -4,12 +4,15 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { config } from './config.js';
 import { loadSettings } from './settings.js';
+import { seedLibraryItems } from './library.js';
 import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
 import { startTunnel, publicUrl } from './tunnel.js';
 import type { IOServer } from './connections.js';
 
 loadSettings(); // apply any DM-saved API key / model overrides on top of env
+const seeded = seedLibraryItems(); // one-time fill of the cross-session item library
+if (seeded) console.log(`  Seeded ${seeded} SRD items into the item library.`);
 
 const app = express();
 app.set('trust proxy', true); // we sit behind the Cloudflare Tunnel

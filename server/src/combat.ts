@@ -24,11 +24,11 @@ import { attackAdvantage, saveAdvantage } from '../../shared/conditionEffects.js
 import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
-  spellAttackBonus,
+  spellAttackBonusDetail,
   spellcastingMod,
   spellSaveDC,
 } from '../../shared/spellMath.js';
-import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
+import { SKILLS, skillBonus, signed, proficiencyBonus } from '../../shared/skills.js';
 import type {
   AbilityRoll,
   Character,
@@ -423,10 +423,70 @@ export function resolveForcedSave(
 }
 
 /**
+ * Resolve a TARGETED attack-roll ability/action against a token's AC and
+ * auto-apply typed damage on a hit (× resist/vuln) — the spell / monster-action
+ * analogue of `resolveAttack`. Logs HIT/MISS with `vs AC N` (so visibility.ts
+ * redacts it for players). Returns false if the target token is invalid, so the
+ * caller can fall back to the untargeted to-hit-only log.
+ */
+function resolveTargetedSpellAttack(opts: {
+  sessionId: string;
+  roller: string;
+  title: string;
+  description?: string;
+  attackBonus: number;
+  /** Labelled to-hit breakdown for the log, e.g. "+3[CHA] +2[PROF]". */
+  attackBonusDetail?: string;
+  dice?: string;
+  damageType?: string;
+  targetTokenId: string;
+  advantage?: Advantage;
+}): boolean {
+  const tt = getToken(opts.targetTokenId);
+  const t = tt && resolve(tt);
+  if (!t) return false;
+  const { face, detail: d20detail } = rollD20Detail(opts.advantage);
+  const crit = face === 20;
+  const fumble = face === 1;
+  const attackTotal = face + opts.attackBonus;
+  const hit = crit || (!fumble && attackTotal >= t.ac);
+  const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
+  let applied = 0;
+  const notes: string[] = [];
+  if (hit && opts.dice) {
+    let dmg = rollDice(opts.dice)!.total;
+    if (crit) dmg += rollDice(opts.dice)!.total; // crit doubles the dice
+    const mult = damageMultiplier(opts.damageType, t.resistances, t.weaknesses);
+    applied = Math.max(1, Math.floor(dmg * mult));
+    if (mult !== 1)
+      notes.push(
+        mult < 1
+          ? `½ resisted (${opts.damageType})`
+          : `×2 vulnerable (${opts.damageType})`,
+      );
+    applyDamage(t.kind, t.refId, applied);
+  }
+  const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
+  addRollLog(opts.sessionId, {
+    roller: opts.roller,
+    label: 'Attack',
+    expr: opts.title,
+    total: attackTotal,
+    detail:
+      `${opts.title} → ${t.name}: ${d20detail} ${opts.attackBonusDetail ?? signed(opts.attackBonus)} = ${attackTotal} vs AC ${t.ac} — ${result}` +
+      (hit && opts.dice ? `, ${applied}${dmgType} dmg [${opts.dice}${crit ? ' ×2 crit' : ''}]` : '') +
+      (notes.length ? ` · ${notes.join(', ')}` : ''),
+    description: opts.description,
+  });
+  return true;
+}
+
+/**
  * Resolve a character-sheet spell/ability roll authoritatively and log it.
  * Spell attack bonus / save DC are derived from the caster; damage/heal dice are
  * upcast by the chosen slot level (cantrips scale by caster level). Returns false
- * for purely descriptive entries (no roll).
+ * for purely descriptive entries (no roll). An attack-roll spell with a
+ * `targetTokenId` rolls vs that token's AC and auto-applies typed damage.
  */
 export function resolveAbilityRoll(
   sessionId: string,
@@ -435,6 +495,7 @@ export function resolveAbilityRoll(
   ability: SheetAbility,
   castLevel?: number,
   advantage?: Advantage,
+  targetTokenId?: string,
 ): boolean {
   const roll = ability.roll;
   if (!roll) return false;
@@ -450,8 +511,29 @@ export function resolveAbilityRoll(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
+    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(
+      stats,
+      proficiencyBonus(level || 1),
+    );
+    // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
+    if (
+      targetTokenId &&
+      resolveTargetedSpellAttack({
+        sessionId,
+        roller,
+        title,
+        description: ability.description || undefined,
+        attackBonus: bonus,
+        attackBonusDetail: bonusDetail,
+        dice,
+        damageType: roll.damageType,
+        targetTokenId,
+        advantage,
+      })
+    )
+      return true;
+    // Untargeted fallback: to-hit + damage are logged but not applied.
     const { face, detail: d20detail } = rollD20Detail(advantage);
-    const bonus = spellAttackBonus(level, stats);
     const attackTotal = face + bonus;
     const crit = face === 20;
     let dmgVal = 0;
@@ -465,7 +547,7 @@ export function resolveAbilityRoll(
       expr: title,
       total: attackTotal,
       detail:
-        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
         (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
         (crit ? ' — CRIT' : ''),
       description: ability.description || undefined,
@@ -536,6 +618,7 @@ export function resolveMonsterAction(
   monster: Monster,
   action: CreatureAbility,
   advantage?: Advantage,
+  targetTokenId?: string,
 ): boolean {
   const roll = action.roll;
   if (!roll) return false;
@@ -549,8 +632,27 @@ export function resolveMonsterAction(
   const title = action.name;
 
   if (roll.kind === 'attack') {
+    // To-hit = proficiency (by CR) + best casting mod, broken out for the log.
+    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(monster.stats, prof);
+    // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
+    if (
+      targetTokenId &&
+      resolveTargetedSpellAttack({
+        sessionId,
+        roller,
+        title,
+        description: action.description || undefined,
+        attackBonus: bonus,
+        attackBonusDetail: bonusDetail,
+        dice,
+        damageType: roll.damageType,
+        targetTokenId,
+        advantage,
+      })
+    )
+      return true;
+    // Untargeted fallback (e.g. rolled from the stat block): logged, not applied.
     const { face, detail: d20detail } = rollD20Detail(advantage);
-    const bonus = prof + castMod;
     const attackTotal = face + bonus;
     const crit = face === 20;
     let dmgVal = 0;
@@ -564,7 +666,7 @@ export function resolveMonsterAction(
       expr: title,
       total: attackTotal,
       detail:
-        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
         (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
         (crit ? ' — CRIT' : ''),
       description: action.description || undefined,

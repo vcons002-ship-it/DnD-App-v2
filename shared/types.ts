@@ -91,8 +91,14 @@ export type Token = {
   refId: string;
   x: number;
   y: number;
-  /** Size in grid squares (1 = Medium, 2 = Large, ...). */
+  /** Legacy size in grid squares (1 = Medium, 2 = Large, ...); kept for back-compat. */
   size: number;
+  /**
+   * Real-world footprint width in FEET (5 = Medium). This is the source of truth
+   * for the on-screen size: it's rendered via the map's feet-per-pixel so a token
+   * keeps its real size when the DM only changes the visual grid cell.
+   */
+  widthFt: number;
   /** Initiative value, or null if not rolled this combat. */
   initiative: number | null;
   /** Hidden tokens are never sent to players. */
@@ -312,6 +318,9 @@ export type Monster = {
   lastAttackRole: CombatRole | null;
   /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
   icon: string;
+  /** Shared free-text notes any player or the DM can add about this creature/NPC
+   *  (what the party has learned). Visible to everyone regardless of disposition. */
+  playerNotes: string;
 };
 
 /** A creature template returned by SRD search or Gemini lookup. */
@@ -408,6 +417,8 @@ export type MonsterPublic = {
   conditions: Condition[];
   disposition: Disposition;
   icon: string;
+  /** Shared party notes — visible to players on every disposition tier. */
+  playerNotes: string;
 };
 
 /** Player-facing NEUTRAL view: adds HP + type + AC on top of the public view. */
@@ -512,7 +523,7 @@ export type JoinPayload = {
 };
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
-export type TokenResizePayload = { tokenId: string; size: number };
+export type TokenResizePayload = { tokenId: string; widthFt: number };
 export type TokenDeletePayload = { tokenId: string };
 /** Duplicate one placed token into a second, independently-tracked copy. */
 export type TokenDuplicatePayload = { tokenId: string };
@@ -567,8 +578,25 @@ export type MeasureRemovePayload = { id: string };
 export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
-/** Import selected maps (and their tokens) from another session into this one. */
-export type SessionImportMapsPayload = { sourceCode: string; mapIds: string[] };
+/** How to handle a referenced character whose name already exists on import. */
+export type ImportConflictResolution = 'reuse' | 'overwrite' | 'new';
+/** A character referenced by the maps being imported (for the conflict prompt). */
+export type ImportCharConflict = {
+  /** Source-session character id (the resolutions map is keyed by this). */
+  sourceId: string;
+  name: string;
+  /** True when a same-named character already exists in the target session. */
+  exists: boolean;
+};
+/** Import selected maps (and their tokens) from another session into this one.
+ *  `resolutions` maps a source character id → reuse/overwrite/new (default new). */
+export type SessionImportMapsPayload = {
+  sourceCode: string;
+  mapIds: string[];
+  resolutions?: Record<string, ImportConflictResolution>;
+};
+/** Ask the server which referenced characters collide before importing. */
+export type SessionImportPreviewPayload = { sourceCode: string; mapIds: string[] };
 /** Enable/disable one fog layer on a map. */
 export type FogSetLayerPayload = {
   mapId: string;
@@ -598,6 +626,9 @@ export type CharacterCreatePayload = {
  *  `claim` (player) also claims the new character for the caller. */
 export type CharacterLoadFromLibraryPayload = { name: string; claim?: boolean };
 /** Patch fields of one character (DM or the owning player). */
+/** DM removes a player character from the session/spawn list. */
+export type CharacterDeletePayload = { characterId: string };
+
 export type CharacterUpdatePayload = {
   characterId: string;
   name?: string;
@@ -648,12 +679,17 @@ export type AbilityRollPayload = {
   abilityId: string;
   castLevel?: number;
   advantage?: 'adv' | 'dis';
+  /** Attack-roll spells target a token: the server resolves to-hit vs its AC and
+   *  auto-applies typed damage (× resist/vuln) on a hit, like a weapon attack. */
+  targetTokenId?: string;
 };
 /** Roll a monster's structured `action` (DM-only), resolved server-side. */
 export type MonsterActionRollPayload = {
   monsterId: string;
   actionIndex: number;
   advantage?: 'adv' | 'dis';
+  /** Attack-roll actions target a token (to-hit vs AC + typed auto-damage). */
+  targetTokenId?: string;
 };
 /** DM-only: resolve a damage roll's save against one clicked target (rolls the
  *  save, auto-applies full/half of the rolled amount). `rollId` is the log entry
@@ -754,6 +790,8 @@ export type MonsterUpdatePayload = {
   icon?: string;
 };
 export type MonsterDeletePayload = { monsterId: string };
+/** Shared party notes on a creature/NPC — writable by the DM AND players. */
+export type CreatureNotesPayload = { monsterId: string; notes: string };
 /** Ask the AI to back-fill only the empty fields of a creature (DM-only). */
 export type AiFillCreaturePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
@@ -793,6 +831,10 @@ export interface ClientToServerEvents {
   'measure:clear': (payload: MeasureClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
+  'session:importPreview': (
+    payload: SessionImportPreviewPayload,
+    ack: (conflicts: ImportCharConflict[]) => void,
+  ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
@@ -817,6 +859,7 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
+  'character:delete': (payload: CharacterDeletePayload) => void;
   'character:release': () => void;
   'resource:set': (payload: ResourceSetPayload) => void;
   'item:set': (payload: ItemSetPayload) => void;
@@ -833,6 +876,7 @@ export interface ClientToServerEvents {
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:update': (payload: MonsterUpdatePayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;
+  'creature:setNotes': (payload: CreatureNotesPayload) => void;
   'ai:fillCreature': (payload: AiFillCreaturePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;

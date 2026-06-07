@@ -13,8 +13,13 @@ import {
   createMonsterTemplate,
   instantiateMonster,
   createToken,
+  resizeToken,
   rollAllInitiative,
   getToken,
+  createCharacter,
+  listCharacters,
+  deleteCharacter,
+  previewImportCharacters,
 } from './sessions.js';
 
 describe('custom session codes', () => {
@@ -82,6 +87,28 @@ describe('editing & deleting saved sessions', () => {
   });
 });
 
+describe('token footprint width (feet)', () => {
+  it('defaults a new token to 5ft and resizes in feet (clamped)', () => {
+    const s = createSession('Sized');
+    const map = createMap(s.id, { name: 'Yard' });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Ogre', maxHp: 59 });
+    const tok = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 0,
+      y: 0,
+    });
+    expect(tok.widthFt).toBe(5); // Medium default
+
+    resizeToken(tok.id, 10); // Large
+    expect(getToken(tok.id)!.widthFt).toBe(10);
+
+    resizeToken(tok.id, 0); // clamps to the 2.5ft minimum
+    expect(getToken(tok.id)!.widthFt).toBe(2.5);
+  });
+});
+
 describe('importing maps from another session', () => {
   it('deep-copies picked maps + their tokens + referenced creatures', () => {
     const src = createSession('Source');
@@ -118,6 +145,87 @@ describe('importing maps from another session', () => {
     const dest = createSession('D2');
     expect(importMaps(dest.id, src.code, ['nope'])).toBe(0);
     expect(listMaps(dest.id)).toHaveLength(0);
+  });
+
+  it('resolves same-named character conflicts (reuse / overwrite / new)', () => {
+    // (createSession seeds a default party, so we measure the "Conf Hero" rows.)
+    const named = (sid: string) =>
+      listCharacters(sid).filter((c) => c.name === 'Conf Hero');
+
+    const mkSource = (suffix: string, level: number) => {
+      const src = createSession('Src-' + suffix);
+      const map = createMap(src.id, { name: 'Hall' });
+      const c = createCharacter(src.id, { name: 'Conf Hero', className: 'Bard', level });
+      createToken({ mapId: map.id, kind: 'pc', refId: c.id, x: 1, y: 1 });
+      return { src, map };
+    };
+
+    // Target already has a "Conf Hero" (level 1).
+    const dest = createSession('Dest-conf');
+    createCharacter(dest.id, { name: 'Conf Hero', className: 'Bard', level: 1 });
+
+    // Preview flags the collision.
+    const a = mkSource('a', 5);
+    const conflicts = previewImportCharacters(dest.id, a.src.code, [a.map.id]);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].exists).toBe(true);
+
+    // reuse → no new character; token links to the existing (still level 1) hero.
+    importMaps(dest.id, a.src.code, [a.map.id], {
+      resolutions: { [conflicts[0].sourceId]: 'reuse' },
+    });
+    expect(named(dest.id)).toHaveLength(1);
+    expect(named(dest.id)[0].level).toBe(1);
+
+    // overwrite → still one hero, but now updated to the source's level 5.
+    const b = mkSource('b', 5);
+    const bc = previewImportCharacters(dest.id, b.src.code, [b.map.id]);
+    importMaps(dest.id, b.src.code, [b.map.id], {
+      resolutions: { [bc[0].sourceId]: 'overwrite' },
+    });
+    expect(named(dest.id)).toHaveLength(1);
+    expect(named(dest.id)[0].level).toBe(5);
+
+    // new → a second, separate hero is created.
+    const c = mkSource('c', 3);
+    const cc = previewImportCharacters(dest.id, c.src.code, [c.map.id]);
+    importMaps(dest.id, c.src.code, [c.map.id], {
+      resolutions: { [cc[0].sourceId]: 'new' },
+    });
+    expect(named(dest.id)).toHaveLength(2);
+  });
+
+  it('never overwrites a character claimed by an active player', () => {
+    const named = (sid: string) =>
+      listCharacters(sid).filter((c) => c.name === 'Claim Hero');
+    const dest = createSession('Dest-claim');
+    createCharacter(dest.id, { name: 'Claim Hero', level: 1 });
+
+    const src = createSession('Src-claim');
+    const map = createMap(src.id, { name: 'Cave' });
+    const c = createCharacter(src.id, { name: 'Claim Hero', level: 9 });
+    createToken({ mapId: map.id, kind: 'pc', refId: c.id, x: 0, y: 0 });
+    const pre = previewImportCharacters(dest.id, src.code, [map.id]);
+
+    importMaps(dest.id, src.code, [map.id], {
+      resolutions: { [pre[0].sourceId]: 'overwrite' },
+      isClaimActive: () => true, // pretend the existing hero is actively claimed
+    });
+    // Overwrite fell back to reuse: still one hero, unchanged at level 1.
+    expect(named(dest.id)).toHaveLength(1);
+    expect(named(dest.id)[0].level).toBe(1);
+  });
+});
+
+describe('deleting a player character', () => {
+  it('removes the character and its placed tokens', () => {
+    const s = createSession('Del-PC');
+    const map = createMap(s.id, { name: 'Yard' });
+    const c = createCharacter(s.id, { name: 'Temp Hero', level: 2 });
+    const tok = createToken({ mapId: map.id, kind: 'pc', refId: c.id, x: 0, y: 0 });
+    deleteCharacter(c.id);
+    expect(listCharacters(s.id).some((x) => x.id === c.id)).toBe(false);
+    expect(getToken(tok.id)).toBeFalsy();
   });
 });
 

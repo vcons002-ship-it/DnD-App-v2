@@ -50,6 +50,24 @@ export function weaponAttackBonus(c: Combatant, w: Weapon): number {
   return abilityMod(c.stats[weaponAbility(c, w)]) + profBonusFor(c);
 }
 
+/**
+ * A weapon's to-hit AS A LABELLED BREAKDOWN for the roll log, e.g.
+ * `+3[STR] +2[PROF]` when derived from live stats, or `+5[hit]` when a fixed
+ * `attackBonus` overrides it. Mirrors the damage breakdown so the to-hit math is
+ * transparent; `bonus` equals what `weaponAttackBonus` returns.
+ */
+export function weaponAttackBonusDetail(
+  c: Combatant,
+  w: Weapon,
+): { bonus: number; detail: string } {
+  if (typeof w.attackBonus === 'number')
+    return { bonus: w.attackBonus, detail: `${signed(w.attackBonus)}[hit]` };
+  const ability = weaponAbility(c, w);
+  const abil = abilityMod(c.stats[ability]);
+  const prof = profBonusFor(c);
+  return { bonus: abil + prof, detail: `${signed(abil)}[${ability}] ${signed(prof)}[PROF]` };
+}
+
 /** The ability modifier a weapon uses to attack (STR/DEX per the rules above). */
 export function weaponAbilityMod(c: Combatant, w: Weapon): number {
   return abilityMod(c.stats[weaponAbility(c, w)]);
@@ -98,7 +116,7 @@ export function rollWeaponAttack(
   },
 ): AttackOutcome {
   const { face, detail: d20detail } = rollD20Detail(advantage);
-  const bonus = weaponAttackBonus(attacker, weapon);
+  const { bonus, detail: bonusDetail } = weaponAttackBonusDetail(attacker, weapon);
   const toHitExtra = opts?.attackRollBonus ?? 0;
   const attackTotal = face + bonus + toHitExtra;
   const crit = face === 20;
@@ -119,11 +137,17 @@ export function rollWeaponAttack(
     // `diceOnly` (e.g. a creature attack picked from the weapon/natural library),
     // which behave like a PC weapon and pull the mod from live stats. Off-hand /
     // Cleave omit it.
-    const addAbilityMod = (!attacker.isMonster || weapon.diceOnly) && !opts?.noAbilityMod;
+    const usesAbilityMod = !attacker.isMonster || !!weapon.diceOnly;
+    const addAbilityMod = usesAbilityMod && !opts?.noAbilityMod;
     const abil = addAbilityMod ? weaponAbilityMod(attacker, weapon) : 0;
+    // A dice-only weapon's `damage` must carry NO baked flat modifier — the
+    // ability mod is added above, so honoring a stray flat too would double-count
+    // it (the classic "+DEX twice" bug). Ignore it for those; pre-baked monster
+    // damage keeps its flat.
+    const usableFlat = usesAbilityMod ? 0 : flat;
     const bonus2 = opts?.bonusDamage ?? 0; // flat on-hit mastery damage (e.g. GWM), folded in
     const r1 = dice ? rollDice(dice) : null;
-    let sum = flat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit
+    let sum = usableFlat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit
     // Compact, labelled breakdown, e.g. "2d6[4,6]+[3,5][CRIT]+4[STR]+1[MAGIC]+3[GWM]".
     const parts: string[] = [];
     if (r1) {
@@ -135,7 +159,7 @@ export function rollWeaponAttack(
       sum += r2.total;
       parts.push(`+[${r2.rolls.join(',')}][CRIT]`);
     }
-    if (flat) parts.push(signed(flat));
+    if (usableFlat) parts.push(signed(usableFlat));
     if (abil) parts.push(`${signed(abil)}[${weaponAbility(attacker, weapon)}]`);
     if (magic) parts.push(`${signed(magic)}[MAGIC]`);
     if (bonus2) parts.push(`${signed(bonus2)}[${opts?.bonusLabel || 'BONUS'}]`);
@@ -146,7 +170,7 @@ export function rollWeaponAttack(
   const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';
   const detail =
-    `${weapon.name}${twoH}: ${d20detail} ${signed(bonus)}${toHitExtra ? ` ${signed(toHitExtra)}[maneuver]` : ''} = ${attackTotal} vs AC ${targetAC} — ${result}` +
+    `${weapon.name}${twoH}: ${d20detail} ${bonusDetail}${toHitExtra ? ` ${signed(toHitExtra)}[maneuver]` : ''} = ${attackTotal} vs AC ${targetAC} — ${result}` +
     (hit ? `, ${damage} dmg (${dmgText})` : '');
 
   return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };

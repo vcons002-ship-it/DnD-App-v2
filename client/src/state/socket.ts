@@ -11,6 +11,8 @@ import type {
   Condition,
   DiceRollPayload,
   FogLayer,
+  ImportCharConflict,
+  ImportConflictResolution,
   InventoryItem,
   MeasureAddPayload,
   ResourceSetPayload,
@@ -89,7 +91,16 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
-  importMapsFromSession: (sourceCode: string, mapIds: string[]) => void;
+  importMapsFromSession: (
+    sourceCode: string,
+    mapIds: string[],
+    resolutions?: Record<string, ImportConflictResolution>,
+  ) => void;
+  /** Ask the server which referenced characters collide before importing. */
+  previewImport: (
+    sourceCode: string,
+    mapIds: string[],
+  ) => Promise<ImportCharConflict[]>;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   paintFog: (
     mapId: string,
@@ -106,7 +117,7 @@ type Store = {
     y: number,
   ) => void;
   moveToken: (tokenId: string, x: number, y: number) => void;
-  resizeToken: (tokenId: string, size: number) => void;
+  resizeToken: (tokenId: string, widthFt: number) => void;
   deleteToken: (tokenId: string) => void;
   duplicateToken: (tokenId: string) => void;
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
@@ -130,7 +141,12 @@ type Store = {
   setSheetAbility: (characterId: string, ability: SheetAbility) => void;
   removeSheetAbility: (characterId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
-  rollMonsterAction: (monsterId: string, actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  rollMonsterAction: (
+    monsterId: string,
+    actionIndex: number,
+    advantage?: 'adv' | 'dis',
+    targetTokenId?: string,
+  ) => void;
   rollSkill: (payload: SkillRollPayload) => void;
   rollSave: (payload: SaveRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
@@ -144,6 +160,10 @@ type Store = {
   updateMonster: (payload: MonsterUpdatePayload) => void;
   aiFillCreature: (monsterId: string) => void;
   deleteMonster: (monsterId: string) => void;
+  /** Set the shared party notes on a creature/NPC (DM + players). */
+  setCreatureNotes: (monsterId: string, notes: string) => void;
+  /** DM removes a player character from the spawn list. */
+  deleteCharacter: (characterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setTokensHideCombatRole: (tokenIds: string[], hide: boolean) => void;
   setTokensCombatRole: (
@@ -261,8 +281,14 @@ export const useStore = create<Store>((set, get) => ({
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
-  importMapsFromSession: (sourceCode, mapIds) =>
-    get().socket?.emit('session:importMaps', { sourceCode, mapIds }),
+  importMapsFromSession: (sourceCode, mapIds, resolutions) =>
+    get().socket?.emit('session:importMaps', { sourceCode, mapIds, resolutions }),
+  previewImport: (sourceCode, mapIds) =>
+    new Promise((resolve) => {
+      const sock = get().socket;
+      if (!sock) return resolve([]);
+      sock.emit('session:importPreview', { sourceCode, mapIds }, resolve);
+    }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
   paintFog: (mapId, layer, cells, reveal) =>
@@ -273,8 +299,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
   moveToken: (tokenId, x, y) =>
     get().socket?.emit('token:move', { tokenId, x, y }),
-  resizeToken: (tokenId, size) =>
-    get().socket?.emit('token:resize', { tokenId, size }),
+  resizeToken: (tokenId, widthFt) =>
+    get().socket?.emit('token:resize', { tokenId, widthFt }),
   deleteToken: (tokenId) => get().socket?.emit('token:delete', { tokenId }),
   duplicateToken: (tokenId) =>
     get().socket?.emit('token:duplicate', { tokenId }),
@@ -311,8 +337,8 @@ export const useStore = create<Store>((set, get) => ({
   removeSheetAbility: (characterId, abilityId) =>
     get().socket?.emit('ability:remove', { characterId, abilityId }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
-  rollMonsterAction: (monsterId, actionIndex, advantage) =>
-    get().socket?.emit('monster:action', { monsterId, actionIndex, advantage }),
+  rollMonsterAction: (monsterId, actionIndex, advantage, targetTokenId) =>
+    get().socket?.emit('monster:action', { monsterId, actionIndex, advantage, targetTokenId }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   rollSave: (payload) => get().socket?.emit('save:roll', payload),
   damageTokens: (tokenIds, amount) =>
@@ -331,6 +357,10 @@ export const useStore = create<Store>((set, get) => ({
   },
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),
+  setCreatureNotes: (monsterId, notes) =>
+    get().socket?.emit('creature:setNotes', { monsterId, notes }),
+  deleteCharacter: (characterId) =>
+    get().socket?.emit('character:delete', { characterId }),
   setTokensIcon: (tokenIds, icon) =>
     get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
   setTokensHideCombatRole: (tokenIds, hide) =>

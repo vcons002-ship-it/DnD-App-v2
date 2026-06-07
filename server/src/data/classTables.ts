@@ -91,7 +91,8 @@ export function deriveClassResources(
   if (/monk/.test(cn)) add('Ki', lvl >= 2 ? lvl : 0);
   if (/sorcerer/.test(cn)) add('Sorcery Points', lvl >= 2 ? lvl : 0);
   if (/fighter/.test(cn)) {
-    add('Second Wind', 1);
+    // 2024 PHB: Second Wind uses scale with level — 2 (L1-3), 3 (L4-9), 4 (L10+).
+    add('Second Wind', lvl >= 10 ? 4 : lvl >= 4 ? 3 : 2);
     add('Action Surge', lvl >= 17 ? 2 : lvl >= 2 ? 1 : 0);
   }
   if (/paladin/.test(cn)) add('Lay on Hands', lvl * 5);

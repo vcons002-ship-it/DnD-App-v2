@@ -1,4 +1,5 @@
-import { db, newId } from './db.js';
+import { db, newId, getMeta, setMeta } from './db.js';
+import { SRD_ITEMS } from './items/srd.js';
 import type {
   CreatureAbility,
   CreatureTemplate,
@@ -341,3 +342,28 @@ export function saveLibraryItem(input: {
 export function deleteLibraryItem(id: string): void {
   db.prepare('DELETE FROM library_items WHERE id = ?').run(id);
 }
+
+/**
+ * Seed the cross-session item library with the curated SRD catalogue, ONCE. The
+ * one-time `app_meta` marker means later user deletions/edits aren't undone on
+ * restart; within the seed run we still skip any name already present so we never
+ * clobber a same-named item the DM saved earlier.
+ */
+export const seedLibraryItems = db.transaction((): number => {
+  if (getMeta('items_seeded_v1')) return 0;
+  let added = 0;
+  const exists = db.prepare(
+    'SELECT 1 FROM library_items WHERE LOWER(name) = ? LIMIT 1',
+  );
+  for (const it of SRD_ITEMS) {
+    if (exists.get(it.name.toLowerCase())) continue;
+    saveLibraryItem({
+      name: it.name,
+      description: it.description,
+      qtyDefault: it.qtyDefault ?? 1,
+    });
+    added++;
+  }
+  setMeta('items_seeded_v1', '1');
+  return added;
+});

@@ -281,6 +281,9 @@ export function MapStage({
   const feetPerSquare = map?.feetPerSquare ?? 5;
   const mapWidthFt = map?.mapWidthFt ?? 0;
   const fpp = mapWidthFt > 0 && imgW ? mapWidthFt / imgW : feetPerSquare / grid;
+  // Pixels per foot — tokens are sized by their real width in feet, so they keep
+  // their footprint when only the visual grid cell changes.
+  const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
   const [tool, setTool] = useState<MeasureTool | null>(null);
@@ -864,13 +867,18 @@ export function MapStage({
                   }}
                 />
               )}
-              <FootprintLayer tokens={snapshot.tokens} gridSizePx={grid} />
+              <FootprintLayer
+                tokens={snapshot.tokens}
+                gridSizePx={grid}
+                pxPerFoot={pxPerFoot}
+              />
               {snapshot.tokens.map((t) => (
                 <TokenShape
                   key={t.id}
                   token={t}
                   display={resolveToken(snapshot, t)}
                   gridSizePx={grid}
+                  pxPerFoot={pxPerFoot}
                   draggable={draggableTokens && !fogActive && !measureActive && !saveResolve}
                   listening={!measureActive}
                   selected={selectedIds.includes(t.id)}

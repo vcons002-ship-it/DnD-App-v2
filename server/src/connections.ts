@@ -26,6 +26,11 @@ export const dropConn = (socketId: string): void => {
   conns.delete(socketId);
 };
 
+/** Is this socket id currently connected (i.e. an active player/DM)? Used to
+ *  protect a character claimed by a player who is still in the session. */
+export const isConnected = (socketId: string | null | undefined): boolean =>
+  !!socketId && conns.has(socketId);
+
 export const roomName = (sessionId: string): string => `session:${sessionId}`;
 
 /**

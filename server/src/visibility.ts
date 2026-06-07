@@ -59,6 +59,8 @@ function toPlayerMonster(
     conditions: m.conditions,
     disposition: m.disposition,
     icon: m.icon,
+    // Shared party notes are visible on every tier (the players wrote them).
+    playerNotes: m.playerNotes,
   };
   if (m.disposition === 'neutral') {
     return {

@@ -135,7 +135,9 @@ input[type='number'] { width: 70px; }
   margin-left: 6px; font-size: 10px; background: var(--green);
   color: #04210f; padding: 1px 5px; border-radius: 4px; vertical-align: middle;
 }
-.slides-row, .add-monster, .buff-row, .dmg-row, .size-row { display: flex; gap: 6px; align-items: center; }
+.slides-row, .buff-row, .dmg-row, .size-row { display: flex; gap: 6px; align-items: center; }
+/* Creature add: full-width search box, controls (HP / Add / AI) on the row below. */
+.add-monster { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .spawn-row {
   width: 100%; text-align: left; background: var(--panel-2);
   border: 1px solid var(--line); color: var(--text);
@@ -147,7 +149,7 @@ input[type='number'] { width: 70px; }
 .spawn-icon { margin-right: 4px; }
 
 /* Creature search / autofill */
-.creature-search { position: relative; }
+.creature-search { position: relative; width: 100%; }
 .suggest {
   position: absolute; left: 0; right: 0; top: 100%; z-index: 6;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
@@ -283,6 +285,10 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 }
 .import-map-row input { width: auto; margin: 0; flex-shrink: 0; }
 .import-map-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-conflict-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+}
 
 .hp-line { font-size: 16px; margin: 6px 0; }
 /* Temporary-HP buffer pool: a flat 2024-rules cyan accent next to real HP. */
@@ -377,6 +383,27 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .sb-weapon-edit .sb-dmg { width: 70px; }
 .sb-weapon-edit .sb-tohit { width: 44px; }
 .sb-weapon-edit .sb-tags { flex: 1; min-width: 110px; }
+.sb-weapon-hint { margin: 2px 0 6px; font-size: 11px; }
+
+/* Tag chips on a weapon (add/remove) — shown for both creatures and PCs. */
+.sb-tag-input {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 3px;
+  flex: 1; min-width: 120px;
+  padding: 2px 4px; border: 1px solid #3a3d44; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.sb-tag-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 4px; border-radius: 10px; font-size: 11px;
+  background: rgba(110, 168, 254, 0.18); color: #cfe0ff; white-space: nowrap;
+}
+.sb-tag-x {
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+  padding: 0; line-height: 1; font-size: 13px; opacity: 0.7;
+}
+.sb-tag-x:hover { opacity: 1; }
+.sb-tag-add { flex: 1; min-width: 56px; border: 0 !important; background: transparent; padding: 1px 2px; }
+.sb-tag-add:focus { outline: none; }
 .weapon-picker { margin-top: 6px; }
 .weapon-masteries strong { color: var(--accent); }
 .sb-entry-edit { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start; margin: 4px 0; }
@@ -405,6 +432,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .fm-attacker strong { color: var(--text); }
 .fm-attacker-icon { margin-right: 4px; }
 .fm-attacker-target { color: var(--muted); }
+.fm-spell-attack { text-align: left; margin: 1px 4px; }
 
 /* Compact, click-through latest-roll readout pinned bottom-left of the map
    (Feature: DicePanel toggle). One line, just wide enough for the latest roll. */
@@ -738,6 +766,14 @@ details.creature-details > summary::-webkit-details-marker { display: none; }
 details.creature-details > summary::before { content: '▸ '; }
 details.creature-details[open] > summary::before { content: '▾ '; }
 .creature-details-body { font-size: 13px; display: grid; gap: 2px; padding: 4px 0; }
+
+/* Shared party notes on a creature/NPC. */
+.creature-notes { margin: 6px 0; }
+.creature-notes h4 { margin: 0 0 3px; }
+.creature-notes-text {
+  width: 100%; min-height: 52px; resize: vertical; box-sizing: border-box;
+  font: inherit; font-size: 13px;
+}
 
 /* Character sheet: Actions & Traits collapsed at the bottom of the sheet. */
 details.sheet-actions-traits { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }

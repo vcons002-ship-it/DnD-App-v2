@@ -7,12 +7,14 @@ import {
   saveLibraryItem,
   listLibraryItems,
   deleteLibraryItem,
+  seedLibraryItems,
   saveLibraryCharacter,
   getLibraryCharacter,
   searchLibraryCharacters,
   deleteLibraryCharacter,
 } from './library.js';
 import { createSession, createCharacterFromLibrary, getCharacter } from './sessions.js';
+import { setMeta } from './db.js';
 
 describe('creature library', () => {
   it('saves, finds, and conflict-prompts by name', () => {
@@ -55,11 +57,24 @@ describe('creature library', () => {
   });
 
   it('stores library items', () => {
-    const it1 = saveLibraryItem({ name: 'Potion of Healing', description: '2d4+2', qtyDefault: 1 });
-    expect(it1.name).toBe('Potion of Healing');
-    expect(listLibraryItems('potion').some((i) => i.id === it1.id)).toBe(true);
+    const it1 = saveLibraryItem({ name: 'Zzphtest Trinket', description: 'x', qtyDefault: 1 });
+    expect(it1.name).toBe('Zzphtest Trinket');
+    expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(true);
     deleteLibraryItem(it1.id);
-    expect(listLibraryItems('potion').some((i) => i.id === it1.id)).toBe(false);
+    expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(false);
+  });
+
+  it('seeds the SRD item catalogue (idempotent, present after seeding)', () => {
+    // Force a seed attempt even if a prior run already set the one-time marker.
+    setMeta('items_seeded_v1', '');
+    seedLibraryItems();
+    // The catalogue is present across categories (regardless of how many were
+    // freshly inserted vs. already saved by an earlier run).
+    expect(listLibraryItems('bag of holding')).toHaveLength(1);
+    expect(listLibraryItems('plate armor').length).toBeGreaterThanOrEqual(1);
+    expect(listLibraryItems('potion of healing').length).toBeGreaterThanOrEqual(1);
+    // Re-running is a no-op once the one-time marker is set.
+    expect(seedLibraryItems()).toBe(0);
   });
 });
 

@@ -26,7 +26,8 @@ import {
   listRollLog,
   getRollEntry,
 } from './sessions.js';
-import type { SheetAbility } from '../../shared/types.js';
+import { buildSnapshot } from './visibility.js';
+import type { CreatureAbility, SheetAbility } from '../../shared/types.js';
 
 function arena() {
   const s = createSession('Combat');
@@ -436,6 +437,99 @@ describe('diceOnly creature attacks (live stats)', () => {
   });
 });
 
+describe('to-hit breakdown + no double-count', () => {
+  it('spells out a derived to-hit as ability + proficiency', () => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Bandit',
+      maxHp: 30,
+      stats: { STR: 20, DEX: 10 },
+      weapons: [{ name: 'Club', kind: 'melee', damage: '1d4', diceOnly: true, tags: ['club'] }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(dTmpl.id)!.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'Bandit', atk.id, tgt.id, 0);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('[STR]'); // ability portion of the to-hit
+    expect(last.detail).toContain('[PROF]'); // proficiency portion of the to-hit
+  });
+
+  it('shows a fixed attackBonus as [hit] instead of a derived breakdown', () => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Sniper',
+      maxHp: 30,
+      stats: { DEX: 10 },
+      weapons: [{ name: 'Bow', kind: 'ranged', damage: '1d6', attackBonus: 7 }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(dTmpl.id)!.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'Sniper', atk.id, tgt.id, 0);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('+7[hit]');
+  });
+
+  it('never double-counts the ability mod when a diceOnly damage string carries a baked flat', () => {
+    const { s, map } = arena();
+    // STR 20 (+5) with diceOnly "1d4+5": the stray +5 must be IGNORED so the mod
+    // is added once. A non-crit hit deals at most 1d4 + 5 = 9 (not 1d4 + 10).
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Brute',
+      maxHp: 30,
+      stats: { STR: 20, DEX: 10 },
+      weapons: [{ name: 'Fist', kind: 'melee', damage: '1d4+5', diceOnly: true, tags: ['fist'] }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dTmpl.id)!.id;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'Brute', atk.id, tgt.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(before - getMonster(ref)!.curHp).toBeLessThanOrEqual(9);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it('spells out a PC spell attack to-hit as casting ability + proficiency', () => {
+    const { s } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    const ability: SheetAbility = {
+      id: 'fb',
+      name: 'Fire Bolt',
+      type: 'spell',
+      description: '',
+      roll: { kind: 'attack', dice: '1d10', damageType: 'fire', baseLevel: 0 },
+    };
+    setSheetAbility(ch.id, ability);
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('[INT]'); // casting ability portion
+    expect(last.detail).toContain('[PROF]'); // proficiency portion
+  });
+
+  it('spells out a monster action to-hit as casting ability + proficiency', () => {
+    const { s } = arena();
+    const tmpl = createMonsterTemplate(s.id, { name: 'Drake', maxHp: 30, level: 5, stats: { CHA: 16 } });
+    const m = instantiateMonster(tmpl.id)!;
+    const ok = resolveMonsterAction(s.id, 'DM', m, {
+      name: 'Fire Breath',
+      description: '',
+      roll: { kind: 'attack', dice: '2d6', damageType: 'fire' },
+    });
+    expect(ok).toBe(true);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('[CHA]'); // best casting mod is CHA
+    expect(last.detail).toContain('[PROF]');
+  });
+});
+
 describe('spell roll description', () => {
   it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
     const { s } = arena();
@@ -766,5 +860,109 @@ describe('Battle Master maneuvers', () => {
     expect(getCharacter(chId)!.sheetAbilities[0].maneuver!.active).toBe(true);
     expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(4);
     expect(listRollLog(s).at(-1)!.detail).not.toContain('Maneuver (d8→');
+  });
+});
+
+describe('targeted attack-roll spells & monster actions', () => {
+  // A low-AC dummy target token; tune resist/vuln via the patch.
+  function dummy(s: { id: string }, map: { id: string }, patch: Parameters<typeof updateMonster>[1]) {
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 100, armorClass: 1 });
+    const inst = instantiateMonster(tmpl.id)!;
+    updateMonster(inst.id, patch);
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    return { ref: inst.id, tokenId: tok.id };
+  }
+
+  // Flat 10-damage fire attack ability ('10d1' = always 10; crit would double it,
+  // so assertions only fire on a NON-crit hit — like the weapon resist/vuln tests).
+  const fireBolt: SheetAbility = {
+    id: 'fb', name: 'Fire Bolt', type: 'spell', description: '',
+    roll: { kind: 'attack', dice: '10d1', damageType: 'fire', baseLevel: 0 },
+  };
+
+  it('PC spell attack rolls vs the target AC and applies typed damage (resist halves)', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { ref, tokenId } = dummy(s, map, { resistances: ['fire'] });
+    let saw = false;
+    for (let i = 0; i < 60 && !saw; i++) {
+      updateMonster(ref, { curHp: 100 });
+      resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
+        saw = true;
+        expect(getMonster(ref)!.curHp).toBe(95); // 10 fire → resisted to 5
+        expect(detail).toMatch(/vs AC 1/);
+        expect(detail).toMatch(/resisted/);
+      }
+    }
+    expect(saw).toBe(true);
+  });
+
+  it('PC spell attack doubles damage against a vulnerable target', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { ref, tokenId } = dummy(s, map, { weaknesses: ['fire'] });
+    let saw = false;
+    for (let i = 0; i < 60 && !saw; i++) {
+      updateMonster(ref, { curHp: 100 });
+      resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
+        saw = true;
+        expect(getMonster(ref)!.curHp).toBe(80); // 10 fire → doubled to 20
+        expect(detail).toMatch(/vulnerable/);
+      }
+    }
+    expect(saw).toBe(true);
+  });
+
+  it('redacts the target AC for players but keeps HIT/MISS', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { tokenId } = dummy(s, map, {});
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+    const player = buildSnapshot(s.id, 'player')!;
+    const line = player.rollLog.at(-1)!.detail;
+    expect(line).toContain('vs AC ?');
+    expect(line).not.toMatch(/vs AC 1\b/);
+  });
+
+  it('without a target, a spell attack only logs to-hit and applies nothing', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { ref } = dummy(s, map, {});
+    const before = getMonster(ref)!.curHp;
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt); // no targetTokenId
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('to hit');
+    expect(getMonster(ref)!.curHp).toBe(before);
+  });
+
+  it('monster attack actions also roll vs AC and apply typed damage (vuln doubles)', () => {
+    const { s, map } = arena();
+    const mon = getMonster(createMonsterTemplate(s.id, {
+      name: 'Imp', maxHp: 20, level: 5, stats: { CHA: 16 },
+    }).id)!;
+    const sting: CreatureAbility = {
+      name: 'Fire Sting', description: '',
+      roll: { kind: 'attack', dice: '10d1', damageType: 'fire' },
+    };
+    const { ref, tokenId } = dummy(s, map, { weaknesses: ['fire'] });
+    let saw = false;
+    for (let i = 0; i < 60 && !saw; i++) {
+      updateMonster(ref, { curHp: 100 });
+      resolveMonsterAction(s.id, 'DM', mon, sting, undefined, tokenId);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
+        saw = true;
+        expect(getMonster(ref)!.curHp).toBe(80); // 10 fire → doubled to 20
+        expect(detail).toMatch(/vs AC 1/);
+      }
+    }
+    expect(saw).toBe(true);
   });
 });

@@ -34,6 +34,15 @@ curl -fsSL -O https://raw.githubusercontent.com/vcons002-ship-it/DnD-App-v2/clau
 bash install.sh
 ```
 
+The installer checks for and installs the prerequisites (Git, Node.js, and —
+via Homebrew — cloudflared), clones the app to `~/DnD-App-v2`, installs
+dependencies, and offers to launch. After that, start the app any time by
+double-clicking **`start.command`** in that folder (or **`start-dev.command`**
+for local-only testing). On macOS the first double-click may need
+**right-click → Open** to clear Gatekeeper; from a terminal you can always run
+`cd ~/DnD-App-v2 && npm start`. Re-running `install.sh` updates to the latest
+version.
+
 Prefer to do it by hand? Follow **Setup** and **Run** below.
 
 ## Features
@@ -79,10 +88,72 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 
 ## Requirements
 
-- Node.js 20+ (developed on 22)
-- [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
-  for remote access (optional — the app still runs locally without it)
-- A Gemini API key (optional — only for AI creature/character generation; SRD search and everything else work without it)
+Only the **host** (the person running the server) needs the things below.
+Players just need a modern browser and the join link — no install on their end.
+
+This is a lightweight Node.js app: at rest the server is a small process with a
+local SQLite file, sized for **one table** (a DM plus a typical party of up to
+~6–8 players). The heaviest moment is the **one-time install/build**
+(`npm install` + the Vite client build), which drives the RAM/CPU figures more
+than gameplay does.
+
+### Hardware (host PC)
+
+| Resource | Minimum | Recommended |
+| --- | --- | --- |
+| **CPU** | 64-bit dual-core (x86-64 or ARM64) | Modern quad-core, 2 GHz+ |
+| **RAM** | 4 GB system (≈2 GB free during the build) | 8 GB+ |
+| **Free disk** | 2 GB (app + `node_modules`) | 5 GB+ (room for uploaded map images) |
+| **GPU** | None — the server is headless | None (the map canvas renders in each *player's* browser, not on the host) |
+| **Network** | Stable broadband; ~5 Mbps upload for remote play | 20+ Mbps upload, wired Ethernet. LAN-only play needs no internet at all |
+
+Map/icon uploads are stored on the host's disk, so plan extra space if you
+upload many high-resolution maps. Remote players reach you through a Cloudflare
+Tunnel, so your **upload** speed (and a stable connection) matters more than
+download.
+
+### Supported operating systems
+
+All require a **64-bit** OS — there are no 32-bit builds of the native SQLite
+module.
+
+- **Windows:** Windows 10 (64-bit) or Windows 11. The one-click `install.bat`
+  uses `winget` (ships with current Windows; otherwise update *App Installer*
+  from the Microsoft Store). Windows Server 2019+ also works.
+- **macOS:** macOS 11 Big Sur or later. **Apple Silicon (M1/M2/M3…) and Intel**
+  are both supported. [Homebrew](https://brew.sh) is recommended so `install.sh`
+  can fetch the prerequisites automatically.
+- **Linux:** a 64-bit `glibc` distribution — Ubuntu 20.04+, Debian 11+, Fedora
+  36+, or similar (glibc ≥ 2.28). `install.sh` auto-installs via `apt` where
+  available; on other distros install Git + Node yourself first. *Alpine/musl*
+  works but needs the build toolchain below (no prebuilt SQLite binary).
+- **ARM single-board computers (e.g. Raspberry Pi):** a Pi 4 / Pi 5 (or similar)
+  running a **64-bit (arm64)** OS with ≥4 GB RAM is fine. 32-bit OSes and older
+  boards are **not** recommended (no prebuilt native binaries, and Node 20+
+  dropped much 32-bit support).
+
+### Software prerequisites
+
+The `install.bat` / `install.sh` scripts install these for you; you can also add
+them by hand:
+
+- **Node.js 20 LTS minimum** (developed and tested on **22 LTS** — recommended),
+  which includes `npm`.
+- **Git** — used to clone and later update the app.
+- **[`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)**
+  — optional, only for exposing the game to remote players over a tunnel. The
+  app runs fully on your LAN without it.
+- **A Gemini API key** — optional, only for AI creature/character generation.
+  SRD search, combat, sheets, and everything else work offline without a key.
+- **A C/C++ build toolchain** — *normally not needed.* `better-sqlite3` ships
+  prebuilt binaries for the common platforms above. Only if you're on an
+  unsupported target (Alpine/musl, BSD, an exotic arch) will npm compile it from
+  source, which then needs Python 3 + `make` + a compiler (GCC/Clang, or the
+  *Visual Studio Build Tools* on Windows).
+
+Each connected device (the DM and every player) should use a current
+**Chrome, Edge, Firefox, or Safari**; the interactive map uses HTML5 canvas
+(Konva), so a very old browser may struggle.
 
 ## Setup
 
@@ -190,3 +261,27 @@ per-feature status. High-level status:
 - **Phase 7 (done):** DM Data second-screen dashboard and shared top toolbar.
 - **Phase 6 (future):** AI-assisted spell-effect resolution, rules/item lookup, and AI-generated enemy combat dialogue.
 - **Phase 7 (future):** Discord voice/video integration.
+
+## License & attribution
+
+The **code** in this repository is released under the [MIT License](LICENSE) —
+Copyright (c) 2026 vcons002. See [`FEATURES.md`](FEATURES.md) for a full,
+plain-language tour of what the app can do.
+
+**Game content (SRD).** The bundled creature, spell, weapon, weapon-mastery,
+maneuver, and item data is derived from the Dungeons & Dragons **System
+Reference Document (SRD)**, used under the Creative Commons Attribution 4.0
+International License (CC-BY-4.0). It contains **no** text from the proprietary
+Player's Handbook, Dungeon Master's Guide, or Monster Manual, and this project
+is **not** affiliated with, endorsed, or sponsored by Wizards of the Coast.
+
+> This work includes material from the System Reference Document 5.1 ("SRD 5.1")
+> and the System Reference Document 5.2 ("SRD 5.2") by Wizards of the Coast LLC,
+> available at <https://dnd.wizards.com/resources/systems-reference-document> and
+> licensed under the Creative Commons Attribution 4.0 International License,
+> available at <https://creativecommons.org/licenses/by/4.0/legalcode>.
+
+The optional Google Gemini AI integration is provided by Google and subject to
+Google's terms; it is entirely optional, and the app runs fully offline (SRD
+search and all core features) without an API key.
+

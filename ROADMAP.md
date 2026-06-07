@@ -618,3 +618,60 @@ Smaller refinements on top of the shipped Phase 2 work.
   optionally remembered per session. Start with (b) — a "Join voice" button in
   the new top toolbar with a per-session channel/invite setting — and investigate
   (a) as the deeper integration.
+
+## Polish batch — token sizing, panel UX, spawn/import, rules & data
+
+- ☑ **Token footprint in feet [req].** Tokens carry a real-world `widthFt`
+  (default 5ft = Medium), rendered via the map's pixels-per-foot, so a token keeps
+  its size when the DM changes only the visual grid cell. New `width_ft` column
+  (backfilled `size*5`); resize works in 5ft steps; legacy `size` kept in sync.
+- ☑ **Creature search full-width [req].** The DM creature-search box spans the
+  panel with HP / Add creature / AI on the row below (`.add-monster` column layout).
+- ☑ **Footstep trail rework [req].** Footprints are spaced a constant distance
+  apart (≈one per 0.8 cells, count scales with the move), larger and brighter, and
+  hold fully opaque before a faster oldest-first fade.
+- ☑ **DM removes PCs from the spawn list [req].** DM-gated `character:delete`
+  removes a character + its tokens via a 🗑 button, refused while a connected
+  player holds the claim (`isConnected`).
+- ☑ **Map-import conflict resolution [req].** Same-named characters prompt the DM
+  per-conflict — **Reuse** (link), **Overwrite** (replace; never an actively-claimed
+  PC), or **New** (duplicate) — via `session:importPreview` + resolutions on
+  `session:importMaps`. Monsters still import as fresh instances.
+- ☑ **Second Wind 2024 [req].** Fighter Second Wind uses scale 2 / 3 / 4 by level.
+- ☑ **AI PC weapons are dice-only [req].** AI character fills produce dice-only
+  damage (no baked-in `+mod`/to-hit) so the combat system adds the live ability
+  mod + proficiency (`diceOnly`).
+- ☑ **Item library seeded [req].** A curated SRD/OGL catalogue (gear, tools, armor,
+  weapons, potions, and representative magic items, each with a description) is
+  seeded once at boot (`server/src/items/srd.ts`, guarded by an `app_meta` marker).
+- ☑ **Attack-from-description discoverability [req].** The prose→attacks action is
+  relabelled "Generate attacks from description" and grouped with **+ Attack** in
+  the `StatBlock` weapons editor with a fuller tooltip.
+- ☑ **Player notes on creatures/NPCs [req].** A shared free-text note per
+  monster/NPC the DM and any player can read/edit (visible on every disposition
+  tier), via `player_notes` + a player-writable `creature:setNotes`, shown in both
+  the player Details panel and the DM token panel.
+- ☑ **Open-source license + SRD attribution.** The repo carries a standard **MIT
+  `LICENSE`** (code, © 2026 vcons002) and the root `package.json` declares
+  `"license": "MIT"`. The README's **License & attribution** section credits the
+  bundled D&D content to the **SRD 5.1 / 5.2** under **CC-BY-4.0** with Wizards of
+  the Coast's required notice (consistent with the existing SRD-safe data note in
+  `server/src/items/srd.ts`); no proprietary PHB/DMG/MM text is included.
+- ☑ **User-facing feature guide.** [`FEATURES.md`](FEATURES.md) — a plain-language
+  DM + player tour (where each tool lives, how to use it, clicks/keys), kept
+  alongside the README (install/run) and this backlog.
+- ☑ **Weapon to-hit transparency, tag chips & double-count fix.** (1) The attack
+  roll now spells out the to-hit like the damage breakdown —
+  `d20[10] +2[DEX] +2[PROF]` (derived) or `+5[hit]` for a fixed bonus
+  (`weaponAttackBonusDetail`). **Spell attacks and monster `action` attacks** get
+  the same treatment — `d20[10] +3[CHA] +2[PROF]` (casting ability + proficiency,
+  by level for PCs / by CR for monsters) via `spellAttackBonusDetail`. (2) Weapon
+  **tags** are edited as add/remove
+  **chips** (`TagInput`, with common-tag suggestions) on **both** creature and PC
+  attacks, instead of a comma string. (3) **No more double-counted ability mod:**
+  dice-only weapons (all PC weapons + creature library picks flagged `diceOnly`)
+  carry dice only — the engine now ignores any stray baked flat in their damage
+  string, the editor labels the damage field "dice only" (don't include the mod),
+  and the read view strips it. (4) A creature's **to-hit is shown** and
+  auto-derives from ability modifier + proficiency **by CR** (2024 rule: CR 0–4
+  +2, 5–8 +3, 9–12 +4…), with an editor blurb; the "hit" field overrides.

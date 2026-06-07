@@ -176,7 +176,29 @@ db.exec(`
     detail     TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
   );
+
+  -- App-wide key/value store (e.g. one-time seed markers). Not session-scoped.
+  CREATE TABLE IF NOT EXISTS app_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT ''
+  );
 `);
+
+/** Read an app-wide meta value (one-time flags, etc.), or undefined if unset. */
+export function getMeta(key: string): string | undefined {
+  return (
+    db.prepare('SELECT value FROM app_meta WHERE key = ?').get(key) as
+      | { value: string }
+      | undefined
+  )?.value;
+}
+
+/** Write an app-wide meta value. */
+export function setMeta(key: string, value: string): void {
+  db.prepare(
+    'INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)',
+  ).run(key, value);
+}
 
 // ---- Lightweight migrations for DBs created by earlier versions ----
 // (Durability requirement: existing saved games must keep working across upgrades.)
@@ -277,6 +299,10 @@ ensureColumn(
   "sheet_abilities TEXT NOT NULL DEFAULT '[]'",
 );
 ensureColumn('tokens', 'combat_role_override', 'combat_role_override TEXT');
+// Real-world footprint width in feet (source of truth for token size; decoupled
+// from the visual grid). Backfill old saves from the legacy square size (5ft/sq).
+ensureColumn('tokens', 'width_ft', 'width_ft REAL');
+db.prepare('UPDATE tokens SET width_ft = size * 5 WHERE width_ft IS NULL').run();
 ensureColumn(
   'tokens',
   'hide_combat_role',
@@ -311,6 +337,8 @@ ensureColumn('measurements', 'token_id', 'token_id TEXT');
 // follows the weapon last used (null until it attacks).
 ensureColumn('characters', 'last_attack_role', 'last_attack_role TEXT');
 ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
+// Shared party notes on a creature/NPC — editable by the DM and players alike.
+ensureColumn('monsters', 'player_notes', "player_notes TEXT NOT NULL DEFAULT ''");
 // Battle Master Superiority Die size (the pool lives in the resources counters).
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 
@@ -368,6 +396,7 @@ type TokenRow = {
   x: number;
   y: number;
   size: number;
+  width_ft: number | null;
   initiative: number | null;
   is_hidden: number;
   combat_role_override: Token['combatRoleOverride'];
@@ -383,6 +412,7 @@ export function rowToToken(r: TokenRow): Token {
     x: r.x,
     y: r.y,
     size: r.size,
+    widthFt: r.width_ft ?? r.size * 5,
     initiative: r.initiative,
     isHidden: !!r.is_hidden,
     combatRoleOverride: r.combat_role_override ?? null,
@@ -478,6 +508,7 @@ type MonsterRow = {
   weapons: string;
   disposition: Monster['disposition'];
   last_attack_role: string | null;
+  player_notes: string | null;
   level: number;
 };
 
@@ -505,5 +536,6 @@ export function rowToMonster(r: MonsterRow): Monster {
     disposition: r.disposition ?? 'enemy',
     lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',
+    playerNotes: r.player_notes ?? '',
   };
 }

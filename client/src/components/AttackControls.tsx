@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { StateSnapshot, Token, Weapon } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
+import { validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
 import { WeaponButtons } from './WeaponButtons';
 
@@ -26,15 +27,8 @@ export function AttackControls({
   // (set in the skills panel for a PC, or the creature panel for a monster);
   // we just consume it when an attack fires.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
-  // Players can't target friendly creatures (friendly-disposition monsters or
-  // allied PCs); the DM may target anyone.
-  const isFriendly = (t: Token) => {
-    if (t.kind === 'pc') return true;
-    return snapshot.monsters.find((m) => m.id === t.refId)?.disposition === 'friendly';
-  };
-  const targets = snapshot.tokens.filter(
-    (t) => t.id !== attacker.id && (snapshot.role !== 'player' || !isFriendly(t)),
-  );
+  // Players can't target friendly creatures; the DM may target anyone.
+  const targets = validTargets(snapshot, attacker);
   const validDefault =
     defaultTargetId && targets.some((t) => t.id === defaultTargetId) ? defaultTargetId : undefined;
   const [targetId, setTargetId] = useState(validDefault ?? targets[0]?.id ?? '');
