@@ -802,9 +802,17 @@ export function registerSocketHandlers(io: IOServer): void {
             if (!m || m.disposition !== 'friendly') return;
           }
         }
+        // Attribute the roll to the ATTACKING creature, not the player's own PC,
+        // so attacking as a friendly companion/summon reads as that creature (for
+        // a player's own token the name is the same). The DM stays "DM".
+        const attackerName =
+          at.kind === 'pc' ? getCharacter(at.refId)?.name : getMonster(at.refId)?.name;
+        const roller = isDm()
+          ? 'DM'
+          : attackerName ?? rollerName(sid, socket.id, false);
         resolveAttack(
           sid,
-          rollerName(sid, socket.id, isDm()),
+          roller,
           attackerTokenId,
           targetTokenId,
           weaponIndex,
