@@ -716,8 +716,53 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .import-confirm { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 6px; }
 .import-confirm .muted { font-size: 12px; word-break: break-word; }
 
+/* Drag-reorderable DM panel sections */
+.reorder-section { border-bottom: 1px solid var(--line); }
+.reorder-section.dragging { opacity: 0.5; }
+.reorder-handle {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 14px; cursor: grab; user-select: none;
+  background: var(--panel-2); border-bottom: 1px solid var(--line);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.reorder-handle:active { cursor: grabbing; }
+.reorder-grip { font-size: 13px; line-height: 1; }
+.reorder-label { font-weight: 600; }
+
 /* Floating condition (status) popover — opens above the data cards */
 .popover-backdrop { position: fixed; inset: 0; z-index: 70; }
+
+/* Spellbook — a large browsable window over the full spell list. */
+.spellbook-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.spellbook {
+  width: min(720px, 94vw); height: min(80vh, 760px);
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); overflow: hidden;
+}
+.spellbook-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+}
+.spellbook-head h3 { margin: 0; }
+.spellbook-head .res-x { margin-left: auto; }
+.spellbook-controls { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.spellbook-search { flex: 1; }
+.spellbook-list { flex: 1; overflow-y: auto; padding: 6px 14px 14px; }
+.spellbook-level {
+  margin: 12px 0 4px; position: sticky; top: 0;
+  background: var(--panel); padding: 4px 0; border-bottom: 1px solid var(--line);
+}
+.spellbook-row { border-bottom: 1px solid var(--line); padding: 3px 0; }
+.spellbook-row-head { display: flex; align-items: center; gap: 8px; }
+.spellbook-row-head .spell-toggle { flex: 1; }
+.spellbook-row-head .btn { margin-left: auto; }
+.spellbook-body { padding: 2px 0 6px 18px; }
+.spellbook-body p { margin: 3px 0; }
 .status-popover {
   position: fixed; z-index: 71; width: 260px; max-height: 60vh; overflow-y: auto;
   background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
