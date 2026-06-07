@@ -717,6 +717,39 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .import-confirm { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 6px; }
 .import-confirm .muted { font-size: 12px; word-break: break-word; }
 
+/* Player sheet: small inline HP +/- buttons next to the HP line */
+.hp-line .dmg-inline { display: inline-flex; gap: 4px; margin-left: 10px; vertical-align: middle; }
+.hp-line .dmg-inline .btn.tiny { padding: 1px 6px; min-width: 0; }
+
+/* Collapsible sheet sections (Conditions, Skills) */
+.collapse-section { margin: 6px 0; }
+.collapse-head {
+  cursor: pointer; list-style: none; font-weight: 600; font-size: 14px;
+  padding: 3px 0; display: flex; align-items: center; gap: 8px;
+}
+.collapse-head::before { content: '▸'; font-size: 11px; color: var(--muted); }
+.collapse-section[open] > .collapse-head::before { content: '▾'; }
+.collapse-head::-webkit-details-marker { display: none; }
+
+/* Resources header with an inline Add button */
+.res-header { display: flex; align-items: center; gap: 8px; }
+.res-header h4 { margin: 0; }
+
+/* Inventory: info button + per-item description window */
+.item-row .item-info, .lib-row .item-info {
+  background: none; border: none; cursor: pointer; padding: 0 4px; font-size: 13px;
+}
+.item-search { width: 100%; margin-bottom: 6px; }
+.lib-row { display: flex; align-items: center; gap: 4px; }
+.lib-row .suggest-row { flex: 1; }
+.item-desc-window {
+  width: min(420px, 92vw); max-height: 70vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); padding: 14px;
+}
+.item-desc-head { display: flex; align-items: center; gap: 10px; }
+.item-desc-head h4 { margin: 0; flex: 1; }
+
 /* Drag-reorderable DM panel sections */
 .reorder-section { border-bottom: 1px solid var(--line); }
 .reorder-section.dragging { opacity: 0.5; }

@@ -81,6 +81,20 @@ export function PlayerPanel({
             {mine.tempHp > 0 && (
               <span className="temp-hp"> +{mine.tempHp} temp</span>
             )}
+            <span className="dmg-inline">
+              <button className="btn tiny red" title="−1 HP" onClick={() => applyDamage('pc', mine.id, 1)}>
+                −1
+              </button>
+              <button className="btn tiny red" title="−5 HP" onClick={() => applyDamage('pc', mine.id, 5)}>
+                −5
+              </button>
+              <button className="btn tiny green" title="+1 HP" onClick={() => applyDamage('pc', mine.id, -1)}>
+                +1
+              </button>
+              <button className="btn tiny green" title="+5 HP" onClick={() => applyDamage('pc', mine.id, -5)}>
+                +5
+              </button>
+            </span>
           </div>
           {isPlaced ? (
             <p className="hint">Your token is on the map.</p>
@@ -92,22 +106,10 @@ export function PlayerPanel({
               {placing ? 'Click the map to place…' : '📍 Place my token'}
             </button>
           )}
-          <div className="dmg-row">
-            <button className="btn red" onClick={() => applyDamage('pc', mine.id, 1)}>
-              −1
-            </button>
-            <button className="btn red" onClick={() => applyDamage('pc', mine.id, 5)}>
-              −5
-            </button>
-            <button className="btn green" onClick={() => applyDamage('pc', mine.id, -1)}>
-              +1
-            </button>
-            <button className="btn green" onClick={() => applyDamage('pc', mine.id, -5)}>
-              +5
-            </button>
-          </div>
-          <h4>Conditions</h4>
-          <ConditionPicker kind="pc" refId={mine.id} conditions={mine.conditions} />
+          <details className="collapse-section" open>
+            <summary className="collapse-head">Conditions</summary>
+            <ConditionPicker kind="pc" refId={mine.id} conditions={mine.conditions} />
+          </details>
           <CharacterSheet character={mine} editable />
         </div>
       )}

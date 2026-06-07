@@ -65,8 +65,9 @@ export function CharacterSheet({
       />
       <CharacterResources character={character} editable={editable} />
       <CharacterSpells character={character} editable={editable} />
-      <CharacterItems character={character} editable={editable} />
       <CharacterSkills character={character} editable={editable} />
+      {/* Inventory sits toward the bottom of the sheet, below Skills. */}
+      <CharacterItems character={character} editable={editable} />
       {(character.actions.length > 0 || character.abilities.length > 0 || editable) && (
         <details className="sheet-actions-traits">
           <summary>Actions &amp; Traits</summary>

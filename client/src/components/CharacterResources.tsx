@@ -49,6 +49,7 @@ export function CharacterResources({
   const setResource = useStore((s) => s.setResource);
   const [name, setName] = useState('');
   const [max, setMax] = useState(1);
+  const [adding, setAdding] = useState(false);
 
   const slots = Object.entries(character.spellSlots).sort(([a], [b]) =>
     a.localeCompare(b),
@@ -67,11 +68,43 @@ export function CharacterResources({
     });
     setName('');
     setMax(1);
+    setAdding(false);
   };
 
   return (
     <div className="resources">
-      <h4>Resources</h4>
+      <div className="res-header">
+        <h4>Resources</h4>
+        {editable && (
+          <button
+            className="btn tiny"
+            onClick={() => setAdding((p) => !p)}
+            title="Add a custom counter (e.g. Rage uses, Ki points)"
+          >
+            {adding ? 'Close' : '+ Add'}
+          </button>
+        )}
+      </div>
+      {editable && adding && (
+        <div className="res-add">
+          <input
+            autoFocus
+            placeholder="Counter name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addCustom()}
+          />
+          <input
+            type="number"
+            value={max}
+            min={1}
+            onChange={(e) => setMax(Math.max(1, Number(e.target.value)))}
+          />
+          <button className="btn tiny" onClick={addCustom} disabled={!name.trim()}>
+            Add
+          </button>
+        </div>
+      )}
       {slots.length > 0 && (
         <div className="res-group">
           <div className="muted res-sub">Spell slots</div>
@@ -93,7 +126,7 @@ export function CharacterResources({
         </div>
       )}
 
-      {(resources.length > 0 || editable) && (
+      {resources.length > 0 && (
         <div className="res-group">
           {resources.map(([key, c]) => (
             <div key={key} className="res-row">
@@ -126,24 +159,6 @@ export function CharacterResources({
               )}
             </div>
           ))}
-          {editable && (
-            <div className="res-add">
-              <input
-                placeholder="Counter name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <input
-                type="number"
-                value={max}
-                min={1}
-                onChange={(e) => setMax(Math.max(1, Number(e.target.value)))}
-              />
-              <button className="btn tiny" onClick={addCustom} disabled={!name.trim()}>
-                + Add
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
