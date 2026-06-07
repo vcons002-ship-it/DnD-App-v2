@@ -9,6 +9,7 @@ import {
   resolveSkillRoll,
   resolveSaves,
   resolveSave,
+  noteConcentration,
 } from './combat.js';
 import {
   aiCreateCharacter,
@@ -363,8 +364,11 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('damage:apply', ({ kind, refId, amount }) => {
-      if (!sessionId() || !Number.isFinite(amount)) return;
+      const sid = sessionId();
+      if (!sid || !Number.isFinite(amount)) return;
       applyDamage(kind, refId, amount);
+      // Damage taken while concentrating prompts a CON save (DC from the amount).
+      noteConcentration(sid, kind, refId, amount);
       afterChange();
     });
 

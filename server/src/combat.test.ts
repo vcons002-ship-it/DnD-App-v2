@@ -7,6 +7,7 @@ import {
   resolveAbilityRoll,
   resolveMonsterAction,
   resolveForcedSave,
+  noteConcentration,
 } from './combat.js';
 import {
   createSession,
@@ -650,6 +651,65 @@ describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
     resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
     expect(getMonster(ref)).toBeTruthy();
     expect(listRollLog(s.id).at(-1)!.detail).toContain('adv');
+  });
+
+  it("Hunter's Mark only adds damage to the marked target", () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Ranger',
+      className: 'Ranger',
+      level: 5,
+      stats: { DEX: 10 },
+      weapons: [{ name: 'Bow', kind: 'ranged', damage: '1d1', diceOnly: true, attackBonus: 50, damageType: 'piercing' }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const mk = (name: string) => {
+      const t = createMonsterTemplate(s.id, { name, maxHp: 9999, armorClass: 1 });
+      const ref = instantiateMonster(t.id)!.id;
+      return { ref, tok: createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 }) };
+    };
+    const marked = mk('Marked');
+    const other = mk('Other');
+    setSheetAbility(ch.id, {
+      id: 'hm',
+      name: "Hunter's Mark",
+      type: 'stance',
+      description: '',
+      stance: { active: true, appliesTo: 'all', bonusDamage: '6d1', targeted: true, targetId: marked.tok.id },
+    });
+    expect(nonCritDealt(s, atk, marked.ref, marked.tok)).toBe(7); // 1d1 + 6d1
+    expect(nonCritDealt(s, atk, other.ref, other.tok)).toBe(1); // mark doesn't apply
+  });
+});
+
+describe('concentration checks on damage', () => {
+  it('logs a CON save with DC = max(10, half damage) when a concentrating creature is hurt', () => {
+    const { s } = arena();
+    const inst = instantiateMonster(createMonsterTemplate(s.id, { name: 'Caster', maxHp: 100 }).id)!;
+    setCondition('monster', inst.id, { id: 'c', label: 'Hex', aura: 'blue', isConcentration: true });
+    noteConcentration(s.id, 'monster', inst.id, 24);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.label).toBe('Concentration');
+    expect(last.detail).toContain('DC 12'); // max(10, floor(24/2))
+    expect(last.detail).toContain('concentrating');
+  });
+
+  it('uses the floor of 10 for small hits', () => {
+    const { s } = arena();
+    const inst = instantiateMonster(createMonsterTemplate(s.id, { name: 'Bard', maxHp: 100 }).id)!;
+    setCondition('monster', inst.id, { id: 'c', label: 'Bless', aura: 'blue', isConcentration: true });
+    noteConcentration(s.id, 'monster', inst.id, 4);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('DC 10');
+  });
+
+  it('does nothing for a non-concentrating creature or for healing', () => {
+    const { s } = arena();
+    const inst = instantiateMonster(createMonsterTemplate(s.id, { name: 'Grunt', maxHp: 100 }).id)!;
+    const before = listRollLog(s.id).length;
+    noteConcentration(s.id, 'monster', inst.id, 30); // not concentrating
+    setCondition('monster', inst.id, { id: 'c', label: 'Bless', aura: 'blue', isConcentration: true });
+    noteConcentration(s.id, 'monster', inst.id, -5); // healing
+    expect(listRollLog(s.id).length).toBe(before);
   });
 });
 

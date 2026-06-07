@@ -285,6 +285,11 @@ export type StanceSpec = {
   bonusDamage?: string;
   /** Grants advantage on the attack roll (e.g. Reckless Attack). */
   grantsAdvantage?: boolean;
+  /** This stance marks a single target (e.g. Hunter's Mark): its effect applies
+   *  only to attacks against the marked token. Drives a target picker in the UI. */
+  targeted?: boolean;
+  /** The marked target's token id (when `targeted`); empty = nothing marked yet. */
+  targetId?: string;
 };
 
 /**

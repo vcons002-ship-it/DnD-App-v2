@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
-import { abilityMod, signed } from '../../../shared/skills';
+import { signed } from '../../../shared/skills';
 import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
 import { DAMAGE_TYPES } from '../../../shared/damage';
 import { parseActionRoll, weaponsFromActions } from '../../../shared/monsterAttacks';
@@ -386,17 +386,11 @@ function ReadView({
   // (matching the engine, which ignores a stray flat on dice-only weapons).
   const dmgWithMod = (dice: string | undefined, w: Weapon): string => {
     if (!dice) return '';
-    // PCs show DICE ONLY — their ability modifier and to-hit are applied live at
-    // roll time, so the sheet stays clean (no re-derived "+mod" on the line).
-    if (isPc) return damageParts(dice).dice || dice;
-    if (!w.diceOnly) return dice;
-    const dicePart = damageParts(dice).dice || dice;
-    const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
-    const useDex =
-      w.kind === 'ranged' ||
-      (finesse && abilityMod(m.stats.DEX) >= abilityMod(m.stats.STR));
-    const mod = abilityMod(m.stats[useDex ? 'DEX' : 'STR'] ?? 10);
-    return mod ? `${dicePart}${signed(mod)}` : dicePart;
+    // PC weapons AND dice-only creature attacks show DICE ONLY — their ability
+    // modifier and to-hit are applied live at roll time (from stats + proficiency),
+    // so the line stays clean. Only truly pre-baked monster attacks show as-is.
+    if (isPc || w.diceOnly) return damageParts(dice).dice || dice;
+    return dice;
   };
   // The to-hit to SHOW: a fixed `attackBonus` wins; otherwise it's derived from
   // live stats (ability mod + proficiency by level/CR) for PCs and creature
@@ -481,7 +475,7 @@ function ReadView({
                 <strong>
                   {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
                 </strong>{' '}
-                {!isPc && th !== undefined && `${signed(th)} to hit. `}
+                {!isPc && !w.diceOnly && th !== undefined && `${signed(th)} to hit. `}
                 {dmgWithMod(w.damage, w)}
                 {w.versatileDamage ? ` (2H ${dmgWithMod(w.versatileDamage, w)})` : ''}
                 {w.damageType ? ` ${w.damageType}` : ''}

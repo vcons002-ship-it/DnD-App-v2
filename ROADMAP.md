@@ -723,5 +723,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   descriptions that ride onto the item when added).
 - ☑ **PC weapon lines show dice only.** A character's weapon line reads just the
   dice (e.g. "Greatsword 1d12 slashing") instead of re-deriving "+5 to hit. 1d12+3"
-  from live stats — the modifier/to-hit are still applied at roll time. Creature
-  attacks are unchanged.
+  from live stats — the modifier/to-hit are still applied at roll time. **Dice-only
+  creature attacks now read the same way** (no re-derived to-hit/mod), since they're
+  computed from stats + proficiency at roll time; truly pre-baked monster attacks
+  still show their baked to-hit + damage.
+- ☑ **Hunter's Mark marks a chosen target.** A `stance` can be `targeted`: its
+  bonus (e.g. +1d6) applies **only to attacks against the marked token**. The combat
+  console shows a target picker beside the toggle; switching the stance on defaults
+  to the current target, and re-selecting moves the mark.
+- ☑ **Concentration prompts on damage.** When a creature takes damage while it has a
+  concentration condition, the roll log posts the **DC = max(10, ⌊damage/2⌋)** CON
+  save needed to maintain it (fired from every damage path: weapon hits, spell
+  saves/auto-hit, Magic Missile darts, and manual HP changes).

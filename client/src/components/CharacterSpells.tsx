@@ -149,13 +149,22 @@ export function CharacterSpells({
     setQ('');
   };
 
+  const patchStance = (
+    a: SheetAbility,
+    patch: Partial<NonNullable<SheetAbility['stance']>>,
+  ) => {
+    if (!a.stance) return;
+    setSheetAbility(character.id, { ...a, stance: { ...a.stance, ...patch } });
+  };
+
   // Toggling a stance ON spends one use of its linked counter (if it has charges).
   const toggleStance = (a: SheetAbility) => {
     const goingActive = !a.stance?.active;
-    setSheetAbility(character.id, {
-      ...a,
-      stance: { ...a.stance!, active: goingActive },
-    });
+    const stance = { ...a.stance!, active: goingActive };
+    // A marking stance defaults to the current target when first switched on.
+    if (goingActive && stance.targeted && !stance.targetId)
+      stance.targetId = validDefault ?? targets[0]?.id;
+    setSheetAbility(character.id, { ...a, stance });
     if (goingActive && a.useCounter) {
       const c = character.resources[a.useCounter.name];
       if (c && c.used < c.max) {
@@ -294,6 +303,21 @@ export function CharacterSpells({
                   </button>
                 )}
 
+                {editable && isStance(a) && a.stance!.targeted && targets.length > 0 && (
+                  <select
+                    className="spell-level"
+                    value={a.stance!.targetId ?? ''}
+                    title="Marked target — the stance only affects attacks against it"
+                    onChange={(e) => patchStance(a, { targetId: e.target.value || undefined })}
+                  >
+                    <option value="">— mark —</option>
+                    {targets.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {resolveToken(snapshot!, t).name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {editable && isStance(a) && (
                   <button
                     className={`btn tiny ${a.stance!.active ? 'on' : ''}`}

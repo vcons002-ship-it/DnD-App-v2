@@ -90,6 +90,31 @@ function resolve(token: Token): Resolved | null {
 }
 
 /**
+ * When a creature takes damage while concentrating on a spell, log the
+ * Constitution save needed to maintain it (5e: DC = the greater of 10 and half
+ * the damage taken, rounded down). Players/DM then roll the creature's CON save.
+ * No-op for healing or a creature that isn't concentrating.
+ */
+export function noteConcentration(
+  sessionId: string,
+  kind: 'pc' | 'monster',
+  refId: string,
+  damage: number,
+): void {
+  if (damage <= 0) return;
+  const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!e || !e.conditions.some((c) => c.isConcentration)) return;
+  const dc = Math.max(10, Math.floor(damage / 2));
+  addRollLog(sessionId, {
+    roller: 'DM',
+    label: 'Concentration',
+    expr: `DC ${dc}`,
+    total: dc,
+    detail: `⚠️ ${e.name} took ${damage} damage while concentrating — make a DC ${dc} CON save or lose concentration`,
+  });
+}
+
+/**
  * Resolve a weapon attack authoritatively: roll to-hit vs the target's AC, roll
  * damage on a hit (auto-applied — the DM can heal back if needed), and log it.
  */
@@ -178,6 +203,8 @@ export function resolveAttack(
     if (ab.type !== 'stance' || !st?.active) continue;
     if (st.appliesTo === 'melee' && weapon.kind !== 'melee') continue;
     if (st.appliesTo === 'ranged' && weapon.kind !== 'ranged') continue;
+    // A marking stance (Hunter's Mark) only affects attacks on its marked target.
+    if (st.targeted && st.targetId !== targetTokenId) continue;
     if (st.grantsAdvantage) stanceAdvantage = true;
     if (st.bonusDamage) {
       if (/d\d/i.test(st.bonusDamage)) {
@@ -284,7 +311,10 @@ export function resolveAttack(
     }
   }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
-  if (applied > 0) applyDamage(t.kind, t.refId, applied);
+  if (applied > 0) {
+    applyDamage(t.kind, t.refId, applied);
+    noteConcentration(sessionId, t.kind, t.refId, applied);
+  }
   addRollLog(sessionId, {
     roller,
     label: 'Attack',
@@ -442,6 +472,7 @@ export function resolveForcedSave(
     const base = apply.split[instanceIndex] ?? 0;
     dmg = Math.floor(base * mult);
     applyDamage(r.kind, r.refId, dmg);
+    noteConcentration(sessionId, r.kind, r.refId, dmg);
     addRollLog(sessionId, {
       roller: 'DM',
       label: 'Damage',
@@ -479,6 +510,7 @@ export function resolveForcedSave(
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
   applyDamage(r.kind, r.refId, dmg);
+  noteConcentration(sessionId, r.kind, r.refId, dmg);
   addRollLog(sessionId, {
     roller: 'DM',
     label: apply.save ? `${apply.save.toUpperCase()} save` : 'Damage',
@@ -531,6 +563,7 @@ function resolveTargetedSpellAttack(opts: {
           : `×2 vulnerable (${opts.damageType})`,
       );
     applyDamage(t.kind, t.refId, applied);
+    noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
   addRollLog(opts.sessionId, {

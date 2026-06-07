@@ -119,8 +119,8 @@ const FEATURES: FeatureEntry[] = [
     tags: ['ranger', 'feature', 'stance', 'damage', 'concentration'],
     meta: 'Concentration · +1d6 to weapon hits on the marked target',
     description:
-      'Mark a creature; your weapon attacks against it deal an extra 1d6 force/weapon damage. Toggle on while concentrating (handle the single-target restriction at the table).',
-    stance: { active: false, appliesTo: 'all', bonusDamage: '1d6' },
+      'Mark a creature; your weapon attacks against the marked target deal an extra 1d6 damage. Pick the target, then toggle on while concentrating. Move the mark to a new target on a later turn by re-selecting it.',
+    stance: { active: false, appliesTo: 'all', bonusDamage: '1d6', targeted: true },
   },
 ];
 
