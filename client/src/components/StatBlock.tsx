@@ -386,7 +386,10 @@ function ReadView({
   // (matching the engine, which ignores a stray flat on dice-only weapons).
   const dmgWithMod = (dice: string | undefined, w: Weapon): string => {
     if (!dice) return '';
-    if (!isPc && !w.diceOnly) return dice;
+    // PCs show DICE ONLY — their ability modifier and to-hit are applied live at
+    // roll time, so the sheet stays clean (no re-derived "+mod" on the line).
+    if (isPc) return damageParts(dice).dice || dice;
+    if (!w.diceOnly) return dice;
     const dicePart = damageParts(dice).dice || dice;
     const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
     const useDex =
@@ -478,7 +481,7 @@ function ReadView({
                 <strong>
                   {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
                 </strong>{' '}
-                {th !== undefined && `${signed(th)} to hit. `}
+                {!isPc && th !== undefined && `${signed(th)} to hit. `}
                 {dmgWithMod(w.damage, w)}
                 {w.versatileDamage ? ` (2H ${dmgWithMod(w.versatileDamage, w)})` : ''}
                 {w.damageType ? ` ${w.damageType}` : ''}
