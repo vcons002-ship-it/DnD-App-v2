@@ -23,6 +23,7 @@ import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
 import { searchSpells, getSpell } from './spells/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
+import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
 import { searchWeapons } from './weapons/srd.js';
 import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
@@ -192,12 +193,18 @@ export function createApiRouter(io: IOServer): Router {
   router.get('/spells', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
     res.json({
-      results: [...searchSpells(q), ...searchMasteries(q)],
+      results: [...searchSpells(q), ...searchMasteries(q), ...searchManeuvers(q)],
       aiAvailable: geminiEnabled(),
     });
   });
 
-  // Full lookup: local spells, then local masteries, then Gemini (spells only).
+  // Battle Master maneuvers for the character-sheet "add" picker.
+  router.get('/maneuvers', (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q : '';
+    res.json({ results: searchManeuvers(q, 50) });
+  });
+
+  // Full lookup: local spells, then masteries, then maneuvers, then Gemini (spells only).
   router.post('/spells/lookup', async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
@@ -205,6 +212,8 @@ export function createApiRouter(io: IOServer): Router {
     if (spell) return res.json({ ...spell, source: 'srd' });
     const mastery = getMastery(name);
     if (mastery) return res.json({ ...mastery, source: 'srd' });
+    const maneuver = getManeuver(name);
+    if (maneuver) return res.json({ ...maneuver, source: 'srd' });
     const ai = await lookupSpellAI(name);
     if (ai) return res.json(ai);
     return res.status(404).json({ error: 'Not found locally; AI unavailable.' });

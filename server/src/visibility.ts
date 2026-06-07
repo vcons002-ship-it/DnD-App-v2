@@ -23,18 +23,24 @@ import type {
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
 
-/** Effective combat role for a token: hidden → null, override → it, else derive. */
+/**
+ * Effective combat role for a token: hidden → null, override → it, else the
+ * creature's most recent attack role (so the badge follows the weapon last
+ * used), falling back to deriving from its stat block.
+ */
 function tokenCombatRole(t: Token): CombatRole | null {
   if (t.hideCombatRole) return null;
   if (t.combatRoleOverride) return t.combatRoleOverride;
   if (t.kind === 'pc') {
     const c = getCharacter(t.refId);
-    return c
-      ? deriveCombatRole({ weapons: c.weapons, className: c.className })
-      : null;
+    if (!c) return null;
+    return (
+      c.lastAttackRole ??
+      deriveCombatRole({ weapons: c.weapons, className: c.className })
+    );
   }
   const m = getMonster(t.refId);
-  return m ? deriveCombatRole(m) : null;
+  return m ? m.lastAttackRole ?? deriveCombatRole(m) : null;
 }
 
 /**
@@ -77,6 +83,8 @@ export function buildSnapshot(
   role: Role,
   /** DM's currently-selected (possibly staging) map; ignored for players. */
   dmViewMapId?: string | null,
+  /** Requesting socket — a player always sees their own claimed PC token. */
+  socketId?: string,
 ): StateSnapshot | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
@@ -115,7 +123,13 @@ export function buildSnapshot(
         (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key))
       );
     };
-    tokens = tokens.filter((t) => !t.isHidden && !covered(t));
+    // A player always sees their own claimed PC token, even under fog — they
+    // know where they are; only OTHER players are kept from seeing it.
+    const ownedBy = (t: Token) =>
+      t.kind === 'pc' && getCharacter(t.refId)?.claimedBy === socketId;
+    tokens = tokens.filter(
+      (t) => !t.isHidden && (!covered(t) || ownedBy(t)),
+    );
     monsters = monsters.map((m) => toPlayerMonster(m as Monster));
   }
 

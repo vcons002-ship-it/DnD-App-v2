@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { RollEntry } from '../../../shared/types';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
+import { renderRollDetail } from '../lib/rollDetail';
 
 const WINDOW_MS = 20_000; // a roll auto-fades this long after it arrives
 const STALE_MS = 60_000; // past this, hovering reveals only the latest roll
@@ -65,7 +66,7 @@ export function RollLogOverlay({ rollLog }: { rollLog: RollEntry[] }) {
             <span className="roll-meta">
               <strong style={{ color }}>{entry.roller}</strong>
               {entry.label ? ` · ${entry.label}` : ''}{' '}
-              <span className="muted">{entry.detail}</span>
+              <span className="muted">{renderRollDetail(entry.detail)}</span>
             </span>
           </div>
         );

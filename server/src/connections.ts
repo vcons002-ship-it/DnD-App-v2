@@ -40,6 +40,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       sessionId,
       conn.role,
       conn.role === 'dm' ? conn.viewMapId : null,
+      socketId,
     );
     if (snapshot) io.to(socketId).emit('state:snapshot', snapshot);
   }
@@ -53,6 +54,7 @@ export function sendSnapshot(io: IOServer, socketId: string): void {
     conn.sessionId,
     conn.role,
     conn.role === 'dm' ? conn.viewMapId : null,
+    socketId,
   );
   if (snapshot) io.to(socketId).emit('state:snapshot', snapshot);
 }

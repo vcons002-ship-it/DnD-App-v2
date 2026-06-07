@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Character } from '../../../shared/types';
 import {
   SKILLS,
@@ -7,6 +6,7 @@ import {
   signed,
 } from '../../../shared/skills';
 import { useStore } from '../state/socket';
+import { AdvantageToggle } from './AdvantageToggle';
 
 /**
  * D&D 5e skill list. Each skill shows its proficiency tag and stat-based total
@@ -24,7 +24,7 @@ export function CharacterSkills({
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const rollSkill = useStore((s) => s.rollSkill);
-  const [adv, setAdv] = useState<'adv' | 'dis' | undefined>(undefined);
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const prof = new Set(character.proficientSkills);
   const pb = proficiencyBonus(character.level);
 
@@ -37,31 +37,18 @@ export function CharacterSkills({
   };
 
   const roll = (name: string) =>
-    rollSkill({ characterId: character.id, skill: name, advantage: adv });
+    rollSkill({
+      characterId: character.id,
+      skill: name,
+      advantage: consumeAdvantage(character.id),
+    });
 
   return (
     <div className="skills">
       <div className="skills-head">
         <h4>Skills</h4>
         <span className="muted">Proficiency {signed(pb)}</span>
-        {editable && (
-          <span className="skill-adv">
-            <button
-              className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-              title="Roll skills with advantage"
-              onClick={() => setAdv((a) => (a === 'adv' ? undefined : 'adv'))}
-            >
-              Adv
-            </button>
-            <button
-              className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-              title="Roll skills with disadvantage"
-              onClick={() => setAdv((a) => (a === 'dis' ? undefined : 'dis'))}
-            >
-              Dis
-            </button>
-          </span>
-        )}
+        {editable && <AdvantageToggle entityId={character.id} className="skill-adv" />}
       </div>
       <div className="skill-list">
         {SKILLS.map((s) => {

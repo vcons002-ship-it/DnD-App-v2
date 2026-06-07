@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
+import { renderRollDetail } from '../lib/rollDetail';
+import { AdvantageToggle } from './AdvantageToggle';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 
@@ -16,12 +18,23 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const isDm = snapshot.role === 'dm';
+  // A player's dice toggle is keyed to THEIR character (so it's the same switch
+  // shown above their skill list); the DM's generic roller gets its own key.
+  const mySocketId = useStore((s) => s.socket?.id);
+  const myChar = !isDm
+    ? snapshot.characters.find((c) => c.claimedBy === mySocketId)
+    : undefined;
+  const advKey = myChar?.id ?? 'dm-dice';
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
-  const [adv, setAdv] = useState<'adv' | 'dis' | null>(null);
 
   const roll = (e: string) =>
-    rollDice({ expr: e, label: label.trim() || undefined, advantage: adv ?? undefined });
+    rollDice({
+      expr: e,
+      label: label.trim() || undefined,
+      advantage: consumeAdvantage(advKey),
+    });
 
   return (
     <div className="panel-section dice-panel">
@@ -50,20 +63,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (optional)"
         />
-        <button
-          className={`btn tiny ${adv === 'adv' ? 'on' : ''}`}
-          onClick={() => setAdv((a) => (a === 'adv' ? null : 'adv'))}
-          title="Roll twice, keep higher"
-        >
-          Adv
-        </button>
-        <button
-          className={`btn tiny ${adv === 'dis' ? 'on' : ''}`}
-          onClick={() => setAdv((a) => (a === 'dis' ? null : 'dis'))}
-          title="Roll twice, keep lower"
-        >
-          Dis
-        </button>
+        <AdvantageToggle entityId={advKey} />
       </div>
 
       <div className="roll-log-header">
@@ -108,7 +108,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
               <span className="roll-meta">
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}
-                <span className="muted">{r.detail}</span>
+                <span className="muted">{renderRollDetail(r.detail)}</span>
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
                 )}

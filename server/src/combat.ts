@@ -5,11 +5,15 @@ import {
   getMonster,
   getRollEntry,
   getToken,
+  setLastAttackRole,
+  setResource,
   setSheetAbility,
+  setTokensCondition,
 } from './sessions.js';
 import {
   damageMultiplier,
   profBonusFor,
+  rollD20Detail,
   rollSavingThrow,
   rollWeaponAttack,
   weaponAbilityMod,
@@ -29,6 +33,7 @@ import type {
   AbilityRoll,
   Character,
   CreatureAbility,
+  ManeuverSpec,
   Monster,
   RollEntry,
   SheetAbility,
@@ -134,15 +139,51 @@ export function resolveAttack(
   }
   const noAbilityMod = !!offhand || !!cleaveToDisable;
 
+  // Battle Master: fire at most one active maneuver whose weapon tag matches (or
+  // that has no tag) when a Superiority Die is left. Roll the die up front so a
+  // Precision-style maneuver (addDieTo 'attack') can add it to the to-hit roll;
+  // a 'damage' maneuver folds it into the damage like flat mastery damage.
+  let maneuverFired:
+    | { ability: SheetAbility; spec: ManeuverSpec; die: number }
+    | null = null;
+  let maneuverToHit = 0;
+  if (ch) {
+    const pool = ch.resources['Superiority Dice'];
+    const hasDie = !!pool && pool.used < pool.max;
+    const man = ch.sheetAbilities.find(
+      (ab) =>
+        ab.type === 'maneuver' &&
+        ab.maneuver?.active &&
+        ((ab.maneuver.appliesToTags ?? []).length === 0 ||
+          (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
+    );
+    if (man?.maneuver && hasDie) {
+      const die = rollDice(ch.superiorityDie || 'd8')?.total ?? 0;
+      maneuverFired = { ability: man, spec: man.maneuver, die };
+      if (man.maneuver.addDieTo === 'attack') maneuverToHit = die;
+      else if (man.maneuver.addDieTo === 'damage') {
+        flatBonus += die;
+        flatLabels.push(man.name);
+      }
+    }
+  }
+
   // Fold the attacker's & target's conditions into the requested adv/dis (5e:
-  // any advantage + any disadvantage cancel to a straight roll).
-  const adv = attackAdvantage(a.conditionLabels, t.conditionLabels, weapon.kind, advantage);
+  // any advantage + any disadvantage cancel to a straight roll). A maneuver that
+  // grants advantage contributes one too.
+  const adv = attackAdvantage(
+    a.conditionLabels,
+    t.conditionLabels,
+    weapon.kind,
+    advantage ?? (maneuverFired?.spec.grantsAdvantage ? 'adv' : undefined),
+  );
 
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
     twoHanded,
     noAbilityMod,
     bonusDamage: flatBonus || undefined,
     bonusLabel: flatLabels.length ? flatLabels.join('+') : undefined,
+    attackRollBonus: maneuverToHit || undefined,
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
@@ -155,14 +196,14 @@ export function resolveAttack(
       const r = rollDice(m.effect.bonusDamage);
       if (r && r.total > 0) {
         extra += r.total;
-        masteryNotes.push(`${ab.name} +${r.total} [${m.effect.bonusDamage}]`);
+        masteryNotes.push(`+${r.total}[${ab.name}]`);
       }
     }
     if (!out.hit && m.effect.grazeOnMiss) {
       const g = Math.max(0, weaponAbilityMod(a.c, weapon));
       if (g > 0) {
         extra += g;
-        masteryNotes.push(`${ab.name} ${g} (graze)`);
+        masteryNotes.push(`+${g}[GRAZE]`);
       }
     }
   }
@@ -172,6 +213,16 @@ export function resolveAttack(
     const dropped = a.c.isMonster ? 0 : weaponAbilityMod(a.c, weapon);
     const who = cleaveToDisable ? cleaveToDisable.ability.name : 'Off-hand';
     masteryNotes.push(`${who} (no ability modifier${dropped > 0 ? ` −${dropped}` : ''})`);
+  }
+
+  // Battle Master maneuver note (the die itself is already folded into the
+  // attack/damage above; here we surface what fired and any rider text).
+  if (maneuverFired) {
+    const { ability, spec, die } = maneuverFired;
+    const bits = [`${ability.name} (${ch!.superiorityDie || 'd8'}→${die})`];
+    if (spec.grantsAdvantage) bits.push('Advantage');
+    if (spec.note) bits.push(spec.note);
+    masteryNotes.push(bits.join(': '));
   }
 
   let applied = (out.hit ? out.damage : 0) + extra;
@@ -195,6 +246,41 @@ export function resolveAttack(
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
   });
+  // The token badge follows the weapon last attacked with.
+  setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
+
+  // Resolve the fired maneuver: a save rider becomes its own click-to-target
+  // entry (on a hit), then spend a die and toggle the maneuver off (one-shot).
+  if (maneuverFired && ch) {
+    const { ability, spec } = maneuverFired;
+    if (spec.save && out.hit) {
+      const save = spec.save.ability;
+      const dc = 8 + profBonusFor(a.c) + weaponAbilityMod(a.c, weapon);
+      const onFailTxt = spec.save.onFail
+        ? ` or be ${spec.save.onFail}`
+        : spec.note
+          ? ` or ${spec.note}`
+          : '';
+      addRollLog(sessionId, {
+        roller,
+        label: `${save} save`,
+        expr: `DC ${dc}`,
+        total: dc,
+        detail: `${ability.name}: ${t.name} must make a DC ${dc} ${save} save${onFailTxt}`,
+        apply: {
+          amount: 0,
+          dc,
+          save,
+          damageType: weapon.damageType,
+          onFail: spec.save.onFail,
+        },
+      });
+    }
+    const pool = ch.resources['Superiority Dice'];
+    if (pool) setResource(ch.id, 'resources', 'Superiority Dice', { used: pool.used + 1 });
+    setSheetAbility(ch.id, { ...ability, maneuver: { ...spec, active: false } });
+  }
+
   // Cleave is a one-shot: disable it after the attack roll (hit or miss).
   if (cleaveToDisable) {
     const ab = cleaveToDisable.ability;
@@ -206,7 +292,9 @@ export function resolveAttack(
   return true;
 }
 
-/** Roll a saving throw for each token vs a DC and log pass/fail. */
+/** Roll a saving throw for each token vs a DC and log pass/fail. Each token may
+ *  carry its own manual advantage (its creature's armed adv/dis toggle) via
+ *  `advantageByToken`, falling back to the shared `advantage`. */
 export function resolveSaves(
   sessionId: string,
   roller: string,
@@ -214,6 +302,7 @@ export function resolveSaves(
   ability: string,
   dc: number,
   advantage?: Advantage,
+  advantageByToken?: Record<string, Advantage>,
 ): void {
   for (const id of tokenIds) {
     const tok = getToken(id);
@@ -223,8 +312,9 @@ export function resolveSaves(
     const proficient = r.saveProficiencies.some(
       (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
     );
-    // Conditions (e.g. restrained → DEX-save disadvantage) fold into the request.
-    const adv = saveAdvantage(r.conditionLabels, ability, advantage);
+    // The creature's own armed adv/dis (if any) plus conditions (e.g. restrained
+    // → DEX-save disadvantage) fold into the request (any adv + any dis cancel).
+    const adv = saveAdvantage(r.conditionLabels, ability, advantageByToken?.[id] ?? advantage);
     const out = rollSavingThrow(r.c, ability, dc, adv.state, proficient);
     addRollLog(sessionId, {
       roller,
@@ -232,10 +322,43 @@ export function resolveSaves(
       expr: `DC ${dc}`,
       total: out.total,
       detail:
-        `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}` +
+        `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}` +
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     });
   }
+}
+
+/**
+ * Roll ONE creature's saving throw for an ability (no contested DC — just the
+ * roll), used by click-to-roll on a stat block. d20 + ability modifier (+ the
+ * proficiency bonus when proficient in that save), with the creature's armed
+ * adv/dis toggle and conditions folded in. Works for a PC or a monster.
+ */
+export function resolveSave(
+  sessionId: string,
+  roller: string,
+  kind: Token['kind'],
+  refId: string,
+  ability: string,
+  advantage?: Advantage,
+): boolean {
+  const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!ent) return false;
+  const ab = ability.trim().toUpperCase();
+  const c: Combatant = { stats: ent.stats, level: ent.level, isMonster: kind !== 'pc' };
+  const proficient = ent.saveProficiencies.some((s) => s.trim().toUpperCase() === ab);
+  const adv = saveAdvantage(ent.conditions.map((x) => x.label), ab, advantage);
+  const out = rollSavingThrow(c, ab, 0, adv.state, proficient); // dc 0 → pass unused
+  addRollLog(sessionId, {
+    roller,
+    label: `${ab} save`,
+    expr: proficient ? `${ab} (prof)` : ab,
+    total: out.total,
+    detail:
+      `${ent.name} — ${ab} save: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total}` +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+  });
+  return true;
 }
 
 /**
@@ -249,6 +372,7 @@ export function resolveForcedSave(
   sessionId: string,
   rollId: string,
   tokenId: string,
+  advantage?: Advantage,
 ): void {
   const apply = getRollEntry(rollId)?.apply;
   if (!apply) return;
@@ -266,11 +390,23 @@ export function resolveForcedSave(
     const proficient = r.saveProficiencies.some(
       (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
     );
-    const adv = saveAdvantage(r.conditionLabels, ability, undefined);
+    // The clicked creature's own armed adv/dis toggle folds in with its conditions.
+    const adv = saveAdvantage(r.conditionLabels, ability, advantage);
     const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
     dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
+    // A Battle Master rider applies its condition to a target that FAILS.
+    const condTxt =
+      apply.onFail && !out.pass
+        ? ` · ${apply.onFail}`
+        : '';
+    if (apply.onFail && !out.pass)
+      setTokensCondition([tokenId], {
+        label: apply.onFail,
+        aura: 'red',
+        isConcentration: false,
+      });
     detail =
-      `${r.name}: d20 ${out.total} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'} · takes ${dmg}${typeTxt}` +
+      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
   } else {
     dmg = Math.floor(apply.amount * mult);
@@ -284,17 +420,6 @@ export function resolveForcedSave(
     total: dmg,
     detail,
   });
-}
-
-const d20 = (): number => 1 + Math.floor(Math.random() * 20);
-
-/** Roll a d20 honoring advantage/disadvantage, with a display breakdown. */
-function rollD20(advantage?: Advantage): { face: number; detail: string } {
-  const a = d20();
-  if (!advantage) return { face: a, detail: `d20[${a}]` };
-  const b = d20();
-  const face = advantage === 'adv' ? Math.max(a, b) : Math.min(a, b);
-  return { face, detail: `d20[${a},${b}]→${advantage} ${face}` };
 }
 
 /**
@@ -313,6 +438,8 @@ export function resolveAbilityRoll(
 ): boolean {
   const roll = ability.roll;
   if (!roll) return false;
+  // Casting a spell/ability makes this creature read as a caster on its badge.
+  setLastAttackRole('pc', character.id, 'caster');
   const { stats, level } = character;
   const dice = effectiveDice(roll, { castLevel, casterLevel: level });
   const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
@@ -323,7 +450,7 @@ export function resolveAbilityRoll(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
-    const { face, detail: d20detail } = rollD20(advantage);
+    const { face, detail: d20detail } = rollD20Detail(advantage);
     const bonus = spellAttackBonus(level, stats);
     const attackTotal = face + bonus;
     const crit = face === 20;
@@ -412,6 +539,8 @@ export function resolveMonsterAction(
 ): boolean {
   const roll = action.roll;
   if (!roll) return false;
+  // A spell/ability action makes this creature read as a caster on its badge.
+  setLastAttackRole('monster', monster.id, 'caster');
   const c: Combatant = { stats: monster.stats, level: monster.level, isMonster: true };
   const prof = profBonusFor(c);
   const castMod = spellcastingMod(monster.stats);
@@ -420,7 +549,7 @@ export function resolveMonsterAction(
   const title = action.name;
 
   if (roll.kind === 'attack') {
-    const { face, detail: d20detail } = rollD20(advantage);
+    const { face, detail: d20detail } = rollD20Detail(advantage);
     const bonus = prof + castMod;
     const attackTotal = face + bonus;
     const crit = face === 20;
@@ -495,7 +624,7 @@ export function resolveSkillRoll(
   if (!skill) return false;
   const proficient = character.proficientSkills.includes(skill.name);
   const bonus = skillBonus(character.stats, skill.ability, character.level, proficient);
-  const { face, detail: d20detail } = rollD20(advantage);
+  const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   addRollLog(sessionId, {
     roller,

@@ -40,6 +40,7 @@ export function DmPanel({
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
   const setGlobalAiBusy = useStore((s) => s.setAiBusy);
+  const notify = useStore((s) => s.notify);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
   const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
@@ -83,16 +84,26 @@ export function DmPanel({
   };
 
   const aiFill = async () => {
-    if (!monName.trim()) return;
+    const name = monName.trim();
+    if (!name) return;
     setAiBusy(true);
     setGlobalAiBusy(true); // show the shared "AI is working…" banner
+    notify(`✨ Asking AI for "${name}"…`);
     try {
       const res = await fetch('/api/creatures/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: monName.trim() }),
+        body: JSON.stringify({ name }),
       });
-      if (res.ok) applyTemplate(await res.json());
+      if (res.ok) {
+        applyTemplate(await res.json());
+        notify(`Filled "${name}" from AI/SRD.`);
+      } else {
+        const msg = await res.json().catch(() => null);
+        notify(msg?.error ?? `No match for "${name}".`);
+      }
+    } catch {
+      notify('AI lookup failed — check your connection. Offline search still works.');
     } finally {
       setAiBusy(false);
       setGlobalAiBusy(false);

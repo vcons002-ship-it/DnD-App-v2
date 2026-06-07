@@ -307,6 +307,12 @@ ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 ensureColumn('roll_log', 'apply', "apply TEXT NOT NULL DEFAULT ''");
 // Emanation measurements follow a token by id.
 ensureColumn('measurements', 'token_id', 'token_id TEXT');
+// The combat role of a creature's most recent attack, so the token badge
+// follows the weapon last used (null until it attacks).
+ensureColumn('characters', 'last_attack_role', 'last_attack_role TEXT');
+ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
+// Battle Master Superiority Die size (the pool lives in the resources counters).
+ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 
 export const newId = (): string => randomUUID();
 
@@ -412,6 +418,8 @@ type CharacterRow = {
   sheet_abilities: string;
   conditions: string;
   claimed_by: string | null;
+  last_attack_role: string | null;
+  superiority_die: string | null;
   icon: string;
 };
 
@@ -442,6 +450,8 @@ export function rowToCharacter(r: CharacterRow): Character {
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
+    lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
+    superiorityDie: r.superiority_die ?? undefined,
     icon: r.icon ?? '',
   };
 }
@@ -467,6 +477,7 @@ type MonsterRow = {
   actions: string;
   weapons: string;
   disposition: Monster['disposition'];
+  last_attack_role: string | null;
   level: number;
 };
 
@@ -492,6 +503,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,
     disposition: r.disposition ?? 'enemy',
+    lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',
   };
 }

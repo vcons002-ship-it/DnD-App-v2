@@ -197,9 +197,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   proficiency toggle (owner/DM editable), the proficiency bonus, and the computed
   stat-based total. AI character generation/fill can set proficiencies.
 - ☑ **Automated skill checks [req].** Clicking a skill rolls it server-side
-  (`skill:roll` → `resolveSkillRoll`): d20 (with a section adv/dis toggle) + the
-  sheet's ability modifier + proficiency bonus when proficient, logged to the
+  (`skill:roll` → `resolveSkillRoll`): d20 (with the creature's adv/dis toggle) +
+  the sheet's ability modifier + proficiency bonus when proficient, logged to the
   shared roll log as "<Skill> check" (own color tier). Owner/DM-gated.
+- ☑ **Click a stat block to roll its save [req].** Each ability score in a
+  `StatBlock` is clickable to roll that creature's saving throw (`save:roll` →
+  `resolveSave`): d20 + ability modifier + proficiency when proficient in the save,
+  honoring the creature's adv/dis toggle and conditions. Works for a PC (owner/DM)
+  and a monster (DM). The per-creature adv/dis toggle also now drives **bulk saves**
+  (`combat:save` carries an `advantageByToken` map from each selected creature's
+  toggle) and the **"Apply damage" click-to-target save** (`save:resolve` carries
+  the clicked creature's advantage).
 - ☑ **Create party characters [req].** Both the DM (DmPanel) and players
   (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
   a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can
@@ -315,6 +323,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   mastery via `weaponLabel` (defaults to the name) — e.g. a `[longbow][heavy]`
   weapon shows `Slow, GWM`, and a heavy melee weapon also shows the melee-only
   `meleeLabel` `Hew` (GWM's extra-attack mechanic).
+- ☑ **Battle Master maneuvers, tag-driven [req].** `server/src/maneuvers/srd.ts`
+  carries the full 2024 maneuver set (`GET /api/maneuvers`, also folded into the
+  sheet "add" search). A maneuver is a toggleable sheet entry (`type: 'maneuver'`)
+  that spends a **Superiority Die** (`Character.superiorityDie`, default d8; the
+  pool is a normal `resources['Superiority Dice']` counter seeded on first add).
+  When **armed**, the next attack with a matching weapon rolls the die and applies
+  it per `addDieTo`: **attack** (Precision, added to the to-hit), **damage** (folded
+  into the hit), **heal**/**none** (rolled + noted). A `save` rider logs its own
+  click-to-target save (DC 8 + prof + STR/DEX mod) whose **failure applies a
+  condition** via the existing force-save tool (`apply.onFail` → Prone/Frightened/
+  Grappled). The maneuver spends a die and one-shot toggles itself off, exactly
+  like Cleave; positional/reaction effects are noted for manual resolution.
 - ☑ **Ability modifier added at roll time (PCs).** PC weapons store **dice only**;
   `rollWeaponAttack` adds the wielder's ability modifier (finesse-aware) from their
   live stat on a hit. Monsters' stat-block damage is left pre-baked (no auto-add).
@@ -347,6 +367,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   context. The attack **target dropdown excludes friendly creatures** (friendly
   monsters + other PCs) for players. DM behavior is unchanged (DM still attacks
   AS the selected token).
+- ☑ **Collapsible creature "Details" for players [req].** A player's combat
+  console now leads with a collapsible, read-only **Details** panel (below the
+  name/HP), **collapsed by default** and sticky (`detailsExpanded` in the store).
+  Expanding it shows exactly what the creature's disposition tier grants — a full
+  read-only `StatBlock` for a Friendly creature, type/AC/conditions for Neutral,
+  conditions only for Enemy, or a read-only `CharacterSheet` for an allied PC.
+  **Double-clicking a token** selects it and auto-expands the panel (`onActivate`
+  on `TokenShape` → `MapStage`).
 - ☑ **Floating-menu select-then-attack [req].** Select a token (the attacker),
   then right-click another token to attack it: the `FloatingMenu` offers the
   **selected token's** weapons, targeting the right-clicked token. Gated exactly

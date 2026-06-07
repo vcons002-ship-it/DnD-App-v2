@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveAttack,
   resolveSaves,
+  resolveSave,
   resolveSkillRoll,
   resolveAbilityRoll,
   resolveMonsterAction,
@@ -16,6 +17,7 @@ import {
   createMonsterTemplate,
   instantiateMonster,
   setSheetAbility,
+  setResource,
   getCharacter,
   updateMonster,
   getMonster,
@@ -83,7 +85,8 @@ describe('combat resolution', () => {
       weapons: [{ name: 'Slam', kind: 'melee', damage: '2d6+4', attackBonus: 50 }],
     });
     const target = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 40, armorClass: 1 });
-    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atkTmpl.id)!.id, x: 0, y: 0 });
+    const aInst = instantiateMonster(atkTmpl.id)!;
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: aInst.id, x: 0, y: 0 });
     const tInst = instantiateMonster(target.id)!;
     const t = createToken({ mapId: map.id, kind: 'monster', refId: tInst.id, x: 1, y: 1 });
 
@@ -96,6 +99,8 @@ describe('combat resolution', () => {
     // +50 to hit vs AC 1 lands on anything but a nat 1, so usually damages.
     const after = getMonster(tInst.id)!.curHp;
     expect(after).toBeLessThanOrEqual(before);
+    // The attacker's badge now follows the weapon last used (a melee Slam).
+    expect(getMonster(aInst.id)!.lastAttackRole).toBe('melee');
   });
 
   it('rolls a save for each token and logs pass/fail', () => {
@@ -159,7 +164,7 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (last.detail.includes('MISS')) {
         sawMiss = true;
-        expect(last.detail).toContain('TestMastery 3 (graze)'); // STR +3
+        expect(last.detail).toContain('+3[GRAZE]'); // STR +3
       }
     }
     expect(sawMiss).toBe(true);
@@ -179,7 +184,7 @@ describe('weapon masteries', () => {
       const last = listRollLog(s).at(-1)!;
       if (/\bHIT\b|CRIT/.test(last.detail)) {
         sawHit = true;
-        expect(last.detail).toContain('TestMastery +5 [5d1]');
+        expect(last.detail).toContain('+5[TestMastery]');
       }
     }
     expect(sawHit).toBe(true);
@@ -193,7 +198,7 @@ describe('weapon masteries', () => {
       mastery: { appliesToTags: ['test'], active: false, effect: { grazeOnMiss: true } },
     });
     for (let i = 0; i < 20; i++) resolveAttack(s, 'Striker', atk, tgt, 0);
-    expect(listRollLog(s).every((e) => !e.detail.includes('graze'))).toBe(true);
+    expect(listRollLog(s).every((e) => !e.detail.includes('GRAZE'))).toBe(true);
   });
 
   it('Cleave toggles itself off after an attack (hit or miss)', () => {
@@ -260,7 +265,7 @@ describe('weapon masteries', () => {
       if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
         checked = true;
         // GWM prof bonus is folded into the damage breakdown (labelled), not appended.
-        expect(last.detail).toContain('+2 TestMastery');
+        expect(last.detail).toContain('+2[TestMastery]');
         expect(before - getMonster(ref)!.curHp).toBe(4); // 2 weapon + 2 prof
       }
     }
@@ -295,8 +300,8 @@ describe('weapon masteries', () => {
         checked = true;
         // 2 weapon + 2 prof (folded into the roll) + 5 (Crusher, dice, post-roll) = 9.
         expect(before - getMonster(ref)!.curHp).toBe(9);
-        expect(last.detail).toContain('+2 TestMastery'); // GWM folded in
-        expect(last.detail).toContain('Crusher +5'); // dice bonus stays a note
+        expect(last.detail).toContain('+2[TestMastery]'); // GWM folded in
+        expect(last.detail).toContain('+5[Crusher]'); // dice bonus stays a note
       }
     }
     expect(checked).toBe(true);
@@ -651,5 +656,115 @@ describe('Apply damage → click-to-target saves', () => {
     const { inst, tok } = target(s, map, { name: 'Bob', maxHp: 10 });
     resolveForcedSave(s.id, 'nonexistent', tok.id);
     expect(getMonster(inst.id)!.curHp).toBe(10);
+  });
+});
+
+describe('saving throws (stat-block click + per-creature advantage)', () => {
+  it('rolls a single ability save for a PC and a monster', () => {
+    const { s } = arena();
+    const pc = createCharacter(s.id, {
+      name: 'Cleric',
+      level: 5,
+      stats: { WIS: 16 },
+      saveProficiencies: ['WIS'],
+    });
+    expect(resolveSave(s.id, 'Cleric', 'pc', pc.id, 'WIS')).toBe(true);
+    const pcLog = listRollLog(s.id).at(-1)!;
+    expect(pcLog.label).toBe('WIS save');
+    expect(pcLog.detail).toContain('Cleric — WIS save');
+    expect(pcLog.detail).toContain('prof'); // proficient in WIS
+
+    const tmpl = createMonsterTemplate(s.id, { name: 'Golem', maxHp: 100, stats: { CON: 14 } });
+    const golem = instantiateMonster(tmpl.id)!;
+    expect(resolveSave(s.id, 'DM', 'monster', golem.id, 'CON')).toBe(true);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('Golem 1 — CON save');
+  });
+
+  it('applies each creature’s own advantage in a bulk save', () => {
+    const { s, map } = arena();
+    const ta = createMonsterTemplate(s.id, { name: 'A', maxHp: 10 });
+    const tb = createMonsterTemplate(s.id, { name: 'B', maxHp: 10 });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(ta.id)!.id, x: 0, y: 0 });
+    const b = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tb.id)!.id, x: 1, y: 1 });
+    resolveSaves(s.id, 'DM', [a.id, b.id], 'DEX', 10, undefined, { [a.id]: 'adv' });
+    const log = listRollLog(s.id);
+    const la = log.find((e) => e.detail.startsWith('A 1'))!;
+    const lb = log.find((e) => e.detail.startsWith('B 1'))!;
+    expect(la.detail).toContain('→adv'); // A rolled with advantage (two d20s)
+    expect(lb.detail).not.toContain('→adv'); // B rolled straight
+  });
+});
+
+describe('Battle Master maneuvers', () => {
+  /** A fighter with a weapon + one maneuver armed; returns ids for an attack. */
+  function fight(maneuver: SheetAbility['maneuver'], weapon = {
+    name: 'Greatsword', kind: 'melee' as const, damage: '1d1', attackBonus: 50,
+  }) {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Fighter', level: 1, stats: { STR: 10 }, weapons: [weapon] });
+    setSheetAbility(ch.id, { id: 'man', name: 'Maneuver', type: 'maneuver', description: '', maneuver });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 999, armorClass: 1, stats: { STR: 1 } });
+    const tInst = instantiateMonster(tmpl.id)!;
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: tInst.id, x: 1, y: 1 });
+    return { s: s.id, chId: ch.id, tInst, atk: atk.id, tgt: tgt.id };
+  }
+
+  it('seeds the Superiority Dice pool + d8 die when a maneuver is added', () => {
+    const { chId } = fight({ active: true, addDieTo: 'damage' });
+    expect(getCharacter(chId)!.resources['Superiority Dice']).toEqual({ max: 4, used: 0 });
+    expect(getCharacter(chId)!.superiorityDie).toBe('d8');
+  });
+
+  it('a damage maneuver spends a die, disarms itself, and notes what fired', () => {
+    const { s, chId, atk, tgt } = fight({ active: true, addDieTo: 'damage' });
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(1);
+    expect(getCharacter(chId)!.sheetAbilities[0].maneuver!.active).toBe(false);
+    expect(listRollLog(s).at(-1)!.detail).toContain('Maneuver (d8→');
+  });
+
+  it('Precision adds the Superiority Die to the attack roll', () => {
+    const { s, chId, atk, tgt } = fight({ active: true, addDieTo: 'attack' });
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    expect(listRollLog(s).at(-1)!.detail).toContain('[maneuver]');
+    expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(1);
+  });
+
+  it('a save-rider forces a save whose failure applies the condition', () => {
+    const { s, chId, tInst, atk, tgt } = fight({
+      active: true,
+      addDieTo: 'damage',
+      save: { ability: 'STR', onFail: 'Prone' },
+    });
+    // Land a hit that logs the save rider (re-arm + refill each loop).
+    let saveRollId: string | undefined;
+    for (let i = 0; i < 60 && !saveRollId; i++) {
+      const ab = getCharacter(chId)!.sheetAbilities[0];
+      setSheetAbility(chId, { ...ab, maneuver: { ...ab.maneuver!, active: true } });
+      setResource(chId, 'resources', 'Superiority Dice', { used: 0 });
+      resolveAttack(s, 'Fighter', atk, tgt, 0);
+      saveRollId = listRollLog(s).find(
+        (e) => e.label === 'STR save' && e.apply?.onFail === 'Prone',
+      )?.id;
+    }
+    expect(saveRollId).toBeTruthy();
+    // The STR-1 target fails most DC-10 saves → it ends up Prone within a few tries.
+    let prone = false;
+    for (let i = 0; i < 60 && !prone; i++) {
+      resolveForcedSave(s, saveRollId!, tgt);
+      prone = getMonster(tInst.id)!.conditions.some((c) => c.label === 'Prone');
+    }
+    expect(prone).toBe(true);
+  });
+
+  it('does not fire when no Superiority Die is left', () => {
+    const { s, chId, atk, tgt } = fight({ active: true, addDieTo: 'damage' });
+    setResource(chId, 'resources', 'Superiority Dice', { max: 4, used: 4 }); // empty pool
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    // Still armed (never fired) and no die spent beyond the empty pool.
+    expect(getCharacter(chId)!.sheetAbilities[0].maneuver!.active).toBe(true);
+    expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(4);
+    expect(listRollLog(s).at(-1)!.detail).not.toContain('Maneuver (d8→');
   });
 });

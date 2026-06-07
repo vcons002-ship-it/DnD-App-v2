@@ -180,6 +180,9 @@ input[type='number'] { width: 70px; }
 .sb-ability { flex: 1; background: var(--panel); border-radius: 6px; padding: 3px 0; }
 .sb-ab-name { font-size: 10px; color: var(--muted); }
 .sb-ab-val { font-size: 13px; font-weight: 600; }
+/* Click an ability score to roll its saving throw. */
+button.sb-ability-roll { border: 1px solid var(--line); color: var(--text); cursor: pointer; }
+button.sb-ability-roll:hover { border-color: var(--accent); background: var(--panel-2); }
 .sb-line { margin: 3px 0; }
 .sb-section { margin-top: 8px; }
 .sb-section h4 { margin: 6px 0 3px; color: var(--accent); }
@@ -613,7 +616,10 @@ input[type='number'] { width: 70px; }
 .spell-list { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; }
 .spell-entry { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
 .spell-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
-.spell-adv { display: flex; gap: 2px; }
+.adv-toggle { display: inline-flex; gap: 2px; }
+/* Per-creature adv/dis switch above a monster's attacks/actions (DM panel). */
+.creature-adv-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.creature-adv-row .muted { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 .spell-toggle { flex: 1; display: flex; align-items: baseline; gap: 6px; background: none; border: none; color: var(--text); text-align: left; cursor: pointer; padding: 2px; font-size: 13px; }
 .spell-caret { color: var(--muted); font-size: 11px; }
 .spell-name { font-weight: 600; }
@@ -665,6 +671,11 @@ input[type='number'] { width: 70px; }
 .roll-entry.cat-attack .roll-total { color: var(--red); }
 .roll-entry.cat-save .roll-total { color: var(--purple); }
 .roll-entry.cat-skill .roll-total { color: var(--cyan); }
+/* Advantage/disadvantage d20 breakdown: kept-higher green, kept-lower red, the
+   rolled pair dimmed so the chosen face stands out. */
+.adv-up { color: var(--green); font-weight: 600; }
+.adv-down { color: var(--red); font-weight: 600; }
+.adv-pair { opacity: 0.6; }
 
 /* Roll20 */
 .roll20-frame { width: 100%; height: 320px; border: 1px solid var(--line); border-radius: 6px; margin-top: 6px; background: #fff; }
@@ -716,6 +727,27 @@ details.dm-token-tools > summary {
 details.dm-token-tools > summary::-webkit-details-marker { display: none; }
 details.dm-token-tools > summary::before { content: '▸ '; }
 details.dm-token-tools[open] > summary::before { content: '▾ '; }
+
+/* Player combat console: collapsible read-only Details for the selected creature. */
+details.creature-details { margin: 4px 0 8px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+details.creature-details > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 0; list-style: none;
+}
+details.creature-details > summary::-webkit-details-marker { display: none; }
+details.creature-details > summary::before { content: '▸ '; }
+details.creature-details[open] > summary::before { content: '▾ '; }
+.creature-details-body { font-size: 13px; display: grid; gap: 2px; padding: 4px 0; }
+
+/* Character sheet: Actions & Traits collapsed at the bottom of the sheet. */
+details.sheet-actions-traits { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+details.sheet-actions-traits > summary {
+  cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 0; list-style: none;
+}
+details.sheet-actions-traits > summary::-webkit-details-marker { display: none; }
+details.sheet-actions-traits > summary::before { content: '▸ '; }
+details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 
 /* Scale-by-reference-line prompt + hint (map canvas) */
 .scale-hint, .scale-prompt {

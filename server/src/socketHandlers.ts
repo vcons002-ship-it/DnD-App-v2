@@ -8,6 +8,7 @@ import {
   resolveForcedSave,
   resolveSkillRoll,
   resolveSaves,
+  resolveSave,
 } from './combat.js';
 import {
   aiCreateCharacter,
@@ -133,6 +134,7 @@ export function registerSocketHandlers(io: IOServer): void {
         session.id,
         payload.role,
         session.activeMapId,
+        socket.id,
       );
       if (!snapshot) {
         return ack({
@@ -487,11 +489,12 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
     // DC and auto-apply full/half of the rolled amount — DM only.
-    socket.on('save:resolve', ({ rollId, tokenId }) => {
+    socket.on('save:resolve', ({ rollId, tokenId, advantage }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
-      resolveForcedSave(sid, rollId, tokenId);
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      resolveForcedSave(sid, rollId, tokenId, adv);
       afterChange();
     });
 
@@ -508,6 +511,18 @@ export function registerSocketHandlers(io: IOServer): void {
         skill,
         adv,
       );
+      if (ok) afterChange();
+    });
+
+    // Click a stat block ability to roll that creature's saving throw. A PC's
+    // save may be rolled by its owner or the DM; a monster's by the DM only.
+    socket.on('save:roll', ({ kind, refId, ability, advantage }) => {
+      const sid = sessionId();
+      if (!sid || typeof ability !== 'string' || typeof refId !== 'string') return;
+      const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
+      if (!allowed) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const ok = resolveSave(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
       if (ok) afterChange();
     });
 
@@ -755,11 +770,11 @@ export function registerSocketHandlers(io: IOServer): void {
       },
     );
 
-    socket.on('combat:save', ({ tokenIds, ability, dc, advantage }) => {
+    socket.on('combat:save', ({ tokenIds, ability, dc, advantage, advantageByToken }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !Array.isArray(tokenIds) || !Number.isFinite(dc))
         return;
-      resolveSaves(sid, 'DM', tokenIds, String(ability), dc, advantage);
+      resolveSaves(sid, 'DM', tokenIds, String(ability), dc, advantage, advantageByToken);
       afterChange();
     });
 

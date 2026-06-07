@@ -21,7 +21,9 @@ import {
   updateMonster,
   setTokensHideCombatRole,
   setTokensCombatRole,
+  setLastAttackRole,
   createCharacter,
+  claimCharacter,
   updateCharacter,
   getCharacter,
   listCharacters,
@@ -152,6 +154,31 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('caster');
     setTokensHideCombatRole([tok.id], true);
     expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBeNull();
+  });
+
+  it('badge follows the most recent attack, overriding the derived role', () => {
+    const session = createSession('LastAttack');
+    const map = createMap(session.id, { name: 'Arena' });
+    setActiveMap(session.id, map.id);
+
+    // A sword-only brute derives 'melee' from its stat block.
+    const tmpl = createMonsterTemplate(session.id, {
+      name: 'Brute',
+      maxHp: 20,
+      weapons: [{ name: 'Greatsword', kind: 'melee' }],
+    });
+    const brute = instantiateMonster(tmpl.id)!;
+    createToken({ mapId: map.id, kind: 'monster', refId: brute.id, x: 1, y: 1 });
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('melee');
+
+    // After throwing a ranged attack, the badge follows the weapon last used.
+    setLastAttackRole('monster', brute.id, 'ranged');
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('ranged');
+
+    // A manual override still wins over the recorded last-attack role.
+    const tok = buildSnapshot(session.id, 'dm', map.id)!.tokens[0];
+    setTokensCombatRole([tok.id], 'caster');
+    expect(buildSnapshot(session.id, 'player')!.tokens[0].combatRole).toBe('caster');
   });
 
   it('patches editable creature fields and clamps curHp to a lowered max', () => {
@@ -336,6 +363,26 @@ describe('visibility role-shaping', () => {
     expect(player.tokens).toHaveLength(0);
     // DM sees both regardless.
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(2);
+  });
+
+  it("never hides a player's own claimed PC token under fog (but hides it from others)", () => {
+    const session = createSession('OwnToken');
+    const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    const pc = createCharacter(session.id, { name: 'Hero', maxHp: 12 });
+    claimCharacter(pc.id, 'socket-A');
+    createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 10, y: 10 });
+
+    // Cover the whole map with token fog → the PC token sits under cover.
+    setFogLayer(map.id, 'tokens', true);
+    coverFog(map.id, 'tokens');
+
+    // The owning player still receives their own token...
+    const owner = buildSnapshot(session.id, 'player', null, 'socket-A')!;
+    expect(owner.tokens).toHaveLength(1);
+    // ...but a different player does not see it through the fog.
+    const other = buildSnapshot(session.id, 'player', null, 'socket-B')!;
+    expect(other.tokens).toHaveLength(0);
   });
 
   it('per-token hide keeps a token from players regardless of fog', () => {

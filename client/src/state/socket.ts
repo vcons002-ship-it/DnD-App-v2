@@ -19,6 +19,7 @@ import type {
   MonsterUpdatePayload,
   Role,
   ServerToClientEvents,
+  SaveRollPayload,
   SheetAbility,
   SkillRollPayload,
   StateSnapshot,
@@ -37,6 +38,8 @@ type Store = {
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
   toast: { id: number; message: string } | null;
   dismissToast: () => void;
+  /** Show a transient toast from the client (e.g. AI start/failure notices). */
+  notify: (message: string) => void;
   /** True while an AI request (stat-fill / creature lookup) is in flight. */
   aiBusy: boolean;
   setAiBusy: (busy: boolean) => void;
@@ -46,6 +49,21 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
+  /**
+   * Per-entity advantage/disadvantage toggle, keyed by a character or monster id.
+   * Each creature/PC has its OWN armed adv/dis that applies to ITS next roll of
+   * any kind (attack, skill, spell/ability attack, monster action, or dice) and
+   * is consumed (cleared) when that roll fires. A player's dice-panel and skill
+   * toggles share their character's key, so they're one switch.
+   */
+  manualAdvantage: Record<string, 'adv' | 'dis'>;
+  setManualAdvantage: (key: string, a: 'adv' | 'dis' | null) => void;
+  /** Read an entity's armed adv/dis AND clear it (called at roll time). */
+  consumeAdvantage: (key: string) => 'adv' | 'dis' | undefined;
+  /** Player UI: whether the selected creature's read-only "Details" panel is
+   *  expanded. Sticky; double-clicking a token forces it open. */
+  detailsExpanded: boolean;
+  setDetailsExpanded: (open: boolean) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
   saveResolve: { rollId: string; dc: number; save?: string; label: string } | null;
@@ -114,6 +132,7 @@ type Store = {
   rollAbility: (payload: AbilityRollPayload) => void;
   rollMonsterAction: (monsterId: string, actionIndex: number, advantage?: 'adv' | 'dis') => void;
   rollSkill: (payload: SkillRollPayload) => void;
+  rollSave: (payload: SaveRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -149,19 +168,44 @@ export const useStore = create<Store>((set, get) => ({
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
+  notify: (message) => set({ toast: { id: Date.now(), message } }),
   aiBusy: false,
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
+  manualAdvantage: {},
+  setManualAdvantage: (key, a) =>
+    set((s) => {
+      const next = { ...s.manualAdvantage };
+      if (a) next[key] = a;
+      else delete next[key];
+      return { manualAdvantage: next };
+    }),
+  consumeAdvantage: (key) => {
+    const cur = get().manualAdvantage[key];
+    if (cur)
+      set((s) => {
+        const next = { ...s.manualAdvantage };
+        delete next[key];
+        return { manualAdvantage: next };
+      });
+    return cur;
+  },
+  detailsExpanded: false,
+  setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
     set((s) => ({ saveResolve: s.saveResolve?.rollId === saveResolve.rollId ? null : saveResolve })),
   clearSaveResolve: () => set({ saveResolve: null }),
   resolveSaveAt: (tokenId) => {
     const arm = get().saveResolve;
-    if (arm) get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId });
+    if (!arm) return;
+    // The clicked creature's own armed adv/dis toggle applies to its save.
+    const tok = get().snapshot?.tokens.find((t) => t.id === tokenId);
+    const advantage = tok ? get().consumeAdvantage(tok.refId) : undefined;
+    get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId, advantage });
   },
 
   connect: (code, role, dmPassphrase) => {
@@ -249,11 +293,11 @@ export const useStore = create<Store>((set, get) => ({
   createCharacter: (input) => get().socket?.emit('character:create', input),
   updateCharacter: (payload) => get().socket?.emit('character:update', payload),
   aiFillCharacter: (characterId) => {
-    set({ aiBusy: true });
+    set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:fillCharacter', { characterId });
   },
   aiCreateCharacter: (description) => {
-    set({ aiBusy: true });
+    set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:createCharacter', { description });
   },
   releaseCharacter: () => get().socket?.emit('character:release'),
@@ -270,6 +314,7 @@ export const useStore = create<Store>((set, get) => ({
   rollMonsterAction: (monsterId, actionIndex, advantage) =>
     get().socket?.emit('monster:action', { monsterId, actionIndex, advantage }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
+  rollSave: (payload) => get().socket?.emit('save:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>
@@ -281,7 +326,7 @@ export const useStore = create<Store>((set, get) => ({
   createMonster: (input) => get().socket?.emit('monster:create', input),
   updateMonster: (payload) => get().socket?.emit('monster:update', payload),
   aiFillCreature: (monsterId) => {
-    set({ aiBusy: true });
+    set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:fillCreature', { monsterId });
   },
   deleteMonster: (monsterId) =>

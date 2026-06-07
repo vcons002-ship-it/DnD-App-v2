@@ -246,6 +246,7 @@ export function MapStage({
   const showDiceButton = useStore((s) => s.showDiceButton);
   const saveResolve = useStore((s) => s.saveResolve);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
+  const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
   const clearSaveResolve = useStore((s) => s.clearSaveResolve);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
@@ -878,6 +879,11 @@ export function MapStage({
                   onSelect={
                     saveResolve ? (tok) => resolveSaveAt(tok.id) : onSelectToken
                   }
+                  onActivate={(tok) => {
+                    if (saveResolve) return;
+                    onSelectToken(tok, false);
+                    setDetailsExpanded(true); // open the player's read-only Details
+                  }}
                   onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
                   onContextMenu={(tok, cx, cy) => {
                     setHover(null);

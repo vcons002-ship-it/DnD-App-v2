@@ -7,6 +7,7 @@ type SpellHit = Omit<SheetAbility, 'id'>;
 /** Short tag line for an entry, e.g. "Cantrip · Evocation" or "Mastery". */
 function tagFor(a: SheetAbility): string {
   if (a.type === 'mastery') return a.mastery?.effect ? 'Mastery' : 'Mastery · manual';
+  if (a.type === 'maneuver') return 'Maneuver';
   const bits: string[] = [];
   if (a.type === 'spell') {
     bits.push(a.level === 0 ? 'Cantrip' : `Lvl ${a.level ?? '?'}`);
@@ -38,6 +39,10 @@ const upcastable = (a: SheetAbility): boolean =>
 const autoMastery = (a: SheetAbility): boolean =>
   a.type === 'mastery' && !!a.mastery?.effect;
 
+/** A maneuver gets an on/off toggle (it spends a Superiority Die on the next attack). */
+const isManeuver = (a: SheetAbility): boolean =>
+  a.type === 'maneuver' && !!a.maneuver;
+
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
  * (name + tag + details). Spells/abilities with a `roll` get a roll button
@@ -56,10 +61,13 @@ export function CharacterSpells({
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const rollAbility = useStore((s) => s.rollAbility);
+  const notify = useStore((s) => s.notify);
+  // Spell-attack adv/dis comes from this character's shared toggle (set above the
+  // skill list / roll log), so it's one switch for all of the character's rolls.
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
-  const [adv, setAdv] = useState<Record<string, 'adv' | 'dis' | undefined>>({});
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SpellHit[]>([]);
@@ -94,17 +102,25 @@ export function CharacterSpells({
   };
 
   const askAI = async () => {
-    if (!q.trim() || aiBusy) return;
+    const name = q.trim();
+    if (!name || aiBusy) return;
     setAiBusy(true);
+    notify(`✨ Asking AI for "${name}"…`);
     try {
       const r = await fetch('/api/spells/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: q.trim() }),
+        body: JSON.stringify({ name }),
       });
-      if (r.ok) add(await r.json());
+      if (r.ok) {
+        add(await r.json());
+        notify(`Added "${name}".`);
+      } else {
+        const msg = await r.json().catch(() => null);
+        notify(msg?.error ?? `No result for "${name}".`);
+      }
     } catch {
-      /* network/AI errors fail quietly — local search still works */
+      notify('AI lookup failed — check your connection. Local search still works.');
     } finally {
       setAiBusy(false);
     }
@@ -115,8 +131,9 @@ export function CharacterSpells({
       characterId: character.id,
       abilityId: a.id,
       castLevel: upcastable(a) ? castLevel[a.id] ?? a.roll?.baseLevel : undefined,
-      // Advantage/disadvantage only affects the d20 of an attack roll.
-      advantage: a.roll?.kind === 'attack' ? adv[a.id] : undefined,
+      // Advantage/disadvantage only affects the d20 of an attack roll; it comes
+      // from the character's shared toggle and is consumed when the attack fires.
+      advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
     });
 
   const patchMastery = (
@@ -125,6 +142,14 @@ export function CharacterSpells({
   ) => {
     if (!a.mastery) return;
     setSheetAbility(character.id, { ...a, mastery: { ...a.mastery, ...patch } });
+  };
+
+  const patchManeuver = (
+    a: SheetAbility,
+    patch: Partial<NonNullable<SheetAbility['maneuver']>>,
+  ) => {
+    if (!a.maneuver) return;
+    setSheetAbility(character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
   };
 
   return (
@@ -163,6 +188,20 @@ export function CharacterSpells({
                   </button>
                 )}
 
+                {editable && isManeuver(a) && (
+                  <button
+                    className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
+                    title={
+                      a.maneuver!.active
+                        ? 'Armed — spends a Superiority Die on your next attack'
+                        : 'Off — click to arm for your next attack'
+                    }
+                    onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
+                  >
+                    {a.maneuver!.active ? 'Armed' : 'Off'}
+                  </button>
+                )}
+
                 {editable && a.roll && upcastable(a) && (
                   <select
                     className="spell-level"
@@ -183,34 +222,6 @@ export function CharacterSpells({
                       },
                     )}
                   </select>
-                )}
-                {editable && a.roll?.kind === 'attack' && (
-                  <span className="spell-adv">
-                    <button
-                      className={`btn tiny ${adv[a.id] === 'adv' ? 'on' : ''}`}
-                      title="Advantage on the attack roll"
-                      onClick={() =>
-                        setAdv((m) => ({
-                          ...m,
-                          [a.id]: m[a.id] === 'adv' ? undefined : 'adv',
-                        }))
-                      }
-                    >
-                      Adv
-                    </button>
-                    <button
-                      className={`btn tiny ${adv[a.id] === 'dis' ? 'on' : ''}`}
-                      title="Disadvantage on the attack roll"
-                      onClick={() =>
-                        setAdv((m) => ({
-                          ...m,
-                          [a.id]: m[a.id] === 'dis' ? undefined : 'dis',
-                        }))
-                      }
-                    >
-                      Dis
-                    </button>
-                  </span>
                 )}
                 {editable && a.roll && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>
@@ -236,6 +247,21 @@ export function CharacterSpells({
                       {(a.mastery!.appliesToTags ?? []).length
                         ? a.mastery!.appliesToTags.map((t) => `[${t}]`).join(' ')
                         : '—'}
+                    </p>
+                  )}
+                  {isManeuver(a) && (
+                    <p className="muted spell-meta">
+                      Spends a Superiority Die
+                      {a.maneuver!.addDieTo === 'attack'
+                        ? ' → added to the attack roll'
+                        : a.maneuver!.addDieTo === 'damage'
+                          ? ' → added to damage on a hit'
+                          : a.maneuver!.addDieTo === 'heal'
+                            ? ' → temp HP'
+                            : ''}
+                      {a.maneuver!.save
+                        ? ` · ${a.maneuver!.save.ability} save${a.maneuver!.save.onFail ? ` or ${a.maneuver!.save.onFail}` : ''}`
+                        : ''}
                     </p>
                   )}
                   <p>{a.description}</p>

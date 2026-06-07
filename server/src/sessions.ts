@@ -14,6 +14,7 @@ import { abilityMod } from '../../shared/skills.js';
 import { weaponsFromActions } from '../../shared/monsterAttacks.js';
 import type {
   Character,
+  CombatRole,
   Condition,
   FogLayer,
   MapState,
@@ -430,6 +431,20 @@ export function setTokensCombatRole(
     'UPDATE tokens SET combat_role_override = ? WHERE id = ?',
   );
   for (const id of tokenIds) stmt.run(role, id);
+}
+
+/** Record the combat role of a creature's most recent attack so the token
+ *  badge follows the weapon last used (PC or monster, by ref id). */
+export function setLastAttackRole(
+  kind: Token['kind'],
+  refId: string,
+  role: CombatRole,
+): void {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  db.prepare(`UPDATE ${table} SET last_attack_role = ? WHERE id = ?`).run(
+    role,
+    refId,
+  );
 }
 
 /** Damage (+) / heal (−) every listed token's creature (AOE). */
@@ -1148,6 +1163,17 @@ export function setSheetAbility(
     JSON.stringify(list),
     characterId,
   );
+  // Adding the first maneuver seeds the Battle Master pool: a Superiority Dice
+  // counter + a default d8 die size (left alone if the character already has them).
+  if (ability.type === 'maneuver') {
+    if (!c.resources['Superiority Dice'])
+      setResource(characterId, 'resources', 'Superiority Dice', { max: 4, used: 0 });
+    if (!c.superiorityDie)
+      db.prepare('UPDATE characters SET superiority_die = ? WHERE id = ?').run(
+        'd8',
+        characterId,
+      );
+  }
   return getCharacter(characterId);
 }
 
