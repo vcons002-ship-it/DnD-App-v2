@@ -578,8 +578,25 @@ export type MeasureRemovePayload = { id: string };
 export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
-/** Import selected maps (and their tokens) from another session into this one. */
-export type SessionImportMapsPayload = { sourceCode: string; mapIds: string[] };
+/** How to handle a referenced character whose name already exists on import. */
+export type ImportConflictResolution = 'reuse' | 'overwrite' | 'new';
+/** A character referenced by the maps being imported (for the conflict prompt). */
+export type ImportCharConflict = {
+  /** Source-session character id (the resolutions map is keyed by this). */
+  sourceId: string;
+  name: string;
+  /** True when a same-named character already exists in the target session. */
+  exists: boolean;
+};
+/** Import selected maps (and their tokens) from another session into this one.
+ *  `resolutions` maps a source character id → reuse/overwrite/new (default new). */
+export type SessionImportMapsPayload = {
+  sourceCode: string;
+  mapIds: string[];
+  resolutions?: Record<string, ImportConflictResolution>;
+};
+/** Ask the server which referenced characters collide before importing. */
+export type SessionImportPreviewPayload = { sourceCode: string; mapIds: string[] };
 /** Enable/disable one fog layer on a map. */
 export type FogSetLayerPayload = {
   mapId: string;
@@ -609,6 +626,9 @@ export type CharacterCreatePayload = {
  *  `claim` (player) also claims the new character for the caller. */
 export type CharacterLoadFromLibraryPayload = { name: string; claim?: boolean };
 /** Patch fields of one character (DM or the owning player). */
+/** DM removes a player character from the session/spawn list. */
+export type CharacterDeletePayload = { characterId: string };
+
 export type CharacterUpdatePayload = {
   characterId: string;
   name?: string;
@@ -806,6 +826,10 @@ export interface ClientToServerEvents {
   'measure:clear': (payload: MeasureClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
+  'session:importPreview': (
+    payload: SessionImportPreviewPayload,
+    ack: (conflicts: ImportCharConflict[]) => void,
+  ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
@@ -830,6 +854,7 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
+  'character:delete': (payload: CharacterDeletePayload) => void;
   'character:release': () => void;
   'resource:set': (payload: ResourceSetPayload) => void;
   'item:set': (payload: ItemSetPayload) => void;

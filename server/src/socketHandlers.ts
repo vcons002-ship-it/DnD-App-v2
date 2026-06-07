@@ -19,6 +19,7 @@ import {
   broadcastSnapshots,
   dropConn,
   getConn,
+  isConnected,
   roomName,
   sendSnapshot,
   setConn,
@@ -58,6 +59,7 @@ import {
   createToken,
   deleteMap,
   deleteMonster,
+  deleteCharacter,
   setMonsterPlayerNotes,
   deleteToken,
   instantiateMonster,
@@ -79,6 +81,7 @@ import {
   renameMap,
   renameSession,
   importMaps,
+  previewImportCharacters,
   resizeToken,
   updateMapGrid,
   rollAllInitiative,
@@ -229,12 +232,27 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Import selected maps + their tokens from another session (DM only).
-    socket.on('session:importMaps', ({ sourceCode, mapIds }) => {
+    socket.on('session:importPreview', ({ sourceCode, mapIds }, ack) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || typeof ack !== 'function') {
+        if (typeof ack === 'function') ack([]);
+        return;
+      }
+      const ids = Array.isArray(mapIds)
+        ? mapIds.filter((m): m is string => typeof m === 'string').slice(0, 200)
+        : [];
+      ack(previewImportCharacters(sid, sourceCode, ids));
+    });
+
+    socket.on('session:importMaps', ({ sourceCode, mapIds, resolutions }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       if (typeof sourceCode !== 'string' || !Array.isArray(mapIds)) return;
       const ids = mapIds.filter((m): m is string => typeof m === 'string').slice(0, 200);
-      const n = importMaps(sid, sourceCode, ids);
+      const n = importMaps(sid, sourceCode, ids, {
+        resolutions: resolutions ?? {},
+        isClaimActive: isConnected,
+      });
       socket.emit('notice', {
         message: n
           ? `Imported ${n} map${n === 1 ? '' : 's'} from ${sourceCode.toUpperCase()}.`
@@ -401,6 +419,21 @@ export function registerSocketHandlers(io: IOServer): void {
       // The DM or the owning player may edit a character's stat sheet.
       if (!c || (!isDm() && c.claimedBy !== socket.id)) return;
       updateCharacter(characterId, patch);
+      afterChange();
+    });
+
+    socket.on('character:delete', ({ characterId }) => {
+      if (!isDm()) return; // DM-only: prune a PC from the spawn list
+      const c = getCharacter(characterId);
+      if (!c) return;
+      // Never delete a character a player is actively holding (still connected).
+      if (isConnected(c.claimedBy)) {
+        socket.emit('notice', {
+          message: `Can't remove ${c.name} — it's claimed by an active player.`,
+        });
+        return;
+      }
+      deleteCharacter(characterId);
       afterChange();
     });
 

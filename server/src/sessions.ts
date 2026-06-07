@@ -584,10 +584,56 @@ export function listMapsForImport(
  * the copies are independent). Uploaded images are shared by path (the uploads
  * folder is global). Returns the number of maps imported.
  */
+export type ImportMapsOptions = {
+  /** Per-source-character-id choice: reuse existing / overwrite it / make new. */
+  resolutions?: Record<string, 'reuse' | 'overwrite' | 'new'>;
+  /** Returns true if a claim is held by a still-connected player (never clobber). */
+  isClaimActive?: (claimedBy: string | null) => boolean;
+};
+
+/** First character in `sessionId` whose name matches (case-insensitive), or null. */
+function findCharacterIdByName(
+  sessionId: string,
+  name: string,
+): { id: string; claimedBy: string | null } | null {
+  const row = db
+    .prepare(
+      'SELECT id, claimed_by FROM characters WHERE session_id = ? AND LOWER(name) = ? LIMIT 1',
+    )
+    .get(sessionId, name.trim().toLowerCase()) as
+    | { id: string; claimed_by: string | null }
+    | undefined;
+  return row ? { id: row.id, claimedBy: row.claimed_by } : null;
+}
+
+/** Copy every stat column from one character row onto another (keeps the target's
+ *  id, session, and claim) — used by an "overwrite" import resolution. */
+function overwriteCharacterFrom(targetId: string, sourceId: string): void {
+  const cols = (
+    db.prepare('PRAGMA table_info(characters)').all() as { name: string }[]
+  )
+    .map((c) => c.name)
+    .filter((c) => !['id', 'session_id', 'claimed_by'].includes(c));
+  const src = db
+    .prepare('SELECT * FROM characters WHERE id = ?')
+    .get(sourceId) as Record<string, unknown> | undefined;
+  if (!src) return;
+  db.prepare(
+    `UPDATE characters SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
+  ).run(...cols.map((c) => src[c]), targetId);
+}
+
 export const importMaps = db.transaction(
-  (targetSessionId: string, sourceCode: string, mapIds: string[]): number => {
+  (
+    targetSessionId: string,
+    sourceCode: string,
+    mapIds: string[],
+    opts: ImportMapsOptions = {},
+  ): number => {
     const source = getSessionByCode(sourceCode);
     if (!source || source.id === targetSessionId) return 0;
+    const resolutions = opts.resolutions ?? {};
+    const isClaimActive = opts.isClaimActive ?? (() => false);
     const sourceMapIds = new Set(listMaps(source.id).map((m) => m.id));
     const now = Date.now();
     const refCache = new Map<string, string>(); // `${kind}:${oldRef}` -> newRef
@@ -595,19 +641,37 @@ export const importMaps = db.transaction(
       const key = `${kind}:${oldRef}`;
       const hit = refCache.get(key);
       if (hit) return hit;
-      const newRef =
-        kind === 'monster'
-          ? cloneRow('monsters', oldRef, {
-              session_id: targetSessionId,
-              template_id: null,
-              is_template: 0,
-            })
-          : cloneRow('characters', oldRef, {
-              session_id: targetSessionId,
-              claimed_by: null,
-            });
+      let newRef: string;
+      if (kind === 'monster') {
+        // Monsters import as fresh, independent instances (never deduped).
+        newRef = cloneRow('monsters', oldRef, {
+          session_id: targetSessionId,
+          template_id: null,
+          is_template: 0,
+        });
+      } else {
+        newRef = resolveCharacterRef(oldRef);
+      }
       refCache.set(key, newRef);
       return newRef;
+    };
+    // Resolve a referenced PC per the DM's choice (default: make a new copy).
+    const resolveCharacterRef = (oldRef: string): string => {
+      const fresh = () =>
+        cloneRow('characters', oldRef, {
+          session_id: targetSessionId,
+          claimed_by: null,
+        });
+      const choice = resolutions[oldRef] ?? 'new';
+      if (choice === 'new') return fresh();
+      const src = getCharacter(oldRef);
+      const existing = src && findCharacterIdByName(targetSessionId, src.name);
+      if (!existing) return fresh(); // nothing to reuse/overwrite → new copy
+      if (choice === 'overwrite' && !isClaimActive(existing.claimedBy)) {
+        overwriteCharacterFrom(existing.id, oldRef);
+      }
+      // reuse (or overwrite that fell back) → link tokens to the existing PC.
+      return existing.id;
     };
     const insertTok = db.prepare(
       `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
@@ -640,6 +704,38 @@ export const importMaps = db.transaction(
     return imported;
   },
 );
+
+/**
+ * For the import dialog: the distinct CHARACTERS referenced by tokens on the
+ * picked source maps, flagged when a same-named character already exists in the
+ * target session (so the DM can choose reuse / overwrite / new per name).
+ */
+export function previewImportCharacters(
+  targetSessionId: string,
+  sourceCode: string,
+  mapIds: string[],
+): { sourceId: string; name: string; exists: boolean }[] {
+  const source = getSessionByCode(sourceCode);
+  if (!source || source.id === targetSessionId) return [];
+  const sourceMapIds = new Set(listMaps(source.id).map((m) => m.id));
+  const seen = new Set<string>();
+  const out: { sourceId: string; name: string; exists: boolean }[] = [];
+  for (const mapId of mapIds) {
+    if (!sourceMapIds.has(mapId)) continue;
+    for (const t of listTokens(mapId)) {
+      if (t.kind !== 'pc' || seen.has(t.refId)) continue;
+      seen.add(t.refId);
+      const c = getCharacter(t.refId);
+      if (!c) continue;
+      out.push({
+        sourceId: c.id,
+        name: c.name,
+        exists: !!findCharacterIdByName(targetSessionId, c.name),
+      });
+    }
+  }
+  return out;
+}
 
 /**
  * Duplicate a single placed token into a second, independently-tracked copy
@@ -1578,6 +1674,16 @@ export function deleteMonster(monsterId: string): void {
     monsterId,
   );
   db.prepare('DELETE FROM monsters WHERE id = ?').run(monsterId);
+}
+
+/** Remove a player character (and any of its placed tokens) from the session.
+ *  Tokens reference characters by ref_id (no FK cascade), so delete them too. */
+export function deleteCharacter(characterId: string): void {
+  db.prepare('DELETE FROM tokens WHERE kind = ? AND ref_id = ?').run(
+    'pc',
+    characterId,
+  );
+  db.prepare('DELETE FROM characters WHERE id = ?').run(characterId);
 }
 
 /** Set the token art for a character or monster. */

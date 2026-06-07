@@ -39,6 +39,7 @@ export function DmPanel({
   const renameMap = useStore((s) => s.renameMap);
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
+  const deleteCharacter = useStore((s) => s.deleteCharacter);
   const setGlobalAiBusy = useStore((s) => s.setAiBusy);
   const notify = useStore((s) => s.notify);
   const setInitiative = useStore((s) => s.setInitiative);
@@ -312,13 +313,32 @@ export function DmPanel({
         )}
         <h4>Player characters</h4>
         {snapshot.characters.map((c) => (
-          <button
-            key={c.id}
-            className={`spawn-row ${pending?.refId === c.id ? 'picked' : ''}`}
-            onClick={() => onPickSpawn('pc', c.id)}
-          >
-            {c.name} <span className="muted">{c.className}</span>
-          </button>
+          <div key={c.id} className="spawn-line">
+            <button
+              className={`spawn-row ${pending?.refId === c.id ? 'picked' : ''}`}
+              onClick={() => onPickSpawn('pc', c.id)}
+            >
+              {c.name} <span className="muted">{c.className}</span>
+            </button>
+            <button
+              className="btn tiny"
+              title={
+                c.claimedBy
+                  ? 'Remove from the spawn list (blocked while a player is in the session)'
+                  : 'Remove this character from the spawn list'
+              }
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Remove ${c.name} from the spawn list? This deletes the character and any of its tokens.`,
+                  )
+                )
+                  deleteCharacter(c.id);
+              }}
+            >
+              ✕
+            </button>
+          </div>
         ))}
         <div className="new-char-wrap">
           <NewCharacterForm />

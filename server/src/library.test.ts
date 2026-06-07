@@ -14,6 +14,7 @@ import {
   deleteLibraryCharacter,
 } from './library.js';
 import { createSession, createCharacterFromLibrary, getCharacter } from './sessions.js';
+import { setMeta } from './db.js';
 
 describe('creature library', () => {
   it('saves, finds, and conflict-prompts by name', () => {
@@ -63,13 +64,16 @@ describe('creature library', () => {
     expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(false);
   });
 
-  it('seeds the SRD item catalogue once (idempotent)', () => {
-    const added = seedLibraryItems();
-    expect(added).toBeGreaterThan(50); // a sizeable catalogue lands
-    // Recognizable seeded entries across categories.
+  it('seeds the SRD item catalogue (idempotent, present after seeding)', () => {
+    // Force a seed attempt even if a prior run already set the one-time marker.
+    setMeta('items_seeded_v1', '');
+    seedLibraryItems();
+    // The catalogue is present across categories (regardless of how many were
+    // freshly inserted vs. already saved by an earlier run).
     expect(listLibraryItems('bag of holding')).toHaveLength(1);
     expect(listLibraryItems('plate armor').length).toBeGreaterThanOrEqual(1);
-    // Re-running is a no-op (the one-time marker is set).
+    expect(listLibraryItems('potion of healing').length).toBeGreaterThanOrEqual(1);
+    // Re-running is a no-op once the one-time marker is set.
     expect(seedLibraryItems()).toBe(0);
   });
 });

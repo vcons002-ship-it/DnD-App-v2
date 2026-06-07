@@ -285,6 +285,10 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 }
 .import-map-row input { width: auto; margin: 0; flex-shrink: 0; }
 .import-map-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-conflict-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+}
 
 .hp-line { font-size: 16px; margin: 6px 0; }
 /* Temporary-HP buffer pool: a flat 2024-rules cyan accent next to real HP. */

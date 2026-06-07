@@ -11,6 +11,8 @@ import type {
   Condition,
   DiceRollPayload,
   FogLayer,
+  ImportCharConflict,
+  ImportConflictResolution,
   InventoryItem,
   MeasureAddPayload,
   ResourceSetPayload,
@@ -89,7 +91,16 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
-  importMapsFromSession: (sourceCode: string, mapIds: string[]) => void;
+  importMapsFromSession: (
+    sourceCode: string,
+    mapIds: string[],
+    resolutions?: Record<string, ImportConflictResolution>,
+  ) => void;
+  /** Ask the server which referenced characters collide before importing. */
+  previewImport: (
+    sourceCode: string,
+    mapIds: string[],
+  ) => Promise<ImportCharConflict[]>;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   paintFog: (
     mapId: string,
@@ -146,6 +157,8 @@ type Store = {
   deleteMonster: (monsterId: string) => void;
   /** Set the shared party notes on a creature/NPC (DM + players). */
   setCreatureNotes: (monsterId: string, notes: string) => void;
+  /** DM removes a player character from the spawn list. */
+  deleteCharacter: (characterId: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setTokensHideCombatRole: (tokenIds: string[], hide: boolean) => void;
   setTokensCombatRole: (
@@ -263,8 +276,14 @@ export const useStore = create<Store>((set, get) => ({
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
-  importMapsFromSession: (sourceCode, mapIds) =>
-    get().socket?.emit('session:importMaps', { sourceCode, mapIds }),
+  importMapsFromSession: (sourceCode, mapIds, resolutions) =>
+    get().socket?.emit('session:importMaps', { sourceCode, mapIds, resolutions }),
+  previewImport: (sourceCode, mapIds) =>
+    new Promise((resolve) => {
+      const sock = get().socket;
+      if (!sock) return resolve([]);
+      sock.emit('session:importPreview', { sourceCode, mapIds }, resolve);
+    }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
   paintFog: (mapId, layer, cells, reveal) =>
@@ -335,6 +354,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('monster:delete', { monsterId }),
   setCreatureNotes: (monsterId, notes) =>
     get().socket?.emit('creature:setNotes', { monsterId, notes }),
+  deleteCharacter: (characterId) =>
+    get().socket?.emit('character:delete', { characterId }),
   setTokensIcon: (tokenIds, icon) =>
     get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
   setTokensHideCombatRole: (tokenIds, hide) =>
