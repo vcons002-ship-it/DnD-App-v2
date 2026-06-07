@@ -663,7 +663,10 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Weapon to-hit transparency, tag chips & double-count fix.** (1) The attack
   roll now spells out the to-hit like the damage breakdown —
   `d20[10] +2[DEX] +2[PROF]` (derived) or `+5[hit]` for a fixed bonus
-  (`weaponAttackBonusDetail`). (2) Weapon **tags** are edited as add/remove
+  (`weaponAttackBonusDetail`). **Spell attacks and monster `action` attacks** get
+  the same treatment — `d20[10] +3[CHA] +2[PROF]` (casting ability + proficiency,
+  by level for PCs / by CR for monsters) via `spellAttackBonusDetail`. (2) Weapon
+  **tags** are edited as add/remove
   **chips** (`TagInput`, with common-tag suggestions) on **both** creature and PC
   attacks, instead of a comma string. (3) **No more double-counted ability mod:**
   dice-only weapons (all PC weapons + creature library picks flagged `diceOnly`)

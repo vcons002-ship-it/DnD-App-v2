@@ -496,6 +496,38 @@ describe('to-hit breakdown + no double-count', () => {
     }
     expect(checked).toBe(true);
   });
+
+  it('spells out a PC spell attack to-hit as casting ability + proficiency', () => {
+    const { s } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    const ability: SheetAbility = {
+      id: 'fb',
+      name: 'Fire Bolt',
+      type: 'spell',
+      description: '',
+      roll: { kind: 'attack', dice: '1d10', damageType: 'fire', baseLevel: 0 },
+    };
+    setSheetAbility(ch.id, ability);
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('[INT]'); // casting ability portion
+    expect(last.detail).toContain('[PROF]'); // proficiency portion
+  });
+
+  it('spells out a monster action to-hit as casting ability + proficiency', () => {
+    const { s } = arena();
+    const tmpl = createMonsterTemplate(s.id, { name: 'Drake', maxHp: 30, level: 5, stats: { CHA: 16 } });
+    const m = instantiateMonster(tmpl.id)!;
+    const ok = resolveMonsterAction(s.id, 'DM', m, {
+      name: 'Fire Breath',
+      description: '',
+      roll: { kind: 'attack', dice: '2d6', damageType: 'fire' },
+    });
+    expect(ok).toBe(true);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('[CHA]'); // best casting mod is CHA
+    expect(last.detail).toContain('[PROF]');
+  });
 });
 
 describe('spell roll description', () => {

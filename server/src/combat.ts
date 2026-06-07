@@ -24,11 +24,11 @@ import { attackAdvantage, saveAdvantage } from '../../shared/conditionEffects.js
 import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
-  spellAttackBonus,
+  spellAttackBonusDetail,
   spellcastingMod,
   spellSaveDC,
 } from '../../shared/spellMath.js';
-import { SKILLS, skillBonus, signed } from '../../shared/skills.js';
+import { SKILLS, skillBonus, signed, proficiencyBonus } from '../../shared/skills.js';
 import type {
   AbilityRoll,
   Character,
@@ -435,6 +435,8 @@ function resolveTargetedSpellAttack(opts: {
   title: string;
   description?: string;
   attackBonus: number;
+  /** Labelled to-hit breakdown for the log, e.g. "+3[CHA] +2[PROF]". */
+  attackBonusDetail?: string;
   dice?: string;
   damageType?: string;
   targetTokenId: string;
@@ -471,7 +473,7 @@ function resolveTargetedSpellAttack(opts: {
     expr: opts.title,
     total: attackTotal,
     detail:
-      `${opts.title} → ${t.name}: ${d20detail} ${signed(opts.attackBonus)} = ${attackTotal} vs AC ${t.ac} — ${result}` +
+      `${opts.title} → ${t.name}: ${d20detail} ${opts.attackBonusDetail ?? signed(opts.attackBonus)} = ${attackTotal} vs AC ${t.ac} — ${result}` +
       (hit && opts.dice ? `, ${applied}${dmgType} dmg [${opts.dice}${crit ? ' ×2 crit' : ''}]` : '') +
       (notes.length ? ` · ${notes.join(', ')}` : ''),
     description: opts.description,
@@ -509,7 +511,10 @@ export function resolveAbilityRoll(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
-    const bonus = spellAttackBonus(level, stats);
+    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(
+      stats,
+      proficiencyBonus(level || 1),
+    );
     // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
     if (
       targetTokenId &&
@@ -519,6 +524,7 @@ export function resolveAbilityRoll(
         title,
         description: ability.description || undefined,
         attackBonus: bonus,
+        attackBonusDetail: bonusDetail,
         dice,
         damageType: roll.damageType,
         targetTokenId,
@@ -541,7 +547,7 @@ export function resolveAbilityRoll(
       expr: title,
       total: attackTotal,
       detail:
-        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
         (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
         (crit ? ' — CRIT' : ''),
       description: ability.description || undefined,
@@ -626,7 +632,8 @@ export function resolveMonsterAction(
   const title = action.name;
 
   if (roll.kind === 'attack') {
-    const bonus = prof + castMod;
+    // To-hit = proficiency (by CR) + best casting mod, broken out for the log.
+    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(monster.stats, prof);
     // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
     if (
       targetTokenId &&
@@ -636,6 +643,7 @@ export function resolveMonsterAction(
         title,
         description: action.description || undefined,
         attackBonus: bonus,
+        attackBonusDetail: bonusDetail,
         dice,
         damageType: roll.damageType,
         targetTokenId,
@@ -658,7 +666,7 @@ export function resolveMonsterAction(
       expr: title,
       total: attackTotal,
       detail:
-        `${title}: ${d20detail} ${signed(bonus)} = ${attackTotal} to hit` +
+        `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
         (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
         (crit ? ' — CRIT' : ''),
       description: action.description || undefined,

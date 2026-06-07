@@ -2,7 +2,7 @@
 // and it stays unit-testable. Handles upcasting (extra dice per slot level above
 // a spell's base level) and cantrip scaling (extra dice at caster levels 5/11/17).
 import type { AbilityRoll } from './types.js';
-import { abilityMod, proficiencyBonus } from './skills.js';
+import { abilityMod, proficiencyBonus, signed } from './skills.js';
 
 /** Cantrip damage steps up at these caster levels (5e). */
 const CANTRIP_TIERS = [5, 11, 17];
@@ -36,18 +36,41 @@ export function effectiveDice(
   return base + `+${roll.scaleDice.trim()}`.repeat(extra);
 }
 
+/** The caster's best spellcasting ability (INT/WIS/CHA) and its modifier; ties
+ *  favour INT then WIS, so the label is stable. */
+export function spellcastingAbility(
+  stats: Record<string, number>,
+): { ability: 'INT' | 'WIS' | 'CHA'; mod: number } {
+  const cands = [
+    { ability: 'INT' as const, mod: abilityMod(stats.INT ?? 10) },
+    { ability: 'WIS' as const, mod: abilityMod(stats.WIS ?? 10) },
+    { ability: 'CHA' as const, mod: abilityMod(stats.CHA ?? 10) },
+  ];
+  return cands.reduce((best, c) => (c.mod > best.mod ? c : best));
+}
+
 /** The caster's best spellcasting ability modifier (INT/WIS/CHA). */
 export function spellcastingMod(stats: Record<string, number>): number {
-  return Math.max(
-    abilityMod(stats.INT ?? 10),
-    abilityMod(stats.WIS ?? 10),
-    abilityMod(stats.CHA ?? 10),
-  );
+  return spellcastingAbility(stats).mod;
 }
 
 /** Spell attack bonus = proficiency + spellcasting modifier. */
 export function spellAttackBonus(level: number, stats: Record<string, number>): number {
   return proficiencyBonus(level || 1) + spellcastingMod(stats);
+}
+
+/**
+ * A spell attack's to-hit AS A LABELLED BREAKDOWN for the roll log, e.g.
+ * `+3[CHA] +2[PROF]`, mirroring the weapon breakdown. `prof` is supplied by the
+ * caller — proficiency by level for PCs, by CR for monsters — so this works for
+ * both; `bonus` equals casting mod + `prof`.
+ */
+export function spellAttackBonusDetail(
+  stats: Record<string, number>,
+  prof: number,
+): { bonus: number; detail: string } {
+  const { ability, mod } = spellcastingAbility(stats);
+  return { bonus: mod + prof, detail: `${signed(mod)}[${ability}] ${signed(prof)}[PROF]` };
 }
 
 /** Spell save DC = 8 + proficiency + spellcasting modifier. */
