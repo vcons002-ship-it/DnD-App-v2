@@ -13,6 +13,7 @@ import {
   createMonsterTemplate,
   instantiateMonster,
   createToken,
+  resizeToken,
   rollAllInitiative,
   getToken,
 } from './sessions.js';
@@ -79,6 +80,28 @@ describe('editing & deleting saved sessions', () => {
     expect(getSessionByCode(s.code)).toBeNull();
     expect(listMaps(s.id)).toHaveLength(0);
     expect(getToken(tok.id)).toBeFalsy();
+  });
+});
+
+describe('token footprint width (feet)', () => {
+  it('defaults a new token to 5ft and resizes in feet (clamped)', () => {
+    const s = createSession('Sized');
+    const map = createMap(s.id, { name: 'Yard' });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Ogre', maxHp: 59 });
+    const tok = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 0,
+      y: 0,
+    });
+    expect(tok.widthFt).toBe(5); // Medium default
+
+    resizeToken(tok.id, 10); // Large
+    expect(getToken(tok.id)!.widthFt).toBe(10);
+
+    resizeToken(tok.id, 0); // clamps to the 2.5ft minimum
+    expect(getToken(tok.id)!.widthFt).toBe(2.5);
   });
 });
 

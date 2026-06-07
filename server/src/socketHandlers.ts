@@ -308,9 +308,9 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('token:resize', ({ tokenId, size }) => {
+    socket.on('token:resize', ({ tokenId, widthFt }) => {
       if (!isDm()) return; // resizing is a DM action; players may only move
-      resizeToken(tokenId, size);
+      resizeToken(tokenId, widthFt);
       afterChange();
     });
 

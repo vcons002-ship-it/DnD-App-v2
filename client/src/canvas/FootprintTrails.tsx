@@ -8,23 +8,38 @@ type Trail = {
   from: { x: number; y: number };
   to: { x: number; y: number };
   start: number;
-  size: number;
+  /** Token footprint width in feet — sizes the prints to the creature. */
+  widthFt: number;
+  /** Footprint count for this move (derived from its length → constant spacing). */
+  n: number;
   /** When set, the whole trail fades out by this time (bumped past the cap). */
   expireAt?: number;
 };
 
-const N = 6; // footprints per trail
-const STAGGER = 4000; // ms between each print starting to fade (oldest first)
-const FADE = 10000; // ms for one print to fade out
-const BASE = 0.7; // resting opacity of a (white) print
-const LIFETIME = (N - 1) * STAGGER + FADE; // ~30s natural linger
+// Footprints are spaced a CONSTANT distance apart (≈ one per 0.8 grid cells), so a
+// short hop drops a couple and a long stride drops a line of them — never stretched.
+const SPACING = 0.8; // grid cells between consecutive footprints
+const MIN_PRINTS = 2;
+const MAX_PRINTS = 16;
+const HOLD = 2500; // ms the full trail lingers (fully opaque) before any fade
+const STAGGER = 1200; // ms between each print starting to fade (oldest first)
+const FADE = 3500; // ms for one print to fade out (fast)
+const BASE = 0.92; // resting opacity of a (white) print — high-visibility
 const MAX_TRAILS = 6; // most-recent trails kept
-const EXPIRE_FADE = 2000; // ms graceful fade-out when bumped past the cap
+const EXPIRE_FADE = 1500; // ms graceful fade-out when bumped past the cap
 const MOVE_EPS = 0.5; // cells; ignore sub-half-cell jitter
-const TICK_MS = 150; // fade is slow, so a coarse tick stays smooth and cheap
+const TICK_MS = 120;
 
+/** Footprints for a move of `lenPx` at the given grid size — constant spacing. */
+const countFor = (lenPx: number, gridSizePx: number) =>
+  Math.max(
+    MIN_PRINTS,
+    Math.min(MAX_PRINTS, Math.round(lenPx / Math.max(1, gridSizePx * SPACING)) + 1),
+  );
+
+const lifetimeOf = (t: Trail) => HOLD + (t.n - 1) * STAGGER + FADE;
 const alive = (t: Trail, at: number) =>
-  t.expireAt != null ? at < t.expireAt : at - t.start < LIFETIME;
+  t.expireAt != null ? at < t.expireAt : at - t.start < lifetimeOf(t);
 
 /**
  * Renders lingering **white** footprint trails over the map. For each move, N
@@ -38,9 +53,11 @@ const alive = (t: Trail, at: number) =>
 export function FootprintLayer({
   tokens,
   gridSizePx,
+  pxPerFoot,
 }: {
   tokens: Token[];
   gridSizePx: number;
+  pxPerFoot: number;
 }) {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -54,13 +71,15 @@ export function FootprintLayer({
     for (const t of tokens) {
       const prev = prevPos.current.get(t.id);
       nextPos.set(t.id, { x: t.x, y: t.y });
-      if (prev && Math.hypot(t.x - prev.x, t.y - prev.y) > gridSizePx * MOVE_EPS) {
+      const moved = prev ? Math.hypot(t.x - prev.x, t.y - prev.y) : 0;
+      if (prev && moved > gridSizePx * MOVE_EPS) {
         fresh.push({
           id: `${t.id}-${t0}`,
           from: prev,
           to: { x: t.x, y: t.y },
           start: t0,
-          size: t.size,
+          widthFt: t.widthFt,
+          n: countFor(moved, gridSizePx),
         });
       }
     }
@@ -110,17 +129,19 @@ export function FootprintLayer({
           tr.expireAt != null
             ? Math.max(0, Math.min(1, (tr.expireAt - now) / EXPIRE_FADE))
             : 1;
-        const sz = gridSizePx * tr.size;
-        const rx = Math.max(3, sz * 0.16); // foot length (along travel)
-        const ry = Math.max(2, sz * 0.09); // foot width
-        const spread = sz * 0.14; // left/right offset from the centerline
+        const sz = tr.widthFt * pxPerFoot;
+        const rx = Math.max(4, sz * 0.2); // foot length (along travel)
+        const ry = Math.max(2.5, sz * 0.12); // foot width
+        const spread = sz * 0.16; // left/right offset from the centerline
+        const n = tr.n;
         const marks = [];
-        for (let i = 0; i < N; i++) {
-          const localT = elapsed - i * STAGGER; // older prints (low i) fade first
+        for (let i = 0; i < n; i++) {
+          // The whole trail holds at BASE for HOLD ms, then prints fade oldest-first.
+          const localT = elapsed - HOLD - i * STAGGER;
           const natural = localT < 0 ? BASE : BASE * (1 - localT / FADE);
-          const op = natural * capFade;
+          const op = Math.max(0, natural) * capFade;
           if (op <= 0) continue;
-          const f = i / (N - 1);
+          const f = n === 1 ? 0 : i / (n - 1);
           const side = i % 2 === 0 ? 1 : -1;
           marks.push(
             <Ellipse
@@ -131,8 +152,8 @@ export function FootprintLayer({
               radiusY={ry}
               rotation={angle}
               fill="#ffffff"
-              stroke="#00000073"
-              strokeWidth={Math.max(0.6, ry * 0.22)}
+              stroke="#000000a6"
+              strokeWidth={Math.max(0.8, ry * 0.25)}
               opacity={op}
               listening={false}
             />,

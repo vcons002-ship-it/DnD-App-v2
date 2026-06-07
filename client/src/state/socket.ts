@@ -106,7 +106,7 @@ type Store = {
     y: number,
   ) => void;
   moveToken: (tokenId: string, x: number, y: number) => void;
-  resizeToken: (tokenId: string, size: number) => void;
+  resizeToken: (tokenId: string, widthFt: number) => void;
   deleteToken: (tokenId: string) => void;
   duplicateToken: (tokenId: string) => void;
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
@@ -273,8 +273,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
   moveToken: (tokenId, x, y) =>
     get().socket?.emit('token:move', { tokenId, x, y }),
-  resizeToken: (tokenId, size) =>
-    get().socket?.emit('token:resize', { tokenId, size }),
+  resizeToken: (tokenId, widthFt) =>
+    get().socket?.emit('token:resize', { tokenId, widthFt }),
   deleteToken: (tokenId) => get().socket?.emit('token:delete', { tokenId }),
   duplicateToken: (tokenId) =>
     get().socket?.emit('token:duplicate', { tokenId }),

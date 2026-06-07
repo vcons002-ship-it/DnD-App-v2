@@ -360,8 +360,8 @@ export function createToken(opts: {
 }): Token {
   const id = newId();
   db.prepare(
-    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, NULL, ?, ?)`,
+    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?)`,
   ).run(
     id,
     opts.mapId,
@@ -380,9 +380,13 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
   return getToken(tokenId);
 }
 
-export function resizeToken(tokenId: string, size: number): Token | null {
-  db.prepare('UPDATE tokens SET size = ? WHERE id = ?').run(
-    Math.max(0.5, size),
+/** Resize a token by its real footprint WIDTH IN FEET (min 2.5ft = Tiny). The
+ *  legacy square `size` is kept in sync (widthFt / 5) for back-compat. */
+export function resizeToken(tokenId: string, widthFt: number): Token | null {
+  const w = Math.max(2.5, widthFt);
+  db.prepare('UPDATE tokens SET width_ft = ?, size = ? WHERE id = ?').run(
+    w,
+    w / 5,
     tokenId,
   );
   return getToken(tokenId);
@@ -698,7 +702,7 @@ export function duplicateToken(tokenId: string): Token | null {
     y,
     isHidden: token.isHidden,
   });
-  if (token.size !== 1) resizeToken(copy.id, token.size);
+  if (token.widthFt !== 5) resizeToken(copy.id, token.widthFt);
   return getToken(copy.id);
 }
 

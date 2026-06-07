@@ -91,8 +91,14 @@ export type Token = {
   refId: string;
   x: number;
   y: number;
-  /** Size in grid squares (1 = Medium, 2 = Large, ...). */
+  /** Legacy size in grid squares (1 = Medium, 2 = Large, ...); kept for back-compat. */
   size: number;
+  /**
+   * Real-world footprint width in FEET (5 = Medium). This is the source of truth
+   * for the on-screen size: it's rendered via the map's feet-per-pixel so a token
+   * keeps its real size when the DM only changes the visual grid cell.
+   */
+  widthFt: number;
   /** Initiative value, or null if not rolled this combat. */
   initiative: number | null;
   /** Hidden tokens are never sent to players. */
@@ -512,7 +518,7 @@ export type JoinPayload = {
 };
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
-export type TokenResizePayload = { tokenId: string; size: number };
+export type TokenResizePayload = { tokenId: string; widthFt: number };
 export type TokenDeletePayload = { tokenId: string };
 /** Duplicate one placed token into a second, independently-tracked copy. */
 export type TokenDuplicatePayload = { tokenId: string };

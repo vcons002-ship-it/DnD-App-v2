@@ -22,6 +22,8 @@ type Props = {
   token: Token;
   display: TokenDisplay;
   gridSizePx: number;
+  /** Pixels per foot (from the map scale) — sizes the token by its real width. */
+  pxPerFoot: number;
   draggable: boolean;
   selected: boolean;
   activeTurn: boolean;
@@ -52,6 +54,7 @@ export function TokenShape({
   token,
   display,
   gridSizePx,
+  pxPerFoot,
   draggable,
   selected,
   activeTurn,
@@ -65,7 +68,9 @@ export function TokenShape({
   onHoverEnd,
   onDragActive,
 }: Props) {
-  const radius = (gridSizePx * token.size) / 2;
+  // Real-world footprint: width in feet → pixels. Independent of the visual grid,
+  // so changing only the grid cell size never rescales a token.
+  const radius = (token.widthFt * pxPerFoot) / 2;
   const auras = presentAuras(display.conditions);
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
