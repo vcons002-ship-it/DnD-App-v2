@@ -62,7 +62,7 @@ const SPELLS: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S',
     description:
       'Three glowing darts each strike a target you choose, dealing force damage. The darts hit automatically. One extra dart per slot level above 1st.',
-    roll: { kind: 'damage', dice: '3d4+3', scaleDice: '1d4+1', baseLevel: 1, damageType: 'force' },
+    roll: { kind: 'damage', dice: '1d4+1', instances: 3, scaleInstances: 1, baseLevel: 1, damageType: 'force' },
   },
   {
     name: 'Cure Wounds',

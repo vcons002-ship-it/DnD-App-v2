@@ -121,15 +121,24 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                         dc: r.apply!.dc,
                         save: r.apply!.save,
                         label: r.expr,
+                        splitTotal: r.apply!.split?.length,
                       })
                     }
                     title={
-                      r.apply.save
-                        ? `Click targets on the map to roll DC ${r.apply.dc} ${r.apply.save} saves and auto-apply full/half`
-                        : `Click targets on the map to apply ${r.apply.amount} damage`
+                      r.apply.split
+                        ? `Click ${r.apply.split.length} target(s) to assign each dart (${r.apply.split.join(', ')})`
+                        : r.apply.save
+                          ? `Click targets on the map to roll DC ${r.apply.dc} ${r.apply.save} saves and auto-apply full/half`
+                          : `Click targets on the map to apply ${r.apply.amount} damage`
                     }
                   >
-                    {saveResolve?.rollId === r.id ? '🎯 Targeting… (Esc)' : '🎯 Apply damage'}
+                    {saveResolve?.rollId === r.id
+                      ? r.apply.split
+                        ? `🎯 Dart ${(saveResolve.splitUsed ?? 0) + 1}/${r.apply.split.length}… (Esc)`
+                        : '🎯 Targeting… (Esc)'
+                      : r.apply.split
+                        ? `🎯 Assign darts`
+                        : '🎯 Apply damage'}
                   </button>
                 )}
               </span>

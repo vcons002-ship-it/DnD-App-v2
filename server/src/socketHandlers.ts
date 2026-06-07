@@ -525,12 +525,13 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
     // DC and auto-apply full/half of the rolled amount — DM only.
-    socket.on('save:resolve', ({ rollId, tokenId, advantage }) => {
+    socket.on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      resolveForcedSave(sid, rollId, tokenId, adv);
+      const idx = typeof instanceIndex === 'number' ? instanceIndex : undefined;
+      resolveForcedSave(sid, rollId, tokenId, adv, idx);
       afterChange();
     });
 

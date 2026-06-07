@@ -373,6 +373,7 @@ export function resolveForcedSave(
   rollId: string,
   tokenId: string,
   advantage?: Advantage,
+  instanceIndex?: number,
 ): void {
   const apply = getRollEntry(rollId)?.apply;
   if (!apply) return;
@@ -385,6 +386,22 @@ export function resolveForcedSave(
 
   let dmg: number;
   let detail: string;
+  if (apply.split && typeof instanceIndex === 'number') {
+    // A split spell (e.g. Magic Missile): apply ONE pre-rolled instance, chosen
+    // by index, to this target — auto-hit, no save. The client consumes indices
+    // in order and disarms when the darts run out.
+    const base = apply.split[instanceIndex] ?? 0;
+    dmg = Math.floor(base * mult);
+    applyDamage(r.kind, r.refId, dmg);
+    addRollLog(sessionId, {
+      roller: 'DM',
+      label: 'Damage',
+      total: dmg,
+      expr: `dart ${instanceIndex + 1}`,
+      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+    });
+    return;
+  }
   if (apply.save) {
     const ability = apply.save;
     const proficient = r.saveProficiencies.some(
@@ -568,9 +585,28 @@ export function resolveAbilityRoll(
     return true;
   }
 
+  const dc = spellSaveDC(level, stats);
+
+  // A split spell (e.g. Magic Missile): roll each instance/dart separately so the
+  // DM can assign them one target at a time. Upcasting adds darts, not dice.
+  const instanceCount = splitInstanceCount(roll, castLevel);
+  if (roll.kind === 'damage' && instanceCount > 0 && dice) {
+    const split = Array.from({ length: instanceCount }, () => rollDice(dice)!.total);
+    const val = split.reduce((a, b) => a + b, 0);
+    addRollLog(sessionId, {
+      roller,
+      label: ability.name,
+      expr: title,
+      total: val,
+      detail: `${title}: ${instanceCount} × [${dice}] = ${val}${dmgType} — assign one per target`,
+      description: ability.description || undefined,
+      apply: { amount: val, dc, damageType: roll.damageType, split },
+    });
+    return true;
+  }
+
   // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
   const val = dice ? rollDice(dice)!.total : 0;
-  const dc = spellSaveDC(level, stats);
   const note =
     roll.kind === 'save' && roll.save
       ? ` — DC ${dc} ${roll.save} save for half`
@@ -587,6 +623,15 @@ export function resolveAbilityRoll(
     apply: applyPayload(roll, val, dc),
   });
   return true;
+}
+
+/** Instances/darts for a split spell at the chosen cast level (Magic Missile:
+ *  3 + 1 per slot above 1st). 0 when the roll isn't a split spell. */
+function splitInstanceCount(roll: AbilityRoll, castLevel?: number): number {
+  if (!roll.instances) return 0;
+  const base = roll.baseLevel ?? 1;
+  const lvls = castLevel && castLevel > base ? castLevel - base : 0;
+  return roll.instances + (roll.scaleInstances ?? 0) * lvls;
 }
 
 /** The "Apply damage" payload for a save/damage roll (none for attack/heal or

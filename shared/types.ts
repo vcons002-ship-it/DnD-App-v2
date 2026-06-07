@@ -186,6 +186,15 @@ export type AbilityRoll = {
   scaleDice?: string;
   /** Spell level the base dice are written for (0 = cantrip). */
   baseLevel?: number;
+  /**
+   * Number of separate damage instances at `baseLevel` — e.g. Magic Missile's 3
+   * darts. Each instance rolls `dice` independently and is assigned to a target
+   * ONE click at a time (rather than the full total hitting every target). Only
+   * meaningful for `kind: 'damage'` (auto-hit, no save).
+   */
+  instances?: number;
+  /** Extra instances per slot level above `baseLevel` (Magic Missile: +1 dart). */
+  scaleInstances?: number;
 };
 
 /**
@@ -269,6 +278,17 @@ export type SheetAbility = {
   level?: number;
   /** School or short tag, e.g. "Evocation", "Class feature". */
   school?: string;
+  /**
+   * Classes that can cast/use this (lowercase, e.g. ["wizard", "sorcerer"]).
+   * Drives the spellbook's class filter/sort. Empty/absent for non-class items.
+   */
+  classes?: string[];
+  /**
+   * Free-form search tags — school, classes, damage type, and flags like
+   * "cantrip", "ritual", "concentration", "maneuver", "fire". Searched alongside
+   * the name so an ability is findable by what it does, not just its name.
+   */
+  tags?: string[];
   /** One-line meta, e.g. "1 action · 120 ft · V,S". */
   meta?: string;
   /** Full rules text shown in the collapsible body. */
@@ -500,6 +520,13 @@ export type RollEntry = {
     damageType?: string;
     /** Condition applied to a target that FAILS the save (Battle Master riders). */
     onFail?: string;
+    /**
+     * Per-instance pre-rolled damages (e.g. Magic Missile darts). When present,
+     * the DM assigns ONE instance per clicked target (consumed in order) instead
+     * of applying the full `amount` to every target. Server-rolled; the client
+     * only tells the server which instance index to apply.
+     */
+    split?: number[];
   };
   createdAt: number;
 };
@@ -699,6 +726,9 @@ export type SaveResolvePayload = {
   rollId: string;
   tokenId: string;
   advantage?: 'adv' | 'dis';
+  /** For a split spell (Magic Missile): which pre-rolled instance/dart to apply
+   *  to this target. The server reads the amount from the roll's `apply.split`. */
+  instanceIndex?: number;
 };
 /** Roll ONE creature's saving throw for an ability (click a stat block to roll a
  *  save). Server-authoritative: d20 + ability mod + proficiency when proficient. */

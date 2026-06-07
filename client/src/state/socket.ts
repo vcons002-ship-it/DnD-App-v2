@@ -68,8 +68,23 @@ type Store = {
   setDetailsExpanded: (open: boolean) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
-  saveResolve: { rollId: string; dc: number; save?: string; label: string } | null;
-  armSaveResolve: (s: { rollId: string; dc: number; save?: string; label: string }) => void;
+  saveResolve: {
+    rollId: string;
+    dc: number;
+    save?: string;
+    label: string;
+    /** Split spell (Magic Missile): total instances + how many already assigned,
+     *  so each map click consumes the next dart and auto-disarms when spent. */
+    splitTotal?: number;
+    splitUsed?: number;
+  } | null;
+  armSaveResolve: (s: {
+    rollId: string;
+    dc: number;
+    save?: string;
+    label: string;
+    splitTotal?: number;
+  }) => void;
   clearSaveResolve: () => void;
   resolveSaveAt: (tokenId: string) => void;
 
@@ -217,7 +232,12 @@ export const useStore = create<Store>((set, get) => ({
   setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
-    set((s) => ({ saveResolve: s.saveResolve?.rollId === saveResolve.rollId ? null : saveResolve })),
+    set((s) => ({
+      saveResolve:
+        s.saveResolve?.rollId === saveResolve.rollId
+          ? null
+          : { ...saveResolve, splitUsed: saveResolve.splitTotal ? 0 : undefined },
+    })),
   clearSaveResolve: () => set({ saveResolve: null }),
   resolveSaveAt: (tokenId) => {
     const arm = get().saveResolve;
@@ -225,6 +245,15 @@ export const useStore = create<Store>((set, get) => ({
     // The clicked creature's own armed adv/dis toggle applies to its save.
     const tok = get().snapshot?.tokens.find((t) => t.id === tokenId);
     const advantage = tok ? get().consumeAdvantage(tok.refId) : undefined;
+    // Split spell (Magic Missile): each click sends the next dart's index and the
+    // server applies that pre-rolled instance. Disarm once all darts are spent.
+    if (arm.splitTotal) {
+      const idx = arm.splitUsed ?? 0;
+      get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId, advantage, instanceIndex: idx });
+      const used = idx + 1;
+      set({ saveResolve: used >= arm.splitTotal ? null : { ...arm, splitUsed: used } });
+      return;
+    }
     get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId, advantage });
   },
 

@@ -751,6 +751,35 @@ describe('Apply damage → click-to-target saves', () => {
     resolveForcedSave(s.id, 'nonexistent', tok.id);
     expect(getMonster(inst.id)!.curHp).toBe(10);
   });
+
+  it('splits a Magic Missile-style spell into per-dart instances, one per target', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    const ability: SheetAbility = {
+      id: 'mm',
+      name: 'Magic Missile',
+      type: 'spell',
+      description: '',
+      // 3 darts, each 1d4+1 → total 6..15; +1 dart per slot above 1st.
+      roll: { kind: 'damage', dice: '1d4+1', instances: 3, scaleInstances: 1, baseLevel: 1, damageType: 'force' },
+    };
+    setSheetAbility(ch.id, ability);
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability, 2); // cast at L2 → 4 darts
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply!.split).toHaveLength(4);
+    // Each dart is 1d4+1 = 2..5; the total equals their sum.
+    expect(entry.apply!.split!.every((d) => d >= 2 && d <= 5)).toBe(true);
+    expect(entry.apply!.amount).toBe(entry.apply!.split!.reduce((a, b) => a + b, 0));
+
+    // Assigning dart 0 then dart 1 to two targets applies ONLY those darts'
+    // damage to each — not the full total to both (the bug we fixed).
+    const a = target(s, map, { name: 'GobA', maxHp: 30, stats: {} });
+    const b = target(s, map, { name: 'GobB', maxHp: 30, stats: {} });
+    resolveForcedSave(s.id, entry.id, a.tok.id, undefined, 0);
+    resolveForcedSave(s.id, entry.id, b.tok.id, undefined, 1);
+    expect(30 - getMonster(a.inst.id)!.curHp).toBe(entry.apply!.split![0]);
+    expect(30 - getMonster(b.inst.id)!.curHp).toBe(entry.apply!.split![1]);
+  });
 });
 
 describe('saving throws (stat-block click + per-creature advantage)', () => {
