@@ -2,6 +2,7 @@
   "name": "dnd-app-v2",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Locally-hosted real-time D&D virtual tabletop with separate DM and player views, exposed remotely via Cloudflare Tunnel.",
   "workspaces": [
     "shared",
