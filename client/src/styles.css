@@ -741,6 +741,14 @@ details.creature-details > summary::before { content: '▸ '; }
 details.creature-details[open] > summary::before { content: '▾ '; }
 .creature-details-body { font-size: 13px; display: grid; gap: 2px; padding: 4px 0; }
 
+/* Shared party notes on a creature/NPC. */
+.creature-notes { margin: 6px 0; }
+.creature-notes h4 { margin: 0 0 3px; }
+.creature-notes-text {
+  width: 100%; min-height: 52px; resize: vertical; box-sizing: border-box;
+  font: inherit; font-size: 13px;
+}
+
 /* Character sheet: Actions & Traits collapsed at the bottom of the sheet. */
 details.sheet-actions-traits { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
 details.sheet-actions-traits > summary {

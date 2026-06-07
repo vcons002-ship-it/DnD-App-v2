@@ -144,6 +144,8 @@ type Store = {
   updateMonster: (payload: MonsterUpdatePayload) => void;
   aiFillCreature: (monsterId: string) => void;
   deleteMonster: (monsterId: string) => void;
+  /** Set the shared party notes on a creature/NPC (DM + players). */
+  setCreatureNotes: (monsterId: string, notes: string) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setTokensHideCombatRole: (tokenIds: string[], hide: boolean) => void;
   setTokensCombatRole: (
@@ -331,6 +333,8 @@ export const useStore = create<Store>((set, get) => ({
   },
   deleteMonster: (monsterId) =>
     get().socket?.emit('monster:delete', { monsterId }),
+  setCreatureNotes: (monsterId, notes) =>
+    get().socket?.emit('creature:setNotes', { monsterId, notes }),
   setTokensIcon: (tokenIds, icon) =>
     get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
   setTokensHideCombatRole: (tokenIds, hide) =>

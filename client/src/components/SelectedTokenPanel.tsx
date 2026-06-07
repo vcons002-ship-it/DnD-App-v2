@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   Character,
   Monster,
@@ -258,6 +258,10 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       <h4>Conditions</h4>
       <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />
 
+      {monsterEntity && (
+        <CreatureNotes monsterId={monsterEntity.id} notes={monsterEntity.playerNotes} />
+      )}
+
       {isDm && (
         <details className="dm-token-tools">
           <summary>DM tools</summary>
@@ -369,6 +373,40 @@ function CreatureDetails({
       ) : (
         <p className="muted">No details available.</p>
       )}
+      {monsterEntity && (
+        <CreatureNotes monsterId={monsterEntity.id} notes={monsterEntity.playerNotes} />
+      )}
     </details>
+  );
+}
+
+/**
+ * Shared, free-text party notes on a creature/NPC. Editable by the DM AND any
+ * player (server gates by session), so the table can jot down what they've
+ * learned. Local draft is committed on blur; incoming snapshot edits only
+ * overwrite the draft when this field isn't the one being typed in.
+ */
+function CreatureNotes({ monsterId, notes }: { monsterId: string; notes: string }) {
+  const setCreatureNotes = useStore((s) => s.setCreatureNotes);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState(notes);
+  useEffect(() => {
+    if (document.activeElement !== ref.current) setDraft(notes);
+  }, [notes]);
+  const commit = () => {
+    if (draft !== notes) setCreatureNotes(monsterId, draft);
+  };
+  return (
+    <div className="creature-notes">
+      <h4>Player notes</h4>
+      <textarea
+        ref={ref}
+        className="creature-notes-text"
+        placeholder="Shared notes on this creature/NPC — what the party has learned…"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+      />
+    </div>
   );
 }

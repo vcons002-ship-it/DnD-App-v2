@@ -58,6 +58,7 @@ import {
   createToken,
   deleteMap,
   deleteMonster,
+  setMonsterPlayerNotes,
   deleteToken,
   instantiateMonster,
   setEntityIcon,
@@ -624,6 +625,15 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('monster:delete', ({ monsterId }) => {
       if (!isDm()) return;
       deleteMonster(monsterId);
+      afterChange();
+    });
+
+    // Shared party notes — any joined client (DM or player) may edit, scoped to
+    // their own session so notes can't leak/write across sessions.
+    socket.on('creature:setNotes', ({ monsterId, notes }) => {
+      const sid = sessionId();
+      if (!sid || getMonster(monsterId)?.sessionId !== sid) return;
+      setMonsterPlayerNotes(monsterId, notes);
       afterChange();
     });
 

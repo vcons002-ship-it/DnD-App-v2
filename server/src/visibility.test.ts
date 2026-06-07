@@ -19,6 +19,7 @@ import {
   listMonsters,
   listMonsterTemplates,
   updateMonster,
+  setMonsterPlayerNotes,
   setTokensHideCombatRole,
   setTokensCombatRole,
   setLastAttackRole,
@@ -96,6 +97,9 @@ describe('visibility role-shaping', () => {
     updateMonster(neutral.id, { disposition: 'neutral' });
     // enemy stays default 'enemy'
 
+    // Shared party notes reach players on every disposition tier.
+    setMonsterPlayerNotes(enemy.id, 'vulnerable to fire');
+
     const p = buildSnapshot(session.id, 'player')!;
     const byId = (id: string) => p.monsters.find((m) => m.id === id)!;
 
@@ -118,6 +122,7 @@ describe('visibility role-shaping', () => {
     expect('maxHp' in e).toBe(false);
     expect('armorClass' in e).toBe(false);
     expect(e.name).toContain('Orc');
+    expect(e.playerNotes).toBe('vulnerable to fire'); // notes visible even on enemies
 
     // The DM still sees every creature in full.
     const dm = buildSnapshot(session.id, 'dm', map.id)!;

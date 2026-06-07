@@ -315,6 +315,8 @@ ensureColumn('measurements', 'token_id', 'token_id TEXT');
 // follows the weapon last used (null until it attacks).
 ensureColumn('characters', 'last_attack_role', 'last_attack_role TEXT');
 ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
+// Shared party notes on a creature/NPC — editable by the DM and players alike.
+ensureColumn('monsters', 'player_notes', "player_notes TEXT NOT NULL DEFAULT ''");
 // Battle Master Superiority Die size (the pool lives in the resources counters).
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 
@@ -484,6 +486,7 @@ type MonsterRow = {
   weapons: string;
   disposition: Monster['disposition'];
   last_attack_role: string | null;
+  player_notes: string | null;
   level: number;
 };
 
@@ -511,5 +514,6 @@ export function rowToMonster(r: MonsterRow): Monster {
     disposition: r.disposition ?? 'enemy',
     lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',
+    playerNotes: r.player_notes ?? '',
   };
 }

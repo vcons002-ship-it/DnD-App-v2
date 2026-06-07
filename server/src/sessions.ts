@@ -451,6 +451,18 @@ export function setLastAttackRole(
   );
 }
 
+/** Set the shared party notes on a creature/NPC (DM- and player-writable). */
+export function setMonsterPlayerNotes(
+  monsterId: string,
+  notes: string,
+): Monster | null {
+  db.prepare('UPDATE monsters SET player_notes = ? WHERE id = ?').run(
+    String(notes ?? '').slice(0, 4000),
+    monsterId,
+  );
+  return getMonster(monsterId);
+}
+
 /** Damage (+) / heal (−) every listed token's creature (AOE). */
 export function damageTokens(tokenIds: string[], amount: number): void {
   for (const id of tokenIds) {

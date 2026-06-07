@@ -318,6 +318,9 @@ export type Monster = {
   lastAttackRole: CombatRole | null;
   /** Token art: an emoji, or a "/uploads/…" path. Empty = default circle. */
   icon: string;
+  /** Shared free-text notes any player or the DM can add about this creature/NPC
+   *  (what the party has learned). Visible to everyone regardless of disposition. */
+  playerNotes: string;
 };
 
 /** A creature template returned by SRD search or Gemini lookup. */
@@ -414,6 +417,8 @@ export type MonsterPublic = {
   conditions: Condition[];
   disposition: Disposition;
   icon: string;
+  /** Shared party notes — visible to players on every disposition tier. */
+  playerNotes: string;
 };
 
 /** Player-facing NEUTRAL view: adds HP + type + AC on top of the public view. */
@@ -760,6 +765,8 @@ export type MonsterUpdatePayload = {
   icon?: string;
 };
 export type MonsterDeletePayload = { monsterId: string };
+/** Shared party notes on a creature/NPC — writable by the DM AND players. */
+export type CreatureNotesPayload = { monsterId: string; notes: string };
 /** Ask the AI to back-fill only the empty fields of a creature (DM-only). */
 export type AiFillCreaturePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
@@ -839,6 +846,7 @@ export interface ClientToServerEvents {
   'monster:create': (payload: MonsterCreatePayload) => void;
   'monster:update': (payload: MonsterUpdatePayload) => void;
   'monster:delete': (payload: MonsterDeletePayload) => void;
+  'creature:setNotes': (payload: CreatureNotesPayload) => void;
   'ai:fillCreature': (payload: AiFillCreaturePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
   'initiative:rollAll': () => void;
