@@ -307,19 +307,15 @@ export function StatBlock({
         weapons={d.weapons}
         onChange={(weapons) => set({ weapons })}
         monster={monster}
+        onPullFromActions={
+          monster && d.actions.length > 0
+            ? () => {
+                const { weapons, actions } = weaponsFromActions(d.actions);
+                set({ weapons: [...d.weapons, ...weapons], actions });
+              }
+            : undefined
+        }
       />
-      {monster && d.actions.length > 0 && (
-        <button
-          className="btn tiny"
-          title="Turn the creature's '+N to hit … NdM' actions into rollable attacks"
-          onClick={() => {
-            const { weapons, actions } = weaponsFromActions(d.actions);
-            set({ weapons: [...d.weapons, ...weapons], actions });
-          }}
-        >
-          ↻ Pull attacks from description
-        </button>
-      )}
       {!deferActionsTraits && (
         <>
           <EntryEditor
@@ -653,11 +649,15 @@ function WeaponEditor({
   weapons,
   onChange,
   monster = false,
+  onPullFromActions,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
   /** Creature attacks: library picks are flagged `diceOnly` (mod/to-hit live). */
   monster?: boolean;
+  /** When set, shows a "Generate attacks from description" button that parses the
+   *  creature's prose actions into rollable attacks (grouped with "+ Attack"). */
+  onPullFromActions?: () => void;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
@@ -821,6 +821,15 @@ function WeaponEditor({
         <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
           {picking ? 'Close' : monster ? '+ Attack' : '+ Weapon'}
         </button>
+        {onPullFromActions && (
+          <button
+            className="btn tiny"
+            title="Read the creature's description / actions text (e.g. '+5 to hit, 2d6+3 damage') and turn it into rollable attacks here."
+            onClick={onPullFromActions}
+          >
+            ↻ Generate attacks from description
+          </button>
+        )}
       </div>
       {picking && (
         <div className="weapon-picker">
