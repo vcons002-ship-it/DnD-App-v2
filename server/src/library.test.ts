@@ -7,6 +7,7 @@ import {
   saveLibraryItem,
   listLibraryItems,
   deleteLibraryItem,
+  seedLibraryItems,
   saveLibraryCharacter,
   getLibraryCharacter,
   searchLibraryCharacters,
@@ -55,11 +56,21 @@ describe('creature library', () => {
   });
 
   it('stores library items', () => {
-    const it1 = saveLibraryItem({ name: 'Potion of Healing', description: '2d4+2', qtyDefault: 1 });
-    expect(it1.name).toBe('Potion of Healing');
-    expect(listLibraryItems('potion').some((i) => i.id === it1.id)).toBe(true);
+    const it1 = saveLibraryItem({ name: 'Zzphtest Trinket', description: 'x', qtyDefault: 1 });
+    expect(it1.name).toBe('Zzphtest Trinket');
+    expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(true);
     deleteLibraryItem(it1.id);
-    expect(listLibraryItems('potion').some((i) => i.id === it1.id)).toBe(false);
+    expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(false);
+  });
+
+  it('seeds the SRD item catalogue once (idempotent)', () => {
+    const added = seedLibraryItems();
+    expect(added).toBeGreaterThan(50); // a sizeable catalogue lands
+    // Recognizable seeded entries across categories.
+    expect(listLibraryItems('bag of holding')).toHaveLength(1);
+    expect(listLibraryItems('plate armor').length).toBeGreaterThanOrEqual(1);
+    // Re-running is a no-op (the one-time marker is set).
+    expect(seedLibraryItems()).toBe(0);
   });
 });
 

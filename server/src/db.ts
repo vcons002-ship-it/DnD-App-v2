@@ -176,7 +176,29 @@ db.exec(`
     detail     TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
   );
+
+  -- App-wide key/value store (e.g. one-time seed markers). Not session-scoped.
+  CREATE TABLE IF NOT EXISTS app_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT ''
+  );
 `);
+
+/** Read an app-wide meta value (one-time flags, etc.), or undefined if unset. */
+export function getMeta(key: string): string | undefined {
+  return (
+    db.prepare('SELECT value FROM app_meta WHERE key = ?').get(key) as
+      | { value: string }
+      | undefined
+  )?.value;
+}
+
+/** Write an app-wide meta value. */
+export function setMeta(key: string, value: string): void {
+  db.prepare(
+    'INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)',
+  ).run(key, value);
+}
 
 // ---- Lightweight migrations for DBs created by earlier versions ----
 // (Durability requirement: existing saved games must keep working across upgrades.)
