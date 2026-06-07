@@ -53,6 +53,8 @@ say "Installing dependencies"
 [ -f "$INSTALL_DIR/.env" ] || cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env" 2>/dev/null || true
 
 say "Done! Installed to $INSTALL_DIR"
-echo "To play:  cd \"$INSTALL_DIR\" && npm start"
+echo "To play later: open that folder and double-click  start.command"
+echo "(Local-only testing without a tunnel: start-dev.command)"
+echo "Or from a terminal:  cd \"$INSTALL_DIR\" && npm start"
 read -r -p "Start the app now? [y/N] " a
 case "$a" in [yY]*) ( cd "$INSTALL_DIR" && npm start ) ;; esac

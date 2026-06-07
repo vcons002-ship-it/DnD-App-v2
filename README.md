@@ -34,6 +34,15 @@ curl -fsSL -O https://raw.githubusercontent.com/vcons002-ship-it/DnD-App-v2/clau
 bash install.sh
 ```
 
+The installer checks for and installs the prerequisites (Git, Node.js, and —
+via Homebrew — cloudflared), clones the app to `~/DnD-App-v2`, installs
+dependencies, and offers to launch. After that, start the app any time by
+double-clicking **`start.command`** in that folder (or **`start-dev.command`**
+for local-only testing). On macOS the first double-click may need
+**right-click → Open** to clear Gatekeeper; from a terminal you can always run
+`cd ~/DnD-App-v2 && npm start`. Re-running `install.sh` updates to the latest
+version.
+
 Prefer to do it by hand? Follow **Setup** and **Run** below.
 
 ## Features
