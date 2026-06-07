@@ -179,6 +179,8 @@ const SPELLS: SpellEntry[] = [
     name: 'Divine Smite',
     type: 'ability',
     school: 'Paladin feature',
+    classes: ['paladin'],
+    tags: ['paladin', 'feature', 'radiant', 'smite'],
     meta: 'On a melee weapon hit · expend a spell slot',
     description:
       'When you hit with a melee weapon, expend a spell slot to deal extra radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8), +1d8 vs undead/fiends.',
@@ -188,6 +190,8 @@ const SPELLS: SpellEntry[] = [
     name: 'Second Wind',
     type: 'ability',
     school: 'Fighter feature',
+    classes: ['fighter'],
+    tags: ['fighter', 'feature', 'healing', 'self'],
     meta: '1 bonus action · 1/short rest',
     description:
       'You draw on a well of stamina to regain hit points equal to 1d10 + your fighter level.',
@@ -197,6 +201,8 @@ const SPELLS: SpellEntry[] = [
     name: 'Sneak Attack',
     type: 'ability',
     school: 'Rogue feature',
+    classes: ['rogue'],
+    tags: ['rogue', 'feature', 'finesse', 'ranged'],
     meta: 'Once per turn · finesse/ranged weapon',
     description:
       'Once per turn, deal extra damage to a target you hit with advantage (or with an ally adjacent). Scales with rogue level — adjust the dice as you level up.',
@@ -204,17 +210,31 @@ const SPELLS: SpellEntry[] = [
   },
 ];
 
-/** Search the local spell/ability list (prefix-first, then substring). */
+/** Everything searched for an entry: name + school + classes + tags + damage type,
+ *  so a spell is findable by what it does (e.g. "cantrip", "fire", "wizard"). */
+function spellHaystack(s: SpellEntry): string {
+  return [s.name, s.school, s.roll?.damageType, ...(s.classes ?? []), ...(s.tags ?? [])]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+/** Search the local spell/ability list by name OR tag (name-prefix first). */
 export function searchSpells(query: string, limit = 8): SpellEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return SPELLS.slice(0, limit);
-  const matches = SPELLS.filter((s) => s.name.toLowerCase().includes(q));
+  const matches = SPELLS.filter((s) => spellHaystack(s).includes(q));
   matches.sort((a, b) => {
     const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
     const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
-    return ap - bp || a.name.localeCompare(b.name);
+    return ap - bp || (a.level ?? 0) - (b.level ?? 0) || a.name.localeCompare(b.name);
   });
   return matches.slice(0, limit);
+}
+
+/** The whole spell/ability list (for the spellbook's browse/filter view). */
+export function getAllSpells(): SpellEntry[] {
+  return SPELLS;
 }
 
 /** Exact (case-insensitive) local lookup. */

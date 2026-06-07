@@ -134,11 +134,14 @@ const MANEUVERS: ManeuverEntry[] = Object.entries(DEFS).map(([name, d]) => ({
   maneuver: d.maneuver,
 }));
 
-/** Search maneuvers by name (e.g. "trip", "menacing"). */
+/** Search maneuvers by name or tag (e.g. "trip", "menacing", "maneuver"). The
+ *  literal word "maneuver" (in the meta) makes them all findable by category. */
 export function searchManeuvers(query: string, limit = 12): ManeuverEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return MANEUVERS.slice(0, limit);
-  const matches = MANEUVERS.filter((m) => m.name.toLowerCase().includes(q));
+  const matches = MANEUVERS.filter((m) =>
+    `${m.name} ${m.meta ?? ''}`.toLowerCase().includes(q),
+  );
   matches.sort((a, b) => {
     const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
     const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;

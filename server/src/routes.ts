@@ -20,7 +20,7 @@ import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
 import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
-import { searchSpells, getSpell } from './spells/srd.js';
+import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
 import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
@@ -196,6 +196,13 @@ export function createApiRouter(io: IOServer): Router {
       results: [...searchSpells(q), ...searchMasteries(q), ...searchManeuvers(q)],
       aiAvailable: geminiEnabled(),
     });
+  });
+
+  // The full spell list for the Spellbook browser (class filter + keyword search
+  // happen client-side over this). Spells only — masteries/maneuvers have their
+  // own pickers.
+  router.get('/spells/all', (_req, res) => {
+    res.json({ results: getAllSpells() });
   });
 
   // Battle Master maneuvers for the character-sheet "add" picker.

@@ -116,7 +116,9 @@ const MASTERIES: MasteryEntry[] = [...WEAPON_MASTERIES, GREAT_WEAPON_MASTER];
 
 const matchesQuery = (m: MasteryEntry, q: string): boolean =>
   m.name.toLowerCase().includes(q) ||
-  (m.mastery?.weaponLabel ?? '').toLowerCase().includes(q);
+  (m.mastery?.weaponLabel ?? '').toLowerCase().includes(q) ||
+  (m.meta ?? '').toLowerCase().includes(q) || // "… mastery property" → findable by "mastery"
+  (q.length >= 4 && 'mastery'.includes(q)); // category match without flooding on short queries
 
 /**
  * Search masteries by weapon name ("longbow") OR by mechanic ("slow"), so you

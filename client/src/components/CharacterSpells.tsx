@@ -8,6 +8,7 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
+import { Spellbook } from './Spellbook';
 
 const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
 
@@ -99,6 +100,7 @@ export function CharacterSpells({
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SpellHit[]>([]);
   const [aiAvail, setAiAvail] = useState(false);
@@ -390,14 +392,28 @@ export function CharacterSpells({
 
       {editable && (
         <>
-          <button className="btn tiny" onClick={() => setAdding((p) => !p)}>
-            {adding ? 'Close' : '+ Add spell / ability / mastery'}
-          </button>
+          <div className="dice-row">
+            <button className="btn tiny" onClick={() => setAdding((p) => !p)}>
+              {adding ? 'Close' : '+ Add spell / ability / mastery'}
+            </button>
+            <button className="btn tiny" onClick={() => setBookOpen(true)} title="Browse the full spell list by class">
+              📖 Spellbook
+            </button>
+          </div>
+          {bookOpen && (
+            <Spellbook
+              onAdd={add}
+              onClose={() => setBookOpen(false)}
+              ownedNames={
+                new Set(character.sheetAbilities.map((a) => a.name.toLowerCase()))
+              }
+            />
+          )}
           {adding && (
             <div className="spell-add">
               <input
                 autoFocus
-                placeholder="Search e.g. Fireball, Longbow Mastery, Second Wind…"
+                placeholder="Search name or tag — Fireball, fire, cantrip, wizard, maneuver…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
