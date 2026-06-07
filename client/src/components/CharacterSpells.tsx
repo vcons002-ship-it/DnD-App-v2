@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
-import type { Character, SheetAbility } from '../../../shared/types';
+import type {
+  Character,
+  SheetAbility,
+  StateSnapshot,
+  Token,
+} from '../../../shared/types';
+import { resolveToken } from '../lib/entities';
+import { validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
+
+const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
 
 type SpellHit = Omit<SheetAbility, 'id'>;
 
@@ -54,9 +63,17 @@ const isManeuver = (a: SheetAbility): boolean =>
 export function CharacterSpells({
   character,
   editable,
+  snapshot,
+  attackerToken,
+  defaultTargetId,
 }: {
   character: Character;
   editable: boolean;
+  /** When provided (the combat console), attack-roll spells pick a target and
+   *  resolve to-hit vs its AC like a weapon attack. */
+  snapshot?: StateSnapshot;
+  attackerToken?: Token;
+  defaultTargetId?: string;
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
@@ -65,6 +82,19 @@ export function CharacterSpells({
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
   // skill list / roll log), so it's one switch for all of the character's rolls.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
+
+  // Attack-roll spells target a token (combat console only). One shared target
+  // for the panel, like the weapon AttackControls dropdown.
+  const targets = snapshot && attackerToken ? validTargets(snapshot, attackerToken) : [];
+  const hasAttackSpell = character.sheetAbilities.some((a) => a.roll?.kind === 'attack');
+  const validDefault =
+    defaultTargetId && targets.some((t) => t.id === defaultTargetId)
+      ? defaultTargetId
+      : undefined;
+  const [targetId, setTargetId] = useState(validDefault ?? targets[0]?.id ?? '');
+  useEffect(() => {
+    if (validDefault) setTargetId(validDefault);
+  }, [validDefault]);
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
@@ -134,6 +164,18 @@ export function CharacterSpells({
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
       advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
+      // Attack-roll spells resolve to-hit vs the chosen target's AC (combat console).
+      targetTokenId:
+        a.roll?.kind === 'attack' && targetId ? targetId : undefined,
+    });
+
+  const patchRoll = (
+    a: SheetAbility,
+    patch: Partial<NonNullable<SheetAbility['roll']>>,
+  ) =>
+    setSheetAbility(character.id, {
+      ...a,
+      roll: { ...(a.roll ?? { kind: 'damage' }), ...patch },
     });
 
   const patchMastery = (
@@ -155,6 +197,18 @@ export function CharacterSpells({
   return (
     <div className="spells">
       <h4>Spells, Abilities &amp; Masteries</h4>
+      {hasAttackSpell && targets.length > 0 && (
+        <div className="dice-row">
+          <span className="muted spell-tag">Spell target</span>
+          <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+            {targets.map((t) => (
+              <option key={t.id} value={t.id}>
+                {resolveToken(snapshot!, t).name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {character.sheetAbilities.length === 0 && (
         <p className="muted">None yet.</p>
       )}
@@ -263,6 +317,68 @@ export function CharacterSpells({
                         ? ` · ${a.maneuver!.save.ability} save${a.maneuver!.save.onFail ? ` or ${a.maneuver!.save.onFail}` : ''}`
                         : ''}
                     </p>
+                  )}
+                  {editable && a.roll && (
+                    <div className="sb-roll-edit">
+                      <select
+                        value={a.roll.kind}
+                        title="What this roll does"
+                        onChange={(e) =>
+                          patchRoll(a, {
+                            kind: e.target.value as NonNullable<
+                              SheetAbility['roll']
+                            >['kind'],
+                          })
+                        }
+                      >
+                        <option value="attack">Attack</option>
+                        <option value="save">Save</option>
+                        <option value="damage">Damage</option>
+                        <option value="heal">Heal</option>
+                      </select>
+                      <input
+                        className="sb-dice"
+                        placeholder="dice e.g. 8d6"
+                        value={a.roll.dice ?? ''}
+                        onChange={(e) => patchRoll(a, { dice: e.target.value })}
+                      />
+                      {a.roll.kind === 'save' && (
+                        <>
+                          <select
+                            value={a.roll.save ?? 'DEX'}
+                            title="Saving throw ability"
+                            onChange={(e) => patchRoll(a, { save: e.target.value })}
+                          >
+                            {SAVE_ABILITIES.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            className="sb-dc"
+                            placeholder="DC"
+                            value={a.roll.dc ?? ''}
+                            onChange={(e) =>
+                              patchRoll(a, {
+                                dc: e.target.value ? Number(e.target.value) : undefined,
+                              })
+                            }
+                          />
+                        </>
+                      )}
+                      {a.roll.kind !== 'heal' && (
+                        <input
+                          className="sb-dmg-type"
+                          placeholder="damage type e.g. fire"
+                          title="Damage type — drives resistance/vulnerability"
+                          value={a.roll.damageType ?? ''}
+                          onChange={(e) =>
+                            patchRoll(a, { damageType: e.target.value || undefined })
+                          }
+                        />
+                      )}
+                    </div>
                   )}
                   <p>{a.description}</p>
                 </div>

@@ -411,6 +411,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .fm-attacker strong { color: var(--text); }
 .fm-attacker-icon { margin-right: 4px; }
 .fm-attacker-target { color: var(--muted); }
+.fm-spell-attack { text-align: left; margin: 1px 4px; }
 
 /* Compact, click-through latest-roll readout pinned bottom-left of the map
    (Feature: DicePanel toggle). One line, just wide enough for the latest roll. */

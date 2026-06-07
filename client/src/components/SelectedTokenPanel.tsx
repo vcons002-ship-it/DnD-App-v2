@@ -114,7 +114,13 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         ) : (
           <p className="muted">Place your token on the map to attack.</p>
         )}
-        <CharacterSpells character={myChar} editable />
+        <CharacterSpells
+          character={myChar}
+          editable
+          snapshot={snapshot}
+          attackerToken={myToken}
+          defaultTargetId={selectingOwn ? undefined : token.id}
+        />
       </div>
     );
   }

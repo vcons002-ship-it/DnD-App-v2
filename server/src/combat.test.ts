@@ -26,7 +26,8 @@ import {
   listRollLog,
   getRollEntry,
 } from './sessions.js';
-import type { SheetAbility } from '../../shared/types.js';
+import { buildSnapshot } from './visibility.js';
+import type { CreatureAbility, SheetAbility } from '../../shared/types.js';
 
 function arena() {
   const s = createSession('Combat');
@@ -766,5 +767,109 @@ describe('Battle Master maneuvers', () => {
     expect(getCharacter(chId)!.sheetAbilities[0].maneuver!.active).toBe(true);
     expect(getCharacter(chId)!.resources['Superiority Dice'].used).toBe(4);
     expect(listRollLog(s).at(-1)!.detail).not.toContain('Maneuver (d8→');
+  });
+});
+
+describe('targeted attack-roll spells & monster actions', () => {
+  // A low-AC dummy target token; tune resist/vuln via the patch.
+  function dummy(s: { id: string }, map: { id: string }, patch: Parameters<typeof updateMonster>[1]) {
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 100, armorClass: 1 });
+    const inst = instantiateMonster(tmpl.id)!;
+    updateMonster(inst.id, patch);
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    return { ref: inst.id, tokenId: tok.id };
+  }
+
+  // Flat 10-damage fire attack ability ('10d1' = always 10; crit would double it,
+  // so assertions only fire on a NON-crit hit — like the weapon resist/vuln tests).
+  const fireBolt: SheetAbility = {
+    id: 'fb', name: 'Fire Bolt', type: 'spell', description: '',
+    roll: { kind: 'attack', dice: '10d1', damageType: 'fire', baseLevel: 0 },
+  };
+
+  it('PC spell attack rolls vs the target AC and applies typed damage (resist halves)', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { ref, tokenId } = dummy(s, map, { resistances: ['fire'] });
+    let saw = false;
+    for (let i = 0; i < 60 && !saw; i++) {
+      updateMonster(ref, { curHp: 100 });
+      resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
+        saw = true;
+        expect(getMonster(ref)!.curHp).toBe(95); // 10 fire → resisted to 5
+        expect(detail).toMatch(/vs AC 1/);
+        expect(detail).toMatch(/resisted/);
+      }
+    }
+    expect(saw).toBe(true);
+  });
+
+  it('PC spell attack doubles damage against a vulnerable target', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { ref, tokenId } = dummy(s, map, { weaknesses: ['fire'] });
+    let saw = false;
+    for (let i = 0; i < 60 && !saw; i++) {
+      updateMonster(ref, { curHp: 100 });
+      resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
+        saw = true;
+        expect(getMonster(ref)!.curHp).toBe(80); // 10 fire → doubled to 20
+        expect(detail).toMatch(/vulnerable/);
+      }
+    }
+    expect(saw).toBe(true);
+  });
+
+  it('redacts the target AC for players but keeps HIT/MISS', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { tokenId } = dummy(s, map, {});
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+    const player = buildSnapshot(s.id, 'player')!;
+    const line = player.rollLog.at(-1)!.detail;
+    expect(line).toContain('vs AC ?');
+    expect(line).not.toMatch(/vs AC 1\b/);
+  });
+
+  it('without a target, a spell attack only logs to-hit and applies nothing', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility(ch.id, fireBolt);
+    const { ref } = dummy(s, map, {});
+    const before = getMonster(ref)!.curHp;
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt); // no targetTokenId
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('to hit');
+    expect(getMonster(ref)!.curHp).toBe(before);
+  });
+
+  it('monster attack actions also roll vs AC and apply typed damage (vuln doubles)', () => {
+    const { s, map } = arena();
+    const mon = getMonster(createMonsterTemplate(s.id, {
+      name: 'Imp', maxHp: 20, level: 5, stats: { CHA: 16 },
+    }).id)!;
+    const sting: CreatureAbility = {
+      name: 'Fire Sting', description: '',
+      roll: { kind: 'attack', dice: '10d1', damageType: 'fire' },
+    };
+    const { ref, tokenId } = dummy(s, map, { weaknesses: ['fire'] });
+    let saw = false;
+    for (let i = 0; i < 60 && !saw; i++) {
+      updateMonster(ref, { curHp: 100 });
+      resolveMonsterAction(s.id, 'DM', mon, sting, undefined, tokenId);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
+        saw = true;
+        expect(getMonster(ref)!.curHp).toBe(80); // 10 fire → doubled to 20
+        expect(detail).toMatch(/vs AC 1/);
+      }
+    }
+    expect(saw).toBe(true);
   });
 });

@@ -480,7 +480,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('ability:roll', ({ characterId, abilityId, castLevel, advantage }) => {
+    socket.on('ability:roll', ({ characterId, abilityId, castLevel, advantage, targetTokenId }) => {
       const sid = sessionId();
       if (!sid || !ownsCharacter(characterId)) return;
       const c = getCharacter(characterId);
@@ -494,6 +494,7 @@ export function registerSocketHandlers(io: IOServer): void {
         ability,
         typeof castLevel === 'number' ? castLevel : undefined,
         adv,
+        typeof targetTokenId === 'string' ? targetTokenId : undefined,
       );
       // Casting a leveled spell spends a slot at the level it was cast.
       if (ok && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
@@ -511,14 +512,15 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Roll a monster's structured action (breath weapon / spell-like) — DM only.
-    socket.on('monster:action', ({ monsterId, actionIndex, advantage }) => {
+    socket.on('monster:action', ({ monsterId, actionIndex, advantage, targetTokenId }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const monster = getMonster(monsterId);
       const action = monster?.actions[actionIndex];
       if (!monster || !action) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      if (resolveMonsterAction(sid, 'DM', monster, action, adv)) afterChange();
+      const target = typeof targetTokenId === 'string' ? targetTokenId : undefined;
+      if (resolveMonsterAction(sid, 'DM', monster, action, adv, target)) afterChange();
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's

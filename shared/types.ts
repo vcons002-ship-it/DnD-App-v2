@@ -679,12 +679,17 @@ export type AbilityRollPayload = {
   abilityId: string;
   castLevel?: number;
   advantage?: 'adv' | 'dis';
+  /** Attack-roll spells target a token: the server resolves to-hit vs its AC and
+   *  auto-applies typed damage (× resist/vuln) on a hit, like a weapon attack. */
+  targetTokenId?: string;
 };
 /** Roll a monster's structured `action` (DM-only), resolved server-side. */
 export type MonsterActionRollPayload = {
   monsterId: string;
   actionIndex: number;
   advantage?: 'adv' | 'dis';
+  /** Attack-roll actions target a token (to-hit vs AC + typed auto-damage). */
+  targetTokenId?: string;
 };
 /** DM-only: resolve a damage roll's save against one clicked target (rolls the
  *  save, auto-applies full/half of the rolled amount). `rollId` is the log entry
