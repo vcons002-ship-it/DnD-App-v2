@@ -270,6 +270,24 @@ export type ManeuverSpec = {
 };
 
 /**
+ * A persistent combat stance — a class feature you toggle ON and leave on (e.g.
+ * Barbarian Rage, Reckless Attack). While `active`, the server applies its effect
+ * to the character's qualifying weapon attacks (added damage and/or advantage).
+ * Unlike a maneuver (a one-shot Superiority-Die spend), a stance stays on until
+ * toggled off.
+ */
+export type StanceSpec = {
+  /** Toggle — only an active stance modifies attacks. */
+  active: boolean;
+  /** Which weapon attacks it affects. */
+  appliesTo: 'melee' | 'ranged' | 'all';
+  /** Damage added on a hit — flat ("2") or dice ("1d6"); empty for none. */
+  bonusDamage?: string;
+  /** Grants advantage on the attack roll (e.g. Reckless Attack). */
+  grantsAdvantage?: boolean;
+};
+
+/**
  * A spell, ability, or weapon mastery added to a character sheet. Has a
  * collapsible `description` and, when applicable, a structured `roll` powering a
  * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
@@ -280,9 +298,10 @@ export type SheetAbility = {
   /**
    * `spell` enables an upcast level selector; `ability` is a feature/action;
    * `mastery` is a weapon mastery (toggle + weapon binding); `maneuver` is a
-   * Battle Master maneuver (toggle + Superiority Die spend).
+   * Battle Master maneuver (toggle + Superiority Die spend); `stance` is a
+   * persistent class-feature toggle (Rage, Reckless Attack).
    */
-  type: 'spell' | 'ability' | 'mastery' | 'maneuver';
+  type: 'spell' | 'ability' | 'mastery' | 'maneuver' | 'stance';
   /** Spell level (0 = cantrip); omitted for non-spell abilities. */
   level?: number;
   /** School or short tag, e.g. "Evocation", "Class feature". */
@@ -308,6 +327,15 @@ export type SheetAbility = {
   mastery?: WeaponMastery;
   /** Battle Master maneuver config (only when `type` is `maneuver`). */
   maneuver?: ManeuverSpec;
+  /** Persistent combat-stance config (only when `type` is `stance`). */
+  stance?: StanceSpec;
+  /**
+   * A linked use-counter for the feature (e.g. Rage 1/turn uses, Channel Divinity
+   * charges). When the entry is added the client creates this resource counter,
+   * and toggling a `stance` ON spends one use. `max` is a sensible default the
+   * player can adjust.
+   */
+  useCounter?: { name: string; max: number };
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };

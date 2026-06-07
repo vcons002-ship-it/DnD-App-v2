@@ -594,6 +594,65 @@ describe('secondary weapon damage (flaming sword)', () => {
   });
 });
 
+describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
+  const setup = (
+    spec: { active: boolean; appliesTo: 'melee' | 'ranged' | 'all'; bonusDamage?: string; grantsAdvantage?: boolean },
+    kind: 'melee' | 'ranged' = 'melee',
+  ) => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Grog',
+      className: 'Barbarian',
+      level: 5,
+      stats: { STR: 10, DEX: 10 },
+      weapons: [{ name: 'Club', kind, damage: '1d1', diceOnly: true, attackBonus: 50, damageType: 'bludgeoning' }],
+    });
+    setSheetAbility(ch.id, { id: 'st', name: 'Stance', type: 'stance', description: '', stance: spec });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    return { s, atk, ref, tok };
+  };
+  // First plain HIT's damage — skip a nat-20 CRIT (doubles dice) and a nat-1 MISS.
+  const nonCritDealt = (s: { id: string }, atk: { id: string }, ref: string, tok: { id: string }) => {
+    for (let i = 0; i < 120; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) return before - getMonster(ref)!.curHp;
+    }
+    throw new Error('no plain hit');
+  };
+
+  it('Rage adds flat melee damage on a hit', () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'melee', bonusDamage: '2' });
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(3); // 1 (1d1) + 0 STR + 2 Rage
+  });
+
+  it('an inactive stance adds nothing', () => {
+    const { s, atk, ref, tok } = setup({ active: false, appliesTo: 'melee', bonusDamage: '2' });
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(1); // just the 1d1
+  });
+
+  it('a melee-only stance does not modify a ranged attack', () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'melee', bonusDamage: '2' }, 'ranged');
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(1);
+  });
+
+  it("Hunter's Mark adds dice damage on a hit", () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'all', bonusDamage: '6d1' });
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(7); // 1d1 + 6d1
+  });
+
+  it('Reckless Attack rolls the attack with advantage', () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'melee', grantsAdvantage: true });
+    resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
+    expect(getMonster(ref)).toBeTruthy();
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('adv');
+  });
+});
+
 describe('spell roll description', () => {
   it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
     const { s } = arena();

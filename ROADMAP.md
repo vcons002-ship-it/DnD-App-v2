@@ -704,3 +704,24 @@ Smaller refinements on top of the shipped Phase 2 work.
   `extraDamageType`, e.g. a flaming sword's 1d8 slashing + 1d6 fire) — rolled on a
   hit, doubled on a crit, resisted on its **own** type independently of the main
   damage. The magic-bonus field is **restored on creature attacks** (was PC-only).
+- ☑ **Class-feature stances + feature library.** A new `stance` ability type
+  (toggle that stays on) plus a curated feature library (`features/srd.ts`: Rage,
+  Reckless Attack, Hunter's Mark, Action Surge, Channel Divinity, Wild Shape,
+  Bardic Inspiration, Ki, Lay on Hands, Indomitable), surfaced in the "+ Add"
+  search. Stances modify the character's qualifying weapon attacks server-side —
+  flat/dice **bonus damage** (Rage +2 melee, Hunter's Mark +1d6) folded into the
+  hit, and **advantage** (Reckless Attack); each is gated by weapon kind. Features
+  with a linked **`useCounter`** auto-create a tracked resource on add, and
+  toggling a stance ON spends one use.
+- ☑ **Player sheet layout pass.** HP +/- buttons are small and inline beside the
+  HP line; **Conditions** and **Skills** are collapsible; **Add resource** is a
+  button beside the Resources header that reveals the field on click; **Items** is
+  relabelled **Inventory** and moved below Skills.
+- ☑ **Searchable inventory + item descriptions.** The item-library picker has a
+  search box (server matches name OR description), and every inventory/library item
+  has an ℹ️ button opening a description window (library items ship with SRD
+  descriptions that ride onto the item when added).
+- ☑ **PC weapon lines show dice only.** A character's weapon line reads just the
+  dice (e.g. "Greatsword 1d12 slashing") instead of re-deriving "+5 to hit. 1d12+3"
+  from live stats — the modifier/to-hit are still applied at roll time. Creature
+  attacks are unchanged.

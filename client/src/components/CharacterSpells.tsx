@@ -18,6 +18,7 @@ type SpellHit = Omit<SheetAbility, 'id'>;
 function tagFor(a: SheetAbility): string {
   if (a.type === 'mastery') return a.mastery?.effect ? 'Mastery' : 'Mastery · manual';
   if (a.type === 'maneuver') return 'Maneuver';
+  if (a.type === 'stance') return a.school || 'Stance';
   const bits: string[] = [];
   if (a.type === 'spell') {
     bits.push(a.level === 0 ? 'Cantrip' : `Lvl ${a.level ?? '?'}`);
@@ -53,6 +54,9 @@ const autoMastery = (a: SheetAbility): boolean =>
 const isManeuver = (a: SheetAbility): boolean =>
   a.type === 'maneuver' && !!a.maneuver;
 
+/** A stance gets an on/off toggle (a persistent attack modifier while active). */
+const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
+
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
  * (name + tag + details). Spells/abilities with a `roll` get a roll button
@@ -78,6 +82,7 @@ export function CharacterSpells({
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
+  const setResource = useStore((s) => s.setResource);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
@@ -129,8 +134,39 @@ export function CharacterSpells({
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
     });
+    // A feature with a linked use-counter (Rage, Channel Divinity…) creates that
+    // resource on the sheet so it's tracked alongside spell slots.
+    if (e.useCounter && !character.resources[e.useCounter.name]) {
+      setResource({
+        characterId: character.id,
+        group: 'resources',
+        key: e.useCounter.name,
+        max: e.useCounter.max,
+        used: 0,
+      });
+    }
     setAdding(false);
     setQ('');
+  };
+
+  // Toggling a stance ON spends one use of its linked counter (if it has charges).
+  const toggleStance = (a: SheetAbility) => {
+    const goingActive = !a.stance?.active;
+    setSheetAbility(character.id, {
+      ...a,
+      stance: { ...a.stance!, active: goingActive },
+    });
+    if (goingActive && a.useCounter) {
+      const c = character.resources[a.useCounter.name];
+      if (c && c.used < c.max) {
+        setResource({
+          characterId: character.id,
+          group: 'resources',
+          key: a.useCounter.name,
+          used: c.used + 1,
+        });
+      }
+    }
   };
 
   const askAI = async () => {
@@ -255,6 +291,22 @@ export function CharacterSpells({
                     onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
                   >
                     {a.maneuver!.active ? 'Armed' : 'Off'}
+                  </button>
+                )}
+
+                {editable && isStance(a) && (
+                  <button
+                    className={`btn tiny ${a.stance!.active ? 'on' : ''}`}
+                    title={
+                      a.stance!.active
+                        ? 'Active — modifying your attacks; click to end'
+                        : a.useCounter
+                          ? 'Off — click to activate (spends one use)'
+                          : 'Off — click to activate'
+                    }
+                    onClick={() => toggleStance(a)}
+                  >
+                    {a.stance!.active ? 'On' : 'Off'}
                   </button>
                 )}
 

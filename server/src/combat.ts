@@ -168,14 +168,39 @@ export function resolveAttack(
     }
   }
 
+  // Active class-feature stances (Rage, Reckless Attack, Hunter's Mark): a flat
+  // damage bonus folds into the damage number (like flat mastery damage), dice
+  // damage rolls on a hit below, and a stance can grant advantage on the attack.
+  let stanceAdvantage = false;
+  const stanceDice: { label: string; dice: string }[] = [];
+  for (const ab of ch?.sheetAbilities ?? []) {
+    const st = ab.stance;
+    if (ab.type !== 'stance' || !st?.active) continue;
+    if (st.appliesTo === 'melee' && weapon.kind !== 'melee') continue;
+    if (st.appliesTo === 'ranged' && weapon.kind !== 'ranged') continue;
+    if (st.grantsAdvantage) stanceAdvantage = true;
+    if (st.bonusDamage) {
+      if (/d\d/i.test(st.bonusDamage)) {
+        stanceDice.push({ label: ab.name, dice: st.bonusDamage });
+      } else {
+        const flat = parseInt(st.bonusDamage.trim(), 10);
+        if (Number.isFinite(flat) && flat !== 0) {
+          flatBonus += flat;
+          flatLabels.push(ab.name);
+        }
+      }
+    }
+  }
+
   // Fold the attacker's & target's conditions into the requested adv/dis (5e:
-  // any advantage + any disadvantage cancel to a straight roll). A maneuver that
-  // grants advantage contributes one too.
+  // any advantage + any disadvantage cancel to a straight roll). A maneuver or an
+  // active stance that grants advantage contributes one too.
   const adv = attackAdvantage(
     a.conditionLabels,
     t.conditionLabels,
     weapon.kind,
-    advantage ?? (maneuverFired?.spec.grantsAdvantage ? 'adv' : undefined),
+    advantage ??
+      (maneuverFired?.spec.grantsAdvantage || stanceAdvantage ? 'adv' : undefined),
   );
 
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
@@ -204,6 +229,16 @@ export function resolveAttack(
       if (g > 0) {
         extra += g;
         masteryNotes.push(`+${g}[GRAZE]`);
+      }
+    }
+  }
+  // Active stances that add DICE damage (e.g. Hunter's Mark +1d6) roll on a hit.
+  if (out.hit) {
+    for (const sd of stanceDice) {
+      const r = rollDice(sd.dice);
+      if (r && r.total > 0) {
+        extra += r.total;
+        masteryNotes.push(`+${r.total}[${sd.label}]`);
       }
     }
   }

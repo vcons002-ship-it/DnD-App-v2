@@ -21,6 +21,7 @@ import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
 import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
+import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
 import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
@@ -193,7 +194,12 @@ export function createApiRouter(io: IOServer): Router {
   router.get('/spells', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
     res.json({
-      results: [...searchSpells(q), ...searchMasteries(q), ...searchManeuvers(q)],
+      results: [
+        ...searchSpells(q),
+        ...searchFeatures(q),
+        ...searchMasteries(q),
+        ...searchManeuvers(q),
+      ],
       aiAvailable: geminiEnabled(),
     });
   });
@@ -217,6 +223,8 @@ export function createApiRouter(io: IOServer): Router {
     if (!name) return res.status(400).json({ error: 'name required' });
     const spell = getSpell(name);
     if (spell) return res.json({ ...spell, source: 'srd' });
+    const feature = getFeature(name);
+    if (feature) return res.json({ ...feature, source: 'srd' });
     const mastery = getMastery(name);
     if (mastery) return res.json({ ...mastery, source: 'srd' });
     const maneuver = getManeuver(name);

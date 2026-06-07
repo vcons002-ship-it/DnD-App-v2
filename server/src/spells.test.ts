@@ -10,7 +10,20 @@ import {
 } from './sessions.js';
 import { resolveAbilityRoll } from './combat.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
+import { searchFeatures, getFeature } from './features/srd.js';
 import type { SheetAbility } from '../../shared/types.js';
+
+describe('class-feature library', () => {
+  it('finds features by name or class and exposes stance/counter config', () => {
+    expect(searchFeatures('rage').some((f) => f.name === 'Rage')).toBe(true);
+    // Searchable by class tag too.
+    expect(searchFeatures('barbarian').length).toBeGreaterThanOrEqual(2);
+    const rage = getFeature('Rage');
+    expect(rage?.type).toBe('stance');
+    expect(rage?.stance?.appliesTo).toBe('melee');
+    expect(rage?.useCounter?.name).toBe('Rage');
+  });
+});
 
 describe('local spell/ability database', () => {
   it('searches prefix-first and looks up exact names', () => {
