@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { abilityMod, signed } from '../../../shared/skills';
+import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
 import { parseActionRoll, weaponsFromActions } from '../../../shared/monsterAttacks';
+
+/** Common 5e weapon tags, offered as add-suggestions in the tag editor. */
+const TAG_SUGGESTIONS = [
+  'finesse', 'light', 'heavy', 'versatile', 'two-handed', 'thrown',
+  'reach', 'ammunition', 'loading',
+];
 
 /** Short button label for a structured action roll. */
 const rollLabel = (r: AbilityRoll): string =>
@@ -373,16 +380,28 @@ function ReadView({
   // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
   const isPc = masteries !== undefined;
   // PCs and `diceOnly` creature attacks show the live ability modifier; other
-  // monster attacks keep their pre-baked damage string as-is.
+  // monster attacks keep their pre-baked damage string as-is. For dice-only
+  // weapons any baked flat is stripped first so the modifier shows exactly once
+  // (matching the engine, which ignores a stray flat on dice-only weapons).
   const dmgWithMod = (dice: string | undefined, w: Weapon): string => {
     if (!dice) return '';
     if (!isPc && !w.diceOnly) return dice;
+    const dicePart = damageParts(dice).dice || dice;
     const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
     const useDex =
       w.kind === 'ranged' ||
       (finesse && abilityMod(m.stats.DEX) >= abilityMod(m.stats.STR));
     const mod = abilityMod(m.stats[useDex ? 'DEX' : 'STR'] ?? 10);
-    return mod ? `${dice}${signed(mod)}` : dice;
+    return mod ? `${dicePart}${signed(mod)}` : dicePart;
+  };
+  // The to-hit to SHOW: a fixed `attackBonus` wins; otherwise it's derived from
+  // live stats (ability mod + proficiency by level/CR) for PCs and creature
+  // attacks, so the DM/player can always see it. Pre-baked monster attacks with
+  // no bonus set fall back to the derived value too.
+  const toHitOf = (w: Weapon): number | undefined => {
+    if (typeof w.attackBonus === 'number') return w.attackBonus;
+    if (!hasStats) return undefined;
+    return weaponAttackBonusDetail({ stats: m.stats, level: m.level, isMonster: !isPc }, w).bonus;
   };
   return (
     <div className="statblock">
@@ -452,13 +471,13 @@ function ReadView({
           <h4>{isPc ? 'Weapons' : 'Attacks'}</h4>
           {m.weapons.map((w, i) => {
             const mNames = masteryNamesForWeapon(w, masteries ?? []);
+            const th = toHitOf(w);
             return (
               <p key={i} className="sb-entry">
                 <strong>
                   {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}.
                 </strong>{' '}
-                {w.attackBonus !== undefined &&
-                  `${w.attackBonus >= 0 ? '+' : ''}${w.attackBonus} to hit. `}
+                {th !== undefined && `${signed(th)} to hit. `}
                 {dmgWithMod(w.damage, w)}
                 {w.versatileDamage ? ` (2H ${dmgWithMod(w.versatileDamage, w)})` : ''}
                 {w.damageType ? ` ${w.damageType}` : ''}
@@ -645,6 +664,67 @@ type PickRow = {
   natural?: boolean;
 };
 
+/**
+ * Add/remove editor for a weapon's tags (finesse, heavy, versatile, …). Tags
+ * drive the finesse STR/DEX choice, the versatile 2H toggle, and weapon-mastery
+ * triggering, so they're shown for both creatures and PCs. Type a tag and press
+ * Enter or comma to add it; click ✕ on a chip (or Backspace in the empty box)
+ * to remove the last one.
+ */
+function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [draft, setDraft] = useState('');
+  const add = (raw: string) => {
+    const t = raw.trim().toLowerCase();
+    if (t && !tags.some((x) => x.toLowerCase() === t)) onChange([...tags, t]);
+    setDraft('');
+  };
+  return (
+    <div
+      className="sb-tag-input"
+      title="Tags drive mechanics: finesse → better of STR/DEX; versatile → 2H toggle; heavy/light → feats; weapon masteries trigger on matching tags."
+    >
+      {tags.map((t, i) => (
+        <span key={i} className="sb-tag-chip">
+          {t}
+          <button
+            type="button"
+            className="sb-tag-x"
+            aria-label={`Remove ${t}`}
+            onClick={() => onChange(tags.filter((_, j) => j !== i))}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        className="sb-tag-add"
+        list="weapon-tag-suggestions"
+        placeholder="+ tag"
+        value={draft}
+        onChange={(e) =>
+          e.target.value.includes(',')
+            ? add(e.target.value.replace(/,/g, ''))
+            : setDraft(e.target.value)
+        }
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            add(draft);
+          } else if (e.key === 'Backspace' && !draft && tags.length) {
+            onChange(tags.slice(0, -1));
+          }
+        }}
+        onBlur={() => draft && add(draft)}
+      />
+      <datalist id="weapon-tag-suggestions">
+        {TAG_SUGGESTIONS.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+    </div>
+  );
+}
+
 function WeaponEditor({
   weapons,
   onChange,
@@ -712,7 +792,15 @@ function WeaponEditor({
   return (
     <div className="sb-section">
       <h4>{monster ? 'Attacks' : 'Weapons'}</h4>
-      {weapons.map((w, i) => (
+      <p className="hint sb-weapon-hint">
+        Damage is <strong>dice only</strong> — the ability modifier is added
+        automatically at roll time. To-hit auto-computes as ability modifier +
+        proficiency{monster ? ' by CR (CR 0–4 +2, 5–8 +3, 9–12 +4…)' : ' by level'};
+        fill the “hit” field only to override it.
+      </p>
+      {weapons.map((w, i) => {
+        const diceOnly = !monster || !!w.diceOnly; // ability mod auto-added at roll time
+        return (
         <div key={i} className="sb-weapon-edit">
           <input
             placeholder="Name"
@@ -728,11 +816,11 @@ function WeaponEditor({
           </select>
           <input
             className="sb-dmg"
-            placeholder={monster ? '2d6+3' : '1d8+3'}
+            placeholder={diceOnly ? '1d8 (dice only)' : '2d6+3'}
             title={
-              monster
-                ? 'Damage (dice + modifier, baked in), e.g. 2d6+3'
-                : 'One-handed damage (dice + ability modifier)'
+              diceOnly
+                ? "Damage DICE ONLY — the ability modifier is added automatically at roll time. Don't include it here (e.g. 1d8, not 1d8+3)."
+                : 'Damage (dice + modifier, baked in), e.g. 2d6+3'
             }
             value={w.damage ?? ''}
             onChange={(e) => setAt(i, { damage: e.target.value })}
@@ -741,7 +829,7 @@ function WeaponEditor({
             <input
               className="sb-dmg"
               placeholder="2H dmg"
-              title="Two-handed damage for a versatile weapon, e.g. 1d10+3"
+              title="Two-handed damage (dice only) for a versatile weapon, e.g. 1d10"
               value={w.versatileDamage ?? ''}
               onChange={(e) => setAt(i, { versatileDamage: e.target.value })}
             />
@@ -750,7 +838,7 @@ function WeaponEditor({
             className="sb-tohit"
             type="number"
             placeholder="hit"
-            title="To-hit bonus"
+            title="To-hit bonus. Leave blank to auto-compute (ability modifier + proficiency by level/CR); enter a number to override."
             value={w.attackBonus ?? ''}
             onChange={(e) =>
               setAt(i, {
@@ -779,36 +867,21 @@ function WeaponEditor({
               />
             </>
           ) : (
-            <>
-              <input
-                className="sb-tohit"
-                type="number"
-                placeholder="magic"
-                title="Magic damage bonus (e.g. 1 for a +1 weapon)"
-                value={w.magicBonus ?? ''}
-                onChange={(e) =>
-                  setAt(i, {
-                    magicBonus:
-                      e.target.value === '' ? undefined : Number(e.target.value),
-                  })
-                }
-              />
-              <input
-                className="sb-tags"
-                placeholder="tags: heavy, finesse, versatile, light"
-                title="Comma-separated tags. finesse → DEX; versatile → 2H toggle; light → off-hand (future feats); weapon masteries trigger on matching tags."
-                value={(w.tags ?? []).join(', ')}
-                onChange={(e) =>
-                  setAt(i, {
-                    tags: e.target.value
-                      .split(',')
-                      .map((t) => t.trim())
-                      .filter(Boolean),
-                  })
-                }
-              />
-            </>
+            <input
+              className="sb-tohit"
+              type="number"
+              placeholder="magic"
+              title="Magic damage bonus (e.g. 1 for a +1 weapon)"
+              value={w.magicBonus ?? ''}
+              onChange={(e) =>
+                setAt(i, {
+                  magicBonus:
+                    e.target.value === '' ? undefined : Number(e.target.value),
+                })
+              }
+            />
           )}
+          <TagInput tags={w.tags ?? []} onChange={(tags) => setAt(i, { tags })} />
           <button
             className="btn tiny"
             onClick={() => onChange(weapons.filter((_, j) => j !== i))}
@@ -816,7 +889,8 @@ function WeaponEditor({
             ✕
           </button>
         </div>
-      ))}
+        );
+      })}
       <div className="dice-row">
         <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
           {picking ? 'Close' : monster ? '+ Attack' : '+ Weapon'}

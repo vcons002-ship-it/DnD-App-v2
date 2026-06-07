@@ -437,6 +437,67 @@ describe('diceOnly creature attacks (live stats)', () => {
   });
 });
 
+describe('to-hit breakdown + no double-count', () => {
+  it('spells out a derived to-hit as ability + proficiency', () => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Bandit',
+      maxHp: 30,
+      stats: { STR: 20, DEX: 10 },
+      weapons: [{ name: 'Club', kind: 'melee', damage: '1d4', diceOnly: true, tags: ['club'] }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(dTmpl.id)!.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'Bandit', atk.id, tgt.id, 0);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.detail).toContain('[STR]'); // ability portion of the to-hit
+    expect(last.detail).toContain('[PROF]'); // proficiency portion of the to-hit
+  });
+
+  it('shows a fixed attackBonus as [hit] instead of a derived breakdown', () => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Sniper',
+      maxHp: 30,
+      stats: { DEX: 10 },
+      weapons: [{ name: 'Bow', kind: 'ranged', damage: '1d6', attackBonus: 7 }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(dTmpl.id)!.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'Sniper', atk.id, tgt.id, 0);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('+7[hit]');
+  });
+
+  it('never double-counts the ability mod when a diceOnly damage string carries a baked flat', () => {
+    const { s, map } = arena();
+    // STR 20 (+5) with diceOnly "1d4+5": the stray +5 must be IGNORED so the mod
+    // is added once. A non-crit hit deals at most 1d4 + 5 = 9 (not 1d4 + 10).
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Brute',
+      maxHp: 30,
+      stats: { STR: 20, DEX: 10 },
+      weapons: [{ name: 'Fist', kind: 'melee', damage: '1d4+5', diceOnly: true, tags: ['fist'] }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const dTmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dTmpl.id)!.id;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 80 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'Brute', atk.id, tgt.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(before - getMonster(ref)!.curHp).toBeLessThanOrEqual(9);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+});
+
 describe('spell roll description', () => {
   it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
     const { s } = arena();

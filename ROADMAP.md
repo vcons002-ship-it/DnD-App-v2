@@ -660,3 +660,15 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **User-facing feature guide.** [`FEATURES.md`](FEATURES.md) — a plain-language
   DM + player tour (where each tool lives, how to use it, clicks/keys), kept
   alongside the README (install/run) and this backlog.
+- ☑ **Weapon to-hit transparency, tag chips & double-count fix.** (1) The attack
+  roll now spells out the to-hit like the damage breakdown —
+  `d20[10] +2[DEX] +2[PROF]` (derived) or `+5[hit]` for a fixed bonus
+  (`weaponAttackBonusDetail`). (2) Weapon **tags** are edited as add/remove
+  **chips** (`TagInput`, with common-tag suggestions) on **both** creature and PC
+  attacks, instead of a comma string. (3) **No more double-counted ability mod:**
+  dice-only weapons (all PC weapons + creature library picks flagged `diceOnly`)
+  carry dice only — the engine now ignores any stray baked flat in their damage
+  string, the editor labels the damage field "dice only" (don't include the mod),
+  and the read view strips it. (4) A creature's **to-hit is shown** and
+  auto-derives from ability modifier + proficiency **by CR** (2024 rule: CR 0–4
+  +2, 5–8 +3, 9–12 +4…), with an editor blurb; the "hit" field overrides.
