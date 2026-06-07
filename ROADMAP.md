@@ -651,3 +651,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   monster/NPC the DM and any player can read/edit (visible on every disposition
   tier), via `player_notes` + a player-writable `creature:setNotes`, shown in both
   the player Details panel and the DM token panel.
+- ☑ **Open-source license + SRD attribution.** The repo carries a standard **MIT
+  `LICENSE`** (code, © 2026 vcons002) and the root `package.json` declares
+  `"license": "MIT"`. The README's **License & attribution** section credits the
+  bundled D&D content to the **SRD 5.1 / 5.2** under **CC-BY-4.0** with Wizards of
+  the Coast's required notice (consistent with the existing SRD-safe data note in
+  `server/src/items/srd.ts`); no proprietary PHB/DMG/MM text is included.
+- ☑ **User-facing feature guide.** [`FEATURES.md`](FEATURES.md) — a plain-language
+  DM + player tour (where each tool lives, how to use it, clicks/keys), kept
+  alongside the README (install/run) and this backlog.

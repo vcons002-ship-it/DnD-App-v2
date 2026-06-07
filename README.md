@@ -190,3 +190,27 @@ per-feature status. High-level status:
 - **Phase 7 (done):** DM Data second-screen dashboard and shared top toolbar.
 - **Phase 6 (future):** AI-assisted spell-effect resolution, rules/item lookup, and AI-generated enemy combat dialogue.
 - **Phase 7 (future):** Discord voice/video integration.
+
+## License & attribution
+
+The **code** in this repository is released under the [MIT License](LICENSE) —
+Copyright (c) 2026 vcons002. See [`FEATURES.md`](FEATURES.md) for a full,
+plain-language tour of what the app can do.
+
+**Game content (SRD).** The bundled creature, spell, weapon, weapon-mastery,
+maneuver, and item data is derived from the Dungeons & Dragons **System
+Reference Document (SRD)**, used under the Creative Commons Attribution 4.0
+International License (CC-BY-4.0). It contains **no** text from the proprietary
+Player's Handbook, Dungeon Master's Guide, or Monster Manual, and this project
+is **not** affiliated with, endorsed, or sponsored by Wizards of the Coast.
+
+> This work includes material from the System Reference Document 5.1 ("SRD 5.1")
+> and the System Reference Document 5.2 ("SRD 5.2") by Wizards of the Coast LLC,
+> available at <https://dnd.wizards.com/resources/systems-reference-document> and
+> licensed under the Creative Commons Attribution 4.0 International License,
+> available at <https://creativecommons.org/licenses/by/4.0/legalcode>.
+
+The optional Google Gemini AI integration is provided by Google and subject to
+Google's terms; it is entirely optional, and the app runs fully offline (SRD
+search and all core features) without an API key.
+
