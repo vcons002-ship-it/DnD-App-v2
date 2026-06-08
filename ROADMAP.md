@@ -744,3 +744,31 @@ Smaller refinements on top of the shipped Phase 2 work.
   lets them confirm or cancel. When a concentrating creature then takes damage, the roll log posts
   the **DC = max(10, ⌊damage/2⌋)** CON save needed to maintain it (fired from every
   damage path: weapon hits, spell saves/auto-hit, Magic Missile darts, manual HP).
+- ☑ **Upcasting for all leveled spells.** Any leveled spell can be cast with a
+  higher slot via the level selector (not only dice-scaling ones) — including
+  no-roll concentration buffs like Bless — spending the chosen slot; an "At higher
+  levels" note (added to ~80 spells) describes the non-damage upcast effect.
+- ☑ **Death saves.** A downed PC (0 HP) shows a Death Saves tracker (3✓/3✗ pips +
+  Roll) — server-resolved (10+ success, nat 20 → 1 HP, nat 1 = two failures, 3✓
+  stable, 3✗ dead); healing above 0 resets, damage while down adds a failure.
+- ☑ **On-hit / on-fail status effects + target status tags.** Stances gain an
+  on-hit save rider (Ensnaring Strike: hit → STR save or Restrained, via the
+  click-to-target `apply.onFail` flow) and a `marksTargetWith` tag that puts a
+  status (e.g. "Marked" for Hunter's Mark) on the marked creature, following the
+  mark and clearing when the stance ends.
+- ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
+  snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
+- ☑ **Map annotation layer.** Freehand pen + text labels drawn on the active map
+  (`annotations` table → snapshot, `annotation:add/remove/clear`), shared and
+  persistent, with colour swatches and Clear mine/all (players clear only theirs).
+- ☑ **AI lookup retry.** `callGemini` now retries transient HTTP errors (429/5xx,
+  e.g. model-overloaded) with backoff, not just network throws.
+- ☑ **Import maps from a session list.** The "import maps from another session"
+  dialog lists all saved sessions to pick from (name · code · map count) instead of
+  requiring a typed code (manual entry kept as a fallback).
+- ☑ **Mobile / touch responsive mode.** On narrow screens the side panels become
+  overlay drawers (collapsed to an edge tab by default) so the map is full-width;
+  larger tap targets, wrapping top bar, and `touch-action: none` on the stage.
+- ☑ **Connection resilience.** Resilient Socket.IO reconnection with the last
+  snapshot kept on screen and outgoing actions buffered/flushed on reconnect; a
+  "Reconnecting…" banner (new `reconnecting` status) signals the offline state.
