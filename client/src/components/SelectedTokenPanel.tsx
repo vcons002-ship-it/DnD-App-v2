@@ -16,6 +16,7 @@ import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
 import { AttackControls } from './AttackControls';
 import { DamageHealControls } from './DamageHealControls';
+import { ObjectControls } from './ObjectControls';
 import { IconTools } from './IconTools';
 import { TokenAdminButtons } from './TokenAdminButtons';
 import { AdvantageToggle } from './AdvantageToggle';
@@ -56,6 +57,8 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     monsterEntity && 'stats' in monsterEntity
       ? (monsterEntity as Monster)
       : undefined;
+  // A non-combat object (trap/door/chest/item) → show interact controls.
+  const objectKind = monsterEntity?.objectKind;
   // The PC's character — anyone may VIEW the sheet; the DM or owning player edits.
   const character =
     token.kind === 'pc'
@@ -78,6 +81,25 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const myToken = myChar
     ? snapshot.tokens.find((t) => t.kind === 'pc' && t.refId === myChar.id)
     : undefined;
+
+  // A player viewing an object (chest/door/…) sees its state read-only — not a
+  // combat console. The DM falls through to the full editable panel below.
+  if (objectKind && !isDm) {
+    return (
+      <div className="panel-section">
+        <h3>{d.name}</h3>
+        {canSeeHp && (
+          <div className="hp-line">
+            HP: {d.curHp} / {d.maxHp}
+          </div>
+        )}
+        <ObjectControls snapshot={snapshot} token={token} editable={false} />
+        {!!monsterEntity?.playerNotes && (
+          <p className="muted">{monsterEntity.playerNotes}</p>
+        )}
+      </div>
+    );
+  }
 
   // Player combat console: their attacks (vs the clicked token) + abilities.
   if (myChar) {
@@ -137,6 +159,10 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         </div>
       ) : (
         <div className="hp-line muted">HP hidden</div>
+      )}
+
+      {objectKind && (
+        <ObjectControls snapshot={snapshot} token={token} editable={isDm} />
       )}
 
       <DamageHealControls

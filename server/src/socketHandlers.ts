@@ -9,6 +9,7 @@ import {
   resolveSkillRoll,
   resolveSaves,
   resolveSave,
+  resolveDeathSave,
   noteConcentration,
 } from './combat.js';
 import {
@@ -45,6 +46,9 @@ import {
   addMeasurement,
   clearMeasurements,
   removeMeasurement,
+  addAnnotation,
+  clearAnnotations,
+  removeAnnotation,
   setResource,
   setItem,
   removeItem,
@@ -88,6 +92,7 @@ import {
   rollAllInitiative,
   rollMissingInitiative,
   rollerName,
+  addChatMessage,
   setActiveMap,
   setActiveTurn,
   setCondition,
@@ -222,6 +227,43 @@ export function registerSocketHandlers(io: IOServer): void {
       // Players may only clear their own; the DM may clear everyone's.
       const onlyMine = mineOnly || conn.role !== 'dm';
       clearMeasurements(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
+      afterChange();
+    });
+
+    socket.on('annotation:add', ({ kind, points, x, y, text, color }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || (kind !== 'freehand' && kind !== 'text')) return;
+      const mapId =
+        conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
+      if (!mapId || !getMap(mapId)) return;
+      addAnnotation(sid, {
+        mapId,
+        kind,
+        points: Array.isArray(points) ? points.slice(0, 2000).map(Number) : undefined,
+        x: Number(x) || 0,
+        y: Number(y) || 0,
+        text: typeof text === 'string' ? text : undefined,
+        color: typeof color === 'string' ? color : '#ffd166',
+        createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
+      });
+      afterChange();
+    });
+
+    socket.on('annotation:remove', ({ id }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || !id) return;
+      removeAnnotation(id, conn.role === 'dm' ? undefined : rollerName(sid, socket.id, false));
+      afterChange();
+    });
+
+    socket.on('annotation:clear', ({ mapId, mineOnly }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || !getMap(mapId)) return;
+      const onlyMine = mineOnly || conn.role !== 'dm';
+      clearAnnotations(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
       afterChange();
     });
 
@@ -520,6 +562,22 @@ export function registerSocketHandlers(io: IOServer): void {
       if (ok) afterChange();
     });
 
+    // Roll a death saving throw for a downed PC (owner or DM).
+    socket.on('death:roll', ({ characterId }) => {
+      const sid = sessionId();
+      if (!sid || !ownsCharacter(characterId)) return;
+      if (resolveDeathSave(sid, characterId)) afterChange();
+    });
+
+    // Shared in-session chat (anyone in the session).
+    socket.on('chat:send', ({ text }) => {
+      const sid = sessionId();
+      const body = typeof text === 'string' ? text.trim() : '';
+      if (!sid || !body) return;
+      addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
+      afterChange();
+    });
+
     // Roll a monster's structured action (breath weapon / spell-like) — DM only.
     socket.on('monster:action', ({ monsterId, actionIndex, advantage, targetTokenId }) => {
       const sid = sessionId();
@@ -656,6 +714,7 @@ export function registerSocketHandlers(io: IOServer): void {
         weapons: p.weapons,
         icon: p.icon,
         disposition: p.disposition,
+        objectKind: p.objectKind,
         source: p.source,
       });
       afterChange();

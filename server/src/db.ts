@@ -165,6 +165,21 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  -- Freehand + text annotations drawn on a map.
+  CREATE TABLE IF NOT EXISTS annotations (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    map_id     TEXT NOT NULL,
+    kind       TEXT NOT NULL,
+    points     TEXT NOT NULL DEFAULT '[]',
+    x          REAL NOT NULL DEFAULT 0,
+    y          REAL NOT NULL DEFAULT 0,
+    text       TEXT NOT NULL DEFAULT '',
+    color      TEXT NOT NULL DEFAULT '#ffd166',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+
   -- Shared dice roll log per session.
   CREATE TABLE IF NOT EXISTS roll_log (
     id         TEXT PRIMARY KEY,
@@ -174,6 +189,16 @@ db.exec(`
     expr       TEXT NOT NULL DEFAULT '',
     total      INTEGER NOT NULL DEFAULT 0,
     detail     TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+
+  -- Shared in-session chat.
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    sender     TEXT NOT NULL DEFAULT '',
+    role       TEXT NOT NULL DEFAULT 'player',
+    text       TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
   );
 
@@ -339,8 +364,11 @@ ensureColumn('characters', 'last_attack_role', 'last_attack_role TEXT');
 ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
 // Shared party notes on a creature/NPC — editable by the DM and players alike.
 ensureColumn('monsters', 'player_notes', "player_notes TEXT NOT NULL DEFAULT ''");
+ensureColumn('monsters', 'object_kind', 'object_kind TEXT');
 // Battle Master Superiority Die size (the pool lives in the resources counters).
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
+ensureColumn('characters', 'death_successes', 'death_successes INTEGER NOT NULL DEFAULT 0');
+ensureColumn('characters', 'death_failures', 'death_failures INTEGER NOT NULL DEFAULT 0');
 
 export const newId = (): string => randomUUID();
 
@@ -450,6 +478,8 @@ type CharacterRow = {
   claimed_by: string | null;
   last_attack_role: string | null;
   superiority_die: string | null;
+  death_successes: number | null;
+  death_failures: number | null;
   icon: string;
 };
 
@@ -482,6 +512,10 @@ export function rowToCharacter(r: CharacterRow): Character {
     claimedBy: r.claimed_by,
     lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
     superiorityDie: r.superiority_die ?? undefined,
+    deathSaves: {
+      successes: r.death_successes ?? 0,
+      failures: r.death_failures ?? 0,
+    },
     icon: r.icon ?? '',
   };
 }
@@ -507,6 +541,7 @@ type MonsterRow = {
   actions: string;
   weapons: string;
   disposition: Monster['disposition'];
+  object_kind: string | null;
   last_attack_role: string | null;
   player_notes: string | null;
   level: number;
@@ -534,6 +569,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,
     disposition: r.disposition ?? 'enemy',
+    ...(r.object_kind ? { objectKind: r.object_kind as Monster['objectKind'] } : {}),
     lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',
     playerNotes: r.player_notes ?? '',

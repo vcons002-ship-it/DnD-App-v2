@@ -7,6 +7,7 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
@@ -103,6 +104,7 @@ export function PlayerView() {
         </SidePanel>
       </div>
       <AiStatus />
+      <ConnectionStatus />
       <Toast />
     </div>
   );

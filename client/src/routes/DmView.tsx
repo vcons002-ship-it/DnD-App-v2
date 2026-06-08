@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
+import { InitiativePanel } from '../components/InitiativePanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
@@ -57,7 +59,7 @@ export function DmView() {
             sections={[
               {
                 id: 'maps',
-                label: 'Maps, Spawn & Initiative',
+                label: 'Maps & Spawn',
                 node: (
                   <DmPanel
                     snapshot={snapshot}
@@ -67,12 +69,21 @@ export function DmView() {
                         cur?.refId === refId ? null : { kind, refId },
                       )
                     }
+                  />
+                ),
+              },
+              {
+                id: 'initiative',
+                label: 'Initiative',
+                node: (
+                  <InitiativePanel
+                    snapshot={snapshot}
                     selectedTokenId={primaryId}
                     onSelectToken={(t) => handleSelect(t, false)}
                   />
                 ),
               },
-              { id: 'dice', label: 'Dice & Roll Log', node: <DicePanel snapshot={snapshot} /> },
+              { id: 'dice', label: 'Dice, Log & Chat', node: <DicePanel snapshot={snapshot} /> },
               { id: 'roll20', label: 'Roll20', node: <Roll20Panel /> },
             ]}
           />
@@ -114,6 +125,7 @@ export function DmView() {
         </SidePanel>
       </div>
       <AiStatus />
+      <ConnectionStatus />
       <Toast />
     </div>
   );

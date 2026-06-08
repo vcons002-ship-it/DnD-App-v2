@@ -9,6 +9,7 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { DamageHealControls } from './DamageHealControls';
+import { ObjectControls } from './ObjectControls';
 import { WeaponButtons } from './WeaponButtons';
 import { TokenAdminButtons } from './TokenAdminButtons';
 
@@ -37,6 +38,11 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   const isDm = snapshot.role === 'dm';
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
+  // If the right-clicked token is a non-combat object, offer its interact controls.
+  const targetObjectKind =
+    token.kind === 'monster'
+      ? snapshot.monsters.find((m) => m.id === token.refId)?.objectKind
+      : undefined;
 
   // Attack flow: the SELECTED token is the attacker, the right-clicked `token`
   // is the target. (Select a token, then right-click another to attack it.)
@@ -113,6 +119,11 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
           </span>
         )}
       </div>
+
+      {/* Non-combat object: interact (toggle state, reveal/hide). */}
+      {targetObjectKind && (
+        <ObjectControls snapshot={snapshot} token={token} editable={isDm} />
+      )}
 
       {/* Quick damage/heal — kept open so several can be applied in a row. */}
       {canSeeHp && (

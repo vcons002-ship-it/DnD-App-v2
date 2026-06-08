@@ -21,6 +21,8 @@ import type {
   Measurement,
   Monster,
   RollEntry,
+  ChatMessage,
+  Annotation,
   SessionSummary,
   Token,
   TokenKind,
@@ -461,6 +463,19 @@ export function setMonsterPlayerNotes(
     monsterId,
   );
   return getMonster(monsterId);
+}
+
+/** Write a character's death-save tallies (each clamped 0–3). */
+export function setDeathSaves(
+  characterId: string,
+  successes: number,
+  failures: number,
+): Character | null {
+  const clamp = (n: number) => Math.max(0, Math.min(3, Math.round(n)));
+  db.prepare(
+    'UPDATE characters SET death_successes = ?, death_failures = ? WHERE id = ?',
+  ).run(clamp(successes), clamp(failures), characterId);
+  return getCharacter(characterId);
 }
 
 /** Damage (+) / heal (−) every listed token's creature (AOE). */
@@ -926,6 +941,44 @@ export function clearRollLog(sessionId: string): void {
   db.prepare('DELETE FROM roll_log WHERE session_id = ?').run(sessionId);
 }
 
+/** Append a chat message and return it. */
+export function addChatMessage(
+  sessionId: string,
+  sender: string,
+  role: ChatMessage['role'],
+  text: string,
+): ChatMessage {
+  const msg: ChatMessage = {
+    id: newId(),
+    sender,
+    role,
+    text: text.slice(0, 2000),
+    createdAt: Date.now(),
+  };
+  db.prepare(
+    'INSERT INTO chat_messages (id, session_id, sender, role, text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt);
+  return msg;
+}
+
+/** Most-recent chat messages, oldest-first for display (capped). */
+export function listChat(sessionId: string, limit = 100): ChatMessage[] {
+  const rows = db
+    .prepare(
+      'SELECT id, sender, role, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+    )
+    .all(sessionId, limit) as {
+    id: string;
+    sender: string;
+    role: ChatMessage['role'];
+    text: string;
+    created_at: number;
+  }[];
+  return rows
+    .map((r) => ({ id: r.id, sender: r.sender, role: r.role, text: r.text, createdAt: r.created_at }))
+    .reverse();
+}
+
 /** Most-recent rolls, returned oldest-first for display (capped). */
 export function listRollLog(sessionId: string, limit = 30): RollEntry[] {
   const rows = db
@@ -1059,6 +1112,93 @@ export function clearMeasurements(mapId: string, createdBy?: string): void {
     );
   } else {
     db.prepare('DELETE FROM measurements WHERE map_id = ?').run(mapId);
+  }
+}
+
+// ---- Map annotations (freehand strokes + text labels) ----
+
+type AnnotationRow = {
+  id: string;
+  map_id: string;
+  kind: string;
+  points: string;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  created_by: string;
+};
+
+const rowToAnnotation = (r: AnnotationRow): Annotation => ({
+  id: r.id,
+  mapId: r.map_id,
+  kind: r.kind as Annotation['kind'],
+  points: JSON.parse(r.points || '[]') as number[],
+  x: r.x,
+  y: r.y,
+  text: r.text,
+  color: r.color,
+  createdBy: r.created_by,
+});
+
+export function addAnnotation(
+  sessionId: string,
+  input: {
+    mapId: string;
+    kind: Annotation['kind'];
+    points?: number[];
+    x?: number;
+    y?: number;
+    text?: string;
+    color: string;
+    createdBy: string;
+  },
+): Annotation {
+  const id = newId();
+  db.prepare(
+    `INSERT INTO annotations (id, session_id, map_id, kind, points, x, y, text, color, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    input.mapId,
+    input.kind,
+    JSON.stringify(input.points ?? []),
+    input.x ?? 0,
+    input.y ?? 0,
+    (input.text ?? '').slice(0, 200),
+    input.color,
+    input.createdBy,
+    Date.now(),
+  );
+  return rowToAnnotation(
+    db.prepare('SELECT * FROM annotations WHERE id = ?').get(id) as AnnotationRow,
+  );
+}
+
+export function listAnnotations(mapId: string): Annotation[] {
+  return (
+    db
+      .prepare('SELECT * FROM annotations WHERE map_id = ? ORDER BY created_at ASC')
+      .all(mapId) as AnnotationRow[]
+  ).map(rowToAnnotation);
+}
+
+/** Remove one annotation; when `requireCreatedBy` is set, only its creator's. */
+export function removeAnnotation(id: string, requireCreatedBy?: string): void {
+  if (requireCreatedBy !== undefined) {
+    db.prepare('DELETE FROM annotations WHERE id = ? AND created_by = ?').run(id, requireCreatedBy);
+  } else {
+    db.prepare('DELETE FROM annotations WHERE id = ?').run(id);
+  }
+}
+
+/** Clear a map's annotations — all, or only one drawer's (`createdBy`). */
+export function clearAnnotations(mapId: string, createdBy?: string): void {
+  if (createdBy !== undefined) {
+    db.prepare('DELETE FROM annotations WHERE map_id = ? AND created_by = ?').run(mapId, createdBy);
+  } else {
+    db.prepare('DELETE FROM annotations WHERE map_id = ?').run(mapId);
   }
 }
 
@@ -1465,6 +1605,7 @@ export type MonsterInput = {
   weapons?: Monster['weapons'];
   icon?: string;
   disposition?: Monster['disposition'];
+  objectKind?: Monster['objectKind'];
   source?: Monster['source'];
 };
 
@@ -1481,8 +1622,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1504,6 +1645,7 @@ function insertMonster(
     opts.disposition ?? 'enemy',
     JSON.stringify(opts.weapons ?? []),
     opts.level ?? 0,
+    opts.objectKind ?? null,
   );
   return getMonster(id)!;
 }
@@ -1566,6 +1708,7 @@ export function instantiateMonster(templateId: string): Monster | null {
       level: tmpl.level,
       icon: tmpl.icon,
       disposition: tmpl.disposition,
+      objectKind: tmpl.objectKind,
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -1591,6 +1734,7 @@ export function copyMonster(monsterId: string): Monster | null {
     level: m.level,
     icon: m.icon,
     disposition: m.disposition,
+    objectKind: m.objectKind,
     source: m.source,
   });
 }
@@ -1600,6 +1744,7 @@ export function updateMonster(
   monsterId: string,
   patch: Partial<{
     disposition: Monster['disposition'];
+    objectKind: Monster['objectKind'];
     name: string;
     level: number;
     maxHp: number;
@@ -1629,6 +1774,7 @@ export function updateMonster(
     vals.push(v);
   };
   if (patch.disposition !== undefined) put('disposition', patch.disposition);
+  if (patch.objectKind !== undefined) put('object_kind', patch.objectKind ?? null);
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
@@ -1717,12 +1863,33 @@ export function applyDamage(
   } else {
     nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
   }
+  // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
+  // while already down adds a failure (5e auto-fail).
+  if (kind === 'pc') {
+    const ch = entity as Character;
+    let ds = ch.deathSaves;
+    if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
+      ds = { successes: 0, failures: 0 };
+    } else if (amount > 0 && entity.curHp === 0 && ds.failures < 3) {
+      // Taking damage while down adds a failure; a stable creature (3✓) becomes
+      // unstable and resumes dying with that one failure.
+      const wasStable = ds.successes >= 3;
+      ds = {
+        successes: wasStable ? 0 : ds.successes,
+        failures: wasStable ? 1 : Math.min(3, ds.failures + 1),
+      };
+    }
+    db.prepare(
+      'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ? WHERE id = ?',
+    ).run(nextCur, nextTemp, ds.successes, ds.failures, refId);
+    return getCharacter(refId);
+  }
   db.prepare(`UPDATE ${table} SET cur_hp = ?, temp_hp = ? WHERE id = ?`).run(
     nextCur,
     nextTemp,
     refId,
   );
-  return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  return getMonster(refId);
 }
 
 export function setCondition(

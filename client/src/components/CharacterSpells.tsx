@@ -46,8 +46,13 @@ function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
 }
 
 /** Does this entry support an upcast level selector (leveled, scaling roll)? */
+/** The base spell level (from the roll, else the entry's level). */
+const spellBaseLevel = (a: SheetAbility): number => a.roll?.baseLevel ?? a.level ?? 0;
+
+/** Any leveled spell can be cast with a higher slot — dice scale where the roll
+ *  defines `scaleDice`; otherwise the higher-level effect is the `upcast` note. */
 const upcastable = (a: SheetAbility): boolean =>
-  !!a.roll?.scaleDice && (a.roll.baseLevel ?? 0) >= 1;
+  a.type === 'spell' && spellBaseLevel(a) >= 1;
 
 /** An effect-bearing mastery gets a weapon binding + active toggle. */
 const autoMastery = (a: SheetAbility): boolean =>
@@ -95,6 +100,7 @@ export function CharacterSpells({
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const setResource = useStore((s) => s.setResource);
+  const setCondition = useStore((s) => s.setCondition);
   const clearCondition = useStore((s) => s.clearCondition);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
@@ -174,6 +180,22 @@ export function CharacterSpells({
   // A spell-backed stance (a `level` ≥ 1, e.g. Hunter's Mark) also CASTS on
   // activation — the server spends a spell slot and starts concentration; ending
   // it drops that concentration.
+  // Put / remove a marking stance's status condition (e.g. "Marked") on the
+  // target creature, so everyone sees what it's under. No-op outside the combat
+  // console (where there's no snapshot/targets).
+  const tokenById = (id?: string) => snapshot?.tokens.find((t) => t.id === id);
+  const markTarget = (tokenId?: string, label?: string) => {
+    const tok = tokenById(tokenId);
+    if (tok && label)
+      setCondition(tok.kind, tok.refId, { label, aura: 'blue', isConcentration: false });
+  };
+  const unmarkTarget = (tokenId?: string, label?: string) => {
+    const tok = tokenById(tokenId);
+    if (!tok || !label || !snapshot) return;
+    const cond = resolveToken(snapshot, tok).conditions?.find((c) => c.label === label);
+    if (cond) clearCondition(tok.kind, tok.refId, cond.id);
+  };
+
   const toggleStance = (a: SheetAbility) => {
     const goingActive = !a.stance?.active;
     // Activating a concentration stance starts concentration — warn if another is up.
@@ -183,6 +205,11 @@ export function CharacterSpells({
     if (goingActive && stance.targeted && !stance.targetId)
       stance.targetId = validDefault ?? targets[0]?.id;
     setSheetAbility(character.id, { ...a, stance });
+    // Tag/untag the marked target with the stance's status (Hunter's Mark → Marked).
+    if (stance.marksTargetWith) {
+      if (goingActive) markTarget(stance.targetId, stance.marksTargetWith);
+      else unmarkTarget(a.stance?.targetId, stance.marksTargetWith);
+    }
     if (goingActive && a.useCounter) {
       const c = character.resources[a.useCounter.name];
       if (c && c.used < c.max) {
@@ -253,7 +280,7 @@ export function CharacterSpells({
     rollAbility({
       characterId: character.id,
       abilityId: a.id,
-      castLevel: upcastable(a) ? castLevel[a.id] ?? a.roll?.baseLevel : undefined,
+      castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
       advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
@@ -308,7 +335,7 @@ export function CharacterSpells({
       )}
       <ul className="spell-list">
         {character.sheetAbilities.map((a) => {
-          const lvl = castLevel[a.id] ?? a.roll?.baseLevel ?? 1;
+          const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
           return (
             <li key={a.id} className="spell-entry">
               <div className="spell-head">
@@ -355,7 +382,15 @@ export function CharacterSpells({
                     className="spell-level"
                     value={a.stance!.targetId ?? ''}
                     title="Marked target — the stance only affects attacks against it"
-                    onChange={(e) => patchStance(a, { targetId: e.target.value || undefined })}
+                    onChange={(e) => {
+                      const next = e.target.value || undefined;
+                      // While active, move the mark status from the old target to the new.
+                      if (a.stance!.active && a.stance!.marksTargetWith) {
+                        unmarkTarget(a.stance!.targetId, a.stance!.marksTargetWith);
+                        markTarget(next, a.stance!.marksTargetWith);
+                      }
+                      patchStance(a, { targetId: next });
+                    }}
                   >
                     <option value="">— mark —</option>
                     {targets.map((t) => (
@@ -381,7 +416,7 @@ export function CharacterSpells({
                   </button>
                 )}
 
-                {editable && a.roll && upcastable(a) && (
+                {editable && upcastable(a) && (a.roll || isConcentration(a)) && (
                   <select
                     className="spell-level"
                     value={lvl}
@@ -390,16 +425,14 @@ export function CharacterSpells({
                       setCastLevel((c) => ({ ...c, [a.id]: Number(e.target.value) }))
                     }
                   >
-                    {Array.from({ length: 9 - (a.roll.baseLevel ?? 1) + 1 }).map(
-                      (_, i) => {
-                        const v = (a.roll!.baseLevel ?? 1) + i;
-                        return (
-                          <option key={v} value={v}>
-                            L{v}
-                          </option>
-                        );
-                      },
-                    )}
+                    {Array.from({ length: 9 - spellBaseLevel(a) + 1 }).map((_, i) => {
+                      const v = spellBaseLevel(a) + i;
+                      return (
+                        <option key={v} value={v}>
+                          L{v}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
                 {editable && a.roll && (
@@ -515,6 +548,11 @@ export function CharacterSpells({
                     </div>
                   )}
                   <p>{a.description}</p>
+                  {a.upcast && (
+                    <p className="muted spell-meta">
+                      <strong>At higher levels:</strong> {a.upcast}
+                    </p>
+                  )}
                 </div>
               )}
             </li>

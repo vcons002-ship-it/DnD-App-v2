@@ -15,6 +15,7 @@ import type {
   ImportConflictResolution,
   InventoryItem,
   MeasureAddPayload,
+  AnnotationAddPayload,
   ResourceSetPayload,
   JoinAck,
   MonsterCreatePayload,
@@ -30,7 +31,7 @@ import type {
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-type Status = 'idle' | 'connecting' | 'connected' | 'error';
+type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 type Store = {
   socket: TypedSocket | null;
@@ -104,6 +105,9 @@ type Store = {
   addMeasurement: (payload: MeasureAddPayload) => void;
   removeMeasurement: (id: string) => void;
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
+  addAnnotation: (payload: AnnotationAddPayload) => void;
+  removeAnnotation: (id: string) => void;
+  clearAnnotations: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
   importMapsFromSession: (
@@ -156,6 +160,8 @@ type Store = {
   setSheetAbility: (characterId: string, ability: SheetAbility) => void;
   removeSheetAbility: (characterId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
+  rollDeathSave: (characterId: string) => void;
+  sendChat: (text: string) => void;
   rollMonsterAction: (
     monsterId: string,
     actionIndex: number,
@@ -261,7 +267,16 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.disconnect();
     set({ status: 'connecting', error: null });
 
-    const socket: TypedSocket = io({ transports: ['websocket', 'polling'] });
+    // Socket.IO auto-reconnects and buffers our outgoing events while offline,
+    // flushing them on reconnect; we re-join on every `connect` so the server
+    // re-attaches role/session (the socket id changes across reconnects).
+    const socket: TypedSocket = io({
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
+    });
 
     socket.on('state:snapshot', (snapshot) => set({ snapshot }));
     socket.on('error', (err) => set({ error: err.message }));
@@ -285,8 +300,18 @@ export const useStore = create<Store>((set, get) => ({
       );
     });
 
+    // Keep the last snapshot on screen during a blip; flag reconnecting unless we
+    // intentionally left (disconnect()/leave sets status to 'idle' separately).
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io client disconnect') return; // we asked to leave
+      set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
+    });
+
     socket.on('connect_error', () =>
-      set({ status: 'error', error: 'Could not reach the server' }),
+      set((s) =>
+        // The first connect failing is a hard error; later ones are reconnect tries.
+        s.status === 'connecting' ? { status: 'error', error: 'Could not reach the server' } : {},
+      ),
     );
 
     set({ socket });
@@ -307,6 +332,10 @@ export const useStore = create<Store>((set, get) => ({
   removeMeasurement: (id) => get().socket?.emit('measure:remove', { id }),
   clearMeasurements: (mapId, mineOnly) =>
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
+  addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
+  removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
+  clearAnnotations: (mapId, mineOnly) =>
+    get().socket?.emit('annotation:clear', { mapId, mineOnly }),
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
@@ -366,6 +395,8 @@ export const useStore = create<Store>((set, get) => ({
   removeSheetAbility: (characterId, abilityId) =>
     get().socket?.emit('ability:remove', { characterId, abilityId }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
+  rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
+  sendChat: (text) => get().socket?.emit('chat:send', { text }),
   rollMonsterAction: (monsterId, actionIndex, advantage, targetTokenId) =>
     get().socket?.emit('monster:action', { monsterId, actionIndex, advantage, targetTokenId }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),

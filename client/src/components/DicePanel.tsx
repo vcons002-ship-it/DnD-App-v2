@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
+import { mergeFeed } from '../lib/feed';
 import { AdvantageToggle } from './AdvantageToggle';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 
-/** Dice roller + shared roll log (visible to everyone). */
+/** Dice roller + shared feed of rolls AND chat (visible to everyone), with a
+ *  chat input. Rolls and chat are interleaved chronologically (newest at the
+ *  bottom) so they share one log. */
 export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const rollDice = useStore((s) => s.rollDice);
   const clearRollLog = useStore((s) => s.clearRollLog);
+  const sendChat = useStore((s) => s.sendChat);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
@@ -28,6 +32,25 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
+  const [chatText, setChatText] = useState('');
+  const logRef = useRef<HTMLDivElement>(null);
+  // Only auto-scroll when the user is already at the bottom, so scrolling up to
+  // read history isn't interrupted by new entries.
+  const stickRef = useRef(true);
+
+  const feed = mergeFeed(snapshot.rollLog, snapshot.chat);
+
+  const onLogScroll = () => {
+    const el = logRef.current;
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  };
+
+  // Keep the newest entry in view as the feed grows — but only scroll the log
+  // container itself (never the page), and only when already at the bottom.
+  useEffect(() => {
+    if (stickRef.current && logRef.current)
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [feed.length]);
 
   const roll = (e: string) =>
     rollDice({
@@ -35,6 +58,13 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
       label: label.trim() || undefined,
       advantage: consumeAdvantage(advKey),
     });
+
+  const send = () => {
+    const body = chatText.trim();
+    if (!body) return;
+    sendChat(body);
+    setChatText('');
+  };
 
   return (
     <div className="panel-section dice-panel">
@@ -67,11 +97,11 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
       </div>
 
       <div className="roll-log-header">
-        <span className="muted">Roll log</span>
+        <span className="muted">Log &amp; chat</span>
         <button
           className={`btn tiny ${showRollOverlay ? 'on' : ''}`}
           onClick={toggleRollOverlay}
-          title="Show the roll log as a transparent overlay on the map"
+          title="Show the log as a transparent overlay on the map"
         >
           ⤢ Overlay
         </button>
@@ -88,19 +118,29 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
             onClick={() => {
               if (window.confirm('Clear the roll log for everyone?')) clearRollLog();
             }}
-            title="Remove all entries from the shared roll log"
+            title="Remove all roll entries from the shared log (chat is kept)"
           >
-            Clear
+            Clear rolls
           </button>
         )}
       </div>
-      <div className="roll-log">
-        {snapshot.rollLog.length === 0 && <p className="muted">No rolls yet.</p>}
-        {[...snapshot.rollLog].reverse().map((r) => {
+      <div className="roll-log" ref={logRef} onScroll={onLogScroll}>
+        {feed.length === 0 && <p className="muted">No rolls or messages yet.</p>}
+        {feed.map((item) => {
+          if (item.kind === 'chat') {
+            const m = item.chat;
+            return (
+              <div key={item.id} className={`chat-msg ${m.role}`}>
+                <span className="chat-sender">{m.sender}</span>
+                <span className="chat-text">{m.text}</span>
+              </div>
+            );
+          }
+          const r = item.roll;
           const color = rollerColor(r.roller);
           return (
             <div
-              key={r.id}
+              key={item.id}
               className={`roll-entry cat-${rollCategory(r)}`}
               style={{ borderLeftColor: color }}
             >
@@ -145,6 +185,18 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
             </div>
           );
         })}
+      </div>
+      <div className="chat-input">
+        <input
+          placeholder="Message…"
+          value={chatText}
+          maxLength={2000}
+          onChange={(e) => setChatText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+        />
+        <button className="btn tiny" disabled={!chatText.trim()} onClick={send}>
+          Send
+        </button>
       </div>
     </div>
   );

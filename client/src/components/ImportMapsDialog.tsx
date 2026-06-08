@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../state/socket';
 import type {
   ImportCharConflict,
   ImportConflictResolution,
+  SessionSummary,
 } from '../../../shared/types';
 
 type SrcMap = { id: string; name: string; tokenCount: number };
@@ -15,6 +16,8 @@ type SrcMap = { id: string; name: string; tokenCount: number };
 export function ImportMapsDialog({ onClose }: { onClose: () => void }) {
   const importMapsFromSession = useStore((s) => s.importMapsFromSession);
   const previewImport = useStore((s) => s.previewImport);
+  const myCode = useStore((s) => s.snapshot?.sessionCode);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [code, setCode] = useState('');
   const [maps, setMaps] = useState<SrcMap[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -26,8 +29,16 @@ export function ImportMapsDialog({ onClose }: { onClose: () => void }) {
     Record<string, ImportConflictResolution>
   >({});
 
-  const load = async () => {
-    const c = code.trim().toUpperCase();
+  // All saved sessions, so the DM can pick one instead of typing its code.
+  useEffect(() => {
+    fetch('/api/sessions')
+      .then((r) => r.json())
+      .then((d: SessionSummary[]) => setSessions(Array.isArray(d) ? d : []))
+      .catch(() => setSessions([]));
+  }, []);
+
+  const load = async (codeArg?: string) => {
+    const c = (codeArg ?? code).trim().toUpperCase();
     if (!c) return;
     setLoading(true);
     setErr(null);
@@ -81,15 +92,36 @@ export function ImportMapsDialog({ onClose }: { onClose: () => void }) {
     <div className="popover-backdrop" onClick={onClose}>
       <div className="import-maps-dialog" onClick={(e) => e.stopPropagation()}>
         <h3>Import maps from another session</h3>
+        {sessions.filter((s) => s.code !== myCode).length > 0 && (
+          <div className="dice-row">
+            <select
+              className="import-session-select"
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value);
+                if (e.target.value) load(e.target.value);
+              }}
+            >
+              <option value="">Pick a saved session…</option>
+              {sessions
+                .filter((s) => s.code !== myCode)
+                .map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name} ({s.code}) · {s.mapCount} map{s.mapCount === 1 ? '' : 's'}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
         <div className="dice-row">
           <input
-            placeholder="Session code"
+            placeholder="…or enter a session code"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && load()}
             autoFocus
           />
-          <button className="btn" disabled={loading || !code.trim()} onClick={load}>
+          <button className="btn" disabled={loading || !code.trim()} onClick={() => load()}>
             {loading ? '…' : 'Find'}
           </button>
         </div>

@@ -10,6 +10,7 @@ import {
   setSheetAbility,
   setTokensCondition,
   setConcentration,
+  setDeathSaves,
 } from './sessions.js';
 import {
   damageMultiplier,
@@ -199,6 +200,7 @@ export function resolveAttack(
   // damage rolls on a hit below, and a stance can grant advantage on the attack.
   let stanceAdvantage = false;
   const stanceDice: { label: string; dice: string }[] = [];
+  const onHitStances: SheetAbility[] = [];
   for (const ab of ch?.sheetAbilities ?? []) {
     const st = ab.stance;
     if (ab.type !== 'stance' || !st?.active) continue;
@@ -207,6 +209,7 @@ export function resolveAttack(
     // A marking stance (Hunter's Mark) only affects attacks on its marked target.
     if (st.targeted && st.targetId !== targetTokenId) continue;
     if (st.grantsAdvantage) stanceAdvantage = true;
+    if (st.onHitSave) onHitStances.push(ab);
     if (st.bonusDamage) {
       if (/d\d/i.test(st.bonusDamage)) {
         stanceDice.push({ label: ab.name, dice: st.bonusDamage });
@@ -359,6 +362,25 @@ export function resolveAttack(
     const pool = ch.resources['Superiority Dice'];
     if (pool) setResource(ch.id, 'resources', 'Superiority Dice', { used: pool.used + 1 });
     setSheetAbility(ch.id, { ...ability, maneuver: { ...spec, active: false } });
+  }
+
+  // Stance on-hit save riders (e.g. Ensnaring Strike): on a hit, log a click-to-
+  // target save whose failure applies the rider's condition, then disarm the
+  // stance (one-shot — it fires on the next hit, like the spell).
+  if (out.hit && ch) {
+    for (const ab of onHitStances) {
+      const rider = ab.stance!.onHitSave!;
+      const dc = 8 + profBonusFor(a.c) + weaponAbilityMod(a.c, weapon);
+      addRollLog(sessionId, {
+        roller,
+        label: `${rider.ability} save`,
+        expr: `DC ${dc}`,
+        total: dc,
+        detail: `${ab.name}: ${t.name} must make a DC ${dc} ${rider.ability} save or be ${rider.onFail}`,
+        apply: { amount: 0, dc, save: rider.ability, onFail: rider.onFail },
+      });
+      setSheetAbility(ch.id, { ...ab, stance: { ...ab.stance!, active: false } });
+    }
   }
 
   // Cleave is a one-shot: disable it after the attack roll (hit or miss).
@@ -588,6 +610,44 @@ function resolveTargetedSpellAttack(opts: {
  * for purely descriptive entries (no roll). An attack-roll spell with a
  * `targetTokenId` rolls vs that token's AC and auto-applies typed damage.
  */
+/**
+ * Roll a 5e death saving throw for a downed PC (0 HP). 10+ is a success, under 10
+ * a failure; a natural 20 revives at 1 HP; a natural 1 is two failures. Three
+ * successes stabilizes (saves reset); three failures is death. Logs the result.
+ */
+export function resolveDeathSave(sessionId: string, characterId: string): boolean {
+  const ch = getCharacter(characterId);
+  // Only a downed PC that isn't already stable (3✓) or dead (3✗) keeps rolling.
+  if (!ch || ch.curHp > 0 || ch.deathSaves.successes >= 3 || ch.deathSaves.failures >= 3)
+    return false;
+  const face = rollDice('1d20')!.total;
+  const log = (detail: string) =>
+    addRollLog(sessionId, { roller: ch.name, label: 'Death save', expr: 'd20', total: face, detail });
+
+  if (face === 20) {
+    applyDamage('pc', characterId, -1); // back to 1 HP (healing also resets saves)
+    setDeathSaves(characterId, 0, 0);
+    log(`${ch.name} rolls a natural 20 — regains 1 HP and is conscious!`);
+    return true;
+  }
+
+  let { successes, failures } = ch.deathSaves;
+  let kind: string;
+  if (face === 1) (failures = Math.min(3, failures + 2)), (kind = 'FAILURE ×2');
+  else if (face >= 10) (successes = Math.min(3, successes + 1)), (kind = 'SUCCESS');
+  else (failures = Math.min(3, failures + 1)), (kind = 'FAILURE');
+
+  // 3✓ stabilizes and 3✗ dies — both are persistent states (kept as the tally so
+  // the UI can show a "Stabilized"/"Dead" badge), and stop further rolling.
+  let outcome = '';
+  if (failures >= 3) outcome = ` — ${ch.name} has DIED`;
+  else if (successes >= 3) outcome = ` — ${ch.name} is STABLE`;
+
+  setDeathSaves(characterId, successes, failures);
+  log(`${ch.name}: d20[${face}] ${kind} (${successes}✓/${failures}✗)${outcome}`);
+  return true;
+}
+
 /** A concentration spell, by its tag or its meta line ("… · Concentration").
  *  Covers spells AND spell-backed stances (e.g. Hunter's Mark). */
 function isConcentrationSpell(a: SheetAbility): boolean {

@@ -714,9 +714,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   with a linked **`useCounter`** auto-create a tracked resource on add, and
   toggling a stance ON spends one use.
 - ☑ **Player sheet layout pass.** HP +/- buttons are small and inline beside the
-  HP line; **Conditions** and **Skills** are collapsible; **Add resource** is a
-  button beside the Resources header that reveals the field on click; **Items** is
-  relabelled **Inventory** and moved below Skills.
+  HP line; **Skills** is collapsible; the **Conditions** editor is **collapsed by
+  default for players** while the list of **active conditions stays visible** below
+  it; **Add resource** is a button beside the Resources header that reveals the
+  field on click; **Items** is relabelled **Inventory** and moved below Skills.
 - ☑ **Searchable inventory + item descriptions.** The item-library picker has a
   search box (server matches name OR description), and every inventory/library item
   has an ℹ️ button opening a description window (library items ship with SRD
@@ -743,3 +744,44 @@ Smaller refinements on top of the shipped Phase 2 work.
   lets them confirm or cancel. When a concentrating creature then takes damage, the roll log posts
   the **DC = max(10, ⌊damage/2⌋)** CON save needed to maintain it (fired from every
   damage path: weapon hits, spell saves/auto-hit, Magic Missile darts, manual HP).
+- ☑ **Upcasting for all leveled spells.** Any leveled spell can be cast with a
+  higher slot via the level selector (not only dice-scaling ones) — including
+  no-roll concentration buffs like Bless — spending the chosen slot; an "At higher
+  levels" note (added to ~80 spells) describes the non-damage upcast effect.
+- ☑ **Death saves.** A downed PC (0 HP) shows a Death Saves tracker (3✓/3✗ pips +
+  Roll) — server-resolved (10+ success, nat 20 → 1 HP, nat 1 = two failures, 3✓
+  stable, 3✗ dead); healing above 0 resets, damage while down adds a failure.
+- ☑ **On-hit / on-fail status effects + target status tags.** Stances gain an
+  on-hit save rider (Ensnaring Strike: hit → STR save or Restrained, via the
+  click-to-target `apply.onFail` flow) and a `marksTargetWith` tag that puts a
+  status (e.g. "Marked" for Hunter's Mark) on the marked creature, following the
+  mark and clearing when the stance ends.
+- ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
+  snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
+- ☑ **Map annotation layer.** Freehand pen + text labels drawn on the active map
+  (`annotations` table → snapshot, `annotation:add/remove/clear`), shared and
+  persistent, with colour swatches and Clear mine/all (players clear only theirs).
+- ☑ **AI lookup retry.** `callGemini` now retries transient HTTP errors (429/5xx,
+  e.g. model-overloaded) with backoff, not just network throws.
+- ☑ **Import maps from a session list.** The "import maps from another session"
+  dialog lists all saved sessions to pick from (name · code · map count) instead of
+  requiring a typed code (manual entry kept as a fallback).
+- ☑ **Mobile / touch responsive mode.** On narrow screens the side panels become
+  overlay drawers (collapsed to an edge tab by default) so the map is full-width;
+  larger tap targets, wrapping top bar, and `touch-action: none` on the stage.
+- ☑ **Connection resilience.** Resilient Socket.IO reconnection with the last
+  snapshot kept on screen and outgoing actions buffered/flushed on reconnect; a
+  "Reconnecting…" banner (new `reconnecting` status) signals the offline state.
+- ☑ **Player landing saved-session list.** The player join screen lists saved
+  games from the public `/api/sessions` directory to click into (mirroring the DM
+  landing), with the manual code box as fallback.
+- ☑ **Class-ability variants in search.** ~57 curated subclass/variant features
+  across all classes (rages, Metamagic, Channel Divinity, Invocations, …), tagged
+  by class + family keyword + `variant`, so a search like "rage" surfaces every
+  rage variant (feature-search limit raised so families aren't truncated).
+- ☑ **Non-combat objects (MVP).** Traps, doors, chests, and hidden items as map
+  objects (a Monster flagged `objectKind`), reusing placement/templates/hiding/
+  conditions/visibility. `ObjectControls` toggles state (Locked/Open/Disarmed/
+  Looted/…) as conditions + reveal/hide, in the floating menu and token panel;
+  players see state read-only; objects get no combat-role badge. (Shops/gold/loot
+  deferred.) Remote DM session/map loading verified already working (no change).

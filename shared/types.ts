@@ -160,6 +160,9 @@ export type Character = {
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
   conditions: Condition[];
+  /** 5e death saving throws while at 0 HP (each caps at 3). Reset when healed
+   *  above 0; 3 successes = stable, 3 failures = dead. */
+  deathSaves: { successes: number; failures: number };
   /** The combat role of this creature's most recent attack (melee/ranged/caster),
    *  so the token badge follows the weapon last used; null until it attacks. */
   lastAttackRole: CombatRole | null;
@@ -290,6 +293,18 @@ export type StanceSpec = {
   targeted?: boolean;
   /** The marked target's token id (when `targeted`); empty = nothing marked yet. */
   targetId?: string;
+  /**
+   * On a hit, the target must make this save or suffer `onFail` (a condition like
+   * "Restrained") — e.g. Ensnaring Strike. Logged as a click-to-target save; the
+   * stance auto-deactivates after it fires (one-shot rider).
+   */
+  onHitSave?: { ability: 'STR' | 'DEX' | 'CON' | 'WIS' | 'INT' | 'CHA'; onFail: string };
+  /**
+   * A status condition put on the MARKED target while this stance is active (e.g.
+   * "Marked" for Hunter's Mark), so everyone sees what the creature is under.
+   * Applied/cleared client-side as the mark moves or the stance ends.
+   */
+  marksTargetWith?: string;
 };
 
 /**
@@ -326,6 +341,10 @@ export type SheetAbility = {
   meta?: string;
   /** Full rules text shown in the collapsible body. */
   description: string;
+  /** "At Higher Levels" effect — a short note shown when the spell is upcast
+   *  (e.g. "+1 target per slot above 1st"). Damage scaling is handled by the
+   *  roll's `scaleDice`; this captures non-damage upcasting like Bless. */
+  upcast?: string;
   /** Optional structured roll; absent for purely descriptive entries. */
   roll?: AbilityRoll;
   /** Weapon-mastery config (only when `type` is `mastery`). */
@@ -345,11 +364,19 @@ export type SheetAbility = {
   source?: 'srd' | 'gemini' | 'custom';
 };
 
+/** A non-combat interactable placed on the map (a Monster with this flag set):
+ *  traps, doors, chests, hidden items, etc. State is tracked with conditions. */
+export type ObjectKind = 'trap' | 'door' | 'chest' | 'item' | 'other';
+
 export type Monster = {
   id: string;
   sessionId: string;
   name: string;
   creatureType: string;
+  /** When set, this is a non-combat OBJECT (trap/door/chest/…), not a creature:
+   *  the UI shows interact controls instead of combat, and it gets no combat-role
+   *  badge. Otherwise undefined (a normal creature). */
+  objectKind?: ObjectKind;
   /** Level (PCs) / challenge rating (monsters) — used by the AI to scale stats. */
   level: number;
   maxHp: number;
@@ -479,6 +506,8 @@ export type MonsterPublic = {
   conditions: Condition[];
   disposition: Disposition;
   icon: string;
+  /** Non-combat object kind (chest/door/…), so players' UI shows it as an object. */
+  objectKind?: ObjectKind;
   /** Shared party notes — visible to players on every disposition tier. */
   playerNotes: string;
 };
@@ -516,9 +545,40 @@ export type StateSnapshot = {
   monsterTemplates: Monster[];
   /** Shared dice roll log (most recent last), visible to everyone. */
   rollLog: RollEntry[];
+  /** Shared in-session chat (oldest first), visible to everyone. */
+  chat: ChatMessage[];
   /** Persistent measuring shapes (cone/circle/line) on the shown map, drawn by
    *  any role and visible to everyone. */
   measurements: Measurement[];
+  /** Freehand + text annotations on the shown map, visible to everyone. */
+  annotations: Annotation[];
+};
+
+/** A freehand stroke or text label drawn on a map, shared and persistent. */
+export type Annotation = {
+  id: string;
+  mapId: string;
+  kind: 'freehand' | 'text';
+  /** Freehand: flattened image-space points [x0,y0,x1,y1,…]. */
+  points?: number[];
+  /** Text: anchor point + content. */
+  x?: number;
+  y?: number;
+  text?: string;
+  color: string;
+  /** Display name of the drawer (so they can clear just their own). */
+  createdBy: string;
+};
+
+/** A shared chat message in a session. */
+export type ChatMessage = {
+  id: string;
+  /** Display name of the sender (character/DM name). */
+  sender: string;
+  /** Sender role, for color/labelling. */
+  role: Role;
+  text: string;
+  createdAt: number;
 };
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
@@ -645,6 +705,19 @@ export type MeasureAddPayload = {
 export type MeasureRemovePayload = { id: string };
 /** Clear measurements on a map: everyone's, or only the caller's (`mineOnly`). */
 export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
+/** Add a freehand stroke or text label to a map (any role). */
+export type AnnotationAddPayload = {
+  kind: Annotation['kind'];
+  points?: number[];
+  x?: number;
+  y?: number;
+  text?: string;
+  color: string;
+};
+/** Remove a single annotation by id (any role). */
+export type AnnotationRemovePayload = { id: string };
+/** Clear annotations on a map: everyone's, or only the caller's (`mineOnly`). */
+export type AnnotationClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
 /** How to handle a referenced character whose name already exists on import. */
@@ -838,12 +911,14 @@ export type MonsterCreatePayload = {
   weapons?: Weapon[];
   icon?: string;
   disposition?: Disposition;
+  objectKind?: ObjectKind;
   source?: 'srd' | 'gemini' | 'manual';
 };
 /** Patch fields of one creature instance/template (DM-only). */
 export type MonsterUpdatePayload = {
   monsterId: string;
   disposition?: Disposition;
+  objectKind?: ObjectKind;
   name?: string;
   level?: number;
   maxHp?: number;
@@ -901,6 +976,9 @@ export interface ClientToServerEvents {
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;
+  'annotation:add': (payload: AnnotationAddPayload) => void;
+  'annotation:remove': (payload: AnnotationRemovePayload) => void;
+  'annotation:clear': (payload: AnnotationClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'session:importPreview': (
@@ -939,6 +1017,8 @@ export interface ClientToServerEvents {
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'death:roll': (payload: { characterId: string }) => void;
+  'chat:send': (payload: { text: string }) => void;
   'monster:action': (payload: MonsterActionRollPayload) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;

@@ -7,6 +7,7 @@ import {
   resolveAbilityRoll,
   resolveMonsterAction,
   resolveForcedSave,
+  resolveDeathSave,
   noteConcentration,
 } from './combat.js';
 import {
@@ -24,6 +25,8 @@ import {
   getMonster,
   getToken,
   setCondition,
+  setDeathSaves,
+  applyDamage,
   listRollLog,
   getRollEntry,
 } from './sessions.js';
@@ -597,7 +600,7 @@ describe('secondary weapon damage (flaming sword)', () => {
 
 describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
   const setup = (
-    spec: { active: boolean; appliesTo: 'melee' | 'ranged' | 'all'; bonusDamage?: string; grantsAdvantage?: boolean },
+    spec: import('../../shared/types.js').StanceSpec,
     kind: 'melee' | 'ranged' = 'melee',
   ) => {
     const { s, map } = arena();
@@ -651,6 +654,23 @@ describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
     resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
     expect(getMonster(ref)).toBeTruthy();
     expect(listRollLog(s.id).at(-1)!.detail).toContain('adv');
+  });
+
+  it('an on-hit-save stance (Ensnaring Strike) forces a Restrained save on a hit', () => {
+    const { s, atk, tok } = setup({
+      active: true,
+      appliesTo: 'all',
+      onHitSave: { ability: 'STR', onFail: 'Restrained' },
+    });
+    // Attack until a hit fires the rider (always-hit weapon, but skip nat-1 misses).
+    for (let i = 0; i < 60; i++) {
+      resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
+      if (listRollLog(s.id).some((r) => r.apply?.onFail === 'Restrained')) break;
+    }
+    const rider = listRollLog(s.id).find((r) => r.apply?.onFail === 'Restrained');
+    expect(rider).toBeTruthy();
+    expect(rider!.apply!.save).toBe('STR');
+    expect(rider!.detail).toContain('Restrained');
   });
 
   it("Hunter's Mark only adds damage to the marked target", () => {
@@ -710,6 +730,84 @@ describe('concentration checks on damage', () => {
     setCondition('monster', inst.id, { id: 'c', label: 'Bless', aura: 'blue', isConcentration: true });
     noteConcentration(s.id, 'monster', inst.id, -5); // healing
     expect(listRollLog(s.id).length).toBe(before);
+  });
+});
+
+describe('death saves', () => {
+  const downed = (sess: { id: string }) => {
+    const c = createCharacter(sess.id, { name: 'Fallen', className: 'Fighter', level: 3, maxHp: 20 });
+    applyDamage('pc', c.id, 20); // 20 → 0 HP
+    return getCharacter(c.id)!;
+  };
+
+  it('only a downed (0 HP) PC rolls death saves', () => {
+    const { s } = arena();
+    const c = createCharacter(s.id, { name: 'Standing', maxHp: 10 });
+    expect(resolveDeathSave(s.id, c.id)).toBe(false);
+  });
+
+  it('a roll logs the save and moves the tally (or revives)', () => {
+    const { s } = arena();
+    const c = downed(s);
+    expect(c.curHp).toBe(0);
+    expect(resolveDeathSave(s.id, c.id)).toBe(true);
+    const after = getCharacter(c.id)!;
+    expect(listRollLog(s.id).at(-1)!.label).toBe('Death save');
+    const ds = after.deathSaves;
+    // Either revived (nat 20) or recorded a success/failure.
+    expect(after.curHp > 0 || ds.successes + ds.failures > 0).toBe(true);
+  });
+
+  it('healing above 0 resets saves; damage while down adds a failure', () => {
+    const { s } = arena();
+    const c = downed(s);
+    setDeathSaves(c.id, 1, 1);
+    applyDamage('pc', c.id, 5); // damage while at 0 → +1 failure
+    expect(getCharacter(c.id)!.deathSaves).toEqual({ successes: 1, failures: 2 });
+    applyDamage('pc', c.id, -8); // heal above 0 → reset
+    const healed = getCharacter(c.id)!;
+    expect(healed.curHp).toBeGreaterThan(0);
+    expect(healed.deathSaves).toEqual({ successes: 0, failures: 0 });
+  });
+
+  it('three failures marks the PC dead', () => {
+    const { s } = arena();
+    const c = downed(s);
+    setDeathSaves(c.id, 0, 2);
+    // Keep rolling until a failure lands the 3rd (resetting a lucky revive/stable).
+    for (let i = 0; i < 400; i++) {
+      const cur = getCharacter(c.id)!;
+      if (cur.curHp > 0) { setDeathSaves(c.id, 0, 2); applyDamage('pc', c.id, cur.curHp); continue; }
+      if (cur.deathSaves.failures >= 3) break;
+      if (cur.deathSaves.successes >= 3) { setDeathSaves(c.id, 0, 2); continue; } // stabilized → retry
+      resolveDeathSave(s.id, c.id);
+    }
+    expect(getCharacter(c.id)!.deathSaves.failures).toBe(3);
+    expect(listRollLog(s.id).some((r) => r.detail.includes('DIED'))).toBe(true);
+  });
+
+  it('three successes stabilizes (stops rolling); damage un-stabilizes', () => {
+    const { s } = arena();
+    const c = downed(s);
+    setDeathSaves(c.id, 3, 0); // stable
+    expect(resolveDeathSave(s.id, c.id)).toBe(false); // stable → no more rolls
+    expect(getCharacter(c.id)!.deathSaves).toEqual({ successes: 3, failures: 0 }); // persists
+    applyDamage('pc', c.id, 5); // damage while stable → unstable with one failure
+    expect(getCharacter(c.id)!.deathSaves).toEqual({ successes: 0, failures: 1 });
+  });
+
+  it('logs STABLE when the third success lands', () => {
+    const { s } = arena();
+    const c = downed(s);
+    setDeathSaves(c.id, 2, 0);
+    for (let i = 0; i < 400; i++) {
+      const cur = getCharacter(c.id)!;
+      if (cur.deathSaves.successes >= 3) break;
+      if (cur.curHp > 0 || cur.deathSaves.failures >= 3) { setDeathSaves(c.id, 2, 0); applyDamage('pc', c.id, Math.max(0, cur.curHp)); continue; }
+      resolveDeathSave(s.id, c.id);
+    }
+    expect(getCharacter(c.id)!.deathSaves.successes).toBe(3);
+    expect(listRollLog(s.id).some((r) => r.detail.includes('STABLE'))).toBe(true);
   });
 });
 

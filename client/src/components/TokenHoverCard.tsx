@@ -15,10 +15,16 @@ export function TokenHoverCard({ snapshot, token, x, y }: Props) {
   const d = resolveToken(snapshot, token);
   const canSeeHp = d.curHp !== undefined && d.maxHp !== undefined;
   const auras = presentAuras(d.conditions);
+  const objectGlyph: Record<string, string> = {
+    trap: '🪤', door: '🚪', chest: '📦', item: '✨', other: '⚙️',
+  };
 
   return (
     <div className="hover-card" style={{ left: x + 14, top: y + 14 }}>
-      <div className="hover-card-name">{d.name}</div>
+      <div className="hover-card-name">
+        {d.objectKind ? `${objectGlyph[d.objectKind]} ` : ''}
+        {d.name}
+      </div>
       {canSeeHp && (
         <div className="hover-card-hp">
           HP {d.curHp} / {d.maxHp}
