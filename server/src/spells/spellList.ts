@@ -319,6 +319,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self · V,S,M',
     description:
       'Frost coats you, granting temporary hit points. A creature that hits you with a melee attack takes cold damage. Both scale with slot level.',
+    upcast: '+5 temp HP and +5 cold per slot above 1st.',
     roll: { kind: 'damage', dice: '5', scaleDice: '5', baseLevel: 1, damageType: 'cold' },
   },
   {
@@ -331,6 +332,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (10-ft radius) · V,S',
     description:
       'Tendrils of dark power erupt around you. Each creature within 10 ft makes a STR save, taking necrotic damage and losing reactions on a failure (half on success).',
+    upcast: '+1d6 damage per slot above 1st.',
     roll: { kind: 'save', dice: '2d6', scaleDice: '1d6', baseLevel: 1, save: 'STR', damageType: 'necrotic' },
   },
   {
@@ -343,6 +345,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 30 ft · V,S,M · Concentration',
     description:
       'Up to three creatures make a CHA save; each that fails subtracts 1d4 from its attack rolls and saving throws while the spell lasts.',
+    upcast: '+1 target per slot above 1st.',
   },
   {
     name: 'Bless',
@@ -354,6 +357,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 30 ft · V,S,M · Concentration',
     description:
       'Up to three creatures of your choice add 1d4 to their attack rolls and saving throws for the duration.',
+    upcast: '+1 target per slot above 1st.',
   },
   {
     name: 'Burning Hands',
@@ -365,6 +369,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (15-ft cone) · V,S',
     description:
       'Flames shoot from your fingertips. Each creature in a 15-ft cone makes a DEX save, taking fire damage (half on success). Flammable objects ignite.',
+    upcast: '+1d6 damage per slot above 1st.',
     roll: { kind: 'save', dice: '3d6', scaleDice: '1d6', baseLevel: 1, save: 'DEX', damageType: 'fire' },
   },
   {
@@ -388,6 +393,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 90 ft · V,S,M',
     description:
       'You hurl a sphere of energy (choose acid, cold, fire, lightning, poison, or thunder). On a hit the target takes damage. +1d8 per slot above 1st.',
+    upcast: '+1d8 damage per slot above 1st.',
     roll: { kind: 'attack', dice: '3d8', scaleDice: '1d8', baseLevel: 1 },
   },
   {
@@ -400,6 +406,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (15-ft cone) · V,S,M',
     description:
       'A dazzling array of color blinds creatures in a 15-ft cone, based on a pool of hit points you roll. The lowest-HP creatures are blinded until your next turn.',
+    upcast: '+2d10 to the HP pool per slot above 1st.',
   },
   {
     name: 'Command',
@@ -444,6 +451,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Touch · V,S',
     description:
       'A creature you touch regains hit points (add your spellcasting modifier). Healing rises by 2d8 per slot level above 1st. No effect on undead/constructs.',
+    upcast: '+2d8 healing per slot above 1st.',
     roll: { kind: 'heal', dice: '2d8', scaleDice: '2d8', baseLevel: 1, damageType: 'healing' },
   },
   {
@@ -500,6 +508,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V',
     description:
       'A creature hears a discordant melody. It makes a WIS save, taking psychic damage and fleeing on a failure (half, no flee, on success).',
+    upcast: '+1d6 damage per slot above 1st.',
     roll: { kind: 'save', dice: '3d6', scaleDice: '1d6', baseLevel: 1, save: 'WIS', damageType: 'psychic' },
   },
   {
@@ -523,6 +532,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · Self · V · Concentration',
     description:
       'Your next weapon hit conjures thorny vines. The target makes a STR save or is restrained, taking piercing damage each turn it stays bound.',
+    upcast: '+1d6 damage per slot above 1st.',
     roll: { kind: 'damage', dice: '1d6', scaleDice: '1d6', baseLevel: 1, damageType: 'piercing' },
   },
   {
@@ -568,6 +578,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self · V,S,M',
     description:
       'A necromantic veil grants you temporary hit points (1d4 + 4), increasing by 5 per slot level above 1st.',
+    upcast: '+5 temp HP per slot above 1st.',
     roll: { kind: 'heal', dice: '1d4+4', baseLevel: 1, damageType: 'healing' },
   },
   {
@@ -602,6 +613,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S · Concentration',
     description:
       'A 20-ft-radius sphere of fog spreads around a point, heavily obscuring the area. Wind can disperse it. The radius grows with slot level.',
+    upcast: '+20-ft radius per slot above 1st.',
   },
   {
     name: 'Goodberry',
@@ -635,6 +647,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S',
     description:
       'A flash of light streaks toward a creature. On a hit it takes radiant damage and the next attack against it has advantage. +1d6 per slot above 1st.',
+    upcast: '+1d6 damage per slot above 1st.',
     roll: { kind: 'attack', dice: '4d6', scaleDice: '1d6', baseLevel: 1, damageType: 'radiant' },
   },
   {
@@ -647,6 +660,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · Self · V · Concentration',
     description:
       'Your next ranged weapon hit bursts into thorns. Each creature within 5 ft of the target makes a DEX save, taking piercing damage (half on success).',
+    upcast: '+1d10 damage per slot above 1st.',
     roll: { kind: 'save', dice: '1d10', scaleDice: '1d10', baseLevel: 1, save: 'DEX', damageType: 'piercing' },
   },
   {
@@ -659,6 +673,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · 60 ft · V',
     description:
       'A creature of your choice regains hit points (add your spellcasting modifier). Healing rises by 2d4 per slot level above 1st.',
+    upcast: '+2d4 healing per slot above 1st.',
     roll: { kind: 'heal', dice: '2d4', scaleDice: '2d4', baseLevel: 1, damageType: 'healing' },
   },
   {
@@ -671,6 +686,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 reaction · 60 ft · V,S',
     description:
       'In response to taking damage, you wreath your attacker in flames. It makes a DEX save, taking fire damage (half on success). +1d10 per slot above 1st.',
+    upcast: '+1d10 damage per slot above 1st.',
     roll: { kind: 'save', dice: '2d10', scaleDice: '1d10', baseLevel: 1, save: 'DEX', damageType: 'fire' },
   },
   {
@@ -694,6 +710,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · 90 ft · V,S,M · Concentration',
     description:
       'You curse a creature; your attacks deal an extra 1d6 necrotic to it and it has disadvantage on a chosen ability. The curse can move on if the target drops.',
+    upcast: 'Longer duration at 3rd and 5th level.',
     roll: { kind: 'damage', dice: '1d6', baseLevel: 1, damageType: 'necrotic' },
   },
   {
@@ -706,6 +723,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · 90 ft · V · Concentration',
     description:
       'You mark a creature as quarry; your weapon attacks against it deal an extra 1d6 damage, and you have advantage to track and find it.',
+    upcast: 'Longer duration at 3rd and 5th level.',
     roll: { kind: 'damage', dice: '1d6', baseLevel: 1 },
   },
   {
@@ -718,6 +736,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · S,M',
     description:
       'You throw an icy shard (ranged spell attack for piercing damage). It then bursts; creatures near the target make a DEX save against cold damage.',
+    upcast: '+1d6 burst cold per slot above 1st.',
     roll: { kind: 'attack', dice: '1d10', baseLevel: 1, damageType: 'piercing' },
   },
   {
@@ -741,6 +760,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Touch · V,S',
     description:
       'Make a melee spell attack. On a hit the target takes necrotic damage. +1d10 per slot level above 1st.',
+    upcast: '+1d10 damage per slot above 1st.',
     roll: { kind: 'attack', dice: '3d10', scaleDice: '1d10', baseLevel: 1, damageType: 'necrotic' },
   },
   {
@@ -786,6 +806,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S',
     description:
       'Three glowing darts each strike a target you choose, dealing force damage. The darts hit automatically. One extra dart per slot level above 1st.',
+    upcast: '+1 dart per slot above 1st.',
     roll: { kind: 'damage', dice: '1d4+1', instances: 3, scaleInstances: 1, baseLevel: 1, damageType: 'force' },
   },
   {
@@ -820,6 +841,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S',
     description:
       'A ray of sickly green energy strikes a creature (ranged spell attack). On a hit it takes poison damage and makes a CON save or is poisoned until your next turn.',
+    upcast: '+1d8 damage per slot above 1st.',
     roll: { kind: 'attack', dice: '2d8', scaleDice: '1d8', baseLevel: 1, damageType: 'poison' },
   },
   {
@@ -843,6 +865,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · Self · V · Concentration',
     description:
       'Your next weapon hit flares with flame, dealing extra fire damage and igniting the target, which takes ongoing fire each turn until it extinguishes the blaze.',
+    upcast: '+1d6 initial fire per slot above 1st.',
     roll: { kind: 'damage', dice: '1d6', scaleDice: '1d6', baseLevel: 1, damageType: 'fire' },
   },
   {
@@ -888,6 +911,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'Creatures in a 5-ft sphere make a WIS save or fall unconscious until the spell ends or they take damage. The affected area grows with slot level.',
+    upcast: '+5-ft radius per slot above 1st.',
   },
   {
     name: 'Speak with Animals',
@@ -933,6 +957,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (15-ft cube) · V,S',
     description:
       'A wave of force sweeps out. Each creature in a 15-ft cube makes a CON save, taking thunder damage and being pushed 10 ft on a failure (half, no push, on success).',
+    upcast: '+1d8 damage per slot above 1st.',
     roll: { kind: 'save', dice: '2d8', scaleDice: '1d8', baseLevel: 1, save: 'CON', damageType: 'thunder' },
   },
   {
@@ -945,6 +970,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 30 ft · V,S,M · Concentration',
     description:
       'A beam of lightning links you to a creature (ranged spell attack for lightning). Each later turn you can use an action to zap it again automatically.',
+    upcast: '+1d12 damage per slot above 1st.',
     roll: { kind: 'attack', dice: '1d12', scaleDice: '1d12', baseLevel: 1, damageType: 'lightning' },
   },
   {
@@ -971,6 +997,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 30 ft · V,S,M',
     description:
       'Up to three creatures each gain 5 extra maximum and current hit points for 8 hours. The bonus rises by 5 per slot level above 2nd.',
+    upcast: '+5 HP bonus per slot above 2nd.',
     roll: { kind: 'heal', dice: '5', scaleDice: '5', baseLevel: 2, damageType: 'healing' },
   },
   {
@@ -1060,6 +1087,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · Self · V · Concentration',
     description:
       'Your next weapon hit flares with radiance, dealing extra radiant damage and making the target glow so it cannot benefit from invisibility.',
+    upcast: '+1d6 damage per slot above 2nd.',
     roll: { kind: 'damage', dice: '2d6', scaleDice: '1d6', baseLevel: 2, damageType: 'radiant' },
   },
   {
@@ -1083,6 +1111,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'Spinning blades fill a 5-ft cube. A creature takes slashing damage when it enters or starts its turn there. +2d4 per slot above 2nd.',
+    upcast: '+2d4 damage per slot above 2nd.',
     roll: { kind: 'damage', dice: '4d4', scaleDice: '2d4', baseLevel: 2, damageType: 'slashing' },
   },
   {
@@ -1183,6 +1212,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · Self · V,S,M · Concentration',
     description:
       'You conjure a fiery blade you can wield with melee spell attacks for fire damage. It also sheds light. +1d6 per two slot levels above 2nd.',
+    upcast: '+1d6 damage per two slots above 2nd.',
     roll: { kind: 'attack', dice: '3d6', baseLevel: 2, damageType: 'fire' },
   },
   {
@@ -1195,6 +1225,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'A 5-ft sphere of flame you can roll around. Creatures it touches make a DEX save for fire damage (half on success). +1d6 per slot above 2nd.',
+    upcast: '+1d6 damage per slot above 2nd.',
     roll: { kind: 'save', dice: '2d6', scaleDice: '1d6', baseLevel: 2, save: 'DEX', damageType: 'fire' },
   },
   {
@@ -1229,6 +1260,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'A metal object glows red-hot. A creature touching it takes fire damage and may drop it (CON save) or suffer disadvantage. +1d8 per slot above 2nd.',
+    upcast: '+1d8 damage per slot above 2nd.',
     roll: { kind: 'damage', dice: '2d8', scaleDice: '1d8', baseLevel: 2, damageType: 'fire' },
   },
   {
@@ -1241,6 +1273,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'A humanoid makes a WIS save or is paralyzed, repeating the save each turn. One more target per slot level above 2nd.',
+    upcast: '+1 target per slot above 2nd.',
   },
   {
     name: 'Invisibility',
@@ -1252,6 +1285,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Touch · V,S,M · Concentration',
     description:
       'A creature you touch becomes invisible until it attacks or casts a spell. One more target per slot level above 2nd.',
+    upcast: '+1 target per slot above 2nd.',
   },
   {
     name: 'Knock',
@@ -1318,6 +1352,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · Touch · V,S · Concentration',
     description:
       'A nonmagical weapon becomes a +1 magic weapon (more at higher slot levels) for the duration.',
+    upcast: '+2 bonus at 4th, +3 at 6th.',
   },
   {
     name: 'Melf’s Acid Arrow',
@@ -1329,6 +1364,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 90 ft · V,S,M',
     description:
       'A shimmering arrow of acid streaks toward a creature (ranged spell attack). On a hit it takes acid damage now and at the start of its next turn.',
+    upcast: '+1d4 damage per slot above 2nd.',
     roll: { kind: 'attack', dice: '4d4', scaleDice: '1d4', baseLevel: 2, damageType: 'acid' },
   },
   {
@@ -1363,6 +1399,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S,M · Concentration',
     description:
       'A 5-ft beam of moonlight. A creature entering or starting its turn there makes a CON save for radiant damage (half on success). +1d10 per slot above 2nd.',
+    upcast: '+1d10 damage per slot above 2nd.',
     roll: { kind: 'save', dice: '2d10', scaleDice: '1d10', baseLevel: 2, save: 'CON', damageType: 'radiant' },
   },
   {
@@ -1386,6 +1423,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '10 minutes · 30 ft · V',
     description:
       'Up to six creatures each regain hit points (add your spellcasting modifier). Healing rises by 1d8 per slot level above 2nd.',
+    upcast: '+1d8 healing per slot above 2nd.',
     roll: { kind: 'heal', dice: '2d8', scaleDice: '1d8', baseLevel: 2, damageType: 'healing' },
   },
   {
@@ -1432,6 +1470,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S',
     description:
       'You create three rays of fire. Make a separate ranged spell attack for each; a hit deals 2d6 fire. One extra ray per slot level above 2nd.',
+    upcast: '+1 ray per slot above 2nd.',
     roll: { kind: 'attack', dice: '2d6', baseLevel: 2, damageType: 'fire' },
   },
   {
@@ -1455,6 +1494,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M',
     description:
       'A ringing burst fills a 10-ft sphere. Each creature makes a CON save for thunder damage (half on success). +1d8 per slot level above 2nd.',
+    upcast: '+1d8 damage per slot above 2nd.',
     roll: { kind: 'save', dice: '3d8', scaleDice: '1d8', baseLevel: 2, save: 'CON', damageType: 'thunder' },
   },
   {
@@ -1501,6 +1541,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · 60 ft · V,S',
     description:
       'A floating spectral weapon makes a melee spell attack, dealing force damage plus your spellcasting modifier. +1d8 per two slot levels above 2nd.',
+    upcast: '+1d8 damage per two slots above 2nd.',
     roll: { kind: 'attack', dice: '1d8', baseLevel: 2, damageType: 'force' },
   },
   {
@@ -1559,6 +1600,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 minute · 10 ft · V,S,M',
     description:
       'You raise a corpse or bones as a skeleton or zombie under your command. You can reassert control daily; more undead at higher slot levels.',
+    upcast: '+2 undead per slot above 3rd.',
   },
   {
     name: 'Beacon of Hope',
@@ -1581,6 +1623,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Touch · V,S · Concentration',
     description:
       'A creature makes a WIS save or suffers a curse you choose — a disadvantage, lost actions, or extra necrotic damage from your attacks.',
+    upcast: 'Longer duration per slot above 3rd.',
     roll: { kind: 'damage', dice: '1d8', baseLevel: 3, damageType: 'necrotic' },
   },
   {
@@ -1604,6 +1647,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S · Concentration',
     description:
       'A storm cloud forms; each turn you call a bolt down. Creatures under it make a DEX save for lightning damage (half on success). +1d10 per slot above 3rd.',
+    upcast: '+1d10 damage per slot above 3rd.',
     roll: { kind: 'save', dice: '3d10', scaleDice: '1d10', baseLevel: 3, save: 'DEX', damageType: 'lightning' },
   },
   {
@@ -1627,6 +1671,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S · Concentration',
     description:
       'You summon fey spirits in beast form that fight for you. More or larger beasts appear at higher slot levels.',
+    upcast: 'More or larger beasts per slot above 3rd.',
   },
   {
     name: 'Counterspell',
@@ -1716,6 +1761,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 150 ft · V,S,M',
     description:
       'A streak blossoms into flame in a 20-ft sphere. Each creature makes a DEX save for fire damage (half on success). +1d6 per slot level above 3rd.',
+    upcast: '+1d6 damage per slot above 3rd.',
     roll: { kind: 'save', dice: '8d6', scaleDice: '1d6', baseLevel: 3, save: 'DEX', damageType: 'fire' },
   },
   {
@@ -1728,6 +1774,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Touch · V,S,M · Concentration',
     description:
       'A willing creature gains a flying speed of 60 ft for the duration. One more target per slot level above 3rd.',
+    upcast: '+1 target per slot above 3rd.',
   },
   {
     name: 'Gaseous Form',
@@ -1750,6 +1797,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 hour · Touch · V,S,M',
     description:
       'You inscribe a trap glyph that triggers on a condition you set, unleashing a harmful spell or a burst of energy. +1d8 per slot level above 3rd.',
+    upcast: '+1d8 burst damage per slot above 3rd.',
     roll: { kind: 'save', dice: '5d8', scaleDice: '1d8', baseLevel: 3, save: 'DEX' },
   },
   {
@@ -1796,6 +1844,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (100-ft line) · V,S,M',
     description:
       'A stroke of lightning forms a 100-ft line. Each creature makes a DEX save for lightning damage (half on success). +1d6 per slot level above 3rd.',
+    upcast: '+1d6 damage per slot above 3rd.',
     roll: { kind: 'save', dice: '8d6', scaleDice: '1d6', baseLevel: 3, save: 'DEX', damageType: 'lightning' },
   },
   {
@@ -1830,6 +1879,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 bonus action · 60 ft · V',
     description:
       'Up to six creatures each regain hit points (add your spellcasting modifier). Healing rises by 1d4 per slot level above 3rd.',
+    upcast: '+1d4 healing per slot above 3rd.',
     roll: { kind: 'heal', dice: '2d4', scaleDice: '1d4', baseLevel: 3, damageType: 'healing' },
   },
   {
@@ -1952,6 +2002,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (15-ft radius) · V,S,M · Concentration',
     description:
       'Protective spirits swirl around you. Enemies there have half speed and make a WIS save for radiant (or necrotic) damage. +1d8 per slot above 3rd.',
+    upcast: '+1d8 damage per slot above 3rd.',
     roll: { kind: 'save', dice: '3d8', scaleDice: '1d8', baseLevel: 3, save: 'WIS', damageType: 'radiant' },
   },
   {
@@ -1986,6 +2037,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self · V,S · Concentration',
     description:
       'Your touch drains life (melee spell attack) for necrotic damage, and you regain half that amount as hit points. +1d6 per slot above 3rd.',
+    upcast: '+1d6 damage per slot above 3rd.',
     roll: { kind: 'attack', dice: '3d6', scaleDice: '1d6', baseLevel: 3, damageType: 'necrotic' },
   },
   {
@@ -2045,6 +2097,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'A creature makes a CHA save or is banished to a harmless demiplane (or back to its home plane). One more target per slot above 4th.',
+    upcast: '+1 target per slot above 4th.',
   },
   {
     name: 'Blight',
@@ -2056,6 +2109,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 30 ft · V,S',
     description:
       'You drain life from a creature; it makes a CON save for necrotic damage (half on success). Plants automatically fail. +1d8 per slot above 4th.',
+    upcast: '+1d8 damage per slot above 4th.',
     roll: { kind: 'save', dice: '8d8', scaleDice: '1d8', baseLevel: 4, save: 'CON', damageType: 'necrotic' },
   },
   {
@@ -2090,6 +2144,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 90 ft · V,S · Concentration',
     description:
       'You summon elemental spirits that fight for you; more or larger elementals appear when cast with higher slot levels.',
+    upcast: 'More or larger elementals per slot above 4th.',
   },
   {
     name: 'Conjure Woodland Beings',
@@ -2101,6 +2156,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
       'You summon fey creatures that obey you; more or larger fey appear at higher slot levels.',
+    upcast: 'More or larger fey per slot above 4th.',
   },
   {
     name: 'Control Water',
@@ -2156,6 +2212,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S · Concentration',
     description:
       'A beast makes a WIS save or is charmed and controlled by you, obeying your telepathic commands and repeating the save when it takes damage.',
+    upcast: 'Longer duration per slot above 4th.',
   },
   {
     name: 'Fabricate',
@@ -2246,6 +2303,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 300 ft · V,S,M',
     description:
       'Hail batters a 20-ft cylinder. Each creature makes a DEX save for bludgeoning plus cold damage (half on success), and the ground becomes difficult terrain.',
+    upcast: '+1d8 cold damage per slot above 4th.',
     roll: { kind: 'save', dice: '2d8', scaleDice: '1d8', baseLevel: 4, save: 'DEX', damageType: 'bludgeoning' },
   },
   {
@@ -2269,6 +2327,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S · Concentration',
     description:
       'You manifest a creature’s worst fear. It makes a WIS save or becomes frightened, taking psychic damage each turn it fails. +1d10 per slot above 4th.',
+    upcast: '+1d10 damage per slot above 4th.',
     roll: { kind: 'save', dice: '4d10', scaleDice: '1d10', baseLevel: 4, save: 'WIS', damageType: 'psychic' },
   },
   {
@@ -2325,6 +2384,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S,M · Concentration',
     description:
       'A wall of flame springs up. Creatures within 10 ft of one side, or passing through, make a DEX save for fire damage. +1d8 per slot above 4th.',
+    upcast: '+1d8 damage per slot above 4th.',
     roll: { kind: 'save', dice: '5d8', scaleDice: '1d8', baseLevel: 4, save: 'DEX', damageType: 'fire' },
   },
 
@@ -2372,6 +2432,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S · Concentration',
     description:
       'A 20-ft sphere of poison fog rolls away from you each turn. Creatures inside make a CON save for poison damage (half on success). +1d8 per slot above 5th.',
+    upcast: '+1d8 damage per slot above 5th.',
     roll: { kind: 'save', dice: '5d8', scaleDice: '1d8', baseLevel: 5, save: 'CON', damageType: 'poison' },
   },
   {
@@ -2406,6 +2467,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (60-ft cone) · V,S,M',
     description:
       'A blast of cold air erupts in a 60-ft cone. Each creature makes a CON save for cold damage (half on success). +1d8 per slot level above 5th.',
+    upcast: '+1d8 damage per slot above 5th.',
     roll: { kind: 'save', dice: '8d8', scaleDice: '1d8', baseLevel: 5, save: 'CON', damageType: 'cold' },
   },
   {
@@ -2474,6 +2536,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S · Concentration',
     description:
       'A humanoid makes a WIS save or is charmed and controlled by you, obeying your telepathic commands and repeating the save when it takes damage.',
+    upcast: 'Longer duration per slot above 5th.',
   },
   {
     name: 'Dream',
@@ -2497,6 +2560,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M',
     description:
       'A column of divine fire roars down in a 10-ft cylinder. Each creature makes a DEX save for fire plus radiant damage (half on success). +1d6 per slot above 5th.',
+    upcast: '+1d6 fire and +1d6 radiant per slot above 5th.',
     roll: { kind: 'save', dice: '4d6', scaleDice: '1d6', baseLevel: 5, save: 'DEX', damageType: 'fire' },
   },
   {
@@ -2509,6 +2573,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 minute · 60 ft · V',
     description:
       'A creature makes a WIS save or is magically compelled to follow a command for 30 days, taking psychic damage when it disobeys.',
+    upcast: 'Longer duration at 7th and 9th level.',
     roll: { kind: 'damage', dice: '5d10', baseLevel: 5, damageType: 'psychic' },
   },
   {
@@ -2543,6 +2608,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 90 ft · V,S,M · Concentration',
     description:
       'A creature (not undead) makes a WIS save or is paralyzed, repeating the save each turn. One more target per slot level above 5th.',
+    upcast: '+1 target per slot above 5th.',
   },
   {
     name: 'Insect Plague',
@@ -2554,6 +2620,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 300 ft · V,S,M · Concentration',
     description:
       'A 20-ft sphere of biting locusts spreads as difficult terrain. Creatures inside make a CON save for piercing damage. +1d10 per slot above 5th.',
+    upcast: '+1d10 damage per slot above 5th.',
     roll: { kind: 'save', dice: '4d10', scaleDice: '1d10', baseLevel: 5, save: 'CON', damageType: 'piercing' },
   },
   {
@@ -2577,6 +2644,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S',
     description:
       'Up to six creatures in a 30-ft sphere each regain hit points (add your spellcasting modifier). Healing rises by 1d8 per slot above 5th.',
+    upcast: '+1d8 healing per slot above 5th.',
     roll: { kind: 'heal', dice: '3d8', scaleDice: '1d8', baseLevel: 5, damageType: 'healing' },
   },
   {
@@ -2746,6 +2814,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 150 ft · V,S,M',
     description:
       'A lightning bolt leaps to a target and arcs to up to three others nearby. Each makes a DEX save for lightning damage (half on success). +1 target per slot above 6th.',
+    upcast: '+1 target per slot above 6th.',
     roll: { kind: 'save', dice: '10d8', baseLevel: 6, save: 'DEX', damageType: 'lightning' },
   },
   {
@@ -2758,6 +2827,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 150 ft · V,S,M',
     description:
       'Negative energy ripples out in a 60-ft sphere. Each creature makes a CON save for necrotic damage (half on success). +2d6 per slot above 6th.',
+    upcast: '+2d6 damage per slot above 6th.',
     roll: { kind: 'save', dice: '8d6', scaleDice: '2d6', baseLevel: 6, save: 'CON', damageType: 'necrotic' },
   },
   {
@@ -2770,6 +2840,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 90 ft · V,S · Concentration',
     description:
       'You summon a powerful fey spirit that takes a beast form and fights for you, growing stronger when cast at higher slot levels.',
+    upcast: 'Stronger fey per slot above 6th.',
   },
   {
     name: 'Contingency',
@@ -2792,6 +2863,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 minute · 10 ft · V,S,M',
     description:
       'You raise up to three corpses as ghouls under your control. Higher slot levels raise more or more powerful undead.',
+    upcast: 'More or stronger undead per slot above 6th.',
   },
   {
     name: 'Disintegrate',
@@ -2803,6 +2875,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S,M',
     description:
       'A thin green ray strikes a target. It makes a DEX save for heavy force damage; if reduced to 0 it is disintegrated to dust. +3d6 per slot above 6th.',
+    upcast: '+3d6 damage per slot above 6th.',
     roll: { kind: 'save', dice: '10d6+40', scaleDice: '3d6', baseLevel: 6, save: 'DEX', damageType: 'force' },
   },
   {
@@ -2859,6 +2932,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · Self (10-ft radius) · V,S,M · Concentration',
     description:
       'An immobile shimmering barrier surrounds you, blocking spells of 5th level or lower cast from outside (higher per slot above 6th).',
+    upcast: 'Blocks +1 spell level per slot above 6th.',
   },
   {
     name: 'Guards and Wards',
@@ -2893,6 +2967,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S',
     description:
       'A creature regains 70 hit points and is cured of blindness, deafness, and disease. Healing rises by 10 per slot level above 6th.',
+    upcast: '+10 healing per slot above 6th.',
     roll: { kind: 'heal', dice: '70', scaleDice: '10', baseLevel: 6, damageType: 'healing' },
   },
   {
@@ -2927,6 +3002,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,M',
     description:
       'You suggest a reasonable course of action to up to twelve creatures; each makes a WIS save or pursues it for the duration.',
+    upcast: 'Longer duration per slot above 6th.',
   },
   {
     name: 'Move Earth',
@@ -3005,6 +3081,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S,M · Concentration',
     description:
       'You form a wall of ice. Creatures crossing where it once stood make a save for cold damage, and breaking through deals more cold. +2d6 per slot above 6th.',
+    upcast: '+2d6 damage per slot above 6th.',
     roll: { kind: 'save', dice: '10d6', scaleDice: '2d6', baseLevel: 6, save: 'DEX', damageType: 'cold' },
   },
   {
@@ -3017,6 +3094,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 120 ft · V,S,M · Concentration',
     description:
       'A wall of tough thorny brush rises. Creatures entering or in it make a DEX save for piercing damage, and moving through deals slashing. +1d8 per slot above 6th.',
+    upcast: '+1d8 damage per slot above 6th.',
     roll: { kind: 'save', dice: '7d8', scaleDice: '1d8', baseLevel: 6, save: 'DEX', damageType: 'piercing' },
   },
   {
@@ -3042,6 +3120,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 90 ft · V,S · Concentration',
     description:
       'You summon a celestial spirit that aids you — healing allies and searing foes with radiant light — growing stronger at higher slot levels.',
+    upcast: 'Stronger celestial per slot above 7th.',
   },
   {
     name: 'Delayed Blast Fireball',
@@ -3053,6 +3132,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 150 ft · V,S,M · Concentration',
     description:
       'A bead of fire waits, growing more potent each turn you concentrate, then bursts in a 20-ft sphere. Each creature makes a DEX save (half on success). +1d6 per slot above 7th.',
+    upcast: '+1d6 damage per slot above 7th.',
     roll: { kind: 'save', dice: '12d6', scaleDice: '1d6', baseLevel: 7, save: 'DEX', damageType: 'fire' },
   },
   {
@@ -3314,6 +3394,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 60 ft · V,S · Concentration',
     description:
       'A creature makes a WIS save or is charmed and controlled by you, obeying your telepathic commands and repeating the save when it takes damage.',
+    upcast: 'Longer duration per slot above 8th.',
   },
   {
     name: 'Earthquake',

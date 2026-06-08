@@ -46,8 +46,13 @@ function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
 }
 
 /** Does this entry support an upcast level selector (leveled, scaling roll)? */
+/** The base spell level (from the roll, else the entry's level). */
+const spellBaseLevel = (a: SheetAbility): number => a.roll?.baseLevel ?? a.level ?? 0;
+
+/** Any leveled spell can be cast with a higher slot — dice scale where the roll
+ *  defines `scaleDice`; otherwise the higher-level effect is the `upcast` note. */
 const upcastable = (a: SheetAbility): boolean =>
-  !!a.roll?.scaleDice && (a.roll.baseLevel ?? 0) >= 1;
+  a.type === 'spell' && spellBaseLevel(a) >= 1;
 
 /** An effect-bearing mastery gets a weapon binding + active toggle. */
 const autoMastery = (a: SheetAbility): boolean =>
@@ -253,7 +258,7 @@ export function CharacterSpells({
     rollAbility({
       characterId: character.id,
       abilityId: a.id,
-      castLevel: upcastable(a) ? castLevel[a.id] ?? a.roll?.baseLevel : undefined,
+      castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
       advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
@@ -308,7 +313,7 @@ export function CharacterSpells({
       )}
       <ul className="spell-list">
         {character.sheetAbilities.map((a) => {
-          const lvl = castLevel[a.id] ?? a.roll?.baseLevel ?? 1;
+          const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
           return (
             <li key={a.id} className="spell-entry">
               <div className="spell-head">
@@ -381,7 +386,7 @@ export function CharacterSpells({
                   </button>
                 )}
 
-                {editable && a.roll && upcastable(a) && (
+                {editable && upcastable(a) && (a.roll || isConcentration(a)) && (
                   <select
                     className="spell-level"
                     value={lvl}
@@ -390,16 +395,14 @@ export function CharacterSpells({
                       setCastLevel((c) => ({ ...c, [a.id]: Number(e.target.value) }))
                     }
                   >
-                    {Array.from({ length: 9 - (a.roll.baseLevel ?? 1) + 1 }).map(
-                      (_, i) => {
-                        const v = (a.roll!.baseLevel ?? 1) + i;
-                        return (
-                          <option key={v} value={v}>
-                            L{v}
-                          </option>
-                        );
-                      },
-                    )}
+                    {Array.from({ length: 9 - spellBaseLevel(a) + 1 }).map((_, i) => {
+                      const v = spellBaseLevel(a) + i;
+                      return (
+                        <option key={v} value={v}>
+                          L{v}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
                 {editable && a.roll && (
@@ -515,6 +518,11 @@ export function CharacterSpells({
                     </div>
                   )}
                   <p>{a.description}</p>
+                  {a.upcast && (
+                    <p className="muted spell-meta">
+                      <strong>At higher levels:</strong> {a.upcast}
+                    </p>
+                  )}
                 </div>
               )}
             </li>
