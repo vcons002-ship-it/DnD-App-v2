@@ -774,15 +774,40 @@ describe('death saves', () => {
     const { s } = arena();
     const c = downed(s);
     setDeathSaves(c.id, 0, 2);
-    // Keep rolling until a failure lands the 3rd (or a lucky 20 revives — retry).
-    for (let i = 0; i < 200; i++) {
+    // Keep rolling until a failure lands the 3rd (resetting a lucky revive/stable).
+    for (let i = 0; i < 400; i++) {
       const cur = getCharacter(c.id)!;
       if (cur.curHp > 0) { setDeathSaves(c.id, 0, 2); applyDamage('pc', c.id, cur.curHp); continue; }
       if (cur.deathSaves.failures >= 3) break;
+      if (cur.deathSaves.successes >= 3) { setDeathSaves(c.id, 0, 2); continue; } // stabilized → retry
       resolveDeathSave(s.id, c.id);
     }
     expect(getCharacter(c.id)!.deathSaves.failures).toBe(3);
     expect(listRollLog(s.id).some((r) => r.detail.includes('DIED'))).toBe(true);
+  });
+
+  it('three successes stabilizes (stops rolling); damage un-stabilizes', () => {
+    const { s } = arena();
+    const c = downed(s);
+    setDeathSaves(c.id, 3, 0); // stable
+    expect(resolveDeathSave(s.id, c.id)).toBe(false); // stable → no more rolls
+    expect(getCharacter(c.id)!.deathSaves).toEqual({ successes: 3, failures: 0 }); // persists
+    applyDamage('pc', c.id, 5); // damage while stable → unstable with one failure
+    expect(getCharacter(c.id)!.deathSaves).toEqual({ successes: 0, failures: 1 });
+  });
+
+  it('logs STABLE when the third success lands', () => {
+    const { s } = arena();
+    const c = downed(s);
+    setDeathSaves(c.id, 2, 0);
+    for (let i = 0; i < 400; i++) {
+      const cur = getCharacter(c.id)!;
+      if (cur.deathSaves.successes >= 3) break;
+      if (cur.curHp > 0 || cur.deathSaves.failures >= 3) { setDeathSaves(c.id, 2, 0); applyDamage('pc', c.id, Math.max(0, cur.curHp)); continue; }
+      resolveDeathSave(s.id, c.id);
+    }
+    expect(getCharacter(c.id)!.deathSaves.successes).toBe(3);
+    expect(listRollLog(s.id).some((r) => r.detail.includes('STABLE'))).toBe(true);
   });
 });
 

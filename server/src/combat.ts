@@ -617,7 +617,9 @@ function resolveTargetedSpellAttack(opts: {
  */
 export function resolveDeathSave(sessionId: string, characterId: string): boolean {
   const ch = getCharacter(characterId);
-  if (!ch || ch.curHp > 0) return false; // only the downed roll death saves
+  // Only a downed PC that isn't already stable (3✓) or dead (3✗) keeps rolling.
+  if (!ch || ch.curHp > 0 || ch.deathSaves.successes >= 3 || ch.deathSaves.failures >= 3)
+    return false;
   const face = rollDice('1d20')!.total;
   const log = (detail: string) =>
     addRollLog(sessionId, { roller: ch.name, label: 'Death save', expr: 'd20', total: face, detail });
@@ -635,14 +637,14 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
   else if (face >= 10) (successes = Math.min(3, successes + 1)), (kind = 'SUCCESS');
   else (failures = Math.min(3, failures + 1)), (kind = 'FAILURE');
 
+  // 3✓ stabilizes and 3✗ dies — both are persistent states (kept as the tally so
+  // the UI can show a "Stabilized"/"Dead" badge), and stop further rolling.
   let outcome = '';
   if (failures >= 3) outcome = ` — ${ch.name} has DIED`;
   else if (successes >= 3) outcome = ` — ${ch.name} is STABLE`;
 
-  const tally = `${successes}✓/${failures}✗`;
-  if (successes >= 3) (successes = 0), (failures = 0); // stable → stop rolling
   setDeathSaves(characterId, successes, failures);
-  log(`${ch.name}: d20[${face}] ${kind} (${tally})${outcome}`);
+  log(`${ch.name}: d20[${face}] ${kind} (${successes}✓/${failures}✗)${outcome}`);
   return true;
 }
 

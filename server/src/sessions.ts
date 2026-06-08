@@ -1864,8 +1864,14 @@ export function applyDamage(
     let ds = ch.deathSaves;
     if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
       ds = { successes: 0, failures: 0 };
-    } else if (amount > 0 && entity.curHp === 0) {
-      ds = { successes: ds.successes, failures: Math.min(3, ds.failures + 1) };
+    } else if (amount > 0 && entity.curHp === 0 && ds.failures < 3) {
+      // Taking damage while down adds a failure; a stable creature (3✓) becomes
+      // unstable and resumes dying with that one failure.
+      const wasStable = ds.successes >= 3;
+      ds = {
+        successes: wasStable ? 0 : ds.successes,
+        failures: wasStable ? 1 : Math.min(3, ds.failures + 1),
+      };
     }
     db.prepare(
       'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ? WHERE id = ?',

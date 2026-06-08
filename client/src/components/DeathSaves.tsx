@@ -17,6 +17,7 @@ export function DeathSaves({
   if (character.curHp > 0) return null;
   const { successes, failures } = character.deathSaves;
   const dead = failures >= 3;
+  const stable = successes >= 3;
 
   const pips = (n: number, cls: string) =>
     [0, 1, 2].map((i) => (
@@ -24,10 +25,10 @@ export function DeathSaves({
     ));
 
   return (
-    <div className={`death-saves ${dead ? 'dead' : ''}`}>
+    <div className={`death-saves ${dead ? 'dead' : ''} ${stable ? 'stable' : ''}`}>
       <div className="death-head">
-        <strong>{dead ? '💀 Dead' : 'Death Saves'}</strong>
-        {editable && !dead && (
+        <strong>{dead ? '💀 Dead' : stable ? '🟢 Stabilized' : 'Death Saves'}</strong>
+        {editable && !dead && !stable && (
           <button
             className="btn tiny"
             title="Roll a death saving throw"
