@@ -60,11 +60,14 @@ const isManeuver = (a: SheetAbility): boolean =>
 /** A stance gets an on/off toggle (a persistent attack modifier while active). */
 const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
 
-/** A concentration spell (by tag or meta) — casting it starts concentration. */
+/** Does this entry have the concentration flag (tag or meta)? Spell OR stance. */
+const castsConcentration = (a: SheetAbility): boolean =>
+  (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
+  (a.meta ?? '').toLowerCase().includes('concentration');
+
+/** A concentration SPELL (by tag or meta) — casting it starts concentration. */
 const isConcentration = (a: SheetAbility): boolean =>
-  a.type === 'spell' &&
-  ((a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
-    (a.meta ?? '').toLowerCase().includes('concentration'));
+  a.type === 'spell' && castsConcentration(a);
 
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
@@ -173,6 +176,8 @@ export function CharacterSpells({
   // it drops that concentration.
   const toggleStance = (a: SheetAbility) => {
     const goingActive = !a.stance?.active;
+    // Activating a concentration stance starts concentration — warn if another is up.
+    if (goingActive && !confirmConcentration(a)) return;
     const stance = { ...a.stance!, active: goingActive };
     // A marking stance defaults to the current target when first switched on.
     if (goingActive && stance.targeted && !stance.targetId)
@@ -228,7 +233,23 @@ export function CharacterSpells({
     }
   };
 
-  const doRoll = (a: SheetAbility) =>
+  // Warn before starting a NEW concentration while another is already running —
+  // 5e lets you keep only one, so casting ends the old. Returns false to abort.
+  const confirmConcentration = (a: SheetAbility): boolean => {
+    if (!castsConcentration(a)) return true;
+    const existing = character.conditions.find(
+      (c) => c.isConcentration && c.label !== `Concentration: ${a.name}`,
+    );
+    if (!existing) return true;
+    const prev = existing.label.replace(/^Concentration:\s*/i, '').trim() || 'another spell';
+    return window.confirm(
+      `${character.name} is already concentrating on ${prev}. ` +
+        `Casting ${a.name} will end that concentration. Continue?`,
+    );
+  };
+
+  const doRoll = (a: SheetAbility) => {
+    if (!confirmConcentration(a)) return;
     rollAbility({
       characterId: character.id,
       abilityId: a.id,
@@ -240,6 +261,7 @@ export function CharacterSpells({
       targetTokenId:
         a.roll?.kind === 'attack' && targetId ? targetId : undefined,
     });
+  };
 
   const patchRoll = (
     a: SheetAbility,

@@ -738,6 +738,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   (detected by tag/meta) now **starts concentration** on the caster automatically —
   a blue `Concentration: <spell>` condition that **replaces any prior one** (5e's
   one-at-a-time rule); buff spells with no damage roll get a **🔮 Cast** button to
-  trigger it. When a concentrating creature then takes damage, the roll log posts
+  trigger it. If another concentration is already running, casting a new one first
+  **warns the player** ("already concentrating on X — casting Y will end it") and
+  lets them confirm or cancel. When a concentrating creature then takes damage, the roll log posts
   the **DC = max(10, ⌊damage/2⌋)** CON save needed to maintain it (fired from every
   damage path: weapon hits, spell saves/auto-hit, Magic Missile darts, manual HP).
