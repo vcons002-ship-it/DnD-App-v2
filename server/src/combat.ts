@@ -10,6 +10,7 @@ import {
   setSheetAbility,
   setTokensCondition,
   setConcentration,
+  setDeathSaves,
 } from './sessions.js';
 import {
   damageMultiplier,
@@ -588,6 +589,42 @@ function resolveTargetedSpellAttack(opts: {
  * for purely descriptive entries (no roll). An attack-roll spell with a
  * `targetTokenId` rolls vs that token's AC and auto-applies typed damage.
  */
+/**
+ * Roll a 5e death saving throw for a downed PC (0 HP). 10+ is a success, under 10
+ * a failure; a natural 20 revives at 1 HP; a natural 1 is two failures. Three
+ * successes stabilizes (saves reset); three failures is death. Logs the result.
+ */
+export function resolveDeathSave(sessionId: string, characterId: string): boolean {
+  const ch = getCharacter(characterId);
+  if (!ch || ch.curHp > 0) return false; // only the downed roll death saves
+  const face = rollDice('1d20')!.total;
+  const log = (detail: string) =>
+    addRollLog(sessionId, { roller: ch.name, label: 'Death save', expr: 'd20', total: face, detail });
+
+  if (face === 20) {
+    applyDamage('pc', characterId, -1); // back to 1 HP (healing also resets saves)
+    setDeathSaves(characterId, 0, 0);
+    log(`${ch.name} rolls a natural 20 — regains 1 HP and is conscious!`);
+    return true;
+  }
+
+  let { successes, failures } = ch.deathSaves;
+  let kind: string;
+  if (face === 1) (failures = Math.min(3, failures + 2)), (kind = 'FAILURE ×2');
+  else if (face >= 10) (successes = Math.min(3, successes + 1)), (kind = 'SUCCESS');
+  else (failures = Math.min(3, failures + 1)), (kind = 'FAILURE');
+
+  let outcome = '';
+  if (failures >= 3) outcome = ` — ${ch.name} has DIED`;
+  else if (successes >= 3) outcome = ` — ${ch.name} is STABLE`;
+
+  const tally = `${successes}✓/${failures}✗`;
+  if (successes >= 3) (successes = 0), (failures = 0); // stable → stop rolling
+  setDeathSaves(characterId, successes, failures);
+  log(`${ch.name}: d20[${face}] ${kind} (${tally})${outcome}`);
+  return true;
+}
+
 /** A concentration spell, by its tag or its meta line ("… · Concentration").
  *  Covers spells AND spell-backed stances (e.g. Hunter's Mark). */
 function isConcentrationSpell(a: SheetAbility): boolean {

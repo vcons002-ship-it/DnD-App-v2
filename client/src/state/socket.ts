@@ -156,6 +156,7 @@ type Store = {
   setSheetAbility: (characterId: string, ability: SheetAbility) => void;
   removeSheetAbility: (characterId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
+  rollDeathSave: (characterId: string) => void;
   rollMonsterAction: (
     monsterId: string,
     actionIndex: number,
@@ -366,6 +367,7 @@ export const useStore = create<Store>((set, get) => ({
   removeSheetAbility: (characterId, abilityId) =>
     get().socket?.emit('ability:remove', { characterId, abilityId }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
+  rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
   rollMonsterAction: (monsterId, actionIndex, advantage, targetTokenId) =>
     get().socket?.emit('monster:action', { monsterId, actionIndex, advantage, targetTokenId }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),

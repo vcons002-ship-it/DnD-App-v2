@@ -9,6 +9,7 @@ import {
   resolveSkillRoll,
   resolveSaves,
   resolveSave,
+  resolveDeathSave,
   noteConcentration,
 } from './combat.js';
 import {
@@ -518,6 +519,13 @@ export function registerSocketHandlers(io: IOServer): void {
         }
       }
       if (ok) afterChange();
+    });
+
+    // Roll a death saving throw for a downed PC (owner or DM).
+    socket.on('death:roll', ({ characterId }) => {
+      const sid = sessionId();
+      if (!sid || !ownsCharacter(characterId)) return;
+      if (resolveDeathSave(sid, characterId)) afterChange();
     });
 
     // Roll a monster's structured action (breath weapon / spell-like) — DM only.

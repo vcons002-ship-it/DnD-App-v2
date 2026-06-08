@@ -750,6 +750,24 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .item-desc-head { display: flex; align-items: center; gap: 10px; }
 .item-desc-head h4 { margin: 0; flex: 1; }
 
+/* Death saves (shown when a PC hits 0 HP) */
+.death-saves {
+  border: 1px solid #b3434a; border-radius: 8px; padding: 6px 10px; margin: 6px 0;
+  background: rgba(179, 67, 74, 0.08);
+}
+.death-saves.dead { background: rgba(179, 67, 74, 0.2); }
+.death-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.death-head .btn { margin-left: auto; }
+.death-row { display: flex; align-items: center; gap: 8px; }
+.death-label { width: 70px; font-size: 12px; }
+.death-pips { display: inline-flex; gap: 5px; }
+.death-pip {
+  width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--line);
+  display: inline-block;
+}
+.death-pip.ok.on { background: #3fae6b; border-color: #3fae6b; }
+.death-pip.bad.on { background: #c0444b; border-color: #c0444b; }
+
 /* Drag-reorderable DM panel sections */
 .reorder-section { border-bottom: 1px solid var(--line); }
 .reorder-section.dragging { opacity: 0.5; }

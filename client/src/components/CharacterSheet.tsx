@@ -6,6 +6,7 @@ import { CharacterSkills } from './CharacterSkills';
 import { CharacterResources } from './CharacterResources';
 import { CharacterSpells } from './CharacterSpells';
 import { CharacterItems } from './CharacterItems';
+import { DeathSaves } from './DeathSaves';
 import { SheetImportExport } from './SheetImportExport';
 import { LibraryCharacterDialog } from './LibraryCharacterDialog';
 
@@ -63,6 +64,7 @@ export function CharacterSheet({
             : undefined
         }
       />
+      <DeathSaves character={character} editable={editable} />
       <CharacterResources character={character} editable={editable} />
       <CharacterSpells character={character} editable={editable} />
       <CharacterSkills character={character} editable={editable} />

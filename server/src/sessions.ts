@@ -463,6 +463,19 @@ export function setMonsterPlayerNotes(
   return getMonster(monsterId);
 }
 
+/** Write a character's death-save tallies (each clamped 0–3). */
+export function setDeathSaves(
+  characterId: string,
+  successes: number,
+  failures: number,
+): Character | null {
+  const clamp = (n: number) => Math.max(0, Math.min(3, Math.round(n)));
+  db.prepare(
+    'UPDATE characters SET death_successes = ?, death_failures = ? WHERE id = ?',
+  ).run(clamp(successes), clamp(failures), characterId);
+  return getCharacter(characterId);
+}
+
 /** Damage (+) / heal (−) every listed token's creature (AOE). */
 export function damageTokens(tokenIds: string[], amount: number): void {
   for (const id of tokenIds) {
@@ -1717,12 +1730,27 @@ export function applyDamage(
   } else {
     nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
   }
+  // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
+  // while already down adds a failure (5e auto-fail).
+  if (kind === 'pc') {
+    const ch = entity as Character;
+    let ds = ch.deathSaves;
+    if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
+      ds = { successes: 0, failures: 0 };
+    } else if (amount > 0 && entity.curHp === 0) {
+      ds = { successes: ds.successes, failures: Math.min(3, ds.failures + 1) };
+    }
+    db.prepare(
+      'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ? WHERE id = ?',
+    ).run(nextCur, nextTemp, ds.successes, ds.failures, refId);
+    return getCharacter(refId);
+  }
   db.prepare(`UPDATE ${table} SET cur_hp = ?, temp_hp = ? WHERE id = ?`).run(
     nextCur,
     nextTemp,
     refId,
   );
-  return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  return getMonster(refId);
 }
 
 export function setCondition(

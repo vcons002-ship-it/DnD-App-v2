@@ -341,6 +341,8 @@ ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
 ensureColumn('monsters', 'player_notes', "player_notes TEXT NOT NULL DEFAULT ''");
 // Battle Master Superiority Die size (the pool lives in the resources counters).
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
+ensureColumn('characters', 'death_successes', 'death_successes INTEGER NOT NULL DEFAULT 0');
+ensureColumn('characters', 'death_failures', 'death_failures INTEGER NOT NULL DEFAULT 0');
 
 export const newId = (): string => randomUUID();
 
@@ -450,6 +452,8 @@ type CharacterRow = {
   claimed_by: string | null;
   last_attack_role: string | null;
   superiority_die: string | null;
+  death_successes: number | null;
+  death_failures: number | null;
   icon: string;
 };
 
@@ -482,6 +486,10 @@ export function rowToCharacter(r: CharacterRow): Character {
     claimedBy: r.claimed_by,
     lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
     superiorityDie: r.superiority_die ?? undefined,
+    deathSaves: {
+      successes: r.death_successes ?? 0,
+      failures: r.death_failures ?? 0,
+    },
     icon: r.icon ?? '',
   };
 }
