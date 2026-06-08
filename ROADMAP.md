@@ -772,3 +772,16 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Connection resilience.** Resilient Socket.IO reconnection with the last
   snapshot kept on screen and outgoing actions buffered/flushed on reconnect; a
   "Reconnecting…" banner (new `reconnecting` status) signals the offline state.
+- ☑ **Player landing saved-session list.** The player join screen lists saved
+  games from the public `/api/sessions` directory to click into (mirroring the DM
+  landing), with the manual code box as fallback.
+- ☑ **Class-ability variants in search.** ~57 curated subclass/variant features
+  across all classes (rages, Metamagic, Channel Divinity, Invocations, …), tagged
+  by class + family keyword + `variant`, so a search like "rage" surfaces every
+  rage variant (feature-search limit raised so families aren't truncated).
+- ☑ **Non-combat objects (MVP).** Traps, doors, chests, and hidden items as map
+  objects (a Monster flagged `objectKind`), reusing placement/templates/hiding/
+  conditions/visibility. `ObjectControls` toggles state (Locked/Open/Disarmed/
+  Looted/…) as conditions + reveal/hide, in the floating menu and token panel;
+  players see state read-only; objects get no combat-role badge. (Shops/gold/loot
+  deferred.) Remote DM session/map loading verified already working (no change).
