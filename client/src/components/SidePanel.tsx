@@ -17,9 +17,12 @@ export function SidePanel({ side, storageKey, children }: Props) {
     const v = Number(localStorage.getItem(`${storageKey}:w`));
     return v >= MIN && v <= MAX ? v : DEFAULT;
   });
-  const [collapsed, setCollapsed] = useState<boolean>(
-    () => localStorage.getItem(`${storageKey}:c`) === '1',
-  );
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    const stored = localStorage.getItem(`${storageKey}:c`);
+    if (stored !== null) return stored === '1';
+    // On phones the panels overlay the map, so start them collapsed (tab only).
+    return typeof window !== 'undefined' && window.innerWidth < 820;
+  });
 
   useEffect(() => {
     localStorage.setItem(`${storageKey}:w`, String(width));
