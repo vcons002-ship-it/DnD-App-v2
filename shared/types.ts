@@ -535,9 +535,22 @@ export type StateSnapshot = {
   monsterTemplates: Monster[];
   /** Shared dice roll log (most recent last), visible to everyone. */
   rollLog: RollEntry[];
+  /** Shared in-session chat (oldest first), visible to everyone. */
+  chat: ChatMessage[];
   /** Persistent measuring shapes (cone/circle/line) on the shown map, drawn by
    *  any role and visible to everyone. */
   measurements: Measurement[];
+};
+
+/** A shared chat message in a session. */
+export type ChatMessage = {
+  id: string;
+  /** Display name of the sender (character/DM name). */
+  sender: string;
+  /** Sender role, for color/labelling. */
+  role: Role;
+  text: string;
+  createdAt: number;
 };
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
@@ -959,6 +972,7 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
+  'chat:send': (payload: { text: string }) => void;
   'monster:action': (payload: MonsterActionRollPayload) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;

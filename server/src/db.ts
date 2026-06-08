@@ -177,6 +177,16 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  -- Shared in-session chat.
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    sender     TEXT NOT NULL DEFAULT '',
+    role       TEXT NOT NULL DEFAULT 'player',
+    text       TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+
   -- App-wide key/value store (e.g. one-time seed markers). Not session-scoped.
   CREATE TABLE IF NOT EXISTS app_meta (
     key   TEXT PRIMARY KEY,

@@ -8,6 +8,7 @@ import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
+import { ChatPanel } from '../components/ChatPanel';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
@@ -73,6 +74,7 @@ export function DmView() {
                 ),
               },
               { id: 'dice', label: 'Dice & Roll Log', node: <DicePanel snapshot={snapshot} /> },
+              { id: 'chat', label: 'Chat', node: <ChatPanel /> },
               { id: 'roll20', label: 'Roll20', node: <Roll20Panel /> },
             ]}
           />

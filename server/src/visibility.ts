@@ -10,6 +10,7 @@ import {
   listMonsters,
   listMonsterTemplates,
   listRollLog,
+  listChat,
   listTokens,
 } from './sessions.js';
 import type {
@@ -161,6 +162,7 @@ export function buildSnapshot(
     // Spawn templates are a DM-only tool.
     monsterTemplates: role === 'dm' ? listMonsterTemplates(sessionId) : [],
     rollLog,
+    chat: listChat(sessionId),
     measurements: map ? listMeasurements(map.id) : [],
   };
 }

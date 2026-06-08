@@ -89,6 +89,7 @@ import {
   rollAllInitiative,
   rollMissingInitiative,
   rollerName,
+  addChatMessage,
   setActiveMap,
   setActiveTurn,
   setCondition,
@@ -526,6 +527,15 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !ownsCharacter(characterId)) return;
       if (resolveDeathSave(sid, characterId)) afterChange();
+    });
+
+    // Shared in-session chat (anyone in the session).
+    socket.on('chat:send', ({ text }) => {
+      const sid = sessionId();
+      const body = typeof text === 'string' ? text.trim() : '';
+      if (!sid || !body) return;
+      addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
+      afterChange();
     });
 
     // Roll a monster's structured action (breath weapon / spell-like) — DM only.

@@ -21,6 +21,7 @@ import type {
   Measurement,
   Monster,
   RollEntry,
+  ChatMessage,
   SessionSummary,
   Token,
   TokenKind,
@@ -937,6 +938,44 @@ export function addRollLog(
 /** Wipe the shared roll log for a session. */
 export function clearRollLog(sessionId: string): void {
   db.prepare('DELETE FROM roll_log WHERE session_id = ?').run(sessionId);
+}
+
+/** Append a chat message and return it. */
+export function addChatMessage(
+  sessionId: string,
+  sender: string,
+  role: ChatMessage['role'],
+  text: string,
+): ChatMessage {
+  const msg: ChatMessage = {
+    id: newId(),
+    sender,
+    role,
+    text: text.slice(0, 2000),
+    createdAt: Date.now(),
+  };
+  db.prepare(
+    'INSERT INTO chat_messages (id, session_id, sender, role, text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt);
+  return msg;
+}
+
+/** Most-recent chat messages, oldest-first for display (capped). */
+export function listChat(sessionId: string, limit = 100): ChatMessage[] {
+  const rows = db
+    .prepare(
+      'SELECT id, sender, role, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+    )
+    .all(sessionId, limit) as {
+    id: string;
+    sender: string;
+    role: ChatMessage['role'];
+    text: string;
+    created_at: number;
+  }[];
+  return rows
+    .map((r) => ({ id: r.id, sender: r.sender, role: r.role, text: r.text, createdAt: r.created_at }))
+    .reverse();
 }
 
 /** Most-recent rolls, returned oldest-first for display (capped). */
