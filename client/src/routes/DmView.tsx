@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
+import { InitiativePanel } from '../components/InitiativePanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
@@ -58,7 +59,7 @@ export function DmView() {
             sections={[
               {
                 id: 'maps',
-                label: 'Maps, Spawn & Initiative',
+                label: 'Maps & Spawn',
                 node: (
                   <DmPanel
                     snapshot={snapshot}
@@ -68,6 +69,15 @@ export function DmView() {
                         cur?.refId === refId ? null : { kind, refId },
                       )
                     }
+                  />
+                ),
+              },
+              {
+                id: 'initiative',
+                label: 'Initiative',
+                node: (
+                  <InitiativePanel
+                    snapshot={snapshot}
                     selectedTokenId={primaryId}
                     onSelectToken={(t) => handleSelect(t, false)}
                   />

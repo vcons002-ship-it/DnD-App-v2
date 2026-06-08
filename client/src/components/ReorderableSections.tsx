@@ -16,6 +16,18 @@ function loadOrder(storageKey: string, fallback: string[]): string[] {
   }
 }
 
+/** Section ids the user has collapsed (default = open, i.e. absent). */
+function loadCollapsed(storageKey: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(`${storageKey}-collapsed`);
+    if (!raw) return new Set();
+    const saved = JSON.parse(raw);
+    return Array.isArray(saved) ? new Set(saved as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
 /**
  * Stacks the given sections in a user-orderable column. Each section has a small
  * drag handle (only the handle is draggable, so inner controls stay usable); the
@@ -35,6 +47,21 @@ export function ReorderableSections({
   );
   const [dragging, setDragging] = useState<string | null>(null);
   const dragId = useRef<string | null>(null);
+  // Per-section collapse (default open); persisted separately from the order.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed(storageKey));
+
+  const toggleCollapsed = (id: string) => {
+    setCollapsed((cur) => {
+      const next = new Set(cur);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try {
+        localStorage.setItem(`${storageKey}-collapsed`, JSON.stringify([...next]));
+      } catch {
+        /* ignore quota/availability errors */
+      }
+      return next;
+    });
+  };
 
   // Reconcile if the set of sections changes (added/removed).
   useEffect(() => {
@@ -92,10 +119,25 @@ export function ReorderableSections({
               }}
               title="Drag to reorder this section"
             >
+              <button
+                type="button"
+                className="reorder-caret"
+                draggable={false}
+                aria-expanded={!collapsed.has(id)}
+                title={collapsed.has(id) ? 'Expand section' : 'Collapse section'}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDragStart={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCollapsed(id);
+                }}
+              >
+                {collapsed.has(id) ? '▸' : '▾'}
+              </button>
               <span className="reorder-grip">⠿</span>
               <span className="reorder-label">{s.label}</span>
             </div>
-            {s.node}
+            {!collapsed.has(id) && s.node}
           </div>
         );
       })}

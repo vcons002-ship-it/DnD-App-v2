@@ -835,6 +835,11 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .reorder-handle:active { cursor: grabbing; }
 .reorder-grip { font-size: 13px; line-height: 1; }
 .reorder-label { font-weight: 600; }
+.reorder-caret {
+  background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted);
+  font-size: 11px; line-height: 1; display: inline-flex; align-items: center;
+}
+.reorder-caret:hover { color: var(--text); }
 
 /* Floating condition (status) popover — opens above the data cards */
 .popover-backdrop { position: fixed; inset: 0; z-index: 70; }

@@ -33,13 +33,23 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [chatText, setChatText] = useState('');
-  const endRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+  // Only auto-scroll when the user is already at the bottom, so scrolling up to
+  // read history isn't interrupted by new entries.
+  const stickRef = useRef(true);
 
   const feed = mergeFeed(snapshot.rollLog, snapshot.chat);
 
-  // Keep the newest entry in view as the feed grows.
+  const onLogScroll = () => {
+    const el = logRef.current;
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  };
+
+  // Keep the newest entry in view as the feed grows — but only scroll the log
+  // container itself (never the page), and only when already at the bottom.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' });
+    if (stickRef.current && logRef.current)
+      logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [feed.length]);
 
   const roll = (e: string) =>
@@ -114,7 +124,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           </button>
         )}
       </div>
-      <div className="roll-log">
+      <div className="roll-log" ref={logRef} onScroll={onLogScroll}>
         {feed.length === 0 && <p className="muted">No rolls or messages yet.</p>}
         {feed.map((item) => {
           if (item.kind === 'chat') {
@@ -175,7 +185,6 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
       <div className="chat-input">
         <input
