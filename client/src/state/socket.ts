@@ -31,7 +31,7 @@ import type {
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-type Status = 'idle' | 'connecting' | 'connected' | 'error';
+type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 type Store = {
   socket: TypedSocket | null;
@@ -267,7 +267,16 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.disconnect();
     set({ status: 'connecting', error: null });
 
-    const socket: TypedSocket = io({ transports: ['websocket', 'polling'] });
+    // Socket.IO auto-reconnects and buffers our outgoing events while offline,
+    // flushing them on reconnect; we re-join on every `connect` so the server
+    // re-attaches role/session (the socket id changes across reconnects).
+    const socket: TypedSocket = io({
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
+    });
 
     socket.on('state:snapshot', (snapshot) => set({ snapshot }));
     socket.on('error', (err) => set({ error: err.message }));
@@ -291,8 +300,18 @@ export const useStore = create<Store>((set, get) => ({
       );
     });
 
+    // Keep the last snapshot on screen during a blip; flag reconnecting unless we
+    // intentionally left (disconnect()/leave sets status to 'idle' separately).
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io client disconnect') return; // we asked to leave
+      set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
+    });
+
     socket.on('connect_error', () =>
-      set({ status: 'error', error: 'Could not reach the server' }),
+      set((s) =>
+        // The first connect failing is a hard error; later ones are reconnect tries.
+        s.status === 'connecting' ? { status: 'error', error: 'Could not reach the server' } : {},
+      ),
     );
 
     set({ socket });
