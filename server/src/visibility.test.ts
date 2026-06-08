@@ -528,3 +528,28 @@ describe('roll-log "Apply damage" payload visibility', () => {
     expect(buildSnapshot(session.id, 'player')!.rollLog.at(-1)!.apply).toBeUndefined();
   });
 });
+
+describe('non-combat objects', () => {
+  it('round-trips objectKind, exposes it to players, and nulls the combat badge', () => {
+    const s = createSession('Obj');
+    const map = createMap(s.id, { name: 'Vault' });
+    setActiveMap(s.id, map.id);
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Locked Chest',
+      maxHp: 10,
+      objectKind: 'chest',
+      disposition: 'neutral',
+    });
+    expect(tmpl.objectKind).toBe('chest');
+    const inst = instantiateMonster(tmpl.id)!;
+    expect(inst.objectKind).toBe('chest'); // copied onto the instance
+    expect(getMonster(inst.id)!.objectKind).toBe('chest'); // persisted via rowToMonster
+    createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+
+    const player = buildSnapshot(s.id, 'player')!;
+    const pm = player.monsters.find((m) => m.id === inst.id)!;
+    expect(pm.objectKind).toBe('chest'); // players know it's an object
+    const tok = player.tokens.find((t) => t.refId === inst.id)!;
+    expect(tok.combatRole).toBeNull(); // objects get no combat-role badge
+  });
+});

@@ -364,11 +364,19 @@ export type SheetAbility = {
   source?: 'srd' | 'gemini' | 'custom';
 };
 
+/** A non-combat interactable placed on the map (a Monster with this flag set):
+ *  traps, doors, chests, hidden items, etc. State is tracked with conditions. */
+export type ObjectKind = 'trap' | 'door' | 'chest' | 'item' | 'other';
+
 export type Monster = {
   id: string;
   sessionId: string;
   name: string;
   creatureType: string;
+  /** When set, this is a non-combat OBJECT (trap/door/chest/…), not a creature:
+   *  the UI shows interact controls instead of combat, and it gets no combat-role
+   *  badge. Otherwise undefined (a normal creature). */
+  objectKind?: ObjectKind;
   /** Level (PCs) / challenge rating (monsters) — used by the AI to scale stats. */
   level: number;
   maxHp: number;
@@ -498,6 +506,8 @@ export type MonsterPublic = {
   conditions: Condition[];
   disposition: Disposition;
   icon: string;
+  /** Non-combat object kind (chest/door/…), so players' UI shows it as an object. */
+  objectKind?: ObjectKind;
   /** Shared party notes — visible to players on every disposition tier. */
   playerNotes: string;
 };
@@ -901,12 +911,14 @@ export type MonsterCreatePayload = {
   weapons?: Weapon[];
   icon?: string;
   disposition?: Disposition;
+  objectKind?: ObjectKind;
   source?: 'srd' | 'gemini' | 'manual';
 };
 /** Patch fields of one creature instance/template (DM-only). */
 export type MonsterUpdatePayload = {
   monsterId: string;
   disposition?: Disposition;
+  objectKind?: ObjectKind;
   name?: string;
   level?: number;
   maxHp?: number;

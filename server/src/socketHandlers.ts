@@ -714,6 +714,7 @@ export function registerSocketHandlers(io: IOServer): void {
         weapons: p.weapons,
         icon: p.icon,
         disposition: p.disposition,
+        objectKind: p.objectKind,
         source: p.source,
       });
       afterChange();

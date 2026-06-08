@@ -42,7 +42,8 @@ function tokenCombatRole(t: Token): CombatRole | null {
     );
   }
   const m = getMonster(t.refId);
-  return m ? m.lastAttackRole ?? deriveCombatRole(m) : null;
+  if (!m || m.objectKind) return null; // objects (chests/doors/…) get no combat badge
+  return m.lastAttackRole ?? deriveCombatRole(m);
 }
 
 /**
@@ -61,6 +62,8 @@ function toPlayerMonster(
     conditions: m.conditions,
     disposition: m.disposition,
     icon: m.icon,
+    // Object kind is not secret — players should see a chest is a chest.
+    ...(m.objectKind ? { objectKind: m.objectKind } : {}),
     // Shared party notes are visible on every tier (the players wrote them).
     playerNotes: m.playerNotes,
   };

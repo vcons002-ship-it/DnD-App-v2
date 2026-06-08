@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   CreatureTemplate,
   Monster,
+  ObjectKind,
   StateSnapshot,
   TokenKind,
 } from '../../../shared/types';
@@ -39,6 +40,8 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   const [importing, setImporting] = useState(false);
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
+  // '' = a normal creature; otherwise a non-combat object (trap/door/chest/item).
+  const [objectKind, setObjectKind] = useState<'' | ObjectKind>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copyFrom, setCopyFrom] = useState('');
   const [busy, setBusy] = useState(false);
@@ -112,6 +115,10 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
       abilities: tmpl?.abilities,
       weapons: tmpl?.weapons,
       icon: tmpl?.icon,
+      objectKind: objectKind || undefined,
+      // Objects default to 'neutral' so players see the object (name + state) when
+      // it isn't hidden; creatures keep the default (enemy).
+      disposition: objectKind ? 'neutral' : undefined,
       // Library creatures are stored as 'manual' instances once placed.
       source: tmpl?.source === 'library' ? 'manual' : tmpl?.source ?? 'manual',
     });
@@ -396,8 +403,22 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
                 onChange={(e) => setMonHp(Number(e.target.value))}
               />
             </label>
+            <label className="mini" title="Make this a non-combat object instead of a creature">
+              Object
+              <select
+                value={objectKind}
+                onChange={(e) => setObjectKind(e.target.value as '' | ObjectKind)}
+              >
+                <option value="">— creature —</option>
+                <option value="trap">Trap</option>
+                <option value="door">Door</option>
+                <option value="chest">Chest</option>
+                <option value="item">Item</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
             <button className="btn" onClick={addMonster}>
-              Add creature
+              {objectKind ? 'Add object' : 'Add creature'}
             </button>
             {aiAvailable && (
               <button className="btn" disabled={aiBusy} onClick={aiFill}>

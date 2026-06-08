@@ -5,6 +5,7 @@ import type {
   Monster,
   MonsterNeutral,
   MonsterPublic,
+  ObjectKind,
   StateSnapshot,
   Token,
 } from '../../../shared/types';
@@ -19,6 +20,8 @@ export type TokenDisplay = {
   conditions: Condition[];
   /** Monster disposition (undefined for PCs) — drives the battlefield dot. */
   disposition?: Disposition;
+  /** Non-combat object kind (chest/door/…), undefined for creatures/PCs. */
+  objectKind?: ObjectKind;
   /** Token art (emoji or "/uploads/…"); empty for the default circle. */
   icon: string;
 };
@@ -54,6 +57,7 @@ export function resolveToken(
       tempHp: m.tempHp,
       conditions: m.conditions,
       disposition: m.disposition,
+      objectKind: m.objectKind,
       icon: m.icon,
     };
   }
@@ -61,6 +65,7 @@ export function resolveToken(
     name: m.name,
     conditions: m.conditions,
     disposition: m.disposition,
+    objectKind: m.objectKind,
     icon: m.icon,
   };
 }

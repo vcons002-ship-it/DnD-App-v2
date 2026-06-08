@@ -327,7 +327,15 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   border-radius: 12px; padding: 3px 9px; font-size: 12px; cursor: pointer;
 }
 .chip-on.red { background: #3a2326; border-color: var(--red); }
+.chip-on.green { background: #1f3a2a; border-color: var(--green); }
 .chip-on.blue { background: #1d2740; border-color: var(--blue); }
+
+/* Non-combat object (trap/door/chest/item) interact controls */
+.object-controls { margin: 6px 0; }
+.object-head { display: flex; align-items: center; gap: 8px; }
+.object-kind { font-weight: 600; text-transform: capitalize; }
+.object-state { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.object-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .buff-row { margin-top: 8px; }
 .cond-active { list-style: none; padding: 0; margin: 8px 0 0; }
 .cond-active li { display: flex; align-items: center; gap: 6px; padding: 2px 0; }

@@ -1605,6 +1605,7 @@ export type MonsterInput = {
   weapons?: Monster['weapons'];
   icon?: string;
   disposition?: Monster['disposition'];
+  objectKind?: Monster['objectKind'];
   source?: Monster['source'];
 };
 
@@ -1621,8 +1622,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1644,6 +1645,7 @@ function insertMonster(
     opts.disposition ?? 'enemy',
     JSON.stringify(opts.weapons ?? []),
     opts.level ?? 0,
+    opts.objectKind ?? null,
   );
   return getMonster(id)!;
 }
@@ -1706,6 +1708,7 @@ export function instantiateMonster(templateId: string): Monster | null {
       level: tmpl.level,
       icon: tmpl.icon,
       disposition: tmpl.disposition,
+      objectKind: tmpl.objectKind,
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -1731,6 +1734,7 @@ export function copyMonster(monsterId: string): Monster | null {
     level: m.level,
     icon: m.icon,
     disposition: m.disposition,
+    objectKind: m.objectKind,
     source: m.source,
   });
 }
@@ -1740,6 +1744,7 @@ export function updateMonster(
   monsterId: string,
   patch: Partial<{
     disposition: Monster['disposition'];
+    objectKind: Monster['objectKind'];
     name: string;
     level: number;
     maxHp: number;
@@ -1769,6 +1774,7 @@ export function updateMonster(
     vals.push(v);
   };
   if (patch.disposition !== undefined) put('disposition', patch.disposition);
+  if (patch.objectKind !== undefined) put('object_kind', patch.objectKind ?? null);
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
