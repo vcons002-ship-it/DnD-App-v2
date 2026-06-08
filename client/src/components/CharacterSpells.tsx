@@ -57,6 +57,12 @@ const isManeuver = (a: SheetAbility): boolean =>
 /** A stance gets an on/off toggle (a persistent attack modifier while active). */
 const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
 
+/** A concentration spell (by tag or meta) — casting it starts concentration. */
+const isConcentration = (a: SheetAbility): boolean =>
+  a.type === 'spell' &&
+  ((a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
+    (a.meta ?? '').toLowerCase().includes('concentration'));
+
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
  * (name + tag + details). Spells/abilities with a `roll` get a roll button
@@ -358,6 +364,15 @@ export function CharacterSpells({
                 {editable && a.roll && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>
                     {rollLabel(a.roll)}
+                  </button>
+                )}
+                {editable && !a.roll && isConcentration(a) && (
+                  <button
+                    className="btn tiny"
+                    title="Cast — start concentration (drops any spell you were concentrating on)"
+                    onClick={() => doRoll(a)}
+                  >
+                    🔮 Cast
                   </button>
                 )}
                 {editable && (

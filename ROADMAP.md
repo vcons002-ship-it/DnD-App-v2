@@ -731,7 +731,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   bonus (e.g. +1d6) applies **only to attacks against the marked token**. The combat
   console shows a target picker beside the toggle; switching the stance on defaults
   to the current target, and re-selecting moves the mark.
-- ☑ **Concentration prompts on damage.** When a creature takes damage while it has a
-  concentration condition, the roll log posts the **DC = max(10, ⌊damage/2⌋)** CON
-  save needed to maintain it (fired from every damage path: weapon hits, spell
-  saves/auto-hit, Magic Missile darts, and manual HP changes).
+- ☑ **Concentration: auto-set + prompt on damage.** Casting a concentration spell
+  (detected by tag/meta) now **starts concentration** on the caster automatically —
+  a blue `Concentration: <spell>` condition that **replaces any prior one** (5e's
+  one-at-a-time rule); buff spells with no damage roll get a **🔮 Cast** button to
+  trigger it. When a concentrating creature then takes damage, the roll log posts
+  the **DC = max(10, ⌊damage/2⌋)** CON save needed to maintain it (fired from every
+  damage path: weapon hits, spell saves/auto-hit, Magic Missile darts, manual HP).

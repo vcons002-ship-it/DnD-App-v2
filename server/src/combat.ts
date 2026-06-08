@@ -9,6 +9,7 @@ import {
   setResource,
   setSheetAbility,
   setTokensCondition,
+  setConcentration,
 } from './sessions.js';
 import {
   damageMultiplier,
@@ -587,6 +588,15 @@ function resolveTargetedSpellAttack(opts: {
  * for purely descriptive entries (no roll). An attack-roll spell with a
  * `targetTokenId` rolls vs that token's AC and auto-applies typed damage.
  */
+/** A concentration spell, by its tag or its meta line ("… · Concentration"). */
+function isConcentrationSpell(a: SheetAbility): boolean {
+  if (a.type !== 'spell') return false;
+  return (
+    (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
+    (a.meta ?? '').toLowerCase().includes('concentration')
+  );
+}
+
 export function resolveAbilityRoll(
   sessionId: string,
   roller: string,
@@ -596,6 +606,24 @@ export function resolveAbilityRoll(
   advantage?: Advantage,
   targetTokenId?: string,
 ): boolean {
+  // Casting a concentration spell starts concentration on the caster (replacing
+  // any prior one). This fires even for a buff with no damage roll.
+  if (isConcentrationSpell(ability)) {
+    const { changed } = setConcentration('pc', character.id, ability.name);
+    if (!ability.roll) {
+      setLastAttackRole('pc', character.id, 'caster');
+      if (changed)
+        addRollLog(sessionId, {
+          roller,
+          label: ability.name,
+          expr: ability.name,
+          total: 0,
+          detail: `${ability.name}: cast — now concentrating`,
+          description: ability.description || undefined,
+        });
+      return true;
+    }
+  }
   const roll = ability.roll;
   if (!roll) return false;
   // Casting a spell/ability makes this creature read as a caster on its badge.

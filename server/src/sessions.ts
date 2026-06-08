@@ -1744,6 +1744,31 @@ export function setCondition(
   return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
 }
 
+/**
+ * Start concentration on a creature for a named spell. 5e allows only one
+ * concentration at a time, so any prior concentration condition is dropped first.
+ * No-op if it's already concentrating on the same spell (avoids re-logging churn).
+ */
+export function setConcentration(
+  kind: TokenKind,
+  refId: string,
+  spellName: string,
+): { changed: boolean } {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!entity) return { changed: false };
+  const label = `Concentration: ${spellName}`;
+  if (entity.conditions.some((c) => c.isConcentration && c.label === label))
+    return { changed: false };
+  const conditions = entity.conditions.filter((c) => !c.isConcentration);
+  conditions.push({ id: newId(), label, aura: 'blue', isConcentration: true });
+  db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
+    JSON.stringify(conditions),
+    refId,
+  );
+  return { changed: true };
+}
+
 export function clearCondition(
   kind: TokenKind,
   refId: string,

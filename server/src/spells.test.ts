@@ -13,6 +13,63 @@ import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import type { SheetAbility } from '../../shared/types.js';
 
+describe('concentration spells auto-set concentration', () => {
+  const conc = (id: string, name: string, extra: Partial<SheetAbility> = {}): SheetAbility => ({
+    id,
+    name,
+    type: 'spell',
+    level: 1,
+    description: '',
+    tags: ['concentration'],
+    ...extra,
+  });
+  const concConds = (id: string) =>
+    getCharacter(id)!.conditions.filter((c) => c.isConcentration);
+
+  it('starts concentration when a no-roll concentration spell is cast', () => {
+    const s = createSession('Conc');
+    const c = createCharacter(s.id, { name: 'Cleric', className: 'Cleric', level: 5, stats: { WIS: 16 } });
+    expect(resolveAbilityRoll(s.id, 'Cleric', c, conc('b', 'Bless'))).toBe(true);
+    expect(concConds(c.id).some((x) => x.label.includes('Bless'))).toBe(true);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('concentrating');
+  });
+
+  it('keeps only one concentration — a new cast replaces the old', () => {
+    const s = createSession('Conc2');
+    const c = createCharacter(s.id, { name: 'Druid', className: 'Druid', level: 5, stats: { WIS: 16 } });
+    resolveAbilityRoll(s.id, 'Druid', c, conc('b', 'Bless'));
+    resolveAbilityRoll(s.id, 'Druid', c, conc('h', 'Hex'));
+    const conds = concConds(c.id);
+    expect(conds).toHaveLength(1);
+    expect(conds[0].label).toContain('Hex');
+  });
+
+  it('sets concentration even for a concentration spell with a damage roll', () => {
+    const s = createSession('Conc3');
+    const c = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    resolveAbilityRoll(s.id, 'Mage', c, conc('m', 'Moonbeam', {
+      level: 2,
+      roll: { kind: 'save', dice: '2d10', save: 'CON', baseLevel: 2 },
+    }));
+    expect(concConds(c.id).some((x) => x.label.includes('Moonbeam'))).toBe(true);
+  });
+
+  it('a non-concentration spell does not set concentration', () => {
+    const s = createSession('Conc4');
+    const c = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    resolveAbilityRoll(s.id, 'Mage', c, {
+      id: 'f',
+      name: 'Fireball',
+      type: 'spell',
+      level: 3,
+      description: '',
+      tags: ['fire'],
+      roll: { kind: 'save', dice: '8d6', save: 'DEX', baseLevel: 3 },
+    });
+    expect(concConds(c.id)).toHaveLength(0);
+  });
+});
+
 describe('class-feature library', () => {
   it('finds features by name or class and exposes stance/counter config', () => {
     expect(searchFeatures('rage').some((f) => f.name === 'Rage')).toBe(true);
