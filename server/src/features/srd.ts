@@ -114,12 +114,13 @@ const FEATURES: FeatureEntry[] = [
   {
     name: "Hunter's Mark",
     type: 'stance',
-    school: 'Ranger feature',
+    level: 1,
+    school: 'Divination',
     classes: ['ranger'],
-    tags: ['ranger', 'feature', 'stance', 'damage', 'concentration'],
-    meta: 'Concentration · +1d6 to weapon hits on the marked target',
+    tags: ['ranger', 'spell', 'feature', 'stance', 'damage', 'concentration'],
+    meta: '1 bonus action · L1 spell slot · Concentration · +1d6 vs the marked target',
     description:
-      'Mark a creature; your weapon attacks against the marked target deal an extra 1d6 damage. Pick the target, then toggle on while concentrating. Move the mark to a new target on a later turn by re-selecting it.',
+      'Mark a creature; your weapon attacks against the marked target deal an extra 1d6 damage. Pick the target, then toggle on — this spends a 1st-level spell slot and starts concentration. Move the mark to a new target by re-selecting it.',
     stance: { active: false, appliesTo: 'all', bonusDamage: '1d6', targeted: true },
   },
 ];

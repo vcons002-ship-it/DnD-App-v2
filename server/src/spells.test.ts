@@ -54,6 +54,22 @@ describe('concentration spells auto-set concentration', () => {
     expect(concConds(c.id).some((x) => x.label.includes('Moonbeam'))).toBe(true);
   });
 
+  it("a concentration STANCE (Hunter's Mark) also starts concentration when cast", () => {
+    const s = createSession('ConcStance');
+    const c = createCharacter(s.id, { name: 'Ranger', className: 'Ranger', level: 5, stats: { DEX: 16 } });
+    const hm: SheetAbility = {
+      id: 'hm',
+      name: "Hunter's Mark",
+      type: 'stance',
+      level: 1,
+      description: '',
+      tags: ['concentration'],
+      stance: { active: true, appliesTo: 'all', bonusDamage: '1d6', targeted: true },
+    };
+    expect(resolveAbilityRoll(s.id, 'Ranger', c, hm)).toBe(true);
+    expect(concConds(c.id).some((x) => x.label.includes("Hunter's Mark"))).toBe(true);
+  });
+
   it('a non-concentration spell does not set concentration', () => {
     const s = createSession('Conc4');
     const c = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
@@ -79,6 +95,14 @@ describe('class-feature library', () => {
     expect(rage?.type).toBe('stance');
     expect(rage?.stance?.appliesTo).toBe('melee');
     expect(rage?.useCounter?.name).toBe('Rage');
+  });
+
+  it("Hunter's Mark is a spell-backed concentration stance (uses a slot)", () => {
+    const hm = getFeature("Hunter's Mark");
+    expect(hm?.type).toBe('stance');
+    expect(hm?.level).toBe(1); // a 1st-level spell → spends a slot on activation
+    expect(hm?.stance?.targeted).toBe(true);
+    expect((hm?.tags ?? []).map((t) => t.toLowerCase())).toContain('concentration');
   });
 });
 

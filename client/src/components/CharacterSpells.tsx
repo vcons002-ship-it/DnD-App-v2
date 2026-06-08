@@ -18,7 +18,10 @@ type SpellHit = Omit<SheetAbility, 'id'>;
 function tagFor(a: SheetAbility): string {
   if (a.type === 'mastery') return a.mastery?.effect ? 'Mastery' : 'Mastery · manual';
   if (a.type === 'maneuver') return 'Maneuver';
-  if (a.type === 'stance') return a.school || 'Stance';
+  if (a.type === 'stance')
+    return (a.level ?? 0) >= 1
+      ? `Spell · L${a.level}${a.school ? ` · ${a.school}` : ''}`
+      : a.school || 'Stance';
   const bits: string[] = [];
   if (a.type === 'spell') {
     bits.push(a.level === 0 ? 'Cantrip' : `Lvl ${a.level ?? '?'}`);
@@ -89,6 +92,7 @@ export function CharacterSpells({
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const setResource = useStore((s) => s.setResource);
+  const clearCondition = useStore((s) => s.clearCondition);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
@@ -164,6 +168,9 @@ export function CharacterSpells({
   };
 
   // Toggling a stance ON spends one use of its linked counter (if it has charges).
+  // A spell-backed stance (a `level` ≥ 1, e.g. Hunter's Mark) also CASTS on
+  // activation — the server spends a spell slot and starts concentration; ending
+  // it drops that concentration.
   const toggleStance = (a: SheetAbility) => {
     const goingActive = !a.stance?.active;
     const stance = { ...a.stance!, active: goingActive };
@@ -180,6 +187,18 @@ export function CharacterSpells({
           key: a.useCounter.name,
           used: c.used + 1,
         });
+      }
+    }
+    if ((a.level ?? 0) >= 1) {
+      if (goingActive) {
+        // Cast it: spend a slot + start concentration (handled server-side).
+        rollAbility({ characterId: character.id, abilityId: a.id, castLevel: a.level });
+      } else {
+        // Ending the spell ends its concentration.
+        const conc = character.conditions.find(
+          (c) => c.isConcentration && c.label === `Concentration: ${a.name}`,
+        );
+        if (conc) clearCondition('pc', character.id, conc.id);
       }
     }
   };

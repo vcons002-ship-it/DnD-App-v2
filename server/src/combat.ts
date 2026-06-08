@@ -588,9 +588,10 @@ function resolveTargetedSpellAttack(opts: {
  * for purely descriptive entries (no roll). An attack-roll spell with a
  * `targetTokenId` rolls vs that token's AC and auto-applies typed damage.
  */
-/** A concentration spell, by its tag or its meta line ("… · Concentration"). */
+/** A concentration spell, by its tag or its meta line ("… · Concentration").
+ *  Covers spells AND spell-backed stances (e.g. Hunter's Mark). */
 function isConcentrationSpell(a: SheetAbility): boolean {
-  if (a.type !== 'spell') return false;
+  if (a.type !== 'spell' && a.type !== 'stance') return false;
   return (
     (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
     (a.meta ?? '').toLowerCase().includes('concentration')

@@ -730,7 +730,10 @@ Smaller refinements on top of the shipped Phase 2 work.
 - ☑ **Hunter's Mark marks a chosen target.** A `stance` can be `targeted`: its
   bonus (e.g. +1d6) applies **only to attacks against the marked token**. The combat
   console shows a target picker beside the toggle; switching the stance on defaults
-  to the current target, and re-selecting moves the mark.
+  to the current target, and re-selecting moves the mark. Hunter's Mark is a
+  **spell-backed stance** (`level: 1`, labelled as a spell): toggling it on **spends
+  a 1st-level spell slot and starts concentration**, and toggling it off ends that
+  concentration. (Rage/Reckless Attack are class-feature stances — no slot.)
 - ☑ **Concentration: auto-set + prompt on damage.** Casting a concentration spell
   (detected by tag/meta) now **starts concentration** on the caster automatically —
   a blue `Concentration: <spell>` condition that **replaces any prior one** (5e's
