@@ -714,9 +714,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   with a linked **`useCounter`** auto-create a tracked resource on add, and
   toggling a stance ON spends one use.
 - ☑ **Player sheet layout pass.** HP +/- buttons are small and inline beside the
-  HP line; **Conditions** and **Skills** are collapsible; **Add resource** is a
-  button beside the Resources header that reveals the field on click; **Items** is
-  relabelled **Inventory** and moved below Skills.
+  HP line; **Skills** is collapsible; the **Conditions** editor is **collapsed by
+  default for players** while the list of **active conditions stays visible** below
+  it; **Add resource** is a button beside the Resources header that reveals the
+  field on click; **Items** is relabelled **Inventory** and moved below Skills.
 - ☑ **Searchable inventory + item descriptions.** The item-library picker has a
   search box (server matches name OR description), and every inventory/library item
   has an ℹ️ button opening a description window (library items ship with SRD

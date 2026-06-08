@@ -7,10 +7,15 @@ type Props = {
   kind: TokenKind;
   refId: string;
   conditions: Condition[];
+  /**
+   * Players: collapse the chip/add editor by default (under a "Conditions"
+   * header), but keep the list of ACTIVE conditions always visible below it.
+   */
+  collapsibleEditor?: boolean;
 };
 
 /** Multi-select standard conditions + buff/nerf/concentration toggles. */
-export function ConditionPicker({ kind, refId, conditions }: Props) {
+export function ConditionPicker({ kind, refId, conditions, collapsibleEditor = false }: Props) {
   const setCondition = useStore((s) => s.setCondition);
   const clearCondition = useStore((s) => s.clearCondition);
   const [custom, setCustom] = useState('');
@@ -41,8 +46,10 @@ export function ConditionPicker({ kind, refId, conditions }: Props) {
       });
   };
 
-  return (
-    <div className="conditions">
+  // The chip grid + concentration toggle + custom buff/nerf — collapsed for
+  // players, always shown for the DM.
+  const editor = (
+    <>
       <div className="cond-grid">
         {STANDARD_CONDITIONS.map((label) => (
           <button
@@ -75,6 +82,19 @@ export function ConditionPicker({ kind, refId, conditions }: Props) {
           Nerf
         </button>
       </div>
+    </>
+  );
+
+  return (
+    <div className="conditions">
+      {collapsibleEditor ? (
+        <details className="collapse-section">
+          <summary className="collapse-head">Conditions</summary>
+          {editor}
+        </details>
+      ) : (
+        editor
+      )}
 
       {conditions.length > 0 && (
         <ul className="cond-active">

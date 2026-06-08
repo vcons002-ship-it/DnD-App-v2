@@ -106,10 +106,12 @@ export function PlayerPanel({
               {placing ? 'Click the map to place…' : '📍 Place my token'}
             </button>
           )}
-          <details className="collapse-section" open>
-            <summary className="collapse-head">Conditions</summary>
-            <ConditionPicker kind="pc" refId={mine.id} conditions={mine.conditions} />
-          </details>
+          <ConditionPicker
+            kind="pc"
+            refId={mine.id}
+            conditions={mine.conditions}
+            collapsibleEditor
+          />
           <CharacterSheet character={mine} editable />
         </div>
       )}
