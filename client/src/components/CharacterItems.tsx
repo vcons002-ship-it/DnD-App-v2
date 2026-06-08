@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { Character, LibraryItem } from '../../../shared/types';
 import { useStore } from '../state/socket';
 
-/** Per-character inventory: editable list + add free-form or from the library. */
+/** Per-character inventory: editable list + add free-form or from the searchable
+ *  library. Each item can carry a description, viewable in a popup window. */
 export function CharacterItems({
   character,
   editable,
@@ -15,15 +16,22 @@ export function CharacterItems({
   const [name, setName] = useState('');
   const [qty, setQty] = useState(1);
   const [picker, setPicker] = useState(false);
+  const [query, setQuery] = useState('');
   const [lib, setLib] = useState<LibraryItem[]>([]);
+  // The inventory item whose description window is open (null = none).
+  const [desc, setDesc] = useState<{ name: string; note: string } | null>(null);
 
   useEffect(() => {
     if (!picker) return;
-    fetch('/api/library/items')
+    let live = true;
+    fetch(`/api/library/items?q=${encodeURIComponent(query)}`)
       .then((r) => r.json())
-      .then(setLib)
-      .catch(() => setLib([]));
-  }, [picker]);
+      .then((d) => live && setLib(Array.isArray(d) ? d : []))
+      .catch(() => live && setLib([]));
+    return () => {
+      live = false;
+    };
+  }, [picker, query]);
 
   if (character.items.length === 0 && !editable) return null;
 
@@ -43,11 +51,18 @@ export function CharacterItems({
 
   return (
     <div className="items">
-      <h4>Items</h4>
+      <h4>Inventory</h4>
       {character.items.length === 0 && <p className="muted">No items.</p>}
       <ul className="item-list">
         {character.items.map((it) => (
           <li key={it.id} className="item-row">
+            <button
+              className="item-info"
+              title={it.note ? 'View description' : 'No description'}
+              onClick={() => setDesc({ name: it.name, note: it.note ?? '' })}
+            >
+              ℹ️
+            </button>
             <span className="item-name">{it.name}</span>
             {editable ? (
               <span className="item-qty">
@@ -97,26 +112,63 @@ export function CharacterItems({
               + Add
             </button>
             <button className="btn tiny" onClick={() => setPicker((p) => !p)}>
-              Library
+              {picker ? 'Close' : 'Library'}
             </button>
           </div>
           {picker && (
-            <div className="item-picker">
-              {lib.length === 0 && <p className="muted">Library is empty.</p>}
-              {lib.map((li) => (
-                <button
-                  key={li.id}
-                  className="suggest-row"
-                  onClick={() => add(li.name, li.qtyDefault, li.description)}
-                  title={li.description}
-                >
-                  {li.name}
-                  <span className="muted">×{li.qtyDefault}</span>
-                </button>
-              ))}
+            <div className="item-library">
+              <input
+                autoFocus
+                className="item-search"
+                placeholder="Search the item library…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <div className="item-picker">
+                {lib.length === 0 && (
+                  <p className="muted">
+                    {query.trim() ? 'No matches.' : 'Library is empty.'}
+                  </p>
+                )}
+                {lib.map((li) => (
+                  <div key={li.id} className="lib-row">
+                    <button
+                      className="suggest-row"
+                      onClick={() => add(li.name, li.qtyDefault, li.description)}
+                      title="Add to inventory"
+                    >
+                      {li.name}
+                      <span className="muted">×{li.qtyDefault}</span>
+                    </button>
+                    {li.description && (
+                      <button
+                        className="item-info"
+                        title="View description"
+                        onClick={() => setDesc({ name: li.name, note: li.description })}
+                      >
+                        ℹ️
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </>
+      )}
+
+      {desc && (
+        <div className="popover-backdrop spellbook-backdrop" onClick={() => setDesc(null)}>
+          <div className="item-desc-window" onClick={(e) => e.stopPropagation()}>
+            <div className="item-desc-head">
+              <h4>{desc.name}</h4>
+              <button className="res-x" title="Close" onClick={() => setDesc(null)}>
+                ✕
+              </button>
+            </div>
+            <p>{desc.note || <span className="muted">No description for this item.</span>}</p>
+          </div>
+        </div>
       )}
     </div>
   );

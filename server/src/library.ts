@@ -311,9 +311,9 @@ export function listLibraryItems(query = ''): LibraryItem[] {
     q
       ? db
           .prepare(
-            'SELECT * FROM library_items WHERE LOWER(name) LIKE ? ORDER BY name ASC',
+            'SELECT * FROM library_items WHERE LOWER(name) LIKE ? OR LOWER(description) LIKE ? ORDER BY name ASC',
           )
-          .all(`%${q}%`)
+          .all(`%${q}%`, `%${q}%`)
       : db.prepare('SELECT * FROM library_items ORDER BY name ASC').all()
   ) as LibItemRow[];
   return rows.map(rowToItem);

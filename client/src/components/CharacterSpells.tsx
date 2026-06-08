@@ -8,6 +8,7 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
+import { Spellbook } from './Spellbook';
 
 const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
 
@@ -17,6 +18,10 @@ type SpellHit = Omit<SheetAbility, 'id'>;
 function tagFor(a: SheetAbility): string {
   if (a.type === 'mastery') return a.mastery?.effect ? 'Mastery' : 'Mastery · manual';
   if (a.type === 'maneuver') return 'Maneuver';
+  if (a.type === 'stance')
+    return (a.level ?? 0) >= 1
+      ? `Spell · L${a.level}${a.school ? ` · ${a.school}` : ''}`
+      : a.school || 'Stance';
   const bits: string[] = [];
   if (a.type === 'spell') {
     bits.push(a.level === 0 ? 'Cantrip' : `Lvl ${a.level ?? '?'}`);
@@ -52,6 +57,18 @@ const autoMastery = (a: SheetAbility): boolean =>
 const isManeuver = (a: SheetAbility): boolean =>
   a.type === 'maneuver' && !!a.maneuver;
 
+/** A stance gets an on/off toggle (a persistent attack modifier while active). */
+const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
+
+/** Does this entry have the concentration flag (tag or meta)? Spell OR stance. */
+const castsConcentration = (a: SheetAbility): boolean =>
+  (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
+  (a.meta ?? '').toLowerCase().includes('concentration');
+
+/** A concentration SPELL (by tag or meta) — casting it starts concentration. */
+const isConcentration = (a: SheetAbility): boolean =>
+  a.type === 'spell' && castsConcentration(a);
+
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
  * (name + tag + details). Spells/abilities with a `roll` get a roll button
@@ -77,6 +94,8 @@ export function CharacterSpells({
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
+  const setResource = useStore((s) => s.setResource);
+  const clearCondition = useStore((s) => s.clearCondition);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
@@ -99,6 +118,7 @@ export function CharacterSpells({
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SpellHit[]>([]);
   const [aiAvail, setAiAvail] = useState(false);
@@ -127,8 +147,65 @@ export function CharacterSpells({
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
     });
+    // A feature with a linked use-counter (Rage, Channel Divinity…) creates that
+    // resource on the sheet so it's tracked alongside spell slots.
+    if (e.useCounter && !character.resources[e.useCounter.name]) {
+      setResource({
+        characterId: character.id,
+        group: 'resources',
+        key: e.useCounter.name,
+        max: e.useCounter.max,
+        used: 0,
+      });
+    }
     setAdding(false);
     setQ('');
+  };
+
+  const patchStance = (
+    a: SheetAbility,
+    patch: Partial<NonNullable<SheetAbility['stance']>>,
+  ) => {
+    if (!a.stance) return;
+    setSheetAbility(character.id, { ...a, stance: { ...a.stance, ...patch } });
+  };
+
+  // Toggling a stance ON spends one use of its linked counter (if it has charges).
+  // A spell-backed stance (a `level` ≥ 1, e.g. Hunter's Mark) also CASTS on
+  // activation — the server spends a spell slot and starts concentration; ending
+  // it drops that concentration.
+  const toggleStance = (a: SheetAbility) => {
+    const goingActive = !a.stance?.active;
+    // Activating a concentration stance starts concentration — warn if another is up.
+    if (goingActive && !confirmConcentration(a)) return;
+    const stance = { ...a.stance!, active: goingActive };
+    // A marking stance defaults to the current target when first switched on.
+    if (goingActive && stance.targeted && !stance.targetId)
+      stance.targetId = validDefault ?? targets[0]?.id;
+    setSheetAbility(character.id, { ...a, stance });
+    if (goingActive && a.useCounter) {
+      const c = character.resources[a.useCounter.name];
+      if (c && c.used < c.max) {
+        setResource({
+          characterId: character.id,
+          group: 'resources',
+          key: a.useCounter.name,
+          used: c.used + 1,
+        });
+      }
+    }
+    if ((a.level ?? 0) >= 1) {
+      if (goingActive) {
+        // Cast it: spend a slot + start concentration (handled server-side).
+        rollAbility({ characterId: character.id, abilityId: a.id, castLevel: a.level });
+      } else {
+        // Ending the spell ends its concentration.
+        const conc = character.conditions.find(
+          (c) => c.isConcentration && c.label === `Concentration: ${a.name}`,
+        );
+        if (conc) clearCondition('pc', character.id, conc.id);
+      }
+    }
   };
 
   const askAI = async () => {
@@ -156,7 +233,23 @@ export function CharacterSpells({
     }
   };
 
-  const doRoll = (a: SheetAbility) =>
+  // Warn before starting a NEW concentration while another is already running —
+  // 5e lets you keep only one, so casting ends the old. Returns false to abort.
+  const confirmConcentration = (a: SheetAbility): boolean => {
+    if (!castsConcentration(a)) return true;
+    const existing = character.conditions.find(
+      (c) => c.isConcentration && c.label !== `Concentration: ${a.name}`,
+    );
+    if (!existing) return true;
+    const prev = existing.label.replace(/^Concentration:\s*/i, '').trim() || 'another spell';
+    return window.confirm(
+      `${character.name} is already concentrating on ${prev}. ` +
+        `Casting ${a.name} will end that concentration. Continue?`,
+    );
+  };
+
+  const doRoll = (a: SheetAbility) => {
+    if (!confirmConcentration(a)) return;
     rollAbility({
       characterId: character.id,
       abilityId: a.id,
@@ -168,6 +261,7 @@ export function CharacterSpells({
       targetTokenId:
         a.roll?.kind === 'attack' && targetId ? targetId : undefined,
     });
+  };
 
   const patchRoll = (
     a: SheetAbility,
@@ -256,6 +350,37 @@ export function CharacterSpells({
                   </button>
                 )}
 
+                {editable && isStance(a) && a.stance!.targeted && targets.length > 0 && (
+                  <select
+                    className="spell-level"
+                    value={a.stance!.targetId ?? ''}
+                    title="Marked target — the stance only affects attacks against it"
+                    onChange={(e) => patchStance(a, { targetId: e.target.value || undefined })}
+                  >
+                    <option value="">— mark —</option>
+                    {targets.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {resolveToken(snapshot!, t).name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {editable && isStance(a) && (
+                  <button
+                    className={`btn tiny ${a.stance!.active ? 'on' : ''}`}
+                    title={
+                      a.stance!.active
+                        ? 'Active — modifying your attacks; click to end'
+                        : a.useCounter
+                          ? 'Off — click to activate (spends one use)'
+                          : 'Off — click to activate'
+                    }
+                    onClick={() => toggleStance(a)}
+                  >
+                    {a.stance!.active ? 'On' : 'Off'}
+                  </button>
+                )}
+
                 {editable && a.roll && upcastable(a) && (
                   <select
                     className="spell-level"
@@ -280,6 +405,15 @@ export function CharacterSpells({
                 {editable && a.roll && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>
                     {rollLabel(a.roll)}
+                  </button>
+                )}
+                {editable && !a.roll && isConcentration(a) && (
+                  <button
+                    className="btn tiny"
+                    title="Cast — start concentration (drops any spell you were concentrating on)"
+                    onClick={() => doRoll(a)}
+                  >
+                    🔮 Cast
                   </button>
                 )}
                 {editable && (
@@ -390,14 +524,28 @@ export function CharacterSpells({
 
       {editable && (
         <>
-          <button className="btn tiny" onClick={() => setAdding((p) => !p)}>
-            {adding ? 'Close' : '+ Add spell / ability / mastery'}
-          </button>
+          <div className="dice-row">
+            <button className="btn tiny" onClick={() => setAdding((p) => !p)}>
+              {adding ? 'Close' : '+ Add spell / ability / mastery'}
+            </button>
+            <button className="btn tiny" onClick={() => setBookOpen(true)} title="Browse the full spell list by class">
+              📖 Spellbook
+            </button>
+          </div>
+          {bookOpen && (
+            <Spellbook
+              onAdd={add}
+              onClose={() => setBookOpen(false)}
+              ownedNames={
+                new Set(character.sheetAbilities.map((a) => a.name.toLowerCase()))
+              }
+            />
+          )}
           {adding && (
             <div className="spell-add">
               <input
                 autoFocus
-                placeholder="Search e.g. Fireball, Longbow Mastery, Second Wind…"
+                placeholder="Search name or tag — Fireball, fire, cantrip, wizard, maneuver…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />

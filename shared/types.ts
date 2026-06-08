@@ -50,6 +50,15 @@ export type Weapon = {
    * rolls the weapon dice + magic, without the ability mod). Added to every hit.
    */
   magicBonus?: number;
+  /**
+   * A secondary damage rider of a DIFFERENT type — e.g. a flaming sword's
+   * `extraDamage: "1d6"`, `extraDamageType: "fire"` on top of its slashing
+   * `damage`. Rolled on a hit (doubled on a crit) and resisted/amplified by the
+   * target separately from the main type. Works for PC and creature weapons.
+   */
+  extraDamage?: string;
+  /** Damage type of `extraDamage` (e.g. "fire"); display + resistance only. */
+  extraDamageType?: string;
   /** To-hit bonus, e.g. 5 for "+5". */
   attackBonus?: number;
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
@@ -186,6 +195,15 @@ export type AbilityRoll = {
   scaleDice?: string;
   /** Spell level the base dice are written for (0 = cantrip). */
   baseLevel?: number;
+  /**
+   * Number of separate damage instances at `baseLevel` — e.g. Magic Missile's 3
+   * darts. Each instance rolls `dice` independently and is assigned to a target
+   * ONE click at a time (rather than the full total hitting every target). Only
+   * meaningful for `kind: 'damage'` (auto-hit, no save).
+   */
+  instances?: number;
+  /** Extra instances per slot level above `baseLevel` (Magic Missile: +1 dart). */
+  scaleInstances?: number;
 };
 
 /**
@@ -252,6 +270,29 @@ export type ManeuverSpec = {
 };
 
 /**
+ * A persistent combat stance — a class feature you toggle ON and leave on (e.g.
+ * Barbarian Rage, Reckless Attack). While `active`, the server applies its effect
+ * to the character's qualifying weapon attacks (added damage and/or advantage).
+ * Unlike a maneuver (a one-shot Superiority-Die spend), a stance stays on until
+ * toggled off.
+ */
+export type StanceSpec = {
+  /** Toggle — only an active stance modifies attacks. */
+  active: boolean;
+  /** Which weapon attacks it affects. */
+  appliesTo: 'melee' | 'ranged' | 'all';
+  /** Damage added on a hit — flat ("2") or dice ("1d6"); empty for none. */
+  bonusDamage?: string;
+  /** Grants advantage on the attack roll (e.g. Reckless Attack). */
+  grantsAdvantage?: boolean;
+  /** This stance marks a single target (e.g. Hunter's Mark): its effect applies
+   *  only to attacks against the marked token. Drives a target picker in the UI. */
+  targeted?: boolean;
+  /** The marked target's token id (when `targeted`); empty = nothing marked yet. */
+  targetId?: string;
+};
+
+/**
  * A spell, ability, or weapon mastery added to a character sheet. Has a
  * collapsible `description` and, when applicable, a structured `roll` powering a
  * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
@@ -262,13 +303,25 @@ export type SheetAbility = {
   /**
    * `spell` enables an upcast level selector; `ability` is a feature/action;
    * `mastery` is a weapon mastery (toggle + weapon binding); `maneuver` is a
-   * Battle Master maneuver (toggle + Superiority Die spend).
+   * Battle Master maneuver (toggle + Superiority Die spend); `stance` is a
+   * persistent class-feature toggle (Rage, Reckless Attack).
    */
-  type: 'spell' | 'ability' | 'mastery' | 'maneuver';
+  type: 'spell' | 'ability' | 'mastery' | 'maneuver' | 'stance';
   /** Spell level (0 = cantrip); omitted for non-spell abilities. */
   level?: number;
   /** School or short tag, e.g. "Evocation", "Class feature". */
   school?: string;
+  /**
+   * Classes that can cast/use this (lowercase, e.g. ["wizard", "sorcerer"]).
+   * Drives the spellbook's class filter/sort. Empty/absent for non-class items.
+   */
+  classes?: string[];
+  /**
+   * Free-form search tags — school, classes, damage type, and flags like
+   * "cantrip", "ritual", "concentration", "maneuver", "fire". Searched alongside
+   * the name so an ability is findable by what it does, not just its name.
+   */
+  tags?: string[];
   /** One-line meta, e.g. "1 action · 120 ft · V,S". */
   meta?: string;
   /** Full rules text shown in the collapsible body. */
@@ -279,6 +332,15 @@ export type SheetAbility = {
   mastery?: WeaponMastery;
   /** Battle Master maneuver config (only when `type` is `maneuver`). */
   maneuver?: ManeuverSpec;
+  /** Persistent combat-stance config (only when `type` is `stance`). */
+  stance?: StanceSpec;
+  /**
+   * A linked use-counter for the feature (e.g. Rage 1/turn uses, Channel Divinity
+   * charges). When the entry is added the client creates this resource counter,
+   * and toggling a `stance` ON spends one use. `max` is a sensible default the
+   * player can adjust.
+   */
+  useCounter?: { name: string; max: number };
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -500,6 +562,13 @@ export type RollEntry = {
     damageType?: string;
     /** Condition applied to a target that FAILS the save (Battle Master riders). */
     onFail?: string;
+    /**
+     * Per-instance pre-rolled damages (e.g. Magic Missile darts). When present,
+     * the DM assigns ONE instance per clicked target (consumed in order) instead
+     * of applying the full `amount` to every target. Server-rolled; the client
+     * only tells the server which instance index to apply.
+     */
+    split?: number[];
   };
   createdAt: number;
 };
@@ -699,6 +768,9 @@ export type SaveResolvePayload = {
   rollId: string;
   tokenId: string;
   advantage?: 'adv' | 'dis';
+  /** For a split spell (Magic Missile): which pre-rolled instance/dart to apply
+   *  to this target. The server reads the amount from the roll's `apply.split`. */
+  instanceIndex?: number;
 };
 /** Roll ONE creature's saving throw for an ability (click a stat block to roll a
  *  save). Server-authoritative: d20 + ability mod + proficiency when proficient. */

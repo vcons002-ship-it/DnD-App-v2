@@ -44,12 +44,15 @@ export function CharacterSkills({
     });
 
   return (
-    <div className="skills">
-      <div className="skills-head">
-        <h4>Skills</h4>
-        <span className="muted">Proficiency {signed(pb)}</span>
-        {editable && <AdvantageToggle entityId={character.id} className="skill-adv" />}
-      </div>
+    <details className="skills collapse-section">
+      <summary className="collapse-head">
+        Skills <span className="muted">Proficiency {signed(pb)}</span>
+      </summary>
+      {editable && (
+        <div className="skills-head">
+          <AdvantageToggle entityId={character.id} className="skill-adv" />
+        </div>
+      )}
       <div className="skill-list">
         {SKILLS.map((s) => {
           const isProf = prof.has(s.name);
@@ -90,6 +93,6 @@ export function CharacterSkills({
           );
         })}
       </div>
-    </div>
+    </details>
   );
 }

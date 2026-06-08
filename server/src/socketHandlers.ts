@@ -9,6 +9,7 @@ import {
   resolveSkillRoll,
   resolveSaves,
   resolveSave,
+  noteConcentration,
 } from './combat.js';
 import {
   aiCreateCharacter,
@@ -363,8 +364,11 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('damage:apply', ({ kind, refId, amount }) => {
-      if (!sessionId() || !Number.isFinite(amount)) return;
+      const sid = sessionId();
+      if (!sid || !Number.isFinite(amount)) return;
       applyDamage(kind, refId, amount);
+      // Damage taken while concentrating prompts a CON save (DC from the amount).
+      noteConcentration(sid, kind, refId, amount);
       afterChange();
     });
 
@@ -496,8 +500,13 @@ export function registerSocketHandlers(io: IOServer): void {
         adv,
         typeof targetTokenId === 'string' ? targetTokenId : undefined,
       );
-      // Casting a leveled spell spends a slot at the level it was cast.
-      if (ok && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
+      // Casting a leveled spell (or activating a spell-backed stance like
+      // Hunter's Mark) spends a slot at the level it was cast.
+      if (
+        ok &&
+        (ability.type === 'spell' || ability.type === 'stance') &&
+        (ability.level ?? 0) >= 1
+      ) {
         const base = ability.level as number;
         const cast = typeof castLevel === 'number' ? Math.floor(castLevel) : base;
         const slotLevel = Math.min(9, Math.max(base, cast));
@@ -525,12 +534,13 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
     // DC and auto-apply full/half of the rolled amount — DM only.
-    socket.on('save:resolve', ({ rollId, tokenId, advantage }) => {
+    socket.on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      resolveForcedSave(sid, rollId, tokenId, adv);
+      const idx = typeof instanceIndex === 'number' ? instanceIndex : undefined;
+      resolveForcedSave(sid, rollId, tokenId, adv, idx);
       afterChange();
     });
 
@@ -801,9 +811,17 @@ export function registerSocketHandlers(io: IOServer): void {
             if (!m || m.disposition !== 'friendly') return;
           }
         }
+        // Attribute the roll to the ATTACKING creature, not the player's own PC,
+        // so attacking as a friendly companion/summon reads as that creature (for
+        // a player's own token the name is the same). The DM stays "DM".
+        const attackerName =
+          at.kind === 'pc' ? getCharacter(at.refId)?.name : getMonster(at.refId)?.name;
+        const roller = isDm()
+          ? 'DM'
+          : attackerName ?? rollerName(sid, socket.id, false);
         resolveAttack(
           sid,
-          rollerName(sid, socket.id, isDm()),
+          roller,
           attackerTokenId,
           targetTokenId,
           weaponIndex,

@@ -7,6 +7,7 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
+import { ReorderableSections } from '../components/ReorderableSections';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
@@ -51,19 +52,30 @@ export function DmView() {
 
       <div className="body">
         <SidePanel side="left" storageKey="dm-left">
-          <DmPanel
-            snapshot={snapshot}
-            pending={pending}
-            onPickSpawn={(kind, refId) =>
-              setPending((cur) =>
-                cur?.refId === refId ? null : { kind, refId },
-              )
-            }
-            selectedTokenId={primaryId}
-            onSelectToken={(t) => handleSelect(t, false)}
+          <ReorderableSections
+            storageKey="dm-left-order"
+            sections={[
+              {
+                id: 'maps',
+                label: 'Maps, Spawn & Initiative',
+                node: (
+                  <DmPanel
+                    snapshot={snapshot}
+                    pending={pending}
+                    onPickSpawn={(kind, refId) =>
+                      setPending((cur) =>
+                        cur?.refId === refId ? null : { kind, refId },
+                      )
+                    }
+                    selectedTokenId={primaryId}
+                    onSelectToken={(t) => handleSelect(t, false)}
+                  />
+                ),
+              },
+              { id: 'dice', label: 'Dice & Roll Log', node: <DicePanel snapshot={snapshot} /> },
+              { id: 'roll20', label: 'Roll20', node: <Roll20Panel /> },
+            ]}
           />
-          <DicePanel snapshot={snapshot} />
-          <Roll20Panel />
         </SidePanel>
 
         <main className="center">

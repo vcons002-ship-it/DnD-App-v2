@@ -7,6 +7,7 @@ import {
   resolveAbilityRoll,
   resolveMonsterAction,
   resolveForcedSave,
+  noteConcentration,
 } from './combat.js';
 import {
   createSession,
@@ -530,6 +531,188 @@ describe('to-hit breakdown + no double-count', () => {
   });
 });
 
+describe('secondary weapon damage (flaming sword)', () => {
+  // Always-hit attacker (huge to-hit vs AC 1) with 10 slashing + a fire rider.
+  const flameSword = (extraDamage: string) => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Flamebrand',
+      maxHp: 30,
+      stats: { STR: 10 },
+      weapons: [
+        {
+          name: 'Flame Sword',
+          kind: 'melee',
+          damage: '10',
+          damageType: 'slashing',
+          attackBonus: 50,
+          extraDamage,
+          extraDamageType: 'fire',
+        },
+      ],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    return { s, map, atk };
+  };
+
+  it('adds the typed rider on a hit (10 slashing + 1d6 fire = 11..16)', () => {
+    const { s, map, atk } = flameSword('1d6');
+    const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 60 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'F', atk.id, tok.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        const dealt = before - getMonster(ref)!.curHp;
+        expect(dealt).toBeGreaterThanOrEqual(11);
+        expect(dealt).toBeLessThanOrEqual(16);
+        expect(last.detail).toMatch(/fire/);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it('resists ONLY the rider type (fire 6 → 3; slashing 10 unaffected = 13)', () => {
+    const { s, map, atk } = flameSword('6d1'); // always 6 fire
+    const dt = createMonsterTemplate(s.id, { name: 'Salamander', maxHp: 9999, armorClass: 1, resistances: ['fire'] });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 60 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'F', atk.id, tok.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/\bHIT\b/.test(last.detail) && !/CRIT/.test(last.detail)) {
+        checked = true;
+        expect(before - getMonster(ref)!.curHp).toBe(13); // 10 + floor(6/2)
+      }
+    }
+    expect(checked).toBe(true);
+  });
+});
+
+describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
+  const setup = (
+    spec: { active: boolean; appliesTo: 'melee' | 'ranged' | 'all'; bonusDamage?: string; grantsAdvantage?: boolean },
+    kind: 'melee' | 'ranged' = 'melee',
+  ) => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Grog',
+      className: 'Barbarian',
+      level: 5,
+      stats: { STR: 10, DEX: 10 },
+      weapons: [{ name: 'Club', kind, damage: '1d1', diceOnly: true, attackBonus: 50, damageType: 'bludgeoning' }],
+    });
+    setSheetAbility(ch.id, { id: 'st', name: 'Stance', type: 'stance', description: '', stance: spec });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    return { s, atk, ref, tok };
+  };
+  // First plain HIT's damage — skip a nat-20 CRIT (doubles dice) and a nat-1 MISS.
+  const nonCritDealt = (s: { id: string }, atk: { id: string }, ref: string, tok: { id: string }) => {
+    for (let i = 0; i < 120; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
+      const detail = listRollLog(s.id).at(-1)!.detail;
+      if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) return before - getMonster(ref)!.curHp;
+    }
+    throw new Error('no plain hit');
+  };
+
+  it('Rage adds flat melee damage on a hit', () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'melee', bonusDamage: '2' });
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(3); // 1 (1d1) + 0 STR + 2 Rage
+  });
+
+  it('an inactive stance adds nothing', () => {
+    const { s, atk, ref, tok } = setup({ active: false, appliesTo: 'melee', bonusDamage: '2' });
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(1); // just the 1d1
+  });
+
+  it('a melee-only stance does not modify a ranged attack', () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'melee', bonusDamage: '2' }, 'ranged');
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(1);
+  });
+
+  it("Hunter's Mark adds dice damage on a hit", () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'all', bonusDamage: '6d1' });
+    expect(nonCritDealt(s, atk, ref, tok)).toBe(7); // 1d1 + 6d1
+  });
+
+  it('Reckless Attack rolls the attack with advantage', () => {
+    const { s, atk, ref, tok } = setup({ active: true, appliesTo: 'melee', grantsAdvantage: true });
+    resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
+    expect(getMonster(ref)).toBeTruthy();
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('adv');
+  });
+
+  it("Hunter's Mark only adds damage to the marked target", () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Ranger',
+      className: 'Ranger',
+      level: 5,
+      stats: { DEX: 10 },
+      weapons: [{ name: 'Bow', kind: 'ranged', damage: '1d1', diceOnly: true, attackBonus: 50, damageType: 'piercing' }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const mk = (name: string) => {
+      const t = createMonsterTemplate(s.id, { name, maxHp: 9999, armorClass: 1 });
+      const ref = instantiateMonster(t.id)!.id;
+      return { ref, tok: createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 }) };
+    };
+    const marked = mk('Marked');
+    const other = mk('Other');
+    setSheetAbility(ch.id, {
+      id: 'hm',
+      name: "Hunter's Mark",
+      type: 'stance',
+      description: '',
+      stance: { active: true, appliesTo: 'all', bonusDamage: '6d1', targeted: true, targetId: marked.tok.id },
+    });
+    expect(nonCritDealt(s, atk, marked.ref, marked.tok)).toBe(7); // 1d1 + 6d1
+    expect(nonCritDealt(s, atk, other.ref, other.tok)).toBe(1); // mark doesn't apply
+  });
+});
+
+describe('concentration checks on damage', () => {
+  it('logs a CON save with DC = max(10, half damage) when a concentrating creature is hurt', () => {
+    const { s } = arena();
+    const inst = instantiateMonster(createMonsterTemplate(s.id, { name: 'Caster', maxHp: 100 }).id)!;
+    setCondition('monster', inst.id, { id: 'c', label: 'Hex', aura: 'blue', isConcentration: true });
+    noteConcentration(s.id, 'monster', inst.id, 24);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.label).toBe('Concentration');
+    expect(last.detail).toContain('DC 12'); // max(10, floor(24/2))
+    expect(last.detail).toContain('concentrating');
+  });
+
+  it('uses the floor of 10 for small hits', () => {
+    const { s } = arena();
+    const inst = instantiateMonster(createMonsterTemplate(s.id, { name: 'Bard', maxHp: 100 }).id)!;
+    setCondition('monster', inst.id, { id: 'c', label: 'Bless', aura: 'blue', isConcentration: true });
+    noteConcentration(s.id, 'monster', inst.id, 4);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('DC 10');
+  });
+
+  it('does nothing for a non-concentrating creature or for healing', () => {
+    const { s } = arena();
+    const inst = instantiateMonster(createMonsterTemplate(s.id, { name: 'Grunt', maxHp: 100 }).id)!;
+    const before = listRollLog(s.id).length;
+    noteConcentration(s.id, 'monster', inst.id, 30); // not concentrating
+    setCondition('monster', inst.id, { id: 'c', label: 'Bless', aura: 'blue', isConcentration: true });
+    noteConcentration(s.id, 'monster', inst.id, -5); // healing
+    expect(listRollLog(s.id).length).toBe(before);
+  });
+});
+
 describe('spell roll description', () => {
   it("carries a spell's full description on the log entry, separate from the one-line detail", () => {
     const { s } = arena();
@@ -750,6 +933,35 @@ describe('Apply damage → click-to-target saves', () => {
     const { inst, tok } = target(s, map, { name: 'Bob', maxHp: 10 });
     resolveForcedSave(s.id, 'nonexistent', tok.id);
     expect(getMonster(inst.id)!.curHp).toBe(10);
+  });
+
+  it('splits a Magic Missile-style spell into per-dart instances, one per target', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    const ability: SheetAbility = {
+      id: 'mm',
+      name: 'Magic Missile',
+      type: 'spell',
+      description: '',
+      // 3 darts, each 1d4+1 → total 6..15; +1 dart per slot above 1st.
+      roll: { kind: 'damage', dice: '1d4+1', instances: 3, scaleInstances: 1, baseLevel: 1, damageType: 'force' },
+    };
+    setSheetAbility(ch.id, ability);
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability, 2); // cast at L2 → 4 darts
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply!.split).toHaveLength(4);
+    // Each dart is 1d4+1 = 2..5; the total equals their sum.
+    expect(entry.apply!.split!.every((d) => d >= 2 && d <= 5)).toBe(true);
+    expect(entry.apply!.amount).toBe(entry.apply!.split!.reduce((a, b) => a + b, 0));
+
+    // Assigning dart 0 then dart 1 to two targets applies ONLY those darts'
+    // damage to each — not the full total to both (the bug we fixed).
+    const a = target(s, map, { name: 'GobA', maxHp: 30, stats: {} });
+    const b = target(s, map, { name: 'GobB', maxHp: 30, stats: {} });
+    resolveForcedSave(s.id, entry.id, a.tok.id, undefined, 0);
+    resolveForcedSave(s.id, entry.id, b.tok.id, undefined, 1);
+    expect(30 - getMonster(a.inst.id)!.curHp).toBe(entry.apply!.split![0]);
+    expect(30 - getMonster(b.inst.id)!.curHp).toBe(entry.apply!.split![1]);
   });
 });
 

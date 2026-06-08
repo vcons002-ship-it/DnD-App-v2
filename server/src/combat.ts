@@ -9,6 +9,7 @@ import {
   setResource,
   setSheetAbility,
   setTokensCondition,
+  setConcentration,
 } from './sessions.js';
 import {
   damageMultiplier,
@@ -90,6 +91,31 @@ function resolve(token: Token): Resolved | null {
 }
 
 /**
+ * When a creature takes damage while concentrating on a spell, log the
+ * Constitution save needed to maintain it (5e: DC = the greater of 10 and half
+ * the damage taken, rounded down). Players/DM then roll the creature's CON save.
+ * No-op for healing or a creature that isn't concentrating.
+ */
+export function noteConcentration(
+  sessionId: string,
+  kind: 'pc' | 'monster',
+  refId: string,
+  damage: number,
+): void {
+  if (damage <= 0) return;
+  const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!e || !e.conditions.some((c) => c.isConcentration)) return;
+  const dc = Math.max(10, Math.floor(damage / 2));
+  addRollLog(sessionId, {
+    roller: 'DM',
+    label: 'Concentration',
+    expr: `DC ${dc}`,
+    total: dc,
+    detail: `⚠️ ${e.name} took ${damage} damage while concentrating — make a DC ${dc} CON save or lose concentration`,
+  });
+}
+
+/**
  * Resolve a weapon attack authoritatively: roll to-hit vs the target's AC, roll
  * damage on a hit (auto-applied — the DM can heal back if needed), and log it.
  */
@@ -168,14 +194,41 @@ export function resolveAttack(
     }
   }
 
+  // Active class-feature stances (Rage, Reckless Attack, Hunter's Mark): a flat
+  // damage bonus folds into the damage number (like flat mastery damage), dice
+  // damage rolls on a hit below, and a stance can grant advantage on the attack.
+  let stanceAdvantage = false;
+  const stanceDice: { label: string; dice: string }[] = [];
+  for (const ab of ch?.sheetAbilities ?? []) {
+    const st = ab.stance;
+    if (ab.type !== 'stance' || !st?.active) continue;
+    if (st.appliesTo === 'melee' && weapon.kind !== 'melee') continue;
+    if (st.appliesTo === 'ranged' && weapon.kind !== 'ranged') continue;
+    // A marking stance (Hunter's Mark) only affects attacks on its marked target.
+    if (st.targeted && st.targetId !== targetTokenId) continue;
+    if (st.grantsAdvantage) stanceAdvantage = true;
+    if (st.bonusDamage) {
+      if (/d\d/i.test(st.bonusDamage)) {
+        stanceDice.push({ label: ab.name, dice: st.bonusDamage });
+      } else {
+        const flat = parseInt(st.bonusDamage.trim(), 10);
+        if (Number.isFinite(flat) && flat !== 0) {
+          flatBonus += flat;
+          flatLabels.push(ab.name);
+        }
+      }
+    }
+  }
+
   // Fold the attacker's & target's conditions into the requested adv/dis (5e:
-  // any advantage + any disadvantage cancel to a straight roll). A maneuver that
-  // grants advantage contributes one too.
+  // any advantage + any disadvantage cancel to a straight roll). A maneuver or an
+  // active stance that grants advantage contributes one too.
   const adv = attackAdvantage(
     a.conditionLabels,
     t.conditionLabels,
     weapon.kind,
-    advantage ?? (maneuverFired?.spec.grantsAdvantage ? 'adv' : undefined),
+    advantage ??
+      (maneuverFired?.spec.grantsAdvantage || stanceAdvantage ? 'adv' : undefined),
   );
 
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
@@ -207,6 +260,16 @@ export function resolveAttack(
       }
     }
   }
+  // Active stances that add DICE damage (e.g. Hunter's Mark +1d6) roll on a hit.
+  if (out.hit) {
+    for (const sd of stanceDice) {
+      const r = rollDice(sd.dice);
+      if (r && r.total > 0) {
+        extra += r.total;
+        masteryNotes.push(`+${r.total}[${sd.label}]`);
+      }
+    }
+  }
 
   // Note the ability modifier omitted by Cleave / an off-hand attack.
   if (out.hit && noAbilityMod) {
@@ -234,8 +297,25 @@ export function resolveAttack(
       mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
     );
   }
+  // Secondary damage rider of a different type (e.g. a flaming sword's fire),
+  // rolled on a hit (doubled on a crit) and resisted on its OWN type.
+  if (out.hit && weapon.extraDamage) {
+    let ex = rollDice(weapon.extraDamage)?.total ?? 0;
+    if (out.crit) ex += rollDice(weapon.extraDamage)?.total ?? 0;
+    const exMult = damageMultiplier(weapon.extraDamageType, t.resistances, t.weaknesses);
+    ex = Math.floor(ex * exMult);
+    if (ex > 0) {
+      applied += ex;
+      const exType = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
+      const exNote = exMult < 1 ? ' (½ resisted)' : exMult > 1 ? ' (×2 vuln)' : '';
+      masteryNotes.push(`+${ex}${exType}${exNote}`);
+    }
+  }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
-  if (applied > 0) applyDamage(t.kind, t.refId, applied);
+  if (applied > 0) {
+    applyDamage(t.kind, t.refId, applied);
+    noteConcentration(sessionId, t.kind, t.refId, applied);
+  }
   addRollLog(sessionId, {
     roller,
     label: 'Attack',
@@ -373,6 +453,7 @@ export function resolveForcedSave(
   rollId: string,
   tokenId: string,
   advantage?: Advantage,
+  instanceIndex?: number,
 ): void {
   const apply = getRollEntry(rollId)?.apply;
   if (!apply) return;
@@ -385,6 +466,23 @@ export function resolveForcedSave(
 
   let dmg: number;
   let detail: string;
+  if (apply.split && typeof instanceIndex === 'number') {
+    // A split spell (e.g. Magic Missile): apply ONE pre-rolled instance, chosen
+    // by index, to this target — auto-hit, no save. The client consumes indices
+    // in order and disarms when the darts run out.
+    const base = apply.split[instanceIndex] ?? 0;
+    dmg = Math.floor(base * mult);
+    applyDamage(r.kind, r.refId, dmg);
+    noteConcentration(sessionId, r.kind, r.refId, dmg);
+    addRollLog(sessionId, {
+      roller: 'DM',
+      label: 'Damage',
+      total: dmg,
+      expr: `dart ${instanceIndex + 1}`,
+      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+    });
+    return;
+  }
   if (apply.save) {
     const ability = apply.save;
     const proficient = r.saveProficiencies.some(
@@ -413,6 +511,7 @@ export function resolveForcedSave(
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
   applyDamage(r.kind, r.refId, dmg);
+  noteConcentration(sessionId, r.kind, r.refId, dmg);
   addRollLog(sessionId, {
     roller: 'DM',
     label: apply.save ? `${apply.save.toUpperCase()} save` : 'Damage',
@@ -465,6 +564,7 @@ function resolveTargetedSpellAttack(opts: {
           : `×2 vulnerable (${opts.damageType})`,
       );
     applyDamage(t.kind, t.refId, applied);
+    noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
   addRollLog(opts.sessionId, {
@@ -488,6 +588,16 @@ function resolveTargetedSpellAttack(opts: {
  * for purely descriptive entries (no roll). An attack-roll spell with a
  * `targetTokenId` rolls vs that token's AC and auto-applies typed damage.
  */
+/** A concentration spell, by its tag or its meta line ("… · Concentration").
+ *  Covers spells AND spell-backed stances (e.g. Hunter's Mark). */
+function isConcentrationSpell(a: SheetAbility): boolean {
+  if (a.type !== 'spell' && a.type !== 'stance') return false;
+  return (
+    (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
+    (a.meta ?? '').toLowerCase().includes('concentration')
+  );
+}
+
 export function resolveAbilityRoll(
   sessionId: string,
   roller: string,
@@ -497,6 +607,24 @@ export function resolveAbilityRoll(
   advantage?: Advantage,
   targetTokenId?: string,
 ): boolean {
+  // Casting a concentration spell starts concentration on the caster (replacing
+  // any prior one). This fires even for a buff with no damage roll.
+  if (isConcentrationSpell(ability)) {
+    const { changed } = setConcentration('pc', character.id, ability.name);
+    if (!ability.roll) {
+      setLastAttackRole('pc', character.id, 'caster');
+      if (changed)
+        addRollLog(sessionId, {
+          roller,
+          label: ability.name,
+          expr: ability.name,
+          total: 0,
+          detail: `${ability.name}: cast — now concentrating`,
+          description: ability.description || undefined,
+        });
+      return true;
+    }
+  }
   const roll = ability.roll;
   if (!roll) return false;
   // Casting a spell/ability makes this creature read as a caster on its badge.
@@ -568,9 +696,28 @@ export function resolveAbilityRoll(
     return true;
   }
 
+  const dc = spellSaveDC(level, stats);
+
+  // A split spell (e.g. Magic Missile): roll each instance/dart separately so the
+  // DM can assign them one target at a time. Upcasting adds darts, not dice.
+  const instanceCount = splitInstanceCount(roll, castLevel);
+  if (roll.kind === 'damage' && instanceCount > 0 && dice) {
+    const split = Array.from({ length: instanceCount }, () => rollDice(dice)!.total);
+    const val = split.reduce((a, b) => a + b, 0);
+    addRollLog(sessionId, {
+      roller,
+      label: ability.name,
+      expr: title,
+      total: val,
+      detail: `${title}: ${instanceCount} × [${dice}] = ${val}${dmgType} — assign one per target`,
+      description: ability.description || undefined,
+      apply: { amount: val, dc, damageType: roll.damageType, split },
+    });
+    return true;
+  }
+
   // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
   const val = dice ? rollDice(dice)!.total : 0;
-  const dc = spellSaveDC(level, stats);
   const note =
     roll.kind === 'save' && roll.save
       ? ` — DC ${dc} ${roll.save} save for half`
@@ -587,6 +734,15 @@ export function resolveAbilityRoll(
     apply: applyPayload(roll, val, dc),
   });
   return true;
+}
+
+/** Instances/darts for a split spell at the chosen cast level (Magic Missile:
+ *  3 + 1 per slot above 1st). 0 when the roll isn't a split spell. */
+function splitInstanceCount(roll: AbilityRoll, castLevel?: number): number {
+  if (!roll.instances) return 0;
+  const base = roll.baseLevel ?? 1;
+  const lvls = castLevel && castLevel > base ? castLevel - base : 0;
+  return roll.instances + (roll.scaleInstances ?? 0) * lvls;
 }
 
 /** The "Apply damage" payload for a save/damage roll (none for attack/heal or

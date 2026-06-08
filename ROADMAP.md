@@ -675,3 +675,71 @@ Smaller refinements on top of the shipped Phase 2 work.
   and the read view strips it. (4) A creature's **to-hit is shown** and
   auto-derives from ability modifier + proficiency **by CR** (2024 rule: CR 0–4
   +2, 5–8 +3, 9–12 +4…), with an editor blurb; the "hit" field overrides.
+- ☑ **Full 2024 SRD spell list + Spellbook + tag search.** Bundled the complete
+  **SRD 5.2 spell set** (`spells/spellList.ts`, ~317 spells across all classes;
+  merged into `srd.ts`, full list wins, curated class abilities preserved). Each
+  spell carries `classes` + `tags` (school, classes, damage type, `cantrip`/
+  `concentration`/`ritual`, descriptive flags). The sheet's add-search now matches
+  **name OR tag/class/damage type** (find by "fire", "cantrip", "wizard"); maneuvers
+  & masteries are likewise findable by their category words. A new **Spellbook**
+  modal (`Spellbook.tsx`, `GET /api/spells/all`) browses the whole list with a
+  class filter + keyword search, grouped by level, add-to-sheet (marks owned).
+- ☑ **Magic Missile / split-damage spells.** Multi-instance damage spells declare
+  separate `instances` (Magic Missile: 3 darts of `1d4+1`, +1 per slot above 1st);
+  the server rolls each dart into `apply.split`, and the DM assigns **one dart per
+  clicked target** (the button counts down "Dart n/N") instead of the full total
+  hitting everyone. Resist/vuln still apply per dart.
+- ☑ **Drag-reorder DM panel sections.** The DM's left panel (Maps/Spawn/Initiative,
+  Dice & Roll Log, Roll20) reorders by dragging each section's handle; order
+  persists per browser (`ReorderableSections`, native HTML5 DnD — same pattern as
+  the Data view cards). _(Closes the deferred WP7 "drag-reorder toolbar sections".)_
+- ☑ **Attack-as-the-acting-creature.** A player attacking with a friendly
+  companion/summon (the floating menu's "Attacking as …") is now attributed in the
+  roll log to **that creature**, not the player's own PC (server derives the roller
+  from the attacking token; a player's own token is unchanged; DM stays "DM").
+- ☑ **Weapon damage types as a set list + secondary damage.** Damage type is picked
+  from the canonical 5e list (`shared/damage.ts`, incl. the magical types) via a
+  select in the weapon editor for **both** creatures and PCs (legacy values
+  preserved). Weapons gained a **secondary typed rider** (`extraDamage` +
+  `extraDamageType`, e.g. a flaming sword's 1d8 slashing + 1d6 fire) — rolled on a
+  hit, doubled on a crit, resisted on its **own** type independently of the main
+  damage. The magic-bonus field is **restored on creature attacks** (was PC-only).
+- ☑ **Class-feature stances + feature library.** A new `stance` ability type
+  (toggle that stays on) plus a curated feature library (`features/srd.ts`: Rage,
+  Reckless Attack, Hunter's Mark, Action Surge, Channel Divinity, Wild Shape,
+  Bardic Inspiration, Ki, Lay on Hands, Indomitable), surfaced in the "+ Add"
+  search. Stances modify the character's qualifying weapon attacks server-side —
+  flat/dice **bonus damage** (Rage +2 melee, Hunter's Mark +1d6) folded into the
+  hit, and **advantage** (Reckless Attack); each is gated by weapon kind. Features
+  with a linked **`useCounter`** auto-create a tracked resource on add, and
+  toggling a stance ON spends one use.
+- ☑ **Player sheet layout pass.** HP +/- buttons are small and inline beside the
+  HP line; **Conditions** and **Skills** are collapsible; **Add resource** is a
+  button beside the Resources header that reveals the field on click; **Items** is
+  relabelled **Inventory** and moved below Skills.
+- ☑ **Searchable inventory + item descriptions.** The item-library picker has a
+  search box (server matches name OR description), and every inventory/library item
+  has an ℹ️ button opening a description window (library items ship with SRD
+  descriptions that ride onto the item when added).
+- ☑ **PC weapon lines show dice only.** A character's weapon line reads just the
+  dice (e.g. "Greatsword 1d12 slashing") instead of re-deriving "+5 to hit. 1d12+3"
+  from live stats — the modifier/to-hit are still applied at roll time. **Dice-only
+  creature attacks now read the same way** (no re-derived to-hit/mod), since they're
+  computed from stats + proficiency at roll time; truly pre-baked monster attacks
+  still show their baked to-hit + damage.
+- ☑ **Hunter's Mark marks a chosen target.** A `stance` can be `targeted`: its
+  bonus (e.g. +1d6) applies **only to attacks against the marked token**. The combat
+  console shows a target picker beside the toggle; switching the stance on defaults
+  to the current target, and re-selecting moves the mark. Hunter's Mark is a
+  **spell-backed stance** (`level: 1`, labelled as a spell): toggling it on **spends
+  a 1st-level spell slot and starts concentration**, and toggling it off ends that
+  concentration. (Rage/Reckless Attack are class-feature stances — no slot.)
+- ☑ **Concentration: auto-set + prompt on damage.** Casting a concentration spell
+  (detected by tag/meta) now **starts concentration** on the caster automatically —
+  a blue `Concentration: <spell>` condition that **replaces any prior one** (5e's
+  one-at-a-time rule); buff spells with no damage roll get a **🔮 Cast** button to
+  trigger it. If another concentration is already running, casting a new one first
+  **warns the player** ("already concentrating on X — casting Y will end it") and
+  lets them confirm or cancel. When a concentrating creature then takes damage, the roll log posts
+  the **DC = max(10, ⌊damage/2⌋)** CON save needed to maintain it (fired from every
+  damage path: weapon hits, spell saves/auto-hit, Magic Missile darts, manual HP).
