@@ -14,6 +14,8 @@ import type {
   ImportCharConflict,
   ImportConflictResolution,
   InventoryItem,
+  LootContents,
+  LootTakePayload,
   MeasureAddPayload,
   AnnotationAddPayload,
   ResourceSetPayload,
@@ -157,6 +159,8 @@ type Store = {
   setResource: (payload: ResourceSetPayload) => void;
   setItem: (characterId: string, item: InventoryItem) => void;
   removeItem: (characterId: string, itemId: string) => void;
+  setLoot: (monsterId: string, loot: LootContents) => void;
+  takeLoot: (payload: LootTakePayload) => void;
   setSheetAbility: (characterId: string, ability: SheetAbility) => void;
   removeSheetAbility: (characterId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
@@ -390,6 +394,9 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('item:set', { characterId, item }),
   removeItem: (characterId, itemId) =>
     get().socket?.emit('item:remove', { characterId, itemId }),
+  setLoot: (monsterId, loot) =>
+    get().socket?.emit('object:setLoot', { monsterId, loot }),
+  takeLoot: (payload) => get().socket?.emit('loot:take', payload),
   setSheetAbility: (characterId, ability) =>
     get().socket?.emit('ability:set', { characterId, ability }),
   removeSheetAbility: (characterId, abilityId) =>

@@ -37,6 +37,9 @@ import {
   coverFog,
   paintFog,
   addRollLog,
+  setLoot,
+  takeLoot,
+  setCondition,
 } from './sessions.js';
 
 /** Helper: make a template and place one numbered instance of it. */
@@ -551,5 +554,53 @@ describe('non-combat objects', () => {
     expect(pm.objectKind).toBe('chest'); // players know it's an object
     const tok = player.tokens.find((t) => t.refId === inst.id)!;
     expect(tok.combatRole).toBeNull(); // objects get no combat-role badge
+  });
+
+  it('fills a chest with loot, hides it until opened, and hands it to a PC', () => {
+    const s = createSession('Loot');
+    const map = createMap(s.id, { name: 'Vault' });
+    setActiveMap(s.id, map.id);
+    const chest = createMonsterTemplate(s.id, {
+      name: 'Iron Chest',
+      maxHp: 10,
+      objectKind: 'chest',
+      disposition: 'neutral',
+    });
+    const inst = instantiateMonster(chest.id)!;
+    createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    setLoot(inst.id, {
+      gold: 50,
+      items: [{ id: 'i1', name: 'Healing Potion', qty: 2, note: 'Restores HP' }],
+    });
+    expect(getMonster(inst.id)!.loot!.gold).toBe(50);
+
+    // A closed chest hides its contents from players…
+    let pm = buildSnapshot(s.id, 'player')!.monsters.find((m) => m.id === inst.id)!;
+    expect(pm.loot).toBeUndefined();
+    // …but the DM always sees them.
+    const dm = buildSnapshot(s.id, 'dm')!.monsters.find((m) => m.id === inst.id)!;
+    expect(dm.loot!.items).toHaveLength(1);
+
+    // Opening the chest reveals the loot to players.
+    setCondition('monster', inst.id, {
+      id: 'open',
+      label: 'Open',
+      aura: 'green',
+      isConcentration: false,
+    });
+    pm = buildSnapshot(s.id, 'player')!.monsters.find((m) => m.id === inst.id)!;
+    expect(pm.loot!.gold).toBe(50);
+
+    // A character takes everything: gold to the purse, items to the inventory.
+    const hero = createCharacter(s.id, { name: 'Aria' });
+    expect(hero.gold).toBe(0);
+    takeLoot(inst.id, hero.id, { all: true });
+    const after = getCharacter(hero.id)!;
+    expect(after.gold).toBe(50);
+    expect(after.items.find((i) => i.name === 'Healing Potion')!.qty).toBe(2);
+    // The emptied chest clears its loot and flags itself Looted.
+    const drained = getMonster(inst.id)!;
+    expect(drained.loot).toBeUndefined();
+    expect(drained.conditions.some((c) => c.label === 'Looted')).toBe(true);
   });
 });

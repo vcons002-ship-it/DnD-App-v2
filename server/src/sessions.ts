@@ -17,6 +17,8 @@ import type {
   CombatRole,
   Condition,
   FogLayer,
+  InventoryItem,
+  LootContents,
   MapState,
   Measurement,
   Monster,
@@ -1402,6 +1404,105 @@ export function removeItem(characterId: string, itemId: string): Character | nul
   return getCharacter(characterId);
 }
 
+/** Replace the loot held by an object (chest/treasure pile). DM-authored. An
+ *  empty container stores NULL so it reads back as `loot: undefined`. */
+export function setLoot(
+  monsterId: string,
+  loot: LootContents | null,
+): Monster | null {
+  const m = getMonster(monsterId);
+  if (!m) return null;
+  const clean: LootContents | null =
+    loot && (loot.gold > 0 || loot.items.length > 0)
+      ? {
+          gold: Math.max(0, Math.round(loot.gold)),
+          items: loot.items.map((i) => ({
+            id: i.id || newId(),
+            name: i.name,
+            qty: Math.max(1, Math.round(i.qty)),
+            note: i.note ?? '',
+          })),
+        }
+      : null;
+  db.prepare('UPDATE monsters SET loot = ? WHERE id = ?').run(
+    clean ? JSON.stringify(clean) : null,
+    monsterId,
+  );
+  return getMonster(monsterId);
+}
+
+/**
+ * Move loot from an object into a character. `all` takes everything; otherwise
+ * `itemId` takes one item and/or `gold` takes that many coins (clamped to what's
+ * there). Items merge with a matching inventory line (same name + note). When the
+ * container empties it's flagged with a "Looted"/"Taken" condition.
+ */
+export function takeLoot(
+  monsterId: string,
+  characterId: string,
+  opts: { itemId?: string; gold?: number; all?: boolean },
+): { monster: Monster; character: Character } | null {
+  const m = getMonster(monsterId);
+  const c = getCharacter(characterId);
+  if (!m || !m.loot || !c) return null;
+
+  const loot: LootContents = {
+    gold: m.loot.gold,
+    items: m.loot.items.map((i) => ({ ...i })),
+  };
+  const items = c.items.map((i) => ({ ...i }));
+  let gained = 0;
+
+  const moveItem = (it: InventoryItem) => {
+    const match = items.find(
+      (x) => x.name.toLowerCase() === it.name.toLowerCase() && (x.note ?? '') === (it.note ?? ''),
+    );
+    if (match) match.qty += it.qty;
+    else items.push({ ...it, id: newId() });
+  };
+
+  if (opts.all) {
+    loot.items.forEach(moveItem);
+    loot.items = [];
+    gained = loot.gold;
+    loot.gold = 0;
+  } else {
+    if (opts.itemId) {
+      const idx = loot.items.findIndex((i) => i.id === opts.itemId);
+      if (idx >= 0) {
+        moveItem(loot.items[idx]);
+        loot.items.splice(idx, 1);
+      }
+    }
+    if (opts.gold !== undefined) {
+      gained = Math.max(0, Math.min(Math.round(opts.gold), loot.gold));
+      loot.gold -= gained;
+    }
+  }
+
+  db.prepare('UPDATE characters SET items = ?, gold = ? WHERE id = ?').run(
+    JSON.stringify(items),
+    c.gold + gained,
+    characterId,
+  );
+
+  const emptied = loot.gold <= 0 && loot.items.length === 0;
+  setLoot(monsterId, emptied ? null : loot);
+  // Flag a drained container so its state reads "Looted"/"Taken" everywhere.
+  if (emptied) {
+    const flag = m.objectKind === 'item' ? 'Taken' : 'Looted';
+    if (!m.conditions.some((x) => x.label.toLowerCase() === flag.toLowerCase())) {
+      setCondition('monster', monsterId, {
+        id: newId(),
+        label: flag,
+        aura: 'blue',
+        isConcentration: false,
+      });
+    }
+  }
+  return { monster: getMonster(monsterId)!, character: getCharacter(characterId)! };
+}
+
 /** Upsert a spell/ability on a character's sheet (by id). */
 export function setSheetAbility(
   characterId: string,
@@ -1464,6 +1565,7 @@ export function updateCharacter(
     proficientSkills: string[];
     saveProficiencies: string[];
     items: Character['items'];
+    gold: number;
     spellSlots: Character['spellSlots'];
     resources: Character['resources'];
     icon: string;
@@ -1501,6 +1603,7 @@ export function updateCharacter(
   if (patch.saveProficiencies !== undefined)
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
   if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
+  if (patch.gold !== undefined) put('gold', Math.max(0, Math.round(patch.gold)));
   if (patch.spellSlots !== undefined)
     put('spell_slots', JSON.stringify(patch.spellSlots));
   if (patch.resources !== undefined)
@@ -1606,6 +1709,7 @@ export type MonsterInput = {
   icon?: string;
   disposition?: Monster['disposition'];
   objectKind?: Monster['objectKind'];
+  loot?: Monster['loot'];
   source?: Monster['source'];
 };
 
@@ -1622,8 +1726,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level, object_kind)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind, loot)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1646,6 +1750,7 @@ function insertMonster(
     JSON.stringify(opts.weapons ?? []),
     opts.level ?? 0,
     opts.objectKind ?? null,
+    opts.loot ? JSON.stringify(opts.loot) : null,
   );
   return getMonster(id)!;
 }
@@ -1709,6 +1814,8 @@ export function instantiateMonster(templateId: string): Monster | null {
       icon: tmpl.icon,
       disposition: tmpl.disposition,
       objectKind: tmpl.objectKind,
+      // Each spawned container gets its own copy of the template's loot.
+      loot: tmpl.loot,
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -1735,6 +1842,7 @@ export function copyMonster(monsterId: string): Monster | null {
     icon: m.icon,
     disposition: m.disposition,
     objectKind: m.objectKind,
+    loot: m.loot,
     source: m.source,
   });
 }

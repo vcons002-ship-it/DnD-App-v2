@@ -365,6 +365,10 @@ ensureColumn('monsters', 'last_attack_role', 'last_attack_role TEXT');
 // Shared party notes on a creature/NPC — editable by the DM and players alike.
 ensureColumn('monsters', 'player_notes', "player_notes TEXT NOT NULL DEFAULT ''");
 ensureColumn('monsters', 'object_kind', 'object_kind TEXT');
+// Loot held by an object (chest/treasure pile): JSON { gold, items }.
+ensureColumn('monsters', 'loot', 'loot TEXT');
+// Coins a character is carrying, in gold pieces (single purse).
+ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');
 // Battle Master Superiority Die size (the pool lives in the resources counters).
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 ensureColumn('characters', 'death_successes', 'death_successes INTEGER NOT NULL DEFAULT 0');
@@ -473,6 +477,7 @@ type CharacterRow = {
   proficient_skills: string;
   save_proficiencies: string;
   items: string;
+  gold: number;
   sheet_abilities: string;
   conditions: string;
   claimed_by: string | null;
@@ -507,6 +512,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
     saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
     items: JSON.parse(r.items ?? '[]'),
+    gold: r.gold ?? 0,
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
@@ -542,6 +548,7 @@ type MonsterRow = {
   weapons: string;
   disposition: Monster['disposition'];
   object_kind: string | null;
+  loot: string | null;
   last_attack_role: string | null;
   player_notes: string | null;
   level: number;
@@ -570,6 +577,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     source: r.source,
     disposition: r.disposition ?? 'enemy',
     ...(r.object_kind ? { objectKind: r.object_kind as Monster['objectKind'] } : {}),
+    ...(r.loot ? { loot: JSON.parse(r.loot) as Monster['loot'] } : {}),
     lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',
     playerNotes: r.player_notes ?? '',

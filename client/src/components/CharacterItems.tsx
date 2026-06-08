@@ -13,6 +13,7 @@ export function CharacterItems({
 }) {
   const setItem = useStore((s) => s.setItem);
   const removeItem = useStore((s) => s.removeItem);
+  const updateCharacter = useStore((s) => s.updateCharacter);
   const [name, setName] = useState('');
   const [qty, setQty] = useState(1);
   const [picker, setPicker] = useState(false);
@@ -33,7 +34,7 @@ export function CharacterItems({
     };
   }, [picker, query]);
 
-  if (character.items.length === 0 && !editable) return null;
+  if (character.items.length === 0 && character.gold === 0 && !editable) return null;
 
   const add = (n: string, q: number, note = '') => {
     if (!n.trim()) return;
@@ -52,6 +53,23 @@ export function CharacterItems({
   return (
     <div className="items">
       <h4>Inventory</h4>
+      <div className="purse">
+        <span className="purse-label">💰 Gold</span>
+        {editable ? (
+          <input
+            type="number"
+            min={0}
+            className="purse-input"
+            value={character.gold}
+            onChange={(e) =>
+              updateCharacter({ characterId: character.id, gold: Math.max(0, Number(e.target.value)) })
+            }
+          />
+        ) : (
+          <span>{character.gold}</span>
+        )}
+        <span className="muted">gp</span>
+      </div>
       {character.items.length === 0 && <p className="muted">No items.</p>}
       <ul className="item-list">
         {character.items.map((it) => (

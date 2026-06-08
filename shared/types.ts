@@ -152,6 +152,9 @@ export type Character = {
   saveProficiencies: string[];
   /** Inventory items the player tracks. */
   items: InventoryItem[];
+  /** Coins the character is carrying, in gold pieces (a single purse — silver/
+   *  copper are folded in by the DM). Default 0. */
+  gold: number;
   /** Spells & abilities with collapsible text + optional rollable actions. */
   sheetAbilities: SheetAbility[];
   /** Battle Master Superiority Die size (e.g. "d8"); the pool is the
@@ -377,6 +380,10 @@ export type Monster = {
    *  the UI shows interact controls instead of combat, and it gets no combat-role
    *  badge. Otherwise undefined (a normal creature). */
   objectKind?: ObjectKind;
+  /** Loot held by an OBJECT (a chest/treasure pile): gold + items a party can
+   *  take into a character's inventory. Only meaningful when `objectKind` is set.
+   *  Players see it only once the object is opened (see `visibility.ts`). */
+  loot?: LootContents;
   /** Level (PCs) / challenge rating (monsters) — used by the AI to scale stats. */
   level: number;
   maxHp: number;
@@ -478,6 +485,15 @@ export type InventoryItem = {
   note: string;
 };
 
+/** Contents of a lootable object (a chest/treasure pile). Items move into a
+ *  character's inventory and gold into their purse when taken. */
+export type LootContents = {
+  /** Gold pieces in the container. */
+  gold: number;
+  /** Items waiting to be claimed (same shape as inventory items). */
+  items: InventoryItem[];
+};
+
 export type MapState = {
   id: string;
   sessionId: string;
@@ -508,6 +524,9 @@ export type MonsterPublic = {
   icon: string;
   /** Non-combat object kind (chest/door/…), so players' UI shows it as an object. */
   objectKind?: ObjectKind;
+  /** Loot inside an object — only sent to players once it's opened/unlocked
+   *  (the server gates this in `visibility.ts`). */
+  loot?: LootContents;
   /** Shared party notes — visible to players on every disposition tier. */
   playerNotes: string;
 };
@@ -794,6 +813,8 @@ export type CharacterUpdatePayload = {
   spellSlots?: Record<string, { max: number; used: number }>;
   resources?: Record<string, { max: number; used: number }>;
   items?: InventoryItem[];
+  /** Gold pieces carried (a single purse). */
+  gold?: number;
 };
 /** Adjust or add/remove a limited-use counter (spell slot or class resource). */
 export type ResourceSetPayload = {
@@ -808,6 +829,20 @@ export type ResourceSetPayload = {
 export type ItemSetPayload = { characterId: string; item: InventoryItem };
 /** Remove an inventory item from a character. */
 export type ItemRemovePayload = { characterId: string; itemId: string };
+/** Set/replace the loot inside an object (DM-only). An empty payload clears it. */
+export type ObjectSetLootPayload = { monsterId: string; loot: LootContents };
+/**
+ * Take loot from an object into a character (DM, or the player who owns the
+ * character). `all` moves everything; otherwise `itemId` takes one item and/or
+ * `gold` takes that many coins. The object is marked looted once emptied.
+ */
+export type LootTakePayload = {
+  monsterId: string;
+  characterId: string;
+  itemId?: string;
+  gold?: number;
+  all?: boolean;
+};
 /** Upsert a spell/ability on a character's sheet. */
 export type AbilitySetPayload = { characterId: string; ability: SheetAbility };
 /** Remove a spell/ability from a character's sheet. */
@@ -1014,6 +1049,8 @@ export interface ClientToServerEvents {
   'resource:set': (payload: ResourceSetPayload) => void;
   'item:set': (payload: ItemSetPayload) => void;
   'item:remove': (payload: ItemRemovePayload) => void;
+  'object:setLoot': (payload: ObjectSetLootPayload) => void;
+  'loot:take': (payload: LootTakePayload) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
