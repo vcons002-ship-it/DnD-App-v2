@@ -600,7 +600,7 @@ describe('secondary weapon damage (flaming sword)', () => {
 
 describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
   const setup = (
-    spec: { active: boolean; appliesTo: 'melee' | 'ranged' | 'all'; bonusDamage?: string; grantsAdvantage?: boolean },
+    spec: import('../../shared/types.js').StanceSpec,
     kind: 'melee' | 'ranged' = 'melee',
   ) => {
     const { s, map } = arena();
@@ -654,6 +654,23 @@ describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
     resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
     expect(getMonster(ref)).toBeTruthy();
     expect(listRollLog(s.id).at(-1)!.detail).toContain('adv');
+  });
+
+  it('an on-hit-save stance (Ensnaring Strike) forces a Restrained save on a hit', () => {
+    const { s, atk, tok } = setup({
+      active: true,
+      appliesTo: 'all',
+      onHitSave: { ability: 'STR', onFail: 'Restrained' },
+    });
+    // Attack until a hit fires the rider (always-hit weapon, but skip nat-1 misses).
+    for (let i = 0; i < 60; i++) {
+      resolveAttack(s.id, 'Grog', atk.id, tok.id, 0);
+      if (listRollLog(s.id).some((r) => r.apply?.onFail === 'Restrained')) break;
+    }
+    const rider = listRollLog(s.id).find((r) => r.apply?.onFail === 'Restrained');
+    expect(rider).toBeTruthy();
+    expect(rider!.apply!.save).toBe('STR');
+    expect(rider!.detail).toContain('Restrained');
   });
 
   it("Hunter's Mark only adds damage to the marked target", () => {

@@ -121,7 +121,25 @@ const FEATURES: FeatureEntry[] = [
     meta: '1 bonus action · L1 spell slot · Concentration · +1d6 vs the marked target',
     description:
       'Mark a creature; your weapon attacks against the marked target deal an extra 1d6 damage. Pick the target, then toggle on — this spends a 1st-level spell slot and starts concentration. Move the mark to a new target by re-selecting it.',
-    stance: { active: false, appliesTo: 'all', bonusDamage: '1d6', targeted: true },
+    stance: {
+      active: false,
+      appliesTo: 'all',
+      bonusDamage: '1d6',
+      targeted: true,
+      marksTargetWith: 'Marked',
+    },
+  },
+  {
+    name: 'Ensnaring Strike',
+    type: 'stance',
+    level: 1,
+    school: 'Conjuration',
+    classes: ['ranger'],
+    tags: ['ranger', 'spell', 'feature', 'stance', 'concentration', 'control', 'restrained'],
+    meta: '1 bonus action · L1 slot · Concentration · next hit',
+    description:
+      'Toggle on (spends a 1st-level slot, starts concentration). On your next weapon hit, the target makes a Strength save or is Restrained by thorns (taking 1d6 piercing at the start of each of its turns — apply manually). The strike then expends.',
+    stance: { active: false, appliesTo: 'all', onHitSave: { ability: 'STR', onFail: 'Restrained' } },
   },
 ];
 

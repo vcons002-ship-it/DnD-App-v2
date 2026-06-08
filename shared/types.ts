@@ -293,6 +293,18 @@ export type StanceSpec = {
   targeted?: boolean;
   /** The marked target's token id (when `targeted`); empty = nothing marked yet. */
   targetId?: string;
+  /**
+   * On a hit, the target must make this save or suffer `onFail` (a condition like
+   * "Restrained") — e.g. Ensnaring Strike. Logged as a click-to-target save; the
+   * stance auto-deactivates after it fires (one-shot rider).
+   */
+  onHitSave?: { ability: 'STR' | 'DEX' | 'CON' | 'WIS' | 'INT' | 'CHA'; onFail: string };
+  /**
+   * A status condition put on the MARKED target while this stance is active (e.g.
+   * "Marked" for Hunter's Mark), so everyone sees what the creature is under.
+   * Applied/cleared client-side as the mark moves or the stance ends.
+   */
+  marksTargetWith?: string;
 };
 
 /**

@@ -100,6 +100,7 @@ export function CharacterSpells({
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const setResource = useStore((s) => s.setResource);
+  const setCondition = useStore((s) => s.setCondition);
   const clearCondition = useStore((s) => s.clearCondition);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
@@ -179,6 +180,22 @@ export function CharacterSpells({
   // A spell-backed stance (a `level` ≥ 1, e.g. Hunter's Mark) also CASTS on
   // activation — the server spends a spell slot and starts concentration; ending
   // it drops that concentration.
+  // Put / remove a marking stance's status condition (e.g. "Marked") on the
+  // target creature, so everyone sees what it's under. No-op outside the combat
+  // console (where there's no snapshot/targets).
+  const tokenById = (id?: string) => snapshot?.tokens.find((t) => t.id === id);
+  const markTarget = (tokenId?: string, label?: string) => {
+    const tok = tokenById(tokenId);
+    if (tok && label)
+      setCondition(tok.kind, tok.refId, { label, aura: 'blue', isConcentration: false });
+  };
+  const unmarkTarget = (tokenId?: string, label?: string) => {
+    const tok = tokenById(tokenId);
+    if (!tok || !label || !snapshot) return;
+    const cond = resolveToken(snapshot, tok).conditions?.find((c) => c.label === label);
+    if (cond) clearCondition(tok.kind, tok.refId, cond.id);
+  };
+
   const toggleStance = (a: SheetAbility) => {
     const goingActive = !a.stance?.active;
     // Activating a concentration stance starts concentration — warn if another is up.
@@ -188,6 +205,11 @@ export function CharacterSpells({
     if (goingActive && stance.targeted && !stance.targetId)
       stance.targetId = validDefault ?? targets[0]?.id;
     setSheetAbility(character.id, { ...a, stance });
+    // Tag/untag the marked target with the stance's status (Hunter's Mark → Marked).
+    if (stance.marksTargetWith) {
+      if (goingActive) markTarget(stance.targetId, stance.marksTargetWith);
+      else unmarkTarget(a.stance?.targetId, stance.marksTargetWith);
+    }
     if (goingActive && a.useCounter) {
       const c = character.resources[a.useCounter.name];
       if (c && c.used < c.max) {
@@ -360,7 +382,15 @@ export function CharacterSpells({
                     className="spell-level"
                     value={a.stance!.targetId ?? ''}
                     title="Marked target — the stance only affects attacks against it"
-                    onChange={(e) => patchStance(a, { targetId: e.target.value || undefined })}
+                    onChange={(e) => {
+                      const next = e.target.value || undefined;
+                      // While active, move the mark status from the old target to the new.
+                      if (a.stance!.active && a.stance!.marksTargetWith) {
+                        unmarkTarget(a.stance!.targetId, a.stance!.marksTargetWith);
+                        markTarget(next, a.stance!.marksTargetWith);
+                      }
+                      patchStance(a, { targetId: next });
+                    }}
                   >
                     <option value="">— mark —</option>
                     {targets.map((t) => (

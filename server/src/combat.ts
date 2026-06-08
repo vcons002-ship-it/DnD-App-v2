@@ -200,6 +200,7 @@ export function resolveAttack(
   // damage rolls on a hit below, and a stance can grant advantage on the attack.
   let stanceAdvantage = false;
   const stanceDice: { label: string; dice: string }[] = [];
+  const onHitStances: SheetAbility[] = [];
   for (const ab of ch?.sheetAbilities ?? []) {
     const st = ab.stance;
     if (ab.type !== 'stance' || !st?.active) continue;
@@ -208,6 +209,7 @@ export function resolveAttack(
     // A marking stance (Hunter's Mark) only affects attacks on its marked target.
     if (st.targeted && st.targetId !== targetTokenId) continue;
     if (st.grantsAdvantage) stanceAdvantage = true;
+    if (st.onHitSave) onHitStances.push(ab);
     if (st.bonusDamage) {
       if (/d\d/i.test(st.bonusDamage)) {
         stanceDice.push({ label: ab.name, dice: st.bonusDamage });
@@ -360,6 +362,25 @@ export function resolveAttack(
     const pool = ch.resources['Superiority Dice'];
     if (pool) setResource(ch.id, 'resources', 'Superiority Dice', { used: pool.used + 1 });
     setSheetAbility(ch.id, { ...ability, maneuver: { ...spec, active: false } });
+  }
+
+  // Stance on-hit save riders (e.g. Ensnaring Strike): on a hit, log a click-to-
+  // target save whose failure applies the rider's condition, then disarm the
+  // stance (one-shot — it fires on the next hit, like the spell).
+  if (out.hit && ch) {
+    for (const ab of onHitStances) {
+      const rider = ab.stance!.onHitSave!;
+      const dc = 8 + profBonusFor(a.c) + weaponAbilityMod(a.c, weapon);
+      addRollLog(sessionId, {
+        roller,
+        label: `${rider.ability} save`,
+        expr: `DC ${dc}`,
+        total: dc,
+        detail: `${ab.name}: ${t.name} must make a DC ${dc} ${rider.ability} save or be ${rider.onFail}`,
+        apply: { amount: 0, dc, save: rider.ability, onFail: rider.onFail },
+      });
+      setSheetAbility(ch.id, { ...ab, stance: { ...ab.stance!, active: false } });
+    }
   }
 
   // Cleave is a one-shot: disable it after the attack roll (hit or miss).
