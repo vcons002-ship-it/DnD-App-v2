@@ -27,7 +27,7 @@ import {
   setConn,
   type IOServer,
 } from './connections.js';
-import { buildSnapshot } from './visibility.js';
+import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import {
   addRollLog,
   advanceTurn,
@@ -52,6 +52,8 @@ import {
   setResource,
   setItem,
   removeItem,
+  setLoot,
+  takeLoot,
   setSheetAbility,
   removeSheetAbility,
   spendSpellSlot,
@@ -510,6 +512,25 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('item:remove', ({ characterId, itemId }) => {
       if (!ownsCharacter(characterId)) return;
       removeItem(characterId, itemId);
+      afterChange();
+    });
+
+    // ---- Object loot (DM fills containers; anyone who owns the target PC takes) ----
+    socket.on('object:setLoot', ({ monsterId, loot }) => {
+      if (!isDm()) return; // only the DM stocks a chest
+      const m = getMonster(monsterId);
+      if (!m || !m.objectKind) return;
+      setLoot(monsterId, loot);
+      afterChange();
+    });
+
+    socket.on('loot:take', ({ monsterId, characterId, itemId, gold, all }) => {
+      const m = getMonster(monsterId);
+      // The taker must own the destination character; players can only take from
+      // a container whose contents are actually revealed to them.
+      if (!m || !m.objectKind || !ownsCharacter(characterId)) return;
+      if (!isDm() && !lootVisibleToPlayers(m)) return;
+      takeLoot(monsterId, characterId, { itemId, gold, all });
       afterChange();
     });
 

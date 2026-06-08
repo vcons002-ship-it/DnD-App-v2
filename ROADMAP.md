@@ -783,5 +783,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   objects (a Monster flagged `objectKind`), reusing placement/templates/hiding/
   conditions/visibility. `ObjectControls` toggles state (Locked/Open/Disarmed/
   Looted/…) as conditions + reveal/hide, in the floating menu and token panel;
-  players see state read-only; objects get no combat-role badge. (Shops/gold/loot
-  deferred.) Remote DM session/map loading verified already working (no change).
+  players see state read-only; objects get no combat-role badge. Remote DM
+  session/map loading verified already working (no change).
+- ☑ **Loot & gold.** Containers (chest/item/other objects) hold a `loot` payload
+  (`{ gold, items }`) the DM stocks via `LootControls` (free-add or item-library
+  picker). Loot is hidden from players until the object is **opened/unlocked**
+  (gated in `visibility.ts`); then a player can **Take** items + gold into their
+  claimed character — items merge into the inventory, gold into a per-character
+  `gold` purse — or the DM hands loot to any PC. A drained container auto-flags
+  itself Looted/Taken. `loot:take`/`object:setLoot` are role-gated; instances
+  inherit a template's loot. (Shops/currency-denominations still deferred.)

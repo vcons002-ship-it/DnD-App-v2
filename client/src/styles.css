@@ -336,6 +336,22 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .object-kind { font-weight: 600; text-transform: capitalize; }
 .object-state { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
 .object-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+/* Loot inside a container (chest/pile). */
+.loot-controls { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); }
+.loot-head { display: flex; align-items: baseline; gap: 8px; }
+.loot-title { font-weight: 600; }
+.loot-gold { color: var(--gold, #d9b740); font-weight: 600; }
+.loot-list { list-style: none; padding: 0; margin: 4px 0; }
+.loot-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.loot-row .item-name { flex: 1; }
+.loot-take { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.loot-edit { margin-top: 6px; }
+.loot-gold-edit { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.loot-gold-edit input { width: 70px; }
+/* Character purse on the inventory panel. */
+.purse { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; }
+.purse-label { font-weight: 600; }
+.purse-input { width: 70px; }
 .buff-row { margin-top: 8px; }
 .cond-active { list-style: none; padding: 0; margin: 8px 0 0; }
 .cond-active li { display: flex; align-items: center; gap: 6px; padding: 2px 0; }

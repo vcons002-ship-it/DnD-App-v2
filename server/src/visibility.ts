@@ -52,6 +52,19 @@ function tokenCombatRole(t: Token): CombatRole | null {
  * - neutral:  name + HP + type + AC (+ conditions/icon)
  * - enemy:    name + conditions + icon only (default)
  */
+/**
+ * Whether players may see an object's loot contents. A closed/locked container
+ * keeps its contents secret until the DM opens it; loose items/piles show their
+ * contents until taken. (The DM always sees loot via the full monster object.)
+ */
+export function lootVisibleToPlayers(m: Monster): boolean {
+  if (!m.objectKind) return false;
+  const labels = m.conditions.map((c) => c.label.toLowerCase());
+  if (m.objectKind === 'item' || m.objectKind === 'other')
+    return !labels.includes('taken');
+  return labels.includes('open') || labels.includes('looted');
+}
+
 function toPlayerMonster(
   m: Monster,
 ): Monster | MonsterNeutral | MonsterPublic {
@@ -64,6 +77,8 @@ function toPlayerMonster(
     icon: m.icon,
     // Object kind is not secret — players should see a chest is a chest.
     ...(m.objectKind ? { objectKind: m.objectKind } : {}),
+    // Loot is only revealed once the container is opened/unlocked.
+    ...(m.loot && lootVisibleToPlayers(m) ? { loot: m.loot } : {}),
     // Shared party notes are visible on every tier (the players wrote them).
     playerNotes: m.playerNotes,
   };
