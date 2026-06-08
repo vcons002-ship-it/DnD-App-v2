@@ -795,19 +795,12 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   cursor: pointer; padding: 0;
 }
 
-/* In-session chat */
-.chat-panel { padding: 8px 10px; }
-.chat-panel h4 { margin: 0 0 6px; }
-.chat-log {
-  max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;
-  border: 1px solid var(--line); border-radius: 6px; padding: 6px; margin-bottom: 6px;
-  background: var(--panel-2);
-}
-.chat-msg { font-size: 13px; line-height: 1.35; word-break: break-word; }
+/* In-session chat (rendered inline in the rolls + chat feed) */
+.chat-msg { font-size: 13px; line-height: 1.35; word-break: break-word; padding: 1px 0; }
 .chat-sender { font-weight: 600; margin-right: 6px; }
 .chat-msg.dm .chat-sender { color: #d8a657; }
 .chat-msg.player .chat-sender { color: #7daea3; }
-.chat-input { display: flex; gap: 6px; }
+.chat-input { display: flex; gap: 6px; padding: 6px 0 2px; }
 .chat-input input { flex: 1; }
 
 /* Death saves (shown when a PC hits 0 HP) */

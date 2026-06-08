@@ -7,7 +7,6 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
-import { ChatPanel } from '../components/ChatPanel';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
@@ -65,7 +64,6 @@ export function PlayerView() {
             }}
             onPlaceToken={() => setPlacing((p) => !p)}
           />
-          <ChatPanel />
           <Roll20Panel />
         </SidePanel>
 

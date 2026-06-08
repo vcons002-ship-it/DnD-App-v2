@@ -1112,7 +1112,9 @@ export function MapStage({
               onClose={() => setMenu(null)}
             />
           )}
-          {showRollOverlay && <RollLogOverlay rollLog={snapshot.rollLog} />}
+          {showRollOverlay && (
+            <RollLogOverlay rollLog={snapshot.rollLog} chat={snapshot.chat} />
+          )}
           {showDiceButton && <DiceButtonOverlay />}
           {saveResolve && (
             <div className="save-resolve-banner">
