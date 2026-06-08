@@ -19,6 +19,9 @@ const FALLBACK_MODELS = [
 /** The model we last reached successfully, cached for the process. */
 let resolvedModel: string | null = null;
 
+/** Transient HTTP statuses worth retrying (rate limit + server overload). */
+const TRANSIENT_STATUS = new Set([429, 500, 502, 503, 504]);
+
 /** Reset the cached model (call when the configured model changes). */
 export const clearResolvedModel = (): void => {
   resolvedModel = null;
@@ -147,6 +150,16 @@ export async function callGemini(prompt: string): Promise<string | null> {
           }),
           signal: AbortSignal.timeout(20000),
         });
+        // Rate limits (429) and server overload (500/502/503/504) are transient
+        // and common with Gemini — back off and retry before giving up.
+        if (TRANSIENT_STATUS.has(res.status) && attempt < 2) {
+          console.warn(
+            `  [gemini] HTTP ${res.status} on ${model} (attempt ${attempt + 1}/3), retrying…`,
+          );
+          res = null;
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+          continue;
+        }
         break;
       } catch (err) {
         console.warn(
