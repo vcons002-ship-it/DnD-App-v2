@@ -46,6 +46,9 @@ import {
   addMeasurement,
   clearMeasurements,
   removeMeasurement,
+  addAnnotation,
+  clearAnnotations,
+  removeAnnotation,
   setResource,
   setItem,
   removeItem,
@@ -224,6 +227,43 @@ export function registerSocketHandlers(io: IOServer): void {
       // Players may only clear their own; the DM may clear everyone's.
       const onlyMine = mineOnly || conn.role !== 'dm';
       clearMeasurements(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
+      afterChange();
+    });
+
+    socket.on('annotation:add', ({ kind, points, x, y, text, color }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || (kind !== 'freehand' && kind !== 'text')) return;
+      const mapId =
+        conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
+      if (!mapId || !getMap(mapId)) return;
+      addAnnotation(sid, {
+        mapId,
+        kind,
+        points: Array.isArray(points) ? points.slice(0, 2000).map(Number) : undefined,
+        x: Number(x) || 0,
+        y: Number(y) || 0,
+        text: typeof text === 'string' ? text : undefined,
+        color: typeof color === 'string' ? color : '#ffd166',
+        createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
+      });
+      afterChange();
+    });
+
+    socket.on('annotation:remove', ({ id }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || !id) return;
+      removeAnnotation(id, conn.role === 'dm' ? undefined : rollerName(sid, socket.id, false));
+      afterChange();
+    });
+
+    socket.on('annotation:clear', ({ mapId, mineOnly }) => {
+      const sid = sessionId();
+      const conn = getConn(socket.id);
+      if (!sid || !conn || !getMap(mapId)) return;
+      const onlyMine = mineOnly || conn.role !== 'dm';
+      clearAnnotations(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
       afterChange();
     });
 

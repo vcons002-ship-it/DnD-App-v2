@@ -165,6 +165,21 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  -- Freehand + text annotations drawn on a map.
+  CREATE TABLE IF NOT EXISTS annotations (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    map_id     TEXT NOT NULL,
+    kind       TEXT NOT NULL,
+    points     TEXT NOT NULL DEFAULT '[]',
+    x          REAL NOT NULL DEFAULT 0,
+    y          REAL NOT NULL DEFAULT 0,
+    text       TEXT NOT NULL DEFAULT '',
+    color      TEXT NOT NULL DEFAULT '#ffd166',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+
   -- Shared dice roll log per session.
   CREATE TABLE IF NOT EXISTS roll_log (
     id         TEXT PRIMARY KEY,

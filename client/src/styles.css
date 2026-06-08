@@ -750,6 +750,13 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .item-desc-head { display: flex; align-items: center; gap: 10px; }
 .item-desc-head h4 { margin: 0; flex: 1; }
 
+/* Map annotation tools (pen / text / colour swatches) */
+.annotate-tools { display: inline-flex; align-items: center; gap: 4px; }
+.anno-swatch {
+  width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line);
+  cursor: pointer; padding: 0;
+}
+
 /* In-session chat */
 .chat-panel { padding: 8px 10px; }
 .chat-panel h4 { margin: 0 0 6px; }

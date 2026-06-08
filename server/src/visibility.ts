@@ -7,6 +7,7 @@ import {
   listCharacters,
   listMaps,
   listMeasurements,
+  listAnnotations,
   listMonsters,
   listMonsterTemplates,
   listRollLog,
@@ -164,5 +165,6 @@ export function buildSnapshot(
     rollLog,
     chat: listChat(sessionId),
     measurements: map ? listMeasurements(map.id) : [],
+    annotations: map ? listAnnotations(map.id) : [],
   };
 }

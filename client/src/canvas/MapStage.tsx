@@ -255,6 +255,13 @@ export function MapStage({
   const addMeasurement = useStore((s) => s.addMeasurement);
   const removeMeasurement = useStore((s) => s.removeMeasurement);
   const clearMeasurements = useStore((s) => s.clearMeasurements);
+  const addAnnotation = useStore((s) => s.addAnnotation);
+  const clearAnnotations = useStore((s) => s.clearAnnotations);
+  // Annotation tool: a freehand pen or text-label placer, with a colour.
+  const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
+  const [annoColor, setAnnoColor] = useState('#ffd166');
+  const penRef = useRef<number[] | null>(null);
+  const [penDraft, setPenDraft] = useState<number[] | null>(null);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
   const [paintLayer, setPaintLayer] = useState<FogLayer>('map');
   const [brushSize, setBrushSize] = useState(1); // cells per side (1,3,5)
@@ -295,7 +302,7 @@ export function MapStage({
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
   const [scaleFt, setScaleFt] = useState('');
   const scaleDrawRef = useRef(false);
-  const measureActive = !!tool || removeMode || scaleMode;
+  const measureActive = !!tool || removeMode || scaleMode || !!annotate;
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const gridHot = draggingToken || measureActive;
@@ -569,6 +576,22 @@ export function MapStage({
       if (pos) measureDown(pos);
       return;
     }
+    if (annotate === 'pen') {
+      const pos = pointerToImage(stage);
+      if (pos) {
+        penRef.current = [pos.x, pos.y];
+        setPenDraft([pos.x, pos.y]);
+      }
+      return;
+    }
+    if (annotate === 'text') {
+      const pos = pointerToImage(stage);
+      if (pos) {
+        const text = window.prompt('Label text:')?.trim();
+        if (text) addAnnotation({ kind: 'text', x: pos.x, y: pos.y, text, color: annoColor });
+      }
+      return;
+    }
     if (fogActive) {
       paintingRef.current = true;
       strokeRef.current = new Set();
@@ -600,12 +623,29 @@ export function MapStage({
       if (pos) measureMove(pos);
       return;
     }
+    if (annotate === 'pen' && penRef.current) {
+      const stage = e.target.getStage();
+      const pos = stage ? pointerToImage(stage) : null;
+      if (pos) {
+        penRef.current.push(pos.x, pos.y);
+        setPenDraft([...penRef.current]);
+      }
+      return;
+    }
     if (!fogActive || !paintingRef.current) return;
     const stage = e.target.getStage();
     if (stage) emitFogCell(stage);
   };
 
   const endStroke = () => {
+    if (penRef.current) {
+      const pts = penRef.current;
+      penRef.current = null;
+      setPenDraft(null);
+      // Ignore a stray click (need a real stroke of at least a few points).
+      if (pts.length >= 6) addAnnotation({ kind: 'freehand', points: pts, color: annoColor });
+      return;
+    }
     if (scaleDrawRef.current) {
       scaleDrawRef.current = false;
       if (scaleLine) {
@@ -744,6 +784,60 @@ export function MapStage({
                   onClearMine={() => map && clearMeasurements(map.id, true)}
                   onClearAll={() => map && clearMeasurements(map.id, false)}
                 />
+                {/* Annotation tools — freehand pen + text labels (shared). */}
+                <div className="annotate-tools">
+                  <button
+                    className={`btn tiny ${annotate === 'pen' ? 'on' : ''}`}
+                    title="Freehand pen — draw on the map"
+                    onClick={() => {
+                      setTool(null);
+                      setRemoveMode(false);
+                      setDraft(null);
+                      setAnnotate((a) => (a === 'pen' ? null : 'pen'));
+                    }}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className={`btn tiny ${annotate === 'text' ? 'on' : ''}`}
+                    title="Text label — click the map to place text"
+                    onClick={() => {
+                      setTool(null);
+                      setRemoveMode(false);
+                      setDraft(null);
+                      setAnnotate((a) => (a === 'text' ? null : 'text'));
+                    }}
+                  >
+                    🅰
+                  </button>
+                  {['#ffd166', '#ef476f', '#06d6a0', '#4cc9f0', '#ffffff'].map((c) => (
+                    <button
+                      key={c}
+                      className="anno-swatch"
+                      style={{ background: c, outline: annoColor === c ? '2px solid #000' : 'none' }}
+                      title="Pen/label colour"
+                      onClick={() => setAnnoColor(c)}
+                    />
+                  ))}
+                  {snapshot.annotations.length > 0 && (
+                    <button
+                      className="btn tiny"
+                      title="Clear my annotations"
+                      onClick={() => map && clearAnnotations(map.id, true)}
+                    >
+                      Clear mine
+                    </button>
+                  )}
+                  {isDm && snapshot.annotations.length > 0 && (
+                    <button
+                      className="btn tiny"
+                      title="Clear everyone's annotations"
+                      onClick={() => map && clearAnnotations(map.id, false)}
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
                 {isDm && (
                   <>
                     <ScaleMenu
@@ -939,6 +1033,42 @@ export function MapStage({
                   color="#ffd21a"
                   grid={grid}
                   feetPerPixel={fpp}
+                />
+              )}
+              {/* Map annotations: freehand strokes + text labels (shared). */}
+              {snapshot.annotations.map((a) =>
+                a.kind === 'freehand' ? (
+                  <Line
+                    key={a.id}
+                    points={a.points ?? []}
+                    stroke={a.color}
+                    strokeWidth={3 / view.scale}
+                    lineCap="round"
+                    lineJoin="round"
+                    tension={0.3}
+                    listening={false}
+                  />
+                ) : (
+                  <Text
+                    key={a.id}
+                    x={a.x ?? 0}
+                    y={a.y ?? 0}
+                    text={a.text ?? ''}
+                    fill={a.color}
+                    fontSize={18 / view.scale}
+                    fontStyle="bold"
+                    listening={false}
+                  />
+                ),
+              )}
+              {penDraft && (
+                <Line
+                  points={penDraft}
+                  stroke={annoColor}
+                  strokeWidth={3 / view.scale}
+                  lineCap="round"
+                  lineJoin="round"
+                  listening={false}
                 />
               )}
               {/* The scale reference line (a dashed ruler while the DM sets scale). */}

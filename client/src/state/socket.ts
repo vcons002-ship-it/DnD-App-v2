@@ -15,6 +15,7 @@ import type {
   ImportConflictResolution,
   InventoryItem,
   MeasureAddPayload,
+  AnnotationAddPayload,
   ResourceSetPayload,
   JoinAck,
   MonsterCreatePayload,
@@ -104,6 +105,9 @@ type Store = {
   addMeasurement: (payload: MeasureAddPayload) => void;
   removeMeasurement: (id: string) => void;
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
+  addAnnotation: (payload: AnnotationAddPayload) => void;
+  removeAnnotation: (id: string) => void;
+  clearAnnotations: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
   importMapsFromSession: (
@@ -309,6 +313,10 @@ export const useStore = create<Store>((set, get) => ({
   removeMeasurement: (id) => get().socket?.emit('measure:remove', { id }),
   clearMeasurements: (mapId, mineOnly) =>
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
+  addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
+  removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
+  clearAnnotations: (mapId, mineOnly) =>
+    get().socket?.emit('annotation:clear', { mapId, mineOnly }),
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),

@@ -540,6 +540,24 @@ export type StateSnapshot = {
   /** Persistent measuring shapes (cone/circle/line) on the shown map, drawn by
    *  any role and visible to everyone. */
   measurements: Measurement[];
+  /** Freehand + text annotations on the shown map, visible to everyone. */
+  annotations: Annotation[];
+};
+
+/** A freehand stroke or text label drawn on a map, shared and persistent. */
+export type Annotation = {
+  id: string;
+  mapId: string;
+  kind: 'freehand' | 'text';
+  /** Freehand: flattened image-space points [x0,y0,x1,y1,…]. */
+  points?: number[];
+  /** Text: anchor point + content. */
+  x?: number;
+  y?: number;
+  text?: string;
+  color: string;
+  /** Display name of the drawer (so they can clear just their own). */
+  createdBy: string;
 };
 
 /** A shared chat message in a session. */
@@ -677,6 +695,19 @@ export type MeasureAddPayload = {
 export type MeasureRemovePayload = { id: string };
 /** Clear measurements on a map: everyone's, or only the caller's (`mineOnly`). */
 export type MeasureClearPayload = { mapId: string; mineOnly?: boolean };
+/** Add a freehand stroke or text label to a map (any role). */
+export type AnnotationAddPayload = {
+  kind: Annotation['kind'];
+  points?: number[];
+  x?: number;
+  y?: number;
+  text?: string;
+  color: string;
+};
+/** Remove a single annotation by id (any role). */
+export type AnnotationRemovePayload = { id: string };
+/** Clear annotations on a map: everyone's, or only the caller's (`mineOnly`). */
+export type AnnotationClearPayload = { mapId: string; mineOnly?: boolean };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
 /** How to handle a referenced character whose name already exists on import. */
@@ -933,6 +964,9 @@ export interface ClientToServerEvents {
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;
+  'annotation:add': (payload: AnnotationAddPayload) => void;
+  'annotation:remove': (payload: AnnotationRemovePayload) => void;
+  'annotation:clear': (payload: AnnotationClearPayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'session:importPreview': (

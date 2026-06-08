@@ -22,6 +22,7 @@ import type {
   Monster,
   RollEntry,
   ChatMessage,
+  Annotation,
   SessionSummary,
   Token,
   TokenKind,
@@ -1111,6 +1112,93 @@ export function clearMeasurements(mapId: string, createdBy?: string): void {
     );
   } else {
     db.prepare('DELETE FROM measurements WHERE map_id = ?').run(mapId);
+  }
+}
+
+// ---- Map annotations (freehand strokes + text labels) ----
+
+type AnnotationRow = {
+  id: string;
+  map_id: string;
+  kind: string;
+  points: string;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  created_by: string;
+};
+
+const rowToAnnotation = (r: AnnotationRow): Annotation => ({
+  id: r.id,
+  mapId: r.map_id,
+  kind: r.kind as Annotation['kind'],
+  points: JSON.parse(r.points || '[]') as number[],
+  x: r.x,
+  y: r.y,
+  text: r.text,
+  color: r.color,
+  createdBy: r.created_by,
+});
+
+export function addAnnotation(
+  sessionId: string,
+  input: {
+    mapId: string;
+    kind: Annotation['kind'];
+    points?: number[];
+    x?: number;
+    y?: number;
+    text?: string;
+    color: string;
+    createdBy: string;
+  },
+): Annotation {
+  const id = newId();
+  db.prepare(
+    `INSERT INTO annotations (id, session_id, map_id, kind, points, x, y, text, color, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    input.mapId,
+    input.kind,
+    JSON.stringify(input.points ?? []),
+    input.x ?? 0,
+    input.y ?? 0,
+    (input.text ?? '').slice(0, 200),
+    input.color,
+    input.createdBy,
+    Date.now(),
+  );
+  return rowToAnnotation(
+    db.prepare('SELECT * FROM annotations WHERE id = ?').get(id) as AnnotationRow,
+  );
+}
+
+export function listAnnotations(mapId: string): Annotation[] {
+  return (
+    db
+      .prepare('SELECT * FROM annotations WHERE map_id = ? ORDER BY created_at ASC')
+      .all(mapId) as AnnotationRow[]
+  ).map(rowToAnnotation);
+}
+
+/** Remove one annotation; when `requireCreatedBy` is set, only its creator's. */
+export function removeAnnotation(id: string, requireCreatedBy?: string): void {
+  if (requireCreatedBy !== undefined) {
+    db.prepare('DELETE FROM annotations WHERE id = ? AND created_by = ?').run(id, requireCreatedBy);
+  } else {
+    db.prepare('DELETE FROM annotations WHERE id = ?').run(id);
+  }
+}
+
+/** Clear a map's annotations — all, or only one drawer's (`createdBy`). */
+export function clearAnnotations(mapId: string, createdBy?: string): void {
+  if (createdBy !== undefined) {
+    db.prepare('DELETE FROM annotations WHERE map_id = ? AND created_by = ?').run(mapId, createdBy);
+  } else {
+    db.prepare('DELETE FROM annotations WHERE map_id = ?').run(mapId);
   }
 }
 
