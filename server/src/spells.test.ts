@@ -97,6 +97,16 @@ describe('class-feature library', () => {
     expect(rage?.useCounter?.name).toBe('Rage');
   });
 
+  it('groups subclass/variant features under a family search term', () => {
+    // A "rage" search surfaces the base feature AND variants (e.g. Frenzy/totem).
+    const rage = searchFeatures('rage', 50);
+    expect(rage.some((f) => f.name === 'Rage')).toBe(true);
+    expect(rage.filter((f) => (f.tags ?? []).includes('variant')).length).toBeGreaterThan(0);
+    // Family keywords group their options without truncation.
+    expect(searchFeatures('metamagic', 50).length).toBeGreaterThanOrEqual(4);
+    expect(searchFeatures('channel divinity', 50).length).toBeGreaterThanOrEqual(2);
+  });
+
   it("Hunter's Mark is a spell-backed concentration stance (uses a slot)", () => {
     const hm = getFeature("Hunter's Mark");
     expect(hm?.type).toBe('stance');
