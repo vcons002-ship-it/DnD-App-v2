@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../../shared/types';
-import { useStore } from '../state/socket';
+import { useStore, loadSavedSession } from '../state/socket';
 import { PlayerView } from './PlayerView';
 
 const fmtDate = (ms: number) =>
@@ -15,6 +15,7 @@ const fmtDate = (ms: number) =>
 export function PlayerRoute() {
   const [params] = useSearchParams();
   const status = useStore((s) => s.status);
+  const snapshot = useStore((s) => s.snapshot);
   const error = useStore((s) => s.error);
   const connect = useStore((s) => s.connect);
   const [code, setCode] = useState(params.get('code') ?? '');
@@ -25,6 +26,18 @@ export function PlayerRoute() {
     if (c) setCode(c);
   }, [params]);
 
+  // After a reload / tab eviction, auto-rejoin the saved session so the player
+  // isn't bounced to this screen (unless a different ?code= link was opened).
+  useEffect(() => {
+    if (status !== 'idle') return;
+    const saved = loadSavedSession();
+    const param = params.get('code');
+    if (saved?.role === 'player' && (!param || param === saved.code)) {
+      connect(saved.code, 'player', saved.dmPassphrase);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Saved sessions to pick from (the directory is public, no DM-only data).
   useEffect(() => {
     if (status !== 'connected')
@@ -34,7 +47,11 @@ export function PlayerRoute() {
         .catch(() => setSessions([]));
   }, [status]);
 
-  if (status === 'connected') return <PlayerView />;
+  // Stay on the game view through a reconnect blip (we keep the last snapshot);
+  // ConnectionStatus shows the "Reconnecting…" banner.
+  if (status === 'connected' || (status === 'reconnecting' && snapshot)) {
+    return <PlayerView />;
+  }
 
   return (
     <div className="entry">

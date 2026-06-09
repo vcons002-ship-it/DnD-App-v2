@@ -27,7 +27,11 @@ export function DmDataRoute() {
     }
   }, [code, status, tried, connect]);
 
-  if (status === 'connected' && snapshot?.role === 'dm') {
+  // Stay on the dashboard through a reconnect blip (keep the last snapshot).
+  if (
+    snapshot?.role === 'dm' &&
+    (status === 'connected' || status === 'reconnecting')
+  ) {
     return <DmDataView />;
   }
 

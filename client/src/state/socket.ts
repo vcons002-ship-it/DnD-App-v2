@@ -208,6 +208,38 @@ type Store = {
   combatSave: (payload: CombatSavePayload) => void;
 };
 
+/**
+ * Persist the joined session so a backgrounded/reloaded tab can rejoin without
+ * the player re-entering the code (iOS Safari evicts backgrounded tabs + kills
+ * the WebSocket). Stored per-tab in sessionStorage; cleared on an intentional
+ * leave/disconnect.
+ */
+const SESSION_KEY = 'dnd.session';
+type SavedSession = { code: string; role: Role; dmPassphrase?: string };
+export function loadSavedSession(): SavedSession | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    const v = raw ? (JSON.parse(raw) as SavedSession) : null;
+    return v && v.code && (v.role === 'dm' || v.role === 'player') ? v : null;
+  } catch {
+    return null;
+  }
+}
+const saveSession = (s: SavedSession) => {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+  } catch {
+    /* private mode / disabled storage — non-fatal */
+  }
+};
+const clearSavedSession = () => {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
 export const useStore = create<Store>((set, get) => ({
   socket: null,
   status: 'idle',
@@ -298,6 +330,8 @@ export const useStore = create<Store>((set, get) => ({
         (ack: JoinAck) => {
           if (ack.ok) {
             set({ status: 'connected', snapshot: ack.snapshot, error: null });
+            // Remember the joined session so a reload/background can auto-rejoin.
+            saveSession({ code, role, dmPassphrase });
           } else {
             set({ status: 'error', error: ack.error.message });
             socket.disconnect();
@@ -324,6 +358,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   disconnect: () => {
+    clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     set({ socket: null, status: 'idle', snapshot: null });
   },
@@ -448,3 +483,16 @@ export const useStore = create<Store>((set, get) => ({
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
 }));
+
+// When the tab returns to the foreground, nudge a dead socket back to life.
+// iOS Safari freezes backgrounded tabs and silently drops the WebSocket; Socket.IO
+// usually auto-reconnects, but an explicit connect() makes it immediate.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const { socket, status } = useStore.getState();
+    if (socket?.disconnected && (status === 'reconnecting' || status === 'connected')) {
+      socket.connect();
+    }
+  });
+}
