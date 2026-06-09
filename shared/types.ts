@@ -850,16 +850,19 @@ export type LootTakePayload = {
   gold?: number;
   all?: boolean;
 };
-/** Upsert a spell/ability on a character's sheet. */
-export type AbilitySetPayload = { characterId: string; ability: SheetAbility };
-/** Remove a spell/ability from a character's sheet. */
-export type AbilityRemovePayload = { characterId: string; abilityId: string };
+/** Upsert a rich spell/ability on a creature OR character's sheet (`kind`+`refId`).
+ *  PCs author their own; monster sheetAbilities are DM-authored. */
+export type AbilitySetPayload = { kind: TokenKind; refId: string; ability: SheetAbility };
+/** Remove a spell/ability from a creature/character sheet. */
+export type AbilityRemovePayload = { kind: TokenKind; refId: string; abilityId: string };
 /**
  * Roll a sheet spell/ability into the shared log (server-authoritative).
- * `castLevel` upcasts a leveled spell; omit for cantrips/abilities.
+ * `castLevel` upcasts a leveled spell; omit for cantrips/abilities. For a monster
+ * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
-  characterId: string;
+  kind: TokenKind;
+  refId: string;
   abilityId: string;
   castLevel?: number;
   advantage?: 'adv' | 'dis';

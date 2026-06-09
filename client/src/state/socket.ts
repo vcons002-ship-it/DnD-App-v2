@@ -163,8 +163,8 @@ type Store = {
   setLoot: (monsterId: string, loot: LootContents) => void;
   takeLoot: (payload: LootTakePayload) => void;
   disarmTrap: (payload: TrapDisarmPayload) => void;
-  setSheetAbility: (characterId: string, ability: SheetAbility) => void;
-  removeSheetAbility: (characterId: string, abilityId: string) => void;
+  setSheetAbility: (kind: TokenKind, refId: string, ability: SheetAbility) => void;
+  removeSheetAbility: (kind: TokenKind, refId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
   rollDeathSave: (characterId: string) => void;
   sendChat: (text: string) => void;
@@ -435,10 +435,10 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('object:setLoot', { monsterId, loot }),
   takeLoot: (payload) => get().socket?.emit('loot:take', payload),
   disarmTrap: (payload) => get().socket?.emit('trap:disarm', payload),
-  setSheetAbility: (characterId, ability) =>
-    get().socket?.emit('ability:set', { characterId, ability }),
-  removeSheetAbility: (characterId, abilityId) =>
-    get().socket?.emit('ability:remove', { characterId, abilityId }),
+  setSheetAbility: (kind, refId, ability) =>
+    get().socket?.emit('ability:set', { kind, refId, ability }),
+  removeSheetAbility: (kind, refId, abilityId) =>
+    get().socket?.emit('ability:remove', { kind, refId, abilityId }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
   sendChat: (text) => get().socket?.emit('chat:send', { text }),

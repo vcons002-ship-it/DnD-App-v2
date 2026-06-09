@@ -149,7 +149,7 @@ export function CharacterSpells({
   if (character.sheetAbilities.length === 0 && !editable) return null;
 
   const add = (e: SpellHit) => {
-    setSheetAbility(character.id, {
+    setSheetAbility('pc', character.id, {
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
     });
@@ -173,7 +173,7 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['stance']>>,
   ) => {
     if (!a.stance) return;
-    setSheetAbility(character.id, { ...a, stance: { ...a.stance, ...patch } });
+    setSheetAbility('pc', character.id, { ...a, stance: { ...a.stance, ...patch } });
   };
 
   // Toggling a stance ON spends one use of its linked counter (if it has charges).
@@ -204,7 +204,7 @@ export function CharacterSpells({
     // A marking stance defaults to the current target when first switched on.
     if (goingActive && stance.targeted && !stance.targetId)
       stance.targetId = validDefault ?? targets[0]?.id;
-    setSheetAbility(character.id, { ...a, stance });
+    setSheetAbility('pc', character.id, { ...a, stance });
     // Tag/untag the marked target with the stance's status (Hunter's Mark → Marked).
     if (stance.marksTargetWith) {
       if (goingActive) markTarget(stance.targetId, stance.marksTargetWith);
@@ -224,7 +224,7 @@ export function CharacterSpells({
     if ((a.level ?? 0) >= 1) {
       if (goingActive) {
         // Cast it: spend a slot + start concentration (handled server-side).
-        rollAbility({ characterId: character.id, abilityId: a.id, castLevel: a.level });
+        rollAbility({ kind: 'pc', refId: character.id, abilityId: a.id, castLevel: a.level });
       } else {
         // Ending the spell ends its concentration.
         const conc = character.conditions.find(
@@ -278,7 +278,8 @@ export function CharacterSpells({
   const doRoll = (a: SheetAbility) => {
     if (!confirmConcentration(a)) return;
     rollAbility({
-      characterId: character.id,
+      kind: 'pc',
+      refId: character.id,
       abilityId: a.id,
       castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
@@ -294,7 +295,7 @@ export function CharacterSpells({
     a: SheetAbility,
     patch: Partial<NonNullable<SheetAbility['roll']>>,
   ) =>
-    setSheetAbility(character.id, {
+    setSheetAbility('pc', character.id, {
       ...a,
       roll: { ...(a.roll ?? { kind: 'damage' }), ...patch },
     });
@@ -304,7 +305,7 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['mastery']>>,
   ) => {
     if (!a.mastery) return;
-    setSheetAbility(character.id, { ...a, mastery: { ...a.mastery, ...patch } });
+    setSheetAbility('pc', character.id, { ...a, mastery: { ...a.mastery, ...patch } });
   };
 
   const patchManeuver = (
@@ -312,7 +313,7 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['maneuver']>>,
   ) => {
     if (!a.maneuver) return;
-    setSheetAbility(character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
+    setSheetAbility('pc', character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
   };
 
   return (
@@ -453,7 +454,7 @@ export function CharacterSpells({
                   <button
                     className="res-x"
                     title="Remove"
-                    onClick={() => removeSheetAbility(character.id, a.id)}
+                    onClick={() => removeSheetAbility('pc', character.id, a.id)}
                   >
                     ✕
                   </button>

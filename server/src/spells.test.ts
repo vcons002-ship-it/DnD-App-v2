@@ -155,18 +155,18 @@ describe('sheet abilities', () => {
     expect(c.sheetAbilities).toHaveLength(0);
 
     const entry = { ...getSpell('Fireball')!, id: 'sp1' } as SheetAbility;
-    setSheetAbility(c.id, entry);
+    setSheetAbility('pc', c.id, entry);
     let got = getCharacter(c.id)!;
     expect(got.sheetAbilities).toHaveLength(1);
     expect(got.sheetAbilities[0].name).toBe('Fireball');
 
     // Upsert by id replaces rather than duplicates.
-    setSheetAbility(c.id, { ...entry, name: 'Fireball (homebrew)' });
+    setSheetAbility('pc', c.id, { ...entry, name: 'Fireball (homebrew)' });
     got = getCharacter(c.id)!;
     expect(got.sheetAbilities).toHaveLength(1);
     expect(got.sheetAbilities[0].name).toBe('Fireball (homebrew)');
 
-    removeSheetAbility(c.id, 'sp1');
+    removeSheetAbility('pc', c.id, 'sp1');
     expect(getCharacter(c.id)!.sheetAbilities).toHaveLength(0);
   });
 

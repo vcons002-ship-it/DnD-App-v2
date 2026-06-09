@@ -172,7 +172,8 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
               title={a.description || 'Ability'}
               onClick={run(() =>
                 rollAbility({
-                  characterId: aChar!.id,
+                  kind: 'pc',
+                  refId: aChar!.id,
                   abilityId: a.id,
                   castLevel: a.roll?.baseLevel,
                   advantage: consumeAdvantage(attacker!.refId),
