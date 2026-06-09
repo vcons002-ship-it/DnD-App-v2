@@ -1705,6 +1705,7 @@ export type MonsterInput = {
   weaknesses?: string[];
   actions?: Monster['actions'];
   abilities?: Monster['abilities'];
+  sheetAbilities?: Monster['sheetAbilities'];
   weapons?: Monster['weapons'];
   icon?: string;
   disposition?: Monster['disposition'];
@@ -1727,8 +1728,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level, object_kind, loot, object_dc)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1753,6 +1754,7 @@ function insertMonster(
     opts.objectKind ?? null,
     opts.loot ? JSON.stringify(opts.loot) : null,
     opts.objectDc ?? null,
+    JSON.stringify(opts.sheetAbilities ?? []),
   );
   return getMonster(id)!;
 }
@@ -1836,6 +1838,9 @@ export function instantiateMonster(templateId: string): Monster | null {
       // Each spawned container gets its own copy of the template's loot.
       loot: tmpl.loot,
       objectDc: tmpl.objectDc,
+      // Deep-copy so per-instance mastery/maneuver/stance toggle state doesn't
+      // alias the template's entries.
+      sheetAbilities: JSON.parse(JSON.stringify(tmpl.sheetAbilities ?? [])),
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -1864,6 +1869,7 @@ export function copyMonster(monsterId: string): Monster | null {
     objectKind: m.objectKind,
     loot: m.loot,
     objectDc: m.objectDc,
+    sheetAbilities: JSON.parse(JSON.stringify(m.sheetAbilities ?? [])),
     source: m.source,
   });
 }
@@ -1890,6 +1896,7 @@ export function updateMonster(
     weapons: Monster['weapons'];
     actions: Monster['actions'];
     abilities: Monster['abilities'];
+    sheetAbilities: Monster['sheetAbilities'];
     icon: string;
   }>,
 ): Monster | null {
@@ -1927,6 +1934,8 @@ export function updateMonster(
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)
     put('abilities', JSON.stringify(patch.abilities));
+  if (patch.sheetAbilities !== undefined)
+    put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
 
   // Clamp curHp to a (possibly new) maxHp so the bar never overflows.
   if (sets.length) {

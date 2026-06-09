@@ -408,6 +408,10 @@ export type Monster = {
   actions: CreatureAbility[];
   /** Traits / features. */
   abilities: CreatureAbility[];
+  /** Rich, rollable spells/abilities/masteries — the SAME system PCs use
+   *  (`sheetAbilities`), so a creature can carry searchable, collapsible, rollable
+   *  entries. DM-authored; resolved server-side with CR-based DC/to-hit. */
+  sheetAbilities: SheetAbility[];
   source: 'srd' | 'gemini' | 'manual';
   conditions: Condition[];
   /** How much of this creature players may see (default enemy). */
@@ -946,6 +950,7 @@ export type MonsterCreatePayload = {
   weaknesses?: string[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  sheetAbilities?: SheetAbility[];
   weapons?: Weapon[];
   icon?: string;
   disposition?: Disposition;
@@ -979,6 +984,7 @@ export type MonsterUpdatePayload = {
   weapons?: Weapon[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  sheetAbilities?: SheetAbility[];
   icon?: string;
   /** Disarm DC for a trap object. */
   objectDc?: number;
