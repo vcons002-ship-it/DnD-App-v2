@@ -629,15 +629,20 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .data-init-actions { margin-left: auto; display: flex; gap: 6px; }
 .data-bulk { border-bottom: 1px solid var(--line); background: var(--panel); }
 .data-body { flex: 1; min-height: 0; display: flex; }
+/* Positioned wrapper gives the grid a definite box to fill, so the scroll area
+   has a real height on every browser (the flex `min-height:0` chain is unreliable
+   on iOS Safari, where it can collapse the cards on top of each other). */
+.data-grid-wrap { flex: 1; min-width: 0; position: relative; }
 .data-grid {
-  flex: 1; min-height: 0; overflow-y: auto; padding: 12px 12px 28px;
+  position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 28px;
   /* Default `auto` rows: each row grows to its tallest card's full height, so a
      card with lots of status info just pushes the row below it down (scrollable),
      instead of overflowing into — and overlapping — the next row. */
   display: grid; gap: 10px; align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
 }
-.data-grid-empty { flex: 1; }
+.data-grid-empty { padding: 16px; }
 .data-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff44; }
 .data-card.turn { border-color: #ffd21a; }

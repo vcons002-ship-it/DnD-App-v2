@@ -801,3 +801,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   server-authoritative DEX (Sleight of Hand) check vs the DC and, on success,
   flips the trap to Disarmed. (No auto-trigger-on-entry / passive-Perception
   detection — deferred.)
+- ☑ **AI actions carry structured rolls.** Gemini creature/character generation
+  now attaches a structured `roll` to each `action` (explicit from the model, else
+  scraped from a "DC <n> <ability> saving throw, <dice> <type> damage" description),
+  and `createMonsterTemplate` scrapes the same from free-text/SRD/pasted actions.
+  So AI-built traps and breath weapons are immediately rollable and offer the
+  **Apply damage** save flow, instead of becoming plain weapon attacks.
+- ☑ **iPad / touch polish.** Two-finger **pinch-to-zoom** on the map plus on-screen
+  **−/+ zoom buttons** beside Fit (a shared `zoomAtPoint` helper backs wheel,
+  buttons and pinch; panning pauses mid-pinch); a wider, `touch-action:none`
+  **sidebar resize handle** that also works on mobile drawers; long-press callout
+  suppression over the canvas; and a friendly **HEIC/HEIF upload guard** (most
+  browsers can't render those photos).
+- ☑ **DM Data view upgrades.** A header **map switcher** to view ANY map
+  (non-active are preview-only) with a **Make active** button; it auto-follows the
+  live map only when it *changes* (set here or from the main DM UI). A stale
+  active-turn pointer no longer **blanks** the view (guarded lookup), and a routes
+  **`ErrorBoundary`** turns any future render error into a readable message + Reload
+  instead of a white screen. AI fills here now show the **banner + toast** (the
+  view renders `AiStatus`/`Toast`/`ConnectionStatus`). The roll log is a
+  **collapsible/resizable `SidePanel`**, and the card grid sits in a
+  definite-height scroll box so cards flow + scroll (never overlap) — reliable on
+  iOS Safari, where the nested-flex height chain was collapsing them.

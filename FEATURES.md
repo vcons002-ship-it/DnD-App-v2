@@ -29,6 +29,7 @@ lives**, **how to use it**, and any gotchas.
   - [Editing a creature or NPC](#editing-a-creature-or-npc-dm)
   - [Disposition: what players see](#disposition-what-players-see-dm)
   - [Hiding tokens & combat-role badges](#hiding-tokens--combat-role-badges-dm)
+  - [Objects: traps, doors, chests & loot](#objects-traps-doors-chests--loot-dm)
   - [Running combat](#running-combat-dm)
   - [Bulk actions on many tokens](#bulk-actions-on-many-tokens-dm)
   - [The creature & item libraries](#the-creature--item-libraries-dm)
@@ -40,6 +41,7 @@ lives**, **how to use it**, and any gotchas.
   - [Placing & moving your token](#placing--moving-your-token-player)
   - [Attacking & casting (combat console)](#attacking--casting-combat-console-player)
   - [Conditions & HP](#conditions--hp-player)
+  - [Looting & disarming](#looting--disarming-player)
   - [Seeing the party & NPCs](#seeing-the-party--npcs-player)
 - [Shared tools (both roles)](#shared-tools-both-roles)
   - [Moving around the map](#moving-around-the-map)
@@ -97,7 +99,9 @@ code already baked in, and hand it to your players.
 **Where:** the **`/join`** link your DM shares.
 
 You see **"Join Game"**. Enter the **session code** (it's usually pre-filled if
-the DM sent the copy-link) and click **Join**. Then pick your character (see
+the DM sent the copy-link) and click **Join** — or, if you've played before, pick
+a game from the **saved-sessions list** on the screen (the same resume directory
+the DM sees) to rejoin in one click. Then pick your character (see
 [Choosing your character](#choosing-your-character-player)).
 
 ---
@@ -290,6 +294,40 @@ Instances inherit their template's disposition. Players also get a free-text
 
 Hidden tokens never reach players, regardless of fog.
 
+### Objects: traps, doors, chests & loot (DM)
+
+**Where:** left panel → **Spawn** section → set the **Object** dropdown
+(*Trap / Door / Chest / Item / Other*) before clicking **Add object**, then place
+it on the map like any token. Select the placed object for its **object controls**
+(also in the right-click floating menu).
+
+An "object" is a non-combat interactable — it reuses the token/template system but
+shows interaction controls instead of a combat panel, gets no combat-role badge,
+and defaults to **Neutral** so players can see it once it's revealed.
+
+- **State chips** — toggle the object's state, stored as conditions that show on
+  the hover card: doors **Locked / Open**; chests **Locked / Open / Looted**; traps
+  **Armed / Disarmed / Triggered**; items **Taken**.
+- **👁 Hide / 🙈 Reveal** — keep an object secret (a hidden trap, a concealed door)
+  until you reveal it to players.
+- **Loot in a chest (or item/other):** a **💰 Loot** section lets you stock it with
+  **gold** and **items** (typed in or pulled from the item **Library**). Players
+  **can't see the contents** until the object is **opened** (toggle *Open*). Then a
+  player clicks **Take** (per item), **Take N gp**, or **Take all** to move it into
+  their character — items merge into their inventory, gold into their **gold purse**
+  — or you hand it to any PC via the recipient dropdown. An emptied container
+  auto-flags itself **Looted/Taken**.
+- **Trap effect & trigger:** give the trap an effect by adding a **save or attack
+  action** in its stat block (e.g. "DC 13 DEX save, 2d6 poison"). The object panel
+  then shows a **⚡ Trigger** button per action — firing it logs the roll and arms
+  the roll log's **🎯 Apply damage** click-to-target flow (each creature rolls its
+  own save), and marks the trap **Triggered**. Set a **Disarm DC** here too.
+  *(Tip: AI-filled creatures/traps now author save effects as structured actions,
+  so the Trigger button works straight away.)*
+
+Players who can see a revealed trap get a **🔧 Disarm** button on it — see
+[the player guide](#looting--disarming-player).
+
 ### Running combat (DM)
 
 **Where:** left panel → **Initiative** section.
@@ -355,18 +393,24 @@ reusable in **any** future session — not just the one they were made in.
 
 **Where:** top toolbar → **🗔 Data view** (opens **`/dm/data`** in a new window).
 
-A standalone combat dashboard meant for a second monitor or tablet. It mirrors
-the live active map and gives you:
+A standalone combat dashboard meant for a second monitor or tablet. It gives you:
 
+- A **map switcher** in the header — view **any** map here (non-active maps are
+  preview-only), with a **Make active** button to take one live. It **auto-follows
+  the live map** whenever it changes (set here or from the main DM window), but
+  otherwise leaves you free to preview another map.
 - A grid of **compact cards** — name, HP bar, quick damage/heal, AC, ability
-  scores, condition chips, and a **Status** picker.
+  scores, condition chips, and a **Status** picker. Cards flow and **scroll**;
+  expanding one (more conditions, etc.) pushes the rest down rather than overlapping.
 - **Sort** by initiative / A–Z / type, then **drag to reorder**.
 - A per-card **checkbox** that multi-selects — and that selection mirrors to your
   map window (same browser) and drives the bulk-actions panel.
 - **Expand** any card into a large overlay that reuses the full token panel
-  (edit stats, AI fill, disposition, conditions, damage/heal — everything).
+  (edit stats, AI fill, disposition, conditions, damage/heal — everything). AI
+  fills here show the same **"AI is working" banner + toast** as the main window.
 - An **initiative header** (Roll all / Add rolls / Next / Clear) and a
-  **full dice panel + roll log** down the right side.
+  **collapsible, resizable** dice panel + roll log down the side — collapse it for
+  more room for cards.
 
 ### Settings & AI (DM)
 
@@ -444,6 +488,18 @@ You can set/clear conditions on **your own PC only**. Damage and healing show on
 your token's HP bar (with a cyan **+N** for temp HP). Temp HP soaks damage first
 and is never refilled by healing.
 
+### Looting & disarming (player)
+
+**Where:** select (or right-click) a revealed object the DM has placed.
+
+- **Open chest / loot pile:** once the DM has opened it, its **💰 Loot** shows the
+  gold and items inside. Click **Take** on an item, **Take N gp**, or **Take all**
+  to move it onto your claimed character — items land in your **Inventory**, gold in
+  your **gold purse** (shown on your sheet). A drained container reads **Looted**.
+- **Disarm a trap:** click **🔧 Disarm** to roll a **Dexterity (Sleight of Hand)
+  check** against the trap's DC (rolled server-side; Sleight-of-Hand proficiency
+  counts). On a success the trap flips to **Disarmed** in the shared log.
+
 ### Seeing the party & NPCs (player)
 
 **Where:** left panel → **Party**.
@@ -461,10 +517,11 @@ and is never refilled by healing.
 
 ### Moving around the map
 
-- **Zoom:** mouse **wheel** zooms toward the cursor (25%–1200%).
-- **Pan:** **click-drag empty canvas**.
+- **Zoom:** mouse **wheel** zooms toward the cursor (25%–1200%), the **−/+
+  buttons** step it, and on a touchscreen **pinch with two fingers** to zoom.
+- **Pan:** **click-drag empty canvas** (one finger on touch).
 - **Fit:** the **Fit** button (bottom corner) resets to fit-the-window; the live
-  zoom **%** is shown next to it.
+  zoom **%** is shown next to the zoom buttons.
 - **Esc** cancels whatever mode you're in (placing, painting fog, measuring,
   setting scale, applying damage).
 
@@ -562,7 +619,8 @@ bottom):
   **damage type** — so an **attack** spell rolls to-hit against a chosen
   **Spell target** and applies typed damage on a hit. Masteries toggle
   **On/Off**; maneuvers **arm** for your next attack (spending a Superiority Die).
-- **Items** — add gear by hand or from the **Library**, with quantity steppers.
+- **Items** — add gear by hand or from the **Library**, with quantity steppers,
+  plus a **💰 gold** purse (filled automatically when you loot a chest).
 - **Skills** — all 18 skills with their ability, a **proficiency dot** (click to
   toggle), the proficiency bonus, and the computed total. **Click a skill to
   roll** the check server-side (honoring advantage/disadvantage).
