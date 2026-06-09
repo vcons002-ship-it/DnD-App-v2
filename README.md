@@ -8,13 +8,15 @@ via `PUBLIC_URL`).
 
 > **Status:** core VTT plus combat tooling, characters, creatures, and a DM
 > second screen are all shipped. Done: durable sessions & resume directory,
-> canvas zoom/pan + resizable panels, fog of war (map + token-only modes),
-> initiative tracker, **automated weapon attacks & saving throws**, a **dice
-> roller with a shared, color-coded roll log**, full **character sheets**
-> (skills, class resources, inventory, import/export), **SRD + AI (Gemini)
-> creature creation**, a **cross-session creature/item library**, and a
-> standalone **DM Data dashboard**. Up next is deeper AI assistance (spell
-> resolution, rules lookup, enemy dialogue). See [`ROADMAP.md`](ROADMAP.md).
+> canvas zoom/pan + resizable panels (with **iPad pinch-zoom & touch**), fog of
+> war (map + token-only modes), initiative tracker, **automated weapon attacks &
+> saving throws**, a **dice roller with a shared, color-coded roll log**, full
+> **character sheets** (skills, spells/abilities/masteries, class resources,
+> inventory + a **gold purse**, import/export), **SRD + AI (Gemini) creature
+> creation**, a **cross-session creature/item library**, **non-combat objects**
+> (traps, doors, **lootable chests**, hidden items), and a standalone **DM Data
+> dashboard**. Up next is deeper AI assistance (spell resolution, rules lookup,
+> enemy dialogue). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Easiest install (one click)
 
@@ -50,12 +52,17 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 **Maps & fog**
 - Upload any image as a map; DM stages tokens, grid, and fog without players seeing it, then **Make active** to reveal.
 - Fog of war per map: `off` / `map` / `tokens-only` modes, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
-- Zoom toward the cursor, drag-to-pan, **Fit** to reset; resizable/collapsible side panels (persisted).
+- Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels (persisted), tuned for **tablet/iPad** use.
 
 **Tokens**
 - Click-to-place (stays active for dropping several), multi-select with group drag, duplicate, delete, per-token hide-from-players.
 - Three concentric **status rings** (buff / negative / concentration), 💀 death marker at 0 HP, combat-role badge (⚔️ / 🏹 / ✨), initiative-order badge, hover card, and a right-click / long-press floating action menu.
 - Players can place and move their own claimed token; resizing is DM-only.
+
+**Non-combat objects & loot**
+- Place **traps, doors, chests, and hidden items** as map objects (DM "Object type" picker): reveal/hide from players and toggle state chips (Locked / Open / Disarmed / Looted / Triggered…) that show on the hover card.
+- **Lootable chests:** the DM stocks a chest with **gold + items**; contents stay hidden from players until it's opened, then a player **Takes** them into their inventory and a per-character **gold purse**.
+- **Trap mechanics:** the DM authors a save/attack effect on a trap and fires it with a **⚡ Trigger** button (resolves through the roll log's Apply-damage flow); players attempt a **🔧 Disarm** check (server-rolled) against the trap's DC.
 
 **Combat**
 - **Initiative tracker:** roll-all (d20), roll-missing, Next (wraps), Clear; active turn highlighted on the board and in the panel.
@@ -75,8 +82,8 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 - **Cross-session library** of custom/AI creatures and items for reuse across games.
 
 **DM second screen & shell**
-- `/dm/data` — a standalone **DM Data dashboard** (compact stat cards, large expand overlay, status popovers) for a second monitor.
-- Shared top toolbar, copy-player-link with the join code baked in, optional DM passphrase gate, editable map & session names, and a persistent resume directory.
+- `/dm/data` — a standalone **DM Data dashboard** (compact stat cards, large expand overlay, status popovers) for a second monitor or tablet, with a **map switcher** (view/preview any map, **Make active**, auto-follows the live map) and a **collapsible/resizable** roll-log panel.
+- Shared top toolbar, copy-player-link with the join code baked in, optional DM passphrase gate, editable map & session names, and a persistent resume directory shown on **both** the DM and player landing screens.
 
 ## Stack
 
@@ -258,7 +265,8 @@ per-feature status. High-level status:
 - **Phase 3 (done):** fog of war (map + token-only modes, reveal/hide brush, cover-all curtain), per-token hide-from-players, DM-only token resize, initiative-order badges.
 - **Phase 4 (done):** SRD creature search + Gemini fallback, full stat blocks, reusable spawn templates, multi-spawn with sequential names, duplicate-token, auto + custom token icons.
 - **Phase 5 / 5a (done):** character sheets with skills, disposition, editable NPC stats, AI back-fill; class resources, inventory, sheet import/export; cross-session creature/item library; Roll20 embed; dice roller + shared roll log; automated weapon attacks & saving throws.
-- **Phase 7 (done):** DM Data second-screen dashboard and shared top toolbar.
+- **Phase 7 (done):** DM Data second-screen dashboard (map switcher + collapsible roll log) and shared top toolbar.
+- **Recent (done):** non-combat **objects** (traps/doors/chests/items) with **lootable chests + a gold purse** and **trap trigger/disarm**; structured AI actions; **player-landing session list**; and **iPad/touch polish** (pinch-zoom, on-screen zoom buttons, touch resize).
 - **Phase 6 (future):** AI-assisted spell-effect resolution, rules/item lookup, and AI-generated enemy combat dialogue.
 - **Phase 7 (future):** Discord voice/video integration.
 
