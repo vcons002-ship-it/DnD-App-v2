@@ -11,6 +11,7 @@ import { AURA_HEX } from '../lib/conditions';
 import { useSelection } from '../lib/useSelection';
 import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { SidePanel } from '../components/SidePanel';
 import { DicePanel } from '../components/DicePanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { ConditionPopover } from '../components/ConditionPopover';
@@ -260,9 +261,9 @@ export function DmDataView() {
             ))}
           </div>
         )}
-        <aside className="data-roll-sidebar">
+        <SidePanel side="right" storageKey="dm-data-log">
           <DicePanel snapshot={snapshot} />
-        </aside>
+        </SidePanel>
       </div>
 
       {expandedToken && (
