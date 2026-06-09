@@ -7,6 +7,7 @@ import type {
   TokenKind,
 } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { unsupportedImageReason } from '../lib/images';
 import { NewCharacterForm } from './NewCharacterForm';
 import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { ImportMapsDialog } from './ImportMapsDialog';
@@ -151,6 +152,12 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   const uploadImage = () => {
     const file = fileRef.current?.files?.[0];
     if (!file) return;
+    const reason = unsupportedImageReason(file);
+    if (reason) {
+      window.alert(reason);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
     const fd = new FormData();
     fd.append('image', file);
     if (mapName) fd.append('name', mapName);

@@ -403,6 +403,10 @@ export function MapStage({
 
   const [view, setView] = useState<View>(fit);
   const userAdjusted = useRef(false);
+  // Two-finger pinch-zoom state: the last finger spread + its midpoint (in
+  // container coords), null when not pinching.
+  const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
+  const [pinching, setPinching] = useState(false);
 
   // Reset to fit when the map changes; otherwise refit on resize until the
   // user zooms/pans, after which we preserve their view.
@@ -560,6 +564,14 @@ export function MapStage({
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    // Two fingers down → start a pinch-zoom (and suspend panning/drawing).
+    const touches = (e.evt as TouchEvent).touches;
+    if (touches && touches.length >= 2) {
+      e.evt.preventDefault();
+      pinchRef.current = pinchData(touches);
+      setPinching(true);
+      return;
+    }
     if (scaleMode) {
       // Drag a reference line; its real length is entered on release.
       const pos = pointerToImage(stage);
@@ -611,6 +623,14 @@ export function MapStage({
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const touches = (e.evt as TouchEvent).touches;
+    if (touches && touches.length >= 2 && pinchRef.current) {
+      e.evt.preventDefault();
+      const next = pinchData(touches);
+      zoomAtPoint(next.dist / pinchRef.current.dist, next.cx, next.cy);
+      pinchRef.current = next;
+      return;
+    }
     if (scaleMode && scaleDrawRef.current) {
       const stage = e.target.getStage();
       const pos = stage ? pointerToImage(stage) : null;
@@ -638,6 +658,11 @@ export function MapStage({
   };
 
   const endStroke = () => {
+    if (pinchRef.current) {
+      pinchRef.current = null;
+      setPinching(false);
+      return;
+    }
     if (penRef.current) {
       const pts = penRef.current;
       penRef.current = null;
@@ -708,27 +733,43 @@ export function MapStage({
     }
   };
 
+  // Zoom by `factor`, keeping the container point (px,py) stationary. Shared by
+  // the wheel, the +/− buttons (center) and two-finger pinch (the midpoint).
+  const zoomAtPoint = (factor: number, px: number, py: number) => {
+    setView((v) => {
+      const newScale = clamp(v.scale * factor, fit.scale * 0.25, fit.scale * 12);
+      const mx = (px - v.x) / v.scale;
+      const my = (py - v.y) / v.scale;
+      userAdjusted.current = true;
+      return { scale: newScale, x: px - mx * newScale, y: py - my * newScale };
+    });
+  };
+  // Button zoom: step in/out around the viewport center.
+  const zoomBy = (factor: number) => zoomAtPoint(factor, size.w / 2, size.h / 2);
+
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     const stage = e.target.getStage();
     const pointer = stage?.getPointerPosition();
     if (!pointer) return;
-    const oldScale = view.scale;
-    const factor = e.evt.deltaY > 0 ? 1 / 1.1 : 1.1;
-    const newScale = clamp(oldScale * factor, fit.scale * 0.25, fit.scale * 12);
-    // Keep the point under the cursor stationary while zooming.
-    const mx = (pointer.x - view.x) / oldScale;
-    const my = (pointer.y - view.y) / oldScale;
-    userAdjusted.current = true;
-    setView({
-      scale: newScale,
-      x: pointer.x - mx * newScale,
-      y: pointer.y - my * newScale,
-    });
+    zoomAtPoint(e.evt.deltaY > 0 ? 1 / 1.1 : 1.1, pointer.x, pointer.y);
+  };
+
+  // Distance + midpoint (container coords) between the first two active touches.
+  const pinchData = (touches: TouchList) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const ox = rect?.left ?? 0;
+    const oy = rect?.top ?? 0;
+    const [a, b] = [touches[0], touches[1]];
+    return {
+      dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+      cx: (a.clientX + b.clientX) / 2 - ox,
+      cy: (a.clientY + b.clientY) / 2 - oy,
+    };
   };
 
   // Pan by dragging empty canvas (disabled while placing or painting fog).
-  const panning = !onPlaceAt && !fogActive && !measureActive;
+  const panning = !onPlaceAt && !fogActive && !measureActive && !pinching;
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
     if (e.target.getClassName() !== 'Layer') return;
@@ -747,10 +788,24 @@ export function MapStage({
       {map && (
         <>
           <div className="stage-controls">
+            <button
+              className="btn tiny zoom-btn"
+              onClick={() => zoomBy(1 / 1.25)}
+              title="Zoom out"
+            >
+              −
+            </button>
+            <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
+            <button
+              className="btn tiny zoom-btn"
+              onClick={() => zoomBy(1.25)}
+              title="Zoom in"
+            >
+              +
+            </button>
             <button className="btn tiny" onClick={resetView} title="Fit to window">
               Fit
             </button>
-            <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
           </div>
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
               via a portal, but keep all their state/handlers here in MapStage. */}

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { DmRoute } from './routes/DmRoute';
 import { DmDataRoute } from './routes/DmDataRoute';
 import { PlayerRoute } from './routes/PlayerRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
 
 function Home() {
@@ -26,13 +27,15 @@ function Home() {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/dm" element={<DmRoute />} />
-        <Route path="/dm/data" element={<DmDataRoute />} />
-        <Route path="/join" element={<PlayerRoute />} />
-        <Route path="/play" element={<PlayerRoute />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dm" element={<DmRoute />} />
+          <Route path="/dm/data" element={<DmDataRoute />} />
+          <Route path="/join" element={<PlayerRoute />} />
+          <Route path="/play" element={<PlayerRoute />} />
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,
 );

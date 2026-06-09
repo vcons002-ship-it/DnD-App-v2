@@ -11,9 +11,13 @@ import { AURA_HEX } from '../lib/conditions';
 import { useSelection } from '../lib/useSelection';
 import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
+import { SidePanel } from '../components/SidePanel';
 import { DicePanel } from '../components/DicePanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { ConditionPopover } from '../components/ConditionPopover';
+import { AiStatus } from '../components/AiStatus';
+import { Toast } from '../components/Toast';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 
 const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
@@ -33,6 +37,7 @@ type SortMode = 'initiative' | 'az' | 'type';
 export function DmDataView() {
   const snapshot = useStore((s) => s.snapshot)!;
   const selectMap = useStore((s) => s.selectMap);
+  const setActiveMap = useStore((s) => s.setActiveMap);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
   const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
@@ -47,12 +52,15 @@ export function DmDataView() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const dragId = useRef<string | null>(null);
 
-  // Always mirror the LIVE active map even if the main DM switches it.
+  // Follow the live active map whenever it CHANGES (set from here or the main DM
+  // window), but otherwise leave the DM free to preview a non-active map here.
+  const lastActive = useRef<string | null>(null);
   useEffect(() => {
-    if (snapshot.activeMapId && snapshot.map?.id !== snapshot.activeMapId) {
+    if (snapshot.activeMapId && snapshot.activeMapId !== lastActive.current) {
+      lastActive.current = snapshot.activeMapId;
       selectMap(snapshot.activeMapId);
     }
-  }, [snapshot.activeMapId, snapshot.map?.id, selectMap]);
+  }, [snapshot.activeMapId, selectMap]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) =>
@@ -138,14 +146,14 @@ export function DmDataView() {
       cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
     );
 
-  const turnName = snapshot.activeTurnTokenId
-    ? resolveToken(
-        snapshot,
-        snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId)!,
-      ).name
-    : null;
-  const activeMapName =
-    snapshot.maps.find((m) => m.id === snapshot.activeMapId)?.name ?? '—';
+  // The active-turn token may live on a DIFFERENT map than the one being viewed
+  // here (initiative rolled on map A, then map B activated/previewed), so it
+  // won't be in this map's token list. Guard the lookup — never assert it exists,
+  // or resolveToken(undefined) throws and blanks the whole Data view.
+  const turnToken = snapshot.activeTurnTokenId
+    ? snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId)
+    : undefined;
+  const turnName = turnToken ? resolveToken(snapshot, turnToken).name : null;
   const expandedToken = expandedId
     ? tokens.find((t) => t.id === expandedId)
     : null;
@@ -155,8 +163,34 @@ export function DmDataView() {
       <header className="data-top">
         <div>
           <strong>DM Data</strong>
-          <span className="muted"> · {snapshot.sessionCode} · {activeMapName}</span>
+          <span className="muted"> · {snapshot.sessionCode}</span>
         </div>
+        {snapshot.maps.length > 0 && (
+          <div className="data-maps">
+            <span className="muted">Map:</span>
+            <select
+              value={snapshot.map?.id ?? ''}
+              onChange={(e) => selectMap(e.target.value)}
+              title="View a map here (non-active maps are preview-only)"
+            >
+              {snapshot.maps.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                  {m.id === snapshot.activeMapId ? ' ● live' : ''}
+                </option>
+              ))}
+            </select>
+            {snapshot.map && snapshot.map.id !== snapshot.activeMapId && (
+              <button
+                className="btn tiny"
+                onClick={() => setActiveMap(snapshot.map!.id)}
+                title="Make this the live map for players (also swaps the main DM view)"
+              >
+                Make active
+              </button>
+            )}
+          </div>
+        )}
         <div className="data-turn">
           {turnName ? (
             <>
@@ -206,7 +240,9 @@ export function DmDataView() {
 
       <div className="data-body">
         {orderedTokens.length === 0 ? (
-          <p className="muted pad data-grid-empty">No tokens on the active map yet.</p>
+          <p className="muted pad data-grid-empty">
+            {snapshot.map ? 'No tokens on this map yet.' : 'No map selected — pick one above.'}
+          </p>
         ) : (
           <div className="data-grid">
             {orderedTokens.map((t) => (
@@ -225,9 +261,9 @@ export function DmDataView() {
             ))}
           </div>
         )}
-        <aside className="data-roll-sidebar">
+        <SidePanel side="right" storageKey="dm-data-log">
           <DicePanel snapshot={snapshot} />
-        </aside>
+        </SidePanel>
       </div>
 
       {expandedToken && (
@@ -245,6 +281,12 @@ export function DmDataView() {
           </div>
         </div>
       )}
+
+      {/* AI "working" banner + result toast + reconnect status, same as the main
+          DM window — without these, AI fills from here gave no visible feedback. */}
+      <AiStatus />
+      <ConnectionStatus />
+      <Toast />
     </div>
   );
 }
