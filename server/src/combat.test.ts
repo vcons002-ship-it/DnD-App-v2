@@ -4,6 +4,7 @@ import {
   resolveSaves,
   resolveSave,
   resolveSkillRoll,
+  resolveTrapDisarm,
   resolveAbilityRoll,
   resolveMonsterAction,
   resolveForcedSave,
@@ -150,6 +151,40 @@ describe('combat resolution', () => {
     const before = listRollLog(s.id).length;
     expect(resolveSkillRoll(s.id, 'Rogue', c, 'Juggling')).toBe(false);
     expect(listRollLog(s.id).length).toBe(before);
+  });
+
+  it('resolves a trap disarm vs the trap DC and logs it', () => {
+    const { s } = arena();
+    const rogue = createCharacter(s.id, {
+      name: 'Pip',
+      className: 'Rogue',
+      level: 5,
+      stats: { DEX: 16 },
+      proficientSkills: ['Sleight of Hand'],
+    });
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Dart Trap',
+      maxHp: 1,
+      objectKind: 'trap',
+      objectDc: 1, // trivially low → always succeeds
+    });
+    const trap = instantiateMonster(tmpl.id)!;
+    expect(resolveTrapDisarm(s.id, 'Pip', rogue, trap).success).toBe(true);
+    const log = listRollLog(s.id).at(-1)!;
+    expect(log.label).toBe('Disarm trap');
+    expect(log.detail).toContain('DISARMED');
+
+    // An impossible DC always fails.
+    const hard = instantiateMonster(
+      createMonsterTemplate(s.id, {
+        name: 'Vault Trap',
+        maxHp: 1,
+        objectKind: 'trap',
+        objectDc: 99,
+      }).id,
+    )!;
+    expect(resolveTrapDisarm(s.id, 'Pip', rogue, hard).success).toBe(false);
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('FAILED');
   });
 });
 

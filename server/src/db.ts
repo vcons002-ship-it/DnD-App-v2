@@ -367,6 +367,8 @@ ensureColumn('monsters', 'player_notes', "player_notes TEXT NOT NULL DEFAULT ''"
 ensureColumn('monsters', 'object_kind', 'object_kind TEXT');
 // Loot held by an object (chest/treasure pile): JSON { gold, items }.
 ensureColumn('monsters', 'loot', 'loot TEXT');
+// Disarm DC for a trap object (DEX / Sleight of Hand check).
+ensureColumn('monsters', 'object_dc', 'object_dc INTEGER');
 // Coins a character is carrying, in gold pieces (single purse).
 ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');
 // Battle Master Superiority Die size (the pool lives in the resources counters).
@@ -549,6 +551,7 @@ type MonsterRow = {
   disposition: Monster['disposition'];
   object_kind: string | null;
   loot: string | null;
+  object_dc: number | null;
   last_attack_role: string | null;
   player_notes: string | null;
   level: number;
@@ -578,6 +581,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     disposition: r.disposition ?? 'enemy',
     ...(r.object_kind ? { objectKind: r.object_kind as Monster['objectKind'] } : {}),
     ...(r.loot ? { loot: JSON.parse(r.loot) as Monster['loot'] } : {}),
+    ...(r.object_dc != null ? { objectDc: r.object_dc } : {}),
     lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',
     playerNotes: r.player_notes ?? '',

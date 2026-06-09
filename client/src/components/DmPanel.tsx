@@ -100,9 +100,15 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   };
 
   const addMonster = () => {
-    if (!monName.trim()) return;
+    // Objects don't need a typed name — fall back to the kind (e.g. "Chest") so
+    // the DM can pick "Chest" and click straight away.
+    const fallback = objectKind
+      ? objectKind[0].toUpperCase() + objectKind.slice(1)
+      : '';
+    const name = monName.trim() || fallback;
+    if (!name) return;
     createMonster({
-      name: monName.trim(),
+      name,
       maxHp: monHp,
       creatureType: tmpl?.creatureType,
       level: tmpl?.level,
@@ -124,6 +130,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
     });
     setMonName('');
     setTmpl(null);
+    setObjectKind('');
   };
 
   const upload = async (body: FormData) => {

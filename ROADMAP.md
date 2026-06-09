@@ -793,3 +793,11 @@ Smaller refinements on top of the shipped Phase 2 work.
   `gold` purse — or the DM hands loot to any PC. A drained container auto-flags
   itself Looted/Taken. `loot:take`/`object:setLoot` are role-gated; instances
   inherit a template's loot. (Shops/currency-denominations still deferred.)
+- ☑ **Trap mechanics.** A trap carries an authored stat-block action (save/attack
+  with a structured roll); `TrapControls` gives the DM a **⚡ Trigger** button per
+  action (fired via the existing `monster:action` → roll-log → click-to-apply
+  flow, and flips the trap to Triggered) plus a **disarm DC** field (`objectDc`).
+  A player holding a character gets a **🔧 Disarm** button → `trap:disarm` rolls a
+  server-authoritative DEX (Sleight of Hand) check vs the DC and, on success,
+  flips the trap to Disarmed. (No auto-trigger-on-entry / passive-Perception
+  detection — deferred.)

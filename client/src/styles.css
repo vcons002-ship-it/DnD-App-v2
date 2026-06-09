@@ -348,6 +348,11 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .loot-edit { margin-top: 6px; }
 .loot-gold-edit { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .loot-gold-edit input { width: 70px; }
+/* Trap trigger + disarm controls. */
+.trap-controls { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.trap-fire { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.trap-dc { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+.trap-dc input { width: 56px; }
 /* Character purse on the inventory panel. */
 .purse { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; }
 .purse-label { font-weight: 600; }

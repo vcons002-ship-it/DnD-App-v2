@@ -925,6 +925,39 @@ export function resolveMonsterAction(
 }
 
 /**
+ * Resolve a trap-disarm attempt: a Dexterity (Sleight of Hand) check vs the
+ * trap's disarm DC (defaulting to 12 when unset), logged to the shared roll log.
+ * Returns whether the check succeeded so the caller can flip the trap to
+ * "Disarmed".
+ */
+export function resolveTrapDisarm(
+  sessionId: string,
+  roller: string,
+  character: Character,
+  trap: Monster,
+  advantage?: Advantage,
+): { success: boolean } {
+  const dc = trap.objectDc && trap.objectDc > 0 ? trap.objectDc : 12;
+  // Disarming uses Thieves' Tools in 5e; Sleight of Hand (DEX) is the tracked
+  // skill closest to it, so proficiency in it grants the bonus.
+  const proficient = character.proficientSkills.includes('Sleight of Hand');
+  const bonus = skillBonus(character.stats, 'DEX', character.level, proficient);
+  const { face, detail: d20detail } = rollD20Detail(advantage);
+  const total = face + bonus;
+  const success = total >= dc;
+  addRollLog(sessionId, {
+    roller,
+    label: 'Disarm trap',
+    expr: `DEX${proficient ? ' (prof)' : ''} vs DC ${dc}`,
+    total,
+    detail:
+      `${character.name} tries to disarm ${trap.name}: ${d20detail} ${signed(bonus)} = ` +
+      `${total} vs DC ${dc} — ${success ? 'DISARMED' : 'FAILED'}`,
+  });
+  return { success };
+}
+
+/**
  * Resolve a 5e skill check authoritatively and log it: d20 (with adv/dis) +
  * the character's ability modifier + proficiency bonus when proficient in that
  * skill. Returns false for an unknown skill name.
