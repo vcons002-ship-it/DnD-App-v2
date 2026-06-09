@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../../shared/types';
-import { useStore } from '../state/socket';
+import { useStore, loadSavedSession } from '../state/socket';
 import { DmView } from './DmView';
 
 const fmtDate = (ms: number) =>
@@ -14,6 +14,7 @@ const fmtDate = (ms: number) =>
 export function DmRoute() {
   const [params] = useSearchParams();
   const status = useStore((s) => s.status);
+  const snapshot = useStore((s) => s.snapshot);
   const error = useStore((s) => s.error);
   const connect = useStore((s) => s.connect);
   const [code, setCode] = useState(params.get('code') ?? '');
@@ -31,6 +32,17 @@ export function DmRoute() {
     const c = params.get('code');
     if (c) setCode(c);
   }, [params]);
+
+  // Auto-rejoin the saved DM session after a reload / tab eviction.
+  useEffect(() => {
+    if (status !== 'idle') return;
+    const saved = loadSavedSession();
+    const param = params.get('code');
+    if (saved?.role === 'dm' && (!param || param === saved.code)) {
+      connect(saved.code, 'dm', saved.dmPassphrase);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refreshSessions = () =>
     fetch('/api/sessions')
@@ -114,7 +126,10 @@ export function DmRoute() {
     }
   };
 
-  if (status === 'connected') return <DmView />;
+  // Hold the game view through a reconnect blip (keep the last snapshot).
+  if (status === 'connected' || (status === 'reconnecting' && snapshot)) {
+    return <DmView />;
+  }
 
   return (
     <div className="entry">

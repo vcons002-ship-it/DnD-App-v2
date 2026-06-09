@@ -534,7 +534,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   opacity: 0.4; transition: opacity .2s ease;
 }
-.dice-button-overlay:hover { opacity: 1; }
+.dice-button-overlay:hover, .dice-button-overlay.open { opacity: 1; }
 .dice-d20-btn {
   width: 52px; height: 52px; padding: 0; border: none; background: none;
   cursor: pointer; filter: drop-shadow(0 2px 4px #0009); transition: transform .1s ease;
@@ -554,7 +554,14 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   max-height: 0; overflow: hidden; opacity: 0; transform: translateY(6px); pointer-events: none;
   transition: opacity .15s ease, transform .15s ease, max-height .15s ease;
 }
-.dice-button-overlay:hover .dice-quick-menu {
+/* Mouse: reveal on hover. Touch has no hover, so it reveals via `.open` (toggled
+   by tapping the d20) — this split stops a single tap both rolling and opening. */
+@media (hover: hover) {
+  .dice-button-overlay:hover .dice-quick-menu {
+    max-height: 360px; opacity: 1; transform: none; pointer-events: auto;
+  }
+}
+.dice-button-overlay.open .dice-quick-menu {
   max-height: 360px; opacity: 1; transform: none; pointer-events: auto;
 }
 .dice-quick-menu .btn { min-width: 50px; text-align: center; }
