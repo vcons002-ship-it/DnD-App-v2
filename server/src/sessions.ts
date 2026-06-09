@@ -11,7 +11,7 @@ import { iconForCreature } from './creatures/srd.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { abilityMod } from '../../shared/skills.js';
-import { weaponsFromActions } from '../../shared/monsterAttacks.js';
+import { weaponsFromActions, parseActionRoll } from '../../shared/monsterAttacks.js';
 import type {
   Character,
   CombatRole,
@@ -1777,9 +1777,26 @@ export function createMonsterTemplate(
   // Give monsters rollable attacks: when no structured weapons are supplied,
   // derive them from the free-text actions (e.g. "+4 to hit, 1d6+2 slashing").
   let input = opts;
-  if ((!opts.weapons || opts.weapons.length === 0) && opts.actions?.length) {
-    const { weapons, actions } = weaponsFromActions(opts.actions);
-    if (weapons.length) input = { ...opts, weapons, actions };
+  let actions = opts.actions ?? [];
+  if ((!opts.weapons || opts.weapons.length === 0) && actions.length) {
+    const split = weaponsFromActions(actions);
+    if (split.weapons.length) {
+      input = { ...opts, weapons: split.weapons, actions: split.actions };
+      actions = split.actions;
+    }
+  }
+  // Attach a structured save/damage roll to any remaining free-text action so
+  // breath weapons / trap effects become rollable (and offer Apply damage) —
+  // the same scrape as the stat block's "Derive rolls from descriptions".
+  if (actions.some((a) => !a.roll && a.description)) {
+    input = {
+      ...input,
+      actions: actions.map((a) => {
+        if (a.roll || !a.description) return a;
+        const roll = parseActionRoll(a.description);
+        return roll ? { ...a, roll } : a;
+      }),
+    };
   }
   return insertMonster(sessionId, input, {
     isTemplate: true,

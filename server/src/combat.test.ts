@@ -186,6 +186,33 @@ describe('combat resolution', () => {
     expect(resolveTrapDisarm(s.id, 'Pip', rogue, hard).success).toBe(false);
     expect(listRollLog(s.id).at(-1)!.detail).toContain('FAILED');
   });
+
+  it('makes a free-text save action triggerable with an Apply-damage payload', () => {
+    const { s } = arena();
+    // A trap authored with only a free-text save action (no structured roll).
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Poison Dart Trap',
+      maxHp: 1,
+      objectKind: 'trap',
+      actions: [
+        {
+          name: 'Poison Darts',
+          description: 'DC 13 Dexterity saving throw, 2d6 poison damage (half on save).',
+        },
+      ],
+    });
+    // createMonsterTemplate scrapes the description into a structured save roll…
+    const action = tmpl.actions[0];
+    expect(action.roll?.kind).toBe('save');
+    expect(action.roll?.save).toBe('DEX');
+
+    // …so triggering it logs a save with an Apply-damage payload (DM tooling).
+    const trap = instantiateMonster(tmpl.id)!;
+    expect(resolveMonsterAction(s.id, 'DM', trap, trap.actions[0])).toBe(true);
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply?.save).toBe('DEX');
+    expect(entry.apply?.dc).toBe(13);
+  });
 });
 
 describe('weapon masteries', () => {

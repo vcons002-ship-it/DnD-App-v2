@@ -1,10 +1,12 @@
 import { config } from '../config.js';
 import type {
+  AbilityRoll,
   CreatureAbility,
   CreatureTemplate,
   Weapon,
 } from '../../../shared/types.js';
 import { iconForCreature } from './srd.js';
+import { parseActionRoll } from '../../../shared/monsterAttacks.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
 // through on "model not found" (404). A configured model override wins.
@@ -40,6 +42,48 @@ function parseAbilities(v: unknown): CreatureAbility[] {
           name: String(a.name),
           description: String(a.description ?? ''),
         }))
+    : [];
+}
+
+const ABILITY_CODES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+
+/** Validate an explicit `roll` object the model may attach to an action. */
+function parseRollJSON(v: unknown): AbilityRoll | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  if (o.kind !== 'attack' && o.kind !== 'save' && o.kind !== 'damage' && o.kind !== 'heal')
+    return undefined;
+  const dice = typeof o.dice === 'string' && /\d+d\d+/i.test(o.dice) ? o.dice.trim() : undefined;
+  // An attack can be roll-worthy without dice, but save/damage/heal need dice.
+  if (!dice && o.kind !== 'attack') return undefined;
+  const roll: AbilityRoll = { kind: o.kind };
+  if (dice) roll.dice = dice;
+  if (typeof o.damageType === 'string' && o.damageType) roll.damageType = o.damageType;
+  if (o.kind === 'save') {
+    const save = String(o.save ?? '').toUpperCase().slice(0, 3);
+    if (ABILITY_CODES.includes(save)) roll.save = save;
+  }
+  if (Number.isFinite(Number(o.dc))) roll.dc = Math.round(Number(o.dc));
+  return roll;
+}
+
+/**
+ * Parse AI `actions`, attaching a structured `roll` so save/area effects (breath
+ * weapons, traps, spell-like abilities) are rollable and offer "Apply damage".
+ * Prefers an explicit `roll` from the model, else scrapes the description for a
+ * "DC <n> <ability> saving throw … <NdM> <type> damage" clause. Weapon attacks
+ * ("+N to hit") yield no roll here — they become tagged `weapons` at spawn.
+ */
+function parseActions(v: unknown): CreatureAbility[] {
+  return Array.isArray(v)
+    ? v
+        .filter((a): a is CreatureAbility => !!a && typeof a.name === 'string')
+        .map((a) => {
+          const name = String(a.name);
+          const description = String(a.description ?? '');
+          const roll = parseRollJSON((a as { roll?: unknown }).roll) ?? parseActionRoll(description);
+          return roll ? { name, description, roll } : { name, description };
+        })
     : [];
 }
 
@@ -210,14 +254,18 @@ export async function lookupCreatureAI(
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
-    `"actions":[{"name":string,"description":string}],` +
+    `"actions":[{"name":string,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
     `"abilities":[{"name":string,"description":string}]}. ` +
     `"name" is a short, flavorful creature name (≈2–4 words, e.g. "Bandit Captain" ` +
     `or "Ashfang Wolf") — NOT the full description text. ` +
     `"level" is the challenge rating as a number (e.g. 0.25, 1, 5). ` +
-    `"weapons" are its attacks as tagged data (damage like "1d8+3"); ` +
-    `"actions" are attacks/actions (include to-hit and damage); "abilities" are ` +
-    `traits/features. Use SRD/average HP. Keep each description under 30 words.`;
+    `"weapons" are ordinary single-target weapon attacks as tagged data (damage like "1d8+3"). ` +
+    `Put every effect that forces a SAVING THROW or hits an area (breath weapons, ` +
+    `traps, auras, spell-like blasts) in "actions" — NOT in "weapons" — with a ` +
+    `structured "roll" ("kind":"save", the "save" ability, "dc", "dice" like "2d6", ` +
+    `"damageType"), and phrase the description as "DC <n> <ability> saving throw, ` +
+    `<dice> <type> damage". "abilities" are passive traits/features (no roll). ` +
+    `Use SRD/average HP. Keep each description under 30 words.`;
 
   const text = await callGemini(prompt);
   if (!text) return null;
@@ -237,7 +285,7 @@ export async function lookupCreatureAI(
       stats,
       resistances: Array.isArray(parsed.resistances) ? parsed.resistances.map(String) : [],
       weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.map(String) : [],
-      actions: parseAbilities(parsed.actions),
+      actions: parseActions(parsed.actions),
       abilities: parseAbilities(parsed.abilities),
       weapons: parseWeapons(parsed.weapons),
       icon: iconForCreature(name, creatureType),
@@ -287,9 +335,12 @@ export async function generateCharacterAI(
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string}],` +
-    `"actions":[{"name":string,"description":string}],` +
+    `"actions":[{"name":string,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
     `"abilities":[{"name":string,"description":string}],` +
     `"proficientSkills":string[]}. ` +
+    `Put saving-throw / area effects (spell blasts, auras) in "actions" with a ` +
+    `structured "roll" (phrase the description "DC <n> <ability> saving throw, ` +
+    `<dice> <type> damage"), not in "weapons". ` +
     `"proficientSkills" are class/background skill proficiencies from the 5e ` +
     `skill list (e.g. "Perception","Stealth","Arcana"). ` +
     `"name" is a fitting proper name; "weapons" are attacks whose "damage" is the ` +
@@ -317,7 +368,7 @@ export async function generateCharacterAI(
       resistances: Array.isArray(p.resistances) ? p.resistances.map(String) : [],
       weaknesses: Array.isArray(p.weaknesses) ? p.weaknesses.map(String) : [],
       weapons: parseWeapons(p.weapons, true),
-      actions: parseAbilities(p.actions),
+      actions: parseActions(p.actions),
       abilities: parseAbilities(p.abilities),
       proficientSkills: Array.isArray(p.proficientSkills)
         ? p.proficientSkills.map(String)
