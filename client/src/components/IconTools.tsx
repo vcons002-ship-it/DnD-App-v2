@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { unsupportedImageReason } from '../lib/images';
 
 type Props = {
   /** Apply an icon value: an emoji, an uploaded "/uploads/…" path, or '' to clear. */
@@ -15,6 +16,12 @@ export function IconTools({ onApply, note }: Props) {
   const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const reason = unsupportedImageReason(file);
+    if (reason) {
+      window.alert(reason);
+      e.target.value = '';
+      return;
+    }
     setBusy(true);
     try {
       const fd = new FormData();
