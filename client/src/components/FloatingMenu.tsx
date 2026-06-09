@@ -13,6 +13,14 @@ import { ObjectControls } from './ObjectControls';
 import { WeaponButtons } from './WeaponButtons';
 import { TokenAdminButtons } from './TokenAdminButtons';
 
+/** Icon per rollable kind, so the menu reads attack vs save vs damage vs heal. */
+const ROLL_ICON: Record<string, string> = {
+  attack: '✨',
+  save: '🎯',
+  damage: '💥',
+  heal: '✚',
+};
+
 type Props = {
   snapshot: StateSnapshot;
   token: Token;
@@ -69,21 +77,22 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
       (attacker.kind === 'pc' && aChar?.claimedBy === mySocketId) ||
       friendlyAttacker);
 
-  // Attack-roll spells/abilities the attacker can cast at the right-clicked token,
-  // resolved server-side to-hit vs its AC with typed damage — like a weapon attack.
+  // Every rollable spell/ability/action the attacker can fire (attack/save/damage/
+  // heal). Attack rolls resolve to-hit vs the right-clicked target's AC; save/damage/
+  // heal just roll into the log (the "Apply damage" click-to-target flow targets them).
   const targetingSelf = !!attacker && attacker.id === token.id;
-  const pcAttackAbilities: SheetAbility[] =
+  const pcAbilities: SheetAbility[] =
     aChar && !targetingSelf && (isDm || aChar.claimedBy === mySocketId)
-      ? aChar.sheetAbilities.filter((a) => a.roll?.kind === 'attack')
+      ? aChar.sheetAbilities.filter((a) => !!a.roll)
       : [];
   // Monster actions are DM-only (monster:action gate); full `actions` only on the DM snapshot.
-  const monAttackActions: { a: CreatureAbility; i: number }[] =
+  const monActions: { a: CreatureAbility; i: number }[] =
     isDm && aMon && !targetingSelf
       ? ((aMon as { actions?: CreatureAbility[] }).actions ?? [])
           .map((a, i) => ({ a, i }))
-          .filter((x) => x.a.roll?.kind === 'attack')
+          .filter((x) => !!x.a.roll)
       : [];
-  const canCastAsSelected = pcAttackAbilities.length > 0 || monAttackActions.length > 0;
+  const canCastAsSelected = pcAbilities.length > 0 || monActions.length > 0;
 
   // Dismiss on outside click, scroll, or Escape.
   useEffect(() => {
@@ -156,39 +165,41 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
               }
             />
           )}
-          {pcAttackAbilities.map((a) => (
+          {pcAbilities.map((a) => (
             <button
               key={a.id}
               className="btn tiny fm-spell-attack"
-              title={a.description || 'Spell attack'}
+              title={a.description || 'Ability'}
               onClick={run(() =>
                 rollAbility({
                   characterId: aChar!.id,
                   abilityId: a.id,
                   castLevel: a.roll?.baseLevel,
                   advantage: consumeAdvantage(attacker!.refId),
-                  targetTokenId: token.id,
+                  // Only attack rolls target the clicked token; saves/damage/heal
+                  // resolve via the roll log's apply-to-targets flow.
+                  targetTokenId: a.roll?.kind === 'attack' ? token.id : undefined,
                 }),
               )}
             >
-              ✨ {a.name}
+              {ROLL_ICON[a.roll!.kind] ?? '🎲'} {a.name}
             </button>
           ))}
-          {monAttackActions.map(({ a, i }) => (
+          {monActions.map(({ a, i }) => (
             <button
               key={i}
               className="btn tiny fm-spell-attack"
-              title={a.description || 'Attack action'}
+              title={a.description || 'Action'}
               onClick={run(() =>
                 rollMonsterAction(
                   aMon!.id,
                   i,
                   consumeAdvantage(attacker!.refId),
-                  token.id,
+                  a.roll?.kind === 'attack' ? token.id : undefined,
                 ),
               )}
             >
-              ✨ {a.name}
+              {ROLL_ICON[a.roll!.kind] ?? '🎲'} {a.name}
             </button>
           ))}
         </div>
