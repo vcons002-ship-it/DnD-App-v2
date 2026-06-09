@@ -142,12 +142,14 @@ export function DmDataView() {
       cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
     );
 
-  const turnName = snapshot.activeTurnTokenId
-    ? resolveToken(
-        snapshot,
-        snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId)!,
-      ).name
-    : null;
+  // The active-turn token may live on a DIFFERENT map than the one being viewed
+  // here (initiative rolled on map A, then map B activated/previewed), so it
+  // won't be in this map's token list. Guard the lookup — never assert it exists,
+  // or resolveToken(undefined) throws and blanks the whole Data view.
+  const turnToken = snapshot.activeTurnTokenId
+    ? snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId)
+    : undefined;
+  const turnName = turnToken ? resolveToken(snapshot, turnToken).name : null;
   const expandedToken = expandedId
     ? tokens.find((t) => t.id === expandedId)
     : null;

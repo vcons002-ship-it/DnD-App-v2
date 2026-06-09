@@ -66,6 +66,12 @@ input[type='number'] { width: 70px; }
   border-radius: 12px;
 }
 .home-links { display: flex; gap: 12px; }
+.error-screen { max-width: 560px; margin: 60px auto; padding: 24px; text-align: center; }
+.error-detail {
+  text-align: left; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px; margin: 12px 0; overflow-x: auto;
+  color: var(--red); font-size: 12px; white-space: pre-wrap;
+}
 .entry-divider { margin: 16px 0 6px; color: var(--muted); text-align: center; }
 
 /* App layout */
