@@ -239,28 +239,34 @@ export function DmDataView() {
       )}
 
       <div className="data-body">
-        {orderedTokens.length === 0 ? (
-          <p className="muted pad data-grid-empty">
-            {snapshot.map ? 'No tokens on this map yet.' : 'No map selected — pick one above.'}
-          </p>
-        ) : (
-          <div className="data-grid">
-            {orderedTokens.map((t) => (
-              <DataCard
-                key={t.id}
-                snapshot={snapshot}
-                token={t}
-                rank={rankOf.get(t.id) ?? null}
-                isTurn={t.id === snapshot.activeTurnTokenId}
-                selected={selectedIds.includes(t.id)}
-                onToggleSelect={() => toggleSelect(t.id)}
-                onExpand={() => setExpandedId(t.id)}
-                onDragStart={() => (dragId.current = t.id)}
-                onDrop={() => onDrop(t.id)}
-              />
-            ))}
-          </div>
-        )}
+        {/* The grid lives in a positioned wrapper and is itself absolutely
+            sized (inset:0). That gives the scroll area a DEFINITE height so the
+            grid lays out + scrolls reliably — a nested flex `min-height:0` chain
+            is fragile on iOS Safari and can collapse cards on top of each other. */}
+        <div className="data-grid-wrap">
+          {orderedTokens.length === 0 ? (
+            <p className="muted pad data-grid-empty">
+              {snapshot.map ? 'No tokens on this map yet.' : 'No map selected — pick one above.'}
+            </p>
+          ) : (
+            <div className="data-grid">
+              {orderedTokens.map((t) => (
+                <DataCard
+                  key={t.id}
+                  snapshot={snapshot}
+                  token={t}
+                  rank={rankOf.get(t.id) ?? null}
+                  isTurn={t.id === snapshot.activeTurnTokenId}
+                  selected={selectedIds.includes(t.id)}
+                  onToggleSelect={() => toggleSelect(t.id)}
+                  onExpand={() => setExpandedId(t.id)}
+                  onDragStart={() => (dragId.current = t.id)}
+                  onDrop={() => onDrop(t.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
         <SidePanel side="right" storageKey="dm-data-log">
           <DicePanel snapshot={snapshot} />
         </SidePanel>
