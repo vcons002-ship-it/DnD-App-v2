@@ -14,6 +14,9 @@ import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { DicePanel } from '../components/DicePanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { ConditionPopover } from '../components/ConditionPopover';
+import { AiStatus } from '../components/AiStatus';
+import { Toast } from '../components/Toast';
+import { ConnectionStatus } from '../components/ConnectionStatus';
 
 const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
@@ -277,6 +280,12 @@ export function DmDataView() {
           </div>
         </div>
       )}
+
+      {/* AI "working" banner + result toast + reconnect status, same as the main
+          DM window — without these, AI fills from here gave no visible feedback. */}
+      <AiStatus />
+      <ConnectionStatus />
+      <Toast />
     </div>
   );
 }
