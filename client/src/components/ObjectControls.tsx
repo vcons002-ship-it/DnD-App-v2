@@ -1,6 +1,7 @@
 import type { AuraColor, ObjectKind, StateSnapshot, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { LootControls } from './LootControls';
+import { TrapControls } from './TrapControls';
 
 /** Object kinds that can hold loot (a container or a pile). */
 const LOOTABLE: ObjectKind[] = ['chest', 'item', 'other'];
@@ -109,6 +110,9 @@ export function ObjectControls({
         </div>
       ) : (
         m.conditions.length === 0 && <p className="muted">No visible state.</p>
+      )}
+      {m.objectKind === 'trap' && (
+        <TrapControls snapshot={snapshot} monsterId={m.id} editable={editable} />
       )}
       {LOOTABLE.includes(m.objectKind) && (
         <LootControls

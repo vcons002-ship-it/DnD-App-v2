@@ -384,6 +384,9 @@ export type Monster = {
    *  take into a character's inventory. Only meaningful when `objectKind` is set.
    *  Players see it only once the object is opened (see `visibility.ts`). */
   loot?: LootContents;
+  /** For a TRAP object: the DC a character must beat to disarm it (DEX / Sleight
+   *  of Hand check). DM-only; defaults to a moderate DC when unset. */
+  objectDc?: number;
   /** Level (PCs) / challenge rating (monsters) — used by the AI to scale stats. */
   level: number;
   maxHp: number;
@@ -949,6 +952,13 @@ export type MonsterCreatePayload = {
   objectKind?: ObjectKind;
   source?: 'srd' | 'gemini' | 'manual';
 };
+/** Roll a character's check to disarm a trap object; on success the server flips
+ *  it to "Disarmed". DM or the player who owns the character. */
+export type TrapDisarmPayload = {
+  monsterId: string;
+  characterId: string;
+  advantage?: 'adv' | 'dis';
+};
 /** Patch fields of one creature instance/template (DM-only). */
 export type MonsterUpdatePayload = {
   monsterId: string;
@@ -970,6 +980,8 @@ export type MonsterUpdatePayload = {
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
   icon?: string;
+  /** Disarm DC for a trap object. */
+  objectDc?: number;
 };
 export type MonsterDeletePayload = { monsterId: string };
 /** Shared party notes on a creature/NPC — writable by the DM AND players. */
@@ -1051,6 +1063,7 @@ export interface ClientToServerEvents {
   'item:remove': (payload: ItemRemovePayload) => void;
   'object:setLoot': (payload: ObjectSetLootPayload) => void;
   'loot:take': (payload: LootTakePayload) => void;
+  'trap:disarm': (payload: TrapDisarmPayload) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;

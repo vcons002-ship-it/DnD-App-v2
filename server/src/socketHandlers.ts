@@ -7,6 +7,7 @@ import {
   resolveMonsterAction,
   resolveForcedSave,
   resolveSkillRoll,
+  resolveTrapDisarm,
   resolveSaves,
   resolveSave,
   resolveDeathSave,
@@ -531,6 +532,36 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!m || !m.objectKind || !ownsCharacter(characterId)) return;
       if (!isDm() && !lootVisibleToPlayers(m)) return;
       takeLoot(monsterId, characterId, { itemId, gold, all });
+      afterChange();
+    });
+
+    // A character attempts to disarm a trap (DM or the owning player). On success
+    // the trap flips to "Disarmed" so it can't be triggered.
+    socket.on('trap:disarm', ({ monsterId, characterId, advantage }) => {
+      const sid = sessionId();
+      if (!sid || !ownsCharacter(characterId)) return;
+      const trap = getMonster(monsterId);
+      const c = getCharacter(characterId);
+      if (!trap || trap.objectKind !== 'trap' || !c) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const { success } = resolveTrapDisarm(
+        sid,
+        rollerName(sid, socket.id, isDm()),
+        c,
+        trap,
+        adv,
+      );
+      if (success) {
+        const armed = trap.conditions.find((x) => x.label.toLowerCase() === 'armed');
+        if (armed) clearCondition('monster', monsterId, armed.id);
+        if (!trap.conditions.some((x) => x.label.toLowerCase() === 'disarmed'))
+          setCondition('monster', monsterId, {
+            id: newId(),
+            label: 'Disarmed',
+            aura: 'green',
+            isConcentration: false,
+          });
+      }
       afterChange();
     });
 

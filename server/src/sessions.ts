@@ -1710,6 +1710,7 @@ export type MonsterInput = {
   disposition?: Monster['disposition'];
   objectKind?: Monster['objectKind'];
   loot?: Monster['loot'];
+  objectDc?: Monster['objectDc'];
   source?: Monster['source'];
 };
 
@@ -1726,8 +1727,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level, object_kind, loot)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind, loot, object_dc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1751,6 +1752,7 @@ function insertMonster(
     opts.level ?? 0,
     opts.objectKind ?? null,
     opts.loot ? JSON.stringify(opts.loot) : null,
+    opts.objectDc ?? null,
   );
   return getMonster(id)!;
 }
@@ -1816,6 +1818,7 @@ export function instantiateMonster(templateId: string): Monster | null {
       objectKind: tmpl.objectKind,
       // Each spawned container gets its own copy of the template's loot.
       loot: tmpl.loot,
+      objectDc: tmpl.objectDc,
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -1843,6 +1846,7 @@ export function copyMonster(monsterId: string): Monster | null {
     disposition: m.disposition,
     objectKind: m.objectKind,
     loot: m.loot,
+    objectDc: m.objectDc,
     source: m.source,
   });
 }
@@ -1853,6 +1857,7 @@ export function updateMonster(
   patch: Partial<{
     disposition: Monster['disposition'];
     objectKind: Monster['objectKind'];
+    objectDc: number;
     name: string;
     level: number;
     maxHp: number;
@@ -1883,6 +1888,8 @@ export function updateMonster(
   };
   if (patch.disposition !== undefined) put('disposition', patch.disposition);
   if (patch.objectKind !== undefined) put('object_kind', patch.objectKind ?? null);
+  if (patch.objectDc !== undefined)
+    put('object_dc', patch.objectDc != null ? Math.max(1, Math.round(patch.objectDc)) : null);
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
