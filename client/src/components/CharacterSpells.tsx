@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import type {
   Character,
+  Monster,
   SheetAbility,
   StateSnapshot,
   Token,
+  TokenKind,
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { validTargets } from '../lib/targets';
@@ -84,12 +86,16 @@ const isConcentration = (a: SheetAbility): boolean =>
  */
 export function CharacterSpells({
   character,
+  kind = 'pc',
   editable,
   snapshot,
   attackerToken,
   defaultTargetId,
 }: {
-  character: Character;
+  /** A PC or a creature — both carry `sheetAbilities`. */
+  character: Character | Monster;
+  /** Which entity kind, so add/remove/roll route to the right server path. */
+  kind?: TokenKind;
   editable: boolean;
   /** When provided (the combat console), attack-roll spells pick a target and
    *  resolve to-hit vs its AC like a weapon attack. */
@@ -149,13 +155,14 @@ export function CharacterSpells({
   if (character.sheetAbilities.length === 0 && !editable) return null;
 
   const add = (e: SpellHit) => {
-    setSheetAbility('pc', character.id, {
+    setSheetAbility(kind, character.id, {
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
     });
     // A feature with a linked use-counter (Rage, Channel Divinity…) creates that
-    // resource on the sheet so it's tracked alongside spell slots.
-    if (e.useCounter && !character.resources[e.useCounter.name]) {
+    // resource on the sheet so it's tracked alongside spell slots. PC-only —
+    // creatures have no resource counters.
+    if ('resources' in character && e.useCounter && !character.resources[e.useCounter.name]) {
       setResource({
         characterId: character.id,
         group: 'resources',
@@ -173,7 +180,7 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['stance']>>,
   ) => {
     if (!a.stance) return;
-    setSheetAbility('pc', character.id, { ...a, stance: { ...a.stance, ...patch } });
+    setSheetAbility(kind, character.id, { ...a, stance: { ...a.stance, ...patch } });
   };
 
   // Toggling a stance ON spends one use of its linked counter (if it has charges).
@@ -204,13 +211,13 @@ export function CharacterSpells({
     // A marking stance defaults to the current target when first switched on.
     if (goingActive && stance.targeted && !stance.targetId)
       stance.targetId = validDefault ?? targets[0]?.id;
-    setSheetAbility('pc', character.id, { ...a, stance });
+    setSheetAbility(kind, character.id, { ...a, stance });
     // Tag/untag the marked target with the stance's status (Hunter's Mark → Marked).
     if (stance.marksTargetWith) {
       if (goingActive) markTarget(stance.targetId, stance.marksTargetWith);
       else unmarkTarget(a.stance?.targetId, stance.marksTargetWith);
     }
-    if (goingActive && a.useCounter) {
+    if (goingActive && a.useCounter && 'resources' in character) {
       const c = character.resources[a.useCounter.name];
       if (c && c.used < c.max) {
         setResource({
@@ -224,13 +231,13 @@ export function CharacterSpells({
     if ((a.level ?? 0) >= 1) {
       if (goingActive) {
         // Cast it: spend a slot + start concentration (handled server-side).
-        rollAbility({ kind: 'pc', refId: character.id, abilityId: a.id, castLevel: a.level });
+        rollAbility({ kind, refId: character.id, abilityId: a.id, castLevel: a.level });
       } else {
         // Ending the spell ends its concentration.
         const conc = character.conditions.find(
           (c) => c.isConcentration && c.label === `Concentration: ${a.name}`,
         );
-        if (conc) clearCondition('pc', character.id, conc.id);
+        if (conc) clearCondition(kind, character.id, conc.id);
       }
     }
   };
@@ -278,7 +285,7 @@ export function CharacterSpells({
   const doRoll = (a: SheetAbility) => {
     if (!confirmConcentration(a)) return;
     rollAbility({
-      kind: 'pc',
+      kind,
       refId: character.id,
       abilityId: a.id,
       castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
@@ -295,7 +302,7 @@ export function CharacterSpells({
     a: SheetAbility,
     patch: Partial<NonNullable<SheetAbility['roll']>>,
   ) =>
-    setSheetAbility('pc', character.id, {
+    setSheetAbility(kind, character.id, {
       ...a,
       roll: { ...(a.roll ?? { kind: 'damage' }), ...patch },
     });
@@ -305,7 +312,7 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['mastery']>>,
   ) => {
     if (!a.mastery) return;
-    setSheetAbility('pc', character.id, { ...a, mastery: { ...a.mastery, ...patch } });
+    setSheetAbility(kind, character.id, { ...a, mastery: { ...a.mastery, ...patch } });
   };
 
   const patchManeuver = (
@@ -313,7 +320,7 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['maneuver']>>,
   ) => {
     if (!a.maneuver) return;
-    setSheetAbility('pc', character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
+    setSheetAbility(kind, character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
   };
 
   return (
@@ -454,7 +461,7 @@ export function CharacterSpells({
                   <button
                     className="res-x"
                     title="Remove"
-                    onClick={() => removeSheetAbility('pc', character.id, a.id)}
+                    onClick={() => removeSheetAbility(kind, character.id, a.id)}
                   >
                     ✕
                   </button>
