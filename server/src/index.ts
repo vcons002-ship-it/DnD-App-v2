@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
 import { config } from './config.js';
@@ -29,11 +30,27 @@ app.use('/api', createApiRouter(io));
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // Serve the built client (SPA) in production; Vite handles dev separately.
+// Caching matters here: Vite emits content-HASHED asset filenames (safe to
+// cache forever), but `index.html` references those hashes and MUST be
+// revalidated every load — otherwise a phone keeps loading yesterday's bundle
+// after the host rebuilds, and new features silently never appear on that
+// device. So: immutable for /assets, no-cache for the HTML shell.
 if (fs.existsSync(config.clientDist)) {
-  app.use(express.static(config.clientDist));
-  app.get('*', (_req, res) =>
-    res.sendFile('index.html', { root: config.clientDist }),
+  app.use(
+    express.static(config.clientDist, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    }),
   );
+  app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile('index.html', { root: config.clientDist });
+  });
 }
 
 registerSocketHandlers(io);

@@ -916,6 +916,24 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   font-size: 11px; line-height: 1; display: inline-flex; align-items: center;
 }
 .reorder-caret:hover { color: var(--text); }
+/* Tap up/down reorder. The label takes the slack so these sit at the right. */
+.reorder-label { flex: 1; }
+.reorder-moves { display: inline-flex; gap: 2px; }
+.reorder-move {
+  background: none; border: 0; padding: 2px 4px; cursor: pointer;
+  color: var(--muted); font-size: 11px; line-height: 1;
+}
+.reorder-move:hover:not(:disabled) { color: var(--text); }
+.reorder-move:disabled { opacity: 0.25; cursor: default; }
+/* On hover-capable pointers the grip is the primary affordance, so de-emphasise
+   the buttons until you hover the section header; touch devices always show them. */
+@media (hover: hover) {
+  .reorder-moves { opacity: 0; transition: opacity 0.12s; }
+  .reorder-handle:hover .reorder-moves { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .reorder-move { padding: 6px 8px; font-size: 13px; }
+}
 
 /* Floating condition (status) popover — opens above the data cards */
 .popover-backdrop { position: fixed; inset: 0; z-index: 70; }
@@ -1033,6 +1051,16 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
   padding: 6px 10px; box-shadow: 0 6px 24px #000a;
 }
 .roll-entry .apply-dmg { margin-left: 6px; vertical-align: middle; }
+
+/* "Placing <unit>" banner over the map — gives a touch-reachable cancel while a
+   spawn is armed (Esc isn't available on a phone). */
+.place-banner {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 30;
+  display: flex; gap: 10px; align-items: center; font-size: 13px; max-width: 92%;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 6px 10px; box-shadow: 0 6px 24px #000a;
+}
+.place-banner-text { color: var(--text); }
 
 /* Attack controls */
 .attack-controls { margin-top: 10px; }

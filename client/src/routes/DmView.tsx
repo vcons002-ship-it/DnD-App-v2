@@ -9,6 +9,7 @@ import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
+import { PlacementBanner } from '../components/PlacementBanner';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
@@ -95,6 +96,13 @@ export function DmView() {
         </SidePanel>
 
         <main className="center">
+          {pending && snapshot.map && (
+            <PlacementBanner
+              snapshot={snapshot}
+              pending={pending}
+              onCancel={() => setPending(null)}
+            />
+          )}
           <MapStage
             snapshot={snapshot}
             draggableTokens

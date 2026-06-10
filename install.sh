@@ -41,8 +41,23 @@ fi
 if [ -d "$INSTALL_DIR/.git" ]; then
   say "Updating existing install at $INSTALL_DIR"
   git -C "$INSTALL_DIR" fetch origin "$BRANCH"
-  git -C "$INSTALL_DIR" checkout "$BRANCH"
-  git -C "$INSTALL_DIR" pull origin "$BRANCH"
+  # Force the working tree to EXACTLY match the remote branch. Only tracked
+  # source is touched — your .env, the sessions DB and uploads live in
+  # gitignored folders (server/data, server/uploads) and are never altered.
+  # A plain "git pull" silently fails after a local edit or aborted merge and
+  # leaves you on stale code (you'd run an old build and not see new features),
+  # so we hard-reset and then VERIFY we landed on the remote tip.
+  git -C "$INSTALL_DIR" checkout -f "$BRANCH"
+  git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
+  local_head="$(git -C "$INSTALL_DIR" rev-parse HEAD)"
+  remote_head="$(git -C "$INSTALL_DIR" rev-parse "origin/$BRANCH")"
+  if [ "$local_head" != "$remote_head" ]; then
+    echo "[ERROR] Could not update to the latest code (still on $local_head)."
+    echo "Delete the folder $INSTALL_DIR and re-run this installer for a clean copy."
+    echo "(Your sessions live in server/data and are unaffected by reinstalling the code.)"
+    exit 1
+  fi
+  echo "Updated to latest (${local_head:0:7})."
 else
   say "Cloning repository to $INSTALL_DIR"
   git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"

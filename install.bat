@@ -83,10 +83,34 @@ echo.
 echo Updating existing install at "%INSTALL_DIR%" ...
 pushd "%INSTALL_DIR%"
 git fetch origin %BRANCH%
-git checkout %BRANCH%
-git pull origin %BRANCH%
+if errorlevel 1 goto update_failed
+REM Force the working tree to EXACTLY match the remote branch. Only tracked
+REM source is touched -- your .env, the sessions DB and uploads live in
+REM gitignored folders (server\data, server\uploads) and are never altered.
+REM A plain "git pull" silently fails after a local edit or aborted merge and
+REM leaves you on stale code (an old build, missing new features), so we
+REM hard-reset and then VERIFY we actually landed on the remote tip.
+git checkout -f %BRANCH%
+git reset --hard origin/%BRANCH%
+if errorlevel 1 goto update_failed
+for /f %%H in ('git rev-parse HEAD') do set "LOCAL_HEAD=%%H"
+for /f %%H in ('git rev-parse origin/%BRANCH%') do set "REMOTE_HEAD=%%H"
+if not "!LOCAL_HEAD!"=="!REMOTE_HEAD!" goto update_failed
+echo Updated to latest (!LOCAL_HEAD:~0,7!).
 popd
 goto code_ready
+
+:update_failed
+popd
+echo.
+echo [ERROR] Could not update the existing install to the latest code.
+echo This usually means the folder is owned by a different (admin) account, or
+echo git is otherwise blocked. Easiest fix: close this window, delete the folder
+echo    %INSTALL_DIR%
+echo and run this installer again for a clean copy. Your sessions live in the
+echo server's data folder and are unaffected by reinstalling the code.
+pause
+exit /b 1
 
 :not_repo
 echo.
