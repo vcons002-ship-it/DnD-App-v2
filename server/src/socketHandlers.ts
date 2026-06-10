@@ -502,7 +502,7 @@ export function registerSocketHandlers(io: IOServer): void {
       return !!c && (isDm() || c.claimedBy === socket.id);
     };
     // Who may edit/roll sheet abilities on a creature: a PC's owner or the DM;
-    // monster sheet abilities are DM-authored (like monster:update / monster:action).
+    // monster sheet abilities are DM-authored (like monster:update).
     const ownsCreature = (kind: 'pc' | 'monster', refId: string): boolean =>
       kind === 'pc' ? ownsCharacter(refId) : isDm();
 
