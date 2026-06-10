@@ -936,3 +936,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   initiative**: Roll all/Add rolls skip them (Roll all also clears a stray roll
   an object had in an old save), the turn order excludes them defensively, and
   the Initiative panel doesn't list them.
+- ☑ **Initiative robustness.** The round counter is a **DM-editable field** in
+  the Initiative header (`initiative:setRound`, clamped 0–999) instead of just
+  reset-to-1. **Dead combatants keep their slot** in the order (dimmed 💀 row)
+  but `advanceTurn` walks past them — wraps crossed while skipping still count
+  the round, and PCs at 0 HP **keep their turn** for death saves (skipped only
+  at 3 failures or the Dead mark). **Deleting the current-turn token** ticks
+  the marker to the next living combatant first (wrapping counts the round, as
+  it would have anyway); `deleteMonster`/`deleteCharacter` route their token
+  cleanup through the same guard, and deleting the only living combatant
+  clears the marker.
