@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSnapshot } from './visibility.js';
+import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
 import {
   createMonsterTemplate,
   instantiateMonster,
@@ -604,5 +604,41 @@ describe('non-combat objects', () => {
     const drained = getMonster(inst.id)!;
     expect(drained.loot).toBeUndefined();
     expect(drained.conditions.some((c) => c.label === 'Looted')).toBe(true);
+  });
+});
+
+describe('createSnapshotBuilder (fan-out path)', () => {
+  it('produces snapshots identical to buildSnapshot for every role', () => {
+    const s = createSession('Builder');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Goblin',
+      maxHp: 7,
+      stats: { DEX: 14 },
+      weapons: [{ name: 'Scimitar', kind: 'melee', damage: '1d6+2' }],
+    });
+    const inst = instantiateMonster(tmpl.id)!;
+    createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+
+    const build = createSnapshotBuilder(s.id)!;
+    expect(build('dm', map.id)).toEqual(buildSnapshot(s.id, 'dm', map.id));
+    expect(build('player')).toEqual(buildSnapshot(s.id, 'player'));
+  });
+
+  it('shares the player-shaped monsters/roll log across player builds (computed once)', () => {
+    const s = createSession('Builder2');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    const build = createSnapshotBuilder(s.id)!;
+    const a = build('player', null, 'sock-a');
+    const b = build('player', null, 'sock-b');
+    // Same array identity proves the shaping ran once for the whole fan-out.
+    expect(a.monsters).toBe(b.monsters);
+    expect(a.rollLog).toBe(b.rollLog);
+  });
+
+  it('returns null for a missing session', () => {
+    expect(createSnapshotBuilder('nope')).toBeNull();
   });
 });

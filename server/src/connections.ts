@@ -4,7 +4,7 @@ import type {
   Role,
   ServerToClientEvents,
 } from '../../shared/types.js';
-import { buildSnapshot } from './visibility.js';
+import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
 import { drainHpFx } from './sessions.js';
 
 export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -44,15 +44,18 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
   // Each viewer only receives floaters for tokens THEIR snapshot contains, so
   // hidden/fog-covered/other-map creatures never pop a number for players.
   const hpFx = drainHpFx(sessionId);
+  // One builder per change-cycle: the session-wide queries (creatures, roll
+  // log, chat, …) run once and per-viewer shaping is pure CPU — previously
+  // every client re-ran every query, with a per-token SELECT on top.
+  const build = createSnapshotBuilder(sessionId);
+  if (!build) return;
   for (const [socketId, conn] of conns) {
     if (conn.sessionId !== sessionId) continue;
-    const snapshot = buildSnapshot(
-      sessionId,
+    const snapshot = build(
       conn.role,
       conn.role === 'dm' ? conn.viewMapId : null,
       socketId,
     );
-    if (!snapshot) continue;
     io.to(socketId).emit('state:snapshot', snapshot);
     const visible = hpFx.filter((e) =>
       snapshot.tokens.some((t) => t.kind === e.kind && t.refId === e.refId),
