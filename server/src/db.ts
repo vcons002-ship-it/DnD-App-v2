@@ -373,6 +373,8 @@ ensureColumn(
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 // Optional "Apply damage" payload on a save/damage roll (DM click-to-target saves).
 ensureColumn('roll_log', 'apply', "apply TEXT NOT NULL DEFAULT ''");
+// DM-only HP accounting note per roll ("Druk HP 42→38").
+ensureColumn('roll_log', 'hp_note', "hp_note TEXT NOT NULL DEFAULT ''");
 // Emanation measurements follow a token by id.
 ensureColumn('measurements', 'token_id', 'token_id TEXT');
 // The combat role of a creature's most recent attack, so the token badge

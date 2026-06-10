@@ -916,13 +916,15 @@ export function addRollLog(
     description?: string;
     /** Optional "Apply damage" payload (save/damage spell → click-to-target saves). */
     apply?: RollEntry['apply'];
+    /** DM-only HP accounting note ("Druk HP 42→38"). */
+    hpNote?: string;
   },
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -933,6 +935,7 @@ export function addRollLog(
     entry.detail,
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
+    entry.hpNote ?? '',
     createdAt,
   );
   pruneRollLog(sessionId);
@@ -1013,6 +1016,7 @@ type RollLogRow = {
   detail: string;
   description: string | null;
   apply: string | null;
+  hp_note: string | null;
   created_at: number;
 };
 
@@ -1026,6 +1030,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     detail: r.detail,
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
+    ...(r.hp_note ? { hpNote: r.hp_note } : {}),
     createdAt: r.created_at,
   };
 }

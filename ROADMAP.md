@@ -869,3 +869,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   allies via `healTargets`), and the floating menu applies heals to the
   right-clicked token, including your own (right-click yourself → "Casting as …
   → self" lists your heals). Untargeted heals still just log.
+- ☑ **Roll-log HP accounting.** Every roll that changes HP (weapon hits,
+  targeted spell attacks, Apply-damage saves + darts, heals) records a DM-only
+  `hpNote` on its `RollEntry` — "Druk HP 42→38" (temp HP shows as "42+5") —
+  shown as a cyan line in the full log and the map overlay, so mistakes are
+  easy to spot and hand-correct. Persisted (`roll_log.hp_note`, idempotent
+  column) and **stripped for players** in `visibility.ts` (enemy HP stays
+  hidden; allies still see the in-detail "+N HP" heal text).

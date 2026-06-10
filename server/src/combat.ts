@@ -91,6 +91,18 @@ function resolve(token: Token): Resolved | null {
   };
 }
 
+/** Apply rolled damage/healing and return a DM-only accounting note for the
+ *  log ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot
+ *  and correct. Empty string when nothing was found/changed. */
+function applyDamageNoted(kind: TokenKind, refId: string, amount: number): string {
+  const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  const after = applyDamage(kind, refId, amount);
+  if (!before || !after) return '';
+  const hp = (e: { curHp: number; tempHp: number }) =>
+    `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
+  return `${after.name} HP ${hp(before)}→${hp(after)}`;
+}
+
 /**
  * When a creature takes damage while concentrating on a spell, log the
  * Constitution save needed to maintain it (5e: DC = the greater of 10 and half
@@ -315,8 +327,9 @@ export function resolveAttack(
     }
   }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  let hpNote = '';
   if (applied > 0) {
-    applyDamage(t.kind, t.refId, applied);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -328,6 +341,7 @@ export function resolveAttack(
       `${a.name} → ${t.name}: ${out.detail}` +
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+    hpNote: hpNote || undefined,
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
@@ -494,7 +508,7 @@ export function resolveForcedSave(
     // in order and disarms when the darts run out.
     const base = apply.split[instanceIndex] ?? 0;
     dmg = Math.floor(base * mult);
-    applyDamage(r.kind, r.refId, dmg);
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     addRollLog(sessionId, {
       roller: 'DM',
@@ -502,6 +516,7 @@ export function resolveForcedSave(
       total: dmg,
       expr: `dart ${instanceIndex + 1}`,
       detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+      hpNote: dartNote || undefined,
     });
     return;
   }
@@ -532,7 +547,7 @@ export function resolveForcedSave(
     dmg = Math.floor(apply.amount * mult);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  applyDamage(r.kind, r.refId, dmg);
+  const saveNote = applyDamageNoted(r.kind, r.refId, dmg);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   addRollLog(sessionId, {
     roller: 'DM',
@@ -540,6 +555,7 @@ export function resolveForcedSave(
     expr: `DC ${apply.dc}`,
     total: dmg,
     detail,
+    hpNote: saveNote || undefined,
   });
 }
 
@@ -589,6 +605,7 @@ function resolveTargetedSpellAttack(opts: {
   const hit = crit || (!fumble && attackTotal >= t.ac);
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
+  let hpNote = '';
   const notes: string[] = [];
   if (hit && opts.dice) {
     let dmg = rollDice(opts.dice)!.total;
@@ -601,7 +618,7 @@ function resolveTargetedSpellAttack(opts: {
           ? `½ resisted (${opts.damageType})`
           : `×2 vulnerable (${opts.damageType})`,
       );
-    applyDamage(t.kind, t.refId, applied);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -615,6 +632,7 @@ function resolveTargetedSpellAttack(opts: {
       (hit && opts.dice ? `, ${applied}${dmgType} dmg [${opts.dice}${crit ? ' ×2 crit' : ''}]` : '') +
       (notes.length ? ` · ${notes.join(', ')}` : ''),
     description: opts.description,
+    hpNote: hpNote || undefined,
   });
   return true;
 }
@@ -780,7 +798,8 @@ function resolveSheetAbilityFor(
     // Targeted (floating menu / the heal-target dropdown): apply it right away.
     const tok = targetTokenId ? getToken(targetTokenId) : null;
     const target = tok ? resolve(tok) : null;
-    if (target && val > 0) applyDamage(target.kind, target.refId, -val);
+    const healNote =
+      target && val > 0 ? applyDamageNoted(target.kind, target.refId, -val) : '';
     addRollLog(sessionId, {
       roller,
       label: ability.name,
@@ -791,6 +810,7 @@ function resolveSheetAbilityFor(
           castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} mod` : ''
         }]` + (target ? ` → ${target.name} +${val} HP` : ''),
       description: ability.description || undefined,
+      hpNote: healNote || undefined,
     });
     return true;
   }

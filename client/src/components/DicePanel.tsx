@@ -149,6 +149,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}
                 <span className="muted">{renderRollDetail(r.detail)}</span>
+                {r.hpNote && <span className="roll-hp-note">{r.hpNote}</span>}
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
                 )}

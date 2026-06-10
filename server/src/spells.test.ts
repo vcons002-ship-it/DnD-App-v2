@@ -13,6 +13,7 @@ import {
   spendSpellSlot,
 } from './sessions.js';
 import { resolveAbilityRoll } from './combat.js';
+import { buildSnapshot } from './visibility.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import type { SheetAbility } from '../../shared/types.js';
@@ -269,6 +270,10 @@ describe('heal abilities apply healing', () => {
     const last = listRollLog(s.id).at(-1)!;
     expect(last.total).toBe(13);
     expect(last.detail).toContain('→ Ally +13 HP');
+    // DM-only HP accounting rides the entry; players never receive it.
+    expect(last.hpNote).toBe('Ally HP 10→23');
+    const playerLog = buildSnapshot(s.id, 'player')!.rollLog;
+    expect(playerLog.at(-1)!.hpNote).toBeUndefined();
   });
 
   it('a plain heal ABILITY uses its dice as written (no casting mod)', () => {

@@ -163,6 +163,8 @@ export function buildSnapshot(
           detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
           // The "Apply damage" payload is a DM-only adjudication tool.
           apply: undefined,
+          // HP accounting ("Druk HP 42→38") is DM-only — enemy HP stays hidden.
+          hpNote: undefined,
         }))
       : listRollLog(sessionId);
 
