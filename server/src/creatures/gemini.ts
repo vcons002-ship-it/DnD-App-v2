@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import type {
   AbilityRoll,
   CreatureAbility,
   CreatureTemplate,
+  SheetAbility,
   Weapon,
 } from '../../../shared/types.js';
 import { iconForCreature } from './srd.js';
@@ -65,6 +67,37 @@ function parseRollJSON(v: unknown): AbilityRoll | undefined {
   }
   if (Number.isFinite(Number(o.dc))) roll.dc = Math.round(Number(o.dc));
   return roll;
+}
+
+/**
+ * Parse AI rich `sheetAbilities` (the searchable/rollable system). Scoped to
+ * creature-appropriate kinds only — `spell` and `ability` — NEVER PC-class
+ * masteries/maneuvers/stances, so AI fill can't bleed character-class flavor onto
+ * a creature (or vice-versa). Each gets an id + structured roll where present.
+ */
+function parseSheetAbilities(v: unknown): SheetAbility[] {
+  return Array.isArray(v)
+    ? v
+        .filter(
+          (a): a is Record<string, unknown> =>
+            !!a && typeof a === 'object' && typeof (a as { name?: unknown }).name === 'string',
+        )
+        .slice(0, 12)
+        .map((a) => {
+          const description = String(a.description ?? '');
+          const roll = parseRollJSON(a.roll) ?? parseActionRoll(description);
+          const lvl = Number(a.level);
+          return {
+            id: randomUUID(),
+            name: String(a.name),
+            type: a.type === 'spell' ? ('spell' as const) : ('ability' as const),
+            description,
+            source: 'gemini' as const,
+            ...(Number.isFinite(lvl) ? { level: Math.max(0, Math.round(lvl)) } : {}),
+            ...(roll ? { roll } : {}),
+          };
+        })
+    : [];
 }
 
 /**
@@ -255,7 +288,13 @@ export async function lookupCreatureAI(
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
     `"actions":[{"name":string,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
-    `"abilities":[{"name":string,"description":string}]}. ` +
+    `"abilities":[{"name":string,"description":string}],` +
+    `"sheetAbilities":[{"name":string,"type":"ability"|"spell","level":number,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}]}. ` +
+    `"sheetAbilities" are the creature's INNATE / spell-like special abilities ` +
+    `(innate spellcasting, gaze, life drain, a recharge breath usable as an ability) ` +
+    `with a structured "roll" when they deal damage or force a save — creature-` +
+    `appropriate only. Do NOT put ordinary weapon attacks there, and do NOT invent ` +
+    `player-class features (no weapon masteries, maneuvers, or stances). ` +
     `"name" is a short, flavorful creature name (≈2–4 words, e.g. "Bandit Captain" ` +
     `or "Ashfang Wolf") — NOT the full description text. ` +
     `"level" is the challenge rating as a number (e.g. 0.25, 1, 5). ` +
@@ -287,6 +326,7 @@ export async function lookupCreatureAI(
       weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.map(String) : [],
       actions: parseActions(parsed.actions),
       abilities: parseAbilities(parsed.abilities),
+      sheetAbilities: parseSheetAbilities(parsed.sheetAbilities),
       weapons: parseWeapons(parsed.weapons),
       icon: iconForCreature(name, creatureType),
       source: 'gemini',
@@ -312,6 +352,7 @@ export type GeneratedCharacter = {
   weaknesses: string[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  sheetAbilities: SheetAbility[];
   proficientSkills: string[];
   icon: string;
 };
@@ -337,7 +378,11 @@ export async function generateCharacterAI(
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string}],` +
     `"actions":[{"name":string,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
     `"abilities":[{"name":string,"description":string}],` +
+    `"sheetAbilities":[{"name":string,"type":"spell"|"ability","level":number,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
     `"proficientSkills":string[]}. ` +
+    `"sheetAbilities" are the character's signature SPELLS (type "spell" with a ` +
+    `"level") and class/feat FEATURES (type "ability"), with a structured "roll" ` +
+    `where they deal damage / force a save / heal. ` +
     `Put saving-throw / area effects (spell blasts, auras) in "actions" with a ` +
     `structured "roll" (phrase the description "DC <n> <ability> saving throw, ` +
     `<dice> <type> damage"), not in "weapons". ` +
@@ -370,6 +415,7 @@ export async function generateCharacterAI(
       weapons: parseWeapons(p.weapons, true),
       actions: parseActions(p.actions),
       abilities: parseAbilities(p.abilities),
+      sheetAbilities: parseSheetAbilities(p.sheetAbilities),
       proficientSkills: Array.isArray(p.proficientSkills)
         ? p.proficientSkills.map(String)
         : [],

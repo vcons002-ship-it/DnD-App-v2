@@ -50,6 +50,8 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
   if (m.actions.length === 0 && tpl.actions.length > 0) patch.actions = tpl.actions;
   if (m.abilities.length === 0 && tpl.abilities.length > 0)
     patch.abilities = tpl.abilities;
+  if (m.sheetAbilities.length === 0 && (tpl.sheetAbilities?.length ?? 0) > 0)
+    patch.sheetAbilities = tpl.sheetAbilities;
 
   const filled = Object.keys(patch).length - 1; // minus monsterId
   if (filled === 0) return { ok: false, reason: 'nothing' };
@@ -86,6 +88,8 @@ export async function aiFillCharacter(characterId: string): Promise<FillResult> 
     patch.abilities = gen.abilities;
   if (c.proficientSkills.length === 0 && gen.proficientSkills.length > 0)
     patch.proficientSkills = gen.proficientSkills;
+  if (c.sheetAbilities.length === 0 && gen.sheetAbilities.length > 0)
+    patch.sheetAbilities = gen.sheetAbilities;
 
   const filled = Object.keys(patch).length - 1;
   if (filled === 0) return { ok: false, reason: 'nothing' };

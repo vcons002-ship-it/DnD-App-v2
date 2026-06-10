@@ -80,6 +80,10 @@ type Props = {
   /** Omit the Actions & Traits blocks here so a parent can render them elsewhere
    *  (the character sheet collapses them to the bottom via `ActionsTraitsView`). */
   deferActionsTraits?: boolean;
+  /** Hide ACTIONS from the read view (Traits still show) because a parent renders
+   *  the rollable actions in its own "Spells & Abilities" section. Editing still
+   *  happens here so the rich action editor (+Attack / Derive rolls) is preserved. */
+  actionsElsewhere?: boolean;
 };
 
 /**
@@ -124,6 +128,7 @@ export function StatBlock({
   onRollAction,
   onRollSave,
   deferActionsTraits = false,
+  actionsElsewhere = false,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -187,6 +192,7 @@ export function StatBlock({
         onRollAction={onRollAction}
         onRollSave={onRollSave}
         deferActionsTraits={deferActionsTraits}
+        actionsElsewhere={actionsElsewhere}
       />
     );
   }
@@ -363,6 +369,7 @@ function ReadView({
   onRollAction,
   onRollSave,
   deferActionsTraits = false,
+  actionsElsewhere = false,
 }: {
   creature: StatSheet;
   subtitle?: string;
@@ -374,6 +381,7 @@ function ReadView({
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
   onRollSave?: (ability: string) => void;
   deferActionsTraits?: boolean;
+  actionsElsewhere?: boolean;
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
@@ -515,7 +523,7 @@ function ReadView({
 
       {!deferActionsTraits && (
         <ActionsTraitsReadSections
-          actions={m.actions}
+          actions={actionsElsewhere ? [] : m.actions}
           abilities={m.abilities}
           onRollAction={onRollAction}
         />
@@ -525,8 +533,9 @@ function ReadView({
 }
 
 /** The read-only Actions + Traits sections, shared by the inline stat block and
- *  the character sheet's collapsed bottom panel. */
-function ActionsTraitsReadSections({
+ *  the character sheet's collapsed bottom panel. Exported so a parent can render
+ *  the rollable Actions list inside its own "Spells & Abilities" section. */
+export function ActionsTraitsReadSections({
   actions,
   abilities,
   onRollAction,
@@ -576,12 +585,18 @@ export function ActionsTraitsView({
   editable = false,
   onSave,
   onRollAction,
+  showActions = true,
+  showTraits = true,
 }: {
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
   editable?: boolean;
   onSave?: (patch: { actions: CreatureAbility[]; abilities: CreatureAbility[] }) => void;
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  /** Render/edit only Actions (the spells/abilities area) or only Traits (the
+   *  sheet) — the unshown kind is preserved untouched on save. */
+  showActions?: boolean;
+  showTraits?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [dActions, setDActions] = useState<CreatureAbility[]>(actions);
@@ -594,8 +609,8 @@ export function ActionsTraitsView({
   };
   const save = () => {
     onSave?.({
-      actions: dActions.filter((a) => a.name.trim()),
-      abilities: dAbilities.filter((a) => a.name.trim()),
+      actions: showActions ? dActions.filter((a) => a.name.trim()) : actions,
+      abilities: showTraits ? dAbilities.filter((a) => a.name.trim()) : abilities,
     });
     setEditing(false);
   };
@@ -610,12 +625,12 @@ export function ActionsTraitsView({
             </button>
           </div>
         )}
-        {actions.length === 0 && abilities.length === 0 ? (
+        {(showActions ? actions.length : 0) + (showTraits ? abilities.length : 0) === 0 ? (
           <p className="muted">None yet.</p>
         ) : (
           <ActionsTraitsReadSections
-            actions={actions}
-            abilities={abilities}
+            actions={showActions ? actions : []}
+            abilities={showTraits ? abilities : []}
             onRollAction={onRollAction}
           />
         )}
@@ -624,8 +639,12 @@ export function ActionsTraitsView({
   }
   return (
     <div className="statblock editing">
-      <EntryEditor title="Actions" entries={dActions} onChange={setDActions} />
-      <EntryEditor title="Traits" entries={dAbilities} onChange={setDAbilities} />
+      {showActions && (
+        <EntryEditor title="Actions" entries={dActions} onChange={setDActions} />
+      )}
+      {showTraits && (
+        <EntryEditor title="Traits" entries={dAbilities} onChange={setDAbilities} />
+      )}
       <div className="sb-edit-actions">
         <button className="btn tiny green" onClick={save}>
           Save

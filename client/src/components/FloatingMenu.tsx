@@ -177,9 +177,10 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
                   abilityId: a.id,
                   castLevel: a.roll?.baseLevel,
                   advantage: consumeAdvantage(attacker!.refId),
-                  // Only attack rolls target the clicked token; saves/damage/heal
-                  // resolve via the roll log's apply-to-targets flow.
-                  targetTokenId: a.roll?.kind === 'attack' ? token.id : undefined,
+                  // Target the right-clicked token: attack rolls resolve to-hit vs
+                  // its AC; save/damage rolls make IT roll the save and take the
+                  // damage right away (no separate Apply-damage step). Heal ignores it.
+                  targetTokenId: token.id,
                 }),
               )}
             >
@@ -196,7 +197,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
                   aMon!.id,
                   i,
                   consumeAdvantage(attacker!.refId),
-                  a.roll?.kind === 'attack' ? token.id : undefined,
+                  token.id, // attack → vs AC; save/damage → target rolls + takes it now
                 ),
               )}
             >
