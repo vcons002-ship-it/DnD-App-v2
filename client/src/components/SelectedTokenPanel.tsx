@@ -20,6 +20,7 @@ import { ObjectControls } from './ObjectControls';
 import { IconTools } from './IconTools';
 import { TokenAdminButtons } from './TokenAdminButtons';
 import { AdvantageToggle } from './AdvantageToggle';
+import { ReorderableSections, type Section } from './ReorderableSections';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -147,6 +148,179 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     );
   }
 
+  // Standardized, rearrangeable main sections (creatures AND characters). Each is
+  // collapsible and reorderable; order + collapse state persist per role + kind.
+  const entityKind = monster ? 'monster' : character ? 'pc' : 'token';
+  const sections: Section[] = [];
+
+  if (canAttack && attackerWeapons.length > 0) {
+    sections.push({
+      id: 'attacks',
+      label: 'Attacks',
+      node: (
+        <AttackControls snapshot={snapshot} attacker={token} weapons={attackerWeapons} />
+      ),
+    });
+  }
+
+  // Creatures get the same rich, searchable, rollable abilities as PCs.
+  if (monster && (monster.sheetAbilities.length > 0 || isDm)) {
+    sections.push({
+      id: 'abilities',
+      label: 'Spells & Abilities',
+      node: (
+        <CharacterSpells
+          character={monster}
+          kind="monster"
+          editable={isDm}
+          snapshot={snapshot}
+          attackerToken={token}
+        />
+      ),
+    });
+  }
+
+  if (monster) {
+    sections.push({
+      id: 'sheet',
+      label: 'Sheet info',
+      node: (
+        <>
+          {isDm && (
+            <div className="disposition-row">
+              <h4>Disposition</h4>
+              <div className="disposition-btns">
+                {(['friendly', 'neutral', 'enemy'] as const).map((disp) => (
+                  <button
+                    key={disp}
+                    className={`btn tiny disp-${disp} ${monster.disposition === disp ? 'on' : ''}`}
+                    onClick={() => updateMonster({ monsterId: monster.id, disposition: disp })}
+                    title={
+                      disp === 'friendly'
+                        ? 'Players see full stats'
+                        : disp === 'neutral'
+                          ? 'Players see name + HP + type/AC'
+                          : 'Players see name + conditions only'
+                    }
+                  >
+                    {disp[0].toUpperCase() + disp.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {isDm && (
+            <div className="creature-adv-row">
+              <span className="muted">Next roll</span>
+              <AdvantageToggle entityId={monster.id} />
+            </div>
+          )}
+          <StatBlock
+            creature={monster}
+            subtitle={monster.creatureType}
+            identity={
+              isDm
+                ? [{ key: 'creatureType', label: 'Type', value: monster.creatureType }]
+                : undefined
+            }
+            levelLabel="CR"
+            monster
+            aiBusy={aiBusy}
+            onAiFill={isDm ? () => aiFillCreature(monster.id) : undefined}
+            onSave={isDm ? (patch) => updateMonster({ monsterId: monster.id, ...patch }) : undefined}
+            onRollAction={
+              isDm
+                ? (actionIndex) =>
+                    rollMonsterAction(monster.id, actionIndex, consumeAdvantage(monster.id))
+                : undefined
+            }
+            onRollSave={
+              isDm
+                ? (ability) =>
+                    rollSave({
+                      kind: 'monster',
+                      refId: monster.id,
+                      ability,
+                      advantage: consumeAdvantage(monster.id),
+                    })
+                : undefined
+            }
+          />
+          {isDm && (
+            <button
+              className="btn tiny save-library"
+              onClick={() => setSavingMonster(monster)}
+              title="Save this creature to the cross-session library"
+            >
+              💾 Save to library
+            </button>
+          )}
+        </>
+      ),
+    });
+  } else if (character) {
+    sections.push({
+      id: 'sheet',
+      label: 'Sheet info',
+      node: <CharacterSheet character={character} editable={canEditCharacter} />,
+    });
+  }
+
+  sections.push({
+    id: 'conditions',
+    label: 'Conditions',
+    node: (
+      <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />
+    ),
+  });
+
+  if (monsterEntity) {
+    sections.push({
+      id: 'notes',
+      label: 'Notes',
+      node: <CreatureNotes monsterId={monsterEntity.id} notes={monsterEntity.playerNotes} />,
+    });
+  }
+
+  if (isDm) {
+    sections.push({
+      id: 'dmtools',
+      label: 'DM tools',
+      node: (
+        <div className="dm-token-actions">
+          <h4>Token icon</h4>
+          <IconTools
+            onApply={(icon) => setTokensIcon(iconTargets, icon)}
+            note={
+              iconTargets.length > 1
+                ? `Applies to ${iconTargets.length} selected tokens`
+                : undefined
+            }
+          />
+          <h4>Combat role</h4>
+          <div className="disposition-btns">
+            {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {
+              const active = (token.combatRoleOverride ?? null) === r;
+              const label =
+                r === null ? 'Auto' : r === 'melee' ? '⚔️' : r === 'ranged' ? '🏹' : '✨';
+              return (
+                <button
+                  key={r ?? 'auto'}
+                  className={`btn tiny ${active ? 'on' : ''}`}
+                  title={r === null ? 'Derive from stats' : r}
+                  onClick={() => setTokensCombatRole(iconTargets, r)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <TokenAdminButtons token={token} variant="panel" roleBadgeTargets={iconTargets} />
+        </div>
+      ),
+    });
+  }
+
   return (
     <div className="panel-section">
       <h3>{d.name}</h3>
@@ -188,170 +362,10 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         </button>
       </div>
 
-      {isDm && monster && (
-        <div className="disposition-row">
-          <h4>Disposition</h4>
-          <div className="disposition-btns">
-            {(['friendly', 'neutral', 'enemy'] as const).map((d) => (
-              <button
-                key={d}
-                className={`btn tiny disp-${d} ${
-                  monster.disposition === d ? 'on' : ''
-                }`}
-                onClick={() =>
-                  updateMonster({ monsterId: monster.id, disposition: d })
-                }
-                title={
-                  d === 'friendly'
-                    ? 'Players see full stats'
-                    : d === 'neutral'
-                    ? 'Players see name + HP + type/AC'
-                    : 'Players see name + conditions only'
-                }
-              >
-                {d[0].toUpperCase() + d.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {isDm && monster && (
-        <div className="creature-adv-row">
-          <span className="muted">Next roll</span>
-          <AdvantageToggle entityId={monster.id} />
-        </div>
-      )}
-
-      {monster && (
-        <StatBlock
-          creature={monster}
-          subtitle={monster.creatureType}
-          identity={
-            isDm
-              ? [{ key: 'creatureType', label: 'Type', value: monster.creatureType }]
-              : undefined
-          }
-          levelLabel="CR"
-          monster
-          aiBusy={aiBusy}
-          onAiFill={isDm ? () => aiFillCreature(monster.id) : undefined}
-          onSave={
-            isDm
-              ? (patch) => updateMonster({ monsterId: monster.id, ...patch })
-              : undefined
-          }
-          onRollAction={
-            isDm
-              ? (actionIndex) =>
-                  rollMonsterAction(
-                    monster.id,
-                    actionIndex,
-                    consumeAdvantage(monster.id),
-                  )
-              : undefined
-          }
-          onRollSave={
-            isDm
-              ? (ability) =>
-                  rollSave({
-                    kind: 'monster',
-                    refId: monster.id,
-                    ability,
-                    advantage: consumeAdvantage(monster.id),
-                  })
-              : undefined
-          }
-        />
-      )}
-
-      {/* Creatures get the same rich, searchable, rollable abilities as PCs. */}
-      {monster && (monster.sheetAbilities.length > 0 || isDm) && (
-        <CharacterSpells
-          character={monster}
-          kind="monster"
-          editable={isDm}
-          snapshot={snapshot}
-          attackerToken={token}
-        />
-      )}
-
-      {isDm && monster && (
-        <button
-          className="btn tiny save-library"
-          onClick={() => setSavingMonster(monster)}
-          title="Save this creature to the cross-session library"
-        >
-          💾 Save to library
-        </button>
-      )}
-
-      {character && (
-        <CharacterSheet character={character} editable={canEditCharacter} />
-      )}
-
-      {canAttack && attackerWeapons.length > 0 && (
-        <AttackControls
-          snapshot={snapshot}
-          attacker={token}
-          weapons={attackerWeapons}
-        />
-      )}
-
-      <h4>Conditions</h4>
-      <ConditionPicker kind={token.kind} refId={token.refId} conditions={d.conditions} />
-
-      {monsterEntity && (
-        <CreatureNotes monsterId={monsterEntity.id} notes={monsterEntity.playerNotes} />
-      )}
-
-      {isDm && (
-        <details className="dm-token-tools">
-          <summary>DM tools</summary>
-          <div className="dm-token-actions">
-            <h4>Token icon</h4>
-            <IconTools
-              onApply={(icon) => setTokensIcon(iconTargets, icon)}
-              note={
-                iconTargets.length > 1
-                  ? `Applies to ${iconTargets.length} selected tokens`
-                  : undefined
-              }
-            />
-
-            <h4>Combat role</h4>
-            <div className="disposition-btns">
-              {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {
-                const active = (token.combatRoleOverride ?? null) === r;
-                const label =
-                  r === null
-                    ? 'Auto'
-                    : r === 'melee'
-                    ? '⚔️'
-                    : r === 'ranged'
-                    ? '🏹'
-                    : '✨';
-                return (
-                  <button
-                    key={r ?? 'auto'}
-                    className={`btn tiny ${active ? 'on' : ''}`}
-                    title={r === null ? 'Derive from stats' : r}
-                    onClick={() => setTokensCombatRole(iconTargets, r)}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <TokenAdminButtons
-              token={token}
-              variant="panel"
-              roleBadgeTargets={iconTargets}
-            />
-          </div>
-        </details>
-      )}
+      <ReorderableSections
+        storageKey={`tokenPanel:${snapshot.role}:${entityKind}`}
+        sections={sections}
+      />
 
       {savingMonster && (
         <LibrarySaveDialog
