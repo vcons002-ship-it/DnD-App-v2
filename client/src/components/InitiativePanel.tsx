@@ -16,9 +16,14 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
   const clearInitiative = useStore((s) => s.clearInitiative);
+  const setRound = useStore((s) => s.setRound);
 
+  // Objects (chests/doors/traps) never take turns — keep them out of the list.
+  const combatants = snapshot.tokens.filter(
+    (t) => !resolveToken(snapshot, t).objectKind,
+  );
   // Tokens ordered for initiative (rolled first, desc).
-  const orderedTokens = [...snapshot.tokens].sort((a, b) => {
+  const orderedTokens = [...combatants].sort((a, b) => {
     if (a.initiative === null && b.initiative === null) return 0;
     if (a.initiative === null) return 1;
     if (b.initiative === null) return -1;
@@ -33,7 +38,27 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   return (
     <div className="panel-section">
       <div className="init-header">
-        <h3>Initiative</h3>
+        <h3>
+          Initiative
+          {snapshot.round > 0 && (
+            <span
+              className="round-chip"
+              title="Combat round — advances when the turn order wraps; edit to re-count"
+            >
+              Round
+              <input
+                className="round-input"
+                type="number"
+                min={0}
+                max={999}
+                value={snapshot.round}
+                onChange={(e) =>
+                  e.target.value !== '' && setRound(Number(e.target.value))
+                }
+              />
+            </span>
+          )}
+        </h3>
         <div className="init-actions">
           <button
             className="btn tiny"
@@ -60,12 +85,24 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
       {orderedTokens.map((t) => {
         const d = resolveToken(snapshot, t);
         const isTurn = t.id === snapshot.activeTurnTokenId;
+        // Mirror of the server's turn-skip rule: dead creatures keep their slot
+        // but are walked past. PCs only count as dead at 3 failed saves (or the
+        // Dead mark) — at 0 HP they still take a turn to roll death saves.
+        const marked = d.conditions.some((c) => c.label.toLowerCase() === 'dead');
+        const pc = t.kind === 'pc'
+          ? snapshot.characters.find((c) => c.id === t.refId)
+          : undefined;
+        const isDead =
+          t.kind === 'pc'
+            ? marked || (pc?.deathSaves.failures ?? 0) >= 3
+            : marked || (d.curHp !== undefined && d.curHp <= 0);
         return (
           <div
             key={t.id}
             className={`init-row ${t.id === selectedTokenId ? 'sel' : ''} ${
               isTurn ? 'turn' : ''
-            }`}
+            } ${isDead ? 'dead' : ''}`}
+            title={isDead ? 'Dead — keeps its slot, skipped on its turn' : undefined}
             onClick={() => onSelectToken(t)}
           >
             <span className="init-order" title="Turn order">
@@ -87,6 +124,7 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
             />
             <span className="init-name">
               {isTurn && '▸ '}
+              {isDead && '💀 '}
               {d.name}
             </span>
             {d.curHp !== undefined && (
@@ -97,7 +135,7 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           </div>
         );
       })}
-      {snapshot.tokens.length === 0 && <p className="muted">No tokens placed.</p>}
+      {combatants.length === 0 && <p className="muted">No combatants placed.</p>}
     </div>
   );
 }

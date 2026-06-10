@@ -15,7 +15,20 @@ import {
   createToken,
   resizeToken,
   rollAllInitiative,
+  rollMissingInitiative,
+  advanceTurn,
+  clearInitiative,
+  setActiveTurn,
+  setCombatRound,
+  setTokenInitiative,
+  setActiveMap,
+  getSessionById,
   getToken,
+  getMonster,
+  applyDamage,
+  setDeathSaves,
+  deleteToken,
+  deleteMonster,
   createCharacter,
   listCharacters,
   deleteCharacter,
@@ -248,5 +261,163 @@ describe('initiative includes the DEX modifier', () => {
       expect(init).toBeGreaterThanOrEqual(6);
       expect(init).toBeLessThanOrEqual(25);
     }
+  });
+});
+
+describe('combat rounds + objects sit out of initiative', () => {
+  const arena = () => {
+    const s = createSession('Rounds');
+    const map = createMap(s.id, { name: 'Pit' });
+    setActiveMap(s.id, map.id);
+    return { s, map };
+  };
+  const fighter = (s: { id: string }, map: { id: string }, name: string) => {
+    const tmpl = createMonsterTemplate(s.id, { name, maxHp: 10 });
+    return createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 0,
+      y: 0,
+    });
+  };
+
+  it('objects (chests/doors/traps) never roll initiative', () => {
+    const { s, map } = arena();
+    const orc = fighter(s, map, 'Orc');
+    const chest = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(
+        createMonsterTemplate(s.id, { name: 'Chest', maxHp: 1, objectKind: 'chest' }).id,
+      )!.id,
+      x: 1,
+      y: 1,
+    });
+    // A stray roll on an object (old saves) is cleared by Roll all.
+    setTokenInitiative(chest.id, 15);
+
+    rollAllInitiative(map.id);
+    expect(getToken(orc.id)!.initiative).not.toBeNull();
+    expect(getToken(chest.id)!.initiative).toBeNull();
+
+    setTokenInitiative(orc.id, null);
+    rollMissingInitiative(map.id);
+    expect(getToken(orc.id)!.initiative).not.toBeNull();
+    expect(getToken(chest.id)!.initiative).toBeNull();
+  });
+
+  it('the round counter advances on a wrap, survives latecomers, and resets', () => {
+    const { s, map } = arena();
+    const a = fighter(s, map, 'A');
+    const b = fighter(s, map, 'B');
+    setTokenInitiative(a.id, 20);
+    setTokenInitiative(b.id, 10);
+    setActiveTurn(s.id, a.id);
+    setCombatRound(s.id, 1);
+
+    advanceTurn(s.id); // A → B (same round)
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+    advanceTurn(s.id); // B wraps → A, round 2
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+
+    // A latecomer rolls in mid-round (top of the order) — counter untouched,
+    // and the next wrap still counts exactly one new round.
+    const c = fighter(s, map, 'C');
+    setTokenInitiative(c.id, 30);
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+    advanceTurn(s.id); // A → B
+    advanceTurn(s.id); // B wraps → C, round 3
+    expect(getSessionById(s.id)!.combatRound).toBe(3);
+
+    setCombatRound(s.id, 1); // the reset button
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+    clearInitiative(s.id); // ending combat zeroes it
+    expect(getSessionById(s.id)!.combatRound).toBe(0);
+  });
+});
+
+describe('dead combatants keep their slot but lose their turn', () => {
+  const arena2 = () => {
+    const s = createSession('DeadSkip');
+    const map = createMap(s.id, { name: 'Pit' });
+    setActiveMap(s.id, map.id);
+    return { s, map };
+  };
+  const mon = (s: { id: string }, map: { id: string }, name: string, init: number) => {
+    const inst = instantiateMonster(
+      createMonsterTemplate(s.id, { name, maxHp: 10 }).id,
+    )!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+    setTokenInitiative(tok.id, init);
+    return { tok, inst };
+  };
+
+  it('skips a dead monster mid-order and still counts the wrap past a dead LAST slot', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const b = mon(s, map, 'B', 10);
+    const c = mon(s, map, 'C', 5);
+    setActiveTurn(s.id, a.tok.id);
+    setCombatRound(s.id, 1);
+
+    applyDamage('monster', b.inst.id, 999); // B dies, keeps its roll + slot
+    expect(getToken(b.tok.id)!.initiative).toBe(10);
+
+    advanceTurn(s.id); // A → (skip B) → C, same round
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(c.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+
+    applyDamage('monster', c.inst.id, 999); // now the LAST slot is dead too
+    advanceTurn(s.id); // C → wrap (skipping nothing live until A) → round 2
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(a.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+  });
+
+  it('a downed PC keeps its turn; an actually-dead one (3 failures) is skipped', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const pc = createCharacter(s.id, { name: 'Hero', maxHp: 10 });
+    const pcTok = createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 1, y: 1 });
+    setTokenInitiative(pcTok.id, 10);
+    setActiveTurn(s.id, a.tok.id);
+    setCombatRound(s.id, 1);
+
+    applyDamage('pc', pc.id, 999); // down to 0 — dying, NOT dead
+    advanceTurn(s.id);
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(pcTok.id); // death-save turn
+
+    setActiveTurn(s.id, a.tok.id);
+    setDeathSaves(pc.id, 0, 3); // three failures → dead → skipped
+    advanceTurn(s.id);
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(a.tok.id); // wrapped back
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+  });
+
+  it('deleting the current-turn token ticks to the next; a last-slot delete wraps the round', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const b = mon(s, map, 'B', 10);
+    setCombatRound(s.id, 1);
+
+    setActiveTurn(s.id, a.tok.id);
+    deleteToken(a.tok.id); // mid-order: marker just ticks to B
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(b.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+
+    deleteToken(b.tok.id); // B was current AND the only living combatant left
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBeNull();
+  });
+
+  it('deleting the last-in-order current creature (via deleteMonster) wraps + counts', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const b = mon(s, map, 'B', 10);
+    setCombatRound(s.id, 1);
+    setActiveTurn(s.id, b.tok.id); // B is last in order
+    deleteMonster(b.inst.id); // bulk path goes through the same guard
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(a.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+    expect(getMonster(b.inst.id)).toBeNull();
   });
 });

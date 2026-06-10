@@ -208,6 +208,9 @@ export function DmDataView() {
           {turnName ? (
             <>
               Turn: <strong>{turnName}</strong>
+              {snapshot.round > 0 && (
+                <span className="round-chip">Round {snapshot.round}</span>
+              )}
             </>
           ) : (
             <span className="muted">No active turn</span>

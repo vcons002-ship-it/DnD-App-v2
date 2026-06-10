@@ -37,6 +37,8 @@ export type Session = {
   name: string;
   activeMapId: string | null;
   activeTurnTokenId: string | null;
+  /** Combat round counter (0 = no combat running). */
+  combatRound: number;
 };
 
 type SessionRow = {
@@ -45,6 +47,7 @@ type SessionRow = {
   name: string;
   active_map_id: string | null;
   active_turn_token_id: string | null;
+  combat_round: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -53,6 +56,7 @@ const rowToSession = (r: SessionRow): Session => ({
   name: r.name,
   activeMapId: r.active_map_id,
   activeTurnTokenId: r.active_turn_token_id,
+  combatRound: r.combat_round ?? 0,
 });
 
 // ---- Sessions ----
@@ -85,7 +89,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0 };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -409,6 +413,21 @@ export function setTokenInitiative(
 }
 
 export function deleteToken(tokenId: string): void {
+  // Deleting the token whose TURN it is: tick the marker to the next living
+  // combatant first (so its position isn't lost). If that crossing wraps the
+  // order, the round advances — it would have when this turn ended anyway.
+  const token = getToken(tokenId);
+  const sessionId = token ? getMap(token.mapId)?.sessionId : undefined;
+  if (token && sessionId) {
+    const session = getSessionById(sessionId);
+    if (session?.activeTurnTokenId === tokenId) {
+      advanceTurn(sessionId);
+      // Still pointing here → it was the only living combatant.
+      if (getSessionById(sessionId)?.activeTurnTokenId === tokenId) {
+        setActiveTurn(sessionId, null);
+      }
+    }
+  }
   db.prepare('DELETE FROM tokens WHERE id = ?').run(tokenId);
 }
 
@@ -847,30 +866,62 @@ function initiativeBonus(token: Token): number {
   return entity ? abilityMod(entity.stats.DEX) : 0;
 }
 
+/** Objects (chests/doors/traps/items) never take turns — they don't roll
+ *  initiative and are skipped by the turn order. */
+function isObjectToken(token: Token): boolean {
+  return token.kind === 'monster' && !!getMonster(token.refId)?.objectKind;
+}
+
+/** A DEAD combatant keeps its slot in the initiative order (so the order stays
+ *  intact for everyone else) but is skipped when its turn comes around:
+ *  monsters at 0 HP or marked "Dead"; PCs only when actually dead (3 failed
+ *  death saves or the Dead mark) — a downed PC still takes its turn to roll
+ *  death saves. */
+function isDeadToken(token: Token): boolean {
+  const marked = (conds: Condition[]) =>
+    conds.some((c) => c.label.toLowerCase() === 'dead');
+  if (token.kind === 'pc') {
+    const c = getCharacter(token.refId);
+    return !!c && (c.deathSaves.failures >= 3 || marked(c.conditions));
+  }
+  const m = getMonster(token.refId);
+  return !!m && (m.curHp <= 0 || marked(m.conditions));
+}
+
 /** A d20 + DEX modifier for a token (5e initiative). */
 const rollInitiative = (token: Token): number =>
   Math.floor(Math.random() * 20) + 1 + initiativeBonus(token);
 
-/** Roll initiative (d20 + DEX) for EVERY token on a map (resets the round). */
+/** Roll initiative (d20 + DEX) for every COMBATANT on a map (resets the round).
+ *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
-    roll.run(rollInitiative(t), t.id);
+    roll.run(isObjectToken(t) ? null : rollInitiative(t), t.id);
   }
 }
 
-/** Roll only for tokens that haven't rolled yet (e.g. latecomers to combat). */
+/** Roll only for combatants that haven't rolled yet (latecomers to combat). */
 export function rollMissingInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
-    if (t.initiative === null) roll.run(rollInitiative(t), t.id);
+    if (t.initiative === null && !isObjectToken(t)) roll.run(rollInitiative(t), t.id);
   }
 }
 
-/** Tokens with initiative on a map, ordered for turn-taking (desc, ties stable). */
+/** Set the session's combat-round counter (0 = no combat running). */
+export function setCombatRound(sessionId: string, round: number): void {
+  db.prepare('UPDATE sessions SET combat_round = ? WHERE id = ?').run(
+    Math.max(0, Math.round(round)),
+    sessionId,
+  );
+}
+
+/** Tokens with initiative on a map, ordered for turn-taking (desc, ties stable).
+ *  Objects are excluded defensively (an old save may have rolled one). */
 function initiativeOrder(mapId: string): Token[] {
   return listTokens(mapId)
-    .filter((t) => t.initiative !== null)
+    .filter((t) => t.initiative !== null && !isObjectToken(t))
     .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
 }
 
@@ -879,7 +930,14 @@ export function firstInInitiative(mapId: string): string | null {
   return initiativeOrder(mapId)[0]?.id ?? null;
 }
 
-/** Advance the active-turn marker to the next token in initiative order. */
+/** Advance the active-turn marker to the next LIVING token in initiative
+ *  order. Dead combatants keep their slot but are walked past; crossing the
+ *  top of the order — including while skipping the dead — starts a new round
+ *  (counter +1). Latecomers who roll in mid-round just slot into the order
+ *  without touching the counter, so "Add rolls" never resets or skips a
+ *  round. An orphaned marker (the current token vanished without going
+ *  through deleteToken) restarts at the top of the SAME round. With no living
+ *  combatant left the marker clears (combat is effectively over). */
 export function advanceTurn(sessionId: string): void {
   const session = getSessionById(sessionId);
   if (!session?.activeMapId) return;
@@ -889,8 +947,24 @@ export function advanceTurn(sessionId: string): void {
     return;
   }
   const idx = order.findIndex((t) => t.id === session.activeTurnTokenId);
-  const next = order[(idx + 1) % order.length];
-  setActiveTurn(sessionId, next.id);
+  let wrapped = false;
+  let i = idx;
+  for (let step = 0; step < order.length; step++) {
+    i += 1;
+    if (i >= order.length) {
+      i = 0;
+      // Reaching the top FROM a real position is a wrap; an orphaned marker
+      // (idx === -1) walks 0..n-1 without ever passing the end.
+      wrapped = true;
+    }
+    if (!isDeadToken(order[i])) {
+      if (wrapped) setCombatRound(sessionId, Math.max(1, session.combatRound) + 1);
+      setActiveTurn(sessionId, order[i].id);
+      return;
+    }
+  }
+  // Everyone in the order is dead — no turn to give.
+  setActiveTurn(sessionId, null);
 }
 
 export function clearInitiative(sessionId: string): void {
@@ -901,6 +975,7 @@ export function clearInitiative(sessionId: string): void {
     ).run(session.activeMapId);
   }
   setActiveTurn(sessionId, null);
+  setCombatRound(sessionId, 0);
 }
 
 // ---- Shared dice roll log ----
@@ -2034,20 +2109,25 @@ export function updateMonster(
 
 /** Delete a monster (template or instance) and any tokens referencing it. */
 export function deleteMonster(monsterId: string): void {
-  db.prepare('DELETE FROM tokens WHERE kind = ? AND ref_id = ?').run(
-    'monster',
-    monsterId,
-  );
+  // Per-token deletes so the active-turn guard in deleteToken runs.
+  for (const t of tokensForRef('monster', monsterId)) deleteToken(t);
   db.prepare('DELETE FROM monsters WHERE id = ?').run(monsterId);
+}
+
+/** Token ids referencing a creature/character (no FK cascade on ref_id). */
+function tokensForRef(kind: TokenKind, refId: string): string[] {
+  return (
+    db
+      .prepare('SELECT id FROM tokens WHERE kind = ? AND ref_id = ?')
+      .all(kind, refId) as { id: string }[]
+  ).map((r) => r.id);
 }
 
 /** Remove a player character (and any of its placed tokens) from the session.
  *  Tokens reference characters by ref_id (no FK cascade), so delete them too. */
 export function deleteCharacter(characterId: string): void {
-  db.prepare('DELETE FROM tokens WHERE kind = ? AND ref_id = ?').run(
-    'pc',
-    characterId,
-  );
+  // Per-token deletes so the active-turn guard in deleteToken runs.
+  for (const t of tokensForRef('pc', characterId)) deleteToken(t);
   db.prepare('DELETE FROM characters WHERE id = ?').run(characterId);
 }
 

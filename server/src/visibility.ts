@@ -216,6 +216,7 @@ export function createSnapshotBuilder(
       map,
       activeMapId,
       activeTurnTokenId: session.activeTurnTokenId,
+      round: session.combatRound,
       // Players don't need the full map list (DM-only prep tool).
       maps: role === 'dm' ? maps : map ? [map] : [],
       tokens,

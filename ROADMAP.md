@@ -924,3 +924,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   unchanged). Bench (35 tokens, 6 clients): ~8.2 ms → ~1.5 ms per change-cycle
   (≈5.6×), on top of the already-removed N+1. Parity + reuse covered by new
   `createSnapshotBuilder` tests.
+- ☑ **Combat round counter + objects sit out of initiative.** Sessions carry a
+  `combat_round` counter (idempotent column, 0 = no combat): **Roll all** starts
+  round 1, **Next** increments it when the turn order wraps past the LAST
+  combatant (latecomers added via **Add rolls** mid-round slot in without
+  resetting or double-counting; a vanished current token restarts the same
+  round), **Clear** zeroes it, and a **↺ reset** button (`initiative:resetRound`,
+  DM-only) sets it back to 1 without touching anyone's rolls. Shown as a
+  **Round N chip** in the top toolbar (everyone), the Initiative header, and
+  the Data-view turn line. **Objects (chests/doors/traps/items) never roll
+  initiative**: Roll all/Add rolls skip them (Roll all also clears a stray roll
+  an object had in an old save), the turn order excludes them defensively, and
+  the Initiative panel doesn't list them.
+- ☑ **Initiative robustness.** The round counter is a **DM-editable field** in
+  the Initiative header (`initiative:setRound`, clamped 0–999) instead of just
+  reset-to-1. **Dead combatants keep their slot** in the order (dimmed 💀 row)
+  but `advanceTurn` walks past them — wraps crossed while skipping still count
+  the round, and PCs at 0 HP **keep their turn** for death saves (skipped only
+  at 3 failures or the Dead mark). **Deleting the current-turn token** ticks
+  the marker to the next living combatant first (wrapping counts the round, as
+  it would have anyway); `deleteMonster`/`deleteCharacter` route their token
+  cleanup through the same guard, and deleting the only living combatant
+  clears the marker.
