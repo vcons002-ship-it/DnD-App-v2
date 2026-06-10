@@ -3,9 +3,9 @@ import { useStore } from '../state/socket';
 
 /**
  * Trap-specific controls layered onto a trap object. The DM gets a **Trigger**
- * button per authored effect (a stat-block action with a structured roll — fired
- * via the same `monster:action` flow as any creature, then applied from the log)
- * plus a disarm-DC field. A player holding a character gets a **Disarm** button
+ * button per authored effect (a sheet ability with a structured roll — fired via
+ * the same `ability:roll` flow as any creature, then applied from the log) plus
+ * a disarm-DC field. A player holding a character gets a **Disarm** button
  * that rolls a DEX (Sleight of Hand) check server-side; on success the trap flips
  * to "Disarmed".
  */
@@ -18,7 +18,7 @@ export function TrapControls({
   monsterId: string;
   editable: boolean;
 }) {
-  const rollMonsterAction = useStore((s) => s.rollMonsterAction);
+  const rollAbility = useStore((s) => s.rollAbility);
   const disarmTrap = useStore((s) => s.disarmTrap);
   const updateMonster = useStore((s) => s.updateMonster);
   const setCondition = useStore((s) => s.setCondition);
@@ -26,16 +26,15 @@ export function TrapControls({
 
   const m = snapshot.monsters.find((x) => x.id === monsterId);
   if (!m) return null;
-  // `actions` only ride on the DM (full) snapshot; players never receive them.
-  const actions = 'actions' in m ? m.actions : [];
-  const rollable = actions
-    .map((a, i) => ({ a, i }))
-    .filter(({ a }) => !!a.roll);
+  // `sheetAbilities` only ride on the DM (full) snapshot; players never get them.
+  const rollable = ('sheetAbilities' in m ? m.sheetAbilities : []).filter(
+    (a) => !!a.roll,
+  );
   const dc = 'objectDc' in m ? m.objectDc : undefined;
   const myCharacter = snapshot.characters.find((c) => c.claimedBy === socketId);
 
-  const fire = (index: number) => {
-    rollMonsterAction(monsterId, index);
+  const fire = (abilityId: string) => {
+    rollAbility({ kind: 'monster', refId: monsterId, abilityId });
     // Flip the state to Triggered (then apply damage from the roll log).
     if (!m.conditions.some((c) => c.label.toLowerCase() === 'triggered'))
       setCondition('monster', monsterId, {
@@ -51,15 +50,15 @@ export function TrapControls({
         <div className="trap-fire">
           {rollable.length === 0 ? (
             <p className="muted">
-              Add a save/attack action in the stat block below to give this trap a
-              triggerable effect.
+              Add a save/attack ability in the Spells &amp; Abilities section to
+              give this trap a triggerable effect.
             </p>
           ) : (
-            rollable.map(({ a, i }) => (
+            rollable.map((a) => (
               <button
-                key={i}
+                key={a.id}
                 className="btn tiny"
-                onClick={() => fire(i)}
+                onClick={() => fire(a.id)}
                 title="Fire this trap — then assign damage from the roll log"
               >
                 ⚡ Trigger: {a.name}

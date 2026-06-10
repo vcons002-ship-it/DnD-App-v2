@@ -874,14 +874,6 @@ export type AbilityRollPayload = {
    *  auto-applies typed damage (× resist/vuln) on a hit, like a weapon attack. */
   targetTokenId?: string;
 };
-/** Roll a monster's structured `action` (DM-only), resolved server-side. */
-export type MonsterActionRollPayload = {
-  monsterId: string;
-  actionIndex: number;
-  advantage?: 'adv' | 'dis';
-  /** Attack-roll actions target a token (to-hit vs AC + typed auto-damage). */
-  targetTokenId?: string;
-};
 /** DM-only: resolve a damage roll's save against one clicked target (rolls the
  *  save, auto-applies full/half of the rolled amount). `rollId` is the log entry
  *  carrying the `apply` payload. `advantage` is the clicked creature's armed
@@ -1082,7 +1074,6 @@ export interface ClientToServerEvents {
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
   'chat:send': (payload: { text: string }) => void;
-  'monster:action': (payload: MonsterActionRollPayload) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;

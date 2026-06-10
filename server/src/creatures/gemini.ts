@@ -299,6 +299,10 @@ export async function lookupCreatureAI(
     `or "Ashfang Wolf") — NOT the full description text. ` +
     `"level" is the challenge rating as a number (e.g. 0.25, 1, 5). ` +
     `"weapons" are ordinary single-target weapon attacks as tagged data (damage like "1d8+3"). ` +
+    `Humanoid combatants (bandits, soldiers, guards, cultists) should carry the ` +
+    `MANUFACTURED weapons they'd realistically use, named for the weapon (e.g. ` +
+    `"Scimitar", "Light Crossbow", "Spear"); beasts/monsters use natural attacks ` +
+    `(Bite, Claw, Slam, Tail). Most creatures should have at least one weapon attack. ` +
     `Put every effect that forces a SAVING THROW or hits an area (breath weapons, ` +
     `traps, auras, spell-like blasts) in "actions" — NOT in "weapons" — with a ` +
     `structured "roll" ("kind":"save", the "save" ability, "dc", "dice" like "2d6", ` +

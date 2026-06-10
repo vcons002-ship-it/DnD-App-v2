@@ -12,6 +12,7 @@ import {
   listRollLog,
 } from './sessions.js';
 import { resolveMonsterSheetAbility } from './combat.js';
+import { db, migrateLegacyMonsterActions } from './db.js';
 import { buildSnapshot } from './visibility.js';
 import type { Monster, SheetAbility } from '../../shared/types.js';
 
@@ -104,5 +105,72 @@ describe('monster sheetAbilities', () => {
     updateMonster(enemy.id, { disposition: 'friendly' });
     const pf = buildSnapshot(s.id, 'player')!.monsters.find((x) => x.id === enemy.id) as Monster;
     expect(pf.sheetAbilities[0].name).toBe('Fire Burst');
+  });
+});
+
+describe('legacy action merge (ONE rollable system)', () => {
+  it('converts free-text actions at creation: weapons split out, the rest become abilities', () => {
+    const s = createSession('Merge1');
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Young Drake',
+      maxHp: 60,
+      level: 4,
+      stats: { STR: 18, CHA: 14 },
+      actions: [
+        { name: 'Multiattack', description: 'The drake makes two attacks.' },
+        { name: 'Bite', description: 'Melee Weapon Attack: +6 to hit, 2d10+4 piercing damage.' },
+        {
+          name: 'Fire Breath',
+          description: 'DC 14 Dexterity saving throw, 7d6 fire damage (half on save).',
+        },
+      ],
+    });
+
+    // Stored monsters keep `actions` empty — everything has a real home now.
+    expect(tmpl.actions).toEqual([]);
+    // The weapon-like attack became a rollable weapon…
+    expect(tmpl.weapons).toHaveLength(1);
+    expect(tmpl.weapons[0]).toMatchObject({ name: 'Bite', attackBonus: 6, damage: '2d10+4' });
+    // …and the rest became sheet abilities (rolls scraped where possible).
+    const names = tmpl.sheetAbilities.map((a) => a.name);
+    expect(names).toEqual(['Multiattack', 'Fire Breath']);
+    const breath = tmpl.sheetAbilities.find((a) => a.name === 'Fire Breath')!;
+    expect(breath.roll).toMatchObject({ kind: 'save', dice: '7d6', dc: 14, save: 'DEX' });
+    expect(tmpl.sheetAbilities.find((a) => a.name === 'Multiattack')!.roll).toBeUndefined();
+
+    // Instances inherit the converted shape.
+    const inst = instantiateMonster(tmpl.id)!;
+    expect(inst.actions).toEqual([]);
+    expect(inst.sheetAbilities.map((a) => a.name)).toEqual(['Multiattack', 'Fire Breath']);
+  });
+
+  it('migrates a legacy saved row (actions JSON) into weapons + sheetAbilities once', () => {
+    const s = createSession('Merge2');
+    // A pre-merge monster row, written the way old saves stored it. (Random id —
+    // the suite's on-disk DB persists across runs.)
+    const legacyId = `legacy-merge-${Math.random().toString(36).slice(2)}`;
+    db.prepare(
+      `INSERT INTO monsters (id, session_id, name, max_hp, cur_hp, actions, weapons, sheet_abilities)
+       VALUES (?, ?, 'Old Ogre', 59, 59, ?, '[]', '[]')`,
+    ).run(
+      legacyId,
+      s.id,
+      JSON.stringify([
+        { name: 'Greatclub', description: '+6 to hit, 2d8+4 bludgeoning damage.' },
+        { name: 'Roar', description: 'DC 12 Wisdom saving throw, 2d6 psychic damage.' },
+      ]),
+    );
+
+    migrateLegacyMonsterActions();
+    const m = getMonster(legacyId)!;
+    expect(m.actions).toEqual([]);
+    expect(m.weapons[0]).toMatchObject({ name: 'Greatclub', attackBonus: 6 });
+    expect(m.sheetAbilities).toHaveLength(1);
+    expect(m.sheetAbilities[0]).toMatchObject({ name: 'Roar', type: 'ability' });
+    expect(m.sheetAbilities[0].roll).toMatchObject({ kind: 'save', dc: 12, save: 'WIS' });
+
+    // Idempotent: a second run changes nothing (no duplicates).
+    migrateLegacyMonsterActions();
+    expect(getMonster(legacyId)!.sheetAbilities).toHaveLength(1);
   });
 });

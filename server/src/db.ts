@@ -5,11 +5,17 @@ import { config } from './config.js';
 import type {
   Character,
   Condition,
+  CreatureAbility,
   MapState,
   Monster,
+  SheetAbility,
   Token,
   TokenKind,
 } from '../../shared/types.js';
+import {
+  actionsToSheetAbilities,
+  weaponsFromActions,
+} from '../../shared/monsterAttacks.js';
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 fs.mkdirSync(config.uploadsDir, { recursive: true });
@@ -382,12 +388,68 @@ ensureColumn('monsters', 'loot', 'loot TEXT');
 ensureColumn('monsters', 'object_dc', 'object_dc INTEGER');
 // Rich rollable spells/abilities/masteries on a creature (same shape as PCs).
 ensureColumn('monsters', 'sheet_abilities', "sheet_abilities TEXT NOT NULL DEFAULT '[]'");
+// Library creatures carry the merged rollable abilities too (round-trip safe).
+ensureColumn('library_creatures', 'sheet_abilities', "sheet_abilities TEXT NOT NULL DEFAULT '[]'");
 // Coins a character is carrying, in gold pieces (single purse).
 ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');
 // Battle Master Superiority Die size (the pool lives in the resources counters).
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 ensureColumn('characters', 'death_successes', 'death_successes INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'death_failures', 'death_failures INTEGER NOT NULL DEFAULT 0');
+
+// Merge legacy free-text monster `actions` into the SINGLE rollable system
+// (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
+// rollable weapons when the monster has none, and the rest keep/scrape a
+// structured roll (same converter as creature insert). Idempotent — migrated
+// rows store actions = '[]', so old saves convert exactly once. Exported so the
+// migration itself is unit-testable against a hand-inserted legacy row.
+export function migrateLegacyMonsterActions(): void {
+  const rows = db
+    .prepare(
+      `SELECT id, actions, weapons, sheet_abilities, source FROM monsters
+       WHERE actions IS NOT NULL AND actions != '[]' AND actions != ''`,
+    )
+    .all() as {
+    id: string;
+    actions: string;
+    weapons: string | null;
+    sheet_abilities: string | null;
+    source: string;
+  }[];
+  const update = db.prepare(
+    'UPDATE monsters SET actions = ?, weapons = ?, sheet_abilities = ? WHERE id = ?',
+  );
+  for (const r of rows) {
+    try {
+      let actions = JSON.parse(r.actions) as CreatureAbility[];
+      if (!Array.isArray(actions) || actions.length === 0) continue;
+      let weapons = JSON.parse(r.weapons ?? '[]') as unknown[];
+      if (!Array.isArray(weapons)) weapons = [];
+      if (weapons.length === 0) {
+        const split = weaponsFromActions(actions);
+        weapons = split.weapons;
+        actions = split.actions;
+      }
+      const sheet = JSON.parse(r.sheet_abilities ?? '[]');
+      const existing: SheetAbility[] = Array.isArray(sheet) ? sheet : [];
+      // Don't duplicate an ability the DM already authored under the same name.
+      const have = new Set(existing.map((a) => (a.name ?? '').toLowerCase()));
+      const converted = actionsToSheetAbilities(
+        actions.filter((a) => !have.has((a.name ?? '').toLowerCase())),
+        { makeId: randomUUID, source: r.source as 'srd' | 'gemini' | 'manual' },
+      );
+      update.run(
+        '[]',
+        JSON.stringify(weapons),
+        JSON.stringify([...existing, ...converted]),
+        r.id,
+      );
+    } catch {
+      /* leave a malformed legacy row untouched rather than break loading */
+    }
+  }
+}
+migrateLegacyMonsterActions();
 
 export const newId = (): string => randomUUID();
 

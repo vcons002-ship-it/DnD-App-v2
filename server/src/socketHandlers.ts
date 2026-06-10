@@ -4,7 +4,6 @@ import { rollDice } from '../../shared/dice.js';
 import {
   resolveAttack,
   resolveAbilityRoll,
-  resolveMonsterAction,
   resolveMonsterSheetAbility,
   resolveForcedSave,
   resolveSkillRoll,
@@ -641,18 +640,6 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !body) return;
       addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
       afterChange();
-    });
-
-    // Roll a monster's structured action (breath weapon / spell-like) — DM only.
-    socket.on('monster:action', ({ monsterId, actionIndex, advantage, targetTokenId }) => {
-      const sid = sessionId();
-      if (!sid || !isDm()) return;
-      const monster = getMonster(monsterId);
-      const action = monster?.actions[actionIndex];
-      if (!monster || monster.sessionId !== sid || !action) return;
-      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      const target = typeof targetTokenId === 'string' ? targetTokenId : undefined;
-      if (resolveMonsterAction(sid, 'DM', monster, action, adv, target)) afterChange();
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's

@@ -47,7 +47,13 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
     patch.weaknesses = tpl.weaknesses;
   if (m.weapons.length === 0 && (tpl.weapons?.length ?? 0) > 0)
     patch.weapons = tpl.weapons;
-  if (m.actions.length === 0 && tpl.actions.length > 0) patch.actions = tpl.actions;
+  // Free-text actions fold into the merged system via updateMonster (weapon-like
+  // → weapons, the rest → sheetAbilities) — only when there's nothing rollable yet.
+  if (
+    (m.sheetAbilities.length === 0 || m.weapons.length === 0) &&
+    tpl.actions.length > 0
+  )
+    patch.actions = tpl.actions;
   if (m.abilities.length === 0 && tpl.abilities.length > 0)
     patch.abilities = tpl.abilities;
   if (m.sheetAbilities.length === 0 && (tpl.sheetAbilities?.length ?? 0) > 0)

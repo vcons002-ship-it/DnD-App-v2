@@ -2,7 +2,7 @@
 // into structured, rollable `weapons`. Pure + framework-free so it can run on
 // the server at spawn time and be unit-tested. Monster damage is baked (the
 // ability mod is already in the dice), matching rollWeaponAttack's isMonster path.
-import type { AbilityRoll, CreatureAbility, Weapon } from './types.js';
+import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from './types.js';
 
 const DAMAGE_TYPES = new Set([
   'slashing', 'piercing', 'bludgeoning', 'fire', 'cold', 'lightning', 'thunder',
@@ -73,6 +73,28 @@ const ABILITY_CODES: Record<string, string> = {
  * there's only damage dice, else null (e.g. Multiattack, recharge-only prose).
  * Weapon attacks ("+N to hit") are handled by `weaponsFromActions`, not here.
  */
+/**
+ * Convert free-text `actions` into rich sheet abilities — the ONE rollable
+ * system. An action's structured roll is kept, or scraped from the prose
+ * (`parseActionRoll`); purely descriptive entries (Multiattack) become roll-less
+ * abilities. `makeId` is injected so this stays framework-free (the server
+ * passes its uuid factory). Used at creature insert AND by the db migration of
+ * old saves — keep both on this one implementation.
+ */
+export function actionsToSheetAbilities(
+  actions: CreatureAbility[],
+  opts: { makeId: () => string; source?: 'srd' | 'gemini' | 'manual' },
+): SheetAbility[] {
+  return actions.map((a) => ({
+    id: opts.makeId(),
+    name: a.name,
+    type: 'ability' as const,
+    description: a.description ?? '',
+    roll: a.roll ?? parseActionRoll(a.description ?? '') ?? undefined,
+    source: opts.source === 'manual' || !opts.source ? ('custom' as const) : opts.source,
+  }));
+}
+
 export function parseActionRoll(description: string): AbilityRoll | null {
   const desc = description ?? '';
   if (/to hit/i.test(desc)) return null; // a weapon attack, not a save/damage action
