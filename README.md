@@ -52,11 +52,11 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 **Maps & fog**
 - Upload any image as a map; DM stages tokens, grid, and fog without players seeing it, then **Make active** to reveal.
 - Fog of war per map: `off` / `map` / `tokens-only` modes, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
-- Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels (persisted), tuned for **tablet/iPad** use.
+- Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels with **drag-reorderable sections** (tap ▲/▼ on touch), remembered per session — tuned for **tablet/iPad** use.
 
 **Tokens**
 - Click-to-place (stays active for dropping several), multi-select with group drag, duplicate, delete, per-token hide-from-players.
-- Three concentric **status rings** (buff / negative / concentration), 💀 death marker at 0 HP, combat-role badge (⚔️ / 🏹 / ✨), initiative-order badge, hover card, and a right-click / long-press floating action menu.
+- Three concentric **status rings** (buff / negative / concentration), 💀 death marker at 0 HP (or via the DM's **Dead** condition), **floating −X/+X damage & heal numbers** on every HP change, combat-role badge (⚔️ / 🏹 / ✨), initiative-order badge, hover card, and a right-click / long-press floating action menu.
 - Players can place and move their own claimed token; resizing is DM-only.
 
 **Non-combat objects & loot**
@@ -65,19 +65,19 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 - **Trap mechanics:** the DM authors a save/attack effect on a trap and fires it with a **⚡ Trigger** button (resolves through the roll log's Apply-damage flow); players attempt a **🔧 Disarm** check (server-rolled) against the trap's DC.
 
 **Combat**
-- **Initiative tracker:** roll-all (d20), roll-missing, Next (wraps), Clear; active turn highlighted on the board and in the panel.
-- **Automated weapon attacks** and **saving throws** resolve hit/miss and damage from stat blocks (`shared/combatMath.ts`).
-- **Dice roller** with a **shared roll log** visible to everyone — quick dice, custom expressions (`2d6+3`), advantage/disadvantage, a **Clear** button, and color-coding by roller and by roll type (attacks / saves / plain rolls).
+- **Initiative tracker:** roll-all (d20), roll-missing, Next (wraps), Clear; active turn highlighted on the board and in the panel. A **round counter** (DM-editable) ticks on each wrap; objects (chests/doors/traps) sit out of initiative, and **dead creatures keep their slot but are skipped** (downed PCs still take their death-save turn).
+- **Automated weapon attacks**, **saving throws**, and **heals that apply on cast** (Heal-target dropdown, casting mod added) resolve from stat blocks (`shared/combatMath.ts`); every HP change is floated over the token and noted in the log ("Druk HP 42→38").
+- **Dice roller** with a **shared roll log** visible to everyone — quick dice, custom expressions (`2d6+3`) or **`/roll 2d6+3` typed in chat**, advantage/disadvantage, per-die faces, a **Clear** button, and color-coding by roller and by roll type (attacks / saves / plain rolls).
 - Buff/nerf buttons with custom text drive the green/red status rings.
 
 **Characters**
-- Players claim a character, then view and edit their own sheet and see the party / friendly sheets.
+- Players claim a character (re-claimed automatically after a page reload), then view and edit their own sheet and see the party / friendly sheets.
 - 18 skills with proficiency + computed bonuses, class-specific limited-use resources (`server/data/classTables.ts`), and item/inventory tracking.
 - Robust **import/export** of a character sheet (`shared/sheetIO.ts`), with overwrite preview/confirm.
 
 **Creatures & art**
 - Offline **SRD** creature search (curated subset) with a **Gemini** AI fallback for anything else, plus AI back-fill of missing stat-block fields and AI character creation from a description.
-- Full editable stat blocks (AC, speed, abilities, weapons, actions), reusable one-click spawn templates, multi-spawn with sequential names, disposition (full / neutral / public) controlling what players see.
+- Full editable stat blocks (AC, speed, traits, weapons + a rollable **Spells & Abilities** section shared with PCs — free-text actions convert automatically), reusable one-click spawn templates, multi-spawn with sequential names, disposition (full / neutral / public) controlling what players see.
 - Auto emoji icons by name/type + custom icon upload with bulk apply.
 - **Cross-session library** of custom/AI creatures and items for reuse across games.
 

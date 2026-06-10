@@ -231,7 +231,7 @@ sanitization rules above and commit it to `claude/Main`.
   `sheetAbilities` (rolls kept or scraped via `parseActionRoll`) — stored monsters
   keep `actions` empty. The DM builds/edits attacks via the `StatBlock`
   **"+ Attack"** picker spanning the 2024 weapon book (`/api/weapons`) AND a
-  natural-attacks library (`/api/attacks`, ~36 entries: Bite/Claw/Slam/Spit/Rock…);
+  natural-attacks library (`/api/attacks`, ~42 entries: Bite/Claw/Slam/Spit/Rock…);
   creature picks are stored **dice-only (`Weapon.diceOnly`)** so the mod + to-hit come
   from the creature's **live stats** like a PC weapon (`rollWeaponAttack` adds the mod
   for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is). A player's
