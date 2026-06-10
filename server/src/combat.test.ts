@@ -1338,3 +1338,41 @@ describe('targeted attack-roll spells & monster actions', () => {
     expect(saw).toBe(true);
   });
 });
+
+describe('save action fired at a single target (floating menu)', () => {
+  it('rolls the target’s save and applies damage immediately', () => {
+    const { s, map } = arena();
+    // Target dummy: lots of HP, a terrible DEX save and no proficiency.
+    const dummy = instantiateMonster(
+      createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 100, level: 1, stats: { DEX: 6 } }).id,
+    )!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: dummy.id, x: 1, y: 1 });
+    // Caster with a DEX-save fire action at an impossible DC → the target fails.
+    const caster = instantiateMonster(
+      createMonsterTemplate(s.id, {
+        name: 'Caster',
+        maxHp: 30,
+        level: 5,
+        stats: { WIS: 16 },
+        actions: [
+          {
+            name: 'Flame Jet',
+            description: '',
+            roll: { kind: 'save', dice: '6d6', save: 'DEX', dc: 30, damageType: 'fire' },
+          },
+        ],
+      }).id,
+    )!;
+    resolveMonsterAction(
+      s.id,
+      'DM',
+      getMonster(caster.id)!,
+      getMonster(caster.id)!.actions[0],
+      undefined,
+      tok.id, // <- targeted from the floating menu
+    );
+    // Save auto-resolved → dummy took damage without a separate Apply step.
+    expect(getMonster(dummy.id)!.curHp).toBeLessThan(100);
+  });
+});
+

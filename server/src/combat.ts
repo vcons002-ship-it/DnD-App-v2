@@ -544,6 +544,22 @@ export function resolveForcedSave(
 }
 
 /**
+ * Floating-menu convenience: when a save/damage spell/action is rolled AT a
+ * specific target (right-click → roll), immediately roll that target's own save
+ * and apply full/half damage — instead of requiring the DM's separate "Apply
+ * damage" click-to-target step. Skipped for split spells (assign one instance per
+ * click) and for rolls with no `apply` (attack/heal handle their own targeting).
+ */
+function autoApplyToTarget(
+  sessionId: string,
+  entry: RollEntry,
+  targetTokenId?: string,
+): void {
+  if (targetTokenId && entry.apply && !entry.apply.split)
+    resolveForcedSave(sessionId, entry.id, targetTokenId, undefined);
+}
+
+/**
  * Resolve a TARGETED attack-roll ability/action against a token's AC and
  * auto-apply typed damage on a hit (× resist/vuln) — the spell / monster-action
  * analogue of `resolveAttack`. Logs HIT/MISS with `vs AC N` (so visibility.ts
@@ -784,7 +800,7 @@ export function resolveAbilityRoll(
       : roll.kind === 'damage'
         ? ' (auto-hit)'
         : '';
-  addRollLog(sessionId, {
+  const entry = addRollLog(sessionId, {
     roller,
     label: ability.name,
     expr: title,
@@ -793,6 +809,8 @@ export function resolveAbilityRoll(
     description: ability.description || undefined,
     apply: applyPayload(roll, val, dc),
   });
+  // Fired at a single target (floating menu) → roll its save + apply now.
+  autoApplyToTarget(sessionId, entry, targetTokenId);
   return true;
 }
 
@@ -919,7 +937,7 @@ export function resolveMonsterSheetAbility(
       : roll.kind === 'damage'
         ? ' (auto-hit)'
         : '';
-  addRollLog(sessionId, {
+  const entry = addRollLog(sessionId, {
     roller,
     label: ability.name,
     expr: title,
@@ -928,6 +946,8 @@ export function resolveMonsterSheetAbility(
     description: ability.description || undefined,
     apply: applyPayload(roll, val, dc),
   });
+  // Fired at a single target (floating menu) → roll its save + apply now.
+  autoApplyToTarget(sessionId, entry, targetTokenId);
   return true;
 }
 
@@ -1047,7 +1067,7 @@ export function resolveMonsterAction(
       : roll.kind === 'damage'
         ? ' (auto-hit)'
         : '';
-  addRollLog(sessionId, {
+  const entry = addRollLog(sessionId, {
     roller,
     label: action.name,
     expr: title,
@@ -1056,6 +1076,8 @@ export function resolveMonsterAction(
     description: action.description || undefined,
     apply: applyPayload(roll, val, dc),
   });
+  // Fired at a single target (floating menu) → roll its save + apply now.
+  autoApplyToTarget(sessionId, entry, targetTokenId);
   return true;
 }
 
