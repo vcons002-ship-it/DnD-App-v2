@@ -15,6 +15,14 @@ import {
   createToken,
   resizeToken,
   rollAllInitiative,
+  rollMissingInitiative,
+  advanceTurn,
+  clearInitiative,
+  setActiveTurn,
+  setCombatRound,
+  setTokenInitiative,
+  setActiveMap,
+  getSessionById,
   getToken,
   createCharacter,
   listCharacters,
@@ -248,5 +256,78 @@ describe('initiative includes the DEX modifier', () => {
       expect(init).toBeGreaterThanOrEqual(6);
       expect(init).toBeLessThanOrEqual(25);
     }
+  });
+});
+
+describe('combat rounds + objects sit out of initiative', () => {
+  const arena = () => {
+    const s = createSession('Rounds');
+    const map = createMap(s.id, { name: 'Pit' });
+    setActiveMap(s.id, map.id);
+    return { s, map };
+  };
+  const fighter = (s: { id: string }, map: { id: string }, name: string) => {
+    const tmpl = createMonsterTemplate(s.id, { name, maxHp: 10 });
+    return createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(tmpl.id)!.id,
+      x: 0,
+      y: 0,
+    });
+  };
+
+  it('objects (chests/doors/traps) never roll initiative', () => {
+    const { s, map } = arena();
+    const orc = fighter(s, map, 'Orc');
+    const chest = createToken({
+      mapId: map.id,
+      kind: 'monster',
+      refId: instantiateMonster(
+        createMonsterTemplate(s.id, { name: 'Chest', maxHp: 1, objectKind: 'chest' }).id,
+      )!.id,
+      x: 1,
+      y: 1,
+    });
+    // A stray roll on an object (old saves) is cleared by Roll all.
+    setTokenInitiative(chest.id, 15);
+
+    rollAllInitiative(map.id);
+    expect(getToken(orc.id)!.initiative).not.toBeNull();
+    expect(getToken(chest.id)!.initiative).toBeNull();
+
+    setTokenInitiative(orc.id, null);
+    rollMissingInitiative(map.id);
+    expect(getToken(orc.id)!.initiative).not.toBeNull();
+    expect(getToken(chest.id)!.initiative).toBeNull();
+  });
+
+  it('the round counter advances on a wrap, survives latecomers, and resets', () => {
+    const { s, map } = arena();
+    const a = fighter(s, map, 'A');
+    const b = fighter(s, map, 'B');
+    setTokenInitiative(a.id, 20);
+    setTokenInitiative(b.id, 10);
+    setActiveTurn(s.id, a.id);
+    setCombatRound(s.id, 1);
+
+    advanceTurn(s.id); // A → B (same round)
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+    advanceTurn(s.id); // B wraps → A, round 2
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+
+    // A latecomer rolls in mid-round (top of the order) — counter untouched,
+    // and the next wrap still counts exactly one new round.
+    const c = fighter(s, map, 'C');
+    setTokenInitiative(c.id, 30);
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+    advanceTurn(s.id); // A → B
+    advanceTurn(s.id); // B wraps → C, round 3
+    expect(getSessionById(s.id)!.combatRound).toBe(3);
+
+    setCombatRound(s.id, 1); // the reset button
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+    clearInitiative(s.id); // ending combat zeroes it
+    expect(getSessionById(s.id)!.combatRound).toBe(0);
   });
 });

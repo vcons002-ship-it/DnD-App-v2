@@ -44,6 +44,11 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
         )}
       </span>
       <span className="code">Code: {snapshot.sessionCode}</span>
+      {snapshot.round > 0 && (
+        <span className="round-chip" title="Combat round">
+          Round {snapshot.round}
+        </span>
+      )}
       <span className="active-map">
         {isDm ? 'Active' : 'Map'}: {isDm ? activeMap : snapshot.map?.name ?? '—'}
         {prepping && <em> · prepping: {prepping}</em>}

@@ -261,6 +261,18 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   width: 20px; height: 20px; border-radius: 50%; background: #f5c518; color: #000;
   font-size: 12px; font-weight: 700; flex-shrink: 0;
 }
+/* Combat round chip (toolbar, initiative header, data view). */
+.round-chip {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;
+  padding: 1px 8px; border: 1px solid var(--accent); border-radius: 10px;
+  color: var(--accent); font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.round-reset {
+  background: none; border: 0; padding: 0 2px; cursor: pointer;
+  color: var(--muted); font-size: 13px; line-height: 1;
+}
+.round-reset:hover { color: var(--text); }
+
 .init-header { display: flex; align-items: center; justify-content: space-between; }
 .init-actions { display: flex; gap: 4px; }
 

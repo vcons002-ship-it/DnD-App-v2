@@ -95,6 +95,7 @@ import {
   updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
+  setCombatRound,
   rollerName,
   addChatMessage,
   setActiveMap,
@@ -871,9 +872,10 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
-      // Roll-all resets the round: re-roll everyone, then start at the top.
+      // Roll-all resets combat: re-roll everyone, start at the top, round 1.
       rollAllInitiative(activeMapId);
       setActiveTurn(sid, firstInInitiative(activeMapId));
+      setCombatRound(sid, 1);
       afterChange();
     });
 
@@ -882,10 +884,13 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
-      // Only roll latecomers; if combat hasn't started, highlight the top.
+      // Only roll latecomers; if combat hasn't started, highlight the top and
+      // open round 1. Mid-fight, the round counter is left alone.
       rollMissingInitiative(activeMapId);
-      if (!getSessionById(sid)?.activeTurnTokenId) {
+      const ses = getSessionById(sid);
+      if (!ses?.activeTurnTokenId) {
         setActiveTurn(sid, firstInInitiative(activeMapId));
+        if (!ses?.combatRound) setCombatRound(sid, 1);
       }
       afterChange();
     });
@@ -900,7 +905,16 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('initiative:clear', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
-      clearInitiative(sid);
+      clearInitiative(sid); // also zeroes the round counter
+      afterChange();
+    });
+
+    // Reset the round counter to 1 without touching the rolled order (e.g. the
+    // DM wants to re-count after a narrative break mid-encounter).
+    socket.on('initiative:resetRound', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      setCombatRound(sid, 1);
       afterChange();
     });
 

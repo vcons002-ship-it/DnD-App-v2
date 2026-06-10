@@ -16,9 +16,14 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
   const nextTurn = useStore((s) => s.nextTurn);
   const clearInitiative = useStore((s) => s.clearInitiative);
+  const resetRound = useStore((s) => s.resetRound);
 
+  // Objects (chests/doors/traps) never take turns — keep them out of the list.
+  const combatants = snapshot.tokens.filter(
+    (t) => !resolveToken(snapshot, t).objectKind,
+  );
   // Tokens ordered for initiative (rolled first, desc).
-  const orderedTokens = [...snapshot.tokens].sort((a, b) => {
+  const orderedTokens = [...combatants].sort((a, b) => {
     if (a.initiative === null && b.initiative === null) return 0;
     if (a.initiative === null) return 1;
     if (b.initiative === null) return -1;
@@ -33,7 +38,21 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   return (
     <div className="panel-section">
       <div className="init-header">
-        <h3>Initiative</h3>
+        <h3>
+          Initiative
+          {snapshot.round > 0 && (
+            <span className="round-chip" title="Combat round — advances when the turn order wraps">
+              Round {snapshot.round}
+              <button
+                className="round-reset"
+                onClick={resetRound}
+                title="Reset the round counter to 1 (keeps everyone's rolls)"
+              >
+                ↺
+              </button>
+            </span>
+          )}
+        </h3>
         <div className="init-actions">
           <button
             className="btn tiny"
@@ -97,7 +116,7 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           </div>
         );
       })}
-      {snapshot.tokens.length === 0 && <p className="muted">No tokens placed.</p>}
+      {combatants.length === 0 && <p className="muted">No combatants placed.</p>}
     </div>
   );
 }

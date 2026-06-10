@@ -37,6 +37,8 @@ export type Session = {
   name: string;
   activeMapId: string | null;
   activeTurnTokenId: string | null;
+  /** Combat round counter (0 = no combat running). */
+  combatRound: number;
 };
 
 type SessionRow = {
@@ -45,6 +47,7 @@ type SessionRow = {
   name: string;
   active_map_id: string | null;
   active_turn_token_id: string | null;
+  combat_round: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -53,6 +56,7 @@ const rowToSession = (r: SessionRow): Session => ({
   name: r.name,
   activeMapId: r.active_map_id,
   activeTurnTokenId: r.active_turn_token_id,
+  combatRound: r.combat_round ?? 0,
 });
 
 // ---- Sessions ----
@@ -85,7 +89,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0 };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -847,30 +851,46 @@ function initiativeBonus(token: Token): number {
   return entity ? abilityMod(entity.stats.DEX) : 0;
 }
 
+/** Objects (chests/doors/traps/items) never take turns — they don't roll
+ *  initiative and are skipped by the turn order. */
+function isObjectToken(token: Token): boolean {
+  return token.kind === 'monster' && !!getMonster(token.refId)?.objectKind;
+}
+
 /** A d20 + DEX modifier for a token (5e initiative). */
 const rollInitiative = (token: Token): number =>
   Math.floor(Math.random() * 20) + 1 + initiativeBonus(token);
 
-/** Roll initiative (d20 + DEX) for EVERY token on a map (resets the round). */
+/** Roll initiative (d20 + DEX) for every COMBATANT on a map (resets the round).
+ *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
-    roll.run(rollInitiative(t), t.id);
+    roll.run(isObjectToken(t) ? null : rollInitiative(t), t.id);
   }
 }
 
-/** Roll only for tokens that haven't rolled yet (e.g. latecomers to combat). */
+/** Roll only for combatants that haven't rolled yet (latecomers to combat). */
 export function rollMissingInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   for (const t of listTokens(mapId)) {
-    if (t.initiative === null) roll.run(rollInitiative(t), t.id);
+    if (t.initiative === null && !isObjectToken(t)) roll.run(rollInitiative(t), t.id);
   }
 }
 
-/** Tokens with initiative on a map, ordered for turn-taking (desc, ties stable). */
+/** Set the session's combat-round counter (0 = no combat running). */
+export function setCombatRound(sessionId: string, round: number): void {
+  db.prepare('UPDATE sessions SET combat_round = ? WHERE id = ?').run(
+    Math.max(0, Math.round(round)),
+    sessionId,
+  );
+}
+
+/** Tokens with initiative on a map, ordered for turn-taking (desc, ties stable).
+ *  Objects are excluded defensively (an old save may have rolled one). */
 function initiativeOrder(mapId: string): Token[] {
   return listTokens(mapId)
-    .filter((t) => t.initiative !== null)
+    .filter((t) => t.initiative !== null && !isObjectToken(t))
     .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
 }
 
@@ -879,7 +899,10 @@ export function firstInInitiative(mapId: string): string | null {
   return initiativeOrder(mapId)[0]?.id ?? null;
 }
 
-/** Advance the active-turn marker to the next token in initiative order. */
+/** Advance the active-turn marker to the next token in initiative order.
+ *  Wrapping past the LAST combatant starts a new round (counter +1) — and
+ *  latecomers who roll in mid-round just slot into the order without touching
+ *  the counter, so "Add rolls" never resets or skips a round. */
 export function advanceTurn(sessionId: string): void {
   const session = getSessionById(sessionId);
   if (!session?.activeMapId) return;
@@ -889,6 +912,12 @@ export function advanceTurn(sessionId: string): void {
     return;
   }
   const idx = order.findIndex((t) => t.id === session.activeTurnTokenId);
+  // Only a genuine wrap (the CURRENT token is last) ends the round — if the
+  // current token vanished (idx === -1, e.g. it died and was deleted) we just
+  // restart at the top of the same round.
+  if (idx === order.length - 1) {
+    setCombatRound(sessionId, Math.max(1, session.combatRound) + 1);
+  }
   const next = order[(idx + 1) % order.length];
   setActiveTurn(sessionId, next.id);
 }
@@ -901,6 +930,7 @@ export function clearInitiative(sessionId: string): void {
     ).run(session.activeMapId);
   }
   setActiveTurn(sessionId, null);
+  setCombatRound(sessionId, 0);
 }
 
 // ---- Shared dice roll log ----

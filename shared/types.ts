@@ -560,6 +560,8 @@ export type StateSnapshot = {
   activeMapId: string | null;
   /** Token whose initiative turn it currently is (on the active map), or null. */
   activeTurnTokenId: string | null;
+  /** Combat round counter (0 = no combat running); shown to everyone. */
+  round: number;
   /** All maps in the session (DM only sees the full list). */
   maps: MapState[];
   tokens: Token[];
@@ -1094,6 +1096,7 @@ export interface ClientToServerEvents {
   'initiative:rollMissing': () => void;
   'initiative:next': () => void;
   'initiative:clear': () => void;
+  'initiative:resetRound': () => void;
   'dice:roll': (payload: DiceRollPayload) => void;
   /** Wipe the shared roll log for everyone in the session. */
   'dice:clearLog': () => void;

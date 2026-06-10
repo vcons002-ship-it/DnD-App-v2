@@ -263,6 +263,8 @@ function ensureColumn(table: string, column: string, ddl: string): boolean {
 }
 
 ensureColumn('sessions', 'active_turn_token_id', 'active_turn_token_id TEXT');
+// Combat round counter (0 = no combat running); advances when the turn wraps.
+ensureColumn('sessions', 'combat_round', 'combat_round INTEGER NOT NULL DEFAULT 0');
 ensureColumn(
   'sessions',
   'last_played_at',
