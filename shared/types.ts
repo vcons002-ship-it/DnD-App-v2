@@ -440,6 +440,8 @@ export type CreatureTemplate = {
   weaknesses: string[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  /** Rich rollable spells/innate abilities (AI may supply these). */
+  sheetAbilities?: SheetAbility[];
   /** Tagged weapons (AI may supply these; SRD entries usually omit them). */
   weapons?: Weapon[];
   icon: string;
@@ -822,6 +824,8 @@ export type CharacterUpdatePayload = {
   items?: InventoryItem[];
   /** Gold pieces carried (a single purse). */
   gold?: number;
+  /** Rich rollable spells/abilities (e.g. set in bulk by AI back-fill). */
+  sheetAbilities?: SheetAbility[];
 };
 /** Adjust or add/remove a limited-use counter (spell slot or class resource). */
 export type ResourceSetPayload = {

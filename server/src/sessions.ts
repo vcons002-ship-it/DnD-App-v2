@@ -1589,6 +1589,7 @@ export function updateCharacter(
     saveProficiencies: string[];
     items: Character['items'];
     gold: number;
+    sheetAbilities: Character['sheetAbilities'];
     spellSlots: Character['spellSlots'];
     resources: Character['resources'];
     icon: string;
@@ -1627,6 +1628,8 @@ export function updateCharacter(
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
   if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
   if (patch.gold !== undefined) put('gold', Math.max(0, Math.round(patch.gold)));
+  if (patch.sheetAbilities !== undefined)
+    put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
   if (patch.spellSlots !== undefined)
     put('spell_slots', JSON.stringify(patch.spellSlots));
   if (patch.resources !== undefined)
