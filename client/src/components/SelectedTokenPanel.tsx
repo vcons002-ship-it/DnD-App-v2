@@ -10,7 +10,7 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
-import { StatBlock } from './StatBlock';
+import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
@@ -34,6 +34,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);
+  const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const rollSave = useStore((s) => s.rollSave);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
@@ -205,6 +206,39 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     });
   }
 
+  // PCs mirror the creature layout: spells/abilities (+ free-text actions) live
+  // in their own section, and the sheet below omits them (abilitiesElsewhere).
+  if (character) {
+    sections.push({
+      id: 'abilities',
+      label: 'Spells & Abilities',
+      node: (
+        <>
+          <CharacterSpells
+            character={character}
+            editable={canEditCharacter}
+            snapshot={snapshot}
+            attackerToken={token}
+          />
+          {(character.actions.length > 0 || canEditCharacter) && (
+            <ActionsTraitsView
+              actions={character.actions}
+              abilities={character.abilities}
+              editable={canEditCharacter}
+              showTraits={false}
+              onSave={
+                canEditCharacter
+                  ? (patch) =>
+                      updateCharacter({ characterId: character.id, ...patch })
+                  : undefined
+              }
+            />
+          )}
+        </>
+      ),
+    });
+  }
+
   if (monster) {
     sections.push({
       id: 'sheet',
@@ -281,7 +315,13 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     sections.push({
       id: 'sheet',
       label: 'Sheet info',
-      node: <CharacterSheet character={character} editable={canEditCharacter} />,
+      node: (
+        <CharacterSheet
+          character={character}
+          editable={canEditCharacter}
+          abilitiesElsewhere
+        />
+      ),
     });
   }
 

@@ -162,6 +162,12 @@ input[type='number'] { width: 70px; }
   /* Bigger, finger-friendly tap targets. */
   .btn, .btn.tiny, .chip { min-height: 32px; }
   .topbar { flex-wrap: wrap; row-gap: 4px; }
+
+  /* Compact roll log — desktop-sized entries ate most of the phone drawer. */
+  .roll-entry { padding: 2px 6px; gap: 6px; }
+  .roll-total { font-size: 13px; min-width: 22px; }
+  .roll-meta { font-size: 11px; line-height: 1.25; }
+  .roll-desc, .roll-hp-note { font-size: 10px; }
 }
 .stage-controls {
   position: absolute; top: 8px; right: 8px; z-index: 3; display: flex;

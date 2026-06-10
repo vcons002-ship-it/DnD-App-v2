@@ -24,6 +24,29 @@ export function PlayerView() {
   const [claimedId, setClaimedId] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
 
+  // Remember the claimed character per session and RE-CLAIM it after a page
+  // reload — a refresh gets a new socket id, so the claim was dropped and the
+  // right panel fell back to the generic view until the player re-selected.
+  const mySocketId = useStore((s) => s.socket?.id);
+  const claimKey = snapshot ? `claimedChar:${snapshot.sessionCode}` : null;
+  useEffect(() => {
+    if (!snapshot || !claimKey || claimedId) return;
+    const stored = localStorage.getItem(claimKey);
+    if (!stored) return;
+    const c = snapshot.characters.find((x) => x.id === stored);
+    if (!c) {
+      localStorage.removeItem(claimKey); // character was deleted
+      return;
+    }
+    // Only auto-claim when it's free or already ours; if another live player
+    // holds it, leave it alone (the server would reject anyway).
+    if (!c.claimedBy || c.claimedBy === mySocketId) {
+      setClaimedId(stored);
+      claimCharacter(stored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot, claimKey, claimedId]);
+
   // Players can place their own claimed character once; clear when it's down.
   const alreadyPlaced =
     !!claimedId &&
@@ -67,10 +90,12 @@ export function PlayerView() {
                     onClaim={(id) => {
                       setClaimedId(id);
                       claimCharacter(id);
+                      if (claimKey) localStorage.setItem(claimKey, id);
                     }}
                     onRelease={() => {
                       setClaimedId(null);
                       releaseCharacter();
+                      if (claimKey) localStorage.removeItem(claimKey);
                     }}
                     onPlaceToken={() => setPlacing((p) => !p)}
                   />
