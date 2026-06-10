@@ -901,3 +901,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   to the remote tip** (`reset --hard origin/<branch>`) and **fail loudly** if the
   working tree can't be updated, instead of a silent `git pull` leaving stale
   code — gitignored `server/data`/`.env` are never touched.
+- ☑ **UI polish round (mobile + consistency).** (1) Roll-log entries compact on
+  phones (smaller total/meta/notes in the ≤820px drawer). (2) **DM right panel
+  for PCs mirrors the creature layout**: Spells & Abilities (+ free-text
+  actions) is its own reorderable section above Sheet info, and `CharacterSheet`
+  gains `abilitiesElsewhere` so the sheet omits them there. (3) Ability rolls
+  log **individual die faces** (e.g. Acid Splash "7 acid damage [2d6[3,4]]");
+  crit doubles show both rolls, Magic Missile lists each dart, heals show the
+  dice + mod breakdown (`rollFaces` helper). (4) Player view **re-claims the
+  character after a reload** (persisted per session code; only when the claim is
+  free) so the combat console doesn't fall back to the generic panel. (5)
+  **Traits & Feats moved up** to sit with the character info box (stats +
+  weapons), above Resources/Skills/Inventory.

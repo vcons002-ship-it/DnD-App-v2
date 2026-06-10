@@ -18,9 +18,13 @@ import { LibraryCharacterDialog } from './LibraryCharacterDialog';
 export function CharacterSheet({
   character,
   editable,
+  abilitiesElsewhere = false,
 }: {
   character: Character;
   editable: boolean;
+  /** Omit the Spells & Abilities + Actions blocks — the selected-token panel
+   *  renders them as their own section (mirroring the creature layout). */
+  abilitiesElsewhere?: boolean;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCharacter = useStore((s) => s.aiFillCharacter);
@@ -64,27 +68,8 @@ export function CharacterSheet({
             : undefined
         }
       />
-      <DeathSaves character={character} editable={editable} />
-      <CharacterResources character={character} editable={editable} />
-      <CharacterSpells character={character} editable={editable} />
-      {/* Actions live with the spells/abilities (created + shown here). */}
-      {(character.actions.length > 0 || editable) && (
-        <ActionsTraitsView
-          actions={character.actions}
-          abilities={character.abilities}
-          editable={editable}
-          showTraits={false}
-          onSave={
-            editable
-              ? (patch) => updateCharacter({ characterId: character.id, ...patch })
-              : undefined
-          }
-        />
-      )}
-      <CharacterSkills character={character} editable={editable} />
-      {/* Inventory sits toward the bottom of the sheet, below Skills. */}
-      <CharacterItems character={character} editable={editable} />
-      {/* Traits/feats stay in the sheet, collapsed. */}
+      {/* Traits/feats live with the character info box (stats + weapons),
+          collapsed — above Resources/Skills/Inventory. */}
       {(character.abilities.length > 0 || editable) && (
         <details className="sheet-actions-traits">
           <summary>Traits &amp; Feats</summary>
@@ -101,6 +86,30 @@ export function CharacterSheet({
           />
         </details>
       )}
+      <DeathSaves character={character} editable={editable} />
+      <CharacterResources character={character} editable={editable} />
+      {!abilitiesElsewhere && (
+        <>
+          <CharacterSpells character={character} editable={editable} />
+          {/* Actions live with the spells/abilities (created + shown here). */}
+          {(character.actions.length > 0 || editable) && (
+            <ActionsTraitsView
+              actions={character.actions}
+              abilities={character.abilities}
+              editable={editable}
+              showTraits={false}
+              onSave={
+                editable
+                  ? (patch) => updateCharacter({ characterId: character.id, ...patch })
+                  : undefined
+              }
+            />
+          )}
+        </>
+      )}
+      <CharacterSkills character={character} editable={editable} />
+      {/* Inventory sits at the bottom of the sheet, below Skills. */}
+      <CharacterItems character={character} editable={editable} />
       {editable && (
         <>
           <SheetImportExport character={character} />

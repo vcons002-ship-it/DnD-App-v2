@@ -91,6 +91,13 @@ function resolve(token: Token): Resolved | null {
   };
 }
 
+/** Roll a dice expression and keep the per-die face breakdown for the log,
+ *  e.g. "2d6[3,5] +1" — so Acid Splash shows WHICH dice landed, not just a sum. */
+function rollFaces(expr: string): { total: number; text: string } {
+  const r = rollDice(expr)!;
+  return { total: r.total, text: r.detail.replace(/ = -?\d+$/, '') };
+}
+
 /** Apply rolled damage/healing and return an accounting note for the roll log
  *  ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot and
  *  correct. Carries the target so visibility can hide ENEMY changes from
@@ -612,9 +619,16 @@ function resolveTargetedSpellAttack(opts: {
   let applied = 0;
   let hpNote: RollEntry['hpNote'];
   const notes: string[] = [];
+  let dmgFaces = '';
   if (hit && opts.dice) {
-    let dmg = rollDice(opts.dice)!.total;
-    if (crit) dmg += rollDice(opts.dice)!.total; // crit doubles the dice
+    const first = rollFaces(opts.dice);
+    let dmg = first.total;
+    dmgFaces = first.text;
+    if (crit) {
+      const second = rollFaces(opts.dice); // crit doubles the dice
+      dmg += second.total;
+      dmgFaces += ` + ${second.text} crit`;
+    }
     const mult = damageMultiplier(opts.damageType, t.resistances, t.weaknesses);
     applied = Math.max(1, Math.floor(dmg * mult));
     if (mult !== 1)
@@ -634,7 +648,7 @@ function resolveTargetedSpellAttack(opts: {
     total: attackTotal,
     detail:
       `${opts.title} → ${t.name}: ${d20detail} ${opts.attackBonusDetail ?? signed(opts.attackBonus)} = ${attackTotal} vs AC ${t.ac} — ${result}` +
-      (hit && opts.dice ? `, ${applied}${dmgType} dmg [${opts.dice}${crit ? ' ×2 crit' : ''}]` : '') +
+      (hit && opts.dice ? `, ${applied}${dmgType} dmg [${dmgFaces}]` : '') +
       (notes.length ? ` · ${notes.join(', ')}` : ''),
     description: opts.description,
     hpNote,
@@ -777,9 +791,16 @@ function resolveSheetAbilityFor(
     const attackTotal = face + bonus;
     const crit = face === 20;
     let dmgVal = 0;
+    let dmgFaces = '';
     if (dice) {
-      dmgVal = rollDice(dice)!.total;
-      if (crit) dmgVal += rollDice(dice)!.total; // crit doubles the dice
+      const first = rollFaces(dice);
+      dmgVal = first.total;
+      dmgFaces = first.text;
+      if (crit) {
+        const second = rollFaces(dice); // crit doubles the dice
+        dmgVal += second.total;
+        dmgFaces += ` + ${second.text} crit`;
+      }
     }
     addRollLog(sessionId, {
       roller,
@@ -788,7 +809,7 @@ function resolveSheetAbilityFor(
       total: attackTotal,
       detail:
         `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
-        (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
+        (dice ? `, ${dmgVal}${dmgType} dmg [${dmgFaces}]` : '') +
         (crit ? ' — CRIT' : ''),
       description: ability.description || undefined,
     });
@@ -799,7 +820,8 @@ function resolveSheetAbilityFor(
     // Healing SPELLS add the caster's spellcasting mod (Cure Wounds & co.);
     // plain abilities use their dice as written (bake any flat into the dice).
     const castMod = ability.type === 'spell' ? spellcastingMod(stats) : 0;
-    const val = Math.max(0, (dice ? rollDice(dice)!.total : 0) + castMod);
+    const healRoll = dice ? rollFaces(dice) : null;
+    const val = Math.max(0, (healRoll?.total ?? 0) + castMod);
     // Targeted (floating menu / the heal-target dropdown): apply it right away.
     const tok = targetTokenId ? getToken(targetTokenId) : null;
     const target = tok ? resolve(tok) : null;
@@ -811,7 +833,7 @@ function resolveSheetAbilityFor(
       expr: title,
       total: val,
       detail:
-        `${title}: ${val} healing [${dice}${
+        `${title}: ${val} healing [${healRoll?.text ?? dice}${
           castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} mod` : ''
         }]` + (target ? ` → ${target.name} +${val} HP` : ''),
       description: ability.description || undefined,
@@ -837,7 +859,7 @@ function resolveSheetAbilityFor(
       label: ability.name,
       expr: title,
       total: val,
-      detail: `${title}: ${instanceCount} × [${dice}] = ${val}${dmgType} — assign one per target`,
+      detail: `${title}: ${instanceCount} × [${dice}] = ${split.join(' + ')} = ${val}${dmgType} — assign one per target`,
       description: ability.description || undefined,
       apply: { amount: val, dc, damageType: roll.damageType, split },
     });
@@ -845,7 +867,8 @@ function resolveSheetAbilityFor(
   }
 
   // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
-  const val = dice ? rollDice(dice)!.total : 0;
+  const dmgRoll = dice ? rollFaces(dice) : null;
+  const val = dmgRoll?.total ?? 0;
   const note =
     roll.kind === 'save' && roll.save
       ? ` — DC ${dc} ${roll.save} save for half`
@@ -857,7 +880,7 @@ function resolveSheetAbilityFor(
     label: ability.name,
     expr: title,
     total: val,
-    detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
+    detail: `${title}: ${val}${dmgType} damage [${dmgRoll?.text ?? dice}]${note}`,
     description: ability.description || undefined,
     apply: applyPayload(roll, val, dc),
   });
