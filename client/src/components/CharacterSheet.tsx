@@ -67,16 +67,32 @@ export function CharacterSheet({
       <DeathSaves character={character} editable={editable} />
       <CharacterResources character={character} editable={editable} />
       <CharacterSpells character={character} editable={editable} />
+      {/* Actions live with the spells/abilities (created + shown here). */}
+      {(character.actions.length > 0 || editable) && (
+        <ActionsTraitsView
+          actions={character.actions}
+          abilities={character.abilities}
+          editable={editable}
+          showTraits={false}
+          onSave={
+            editable
+              ? (patch) => updateCharacter({ characterId: character.id, ...patch })
+              : undefined
+          }
+        />
+      )}
       <CharacterSkills character={character} editable={editable} />
       {/* Inventory sits toward the bottom of the sheet, below Skills. */}
       <CharacterItems character={character} editable={editable} />
-      {(character.actions.length > 0 || character.abilities.length > 0 || editable) && (
+      {/* Traits/feats stay in the sheet, collapsed. */}
+      {(character.abilities.length > 0 || editable) && (
         <details className="sheet-actions-traits">
-          <summary>Actions &amp; Traits</summary>
+          <summary>Traits &amp; Feats</summary>
           <ActionsTraitsView
             actions={character.actions}
             abilities={character.abilities}
             editable={editable}
+            showActions={false}
             onSave={
               editable
                 ? (patch) => updateCharacter({ characterId: character.id, ...patch })

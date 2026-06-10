@@ -585,12 +585,18 @@ export function ActionsTraitsView({
   editable = false,
   onSave,
   onRollAction,
+  showActions = true,
+  showTraits = true,
 }: {
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
   editable?: boolean;
   onSave?: (patch: { actions: CreatureAbility[]; abilities: CreatureAbility[] }) => void;
   onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
+  /** Render/edit only Actions (the spells/abilities area) or only Traits (the
+   *  sheet) — the unshown kind is preserved untouched on save. */
+  showActions?: boolean;
+  showTraits?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [dActions, setDActions] = useState<CreatureAbility[]>(actions);
@@ -603,8 +609,8 @@ export function ActionsTraitsView({
   };
   const save = () => {
     onSave?.({
-      actions: dActions.filter((a) => a.name.trim()),
-      abilities: dAbilities.filter((a) => a.name.trim()),
+      actions: showActions ? dActions.filter((a) => a.name.trim()) : actions,
+      abilities: showTraits ? dAbilities.filter((a) => a.name.trim()) : abilities,
     });
     setEditing(false);
   };
@@ -619,12 +625,12 @@ export function ActionsTraitsView({
             </button>
           </div>
         )}
-        {actions.length === 0 && abilities.length === 0 ? (
+        {(showActions ? actions.length : 0) + (showTraits ? abilities.length : 0) === 0 ? (
           <p className="muted">None yet.</p>
         ) : (
           <ActionsTraitsReadSections
-            actions={actions}
-            abilities={abilities}
+            actions={showActions ? actions : []}
+            abilities={showTraits ? abilities : []}
             onRollAction={onRollAction}
           />
         )}
@@ -633,8 +639,12 @@ export function ActionsTraitsView({
   }
   return (
     <div className="statblock editing">
-      <EntryEditor title="Actions" entries={dActions} onChange={setDActions} />
-      <EntryEditor title="Traits" entries={dAbilities} onChange={setDAbilities} />
+      {showActions && (
+        <EntryEditor title="Actions" entries={dActions} onChange={setDActions} />
+      )}
+      {showTraits && (
+        <EntryEditor title="Traits" entries={dAbilities} onChange={setDAbilities} />
+      )}
       <div className="sb-edit-actions">
         <button className="btn tiny green" onClick={save}>
           Save
