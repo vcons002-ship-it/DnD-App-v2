@@ -135,7 +135,8 @@ export function ReorderableSections({
                 {collapsed.has(id) ? '▸' : '▾'}
               </button>
               <span className="reorder-grip">⠿</span>
-              <span className="reorder-label">{s.label}</span>
+              {/* A real heading so screen readers / browser nav see the structure. */}
+              <h4 className="reorder-label">{s.label}</h4>
             </div>
             {!collapsed.has(id) && s.node}
           </div>

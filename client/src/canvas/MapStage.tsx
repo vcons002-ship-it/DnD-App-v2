@@ -9,6 +9,7 @@ import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
+import { useStableCallback } from '../lib/useStableCallback';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
@@ -306,6 +307,29 @@ export function MapStage({
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const gridHot = draggingToken || measureActive;
+
+  // Identity-stable token handlers so the memoized TokenShape only re-renders
+  // when its own token/display actually changes (not on every snapshot).
+  const handleTokenSelect = useStableCallback((tok: Token, additive: boolean) => {
+    if (saveResolve) resolveSaveAt(tok.id);
+    else onSelectToken(tok, additive);
+  });
+  const handleTokenActivate = useStableCallback((tok: Token) => {
+    if (saveResolve) return;
+    onSelectToken(tok, false);
+    setDetailsExpanded(true); // open the player's read-only Details
+  });
+  const handleTokenMove = useStableCallback((tok: Token, x: number, y: number) =>
+    onMoveToken(tok.id, x, y),
+  );
+  const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
+    setHover(null);
+    setMenu({ token: tok, x: cx, y: cy });
+  });
+  const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) =>
+    setHover({ token: tok, x: cx, y: cy }),
+  );
+  const handleTokenHoverEnd = useStableCallback(() => setHover(null));
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
   // toolbar above the map; grab that slot once the toolbar has mounted.
@@ -1033,23 +1057,12 @@ export function MapStage({
                   selected={selectedIds.includes(t.id)}
                   activeTurn={t.id === activeTurnTokenId}
                   initiativeRank={initiativeRank.get(t.id) ?? null}
-                  onSelect={
-                    saveResolve ? (tok) => resolveSaveAt(tok.id) : onSelectToken
-                  }
-                  onActivate={(tok) => {
-                    if (saveResolve) return;
-                    onSelectToken(tok, false);
-                    setDetailsExpanded(true); // open the player's read-only Details
-                  }}
-                  onMove={(tok, x, y) => onMoveToken(tok.id, x, y)}
-                  onContextMenu={(tok, cx, cy) => {
-                    setHover(null);
-                    setMenu({ token: tok, x: cx, y: cy });
-                  }}
-                  onHover={(tok, cx, cy) =>
-                    setHover({ token: tok, x: cx, y: cy })
-                  }
-                  onHoverEnd={() => setHover(null)}
+                  onSelect={handleTokenSelect}
+                  onActivate={handleTokenActivate}
+                  onMove={handleTokenMove}
+                  onContextMenu={handleTokenMenu}
+                  onHover={handleTokenHover}
+                  onHoverEnd={handleTokenHoverEnd}
                   onDragActive={setDraggingToken}
                 />
               ))}

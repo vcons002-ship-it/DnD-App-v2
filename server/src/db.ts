@@ -207,6 +207,17 @@ db.exec(`
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL DEFAULT ''
   );
+
+  -- Hot lookup paths: everything is fetched per session (or per map for tokens/
+  -- shapes) on every snapshot, so index those columns. Idempotent for old saves.
+  CREATE INDEX IF NOT EXISTS idx_maps_session          ON maps(session_id);
+  CREATE INDEX IF NOT EXISTS idx_tokens_map            ON tokens(map_id);
+  CREATE INDEX IF NOT EXISTS idx_characters_session    ON characters(session_id);
+  CREATE INDEX IF NOT EXISTS idx_monsters_session      ON monsters(session_id);
+  CREATE INDEX IF NOT EXISTS idx_measurements_session  ON measurements(session_id);
+  CREATE INDEX IF NOT EXISTS idx_annotations_session   ON annotations(session_id);
+  CREATE INDEX IF NOT EXISTS idx_roll_log_session      ON roll_log(session_id);
+  CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 `);
 
 /** Read an app-wide meta value (one-time flags, etc.), or undefined if unset. */

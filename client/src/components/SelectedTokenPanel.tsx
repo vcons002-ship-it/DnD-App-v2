@@ -103,8 +103,50 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   }
 
   // Player combat console: their attacks (vs the clicked token) + abilities.
+  // Same rearrangeable/collapsible sections as the DM token panel.
   if (myChar) {
     const selectingOwn = !!myToken && token.id === myToken.id;
+    const consoleSections: Section[] = [];
+    if (!selectingOwn) {
+      consoleSections.push({
+        id: 'target',
+        label: 'Target details',
+        node: (
+          <CreatureDetails
+            monster={monster}
+            monsterEntity={monsterEntity}
+            character={character}
+          />
+        ),
+      });
+    }
+    consoleSections.push({
+      id: 'attacks',
+      label: 'Attacks',
+      node: myToken ? (
+        <AttackControls
+          snapshot={snapshot}
+          attacker={myToken}
+          weapons={myChar.weapons}
+          defaultTargetId={selectingOwn ? undefined : token.id}
+        />
+      ) : (
+        <p className="muted">Place your token on the map to attack.</p>
+      ),
+    });
+    consoleSections.push({
+      id: 'abilities',
+      label: 'Spells & Abilities',
+      node: (
+        <CharacterSpells
+          character={myChar}
+          editable
+          snapshot={snapshot}
+          attackerToken={myToken}
+          defaultTargetId={selectingOwn ? undefined : token.id}
+        />
+      ),
+    });
     return (
       <div className="panel-section">
         {selectingOwn ? (
@@ -120,29 +162,11 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
                 )}
               </div>
             )}
-            <CreatureDetails
-              monster={monster}
-              monsterEntity={monsterEntity}
-              character={character}
-            />
           </>
         )}
-        {myToken ? (
-          <AttackControls
-            snapshot={snapshot}
-            attacker={myToken}
-            weapons={myChar.weapons}
-            defaultTargetId={selectingOwn ? undefined : token.id}
-          />
-        ) : (
-          <p className="muted">Place your token on the map to attack.</p>
-        )}
-        <CharacterSpells
-          character={myChar}
-          editable
-          snapshot={snapshot}
-          attackerToken={myToken}
-          defaultTargetId={selectingOwn ? undefined : token.id}
+        <ReorderableSections
+          storageKey={`playerConsole:${snapshot.sessionCode}`}
+          sections={consoleSections}
         />
       </div>
     );
@@ -382,7 +406,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       </div>
 
       <ReorderableSections
-        storageKey={`tokenPanel:${snapshot.role}:${entityKind}`}
+        storageKey={`tokenPanel:${snapshot.role}:${entityKind}:${snapshot.sessionCode}`}
         sections={sections}
       />
 

@@ -935,7 +935,19 @@ export function addRollLog(
     entry.apply ? JSON.stringify(entry.apply) : '',
     createdAt,
   );
+  pruneRollLog(sessionId);
   return { id, ...entry, createdAt };
+}
+
+/** Keep the newest N rolls per session so long campaigns don't grow the DB forever. */
+export const ROLL_LOG_CAP = 500;
+function pruneRollLog(sessionId: string): void {
+  db.prepare(
+    `DELETE FROM roll_log WHERE session_id = ? AND id NOT IN (
+       SELECT id FROM roll_log WHERE session_id = ?
+       ORDER BY created_at DESC, rowid DESC LIMIT ?
+     )`,
+  ).run(sessionId, sessionId, ROLL_LOG_CAP);
 }
 
 /** Wipe the shared roll log for a session. */
@@ -1435,9 +1447,11 @@ export function setLoot(
  * Move loot from an object into a character. `all` takes everything; otherwise
  * `itemId` takes one item and/or `gold` takes that many coins (clamped to what's
  * there). Items merge with a matching inventory line (same name + note). When the
- * container empties it's flagged with a "Looted"/"Taken" condition.
+ * container empties it's flagged with a "Looted"/"Taken" condition. Runs as one
+ * transaction so the character credit and container debit can't split.
  */
-export function takeLoot(
+export const takeLoot = db.transaction(takeLootImpl);
+function takeLootImpl(
   monsterId: string,
   characterId: string,
   opts: { itemId?: string; gold?: number; all?: boolean },
@@ -1717,6 +1731,12 @@ export function getMonster(id: string): Monster | null {
     | Parameters<typeof rowToMonster>[0]
     | undefined;
   return row ? rowToMonster(row) : null;
+}
+
+/** True when the monster exists and belongs to the given session — guards
+ *  monster-targeting events against stale/forged ids from other sessions. */
+export function monsterInSession(monsterId: string, sessionId: string): boolean {
+  return getMonster(monsterId)?.sessionId === sessionId;
 }
 
 export type MonsterInput = {
@@ -2018,7 +2038,9 @@ export function applyDamage(
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  if (!entity) return null;
+  if (!entity || !Number.isFinite(amount)) return null;
+  // Clamp to a sane magnitude so a buggy/forged event can't apply absurd values.
+  amount = Math.trunc(Math.max(-10000, Math.min(10000, amount)));
   // 2024 rules: damage drains the temporary-HP buffer first, then real HP;
   // healing (amount < 0) only restores real HP and never refills temp HP.
   let nextTemp = entity.tempHp;

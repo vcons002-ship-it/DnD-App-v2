@@ -823,3 +823,19 @@ Smaller refinements on top of the shipped Phase 2 work.
   **collapsible/resizable `SidePanel`**, and the card grid sits in a
   definite-height scroll box so cards flow + scroll (never overlap) — reliable on
   iOS Safari, where the nested-flex height chain was collapsing them.
+- ☑ **Review quick-wins batch (hardening + perf + UI polish).** Server: session
+  guards on `monster:update`/`monster:delete`/`ai:fillCreature`/`monster:action`
+  (`monsterInSession`), players can't move **hidden** tokens (`token:move` guard),
+  `takeLoot` runs in a transaction, `applyDamage` clamps to ±10 000 (truncated),
+  dice expressions cap terms/total dice (100/1000), idempotent **indexes** on the
+  hot per-session/per-map columns, and the roll log **prunes to the newest 500**
+  per session. Client: a manual **"Dead" condition** shows the 💀 even on enemies
+  (players already auto-skull friendlies at 0 HP), `TokenShape` + Data-view cards
+  are **memoized** (content comparators + identity-stable handlers — dragging one
+  token no longer redraws them all), global **`:focus-visible`** ring, bigger
+  touch targets (26px `.qbtn`, ≥32px on coarse pointers), section labels are real
+  `h4`s, brighter `--muted`, the **player console + player left panel** use the
+  same reorderable/collapsible sections as the DM, and all layout prefs
+  (panels/sections/Roll20 URL) are **namespaced per session code**. Tests:
+  `quickwins.test.ts` + dice-cap cases. Deferred to dedicated PRs: snapshot-perf
+  rework; actions/sheetAbilities merge (must keep AI action flavor).

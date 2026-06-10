@@ -84,6 +84,7 @@ import {
   getSessionByCode,
   getToken,
   listTokens,
+  monsterInSession,
   moveToken,
   firstInInitiative,
   releaseClaims,
@@ -370,6 +371,8 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on('token:move', ({ tokenId, x, y }) => {
       if (!sessionId()) return;
+      // Players never receive hidden tokens, so a non-DM move of one is stale/forged.
+      if (!isDm() && getToken(tokenId)?.isHidden) return;
       moveToken(tokenId, x, y);
       afterChange();
     });
@@ -646,7 +649,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const monster = getMonster(monsterId);
       const action = monster?.actions[actionIndex];
-      if (!monster || !action) return;
+      if (!monster || monster.sessionId !== sid || !action) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const target = typeof targetTokenId === 'string' ? targetTokenId : undefined;
       if (resolveMonsterAction(sid, 'DM', monster, action, adv, target)) afterChange();
@@ -784,13 +787,16 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('monster:update', ({ monsterId, ...patch }) => {
-      if (!isDm() || !monsterId) return; // editing creature stats is a DM action
+      const sid = sessionId();
+      // Editing creature stats is a DM action, scoped to the DM's own session.
+      if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
       updateMonster(monsterId, patch);
       afterChange();
     });
 
     socket.on('monster:delete', ({ monsterId }) => {
-      if (!isDm()) return;
+      const sid = sessionId();
+      if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
       deleteMonster(monsterId);
       afterChange();
     });
@@ -805,7 +811,8 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('ai:fillCreature', async ({ monsterId }) => {
-      if (!isDm()) return;
+      const sid = sessionId();
+      if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
       const res = await aiFillCreature(monsterId);
       if (res.ok) {
         afterChange();
