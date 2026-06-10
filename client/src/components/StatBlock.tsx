@@ -60,8 +60,6 @@ type Props = {
    *  weapons but as natural attacks — baked damage + to-hit + type/range, and
    *  NOT sourced from the 2024 PC weapon book. */
   monster?: boolean;
-  /** DM-only: roll a monster action that carries a structured `roll`. When given,
-   *  each such action shows a roll button (server-resolved via `monster:action`). */
   /** When given, each ability score becomes clickable to roll that saving throw
    *  (server-resolved via `save:roll`, honoring the creature's adv/dis toggle). */
   onRollSave?: (ability: string) => void;

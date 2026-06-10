@@ -117,8 +117,11 @@ Both views share the same three-column shape:
 | **Center** | The live map canvas | The live map canvas |
 | **Right panel** | The selected token's full panel (or bulk-actions when several are selected) | Your **combat console** for the selected token, with the roll log beneath it |
 
-Side panels are **resizable** (drag the edge) and **collapsible**, and your
-preference is remembered.
+Side panels are **resizable** (drag the edge) and **collapsible**, and the
+panels' inner sections are **reorderable and collapsible** too — drag the ⠿
+grip (desktop) or tap the **▲/▼** buttons (touch) to rearrange, click ▸/▾ to
+collapse. Every layout preference is remembered **per session code**, so each
+campaign keeps its own arrangement.
 
 ---
 
@@ -224,7 +227,8 @@ legacy feet-per-square model, so older saves are unaffected.
   **spawn button** (a *template*). Click it, then **click the map** to drop a
   numbered **instance** ("Goblin 1", "Goblin 2", …), each with its own HP and
   conditions. Placement mode stays active so you can drop several in a row —
-  press **Esc** (or click the button again) to stop.
+  press **Esc**, click the button again, or tap **✕ Done** on the *"Placing …"*
+  banner over the map (the touch-friendly cancel) to stop.
 - **Tidy the list:** **✕** on a spawn button removes it. **Edit** opens the
   template editor to adjust stats/art *before* placing (every later instance
   inherits the change).
@@ -246,25 +250,31 @@ legacy feet-per-square model, so older saves are unaffected.
 
 The stat block is one shared component for monsters and characters. In edit mode
 you can change **name, type, HP/AC/speed, ability scores, save proficiencies,
-resistances/vulnerabilities, weapons/attacks, actions, and traits**, then
-**Save** (or **Cancel**).
+resistances/vulnerabilities, weapons/attacks, and traits**, then **Save** (or
+**Cancel**).
 
 - **✨ Fill missing details with AI** asks Gemini for the SRD block and fills
   **only the empty fields** — it never overwrites your edits.
 - **Attacks:** under **Attacks**, **+ Attack** pulls from the 2024 weapon book
-  **and** a natural-attacks library (Bite, Claw, Slam…), or add a blank one.
-  Creature picks are stored "dice-only" so the to-hit and modifier come from the
-  creature's live stats. **↻ Generate attacks from description** scrapes rollable
-  attacks out of free-text actions.
-- **Structured actions** (breath weapons, spell-like actions) can carry a roll
-  (attack/save/damage/heal); **↻ Derive rolls from descriptions** scrapes the DC
-  and dice from SRD/AI text. Roll them from the stat block in play — and for an
-  **attack**-type action you can fire it at a target by selecting the monster and
-  **right-clicking the victim** (it rolls to-hit vs AC and applies typed damage,
+  **and** a natural-attacks library (Bite, Claw, Slam, Spit, Rock…), or add a
+  blank one. Creature picks are stored "dice-only" so the to-hit and modifier
+  come from the creature's live stats.
+- **Rollable abilities** (breath weapons, spell-like actions, innate spells)
+  live in the creature's **Spells & Abilities** section — the same system PCs
+  use, with a roll editor (attack/save/damage/heal + DC/dice/type). When a
+  creature arrives from the SRD, the AI, or pasted text, its free-text actions
+  convert automatically: weapon-like lines become **Attacks** and the rest
+  become rollable abilities (DCs and dice scraped from the prose). **Traits**
+  stay in the stat block as descriptive text.
+- Fire an **attack**-type ability at a target by selecting the creature and
+  **right-clicking the victim** (rolls to-hit vs AC and applies typed damage,
   with resistances/vulnerabilities honored).
 
+Selecting a **player character** gives the same panel shape — Attacks, Spells &
+Abilities, Sheet info, Conditions, DM tools — so creatures and PCs read alike.
+
 Each ability score is **clickable to roll that creature's saving throw**, and
-weapon/action lines have roll buttons.
+weapon lines have roll buttons.
 
 ### Disposition: what players see (DM)
 
@@ -332,12 +342,21 @@ Players who can see a revealed trap get a **🔧 Disarm** button on it — see
 
 **Where:** left panel → **Initiative** section.
 
-- **Roll all** — resets the round: rolls **d20 + DEX** for everyone and
-  highlights the top of the order.
-- **Add rolls** — rolls only for combatants who don't have a number yet (for
-  latecomers).
-- **Next ▸** — advances the active turn (wraps around).
-- **Clear** — clears initiative.
+- **Roll all** — resets combat: rolls **d20 + DEX** for everyone, highlights
+  the top of the order, and starts **Round 1**.
+- **Add rolls** — rolls only for combatants who don't have a number yet
+  (latecomers slot into the order without disturbing the round count).
+- **Next ▸** — advances the active turn; wrapping past the last combatant
+  bumps the **round counter**.
+- **Clear** — clears initiative and zeroes the round.
+
+The **Round number** in the header is **editable** — type to fix a miscount —
+and shows as a chip in everyone's top toolbar. **Objects** (chests, doors,
+traps, items) never roll initiative and aren't listed. **Dead creatures keep
+their place** in the list (dimmed with a 💀) so the order holds, but **Next
+skips them** — a PC at 0 HP still gets its turn to roll death saves and is only
+skipped once actually dead. Deleting the creature whose turn it is simply ticks
+the marker to the next one.
 
 The list shows each combatant's turn **order (#)**, an editable **roll** field,
 name, and HP. The active turn is highlighted both here and on the board (a
@@ -351,6 +370,10 @@ pulsing ring + initiative-rank badge on the token).
   nat-20, applies resistances/vulnerabilities, and **auto-applies damage on a
   hit** (recorded in the roll log; you can heal it back). Toggles for
   **Off-hand**, **2H** (versatile), and **advantage/disadvantage** are right there.
+  Every HP change pops a floating **−X / +X** over the token for the whole
+  table, and the roll log keeps an **HP note** ("Druk HP 42→38") so mistakes
+  are easy to spot and hand-correct (players see notes only for PCs and
+  friendly/neutral creatures).
 - Conditions automatically nudge advantage/disadvantage where 5e is unambiguous
   (prone, restrained, invisible, etc.), with the cancel rule applied.
 - Cast a save-or-damage spell/action and the log gets a DM-only **🎯 Apply
@@ -432,7 +455,8 @@ A standalone combat dashboard meant for a second monitor or tablet. It gives you
 
 - Tap a character and click **Play** to claim it (a **you** badge marks yours;
   taken ones show **taken**). You hold exactly one at a time — **Change** releases
-  it and reopens the chooser.
+  it and reopens the chooser. After a page reload your character is
+  **re-claimed automatically** (as long as nobody else grabbed it).
 - No character yet? Create one with the **New Character Form**, or **📂 Load saved
   character** from your cross-session library — either way you immediately claim it.
 
@@ -467,8 +491,11 @@ This is the key player combat surface, and it always acts **as your own PC**
   like weapons: pick a target from the **Spell target** dropdown, then roll. The
   server rolls **to-hit vs the target's AC**, doubles dice on a crit, misses on a
   nat-1, and **auto-applies the typed damage** on a hit (so the target's
-  resistances/vulnerabilities to that damage type actually count). Save-based and
-  healing spells still resolve their own way.
+  resistances/vulnerabilities to that damage type actually count).
+- **Healing spells apply on cast:** pick who from the **Heal target** dropdown
+  (you're the default; allies are listed) and the HP lands immediately —
+  healing *spells* add your casting modifier on top of the dice. You can also
+  **right-click your own token** to cast your heals on yourself.
 - Pick a weapon/spell to roll it — the server resolves to-hit, damage, and
   advantage, and the **roll log is right below** so you see the result instantly.
 - A selected creature's **Details** (collapsible, read-only) sits up top for
@@ -530,7 +557,12 @@ and is never refilled by healing.
 A token shows a lot without clicking:
 
 - **HP bar** (where you're allowed to see it) — green > 50%, amber > 25%, red
-  below; a cyan **+N** for temp HP; **💀** at 0 HP.
+  below; a cyan **+N** for temp HP; **💀** at 0 HP — or whenever the DM applies
+  the **Dead** condition, which shows the skull even on enemies whose HP is
+  hidden.
+- **Floating damage/heal numbers:** every HP change pops a red **−X** or green
+  **+X** that drifts up off the token — everyone sees it (hidden/fogged
+  creatures never pop numbers for players).
 - **Disposition dot** (green/amber/red), **combat-role badge** (⚔️/🏹/✨),
   **initiative-rank** number when in combat, and **status rings** (buff /
   negative / concentration shown together).
@@ -552,12 +584,14 @@ It opens at your cursor with:
 - The token's name and HP (if visible).
 - **Quick damage/heal** (where HP is visible).
 - **Attacks:** if you have a *different* token selected as the attacker, the menu
-  offers that attacker's **weapons and attack-roll spells against the
+  offers that attacker's **weapons and rollable abilities against the
   right-clicked token** — a clear header reads **"⚔️ Attacking as X → Y"**. (For
   players the attacker defaults to your own PC, or a selected friendly creature;
-  for the DM, a selected monster's spell-attack **actions** appear here too.)
-  These spell-attacks roll to-hit vs the target's AC and apply typed damage, just
-  like a weapon swing.
+  for the DM, a selected monster's rollable **abilities** appear here too.)
+  Attack-type abilities roll to-hit vs the target's AC and apply typed damage
+  just like a weapon swing; save/damage abilities make the target roll and take
+  it immediately; heals restore its HP. Right-clicking your **own** token offers
+  your heals ("Casting as X → self").
 - **DM admin** buttons (duplicate / hide / role badge / delete).
 
 A right-click **never changes your selection**, so "select attacker → right-click
@@ -571,10 +605,16 @@ combat console. Also on the DM Data dashboard.
 - **Quick dice:** buttons for **d20 / d12 / d10 / d8 / d6 / d4 / d100**.
 - **Custom roll:** type an expression like **`2d6+3`**, optionally a **label**,
   toggle **advantage/disadvantage**, and **Roll**.
+- **Roll from chat:** type **`/roll 2d6+3`** (or **`/r`**, optionally ending in
+  `adv`/`dis`) into the chat box — the result lands in the shared log right
+  where the message would have gone.
 - **Shared roll log:** every roll (and every automated attack/save) lands in one
-  log everyone sees, color-coded by roller and roll type. For players, enemy AC
-  is redacted to `vs AC ?` while HIT/MISS stays visible. A cast spell's full
-  description shows here. The DM can **Clear** the log.
+  log everyone sees, color-coded by roller and roll type, showing the
+  **individual die faces** (e.g. `2d6[3,4]`). Rolls that changed HP carry an
+  **HP note** ("Druk HP 42→38" — DM always; players for PCs and
+  friendly/neutral creatures). For players, enemy AC is redacted to `vs AC ?`
+  while HIT/MISS stays visible. A cast spell's full description shows here. The
+  DM can **Clear** the log.
 - **On-map overlays** (toggled from the dice panel):
   - **⤢ Overlay** — a click-through latest-rolls feed pinned to the map's
     **bottom-left**; recent rolls stack and fade, the newest always stays visible.

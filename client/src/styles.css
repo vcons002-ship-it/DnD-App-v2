@@ -518,10 +518,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 /* Structured-roll editor for a monster action (kind / dice / save / DC / type). */
 .sb-roll-edit { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; flex-basis: 100%; margin: 2px 0 2px 4px; }
 .sb-roll-edit select, .sb-roll-edit input { width: auto; margin: 0; padding: 3px 5px; font-size: 12px; }
-.sb-roll-dice, .sb-roll-type { width: 64px; }
-.sb-roll-dc { width: 48px; }
 /* Roll buttons shown next to a rollable action in the read view. */
-.sb-action-roll { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
 
 /* Floating menu: quick damage/heal + HP label */
 .floating-menu-title .fm-hp { float: right; color: var(--muted); font-weight: 600; }

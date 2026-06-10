@@ -21,7 +21,7 @@ Monorepo, npm workspaces: `shared`, `server`, `client`.
 npm install
 npm run dev        # server + client (concurrently); two browser windows = DM + player
 npm run typecheck  # tsc --noEmit for server AND client
-npm run test       # server Vitest (~51 tests across 10 *.test.ts) — tests are SERVER-ONLY
+npm run test       # server Vitest (220+ tests across ~26 *.test.ts) — tests are SERVER-ONLY
 npm run build      # client (vite) + server (tsc)
 ```
 
@@ -113,9 +113,13 @@ sanitization rules above and commit it to `claude/Main`.
 - **`Monster` & `Character` share one tagged stat-block shape:** `level` (PC
   level / monster **CR**), `armorClass`, `speed`, `stats`, `resistances`,
   `weaknesses`, `weapons: Weapon[]` (name, melee/ranged, damage, to-hit),
-  `actions`, `abilities`, `icon`. `Character` additionally has
-  `proficientSkills`, `spellSlots`, `resources`, `items`, `claimedBy`.
-  `Monster` additionally has `disposition`, `source`, `conditions`.
+  `sheetAbilities: SheetAbility[]` (the ONE rollable system), `abilities`
+  (traits, free text), `icon`. `actions` is only a *transport* shape (SRD/AI/
+  paste) — converted into weapons/sheetAbilities at insert; stored creatures
+  keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
+  `resources`, `items`, `gold`, `deathSaves`, `claimedBy`. `Monster`
+  additionally has `disposition`, `source`, `conditions`, `objectKind`/`loot`
+  (non-combat objects).
 - **Templates vs instances:** `is_template` monsters are the DM's spawn buttons;
   each placement creates a **numbered instance** (Goblin 1, 2, …) with its own
   HP/conditions, referenced by a token.
@@ -124,8 +128,8 @@ sanitization rules above and commit it to `claude/Main`.
   name+HP+type+AC, enemy = name+conditions.
 - **`MapState`** has **two independent fog layers** (`mapFogEnabled/Revealed`,
   `tokenFogEnabled/Revealed`).
-- **`StateSnapshot`** is role-shaped and also carries `rollLog` and
-  `sessionName`.
+- **`StateSnapshot`** is role-shaped and also carries `rollLog`, `chat`,
+  `round`, and `sessionName`.
 
 ## Shared pure modules (client + server, unit-tested)
 
@@ -146,7 +150,12 @@ sanitization rules above and commit it to `claude/Main`.
 
 - **Routes:** `DmView` (map screen), `DmDataView` (`/dm/data` second-screen
   dashboard), `PlayerView`; entry routes `DmRoute`/`DmDataRoute`/`PlayerRoute`.
-- **Canvas:** `MapStage` (Konva stage, fog rendering, placement) + `TokenShape`.
+- **Canvas:** `MapStage` (Konva stage, fog rendering, placement) + `TokenShape`
+  (memoized; content comparators in `lib/entities.ts`, identity-stable handlers
+  via `lib/useStableCallback`) + `HpFx` (floating ±X damage/heal numbers).
+- **`ReorderableSections`** — drag-reorder (desktop) + tap ▲/▼ (touch) +
+  per-section collapse, persisted per storageKey (namespaced by session code).
+  Used by the DM/player left panels, the token panel, and the combat console.
 - **`StatBlock`** — ONE generalized component for monsters AND characters:
   display ↔ edit toggle, built-in AI-fill, and a **read-only mode** (omit
   `onSave`) for players viewing allies/friendly creatures.
@@ -198,12 +207,22 @@ sanitization rules above and commit it to `claude/Main`.
   descriptions; AI picks level/CR; global "AI is working" banner; editable API
   key + model in **Settings**.
 - **Combat:** initiative (Roll-all resets + auto-highlights top, **Add rolls** for
-  latecomers, Next/Clear), **dice roller + shared persisted roll log**,
-  **automated weapon attacks** (server-authoritative, auto-applies damage on hit)
-  and **saving throws** (bulk). Roll log has a clear button + color-coding by
-  roller/roll type; for players enemy **AC is redacted** (`vs AC ?`) while HIT/MISS
-  stays visible, and flat mastery damage (GWM prof bonus) is **folded into the
-  damage number** rather than appended. A cast spell/ability's full `description`
+  latecomers, Next/Clear) with a **round counter** (`combat_round`, DM-editable
+  field in the Initiative header; Next increments on a wrap, shown as a chip
+  everywhere) — **objects never roll initiative**, **dead combatants keep their
+  slot but are skipped** (PCs at 0 HP keep their turn for death saves), and
+  deleting the current-turn token ticks the marker forward first. **Dice roller +
+  shared persisted roll log** (pruned to 500/session; `/roll 2d6+3 [adv|dis]`
+  typed in chat rolls too), **automated weapon attacks** (server-authoritative,
+  auto-applies damage on hit), **saving throws** (bulk), and **heals that apply
+  on cast** (spells add the casting mod; combat-console Heal-target dropdown,
+  self default). Every HP change pops a **floating ±X** over the token (`fx:hp`,
+  per-viewer filtered) and writes a DM-only **`hpNote`** ("Druk HP 42→38";
+  players see it for PCs/friendly/neutral only). Roll log shows **individual die
+  faces**, has a clear button + color-coding by roller/roll type; for players
+  enemy **AC is redacted** (`vs AC ?`) while HIT/MISS stays visible, and flat
+  mastery damage (GWM prof bonus) is **folded into the damage number** rather
+  than appended. A cast spell/ability's full `description`
   rides on its `RollEntry` and shows in the **full** log (overlay shows only the
   one-line result). **Monster attacks — ONE merged system**: free-text `actions`
   (SRD/AI/paste) are only a *transport* shape, converted at insert + by a startup
@@ -212,7 +231,7 @@ sanitization rules above and commit it to `claude/Main`.
   `sheetAbilities` (rolls kept or scraped via `parseActionRoll`) — stored monsters
   keep `actions` empty. The DM builds/edits attacks via the `StatBlock`
   **"+ Attack"** picker spanning the 2024 weapon book (`/api/weapons`) AND a
-  natural-attacks library (`/api/attacks`, ~36 entries: Bite/Claw/Slam/Spit/Rock…);
+  natural-attacks library (`/api/attacks`, ~42 entries: Bite/Claw/Slam/Spit/Rock…);
   creature picks are stored **dice-only (`Weapon.diceOnly`)** so the mod + to-hit come
   from the creature's **live stats** like a PC weapon (`rollWeaponAttack` adds the mod
   for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is). A player's
@@ -254,7 +273,8 @@ sanitization rules above and commit it to `claude/Main`.
 - **Phase 7 — Discord video:** no general embeddable iframe; start with a
   **deep-link "Join voice"** button (per-session channel/invite), investigate the
   **Embedded App SDK** (Activity) as the deeper integration.
-- **WP7 leftover — drag-reorder toolbar sections** (deferred; lower value).
+- **WP7 leftover — drag-reorder panel sections:** DONE (`ReorderableSections`
+  everywhere; tap ▲/▼ on touch where HTML5 drag doesn't fire).
 - **WP11 follow-up — structured spell attacks:** DONE. `sheetAbilities` carry a
   structured `roll` (attack/save/damage/heal + upcast), rolled server-side via
   `ability:roll`; casting a leveled spell **auto-spends a slot** (`spendSpellSlot`)
