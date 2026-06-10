@@ -174,3 +174,39 @@ describe('legacy action merge (ONE rollable system)', () => {
     expect(getMonster(legacyId)!.sheetAbilities).toHaveLength(1);
   });
 });
+
+describe('hpNote disposition shaping for players', () => {
+  it('players see friendly/neutral/PC HP changes but never enemy ones', () => {
+    const s = createSession('HpNote');
+    const map = createMap(s.id, { name: 'M' });
+    setActiveMap(s.id, map.id);
+    const caster = instantiateMonster(
+      createMonsterTemplate(s.id, { name: 'Imp', maxHp: 20, level: 5, stats: { CHA: 16 } }).id,
+    )!;
+    const enemy = instantiateMonster(
+      createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 100, armorClass: 1 }).id,
+    )!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: enemy.id, x: 0, y: 0 });
+    const zap: SheetAbility = {
+      id: 'z',
+      name: 'Zap',
+      type: 'ability',
+      description: '',
+      roll: { kind: 'attack', dice: '10d1', damageType: 'fire' },
+    };
+    // AC 1 → nearly always hits; loop past the rare nat-1 miss.
+    for (let i = 0; i < 60; i++) {
+      updateMonster(enemy.id, { curHp: 100 });
+      resolveMonsterSheetAbility(s.id, 'DM', caster, zap, undefined, undefined, tok.id);
+      if (listRollLog(s.id).at(-1)!.hpNote) break;
+    }
+    expect(buildSnapshot(s.id, 'dm')!.rollLog.at(-1)!.hpNote?.text).toContain('HP');
+    // Default disposition is enemy → the note is stripped for players.
+    expect(buildSnapshot(s.id, 'player')!.rollLog.at(-1)!.hpNote).toBeUndefined();
+    // Neutral (HP visible to players) → the note shows.
+    updateMonster(enemy.id, { disposition: 'neutral' });
+    expect(
+      buildSnapshot(s.id, 'player')!.rollLog.at(-1)!.hpNote?.text,
+    ).toContain('HP');
+  });
+});

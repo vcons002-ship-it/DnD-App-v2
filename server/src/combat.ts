@@ -91,16 +91,21 @@ function resolve(token: Token): Resolved | null {
   };
 }
 
-/** Apply rolled damage/healing and return a DM-only accounting note for the
- *  log ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot
- *  and correct. Empty string when nothing was found/changed. */
-function applyDamageNoted(kind: TokenKind, refId: string, amount: number): string {
+/** Apply rolled damage/healing and return an accounting note for the roll log
+ *  ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot and
+ *  correct. Carries the target so visibility can hide ENEMY changes from
+ *  players. Undefined when nothing was found/changed. */
+function applyDamageNoted(
+  kind: TokenKind,
+  refId: string,
+  amount: number,
+): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   const after = applyDamage(kind, refId, amount);
-  if (!before || !after) return '';
+  if (!before || !after) return undefined;
   const hp = (e: { curHp: number; tempHp: number }) =>
     `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
-  return `${after.name} HP ${hp(before)}→${hp(after)}`;
+  return { kind, refId, text: `${after.name} HP ${hp(before)}→${hp(after)}` };
 }
 
 /**
@@ -327,7 +332,7 @@ export function resolveAttack(
     }
   }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
-  let hpNote = '';
+  let hpNote: RollEntry['hpNote'];
   if (applied > 0) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied);
     noteConcentration(sessionId, t.kind, t.refId, applied);
@@ -341,7 +346,7 @@ export function resolveAttack(
       `${a.name} → ${t.name}: ${out.detail}` +
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
-    hpNote: hpNote || undefined,
+    hpNote,
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
@@ -516,7 +521,7 @@ export function resolveForcedSave(
       total: dmg,
       expr: `dart ${instanceIndex + 1}`,
       detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
-      hpNote: dartNote || undefined,
+      hpNote: dartNote,
     });
     return;
   }
@@ -555,7 +560,7 @@ export function resolveForcedSave(
     expr: `DC ${apply.dc}`,
     total: dmg,
     detail,
-    hpNote: saveNote || undefined,
+    hpNote: saveNote,
   });
 }
 
@@ -605,7 +610,7 @@ function resolveTargetedSpellAttack(opts: {
   const hit = crit || (!fumble && attackTotal >= t.ac);
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
-  let hpNote = '';
+  let hpNote: RollEntry['hpNote'];
   const notes: string[] = [];
   if (hit && opts.dice) {
     let dmg = rollDice(opts.dice)!.total;
@@ -632,7 +637,7 @@ function resolveTargetedSpellAttack(opts: {
       (hit && opts.dice ? `, ${applied}${dmgType} dmg [${opts.dice}${crit ? ' ×2 crit' : ''}]` : '') +
       (notes.length ? ` · ${notes.join(', ')}` : ''),
     description: opts.description,
-    hpNote: hpNote || undefined,
+    hpNote,
   });
   return true;
 }
@@ -799,7 +804,7 @@ function resolveSheetAbilityFor(
     const tok = targetTokenId ? getToken(targetTokenId) : null;
     const target = tok ? resolve(tok) : null;
     const healNote =
-      target && val > 0 ? applyDamageNoted(target.kind, target.refId, -val) : '';
+      target && val > 0 ? applyDamageNoted(target.kind, target.refId, -val) : undefined;
     addRollLog(sessionId, {
       roller,
       label: ability.name,
@@ -810,7 +815,7 @@ function resolveSheetAbilityFor(
           castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} mod` : ''
         }]` + (target ? ` → ${target.name} +${val} HP` : ''),
       description: ability.description || undefined,
-      hpNote: healNote || undefined,
+      hpNote: healNote,
     });
     return true;
   }

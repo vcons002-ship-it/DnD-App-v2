@@ -916,8 +916,8 @@ export function addRollLog(
     description?: string;
     /** Optional "Apply damage" payload (save/damage spell → click-to-target saves). */
     apply?: RollEntry['apply'];
-    /** DM-only HP accounting note ("Druk HP 42→38"). */
-    hpNote?: string;
+    /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
+    hpNote?: RollEntry['hpNote'];
   },
 ): RollEntry {
   const id = newId();
@@ -935,7 +935,7 @@ export function addRollLog(
     entry.detail,
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
-    entry.hpNote ?? '',
+    entry.hpNote ? JSON.stringify(entry.hpNote) : '',
     createdAt,
   );
   pruneRollLog(sessionId);
@@ -1020,6 +1020,18 @@ type RollLogRow = {
   created_at: number;
 };
 
+/** Stored as JSON; a legacy plain-text note (no target) parses to undefined so
+ *  it can never leak an enemy's HP to players. */
+function parseHpNote(raw: string): RollEntry['hpNote'] {
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v.text === 'string' && typeof v.refId === 'string') return v;
+  } catch {
+    /* legacy plain text */
+  }
+  return undefined;
+}
+
 function rowToRollEntry(r: RollLogRow): RollEntry {
   return {
     id: r.id,
@@ -1030,7 +1042,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     detail: r.detail,
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
-    ...(r.hp_note ? { hpNote: r.hp_note } : {}),
+    ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
     createdAt: r.created_at,
   };
 }

@@ -640,10 +640,11 @@ export type RollEntry = {
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
   description?: string;
-  /** DM-only accounting note for the HP change this roll applied
-   *  ("Druk HP 42→38"; temp HP shows as "42+5"). Helps spot/correct mistakes.
-   *  Stripped for players in `visibility.ts` (enemy HP stays hidden). */
-  hpNote?: string;
+  /** Accounting note for the HP change this roll applied ("Druk HP 42→38";
+   *  temp HP shows as "42+5") — helps spot/correct mistakes. Carries the target
+   *  so `visibility.ts` can shape it per viewer: players see it for PCs and
+   *  friendly/neutral creatures; ENEMY creature changes are stripped. */
+  hpNote?: { kind: TokenKind; refId: string; text: string };
   /** DM-only: present on a save/damage spell's damage roll so the log can offer an
    *  "Apply damage" button that starts click-to-target save resolution. Stripped
    *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */

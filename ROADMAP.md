@@ -874,5 +874,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   `hpNote` on its `RollEntry` — "Druk HP 42→38" (temp HP shows as "42+5") —
   shown as a cyan line in the full log and the map overlay, so mistakes are
   easy to spot and hand-correct. Persisted (`roll_log.hp_note`, idempotent
-  column) and **stripped for players** in `visibility.ts` (enemy HP stays
-  hidden; allies still see the in-detail "+N HP" heal text).
+  column) as `{kind, refId, text}` so `visibility.ts` shapes it per viewer:
+  players see HP changes for **PCs and friendly/neutral creatures**; only
+  ENEMY creature changes are stripped (their HP stays hidden, matching the
+  disposition tiers).

@@ -270,10 +270,11 @@ describe('heal abilities apply healing', () => {
     const last = listRollLog(s.id).at(-1)!;
     expect(last.total).toBe(13);
     expect(last.detail).toContain('→ Ally +13 HP');
-    // DM-only HP accounting rides the entry; players never receive it.
-    expect(last.hpNote).toBe('Ally HP 10→23');
+    // The HP accounting note rides the entry — and a PC's change is visible
+    // to players too (only ENEMY creature changes are stripped).
+    expect(last.hpNote).toMatchObject({ kind: 'pc', text: 'Ally HP 10→23' });
     const playerLog = buildSnapshot(s.id, 'player')!.rollLog;
-    expect(playerLog.at(-1)!.hpNote).toBeUndefined();
+    expect(playerLog.at(-1)!.hpNote?.text).toBe('Ally HP 10→23');
   });
 
   it('a plain heal ABILITY uses its dice as written (no casting mod)', () => {

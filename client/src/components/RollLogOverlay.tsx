@@ -85,7 +85,7 @@ export function RollLogOverlay({
               {entry.label ? ` · ${entry.label}` : ''}{' '}
               <span className="muted">{renderRollDetail(entry.detail)}</span>
               {entry.hpNote && (
-                <span className="roll-hp-note">{entry.hpNote}</span>
+                <span className="roll-hp-note">{entry.hpNote.text}</span>
               )}
             </span>
           </div>

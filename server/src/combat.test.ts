@@ -1340,8 +1340,8 @@ describe('targeted attack-roll spells & monster actions', () => {
         saw = true;
         expect(getMonster(ref)!.curHp).toBe(80); // 10 fire → doubled to 20
         expect(detail).toMatch(/vs AC 1/);
-        // DM-only HP accounting note rides the roll entry.
-        expect(listRollLog(s.id).at(-1)!.hpNote).toContain('HP 100→80');
+        // The HP accounting note rides the roll entry (DM log = unshaped).
+        expect(listRollLog(s.id).at(-1)!.hpNote?.text).toContain('HP 100→80');
       }
     }
     expect(saw).toBe(true);
