@@ -1106,8 +1106,14 @@ export type JoinAck =
   | { ok: false; error: ServerError };
 
 // Server -> Client event names.
+/** Transient combat feedback: an HP change to float over the creature's token
+ *  ("−7" red / "+5" green). Carries only the DELTA (never totals) and is sent
+ *  per-viewer, filtered to tokens that viewer's snapshot actually contains. */
+export type HpFxEvent = { kind: TokenKind; refId: string; delta: number };
+
 export interface ServerToClientEvents {
   'state:snapshot': (snapshot: StateSnapshot) => void;
   error: (err: ServerError) => void;
   notice: (payload: NoticePayload) => void;
+  'fx:hp': (payload: { events: HpFxEvent[] }) => void;
 }

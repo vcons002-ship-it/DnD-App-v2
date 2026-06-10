@@ -5,6 +5,7 @@ import type {
   ServerToClientEvents,
 } from '../../shared/types.js';
 import { buildSnapshot } from './visibility.js';
+import { drainHpFx } from './sessions.js';
 
 export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -39,6 +40,10 @@ export const roomName = (sessionId: string): string => `session:${sessionId}`;
  * so staging edits reach DMs only and players always see the active map.
  */
 export function broadcastSnapshots(io: IOServer, sessionId: string): void {
+  // Transient HP-change FX queued by this change-cycle's applyDamage calls.
+  // Each viewer only receives floaters for tokens THEIR snapshot contains, so
+  // hidden/fog-covered/other-map creatures never pop a number for players.
+  const hpFx = drainHpFx(sessionId);
   for (const [socketId, conn] of conns) {
     if (conn.sessionId !== sessionId) continue;
     const snapshot = buildSnapshot(
@@ -47,7 +52,12 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       conn.role === 'dm' ? conn.viewMapId : null,
       socketId,
     );
-    if (snapshot) io.to(socketId).emit('state:snapshot', snapshot);
+    if (!snapshot) continue;
+    io.to(socketId).emit('state:snapshot', snapshot);
+    const visible = hpFx.filter((e) =>
+      snapshot.tokens.some((t) => t.kind === e.kind && t.refId === e.refId),
+    );
+    if (visible.length) io.to(socketId).emit('fx:hp', { events: visible });
   }
 }
 

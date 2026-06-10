@@ -17,6 +17,7 @@ import type {
   CombatRole,
   Condition,
   FogLayer,
+  HpFxEvent,
   InventoryItem,
   LootContents,
   MapState,
@@ -2062,6 +2063,21 @@ export function setEntityIcon(
 
 // ---- Shared HP / condition mutations across kinds ----
 
+// Transient HP-change FX queue: applyDamage records every effective change and
+// broadcastSnapshots drains it into per-viewer 'fx:hp' events (floating ±X over
+// the token). Never persisted; capped so an undrained queue can't grow forever.
+const hpFxQueue: (HpFxEvent & { sessionId: string })[] = [];
+export function drainHpFx(sessionId: string): HpFxEvent[] {
+  const mine: HpFxEvent[] = [];
+  for (let i = hpFxQueue.length - 1; i >= 0; i--) {
+    if (hpFxQueue[i].sessionId !== sessionId) continue;
+    const { kind, refId, delta } = hpFxQueue[i];
+    mine.unshift({ kind, refId, delta });
+    hpFxQueue.splice(i, 1);
+  }
+  return mine;
+}
+
 export function applyDamage(
   kind: TokenKind,
   refId: string,
@@ -2083,6 +2099,11 @@ export function applyDamage(
   } else {
     nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
   }
+  // Float a ±X over the token when the effective pool (HP + temp) changed.
+  // Damage absorbed by temp HP still reads as the full hit.
+  const delta = nextCur + nextTemp - (entity.curHp + entity.tempHp);
+  if (delta !== 0 && hpFxQueue.length < 200)
+    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta });
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {
