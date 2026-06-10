@@ -8,7 +8,7 @@ import type {
   TokenKind,
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
-import { validTargets } from '../lib/targets';
+import { healTargets, validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
 import { Spellbook } from './Spellbook';
 
@@ -126,6 +126,10 @@ export function CharacterSpells({
   useEffect(() => {
     if (validDefault) setTargetId(validDefault);
   }, [validDefault]);
+  // Heals pick from allies instead (self first = default) and apply on cast.
+  const healList = snapshot && attackerToken ? healTargets(snapshot, attackerToken) : [];
+  const hasHealSpell = character.sheetAbilities.some((a) => a.roll?.kind === 'heal');
+  const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
@@ -292,9 +296,14 @@ export function CharacterSpells({
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
       advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
-      // Attack-roll spells resolve to-hit vs the chosen target's AC (combat console).
+      // Attack-roll spells resolve to-hit vs the chosen target's AC; heals apply
+      // to the chosen ally (combat console).
       targetTokenId:
-        a.roll?.kind === 'attack' && targetId ? targetId : undefined,
+        a.roll?.kind === 'attack' && targetId
+          ? targetId
+          : a.roll?.kind === 'heal' && healTargetId
+            ? healTargetId
+            : undefined,
     });
   };
 
@@ -333,6 +342,19 @@ export function CharacterSpells({
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
                 {resolveToken(snapshot!, t).name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {hasHealSpell && healList.length > 0 && (
+        <div className="dice-row">
+          <span className="muted spell-tag">Heal target</span>
+          <select value={healTargetId} onChange={(e) => setHealTargetId(e.target.value)}>
+            {healList.map((t, i) => (
+              <option key={t.id} value={t.id}>
+                {resolveToken(snapshot!, t).name}
+                {i === 0 && t.refId === character.id ? ' (you)' : ''}
               </option>
             ))}
           </select>

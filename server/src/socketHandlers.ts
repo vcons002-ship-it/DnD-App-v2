@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import { newId } from './db.js';
-import { rollDice } from '../../shared/dice.js';
+import { parseRollCommand, rollDice } from '../../shared/dice.js';
 import {
   resolveAttack,
   resolveAbilityRoll,
@@ -638,6 +638,26 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       const body = typeof text === 'string' ? text.trim() : '';
       if (!sid || !body) return;
+      // "/roll 2d6+3 [adv|dis]" (or "/r …") typed into chat rolls server-side
+      // into the shared roll log instead of posting a message — the combined
+      // feed shows the result inline where the chat line would have been.
+      const cmd = parseRollCommand(body);
+      if (cmd) {
+        const result = rollDice(cmd.expr, cmd.advantage);
+        if (!result) {
+          socket.emit('notice', { message: `Invalid dice: "${cmd.expr}"` });
+          return;
+        }
+        addRollLog(sid, {
+          roller: rollerName(sid, socket.id, isDm()),
+          label: '',
+          expr: result.expr,
+          total: result.total,
+          detail: result.detail,
+        });
+        afterChange();
+        return;
+      }
       addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
       afterChange();
     });

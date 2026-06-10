@@ -78,17 +78,21 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   // Every rollable spell/ability/action the attacker can fire (attack/save/damage/
   // heal). Attack rolls resolve to-hit vs the right-clicked target's AC; save/damage/
   // heal just roll into the log (the "Apply damage" click-to-target flow targets them).
+  // Right-clicking the caster's OWN token still offers its heals (cast on self);
+  // other rollable kinds need a distinct target.
   const targetingSelf = !!attacker && attacker.id === token.id;
+  const castable = (a: SheetAbility) =>
+    !!a.roll && (!targetingSelf || a.roll.kind === 'heal');
   const pcAbilities: SheetAbility[] =
-    aChar && !targetingSelf && (isDm || aChar.claimedBy === mySocketId)
-      ? aChar.sheetAbilities.filter((a) => !!a.roll)
+    aChar && (isDm || aChar.claimedBy === mySocketId)
+      ? aChar.sheetAbilities.filter(castable)
       : [];
   // Monster abilities are DM-only (the ability:roll gate for creatures); the full
   // sheetAbilities list only rides on the DM snapshot anyway.
   const monAbilities: SheetAbility[] =
-    isDm && aMon && !targetingSelf
+    isDm && aMon
       ? ((aMon as { sheetAbilities?: SheetAbility[] }).sheetAbilities ?? []).filter(
-          (a) => !!a.roll,
+          castable,
         )
       : [];
   const canCastAsSelected = pcAbilities.length > 0 || monAbilities.length > 0;
@@ -144,9 +148,12 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
       {(canAttackAsSelected || canCastAsSelected) && (
         <div className="fm-attacks">
           <div className="fm-attacker">
-            <span className="fm-attacker-icon">⚔️</span>
-            Attacking as <strong>{resolveToken(snapshot, attacker!).name}</strong>
-            <span className="fm-attacker-target"> → {d.name}</span>
+            <span className="fm-attacker-icon">{targetingSelf ? '✨' : '⚔️'}</span>
+            {targetingSelf ? 'Casting as' : 'Attacking as'}{' '}
+            <strong>{resolveToken(snapshot, attacker!).name}</strong>
+            <span className="fm-attacker-target">
+              {' '}→ {targetingSelf ? 'self' : d.name}
+            </span>
           </div>
           {canAttackAsSelected && (
             <WeaponButtons
@@ -178,7 +185,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
                   advantage: consumeAdvantage(attacker!.refId),
                   // Target the right-clicked token: attack rolls resolve to-hit vs
                   // its AC; save/damage rolls make IT roll the save and take the
-                  // damage right away (no separate Apply-damage step). Heal ignores it.
+                  // damage right away; heals restore ITS HP on cast.
                   targetTokenId: token.id,
                 }),
               )}

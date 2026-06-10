@@ -773,15 +773,23 @@ function resolveSheetAbilityFor(
   }
 
   if (roll.kind === 'heal') {
-    const val = dice ? rollDice(dice)!.total : 0;
+    // Healing SPELLS add the caster's spellcasting mod (Cure Wounds & co.);
+    // plain abilities use their dice as written (bake any flat into the dice).
+    const castMod = ability.type === 'spell' ? spellcastingMod(stats) : 0;
+    const val = Math.max(0, (dice ? rollDice(dice)!.total : 0) + castMod);
+    // Targeted (floating menu / the heal-target dropdown): apply it right away.
+    const tok = targetTokenId ? getToken(targetTokenId) : null;
+    const target = tok ? resolve(tok) : null;
+    if (target && val > 0) applyDamage(target.kind, target.refId, -val);
     addRollLog(sessionId, {
       roller,
       label: ability.name,
       expr: title,
       total: val,
-      detail: `${title}: ${val} healing [${dice}]${
-        kind === 'pc' ? ' (+ spellcasting mod where applicable)' : ''
-      }`,
+      detail:
+        `${title}: ${val} healing [${dice}${
+          castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} mod` : ''
+        }]` + (target ? ` → ${target.name} +${val} HP` : ''),
       description: ability.description || undefined,
     });
     return true;

@@ -188,7 +188,8 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
       </div>
       <div className="chat-input">
         <input
-          placeholder="Message…"
+          placeholder="Message… (/roll 2d6+3)"
+          title="Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice"
           value={chatText}
           maxLength={2000}
           onChange={(e) => setChatText(e.target.value)}

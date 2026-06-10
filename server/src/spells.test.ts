@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  applyDamage,
   createSession,
+  createMap,
+  setActiveMap,
+  createToken,
   createCharacter,
   getCharacter,
   listRollLog,
@@ -232,5 +236,67 @@ describe('sheet abilities', () => {
     });
     expect(ok).toBe(false);
     expect(listRollLog(s.id).length).toBe(before);
+  });
+});
+
+describe('heal abilities apply healing', () => {
+  const cureWounds = (over: Partial<SheetAbility> = {}): SheetAbility => ({
+    id: 'cw',
+    name: 'Cure Wounds',
+    type: 'spell',
+    level: 1,
+    description: '',
+    roll: { kind: 'heal', dice: '10d1', baseLevel: 1 }, // 10 + casting mod
+    ...over,
+  });
+
+  it('a targeted heal SPELL restores the target HP (dice + casting mod)', () => {
+    const s = createSession('Heal1');
+    const map = createMap(s.id, { name: 'Ward' });
+    setActiveMap(s.id, map.id);
+    const cleric = createCharacter(s.id, {
+      name: 'Cleric', className: 'Cleric', level: 1, stats: { WIS: 16 }, // +3 mod
+    });
+    const ally = createCharacter(s.id, { name: 'Ally', maxHp: 30 });
+    applyDamage('pc', ally.id, 20); // 30 → 10
+    const tok = createToken({ mapId: map.id, kind: 'pc', refId: ally.id, x: 0, y: 0 });
+
+    expect(
+      resolveAbilityRoll(s.id, 'Cleric', cleric, cureWounds(), 1, undefined, tok.id),
+    ).toBe(true);
+    // 10 (10d1) + 3 (WIS mod) = 13 healing → 10 + 13 = 23 HP.
+    expect(getCharacter(ally.id)!.curHp).toBe(23);
+    const last = listRollLog(s.id).at(-1)!;
+    expect(last.total).toBe(13);
+    expect(last.detail).toContain('→ Ally +13 HP');
+  });
+
+  it('a plain heal ABILITY uses its dice as written (no casting mod)', () => {
+    const s = createSession('Heal2');
+    const map = createMap(s.id, { name: 'Camp' });
+    setActiveMap(s.id, map.id);
+    const fighter = createCharacter(s.id, {
+      name: 'Fighter', className: 'Fighter', level: 1, maxHp: 30, stats: { WIS: 16 },
+    });
+    applyDamage('pc', fighter.id, 20);
+    const tok = createToken({ mapId: map.id, kind: 'pc', refId: fighter.id, x: 0, y: 0 });
+
+    const secondWind = cureWounds({
+      id: 'sw', name: 'Second Wind', type: 'ability', level: undefined,
+      roll: { kind: 'heal', dice: '10d1' },
+    });
+    resolveAbilityRoll(s.id, 'Fighter', fighter, secondWind, undefined, undefined, tok.id);
+    expect(getCharacter(fighter.id)!.curHp).toBe(20); // +10, no mod
+  });
+
+  it('an untargeted heal only logs (nothing applied)', () => {
+    const s = createSession('Heal3');
+    const cleric = createCharacter(s.id, {
+      name: 'Cleric', className: 'Cleric', level: 1, maxHp: 30, stats: { WIS: 16 },
+    });
+    applyDamage('pc', cleric.id, 20);
+    resolveAbilityRoll(s.id, 'Cleric', cleric, cureWounds());
+    expect(getCharacter(cleric.id)!.curHp).toBe(10); // unchanged
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('healing');
   });
 });

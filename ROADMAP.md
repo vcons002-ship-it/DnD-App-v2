@@ -860,3 +860,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   variants, Stomp/Trample/Wing/Tusk…, typed touch/drain attacks, ranged
   Spit/Quill/Rock/Web). Tests: conversion at create, raw-row migration
   idempotence, ported action-roll suites (205 passing).
+- ☑ **Chat dice + working heals.** Typing **`/roll 2d6+3`** (or `/r`, optional
+  `adv`/`dis`) into chat rolls server-side into the shared roll log (invalid
+  dice → notice; parser `parseRollCommand` in `shared/dice.ts`). **Heal
+  abilities now actually heal**: a targeted heal applies the HP on cast (heal
+  SPELLS add the caster's spellcasting mod; plain abilities use their dice as
+  written) — the combat console gets a **Heal target** dropdown (self default +
+  allies via `healTargets`), and the floating menu applies heals to the
+  right-clicked token, including your own (right-click yourself → "Casting as …
+  → self" lists your heals). Untargeted heals still just log.
