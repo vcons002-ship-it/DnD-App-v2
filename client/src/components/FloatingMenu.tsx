@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import type {
-  CreatureAbility,
   SheetAbility,
   StateSnapshot,
   Token,
@@ -40,7 +39,6 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   const applyDamage = useStore((s) => s.applyDamage);
   const combatAttack = useStore((s) => s.combatAttack);
   const rollAbility = useStore((s) => s.rollAbility);
-  const rollMonsterAction = useStore((s) => s.rollMonsterAction);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
@@ -80,19 +78,24 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   // Every rollable spell/ability/action the attacker can fire (attack/save/damage/
   // heal). Attack rolls resolve to-hit vs the right-clicked target's AC; save/damage/
   // heal just roll into the log (the "Apply damage" click-to-target flow targets them).
+  // Right-clicking the caster's OWN token still offers its heals (cast on self);
+  // other rollable kinds need a distinct target.
   const targetingSelf = !!attacker && attacker.id === token.id;
+  const castable = (a: SheetAbility) =>
+    !!a.roll && (!targetingSelf || a.roll.kind === 'heal');
   const pcAbilities: SheetAbility[] =
-    aChar && !targetingSelf && (isDm || aChar.claimedBy === mySocketId)
-      ? aChar.sheetAbilities.filter((a) => !!a.roll)
+    aChar && (isDm || aChar.claimedBy === mySocketId)
+      ? aChar.sheetAbilities.filter(castable)
       : [];
-  // Monster actions are DM-only (monster:action gate); full `actions` only on the DM snapshot.
-  const monActions: { a: CreatureAbility; i: number }[] =
-    isDm && aMon && !targetingSelf
-      ? ((aMon as { actions?: CreatureAbility[] }).actions ?? [])
-          .map((a, i) => ({ a, i }))
-          .filter((x) => !!x.a.roll)
+  // Monster abilities are DM-only (the ability:roll gate for creatures); the full
+  // sheetAbilities list only rides on the DM snapshot anyway.
+  const monAbilities: SheetAbility[] =
+    isDm && aMon
+      ? ((aMon as { sheetAbilities?: SheetAbility[] }).sheetAbilities ?? []).filter(
+          castable,
+        )
       : [];
-  const canCastAsSelected = pcAbilities.length > 0 || monActions.length > 0;
+  const canCastAsSelected = pcAbilities.length > 0 || monAbilities.length > 0;
 
   // Dismiss on outside click, scroll, or Escape.
   useEffect(() => {
@@ -145,9 +148,12 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
       {(canAttackAsSelected || canCastAsSelected) && (
         <div className="fm-attacks">
           <div className="fm-attacker">
-            <span className="fm-attacker-icon">⚔️</span>
-            Attacking as <strong>{resolveToken(snapshot, attacker!).name}</strong>
-            <span className="fm-attacker-target"> → {d.name}</span>
+            <span className="fm-attacker-icon">{targetingSelf ? '✨' : '⚔️'}</span>
+            {targetingSelf ? 'Casting as' : 'Attacking as'}{' '}
+            <strong>{resolveToken(snapshot, attacker!).name}</strong>
+            <span className="fm-attacker-target">
+              {' '}→ {targetingSelf ? 'self' : d.name}
+            </span>
           </div>
           {canAttackAsSelected && (
             <WeaponButtons
@@ -179,7 +185,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
                   advantage: consumeAdvantage(attacker!.refId),
                   // Target the right-clicked token: attack rolls resolve to-hit vs
                   // its AC; save/damage rolls make IT roll the save and take the
-                  // damage right away (no separate Apply-damage step). Heal ignores it.
+                  // damage right away; heals restore ITS HP on cast.
                   targetTokenId: token.id,
                 }),
               )}
@@ -187,18 +193,21 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
               {ROLL_ICON[a.roll!.kind] ?? '🎲'} {a.name}
             </button>
           ))}
-          {monActions.map(({ a, i }) => (
+          {monAbilities.map((a) => (
             <button
-              key={i}
+              key={a.id}
               className="btn tiny fm-spell-attack"
-              title={a.description || 'Action'}
+              title={a.description || 'Ability'}
               onClick={run(() =>
-                rollMonsterAction(
-                  aMon!.id,
-                  i,
-                  consumeAdvantage(attacker!.refId),
-                  token.id, // attack → vs AC; save/damage → target rolls + takes it now
-                ),
+                rollAbility({
+                  kind: 'monster',
+                  refId: aMon!.id,
+                  abilityId: a.id,
+                  castLevel: a.roll?.baseLevel,
+                  advantage: consumeAdvantage(attacker!.refId),
+                  // attack → vs AC; save/damage → target rolls + takes it now
+                  targetTokenId: token.id,
+                }),
               )}
             >
               {ROLL_ICON[a.roll!.kind] ?? '🎲'} {a.name}

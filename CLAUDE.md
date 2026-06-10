@@ -203,14 +203,17 @@ sanitization rules above and commit it to `claude/Main`.
   stays visible, and flat mastery damage (GWM prof bonus) is **folded into the
   damage number** rather than appended. A cast spell/ability's full `description`
   rides on its `RollEntry` and shows in the **full** log (overlay shows only the
-  one-line result). **Monster attacks**: SRD/AI free-text `actions` are parsed into
-  rollable `weapons` (`shared/monsterAttacks.ts`), and the DM can build/edit attacks
-  via the `StatBlock` **"+ Attack"** picker that spans the 2024 weapon book
-  (`/api/weapons`) AND a natural-attacks library (`/api/attacks`, Bite/Claw/Slam…);
+  one-line result). **Monster attacks — ONE merged system**: free-text `actions`
+  (SRD/AI/paste) are only a *transport* shape, converted at insert + by a startup
+  migration (`shared/monsterAttacks.ts` `weaponsFromActions`/`actionsToSheetAbilities`):
+  weapon-like entries become rollable `weapons`, the rest become rich
+  `sheetAbilities` (rolls kept or scraped via `parseActionRoll`) — stored monsters
+  keep `actions` empty. The DM builds/edits attacks via the `StatBlock`
+  **"+ Attack"** picker spanning the 2024 weapon book (`/api/weapons`) AND a
+  natural-attacks library (`/api/attacks`, ~36 entries: Bite/Claw/Slam/Spit/Rock…);
   creature picks are stored **dice-only (`Weapon.diceOnly`)** so the mod + to-hit come
   from the creature's **live stats** like a PC weapon (`rollWeaponAttack` adds the mod
-  for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is), and
-  **↻ Pull attacks from description** re-parses on demand. A player's
+  for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is). A player's
   right panel is a **combat console** — selecting any token shows the player's own
   attacks (defaulting their target to the clicked token, friendly creatures excluded)
   + abilities, not a duplicate sheet, with the **roll log right below it**; the
@@ -253,9 +256,12 @@ sanitization rules above and commit it to `claude/Main`.
 - **WP11 follow-up — structured spell attacks:** DONE. `sheetAbilities` carry a
   structured `roll` (attack/save/damage/heal + upcast), rolled server-side via
   `ability:roll`; casting a leveled spell **auto-spends a slot** (`spendSpellSlot`)
-  and spell attacks support adv/dis. **Monster `actions`** now carry the same
-  structured `roll` too — `resolveMonsterAction` (DC/to-hit from the monster's CR +
-  casting mod) via the DM-only `monster:action` event, authored in `StatBlock`. A
+  and spell attacks support adv/dis. **Monsters use the SAME system** —
+  `sheetAbilities` rolled via `ability:roll` with `{kind:'monster'}` (DM-only),
+  resolved by `resolveMonsterSheetAbility` (a thin wrapper over the ONE shared
+  `resolveSheetAbilityFor` core: CR-based prof + best INT/WIS/CHA, explicit
+  `roll.dc` wins, no slot spend), authored in the creature's **Spells & Abilities**
+  section (`CharacterSpells kind="monster"`). A
   save/damage roll's `RollEntry` carries a DM-only `apply` payload, so the full log's
   **"Apply damage"** button arms a **click-to-target** mode (`save:resolve` →
   `resolveForcedSave`): each clicked creature rolls its own save and takes auto half/full

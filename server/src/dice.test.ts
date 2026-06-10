@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rollDice } from '../../shared/dice.js';
+import { parseRollCommand, rollDice } from '../../shared/dice.js';
 
 describe('dice roller', () => {
   it('rolls within bounds and sums modifiers', () => {
@@ -47,5 +47,20 @@ describe('dice roller', () => {
       if (adv >= dis) advWins++;
     }
     expect(advWins).toBeGreaterThan(150);
+  });
+});
+
+describe('chat /roll command', () => {
+  it('parses /roll and /r with optional adv/dis', () => {
+    expect(parseRollCommand('/roll 2d8')).toEqual({ expr: '2d8', advantage: undefined });
+    expect(parseRollCommand('/r 2d6+3 adv')).toEqual({ expr: '2d6+3', advantage: 'adv' });
+    expect(parseRollCommand('  /ROLL d20 DIS ')).toEqual({ expr: 'd20', advantage: 'dis' });
+  });
+
+  it('returns null for ordinary chat text', () => {
+    expect(parseRollCommand('hello there')).toBeNull();
+    expect(parseRollCommand('roll 2d6')).toBeNull(); // no leading slash
+    expect(parseRollCommand('/rollercoaster wheee')).toBeNull();
+    expect(parseRollCommand('/roll')).toBeNull(); // no expression
   });
 });

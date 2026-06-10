@@ -1,25 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
+import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { signed } from '../../../shared/skills';
 import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
 import { DAMAGE_TYPES } from '../../../shared/damage';
-import { parseActionRoll, weaponsFromActions } from '../../../shared/monsterAttacks';
 
 /** Common 5e weapon tags, offered as add-suggestions in the tag editor. */
 const TAG_SUGGESTIONS = [
   'finesse', 'light', 'heavy', 'versatile', 'two-handed', 'thrown',
   'reach', 'ammunition', 'loading',
 ];
-
-/** Short button label for a structured action roll. */
-const rollLabel = (r: AbilityRoll): string =>
-  r.kind === 'attack'
-    ? '🎯 Attack'
-    : r.kind === 'heal'
-      ? '✚ Heal'
-      : r.kind === 'save'
-        ? `🎲 Damage (${r.save ?? 'save'})`
-        : '🎲 Damage';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const mod = (score: number) => {
@@ -73,17 +62,12 @@ type Props = {
   monster?: boolean;
   /** DM-only: roll a monster action that carries a structured `roll`. When given,
    *  each such action shows a roll button (server-resolved via `monster:action`). */
-  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
   /** When given, each ability score becomes clickable to roll that saving throw
    *  (server-resolved via `save:roll`, honoring the creature's adv/dis toggle). */
   onRollSave?: (ability: string) => void;
   /** Omit the Actions & Traits blocks here so a parent can render them elsewhere
    *  (the character sheet collapses them to the bottom via `ActionsTraitsView`). */
   deferActionsTraits?: boolean;
-  /** Hide ACTIONS from the read view (Traits still show) because a parent renders
-   *  the rollable actions in its own "Spells & Abilities" section. Editing still
-   *  happens here so the rich action editor (+Attack / Derive rolls) is preserved. */
-  actionsElsewhere?: boolean;
 };
 
 /**
@@ -125,10 +109,8 @@ export function StatBlock({
   aiBusy,
   masteries,
   monster = false,
-  onRollAction,
   onRollSave,
   deferActionsTraits = false,
-  actionsElsewhere = false,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [d, setD] = useState<Draft>(() => toDraft(creature, identity));
@@ -189,10 +171,8 @@ export function StatBlock({
         onAiFill={onAiFill}
         aiBusy={aiBusy}
         masteries={masteries}
-        onRollAction={onRollAction}
         onRollSave={onRollSave}
         deferActionsTraits={deferActionsTraits}
-        actionsElsewhere={actionsElsewhere}
       />
     );
   }
@@ -321,23 +301,18 @@ export function StatBlock({
         weapons={d.weapons}
         onChange={(weapons) => set({ weapons })}
         monster={monster}
-        onPullFromActions={
-          monster && d.actions.length > 0
-            ? () => {
-                const { weapons, actions } = weaponsFromActions(d.actions);
-                set({ weapons: [...d.weapons, ...weapons], actions });
-              }
-            : undefined
-        }
       />
       {!deferActionsTraits && (
         <>
-          <EntryEditor
-            title="Actions"
-            entries={d.actions}
-            onChange={(actions) => set({ actions })}
-            withRoll={monster}
-          />
+          {/* Monster rollable actions live in the Spells & Abilities section
+              (merged system); the stat block edits only the descriptive Traits. */}
+          {!monster && (
+            <EntryEditor
+              title="Actions"
+              entries={d.actions}
+              onChange={(actions) => set({ actions })}
+            />
+          )}
           <EntryEditor
             title="Traits"
             entries={d.abilities}
@@ -366,10 +341,8 @@ function ReadView({
   onAiFill,
   aiBusy,
   masteries,
-  onRollAction,
   onRollSave,
   deferActionsTraits = false,
-  actionsElsewhere = false,
 }: {
   creature: StatSheet;
   subtitle?: string;
@@ -378,10 +351,8 @@ function ReadView({
   onAiFill?: () => void;
   aiBusy?: boolean;
   masteries?: SheetAbility[];
-  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
   onRollSave?: (ability: string) => void;
   deferActionsTraits?: boolean;
-  actionsElsewhere?: boolean;
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
@@ -523,9 +494,8 @@ function ReadView({
 
       {!deferActionsTraits && (
         <ActionsTraitsReadSections
-          actions={actionsElsewhere ? [] : m.actions}
+          actions={m.actions}
           abilities={m.abilities}
-          onRollAction={onRollAction}
         />
       )}
     </div>
@@ -538,11 +508,9 @@ function ReadView({
 export function ActionsTraitsReadSections({
   actions,
   abilities,
-  onRollAction,
 }: {
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
-  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
 }) {
   return (
     <>
@@ -552,9 +520,6 @@ export function ActionsTraitsReadSections({
           {actions.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
-              {a.roll && onRollAction && (
-                <ActionRollButton roll={a.roll} onRoll={() => onRollAction(i)} />
-              )}
             </p>
           ))}
         </div>
@@ -584,7 +549,6 @@ export function ActionsTraitsView({
   abilities,
   editable = false,
   onSave,
-  onRollAction,
   showActions = true,
   showTraits = true,
 }: {
@@ -592,7 +556,6 @@ export function ActionsTraitsView({
   abilities: CreatureAbility[];
   editable?: boolean;
   onSave?: (patch: { actions: CreatureAbility[]; abilities: CreatureAbility[] }) => void;
-  onRollAction?: (actionIndex: number, advantage?: 'adv' | 'dis') => void;
   /** Render/edit only Actions (the spells/abilities area) or only Traits (the
    *  sheet) — the unshown kind is preserved untouched on save. */
   showActions?: boolean;
@@ -631,7 +594,6 @@ export function ActionsTraitsView({
           <ActionsTraitsReadSections
             actions={showActions ? actions : []}
             abilities={showTraits ? abilities : []}
-            onRollAction={onRollAction}
           />
         )}
       </div>
@@ -654,19 +616,6 @@ export function ActionsTraitsView({
         </button>
       </div>
     </div>
-  );
-}
-
-/** DM roll button for a monster action's structured roll. Advantage/disadvantage
- *  comes from the creature's shared per-entity toggle (consumed by the caller),
- *  so there are no per-action adv/dis buttons here. */
-function ActionRollButton({ roll, onRoll }: { roll: AbilityRoll; onRoll: () => void }) {
-  return (
-    <span className="sb-action-roll">
-      <button className="btn tiny" onClick={onRoll}>
-        {rollLabel(roll)}
-      </button>
-    </span>
   );
 }
 
@@ -780,15 +729,11 @@ function WeaponEditor({
   weapons,
   onChange,
   monster = false,
-  onPullFromActions,
 }: {
   weapons: Weapon[];
   onChange: (w: Weapon[]) => void;
   /** Creature attacks: library picks are flagged `diceOnly` (mod/to-hit live). */
   monster?: boolean;
-  /** When set, shows a "Generate attacks from description" button that parses the
-   *  creature's prose actions into rollable attacks (grouped with "+ Attack"). */
-  onPullFromActions?: () => void;
 }) {
   const setAt = (i: number, patch: Partial<Weapon>) =>
     onChange(weapons.map((w, j) => (j === i ? { ...w, ...patch } : w)));
@@ -953,15 +898,6 @@ function WeaponEditor({
         <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
           {picking ? 'Close' : monster ? '+ Attack' : '+ Weapon'}
         </button>
-        {onPullFromActions && (
-          <button
-            className="btn tiny"
-            title="Read the creature's description / actions text (e.g. '+5 to hit, 2d6+3 damage') and turn it into rollable attacks here."
-            onClick={onPullFromActions}
-          >
-            ↻ Generate attacks from description
-          </button>
-        )}
       </div>
       {picking && (
         <div className="weapon-picker">
@@ -1007,18 +943,13 @@ function EntryEditor({
   title,
   entries,
   onChange,
-  withRoll = false,
 }: {
   title: string;
   entries: CreatureAbility[];
   onChange: (e: CreatureAbility[]) => void;
-  /** Monster actions: also edit an optional structured `roll` + derive from text. */
-  withRoll?: boolean;
 }) {
   const setAt = (i: number, patch: Partial<CreatureAbility>) =>
     onChange(entries.map((e, j) => (j === i ? { ...e, ...patch } : e)));
-  const setRoll = (i: number, patch: Partial<AbilityRoll>) =>
-    setAt(i, { roll: { ...(entries[i].roll ?? { kind: 'save' }), ...patch } });
   return (
     <div className="sb-section">
       <h4>{title}</h4>
@@ -1034,68 +965,6 @@ function EntryEditor({
             value={e.description}
             onChange={(ev) => setAt(i, { description: ev.target.value })}
           />
-          {withRoll && (
-            <div className="sb-roll-edit">
-              <select
-                value={e.roll?.kind ?? ''}
-                title="Make this action rollable"
-                onChange={(ev) =>
-                  ev.target.value
-                    ? setRoll(i, { kind: ev.target.value as AbilityRoll['kind'] })
-                    : setAt(i, { roll: undefined })
-                }
-              >
-                <option value="">(no roll)</option>
-                <option value="save">Save</option>
-                <option value="attack">Attack</option>
-                <option value="damage">Damage</option>
-                <option value="heal">Heal</option>
-              </select>
-              {e.roll && (
-                <>
-                  <input
-                    className="sb-roll-dice"
-                    placeholder="8d6"
-                    value={e.roll.dice ?? ''}
-                    onChange={(ev) => setRoll(i, { dice: ev.target.value })}
-                  />
-                  {e.roll.kind === 'save' && (
-                    <>
-                      <select
-                        value={e.roll.save ?? 'DEX'}
-                        onChange={(ev) => setRoll(i, { save: ev.target.value })}
-                      >
-                        {ABILITIES.map((a) => (
-                          <option key={a} value={a}>
-                            {a}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        className="sb-roll-dc"
-                        type="number"
-                        placeholder="DC"
-                        value={e.roll.dc ?? ''}
-                        onChange={(ev) =>
-                          setRoll(i, {
-                            dc: ev.target.value === '' ? undefined : Number(ev.target.value),
-                          })
-                        }
-                      />
-                    </>
-                  )}
-                  {e.roll.kind !== 'heal' && (
-                    <input
-                      className="sb-roll-type"
-                      placeholder="fire"
-                      value={e.roll.damageType ?? ''}
-                      onChange={(ev) => setRoll(i, { damageType: ev.target.value })}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          )}
           <button
             className="btn tiny"
             onClick={() => onChange(entries.filter((_, j) => j !== i))}
@@ -1104,23 +973,6 @@ function EntryEditor({
           </button>
         </div>
       ))}
-      {withRoll && entries.some((e) => e.description && !e.roll) && (
-        <button
-          className="btn tiny"
-          title="Scrape a save DC + damage dice from each action's description"
-          onClick={() =>
-            onChange(
-              entries.map((e) => {
-                if (e.roll || !e.description) return e;
-                const r = parseActionRoll(e.description);
-                return r ? { ...e, roll: r } : e;
-              }),
-            )
-          }
-        >
-          ↻ Derive rolls from descriptions
-        </button>
-      )}
       <button
         className="btn tiny"
         onClick={() => onChange([...entries, { name: '', description: '' }])}

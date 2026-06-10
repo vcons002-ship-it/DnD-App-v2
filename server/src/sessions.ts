@@ -11,7 +11,7 @@ import { iconForCreature } from './creatures/srd.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { abilityMod } from '../../shared/skills.js';
-import { weaponsFromActions, parseActionRoll } from '../../shared/monsterAttacks.js';
+import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
 import type {
   Character,
   CombatRole,
@@ -916,13 +916,15 @@ export function addRollLog(
     description?: string;
     /** Optional "Apply damage" payload (save/damage spell → click-to-target saves). */
     apply?: RollEntry['apply'];
+    /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
+    hpNote?: RollEntry['hpNote'];
   },
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -933,6 +935,7 @@ export function addRollLog(
     entry.detail,
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
+    entry.hpNote ? JSON.stringify(entry.hpNote) : '',
     createdAt,
   );
   pruneRollLog(sessionId);
@@ -1013,8 +1016,21 @@ type RollLogRow = {
   detail: string;
   description: string | null;
   apply: string | null;
+  hp_note: string | null;
   created_at: number;
 };
+
+/** Stored as JSON; a legacy plain-text note (no target) parses to undefined so
+ *  it can never leak an enemy's HP to players. */
+function parseHpNote(raw: string): RollEntry['hpNote'] {
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v.text === 'string' && typeof v.refId === 'string') return v;
+  } catch {
+    /* legacy plain text */
+  }
+  return undefined;
+}
 
 function rowToRollEntry(r: RollLogRow): RollEntry {
   return {
@@ -1026,6 +1042,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     detail: r.detail,
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
+    ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
     createdAt: r.created_at,
   };
 }
@@ -1769,6 +1786,20 @@ function insertMonster(
   const id = newId();
   const type = opts.creatureType ?? '';
   const icon = opts.icon || iconForCreature(meta.name, type);
+  // `actions` is only a transport shape (SRD / AI / pasted stat blocks): weapon-
+  // like entries ("+4 to hit, 1d6+2 slashing") become rollable weapons, the rest
+  // merge into sheetAbilities. Stored monsters always keep `actions` empty.
+  let weapons = opts.weapons ?? [];
+  let actions = opts.actions ?? [];
+  if (weapons.length === 0 && actions.length) {
+    const split = weaponsFromActions(actions);
+    weapons = split.weapons;
+    actions = split.actions;
+  }
+  const sheetAbilities = [
+    ...(opts.sheetAbilities ?? []),
+    ...actionsToSheetAbilities(actions, { makeId: newId, source: opts.source }),
+  ];
   db.prepare(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
@@ -1791,16 +1822,16 @@ function insertMonster(
     opts.armorClass ?? 0,
     opts.speed ?? '',
     JSON.stringify(opts.stats ?? {}),
-    JSON.stringify(opts.actions ?? []),
+    '[]', // actions: converted to weapons/sheetAbilities above
     meta.isTemplate ? 1 : 0,
     meta.templateId,
     opts.disposition ?? 'enemy',
-    JSON.stringify(opts.weapons ?? []),
+    JSON.stringify(weapons),
     opts.level ?? 0,
     opts.objectKind ?? null,
     opts.loot ? JSON.stringify(opts.loot) : null,
     opts.objectDc ?? null,
-    JSON.stringify(opts.sheetAbilities ?? []),
+    JSON.stringify(sheetAbilities),
   );
   return getMonster(id)!;
 }
@@ -1816,37 +1847,15 @@ function uniqueTemplateName(sessionId: string, base: string): string {
   return `${base} (${n})`;
 }
 
-/** Create a reusable creature template (one spawn button). */
+/** Create a reusable creature template (one spawn button). Free-text `actions`
+ *  are converted in `insertMonster`: weapon-like ones become rollable weapons,
+ *  the rest become rich sheet abilities (rolls kept or scraped). */
 export function createMonsterTemplate(
   sessionId: string,
   opts: MonsterInput,
 ): Monster {
   const base = opts.name.trim() || 'Creature';
-  // Give monsters rollable attacks: when no structured weapons are supplied,
-  // derive them from the free-text actions (e.g. "+4 to hit, 1d6+2 slashing").
-  let input = opts;
-  let actions = opts.actions ?? [];
-  if ((!opts.weapons || opts.weapons.length === 0) && actions.length) {
-    const split = weaponsFromActions(actions);
-    if (split.weapons.length) {
-      input = { ...opts, weapons: split.weapons, actions: split.actions };
-      actions = split.actions;
-    }
-  }
-  // Attach a structured save/damage roll to any remaining free-text action so
-  // breath weapons / trap effects become rollable (and offer Apply damage) —
-  // the same scrape as the stat block's "Derive rolls from descriptions".
-  if (actions.some((a) => !a.roll && a.description)) {
-    input = {
-      ...input,
-      actions: actions.map((a) => {
-        if (a.roll || !a.description) return a;
-        const roll = parseActionRoll(a.description);
-        return roll ? { ...a, roll } : a;
-      }),
-    };
-  }
-  return insertMonster(sessionId, input, {
+  return insertMonster(sessionId, opts, {
     isTemplate: true,
     templateId: null,
     name: uniqueTemplateName(sessionId, base),
@@ -1948,6 +1957,28 @@ export function updateMonster(
 ): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
+
+  // Merged ability system: a legacy `actions` patch (AI fill / pasted stat
+  // block) is converted instead of stored — weapon-like entries become weapons
+  // (when there are none yet), the rest fold into sheetAbilities (rolls kept or
+  // scraped, deduped by name). Stored monsters always keep `actions` empty.
+  if (patch.actions !== undefined) {
+    let actions = patch.actions;
+    if ((patch.weapons ?? m.weapons).length === 0 && actions.length) {
+      const split = weaponsFromActions(actions);
+      if (split.weapons.length) {
+        patch = { ...patch, weapons: split.weapons };
+        actions = split.actions;
+      }
+    }
+    const baseSheet = patch.sheetAbilities ?? m.sheetAbilities;
+    const have = new Set(baseSheet.map((a) => a.name.toLowerCase()));
+    const converted = actionsToSheetAbilities(
+      actions.filter((a) => !have.has(a.name.toLowerCase())),
+      { makeId: newId, source: m.source },
+    );
+    patch = { ...patch, actions: [], sheetAbilities: [...baseSheet, ...converted] };
+  }
 
   // Map each patchable field to its column + serialized value.
   const sets: string[] = [];

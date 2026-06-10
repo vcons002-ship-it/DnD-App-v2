@@ -34,12 +34,12 @@ import { SKILLS, skillBonus, signed, proficiencyBonus } from '../../shared/skill
 import type {
   AbilityRoll,
   Character,
-  CreatureAbility,
   ManeuverSpec,
   Monster,
   RollEntry,
   SheetAbility,
   Token,
+  TokenKind,
   Weapon,
 } from '../../shared/types.js';
 
@@ -89,6 +89,23 @@ function resolve(token: Token): Resolved | null {
     weaknesses: m.weaknesses,
     saveProficiencies: m.saveProficiencies,
   };
+}
+
+/** Apply rolled damage/healing and return an accounting note for the roll log
+ *  ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot and
+ *  correct. Carries the target so visibility can hide ENEMY changes from
+ *  players. Undefined when nothing was found/changed. */
+function applyDamageNoted(
+  kind: TokenKind,
+  refId: string,
+  amount: number,
+): RollEntry['hpNote'] {
+  const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  const after = applyDamage(kind, refId, amount);
+  if (!before || !after) return undefined;
+  const hp = (e: { curHp: number; tempHp: number }) =>
+    `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
+  return { kind, refId, text: `${after.name} HP ${hp(before)}→${hp(after)}` };
 }
 
 /**
@@ -315,8 +332,9 @@ export function resolveAttack(
     }
   }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  let hpNote: RollEntry['hpNote'];
   if (applied > 0) {
-    applyDamage(t.kind, t.refId, applied);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -328,6 +346,7 @@ export function resolveAttack(
       `${a.name} → ${t.name}: ${out.detail}` +
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+    hpNote,
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
@@ -494,7 +513,7 @@ export function resolveForcedSave(
     // in order and disarms when the darts run out.
     const base = apply.split[instanceIndex] ?? 0;
     dmg = Math.floor(base * mult);
-    applyDamage(r.kind, r.refId, dmg);
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     addRollLog(sessionId, {
       roller: 'DM',
@@ -502,6 +521,7 @@ export function resolveForcedSave(
       total: dmg,
       expr: `dart ${instanceIndex + 1}`,
       detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+      hpNote: dartNote,
     });
     return;
   }
@@ -532,7 +552,7 @@ export function resolveForcedSave(
     dmg = Math.floor(apply.amount * mult);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  applyDamage(r.kind, r.refId, dmg);
+  const saveNote = applyDamageNoted(r.kind, r.refId, dmg);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   addRollLog(sessionId, {
     roller: 'DM',
@@ -540,6 +560,7 @@ export function resolveForcedSave(
     expr: `DC ${apply.dc}`,
     total: dmg,
     detail,
+    hpNote: saveNote,
   });
 }
 
@@ -589,6 +610,7 @@ function resolveTargetedSpellAttack(opts: {
   const hit = crit || (!fumble && attackTotal >= t.ac);
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
+  let hpNote: RollEntry['hpNote'];
   const notes: string[] = [];
   if (hit && opts.dice) {
     let dmg = rollDice(opts.dice)!.total;
@@ -601,7 +623,7 @@ function resolveTargetedSpellAttack(opts: {
           ? `½ resisted (${opts.damageType})`
           : `×2 vulnerable (${opts.damageType})`,
       );
-    applyDamage(t.kind, t.refId, applied);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -615,6 +637,7 @@ function resolveTargetedSpellAttack(opts: {
       (hit && opts.dice ? `, ${applied}${dmgType} dmg [${opts.dice}${crit ? ' ×2 crit' : ''}]` : '') +
       (notes.length ? ` · ${notes.join(', ')}` : ''),
     description: opts.description,
+    hpNote,
   });
   return true;
 }
@@ -674,10 +697,22 @@ function isConcentrationSpell(a: SheetAbility): boolean {
   );
 }
 
-export function resolveAbilityRoll(
+/**
+ * Resolve a rich sheet spell/ability (PC or monster — ONE shared body, since the
+ * merge of the legacy free-text action system). Only the numbers differ by kind:
+ * - PC: spell attack/DC from the sheet (casting mod + proficiency by LEVEL,
+ *   `spellSaveDC`); spell slots are spent by the caller (socketHandlers).
+ * - Monster: proficiency by CR (`profBonusFor`) + best of INT/WIS/CHA; an
+ *   explicit `roll.dc` (from the stat block) wins over the derived DC; no slots.
+ * Targeted attack rolls resolve vs the token's AC with typed auto-damage;
+ * save/damage rolls carry the "Apply damage" payload (or apply immediately when
+ * fired at a single target from the floating menu).
+ */
+function resolveSheetAbilityFor(
   sessionId: string,
   roller: string,
-  character: Character,
+  kind: TokenKind,
+  entity: { id: string; stats: Record<string, number>; level: number },
   ability: SheetAbility,
   castLevel?: number,
   advantage?: Advantage,
@@ -686,9 +721,9 @@ export function resolveAbilityRoll(
   // Casting a concentration spell starts concentration on the caster (replacing
   // any prior one). This fires even for a buff with no damage roll.
   if (isConcentrationSpell(ability)) {
-    const { changed } = setConcentration('pc', character.id, ability.name);
+    const { changed } = setConcentration(kind, entity.id, ability.name);
     if (!ability.roll) {
-      setLastAttackRole('pc', character.id, 'caster');
+      setLastAttackRole(kind, entity.id, 'caster');
       if (changed)
         addRollLog(sessionId, {
           roller,
@@ -704,8 +739,12 @@ export function resolveAbilityRoll(
   const roll = ability.roll;
   if (!roll) return false;
   // Casting a spell/ability makes this creature read as a caster on its badge.
-  setLastAttackRole('pc', character.id, 'caster');
-  const { stats, level } = character;
+  setLastAttackRole(kind, entity.id, 'caster');
+  const { stats, level } = entity;
+  const prof =
+    kind === 'pc'
+      ? proficiencyBonus(level || 1)
+      : profBonusFor({ stats, level, isMonster: true });
   const dice = effectiveDice(roll, { castLevel, casterLevel: level });
   const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
   const upcast =
@@ -715,10 +754,7 @@ export function resolveAbilityRoll(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
-    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(
-      stats,
-      proficiencyBonus(level || 1),
-    );
+    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(stats, prof);
     // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
     if (
       targetTokenId &&
@@ -760,19 +796,35 @@ export function resolveAbilityRoll(
   }
 
   if (roll.kind === 'heal') {
-    const val = dice ? rollDice(dice)!.total : 0;
+    // Healing SPELLS add the caster's spellcasting mod (Cure Wounds & co.);
+    // plain abilities use their dice as written (bake any flat into the dice).
+    const castMod = ability.type === 'spell' ? spellcastingMod(stats) : 0;
+    const val = Math.max(0, (dice ? rollDice(dice)!.total : 0) + castMod);
+    // Targeted (floating menu / the heal-target dropdown): apply it right away.
+    const tok = targetTokenId ? getToken(targetTokenId) : null;
+    const target = tok ? resolve(tok) : null;
+    const healNote =
+      target && val > 0 ? applyDamageNoted(target.kind, target.refId, -val) : undefined;
     addRollLog(sessionId, {
       roller,
       label: ability.name,
       expr: title,
       total: val,
-      detail: `${title}: ${val} healing [${dice}] (+ spellcasting mod where applicable)`,
+      detail:
+        `${title}: ${val} healing [${dice}${
+          castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} mod` : ''
+        }]` + (target ? ` → ${target.name} +${val} HP` : ''),
       description: ability.description || undefined,
+      hpNote: healNote,
     });
     return true;
   }
 
-  const dc = spellSaveDC(level, stats);
+  // PC save DC derives from the sheet; a monster stat block's explicit DC wins.
+  const dc =
+    kind === 'pc'
+      ? spellSaveDC(level, stats)
+      : roll.dc ?? 8 + prof + spellcastingMod(stats);
 
   // A split spell (e.g. Magic Missile): roll each instance/dart separately so the
   // DM can assign them one target at a time. Upcasting adds darts, not dice.
@@ -814,13 +866,29 @@ export function resolveAbilityRoll(
   return true;
 }
 
-/**
- * Resolve a MONSTER's rich `sheetAbility` (same shape PCs use), mirroring
- * `resolveAbilityRoll` but with the DC/to-hit derived from the creature's CR
- * (proficiency by CR + best of INT/WIS/CHA) and NO spell-slot spend. Targeted
- * attack rolls resolve vs the token's AC with typed auto-damage; save/damage
- * rolls carry the "Apply damage" payload for the click-to-target flow.
- */
+/** Roll a PC's sheet spell/ability (slot spend handled by the caller). */
+export function resolveAbilityRoll(
+  sessionId: string,
+  roller: string,
+  character: Character,
+  ability: SheetAbility,
+  castLevel?: number,
+  advantage?: Advantage,
+  targetTokenId?: string,
+): boolean {
+  return resolveSheetAbilityFor(
+    sessionId,
+    roller,
+    'pc',
+    character,
+    ability,
+    castLevel,
+    advantage,
+    targetTokenId,
+  );
+}
+
+/** Roll a MONSTER's sheet ability (CR-based DC/to-hit, no spell slots). */
 export function resolveMonsterSheetAbility(
   sessionId: string,
   roller: string,
@@ -830,125 +898,16 @@ export function resolveMonsterSheetAbility(
   advantage?: Advantage,
   targetTokenId?: string,
 ): boolean {
-  if (isConcentrationSpell(ability)) {
-    const { changed } = setConcentration('monster', monster.id, ability.name);
-    if (!ability.roll) {
-      setLastAttackRole('monster', monster.id, 'caster');
-      if (changed)
-        addRollLog(sessionId, {
-          roller,
-          label: ability.name,
-          expr: ability.name,
-          total: 0,
-          detail: `${ability.name}: cast — now concentrating`,
-          description: ability.description || undefined,
-        });
-      return true;
-    }
-  }
-  const roll = ability.roll;
-  if (!roll) return false;
-  setLastAttackRole('monster', monster.id, 'caster');
-  const c: Combatant = { stats: monster.stats, level: monster.level, isMonster: true };
-  const prof = profBonusFor(c);
-  const castMod = spellcastingMod(monster.stats);
-  const dice = effectiveDice(roll, { castLevel, casterLevel: monster.level });
-  const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
-  const upcast =
-    (roll.baseLevel ?? 0) >= 1 && castLevel && castLevel > (roll.baseLevel ?? 1)
-      ? ` (L${castLevel})`
-      : '';
-  const title = `${ability.name}${upcast}`;
-
-  if (roll.kind === 'attack') {
-    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(monster.stats, prof);
-    if (
-      targetTokenId &&
-      resolveTargetedSpellAttack({
-        sessionId,
-        roller,
-        title,
-        description: ability.description || undefined,
-        attackBonus: bonus,
-        attackBonusDetail: bonusDetail,
-        dice,
-        damageType: roll.damageType,
-        targetTokenId,
-        advantage,
-      })
-    )
-      return true;
-    const { face, detail: d20detail } = rollD20Detail(advantage);
-    const attackTotal = face + bonus;
-    const crit = face === 20;
-    let dmgVal = 0;
-    if (dice) {
-      dmgVal = rollDice(dice)!.total;
-      if (crit) dmgVal += rollDice(dice)!.total;
-    }
-    addRollLog(sessionId, {
-      roller,
-      label: 'Attack',
-      expr: title,
-      total: attackTotal,
-      detail:
-        `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
-        (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
-        (crit ? ' — CRIT' : ''),
-      description: ability.description || undefined,
-    });
-    return true;
-  }
-
-  if (roll.kind === 'heal') {
-    const val = dice ? rollDice(dice)!.total : 0;
-    addRollLog(sessionId, {
-      roller,
-      label: ability.name,
-      expr: title,
-      total: val,
-      detail: `${title}: ${val} healing [${dice}]`,
-      description: ability.description || undefined,
-    });
-    return true;
-  }
-
-  const dc = roll.dc ?? 8 + prof + castMod;
-  const instanceCount = splitInstanceCount(roll, castLevel);
-  if (roll.kind === 'damage' && instanceCount > 0 && dice) {
-    const split = Array.from({ length: instanceCount }, () => rollDice(dice)!.total);
-    const val = split.reduce((a, b) => a + b, 0);
-    addRollLog(sessionId, {
-      roller,
-      label: ability.name,
-      expr: title,
-      total: val,
-      detail: `${title}: ${instanceCount} × [${dice}] = ${val}${dmgType} — assign one per target`,
-      description: ability.description || undefined,
-      apply: { amount: val, dc, damageType: roll.damageType, split },
-    });
-    return true;
-  }
-
-  const val = dice ? rollDice(dice)!.total : 0;
-  const note =
-    roll.kind === 'save' && roll.save
-      ? ` — DC ${dc} ${roll.save} save for half`
-      : roll.kind === 'damage'
-        ? ' (auto-hit)'
-        : '';
-  const entry = addRollLog(sessionId, {
+  return resolveSheetAbilityFor(
+    sessionId,
     roller,
-    label: ability.name,
-    expr: title,
-    total: val,
-    detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
-    description: ability.description || undefined,
-    apply: applyPayload(roll, val, dc),
-  });
-  // Fired at a single target (floating menu) → roll its save + apply now.
-  autoApplyToTarget(sessionId, entry, targetTokenId);
-  return true;
+    'monster',
+    monster,
+    ability,
+    castLevel,
+    advantage,
+    targetTokenId,
+  );
 }
 
 /** Instances/darts for a split spell at the chosen cast level (Magic Missile:
@@ -972,113 +931,6 @@ function applyPayload(
     return { amount, dc, save: roll.save, damageType: roll.damageType };
   if (roll.kind === 'damage') return { amount, dc, damageType: roll.damageType };
   return undefined;
-}
-
-/**
- * Resolve a monster's structured `action` roll authoritatively and log it,
- * mirroring `resolveAbilityRoll` but with the to-hit / save DC derived from the
- * MONSTER's CR + stats: proficiency by CR (`profBonusFor`) and the casting mod =
- * best of INT/WIS/CHA. An explicit `roll.dc` (from the stat block) wins over the
- * derived DC. No spell slots; damage isn't auto-applied (parity with PC spell
- * rolls — targets use the bulk-save + damage tooling). Returns false for a
- * free-text action with no roll.
- */
-export function resolveMonsterAction(
-  sessionId: string,
-  roller: string,
-  monster: Monster,
-  action: CreatureAbility,
-  advantage?: Advantage,
-  targetTokenId?: string,
-): boolean {
-  const roll = action.roll;
-  if (!roll) return false;
-  // A spell/ability action makes this creature read as a caster on its badge.
-  setLastAttackRole('monster', monster.id, 'caster');
-  const c: Combatant = { stats: monster.stats, level: monster.level, isMonster: true };
-  const prof = profBonusFor(c);
-  const castMod = spellcastingMod(monster.stats);
-  const dice = effectiveDice(roll, {});
-  const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
-  const title = action.name;
-
-  if (roll.kind === 'attack') {
-    // To-hit = proficiency (by CR) + best casting mod, broken out for the log.
-    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(monster.stats, prof);
-    // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
-    if (
-      targetTokenId &&
-      resolveTargetedSpellAttack({
-        sessionId,
-        roller,
-        title,
-        description: action.description || undefined,
-        attackBonus: bonus,
-        attackBonusDetail: bonusDetail,
-        dice,
-        damageType: roll.damageType,
-        targetTokenId,
-        advantage,
-      })
-    )
-      return true;
-    // Untargeted fallback (e.g. rolled from the stat block): logged, not applied.
-    const { face, detail: d20detail } = rollD20Detail(advantage);
-    const attackTotal = face + bonus;
-    const crit = face === 20;
-    let dmgVal = 0;
-    if (dice) {
-      dmgVal = rollDice(dice)!.total;
-      if (crit) dmgVal += rollDice(dice)!.total; // crit doubles the dice
-    }
-    addRollLog(sessionId, {
-      roller,
-      label: 'Attack',
-      expr: title,
-      total: attackTotal,
-      detail:
-        `${title}: ${d20detail} ${bonusDetail} = ${attackTotal} to hit` +
-        (dice ? `, ${dmgVal}${dmgType} dmg [${dice}${crit ? ' ×2 crit' : ''}]` : '') +
-        (crit ? ' — CRIT' : ''),
-      description: action.description || undefined,
-    });
-    return true;
-  }
-
-  if (roll.kind === 'heal') {
-    const val = dice ? rollDice(dice)!.total : 0;
-    addRollLog(sessionId, {
-      roller,
-      label: action.name,
-      expr: title,
-      total: val,
-      detail: `${title}: ${val} healing [${dice}]`,
-      description: action.description || undefined,
-    });
-    return true;
-  }
-
-  // 'save' and 'damage' both roll the dice; 'save' notes the (explicit or derived) DC.
-  const val = dice ? rollDice(dice)!.total : 0;
-  const dc = roll.dc ?? 8 + prof + castMod;
-  const note =
-    roll.kind === 'save' && roll.save
-      ? ` — DC ${dc} ${roll.save} save for half`
-      : roll.kind === 'damage'
-        ? ' (auto-hit)'
-        : '';
-  const entry = addRollLog(sessionId, {
-    roller,
-    label: action.name,
-    expr: title,
-    total: val,
-    detail: `${title}: ${val}${dmgType} damage [${dice}]${note}`,
-    description: action.description || undefined,
-    apply: applyPayload(roll, val, dc),
-  });
-  // Fired at a single target (floating menu) → roll its save + apply now.
-  autoApplyToTarget(sessionId, entry, targetTokenId);
-  return true;
 }
 
 /**

@@ -149,6 +149,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}
                 <span className="muted">{renderRollDetail(r.detail)}</span>
+                {r.hpNote && <span className="roll-hp-note">{r.hpNote.text}</span>}
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
                 )}
@@ -188,7 +189,8 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
       </div>
       <div className="chat-input">
         <input
-          placeholder="Message…"
+          placeholder="Message… (/roll 2d6+3)"
+          title="Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice"
           value={chatText}
           maxLength={2000}
           onChange={(e) => setChatText(e.target.value)}

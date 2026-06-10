@@ -84,6 +84,9 @@ export function RollLogOverlay({
               <strong style={{ color }}>{entry.roller}</strong>
               {entry.label ? ` · ${entry.label}` : ''}{' '}
               <span className="muted">{renderRollDetail(entry.detail)}</span>
+              {entry.hpNote && (
+                <span className="roll-hp-note">{entry.hpNote.text}</span>
+              )}
             </span>
           </div>
         );

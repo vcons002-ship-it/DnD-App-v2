@@ -839,3 +839,42 @@ Smaller refinements on top of the shipped Phase 2 work.
   (panels/sections/Roll20 URL) are **namespaced per session code**. Tests:
   `quickwins.test.ts` + dice-cap cases. Deferred to dedicated PRs: snapshot-perf
   rework; actions/sheetAbilities merge (must keep AI action flavor).
+- ☑ **Ability-system merge (ONE rollable system).** Legacy free-text monster
+  `actions` are now only a *transport* shape (SRD/AI/paste): at creature insert —
+  and via an idempotent startup **migration** of old saves — weapon-like entries
+  ("+4 to hit, 1d6+2 slashing") become rollable `weapons` and the rest become
+  rich `sheetAbilities` (structured rolls kept, or scraped with
+  `parseActionRoll`); stored monsters keep `actions` empty. The DM-only
+  `monster:action` event and `resolveMonsterAction` are gone — everything rolls
+  through `ability:roll`, and `resolveAbilityRoll` (PC) /
+  `resolveMonsterSheetAbility` (creature) are thin wrappers over ONE shared
+  `resolveSheetAbilityFor` core (PC: sheet-derived DC/to-hit + slot spend;
+  monster: CR-based prof + best INT/WIS/CHA, explicit stat-block DC wins).
+  Floating menu, trap **⚡ Trigger**, and the token panel all roll creature
+  abilities via the one path; `updateMonster`/AI-fill convert incoming `actions`
+  patches the same way (deduped by name); the **creature library** round-trips
+  `sheetAbilities` (new idempotent column). AI generation keeps its action
+  flavor — the prompt now explicitly arms humanoids (bandits, soldiers, guards)
+  with named MANUFACTURED weapons and beasts with natural attacks. The
+  natural-attacks library (`/api/attacks`) grew 16 → ~36 entries (large/huge
+  variants, Stomp/Trample/Wing/Tusk…, typed touch/drain attacks, ranged
+  Spit/Quill/Rock/Web). Tests: conversion at create, raw-row migration
+  idempotence, ported action-roll suites (205 passing).
+- ☑ **Chat dice + working heals.** Typing **`/roll 2d6+3`** (or `/r`, optional
+  `adv`/`dis`) into chat rolls server-side into the shared roll log (invalid
+  dice → notice; parser `parseRollCommand` in `shared/dice.ts`). **Heal
+  abilities now actually heal**: a targeted heal applies the HP on cast (heal
+  SPELLS add the caster's spellcasting mod; plain abilities use their dice as
+  written) — the combat console gets a **Heal target** dropdown (self default +
+  allies via `healTargets`), and the floating menu applies heals to the
+  right-clicked token, including your own (right-click yourself → "Casting as …
+  → self" lists your heals). Untargeted heals still just log.
+- ☑ **Roll-log HP accounting.** Every roll that changes HP (weapon hits,
+  targeted spell attacks, Apply-damage saves + darts, heals) records a DM-only
+  `hpNote` on its `RollEntry` — "Druk HP 42→38" (temp HP shows as "42+5") —
+  shown as a cyan line in the full log and the map overlay, so mistakes are
+  easy to spot and hand-correct. Persisted (`roll_log.hp_note`, idempotent
+  column) as `{kind, refId, text}` so `visibility.ts` shapes it per viewer:
+  players see HP changes for **PCs and friendly/neutral creatures**; only
+  ENEMY creature changes are stripped (their HP stays hidden, matching the
+  disposition tiers).

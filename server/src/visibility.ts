@@ -20,6 +20,7 @@ import type {
   MonsterNeutral,
   MonsterPublic,
   Role,
+  RollEntry,
   StateSnapshot,
   Token,
 } from '../../shared/types.js';
@@ -156,6 +157,13 @@ export function buildSnapshot(
   }
 
   // Players see the attack resolution (HIT/MISS) but not the target's AC.
+  // The HP-accounting note ("Druk HP 42→38") follows the disposition tiers:
+  // players keep it for PCs and friendly/neutral creatures, but an ENEMY's
+  // (or a deleted target's) HP change is stripped like its HP bar.
+  const hpNoteVisible = (n: NonNullable<RollEntry['hpNote']>): boolean =>
+    n.kind === 'pc'
+      ? true
+      : (getMonster(n.refId)?.disposition ?? 'enemy') !== 'enemy';
   const rollLog =
     role === 'player'
       ? listRollLog(sessionId).map((e) => ({
@@ -163,6 +171,7 @@ export function buildSnapshot(
           detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
           // The "Apply damage" payload is a DM-only adjudication tool.
           apply: undefined,
+          hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }))
       : listRollLog(sessionId);
 

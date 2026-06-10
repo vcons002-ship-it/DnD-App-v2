@@ -62,6 +62,19 @@ function rollOnce(expr: string): Once | null {
   return { total, rolls, detail: parts.join(' ') };
 }
 
+/** Parse a chat "/roll 2d6+3 [adv|dis]" (or "/r …") command. Returns null when
+ *  the text isn't a roll command at all; the expression itself may still fail
+ *  `rollDice` validation (callers surface that as an invalid-dice notice). */
+export function parseRollCommand(
+  text: string,
+): { expr: string; advantage?: Advantage } | null {
+  const m = text.trim().match(/^\/r(?:oll)?\s+(.+)$/i);
+  if (!m) return null;
+  const parts = m[1].trim().match(/^(.*?)(?:\s+(adv|dis))?$/i)!;
+  const advantage = parts[2]?.toLowerCase() as Advantage | undefined;
+  return { expr: (parts[1] ?? '').trim(), advantage };
+}
+
 /** Roll a dice expression. With advantage/disadvantage the whole expression is
  *  rolled twice and the higher/lower total is kept. Returns null if invalid. */
 export function rollDice(expr: string, advantage?: Advantage): DiceResult | null {

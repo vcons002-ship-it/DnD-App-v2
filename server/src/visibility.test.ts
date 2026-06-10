@@ -208,7 +208,9 @@ describe('visibility role-shaping', () => {
     expect(m.stats.STR).toBe(19);
     expect(m.resistances).toEqual(['fire']);
     expect(m.weapons[0]).toMatchObject({ name: 'Greatclub', kind: 'melee' });
-    expect(m.actions[0].name).toBe('Smash');
+    // Legacy `actions` patches fold into the merged sheet-ability system.
+    expect(m.actions).toEqual([]);
+    expect(m.sheetAbilities.some((a) => a.name === 'Smash')).toBe(true);
 
     // Lowering maxHp below curHp clamps curHp down.
     updateMonster(ogre.id, { maxHp: 10 });

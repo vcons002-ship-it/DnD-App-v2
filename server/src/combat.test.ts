@@ -6,7 +6,7 @@ import {
   resolveSkillRoll,
   resolveTrapDisarm,
   resolveAbilityRoll,
-  resolveMonsterAction,
+  resolveMonsterSheetAbility,
   resolveForcedSave,
   resolveDeathSave,
   noteConcentration,
@@ -40,6 +40,11 @@ function arena() {
   setActiveMap(s.id, map.id);
   return { s, map };
 }
+
+/** Inline monster sheet ability (the merged action system) for roll tests. */
+const monAbility = (
+  a: Pick<SheetAbility, 'name' | 'description' | 'roll'>,
+): SheetAbility => ({ id: 'mon-ab', type: 'ability', ...a });
 
 /** PC attacker vs a dummy target, with a mastery attached. `bonus`/`ac` tune
  *  the to-hit so a test can drive hits or misses, then loop for the d20. */
@@ -201,14 +206,16 @@ describe('combat resolution', () => {
         },
       ],
     });
-    // createMonsterTemplate scrapes the description into a structured save roll…
-    const action = tmpl.actions[0];
-    expect(action.roll?.kind).toBe('save');
-    expect(action.roll?.save).toBe('DEX');
+    // Free-text actions convert into sheet abilities with a scraped save roll…
+    const ability = tmpl.sheetAbilities[0];
+    expect(ability.roll?.kind).toBe('save');
+    expect(ability.roll?.save).toBe('DEX');
 
     // …so triggering it logs a save with an Apply-damage payload (DM tooling).
     const trap = instantiateMonster(tmpl.id)!;
-    expect(resolveMonsterAction(s.id, 'DM', trap, trap.actions[0])).toBe(true);
+    expect(
+      resolveMonsterSheetAbility(s.id, 'DM', trap, trap.sheetAbilities[0]),
+    ).toBe(true);
     const entry = listRollLog(s.id).at(-1)!;
     expect(entry.apply?.save).toBe('DEX');
     expect(entry.apply?.dc).toBe(13);
@@ -580,15 +587,15 @@ describe('to-hit breakdown + no double-count', () => {
     expect(last.detail).toContain('[PROF]'); // proficiency portion
   });
 
-  it('spells out a monster action to-hit as casting ability + proficiency', () => {
+  it('spells out a monster ability to-hit as casting ability + proficiency', () => {
     const { s } = arena();
     const tmpl = createMonsterTemplate(s.id, { name: 'Drake', maxHp: 30, level: 5, stats: { CHA: 16 } });
     const m = instantiateMonster(tmpl.id)!;
-    const ok = resolveMonsterAction(s.id, 'DM', m, {
+    const ok = resolveMonsterSheetAbility(s.id, 'DM', m, monAbility({
       name: 'Fire Breath',
       description: '',
       roll: { kind: 'attack', dice: '2d6', damageType: 'fire' },
-    });
+    }));
     expect(ok).toBe(true);
     const last = listRollLog(s.id).at(-1)!;
     expect(last.detail).toContain('[CHA]'); // best casting mod is CHA
@@ -999,7 +1006,7 @@ describe('condition-aware combat', () => {
   });
 });
 
-describe('resolveMonsterAction (structured monster actions)', () => {
+describe('resolveMonsterSheetAbility (structured monster abilities)', () => {
   const drake = (level: number, stats: Record<string, number>) => {
     const { s } = arena();
     const tmpl = createMonsterTemplate(s.id, { name: 'Drake', maxHp: 40, level, stats });
@@ -1008,11 +1015,11 @@ describe('resolveMonsterAction (structured monster actions)', () => {
 
   it('logs a save action with a DC derived from CR + casting mod', () => {
     const { s, m } = drake(5, { CHA: 16 }); // CR 5 → prof +3; CHA 16 → +3 ⇒ DC 14
-    const ok = resolveMonsterAction(s.id, 'DM', m, {
+    const ok = resolveMonsterSheetAbility(s.id, 'DM', m, monAbility({
       name: 'Fire Breath',
       description: '30-ft cone',
       roll: { kind: 'save', dice: '4d6', save: 'DEX', damageType: 'fire' },
-    });
+    }));
     expect(ok).toBe(true);
     const last = listRollLog(s.id).at(-1)!;
     expect(last.detail).toContain('DC 14 DEX save for half');
@@ -1022,11 +1029,11 @@ describe('resolveMonsterAction (structured monster actions)', () => {
 
   it('honors an explicit DC from the stat block', () => {
     const { s, m } = drake(10, { INT: 20 });
-    resolveMonsterAction(s.id, 'DM', m, {
+    resolveMonsterSheetAbility(s.id, 'DM', m, monAbility({
       name: 'Necrotic Blast',
       description: '',
       roll: { kind: 'save', dice: '6d6', dc: 18, save: 'CON' },
-    });
+    }));
     expect(listRollLog(s.id).at(-1)!.detail).toContain('DC 18 CON save for half');
   });
 
@@ -1034,15 +1041,15 @@ describe('resolveMonsterAction (structured monster actions)', () => {
     const { s, m } = drake(1, { CHA: 14 });
     // No structured roll → not rollable.
     expect(
-      resolveMonsterAction(s.id, 'DM', m, { name: 'Multiattack', description: 'two attacks' }),
+      resolveMonsterSheetAbility(s.id, 'DM', m, monAbility({ name: 'Multiattack', description: 'two attacks' })),
     ).toBe(false);
     // Attack roll logs a "to hit" line.
     expect(
-      resolveMonsterAction(s.id, 'DM', m, {
+      resolveMonsterSheetAbility(s.id, 'DM', m, monAbility({
         name: 'Sting',
         description: '',
         roll: { kind: 'attack', dice: '1d4', damageType: 'poison' },
-      }),
+      })),
     ).toBe(true);
     expect(listRollLog(s.id).at(-1)!.detail).toContain('to hit');
   });
@@ -1062,10 +1069,10 @@ describe('Apply damage → click-to-target saves', () => {
 
   it('attaches an apply payload to a save action and applies FULL on a fail', () => {
     const { s, map } = arena();
-    resolveMonsterAction(s.id, 'DM', caster(s), {
+    resolveMonsterSheetAbility(s.id, 'DM', caster(s), monAbility({
       name: 'Blast', description: '',
       roll: { kind: 'save', dice: '10d1', dc: 99, save: 'DEX', damageType: 'fire' },
-    });
+    }));
     const entry = listRollLog(s.id).at(-1)!;
     expect(entry.apply).toEqual({ amount: 10, dc: 99, save: 'DEX', damageType: 'fire' });
 
@@ -1078,10 +1085,10 @@ describe('Apply damage → click-to-target saves', () => {
 
   it('applies HALF on a pass, doubled by vulnerability', () => {
     const { s, map } = arena();
-    resolveMonsterAction(s.id, 'DM', caster(s), {
+    resolveMonsterSheetAbility(s.id, 'DM', caster(s), monAbility({
       name: 'Blast', description: '',
       roll: { kind: 'save', dice: '10d1', dc: 1, save: 'DEX', damageType: 'fire' },
-    });
+    }));
     const entry = listRollLog(s.id).at(-1)!;
     const { inst, tok } = target(s, map, { name: 'Straw', maxHp: 40, stats: { DEX: 10 }, weaknesses: ['fire'] });
     resolveForcedSave(s.id, entry.id, tok.id); // DC 1 → PASS → half 5, ×2 vuln = 10
@@ -1314,25 +1321,27 @@ describe('targeted attack-roll spells & monster actions', () => {
     expect(getMonster(ref)!.curHp).toBe(before);
   });
 
-  it('monster attack actions also roll vs AC and apply typed damage (vuln doubles)', () => {
+  it('monster attack abilities also roll vs AC and apply typed damage (vuln doubles)', () => {
     const { s, map } = arena();
     const mon = getMonster(createMonsterTemplate(s.id, {
       name: 'Imp', maxHp: 20, level: 5, stats: { CHA: 16 },
     }).id)!;
-    const sting: CreatureAbility = {
+    const sting = monAbility({
       name: 'Fire Sting', description: '',
       roll: { kind: 'attack', dice: '10d1', damageType: 'fire' },
-    };
+    });
     const { ref, tokenId } = dummy(s, map, { weaknesses: ['fire'] });
     let saw = false;
     for (let i = 0; i < 60 && !saw; i++) {
       updateMonster(ref, { curHp: 100 });
-      resolveMonsterAction(s.id, 'DM', mon, sting, undefined, tokenId);
+      resolveMonsterSheetAbility(s.id, 'DM', mon, sting, undefined, undefined, tokenId);
       const detail = listRollLog(s.id).at(-1)!.detail;
       if (/\bHIT\b/.test(detail) && !/CRIT/.test(detail)) {
         saw = true;
         expect(getMonster(ref)!.curHp).toBe(80); // 10 fire → doubled to 20
         expect(detail).toMatch(/vs AC 1/);
+        // The HP accounting note rides the roll entry (DM log = unshaped).
+        expect(listRollLog(s.id).at(-1)!.hpNote?.text).toContain('HP 100→80');
       }
     }
     expect(saw).toBe(true);
@@ -1363,11 +1372,12 @@ describe('save action fired at a single target (floating menu)', () => {
         ],
       }).id,
     )!;
-    resolveMonsterAction(
+    resolveMonsterSheetAbility(
       s.id,
       'DM',
       getMonster(caster.id)!,
-      getMonster(caster.id)!.actions[0],
+      getMonster(caster.id)!.sheetAbilities[0],
+      undefined,
       undefined,
       tok.id, // <- targeted from the floating menu
     );

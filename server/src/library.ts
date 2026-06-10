@@ -27,6 +27,7 @@ type LibCreatureRow = {
   weapons: string;
   actions: string;
   abilities: string;
+  sheet_abilities: string;
   icon: string;
 };
 
@@ -44,6 +45,7 @@ function rowToTemplate(r: LibCreatureRow): CreatureTemplate {
     weapons: JSON.parse(r.weapons ?? '[]') as Weapon[],
     actions: JSON.parse(r.actions ?? '[]') as CreatureAbility[],
     abilities: JSON.parse(r.abilities ?? '[]') as CreatureAbility[],
+    sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]') as SheetAbility[],
     icon: r.icon || iconForCreature(r.name, r.creature_type),
     source: 'library',
   };
@@ -92,6 +94,7 @@ export type SaveCreatureInput = {
   weapons?: Weapon[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  sheetAbilities?: SheetAbility[];
   icon?: string;
 };
 
@@ -117,8 +120,9 @@ export function saveLibraryCreature(
   db.prepare(
     `INSERT OR REPLACE INTO library_creatures
        (id, name, creature_type, level, max_hp, armor_class, speed, stats,
-        resistances, weaknesses, weapons, actions, abilities, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        resistances, weaknesses, weapons, actions, abilities, sheet_abilities,
+        icon, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -133,6 +137,7 @@ export function saveLibraryCreature(
     JSON.stringify(input.weapons ?? []),
     JSON.stringify(input.actions ?? []),
     JSON.stringify(input.abilities ?? []),
+    JSON.stringify(input.sheetAbilities ?? []),
     input.icon ?? iconForCreature(name, input.creatureType ?? ''),
     Date.now(),
   );

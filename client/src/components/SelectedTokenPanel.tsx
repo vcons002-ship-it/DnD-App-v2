@@ -10,7 +10,7 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
-import { StatBlock, ActionsTraitsReadSections } from './StatBlock';
+import { StatBlock } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
@@ -35,7 +35,6 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
-  const rollMonsterAction = useStore((s) => s.rollMonsterAction);
   const rollSave = useStore((s) => s.rollSave);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
@@ -187,37 +186,21 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     });
   }
 
-  // Creatures get the same rich, searchable, rollable abilities as PCs — plus the
-  // creature's rollable `actions` live here too (created/edited in the stat block;
-  // they appear here automatically). Traits/feats stay in the Sheet info section.
-  if (
-    monster &&
-    (monster.sheetAbilities.length > 0 || monster.actions.length > 0 || isDm)
-  ) {
+  // Creatures get the same rich, searchable, rollable abilities as PCs — the ONE
+  // ability system (legacy free-text actions are converted into it on creation/
+  // load). Traits/feats stay in the Sheet info section.
+  if (monster && (monster.sheetAbilities.length > 0 || isDm)) {
     sections.push({
       id: 'abilities',
       label: 'Spells & Abilities',
       node: (
-        <>
-          <CharacterSpells
-            character={monster}
-            kind="monster"
-            editable={isDm}
-            snapshot={snapshot}
-            attackerToken={token}
-          />
-          {monster.actions.length > 0 && (
-            <ActionsTraitsReadSections
-              actions={monster.actions}
-              abilities={[]}
-              onRollAction={
-                isDm
-                  ? (i) => rollMonsterAction(monster.id, i, consumeAdvantage(monster.id))
-                  : undefined
-              }
-            />
-          )}
-        </>
+        <CharacterSpells
+          character={monster}
+          kind="monster"
+          editable={isDm}
+          snapshot={snapshot}
+          attackerToken={token}
+        />
       ),
     });
   }
@@ -267,16 +250,9 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
             }
             levelLabel="CR"
             monster
-            actionsElsewhere
             aiBusy={aiBusy}
             onAiFill={isDm ? () => aiFillCreature(monster.id) : undefined}
             onSave={isDm ? (patch) => updateMonster({ monsterId: monster.id, ...patch }) : undefined}
-            onRollAction={
-              isDm
-                ? (actionIndex) =>
-                    rollMonsterAction(monster.id, actionIndex, consumeAdvantage(monster.id))
-                : undefined
-            }
             onRollSave={
               isDm
                 ? (ability) =>
@@ -449,12 +425,18 @@ function CreatureDetails({
     >
       <summary>Details</summary>
       {monster ? (
-        <StatBlock
-          creature={monster}
-          subtitle={monster.creatureType}
-          levelLabel="CR"
-          monster
-        />
+        <>
+          <StatBlock
+            creature={monster}
+            subtitle={monster.creatureType}
+            levelLabel="CR"
+            monster
+          />
+          {/* A friendly creature's abilities (the merged action system), read-only. */}
+          {monster.sheetAbilities.length > 0 && (
+            <CharacterSpells character={monster} kind="monster" editable={false} />
+          )}
+        </>
       ) : character ? (
         <CharacterSheet character={character} editable={false} />
       ) : monsterEntity ? (
