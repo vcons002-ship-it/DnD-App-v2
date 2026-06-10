@@ -5,3 +5,11 @@
 
 # Unix scripts must keep LF.
 *.sh text eol=lf
+
+# package-lock.json is machine-generated and `npm install` rewrites it locally
+# (npm normalizes it per version), so treat it as generated and, during a merge,
+# keep our committed copy instead of trying to merge it — this prevents spurious
+# lockfile conflicts on a manual `git pull`. (The installer's `reset --hard` is the
+# primary guard; this covers people who pull by hand.) The `merge=ours` driver is
+# enabled per-repo by install.bat / install.sh via `git config merge.ours.driver true`.
+package-lock.json merge=ours linguist-generated=true

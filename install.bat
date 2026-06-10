@@ -135,6 +135,10 @@ for /d %%D in ("%USERPROFILE%\DnD-App-v2-pr-*") do call :clean_stale_pr "%%~fD"
 
 REM ----- Install dependencies -----
 pushd "%INSTALL_DIR%"
+REM Keep our committed package-lock.json on any merge -- `npm install` below
+REM rewrites it locally and a plain pull would otherwise conflict on it
+REM (see .gitattributes `package-lock.json merge=ours`).
+git config merge.ours.driver true >nul 2>nul
 echo.
 echo Installing dependencies (this can take a minute the first time)...
 call npm install
