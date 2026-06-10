@@ -267,11 +267,12 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   padding: 1px 8px; border: 1px solid var(--accent); border-radius: 10px;
   color: var(--accent); font-size: 12px; font-weight: 600; white-space: nowrap;
 }
-.round-reset {
-  background: none; border: 0; padding: 0 2px; cursor: pointer;
-  color: var(--muted); font-size: 13px; line-height: 1;
+.round-input {
+  width: 44px; margin: 0; padding: 0 4px; font-size: 12px; font-weight: 600;
+  color: var(--accent); background: transparent; border: 0;
+  border-bottom: 1px dashed var(--line); border-radius: 0; text-align: center;
 }
-.round-reset:hover { color: var(--text); }
+.init-row.dead { opacity: 0.45; }
 
 .init-header { display: flex; align-items: center; justify-content: space-between; }
 .init-actions { display: flex; gap: 4px; }

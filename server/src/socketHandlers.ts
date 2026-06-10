@@ -909,12 +909,12 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    // Reset the round counter to 1 without touching the rolled order (e.g. the
-    // DM wants to re-count after a narrative break mid-encounter).
-    socket.on('initiative:resetRound', () => {
+    // DM edits the round counter directly (fix a miscount / re-count after a
+    // narrative break) without touching anyone's rolls.
+    socket.on('initiative:setRound', ({ round }) => {
       const sid = sessionId();
-      if (!sid || !isDm()) return;
-      setCombatRound(sid, 1);
+      if (!sid || !isDm() || !Number.isFinite(round)) return;
+      setCombatRound(sid, Math.min(999, Math.max(0, Math.round(round))));
       afterChange();
     });
 

@@ -24,6 +24,11 @@ import {
   setActiveMap,
   getSessionById,
   getToken,
+  getMonster,
+  applyDamage,
+  setDeathSaves,
+  deleteToken,
+  deleteMonster,
   createCharacter,
   listCharacters,
   deleteCharacter,
@@ -329,5 +334,90 @@ describe('combat rounds + objects sit out of initiative', () => {
     expect(getSessionById(s.id)!.combatRound).toBe(1);
     clearInitiative(s.id); // ending combat zeroes it
     expect(getSessionById(s.id)!.combatRound).toBe(0);
+  });
+});
+
+describe('dead combatants keep their slot but lose their turn', () => {
+  const arena2 = () => {
+    const s = createSession('DeadSkip');
+    const map = createMap(s.id, { name: 'Pit' });
+    setActiveMap(s.id, map.id);
+    return { s, map };
+  };
+  const mon = (s: { id: string }, map: { id: string }, name: string, init: number) => {
+    const inst = instantiateMonster(
+      createMonsterTemplate(s.id, { name, maxHp: 10 }).id,
+    )!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+    setTokenInitiative(tok.id, init);
+    return { tok, inst };
+  };
+
+  it('skips a dead monster mid-order and still counts the wrap past a dead LAST slot', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const b = mon(s, map, 'B', 10);
+    const c = mon(s, map, 'C', 5);
+    setActiveTurn(s.id, a.tok.id);
+    setCombatRound(s.id, 1);
+
+    applyDamage('monster', b.inst.id, 999); // B dies, keeps its roll + slot
+    expect(getToken(b.tok.id)!.initiative).toBe(10);
+
+    advanceTurn(s.id); // A → (skip B) → C, same round
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(c.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+
+    applyDamage('monster', c.inst.id, 999); // now the LAST slot is dead too
+    advanceTurn(s.id); // C → wrap (skipping nothing live until A) → round 2
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(a.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+  });
+
+  it('a downed PC keeps its turn; an actually-dead one (3 failures) is skipped', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const pc = createCharacter(s.id, { name: 'Hero', maxHp: 10 });
+    const pcTok = createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 1, y: 1 });
+    setTokenInitiative(pcTok.id, 10);
+    setActiveTurn(s.id, a.tok.id);
+    setCombatRound(s.id, 1);
+
+    applyDamage('pc', pc.id, 999); // down to 0 — dying, NOT dead
+    advanceTurn(s.id);
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(pcTok.id); // death-save turn
+
+    setActiveTurn(s.id, a.tok.id);
+    setDeathSaves(pc.id, 0, 3); // three failures → dead → skipped
+    advanceTurn(s.id);
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(a.tok.id); // wrapped back
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+  });
+
+  it('deleting the current-turn token ticks to the next; a last-slot delete wraps the round', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const b = mon(s, map, 'B', 10);
+    setCombatRound(s.id, 1);
+
+    setActiveTurn(s.id, a.tok.id);
+    deleteToken(a.tok.id); // mid-order: marker just ticks to B
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(b.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(1);
+
+    deleteToken(b.tok.id); // B was current AND the only living combatant left
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBeNull();
+  });
+
+  it('deleting the last-in-order current creature (via deleteMonster) wraps + counts', () => {
+    const { s, map } = arena2();
+    const a = mon(s, map, 'A', 20);
+    const b = mon(s, map, 'B', 10);
+    setCombatRound(s.id, 1);
+    setActiveTurn(s.id, b.tok.id); // B is last in order
+    deleteMonster(b.inst.id); // bulk path goes through the same guard
+    expect(getSessionById(s.id)!.activeTurnTokenId).toBe(a.tok.id);
+    expect(getSessionById(s.id)!.combatRound).toBe(2);
+    expect(getMonster(b.inst.id)).toBeNull();
   });
 });

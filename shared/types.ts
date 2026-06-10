@@ -1096,7 +1096,7 @@ export interface ClientToServerEvents {
   'initiative:rollMissing': () => void;
   'initiative:next': () => void;
   'initiative:clear': () => void;
-  'initiative:resetRound': () => void;
+  'initiative:setRound': (payload: { round: number }) => void;
   'dice:roll': (payload: DiceRollPayload) => void;
   /** Wipe the shared roll log for everyone in the session. */
   'dice:clearLog': () => void;
