@@ -11,6 +11,7 @@ import type {
   Condition,
   DiceRollPayload,
   FogLayer,
+  HpFxEvent,
   ImportCharConflict,
   ImportConflictResolution,
   InventoryItem,
@@ -36,6 +37,10 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
+/** One floating damage/heal number over a token (client-side, transient). */
+export type HpFloater = HpFxEvent & { id: number };
+let nextFloaterId = 1;
+
 type Store = {
   socket: TypedSocket | null;
   status: Status;
@@ -49,6 +54,8 @@ type Store = {
   /** True while an AI request (stat-fill / creature lookup) is in flight. */
   aiBusy: boolean;
   setAiBusy: (busy: boolean) => void;
+  /** Transient floating ±X HP numbers (server 'fx:hp'); auto-expire ~1.2 s. */
+  hpFx: HpFloater[];
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
   showRollOverlay: boolean;
   toggleRollOverlay: () => void;
@@ -243,6 +250,7 @@ export const useStore = create<Store>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   notify: (message) => set({ toast: { id: Date.now(), message } }),
   aiBusy: false,
+  hpFx: [],
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
@@ -311,6 +319,15 @@ export const useStore = create<Store>((set, get) => ({
     });
 
     socket.on('state:snapshot', (snapshot) => set({ snapshot }));
+    socket.on('fx:hp', ({ events }) => {
+      const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
+      set((st) => ({ hpFx: [...st.hpFx, ...added] }));
+      // Expire regardless of whether a canvas rendered them.
+      setTimeout(() => {
+        const ids = new Set(added.map((f) => f.id));
+        set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
+      }, 1200);
+    });
     socket.on('error', (err) => set({ error: err.message }));
     socket.on('notice', ({ message }) =>
       // A notice is the completion signal for AI requests too — clear the spinner.

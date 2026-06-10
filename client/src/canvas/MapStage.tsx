@@ -7,6 +7,7 @@ import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
+import { HpFxLayer } from './HpFx';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { useStableCallback } from '../lib/useStableCallback';
@@ -246,6 +247,7 @@ export function MapStage({
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
   const saveResolve = useStore((s) => s.saveResolve);
+  const hpFx = useStore((s) => s.hpFx);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
   const clearSaveResolve = useStore((s) => s.clearSaveResolve);
@@ -1154,6 +1156,13 @@ export function MapStage({
                   listening={false}
                 />
               )}
+              {/* Floating ±X damage/heal numbers — topmost, click-through. */}
+              <HpFxLayer
+                floaters={hpFx}
+                tokens={snapshot.tokens}
+                pxPerFoot={pxPerFoot}
+                gridSizePx={grid}
+              />
             </Layer>
           </Stage>
           {hover && !menu && (

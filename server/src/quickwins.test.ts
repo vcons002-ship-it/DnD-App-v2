@@ -5,7 +5,9 @@ import {
   createCharacter,
   createMonsterTemplate,
   createSession,
+  drainHpFx,
   getCharacter,
+  updateCharacter,
   instantiateMonster,
   listRollLog,
   monsterInSession,
@@ -82,5 +84,31 @@ describe('roll log pruning', () => {
     expect(all[0].label).toBe(`roll ${extra}`);
     // Pruning is per session — the other session's log is untouched.
     expect(listRollLog(other.id, 10)).toHaveLength(1);
+  });
+});
+
+describe('HP-change FX queue (floating ±X)', () => {
+  it('queues deltas for damage/heal/temp absorption and drains per session', () => {
+    const s = createSession('Fx');
+    const other = createSession('FxOther');
+    drainHpFx(s.id); // start clean (shared module queue)
+    drainHpFx(other.id);
+
+    const ch = createCharacter(s.id, { name: 'Druk', maxHp: 42 });
+    applyDamage('pc', ch.id, 4); // 42 → 38
+    applyDamage('pc', ch.id, -4); // heal back
+    updateCharacter(ch.id, { tempHp: 5 });
+    applyDamage('pc', ch.id, 7); // 5 temp absorbs, 2 real — full −7 floats
+    applyDamage('pc', ch.id, 0); // no change → no event
+
+    const bystander = createCharacter(other.id, { name: 'B', maxHp: 10 });
+    applyDamage('pc', bystander.id, 3);
+
+    const events = drainHpFx(s.id);
+    expect(events.map((e) => e.delta)).toEqual([-4, 4, -7]);
+    expect(events.every((e) => e.kind === 'pc' && e.refId === ch.id)).toBe(true);
+    // Drained: a second call returns nothing; the other session keeps its own.
+    expect(drainHpFx(s.id)).toEqual([]);
+    expect(drainHpFx(other.id).map((e) => e.delta)).toEqual([-3]);
   });
 });

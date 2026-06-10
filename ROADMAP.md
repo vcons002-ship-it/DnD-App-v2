@@ -878,3 +878,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   players see HP changes for **PCs and friendly/neutral creatures**; only
   ENEMY creature changes are stripped (their HP stays hidden, matching the
   disposition tiers).
+- ☑ **Floating damage/heal numbers.** Every HP change pops a bold **red −X /
+  green +X** above the creature's token that drifts up and fades (~0.9 s
+  `Konva.Tween`, click-through, x-jitter so rapid hits stack readably). Server-
+  pushed: `applyDamage` queues `{kind, refId, delta}` (temp-HP absorption reads
+  as the full hit) and `broadcastSnapshots` drains it into a per-viewer
+  **`fx:hp`** event filtered against each client's own snapshot tokens — so
+  hidden/fog-covered/off-map creatures never pop a number for players, and only
+  the delta (already log-visible) is revealed, never totals. Covers weapon
+  hits, spells, heals, manual ±HP buttons and bulk AOE.
