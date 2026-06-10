@@ -5,6 +5,7 @@ import {
   resolveAttack,
   resolveAbilityRoll,
   resolveMonsterAction,
+  resolveMonsterSheetAbility,
   resolveForcedSave,
   resolveSkillRoll,
   resolveTrapDisarm,
@@ -497,6 +498,10 @@ export function registerSocketHandlers(io: IOServer): void {
       const c = getCharacter(characterId);
       return !!c && (isDm() || c.claimedBy === socket.id);
     };
+    // Who may edit/roll sheet abilities on a creature: a PC's owner or the DM;
+    // monster sheet abilities are DM-authored (like monster:update / monster:action).
+    const ownsCreature = (kind: 'pc' | 'monster', refId: string): boolean =>
+      kind === 'pc' ? ownsCharacter(refId) : isDm();
 
     socket.on('resource:set', ({ characterId, group, key, max, used, remove }) => {
       if (!key || !ownsCharacter(characterId)) return;
@@ -565,35 +570,40 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    // ---- Sheet spells/abilities (DM or the owning player) ----
-    socket.on('ability:set', ({ characterId, ability }) => {
-      if (!ability?.name?.trim() || !ownsCharacter(characterId)) return;
-      setSheetAbility(characterId, ability);
+    // ---- Sheet spells/abilities (PC owner, or the DM for creatures) ----
+    socket.on('ability:set', ({ kind, refId, ability }) => {
+      if (!ability?.name?.trim() || !ownsCreature(kind, refId)) return;
+      setSheetAbility(kind, refId, ability);
       afterChange();
     });
 
-    socket.on('ability:remove', ({ characterId, abilityId }) => {
-      if (!ownsCharacter(characterId)) return;
-      removeSheetAbility(characterId, abilityId);
+    socket.on('ability:remove', ({ kind, refId, abilityId }) => {
+      if (!ownsCreature(kind, refId)) return;
+      removeSheetAbility(kind, refId, abilityId);
       afterChange();
     });
 
-    socket.on('ability:roll', ({ characterId, abilityId, castLevel, advantage, targetTokenId }) => {
+    socket.on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId }) => {
       const sid = sessionId();
-      if (!sid || !ownsCharacter(characterId)) return;
-      const c = getCharacter(characterId);
+      if (!sid || !ownsCreature(kind, refId)) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const tgt = typeof targetTokenId === 'string' ? targetTokenId : undefined;
+      const cast = typeof castLevel === 'number' ? castLevel : undefined;
+      const roller = rollerName(sid, socket.id, isDm());
+
+      if (kind === 'monster') {
+        const m = getMonster(refId);
+        const ability = m?.sheetAbilities.find((a) => a.id === abilityId);
+        if (!m || !ability) return;
+        // CR-based DC/to-hit; no spell slots for creatures.
+        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt)) afterChange();
+        return;
+      }
+
+      const c = getCharacter(refId);
       const ability = c?.sheetAbilities.find((a) => a.id === abilityId);
       if (!c || !ability) return;
-      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      const ok = resolveAbilityRoll(
-        sid,
-        rollerName(sid, socket.id, isDm()),
-        c,
-        ability,
-        typeof castLevel === 'number' ? castLevel : undefined,
-        adv,
-        typeof targetTokenId === 'string' ? targetTokenId : undefined,
-      );
+      const ok = resolveAbilityRoll(sid, roller, c, ability, cast, adv, tgt);
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
       if (
@@ -602,9 +612,9 @@ export function registerSocketHandlers(io: IOServer): void {
         (ability.level ?? 0) >= 1
       ) {
         const base = ability.level as number;
-        const cast = typeof castLevel === 'number' ? Math.floor(castLevel) : base;
-        const slotLevel = Math.min(9, Math.max(base, cast));
-        const { hasSlot, spent } = spendSpellSlot(characterId, slotLevel);
+        const c2 = typeof castLevel === 'number' ? Math.floor(castLevel) : base;
+        const slotLevel = Math.min(9, Math.max(base, c2));
+        const { hasSlot, spent } = spendSpellSlot(refId, slotLevel);
         if (hasSlot && !spent) {
           socket.emit('notice', {
             message: `No level-${slotLevel} spell slot remaining for ${ability.name}.`,
@@ -763,6 +773,7 @@ export function registerSocketHandlers(io: IOServer): void {
         weaknesses: p.weaknesses,
         actions: p.actions,
         abilities: p.abilities,
+        sheetAbilities: p.sheetAbilities,
         weapons: p.weapons,
         icon: p.icon,
         disposition: p.disposition,

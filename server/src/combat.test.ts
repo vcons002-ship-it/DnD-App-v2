@@ -68,7 +68,7 @@ function masteryFight(opts: {
       tags: opts.tags ?? ['test'],
     }],
   });
-  setSheetAbility(ch.id, {
+  setSheetAbility('pc', ch.id, {
     id: 'm1',
     name: 'TestMastery',
     type: 'mastery',
@@ -300,7 +300,7 @@ describe('weapon masteries', () => {
     let checked = false;
     for (let i = 0; i < 100 && !checked; i++) {
       const ab = getCharacter(chId)!.sheetAbilities[0];
-      setSheetAbility(chId, { ...ab, mastery: { ...ab.mastery!, active: true } });
+      setSheetAbility('pc', chId, { ...ab, mastery: { ...ab.mastery!, active: true } });
       const before = getMonster(ref)!.curHp;
       resolveAttack(s, 'Striker', atk, tgt, 0);
       const last = listRollLog(s).at(-1)!;
@@ -350,7 +350,7 @@ describe('weapon masteries', () => {
       mastery: { appliesToTags: ['test'], active: true, effect: { profBonusDamage: true } },
     });
     const chId = getToken(atk)!.refId;
-    setSheetAbility(chId, {
+    setSheetAbility('pc', chId, {
       id: 'm2',
       name: 'Crusher',
       type: 'mastery',
@@ -388,7 +388,7 @@ describe('weapon masteries', () => {
       ],
     });
     // One Hew entry (no per-weapon binding): triggers on any weapon tagged "heavy".
-    setSheetAbility(ch.id, {
+    setSheetAbility('pc', ch.id, {
       id: 'm1',
       name: 'Hew',
       type: 'mastery',
@@ -573,7 +573,7 @@ describe('to-hit breakdown + no double-count', () => {
       description: '',
       roll: { kind: 'attack', dice: '1d10', damageType: 'fire', baseLevel: 0 },
     };
-    setSheetAbility(ch.id, ability);
+    setSheetAbility('pc', ch.id, ability);
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability);
     const last = listRollLog(s.id).at(-1)!;
     expect(last.detail).toContain('[INT]'); // casting ability portion
@@ -673,7 +673,7 @@ describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
       stats: { STR: 10, DEX: 10 },
       weapons: [{ name: 'Club', kind, damage: '1d1', diceOnly: true, attackBonus: 50, damageType: 'bludgeoning' }],
     });
-    setSheetAbility(ch.id, { id: 'st', name: 'Stance', type: 'stance', description: '', stance: spec });
+    setSheetAbility('pc', ch.id, { id: 'st', name: 'Stance', type: 'stance', description: '', stance: spec });
     const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
     const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
     const ref = instantiateMonster(dt.id)!.id;
@@ -752,7 +752,7 @@ describe('class-feature stances (Rage / Reckless / Hunter\'s Mark)', () => {
     };
     const marked = mk('Marked');
     const other = mk('Other');
-    setSheetAbility(ch.id, {
+    setSheetAbility('pc', ch.id, {
       id: 'hm',
       name: "Hunter's Mark",
       type: 'stance',
@@ -889,7 +889,7 @@ describe('spell roll description', () => {
       description: 'Hurl a mote of fire at a creature or object within range.',
       roll: { kind: 'damage', dice: '2d10', damageType: 'fire', baseLevel: 0 },
     };
-    setSheetAbility(ch.id, ability);
+    setSheetAbility('pc', ch.id, ability);
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability);
     const last = listRollLog(s.id).at(-1)!;
     // The full description rides along for the full log…
@@ -1106,7 +1106,7 @@ describe('Apply damage → click-to-target saves', () => {
       // 3 darts, each 1d4+1 → total 6..15; +1 dart per slot above 1st.
       roll: { kind: 'damage', dice: '1d4+1', instances: 3, scaleInstances: 1, baseLevel: 1, damageType: 'force' },
     };
-    setSheetAbility(ch.id, ability);
+    setSheetAbility('pc', ch.id, ability);
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability, 2); // cast at L2 → 4 darts
     const entry = listRollLog(s.id).at(-1)!;
     expect(entry.apply!.split).toHaveLength(4);
@@ -1168,7 +1168,7 @@ describe('Battle Master maneuvers', () => {
   }) {
     const { s, map } = arena();
     const ch = createCharacter(s.id, { name: 'Fighter', level: 1, stats: { STR: 10 }, weapons: [weapon] });
-    setSheetAbility(ch.id, { id: 'man', name: 'Maneuver', type: 'maneuver', description: '', maneuver });
+    setSheetAbility('pc', ch.id, { id: 'man', name: 'Maneuver', type: 'maneuver', description: '', maneuver });
     const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 999, armorClass: 1, stats: { STR: 1 } });
     const tInst = instantiateMonster(tmpl.id)!;
     const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
@@ -1207,7 +1207,7 @@ describe('Battle Master maneuvers', () => {
     let saveRollId: string | undefined;
     for (let i = 0; i < 60 && !saveRollId; i++) {
       const ab = getCharacter(chId)!.sheetAbilities[0];
-      setSheetAbility(chId, { ...ab, maneuver: { ...ab.maneuver!, active: true } });
+      setSheetAbility('pc', chId, { ...ab, maneuver: { ...ab.maneuver!, active: true } });
       setResource(chId, 'resources', 'Superiority Dice', { used: 0 });
       resolveAttack(s, 'Fighter', atk, tgt, 0);
       saveRollId = listRollLog(s).find(
@@ -1255,7 +1255,7 @@ describe('targeted attack-roll spells & monster actions', () => {
   it('PC spell attack rolls vs the target AC and applies typed damage (resist halves)', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
-    setSheetAbility(ch.id, fireBolt);
+    setSheetAbility('pc', ch.id, fireBolt);
     const { ref, tokenId } = dummy(s, map, { resistances: ['fire'] });
     let saw = false;
     for (let i = 0; i < 60 && !saw; i++) {
@@ -1275,7 +1275,7 @@ describe('targeted attack-roll spells & monster actions', () => {
   it('PC spell attack doubles damage against a vulnerable target', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
-    setSheetAbility(ch.id, fireBolt);
+    setSheetAbility('pc', ch.id, fireBolt);
     const { ref, tokenId } = dummy(s, map, { weaknesses: ['fire'] });
     let saw = false;
     for (let i = 0; i < 60 && !saw; i++) {
@@ -1294,7 +1294,7 @@ describe('targeted attack-roll spells & monster actions', () => {
   it('redacts the target AC for players but keeps HIT/MISS', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
-    setSheetAbility(ch.id, fireBolt);
+    setSheetAbility('pc', ch.id, fireBolt);
     const { tokenId } = dummy(s, map, {});
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
     const player = buildSnapshot(s.id, 'player')!;
@@ -1306,7 +1306,7 @@ describe('targeted attack-roll spells & monster actions', () => {
   it('without a target, a spell attack only logs to-hit and applies nothing', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
-    setSheetAbility(ch.id, fireBolt);
+    setSheetAbility('pc', ch.id, fireBolt);
     const { ref } = dummy(s, map, {});
     const before = getMonster(ref)!.curHp;
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt); // no targetTokenId

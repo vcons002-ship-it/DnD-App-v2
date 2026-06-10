@@ -369,6 +369,8 @@ ensureColumn('monsters', 'object_kind', 'object_kind TEXT');
 ensureColumn('monsters', 'loot', 'loot TEXT');
 // Disarm DC for a trap object (DEX / Sleight of Hand check).
 ensureColumn('monsters', 'object_dc', 'object_dc INTEGER');
+// Rich rollable spells/abilities/masteries on a creature (same shape as PCs).
+ensureColumn('monsters', 'sheet_abilities', "sheet_abilities TEXT NOT NULL DEFAULT '[]'");
 // Coins a character is carrying, in gold pieces (single purse).
 ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');
 // Battle Master Superiority Die size (the pool lives in the resources counters).
@@ -552,6 +554,7 @@ type MonsterRow = {
   object_kind: string | null;
   loot: string | null;
   object_dc: number | null;
+  sheet_abilities: string;
   last_attack_role: string | null;
   player_notes: string | null;
   level: number;
@@ -576,6 +579,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     actions: JSON.parse(r.actions ?? '[]'),
     weapons: JSON.parse(r.weapons ?? '[]'),
     abilities: JSON.parse(r.abilities),
+    sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     source: r.source,
     disposition: r.disposition ?? 'enemy',

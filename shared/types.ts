@@ -408,6 +408,10 @@ export type Monster = {
   actions: CreatureAbility[];
   /** Traits / features. */
   abilities: CreatureAbility[];
+  /** Rich, rollable spells/abilities/masteries — the SAME system PCs use
+   *  (`sheetAbilities`), so a creature can carry searchable, collapsible, rollable
+   *  entries. DM-authored; resolved server-side with CR-based DC/to-hit. */
+  sheetAbilities: SheetAbility[];
   source: 'srd' | 'gemini' | 'manual';
   conditions: Condition[];
   /** How much of this creature players may see (default enemy). */
@@ -846,16 +850,19 @@ export type LootTakePayload = {
   gold?: number;
   all?: boolean;
 };
-/** Upsert a spell/ability on a character's sheet. */
-export type AbilitySetPayload = { characterId: string; ability: SheetAbility };
-/** Remove a spell/ability from a character's sheet. */
-export type AbilityRemovePayload = { characterId: string; abilityId: string };
+/** Upsert a rich spell/ability on a creature OR character's sheet (`kind`+`refId`).
+ *  PCs author their own; monster sheetAbilities are DM-authored. */
+export type AbilitySetPayload = { kind: TokenKind; refId: string; ability: SheetAbility };
+/** Remove a spell/ability from a creature/character sheet. */
+export type AbilityRemovePayload = { kind: TokenKind; refId: string; abilityId: string };
 /**
  * Roll a sheet spell/ability into the shared log (server-authoritative).
- * `castLevel` upcasts a leveled spell; omit for cantrips/abilities.
+ * `castLevel` upcasts a leveled spell; omit for cantrips/abilities. For a monster
+ * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
-  characterId: string;
+  kind: TokenKind;
+  refId: string;
   abilityId: string;
   castLevel?: number;
   advantage?: 'adv' | 'dis';
@@ -946,6 +953,7 @@ export type MonsterCreatePayload = {
   weaknesses?: string[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  sheetAbilities?: SheetAbility[];
   weapons?: Weapon[];
   icon?: string;
   disposition?: Disposition;
@@ -979,6 +987,7 @@ export type MonsterUpdatePayload = {
   weapons?: Weapon[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
+  sheetAbilities?: SheetAbility[];
   icon?: string;
   /** Disarm DC for a trap object. */
   objectDc?: number;

@@ -1503,44 +1503,67 @@ export function takeLoot(
   return { monster: getMonster(monsterId)!, character: getCharacter(characterId)! };
 }
 
-/** Upsert a spell/ability on a character's sheet (by id). */
+/** Upsert a rich spell/ability on a PC or monster sheet (by id). */
 export function setSheetAbility(
-  characterId: string,
+  kind: TokenKind,
+  refId: string,
   ability: Character['sheetAbilities'][number],
-): Character | null {
-  const c = getCharacter(characterId);
+): Character | Monster | null {
+  if (kind === 'monster') {
+    const m = getMonster(refId);
+    if (!m) return null;
+    const list = m.sheetAbilities.filter((a) => a.id !== ability.id);
+    list.push({ ...ability, id: ability.id || newId() });
+    db.prepare('UPDATE monsters SET sheet_abilities = ? WHERE id = ?').run(
+      JSON.stringify(list),
+      refId,
+    );
+    return getMonster(refId);
+  }
+  const c = getCharacter(refId);
   if (!c) return null;
   const list = c.sheetAbilities.filter((a) => a.id !== ability.id);
   list.push({ ...ability, id: ability.id || newId() });
   db.prepare('UPDATE characters SET sheet_abilities = ? WHERE id = ?').run(
     JSON.stringify(list),
-    characterId,
+    refId,
   );
   // Adding the first maneuver seeds the Battle Master pool: a Superiority Dice
   // counter + a default d8 die size (left alone if the character already has them).
+  // Monsters have no resource counters, so this is PC-only.
   if (ability.type === 'maneuver') {
     if (!c.resources['Superiority Dice'])
-      setResource(characterId, 'resources', 'Superiority Dice', { max: 4, used: 0 });
+      setResource(refId, 'resources', 'Superiority Dice', { max: 4, used: 0 });
     if (!c.superiorityDie)
       db.prepare('UPDATE characters SET superiority_die = ? WHERE id = ?').run(
         'd8',
-        characterId,
+        refId,
       );
   }
-  return getCharacter(characterId);
+  return getCharacter(refId);
 }
 
 export function removeSheetAbility(
-  characterId: string,
+  kind: TokenKind,
+  refId: string,
   abilityId: string,
-): Character | null {
-  const c = getCharacter(characterId);
+): Character | Monster | null {
+  if (kind === 'monster') {
+    const m = getMonster(refId);
+    if (!m) return null;
+    db.prepare('UPDATE monsters SET sheet_abilities = ? WHERE id = ?').run(
+      JSON.stringify(m.sheetAbilities.filter((a) => a.id !== abilityId)),
+      refId,
+    );
+    return getMonster(refId);
+  }
+  const c = getCharacter(refId);
   if (!c) return null;
   db.prepare('UPDATE characters SET sheet_abilities = ? WHERE id = ?').run(
     JSON.stringify(c.sheetAbilities.filter((a) => a.id !== abilityId)),
-    characterId,
+    refId,
   );
-  return getCharacter(characterId);
+  return getCharacter(refId);
 }
 
 /** Patch editable fields of a character (DM or the owning player). */
@@ -1705,6 +1728,7 @@ export type MonsterInput = {
   weaknesses?: string[];
   actions?: Monster['actions'];
   abilities?: Monster['abilities'];
+  sheetAbilities?: Monster['sheetAbilities'];
   weapons?: Monster['weapons'];
   icon?: string;
   disposition?: Monster['disposition'];
@@ -1727,8 +1751,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level, object_kind, loot, object_dc)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1753,6 +1777,7 @@ function insertMonster(
     opts.objectKind ?? null,
     opts.loot ? JSON.stringify(opts.loot) : null,
     opts.objectDc ?? null,
+    JSON.stringify(opts.sheetAbilities ?? []),
   );
   return getMonster(id)!;
 }
@@ -1836,6 +1861,9 @@ export function instantiateMonster(templateId: string): Monster | null {
       // Each spawned container gets its own copy of the template's loot.
       loot: tmpl.loot,
       objectDc: tmpl.objectDc,
+      // Deep-copy so per-instance mastery/maneuver/stance toggle state doesn't
+      // alias the template's entries.
+      sheetAbilities: JSON.parse(JSON.stringify(tmpl.sheetAbilities ?? [])),
       source: tmpl.source,
     },
     { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
@@ -1864,6 +1892,7 @@ export function copyMonster(monsterId: string): Monster | null {
     objectKind: m.objectKind,
     loot: m.loot,
     objectDc: m.objectDc,
+    sheetAbilities: JSON.parse(JSON.stringify(m.sheetAbilities ?? [])),
     source: m.source,
   });
 }
@@ -1890,6 +1919,7 @@ export function updateMonster(
     weapons: Monster['weapons'];
     actions: Monster['actions'];
     abilities: Monster['abilities'];
+    sheetAbilities: Monster['sheetAbilities'];
     icon: string;
   }>,
 ): Monster | null {
@@ -1927,6 +1957,8 @@ export function updateMonster(
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)
     put('abilities', JSON.stringify(patch.abilities));
+  if (patch.sheetAbilities !== undefined)
+    put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
 
   // Clamp curHp to a (possibly new) maxHp so the bar never overflows.
   if (sets.length) {

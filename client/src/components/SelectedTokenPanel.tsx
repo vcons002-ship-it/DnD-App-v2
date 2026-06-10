@@ -265,6 +265,17 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         />
       )}
 
+      {/* Creatures get the same rich, searchable, rollable abilities as PCs. */}
+      {monster && (monster.sheetAbilities.length > 0 || isDm) && (
+        <CharacterSpells
+          character={monster}
+          kind="monster"
+          editable={isDm}
+          snapshot={snapshot}
+          attackerToken={token}
+        />
+      )}
+
       {isDm && monster && (
         <button
           className="btn tiny save-library"
