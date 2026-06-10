@@ -83,12 +83,17 @@ export function ReorderableSections({
     dragId.current = null;
     setDragging(null);
     if (!src || src === targetId) return;
+    move(src, order.indexOf(targetId));
+  };
+
+  // Shared move (used by drag-drop AND the tap ▲/▼ buttons, which is the only
+  // way to reorder on touch — HTML5 drag-and-drop doesn't fire on mobile).
+  const move = (id: string, to: number) => {
     const arr = [...order];
-    const from = arr.indexOf(src);
-    const to = arr.indexOf(targetId);
-    if (from < 0 || to < 0) return;
+    const from = arr.indexOf(id);
+    if (from < 0 || to < 0 || to >= arr.length || from === to) return;
     arr.splice(from, 1);
-    arr.splice(to, 0, src);
+    arr.splice(to, 0, id);
     persist(arr);
   };
 
@@ -137,6 +142,41 @@ export function ReorderableSections({
               <span className="reorder-grip">⠿</span>
               {/* A real heading so screen readers / browser nav see the structure. */}
               <h4 className="reorder-label">{s.label}</h4>
+              {/* Tap up/down reorder — the only way to reorder on touch, where
+                  HTML5 drag-and-drop never fires. Hidden on hover-capable
+                  pointers (use the grip there). */}
+              <span className="reorder-moves">
+                <button
+                  type="button"
+                  className="reorder-move"
+                  draggable={false}
+                  title="Move section up"
+                  aria-label="Move section up"
+                  disabled={order.indexOf(id) === 0}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    move(id, order.indexOf(id) - 1);
+                  }}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="reorder-move"
+                  draggable={false}
+                  title="Move section down"
+                  aria-label="Move section down"
+                  disabled={order.indexOf(id) === order.length - 1}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    move(id, order.indexOf(id) + 1);
+                  }}
+                >
+                  ▼
+                </button>
+              </span>
             </div>
             {!collapsed.has(id) && s.node}
           </div>

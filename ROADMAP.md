@@ -887,3 +887,17 @@ Smaller refinements on top of the shipped Phase 2 work.
   hidden/fog-covered/off-map creatures never pop a number for players, and only
   the delta (already log-visible) is revealed, never totals. Covers weapon
   hits, spells, heals, manual ±HP buttons and bulk AOE.
+- ☑ **Mobile/touch fixes + reliable updates.** (1) The SPA shell (`index.html`)
+  is served **`no-cache`** while hashed `/assets` stay immutable, so a phone
+  always picks up the latest bundle after the host rebuilds (a stale cached
+  `index.html` was why new features — floating numbers, HP notes — silently
+  never appeared on mobile). (2) `ReorderableSections` gains tap **▲/▼** reorder
+  buttons — HTML5 drag-and-drop never fires on touch, so the grip alone left
+  mobile unable to reorder; the buttons work everywhere (de-emphasised on
+  hover pointers, enlarged on coarse pointers). (3) A **"Placing <unit> — ✕
+  Done"** banner shows over the map whenever a spawn is armed (`PlacementBanner`),
+  giving a touch-reachable cancel since Esc/​re-tapping the side drawer isn't
+  practical mid-place on a phone. (4) `install.bat`/`install.sh` now **force-sync
+  to the remote tip** (`reset --hard origin/<branch>`) and **fail loudly** if the
+  working tree can't be updated, instead of a silent `git pull` leaving stale
+  code — gitignored `server/data`/`.env` are never touched.
