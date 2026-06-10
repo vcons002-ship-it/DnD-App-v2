@@ -63,6 +63,11 @@ else
   git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
 fi
 
+# Keep our committed package-lock.json on any merge — `npm install` rewrites it
+# locally and a plain pull would otherwise conflict on it (see .gitattributes
+# `package-lock.json merge=ours`).
+git -C "$INSTALL_DIR" config merge.ours.driver true || true
+
 say "Installing dependencies"
 ( cd "$INSTALL_DIR" && npm install )
 [ -f "$INSTALL_DIR/.env" ] || cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env" 2>/dev/null || true
