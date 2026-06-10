@@ -7,6 +7,7 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
 import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
+import { ReorderableSections } from '../components/ReorderableSections';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
 import { AiStatus } from '../components/AiStatus';
@@ -48,23 +49,40 @@ export function PlayerView() {
       <TopToolbar snapshot={snapshot} />
 
       <div className="body">
-        <SidePanel side="left" storageKey="player-left">
-          <PlayerPanel
-            snapshot={snapshot}
-            claimedId={claimedId}
-            placing={placing}
-            isPlaced={alreadyPlaced}
-            onClaim={(id) => {
-              setClaimedId(id);
-              claimCharacter(id);
-            }}
-            onRelease={() => {
-              setClaimedId(null);
-              releaseCharacter();
-            }}
-            onPlaceToken={() => setPlacing((p) => !p)}
+        {/* Same rearrangeable/collapsible sections as the DM's left panel; layout
+            prefs are namespaced by session code so campaigns don't share them. */}
+        <SidePanel side="left" storageKey={`player-left:${snapshot.sessionCode}`}>
+          <ReorderableSections
+            storageKey={`player-left-order:${snapshot.sessionCode}`}
+            sections={[
+              {
+                id: 'character',
+                label: 'Your character',
+                node: (
+                  <PlayerPanel
+                    snapshot={snapshot}
+                    claimedId={claimedId}
+                    placing={placing}
+                    isPlaced={alreadyPlaced}
+                    onClaim={(id) => {
+                      setClaimedId(id);
+                      claimCharacter(id);
+                    }}
+                    onRelease={() => {
+                      setClaimedId(null);
+                      releaseCharacter();
+                    }}
+                    onPlaceToken={() => setPlacing((p) => !p)}
+                  />
+                ),
+              },
+              {
+                id: 'roll20',
+                label: 'Roll20',
+                node: <Roll20Panel sessionCode={snapshot.sessionCode} />,
+              },
+            ]}
           />
-          <Roll20Panel />
         </SidePanel>
 
         <main className="center">
@@ -86,7 +104,7 @@ export function PlayerView() {
           />
         </main>
 
-        <SidePanel side="right" storageKey="player-right">
+        <SidePanel side="right" storageKey={`player-right:${snapshot.sessionCode}`}>
           {selectedIds.length > 1 ? (
             <BulkActionsPanel
               snapshot={snapshot}

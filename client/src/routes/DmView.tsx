@@ -53,9 +53,10 @@ export function DmView() {
       <TopToolbar snapshot={snapshot} />
 
       <div className="body">
-        <SidePanel side="left" storageKey="dm-left">
+        {/* Layout prefs are namespaced by session code so campaigns don't share them. */}
+        <SidePanel side="left" storageKey={`dm-left:${snapshot.sessionCode}`}>
           <ReorderableSections
-            storageKey="dm-left-order"
+            storageKey={`dm-left-order:${snapshot.sessionCode}`}
             sections={[
               {
                 id: 'maps',
@@ -84,7 +85,11 @@ export function DmView() {
                 ),
               },
               { id: 'dice', label: 'Dice, Log & Chat', node: <DicePanel snapshot={snapshot} /> },
-              { id: 'roll20', label: 'Roll20', node: <Roll20Panel /> },
+              {
+                id: 'roll20',
+                label: 'Roll20',
+                node: <Roll20Panel sessionCode={snapshot.sessionCode} />,
+              },
             ]}
           />
         </SidePanel>
@@ -106,7 +111,7 @@ export function DmView() {
           />
         </main>
 
-        <SidePanel side="right" storageKey="dm-right">
+        <SidePanel side="right" storageKey={`dm-right:${snapshot.sessionCode}`}>
           {selectedIds.length > 1 ? (
             <BulkActionsPanel
               snapshot={snapshot}

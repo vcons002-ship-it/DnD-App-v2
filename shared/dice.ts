@@ -15,6 +15,11 @@ export type DiceResult = {
 
 const TERM = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
 
+// Per-term limits (count/sides) cap each term; these cap the whole expression so
+// a pathological "1d6+1d6+…" can't burn CPU / flood the roll log.
+const MAX_TERMS = 100;
+const MAX_TOTAL_DICE = 1000;
+
 const d = (sides: number) => 1 + Math.floor(Math.random() * sides);
 
 type Once = { total: number; rolls: number[]; detail: string };
@@ -31,11 +36,13 @@ function rollOnce(expr: string): Once | null {
   while ((m = TERM.exec(cleaned))) {
     if (m.index !== consumed) return null; // gap = invalid char
     consumed += m[0].length;
+    if (parts.length >= MAX_TERMS) return null;
     if (m[3] !== undefined) {
       const sign = m[1] === '-' ? -1 : 1;
       const count = m[2] === '' ? 1 : parseInt(m[2], 10);
       const sides = parseInt(m[3], 10);
       if (count < 1 || count > 100 || sides < 1 || sides > 1000) return null;
+      if (rolls.length + count > MAX_TOTAL_DICE) return null;
       const these: number[] = [];
       for (let i = 0; i < count; i++) {
         const r = d(sides);

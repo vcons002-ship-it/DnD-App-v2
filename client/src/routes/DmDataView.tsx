@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Character,
   Monster,
-  StateSnapshot,
   Token,
 } from '../../../shared/types';
 import { COMBAT_ROLE_ICON } from '../../../shared/combatRole';
-import { resolveToken } from '../lib/entities';
+import {
+  resolveToken,
+  sameTokenDisplay,
+  sameTokenFields,
+  type TokenDisplay,
+} from '../lib/entities';
 import { AURA_HEX } from '../lib/conditions';
 import { useSelection } from '../lib/useSelection';
+import { useStableCallback } from '../lib/useStableCallback';
 import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { SidePanel } from '../components/SidePanel';
@@ -141,10 +146,18 @@ export function DmDataView() {
     setManualOrder(arr);
   };
 
-  const toggleSelect = (id: string) =>
+  // Identity-stable, id-based handlers so the memoized cards don't re-render
+  // just because the parent re-created its inline closures.
+  const toggleSelect = useStableCallback((id: string) =>
     setSelectedIds((cur) =>
       cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
-    );
+    ),
+  );
+  const expandCard = useStableCallback((id: string) => setExpandedId(id));
+  const startDrag = useStableCallback((id: string) => {
+    dragId.current = id;
+  });
+  const dropOn = useStableCallback((id: string) => onDrop(id));
 
   // The active-turn token may live on a DIFFERENT map than the one being viewed
   // here (initiative rolled on map A, then map B activated/previewed), so it
@@ -250,24 +263,38 @@ export function DmDataView() {
             </p>
           ) : (
             <div className="data-grid">
-              {orderedTokens.map((t) => (
-                <DataCard
-                  key={t.id}
-                  snapshot={snapshot}
-                  token={t}
-                  rank={rankOf.get(t.id) ?? null}
-                  isTurn={t.id === snapshot.activeTurnTokenId}
-                  selected={selectedIds.includes(t.id)}
-                  onToggleSelect={() => toggleSelect(t.id)}
-                  onExpand={() => setExpandedId(t.id)}
-                  onDragStart={() => (dragId.current = t.id)}
-                  onDrop={() => onDrop(t.id)}
-                />
-              ))}
+              {orderedTokens.map((t) => {
+                const entity =
+                  t.kind === 'pc'
+                    ? (snapshot.characters.find((c) => c.id === t.refId) as
+                        | Character
+                        | undefined)
+                    : (snapshot.monsters.find((m) => m.id === t.refId) as
+                        | Monster
+                        | undefined);
+                return (
+                  <DataCard
+                    key={t.id}
+                    token={t}
+                    display={resolveToken(snapshot, t)}
+                    stats={entity && 'stats' in entity ? entity.stats : undefined}
+                    armorClass={
+                      entity && 'armorClass' in entity ? entity.armorClass : undefined
+                    }
+                    rank={rankOf.get(t.id) ?? null}
+                    isTurn={t.id === snapshot.activeTurnTokenId}
+                    selected={selectedIds.includes(t.id)}
+                    onToggleSelect={toggleSelect}
+                    onExpand={expandCard}
+                    onDragStart={startDrag}
+                    onDrop={dropOn}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
-        <SidePanel side="right" storageKey="dm-data-log">
+        <SidePanel side="right" storageKey={`dm-data-log:${snapshot.sessionCode}`}>
           <DicePanel snapshot={snapshot} />
         </SidePanel>
       </div>
@@ -297,9 +324,18 @@ export function DmDataView() {
   );
 }
 
-function DataCard({
-  snapshot,
+// Memoized on content (see lib/entities comparators): a snapshot broadcast only
+// re-renders the cards whose creature actually changed.
+const sameStats = (
+  a?: Record<string, number>,
+  b?: Record<string, number>,
+): boolean => a === b || (!!a && !!b && ABILITIES.every((k) => a[k] === b[k]));
+
+const DataCard = memo(function DataCard({
   token,
+  display: d,
+  stats,
+  armorClass,
   rank,
   isTurn,
   selected,
@@ -308,29 +344,25 @@ function DataCard({
   onDragStart,
   onDrop,
 }: {
-  snapshot: StateSnapshot;
   token: Token;
+  display: TokenDisplay;
+  stats?: Record<string, number>;
+  armorClass?: number;
   rank: number | null;
   isTurn: boolean;
   selected: boolean;
-  onToggleSelect: () => void;
-  onExpand: () => void;
-  onDragStart: () => void;
-  onDrop: () => void;
+  onToggleSelect: (id: string) => void;
+  onExpand: (id: string) => void;
+  onDragStart: (id: string) => void;
+  onDrop: (id: string) => void;
 }) {
   const applyDamage = useStore((s) => s.applyDamage);
   const clearCondition = useStore((s) => s.clearCondition);
   const [amount, setAmount] = useState(5);
-  const d = resolveToken(snapshot, token);
   const hpFrac =
     d.maxHp && d.curHp !== undefined ? Math.max(0, Math.min(1, d.curHp / d.maxHp)) : null;
 
-  const entity =
-    token.kind === 'pc'
-      ? (snapshot.characters.find((c) => c.id === token.refId) as Character | undefined)
-      : (snapshot.monsters.find((m) => m.id === token.refId) as Monster | undefined);
-  const showStats =
-    entity && 'stats' in entity && ABILITIES.some((a) => entity.stats[a] !== undefined);
+  const showStats = !!stats && ABILITIES.some((a) => stats[a] !== undefined);
 
   return (
     <div
@@ -338,9 +370,13 @@ function DataCard({
         selected ? 'selected' : ''
       }`}
       onDragOver={(e) => e.preventDefault()}
-      onDrop={onDrop}
+      onDrop={() => onDrop(token.id)}
     >
-      <div className="data-card-strip" draggable onDragStart={onDragStart}>
+      <div
+        className="data-card-strip"
+        draggable
+        onDragStart={() => onDragStart(token.id)}
+      >
         <span className="data-drag" title="Drag to reorder">
           ⠿
         </span>
@@ -348,7 +384,7 @@ function DataCard({
           type="checkbox"
           className="data-select"
           checked={selected}
-          onChange={onToggleSelect}
+          onChange={() => onToggleSelect(token.id)}
           title="Select (also selects on the map)"
         />
         {rank !== null && <span className="data-rank">#{rank}</span>}
@@ -357,7 +393,11 @@ function DataCard({
         )}
         {token.combatRole && <span>{COMBAT_ROLE_ICON[token.combatRole]}</span>}
         <span className="data-card-name">{d.name}</span>
-        <button className="data-expand" onClick={onExpand} title="Expand full sheet">
+        <button
+          className="data-expand"
+          onClick={() => onExpand(token.id)}
+          title="Expand full sheet"
+        >
           ⤢
         </button>
       </div>
@@ -385,16 +425,16 @@ function DataCard({
           ) : (
             <span className="muted">HP hidden</span>
           )}
-          {entity && 'armorClass' in entity && entity.armorClass > 0 && (
-            <span className="data-ac muted">AC {entity.armorClass}</span>
+          {armorClass !== undefined && armorClass > 0 && (
+            <span className="data-ac muted">AC {armorClass}</span>
           )}
         </div>
 
-        {showStats && entity && (
+        {showStats && stats && (
           <div className="data-stats">
             {ABILITIES.map((a) => (
               <span key={a}>
-                <em>{a}</em> {entity.stats[a] ?? '—'}
+                <em>{a}</em> {stats[a] ?? '—'}
               </span>
             ))}
           </div>
@@ -441,4 +481,16 @@ function DataCard({
       </div>
     </div>
   );
-}
+},
+(p, n) =>
+  sameTokenFields(p.token, n.token) &&
+  sameTokenDisplay(p.display, n.display) &&
+  sameStats(p.stats, n.stats) &&
+  p.armorClass === n.armorClass &&
+  p.rank === n.rank &&
+  p.isTurn === n.isTurn &&
+  p.selected === n.selected &&
+  p.onToggleSelect === n.onToggleSelect &&
+  p.onExpand === n.onExpand &&
+  p.onDragStart === n.onDragStart &&
+  p.onDrop === n.onDrop);

@@ -74,3 +74,39 @@ export const findCharacter = (
   snapshot: StateSnapshot,
   id: string,
 ): Character | undefined => snapshot.characters.find((c) => c.id === id);
+
+// ---- Content comparators for React.memo ----
+// Every snapshot broadcast rebuilds the token/display objects, so memoized
+// renderers (TokenShape, the Data view cards) compare the rendered fields
+// instead of object identity.
+
+export const sameConditions = (a: Condition[], b: Condition[]): boolean =>
+  a.length === b.length &&
+  a.every(
+    (c, i) =>
+      c.id === b[i].id &&
+      c.label === b[i].label &&
+      c.aura === b[i].aura &&
+      c.isConcentration === b[i].isConcentration &&
+      c.customText === b[i].customText,
+  );
+
+export const sameTokenFields = (a: Token, b: Token): boolean =>
+  a.id === b.id &&
+  a.kind === b.kind &&
+  a.refId === b.refId &&
+  a.x === b.x &&
+  a.y === b.y &&
+  a.widthFt === b.widthFt &&
+  a.isHidden === b.isHidden &&
+  a.combatRole === b.combatRole;
+
+export const sameTokenDisplay = (a: TokenDisplay, b: TokenDisplay): boolean =>
+  a.name === b.name &&
+  a.curHp === b.curHp &&
+  a.maxHp === b.maxHp &&
+  a.tempHp === b.tempHp &&
+  a.disposition === b.disposition &&
+  a.objectKind === b.objectKind &&
+  a.icon === b.icon &&
+  sameConditions(a.conditions, b.conditions);

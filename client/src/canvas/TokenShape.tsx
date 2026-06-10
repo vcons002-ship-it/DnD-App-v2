@@ -1,11 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Group, Circle, Rect, Text, Image as KonvaImage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import { COMBAT_ROLE_ICON } from '../../../shared/combatRole';
 import { presentAuras, AURA_HEX } from '../lib/conditions';
-import type { TokenDisplay } from '../lib/entities';
+import { sameTokenDisplay, sameTokenFields, type TokenDisplay } from '../lib/entities';
 import { useImage } from './useImage';
 
 const isImageIcon = (icon: string): boolean =>
@@ -50,7 +50,7 @@ const isAdditive = (e: KonvaEventObject<Event>): boolean => {
   return !!(evt.shiftKey || evt.ctrlKey || evt.metaKey);
 };
 
-export function TokenShape({
+function TokenShapeInner({
   token,
   display,
   gridSizePx,
@@ -80,7 +80,11 @@ export function TokenShape({
     display.maxHp && display.maxHp > 0 && display.curHp !== undefined
       ? Math.max(0, Math.min(1, display.curHp / display.maxHp))
       : null;
-  const isDead = display.curHp !== undefined && display.curHp <= 0;
+  // Dead = 0 HP where the viewer can see HP, or the DM's manual "Dead" condition
+  // (which reaches players even on enemies whose HP is hidden).
+  const isDead =
+    (display.curHp !== undefined && display.curHp <= 0) ||
+    display.conditions.some((c) => c.label.toLowerCase() === 'dead');
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     onDragActive?.(false);
@@ -253,7 +257,7 @@ export function TokenShape({
           )}
         </>
       )}
-      {/* Death marker when downed (only where HP is visible to this viewer). */}
+      {/* Death marker when downed (visible HP at 0, or a manual "Dead" mark). */}
       {isDead && (
         <Text
           text="💀"
@@ -369,3 +373,27 @@ export function TokenShape({
     </Group>
   );
 }
+
+// Snapshots rebuild every token/display object on each broadcast, so compare by
+// content (the fields actually rendered) instead of identity — together with
+// MapStage's identity-stable handlers this skips re-rendering unchanged tokens.
+export const TokenShape = memo(
+  TokenShapeInner,
+  (p, n) =>
+    sameTokenFields(p.token, n.token) &&
+    sameTokenDisplay(p.display, n.display) &&
+    p.gridSizePx === n.gridSizePx &&
+    p.pxPerFoot === n.pxPerFoot &&
+    p.draggable === n.draggable &&
+    p.selected === n.selected &&
+    p.activeTurn === n.activeTurn &&
+    p.initiativeRank === n.initiativeRank &&
+    p.listening === n.listening &&
+    p.onSelect === n.onSelect &&
+    p.onActivate === n.onActivate &&
+    p.onMove === n.onMove &&
+    p.onContextMenu === n.onContextMenu &&
+    p.onHover === n.onHover &&
+    p.onHoverEnd === n.onHoverEnd &&
+    p.onDragActive === n.onDragActive,
+);

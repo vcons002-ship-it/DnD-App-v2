@@ -4,7 +4,7 @@
   --panel-2: #272c36;
   --line: #333a47;
   --text: #e8eaed;
-  --muted: #9aa3b2;
+  --muted: #a8b1c0; /* one step brighter than the old #9aa3b2 for readable hints */
   --accent: #2d6cdf;
   --red: #e23b3b;
   --green: #39c46b;
@@ -15,6 +15,14 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+
+/* Keyboard navigation: one consistent focus ring (mouse/touch stay outline-free
+   via :focus-visible). :where() keeps specificity at zero so any component rule
+   can still override it. */
+:where(button, input, select, textarea, summary, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 body {
   background: var(--bg);
   color: var(--text);
@@ -481,7 +489,8 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 }
 .sb-tag-x:hover { opacity: 1; }
 .sb-tag-add { flex: 1; min-width: 56px; border: 0 !important; background: transparent; padding: 1px 2px; }
-.sb-tag-add:focus { outline: none; }
+/* Suppress the ring only for pointer focus; keyboard focus keeps the global one. */
+.sb-tag-add:focus:not(:focus-visible) { outline: none; }
 .weapon-picker { margin-top: 6px; }
 .weapon-masteries strong { color: var(--accent); }
 .sb-entry-edit { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start; margin: 4px 0; }
@@ -727,7 +736,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .item-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
 .item-name { flex: 1; font-size: 13px; }
 .item-qty { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-.qbtn { width: 20px; height: 20px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 4px; cursor: pointer; padding: 0; }
+.qbtn { width: 26px; height: 26px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 4px; cursor: pointer; padding: 0; }
 .item-picker { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; max-height: 180px; overflow-y: auto; margin-top: 4px; }
 
 /* Spells & abilities */
@@ -899,7 +908,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 }
 .reorder-handle:active { cursor: grabbing; }
 .reorder-grip { font-size: 13px; line-height: 1; }
-.reorder-label { font-weight: 600; }
+.reorder-label { font-weight: 600; margin: 0; font-size: inherit; color: inherit; }
 .reorder-caret {
   background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted);
   font-size: 11px; line-height: 1; display: inline-flex; align-items: center;
@@ -1027,3 +1036,13 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .attack-controls { margin-top: 10px; }
 .attack-controls select { flex: 1; }
 .attack-row { display: block; width: 100%; text-align: left; margin: 3px 0; }
+
+/* Touch devices: lift the smallest controls to a ~32px hit area (visuals stay
+   compact on desktop, where a mouse can hit 20–26px targets comfortably). */
+@media (pointer: coarse) {
+  .qbtn { width: 32px; height: 32px; }
+  .btn.tiny { padding: 7px 10px; min-height: 32px; }
+  .collapse-btn { width: 24px; height: 36px; }
+  .side.collapsed { width: 28px; }
+  .reorder-handle { min-height: 32px; }
+}

@@ -28,6 +28,16 @@ describe('dice roller', () => {
     expect(rollDice('2d')).toBeNull();
   });
 
+  it('caps expression size (term count + total dice) against pathological rolls', () => {
+    // 150 one-die terms: each term is legal, the expression as a whole is not.
+    expect(rollDice(Array(150).fill('1d6').join('+'))).toBeNull();
+    // 11 × 100 dice = 1100 total dice > the 1000 cap.
+    expect(rollDice(Array(11).fill('100d6').join('+'))).toBeNull();
+    // Big-but-sane expressions still roll.
+    expect(rollDice(Array(20).fill('1d6').join('+'))).not.toBeNull();
+    expect(rollDice('8d6+5')).not.toBeNull();
+  });
+
   it('advantage keeps the higher of two whole-expression rolls', () => {
     // Probabilistic but extremely safe over many tries.
     let advWins = 0;

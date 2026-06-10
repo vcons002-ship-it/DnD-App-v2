@@ -1,9 +1,12 @@
 import type { AuraColor, Condition } from '../../../shared/types';
 
-/** Standard 5e conditions (all negative → red aura). */
+/** Standard 5e conditions (all negative → red aura). "Dead" doubles as the DM's
+ *  manual death mark: conditions reach players for every disposition tier, so it
+ *  shows the skull even on enemies whose HP players can't see. */
 export const STANDARD_CONDITIONS = [
   'Blinded',
   'Charmed',
+  'Dead',
   'Deafened',
   'Frightened',
   'Grappled',
