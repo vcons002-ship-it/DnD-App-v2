@@ -913,3 +913,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   free) so the combat console doesn't fall back to the generic panel. (5)
   **Traits & Feats moved up** to sit with the character info box (stats +
   weapons), above Resources/Skills/Inventory.
+- ☑ **Snapshot-performance rework** (review #7). `visibility.ts` now exposes
+  `createSnapshotBuilder(sessionId)`: all session-wide queries (creatures, roll
+  log, chat, maps) run ONCE per change-cycle, creature lookups go through
+  in-memory id maps (kills the per-token `getMonster`/`getCharacter` N+1 in
+  combat-role/fog/hpNote shaping), per-map token/measurement/annotation loads
+  are cached across viewers, and player-shaped monsters/roll log are computed
+  once and shared by every player connection. `broadcastSnapshots` builds one
+  builder per cycle; `buildSnapshot` keeps its signature (join + tests
+  unchanged). Bench (35 tokens, 6 clients): ~8.2 ms → ~1.5 ms per change-cycle
+  (≈5.6×), on top of the already-removed N+1. Parity + reuse covered by new
+  `createSnapshotBuilder` tests.

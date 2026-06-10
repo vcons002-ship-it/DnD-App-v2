@@ -76,7 +76,9 @@ sanitization rules above and commit it to `claude/Main`.
   truth. Clients only send *intent* events; the server validates them by
   **role** in `server/src/socketHandlers.ts`, mutates via
   `server/src/sessions.ts`, and rebuilds **role-shaped snapshots** in
-  `server/src/visibility.ts` (`buildSnapshot`). **Never trust client-computed
+  `server/src/visibility.ts` (`buildSnapshot`; broadcasts use
+  `createSnapshotBuilder` — ONE set of session queries per change-cycle, cheap
+  per-viewer shaping, no per-token SELECTs). **Never trust client-computed
   numbers** (damage, dice, AC, attack rolls) — compute them on the server.
 - **Snapshot flow.** Every mutation ends with `broadcastSnapshots()`
   (`server/src/connections.ts`). Clients are thin Zustand stores fed by the
