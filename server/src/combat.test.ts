@@ -10,6 +10,7 @@ import {
   resolveForcedSave,
   resolveDeathSave,
   noteConcentration,
+  resolveObjectCheck,
 } from './combat.js';
 import {
   createSession,
@@ -30,8 +31,9 @@ import {
   applyDamage,
   listRollLog,
   getRollEntry,
+  setLoot,
 } from './sessions.js';
-import { buildSnapshot } from './visibility.js';
+import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import type { CreatureAbility, SheetAbility } from '../../shared/types.js';
 
 function arena() {
@@ -1386,3 +1388,39 @@ describe('save action fired at a single target (floating menu)', () => {
   });
 });
 
+
+describe('object lock-pick + creature loot gating', () => {
+  it('resolveObjectCheck unlocks vs the object DC', () => {
+    const { s } = arena();
+    const rogue = createCharacter(s.id, {
+      name: 'Rogue', level: 5, stats: { DEX: 20 }, proficientSkills: ['Sleight of Hand'],
+    });
+    const chestTmpl = createMonsterTemplate(s.id, {
+      name: 'Chest', maxHp: 1, objectKind: 'chest', objectDc: 1,
+    });
+    const easy = instantiateMonster(chestTmpl.id)!;
+    expect(resolveObjectCheck(s.id, 'Rogue', rogue, easy, 'unlock').success).toBe(true);
+
+    const hardTmpl = createMonsterTemplate(s.id, {
+      name: 'Vault', maxHp: 1, objectKind: 'chest', objectDc: 99,
+    });
+    const hard = instantiateMonster(hardTmpl.id)!;
+    expect(resolveObjectCheck(s.id, 'Rogue', rogue, hard, 'unlock').success).toBe(false);
+  });
+
+  it('creature loot is takeable only when DEAD and revealed', () => {
+    const { s } = arena();
+    const tmpl = createMonsterTemplate(s.id, { name: 'Bandit', maxHp: 11 });
+    const bandit = instantiateMonster(tmpl.id)!;
+    setLoot(bandit.id, { gold: 5, items: [] });
+
+    // Alive + unrevealed → hidden.
+    expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(false);
+    // Revealed but alive → still hidden.
+    setCondition('monster', bandit.id, { label: 'Loot revealed', aura: 'blue', isConcentration: false });
+    expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(false);
+    // Dead + revealed → visible.
+    applyDamage('monster', bandit.id, 999);
+    expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(true);
+  });
+});

@@ -32,8 +32,13 @@ import { deriveCombatRole } from '../../shared/combatRole.js';
  * contents until taken. (The DM always sees loot via the full monster object.)
  */
 export function lootVisibleToPlayers(m: Monster): boolean {
-  if (!m.objectKind) return false;
   const labels = m.conditions.map((c) => c.label.toLowerCase());
+  if (!m.objectKind) {
+    // A creature's loot is takeable only once it's DEAD and the DM has revealed
+    // it (enables a perception-roll gate before the body can be searched).
+    const dead = m.curHp <= 0 || labels.includes('dead');
+    return dead && labels.includes('loot revealed');
+  }
   if (m.objectKind === 'item' || m.objectKind === 'other')
     return !labels.includes('taken');
   return labels.includes('open') || labels.includes('looted');

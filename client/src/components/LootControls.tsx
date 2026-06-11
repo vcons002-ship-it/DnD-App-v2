@@ -20,11 +20,15 @@ export function LootControls({
   monsterId,
   loot,
   editable,
+  reveal,
 }: {
   snapshot: StateSnapshot;
   monsterId: string;
   loot: LootContents | undefined;
   editable: boolean;
+  /** Creature loot only: a DM toggle to reveal the corpse's loot to players
+   *  (takeable once the creature is also dead). Omitted for objects. */
+  reveal?: { revealed: boolean; dead: boolean; onToggle: () => void };
 }) {
   const setLoot = useStore((s) => s.setLoot);
   const takeLoot = useStore((s) => s.takeLoot);
@@ -36,6 +40,7 @@ export function LootControls({
   const [picker, setPicker] = useState(false);
   const [query, setQuery] = useState('');
   const [lib, setLib] = useState<LibraryItem[]>([]);
+  const [shownNote, setShownNote] = useState<string | null>(null);
 
   // Who receives the loot: a player takes to their own claimed PC; the DM picks.
   const myCharacter = snapshot.characters.find((c) => c.claimedBy === socketId);
@@ -82,6 +87,13 @@ export function LootControls({
         <span className="loot-title">💰 Loot</span>
         {goldHeld > 0 && <span className="loot-gold">{goldHeld} gp</span>}
       </div>
+      {editable && reveal && (
+        <label className="loot-reveal" title="Players can search the body once it's revealed AND dead">
+          <input type="checkbox" checked={reveal.revealed} onChange={reveal.onToggle} />
+          Revealed to players
+          {!reveal.dead && <span className="muted"> · only lootable once dead</span>}
+        </label>
+      )}
 
       {empty ? (
         <p className="muted">{editable ? 'Empty — add gold or items below.' : 'Empty.'}</p>
@@ -92,7 +104,19 @@ export function LootControls({
               <span className="item-name">
                 {it.name}
                 {it.qty > 1 && <span className="muted"> ×{it.qty}</span>}
+                {it.note && (
+                  <button
+                    className="item-info"
+                    title="Show description"
+                    onClick={() => setShownNote(shownNote === it.id ? null : it.id)}
+                  >
+                    ⓘ
+                  </button>
+                )}
               </span>
+              {shownNote === it.id && it.note && (
+                <span className="item-note muted">{it.note}</span>
+              )}
               {targetId && (
                 <button
                   className="btn tiny"

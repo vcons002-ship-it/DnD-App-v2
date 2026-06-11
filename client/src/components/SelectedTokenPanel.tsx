@@ -16,6 +16,7 @@ import { LibrarySaveDialog } from './LibrarySaveDialog';
 import { AttackControls } from './AttackControls';
 import { DamageHealControls } from './DamageHealControls';
 import { ObjectControls } from './ObjectControls';
+import { LootControls } from './LootControls';
 import { IconTools } from './IconTools';
 import { TokenAdminButtons } from './TokenAdminButtons';
 import { AdvantageToggle } from './AdvantageToggle';
@@ -34,6 +35,8 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const updateCharacter = useStore((s) => s.updateCharacter);
+  const setCondition = useStore((s) => s.setCondition);
+  const clearCondition = useStore((s) => s.clearCondition);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const rollSave = useStore((s) => s.rollSave);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
@@ -146,6 +149,21 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         />
       ),
     });
+    // Loot a fallen creature whose loot the DM revealed (server-gated).
+    if (token.kind === 'monster' && monsterEntity && 'loot' in monsterEntity && monsterEntity.loot) {
+      consoleSections.push({
+        id: 'loot',
+        label: 'Loot',
+        node: (
+          <LootControls
+            snapshot={snapshot}
+            monsterId={monsterEntity.id}
+            loot={monsterEntity.loot}
+            editable={false}
+          />
+        ),
+      });
+    }
     return (
       <div className="panel-section">
         {selectingOwn ? (
@@ -200,6 +218,40 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           editable={isDm}
           snapshot={snapshot}
           attackerToken={token}
+        />
+      ),
+    });
+  }
+
+  // DM: stock + reveal loot on any creature (objects carry it via ObjectControls).
+  if (isDm && monster && !objectKind) {
+    const dead =
+      monster.curHp <= 0 ||
+      monster.conditions.some((c) => c.label.toLowerCase() === 'dead');
+    const revealCond = monster.conditions.find(
+      (c) => c.label.toLowerCase() === 'loot revealed',
+    );
+    sections.push({
+      id: 'loot',
+      label: 'Loot',
+      node: (
+        <LootControls
+          snapshot={snapshot}
+          monsterId={monster.id}
+          loot={monster.loot}
+          editable
+          reveal={{
+            revealed: !!revealCond,
+            dead,
+            onToggle: () =>
+              revealCond
+                ? clearCondition('monster', monster.id, revealCond.id)
+                : setCondition('monster', monster.id, {
+                    label: 'Loot revealed',
+                    aura: 'blue',
+                    isConcentration: false,
+                  }),
+          }}
         />
       ),
     });

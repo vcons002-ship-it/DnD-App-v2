@@ -1105,3 +1105,10 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 }
 .guide-table td { padding: 4px 0; color: var(--text); }
 .guide-table tr + tr th, .guide-table tr + tr td { border-top: 1px solid var(--line); }
+
+/* Object open/unlock + loot description/reveal. */
+.object-interact { margin-top: 6px; }
+.item-info { background: none; border: 0; cursor: pointer; color: var(--accent); padding: 0 4px; font-size: 12px; }
+.item-note { display: block; margin: 2px 0 4px 2px; font-size: 11px; font-style: italic; }
+.loot-reveal { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 4px 0; }
+.loot-reveal input { width: auto; margin: 0; }

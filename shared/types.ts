@@ -960,6 +960,12 @@ export type MonsterCreatePayload = {
 };
 /** Roll a character's check to disarm a trap object; on success the server flips
  *  it to "Disarmed". DM or the player who owns the character. */
+export type ObjectInteractPayload = {
+  monsterId: string;
+  /** The acting character (for a player's lock-pick check); omit for DM force. */
+  characterId?: string;
+  action: 'open' | 'unlock';
+};
 export type TrapDisarmPayload = {
   monsterId: string;
   characterId: string;
@@ -1071,6 +1077,7 @@ export interface ClientToServerEvents {
   'object:setLoot': (payload: ObjectSetLootPayload) => void;
   'loot:take': (payload: LootTakePayload) => void;
   'trap:disarm': (payload: TrapDisarmPayload) => void;
+  'object:interact': (payload: ObjectInteractPayload) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;

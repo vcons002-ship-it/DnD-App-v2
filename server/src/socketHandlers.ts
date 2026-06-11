@@ -8,6 +8,7 @@ import {
   resolveForcedSave,
   resolveSkillRoll,
   resolveTrapDisarm,
+  resolveObjectCheck,
   resolveSaves,
   resolveSave,
   resolveDeathSave,
@@ -537,9 +538,9 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // ---- Object loot (DM fills containers; anyone who owns the target PC takes) ----
     socket.on('object:setLoot', ({ monsterId, loot }) => {
-      if (!isDm()) return; // only the DM stocks a chest
-      const m = getMonster(monsterId);
-      if (!m || !m.objectKind) return;
+      if (!isDm()) return; // only the DM stocks loot (object OR creature)
+      const sid = sessionId();
+      if (!sid || !monsterInSession(monsterId, sid)) return;
       setLoot(monsterId, loot);
       afterChange();
     });
@@ -547,8 +548,8 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('loot:take', ({ monsterId, characterId, itemId, gold, all }) => {
       const m = getMonster(monsterId);
       // The taker must own the destination character; players can only take from
-      // a container whose contents are actually revealed to them.
-      if (!m || !m.objectKind || !ownsCharacter(characterId)) return;
+      // a container/corpse whose contents are actually revealed to them.
+      if (!m || !ownsCharacter(characterId)) return;
       if (!isDm() && !lootVisibleToPlayers(m)) return;
       takeLoot(monsterId, characterId, { itemId, gold, all });
       afterChange();
@@ -582,6 +583,55 @@ export function registerSocketHandlers(io: IOServer): void {
           });
       }
       afterChange();
+    });
+
+    // Player/DM interacts with a door or chest: open it (if not locked) or pick
+    // its lock (a DEX check vs the object's DC; success clears Locked).
+    socket.on('object:interact', ({ monsterId, characterId, action }) => {
+      const sid = sessionId();
+      if (!sid) return;
+      const obj = getMonster(monsterId);
+      if (!obj || (obj.objectKind !== 'door' && obj.objectKind !== 'chest')) return;
+      const has = (label: string) =>
+        obj.conditions.find((c) => c.label.toLowerCase() === label.toLowerCase());
+      const locked = has('locked');
+
+      if (action === 'unlock') {
+        // Anyone who owns a PC may attempt the pick; the DM may force it open.
+        if (!locked) return;
+        if (isDm()) {
+          clearCondition('monster', monsterId, locked.id);
+          afterChange();
+          return;
+        }
+        const c = characterId ? getCharacter(characterId) : undefined;
+        if (!c || !ownsCharacter(c.id)) return;
+        const { success } = resolveObjectCheck(
+          sid,
+          rollerName(sid, socket.id, false),
+          c,
+          obj,
+          'unlock',
+        );
+        if (success) clearCondition('monster', monsterId, locked.id);
+        afterChange();
+        return;
+      }
+
+      // Open/close toggle — blocked while Locked (pick it first).
+      if (action === 'open') {
+        if (locked) return;
+        const open = has('open');
+        if (open) clearCondition('monster', monsterId, open.id);
+        else
+          setCondition('monster', monsterId, {
+            id: newId(),
+            label: 'Open',
+            aura: 'green',
+            isConcentration: false,
+          });
+        afterChange();
+      }
     });
 
     // ---- Sheet spells/abilities (PC owner, or the DM for creatures) ----

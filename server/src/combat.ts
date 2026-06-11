@@ -969,22 +969,39 @@ export function resolveTrapDisarm(
   trap: Monster,
   advantage?: Advantage,
 ): { success: boolean } {
-  const dc = trap.objectDc && trap.objectDc > 0 ? trap.objectDc : 12;
-  // Disarming uses Thieves' Tools in 5e; Sleight of Hand (DEX) is the tracked
-  // skill closest to it, so proficiency in it grants the bonus.
+  return resolveObjectCheck(sessionId, roller, character, trap, 'disarm', advantage);
+}
+
+/**
+ * A 5e DEX (Thieves' Tools / Sleight of Hand) check against an object's DC,
+ * shared by trap-disarming and lock-picking. Proficiency in Sleight of Hand
+ * grants the bonus; logged to the shared roll log. Returns whether it beat the
+ * object's `objectDc` (default 12).
+ */
+export function resolveObjectCheck(
+  sessionId: string,
+  roller: string,
+  character: Character,
+  object: Monster,
+  kind: 'disarm' | 'unlock',
+  advantage?: Advantage,
+): { success: boolean } {
+  const dc = object.objectDc && object.objectDc > 0 ? object.objectDc : 12;
   const proficient = character.proficientSkills.includes('Sleight of Hand');
   const bonus = skillBonus(character.stats, 'DEX', character.level, proficient);
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   const success = total >= dc;
+  const verb = kind === 'disarm' ? 'disarm' : 'pick the lock on';
+  const ok = kind === 'disarm' ? 'DISARMED' : 'UNLOCKED';
   addRollLog(sessionId, {
     roller,
-    label: 'Disarm trap',
+    label: kind === 'disarm' ? 'Disarm trap' : 'Pick lock',
     expr: `DEX${proficient ? ' (prof)' : ''} vs DC ${dc}`,
     total,
     detail:
-      `${character.name} tries to disarm ${trap.name}: ${d20detail} ${signed(bonus)} = ` +
-      `${total} vs DC ${dc} — ${success ? 'DISARMED' : 'FAILED'}`,
+      `${character.name} tries to ${verb} ${object.name}: ${d20detail} ${signed(bonus)} = ` +
+      `${total} vs DC ${dc} — ${success ? ok : 'FAILED'}`,
   });
   return { success };
 }
