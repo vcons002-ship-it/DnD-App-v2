@@ -100,15 +100,41 @@ describe('HP-change FX queue (floating ±X)', () => {
     updateCharacter(ch.id, { tempHp: 5 });
     applyDamage('pc', ch.id, 7); // 5 temp absorbs, 2 real — full −7 floats
     applyDamage('pc', ch.id, 0); // no change → no event
+    applyDamage('pc', ch.id, 999); // 40 → 0 (the effective −40 floats)
+    applyDamage('pc', ch.id, 6); // already at 0 — still floats the full hit
 
     const bystander = createCharacter(other.id, { name: 'B', maxHp: 10 });
     applyDamage('pc', bystander.id, 3);
 
     const events = drainHpFx(s.id);
-    expect(events.map((e) => e.delta)).toEqual([-4, 4, -7]);
+    expect(events.map((e) => e.delta)).toEqual([-4, 4, -7, -40, -6]);
     expect(events.every((e) => e.kind === 'pc' && e.refId === ch.id)).toBe(true);
     // Drained: a second call returns nothing; the other session keeps its own.
     expect(drainHpFx(s.id)).toEqual([]);
     expect(drainHpFx(other.id).map((e) => e.delta)).toEqual([-3]);
+  });
+});
+
+describe('hide DM rolls from players', () => {
+  it('flags DM rolls dmOnly while on and filters them from player snapshots', async () => {
+    const { setHideDmRolls } = await import('./sessions.js');
+    const { buildSnapshot } = await import('./visibility.js');
+    const s = createSession('HideRolls');
+
+    // Off by default: a DM roll reaches players.
+    addRollLog(s.id, { roller: 'DM', label: 'Attack', expr: '1d20', total: 14, detail: 'hit' });
+    expect(buildSnapshot(s.id, 'dm')!.rollLog).toHaveLength(1);
+    expect(buildSnapshot(s.id, 'player')!.rollLog).toHaveLength(1);
+    expect(buildSnapshot(s.id, 'player')!.hideDmRolls).toBe(false);
+
+    // On: new DM rolls are dmOnly → present for the DM, gone for players.
+    setHideDmRolls(s.id, true);
+    addRollLog(s.id, { roller: 'DM', label: 'Save', expr: '1d20', total: 8, detail: 'fail' });
+    addRollLog(s.id, { roller: 'Druk', label: 'Attack', expr: '1d20', total: 19, detail: 'hit' });
+    const dm = buildSnapshot(s.id, 'dm')!.rollLog;
+    const player = buildSnapshot(s.id, 'player')!.rollLog;
+    expect(dm).toHaveLength(3); // DM sees everything
+    expect(player.map((e) => e.roller)).toEqual(['DM', 'Druk']); // the hidden DM Save is gone
+    expect(buildSnapshot(s.id, 'player')!.hideDmRolls).toBe(true);
   });
 });

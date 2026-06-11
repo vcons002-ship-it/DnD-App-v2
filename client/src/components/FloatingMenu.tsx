@@ -97,9 +97,17 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
       : [];
   const canCastAsSelected = pcAbilities.length > 0 || monAbilities.length > 0;
 
-  // Dismiss on outside click, scroll, or Escape.
+  // Dismiss on outside click, scroll, or Escape — but IGNORE events for a short
+  // grace period after opening. On touch, lifting the finger after the
+  // long-press synthesizes a pointerdown/click at the token that would otherwise
+  // close the menu the instant it appears. The grace window lets "hold to open,
+  // release to keep open" work; a later tap elsewhere still closes it.
   useEffect(() => {
-    const close = () => onClose();
+    const openedAt = Date.now();
+    const close = () => {
+      if (Date.now() - openedAt < 450) return;
+      onClose();
+    };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('pointerdown', close);
     window.addEventListener('wheel', close);

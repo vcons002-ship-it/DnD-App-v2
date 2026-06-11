@@ -10,6 +10,7 @@ import { TokenShape } from './TokenShape';
 import { HpFxLayer } from './HpFx';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
+import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useStableCallback } from '../lib/useStableCallback';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
@@ -205,6 +206,88 @@ function MeasureShape({
   );
 }
 
+/** A scenery image decal drawn under tokens. DM-draggable to reposition, with
+ *  an aspect-locked corner handle to resize; click-through for players (and
+ *  for the DM while a map tool is active or decals are locked). */
+function DecalImage({
+  url,
+  x,
+  y,
+  width,
+  height,
+  draggable,
+  handleSize = 10,
+  onRemove,
+  onMove,
+  onResize,
+}: {
+  url: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  draggable?: boolean;
+  /** Corner-handle size in image px (pre-divided by zoom for constant screen size). */
+  handleSize?: number;
+  onRemove?: () => void;
+  onMove?: (x: number, y: number) => void;
+  onResize?: (width: number, height: number) => void;
+}) {
+  const img = useImage(url);
+  // Live size during a handle drag, so the image follows the corner before the
+  // server echoes the resize back; cleared when the real size arrives.
+  const [tmp, setTmp] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => setTmp(null), [width, height]);
+  if (!img) return null;
+  const w = tmp?.w ?? width;
+  const h = tmp?.h ?? height;
+  const interactive = !!draggable && !onRemove;
+  const setCursor = (e: KonvaEventObject<MouseEvent>, cursor: string) => {
+    const stage = e.target.getStage();
+    if (stage) stage.container().style.cursor = cursor;
+  };
+  return (
+    <>
+      <KonvaImage
+        image={img}
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        listening={!!onRemove || interactive}
+        draggable={interactive}
+        onClick={onRemove}
+        onTap={onRemove}
+        onDragEnd={(e) => onMove?.(e.target.x(), e.target.y())}
+      />
+      {interactive && onResize && (
+        <Rect
+          x={x + w - handleSize / 2}
+          y={y + h - handleSize / 2}
+          width={handleSize}
+          height={handleSize}
+          fill="#4cc9f0"
+          stroke="#04060a"
+          strokeWidth={1}
+          draggable
+          onMouseEnter={(e) => setCursor(e, 'nwse-resize')}
+          onMouseLeave={(e) => setCursor(e, '')}
+          onDragMove={(e) => {
+            // Aspect-locked: the corner follows the diagonal from the anchor.
+            const nw = Math.max(16, e.target.x() + handleSize / 2 - x);
+            const nh = Math.max(16, nw * (height / Math.max(1, width)));
+            e.target.position({ x: x + nw - handleSize / 2, y: y + nh - handleSize / 2 });
+            setTmp({ w: nw, h: nh });
+          }}
+          onDragEnd={() => {
+            if (tmp) onResize(tmp.w, tmp.h);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 export function MapStage({
   snapshot,
   draggableTokens,
@@ -224,16 +307,149 @@ export function MapStage({
     null,
   );
   const map = snapshot.map;
+
+  // DM: paste an image from the clipboard → upload → choose Object or Decal.
+  // Falls back to <img>/image-URL pastes (e.g. copying art out of a web page
+  // or Google Slides puts only the image's URL on the clipboard, not pixels) —
+  // the server fetches those via /api/icons/from-url.
+  useEffect(() => {
+    if (snapshot.role !== 'dm') return;
+    const openWith = async (icon: string) => {
+      const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve({ w: 200, h: 200 });
+        img.src = icon;
+      });
+      setPasteName('');
+      setCropSel(null);
+      setPasteImg({ url: icon, w: dims.w, h: dims.h });
+      setPasteOrig({ url: icon, w: dims.w, h: dims.h });
+    };
+    const onPaste = async (e: ClipboardEvent) => {
+      const item = [...(e.clipboardData?.items ?? [])].find((i) =>
+        i.type.startsWith('image/'),
+      );
+      const file = item?.getAsFile();
+      if (file) {
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('image', file);
+        try {
+          const res = await fetch('/api/icons', { method: 'POST', body: fd });
+          if (!res.ok) throw new Error('upload failed');
+          const { icon } = await res.json();
+          await openWith(icon);
+        } catch {
+          notify('Could not paste that image.');
+        }
+        return;
+      }
+      // No pixel data — look for an <img src> in an HTML paste, or a URL in a
+      // text paste. NEVER hijack a paste aimed at a text field (chat etc.).
+      const el = e.target as HTMLElement | null;
+      const editable =
+        !!el &&
+        (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      if (editable) return;
+      const html = e.clipboardData?.getData('text/html') ?? '';
+      const text = e.clipboardData?.getData('text/plain')?.trim() ?? '';
+      const srcMatch = html.match(/<img[^>]+src=(?:"([^"]+)"|'([^']+)')/i);
+      const src = (srcMatch?.[1] ?? srcMatch?.[2])?.replace(/&amp;/g, '&');
+      // Inline data: URI (some apps embed the pixels in the HTML) — upload it
+      // directly, no server fetch needed.
+      if (src?.startsWith('data:image/')) {
+        e.preventDefault();
+        try {
+          const blob = await (await fetch(src)).blob();
+          const fd = new FormData();
+          fd.append('image', blob, 'paste.png');
+          const res = await fetch('/api/icons', { method: 'POST', body: fd });
+          if (!res.ok) throw new Error('upload failed');
+          const { icon } = await res.json();
+          await openWith(icon);
+        } catch {
+          notify('Could not paste that image.');
+        }
+        return;
+      }
+      // Any http(s) URL is worth trying — Slides/Docs image URLs carry no file
+      // extension; the server verifies the response really is an image.
+      const remote =
+        (src && /^https?:\/\//i.test(src) ? src : '') ||
+        (/^https?:\/\/\S+$/i.test(text) ? text : '');
+      if (!remote) {
+        if (html || text)
+          notify('No image on the clipboard — copy the image itself (right-click → Copy image).');
+        return;
+      }
+      e.preventDefault();
+      try {
+        const res = await fetch('/api/icons/from-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: remote }),
+        });
+        if (!res.ok) {
+          const why = (await res.json().catch(() => null))?.error;
+          notify(`Could not fetch that image link${why ? ` — ${why}` : ''}.`);
+          return;
+        }
+        const { icon } = await res.json();
+        await openWith(icon);
+      } catch {
+        notify('Could not fetch that image link.');
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.role]);
+
   const image = useImage(map?.imagePath ?? null);
+
+  // Remount the Stage when devicePixelRatio changes (e.g. snapping the window
+  // to a monitor with different Windows scaling) — Konva sizes its canvas
+  // buffer at creation, so without this the map renders blurry/misaligned.
+  const [dprKey, setDprKey] = useState(0);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setSize({ w: el.clientWidth, h: el.clientHeight });
+    let frame = 0;
+    const apply = (w: number, h: number) =>
+      // Skip no-op updates: a Windows snap fires a burst of resize events and
+      // re-rendering the full canvas for each glitched the map + UI.
+      setSize((cur) => (cur.w === w && cur.h === h ? cur : { w, h }));
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[entries.length - 1]?.contentRect;
+      if (!rect) return;
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      // Coalesce the burst into one update per animation frame.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => apply(w, h));
     });
     ro.observe(el);
-    return () => ro.disconnect();
+
+    // Watch for DPI changes (cross-monitor snap with different scaling).
+    let mql: MediaQueryList | null = null;
+    const onDpr = () => {
+      setDprKey((k) => k + 1);
+      watchDpr(); // re-arm at the new ratio
+    };
+    const watchDpr = () => {
+      mql?.removeEventListener?.('change', onDpr);
+      mql = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      mql.addEventListener?.('change', onDpr);
+    };
+    watchDpr();
+
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(frame);
+      mql?.removeEventListener?.('change', onDpr);
+    };
   }, []);
 
   // Natural map dimensions (fall back to a grid-sized blank canvas).
@@ -259,7 +475,12 @@ export function MapStage({
   const removeMeasurement = useStore((s) => s.removeMeasurement);
   const clearMeasurements = useStore((s) => s.clearMeasurements);
   const addAnnotation = useStore((s) => s.addAnnotation);
+  const pasteObject = useStore((s) => s.pasteObject);
+  const notify = useStore((s) => s.notify);
+  const removeAnnotation = useStore((s) => s.removeAnnotation);
   const clearAnnotations = useStore((s) => s.clearAnnotations);
+  const moveAnnotation = useStore((s) => s.moveAnnotation);
+  const resizeAnnotation = useStore((s) => s.resizeAnnotation);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -299,13 +520,33 @@ export function MapStage({
   const [tool, setTool] = useState<MeasureTool | null>(null);
   const [snap, setSnap] = useState(true);
   const [removeMode, setRemoveMode] = useState(false);
+  // DM preference: lock scenery decals (click-through + undraggable) so they
+  // can't be grabbed while moving tokens/panning. Persisted per session.
+  const [decalsLocked, setDecalsLocked] = useState(
+    () => localStorage.getItem(`decals-locked:${snapshot.sessionCode}`) === '1',
+  );
+  const toggleDecalsLocked = () =>
+    setDecalsLocked((cur) => {
+      localStorage.setItem(`decals-locked:${snapshot.sessionCode}`, cur ? '0' : '1');
+      return !cur;
+    });
   // A reference-line drag that sets the map scale (DM only).
   const [scaleMode, setScaleMode] = useState(false);
+  const [matchMode, setMatchMode] = useState(false);
+  const [pasteImg, setPasteImg] = useState<{ url: string; w: number; h: number } | null>(null);
+  const [pasteName, setPasteName] = useState('');
+  // Paste-dialog edits: the original (for Undo), a busy flag while the canvas
+  // work + re-upload runs, and the drag-selected crop box in PREVIEW pixels.
+  const [pasteOrig, setPasteOrig] = useState<{ url: string; w: number; h: number } | null>(null);
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [cropSel, setCropSel] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const cropStart = useRef<{ x: number; y: number } | null>(null);
+  const pastePreviewRef = useRef<HTMLImageElement>(null);
   const [scaleLine, setScaleLine] = useState<{ origin: Pt; target: Pt } | null>(null);
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
   const [scaleFt, setScaleFt] = useState('');
   const scaleDrawRef = useRef(false);
-  const measureActive = !!tool || removeMode || scaleMode || !!annotate;
+  const measureActive = !!tool || removeMode || scaleMode || matchMode || !!annotate;
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const gridHot = draggingToken || measureActive;
@@ -455,12 +696,16 @@ export function MapStage({
     return m;
   }, [snapshot.tokens]);
 
+  const gridHidden = !!map?.gridHidden;
   const gridLines = useMemo(() => {
     const lines: number[][] = [];
-    for (let x = 0; x <= imgW; x += grid) lines.push([x, 0, x, imgH]);
-    for (let y = 0; y <= imgH; y += grid) lines.push([0, y, imgW, y]);
+    if (gridHidden) return lines;
+    const ox = (((map?.gridOffsetX ?? 0) % grid) + grid) % grid;
+    const oy = (((map?.gridOffsetY ?? 0) % grid) + grid) % grid;
+    for (let x = ox; x <= imgW; x += grid) lines.push([x, 0, x, imgH]);
+    for (let y = oy; y <= imgH; y += grid) lines.push([0, y, imgW, y]);
     return lines;
-  }, [imgW, imgH, grid]);
+  }, [imgW, imgH, grid, gridHidden, map?.gridOffsetX, map?.gridOffsetY]);
 
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
@@ -598,8 +843,9 @@ export function MapStage({
       setPinching(true);
       return;
     }
-    if (scaleMode) {
-      // Drag a reference line; its real length is entered on release.
+    if (scaleMode || matchMode) {
+      // Drag a line: scaleMode → a reference distance; matchMode → one printed
+      // grid square (its longer side becomes the cell size on release).
       const pos = pointerToImage(stage);
       if (pos) {
         scaleDrawRef.current = true;
@@ -657,7 +903,7 @@ export function MapStage({
       pinchRef.current = next;
       return;
     }
-    if (scaleMode && scaleDrawRef.current) {
+    if ((scaleMode || matchMode) && scaleDrawRef.current) {
       const stage = e.target.getStage();
       const pos = stage ? pointerToImage(stage) : null;
       if (pos) setScaleLine((l) => (l ? { ...l, target: pos } : l));
@@ -699,6 +945,26 @@ export function MapStage({
     }
     if (scaleDrawRef.current) {
       scaleDrawRef.current = false;
+      if (scaleLine && matchMode && map && imgW) {
+        // One printed square → cell size (longer side) + offset, grid locked.
+        const dx = Math.abs(scaleLine.target.x - scaleLine.origin.x);
+        const dy = Math.abs(scaleLine.target.y - scaleLine.origin.y);
+        const size = Math.round(Math.max(dx, dy));
+        if (size >= 8) {
+          const ox = Math.min(scaleLine.origin.x, scaleLine.target.x);
+          const oy = Math.min(scaleLine.origin.y, scaleLine.target.y);
+          const fps = imgW && widthFt > 0 ? Math.max(1, Math.round((widthFt / imgW) * size)) : feetPerSquare;
+          setGridPx(size);
+          setMapGrid(map.id, size, fps, widthFt, {
+            offsetX: ox,
+            offsetY: oy,
+            locked: true,
+          });
+        }
+        setScaleLine(null);
+        setMatchMode(false);
+        return;
+      }
       if (scaleLine) {
         const len = Math.hypot(
           scaleLine.target.x - scaleLine.origin.x,
@@ -918,6 +1184,28 @@ export function MapStage({
                       Clear all
                     </button>
                   )}
+                  {isDm && snapshot.annotations.some((a) => a.kind === 'image') && (
+                    <>
+                      <button
+                        className={`btn tiny ${decalsLocked ? 'on' : ''}`}
+                        title={
+                          decalsLocked
+                            ? 'Decals locked: click-through and undraggable — click to unlock'
+                            : 'Lock decals so they become click-through and undraggable'
+                        }
+                        onClick={toggleDecalsLocked}
+                      >
+                        {decalsLocked ? '🔒' : '🔓'} Decals
+                      </button>
+                      <button
+                        className="btn tiny"
+                        title="Remove all scenery decals on this map (strokes/text stay)"
+                        onClick={() => map && clearAnnotations(map.id, false, 'image')}
+                      >
+                        Clear decals
+                      </button>
+                    </>
+                  )}
                 </div>
                 {isDm && (
                   <>
@@ -926,13 +1214,37 @@ export function MapStage({
                       widthFt={widthFt}
                       gridPx={gridPx}
                       scaleMode={scaleMode}
+                      matchMode={matchMode}
+                      gridHidden={!!map?.gridHidden}
+                      gridLocked={!!map?.gridLocked}
                       onCommit={(ft, width) => {
                         setWidthFt(width);
                         commitScaleFeet(ft, width);
                       }}
+                      onToggleHidden={() =>
+                        map &&
+                        setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
+                          hidden: !map.gridHidden,
+                        })
+                      }
+                      onUnlock={() =>
+                        map &&
+                        setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
+                          locked: false,
+                        })
+                      }
+                      onToggleMatchMode={() => {
+                        setTool(null);
+                        setRemoveMode(false);
+                        setScaleMode(false);
+                        setScaleLine(null);
+                        setScalePrompt(null);
+                        setMatchMode((s) => !s);
+                      }}
                       onToggleScaleMode={() => {
                         setTool(null);
                         setRemoveMode(false);
+                        setMatchMode(false);
                         setScaleLine(null);
                         setScalePrompt(null);
                         setScaleMode((s) => !s);
@@ -957,6 +1269,7 @@ export function MapStage({
               toolSlot,
             )}
           <Stage
+            key={dprKey}
             width={size.w}
             height={size.h}
             onMouseDown={handleMouseDown}
@@ -1042,32 +1355,65 @@ export function MapStage({
                   }}
                 />
               )}
+              {/* Image decals (scenery) sit UNDER tokens; the DM drags to
+                  reposition / corner-drags to resize, removes one via the
+                  eraser tool, and the 🔒 toggle makes them click-through. */}
+              {snapshot.annotations
+                .filter((a) => a.kind === 'image' && a.url)
+                .map((a) => (
+                  <DecalImage
+                    key={a.id}
+                    url={a.url!}
+                    x={a.x ?? 0}
+                    y={a.y ?? 0}
+                    width={a.width ?? 100}
+                    height={a.height ?? 100}
+                    draggable={isDm && !measureActive && !decalsLocked}
+                    handleSize={12 / view.scale}
+                    onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
+                    onMove={(x, y) => moveAnnotation(a.id, x, y)}
+                    onResize={(w, h) => resizeAnnotation(a.id, w, h)}
+                  />
+                ))}
               <FootprintLayer
                 tokens={snapshot.tokens}
                 gridSizePx={grid}
                 pxPerFoot={pxPerFoot}
               />
-              {snapshot.tokens.map((t) => (
-                <TokenShape
-                  key={t.id}
-                  token={t}
-                  display={resolveToken(snapshot, t)}
-                  gridSizePx={grid}
-                  pxPerFoot={pxPerFoot}
-                  draggable={draggableTokens && !fogActive && !measureActive && !saveResolve}
-                  listening={!measureActive}
-                  selected={selectedIds.includes(t.id)}
-                  activeTurn={t.id === activeTurnTokenId}
-                  initiativeRank={initiativeRank.get(t.id) ?? null}
-                  onSelect={handleTokenSelect}
-                  onActivate={handleTokenActivate}
-                  onMove={handleTokenMove}
-                  onContextMenu={handleTokenMenu}
-                  onHover={handleTokenHover}
-                  onHoverEnd={handleTokenHoverEnd}
-                  onDragActive={setDraggingToken}
-                />
-              ))}
+              {snapshot.tokens.map((t) => {
+                const d = resolveToken(snapshot, t);
+                // Players may drag only their side: PCs + friendly creatures,
+                // never objects. Mirrors the server's token:move gate — without
+                // this the drag succeeds locally (a ghost move on the player's
+                // screen) even though the server rejects it.
+                const movable =
+                  isDm ||
+                  t.kind === 'pc' ||
+                  (d.disposition === 'friendly' && !d.objectKind);
+                return (
+                  <TokenShape
+                    key={t.id}
+                    token={t}
+                    display={d}
+                    gridSizePx={grid}
+                    pxPerFoot={pxPerFoot}
+                    draggable={
+                      draggableTokens && movable && !fogActive && !measureActive && !saveResolve
+                    }
+                    listening={!measureActive}
+                    selected={selectedIds.includes(t.id)}
+                    activeTurn={t.id === activeTurnTokenId}
+                    initiativeRank={initiativeRank.get(t.id) ?? null}
+                    onSelect={handleTokenSelect}
+                    onActivate={handleTokenActivate}
+                    onMove={handleTokenMove}
+                    onContextMenu={handleTokenMenu}
+                    onHover={handleTokenHover}
+                    onHoverEnd={handleTokenHoverEnd}
+                    onDragActive={setDraggingToken}
+                  />
+                );
+              })}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.
@@ -1106,7 +1452,7 @@ export function MapStage({
                 />
               )}
               {/* Map annotations: freehand strokes + text labels (shared). */}
-              {snapshot.annotations.map((a) =>
+              {snapshot.annotations.filter((a) => a.kind !== 'image').map((a) =>
                 a.kind === 'freehand' ? (
                   <Line
                     key={a.id}
@@ -1207,6 +1553,165 @@ export function MapStage({
           )}
           {scaleMode && !scalePrompt && (
             <div className="scale-hint">Drag a line across a known distance…</div>
+          )}
+          {matchMode && (
+            <div className="scale-hint">Drag across ONE square of the map's printed grid…</div>
+          )}
+          {pasteImg && (
+            <div className="modal-backdrop" onClick={() => setPasteImg(null)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-head">
+                  <h3>Paste image</h3>
+                  <button className="btn tiny" onClick={() => setPasteImg(null)}>✕</button>
+                </div>
+                {/* Drag on the preview to select a crop; checkerboard shows
+                    transparency after "Cut background". */}
+                <div
+                  className="paste-preview"
+                  onMouseDown={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    cropStart.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+                    setCropSel(null);
+                  }}
+                  onMouseMove={(e) => {
+                    const s = cropStart.current;
+                    if (!s) return;
+                    const r = e.currentTarget.getBoundingClientRect();
+                    const cx = Math.max(0, Math.min(r.width, e.clientX - r.left));
+                    const cy = Math.max(0, Math.min(r.height, e.clientY - r.top));
+                    setCropSel({
+                      x: Math.min(s.x, cx),
+                      y: Math.min(s.y, cy),
+                      w: Math.abs(cx - s.x),
+                      h: Math.abs(cy - s.y),
+                    });
+                  }}
+                  onMouseUp={() => {
+                    cropStart.current = null;
+                    setCropSel((c) => (c && c.w > 4 && c.h > 4 ? c : null));
+                  }}
+                  onMouseLeave={() => {
+                    cropStart.current = null;
+                  }}
+                >
+                  <img ref={pastePreviewRef} src={pasteImg.url} alt="pasted" draggable={false} />
+                  {cropSel && (
+                    <div
+                      className="paste-crop-box"
+                      style={{ left: cropSel.x, top: cropSel.y, width: cropSel.w, height: cropSel.h }}
+                    />
+                  )}
+                </div>
+                <div className="paste-tools">
+                  <button
+                    className="btn tiny"
+                    disabled={!cropSel || pasteBusy}
+                    title="Crop to the dragged selection"
+                    onClick={async () => {
+                      const img = pastePreviewRef.current;
+                      if (!cropSel || !img) return;
+                      // Preview px → natural px.
+                      const f = pasteImg.w / img.clientWidth;
+                      setPasteBusy(true);
+                      try {
+                        const next = await cropImage(pasteImg.url, {
+                          x: cropSel.x * f,
+                          y: cropSel.y * f,
+                          w: cropSel.w * f,
+                          h: cropSel.h * f,
+                        });
+                        setPasteImg(next);
+                        setCropSel(null);
+                      } catch {
+                        notify('Crop failed.');
+                      } finally {
+                        setPasteBusy(false);
+                      }
+                    }}
+                  >
+                    ✂ Crop
+                  </button>
+                  <button
+                    className="btn tiny"
+                    disabled={pasteBusy}
+                    title="Make the (flat) background transparent — flood-fills from the corners"
+                    onClick={async () => {
+                      setPasteBusy(true);
+                      try {
+                        setPasteImg(await removeBackground(pasteImg.url));
+                        setCropSel(null);
+                      } catch {
+                        notify('Could not cut the background.');
+                      } finally {
+                        setPasteBusy(false);
+                      }
+                    }}
+                  >
+                    🪄 Cut background
+                  </button>
+                  {pasteOrig && pasteOrig.url !== pasteImg.url && (
+                    <button
+                      className="btn tiny"
+                      disabled={pasteBusy}
+                      onClick={() => {
+                        setPasteImg(pasteOrig);
+                        setCropSel(null);
+                      }}
+                    >
+                      ↺ Undo edits
+                    </button>
+                  )}
+                  <span className="muted">{pasteBusy ? 'working…' : 'drag preview to crop'}</span>
+                </div>
+                <label className="settings-field">
+                  Name (for object)
+                  <input value={pasteName} onChange={(e) => setPasteName(e.target.value)} placeholder="Object" />
+                </label>
+                <div className="modal-actions">
+                  <button
+                    className="btn green"
+                    onClick={() => {
+                      if (!map) return;
+                      // Place at the centre of the current view, in image space.
+                      const cx = (size.w / 2 - view.x) / view.scale;
+                      const cy = (size.h / 2 - view.y) / view.scale;
+                      pasteObject({ mapId: map.id, x: cx, y: cy, icon: pasteImg.url, name: pasteName.trim() || 'Object' });
+                      setPasteImg(null);
+                    }}
+                    title="Add as a draggable object token (image, unclipped)"
+                  >
+                    🪙 Object
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      if (!map) return;
+                      const cx = (size.w / 2 - view.x) / view.scale;
+                      const cy = (size.h / 2 - view.y) / view.scale;
+                      // Clamp the decal to ~6 grid squares wide, keeping aspect.
+                      const maxW = grid * 6;
+                      const scale = pasteImg.w > maxW ? maxW / pasteImg.w : 1;
+                      const w = pasteImg.w * scale;
+                      const h = pasteImg.h * scale;
+                      addAnnotation({
+                        kind: 'image',
+                        x: cx - w / 2,
+                        y: cy - h / 2,
+                        url: pasteImg.url,
+                        width: w,
+                        height: h,
+                        color: '#ffffff',
+                      });
+                      setPasteImg(null);
+                    }}
+                    title="Add as flat scenery under the tokens (set dressing)"
+                  >
+                    🖼 Scenery decal
+                  </button>
+                  <button className="btn" onClick={() => setPasteImg(null)}>Cancel</button>
+                </div>
+              </div>
+            </div>
           )}
           {scalePrompt && (
             <div className="scale-prompt">

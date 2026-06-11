@@ -53,8 +53,9 @@ export type Weapon = {
   /**
    * A secondary damage rider of a DIFFERENT type — e.g. a flaming sword's
    * `extraDamage: "1d6"`, `extraDamageType: "fire"` on top of its slashing
-   * `damage`. Rolled on a hit (doubled on a crit) and resisted/amplified by the
-   * target separately from the main type. Works for PC and creature weapons.
+   * `damage`. Rolled ONCE on a hit (never doubled on a crit) and resisted/
+   * amplified by the target separately from the main type. Works for PC and
+   * creature weapons.
    */
   extraDamage?: string;
   /** Damage type of `extraDamage` (e.g. "fire"); display + resistance only. */
@@ -118,7 +119,12 @@ export type Token = {
   hideCombatRole: boolean;
   /** Effective role to render (server-computed in buildSnapshot); null = none. */
   combatRole: CombatRole | null;
+  /** Token silhouette. 'image' draws the (unclipped) icon as-is for pasted art. */
+  shape: TokenShape;
 };
+
+/** Token silhouette options (objects default to a non-circle by kind). */
+export type TokenShape = 'circle' | 'square' | 'diamond' | 'triangle' | 'image';
 
 export type Character = {
   id: string;
@@ -162,6 +168,11 @@ export type Character = {
   superiorityDie?: string;
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
+  /** Durable per-browser player id of the character's owner (set on first
+   *  claim/creation by a player). Only the owner — or the DM, who can also
+   *  unlock it — may claim/edit the sheet; survives reconnects, unlike
+   *  `claimedBy`. Null = unowned (any player may claim). */
+  ownerId: string | null;
   conditions: Condition[];
   /** 5e death saving throws while at 0 HP (each caps at 3). Reset when healed
    *  above 0; 3 successes = stable, 3 failures = dead. */
@@ -342,6 +353,11 @@ export type SheetAbility = {
   tags?: string[];
   /** One-line meta, e.g. "1 action · 120 ft · V,S". */
   meta?: string;
+  /** Action economy — drives the ●/⚡/↩ icon. Auto-derived from `meta` on add. */
+  actionType?: 'action' | 'bonus' | 'reaction';
+  /** Prepared-caster bookkeeping: is this leveled spell currently prepared?
+   *  Display-only (soft counters); never blocks casting. */
+  prepared?: boolean;
   /** Full rules text shown in the collapsible body. */
   description: string;
   /** "At Higher Levels" effect — a short note shown when the spell is upcast
@@ -515,6 +531,13 @@ export type MapState = {
   /** Real-world width the map image represents, in feet (0 = unset → distances
    *  fall back to the feet-per-square scale). The source of truth for scale. */
   mapWidthFt: number;
+  /** Grid origin offset in px (to line the overlay up with a printed map grid). */
+  gridOffsetX: number;
+  gridOffsetY: number;
+  /** Grid size locked (set by "match grid"); guards against accidental resize. */
+  gridLocked: boolean;
+  /** Hide the grid overlay entirely. */
+  gridHidden: boolean;
   /** Whether each fog layer is active on this map. */
   mapFogEnabled: boolean;
   tokenFogEnabled: boolean;
@@ -540,15 +563,6 @@ export type MonsterPublic = {
   playerNotes: string;
 };
 
-/** Player-facing NEUTRAL view: adds HP + type + AC on top of the public view. */
-export type MonsterNeutral = MonsterPublic & {
-  curHp: number;
-  maxHp: number;
-  tempHp: number;
-  creatureType: string;
-  armorClass: number;
-};
-
 /** Snapshot the server sends after join / on major changes, already role-shaped. */
 export type StateSnapshot = {
   role: Role;
@@ -562,6 +576,8 @@ export type StateSnapshot = {
   activeTurnTokenId: string | null;
   /** Combat round counter (0 = no combat running); shown to everyone. */
   round: number;
+  /** DM-only display state: are the DM's rolls currently hidden from players? */
+  hideDmRolls: boolean;
   /** All maps in the session (DM only sees the full list). */
   maps: MapState[];
   tokens: Token[];
@@ -569,7 +585,7 @@ export type StateSnapshot = {
   /** Monster *instances* placed on maps. The DM gets full Monster[]; players
    *  receive a disposition-shaped view (full / neutral / public) per creature.
    *  Tokens reference these by id. */
-  monsters: (Monster | MonsterNeutral | MonsterPublic)[];
+  monsters: (Monster | MonsterPublic)[];
   /** Reusable creature templates for the DM's spawn list (one per creature
    *  type). DM-only; players receive an empty array. */
   monsterTemplates: Monster[];
@@ -588,14 +604,18 @@ export type StateSnapshot = {
 export type Annotation = {
   id: string;
   mapId: string;
-  kind: 'freehand' | 'text';
+  kind: 'freehand' | 'text' | 'image';
   /** Freehand: flattened image-space points [x0,y0,x1,y1,…]. */
   points?: number[];
-  /** Text: anchor point + content. */
+  /** Text/image: anchor point (top-left for image) + content. */
   x?: number;
   y?: number;
   text?: string;
   color: string;
+  /** Image decal: uploaded art path + draw size in image px. */
+  url?: string;
+  width?: number;
+  height?: number;
   /** Display name of the drawer (so they can clear just their own). */
   createdBy: string;
 };
@@ -647,6 +667,8 @@ export type RollEntry = {
    *  so `visibility.ts` can shape it per viewer: players see it for PCs and
    *  friendly/neutral creatures; ENEMY creature changes are stripped. */
   hpNote?: { kind: TokenKind; refId: string; text: string };
+  /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
+  dmOnly?: boolean;
   /** DM-only: present on a save/damage spell's damage roll so the log can offer an
    *  "Apply damage" button that starts click-to-target save resolution. Stripped
    *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
@@ -684,10 +706,14 @@ export type JoinPayload = {
   role: Role;
   /** Required when role === 'dm' and a DM passphrase is configured. */
   dmPassphrase?: string;
+  /** Durable random per-browser id — anchors character ownership across
+   *  reconnects (socket ids change on every refresh). */
+  playerId?: string;
 };
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
 export type TokenResizePayload = { tokenId: string; widthFt: number };
+export type TokenSetShapePayload = { tokenId: string; shape: TokenShape };
 export type TokenDeletePayload = { tokenId: string };
 /** Duplicate one placed token into a second, independently-tracked copy. */
 export type TokenDuplicatePayload = { tokenId: string };
@@ -728,6 +754,10 @@ export type MapSetGridPayload = {
   feetPerSquare: number;
   /** Real-world map width in feet (0 = unset). Source of truth for scale. */
   widthFt: number;
+  offsetX?: number;
+  offsetY?: number;
+  locked?: boolean;
+  hidden?: boolean;
 };
 /** Add a measuring shape to a map (any role). */
 export type MeasureAddPayload = {
@@ -748,11 +778,23 @@ export type AnnotationAddPayload = {
   y?: number;
   text?: string;
   color: string;
+  url?: string;
+  width?: number;
+  height?: number;
 };
 /** Remove a single annotation by id (any role). */
 export type AnnotationRemovePayload = { id: string };
-/** Clear annotations on a map: everyone's, or only the caller's (`mineOnly`). */
-export type AnnotationClearPayload = { mapId: string; mineOnly?: boolean };
+/** Clear annotations on a map: everyone's, or only the caller's (`mineOnly`);
+ *  an optional `kind` clears only that kind (e.g. 'image' = scenery decals). */
+export type AnnotationClearPayload = {
+  mapId: string;
+  mineOnly?: boolean;
+  kind?: Annotation['kind'];
+};
+/** Reposition an image decal (DM). */
+export type AnnotationMovePayload = { id: string; x: number; y: number };
+/** Resize an image decal (DM); width/height in map-image pixels. */
+export type AnnotationResizePayload = { id: string; width: number; height: number };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
 /** How to handle a referenced character whose name already exists on import. */
@@ -965,6 +1007,12 @@ export type MonsterCreatePayload = {
 };
 /** Roll a character's check to disarm a trap object; on success the server flips
  *  it to "Disarmed". DM or the player who owns the character. */
+export type ObjectInteractPayload = {
+  monsterId: string;
+  /** The acting character (for a player's lock-pick check); omit for DM force. */
+  characterId?: string;
+  action: 'open' | 'unlock';
+};
 export type TrapDisarmPayload = {
   monsterId: string;
   characterId: string;
@@ -1038,6 +1086,8 @@ export interface ClientToServerEvents {
   'annotation:add': (payload: AnnotationAddPayload) => void;
   'annotation:remove': (payload: AnnotationRemovePayload) => void;
   'annotation:clear': (payload: AnnotationClearPayload) => void;
+  'annotation:move': (payload: AnnotationMovePayload) => void;
+  'annotation:resize': (payload: AnnotationResizePayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'session:importPreview': (
@@ -1049,6 +1099,7 @@ export interface ClientToServerEvents {
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
+  'token:setShape': (payload: TokenSetShapePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;
   'token:duplicate': (payload: TokenDuplicatePayload) => void;
@@ -1065,6 +1116,7 @@ export interface ClientToServerEvents {
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
+  'character:unlock': (payload: ClaimCharacterPayload) => void;
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
@@ -1076,6 +1128,8 @@ export interface ClientToServerEvents {
   'object:setLoot': (payload: ObjectSetLootPayload) => void;
   'loot:take': (payload: LootTakePayload) => void;
   'trap:disarm': (payload: TrapDisarmPayload) => void;
+  'object:interact': (payload: ObjectInteractPayload) => void;
+  'object:paste': (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
@@ -1097,6 +1151,7 @@ export interface ClientToServerEvents {
   'initiative:next': () => void;
   'initiative:clear': () => void;
   'initiative:setRound': (payload: { round: number }) => void;
+  'session:setHideDmRolls': (payload: { hide: boolean }) => void;
   'dice:roll': (payload: DiceRollPayload) => void;
   /** Wipe the shared roll log for everyone in the session. */
   'dice:clearLog': () => void;

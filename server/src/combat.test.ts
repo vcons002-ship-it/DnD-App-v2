@@ -10,6 +10,7 @@ import {
   resolveForcedSave,
   resolveDeathSave,
   noteConcentration,
+  resolveObjectCheck,
 } from './combat.js';
 import {
   createSession,
@@ -30,8 +31,9 @@ import {
   applyDamage,
   listRollLog,
   getRollEntry,
+  setLoot,
 } from './sessions.js';
-import { buildSnapshot } from './visibility.js';
+import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import type { CreatureAbility, SheetAbility } from '../../shared/types.js';
 
 function arena() {
@@ -643,6 +645,25 @@ describe('secondary weapon damage (flaming sword)', () => {
         expect(dealt).toBeGreaterThanOrEqual(11);
         expect(dealt).toBeLessThanOrEqual(16);
         expect(last.detail).toMatch(/fire/);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
+  it('does NOT double the rider on a crit (10 slashing + 6 fire = 16)', () => {
+    const { s, map, atk } = flameSword('6d1'); // always 6 fire
+    const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 200 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'F', atk.id, tok.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/CRIT/.test(last.detail)) {
+        checked = true;
+        // The flat 10 slashing has no dice to crit; the fire rider rolls ONCE.
+        expect(before - getMonster(ref)!.curHp).toBe(16);
       }
     }
     expect(checked).toBe(true);
@@ -1386,3 +1407,39 @@ describe('save action fired at a single target (floating menu)', () => {
   });
 });
 
+
+describe('object lock-pick + creature loot gating', () => {
+  it('resolveObjectCheck unlocks vs the object DC', () => {
+    const { s } = arena();
+    const rogue = createCharacter(s.id, {
+      name: 'Rogue', level: 5, stats: { DEX: 20 }, proficientSkills: ['Sleight of Hand'],
+    });
+    const chestTmpl = createMonsterTemplate(s.id, {
+      name: 'Chest', maxHp: 1, objectKind: 'chest', objectDc: 1,
+    });
+    const easy = instantiateMonster(chestTmpl.id)!;
+    expect(resolveObjectCheck(s.id, 'Rogue', rogue, easy, 'unlock').success).toBe(true);
+
+    const hardTmpl = createMonsterTemplate(s.id, {
+      name: 'Vault', maxHp: 1, objectKind: 'chest', objectDc: 99,
+    });
+    const hard = instantiateMonster(hardTmpl.id)!;
+    expect(resolveObjectCheck(s.id, 'Rogue', rogue, hard, 'unlock').success).toBe(false);
+  });
+
+  it('creature loot is takeable only when DEAD and revealed', () => {
+    const { s } = arena();
+    const tmpl = createMonsterTemplate(s.id, { name: 'Bandit', maxHp: 11 });
+    const bandit = instantiateMonster(tmpl.id)!;
+    setLoot(bandit.id, { gold: 5, items: [] });
+
+    // Alive + unrevealed → hidden.
+    expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(false);
+    // Revealed but alive → still hidden.
+    setCondition('monster', bandit.id, { id: 'lr', label: 'Loot revealed', aura: 'blue', isConcentration: false });
+    expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(false);
+    // Dead + revealed → visible.
+    applyDamage('monster', bandit.id, 999);
+    expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(true);
+  });
+});

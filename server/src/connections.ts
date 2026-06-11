@@ -15,6 +15,8 @@ export type Conn = {
   role: Role;
   /** DM's currently-selected map for prep (players ignore this). */
   viewMapId: string | null;
+  /** Durable per-browser id from the join handshake (character ownership). */
+  playerId: string | null;
 };
 
 const conns = new Map<string, Conn>();

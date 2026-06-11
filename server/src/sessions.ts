@@ -39,6 +39,8 @@ export type Session = {
   activeTurnTokenId: string | null;
   /** Combat round counter (0 = no combat running). */
   combatRound: number;
+  /** When true, the DM's own rolls are hidden from players' roll logs. */
+  hideDmRolls: boolean;
 };
 
 type SessionRow = {
@@ -48,6 +50,7 @@ type SessionRow = {
   active_map_id: string | null;
   active_turn_token_id: string | null;
   combat_round: number | null;
+  hide_dm_rolls: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -57,6 +60,7 @@ const rowToSession = (r: SessionRow): Session => ({
   activeMapId: r.active_map_id,
   activeTurnTokenId: r.active_turn_token_id,
   combatRound: r.combat_round ?? 0,
+  hideDmRolls: !!r.hide_dm_rolls,
 });
 
 // ---- Sessions ----
@@ -89,7 +93,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0 };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -198,10 +202,24 @@ export function updateMapGrid(
   gridSizePx: number,
   feetPerSquare: number,
   widthFt: number,
+  opts: { offsetX?: number; offsetY?: number; locked?: boolean; hidden?: boolean } = {},
 ): void {
+  const m = getMap(mapId);
+  if (!m) return;
   db.prepare(
-    'UPDATE maps SET grid_size_px = ?, feet_per_square = ?, width_ft = ? WHERE id = ?',
-  ).run(gridSizePx, feetPerSquare, widthFt, mapId);
+    `UPDATE maps SET grid_size_px = ?, feet_per_square = ?, width_ft = ?,
+       grid_offset_x = ?, grid_offset_y = ?, grid_locked = ?, grid_hidden = ?
+     WHERE id = ?`,
+  ).run(
+    gridSizePx,
+    feetPerSquare,
+    widthFt,
+    opts.offsetX ?? m.gridOffsetX,
+    opts.offsetY ?? m.gridOffsetY,
+    opts.locked === undefined ? (m.gridLocked ? 1 : 0) : opts.locked ? 1 : 0,
+    opts.hidden === undefined ? (m.gridHidden ? 1 : 0) : opts.hidden ? 1 : 0,
+    mapId,
+  );
 }
 
 /** Columns for each fog layer (enabled flag + revealed-cell set). */
@@ -366,11 +384,22 @@ export function createToken(opts: {
   x: number;
   y: number;
   isHidden?: boolean;
+  shape?: Token['shape'];
 }): Token {
   const id = newId();
+  // Objects read better as non-circles: chests/doors square, traps triangular.
+  const objectKind =
+    opts.kind === 'monster' ? getMonster(opts.refId)?.objectKind : undefined;
+  const shape: Token['shape'] =
+    opts.shape ??
+    (objectKind === 'trap'
+      ? 'triangle'
+      : objectKind === 'chest' || objectKind === 'door'
+        ? 'square'
+        : 'circle');
   db.prepare(
-    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?)`,
+    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, shape, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?, ?)`,
   ).run(
     id,
     opts.mapId,
@@ -379,9 +408,34 @@ export function createToken(opts: {
     opts.x,
     opts.y,
     opts.isHidden ? 1 : 0,
+    shape,
     Date.now(),
   );
   return getToken(id)!;
+}
+
+/** Create a pasted-image OBJECT (a non-combat 'other' object) and place its
+ *  token (shape 'image', unclipped art) at (x,y). Returns the token. */
+export function createPastedObject(
+  sessionId: string,
+  mapId: string,
+  x: number,
+  y: number,
+  icon: string,
+  name = 'Object',
+): Token {
+  const m = insertMonster(
+    sessionId,
+    { name, maxHp: 1, icon, objectKind: 'other', disposition: 'neutral', source: 'manual' },
+    { isTemplate: false, templateId: null, name },
+  );
+  return createToken({ mapId, kind: 'monster', refId: m.id, x, y, shape: 'image' });
+}
+
+/** Set a token's silhouette (DM). */
+export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
+  db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);
+  return getToken(tokenId);
 }
 
 export function moveToken(tokenId: string, x: number, y: number): Token | null {
@@ -392,7 +446,10 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
 /** Resize a token by its real footprint WIDTH IN FEET (min 2.5ft = Tiny). The
  *  legacy square `size` is kept in sync (widthFt / 5) for back-compat. */
 export function resizeToken(tokenId: string, widthFt: number): Token | null {
-  const w = Math.max(2.5, widthFt);
+  // Snap to half-foot steps; 0.5 ft minimum allows small objects, 120 ft caps
+  // gargantuan set pieces. The legacy grid-square `size` stays in sync.
+  if (!Number.isFinite(widthFt)) return getToken(tokenId);
+  const w = Math.min(120, Math.max(0.5, Math.round(widthFt * 2) / 2));
   db.prepare('UPDATE tokens SET width_ft = ?, size = ? WHERE id = ?').run(
     w,
     w / 5,
@@ -909,6 +966,14 @@ export function rollMissingInitiative(mapId: string): void {
   }
 }
 
+/** Toggle whether the DM's own rolls are hidden from players' logs. */
+export function setHideDmRolls(sessionId: string, hide: boolean): void {
+  db.prepare('UPDATE sessions SET hide_dm_rolls = ? WHERE id = ?').run(
+    hide ? 1 : 0,
+    sessionId,
+  );
+}
+
 /** Set the session's combat-round counter (0 = no combat running). */
 export function setCombatRound(sessionId: string, round: number): void {
   db.prepare('UPDATE sessions SET combat_round = ? WHERE id = ?').run(
@@ -998,9 +1063,13 @@ export function addRollLog(
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
+  // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
+  // is on, so player snapshots can drop it (damage still applied separately).
+  const dmOnly =
+    entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1012,10 +1081,11 @@ export function addRollLog(
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
+    dmOnly ? 1 : 0,
     createdAt,
   );
   pruneRollLog(sessionId);
-  return { id, ...entry, createdAt };
+  return { id, ...entry, createdAt, ...(dmOnly ? { dmOnly: true } : {}) };
 }
 
 /** Keep the newest N rolls per session so long campaigns don't grow the DB forever. */
@@ -1093,6 +1163,7 @@ type RollLogRow = {
   description: string | null;
   apply: string | null;
   hp_note: string | null;
+  dm_only: number | null;
   created_at: number;
 };
 
@@ -1119,6 +1190,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
+    ...(r.dm_only ? { dmOnly: true } : {}),
     createdAt: r.created_at,
   };
 }
@@ -1233,6 +1305,9 @@ type AnnotationRow = {
   y: number;
   text: string;
   color: string;
+  url: string | null;
+  width: number | null;
+  height: number | null;
   created_by: string;
 };
 
@@ -1245,6 +1320,7 @@ const rowToAnnotation = (r: AnnotationRow): Annotation => ({
   y: r.y,
   text: r.text,
   color: r.color,
+  ...(r.url ? { url: r.url, width: r.width ?? 0, height: r.height ?? 0 } : {}),
   createdBy: r.created_by,
 });
 
@@ -1258,13 +1334,16 @@ export function addAnnotation(
     y?: number;
     text?: string;
     color: string;
+    url?: string;
+    width?: number;
+    height?: number;
     createdBy: string;
   },
 ): Annotation {
   const id = newId();
   db.prepare(
-    `INSERT INTO annotations (id, session_id, map_id, kind, points, x, y, text, color, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO annotations (id, session_id, map_id, kind, points, x, y, text, color, url, width, height, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1275,6 +1354,9 @@ export function addAnnotation(
     input.y ?? 0,
     (input.text ?? '').slice(0, 200),
     input.color,
+    input.url ?? '',
+    input.width ?? 0,
+    input.height ?? 0,
     input.createdBy,
     Date.now(),
   );
@@ -1300,13 +1382,34 @@ export function removeAnnotation(id: string, requireCreatedBy?: string): void {
   }
 }
 
-/** Clear a map's annotations — all, or only one drawer's (`createdBy`). */
-export function clearAnnotations(mapId: string, createdBy?: string): void {
+/** Clear a map's annotations — all, only one drawer's (`createdBy`), and/or
+ *  only one kind (e.g. 'image' = scenery decals). */
+export function clearAnnotations(
+  mapId: string,
+  createdBy?: string,
+  kind?: Annotation['kind'],
+): void {
+  const conds = ['map_id = ?'];
+  const args: string[] = [mapId];
   if (createdBy !== undefined) {
-    db.prepare('DELETE FROM annotations WHERE map_id = ? AND created_by = ?').run(mapId, createdBy);
-  } else {
-    db.prepare('DELETE FROM annotations WHERE map_id = ?').run(mapId);
+    conds.push('created_by = ?');
+    args.push(createdBy);
   }
+  if (kind !== undefined) {
+    conds.push('kind = ?');
+    args.push(kind);
+  }
+  db.prepare(`DELETE FROM annotations WHERE ${conds.join(' AND ')}`).run(...args);
+}
+
+/** Reposition an annotation's anchor (image decals dragged by the DM). */
+export function moveAnnotation(id: string, x: number, y: number): void {
+  db.prepare('UPDATE annotations SET x = ?, y = ? WHERE id = ?').run(x, y, id);
+}
+
+/** Resize an image decal (corner-handle drag). */
+export function resizeAnnotation(id: string, width: number, height: number): void {
+  db.prepare('UPDATE annotations SET width = ?, height = ? WHERE id = ?').run(width, height, id);
 }
 
 /** A roll's "who" — the player's claimed character name, "DM", or "Player". */
@@ -1777,6 +1880,7 @@ export function updateCharacter(
 export function claimCharacter(
   characterId: string,
   socketId: string,
+  playerId?: string | null,
 ): Character | null {
   // A player holds exactly one character — release any prior claim first so
   // "change character" frees the old one instead of orphaning it.
@@ -1785,7 +1889,29 @@ export function claimCharacter(
     socketId,
     characterId,
   );
+  // First claim by an identified player takes durable ownership (kept across
+  // reconnects; only the owner or the DM can claim/edit from then on).
+  if (playerId) {
+    db.prepare(
+      'UPDATE characters SET owner_player_id = ? WHERE id = ? AND owner_player_id IS NULL',
+    ).run(playerId, characterId);
+  }
   return getCharacter(characterId);
+}
+
+/** Set/clear a character's durable owner (DM unlock passes null; clearing also
+ *  releases the live claim so the sheet is immediately up for grabs). */
+export function setCharacterOwner(characterId: string, ownerId: string | null): void {
+  if (ownerId === null) {
+    db.prepare(
+      'UPDATE characters SET owner_player_id = NULL, claimed_by = NULL WHERE id = ?',
+    ).run(characterId);
+  } else {
+    db.prepare('UPDATE characters SET owner_player_id = ? WHERE id = ?').run(
+      ownerId,
+      characterId,
+    );
+  }
 }
 
 export function releaseClaims(socketId: string): void {
@@ -2180,10 +2306,14 @@ export function applyDamage(
     nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
   }
   // Float a ±X over the token when the effective pool (HP + temp) changed.
-  // Damage absorbed by temp HP still reads as the full hit.
+  // Damage absorbed by temp HP still reads as the full hit. Damage to a
+  // creature ALREADY at 0 HP changes nothing numerically but must still read
+  // as a hit (death-save failures, attacking a downed body) — float the
+  // attempted amount.
   const delta = nextCur + nextTemp - (entity.curHp + entity.tempHp);
-  if (delta !== 0 && hpFxQueue.length < 200)
-    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta });
+  const fxDelta = delta !== 0 ? delta : amount > 0 ? -amount : 0;
+  if (fxDelta !== 0 && hpFxQueue.length < 200)
+    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta: fxDelta });
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {

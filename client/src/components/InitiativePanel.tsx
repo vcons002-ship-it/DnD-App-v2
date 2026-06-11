@@ -77,8 +77,12 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           <button className="btn tiny" onClick={nextTurn}>
             Next ▸
           </button>
-          <button className="btn tiny" onClick={clearInitiative}>
-            Clear
+          <button
+            className="btn tiny"
+            onClick={clearInitiative}
+            title="End combat: clears initiative rolls, the turn marker, and the round counter"
+          >
+            End combat
           </button>
         </div>
       </div>

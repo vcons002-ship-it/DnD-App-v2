@@ -18,6 +18,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
+  const setHideDmRolls = useStore((s) => s.setHideDmRolls);
   const toggleDiceButton = useStore((s) => s.toggleDiceButton);
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
@@ -112,6 +113,15 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
         >
           🎲 Dice
         </button>
+        {snapshot.role === 'dm' && (
+          <button
+            className={`btn tiny ${snapshot.hideDmRolls ? 'on' : ''}`}
+            onClick={() => setHideDmRolls(!snapshot.hideDmRolls)}
+            title="Hide YOUR rolls (attacks/saves/checks) from players' logs — damage still applies and ±HP numbers still pop"
+          >
+            {snapshot.hideDmRolls ? '🙈 DM rolls hidden' : '👁 DM rolls shown'}
+          </button>
+        )}
         {snapshot.rollLog.length > 0 && (
           <button
             className="btn tiny danger"

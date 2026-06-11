@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   Character,
   Monster,
-  MonsterNeutral,
   MonsterPublic,
   StateSnapshot,
   Token,
@@ -17,6 +16,7 @@ import { LibrarySaveDialog } from './LibrarySaveDialog';
 import { AttackControls } from './AttackControls';
 import { DamageHealControls } from './DamageHealControls';
 import { ObjectControls } from './ObjectControls';
+import { LootControls } from './LootControls';
 import { IconTools } from './IconTools';
 import { TokenAdminButtons } from './TokenAdminButtons';
 import { AdvantageToggle } from './AdvantageToggle';
@@ -35,12 +35,15 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const updateCharacter = useStore((s) => s.updateCharacter);
+  const setCondition = useStore((s) => s.setCondition);
+  const clearCondition = useStore((s) => s.clearCondition);
   const aiFillCreature = useStore((s) => s.aiFillCreature);
   const rollSave = useStore((s) => s.rollSave);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
+  const setTokenShape = useStore((s) => s.setTokenShape);
   const [savingMonster, setSavingMonster] = useState<Monster | null>(null);
 
   const d = resolveToken(snapshot, token);
@@ -147,6 +150,21 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         />
       ),
     });
+    // Loot a fallen creature whose loot the DM revealed (server-gated).
+    if (token.kind === 'monster' && monsterEntity && 'loot' in monsterEntity && monsterEntity.loot) {
+      consoleSections.push({
+        id: 'loot',
+        label: 'Loot',
+        node: (
+          <LootControls
+            snapshot={snapshot}
+            monsterId={monsterEntity.id}
+            loot={monsterEntity.loot}
+            editable={false}
+          />
+        ),
+      });
+    }
     return (
       <div className="panel-section">
         {selectingOwn ? (
@@ -201,6 +219,40 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           editable={isDm}
           snapshot={snapshot}
           attackerToken={token}
+        />
+      ),
+    });
+  }
+
+  // DM: stock + reveal loot on any creature (objects carry it via ObjectControls).
+  if (isDm && monster && !objectKind) {
+    const dead =
+      monster.curHp <= 0 ||
+      monster.conditions.some((c) => c.label.toLowerCase() === 'dead');
+    const revealCond = monster.conditions.find(
+      (c) => c.label.toLowerCase() === 'loot revealed',
+    );
+    sections.push({
+      id: 'loot',
+      label: 'Loot',
+      node: (
+        <LootControls
+          snapshot={snapshot}
+          monsterId={monster.id}
+          loot={monster.loot}
+          editable
+          reveal={{
+            revealed: !!revealCond,
+            dead,
+            onToggle: () =>
+              revealCond
+                ? clearCondition('monster', monster.id, revealCond.id)
+                : setCondition('monster', monster.id, {
+                    label: 'Loot revealed',
+                    aura: 'blue',
+                    isConcentration: false,
+                  }),
+          }}
         />
       ),
     });
@@ -356,6 +408,27 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
                 : undefined
             }
           />
+          <h4>Shape</h4>
+          <div className="disposition-btns">
+            {(
+              [
+                ['circle', '●'],
+                ['square', '■'],
+                ['diamond', '◆'],
+                ['triangle', '▲'],
+                ['image', '🖼'],
+              ] as const
+            ).map(([sh, glyph]) => (
+              <button
+                key={sh}
+                className={`btn tiny ${(token.shape ?? 'circle') === sh ? 'on' : ''}`}
+                title={sh === 'image' ? 'Show the full icon image (no clip)' : sh}
+                onClick={() => setTokenShape(token.id, sh)}
+              >
+                {glyph}
+              </button>
+            ))}
+          </div>
           <h4>Combat role</h4>
           <div className="disposition-btns">
             {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {
@@ -407,15 +480,30 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         <button
           className="btn"
           disabled={!isDm}
-          onClick={() => resizeToken(token.id, token.widthFt - 5)}
+          title="Smaller (−2.5 ft)"
+          onClick={() => resizeToken(token.id, token.widthFt - 2.5)}
         >
           −
         </button>
-        <span>{token.widthFt} ft</span>
+        {/* Manual entry in half-foot steps (server snaps + clamps 0.5–120). */}
+        <input
+          className="size-input"
+          type="number"
+          step={0.5}
+          min={0.5}
+          max={120}
+          disabled={!isDm}
+          value={token.widthFt}
+          onChange={(e) =>
+            e.target.value !== '' && resizeToken(token.id, Number(e.target.value))
+          }
+        />
+        <span className="muted">ft</span>
         <button
           className="btn"
           disabled={!isDm}
-          onClick={() => resizeToken(token.id, token.widthFt + 5)}
+          title="Larger (+2.5 ft)"
+          onClick={() => resizeToken(token.id, token.widthFt + 2.5)}
         >
           +
         </button>
@@ -450,7 +538,7 @@ function CreatureDetails({
   character,
 }: {
   monster?: Monster;
-  monsterEntity?: Monster | MonsterNeutral | MonsterPublic;
+  monsterEntity?: Monster | MonsterPublic;
   character?: Character;
 }) {
   const open = useStore((s) => s.detailsExpanded);
@@ -481,7 +569,7 @@ function CreatureDetails({
         <CharacterSheet character={character} editable={false} />
       ) : monsterEntity ? (
         <div className="muted creature-details-body">
-          {hasType && <div>Type: {(monsterEntity as MonsterNeutral).creatureType}</div>}
+          {hasType && <div>Type: {(monsterEntity as Monster).creatureType}</div>}
           {'armorClass' in monsterEntity && monsterEntity.armorClass ? (
             <div>AC {monsterEntity.armorClass}</div>
           ) : null}

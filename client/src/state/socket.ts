@@ -17,8 +17,10 @@ import type {
   InventoryItem,
   LootContents,
   LootTakePayload,
+  ObjectInteractPayload,
   TrapDisarmPayload,
   MeasureAddPayload,
+  Annotation,
   AnnotationAddPayload,
   ResourceSetPayload,
   JoinAck,
@@ -31,6 +33,7 @@ import type {
   SkillRollPayload,
   StateSnapshot,
   TokenKind,
+  TokenShape,
 } from '../../../shared/types';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -111,13 +114,17 @@ type Store = {
     gridSizePx: number,
     feetPerSquare: number,
     widthFt: number,
+    opts?: { offsetX?: number; offsetY?: number; locked?: boolean; hidden?: boolean },
   ) => void;
   addMeasurement: (payload: MeasureAddPayload) => void;
   removeMeasurement: (id: string) => void;
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   addAnnotation: (payload: AnnotationAddPayload) => void;
+  pasteObject: (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
   removeAnnotation: (id: string) => void;
-  clearAnnotations: (mapId: string, mineOnly?: boolean) => void;
+  clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
+  moveAnnotation: (id: string, x: number, y: number) => void;
+  resizeAnnotation: (id: string, width: number, height: number) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
   importMapsFromSession: (
@@ -147,6 +154,7 @@ type Store = {
   ) => void;
   moveToken: (tokenId: string, x: number, y: number) => void;
   resizeToken: (tokenId: string, widthFt: number) => void;
+  setTokenShape: (tokenId: string, shape: TokenShape) => void;
   deleteToken: (tokenId: string) => void;
   duplicateToken: (tokenId: string) => void;
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
@@ -159,6 +167,7 @@ type Store = {
   ) => void;
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
+  unlockCharacter: (characterId: string) => void;
   createCharacter: (input: CharacterCreatePayload) => void;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
@@ -170,6 +179,7 @@ type Store = {
   setLoot: (monsterId: string, loot: LootContents) => void;
   takeLoot: (payload: LootTakePayload) => void;
   disarmTrap: (payload: TrapDisarmPayload) => void;
+  interactObject: (payload: ObjectInteractPayload) => void;
   setSheetAbility: (kind: TokenKind, refId: string, ability: SheetAbility) => void;
   removeSheetAbility: (kind: TokenKind, refId: string, abilityId: string) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
@@ -204,6 +214,7 @@ type Store = {
   nextTurn: () => void;
   clearInitiative: () => void;
   setRound: (round: number) => void;
+  setHideDmRolls: (hide: boolean) => void;
   rollDice: (payload: DiceRollPayload) => void;
   clearRollLog: () => void;
   combatAttack: (payload: CombatAttackPayload) => void;
@@ -241,6 +252,30 @@ const clearSavedSession = () => {
     /* ignore */
   }
 };
+
+/**
+ * Durable per-browser player id (localStorage, shared across sessions) — sent
+ * on join so character ownership survives reconnects/reloads. Random, no PII.
+ */
+const PLAYER_ID_KEY = 'dnd.playerId';
+let playerIdMemo: string | null = null;
+export function getPlayerId(): string {
+  if (playerIdMemo) return playerIdMemo;
+  const fresh =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    playerIdMemo = localStorage.getItem(PLAYER_ID_KEY);
+    if (!playerIdMemo) {
+      localStorage.setItem(PLAYER_ID_KEY, fresh);
+      playerIdMemo = fresh;
+    }
+  } catch {
+    playerIdMemo = fresh; // private mode — ownership lasts this tab only
+  }
+  return playerIdMemo;
+}
 
 export const useStore = create<Store>((set, get) => ({
   socket: null,
@@ -338,7 +373,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('connect', () => {
       socket.emit(
         'join',
-        { sessionCode: code, role, dmPassphrase },
+        { sessionCode: code, role, dmPassphrase, playerId: getPlayerId() },
         (ack: JoinAck) => {
           if (ack.ok) {
             set({ status: 'connected', snapshot: ack.snapshot, error: null });
@@ -379,16 +414,27 @@ export const useStore = create<Store>((set, get) => ({
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
-  setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt) =>
-    get().socket?.emit('map:setGrid', { mapId, gridSizePx, feetPerSquare, widthFt }),
+  setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt, opts) =>
+    get().socket?.emit('map:setGrid', {
+      mapId,
+      gridSizePx,
+      feetPerSquare,
+      widthFt,
+      ...opts,
+    }),
   addMeasurement: (payload) => get().socket?.emit('measure:add', payload),
   removeMeasurement: (id) => get().socket?.emit('measure:remove', { id }),
   clearMeasurements: (mapId, mineOnly) =>
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
   addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
+  pasteObject: (payload) => get().socket?.emit('object:paste', payload),
   removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
-  clearAnnotations: (mapId, mineOnly) =>
-    get().socket?.emit('annotation:clear', { mapId, mineOnly }),
+  clearAnnotations: (mapId, mineOnly, kind) =>
+    get().socket?.emit('annotation:clear', { mapId, mineOnly, kind }),
+  moveAnnotation: (id, x, y) =>
+    get().socket?.emit('annotation:move', { id, x, y }),
+  resizeAnnotation: (id, width, height) =>
+    get().socket?.emit('annotation:resize', { id, width, height }),
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
@@ -412,6 +458,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:move', { tokenId, x, y }),
   resizeToken: (tokenId, widthFt) =>
     get().socket?.emit('token:resize', { tokenId, widthFt }),
+  setTokenShape: (tokenId, shape) =>
+    get().socket?.emit('token:setShape', { tokenId, shape }),
   deleteToken: (tokenId) => get().socket?.emit('token:delete', { tokenId }),
   duplicateToken: (tokenId) =>
     get().socket?.emit('token:duplicate', { tokenId }),
@@ -427,6 +475,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('condition:clear', { kind, refId, conditionId }),
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
+  unlockCharacter: (characterId) =>
+    get().socket?.emit('character:unlock', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
   updateCharacter: (payload) => get().socket?.emit('character:update', payload),
   aiFillCharacter: (characterId) => {
@@ -447,6 +497,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('object:setLoot', { monsterId, loot }),
   takeLoot: (payload) => get().socket?.emit('loot:take', payload),
   disarmTrap: (payload) => get().socket?.emit('trap:disarm', payload),
+  interactObject: (payload) => get().socket?.emit('object:interact', payload),
   setSheetAbility: (kind, refId, ability) =>
     get().socket?.emit('ability:set', { kind, refId, ability }),
   removeSheetAbility: (kind, refId, abilityId) =>
@@ -489,6 +540,8 @@ export const useStore = create<Store>((set, get) => ({
   nextTurn: () => get().socket?.emit('initiative:next'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
   setRound: (round) => get().socket?.emit('initiative:setRound', { round }),
+  setHideDmRolls: (hide) =>
+    get().socket?.emit('session:setHideDmRolls', { hide }),
   rollDice: (payload) => get().socket?.emit('dice:roll', payload),
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),

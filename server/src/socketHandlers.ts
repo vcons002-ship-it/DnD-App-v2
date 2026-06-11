@@ -8,6 +8,7 @@ import {
   resolveForcedSave,
   resolveSkillRoll,
   resolveTrapDisarm,
+  resolveObjectCheck,
   resolveSaves,
   resolveSave,
   resolveDeathSave,
@@ -34,6 +35,7 @@ import {
   advanceTurn,
   applyDamage,
   claimCharacter,
+  setCharacterOwner,
   clearCondition,
   clearInitiative,
   clearRollLog,
@@ -49,7 +51,9 @@ import {
   removeMeasurement,
   addAnnotation,
   clearAnnotations,
+  moveAnnotation,
   removeAnnotation,
+  resizeAnnotation,
   setResource,
   setItem,
   removeItem,
@@ -92,10 +96,13 @@ import {
   importMaps,
   previewImportCharacters,
   resizeToken,
+  setTokenShape,
+  createPastedObject,
   updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
   setCombatRound,
+  setHideDmRolls,
   rollerName,
   addChatMessage,
   setActiveMap,
@@ -141,6 +148,10 @@ export function registerSocketHandlers(io: IOServer): void {
         sessionId: session.id,
         role: payload.role,
         viewMapId: session.activeMapId,
+        playerId:
+          typeof payload.playerId === 'string' && payload.playerId.trim()
+            ? payload.playerId.slice(0, 64)
+            : null,
       });
       socket.join(roomName(session.id));
       touchSession(session.id); // keep the resume directory fresh
@@ -183,13 +194,18 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('map:setGrid', ({ mapId, gridSizePx, feetPerSquare, widthFt }) => {
-      if (!isDm() || !getMap(mapId)) return;
-      const px = Math.round(Math.max(10, Math.min(400, gridSizePx)));
-      const ft = Math.round(Math.max(1, Math.min(100, feetPerSquare)));
+    socket.on('map:setGrid', (p) => {
+      if (!isDm() || !getMap(p.mapId)) return;
+      const px = Math.round(Math.max(10, Math.min(400, p.gridSizePx)));
+      const ft = Math.round(Math.max(1, Math.min(100, p.feetPerSquare)));
       // 0 = unset (fall back to feet-per-square); otherwise clamp to a sane span.
-      const w = widthFt <= 0 ? 0 : Math.max(1, Math.min(100000, widthFt));
-      updateMapGrid(mapId, px, ft, w);
+      const w = p.widthFt <= 0 ? 0 : Math.max(1, Math.min(100000, p.widthFt));
+      updateMapGrid(p.mapId, px, ft, w, {
+        offsetX: p.offsetX === undefined ? undefined : ((p.offsetX % px) + px) % px,
+        offsetY: p.offsetY === undefined ? undefined : ((p.offsetY % px) + px) % px,
+        locked: p.locked,
+        hidden: p.hidden,
+      });
       afterChange();
     });
 
@@ -235,10 +251,12 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:add', ({ kind, points, x, y, text, color }) => {
+    socket.on('annotation:add', ({ kind, points, x, y, text, color, url, width, height }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
-      if (!sid || !conn || (kind !== 'freehand' && kind !== 'text')) return;
+      if (!sid || !conn || (kind !== 'freehand' && kind !== 'text' && kind !== 'image')) return;
+      // Image decals are a DM tool (scenery/set-dressing); strokes/text are shared.
+      if (kind === 'image' && conn.role !== 'dm') return;
       const mapId =
         conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
       if (!mapId || !getMap(mapId)) return;
@@ -250,8 +268,24 @@ export function registerSocketHandlers(io: IOServer): void {
         y: Number(y) || 0,
         text: typeof text === 'string' ? text : undefined,
         color: typeof color === 'string' ? color : '#ffd166',
+        url: typeof url === 'string' ? url : undefined,
+        width: Number(width) || undefined,
+        height: Number(height) || undefined,
         createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
       });
+      afterChange();
+    });
+
+    // Paste an uploaded image onto the map AS AN OBJECT (draggable token).
+    socket.on('object:paste', ({ mapId, x, y, icon, name }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || typeof icon !== 'string' || !icon) return;
+      const map = getMap(mapId);
+      if (!map || getActiveMapId(sid) !== mapId) {
+        // Only place on the active/viewed map the DM is looking at.
+      }
+      if (!map) return;
+      createPastedObject(sid, mapId, Number(x) || 0, Number(y) || 0, icon, (name || 'Object').slice(0, 60));
       afterChange();
     });
 
@@ -263,12 +297,37 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:clear', ({ mapId, mineOnly }) => {
+    socket.on('annotation:clear', ({ mapId, mineOnly, kind }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !getMap(mapId)) return;
       const onlyMine = mineOnly || conn.role !== 'dm';
-      clearAnnotations(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
+      const k =
+        kind === 'freehand' || kind === 'text' || kind === 'image' ? kind : undefined;
+      // NOTE: pass the caller's REAL role — annotations store the DM's as
+      // createdBy 'DM', so a hardcoded `false` here made the DM's "Clear mine"
+      // look for 'Player' and delete nothing.
+      clearAnnotations(
+        mapId,
+        onlyMine ? rollerName(sid, socket.id, conn.role === 'dm') : undefined,
+        k,
+      );
+      afterChange();
+    });
+
+    // Reposition an image decal (DM drag); strokes/text never move.
+    socket.on('annotation:move', ({ id, x, y }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      moveAnnotation(id, Number(x) || 0, Number(y) || 0);
+      afterChange();
+    });
+
+    // Resize an image decal (DM corner-handle drag).
+    socket.on('annotation:resize', ({ id, width, height }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      const w = Math.max(8, Math.min(20000, Number(width) || 0));
+      const h = Math.max(8, Math.min(20000, Number(height) || 0));
+      resizeAnnotation(id, w, h);
       afterChange();
     });
 
@@ -371,8 +430,18 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on('token:move', ({ tokenId, x, y }) => {
       if (!sessionId()) return;
-      // Players never receive hidden tokens, so a non-DM move of one is stale/forged.
-      if (!isDm() && getToken(tokenId)?.isHidden) return;
+      // Players may move PCs and FRIENDLY creatures (companions/summons) only —
+      // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
+      // Hidden tokens are never sent to players, so a non-DM move of one is
+      // stale/forged.
+      if (!isDm()) {
+        const t = getToken(tokenId);
+        if (!t || t.isHidden) return;
+        if (t.kind === 'monster') {
+          const m = getMonster(t.refId);
+          if (!m || m.disposition !== 'friendly' || m.objectKind) return;
+        }
+      }
       moveToken(tokenId, x, y);
       afterChange();
     });
@@ -380,6 +449,14 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('token:resize', ({ tokenId, widthFt }) => {
       if (!isDm()) return; // resizing is a DM action; players may only move
       resizeToken(tokenId, widthFt);
+      afterChange();
+    });
+
+    socket.on('token:setShape', ({ tokenId, shape }) => {
+      if (!isDm()) return;
+      const ok = ['circle', 'square', 'diamond', 'triangle', 'image'];
+      if (!ok.includes(shape)) return;
+      setTokenShape(tokenId, shape);
       afterChange();
     });
 
@@ -441,20 +518,44 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on('character:claim', ({ characterId }) => {
       if (!sessionId()) return;
-      claimCharacter(characterId, socket.id);
+      const c = getCharacter(characterId);
+      if (!c) return;
+      const pid = getConn(socket.id)?.playerId ?? null;
+      if (!isDm()) {
+        // Never steal a character another LIVE player is holding…
+        if (c.claimedBy && c.claimedBy !== socket.id && isConnected(c.claimedBy)) return;
+        // …and a character stays its owner's even while they're offline.
+        if (c.ownerId && c.ownerId !== pid) {
+          socket.emit('notice', {
+            message: `${c.name} belongs to another player — ask the DM to unlock it.`,
+          });
+          return;
+        }
+      }
+      claimCharacter(characterId, socket.id, isDm() ? null : pid);
+      afterChange();
+    });
+
+    // DM: clear a character's owner + claim (player switched devices/browser).
+    socket.on('character:unlock', ({ characterId }) => {
+      if (!isDm() || !getCharacter(characterId)) return;
+      setCharacterOwner(characterId, null);
       afterChange();
     });
 
     socket.on('character:create', (p) => {
       const sid = sessionId();
       if (!sid || !p.name?.trim()) return; // DM or player may add a character
-      createCharacter(sid, {
+      const created = createCharacter(sid, {
         name: p.name,
         race: p.race,
         className: p.className,
         maxHp: p.maxHp,
         stats: p.stats,
       });
+      // A player's new character is theirs from the start.
+      const pid = getConn(socket.id)?.playerId;
+      if (created && !isDm() && pid) setCharacterOwner(created.id, pid);
       afterChange();
     });
 
@@ -462,8 +563,9 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !name?.trim()) return; // DM or player may load a saved sheet
       const created = createCharacterFromLibrary(sid, name);
-      // A player loading their own sheet claims it immediately.
-      if (created && claim && !isDm()) claimCharacter(created.id, socket.id);
+      // A player loading their own sheet claims (and thereby owns) it.
+      if (created && claim && !isDm())
+        claimCharacter(created.id, socket.id, getConn(socket.id)?.playerId ?? null);
       afterChange();
     });
 
@@ -526,9 +628,9 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // ---- Object loot (DM fills containers; anyone who owns the target PC takes) ----
     socket.on('object:setLoot', ({ monsterId, loot }) => {
-      if (!isDm()) return; // only the DM stocks a chest
-      const m = getMonster(monsterId);
-      if (!m || !m.objectKind) return;
+      if (!isDm()) return; // only the DM stocks loot (object OR creature)
+      const sid = sessionId();
+      if (!sid || !monsterInSession(monsterId, sid)) return;
       setLoot(monsterId, loot);
       afterChange();
     });
@@ -536,8 +638,8 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('loot:take', ({ monsterId, characterId, itemId, gold, all }) => {
       const m = getMonster(monsterId);
       // The taker must own the destination character; players can only take from
-      // a container whose contents are actually revealed to them.
-      if (!m || !m.objectKind || !ownsCharacter(characterId)) return;
+      // a container/corpse whose contents are actually revealed to them.
+      if (!m || !ownsCharacter(characterId)) return;
       if (!isDm() && !lootVisibleToPlayers(m)) return;
       takeLoot(monsterId, characterId, { itemId, gold, all });
       afterChange();
@@ -571,6 +673,55 @@ export function registerSocketHandlers(io: IOServer): void {
           });
       }
       afterChange();
+    });
+
+    // Player/DM interacts with a door or chest: open it (if not locked) or pick
+    // its lock (a DEX check vs the object's DC; success clears Locked).
+    socket.on('object:interact', ({ monsterId, characterId, action }) => {
+      const sid = sessionId();
+      if (!sid) return;
+      const obj = getMonster(monsterId);
+      if (!obj || (obj.objectKind !== 'door' && obj.objectKind !== 'chest')) return;
+      const has = (label: string) =>
+        obj.conditions.find((c) => c.label.toLowerCase() === label.toLowerCase());
+      const locked = has('locked');
+
+      if (action === 'unlock') {
+        // Anyone who owns a PC may attempt the pick; the DM may force it open.
+        if (!locked) return;
+        if (isDm()) {
+          clearCondition('monster', monsterId, locked.id);
+          afterChange();
+          return;
+        }
+        const c = characterId ? getCharacter(characterId) : undefined;
+        if (!c || !ownsCharacter(c.id)) return;
+        const { success } = resolveObjectCheck(
+          sid,
+          rollerName(sid, socket.id, false),
+          c,
+          obj,
+          'unlock',
+        );
+        if (success) clearCondition('monster', monsterId, locked.id);
+        afterChange();
+        return;
+      }
+
+      // Open/close toggle — blocked while Locked (pick it first).
+      if (action === 'open') {
+        if (locked) return;
+        const open = has('open');
+        if (open) clearCondition('monster', monsterId, open.id);
+        else
+          setCondition('monster', monsterId, {
+            id: newId(),
+            label: 'Open',
+            aura: 'green',
+            isConcentration: false,
+          });
+        afterChange();
+      }
     });
 
     // ---- Sheet spells/abilities (PC owner, or the DM for creatures) ----
@@ -915,6 +1066,13 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm() || !Number.isFinite(round)) return;
       setCombatRound(sid, Math.min(999, Math.max(0, Math.round(round))));
+      afterChange();
+    });
+
+    socket.on('session:setHideDmRolls', ({ hide }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      setHideDmRolls(sid, !!hide);
       afterChange();
     });
 

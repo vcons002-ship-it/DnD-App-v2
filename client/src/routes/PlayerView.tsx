@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useStore } from '../state/socket';
+import { getPlayerId, useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { PlayerPanel } from '../components/PlayerPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
@@ -38,9 +38,10 @@ export function PlayerView() {
       localStorage.removeItem(claimKey); // character was deleted
       return;
     }
-    // Only auto-claim when it's free or already ours; if another live player
-    // holds it, leave it alone (the server would reject anyway).
-    if (!c.claimedBy || c.claimedBy === mySocketId) {
+    // Only auto-claim what's ours to take: free (or already ours) AND not
+    // owned by a different player. The server enforces the same rules.
+    const mine = !c.ownerId || c.ownerId === getPlayerId();
+    if (mine && (!c.claimedBy || c.claimedBy === mySocketId)) {
       setClaimedId(stored);
       claimCharacter(stored);
     }

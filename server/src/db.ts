@@ -265,6 +265,14 @@ function ensureColumn(table: string, column: string, ddl: string): boolean {
 ensureColumn('sessions', 'active_turn_token_id', 'active_turn_token_id TEXT');
 // Combat round counter (0 = no combat running); advances when the turn wraps.
 ensureColumn('sessions', 'combat_round', 'combat_round INTEGER NOT NULL DEFAULT 0');
+// Hide the DM's own rolls from players' logs while on.
+ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAULT 0');
+// Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).
+ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
+// Image-decal annotations: uploaded art path + draw size.
+ensureColumn('annotations', 'url', "url TEXT NOT NULL DEFAULT ''");
+ensureColumn('annotations', 'width', 'width REAL NOT NULL DEFAULT 0');
+ensureColumn('annotations', 'height', 'height REAL NOT NULL DEFAULT 0');
 ensureColumn(
   'sessions',
   'last_played_at',
@@ -285,6 +293,11 @@ ensureColumn('maps', 'map_fog_enabled', 'map_fog_enabled INTEGER NOT NULL DEFAUL
 ensureColumn('maps', 'token_fog_enabled', 'token_fog_enabled INTEGER NOT NULL DEFAULT 0');
 // Real-world map width in feet (0 = unset → fall back to feet-per-square scale).
 ensureColumn('maps', 'width_ft', 'width_ft REAL NOT NULL DEFAULT 0');
+// Grid alignment + lock/hide (line the overlay up with a printed map grid).
+ensureColumn('maps', 'grid_offset_x', 'grid_offset_x REAL NOT NULL DEFAULT 0');
+ensureColumn('maps', 'grid_offset_y', 'grid_offset_y REAL NOT NULL DEFAULT 0');
+ensureColumn('maps', 'grid_locked', 'grid_locked INTEGER NOT NULL DEFAULT 0');
+ensureColumn('maps', 'grid_hidden', 'grid_hidden INTEGER NOT NULL DEFAULT 0');
 const addedMapRev = ensureColumn(
   'maps',
   'map_fog_revealed',
@@ -352,6 +365,8 @@ ensureColumn(
   'hide_combat_role',
   'hide_combat_role INTEGER NOT NULL DEFAULT 0',
 );
+// Token silhouette ('circle' default; objects default to a non-circle by kind).
+ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
 // Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
 ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
@@ -400,6 +415,9 @@ ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 ensureColumn('characters', 'death_successes', 'death_successes INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'death_failures', 'death_failures INTEGER NOT NULL DEFAULT 0');
+// Durable per-player ownership (random browser id) — survives reconnects so
+// only the owning player (or DM) can re-claim and edit the sheet.
+ensureColumn('characters', 'owner_player_id', 'owner_player_id TEXT');
 
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
@@ -478,6 +496,10 @@ type MapRow = {
   grid_size_px: number;
   feet_per_square: number;
   width_ft: number;
+  grid_offset_x: number | null;
+  grid_offset_y: number | null;
+  grid_locked: number | null;
+  grid_hidden: number | null;
   map_fog_enabled: number;
   token_fog_enabled: number;
   map_fog_revealed: string;
@@ -494,6 +516,10 @@ export function rowToMap(r: MapRow): MapState {
     gridSizePx: r.grid_size_px,
     feetPerSquare: r.feet_per_square,
     mapWidthFt: r.width_ft,
+    gridOffsetX: r.grid_offset_x ?? 0,
+    gridOffsetY: r.grid_offset_y ?? 0,
+    gridLocked: !!r.grid_locked,
+    gridHidden: !!r.grid_hidden,
     mapFogEnabled: !!r.map_fog_enabled,
     tokenFogEnabled: !!r.token_fog_enabled,
     mapFogRevealed: JSON.parse(r.map_fog_revealed ?? '[]') as string[],
@@ -514,6 +540,7 @@ type TokenRow = {
   is_hidden: number;
   combat_role_override: Token['combatRoleOverride'];
   hide_combat_role: number;
+  shape: string | null;
 };
 
 export function rowToToken(r: TokenRow): Token {
@@ -532,6 +559,7 @@ export function rowToToken(r: TokenRow): Token {
     hideCombatRole: !!r.hide_combat_role,
     // Effective role is filled in by buildSnapshot (needs creature context).
     combatRole: null,
+    shape: (r.shape as Token['shape']) ?? 'circle',
   };
 }
 
@@ -562,6 +590,7 @@ type CharacterRow = {
   sheet_abilities: string;
   conditions: string;
   claimed_by: string | null;
+  owner_player_id: string | null;
   last_attack_role: string | null;
   superiority_die: string | null;
   death_successes: number | null;
@@ -597,6 +626,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
+    ownerId: r.owner_player_id ?? null,
     lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
     superiorityDie: r.superiority_die ?? undefined,
     deathSaves: {

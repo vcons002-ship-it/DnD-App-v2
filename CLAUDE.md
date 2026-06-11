@@ -117,7 +117,9 @@ sanitization rules above and commit it to `claude/Main`.
   (traits, free text), `icon`. `actions` is only a *transport* shape (SRD/AI/
   paste) — converted into weapons/sheetAbilities at insert; stored creatures
   keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
-  `resources`, `items`, `gold`, `deathSaves`, `claimedBy`. `Monster`
+  `resources`, `items`, `gold`, `deathSaves`, `claimedBy` (live socket) +
+  `ownerId` (durable per-browser player id — only the owner/DM may claim, and
+  claims gate all sheet edits; DM 🔓-unlocks in the spawn list). `Monster`
   additionally has `disposition`, `source`, `conditions`, `objectKind`/`loot`
   (non-combat objects).
 - **Templates vs instances:** `is_template` monsters are the DM's spawn buttons;

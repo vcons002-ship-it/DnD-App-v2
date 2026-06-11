@@ -4,7 +4,9 @@ import {
   createMap,
   addAnnotation,
   listAnnotations,
+  moveAnnotation,
   removeAnnotation,
+  resizeAnnotation,
   clearAnnotations,
 } from './sessions.js';
 
@@ -26,5 +28,31 @@ describe('map annotations', () => {
 
     removeAnnotation(listAnnotations(map.id)[0].id);
     expect(listAnnotations(map.id)).toHaveLength(0);
+  });
+
+  it('clears by kind (only the scenery decals) and moves a decal', () => {
+    const s = createSession('AnnoKind');
+    const map = createMap(s.id, { name: 'Keep' });
+    addAnnotation(s.id, { mapId: map.id, kind: 'freehand', points: [0, 0, 5, 5], color: '#fff', createdBy: 'DM' });
+    addAnnotation(s.id, { mapId: map.id, kind: 'image', x: 10, y: 20, url: '/uploads/a.png', width: 100, height: 80, color: '#fff', createdBy: 'DM' });
+    addAnnotation(s.id, { mapId: map.id, kind: 'image', x: 50, y: 60, url: '/uploads/b.png', width: 40, height: 40, color: '#fff', createdBy: 'DM' });
+
+    // Drag a decal to a new spot, then corner-resize it.
+    const decal = listAnnotations(map.id).find((a) => a.url === '/uploads/a.png')!;
+    moveAnnotation(decal.id, 200, 300);
+    resizeAnnotation(decal.id, 250, 200);
+    const moved = listAnnotations(map.id).find((a) => a.id === decal.id)!;
+    expect([moved.x, moved.y, moved.width, moved.height]).toEqual([200, 300, 250, 200]);
+
+    // Clear ONLY decals: the freehand stroke survives.
+    clearAnnotations(map.id, undefined, 'image');
+    expect(listAnnotations(map.id).map((a) => a.kind)).toEqual(['freehand']);
+
+    // Drawer + kind combine: nothing matches a different drawer.
+    addAnnotation(s.id, { mapId: map.id, kind: 'image', x: 0, y: 0, url: '/uploads/c.png', width: 10, height: 10, color: '#fff', createdBy: 'DM' });
+    clearAnnotations(map.id, 'Varis', 'image');
+    expect(listAnnotations(map.id)).toHaveLength(2);
+    clearAnnotations(map.id, 'DM', 'image');
+    expect(listAnnotations(map.id).map((a) => a.kind)).toEqual(['freehand']);
   });
 });

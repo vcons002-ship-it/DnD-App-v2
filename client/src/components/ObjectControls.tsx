@@ -56,6 +56,8 @@ export function ObjectControls({
   const setCondition = useStore((s) => s.setCondition);
   const clearCondition = useStore((s) => s.clearCondition);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
+  const interactObject = useStore((s) => s.interactObject);
+  const socketId = useStore((s) => s.socket?.id);
 
   const m = snapshot.monsters.find((x) => x.id === token.refId);
   if (!m || !m.objectKind) return null;
@@ -111,6 +113,43 @@ export function ObjectControls({
       ) : (
         m.conditions.length === 0 && <p className="muted">No visible state.</p>
       )}
+      {/* Players (and the DM) can pick a locked door/chest or open an unlocked
+          one — the missing affordance that made locked chests feel broken. */}
+      {(m.objectKind === 'door' || m.objectKind === 'chest') && (() => {
+        const locked = !!has('locked');
+        const open = !!has('open');
+        const myPc = snapshot.characters.find((c) => c.claimedBy === socketId);
+        const actorId = editable ? undefined : myPc?.id;
+        const canAct = editable || !!myPc;
+        if (!canAct) return null;
+        return (
+          <div className="object-interact">
+            {locked ? (
+              <button
+                className="btn tiny"
+                onClick={() =>
+                  interactObject({ monsterId: m.id, characterId: actorId, action: 'unlock' })
+                }
+                title={
+                  editable
+                    ? 'Force the lock open (DM)'
+                    : `Pick the lock — DEX check vs DC ${('objectDc' in m && m.objectDc) || 12}`
+                }
+              >
+                🔓 {editable ? 'Unlock' : 'Pick lock'}
+              </button>
+            ) : (
+              <button
+                className="btn tiny"
+                onClick={() => interactObject({ monsterId: m.id, action: 'open' })}
+                title={open ? 'Close it' : 'Open it'}
+              >
+                {open ? '🚪 Close' : '🔓 Open'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
       {m.objectKind === 'trap' && (
         <TrapControls snapshot={snapshot} monsterId={m.id} editable={editable} />
       )}

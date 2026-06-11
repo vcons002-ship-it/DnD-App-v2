@@ -94,7 +94,9 @@ input[type='number'] { width: 70px; }
 .map-tool-menus { display: flex; align-items: center; gap: 6px; }
 .active-map em { color: var(--accent); font-style: italic; }
 .body { display: flex; flex: 1; min-height: 0; position: relative; }
-.center { flex: 1; min-width: 0; background: #0e0f12; }
+/* overflow:hidden so the fixed-pixel canvas can't shove the layout around for
+   the frames between a window snap/resize and the canvas catching up. */
+.center { flex: 1; min-width: 0; background: #0e0f12; overflow: hidden; position: relative; }
 .loading { padding: 40px; text-align: center; color: var(--muted); }
 
 /* Collapsible / resizable side panels */
@@ -127,7 +129,7 @@ input[type='number'] { width: 70px; }
 .resize-handle.right { left: -7px; }
 
 .stage-wrap {
-  width: 100%; height: 100%; position: relative; touch-action: none;
+  width: 100%; height: 100%; position: relative; touch-action: none; overflow: hidden;
   /* iOS: a long-press on a token opens our menu — suppress the native callout
      / text-selection magnifier so it doesn't fight the gesture. */
   -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
@@ -267,6 +269,8 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   padding: 1px 8px; border: 1px solid var(--accent); border-radius: 10px;
   color: var(--accent); font-size: 12px; font-weight: 600; white-space: nowrap;
 }
+.size-input { width: 64px; margin: 0; text-align: center; }
+
 .round-input {
   width: 44px; margin: 0; padding: 0 4px; font-size: 12px; font-weight: 600;
   color: var(--accent); background: transparent; border: 0;
@@ -648,6 +652,20 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .settings-field input { margin-top: 3px; }
 .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
 
+/* Paste-image dialog: crop-by-drag preview + edit tools. The checkerboard
+   backdrop makes transparency visible after "Cut background". */
+.paste-preview {
+  position: relative; width: fit-content; max-width: 100%; margin: 0 auto 8px;
+  cursor: crosshair; user-select: none;
+  background: repeating-conic-gradient(#2c2f36 0 25%, #1c1e24 0 50%) 0 0 / 16px 16px;
+}
+.paste-preview img { max-width: 100%; max-height: 220px; display: block; }
+.paste-crop-box {
+  position: absolute; pointer-events: none;
+  border: 1.5px dashed var(--accent); background: #4cc9f022;
+}
+.paste-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+
 /* DM Data mode (second-screen dashboard) */
 .data-view { height: 100%; display: flex; flex-direction: column; background: var(--bg); }
 .data-top {
@@ -719,9 +737,16 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 16px;
 }
 .data-modal-body { overflow: auto; padding: 4px 6px; }
-/* Flow the (tall) token panel into responsive columns so it fits without scroll. */
-.data-modal-body .panel-section { border-bottom: none; column-width: 300px; column-gap: 18px; }
-.data-modal-body .panel-section > * { break-inside: avoid; }
+/* Lay the (tall) token panel out as a responsive GRID of sections. CSS
+   multi-columns rebalance on every window resize and overlap unbreakable
+   sections taller than the balanced column (Chrome fragmentation) — grid
+   cells can never overlap. Header bits (name/HP/controls) span full width. */
+.data-modal-body .panel-section {
+  border-bottom: none; display: grid; align-items: start; gap: 4px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.data-modal-body .panel-section > * { min-width: 0; }
+.data-modal-body .panel-section > :not(.reorder-section) { grid-column: 1 / -1; }
 
 /* Library save dialog */
 .btn.save-library { width: 100%; margin-top: 6px; }
@@ -1092,3 +1117,33 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
   .side.collapsed { width: 28px; }
   .reorder-handle { min-height: 32px; }
 }
+
+/* Controls & guide modal. */
+.guide-modal { max-width: 560px; }
+.guide-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.guide-table { width: 100%; border-collapse: collapse; }
+.guide-table th {
+  text-align: left; vertical-align: top; white-space: nowrap; padding: 4px 10px 4px 0;
+  color: var(--accent); font-weight: 600; width: 40%;
+}
+.guide-table td { padding: 4px 0; color: var(--text); }
+.guide-table tr + tr th, .guide-table tr + tr td { border-top: 1px solid var(--line); }
+
+/* Object open/unlock + loot description/reveal. */
+.object-interact { margin-top: 6px; }
+.item-info { background: none; border: 0; cursor: pointer; color: var(--accent); padding: 0 4px; font-size: 12px; }
+.item-note { display: block; margin: 2px 0 4px 2px; font-size: 11px; font-style: italic; }
+.loot-reveal { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 4px 0; }
+.loot-reveal input { width: auto; margin: 0; }
+
+/* Loot: custom item description + AI generate row. */
+.item-desc-input { font-size: 12px; }
+.item-ai { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.item-ai input { flex: 1; }
+
+/* Spell economy: counters, action-type icon, prepared toggle. */
+.spell-caps { display: flex; gap: 12px; font-size: 12px; margin: 2px 0 6px; }
+.spell-caps .over { color: var(--red); font-weight: 600; }
+.action-icon { margin: 0 4px; color: var(--cyan); font-size: 12px; }
+.action-type-edit { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin: 2px 0; }
+.action-type-edit select { width: auto; }

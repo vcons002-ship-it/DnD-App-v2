@@ -33,6 +33,9 @@ import {
   listCharacters,
   deleteCharacter,
   previewImportCharacters,
+  claimCharacter,
+  getCharacter,
+  setCharacterOwner,
 } from './sessions.js';
 
 describe('custom session codes', () => {
@@ -117,8 +120,11 @@ describe('token footprint width (feet)', () => {
     resizeToken(tok.id, 10); // Large
     expect(getToken(tok.id)!.widthFt).toBe(10);
 
-    resizeToken(tok.id, 0); // clamps to the 2.5ft minimum
-    expect(getToken(tok.id)!.widthFt).toBe(2.5);
+    resizeToken(tok.id, 7.5); // snaps to half-foot steps
+    expect(getToken(tok.id)!.widthFt).toBe(7.5);
+
+    resizeToken(tok.id, 0); // clamps to the 0.5ft minimum
+    expect(getToken(tok.id)!.widthFt).toBe(0.5);
   });
 });
 
@@ -239,6 +245,45 @@ describe('deleting a player character', () => {
     deleteCharacter(c.id);
     expect(listCharacters(s.id).some((x) => x.id === c.id)).toBe(false);
     expect(getToken(tok.id)).toBeFalsy();
+  });
+});
+
+describe('character ownership (durable player id)', () => {
+  it('first identified claim takes ownership; later claims never overwrite it', () => {
+    const s = createSession('Own');
+    const c = createCharacter(s.id, { name: 'Druk' });
+    expect(getCharacter(c.id)!.ownerId).toBeNull();
+
+    claimCharacter(c.id, 'sock-A', 'player-A');
+    expect(getCharacter(c.id)!.ownerId).toBe('player-A');
+    expect(getCharacter(c.id)!.claimedBy).toBe('sock-A');
+
+    // A reconnect (new socket, same player) re-claims; owner unchanged.
+    claimCharacter(c.id, 'sock-A2', 'player-A');
+    expect(getCharacter(c.id)!.ownerId).toBe('player-A');
+    expect(getCharacter(c.id)!.claimedBy).toBe('sock-A2');
+
+    // Even if a different player somehow claims, the OWNER never flips
+    // (the socket handler rejects such claims before this point anyway).
+    claimCharacter(c.id, 'sock-B', 'player-B');
+    expect(getCharacter(c.id)!.ownerId).toBe('player-A');
+  });
+
+  it('claims without a player id (legacy clients) leave the character unowned', () => {
+    const s = createSession('OwnLegacy');
+    const c = createCharacter(s.id, { name: 'Old Hand' });
+    claimCharacter(c.id, 'sock-X', null);
+    expect(getCharacter(c.id)!.ownerId).toBeNull();
+  });
+
+  it('DM unlock clears the owner AND the live claim', () => {
+    const s = createSession('OwnUnlock');
+    const c = createCharacter(s.id, { name: 'Varis' });
+    claimCharacter(c.id, 'sock-A', 'player-A');
+    setCharacterOwner(c.id, null);
+    const after = getCharacter(c.id)!;
+    expect(after.ownerId).toBeNull();
+    expect(after.claimedBy).toBeNull();
   });
 });
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
 import { newId } from './db.js';
@@ -19,7 +20,7 @@ import {
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
-import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
+import { geminiEnabled, lookupCreatureAI, generateItemAI } from './creatures/gemini.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
@@ -273,6 +274,16 @@ export function createApiRouter(io: IOServer): Router {
     res.status(204).end();
   });
 
+  // AI-generate one item from a free-text prompt, save it to the library, return
+  // it. Key-gated: 503 when no key / generation failed (clients fall back).
+  router.post('/items/generate', async (req, res) => {
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
+    if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
+    const item = await generateItemAI(prompt);
+    if (!item) return res.status(503).json({ error: 'AI unavailable' });
+    res.status(201).json(saveLibraryItem(item));
+  });
+
   // Cross-session character library (players + DM save/load full sheets).
   router.get('/library/characters', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
@@ -299,6 +310,59 @@ export function createApiRouter(io: IOServer): Router {
   router.post('/icons', upload.single('image'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'image required' });
     res.status(201).json({ icon: `/uploads/${req.file.filename}` });
+  });
+
+  // Fetch a remote image into uploads (paste of an <img> copied from a web
+  // page / Google Slides puts only its URL on the clipboard, not pixel data).
+  // http(s) only, image/* only, size-capped — same limits as direct uploads.
+  router.post('/icons/from-url', async (req, res) => {
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.status(400).json({ error: 'invalid url' });
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return res.status(400).json({ error: 'http(s) urls only' });
+    }
+    try {
+      const r = await fetch(parsed, {
+        signal: AbortSignal.timeout(10_000),
+        headers: {
+          // Some image CDNs (googleusercontent included) refuse requests
+          // without a browser-ish UA.
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+          accept: 'image/avif,image/webp,image/png,image/*;q=0.8,*/*;q=0.5',
+        },
+      });
+      const type = (r.headers.get('content-type') ?? '').split(';')[0].trim();
+      if (!r.ok) {
+        console.warn(`[icons/from-url] ${parsed.hostname} returned ${r.status}`);
+        const why =
+          r.status === 401 || r.status === 403
+            ? `source returned ${r.status} — the image likely requires a login`
+            : `source returned ${r.status}`;
+        return res.status(422).json({ error: why });
+      }
+      if (!type.startsWith('image/')) {
+        return res
+          .status(422)
+          .json({ error: `source sent ${type || 'no content-type'}, not an image` });
+      }
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.byteLength > 25 * 1024 * 1024) {
+        return res.status(413).json({ error: 'image too large' });
+      }
+      const ext = `.${(type.split('/')[1] || 'png').split(/[;+]/)[0]}`;
+      const filename = `${newId()}${ext}`;
+      fs.writeFileSync(path.join(config.uploadsDir, filename), buf);
+      res.status(201).json({ icon: `/uploads/${filename}` });
+    } catch (err) {
+      console.warn(`[icons/from-url] fetch failed for ${parsed.hostname}:`, err);
+      res.status(422).json({ error: 'could not reach that url' });
+    }
   });
 
   // Lightweight existence check used by the join screen.
