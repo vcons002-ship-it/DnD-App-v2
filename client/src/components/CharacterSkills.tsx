@@ -5,6 +5,7 @@ import {
   skillBonus,
   signed,
 } from '../../../shared/skills';
+import { effectiveStats, skillExtra } from '../../../shared/modifiers';
 import { useStore } from '../state/socket';
 import { AdvantageToggle } from './AdvantageToggle';
 
@@ -27,6 +28,9 @@ export function CharacterSkills({
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const prof = new Set(character.proficientSkills);
   const pb = proficiencyBonus(character.level);
+  // Effective scores (feat/equipped-item mods) so the shown bonus matches the
+  // server-rolled total.
+  const stats = effectiveStats(character).scores;
 
   const toggle = (name: string) => {
     if (!editable) return;
@@ -56,7 +60,9 @@ export function CharacterSkills({
       <div className="skill-list">
         {SKILLS.map((s) => {
           const isProf = prof.has(s.name);
-          const bonus = skillBonus(character.stats, s.ability, character.level, isProf);
+          const bonus =
+            skillBonus(stats, s.ability, character.level, isProf) +
+            skillExtra(character, s.name).total;
           return (
             <div key={s.name} className={`skill-row ${isProf ? 'prof' : ''}`}>
               <button

@@ -389,6 +389,10 @@ ensureColumn(
 // Subclass / archetype on PCs (adjusts derived resources + spell limits).
 ensureColumn('characters', 'subclass', "subclass TEXT NOT NULL DEFAULT ''");
 ensureColumn('library_characters', 'subclass', "subclass TEXT NOT NULL DEFAULT ''");
+// Permanent stat/roll modifiers (ASI/Resilient/racial); magic-item effects ride
+// inside the items JSON. JSON array of SheetModifier.
+ensureColumn('characters', 'modifiers', "modifiers TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('library_characters', 'modifiers', "modifiers TEXT NOT NULL DEFAULT '[]'");
 // Optional long text on a roll entry (e.g. a cast spell's full description).
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 // Optional "Apply damage" payload on a save/damage roll (DM click-to-target saves).
@@ -592,6 +596,7 @@ type CharacterRow = {
   items: string;
   gold: number;
   sheet_abilities: string;
+  modifiers: string;
   conditions: string;
   claimed_by: string | null;
   owner_player_id: string | null;
@@ -626,6 +631,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     abilities: JSON.parse(r.abilities ?? '[]'),
     proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
     saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
+    modifiers: JSON.parse(r.modifiers ?? '[]'),
     items: JSON.parse(r.items ?? '[]'),
     gold: r.gold ?? 0,
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),

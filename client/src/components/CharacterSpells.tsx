@@ -16,11 +16,8 @@ import {
   parseActionType,
   spellCapacity,
 } from '../../../shared/spellPrep';
-import {
-  allowanceLabel,
-  featSpellBonus,
-  spellAllowances,
-} from '../../../shared/spellLists';
+import { spellAllowances, spellBudgetBreakdown } from '../../../shared/spellLists';
+import { featUsage, isFeatAbility } from '../../../shared/feats';
 import {
   confirmConcentration,
   isConcentration,
@@ -162,6 +159,15 @@ export function CharacterSpells({
   if (character.sheetAbilities.length === 0 && !editable) return null;
 
   const add = (e: SpellHit) => {
+    // Hard feat/ASI cap (5e): block adding a feat past the level-based limit.
+    if ('className' in character && isFeatAbility(e)) {
+      const u = featUsage(character);
+      if (u.used >= u.cap) {
+        notify(`Feat cap reached (${u.used}/${u.cap}) — remove a feat/ASI first.`);
+        setAdding(false);
+        return;
+      }
+    }
     setSheetAbility(kind, character.id, {
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
@@ -255,57 +261,48 @@ export function CharacterSpells({
           const lvl = character.level || 1;
           const spells = character.sheetAbilities.filter((a) => a.type === 'spell');
           // Allowed spell lists: class + subclass + feats named in the sheet's
-          // abilities/traits (Magic Initiate, Fey Touched…). Feat grants add to
-          // the soft caps below.
+          // abilities/traits (Magic Initiate, Fey Touched…).
           const allowances = spellAllowances(character.className, character.subclass, [
             ...character.sheetAbilities.map((a) => a.name),
             ...character.abilities.map((a) => a.name),
           ]);
-          const bonus = featSpellBonus(allowances);
-          const cantripMax =
-            cantripsKnown(character.className, lvl, character.subclass) +
-            bonus.cantrips;
+          const classCantrips = cantripsKnown(character.className, lvl, character.subclass);
+          const cap = spellCapacity(character.className, lvl, character.stats, character.subclass);
+          // Per-LIST budget breakdown so the user sees how many of each list they
+          // get ("4 Wizard + 2 Druid"), not one merged number.
+          const bd = spellBudgetBreakdown(allowances, classCantrips, cap ? cap.max : null);
+          const cantripMax = bd.cantrips.reduce((s, p) => s + p.value, 0);
+          const spellMax = bd.spells.reduce((s, p) => s + p.value, 0);
           const cantripHave = spells.filter((a) => (a.level ?? 0) === 0).length;
-          const cap = spellCapacity(
-            character.className,
-            lvl,
-            character.stats,
-            character.subclass,
-          );
-          const capMax = cap ? cap.max + bonus.leveled : null;
           const leveled = spells.filter((a) => (a.level ?? 0) > 0);
           const have = cap?.kind === 'prepared'
             ? leveled.filter((a) => a.prepared !== false).length
             : leveled.length;
-          if (cantripMax === 0 && !cap && allowances.length === 0) return null;
+          if (cantripMax === 0 && spellMax === 0 && bd.credits.length === 0) return null;
+          const sum = (parts: { label: string; value: number }[]) =>
+            parts.map((p) => `${p.value} ${p.label}`).join(' + ');
           return (
-            <>
-              <div className="spell-caps muted">
-                {cantripMax > 0 && (
-                  <span className={cantripHave > cantripMax ? 'over' : ''}>
-                    Cantrips {cantripHave}/{cantripMax}
-                  </span>
-                )}
-                {cap && capMax !== null && (
-                  <span className={have > capMax ? 'over' : ''}>
-                    {cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{capMax}
-                  </span>
-                )}
-              </div>
-              {allowances.length > 0 &&
-                (allowances.length > 1 || allowances[0].source !== 'class') && (
-                  <div className="spell-lists muted">
-                    Lists:{' '}
-                    {allowances
-                      .map((a) =>
-                        a.source === 'class'
-                          ? `${a.list[0].toUpperCase()}${a.list.slice(1)} (class)`
-                          : allowanceLabel(a),
-                      )
-                      .join(' · ')}
-                  </div>
-                )}
-            </>
+            <div className="spell-caps muted">
+              {cantripMax > 0 && (
+                <div className={cantripHave > cantripMax ? 'over' : ''}>
+                  Cantrips {cantripHave}/{cantripMax}
+                  {bd.cantrips.length > 1 && (
+                    <span className="spell-split"> = {sum(bd.cantrips)}</span>
+                  )}
+                </div>
+              )}
+              {cap && spellMax > 0 && (
+                <div className={have > spellMax ? 'over' : ''}>
+                  {cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{spellMax}
+                  {bd.spells.length > 1 && (
+                    <span className="spell-split"> = {sum(bd.spells)}</span>
+                  )}
+                </div>
+              )}
+              {bd.credits.length > 0 && (
+                <div className="spell-credits">+ {bd.credits.join(' · ')}</div>
+              )}
+            </div>
           );
         })()}
       {rollsElsewhere && character.sheetAbilities.some((a) => a.roll) && (

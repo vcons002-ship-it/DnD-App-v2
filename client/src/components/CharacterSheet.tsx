@@ -3,6 +3,7 @@ import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSkills } from './CharacterSkills';
+import { CharacterModifiers } from './CharacterModifiers';
 import { CharacterResources } from './CharacterResources';
 import { CharacterSpells } from './CharacterSpells';
 import { CharacterItems } from './CharacterItems';
@@ -89,6 +90,7 @@ export function CharacterSheet({
           />
         </details>
       )}
+      <CharacterModifiers character={character} editable={editable} />
       <DeathSaves character={character} editable={editable} />
       <CharacterResources character={character} editable={editable} />
       {!abilitiesElsewhere && (

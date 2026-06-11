@@ -31,6 +31,14 @@ import {
   spellSaveDC,
 } from '../../shared/spellMath.js';
 import { SKILLS, skillBonus, signed, proficiencyBonus } from '../../shared/skills.js';
+import {
+  type ModSource,
+  effectiveStats,
+  effectiveAc,
+  saveExtra,
+  skillExtra,
+  attackExtra,
+} from '../../shared/modifiers.js';
 import type {
   AbilityRoll,
   Character,
@@ -56,23 +64,29 @@ type Resolved = {
   weaknesses: string[];
   /** Ability codes proficient in for saving throws. */
   saveProficiencies: string[];
+  /** Modifier source (a PC's character) for flat save/skill/attack bonuses from
+   *  feats + equipped magic items; undefined for monsters (no modifiers). */
+  mod?: ModSource;
 };
 
 function resolve(token: Token): Resolved | null {
   if (token.kind === 'pc') {
     const ch = getCharacter(token.refId);
     if (!ch) return null;
+    // Effective scores/AC fold in feat/ASI + equipped-item modifiers, so every
+    // ability-derived roll (attack, save, spell DC, initiative) uses them.
     return {
-      c: { stats: ch.stats, level: ch.level, isMonster: false },
+      c: { stats: effectiveStats(ch).scores, level: ch.level, isMonster: false },
       name: ch.name,
       weapons: ch.weapons,
-      ac: ch.armorClass,
+      ac: effectiveAc(ch),
       kind: 'pc',
       refId: ch.id,
       conditionLabels: ch.conditions.map((c) => c.label),
       resistances: ch.resistances,
       weaknesses: ch.weaknesses,
       saveProficiencies: ch.saveProficiencies,
+      mod: ch,
     };
   }
   const m = getMonster(token.refId);
@@ -89,6 +103,17 @@ function resolve(token: Token): Resolved | null {
     weaknesses: m.weaknesses,
     saveProficiencies: m.saveProficiencies,
   };
+}
+
+/** Flat saving-throw bonus from a PC's feats / equipped magic items (e.g. Cloak
+ *  of Protection +1 all saves), plus a log fragment naming the source(s). The
+ *  ability-score part is already baked into `r.c.stats`; this is the extra. */
+function saveBonus(r: Resolved, ability: string): { add: number; note: string } {
+  if (!r.mod) return { add: 0, note: '' };
+  const e = saveExtra(r.mod, ability);
+  if (!e.total) return { add: 0, note: '' };
+  const names = e.parts.map((p) => `${signed(p.value)} ${p.source}`).join(', ');
+  return { add: e.total, note: ` · ${names}` };
 }
 
 /** Roll a dice expression and keep the per-die face breakdown for the log,
@@ -258,12 +283,15 @@ export function resolveAttack(
       (maneuverFired?.spec.grantsAdvantage || stanceAdvantage ? 'adv' : undefined),
   );
 
+  // Flat attack-roll bonus from the attacker's feats / equipped magic items
+  // (the ability mod is already in `a.c.stats`; weapon magicBonus is separate).
+  const atkExtra = a.mod ? attackExtra(a.mod).total : 0;
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
     twoHanded,
     noAbilityMod,
     bonusDamage: flatBonus || undefined,
     bonusLabel: flatLabels.length ? flatLabels.join('+') : undefined,
-    attackRollBonus: maneuverToHit || undefined,
+    attackRollBonus: (maneuverToHit || 0) + atkExtra || undefined,
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
@@ -444,13 +472,16 @@ export function resolveSaves(
     // → DEX-save disadvantage) fold into the request (any adv + any dis cancel).
     const adv = saveAdvantage(r.conditionLabels, ability, advantageByToken?.[id] ?? advantage);
     const out = rollSavingThrow(r.c, ability, dc, adv.state, proficient);
+    const sb = saveBonus(r, ability);
+    const total = out.total + sb.add;
+    const pass = total >= dc;
     addRollLog(sessionId, {
       roller,
       label: `${ability.toUpperCase()} save`,
       expr: `DC ${dc}`,
-      total: out.total,
+      total,
       detail:
-        `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${dc} — ${out.pass ? 'PASS' : 'FAIL'}` +
+        `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${dc} — ${pass ? 'PASS' : 'FAIL'}` +
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     });
   }
@@ -473,17 +504,26 @@ export function resolveSave(
   const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!ent) return false;
   const ab = ability.trim().toUpperCase();
-  const c: Combatant = { stats: ent.stats, level: ent.level, isMonster: kind !== 'pc' };
+  // Effective scores + flat save bonuses (feats/equipped items); monsters have
+  // no modifiers so these reduce to the base values.
+  const c: Combatant = {
+    stats: effectiveStats(ent).scores,
+    level: ent.level,
+    isMonster: kind !== 'pc',
+  };
   const proficient = ent.saveProficiencies.some((s) => s.trim().toUpperCase() === ab);
   const adv = saveAdvantage(ent.conditions.map((x) => x.label), ab, advantage);
   const out = rollSavingThrow(c, ab, 0, adv.state, proficient); // dc 0 → pass unused
+  const e = saveExtra(ent, ab);
+  const total = out.total + e.total;
+  const note = e.parts.map((p) => `${signed(p.value)} ${p.source}`).join(', ');
   addRollLog(sessionId, {
     roller,
     label: `${ab} save`,
     expr: proficient ? `${ab} (prof)` : ab,
-    total: out.total,
+    total,
     detail:
-      `${ent.name} — ${ab} save: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total}` +
+      `${ent.name} — ${ab} save: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${note ? ` · ${note}` : ''} = ${total}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
   });
   return true;
@@ -540,20 +580,20 @@ export function resolveForcedSave(
     // The clicked creature's own armed adv/dis toggle folds in with its conditions.
     const adv = saveAdvantage(r.conditionLabels, ability, advantage);
     const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
-    dmg = Math.floor((out.pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
+    const sb = saveBonus(r, ability);
+    const total = out.total + sb.add;
+    const pass = total >= apply.dc;
+    dmg = Math.floor((pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
     // A Battle Master rider applies its condition to a target that FAILS.
-    const condTxt =
-      apply.onFail && !out.pass
-        ? ` · ${apply.onFail}`
-        : '';
-    if (apply.onFail && !out.pass)
+    const condTxt = apply.onFail && !pass ? ` · ${apply.onFail}` : '';
+    if (apply.onFail && !pass)
       setTokensCondition([tokenId], {
         label: apply.onFail,
         aura: 'red',
         isConcentration: false,
       });
     detail =
-      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''}) = ${out.total} vs DC ${apply.dc} — ${out.pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
+      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${apply.dc} — ${pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
   } else {
     dmg = Math.floor(apply.amount * mult);
@@ -903,7 +943,8 @@ export function resolveAbilityRoll(
     sessionId,
     roller,
     'pc',
-    character,
+    // Effective scores so spell attack bonus + save DC reflect feat/item mods.
+    { ...character, stats: effectiveStats(character).scores },
     ability,
     castLevel,
     advantage,
@@ -988,7 +1029,11 @@ export function resolveObjectCheck(
 ): { success: boolean } {
   const dc = object.objectDc && object.objectDc > 0 ? object.objectDc : 12;
   const proficient = character.proficientSkills.includes('Sleight of Hand');
-  const bonus = skillBonus(character.stats, 'DEX', character.level, proficient);
+  // Effective DEX (feat/item ability mods) + flat Sleight-of-Hand bonuses.
+  const stats = effectiveStats(character).scores;
+  const bonus =
+    skillBonus(stats, 'DEX', character.level, proficient) +
+    skillExtra(character, 'Sleight of Hand').total;
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   const success = total >= dc;
@@ -1023,7 +1068,12 @@ export function resolveSkillRoll(
   );
   if (!skill) return false;
   const proficient = character.proficientSkills.includes(skill.name);
-  const bonus = skillBonus(character.stats, skill.ability, character.level, proficient);
+  // Effective ability mod (feat/item score bonuses) + flat skill bonuses.
+  const stats = effectiveStats(character).scores;
+  const extra = skillExtra(character, skill.name);
+  const bonus =
+    skillBonus(stats, skill.ability, character.level, proficient) + extra.total;
+  const note = extra.parts.map((p) => `${signed(p.value)} ${p.source}`).join(', ');
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   addRollLog(sessionId, {
@@ -1033,7 +1083,8 @@ export function resolveSkillRoll(
     total,
     detail:
       `${character.name} — ${skill.name}: ${d20detail} ${signed(bonus)} = ${total}` +
-      (proficient ? ' (proficient)' : ''),
+      (proficient ? ' (proficient)' : '') +
+      (note ? ` · ${note}` : ''),
   });
   return true;
 }

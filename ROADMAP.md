@@ -1136,3 +1136,22 @@ Smaller refinements on top of the shipped Phase 2 work.
   a "Lists:" breakdown under the spell counters, whose caps now include feat
   bonuses. The features search gained a curated **feat list** (Magic Initiate ×3,
   Fey/Shadow Touched, Lucky, Tough, Alert).
+- ☑ **Sheet math depth: stat modifiers, magic items, feat cap, spell-header clarity [req].**
+  A unified modifier model (`shared/modifiers.ts`): `SheetModifier` (target =
+  ability/save/skill/attack/AC/initiative) on `Character.modifiers` (ASI/Resilient/
+  racial) and on `InventoryItem.modifiers` gated by an `equipped` toggle. Effective
+  score = base `stats` + ability modifiers; flat save/skill/attack/AC bonuses layer
+  on at roll time. The server folds them in at ONE chokepoint — the `Combatant`
+  adapter in `combat.ts` swaps in `effectiveStats`/`effectiveAc` (fixing attack/save
+  mods, defender AC, spell DC/attack, concentration, DEX initiative) — plus flat
+  extras in the save/skill/attack resolvers; monsters (no modifiers) are unchanged.
+  **Stat-math hover:** each ability cell shows the effective score with a `title`
+  breakdown ("20 = 18 base + 2 Belt…") and a • dot when modified. **Magic items:**
+  per-item effects editor + equipped/attuned toggle (`ModifierEditor`, reused for
+  character ASIs). **Feat cap:** `shared/feats.ts` `featSlots` (ASI 4/8/12/16/19 +
+  Fighter 6/14 + Rogue 10) with a HARD block on adding feats/ASIs past it, shown as
+  "Feats & ASIs x/y" in a new Modifiers & Feats section. **Spell header:** per-list
+  budget split ("Cantrips 5/6 = 4 Wizard + 2 Druid") with feat/expansion credits
+  (`spellBudgetBreakdown`). Persisted via `ensureColumn` (characters +
+  library_characters) and the items JSON; round-trips through library + JSON sheet
+  I/O. +21 tests (modifiers/feats/breakdown).

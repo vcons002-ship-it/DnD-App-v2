@@ -115,6 +115,63 @@ export function featSpellBonus(allowances: SpellListAllowance[]): {
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
+/** Display name for an allowance's list ("Wizard", "Druid", "Any list"). */
+export function listLabel(list: string): string {
+  return list === 'any' ? 'Any list' : cap(list);
+}
+
+/**
+ * Per-source breakdown of the cantrip + leveled-spell BUDGET, so the header can
+ * show "Cantrips: 4 Wizard + 2 Druid = 6" instead of one merged number.
+ *
+ * - The PRIMARY caster list carries the class budget (`classCantrips`/
+ *   `classSpells`, computed by the caller via cantripsKnown/spellCapacity): the
+ *   `source: 'class'` allowance, or — when the class itself isn't a caster — a
+ *   third-caster subclass (Eldritch Knight / Arcane Trickster).
+ * - FEAT grants carry their own explicit bonus.
+ * - A subclass EXPANSION list (e.g. Divine Soul adds cleric to a sorcerer's
+ *   known list) adds access but no budget; it's returned in `access`.
+ */
+export function spellBudgetBreakdown(
+  allowances: SpellListAllowance[],
+  classCantrips: number,
+  classSpells: number | null,
+): {
+  /** Cantrip budget per LIST (aggregated), so it reads "4 Wizard + 2 Druid". */
+  cantrips: { label: string; value: number }[];
+  spells: { label: string; value: number }[];
+  /** Source credits — feats that granted spells + subclass expansion lists. */
+  credits: string[];
+} {
+  const cantripBy = new Map<string, number>();
+  const spellBy = new Map<string, number>();
+  const credits: string[] = [];
+  const hasClassList = allowances.some((a) => a.source === 'class');
+  const bump = (m: Map<string, number>, list: string, n: number) => {
+    if (n > 0) m.set(list, (m.get(list) ?? 0) + n);
+  };
+  for (const a of allowances) {
+    const isFeat = (a.cantrips ?? 0) > 0 || (a.leveled ?? 0) > 0;
+    // The primary budget list: the class itself, or a third-caster subclass when
+    // the class isn't already a caster.
+    const isPrimary = a.source === 'class' || (!isFeat && !hasClassList);
+    if (isPrimary) {
+      bump(cantripBy, a.list, classCantrips);
+      bump(spellBy, a.list, classSpells ?? 0);
+    } else if (isFeat) {
+      bump(cantripBy, a.list, a.cantrips ?? 0);
+      bump(spellBy, a.list, a.leveled ?? 0);
+      credits.push(allowanceLabel(a));
+    } else {
+      // Subclass expansion: access to another list, no extra budget.
+      credits.push(`${listLabel(a.list)} list (${a.source})`);
+    }
+  }
+  const toParts = (m: Map<string, number>) =>
+    [...m.entries()].map(([list, value]) => ({ label: listLabel(list), value }));
+  return { cantrips: toParts(cantripBy), spells: toParts(spellBy), credits };
+}
+
 /** One-line label for an allowance, e.g. "Druid +2 cantrips +1 spell (Magic
  *  Initiate (Druid))" or "Wizard (Eldritch Knight)". */
 export function allowanceLabel(a: SpellListAllowance): string {

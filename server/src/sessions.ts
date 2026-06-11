@@ -11,6 +11,7 @@ import { iconForCreature } from './creatures/srd.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { abilityMod } from '../../shared/skills.js';
+import { effectiveStats, initiativeExtra } from '../../shared/modifiers.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
 import type {
   Character,
@@ -916,11 +917,15 @@ export function setActiveTurn(sessionId: string, tokenId: string | null): void {
   ).run(tokenId, sessionId);
 }
 
-/** A token's initiative bonus = its creature's DEX modifier (0 if unknown). */
+/** A token's initiative bonus = its creature's effective DEX modifier (incl.
+ *  feat/equipped-item mods) plus any flat initiative modifiers. 0 if unknown. */
 function initiativeBonus(token: Token): number {
   const entity =
     token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId);
-  return entity ? abilityMod(entity.stats.DEX) : 0;
+  if (!entity) return 0;
+  return (
+    abilityMod(effectiveStats(entity).scores.DEX) + initiativeExtra(entity).total
+  );
 }
 
 /** Objects (chests/doors/traps/items) never take turns — they don't roll
@@ -1455,6 +1460,7 @@ export type CharacterInput = {
   abilities?: Character['abilities'];
   proficientSkills?: string[];
   saveProficiencies?: string[];
+  modifiers?: Character['modifiers'];
   items?: Character['items'];
   sheetAbilities?: Character['sheetAbilities'];
   /** When provided (e.g. loading a saved sheet), used verbatim instead of being
@@ -1487,9 +1493,9 @@ export function createCharacter(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
-        actions, abilities, proficient_skills, save_proficiencies, items,
+        actions, abilities, proficient_skills, save_proficiencies, modifiers, items,
         sheet_abilities, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1510,6 +1516,7 @@ export function createCharacter(
     JSON.stringify(opts.abilities ?? []),
     JSON.stringify(opts.proficientSkills ?? []),
     JSON.stringify(opts.saveProficiencies ?? []),
+    JSON.stringify(opts.modifiers ?? []),
     JSON.stringify(opts.items ?? []),
     JSON.stringify(opts.sheetAbilities ?? []),
     JSON.stringify(spellSlots),
@@ -1601,6 +1608,9 @@ export function setItem(
     name: item.name,
     qty: item.qty,
     note: item.note ?? '',
+    // Magic-item effects: only persisted when present so plain items stay clean.
+    ...(item.modifiers && item.modifiers.length ? { modifiers: item.modifiers } : {}),
+    ...(item.equipped ? { equipped: true } : {}),
   });
   db.prepare('UPDATE characters SET items = ? WHERE id = ?').run(
     JSON.stringify(items),
@@ -1671,9 +1681,17 @@ function takeLootImpl(
   let gained = 0;
 
   const moveItem = (it: InventoryItem) => {
-    const match = items.find(
-      (x) => x.name.toLowerCase() === it.name.toLowerCase() && (x.note ?? '') === (it.note ?? ''),
-    );
+    // Items carrying magic effects stay their own stack (don't fold a +1 cloak
+    // into a pile of mundane cloaks). Plain items merge by name + note as before.
+    const plain = !(it.modifiers && it.modifiers.length);
+    const match = plain
+      ? items.find(
+          (x) =>
+            !(x.modifiers && x.modifiers.length) &&
+            x.name.toLowerCase() === it.name.toLowerCase() &&
+            (x.note ?? '') === (it.note ?? ''),
+        )
+      : undefined;
     if (match) match.qty += it.qty;
     else items.push({ ...it, id: newId() });
   };
@@ -1805,6 +1823,7 @@ export function updateCharacter(
     abilities: Character['abilities'];
     proficientSkills: string[];
     saveProficiencies: string[];
+    modifiers: Character['modifiers'];
     items: Character['items'];
     gold: number;
     sheetAbilities: Character['sheetAbilities'];
@@ -1845,6 +1864,8 @@ export function updateCharacter(
     put('proficient_skills', JSON.stringify(patch.proficientSkills));
   if (patch.saveProficiencies !== undefined)
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
+  if (patch.modifiers !== undefined)
+    put('modifiers', JSON.stringify(patch.modifiers));
   if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
   if (patch.gold !== undefined) put('gold', Math.max(0, Math.round(patch.gold)));
   if (patch.sheetAbilities !== undefined)

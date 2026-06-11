@@ -6,6 +6,7 @@ import {
   spellAllowances,
   featSpellBonus,
   allowanceLabel,
+  spellBudgetBreakdown,
 } from '../../shared/spellLists.js';
 import { parseSheetText, parseSheetJSON } from '../../shared/sheetIO.js';
 
@@ -124,6 +125,41 @@ describe('spell-list allowances (class + subclass + feats)', () => {
     const a = spellAllowances('Bard', '', ['Fey Touched', 'Shadow Touched']);
     expect(featSpellBonus(a)).toEqual({ cantrips: 0, leveled: 4 });
     expect(allowanceLabel(a[1])).toBe('Any list +2 spells (Fey Touched)');
+  });
+
+  it('spellBudgetBreakdown splits cantrips/spells per list with feat credits', () => {
+    // Wizard 5 with Magic Initiate (Druid): 4 wizard cantrips + 2 druid; 9 + 1.
+    const allow = spellAllowances('Wizard', '', ['Magic Initiate (Druid)']);
+    const bd = spellBudgetBreakdown(allow, 4, 9);
+    expect(bd.cantrips).toEqual([
+      { label: 'Wizard', value: 4 },
+      { label: 'Druid', value: 2 },
+    ]);
+    expect(bd.spells).toEqual([
+      { label: 'Wizard', value: 9 },
+      { label: 'Druid', value: 1 },
+    ]);
+    expect(bd.credits[0]).toContain('Magic Initiate (Druid)');
+  });
+
+  it('a third-caster subclass owns the class budget; an expansion list is access-only', () => {
+    // Eldritch Knight (no class caster) → the budget lands on Wizard.
+    const ek = spellBudgetBreakdown(
+      spellAllowances('Fighter', 'Eldritch Knight', []),
+      2,
+      5,
+    );
+    expect(ek.cantrips).toEqual([{ label: 'Wizard', value: 2 }]);
+    expect(ek.spells).toEqual([{ label: 'Wizard', value: 5 }]);
+
+    // Divine Soul (Sorcerer is already the caster) → cleric is access, no budget.
+    const ds = spellBudgetBreakdown(
+      spellAllowances('Sorcerer', 'Divine Soul', []),
+      6,
+      8,
+    );
+    expect(ds.cantrips).toEqual([{ label: 'Sorcerer', value: 6 }]);
+    expect(ds.credits.some((c) => c.includes('Cleric'))).toBe(true);
   });
 });
 

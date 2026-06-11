@@ -159,6 +159,7 @@ export function exportSheetJSON(c: Character): string {
       actions: c.actions,
       abilities: c.abilities,
       proficientSkills: c.proficientSkills,
+      modifiers: c.modifiers,
       spellSlots: c.spellSlots,
       resources: c.resources,
       items: c.items,
@@ -205,6 +206,7 @@ export function parseSheetJSON(text: string): SheetPatch | null {
     }
     patch.stats = stats;
   }
+  if (Array.isArray(o.modifiers)) patch.modifiers = o.modifiers as SheetPatch['modifiers'];
   if (Array.isArray(o.weapons)) patch.weapons = o.weapons as Weapon[];
   if (Array.isArray(o.actions)) patch.actions = o.actions as CreatureAbility[];
   if (Array.isArray(o.abilities)) patch.abilities = o.abilities as CreatureAbility[];

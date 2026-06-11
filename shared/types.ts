@@ -1,6 +1,8 @@
 // Shared contract between the server and both clients (DM + player).
 // Keep this framework-free so it can be imported from either side.
 
+import type { AbilityKey } from './skills.js';
+
 export type Role = 'dm' | 'player';
 
 export type AuraColor = 'red' | 'green' | 'blue';
@@ -147,6 +149,10 @@ export type Character = {
   stats: Record<string, number>;
   spellSlots: Record<string, { max: number; used: number }>;
   resources: Record<string, { max: number; used: number }>;
+  /** Permanent stat/roll adjustments (ASI, Resilient, racial). Magic-item
+   *  effects live on the items themselves; both feed the effective-stat math
+   *  in shared/modifiers.ts. */
+  modifiers: SheetModifier[];
   /** Tagged weapons, shared shape with monsters for consistency. */
   weapons: Weapon[];
   resistances: string[];
@@ -504,6 +510,8 @@ export type LibraryCharacter = {
   proficientSkills: string[];
   /** Saving-throw proficiencies (ability codes); optional on older saves. */
   saveProficiencies?: string[];
+  /** Permanent stat/roll adjustments (ASI/Resilient/racial); optional on older saves. */
+  modifiers?: SheetModifier[];
   items: InventoryItem[];
   sheetAbilities: SheetAbility[];
   icon: string;
@@ -515,6 +523,38 @@ export type InventoryItem = {
   name: string;
   qty: number;
   note: string;
+  /** Magic effects this item grants while equipped (e.g. +2 STR, +1 saves). */
+  modifiers?: SheetModifier[];
+  /** Whether the item is equipped/attuned — only then do its `modifiers` apply. */
+  equipped?: boolean;
+};
+
+/**
+ * What a {@link SheetModifier} affects. `ability` raises the score itself (so it
+ * flows into every derived number); the others are flat bonuses to a specific
+ * roll. An omitted `ability`/`skill` means "all saves"/"all skills".
+ */
+export type ModTarget =
+  | { kind: 'ability'; ability: AbilityKey }
+  | { kind: 'save'; ability?: AbilityKey }
+  | { kind: 'skill'; skill?: string }
+  | { kind: 'attack' }
+  | { kind: 'ac' }
+  | { kind: 'initiative' };
+
+/**
+ * A named numeric adjustment from a feat/ASI (on the character) or a magic item
+ * (on an InventoryItem). The base score stays in `Character.stats`; modifiers
+ * layer on top, so the math stays transparent and reversible.
+ */
+export type SheetModifier = {
+  id: string;
+  /** Where it comes from, shown in the stat-math tooltip and roll log. */
+  source: string;
+  target: ModTarget;
+  value: number;
+  /** Marks an ASI/feat slot use (counts against the level-based feat cap). */
+  slot?: boolean;
 };
 
 /** Contents of a lootable object (a chest/treasure pile). Items move into a
@@ -877,6 +917,8 @@ export type CharacterUpdatePayload = {
   abilities?: CreatureAbility[];
   proficientSkills?: string[];
   saveProficiencies?: string[];
+  /** Permanent stat/roll adjustments (ASI/Resilient/racial). */
+  modifiers?: SheetModifier[];
   /** Bulk import paths (e.g. JSON sheet) may set these directly. */
   spellSlots?: Record<string, { max: number; used: number }>;
   resources?: Record<string, { max: number; used: number }>;
