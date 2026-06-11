@@ -202,10 +202,24 @@ export function updateMapGrid(
   gridSizePx: number,
   feetPerSquare: number,
   widthFt: number,
+  opts: { offsetX?: number; offsetY?: number; locked?: boolean; hidden?: boolean } = {},
 ): void {
+  const m = getMap(mapId);
+  if (!m) return;
   db.prepare(
-    'UPDATE maps SET grid_size_px = ?, feet_per_square = ?, width_ft = ? WHERE id = ?',
-  ).run(gridSizePx, feetPerSquare, widthFt, mapId);
+    `UPDATE maps SET grid_size_px = ?, feet_per_square = ?, width_ft = ?,
+       grid_offset_x = ?, grid_offset_y = ?, grid_locked = ?, grid_hidden = ?
+     WHERE id = ?`,
+  ).run(
+    gridSizePx,
+    feetPerSquare,
+    widthFt,
+    opts.offsetX ?? m.gridOffsetX,
+    opts.offsetY ?? m.gridOffsetY,
+    opts.locked === undefined ? (m.gridLocked ? 1 : 0) : opts.locked ? 1 : 0,
+    opts.hidden === undefined ? (m.gridHidden ? 1 : 0) : opts.hidden ? 1 : 0,
+    mapId,
+  );
 }
 
 /** Columns for each fog layer (enabled flag + revealed-cell set). */

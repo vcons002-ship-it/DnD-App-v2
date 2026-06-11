@@ -186,13 +186,18 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('map:setGrid', ({ mapId, gridSizePx, feetPerSquare, widthFt }) => {
-      if (!isDm() || !getMap(mapId)) return;
-      const px = Math.round(Math.max(10, Math.min(400, gridSizePx)));
-      const ft = Math.round(Math.max(1, Math.min(100, feetPerSquare)));
+    socket.on('map:setGrid', (p) => {
+      if (!isDm() || !getMap(p.mapId)) return;
+      const px = Math.round(Math.max(10, Math.min(400, p.gridSizePx)));
+      const ft = Math.round(Math.max(1, Math.min(100, p.feetPerSquare)));
       // 0 = unset (fall back to feet-per-square); otherwise clamp to a sane span.
-      const w = widthFt <= 0 ? 0 : Math.max(1, Math.min(100000, widthFt));
-      updateMapGrid(mapId, px, ft, w);
+      const w = p.widthFt <= 0 ? 0 : Math.max(1, Math.min(100000, p.widthFt));
+      updateMapGrid(p.mapId, px, ft, w, {
+        offsetX: p.offsetX === undefined ? undefined : ((p.offsetX % px) + px) % px,
+        offsetY: p.offsetY === undefined ? undefined : ((p.offsetY % px) + px) % px,
+        locked: p.locked,
+        hidden: p.hidden,
+      });
       afterChange();
     });
 

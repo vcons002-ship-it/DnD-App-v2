@@ -113,6 +113,7 @@ type Store = {
     gridSizePx: number,
     feetPerSquare: number,
     widthFt: number,
+    opts?: { offsetX?: number; offsetY?: number; locked?: boolean; hidden?: boolean },
   ) => void;
   addMeasurement: (payload: MeasureAddPayload) => void;
   removeMeasurement: (id: string) => void;
@@ -384,8 +385,14 @@ export const useStore = create<Store>((set, get) => ({
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
-  setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt) =>
-    get().socket?.emit('map:setGrid', { mapId, gridSizePx, feetPerSquare, widthFt }),
+  setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt, opts) =>
+    get().socket?.emit('map:setGrid', {
+      mapId,
+      gridSizePx,
+      feetPerSquare,
+      widthFt,
+      ...opts,
+    }),
   addMeasurement: (payload) => get().socket?.emit('measure:add', payload),
   removeMeasurement: (id) => get().socket?.emit('measure:remove', { id }),
   clearMeasurements: (mapId, mineOnly) =>

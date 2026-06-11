@@ -525,6 +525,13 @@ export type MapState = {
   /** Real-world width the map image represents, in feet (0 = unset → distances
    *  fall back to the feet-per-square scale). The source of truth for scale. */
   mapWidthFt: number;
+  /** Grid origin offset in px (to line the overlay up with a printed map grid). */
+  gridOffsetX: number;
+  gridOffsetY: number;
+  /** Grid size locked (set by "match grid"); guards against accidental resize. */
+  gridLocked: boolean;
+  /** Hide the grid overlay entirely. */
+  gridHidden: boolean;
   /** Whether each fog layer is active on this map. */
   mapFogEnabled: boolean;
   tokenFogEnabled: boolean;
@@ -734,6 +741,10 @@ export type MapSetGridPayload = {
   feetPerSquare: number;
   /** Real-world map width in feet (0 = unset). Source of truth for scale. */
   widthFt: number;
+  offsetX?: number;
+  offsetY?: number;
+  locked?: boolean;
+  hidden?: boolean;
 };
 /** Add a measuring shape to a map (any role). */
 export type MeasureAddPayload = {

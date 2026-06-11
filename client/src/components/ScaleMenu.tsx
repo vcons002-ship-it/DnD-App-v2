@@ -13,16 +13,28 @@ export function ScaleMenu({
   widthFt,
   gridPx,
   scaleMode,
+  matchMode,
+  gridHidden,
+  gridLocked,
   onCommit,
   onToggleScaleMode,
+  onToggleMatchMode,
+  onToggleHidden,
+  onUnlock,
 }: {
   feetPerSquare: number;
   widthFt: number;
   gridPx: number;
   scaleMode: boolean;
+  matchMode: boolean;
+  gridHidden: boolean;
+  gridLocked: boolean;
   /** Commit a new grid-square (ft) and/or map width (ft); MapStage derives px. */
   onCommit: (feetPerSquare: number, widthFt: number) => void;
   onToggleScaleMode: () => void;
+  onToggleMatchMode: () => void;
+  onToggleHidden: () => void;
+  onUnlock: () => void;
 }) {
   const btn = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -77,10 +89,15 @@ export function ScaleMenu({
                 className="grid-input"
                 type="number"
                 value={ftStr}
+                disabled={gridLocked}
                 onChange={(e) => setFtStr(e.target.value)}
                 onBlur={commit}
                 onKeyDown={(e) => e.key === 'Enter' && commit()}
-                title="Grid square size in feet (e.g. 5). The pixel cell is derived from the map scale."
+                title={
+                  gridLocked
+                    ? 'Grid size is locked (matched to the map). Unlock below to edit.'
+                    : 'Grid square size in feet (e.g. 5). The pixel cell is derived from the map scale.'
+                }
               />
               <span className="muted">ft</span>
             </label>
@@ -98,7 +115,29 @@ export function ScaleMenu({
               <span className="muted">ft</span>
             </label>
             <div className="measure-label">≈ {Math.round(gridPx)} px / square</div>
+            {gridLocked && (
+              <div className="measure-label">
+                🔒 Grid size locked{' '}
+                <button className="btn tiny" onClick={onUnlock} title="Allow editing the cell size again">
+                  Unlock
+                </button>
+              </div>
+            )}
             <div className="measure-sep" />
+            <label className="measure-row" style={{ justifyContent: 'space-between' }}>
+              <span>👁 Hide grid</span>
+              <input type="checkbox" checked={gridHidden} onChange={onToggleHidden} />
+            </label>
+            <button
+              className={`measure-row ${matchMode ? 'on' : ''}`}
+              onClick={() => {
+                onToggleMatchMode();
+                setOpen(false);
+              }}
+              title="Drag across one square of the map's printed grid to match it"
+            >
+              <span>🔲 Match map grid (drag a square)</span>
+            </button>
             <button
               className={`measure-row ${scaleMode ? 'on' : ''}`}
               onClick={() => {

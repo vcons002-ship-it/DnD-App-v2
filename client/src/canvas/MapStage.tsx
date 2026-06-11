@@ -301,11 +301,12 @@ export function MapStage({
   const [removeMode, setRemoveMode] = useState(false);
   // A reference-line drag that sets the map scale (DM only).
   const [scaleMode, setScaleMode] = useState(false);
+  const [matchMode, setMatchMode] = useState(false);
   const [scaleLine, setScaleLine] = useState<{ origin: Pt; target: Pt } | null>(null);
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
   const [scaleFt, setScaleFt] = useState('');
   const scaleDrawRef = useRef(false);
-  const measureActive = !!tool || removeMode || scaleMode || !!annotate;
+  const measureActive = !!tool || removeMode || scaleMode || matchMode || !!annotate;
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const gridHot = draggingToken || measureActive;
@@ -455,12 +456,16 @@ export function MapStage({
     return m;
   }, [snapshot.tokens]);
 
+  const gridHidden = !!map?.gridHidden;
   const gridLines = useMemo(() => {
     const lines: number[][] = [];
-    for (let x = 0; x <= imgW; x += grid) lines.push([x, 0, x, imgH]);
-    for (let y = 0; y <= imgH; y += grid) lines.push([0, y, imgW, y]);
+    if (gridHidden) return lines;
+    const ox = (((map?.gridOffsetX ?? 0) % grid) + grid) % grid;
+    const oy = (((map?.gridOffsetY ?? 0) % grid) + grid) % grid;
+    for (let x = ox; x <= imgW; x += grid) lines.push([x, 0, x, imgH]);
+    for (let y = oy; y <= imgH; y += grid) lines.push([0, y, imgW, y]);
     return lines;
-  }, [imgW, imgH, grid]);
+  }, [imgW, imgH, grid, gridHidden, map?.gridOffsetX, map?.gridOffsetY]);
 
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
@@ -598,8 +603,9 @@ export function MapStage({
       setPinching(true);
       return;
     }
-    if (scaleMode) {
-      // Drag a reference line; its real length is entered on release.
+    if (scaleMode || matchMode) {
+      // Drag a line: scaleMode → a reference distance; matchMode → one printed
+      // grid square (its longer side becomes the cell size on release).
       const pos = pointerToImage(stage);
       if (pos) {
         scaleDrawRef.current = true;
@@ -657,7 +663,7 @@ export function MapStage({
       pinchRef.current = next;
       return;
     }
-    if (scaleMode && scaleDrawRef.current) {
+    if ((scaleMode || matchMode) && scaleDrawRef.current) {
       const stage = e.target.getStage();
       const pos = stage ? pointerToImage(stage) : null;
       if (pos) setScaleLine((l) => (l ? { ...l, target: pos } : l));
@@ -699,6 +705,26 @@ export function MapStage({
     }
     if (scaleDrawRef.current) {
       scaleDrawRef.current = false;
+      if (scaleLine && matchMode && map && imgW) {
+        // One printed square → cell size (longer side) + offset, grid locked.
+        const dx = Math.abs(scaleLine.target.x - scaleLine.origin.x);
+        const dy = Math.abs(scaleLine.target.y - scaleLine.origin.y);
+        const size = Math.round(Math.max(dx, dy));
+        if (size >= 8) {
+          const ox = Math.min(scaleLine.origin.x, scaleLine.target.x);
+          const oy = Math.min(scaleLine.origin.y, scaleLine.target.y);
+          const fps = imgW && widthFt > 0 ? Math.max(1, Math.round((widthFt / imgW) * size)) : feetPerSquare;
+          setGridPx(size);
+          setMapGrid(map.id, size, fps, widthFt, {
+            offsetX: ox,
+            offsetY: oy,
+            locked: true,
+          });
+        }
+        setScaleLine(null);
+        setMatchMode(false);
+        return;
+      }
       if (scaleLine) {
         const len = Math.hypot(
           scaleLine.target.x - scaleLine.origin.x,
@@ -926,13 +952,37 @@ export function MapStage({
                       widthFt={widthFt}
                       gridPx={gridPx}
                       scaleMode={scaleMode}
+                      matchMode={matchMode}
+                      gridHidden={!!map?.gridHidden}
+                      gridLocked={!!map?.gridLocked}
                       onCommit={(ft, width) => {
                         setWidthFt(width);
                         commitScaleFeet(ft, width);
                       }}
+                      onToggleHidden={() =>
+                        map &&
+                        setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
+                          hidden: !map.gridHidden,
+                        })
+                      }
+                      onUnlock={() =>
+                        map &&
+                        setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
+                          locked: false,
+                        })
+                      }
+                      onToggleMatchMode={() => {
+                        setTool(null);
+                        setRemoveMode(false);
+                        setScaleMode(false);
+                        setScaleLine(null);
+                        setScalePrompt(null);
+                        setMatchMode((s) => !s);
+                      }}
                       onToggleScaleMode={() => {
                         setTool(null);
                         setRemoveMode(false);
+                        setMatchMode(false);
                         setScaleLine(null);
                         setScalePrompt(null);
                         setScaleMode((s) => !s);
@@ -1207,6 +1257,9 @@ export function MapStage({
           )}
           {scaleMode && !scalePrompt && (
             <div className="scale-hint">Drag a line across a known distance…</div>
+          )}
+          {matchMode && (
+            <div className="scale-hint">Drag across ONE square of the map's printed grid…</div>
           )}
           {scalePrompt && (
             <div className="scale-prompt">
