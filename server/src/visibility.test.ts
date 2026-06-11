@@ -112,13 +112,14 @@ describe('visibility role-shaping', () => {
     expect(f.stats).toBeDefined();
     expect(f.actions).toBeDefined();
 
-    // Neutral: HP + type + AC, but no stats/actions block.
+    // Neutral now shows players nothing more than an enemy (only the dot colour
+    // differs): name + conditions, no HP/type/AC/stats.
     const n = byId(neutral.id) as Record<string, unknown>;
-    expect(n.maxHp).toBe(9);
-    expect(n.creatureType).toBe('humanoid');
-    expect('armorClass' in n).toBe(true);
+    expect('maxHp' in n).toBe(false);
+    expect('creatureType' in n).toBe(false);
+    expect('armorClass' in n).toBe(false);
     expect('stats' in n).toBe(false);
-    expect('actions' in n).toBe(false);
+    expect(n.disposition).toBe('neutral'); // dot colour preserved
 
     // Enemy: name + conditions only, no HP.
     const e = byId(enemy.id) as Record<string, unknown>;

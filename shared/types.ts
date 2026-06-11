@@ -540,15 +540,6 @@ export type MonsterPublic = {
   playerNotes: string;
 };
 
-/** Player-facing NEUTRAL view: adds HP + type + AC on top of the public view. */
-export type MonsterNeutral = MonsterPublic & {
-  curHp: number;
-  maxHp: number;
-  tempHp: number;
-  creatureType: string;
-  armorClass: number;
-};
-
 /** Snapshot the server sends after join / on major changes, already role-shaped. */
 export type StateSnapshot = {
   role: Role;
@@ -562,6 +553,8 @@ export type StateSnapshot = {
   activeTurnTokenId: string | null;
   /** Combat round counter (0 = no combat running); shown to everyone. */
   round: number;
+  /** DM-only display state: are the DM's rolls currently hidden from players? */
+  hideDmRolls: boolean;
   /** All maps in the session (DM only sees the full list). */
   maps: MapState[];
   tokens: Token[];
@@ -569,7 +562,7 @@ export type StateSnapshot = {
   /** Monster *instances* placed on maps. The DM gets full Monster[]; players
    *  receive a disposition-shaped view (full / neutral / public) per creature.
    *  Tokens reference these by id. */
-  monsters: (Monster | MonsterNeutral | MonsterPublic)[];
+  monsters: (Monster | MonsterPublic)[];
   /** Reusable creature templates for the DM's spawn list (one per creature
    *  type). DM-only; players receive an empty array. */
   monsterTemplates: Monster[];
@@ -647,6 +640,8 @@ export type RollEntry = {
    *  so `visibility.ts` can shape it per viewer: players see it for PCs and
    *  friendly/neutral creatures; ENEMY creature changes are stripped. */
   hpNote?: { kind: TokenKind; refId: string; text: string };
+  /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
+  dmOnly?: boolean;
   /** DM-only: present on a save/damage spell's damage roll so the log can offer an
    *  "Apply damage" button that starts click-to-target save resolution. Stripped
    *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
@@ -1097,6 +1092,7 @@ export interface ClientToServerEvents {
   'initiative:next': () => void;
   'initiative:clear': () => void;
   'initiative:setRound': (payload: { round: number }) => void;
+  'session:setHideDmRolls': (payload: { hide: boolean }) => void;
   'dice:roll': (payload: DiceRollPayload) => void;
   /** Wipe the shared roll log for everyone in the session. */
   'dice:clearLog': () => void;

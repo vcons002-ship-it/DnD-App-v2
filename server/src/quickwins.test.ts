@@ -112,3 +112,27 @@ describe('HP-change FX queue (floating ±X)', () => {
     expect(drainHpFx(other.id).map((e) => e.delta)).toEqual([-3]);
   });
 });
+
+describe('hide DM rolls from players', () => {
+  it('flags DM rolls dmOnly while on and filters them from player snapshots', async () => {
+    const { setHideDmRolls } = await import('./sessions.js');
+    const { buildSnapshot } = await import('./visibility.js');
+    const s = createSession('HideRolls');
+
+    // Off by default: a DM roll reaches players.
+    addRollLog(s.id, { roller: 'DM', label: 'Attack', expr: '1d20', total: 14, detail: 'hit' });
+    expect(buildSnapshot(s.id, 'dm')!.rollLog).toHaveLength(1);
+    expect(buildSnapshot(s.id, 'player')!.rollLog).toHaveLength(1);
+    expect(buildSnapshot(s.id, 'player')!.hideDmRolls).toBe(false);
+
+    // On: new DM rolls are dmOnly → present for the DM, gone for players.
+    setHideDmRolls(s.id, true);
+    addRollLog(s.id, { roller: 'DM', label: 'Save', expr: '1d20', total: 8, detail: 'fail' });
+    addRollLog(s.id, { roller: 'Druk', label: 'Attack', expr: '1d20', total: 19, detail: 'hit' });
+    const dm = buildSnapshot(s.id, 'dm')!.rollLog;
+    const player = buildSnapshot(s.id, 'player')!.rollLog;
+    expect(dm).toHaveLength(3); // DM sees everything
+    expect(player.map((e) => e.roller)).toEqual(['DM', 'Druk']); // the hidden DM Save is gone
+    expect(buildSnapshot(s.id, 'player')!.hideDmRolls).toBe(true);
+  });
+});

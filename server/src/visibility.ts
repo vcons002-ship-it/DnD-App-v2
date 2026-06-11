@@ -18,7 +18,6 @@ import type {
   MapState,
   Measurement,
   Monster,
-  MonsterNeutral,
   MonsterPublic,
   Role,
   RollEntry,
@@ -43,14 +42,12 @@ export function lootVisibleToPlayers(m: Monster): boolean {
 /**
  * Shape a monster for a player according to its disposition:
  * - friendly: full stat block
- * - neutral:  name + HP + type + AC (+ conditions/icon)
- * - enemy:    name + conditions + icon only (default)
+ * - neutral / enemy: name + conditions + icon only (data identical — only the
+ *   battlefield dot colour differs, so players can't read a neutral's HP/stats)
  */
-function toPlayerMonster(
-  m: Monster,
-): Monster | MonsterNeutral | MonsterPublic {
+function toPlayerMonster(m: Monster): Monster | MonsterPublic {
   if (m.disposition === 'friendly') return m;
-  const base: MonsterPublic = {
+  return {
     id: m.id,
     name: m.name,
     conditions: m.conditions,
@@ -63,17 +60,6 @@ function toPlayerMonster(
     // Shared party notes are visible on every tier (the players wrote them).
     playerNotes: m.playerNotes,
   };
-  if (m.disposition === 'neutral') {
-    return {
-      ...base,
-      curHp: m.curHp,
-      maxHp: m.maxHp,
-      tempHp: m.tempHp,
-      creatureType: m.creatureType,
-      armorClass: m.armorClass,
-    };
-  }
-  return base;
 }
 
 /** The per-map slice of a snapshot, cached so DM staging views and the active
@@ -113,7 +99,7 @@ export function createSnapshotBuilder(
 
   // Lazy, shared across the connections that need them.
   let templates: Monster[] | null = null; // DM-only
-  let playerMonsters: (Monster | MonsterNeutral | MonsterPublic)[] | null = null;
+  let playerMonsters: (Monster | MonsterPublic)[] | null = null;
   let playerRollLog: RollEntry[] | null = null;
   const mapData = new Map<string, MapData>();
 
@@ -158,12 +144,12 @@ export function createSnapshotBuilder(
 
   // Players see the attack resolution (HIT/MISS) but not the target's AC.
   // The HP-accounting note ("Druk HP 42→38") follows the disposition tiers:
-  // players keep it for PCs and friendly/neutral creatures, but an ENEMY's
-  // (or a deleted target's) HP change is stripped like its HP bar.
+  // players keep it for PCs and FRIENDLY creatures (whose HP they can see), but
+  // neutral/enemy HP changes are stripped like their hidden HP bar.
   const hpNoteVisible = (n: NonNullable<RollEntry['hpNote']>): boolean =>
     n.kind === 'pc'
       ? true
-      : (monById.get(n.refId)?.disposition ?? 'enemy') !== 'enemy';
+      : monById.get(n.refId)?.disposition === 'friendly';
 
   return (role, dmViewMapId, socketId) => {
     // Players are locked to the active map; the DM may view any map for prep.
@@ -179,7 +165,7 @@ export function createSnapshotBuilder(
       : { tokens: [], measurements: [], annotations: [] };
 
     let tokens = data.tokens;
-    let shapedMonsters: (Monster | MonsterNeutral | MonsterPublic)[] = monsters;
+    let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedRollLog = rollLog;
 
     if (role === 'player') {
@@ -200,13 +186,16 @@ export function createSnapshotBuilder(
         t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId;
       tokens = tokens.filter((t) => !t.isHidden && (!covered(t) || ownedBy(t)));
       shapedMonsters = playerMonsters ??= monsters.map(toPlayerMonster);
-      shapedRollLog = playerRollLog ??= rollLog.map((e) => ({
-        ...e,
-        detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
-        // The "Apply damage" payload is a DM-only adjudication tool.
-        apply: undefined,
-        hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
-      }));
+      shapedRollLog = playerRollLog ??= rollLog
+        // DM rolls captured while "hide my rolls" was on never reach players.
+        .filter((e) => !e.dmOnly)
+        .map((e) => ({
+          ...e,
+          detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
+          // The "Apply damage" payload is a DM-only adjudication tool.
+          apply: undefined,
+          hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
+        }));
     }
 
     return {
@@ -217,6 +206,7 @@ export function createSnapshotBuilder(
       activeMapId,
       activeTurnTokenId: session.activeTurnTokenId,
       round: session.combatRound,
+      hideDmRolls: session.hideDmRolls,
       // Players don't need the full map list (DM-only prep tool).
       maps: role === 'dm' ? maps : map ? [map] : [],
       tokens,

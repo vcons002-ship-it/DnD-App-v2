@@ -117,8 +117,11 @@ describe('token footprint width (feet)', () => {
     resizeToken(tok.id, 10); // Large
     expect(getToken(tok.id)!.widthFt).toBe(10);
 
-    resizeToken(tok.id, 0); // clamps to the 2.5ft minimum
-    expect(getToken(tok.id)!.widthFt).toBe(2.5);
+    resizeToken(tok.id, 7.5); // snaps to half-foot steps
+    expect(getToken(tok.id)!.widthFt).toBe(7.5);
+
+    resizeToken(tok.id, 0); // clamps to the 0.5ft minimum
+    expect(getToken(tok.id)!.widthFt).toBe(0.5);
   });
 });
 

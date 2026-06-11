@@ -203,8 +203,9 @@ describe('hpNote disposition shaping for players', () => {
     expect(buildSnapshot(s.id, 'dm')!.rollLog.at(-1)!.hpNote?.text).toContain('HP');
     // Default disposition is enemy → the note is stripped for players.
     expect(buildSnapshot(s.id, 'player')!.rollLog.at(-1)!.hpNote).toBeUndefined();
-    // Neutral (HP visible to players) → the note shows.
-    updateMonster(enemy.id, { disposition: 'neutral' });
+    // Friendly (HP visible to players) → the note shows. (Neutral now hides like
+    // enemy — only friendly creatures expose HP to players.)
+    updateMonster(enemy.id, { disposition: 'friendly' });
     expect(
       buildSnapshot(s.id, 'player')!.rollLog.at(-1)!.hpNote?.text,
     ).toContain('HP');

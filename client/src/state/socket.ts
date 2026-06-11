@@ -204,6 +204,7 @@ type Store = {
   nextTurn: () => void;
   clearInitiative: () => void;
   setRound: (round: number) => void;
+  setHideDmRolls: (hide: boolean) => void;
   rollDice: (payload: DiceRollPayload) => void;
   clearRollLog: () => void;
   combatAttack: (payload: CombatAttackPayload) => void;
@@ -489,6 +490,8 @@ export const useStore = create<Store>((set, get) => ({
   nextTurn: () => get().socket?.emit('initiative:next'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
   setRound: (round) => get().socket?.emit('initiative:setRound', { round }),
+  setHideDmRolls: (hide) =>
+    get().socket?.emit('session:setHideDmRolls', { hide }),
   rollDice: (payload) => get().socket?.emit('dice:roll', payload),
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),

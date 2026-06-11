@@ -3,7 +3,6 @@ import type {
   Condition,
   Disposition,
   Monster,
-  MonsterNeutral,
   MonsterPublic,
   ObjectKind,
   StateSnapshot,
@@ -26,9 +25,9 @@ export type TokenDisplay = {
   icon: string;
 };
 
-type AnyMonster = Monster | MonsterNeutral | MonsterPublic;
-/** Full or neutral monster views carry HP; the enemy (public) view does not. */
-const hasHp = (m: AnyMonster): m is Monster | MonsterNeutral => 'maxHp' in m;
+type AnyMonster = Monster | MonsterPublic;
+/** Only the full (friendly) monster view carries HP; the public view does not. */
+const hasHp = (m: AnyMonster): m is Monster => 'maxHp' in m;
 
 /** Resolve a token's referenced character/monster into display fields. */
 export function resolveToken(

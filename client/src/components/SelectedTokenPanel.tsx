@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   Character,
   Monster,
-  MonsterNeutral,
   MonsterPublic,
   StateSnapshot,
   Token,
@@ -407,15 +406,30 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
         <button
           className="btn"
           disabled={!isDm}
-          onClick={() => resizeToken(token.id, token.widthFt - 5)}
+          title="Smaller (−2.5 ft)"
+          onClick={() => resizeToken(token.id, token.widthFt - 2.5)}
         >
           −
         </button>
-        <span>{token.widthFt} ft</span>
+        {/* Manual entry in half-foot steps (server snaps + clamps 0.5–120). */}
+        <input
+          className="size-input"
+          type="number"
+          step={0.5}
+          min={0.5}
+          max={120}
+          disabled={!isDm}
+          value={token.widthFt}
+          onChange={(e) =>
+            e.target.value !== '' && resizeToken(token.id, Number(e.target.value))
+          }
+        />
+        <span className="muted">ft</span>
         <button
           className="btn"
           disabled={!isDm}
-          onClick={() => resizeToken(token.id, token.widthFt + 5)}
+          title="Larger (+2.5 ft)"
+          onClick={() => resizeToken(token.id, token.widthFt + 2.5)}
         >
           +
         </button>
@@ -450,7 +464,7 @@ function CreatureDetails({
   character,
 }: {
   monster?: Monster;
-  monsterEntity?: Monster | MonsterNeutral | MonsterPublic;
+  monsterEntity?: Monster | MonsterPublic;
   character?: Character;
 }) {
   const open = useStore((s) => s.detailsExpanded);
@@ -481,7 +495,7 @@ function CreatureDetails({
         <CharacterSheet character={character} editable={false} />
       ) : monsterEntity ? (
         <div className="muted creature-details-body">
-          {hasType && <div>Type: {(monsterEntity as MonsterNeutral).creatureType}</div>}
+          {hasType && <div>Type: {(monsterEntity as Monster).creatureType}</div>}
           {'armorClass' in monsterEntity && monsterEntity.armorClass ? (
             <div>AC {monsterEntity.armorClass}</div>
           ) : null}

@@ -96,6 +96,7 @@ import {
   rollAllInitiative,
   rollMissingInitiative,
   setCombatRound,
+  setHideDmRolls,
   rollerName,
   addChatMessage,
   setActiveMap,
@@ -371,8 +372,18 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on('token:move', ({ tokenId, x, y }) => {
       if (!sessionId()) return;
-      // Players never receive hidden tokens, so a non-DM move of one is stale/forged.
-      if (!isDm() && getToken(tokenId)?.isHidden) return;
+      // Players may move PCs and FRIENDLY creatures (companions/summons) only —
+      // enemy/neutral tokens are the DM's. Hidden tokens are never sent to
+      // players, so a non-DM move of one is stale/forged.
+      if (!isDm()) {
+        const t = getToken(tokenId);
+        if (!t || t.isHidden) return;
+        if (
+          t.kind === 'monster' &&
+          getMonster(t.refId)?.disposition !== 'friendly'
+        )
+          return;
+      }
       moveToken(tokenId, x, y);
       afterChange();
     });
@@ -915,6 +926,13 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm() || !Number.isFinite(round)) return;
       setCombatRound(sid, Math.min(999, Math.max(0, Math.round(round))));
+      afterChange();
+    });
+
+    socket.on('session:setHideDmRolls', ({ hide }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      setHideDmRolls(sid, !!hide);
       afterChange();
     });
 

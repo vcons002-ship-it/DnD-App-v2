@@ -39,6 +39,8 @@ export type Session = {
   activeTurnTokenId: string | null;
   /** Combat round counter (0 = no combat running). */
   combatRound: number;
+  /** When true, the DM's own rolls are hidden from players' roll logs. */
+  hideDmRolls: boolean;
 };
 
 type SessionRow = {
@@ -48,6 +50,7 @@ type SessionRow = {
   active_map_id: string | null;
   active_turn_token_id: string | null;
   combat_round: number | null;
+  hide_dm_rolls: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -57,6 +60,7 @@ const rowToSession = (r: SessionRow): Session => ({
   activeMapId: r.active_map_id,
   activeTurnTokenId: r.active_turn_token_id,
   combatRound: r.combat_round ?? 0,
+  hideDmRolls: !!r.hide_dm_rolls,
 });
 
 // ---- Sessions ----
@@ -89,7 +93,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0 };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -392,7 +396,10 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
 /** Resize a token by its real footprint WIDTH IN FEET (min 2.5ft = Tiny). The
  *  legacy square `size` is kept in sync (widthFt / 5) for back-compat. */
 export function resizeToken(tokenId: string, widthFt: number): Token | null {
-  const w = Math.max(2.5, widthFt);
+  // Snap to half-foot steps; 0.5 ft minimum allows small objects, 120 ft caps
+  // gargantuan set pieces. The legacy grid-square `size` stays in sync.
+  if (!Number.isFinite(widthFt)) return getToken(tokenId);
+  const w = Math.min(120, Math.max(0.5, Math.round(widthFt * 2) / 2));
   db.prepare('UPDATE tokens SET width_ft = ?, size = ? WHERE id = ?').run(
     w,
     w / 5,
@@ -909,6 +916,14 @@ export function rollMissingInitiative(mapId: string): void {
   }
 }
 
+/** Toggle whether the DM's own rolls are hidden from players' logs. */
+export function setHideDmRolls(sessionId: string, hide: boolean): void {
+  db.prepare('UPDATE sessions SET hide_dm_rolls = ? WHERE id = ?').run(
+    hide ? 1 : 0,
+    sessionId,
+  );
+}
+
 /** Set the session's combat-round counter (0 = no combat running). */
 export function setCombatRound(sessionId: string, round: number): void {
   db.prepare('UPDATE sessions SET combat_round = ? WHERE id = ?').run(
@@ -998,9 +1013,13 @@ export function addRollLog(
 ): RollEntry {
   const id = newId();
   const createdAt = Date.now();
+  // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
+  // is on, so player snapshots can drop it (damage still applied separately).
+  const dmOnly =
+    entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1012,10 +1031,11 @@ export function addRollLog(
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
+    dmOnly ? 1 : 0,
     createdAt,
   );
   pruneRollLog(sessionId);
-  return { id, ...entry, createdAt };
+  return { id, ...entry, createdAt, ...(dmOnly ? { dmOnly: true } : {}) };
 }
 
 /** Keep the newest N rolls per session so long campaigns don't grow the DB forever. */
@@ -1093,6 +1113,7 @@ type RollLogRow = {
   description: string | null;
   apply: string | null;
   hp_note: string | null;
+  dm_only: number | null;
   created_at: number;
 };
 
@@ -1119,6 +1140,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
+    ...(r.dm_only ? { dmOnly: true } : {}),
     createdAt: r.created_at,
   };
 }

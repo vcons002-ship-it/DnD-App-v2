@@ -265,6 +265,10 @@ function ensureColumn(table: string, column: string, ddl: string): boolean {
 ensureColumn('sessions', 'active_turn_token_id', 'active_turn_token_id TEXT');
 // Combat round counter (0 = no combat running); advances when the turn wraps.
 ensureColumn('sessions', 'combat_round', 'combat_round INTEGER NOT NULL DEFAULT 0');
+// Hide the DM's own rolls from players' logs while on.
+ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAULT 0');
+// Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).
+ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
 ensureColumn(
   'sessions',
   'last_played_at',
