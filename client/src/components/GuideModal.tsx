@@ -16,6 +16,7 @@ const DESKTOP = [
   ROW('Measure ▾ menu', 'Drag a cone/circle/line/square; click a shape to remove it'),
   ROW('Scale ▾ menu', 'Set the map’s real width / drag a reference line / hide the grid'),
   ROW('Fog ▾ menu', 'Paint the two fog layers; reveal all / cover all'),
+  ROW('Ctrl+V on the map', 'Paste a copied image as an object token or scenery decal (DM)'),
   ROW('Section ⠿ grip', 'Drag to reorder panel sections; ▾ collapses one'),
   ROW('Chat box', 'Type a message — or /roll 2d6+3 (optionally adv/dis) to roll'),
 ];
