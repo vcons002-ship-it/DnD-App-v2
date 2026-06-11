@@ -19,7 +19,7 @@ import {
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
-import { geminiEnabled, lookupCreatureAI } from './creatures/gemini.js';
+import { geminiEnabled, lookupCreatureAI, generateItemAI } from './creatures/gemini.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
@@ -271,6 +271,16 @@ export function createApiRouter(io: IOServer): Router {
   router.delete('/library/items/:id', (req, res) => {
     deleteLibraryItem(req.params.id);
     res.status(204).end();
+  });
+
+  // AI-generate one item from a free-text prompt, save it to the library, return
+  // it. Key-gated: 503 when no key / generation failed (clients fall back).
+  router.post('/items/generate', async (req, res) => {
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
+    if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
+    const item = await generateItemAI(prompt);
+    if (!item) return res.status(503).json({ error: 'AI unavailable' });
+    res.status(201).json(saveLibraryItem(item));
   });
 
   // Cross-session character library (players + DM save/load full sheets).

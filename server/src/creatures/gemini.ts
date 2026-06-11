@@ -433,3 +433,38 @@ export async function generateCharacterAI(
     return null;
   }
 }
+
+/**
+ * Generate a single D&D 5e item from a free-text prompt. Key-gated + fail-safe
+ * (returns null with no key or on any error) like every AI path. Shape mirrors a
+ * library item: name + description + a sensible default stack quantity.
+ */
+export async function generateItemAI(
+  prompt: string,
+): Promise<{ name: string; description: string; qtyDefault: number } | null> {
+  if (!geminiEnabled() || !prompt.trim()) return null;
+  const ask =
+    `Invent a single Dungeons & Dragons 5e item from this prompt: "${prompt}". ` +
+    `Respond ONLY with minified JSON of shape ` +
+    `{"name":string,"description":string,"qtyDefault":number}. ` +
+    `"name" is short (≈2–5 words). "description" is 1–3 sentences covering what ` +
+    `it is, any rules effect, and rarity/attunement if magical. "qtyDefault" is a ` +
+    `sensible stack size (1 for gear/weapons/armor, more for ammo/consumables). ` +
+    `Keep it SRD-safe and original.`;
+  const text = await callGemini(ask);
+  if (!text) return null;
+  try {
+    const p = JSON.parse(text) as Record<string, unknown>;
+    const name = String(p.name ?? '').trim();
+    if (!name) return null;
+    return {
+      name,
+      description: String(p.description ?? '').trim(),
+      qtyDefault: Number.isFinite(Number(p.qtyDefault))
+        ? Math.max(1, Math.round(Number(p.qtyDefault)))
+        : 1,
+    };
+  } catch {
+    return null;
+  }
+}

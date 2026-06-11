@@ -1112,3 +1112,8 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .item-note { display: block; margin: 2px 0 4px 2px; font-size: 11px; font-style: italic; }
 .loot-reveal { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 4px 0; }
 .loot-reveal input { width: auto; margin: 0; }
+
+/* Loot: custom item description + AI generate row. */
+.item-desc-input { font-size: 12px; }
+.item-ai { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.item-ai input { flex: 1; }

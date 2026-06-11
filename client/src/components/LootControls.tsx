@@ -31,6 +31,7 @@ export function LootControls({
   reveal?: { revealed: boolean; dead: boolean; onToggle: () => void };
 }) {
   const setLoot = useStore((s) => s.setLoot);
+  const notify = useStore((s) => s.notify);
   const takeLoot = useStore((s) => s.takeLoot);
   const socketId = useStore((s) => s.socket?.id);
 
@@ -41,6 +42,9 @@ export function LootControls({
   const [query, setQuery] = useState('');
   const [lib, setLib] = useState<LibraryItem[]>([]);
   const [shownNote, setShownNote] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
 
   // Who receives the loot: a player takes to their own claimed PC; the DM picks.
   const myCharacter = snapshot.characters.find((c) => c.claimedBy === socketId);
@@ -189,15 +193,58 @@ export function LootControls({
               className="btn tiny"
               disabled={!name.trim()}
               onClick={() => {
-                addItem(name, qty);
+                addItem(name, qty, note);
                 setName('');
                 setQty(1);
+                setNote('');
               }}
             >
               + Add
             </button>
             <button className="btn tiny" onClick={() => setPicker((p) => !p)}>
               {picker ? 'Close' : 'Library'}
+            </button>
+          </div>
+          <input
+            className="item-desc-input"
+            placeholder="Description (optional)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="item-ai">
+            <input
+              placeholder="✨ Describe an item for AI to create…"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+            />
+            <button
+              className="btn tiny"
+              disabled={aiBusy || !aiPrompt.trim()}
+              onClick={async () => {
+                setAiBusy(true);
+                try {
+                  const res = await fetch('/api/items/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: aiPrompt.trim() }),
+                  });
+                  if (!res.ok) {
+                    notify(
+                      res.status === 503
+                        ? 'AI is unavailable (set a Gemini key in Settings).'
+                        : 'Could not generate an item.',
+                    );
+                    return;
+                  }
+                  const it = await res.json();
+                  addItem(it.name, it.qtyDefault ?? 1, it.description ?? '');
+                  setAiPrompt('');
+                } finally {
+                  setAiBusy(false);
+                }
+              }}
+            >
+              {aiBusy ? '…' : '✨ Generate'}
             </button>
           </div>
           {picker && (
