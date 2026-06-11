@@ -30,6 +30,7 @@ lives**, **how to use it**, and any gotchas.
   - [Disposition: what players see](#disposition-what-players-see-dm)
   - [Hiding tokens & combat-role badges](#hiding-tokens--combat-role-badges-dm)
   - [Objects: traps, doors, chests & loot](#objects-traps-doors-chests--loot-dm)
+  - [Pasting images: object tokens & scenery decals](#pasting-images-object-tokens--scenery-decals-dm)
   - [Running combat](#running-combat-dm)
   - [Bulk actions on many tokens](#bulk-actions-on-many-tokens-dm)
   - [The creature & item libraries](#the-creature--item-libraries-dm)
@@ -49,6 +50,7 @@ lives**, **how to use it**, and any gotchas.
   - [The floating action menu (right-click)](#the-floating-action-menu-right-click)
   - [Dice & the roll log](#dice--the-roll-log)
   - [Measuring & AOE templates](#measuring--aoe-templates)
+  - [Drawing on the map](#drawing-on-the-map)
   - [The character sheet in depth](#the-character-sheet-in-depth)
   - [Importing & exporting a sheet](#importing--exporting-a-sheet)
 - [Quick reference: clicks & keys](#quick-reference-clicks--keys)
@@ -131,8 +133,11 @@ Runs across the top of every session screen.
 
 - **Session name** — click to rename the campaign (DM).
 - **Code: XXXX** and **Active: <map>** — quick reference for what's live.
+- **❔ Guide** — a quick desktop & mobile control reference for **both roles**
+  (it auto-picks the tab matching your device, and points here for the full tour).
 - **Map tool menus** — **Measure**, **Scale**, and **Fog** dropdowns live here,
-  above the map. (Measure is available to everyone; Scale and Fog are DM-only.)
+  above the map, next to the **✏️ pen / 🅰 text** drawing tools. (Measure and
+  drawing are available to everyone; Scale and Fog are DM-only.)
 - **DM-only buttons:**
   - **Load session** — disconnect and return to the console to load/import another.
   - **🗔 Data view** — open the [DM Data dashboard](#the-dm-data-dashboard-second-screen-dm) in a new window (great on a second monitor or tablet).
@@ -208,6 +213,14 @@ Distances are driven by the map's **real-world width in feet**.
 - **📏 Set scale from line** — the easy way: click it, then **drag a line across
   a known distance** on the map (e.g. a 20-ft hallway). Release, type the real
   length in the **"This line is ___ ft"** prompt, and **Apply**.
+- **🔲 Match map grid (drag a square)** — for maps with a **printed grid**: drag
+  across **one printed square** and the app's grid snaps to it exactly (cell
+  size + origin offset), then **locks** so the size can't be clobbered. While
+  locked, the grid-square input is disabled (an **Unlock** control re-enables
+  it); the feet/width inputs still work — changing distance only re-means the
+  square, never resizes it.
+- **👁 Hide grid** — turn the grid lines off entirely (distances and snapping
+  still work; useful when the map has its own printed grid).
 
 The grid lines are visible at rest and **brighten** while you drag a token or use
 a measure tool, to help you line things up. Maps with no width set fall back to a
@@ -283,8 +296,10 @@ weapon lines have roll buttons.
 A creature's disposition controls exactly how much players see (shown as a
 colored dot on the token — green/amber/red):
 
-- **Friendly** — players see the **full stat block** (like a party member).
-- **Neutral** — players see **name + HP + type + AC** only.
+- **Friendly** — players see the **full stat block** (like a party member), its
+  HP changes in the log, and they may **move** its token (companions/summons).
+- **Neutral** — players see **name + conditions** only, same as an enemy — the
+  amber dot is the only difference (it signals intent without leaking stats).
 - **Enemy** — players see **name + conditions** only (default).
 
 Instances inherit their template's disposition. Players also get a free-text
@@ -296,11 +311,15 @@ Instances inherit their template's disposition. Players also get a free-text
 
 - **Token icon** — set an emoji or upload an image (applies across a
   multi-selection).
+- **Shape** — pick the token's silhouette: **circle** (default), **square**,
+  **diamond**, **triangle**, or **image** (draws the art unclipped — pasted
+  scenery/objects default sensibly: chests/doors square, traps triangular).
 - **Combat role** — the ⚔️/🏹/✨ badge is auto-derived, but you can force
   **Auto / ⚔️ / 🏹 / ✨** or hide it.
 - **Admin actions** — duplicate, hide from players, hide the role badge, delete.
-- **Size** (DM-only) — the **Size** −/+ buttons set the token's footprint in feet
-  (5 ft = Medium); it keeps that real size when you change the grid.
+- **Size** (DM-only) — type the token's footprint in feet directly (half-foot
+  steps, down to 0.5 ft for small objects; 5 ft = Medium) or nudge with the
+  **−/+** buttons; it keeps that real size when you change the grid.
 
 Hidden tokens never reach players, regardless of fog.
 
@@ -318,15 +337,26 @@ and defaults to **Neutral** so players can see it once it's revealed.
 - **State chips** — toggle the object's state, stored as conditions that show on
   the hover card: doors **Locked / Open**; chests **Locked / Open / Looted**; traps
   **Armed / Disarmed / Triggered**; items **Taken**.
+- **Locks players can beat:** doors and chests show **Pick lock / Open / Close**
+  buttons to players too — picking rolls a server-side **DEX (Sleight of Hand)
+  check** against the object's **DC** and clears *Locked* on a success
+  (open/close is blocked while locked). You can always force-unlock as the DM.
 - **👁 Hide / 🙈 Reveal** — keep an object secret (a hidden trap, a concealed door)
   until you reveal it to players.
 - **Loot in a chest (or item/other):** a **💰 Loot** section lets you stock it with
-  **gold** and **items** (typed in or pulled from the item **Library**). Players
-  **can't see the contents** until the object is **opened** (toggle *Open*). Then a
+  **gold** and **items** — typed in (with an optional description), pulled from the
+  item **Library**, or **AI-generated** from a one-line prompt (needs a Gemini
+  key; the item also lands in your library for reuse). Each loot row has an **ⓘ**
+  toggle showing the item's description. Players **can't see the contents** until
+  the object is **opened** (toggle *Open*). Then a
   player clicks **Take** (per item), **Take N gp**, or **Take all** to move it into
   their character — items merge into their inventory, gold into their **gold purse**
   — or you hand it to any PC via the recipient dropdown. An emptied container
   auto-flags itself **Looted/Taken**.
+- **Loot on creatures:** the same **💰 Loot** section appears on **any creature's**
+  token panel, so you can stock a boss with its treasure ahead of time. Players
+  can take it only once the creature is **dead** *and* you flip **Loot revealed**
+  (so you can gate it behind a perception roll first).
 - **Trap effect & trigger:** give the trap an effect by adding a **save or attack
   action** in its stat block (e.g. "DC 13 DEX save, 2d6 poison"). The object panel
   then shows a **⚡ Trigger** button per action — firing it logs the roll and arms
@@ -338,6 +368,32 @@ and defaults to **Neutral** so players can see it once it's revealed.
 Players who can see a revealed trap get a **🔧 Disarm** button on it — see
 [the player guide](#looting--disarming-player).
 
+### Pasting images: object tokens & scenery decals (DM)
+
+**Where:** copy any image, then press **Ctrl+V** (⌘V) with the map focused.
+
+Copy art from anywhere — a file, a screenshot, or an **image on a web page or
+Google Slides** (right-click → *Copy image*; even copies that only carry the
+image's URL work — the server fetches it for you). Pasting opens a preview
+dialog:
+
+- **Touch up first (optional):** drag on the preview to select a region and
+  **✂ Crop**; **🪄 Cut background** flood-fills the edges to transparency
+  (checkerboard shows what's removed); **↺ Undo edits** reverts.
+- **📦 Object** — drops it as a non-combat **object token** (like a chest/door:
+  draggable, hideable, lootable), using the exact image as its art.
+- **🖼 Scenery decal** — stamps it **onto the map itself, underneath the
+  tokens** (furniture, rubble, a wagon, an extra room). Decals are DM-only:
+  **drag** to reposition, drag the **corner handle** to resize (aspect locked),
+  and remove them with the drawing tools' eraser or the **Clear decals** button
+  (pen strokes and text stay).
+- **🔒 Decals** (in the drawing toolbar) locks all decals **click-through and
+  undraggable**, so panning and token drags can't grab a large piece of scenery.
+  The eraser still works on locked decals.
+
+Pasting never hijacks a paste aimed at a text field, and tells you when the
+clipboard has no usable image.
+
 ### Running combat (DM)
 
 **Where:** left panel → **Initiative** section.
@@ -348,7 +404,8 @@ Players who can see a revealed trap get a **🔧 Disarm** button on it — see
   (latecomers slot into the order without disturbing the round count).
 - **Next ▸** — advances the active turn; wrapping past the last combatant
   bumps the **round counter**.
-- **Clear** — clears initiative and zeroes the round.
+- **End combat** — clears initiative rolls, the turn marker, and the round
+  counter.
 
 The **Round number** in the header is **editable** — type to fix a miscount —
 and shows as a chip in everyone's top toolbar. **Objects** (chests, doors,
@@ -373,7 +430,7 @@ pulsing ring + initiative-rank badge on the token).
   Every HP change pops a floating **−X / +X** over the token for the whole
   table, and the roll log keeps an **HP note** ("Druk HP 42→38") so mistakes
   are easy to spot and hand-correct (players see notes only for PCs and
-  friendly/neutral creatures).
+  friendly creatures).
 - Conditions automatically nudge advantage/disadvantage where 5e is unambiguous
   (prone, restrained, invisible, etc.), with the cancel rule applied.
 - Cast a save-or-damage spell/action and the log gets a DM-only **🎯 Apply
@@ -431,7 +488,7 @@ A standalone combat dashboard meant for a second monitor or tablet. It gives you
 - **Expand** any card into a large overlay that reuses the full token panel
   (edit stats, AI fill, disposition, conditions, damage/heal — everything). AI
   fills here show the same **"AI is working" banner + toast** as the main window.
-- An **initiative header** (Roll all / Add rolls / Next / Clear) and a
+- An **initiative header** (Roll all / Add rolls / Next / End combat) and a
   **collapsible, resizable** dice panel + roll log down the side — collapse it for
   more room for cards.
 
@@ -456,7 +513,11 @@ A standalone combat dashboard meant for a second monitor or tablet. It gives you
 - Tap a character and click **Play** to claim it (a **you** badge marks yours;
   taken ones show **taken**). You hold exactly one at a time — **Change** releases
   it and reopens the chooser. After a page reload your character is
-  **re-claimed automatically** (as long as nobody else grabbed it).
+  **re-claimed automatically**.
+- **Your character is yours.** The first claim binds the character to your
+  browser — nobody else can claim or edit it, even while you're offline (other
+  players see a **🔒 locked** badge on it). If you switch to a new device, ask
+  the DM to **🔓 unlock** it from the spawn list so you can claim it again.
 - No character yet? Create one with the **New Character Form**, or **📂 Load saved
   character** from your cross-session library — either way you immediately claim it.
 
@@ -474,7 +535,9 @@ are right at the top.
 **Where:** left panel → **📍 Place my token**.
 
 Click the button, then **click the active map** to drop your character's token
-once. After that you can **drag it to move**. (Only the DM can resize tokens.)
+once. After that you can **drag it to move**. You can also move **friendly
+creatures** (companions, summons) — enemies, neutral creatures, and objects are
+the DM's to move. (Only the DM can resize tokens.)
 
 ### Attacking & casting (combat console) (player)
 
@@ -519,10 +582,17 @@ and is never refilled by healing.
 
 **Where:** select (or right-click) a revealed object the DM has placed.
 
-- **Open chest / loot pile:** once the DM has opened it, its **💰 Loot** shows the
-  gold and items inside. Click **Take** on an item, **Take N gp**, or **Take all**
+- **Locked door or chest:** you get **🔓 Pick lock**, **Open**, and **Close**
+  buttons. Picking rolls a **Dexterity (Sleight of Hand) check** against the
+  lock's DC (server-rolled, into the shared log); on a success the lock clears
+  and you can open it. While it's locked, opening is blocked.
+- **Open chest / loot pile:** once it's open, its **💰 Loot** shows the
+  gold and items inside (each item has an **ⓘ** description). Click **Take** on an
+  item, **Take N gp**, or **Take all**
   to move it onto your claimed character — items land in your **Inventory**, gold in
   your **gold purse** (shown on your sheet). A drained container reads **Looted**.
+- **Looting a body:** defeated creatures can carry loot too — it appears the
+  same way once the creature is **dead** and the DM reveals it.
 - **Disarm a trap:** click **🔧 Disarm** to roll a **Dexterity (Sleight of Hand)
   check** against the trap's DC (rolled server-side; Sleight-of-Hand proficiency
   counts). On a success the trap flips to **Disarmed** in the shared log.
@@ -535,7 +605,8 @@ and is never refilled by healing.
   their (read-only) sheet.
 - For NPCs/monsters, what you see depends on the DM's
   [disposition](#disposition-what-players-see-dm) setting — full sheet for
-  Friendly, name+HP+type+AC for Neutral, name+conditions for Enemy. You can read
+  Friendly; name + conditions for Neutral and Enemy (the amber vs red dot tells
+  you which is which). You can read
   and add to the shared **note** on any creature.
 
 ---
@@ -612,9 +683,13 @@ combat console. Also on the DM Data dashboard.
   log everyone sees, color-coded by roller and roll type, showing the
   **individual die faces** (e.g. `2d6[3,4]`). Rolls that changed HP carry an
   **HP note** ("Druk HP 42→38" — DM always; players for PCs and
-  friendly/neutral creatures). For players, enemy AC is redacted to `vs AC ?`
+  friendly creatures). For players, enemy AC is redacted to `vs AC ?`
   while HIT/MISS stays visible. A cast spell's full description shows here. The
   DM can **Clear** the log.
+- **Hide DM rolls (DM):** a **👁/🙈 DM rolls** toggle in the dice panel. While
+  on, the DM's rolls stay out of the players' logs — damage still applies and
+  the floating ±X still pops, so the table sees the *outcome* but not the dice
+  (great for secret checks and fudge-free suspense).
 - **On-map overlays** (toggled from the dice panel):
   - **⤢ Overlay** — a click-through latest-rolls feed pinned to the map's
     **bottom-left**; recent rolls stack and fade, the newest always stays visible.
@@ -638,6 +713,18 @@ and **Clear mine** / **Clear all** (DM). Shapes are **shared and persistent**,
 colored per person, and visible to the whole table until cleared. Players can
 only remove their own; the DM can remove anyone's.
 
+### Drawing on the map
+
+**Where:** the **✏️ / 🅰 buttons** in the map toolbar (everyone).
+
+- **✏️ Freehand pen** — draw directly on the map (mark a route, circle a clue);
+  pick a **color swatch** first. **🅰 Text** places a label where you click.
+- Drawings are **shared and persistent** like measurements. **Clear mine**
+  removes your own; the DM also gets **Clear all**.
+- The DM's **scenery decals** (pasted images) live on this layer too, with a
+  **🔒 Decals** lock and a **Clear decals** button — see
+  [Pasting images](#pasting-images-object-tokens--scenery-decals-dm).
+
 ### The character sheet in depth
 
 One generalized sheet powers both PCs and NPC stat blocks. Sections (top to
@@ -659,6 +746,12 @@ bottom):
   **damage type** — so an **attack** spell rolls to-hit against a chosen
   **Spell target** and applies typed damage on a hit. Masteries toggle
   **On/Off**; maneuvers **arm** for your next attack (spending a Superiority Die).
+  The section header keeps a **soft count** for casters — "Cantrips 2/3 ·
+  Prepared 5/6" (or *Known*, per your class) — turning red when you're over your
+  class/level cap but never blocking; each leveled spell has a **✓ Prep** toggle
+  so prepared casters can swap their list day to day. Every ability also shows
+  an **action-economy icon** — **●** action, **⚡** bonus action, **↩** reaction
+  (auto-detected, editable when you open the entry).
 - **Items** — add gear by hand or from the **Library**, with quantity steppers,
   plus a **💰 gold** purse (filled automatically when you loot a chest).
 - **Skills** — all 18 skills with their ability, a **proficiency dot** (click to
@@ -700,6 +793,8 @@ players' and read-only creatures' sheets are view-only.
 | Reset view | **Fit** button |
 | Roll a quick d20 | The on-map 🎲 button (bottom-right) or the Dice panel |
 | Roll a custom expression | Dice panel → type `2d6+3` → **Roll** |
+| Paste an image (DM) | Copy it anywhere → **Ctrl+V** over the map → Object or Scenery decal |
+| Open the controls guide | **❔ Guide** in the top toolbar |
 
 ---
 

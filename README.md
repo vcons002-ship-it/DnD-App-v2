@@ -10,13 +10,18 @@ via `PUBLIC_URL`).
 > second screen are all shipped. Done: durable sessions & resume directory,
 > canvas zoom/pan + resizable panels (with **iPad pinch-zoom & touch**), fog of
 > war (map + token-only modes), initiative tracker, **automated weapon attacks &
-> saving throws**, a **dice roller with a shared, color-coded roll log**, full
-> **character sheets** (skills, spells/abilities/masteries, class resources,
-> inventory + a **gold purse**, import/export), **SRD + AI (Gemini) creature
-> creation**, a **cross-session creature/item library**, **non-combat objects**
-> (traps, doors, **lootable chests**, hidden items), and a standalone **DM Data
-> dashboard**. Up next is deeper AI assistance (spell resolution, rules lookup,
-> enemy dialogue). See [`ROADMAP.md`](ROADMAP.md).
+> saving throws**, a **dice roller with a shared, color-coded roll log** (with a
+> **Hide-DM-rolls** toggle), full **character sheets** (skills,
+> spells/abilities/masteries with **prepared-spell counters**, class resources,
+> inventory + a **gold purse**, import/export, **per-player ownership**),
+> **SRD + AI (Gemini) creature creation**, a **cross-session creature/item
+> library**, **non-combat objects** (traps, doors, **lootable chests & creature
+> loot**, hidden items, player **pick-lock/open**), **paste-an-image** object
+> tokens & **scenery decals**, **token shapes**, grid **match/offset/hide**
+> tools, an in-app **❔ Guide**, a standalone **DM Data dashboard**, and an
+> optional **free always-on cloud deployment** ([`deploy/`](deploy/README.md)).
+> Up next is deeper AI assistance (spell resolution, rules lookup, enemy
+> dialogue). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Easiest install (one click)
 
@@ -51,39 +56,46 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 
 **Maps & fog**
 - Upload any image as a map; DM stages tokens, grid, and fog without players seeing it, then **Make active** to reveal.
+- **Map scale & grid:** set the real-world scale by dragging a reference line; **match the grid to a printed map** (drag one square — sets size + origin and locks it), nudge its offset, **hide it**, or lock/unlock it.
 - Fog of war per map: `off` / `map` / `tokens-only` modes, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
+- **Draw on the map** (everyone): freehand pen + text labels in per-person colors, with Clear mine/all. The DM can also **paste images (Ctrl+V)** as **scenery decals** — cropped/background-cut in a preview, drawn under the tokens, draggable/resizable, and lockable click-through.
 - Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels with **drag-reorderable sections** (tap ▲/▼ on touch), remembered per session — tuned for **tablet/iPad** use.
 
 **Tokens**
 - Click-to-place (stays active for dropping several), multi-select with group drag, duplicate, delete, per-token hide-from-players.
+- **Token shapes** (circle / square / diamond / triangle / image — pasted art draws unclipped) and a real-feet **size** control (typed half-foot entry or −/+ steps); pasting an image can also drop it straight in as an **object token**.
 - Three concentric **status rings** (buff / negative / concentration), 💀 death marker at 0 HP (or via the DM's **Dead** condition), **floating −X/+X damage & heal numbers** on every HP change, combat-role badge (⚔️ / 🏹 / ✨), initiative-order badge, hover card, and a right-click / long-press floating action menu.
-- Players can place and move their own claimed token; resizing is DM-only.
+- Players can place and move their own claimed token **and friendly creatures** (companions/summons); enemies, objects, and resizing are DM-only.
 
 **Non-combat objects & loot**
 - Place **traps, doors, chests, and hidden items** as map objects (DM "Object type" picker): reveal/hide from players and toggle state chips (Locked / Open / Disarmed / Looted / Triggered…) that show on the hover card.
-- **Lootable chests:** the DM stocks a chest with **gold + items**; contents stay hidden from players until it's opened, then a player **Takes** them into their inventory and a per-character **gold purse**.
+- **Lootable chests:** the DM stocks a chest with **gold + items** (each with an ⓘ description, typed in, from the library, or **AI-generated from a prompt**); contents stay hidden from players until it's opened, then a player **Takes** them into their inventory and a per-character **gold purse**.
+- **Creature loot:** the DM can stock loot on **any creature** too — players can take it only once it's **dead** and the DM flips **Loot revealed**.
+- **Locked doors & chests:** players get **Pick lock / Open / Close** buttons — picking rolls a server-side DEX (Sleight of Hand) check against the object's DC; the DM can force-unlock.
 - **Trap mechanics:** the DM authors a save/attack effect on a trap and fires it with a **⚡ Trigger** button (resolves through the roll log's Apply-damage flow); players attempt a **🔧 Disarm** check (server-rolled) against the trap's DC.
 
 **Combat**
-- **Initiative tracker:** roll-all (d20), roll-missing, Next (wraps), Clear; active turn highlighted on the board and in the panel. A **round counter** (DM-editable) ticks on each wrap; objects (chests/doors/traps) sit out of initiative, and **dead creatures keep their slot but are skipped** (downed PCs still take their death-save turn).
+- **Initiative tracker:** roll-all (d20), roll-missing, Next (wraps), **End combat**; active turn highlighted on the board and in the panel. A **round counter** (DM-editable) ticks on each wrap; objects (chests/doors/traps) sit out of initiative, and **dead creatures keep their slot but are skipped** (downed PCs still take their death-save turn).
 - **Automated weapon attacks**, **saving throws**, and **heals that apply on cast** (Heal-target dropdown, casting mod added) resolve from stat blocks (`shared/combatMath.ts`); every HP change is floated over the token and noted in the log ("Druk HP 42→38").
-- **Dice roller** with a **shared roll log** visible to everyone — quick dice, custom expressions (`2d6+3`) or **`/roll 2d6+3` typed in chat**, advantage/disadvantage, per-die faces, a **Clear** button, and color-coding by roller and by roll type (attacks / saves / plain rolls).
+- **Dice roller** with a **shared roll log** visible to everyone — quick dice, custom expressions (`2d6+3`) or **`/roll 2d6+3` typed in chat**, advantage/disadvantage, per-die faces, a **Clear** button, and color-coding by roller and by roll type (attacks / saves / plain rolls). A DM **Hide DM rolls** toggle keeps the DM's rolls out of player logs (damage still applies).
 - Buff/nerf buttons with custom text drive the green/red status rings.
 
 **Characters**
 - Players claim a character (re-claimed automatically after a page reload), then view and edit their own sheet and see the party / friendly sheets.
+- **Per-player ownership:** the first claim binds a character to that player's browser — nobody else can take or edit it, even while they're offline (the DM can 🔓 unlock it if someone switches devices).
 - 18 skills with proficiency + computed bonuses, class-specific limited-use resources (`server/data/classTables.ts`), and item/inventory tracking.
+- **Prepared/known + cantrip counters** on the spell list (soft caps from class/level — shown red when over, never blocking) with a ✓ Prep toggle per spell, and **action-economy icons** (● action / ⚡ bonus / ↩ reaction) on every ability.
 - Robust **import/export** of a character sheet (`shared/sheetIO.ts`), with overwrite preview/confirm.
 
 **Creatures & art**
 - Offline **SRD** creature search (curated subset) with a **Gemini** AI fallback for anything else, plus AI back-fill of missing stat-block fields and AI character creation from a description.
-- Full editable stat blocks (AC, speed, traits, weapons + a rollable **Spells & Abilities** section shared with PCs — free-text actions convert automatically), reusable one-click spawn templates, multi-spawn with sequential names, disposition (full / neutral / public) controlling what players see.
+- Full editable stat blocks (AC, speed, traits, weapons + a rollable **Spells & Abilities** section shared with PCs — free-text actions convert automatically), reusable one-click spawn templates, multi-spawn with sequential names, disposition (**friendly / neutral / enemy**) controlling what players see — friendly shows the full sheet; neutral and enemy show only name + conditions (the dot color marks intent).
 - Auto emoji icons by name/type + custom icon upload with bulk apply.
 - **Cross-session library** of custom/AI creatures and items for reuse across games.
 
 **DM second screen & shell**
 - `/dm/data` — a standalone **DM Data dashboard** (compact stat cards, large expand overlay, status popovers) for a second monitor or tablet, with a **map switcher** (view/preview any map, **Make active**, auto-follows the live map) and a **collapsible/resizable** roll-log panel.
-- Shared top toolbar, copy-player-link with the join code baked in, optional DM passphrase gate, editable map & session names, and a persistent resume directory shown on **both** the DM and player landing screens.
+- Shared top toolbar, copy-player-link with the join code baked in, an **❔ Guide** button (desktop & mobile control reference for both roles), optional DM passphrase gate, editable map & session names, and a persistent resume directory shown on **both** the DM and player landing screens.
 
 ## Stack
 
@@ -203,6 +215,18 @@ npm run typecheck   # type-check server + client
 npm test            # run the server/shared unit tests (vitest)
 ```
 
+## Always-on cloud hosting (optional, free)
+
+Instead of running the server on your PC behind a per-restart tunnel URL, you
+can host the app 24/7 on a **free Google Cloud `e2-micro` VM** with **one
+permanent HTTPS link** (e.g. `https://yourname.duckdns.org/join?code=TAVERN`)
+that players bookmark once — reachable even when your PC is off, at ~$0/month.
+
+**[`deploy/README.md`](deploy/README.md)** is a complete beginner walkthrough
+(direct links + copy-paste steps: Google Cloud VM → free DuckDNS address →
+one-script install → automatic HTTPS via Caddy). It's purely additive — the
+local `start.bat` / quick-tunnel workflow keeps working unchanged.
+
 ## Testing a pull request (Windows)
 
 When a PR is opened, a matching **`PR #<N> - <Title>.bat`** launcher is added to
@@ -266,7 +290,7 @@ per-feature status. High-level status:
 - **Phase 4 (done):** SRD creature search + Gemini fallback, full stat blocks, reusable spawn templates, multi-spawn with sequential names, duplicate-token, auto + custom token icons.
 - **Phase 5 / 5a (done):** character sheets with skills, disposition, editable NPC stats, AI back-fill; class resources, inventory, sheet import/export; cross-session creature/item library; Roll20 embed; dice roller + shared roll log; automated weapon attacks & saving throws.
 - **Phase 7 (done):** DM Data second-screen dashboard (map switcher + collapsible roll log) and shared top toolbar.
-- **Recent (done):** non-combat **objects** (traps/doors/chests/items) with **lootable chests + a gold purse** and **trap trigger/disarm**; structured AI actions; **player-landing session list**; and **iPad/touch polish** (pinch-zoom, on-screen zoom buttons, touch resize).
+- **Recent (done):** non-combat **objects** (traps/doors/chests/items) with **lootable chests + a gold purse**, **trap trigger/disarm**, player **pick-lock/open**, and **creature loot**; structured AI actions + **AI-generated items**; **player-landing session list**; **iPad/touch polish** (pinch-zoom, on-screen zoom buttons, touch resize, hold-to-open menu); **token shapes & paste-an-image** (object tokens / scenery decals); grid **match/offset/hide/lock**; **hide-DM-rolls**; **prepared-spell counters + action icons**; durable **character ownership**; the **❔ Guide**; and a free **cloud deployment kit** (`deploy/`).
 - **Phase 6 (future):** AI-assisted spell-effect resolution, rules/item lookup, and AI-generated enemy combat dialogue.
 - **Phase 7 (future):** Discord voice/video integration.
 
