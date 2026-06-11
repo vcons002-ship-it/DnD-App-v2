@@ -302,17 +302,44 @@ export function MapStage({
         }
         return;
       }
-      // No pixel data — look for an <img src> in an HTML paste, or a bare
-      // image URL in a text paste.
+      // No pixel data — look for an <img src> in an HTML paste, or a URL in a
+      // text paste. NEVER hijack a paste aimed at a text field (chat etc.).
+      const el = e.target as HTMLElement | null;
+      const editable =
+        !!el &&
+        (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      if (editable) return;
       const html = e.clipboardData?.getData('text/html') ?? '';
       const text = e.clipboardData?.getData('text/plain')?.trim() ?? '';
-      const src = html
-        .match(/<img[^>]+src="(https?:\/\/[^"]+)"/i)?.[1]
-        ?.replace(/&amp;/g, '&');
+      const srcMatch = html.match(/<img[^>]+src=(?:"([^"]+)"|'([^']+)')/i);
+      const src = (srcMatch?.[1] ?? srcMatch?.[2])?.replace(/&amp;/g, '&');
+      // Inline data: URI (some apps embed the pixels in the HTML) — upload it
+      // directly, no server fetch needed.
+      if (src?.startsWith('data:image/')) {
+        e.preventDefault();
+        try {
+          const blob = await (await fetch(src)).blob();
+          const fd = new FormData();
+          fd.append('image', blob, 'paste.png');
+          const res = await fetch('/api/icons', { method: 'POST', body: fd });
+          if (!res.ok) throw new Error('upload failed');
+          const { icon } = await res.json();
+          await openWith(icon);
+        } catch {
+          notify('Could not paste that image.');
+        }
+        return;
+      }
+      // Any http(s) URL is worth trying — Slides/Docs image URLs carry no file
+      // extension; the server verifies the response really is an image.
       const remote =
-        src ??
-        (/^https?:\/\/\S+\.(png|jpe?g|gif|webp)(\?\S*)?$/i.test(text) ? text : '');
-      if (!remote) return;
+        (src && /^https?:\/\//i.test(src) ? src : '') ||
+        (/^https?:\/\/\S+$/i.test(text) ? text : '');
+      if (!remote) {
+        if (html || text)
+          notify('No image on the clipboard — copy the image itself (right-click → Copy image).');
+        return;
+      }
       e.preventDefault();
       try {
         const res = await fetch('/api/icons/from-url', {
@@ -320,7 +347,11 @@ export function MapStage({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: remote }),
         });
-        if (!res.ok) throw new Error('fetch failed');
+        if (!res.ok) {
+          const why = (await res.json().catch(() => null))?.error;
+          notify(`Could not fetch that image link${why ? ` — ${why}` : ''}.`);
+          return;
+        }
         const { icon } = await res.json();
         await openWith(icon);
       } catch {
