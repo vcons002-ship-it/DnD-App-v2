@@ -1117,3 +1117,10 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .item-desc-input { font-size: 12px; }
 .item-ai { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
 .item-ai input { flex: 1; }
+
+/* Spell economy: counters, action-type icon, prepared toggle. */
+.spell-caps { display: flex; gap: 12px; font-size: 12px; margin: 2px 0 6px; }
+.spell-caps .over { color: var(--red); font-weight: 600; }
+.action-icon { margin: 0 4px; color: var(--cyan); font-size: 12px; }
+.action-type-edit { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin: 2px 0; }
+.action-type-edit select { width: auto; }

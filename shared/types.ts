@@ -347,6 +347,11 @@ export type SheetAbility = {
   tags?: string[];
   /** One-line meta, e.g. "1 action · 120 ft · V,S". */
   meta?: string;
+  /** Action economy — drives the ●/⚡/↩ icon. Auto-derived from `meta` on add. */
+  actionType?: 'action' | 'bonus' | 'reaction';
+  /** Prepared-caster bookkeeping: is this leveled spell currently prepared?
+   *  Display-only (soft counters); never blocks casting. */
+  prepared?: boolean;
   /** Full rules text shown in the collapsible body. */
   description: string;
   /** "At Higher Levels" effect — a short note shown when the spell is upcast

@@ -10,6 +10,12 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { healTargets, validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
+import {
+  ACTION_ICON,
+  cantripsKnown,
+  parseActionType,
+  spellCapacity,
+} from '../../../shared/spellPrep';
 import { Spellbook } from './Spellbook';
 
 const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
@@ -162,6 +168,9 @@ export function CharacterSpells({
     setSheetAbility(kind, character.id, {
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
+      actionType: parseActionType(e.meta),
+      // Newly-added leveled spells start prepared for prepared casters.
+      ...(e.type === 'spell' && (e.level ?? 0) > 0 ? { prepared: true } : {}),
     });
     // A feature with a linked use-counter (Rage, Channel Divinity…) creates that
     // resource on the sheet so it's tracked alongside spell slots. PC-only —
@@ -335,6 +344,33 @@ export function CharacterSpells({
   return (
     <div className="spells">
       <h4>Spells, Abilities &amp; Masteries</h4>
+      {'className' in character &&
+        (() => {
+          const lvl = character.level || 1;
+          const spells = character.sheetAbilities.filter((a) => a.type === 'spell');
+          const cantripMax = cantripsKnown(character.className, lvl);
+          const cantripHave = spells.filter((a) => (a.level ?? 0) === 0).length;
+          const cap = spellCapacity(character.className, lvl, character.stats);
+          const leveled = spells.filter((a) => (a.level ?? 0) > 0);
+          const have = cap?.kind === 'prepared'
+            ? leveled.filter((a) => a.prepared !== false).length
+            : leveled.length;
+          if (cantripMax === 0 && !cap) return null;
+          return (
+            <div className="spell-caps muted">
+              {cantripMax > 0 && (
+                <span className={cantripHave > cantripMax ? 'over' : ''}>
+                  Cantrips {cantripHave}/{cantripMax}
+                </span>
+              )}
+              {cap && (
+                <span className={have > cap.max ? 'over' : ''}>
+                  {cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{cap.max}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       {hasAttackSpell && targets.length > 0 && (
         <div className="dice-row">
           <span className="muted spell-tag">Spell target</span>
@@ -376,8 +412,28 @@ export function CharacterSpells({
                 >
                   <span className="spell-caret">{open[a.id] ? '▾' : '▸'}</span>
                   <span className="spell-name">{a.name}</span>
+                  {a.actionType && (
+                    <span
+                      className="action-icon"
+                      title={ACTION_ICON[a.actionType].label}
+                    >
+                      {ACTION_ICON[a.actionType].icon}
+                    </span>
+                  )}
                   {tagFor(a) && <span className="muted spell-tag">{tagFor(a)}</span>}
                 </button>
+
+                {editable && a.type === 'spell' && (a.level ?? 0) > 0 && (
+                  <button
+                    className={`btn tiny ${a.prepared !== false ? 'on' : ''}`}
+                    title={a.prepared !== false ? 'Prepared — click to unprepare' : 'Not prepared'}
+                    onClick={() =>
+                      setSheetAbility(kind, character.id, { ...a, prepared: a.prepared === false })
+                    }
+                  >
+                    {a.prepared !== false ? '✓ Prep' : 'Prep'}
+                  </button>
+                )}
 
                 {editable && autoMastery(a) && (
                   <button
@@ -514,6 +570,29 @@ export function CharacterSpells({
                         ? ` · ${a.maneuver!.save.ability} save${a.maneuver!.save.onFail ? ` or ${a.maneuver!.save.onFail}` : ''}`
                         : ''}
                     </p>
+                  )}
+                  {editable && (
+                    <label className="action-type-edit muted">
+                      Action:
+                      <select
+                        value={a.actionType ?? ''}
+                        onChange={(e) =>
+                          setSheetAbility(kind, character.id, {
+                            ...a,
+                            actionType: (e.target.value || undefined) as
+                              | 'action'
+                              | 'bonus'
+                              | 'reaction'
+                              | undefined,
+                          })
+                        }
+                      >
+                        <option value="">—</option>
+                        <option value="action">● Action</option>
+                        <option value="bonus">⚡ Bonus</option>
+                        <option value="reaction">↩ Reaction</option>
+                      </select>
+                    </label>
                   )}
                   {editable && a.roll && (
                     <div className="sb-roll-edit">
