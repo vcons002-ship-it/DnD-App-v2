@@ -477,6 +477,11 @@ reusable in **any** future session — not just the one they were made in.
   Gauntlets of Ogre Power floor STR at 19), and **AI-generated items include
   them automatically**. Picking the item copies its effects into the inventory,
   where they apply once the item is **equipped/attuned** (the ⚔ toggle).
+- **Saving items is explicit too.** Any item on a character sheet or in a loot
+  container has a **💾** button that saves it to the library (with its magic
+  effects), prompting to rename/overwrite on a name clash. AI-generated items are
+  **not** auto-saved — you generate one into the container, then 💾 it just like a
+  custom item if you want to keep it.
 - There's also a **character library** (see the player sheet's **💾 Save to
   library** and the **📂 Load saved character** picker) for full PCs.
 

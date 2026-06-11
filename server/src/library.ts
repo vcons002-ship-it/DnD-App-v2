@@ -330,6 +330,14 @@ const rowToItem = (r: LibItemRow): LibraryItem => {
   };
 };
 
+/** Exact (case-insensitive) library-item lookup by name, for conflict prompts. */
+export function getLibraryItemByName(name: string): LibraryItem | null {
+  const row = db
+    .prepare('SELECT * FROM library_items WHERE LOWER(name) = ?')
+    .get(name.trim().toLowerCase()) as LibItemRow | undefined;
+  return row ? rowToItem(row) : null;
+}
+
 export function listLibraryItems(query = ''): LibraryItem[] {
   const q = query.trim().toLowerCase();
   const rows = (

@@ -34,6 +34,7 @@ import {
   deleteLibraryCreature,
   deleteLibraryItem,
   getLibraryCreature,
+  getLibraryItemByName,
   listLibraryItems,
   saveLibraryCharacter,
   saveLibraryCreature,
@@ -263,9 +264,17 @@ export function createApiRouter(io: IOServer): Router {
     res.json(listLibraryItems(q));
   });
 
+  // Manual save to the item library (custom OR AI-generated items go through the
+  // same explicit path). A same-named entry yields 409 + the existing item so the
+  // client can prompt rename/overwrite, mirroring the creature/character flow.
   router.post('/library/items', (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
+    const overwrite = req.query.overwrite === 'true';
+    if (!overwrite) {
+      const existing = getLibraryItemByName(name);
+      if (existing) return res.status(409).json({ existing });
+    }
     res.status(201).json(saveLibraryItem({ ...req.body, name }));
   });
 
@@ -274,14 +283,15 @@ export function createApiRouter(io: IOServer): Router {
     res.status(204).end();
   });
 
-  // AI-generate one item from a free-text prompt, save it to the library, return
-  // it. Key-gated: 503 when no key / generation failed (clients fall back).
+  // AI-generate one item from a free-text prompt and RETURN it (not saved). The
+  // caller drops it into an inventory/container; saving to the library is a
+  // separate, explicit choice. Key-gated: 503 when no key / generation failed.
   router.post('/items/generate', async (req, res) => {
     const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
     if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
     const item = await generateItemAI(prompt);
     if (!item) return res.status(503).json({ error: 'AI unavailable' });
-    res.status(201).json(saveLibraryItem(item));
+    res.status(201).json(item);
   });
 
   // Cross-session character library (players + DM save/load full sheets).

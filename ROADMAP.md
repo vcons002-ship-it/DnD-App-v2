@@ -985,9 +985,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   `token:setShape` (DM-only).
 - ☑ **Custom item descriptions + AI-generated items [req].** The loot editor's
   manual "+ Add" gains a Description field, plus an "AI generate" row —
-  `POST /api/items/generate {prompt}` reuses `callGemini`, saves to the item
-  library, and drops the item straight into the container (key-gated +
-  fail-safe).
+  `POST /api/items/generate {prompt}` reuses `callGemini` and drops the item
+  straight into the container (key-gated + fail-safe).
 - ☑ **Prepared/cantrip soft counters + action economy.** `shared/spellPrep.ts`
   (`cantripsKnown` + `spellCapacity`: prepared casters = mod+level/half, known
   casters = per-class table, null for martials; `parseActionType`).
@@ -1170,3 +1169,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   modifiers onto the added item with a ✦n badge, and `setLoot` no longer strips them
   from containers. +4 tests (set-floor math, sanitizer, library round-trip, seed
   presets + backfill).
+- ☑ **Manual item-library save (custom + AI) [req].** AI item generation no
+  longer auto-saves: `POST /api/items/generate` returns the item (with
+  `modifiers`) for the container/inventory, and saving to the library is an
+  explicit **💾** choice — the SAME path for custom and AI items. A new
+  `ItemLibrarySaveDialog` (mirroring the creature/character save) posts to
+  `POST /api/library/items`, which now does a name-conflict check
+  (`getLibraryItemByName` → 409 + existing, `?overwrite=true` to replace) and
+  carries the item's `modifiers`. The 💾 button sits on every inventory + loot
+  row. +1 test (`getLibraryItemByName`).

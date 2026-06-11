@@ -1205,10 +1205,12 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .sb-ab-mod-dot { color: var(--accent); font-size: 9px; vertical-align: super; margin-left: 1px; }
 
 /* Inventory: magic-effect badge + equipped toggle on an item row. */
-.item-fx, .item-equip {
+.item-fx, .item-equip, .item-save {
   background: none; border: none; cursor: pointer; font-size: 12px;
   color: var(--muted); padding: 0 2px;
 }
+.item-save { opacity: 0.75; }
+.item-save:hover { opacity: 1; }
 .item-fx.has-fx { color: var(--cyan-bright); font-weight: 600; }
 /* Same ✦n badge inside a library-picker row (preset magic effects). */
 .lib-fx { color: var(--cyan-bright); font-weight: 600; font-size: 11px; }

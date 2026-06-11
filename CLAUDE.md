@@ -247,9 +247,10 @@ sanitization rules above and commit it to `claude/Main`.
   import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
   descriptions; AI picks level/CR; **AI-generated items** (`POST
-  /api/items/generate` → saved to the item library, dropped into the loot
-  editor); global "AI is working" banner; editable API key + model in
-  **Settings**.
+  /api/items/generate` returns an item with structured `modifiers`, dropped into
+  the loot editor — NOT auto-saved; saving to the library is the same explicit
+  💾 choice as a custom item); global "AI is working" banner; editable API key +
+  model in **Settings**.
 - **Combat:** initiative (Roll-all resets + auto-highlights top, **Add rolls** for
   latecomers, Next/**End combat**) with a **round counter** (`combat_round`, DM-editable
   field in the Initiative header; Next increments on a wrap, shown as a chip

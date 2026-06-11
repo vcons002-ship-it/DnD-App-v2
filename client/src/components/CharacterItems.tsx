@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Character, InventoryItem, LibraryItem, SheetModifier } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { ModifierEditor } from './ModifierEditor';
+import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
 
 /** Per-character inventory: editable list + add free-form or from the searchable
  *  library. Each item can carry a description, viewable in a popup window. */
@@ -24,6 +25,8 @@ export function CharacterItems({
   const [desc, setDesc] = useState<{ name: string; note: string } | null>(null);
   // The inventory item whose magic-effects panel is open (by id; null = none).
   const [fxId, setFxId] = useState<string | null>(null);
+  // The item being saved to the library (custom or AI-added; null = none).
+  const [saveTo, setSaveTo] = useState<SaveableItem | null>(null);
 
   useEffect(() => {
     if (!picker) return;
@@ -126,6 +129,22 @@ export function CharacterItems({
               </span>
             ) : (
               <span className="item-qty muted">×{it.qty}</span>
+            )}
+            {editable && (
+              <button
+                className="item-save"
+                title="Save to item library"
+                onClick={() =>
+                  setSaveTo({
+                    name: it.name,
+                    description: it.note ?? '',
+                    qtyDefault: it.qty,
+                    modifiers: it.modifiers,
+                  })
+                }
+              >
+                💾
+              </button>
             )}
             {editable && (
               <button
@@ -254,6 +273,10 @@ export function CharacterItems({
             />
           </div>
         </div>
+      )}
+
+      {saveTo && (
+        <ItemLibrarySaveDialog item={saveTo} onClose={() => setSaveTo(null)} />
       )}
     </div>
   );

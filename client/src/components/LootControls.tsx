@@ -7,6 +7,7 @@ import type {
   StateSnapshot,
 } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
 
 const newItemId = () => crypto.randomUUID?.() ?? String(Date.now() + Math.random());
 
@@ -46,6 +47,8 @@ export function LootControls({
   const [note, setNote] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
+  // The loot item being saved to the library (custom or AI-added; null = none).
+  const [saveTo, setSaveTo] = useState<SaveableItem | null>(null);
 
   // Who receives the loot: a player takes to their own claimed PC; the DM picks.
   const myCharacter = snapshot.characters.find((c) => c.claimedBy === socketId);
@@ -140,6 +143,22 @@ export function LootControls({
                   onClick={() => takeLoot({ monsterId, characterId: targetId, itemId: it.id })}
                 >
                   Take
+                </button>
+              )}
+              {editable && (
+                <button
+                  className="item-save"
+                  title="Save to item library"
+                  onClick={() =>
+                    setSaveTo({
+                      name: it.name,
+                      description: it.note ?? '',
+                      qtyDefault: it.qty,
+                      modifiers: it.modifiers,
+                    })
+                  }
+                >
+                  💾
                 </button>
               )}
               {editable && (
@@ -290,6 +309,10 @@ export function LootControls({
             </div>
           )}
         </div>
+      )}
+
+      {saveTo && (
+        <ItemLibrarySaveDialog item={saveTo} onClose={() => setSaveTo(null)} />
       )}
     </div>
   );

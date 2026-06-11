@@ -6,6 +6,7 @@ import {
   deleteLibraryCreature,
   saveLibraryItem,
   listLibraryItems,
+  getLibraryItemByName,
   deleteLibraryItem,
   seedLibraryItems,
   saveLibraryCharacter,
@@ -62,6 +63,15 @@ describe('creature library', () => {
     expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(true);
     deleteLibraryItem(it1.id);
     expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(false);
+  });
+
+  it('getLibraryItemByName backs the manual-save conflict prompt (exact, case-insensitive)', () => {
+    const it1 = saveLibraryItem({ name: 'Zzphtest Saver', description: 'd' });
+    expect(getLibraryItemByName('zzphtest saver')!.id).toBe(it1.id);
+    expect(getLibraryItemByName('  ZZPHTEST SAVER ')!.id).toBe(it1.id);
+    expect(getLibraryItemByName('zzphtest')).toBeNull(); // exact match only
+    deleteLibraryItem(it1.id);
+    expect(getLibraryItemByName('zzphtest saver')).toBeNull();
   });
 
   it('round-trips MULTIPLE magic-effect modifiers on one item (validated)', () => {
