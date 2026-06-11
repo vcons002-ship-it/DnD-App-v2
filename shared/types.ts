@@ -118,7 +118,12 @@ export type Token = {
   hideCombatRole: boolean;
   /** Effective role to render (server-computed in buildSnapshot); null = none. */
   combatRole: CombatRole | null;
+  /** Token silhouette. 'image' draws the (unclipped) icon as-is for pasted art. */
+  shape: TokenShape;
 };
+
+/** Token silhouette options (objects default to a non-circle by kind). */
+export type TokenShape = 'circle' | 'square' | 'diamond' | 'triangle' | 'image';
 
 export type Character = {
   id: string;
@@ -683,6 +688,7 @@ export type JoinPayload = {
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
 export type TokenResizePayload = { tokenId: string; widthFt: number };
+export type TokenSetShapePayload = { tokenId: string; shape: TokenShape };
 export type TokenDeletePayload = { tokenId: string };
 /** Duplicate one placed token into a second, independently-tracked copy. */
 export type TokenDuplicatePayload = { tokenId: string };
@@ -1050,6 +1056,7 @@ export interface ClientToServerEvents {
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
+  'token:setShape': (payload: TokenSetShapePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;
   'token:duplicate': (payload: TokenDuplicatePayload) => void;

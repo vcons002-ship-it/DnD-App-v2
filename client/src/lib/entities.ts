@@ -98,7 +98,8 @@ export const sameTokenFields = (a: Token, b: Token): boolean =>
   a.y === b.y &&
   a.widthFt === b.widthFt &&
   a.isHidden === b.isHidden &&
-  a.combatRole === b.combatRole;
+  a.combatRole === b.combatRole &&
+  a.shape === b.shape;
 
 export const sameTokenDisplay = (a: TokenDisplay, b: TokenDisplay): boolean =>
   a.name === b.name &&

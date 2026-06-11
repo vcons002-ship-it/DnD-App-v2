@@ -43,6 +43,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const aiBusy = useStore((s) => s.aiBusy);
   const setTokensCombatRole = useStore((s) => s.setTokensCombatRole);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
+  const setTokenShape = useStore((s) => s.setTokenShape);
   const [savingMonster, setSavingMonster] = useState<Monster | null>(null);
 
   const d = resolveToken(snapshot, token);
@@ -407,6 +408,27 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
                 : undefined
             }
           />
+          <h4>Shape</h4>
+          <div className="disposition-btns">
+            {(
+              [
+                ['circle', '●'],
+                ['square', '■'],
+                ['diamond', '◆'],
+                ['triangle', '▲'],
+                ['image', '🖼'],
+              ] as const
+            ).map(([sh, glyph]) => (
+              <button
+                key={sh}
+                className={`btn tiny ${(token.shape ?? 'circle') === sh ? 'on' : ''}`}
+                title={sh === 'image' ? 'Show the full icon image (no clip)' : sh}
+                onClick={() => setTokenShape(token.id, sh)}
+              >
+                {glyph}
+              </button>
+            ))}
+          </div>
           <h4>Combat role</h4>
           <div className="disposition-btns">
             {([null, 'melee', 'ranged', 'caster'] as const).map((r) => {

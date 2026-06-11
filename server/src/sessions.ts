@@ -370,11 +370,22 @@ export function createToken(opts: {
   x: number;
   y: number;
   isHidden?: boolean;
+  shape?: Token['shape'];
 }): Token {
   const id = newId();
+  // Objects read better as non-circles: chests/doors square, traps triangular.
+  const objectKind =
+    opts.kind === 'monster' ? getMonster(opts.refId)?.objectKind : undefined;
+  const shape: Token['shape'] =
+    opts.shape ??
+    (objectKind === 'trap'
+      ? 'triangle'
+      : objectKind === 'chest' || objectKind === 'door'
+        ? 'square'
+        : 'circle');
   db.prepare(
-    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?)`,
+    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, shape, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?, ?)`,
   ).run(
     id,
     opts.mapId,
@@ -383,9 +394,16 @@ export function createToken(opts: {
     opts.x,
     opts.y,
     opts.isHidden ? 1 : 0,
+    shape,
     Date.now(),
   );
   return getToken(id)!;
+}
+
+/** Set a token's silhouette (DM). */
+export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
+  db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);
+  return getToken(tokenId);
 }
 
 export function moveToken(tokenId: string, x: number, y: number): Token | null {

@@ -1,5 +1,13 @@
 import { memo, useEffect, useRef } from 'react';
-import { Group, Circle, Rect, Text, Image as KonvaImage } from 'react-konva';
+import {
+  Group,
+  Circle,
+  Rect,
+  RegularPolygon,
+  Line,
+  Text,
+  Image as KonvaImage,
+} from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
@@ -174,6 +182,44 @@ function TokenShapeInner({
 
   const roleBadgeR = Math.max(11, radius * 0.36);
 
+  // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
+  // the others fill/stroke a shape and clip image icons to it.
+  const shape = token.shape ?? 'circle';
+  const strokeColor = selected ? '#ffffff' : '#1118';
+  const strokeW = selected ? 4 : 2;
+  // Clip path for an image icon, matched to the silhouette.
+  const clip = (ctx: Konva.Context) => {
+    const r = radius;
+    if (shape === 'square') ctx.rect(-r, -r, r * 2, r * 2);
+    else if (shape === 'diamond') {
+      ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0); ctx.closePath();
+    } else if (shape === 'triangle') {
+      ctx.moveTo(0, -r); ctx.lineTo(r * 0.87, r * 0.5); ctx.lineTo(-r * 0.87, r * 0.5); ctx.closePath();
+    } else ctx.arc(0, 0, r, 0, Math.PI * 2, false);
+  };
+  // The solid silhouette node (fill + stroke) for non-image tokens / outlines.
+  const Silhouette = (props: { fill?: string; opacity?: number; outlineOnly?: boolean }) => {
+    const p = {
+      fill: props.outlineOnly ? undefined : props.fill,
+      stroke: strokeColor,
+      strokeWidth: strokeW,
+      opacity: props.opacity,
+    };
+    if (shape === 'square')
+      return <Rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} {...p} />;
+    if (shape === 'diamond')
+      return <RegularPolygon sides={4} radius={radius * 1.3} {...p} />;
+    if (shape === 'triangle')
+      return (
+        <Line
+          closed
+          points={[0, -radius, radius * 0.87, radius * 0.5, -radius * 0.87, radius * 0.5]}
+          {...p}
+        />
+      );
+    return <Circle radius={radius} {...p} />;
+  };
+
   return (
     <Group
       name="token"
@@ -232,36 +278,46 @@ function TokenShapeInner({
         />
       )}
       {hasImageIcon && iconImg ? (
-        <>
-          <Group
-            opacity={isDead ? 0.5 : 1}
-            clipFunc={(ctx: Konva.Context) => {
-              ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
-            }}
-          >
+        shape === 'image' ? (
+          // Pasted art: draw the whole image as-is (no clip), with an outline
+          // only when selected so it doesn't get a permanent box.
+          <>
             <KonvaImage
               image={iconImg}
               x={-radius}
               y={-radius}
               width={radius * 2}
               height={radius * 2}
+              opacity={isDead ? 0.5 : 1}
             />
-          </Group>
-          <Circle
-            radius={radius}
-            stroke={selected ? '#ffffff' : '#1118'}
-            strokeWidth={selected ? 4 : 2}
-          />
-        </>
+            {selected && (
+              <Rect
+                x={-radius}
+                y={-radius}
+                width={radius * 2}
+                height={radius * 2}
+                stroke="#ffffff"
+                strokeWidth={3}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <Group opacity={isDead ? 0.5 : 1} clipFunc={clip}>
+              <KonvaImage
+                image={iconImg}
+                x={-radius}
+                y={-radius}
+                width={radius * 2}
+                height={radius * 2}
+              />
+            </Group>
+            <Silhouette outlineOnly />
+          </>
+        )
       ) : (
         <>
-          <Circle
-            radius={radius}
-            fill={fill}
-            stroke={selected ? '#ffffff' : '#1118'}
-            strokeWidth={selected ? 4 : 2}
-            opacity={isDead ? 0.5 : 1}
-          />
+          <Silhouette fill={fill} opacity={isDead ? 0.5 : 1} />
           {hasEmojiIcon && !isDead && (
             <Text
               text={display.icon}

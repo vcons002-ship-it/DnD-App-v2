@@ -93,6 +93,7 @@ import {
   importMaps,
   previewImportCharacters,
   resizeToken,
+  setTokenShape,
   updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
@@ -392,6 +393,14 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('token:resize', ({ tokenId, widthFt }) => {
       if (!isDm()) return; // resizing is a DM action; players may only move
       resizeToken(tokenId, widthFt);
+      afterChange();
+    });
+
+    socket.on('token:setShape', ({ tokenId, shape }) => {
+      if (!isDm()) return;
+      const ok = ['circle', 'square', 'diamond', 'triangle', 'image'];
+      if (!ok.includes(shape)) return;
+      setTokenShape(tokenId, shape);
       afterChange();
     });
 

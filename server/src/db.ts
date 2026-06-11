@@ -356,6 +356,8 @@ ensureColumn(
   'hide_combat_role',
   'hide_combat_role INTEGER NOT NULL DEFAULT 0',
 );
+// Token silhouette ('circle' default; objects default to a non-circle by kind).
+ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
 // Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
 ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
@@ -518,6 +520,7 @@ type TokenRow = {
   is_hidden: number;
   combat_role_override: Token['combatRoleOverride'];
   hide_combat_role: number;
+  shape: string | null;
 };
 
 export function rowToToken(r: TokenRow): Token {
@@ -536,6 +539,7 @@ export function rowToToken(r: TokenRow): Token {
     hideCombatRole: !!r.hide_combat_role,
     // Effective role is filled in by buildSnapshot (needs creature context).
     combatRole: null,
+    shape: (r.shape as Token['shape']) ?? 'circle',
   };
 }
 

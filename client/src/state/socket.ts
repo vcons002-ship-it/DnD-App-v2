@@ -32,6 +32,7 @@ import type {
   SkillRollPayload,
   StateSnapshot,
   TokenKind,
+  TokenShape,
 } from '../../../shared/types';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -148,6 +149,7 @@ type Store = {
   ) => void;
   moveToken: (tokenId: string, x: number, y: number) => void;
   resizeToken: (tokenId: string, widthFt: number) => void;
+  setTokenShape: (tokenId: string, shape: TokenShape) => void;
   deleteToken: (tokenId: string) => void;
   duplicateToken: (tokenId: string) => void;
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
@@ -415,6 +417,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:move', { tokenId, x, y }),
   resizeToken: (tokenId, widthFt) =>
     get().socket?.emit('token:resize', { tokenId, widthFt }),
+  setTokenShape: (tokenId, shape) =>
+    get().socket?.emit('token:setShape', { tokenId, shape }),
   deleteToken: (tokenId) => get().socket?.emit('token:delete', { tokenId }),
   duplicateToken: (tokenId) =>
     get().socket?.emit('token:duplicate', { tokenId }),
