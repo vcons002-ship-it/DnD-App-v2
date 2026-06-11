@@ -292,14 +292,48 @@ export function MapStage({
 
   const image = useImage(map?.imagePath ?? null);
 
+  // Remount the Stage when devicePixelRatio changes (e.g. snapping the window
+  // to a monitor with different Windows scaling) — Konva sizes its canvas
+  // buffer at creation, so without this the map renders blurry/misaligned.
+  const [dprKey, setDprKey] = useState(0);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setSize({ w: el.clientWidth, h: el.clientHeight });
+    let frame = 0;
+    const apply = (w: number, h: number) =>
+      // Skip no-op updates: a Windows snap fires a burst of resize events and
+      // re-rendering the full canvas for each glitched the map + UI.
+      setSize((cur) => (cur.w === w && cur.h === h ? cur : { w, h }));
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[entries.length - 1]?.contentRect;
+      if (!rect) return;
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      // Coalesce the burst into one update per animation frame.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => apply(w, h));
     });
     ro.observe(el);
-    return () => ro.disconnect();
+
+    // Watch for DPI changes (cross-monitor snap with different scaling).
+    let mql: MediaQueryList | null = null;
+    const onDpr = () => {
+      setDprKey((k) => k + 1);
+      watchDpr(); // re-arm at the new ratio
+    };
+    const watchDpr = () => {
+      mql?.removeEventListener?.('change', onDpr);
+      mql = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      mql.addEventListener?.('change', onDpr);
+    };
+    watchDpr();
+
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(frame);
+      mql?.removeEventListener?.('change', onDpr);
+    };
   }, []);
 
   // Natural map dimensions (fall back to a grid-sized blank canvas).
@@ -1078,6 +1112,7 @@ export function MapStage({
               toolSlot,
             )}
           <Stage
+            key={dprKey}
             width={size.w}
             height={size.h}
             onMouseDown={handleMouseDown}

@@ -94,7 +94,9 @@ input[type='number'] { width: 70px; }
 .map-tool-menus { display: flex; align-items: center; gap: 6px; }
 .active-map em { color: var(--accent); font-style: italic; }
 .body { display: flex; flex: 1; min-height: 0; position: relative; }
-.center { flex: 1; min-width: 0; background: #0e0f12; }
+/* overflow:hidden so the fixed-pixel canvas can't shove the layout around for
+   the frames between a window snap/resize and the canvas catching up. */
+.center { flex: 1; min-width: 0; background: #0e0f12; overflow: hidden; position: relative; }
 .loading { padding: 40px; text-align: center; color: var(--muted); }
 
 /* Collapsible / resizable side panels */
@@ -127,7 +129,7 @@ input[type='number'] { width: 70px; }
 .resize-handle.right { left: -7px; }
 
 .stage-wrap {
-  width: 100%; height: 100%; position: relative; touch-action: none;
+  width: 100%; height: 100%; position: relative; touch-action: none; overflow: hidden;
   /* iOS: a long-press on a token opens our menu — suppress the native callout
      / text-selection magnifier so it doesn't fight the gesture. */
   -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
