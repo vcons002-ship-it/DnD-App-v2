@@ -35,6 +35,7 @@ import {
   advanceTurn,
   applyDamage,
   claimCharacter,
+  setCharacterOwner,
   clearCondition,
   clearInitiative,
   clearRollLog,
@@ -147,6 +148,10 @@ export function registerSocketHandlers(io: IOServer): void {
         sessionId: session.id,
         role: payload.role,
         viewMapId: session.activeMapId,
+        playerId:
+          typeof payload.playerId === 'string' && payload.playerId.trim()
+            ? payload.playerId.slice(0, 64)
+            : null,
       });
       socket.join(roomName(session.id));
       touchSession(session.id); // keep the resume directory fresh
@@ -513,20 +518,44 @@ export function registerSocketHandlers(io: IOServer): void {
 
     socket.on('character:claim', ({ characterId }) => {
       if (!sessionId()) return;
-      claimCharacter(characterId, socket.id);
+      const c = getCharacter(characterId);
+      if (!c) return;
+      const pid = getConn(socket.id)?.playerId ?? null;
+      if (!isDm()) {
+        // Never steal a character another LIVE player is holding…
+        if (c.claimedBy && c.claimedBy !== socket.id && isConnected(c.claimedBy)) return;
+        // …and a character stays its owner's even while they're offline.
+        if (c.ownerId && c.ownerId !== pid) {
+          socket.emit('notice', {
+            message: `${c.name} belongs to another player — ask the DM to unlock it.`,
+          });
+          return;
+        }
+      }
+      claimCharacter(characterId, socket.id, isDm() ? null : pid);
+      afterChange();
+    });
+
+    // DM: clear a character's owner + claim (player switched devices/browser).
+    socket.on('character:unlock', ({ characterId }) => {
+      if (!isDm() || !getCharacter(characterId)) return;
+      setCharacterOwner(characterId, null);
       afterChange();
     });
 
     socket.on('character:create', (p) => {
       const sid = sessionId();
       if (!sid || !p.name?.trim()) return; // DM or player may add a character
-      createCharacter(sid, {
+      const created = createCharacter(sid, {
         name: p.name,
         race: p.race,
         className: p.className,
         maxHp: p.maxHp,
         stats: p.stats,
       });
+      // A player's new character is theirs from the start.
+      const pid = getConn(socket.id)?.playerId;
+      if (created && !isDm() && pid) setCharacterOwner(created.id, pid);
       afterChange();
     });
 
@@ -534,8 +563,9 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !name?.trim()) return; // DM or player may load a saved sheet
       const created = createCharacterFromLibrary(sid, name);
-      // A player loading their own sheet claims it immediately.
-      if (created && claim && !isDm()) claimCharacter(created.id, socket.id);
+      // A player loading their own sheet claims (and thereby owns) it.
+      if (created && claim && !isDm())
+        claimCharacter(created.id, socket.id, getConn(socket.id)?.playerId ?? null);
       afterChange();
     });
 

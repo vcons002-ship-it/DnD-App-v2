@@ -415,6 +415,9 @@ ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'superiority_die', 'superiority_die TEXT');
 ensureColumn('characters', 'death_successes', 'death_successes INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'death_failures', 'death_failures INTEGER NOT NULL DEFAULT 0');
+// Durable per-player ownership (random browser id) — survives reconnects so
+// only the owning player (or DM) can re-claim and edit the sheet.
+ensureColumn('characters', 'owner_player_id', 'owner_player_id TEXT');
 
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
@@ -587,6 +590,7 @@ type CharacterRow = {
   sheet_abilities: string;
   conditions: string;
   claimed_by: string | null;
+  owner_player_id: string | null;
   last_attack_role: string | null;
   superiority_die: string | null;
   death_successes: number | null;
@@ -622,6 +626,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
     conditions: JSON.parse(r.conditions) as Condition[],
     claimedBy: r.claimed_by,
+    ownerId: r.owner_player_id ?? null,
     lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
     superiorityDie: r.superiority_die ?? undefined,
     deathSaves: {

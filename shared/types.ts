@@ -168,6 +168,11 @@ export type Character = {
   superiorityDie?: string;
   /** socketId of the player who has claimed this character, or null. */
   claimedBy: string | null;
+  /** Durable per-browser player id of the character's owner (set on first
+   *  claim/creation by a player). Only the owner — or the DM, who can also
+   *  unlock it — may claim/edit the sheet; survives reconnects, unlike
+   *  `claimedBy`. Null = unowned (any player may claim). */
+  ownerId: string | null;
   conditions: Condition[];
   /** 5e death saving throws while at 0 HP (each caps at 3). Reset when healed
    *  above 0; 3 successes = stable, 3 failures = dead. */
@@ -701,6 +706,9 @@ export type JoinPayload = {
   role: Role;
   /** Required when role === 'dm' and a DM passphrase is configured. */
   dmPassphrase?: string;
+  /** Durable random per-browser id — anchors character ownership across
+   *  reconnects (socket ids change on every refresh). */
+  playerId?: string;
 };
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
@@ -1108,6 +1116,7 @@ export interface ClientToServerEvents {
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;
+  'character:unlock': (payload: ClaimCharacterPayload) => void;
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;

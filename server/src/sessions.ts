@@ -1880,6 +1880,7 @@ export function updateCharacter(
 export function claimCharacter(
   characterId: string,
   socketId: string,
+  playerId?: string | null,
 ): Character | null {
   // A player holds exactly one character — release any prior claim first so
   // "change character" frees the old one instead of orphaning it.
@@ -1888,7 +1889,29 @@ export function claimCharacter(
     socketId,
     characterId,
   );
+  // First claim by an identified player takes durable ownership (kept across
+  // reconnects; only the owner or the DM can claim/edit from then on).
+  if (playerId) {
+    db.prepare(
+      'UPDATE characters SET owner_player_id = ? WHERE id = ? AND owner_player_id IS NULL',
+    ).run(playerId, characterId);
+  }
   return getCharacter(characterId);
+}
+
+/** Set/clear a character's durable owner (DM unlock passes null; clearing also
+ *  releases the live claim so the sheet is immediately up for grabs). */
+export function setCharacterOwner(characterId: string, ownerId: string | null): void {
+  if (ownerId === null) {
+    db.prepare(
+      'UPDATE characters SET owner_player_id = NULL, claimed_by = NULL WHERE id = ?',
+    ).run(characterId);
+  } else {
+    db.prepare('UPDATE characters SET owner_player_id = ? WHERE id = ?').run(
+      ownerId,
+      characterId,
+    );
+  }
 }
 
 export function releaseClaims(socketId: string): void {

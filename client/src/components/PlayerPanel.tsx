@@ -1,5 +1,5 @@
 import type { StateSnapshot } from '../../../shared/types';
-import { useStore } from '../state/socket';
+import { getPlayerId, useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { NewCharacterForm } from './NewCharacterForm';
 import { LibraryCharacterPicker } from './LibraryCharacterPicker';
@@ -33,24 +33,38 @@ export function PlayerPanel({
         <div className="panel-section">
           <h3>Choose your character</h3>
           <p className="hint">Tap a character below to play as them.</p>
-          {snapshot.characters.map((c) => (
-            <button
-              key={c.id}
-              className="spawn-row claim-row"
-              disabled={!!c.claimedBy}
-              onClick={() => onClaim(c.id)}
-              title={c.claimedBy ? 'Already taken by another player' : 'Play as this character'}
-            >
-              <span>
-                {c.name} <span className="muted">{c.race} {c.className}</span>
-              </span>
-              {c.claimedBy ? (
-                <span className="badge">taken</span>
-              ) : (
-                <span className="badge claim-cta">Play</span>
-              )}
-            </button>
-          ))}
+          {snapshot.characters.map((c) => {
+            // Owned by a different player (durable id) → locked even while
+            // they're offline; the DM can unlock it from the spawn list.
+            const lockedToOther = !!c.ownerId && c.ownerId !== getPlayerId();
+            const taken = !!c.claimedBy && !lockedToOther;
+            return (
+              <button
+                key={c.id}
+                className="spawn-row claim-row"
+                disabled={!!c.claimedBy || lockedToOther}
+                onClick={() => onClaim(c.id)}
+                title={
+                  lockedToOther
+                    ? "Another player's character — ask the DM to unlock it"
+                    : taken
+                      ? 'Already taken by another player'
+                      : 'Play as this character'
+                }
+              >
+                <span>
+                  {c.name} <span className="muted">{c.race} {c.className}</span>
+                </span>
+                {lockedToOther ? (
+                  <span className="badge">🔒 locked</span>
+                ) : taken ? (
+                  <span className="badge">taken</span>
+                ) : (
+                  <span className="badge claim-cta">Play</span>
+                )}
+              </button>
+            );
+          })}
           {snapshot.characters.length === 0 && (
             <p className="muted">No characters in this session yet.</p>
           )}

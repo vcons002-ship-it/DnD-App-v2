@@ -32,6 +32,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
   const deleteCharacter = useStore((s) => s.deleteCharacter);
+  const unlockCharacter = useStore((s) => s.unlockCharacter);
   const setGlobalAiBusy = useStore((s) => s.setAiBusy);
   const notify = useStore((s) => s.notify);
   const copyTokens = useStore((s) => s.copyTokens);
@@ -313,6 +314,18 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
             >
               {c.name} <span className="muted">{c.className}</span>
             </button>
+            {c.ownerId && (
+              <button
+                className="btn tiny"
+                title="Unlock: clear this character's owner so a different player (e.g. a new device) can claim it"
+                onClick={() => {
+                  if (window.confirm(`Unlock ${c.name} so any player can claim it?`))
+                    unlockCharacter(c.id);
+                }}
+              >
+                🔓
+              </button>
+            )}
             <button
               className="btn tiny"
               title={

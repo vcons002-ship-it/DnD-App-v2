@@ -167,6 +167,7 @@ type Store = {
   ) => void;
   clearCondition: (kind: TokenKind, refId: string, conditionId: string) => void;
   claimCharacter: (characterId: string) => void;
+  unlockCharacter: (characterId: string) => void;
   createCharacter: (input: CharacterCreatePayload) => void;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
@@ -251,6 +252,30 @@ const clearSavedSession = () => {
     /* ignore */
   }
 };
+
+/**
+ * Durable per-browser player id (localStorage, shared across sessions) — sent
+ * on join so character ownership survives reconnects/reloads. Random, no PII.
+ */
+const PLAYER_ID_KEY = 'dnd.playerId';
+let playerIdMemo: string | null = null;
+export function getPlayerId(): string {
+  if (playerIdMemo) return playerIdMemo;
+  const fresh =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    playerIdMemo = localStorage.getItem(PLAYER_ID_KEY);
+    if (!playerIdMemo) {
+      localStorage.setItem(PLAYER_ID_KEY, fresh);
+      playerIdMemo = fresh;
+    }
+  } catch {
+    playerIdMemo = fresh; // private mode — ownership lasts this tab only
+  }
+  return playerIdMemo;
+}
 
 export const useStore = create<Store>((set, get) => ({
   socket: null,
@@ -348,7 +373,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('connect', () => {
       socket.emit(
         'join',
-        { sessionCode: code, role, dmPassphrase },
+        { sessionCode: code, role, dmPassphrase, playerId: getPlayerId() },
         (ack: JoinAck) => {
           if (ack.ok) {
             set({ status: 'connected', snapshot: ack.snapshot, error: null });
@@ -450,6 +475,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('condition:clear', { kind, refId, conditionId }),
   claimCharacter: (characterId) =>
     get().socket?.emit('character:claim', { characterId }),
+  unlockCharacter: (characterId) =>
+    get().socket?.emit('character:unlock', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
   updateCharacter: (payload) => get().socket?.emit('character:update', payload),
   aiFillCharacter: (characterId) => {
