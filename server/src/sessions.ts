@@ -2262,10 +2262,14 @@ export function applyDamage(
     nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
   }
   // Float a ±X over the token when the effective pool (HP + temp) changed.
-  // Damage absorbed by temp HP still reads as the full hit.
+  // Damage absorbed by temp HP still reads as the full hit. Damage to a
+  // creature ALREADY at 0 HP changes nothing numerically but must still read
+  // as a hit (death-save failures, attacking a downed body) — float the
+  // attempted amount.
   const delta = nextCur + nextTemp - (entity.curHp + entity.tempHp);
-  if (delta !== 0 && hpFxQueue.length < 200)
-    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta });
+  const fxDelta = delta !== 0 ? delta : amount > 0 ? -amount : 0;
+  if (fxDelta !== 0 && hpFxQueue.length < 200)
+    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta: fxDelta });
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {

@@ -399,16 +399,16 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('token:move', ({ tokenId, x, y }) => {
       if (!sessionId()) return;
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
-      // enemy/neutral tokens are the DM's. Hidden tokens are never sent to
-      // players, so a non-DM move of one is stale/forged.
+      // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
+      // Hidden tokens are never sent to players, so a non-DM move of one is
+      // stale/forged.
       if (!isDm()) {
         const t = getToken(tokenId);
         if (!t || t.isHidden) return;
-        if (
-          t.kind === 'monster' &&
-          getMonster(t.refId)?.disposition !== 'friendly'
-        )
-          return;
+        if (t.kind === 'monster') {
+          const m = getMonster(t.refId);
+          if (!m || m.disposition !== 'friendly' || m.objectKind) return;
+        }
       }
       moveToken(tokenId, x, y);
       afterChange();

@@ -1217,27 +1217,40 @@ export function MapStage({
                 gridSizePx={grid}
                 pxPerFoot={pxPerFoot}
               />
-              {snapshot.tokens.map((t) => (
-                <TokenShape
-                  key={t.id}
-                  token={t}
-                  display={resolveToken(snapshot, t)}
-                  gridSizePx={grid}
-                  pxPerFoot={pxPerFoot}
-                  draggable={draggableTokens && !fogActive && !measureActive && !saveResolve}
-                  listening={!measureActive}
-                  selected={selectedIds.includes(t.id)}
-                  activeTurn={t.id === activeTurnTokenId}
-                  initiativeRank={initiativeRank.get(t.id) ?? null}
-                  onSelect={handleTokenSelect}
-                  onActivate={handleTokenActivate}
-                  onMove={handleTokenMove}
-                  onContextMenu={handleTokenMenu}
-                  onHover={handleTokenHover}
-                  onHoverEnd={handleTokenHoverEnd}
-                  onDragActive={setDraggingToken}
-                />
-              ))}
+              {snapshot.tokens.map((t) => {
+                const d = resolveToken(snapshot, t);
+                // Players may drag only their side: PCs + friendly creatures,
+                // never objects. Mirrors the server's token:move gate — without
+                // this the drag succeeds locally (a ghost move on the player's
+                // screen) even though the server rejects it.
+                const movable =
+                  isDm ||
+                  t.kind === 'pc' ||
+                  (d.disposition === 'friendly' && !d.objectKind);
+                return (
+                  <TokenShape
+                    key={t.id}
+                    token={t}
+                    display={d}
+                    gridSizePx={grid}
+                    pxPerFoot={pxPerFoot}
+                    draggable={
+                      draggableTokens && movable && !fogActive && !measureActive && !saveResolve
+                    }
+                    listening={!measureActive}
+                    selected={selectedIds.includes(t.id)}
+                    activeTurn={t.id === activeTurnTokenId}
+                    initiativeRank={initiativeRank.get(t.id) ?? null}
+                    onSelect={handleTokenSelect}
+                    onActivate={handleTokenActivate}
+                    onMove={handleTokenMove}
+                    onContextMenu={handleTokenMenu}
+                    onHover={handleTokenHover}
+                    onHoverEnd={handleTokenHoverEnd}
+                    onDragActive={setDraggingToken}
+                  />
+                );
+              })}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.

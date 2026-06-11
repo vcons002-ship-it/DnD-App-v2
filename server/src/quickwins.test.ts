@@ -100,12 +100,14 @@ describe('HP-change FX queue (floating ±X)', () => {
     updateCharacter(ch.id, { tempHp: 5 });
     applyDamage('pc', ch.id, 7); // 5 temp absorbs, 2 real — full −7 floats
     applyDamage('pc', ch.id, 0); // no change → no event
+    applyDamage('pc', ch.id, 999); // 40 → 0 (the effective −40 floats)
+    applyDamage('pc', ch.id, 6); // already at 0 — still floats the full hit
 
     const bystander = createCharacter(other.id, { name: 'B', maxHp: 10 });
     applyDamage('pc', bystander.id, 3);
 
     const events = drainHpFx(s.id);
-    expect(events.map((e) => e.delta)).toEqual([-4, 4, -7]);
+    expect(events.map((e) => e.delta)).toEqual([-4, 4, -7, -40, -6]);
     expect(events.every((e) => e.kind === 'pc' && e.refId === ch.id)).toBe(true);
     // Drained: a second call returns nothing; the other session keeps its own.
     expect(drainHpFx(s.id)).toEqual([]);

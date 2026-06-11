@@ -650,6 +650,25 @@ describe('secondary weapon damage (flaming sword)', () => {
     expect(checked).toBe(true);
   });
 
+  it('does NOT double the rider on a crit (10 slashing + 6 fire = 16)', () => {
+    const { s, map, atk } = flameSword('6d1'); // always 6 fire
+    const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
+    const ref = instantiateMonster(dt.id)!.id;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: ref, x: 1, y: 1 });
+    let checked = false;
+    for (let i = 0; i < 200 && !checked; i++) {
+      const before = getMonster(ref)!.curHp;
+      resolveAttack(s.id, 'F', atk.id, tok.id, 0);
+      const last = listRollLog(s.id).at(-1)!;
+      if (/CRIT/.test(last.detail)) {
+        checked = true;
+        // The flat 10 slashing has no dice to crit; the fire rider rolls ONCE.
+        expect(before - getMonster(ref)!.curHp).toBe(16);
+      }
+    }
+    expect(checked).toBe(true);
+  });
+
   it('resists ONLY the rider type (fire 6 → 3; slashing 10 unaffected = 13)', () => {
     const { s, map, atk } = flameSword('6d1'); // always 6 fire
     const dt = createMonsterTemplate(s.id, { name: 'Salamander', maxHp: 9999, armorClass: 1, resistances: ['fire'] });

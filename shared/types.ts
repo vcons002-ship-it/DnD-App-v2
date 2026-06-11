@@ -53,8 +53,9 @@ export type Weapon = {
   /**
    * A secondary damage rider of a DIFFERENT type — e.g. a flaming sword's
    * `extraDamage: "1d6"`, `extraDamageType: "fire"` on top of its slashing
-   * `damage`. Rolled on a hit (doubled on a crit) and resisted/amplified by the
-   * target separately from the main type. Works for PC and creature weapons.
+   * `damage`. Rolled ONCE on a hit (never doubled on a crit) and resisted/
+   * amplified by the target separately from the main type. Works for PC and
+   * creature weapons.
    */
   extraDamage?: string;
   /** Damage type of `extraDamage` (e.g. "fire"); display + resistance only. */

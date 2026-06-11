@@ -325,10 +325,10 @@ export function resolveAttack(
     );
   }
   // Secondary damage rider of a different type (e.g. a flaming sword's fire),
-  // rolled on a hit (doubled on a crit) and resisted on its OWN type.
+  // rolled ONCE on a hit — never doubled on a crit (only the weapon's own dice
+  // crit) — and resisted on its OWN type.
   if (out.hit && weapon.extraDamage) {
     let ex = rollDice(weapon.extraDamage)?.total ?? 0;
-    if (out.crit) ex += rollDice(weapon.extraDamage)?.total ?? 0;
     const exMult = damageMultiplier(weapon.extraDamageType, t.resistances, t.weaknesses);
     ex = Math.floor(ex * exMult);
     if (ex > 0) {
