@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { signed } from '../../../shared/skills';
+import { type ModSource, effectiveAc, effectiveStats } from '../../../shared/modifiers';
 import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
 import { DAMAGE_TYPES } from '../../../shared/damage';
 
@@ -354,6 +355,11 @@ function ReadView({
 }) {
   const m = creature;
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
+  // Effective ability scores fold in feat/ASI + equipped-item modifiers (a PC
+  // carries `modifiers`/`items`; a monster has neither → base scores), with a
+  // per-ability breakdown for the stat-math tooltip.
+  const eff = effectiveStats(m as unknown as ModSource);
+  const effAc = effectiveAc(m as unknown as ModSource) || m.armorClass;
   // PCs (masteries passed) store dice-only damage; show it with the live ability
   // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
   const isPc = masteries !== undefined;
@@ -400,7 +406,20 @@ function ReadView({
       )}
       <div className="sb-meta">
         {m.level > 0 && <span>{levelLabel} {m.level}</span>}
-        {m.armorClass > 0 && <span>AC {m.armorClass}</span>}
+        {/* Effective AC (base + equipped-item/feat bonuses) — what the server
+            actually defends with; the dot + tooltip show the math. */}
+        {m.armorClass > 0 && (
+          <span
+            title={
+              effAc !== m.armorClass
+                ? `AC ${effAc} = ${m.armorClass} base ${signed(effAc - m.armorClass)} from modifiers`
+                : undefined
+            }
+          >
+            AC {effAc}
+            {effAc !== m.armorClass && <span className="sb-ab-mod-dot">•</span>}
+          </span>
+        )}
         <span>
           HP {m.curHp}/{m.maxHp}
           {m.tempHp > 0 && <span className="temp-hp"> +{m.tempHp} temp</span>}
@@ -411,13 +430,27 @@ function ReadView({
       {hasStats && (
         <div className="sb-abilities">
           {ABILITIES.map((a) => {
-            const score = m.stats[a];
+            const bd = eff.breakdown[a];
+            const score = bd?.total;
+            // Tooltip shows the math when modifiers apply ("20 = 18 base + 2 …");
+            // a set-score part reads "→19" (the item floors the score there).
+            const mathTitle =
+              bd && bd.parts.length
+                ? `${a} ${bd.total} = ${bd.base} base ${bd.parts
+                    .map((p) => `${p.set ? `→${p.value}` : signed(p.value)} ${p.source}`)
+                    .join(' ')}`
+                : '';
+            const title =
+              [mathTitle, onRollSave && score !== undefined ? `roll ${a} save` : '']
+                .filter(Boolean)
+                .join(' · ') || undefined;
             const cell = (
               <>
                 <div className="sb-ab-name">{a}</div>
                 <div className="sb-ab-val">
                   {score ?? '—'}
                   {score !== undefined && <span className="muted"> ({mod(score)})</span>}
+                  {bd && bd.parts.length > 0 && <span className="sb-ab-mod-dot">•</span>}
                 </div>
               </>
             );
@@ -427,13 +460,13 @@ function ReadView({
                 key={a}
                 type="button"
                 className="sb-ability sb-ability-roll"
-                title={`Roll a ${a} saving throw`}
+                title={title ?? `Roll a ${a} saving throw`}
                 onClick={() => onRollSave(a)}
               >
                 {cell}
               </button>
             ) : (
-              <div key={a} className="sb-ability">
+              <div key={a} className="sb-ability" title={title}>
                 {cell}
               </div>
             );

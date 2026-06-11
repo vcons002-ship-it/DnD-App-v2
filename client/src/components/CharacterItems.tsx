@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { Character, LibraryItem } from '../../../shared/types';
+import type { Character, InventoryItem, LibraryItem, SheetModifier } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { ModifierEditor } from './ModifierEditor';
+import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
 
 /** Per-character inventory: editable list + add free-form or from the searchable
  *  library. Each item can carry a description, viewable in a popup window. */
@@ -21,6 +23,12 @@ export function CharacterItems({
   const [lib, setLib] = useState<LibraryItem[]>([]);
   // The inventory item whose description window is open (null = none).
   const [desc, setDesc] = useState<{ name: string; note: string } | null>(null);
+  // The inventory item whose magic-effects panel is open (by id; null = none).
+  const [fxId, setFxId] = useState<string | null>(null);
+  // The item being saved to the library (custom or AI-added; null = none).
+  const [saveTo, setSaveTo] = useState<SaveableItem | null>(null);
+  // Bumped after a library save so an open picker refetches and shows it.
+  const [libRefresh, setLibRefresh] = useState(0);
 
   useEffect(() => {
     if (!picker) return;
@@ -32,23 +40,31 @@ export function CharacterItems({
     return () => {
       live = false;
     };
-  }, [picker, query]);
+  }, [picker, query, libRefresh]);
 
   if (character.items.length === 0 && character.gold === 0 && !editable) return null;
 
-  const add = (n: string, q: number, note = '') => {
+  const add = (n: string, q: number, note = '', modifiers?: SheetModifier[]) => {
     if (!n.trim()) return;
     setItem(character.id, {
       id: crypto.randomUUID?.() ?? String(Date.now()),
       name: n.trim(),
       qty: q,
       note,
+      // Library presets (e.g. Cloak of Protection's +1 AC / +1 saves) come along;
+      // they stay dormant until the player equips the item.
+      ...(modifiers && modifiers.length ? { modifiers } : {}),
     });
   };
   const changeQty = (id: string, delta: number) => {
     const item = character.items.find((i) => i.id === id);
     if (item) setItem(character.id, { ...item, qty: Math.max(0, item.qty + delta) });
   };
+  const setMods = (it: InventoryItem, modifiers: SheetModifier[]) =>
+    setItem(character.id, { ...it, modifiers });
+  const toggleEquip = (it: InventoryItem) =>
+    setItem(character.id, { ...it, equipped: !it.equipped });
+  const fxItem = character.items.find((i) => i.id === fxId) ?? null;
 
   return (
     <div className="items">
@@ -82,6 +98,27 @@ export function CharacterItems({
               ℹ️
             </button>
             <span className="item-name">{it.name}</span>
+            {/* Magic effects: open the editor (editable) or a read-only view.
+                A ✦ badge shows the modifier count; ⚔ marks an equipped item. */}
+            {(editable || (it.modifiers?.length ?? 0) > 0) && (
+              <button
+                className={`item-fx${(it.modifiers?.length ?? 0) > 0 ? ' has-fx' : ''}`}
+                title="Magic effects"
+                onClick={() => setFxId(it.id)}
+              >
+                ✦{(it.modifiers?.length ?? 0) > 0 ? it.modifiers!.length : ''}
+              </button>
+            )}
+            {(it.modifiers?.length ?? 0) > 0 && (
+              <button
+                className={`item-equip${it.equipped ? ' on' : ''}`}
+                title={it.equipped ? 'Equipped (effects active)' : 'Not equipped'}
+                onClick={() => editable && toggleEquip(it)}
+                disabled={!editable}
+              >
+                {it.equipped ? '⚔' : '🛡'}
+              </button>
+            )}
             {editable ? (
               <span className="item-qty">
                 <button className="qbtn" onClick={() => changeQty(it.id, -1)}>
@@ -94,6 +131,22 @@ export function CharacterItems({
               </span>
             ) : (
               <span className="item-qty muted">×{it.qty}</span>
+            )}
+            {editable && (
+              <button
+                className="item-save"
+                title="Save to item library"
+                onClick={() =>
+                  setSaveTo({
+                    name: it.name,
+                    description: it.note ?? '',
+                    qtyDefault: Math.max(1, it.qty), // a run-down stack still saves a usable default
+                    modifiers: it.modifiers,
+                  })
+                }
+              >
+                💾
+              </button>
             )}
             {editable && (
               <button
@@ -152,10 +205,13 @@ export function CharacterItems({
                   <div key={li.id} className="lib-row">
                     <button
                       className="suggest-row"
-                      onClick={() => add(li.name, li.qtyDefault, li.description)}
+                      onClick={() => add(li.name, li.qtyDefault, li.description, li.modifiers)}
                       title="Add to inventory"
                     >
                       {li.name}
+                      {(li.modifiers?.length ?? 0) > 0 && (
+                        <span className="lib-fx" title="Has magic effects"> ✦{li.modifiers!.length}</span>
+                      )}
                       <span className="muted">×{li.qtyDefault}</span>
                     </button>
                     {li.description && (
@@ -187,6 +243,46 @@ export function CharacterItems({
             <p>{desc.note || <span className="muted">No description for this item.</span>}</p>
           </div>
         </div>
+      )}
+
+      {fxItem && (
+        <div className="popover-backdrop spellbook-backdrop" onClick={() => setFxId(null)}>
+          <div className="item-desc-window" onClick={(e) => e.stopPropagation()}>
+            <div className="item-desc-head">
+              <h4>✦ {fxItem.name} — effects</h4>
+              <button className="res-x" title="Close" onClick={() => setFxId(null)}>
+                ✕
+              </button>
+            </div>
+            <p className="muted">
+              Effects apply only while the item is equipped/attuned.
+            </p>
+            {editable && (
+              <label className="item-equip-row">
+                <input
+                  type="checkbox"
+                  checked={!!fxItem.equipped}
+                  onChange={() => toggleEquip(fxItem)}
+                />
+                Equipped / attuned
+              </label>
+            )}
+            <ModifierEditor
+              modifiers={fxItem.modifiers ?? []}
+              onChange={(mods) => setMods(fxItem, mods)}
+              editable={editable}
+              defaultSource={fxItem.name}
+            />
+          </div>
+        </div>
+      )}
+
+      {saveTo && (
+        <ItemLibrarySaveDialog
+          item={saveTo}
+          onClose={() => setSaveTo(null)}
+          onSaved={() => setLibRefresh((n) => n + 1)}
+        />
       )}
     </div>
   );

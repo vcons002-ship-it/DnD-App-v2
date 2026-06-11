@@ -985,9 +985,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   `token:setShape` (DM-only).
 - ☑ **Custom item descriptions + AI-generated items [req].** The loot editor's
   manual "+ Add" gains a Description field, plus an "AI generate" row —
-  `POST /api/items/generate {prompt}` reuses `callGemini`, saves to the item
-  library, and drops the item straight into the container (key-gated +
-  fail-safe).
+  `POST /api/items/generate {prompt}` reuses `callGemini` and drops the item
+  straight into the container (key-gated + fail-safe).
 - ☑ **Prepared/cantrip soft counters + action economy.** `shared/spellPrep.ts`
   (`cantripsKnown` + `spellCapacity`: prepared casters = mod+level/half, known
   casters = per-class table, null for martials; `parseActionType`).
@@ -1099,3 +1098,104 @@ Smaller refinements on top of the shipped Phase 2 work.
   Combat section **always shows** for a creature/PC (not just when it has
   attacks) so toggles/resources always have a home — `CombatSection` renders a
   "No attacks or rollable abilities." note where the buttons would be.
+- ☑ **Claim-based character ownership (reconnect-friendly) [req].** Replaced the
+  "owned even while offline" lock with a live-claim model: a PC is unclaimable by
+  others only while `claimedBy` is a connected socket OR one inside a short
+  **disconnect grace window** (`CLAIM_GRACE_MS`, `pendingReleases` map +
+  `isClaimProtected`/`claimHolderPlayerId` in `socketHandlers.ts`) — a blip no
+  longer de-selects a character, and after the window it frees for anyone.
+  `owner_player_id` is repurposed to the **last holder** (updated on every
+  identified claim, one per player via `clearOwnershipElsewhere`) used purely for
+  **reconnect priority**: `join` calls `reclaimForPlayer` to cancel the pending
+  release and hand the player back the character they last held if still free.
+  Explicit "Change" clears that record so it won't snap back; DM 🔓-unlock stays
+  as a stuck-claim fallback. Picker drops the offline 🔒-locked state (taken =
+  actively held). Tests updated for last-holder semantics + `clearOwnershipElsewhere`.
+- ☑ **Visual polish pass (clarity + consistency) + grid-square drag.** Purely
+  cosmetic except one grid tweak. CSS (`styles.css`): consolidated drifting colors
+  into tokens (`--gold`, `--cyan-bright`, `--ok`, `--bad`, `--chat-dm/player`) so
+  active-turn gold / PC cyan read consistently; form controls gained hover
+  feedback and selects now match inputs; the floating menu caps height + scrolls
+  (long weapon/ability lists) with a flex title (no name/HP collision); section
+  `h4`s read as headers (not muted), temp-HP shows as a pill and a 0-HP line goes
+  red (`zero-hp`), dead initiative rows are dimmed+italic but legible, roll-log
+  rows got breathing room. **Grid:** "Match map grid" now drags a **box with a
+  live square preview** (corner-to-corner over one printed square) instead of an
+  ambiguous line — `MapStage` renders a `Rect` and commits a square-derived
+  size/offset; the 📏 set-scale tool keeps its line.
+- ☑ **Subclass + spell-list allowances + feats [req].** `Character.subclass`
+  (column + sheet identity field, shown in the subtitle, saved to the library /
+  JSON export, scraped from pasted sheets, AI-filled): `deriveClassResources`
+  now derives **third-caster slots** (Eldritch Knight / Arcane Trickster) and
+  **Battle Master Superiority Dice** (4/5/6), and re-derives on subclass change;
+  `spellPrep` honors EK/AT cantrips (2@3, 3@10) + a known-spells table. New
+  `shared/spellLists.ts` computes the **allowed spell lists** from class +
+  subclass + feat names (Magic Initiate per-class, Artificer Initiate,
+  Fey/Shadow Touched — matched in Traits & Feats AND sheet abilities), shown as
+  a "Lists:" breakdown under the spell counters, whose caps now include feat
+  bonuses. The features search gained a curated **feat list** (Magic Initiate ×3,
+  Fey/Shadow Touched, Lucky, Tough, Alert).
+- ☑ **Sheet math depth: stat modifiers, magic items, feat cap, spell-header clarity [req].**
+  A unified modifier model (`shared/modifiers.ts`): `SheetModifier` (target =
+  ability/save/skill/attack/AC/initiative) on `Character.modifiers` (ASI/Resilient/
+  racial) and on `InventoryItem.modifiers` gated by an `equipped` toggle. Effective
+  score = base `stats` + ability modifiers; flat save/skill/attack/AC bonuses layer
+  on at roll time. The server folds them in at ONE chokepoint — the `Combatant`
+  adapter in `combat.ts` swaps in `effectiveStats`/`effectiveAc` (fixing attack/save
+  mods, defender AC, spell DC/attack, concentration, DEX initiative) — plus flat
+  extras in the save/skill/attack resolvers; monsters (no modifiers) are unchanged.
+  **Stat-math hover:** each ability cell shows the effective score with a `title`
+  breakdown ("20 = 18 base + 2 Belt…") and a • dot when modified. **Magic items:**
+  per-item effects editor + equipped/attuned toggle (`ModifierEditor`, reused for
+  character ASIs). **Feat cap:** `shared/feats.ts` `featSlots` (ASI 4/8/12/16/19 +
+  Fighter 6/14 + Rogue 10) with a HARD block on adding feats/ASIs past it, shown as
+  "Feats & ASIs x/y" in a new Modifiers & Feats section. **Spell header:** per-list
+  budget split ("Cantrips 5/6 = 4 Wizard + 2 Druid") with feat/expansion credits
+  (`spellBudgetBreakdown`). Persisted via `ensureColumn` (characters +
+  library_characters) and the items JSON; round-trips through library + JSON sheet
+  I/O. +21 tests (modifiers/feats/breakdown).
+- ☑ **Item-library modifiers: SRD presets + AI [req].** `LibraryItem` carries
+  `modifiers` (stored in `library_items.data` JSON; one-time `items_modifiers_v1`
+  backfill upgrades already-seeded libraries without touching DM-edited effects).
+  SRD presets on the catalogue's numeric magic items — several allow MULTIPLE
+  effects per item (Cloak/Ring of Protection = +1 AC **and** +1 all saves, Luckstone
+  = +1 all skills + saves) — plus a new `SheetModifier.set` flag for score-floor
+  items ("your STR **becomes** 19": Gauntlets of Ogre Power, Headband of Intellect,
+  Amulet of Health, Hill Giant potion; `effectiveStats` floors after bonuses, shown
+  as "→19" in the stat-math hover and "=19" in `ModifierEditor`, which also gained a
+  "+ bonus / = set to" picker). `generateItemAI` now emits a structured `modifiers`
+  array, validated by the new `sanitizeModifiers` (shared, also guards the REST
+  save path). Pickers (`CharacterItems`/`LootControls`, incl. the loot AI path) copy
+  modifiers onto the added item with a ✦n badge, and `setLoot` no longer strips them
+  from containers. +4 tests (set-floor math, sanitizer, library round-trip, seed
+  presets + backfill).
+- ☑ **Manual item-library save (custom + AI) [req].** AI item generation no
+  longer auto-saves: `POST /api/items/generate` returns the item (with
+  `modifiers`) for the container/inventory, and saving to the library is an
+  explicit **💾** choice — the SAME path for custom and AI items. A new
+  `ItemLibrarySaveDialog` (mirroring the creature/character save) posts to
+  `POST /api/library/items`, which now does a name-conflict check
+  (`getLibraryItemByName` → 409 + existing, `?overwrite=true` to replace) and
+  carries the item's `modifiers`. The 💾 button sits on every inventory + loot
+  row. +1 test (`getLibraryItemByName`).
+- ☑ **Modifier/item audit fixes [req].** Three-agent audit of the modifier/item/
+  loot surface; everything actionable fixed. **Trust:** client-supplied
+  modifiers/items are now sanitized at EVERY write site (`character:update`,
+  `item:set`, `object:setLoot`, `createCharacter`, character-library REST) via
+  `sanitizeModifiers` + a new shared `sanitizeItems`; the pure math
+  (`activeModifiers`) also skips malformed stored entries instead of throwing, so
+  a poisoned old row can't brick rolls or renders. `loot:take` is session-scoped;
+  `POST /sessions/:code/maps` honors the DM passphrase (client sends it from the
+  store); library-item REST clamps `qtyDefault`/description. **Correctness:**
+  flat `{kind:'attack'}` modifiers now apply to SPELL attacks (named in the log,
+  and the weapon-log label says the item instead of `[maneuver]`); death saves
+  add all-saves modifiers (RAW); friendly creatures' unrevealed loot no longer
+  leaks to players; negative-AC redaction regex; NaN-proof qty/gold clamps.
+  **UI:** sheet AC shows the EFFECTIVE value (dot + breakdown title); prepared
+  cap uses effective stats; loot gold edit is draft-based (focus+blur no longer
+  zeroes a container); loot writes rebase on the latest container (an awaited AI
+  add can't resurrect taken items); loot rows show the ✦n effects badge; save
+  dialog catches network errors + can't double-save; pickers refresh after a 💾
+  save; JSON sheet export now includes `saveProficiencies`/`sheetAbilities`/
+  `gold`. +6 tests (sanitize-on-write, malformed-row tolerance, spell-attack
+  extra, death-save extra, friendly-loot gate).

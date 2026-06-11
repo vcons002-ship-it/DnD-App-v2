@@ -32,6 +32,7 @@ type Props = {
 /** Right-side detail panel for the currently selected token (DM + player). */
 export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
+  const setTempHp = useStore((s) => s.setTempHp);
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);
   const updateCharacter = useStore((s) => s.updateCharacter);
@@ -173,7 +174,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           <>
             <h3>{d.name}</h3>
             {canSeeHp && (
-              <div className="hp-line">
+              <div className={`hp-line ${(d.curHp ?? 1) <= 0 ? 'zero-hp' : ''}`}>
                 HP: {d.curHp} / {d.maxHp}
                 {!!d.tempHp && d.tempHp > 0 && (
                   <span className="temp-hp"> +{d.tempHp} temp</span>
@@ -470,7 +471,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     <div className="panel-section">
       <h3>{d.name}</h3>
       {canSeeHp ? (
-        <div className="hp-line">
+        <div className={`hp-line ${(d.curHp ?? 1) <= 0 ? 'zero-hp' : ''}`}>
           HP: {d.curHp} / {d.maxHp}
           {!!d.tempHp && d.tempHp > 0 && (
             <span className="temp-hp"> +{d.tempHp} temp</span>
@@ -486,6 +487,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
 
       <DamageHealControls
         onApply={(delta) => applyDamage(token.kind, token.refId, delta)}
+        onTemp={(amt) => setTempHp(token.kind, token.refId, amt)}
       />
 
       <div className="size-row">

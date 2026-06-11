@@ -48,6 +48,9 @@ type Store = {
   socket: TypedSocket | null;
   status: Status;
   error: string | null;
+  /** The DM passphrase used to join (if any) — attached to the few REST calls
+   *  that are passphrase-gated server-side (e.g. map upload). */
+  dmPassphrase: string | null;
   snapshot: StateSnapshot | null;
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
   toast: { id: number; message: string } | null;
@@ -168,6 +171,7 @@ type Store = {
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
   copyTokens: (fromMapId: string, toMapId: string, kinds: TokenKind[]) => void;
   applyDamage: (kind: TokenKind, refId: string, amount: number) => void;
+  setTempHp: (kind: TokenKind, refId: string, amount: number) => void;
   setCondition: (
     kind: TokenKind,
     refId: string,
@@ -289,6 +293,7 @@ export const useStore = create<Store>((set, get) => ({
   socket: null,
   status: 'idle',
   error: null,
+  dmPassphrase: null,
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
@@ -354,7 +359,7 @@ export const useStore = create<Store>((set, get) => ({
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
-    set({ status: 'connecting', error: null });
+    set({ status: 'connecting', error: null, dmPassphrase: dmPassphrase ?? null });
 
     // Socket.IO auto-reconnects and buffers our outgoing events while offline,
     // flushing them on reconnect; we re-join on every `connect` so the server
@@ -482,6 +487,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('tokens:copy', { fromMapId, toMapId, kinds }),
   applyDamage: (kind, refId, amount) =>
     get().socket?.emit('damage:apply', { kind, refId, amount }),
+  setTempHp: (kind, refId, amount) =>
+    get().socket?.emit('tempHp:set', { kind, refId, amount }),
   setCondition: (kind, refId, condition) =>
     get().socket?.emit('condition:set', { kind, refId, condition }),
   clearCondition: (kind, refId, conditionId) =>

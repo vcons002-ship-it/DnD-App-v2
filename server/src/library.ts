@@ -7,8 +7,10 @@ import type {
   LibraryCharacter,
   LibraryItem,
   SheetAbility,
+  SheetModifier,
   Weapon,
 } from '../../shared/types.js';
+import { sanitizeItems, sanitizeModifiers } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
 
 // ---- Cross-session creature library ----
@@ -157,6 +159,7 @@ type LibCharacterRow = {
   name: string;
   race: string;
   class_name: string;
+  subclass: string;
   level: number;
   max_hp: number;
   cur_hp: number;
@@ -172,6 +175,7 @@ type LibCharacterRow = {
   abilities: string;
   proficient_skills: string;
   save_proficiencies: string;
+  modifiers: string;
   items: string;
   sheet_abilities: string;
   icon: string;
@@ -182,6 +186,7 @@ function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
     name: r.name,
     race: r.race,
     className: r.class_name,
+    subclass: r.subclass ?? '',
     level: r.level ?? 1,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
@@ -197,6 +202,7 @@ function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
     abilities: JSON.parse(r.abilities ?? '[]') as CreatureAbility[],
     proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
     saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
+    modifiers: JSON.parse(r.modifiers ?? '[]'),
     items: JSON.parse(r.items ?? '[]') as InventoryItem[],
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]') as SheetAbility[],
     icon: r.icon,
@@ -255,16 +261,17 @@ export function saveLibraryCharacter(
 
   db.prepare(
     `INSERT OR REPLACE INTO library_characters
-       (id, name, race, class_name, level, max_hp, cur_hp, armor_class, speed,
+       (id, name, race, class_name, subclass, level, max_hp, cur_hp, armor_class, speed,
         stats, spell_slots, resources, weapons, resistances, weaknesses, actions,
-        abilities, proficient_skills, save_proficiencies, items,
+        abilities, proficient_skills, save_proficiencies, modifiers, items,
         sheet_abilities, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
     input.race ?? '',
     input.className ?? '',
+    input.subclass ?? '',
     input.level ?? 1,
     input.maxHp ?? 10,
     input.curHp ?? input.maxHp ?? 10,
@@ -280,7 +287,10 @@ export function saveLibraryCharacter(
     JSON.stringify(input.abilities ?? []),
     JSON.stringify(input.proficientSkills ?? []),
     JSON.stringify(input.saveProficiencies ?? []),
-    JSON.stringify(input.items ?? []),
+    // Sanitized: this REST body is untrusted and modifiers/items flow into a
+    // live session's roll math via character:loadFromLibrary.
+    JSON.stringify(sanitizeModifiers(input.modifiers, newId)),
+    JSON.stringify(sanitizeItems(input.items, newId)),
     JSON.stringify(input.sheetAbilities ?? []),
     input.icon ?? '',
     Date.now(),
@@ -301,14 +311,34 @@ type LibItemRow = {
   name: string;
   description: string;
   qty_default: number;
+  /** JSON blob for extensible fields — currently `{ modifiers?: SheetModifier[] }`. */
+  data: string;
 };
 
-const rowToItem = (r: LibItemRow): LibraryItem => ({
-  id: r.id,
-  name: r.name,
-  description: r.description,
-  qtyDefault: r.qty_default,
-});
+const rowToItem = (r: LibItemRow): LibraryItem => {
+  let modifiers: SheetModifier[] = [];
+  try {
+    const data = JSON.parse(r.data || '{}') as { modifiers?: unknown };
+    modifiers = sanitizeModifiers(data.modifiers, newId);
+  } catch {
+    /* legacy/garbled data — treat as a plain item */
+  }
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    qtyDefault: r.qty_default,
+    ...(modifiers.length ? { modifiers } : {}),
+  };
+};
+
+/** Exact (case-insensitive) library-item lookup by name, for conflict prompts. */
+export function getLibraryItemByName(name: string): LibraryItem | null {
+  const row = db
+    .prepare('SELECT * FROM library_items WHERE LOWER(name) = ?')
+    .get(name.trim().toLowerCase()) as LibItemRow | undefined;
+  return row ? rowToItem(row) : null;
+}
 
 export function listLibraryItems(query = ''): LibraryItem[] {
   const q = query.trim().toLowerCase();
@@ -328,17 +358,32 @@ export function saveLibraryItem(input: {
   name: string;
   description?: string;
   qtyDefault?: number;
+  /** Magic effects (validated here — REST bodies and AI output are untrusted). */
+  modifiers?: unknown;
 }): LibraryItem {
-  const name = input.name.trim();
+  // REST-reachable: clamp/normalize the untrusted fields (a NaN qty_default
+  // would bind as SQL NULL; a non-string description would throw a 500).
+  const name = input.name.trim().slice(0, 120);
   const id =
     (db
       .prepare('SELECT id FROM library_items WHERE LOWER(name) = ?')
       .get(name.toLowerCase()) as { id: string } | undefined)?.id ?? newId();
+  const modifiers = sanitizeModifiers(input.modifiers, newId);
+  const qtyDefault = Number.isFinite(Number(input.qtyDefault))
+    ? Math.max(1, Math.round(Number(input.qtyDefault)))
+    : 1;
   db.prepare(
     `INSERT OR REPLACE INTO library_items
        (id, name, description, qty_default, data, created_at)
-     VALUES (?, ?, ?, ?, '{}', ?)`,
-  ).run(id, name, input.description ?? '', input.qtyDefault ?? 1, Date.now());
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    name,
+    typeof input.description === 'string' ? input.description.slice(0, 4000) : '',
+    qtyDefault,
+    JSON.stringify(modifiers.length ? { modifiers } : {}),
+    Date.now(),
+  );
   return rowToItem(
     db.prepare('SELECT * FROM library_items WHERE id = ?').get(id) as LibItemRow,
   );
@@ -355,20 +400,45 @@ export function deleteLibraryItem(id: string): void {
  * clobber a same-named item the DM saved earlier.
  */
 export const seedLibraryItems = db.transaction((): number => {
-  if (getMeta('items_seeded_v1')) return 0;
   let added = 0;
-  const exists = db.prepare(
-    'SELECT 1 FROM library_items WHERE LOWER(name) = ? LIMIT 1',
-  );
-  for (const it of SRD_ITEMS) {
-    if (exists.get(it.name.toLowerCase())) continue;
-    saveLibraryItem({
-      name: it.name,
-      description: it.description,
-      qtyDefault: it.qtyDefault ?? 1,
-    });
-    added++;
+  if (!getMeta('items_seeded_v1')) {
+    const exists = db.prepare(
+      'SELECT 1 FROM library_items WHERE LOWER(name) = ? LIMIT 1',
+    );
+    for (const it of SRD_ITEMS) {
+      if (exists.get(it.name.toLowerCase())) continue;
+      saveLibraryItem({
+        name: it.name,
+        description: it.description,
+        qtyDefault: it.qtyDefault ?? 1,
+        modifiers: it.modifiers,
+      });
+      added++;
+    }
+    setMeta('items_seeded_v1', '1');
   }
-  setMeta('items_seeded_v1', '1');
+  // One-time upgrade for libraries seeded before items carried preset magic
+  // effects: backfill each SRD entry's modifiers onto the same-named item, but
+  // only where the item has none (a DM's hand-added effects always win).
+  if (!getMeta('items_modifiers_v1')) {
+    const find = db.prepare('SELECT * FROM library_items WHERE LOWER(name) = ?');
+    for (const it of SRD_ITEMS) {
+      if (!it.modifiers?.length) continue;
+      const row = find.get(it.name.toLowerCase()) as LibItemRow | undefined;
+      if (!row || rowToItem(row).modifiers?.length) continue;
+      // Merge into the existing data blob (don't wipe future extensible fields).
+      let data: Record<string, unknown> = {};
+      try {
+        data = JSON.parse(row.data || '{}') as Record<string, unknown>;
+      } catch {
+        /* garbled blob — rebuild it */
+      }
+      db.prepare('UPDATE library_items SET data = ? WHERE id = ?').run(
+        JSON.stringify({ ...data, modifiers: sanitizeModifiers(it.modifiers, newId) }),
+        row.id,
+      );
+    }
+    setMeta('items_modifiers_v1', '1');
+  }
   return added;
 });

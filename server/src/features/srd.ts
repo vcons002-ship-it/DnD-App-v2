@@ -846,6 +846,83 @@ const FEATURES: FeatureEntry[] = [
     description:
       'When you make an ability check, you can expend one Bardic Inspiration die and add it to your roll, potentially turning a failure into a success.',
   },
+
+  // ---- Feats (any class). Spell-granting feat NAMES are recognized by
+  // shared/spellLists.ts and add to the sheet's spell-list allowances — keep
+  // the "(Class)" suffix on Magic Initiate variants.
+  {
+    name: 'Magic Initiate (Wizard)',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'magic initiate', 'wizard', 'spellcasting'],
+    meta: 'Feat · 2 wizard cantrips + 1 level-1 spell',
+    description:
+      'You learn two cantrips and one level-1 spell from the wizard spell list. You can cast the level-1 spell once per long rest without a slot (Intelligence is your casting ability for them), and with any slots you have.',
+  },
+  {
+    name: 'Magic Initiate (Cleric)',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'magic initiate', 'cleric', 'spellcasting'],
+    meta: 'Feat · 2 cleric cantrips + 1 level-1 spell',
+    description:
+      'You learn two cantrips and one level-1 spell from the cleric spell list. You can cast the level-1 spell once per long rest without a slot (Wisdom is your casting ability for them), and with any slots you have.',
+  },
+  {
+    name: 'Magic Initiate (Druid)',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'magic initiate', 'druid', 'spellcasting'],
+    meta: 'Feat · 2 druid cantrips + 1 level-1 spell',
+    description:
+      'You learn two cantrips and one level-1 spell from the druid spell list. You can cast the level-1 spell once per long rest without a slot (Wisdom is your casting ability for them), and with any slots you have.',
+  },
+  {
+    name: 'Fey Touched',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'fey', 'spellcasting', 'teleport'],
+    meta: 'Feat · +1 INT/WIS/CHA · Misty Step + 1 spell',
+    description:
+      'Increase Intelligence, Wisdom, or Charisma by 1. You learn Misty Step and one level-1 divination or enchantment spell; cast each once per long rest without a slot, and with any slots you have.',
+  },
+  {
+    name: 'Shadow Touched',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'shadow', 'spellcasting', 'stealth'],
+    meta: 'Feat · +1 INT/WIS/CHA · Invisibility + 1 spell',
+    description:
+      'Increase Intelligence, Wisdom, or Charisma by 1. You learn Invisibility and one level-1 illusion or necromancy spell; cast each once per long rest without a slot, and with any slots you have.',
+  },
+  {
+    name: 'Lucky',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'luck', 'reroll'],
+    meta: 'Feat · luck points = proficiency bonus',
+    description:
+      'You have luck points equal to your proficiency bonus, regained on a long rest. Spend one to give yourself advantage on a d20 test, or to impose disadvantage on an attack roll against you.',
+    useCounter: { name: 'Luck Points', max: 2 },
+  },
+  {
+    name: 'Tough',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'hp', 'defense'],
+    meta: 'Feat · +2 HP per level',
+    description:
+      'Your hit point maximum increases by twice your character level, and by 2 more each time you gain a level. (Adjust Max HP on the sheet.)',
+  },
+  {
+    name: 'Alert',
+    type: 'ability',
+    school: 'Feat',
+    tags: ['feat', 'initiative'],
+    meta: 'Feat · add proficiency to initiative',
+    description:
+      'Add your proficiency bonus to initiative rolls. When you roll initiative you can swap your result with one willing ally (neither of you can be incapacitated).',
+  },
 ];
 
 const haystack = (f: FeatureEntry): string =>

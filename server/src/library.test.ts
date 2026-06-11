@@ -6,6 +6,7 @@ import {
   deleteLibraryCreature,
   saveLibraryItem,
   listLibraryItems,
+  getLibraryItemByName,
   deleteLibraryItem,
   seedLibraryItems,
   saveLibraryCharacter,
@@ -64,6 +65,39 @@ describe('creature library', () => {
     expect(listLibraryItems('zzphtest').some((i) => i.id === it1.id)).toBe(false);
   });
 
+  it('getLibraryItemByName backs the manual-save conflict prompt (exact, case-insensitive)', () => {
+    const it1 = saveLibraryItem({ name: 'Zzphtest Saver', description: 'd' });
+    expect(getLibraryItemByName('zzphtest saver')!.id).toBe(it1.id);
+    expect(getLibraryItemByName('  ZZPHTEST SAVER ')!.id).toBe(it1.id);
+    expect(getLibraryItemByName('zzphtest')).toBeNull(); // exact match only
+    deleteLibraryItem(it1.id);
+    expect(getLibraryItemByName('zzphtest saver')).toBeNull();
+  });
+
+  it('round-trips MULTIPLE magic-effect modifiers on one item (validated)', () => {
+    const it1 = saveLibraryItem({
+      name: 'Zzphtest Warded Cloak',
+      description: 'x',
+      modifiers: [
+        { target: { kind: 'ac' }, value: 1 },
+        { target: { kind: 'save' }, value: 1 },
+        { target: { kind: 'ability', ability: 'str' }, value: 19, set: true }, // case-fixed
+        { target: { kind: 'bogus' }, value: 3 }, // dropped
+        { target: { kind: 'attack' }, value: 'NaN' }, // dropped
+      ],
+    });
+    const got = listLibraryItems('zzphtest warded')[0];
+    expect(got.modifiers).toHaveLength(3);
+    expect(got.modifiers![0].target).toEqual({ kind: 'ac' });
+    expect(got.modifiers![2]).toMatchObject({
+      target: { kind: 'ability', ability: 'STR' },
+      value: 19,
+      set: true,
+    });
+    expect(got.modifiers!.every((m) => m.id)).toBe(true);
+    deleteLibraryItem(it1.id);
+  });
+
   it('seeds the SRD item catalogue (idempotent, present after seeding)', () => {
     // Force a seed attempt even if a prior run already set the one-time marker.
     setMeta('items_seeded_v1', '');
@@ -75,6 +109,43 @@ describe('creature library', () => {
     expect(listLibraryItems('potion of healing').length).toBeGreaterThanOrEqual(1);
     // Re-running is a no-op once the one-time marker is set.
     expect(seedLibraryItems()).toBe(0);
+  });
+
+  it('seeded magic items carry preset modifiers (and the backfill upgrades old rows)', () => {
+    // Simulate a library seeded BEFORE presets existed: a plain Cloak row.
+    const cloak = listLibraryItems('cloak of protection')[0];
+    if (cloak) deleteLibraryItem(cloak.id);
+    const plain = saveLibraryItem({ name: 'Cloak of Protection', description: 'old row' });
+    expect(plain.modifiers).toBeUndefined();
+    setMeta('items_modifiers_v1', '');
+    seedLibraryItems();
+    const upgraded = listLibraryItems('cloak of protection')[0];
+    expect(upgraded.description).toBe('old row'); // backfill never rewrites text
+    expect(upgraded.modifiers).toHaveLength(2); // +1 AC and +1 all saves
+    expect(upgraded.modifiers!.map((m) => m.target.kind).sort()).toEqual(['ac', 'save']);
+
+    // A set-score preset: Gauntlets of Ogre Power floor STR at 19.
+    const gauntlets = listLibraryItems('gauntlets of ogre power')[0];
+    expect(gauntlets.modifiers).toMatchObject([
+      { target: { kind: 'ability', ability: 'STR' }, value: 19, set: true },
+    ]);
+
+    // The backfill respects a DM's own effects (only fills where there are none).
+    const luck = listLibraryItems('stone of good luck')[0];
+    saveLibraryItem({
+      name: luck.name,
+      description: luck.description,
+      modifiers: [{ target: { kind: 'initiative' }, value: 2 }],
+    });
+    setMeta('items_modifiers_v1', '');
+    seedLibraryItems();
+    const kept = listLibraryItems('stone of good luck')[0];
+    expect(kept.modifiers).toHaveLength(1);
+    expect(kept.modifiers![0].target.kind).toBe('initiative');
+    // Restore the catalogue presets for other tests.
+    saveLibraryItem({ name: luck.name, description: luck.description, modifiers: [] });
+    setMeta('items_modifiers_v1', '');
+    seedLibraryItems();
   });
 });
 

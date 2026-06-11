@@ -5,6 +5,7 @@ import {
   getCharacter,
   updateCharacter,
   applyDamage,
+  setTempHp,
 } from './sessions.js';
 
 /**
@@ -61,6 +62,19 @@ describe('temporary HP', () => {
     const c = getCharacter(id)!;
     expect(c.curHp).toBe(17);
     expect(c.tempHp).toBe(0); // heal did not touch the (now empty) buffer
+  });
+
+  it('setTempHp grants the buffer as an exact (non-additive) amount', () => {
+    const id = newPc(20, 0);
+    setTempHp('pc', id, 8);
+    expect(getCharacter(id)!.tempHp).toBe(8);
+    // Granting again sets (not stacks) the buffer, and never touches real HP.
+    setTempHp('pc', id, 5);
+    const c = getCharacter(id)!;
+    expect(c.tempHp).toBe(5);
+    expect(c.curHp).toBe(20);
+    setTempHp('pc', id, -3); // clamped to 0
+    expect(getCharacter(id)!.tempHp).toBe(0);
   });
 
   it('healing leaves an existing temp-HP buffer untouched', () => {

@@ -16,6 +16,9 @@ import {
   parseActionType,
   spellCapacity,
 } from '../../../shared/spellPrep';
+import { spellAllowances, spellBudgetBreakdown } from '../../../shared/spellLists';
+import { effectiveStats } from '../../../shared/modifiers';
+import { featUsage, isFeatAbility } from '../../../shared/feats';
 import {
   confirmConcentration,
   isConcentration,
@@ -157,6 +160,15 @@ export function CharacterSpells({
   if (character.sheetAbilities.length === 0 && !editable) return null;
 
   const add = (e: SpellHit) => {
+    // Hard feat/ASI cap (5e): block adding a feat past the level-based limit.
+    if ('className' in character && isFeatAbility(e)) {
+      const u = featUsage(character);
+      if (u.used >= u.cap) {
+        notify(`Feat cap reached (${u.used}/${u.cap}) — remove a feat/ASI first.`);
+        setAdding(false);
+        return;
+      }
+    }
     setSheetAbility(kind, character.id, {
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
@@ -249,25 +261,54 @@ export function CharacterSpells({
         (() => {
           const lvl = character.level || 1;
           const spells = character.sheetAbilities.filter((a) => a.type === 'spell');
-          const cantripMax = cantripsKnown(character.className, lvl);
+          // Allowed spell lists: class + subclass + feats named in the sheet's
+          // abilities/traits (Magic Initiate, Fey Touched…).
+          const allowances = spellAllowances(character.className, character.subclass, [
+            ...character.sheetAbilities.map((a) => a.name),
+            ...character.abilities.map((a) => a.name),
+          ]);
+          const classCantrips = cantripsKnown(character.className, lvl, character.subclass);
+          // Effective scores so a stat item (Headband of Intellect) raises the
+          // prepared cap like every other derived number.
+          const cap = spellCapacity(
+            character.className,
+            lvl,
+            effectiveStats(character).scores,
+            character.subclass,
+          );
+          // Per-LIST budget breakdown so the user sees how many of each list they
+          // get ("4 Wizard + 2 Druid"), not one merged number.
+          const bd = spellBudgetBreakdown(allowances, classCantrips, cap ? cap.max : null);
+          const cantripMax = bd.cantrips.reduce((s, p) => s + p.value, 0);
+          const spellMax = bd.spells.reduce((s, p) => s + p.value, 0);
           const cantripHave = spells.filter((a) => (a.level ?? 0) === 0).length;
-          const cap = spellCapacity(character.className, lvl, character.stats);
           const leveled = spells.filter((a) => (a.level ?? 0) > 0);
           const have = cap?.kind === 'prepared'
             ? leveled.filter((a) => a.prepared !== false).length
             : leveled.length;
-          if (cantripMax === 0 && !cap) return null;
+          if (cantripMax === 0 && spellMax === 0 && bd.credits.length === 0) return null;
+          const sum = (parts: { label: string; value: number }[]) =>
+            parts.map((p) => `${p.value} ${p.label}`).join(' + ');
           return (
             <div className="spell-caps muted">
               {cantripMax > 0 && (
-                <span className={cantripHave > cantripMax ? 'over' : ''}>
+                <div className={cantripHave > cantripMax ? 'over' : ''}>
                   Cantrips {cantripHave}/{cantripMax}
-                </span>
+                  {bd.cantrips.length > 1 && (
+                    <span className="spell-split"> = {sum(bd.cantrips)}</span>
+                  )}
+                </div>
               )}
-              {cap && (
-                <span className={have > cap.max ? 'over' : ''}>
-                  {cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{cap.max}
-                </span>
+              {cap && spellMax > 0 && (
+                <div className={have > spellMax ? 'over' : ''}>
+                  {cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{spellMax}
+                  {bd.spells.length > 1 && (
+                    <span className="spell-split"> = {sum(bd.spells)}</span>
+                  )}
+                </div>
+              )}
+              {bd.credits.length > 0 && (
+                <div className="spell-credits">+ {bd.credits.join(' · ')}</div>
               )}
             </div>
           );

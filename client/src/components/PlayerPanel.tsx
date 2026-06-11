@@ -34,30 +34,27 @@ export function PlayerPanel({
           <h3>Choose your character</h3>
           <p className="hint">Tap a character below to play as them.</p>
           {snapshot.characters.map((c) => {
-            // Owned by a different player (durable id) → locked even while
-            // they're offline; the DM can unlock it from the spawn list.
-            const lockedToOther = !!c.ownerId && c.ownerId !== getPlayerId();
-            const taken = !!c.claimedBy && !lockedToOther;
+            // Taken only while someone is actively playing it. The last holder
+            // (`ownerId`) can still reclaim during their disconnect grace; for
+            // anyone else a claimed character is off-limits until it frees up.
+            const mineByOwner = !!c.ownerId && c.ownerId === getPlayerId();
+            const taken = !!c.claimedBy && !mineByOwner;
             return (
               <button
                 key={c.id}
                 className="spawn-row claim-row"
-                disabled={!!c.claimedBy || lockedToOther}
+                disabled={taken}
                 onClick={() => onClaim(c.id)}
                 title={
-                  lockedToOther
-                    ? "Another player's character — ask the DM to unlock it"
-                    : taken
-                      ? 'Already taken by another player'
-                      : 'Play as this character'
+                  taken
+                    ? 'Someone else is playing this character'
+                    : 'Play as this character'
                 }
               >
                 <span>
                   {c.name} <span className="muted">{c.race} {c.className}</span>
                 </span>
-                {lockedToOther ? (
-                  <span className="badge">🔒 locked</span>
-                ) : taken ? (
+                {taken ? (
                   <span className="badge">taken</span>
                 ) : (
                   <span className="badge claim-cta">Play</span>

@@ -26,12 +26,21 @@ const abilityMod = (score: number | undefined): number =>
   Math.floor(((score ?? 10) - 10) / 2);
 
 /** Normalize a class name to a lowercase key (first word, e.g. "Fighter (EK)" → "fighter"). */
-function classKey(className: string): string {
+export function classKey(className: string): string {
   return className.trim().toLowerCase().split(/[^a-z]+/i)[0] ?? '';
 }
 
-/** Cantrips known by class & level (0 when the class learns none). */
-export function cantripsKnown(className: string, level: number): number {
+/** Third-caster subclasses on martial chassis (cast off the wizard list). */
+const THIRD_CASTER_SUB = /eldritch\s*knight|arcane\s*trickster/;
+
+/** Cantrips known by class & level (0 when the class learns none). A
+ *  third-caster subclass (Eldritch Knight / Arcane Trickster) grants 2 cantrips
+ *  at level 3, 3 at level 10. */
+export function cantripsKnown(
+  className: string,
+  level: number,
+  subclass = '',
+): number {
   const lv = Math.max(1, level);
   const k = classKey(className);
   const tier = (a: number, b = a, c = b) => (lv >= 10 ? c : lv >= 4 ? b : a);
@@ -48,6 +57,8 @@ export function cantripsKnown(className: string, level: number): number {
     case 'artificer':
       return lv >= 10 ? 3 : 2;
     default:
+      if (THIRD_CASTER_SUB.test(subclass.toLowerCase()))
+        return lv >= 10 ? 3 : lv >= 3 ? 2 : 0;
       return 0; // martial / non-caster
   }
 }
@@ -66,15 +77,20 @@ const KNOWN: Record<string, number[]> = {
   warlock: [1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
 };
 
+// Eldritch Knight / Arcane Trickster spells known (1-based by char level).
+const THIRD_KNOWN = [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13];
+
 /**
  * How many leveled spells the character can have ready: a "prepared" cap for
- * prepared casters (mod + level, or half), a "known" cap for known casters, or
- * null for non/limited casters (so the UI shows no counter).
+ * prepared casters (mod + level, or half), a "known" cap for known casters
+ * (incl. third-caster subclasses), or null for non/limited casters (so the UI
+ * shows no counter).
  */
 export function spellCapacity(
   className: string,
   level: number,
   stats: Record<string, number>,
+  subclass = '',
 ): SpellCapacity {
   const lv = Math.max(1, level);
   const k = classKey(className);
@@ -93,7 +109,12 @@ export function spellCapacity(
     case 'ranger':
     case 'warlock':
       return { kind: 'known', max: KNOWN[k][Math.min(lv, 20) - 1] ?? 0 };
-    default:
+    default: {
+      if (THIRD_CASTER_SUB.test(subclass.toLowerCase())) {
+        const max = THIRD_KNOWN[Math.min(lv, 20) - 1] ?? 0;
+        return max > 0 ? { kind: 'known', max } : null;
+      }
       return null;
+    }
   }
 }

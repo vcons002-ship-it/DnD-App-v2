@@ -11,6 +11,12 @@ import { iconForCreature } from './creatures/srd.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { abilityMod } from '../../shared/skills.js';
+import {
+  effectiveStats,
+  initiativeExtra,
+  sanitizeItems,
+  sanitizeModifiers,
+} from '../../shared/modifiers.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
 import type {
   Character,
@@ -916,11 +922,15 @@ export function setActiveTurn(sessionId: string, tokenId: string | null): void {
   ).run(tokenId, sessionId);
 }
 
-/** A token's initiative bonus = its creature's DEX modifier (0 if unknown). */
+/** A token's initiative bonus = its creature's effective DEX modifier (incl.
+ *  feat/equipped-item mods) plus any flat initiative modifiers. 0 if unknown. */
 function initiativeBonus(token: Token): number {
   const entity =
     token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId);
-  return entity ? abilityMod(entity.stats.DEX) : 0;
+  if (!entity) return 0;
+  return (
+    abilityMod(effectiveStats(entity).scores.DEX) + initiativeExtra(entity).total
+  );
 }
 
 /** Objects (chests/doors/traps/items) never take turns — they don't roll
@@ -1441,6 +1451,7 @@ export type CharacterInput = {
   name: string;
   race?: string;
   className?: string;
+  subclass?: string;
   level?: number;
   maxHp?: number;
   curHp?: number;
@@ -1454,6 +1465,7 @@ export type CharacterInput = {
   abilities?: Character['abilities'];
   proficientSkills?: string[];
   saveProficiencies?: string[];
+  modifiers?: Character['modifiers'];
   items?: Character['items'];
   sheetAbilities?: Character['sheetAbilities'];
   /** When provided (e.g. loading a saved sheet), used verbatim instead of being
@@ -1474,22 +1486,28 @@ export function createCharacter(
   const level = opts.level && opts.level > 0 ? opts.level : 1;
   // Auto-fill spell slots + class resources from 5e class/level tables, unless
   // the caller supplied them (e.g. loading a saved sheet).
-  const derived = deriveClassResources(opts.className ?? '', level, opts.stats ?? {});
+  const derived = deriveClassResources(
+    opts.className ?? '',
+    level,
+    opts.stats ?? {},
+    opts.subclass ?? '',
+  );
   const spellSlots = opts.spellSlots ?? derived.spellSlots;
   const resources = opts.resources ?? derived.resources;
   db.prepare(
     `INSERT INTO characters
-       (id, session_id, name, race, class_name, level, max_hp, cur_hp,
+       (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
-        actions, abilities, proficient_skills, save_proficiencies, items,
+        actions, abilities, proficient_skills, save_proficiencies, modifiers, items,
         sheet_abilities, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     opts.name.trim() || 'Adventurer',
     opts.race ?? '',
     opts.className ?? '',
+    opts.subclass ?? '',
     level,
     maxHp,
     Math.max(0, Math.min(maxHp, curHp)),
@@ -1503,7 +1521,10 @@ export function createCharacter(
     JSON.stringify(opts.abilities ?? []),
     JSON.stringify(opts.proficientSkills ?? []),
     JSON.stringify(opts.saveProficiencies ?? []),
-    JSON.stringify(opts.items ?? []),
+    // Sanitized: creation inputs arrive from sockets / the character library
+    // (REST-writable), and modifiers/items feed the server's roll math.
+    JSON.stringify(sanitizeModifiers(opts.modifiers, newId)),
+    JSON.stringify(sanitizeItems(opts.items, newId)),
     JSON.stringify(opts.sheetAbilities ?? []),
     JSON.stringify(spellSlots),
     JSON.stringify(resources),
@@ -1589,12 +1610,11 @@ export function setItem(
   const c = getCharacter(characterId);
   if (!c) return null;
   const items = c.items.filter((i) => i.id !== item.id);
-  items.push({
-    id: item.id || newId(),
-    name: item.name,
-    qty: item.qty,
-    note: item.note ?? '',
-  });
+  // Sanitized (qty clamped, modifiers validated): item:set is player-reachable
+  // and magic-item effects feed the server's roll math.
+  const clean = sanitizeItems([{ ...item, id: item.id || newId() }], newId)[0];
+  if (!clean) return c;
+  items.push(clean);
   db.prepare('UPDATE characters SET items = ? WHERE id = ?').run(
     JSON.stringify(items),
     characterId,
@@ -1620,18 +1640,17 @@ export function setLoot(
 ): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
-  const clean: LootContents | null =
-    loot && (loot.gold > 0 || loot.items.length > 0)
-      ? {
-          gold: Math.max(0, Math.round(loot.gold)),
-          items: loot.items.map((i) => ({
-            id: i.id || newId(),
-            name: i.name,
-            qty: Math.max(1, Math.round(i.qty)),
-            note: i.note ?? '',
-          })),
-        }
-      : null;
+  // Sanitized: validates modifiers and NaN-proofs gold/qty. Containers never
+  // hold an `equipped` item (magic effects ride along but start dormant).
+  const gold =
+    loot && Number.isFinite(loot.gold) ? Math.max(0, Math.round(loot.gold)) : 0;
+  const items = loot
+    ? sanitizeItems(loot.items, newId).map(({ equipped: _e, ...i }) => ({
+        ...i,
+        qty: Math.max(1, i.qty),
+      }))
+    : [];
+  const clean: LootContents | null = gold > 0 || items.length > 0 ? { gold, items } : null;
   db.prepare('UPDATE monsters SET loot = ? WHERE id = ?').run(
     clean ? JSON.stringify(clean) : null,
     monsterId,
@@ -1664,9 +1683,17 @@ function takeLootImpl(
   let gained = 0;
 
   const moveItem = (it: InventoryItem) => {
-    const match = items.find(
-      (x) => x.name.toLowerCase() === it.name.toLowerCase() && (x.note ?? '') === (it.note ?? ''),
-    );
+    // Items carrying magic effects stay their own stack (don't fold a +1 cloak
+    // into a pile of mundane cloaks). Plain items merge by name + note as before.
+    const plain = !(it.modifiers && it.modifiers.length);
+    const match = plain
+      ? items.find(
+          (x) =>
+            !(x.modifiers && x.modifiers.length) &&
+            x.name.toLowerCase() === it.name.toLowerCase() &&
+            (x.note ?? '') === (it.note ?? ''),
+        )
+      : undefined;
     if (match) match.qty += it.qty;
     else items.push({ ...it, id: newId() });
   };
@@ -1684,7 +1711,7 @@ function takeLootImpl(
         loot.items.splice(idx, 1);
       }
     }
-    if (opts.gold !== undefined) {
+    if (opts.gold !== undefined && Number.isFinite(opts.gold)) {
       gained = Math.max(0, Math.min(Math.round(opts.gold), loot.gold));
       loot.gold -= gained;
     }
@@ -1783,6 +1810,7 @@ export function updateCharacter(
     name: string;
     race: string;
     className: string;
+    subclass: string;
     level: number;
     maxHp: number;
     curHp: number;
@@ -1797,6 +1825,7 @@ export function updateCharacter(
     abilities: Character['abilities'];
     proficientSkills: string[];
     saveProficiencies: string[];
+    modifiers: Character['modifiers'];
     items: Character['items'];
     gold: number;
     sheetAbilities: Character['sheetAbilities'];
@@ -1816,6 +1845,7 @@ export function updateCharacter(
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.race !== undefined) put('race', patch.race);
   if (patch.className !== undefined) put('class_name', patch.className);
+  if (patch.subclass !== undefined) put('subclass', patch.subclass);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
@@ -1836,8 +1866,15 @@ export function updateCharacter(
     put('proficient_skills', JSON.stringify(patch.proficientSkills));
   if (patch.saveProficiencies !== undefined)
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
-  if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
-  if (patch.gold !== undefined) put('gold', Math.max(0, Math.round(patch.gold)));
+  // Modifiers and items feed the server's own roll math — never store a
+  // client-supplied array raw (unclamped values; a malformed target would
+  // throw inside every later resolver touching this PC).
+  if (patch.modifiers !== undefined)
+    put('modifiers', JSON.stringify(sanitizeModifiers(patch.modifiers, newId)));
+  if (patch.items !== undefined)
+    put('items', JSON.stringify(sanitizeItems(patch.items, newId)));
+  if (patch.gold !== undefined)
+    put('gold', Number.isFinite(patch.gold) ? Math.max(0, Math.round(patch.gold)) : 0);
   if (patch.sheetAbilities !== undefined)
     put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
   if (patch.spellSlots !== undefined)
@@ -1845,10 +1882,13 @@ export function updateCharacter(
   if (patch.resources !== undefined)
     put('resources', JSON.stringify(patch.resources));
 
-  // Re-derive spell slots / class resources when level or class changes, unless
-  // the caller passed them explicitly (preserve `used` + any custom counters).
+  // Re-derive spell slots / class resources when level, class, or subclass
+  // changes, unless the caller passed them explicitly (preserve `used` + any
+  // custom counters).
   if (
-    (patch.level !== undefined || patch.className !== undefined) &&
+    (patch.level !== undefined ||
+      patch.className !== undefined ||
+      patch.subclass !== undefined) &&
     patch.spellSlots === undefined &&
     patch.resources === undefined
   ) {
@@ -1856,6 +1896,7 @@ export function updateCharacter(
       patch.className ?? c.className,
       patch.level ?? c.level,
       patch.stats ?? c.stats,
+      patch.subclass ?? c.subclass,
     );
     put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots)));
     put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources)));
@@ -1889,14 +1930,31 @@ export function claimCharacter(
     socketId,
     characterId,
   );
-  // First claim by an identified player takes durable ownership (kept across
-  // reconnects; only the owner or the DM can claim/edit from then on).
+  // Record the most recent identified holder. Used only to hand the character
+  // back to that player on reconnect (priority) — it does NOT lock others out;
+  // a character is "taken" only while a live socket (or one in its disconnect
+  // grace) holds it.
   if (playerId) {
-    db.prepare(
-      'UPDATE characters SET owner_player_id = ? WHERE id = ? AND owner_player_id IS NULL',
-    ).run(playerId, characterId);
+    db.prepare('UPDATE characters SET owner_player_id = ? WHERE id = ?').run(
+      playerId,
+      characterId,
+    );
   }
   return getCharacter(characterId);
+}
+
+/** Enforce one owned character per player: clear `owner_player_id` on this
+ *  player's OTHER characters in the session, so reconnect reclaim is
+ *  unambiguous and an explicit "change character" doesn't snap them back.
+ *  Omit `exceptId` to clear ALL of the player's ownership in the session. */
+export function clearOwnershipElsewhere(
+  sessionId: string,
+  playerId: string,
+  exceptId?: string,
+): void {
+  db.prepare(
+    'UPDATE characters SET owner_player_id = NULL WHERE session_id = ? AND owner_player_id = ? AND id != ?',
+  ).run(sessionId, playerId, exceptId ?? '');
 }
 
 /** Set/clear a character's durable owner (DM unlock passes null; clearing also
@@ -2341,6 +2399,23 @@ export function applyDamage(
     refId,
   );
   return getMonster(refId);
+}
+
+/** Set a creature's temporary-HP buffer to an exact amount (mirrors the
+ *  StatBlock edit field, but as a quick in-combat action). Temp HP is a flat
+ *  2024-rules pool drained before real HP by {@link applyDamage}; granting it
+ *  never touches real HP. Clamped non-negative. */
+export function setTempHp(
+  kind: TokenKind,
+  refId: string,
+  amount: number,
+): Character | Monster | null {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!entity || !Number.isFinite(amount)) return null;
+  const next = Math.trunc(Math.max(0, Math.min(10000, amount)));
+  db.prepare(`UPDATE ${table} SET temp_hp = ? WHERE id = ?`).run(next, refId);
+  return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
 }
 
 export function setCondition(

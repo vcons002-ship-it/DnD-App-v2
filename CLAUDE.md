@@ -123,8 +123,9 @@ sanitization rules above and commit it to `claude/Main`.
   paste) — converted into weapons/sheetAbilities at insert; stored creatures
   keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
   `resources`, `items`, `gold`, `deathSaves`, `claimedBy` (live socket) +
-  `ownerId` (durable per-browser player id — only the owner/DM may claim, and
-  claims gate all sheet edits; DM 🔓-unlocks in the spawn list). `Monster`
+  `ownerId` (durable per-browser id of the LAST holder — reconnect priority
+  only, does NOT lock others; a char is "taken" only while `claimedBy` is a live
+  socket or one in its disconnect grace; DM 🔓-unlocks a stuck claim). `Monster`
   additionally has `disposition`, `source`, `conditions`, `objectKind`/`loot`
   (non-combat objects — but loot works on **any** creature:
   `lootVisibleToPlayers` gates objects on open/unlocked, creatures on
@@ -246,9 +247,10 @@ sanitization rules above and commit it to `claude/Main`.
   import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
   descriptions; AI picks level/CR; **AI-generated items** (`POST
-  /api/items/generate` → saved to the item library, dropped into the loot
-  editor); global "AI is working" banner; editable API key + model in
-  **Settings**.
+  /api/items/generate` returns an item with structured `modifiers`, dropped into
+  the loot editor — NOT auto-saved; saving to the library is the same explicit
+  💾 choice as a custom item); global "AI is working" banner; editable API key +
+  model in **Settings**.
 - **Combat:** initiative (Roll-all resets + auto-highlights top, **Add rolls** for
   latecomers, Next/**End combat**) with a **round counter** (`combat_round`, DM-editable
   field in the Initiative header; Next increments on a wrap, shown as a chip
@@ -385,6 +387,9 @@ sanitization rules above and commit it to `claude/Main`.
 - Keep `shared/*` framework-free (imported by both server and client).
 - Every player-visible field must pass through `visibility.ts` — never leak via
   the client.
+- Client-supplied `SheetModifier[]`/`InventoryItem[]` must pass
+  `sanitizeModifiers`/`sanitizeItems` (`shared/modifiers.ts`) before storage —
+  they feed the server's own roll math.
 - New client→server events need a **role gate** in `socketHandlers.ts` and a
   matching entry in `ClientToServerEvents` (`shared/types.ts`); end mutations
   with `afterChange()`.

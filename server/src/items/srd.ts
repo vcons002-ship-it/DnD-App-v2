@@ -7,10 +7,20 @@
 // not open content). The library is framework-free data: { name, description,
 // qtyDefault }, matching LibraryItem.
 
+import type { ModTarget } from '../../../shared/types.js';
+
+/** A preset magic effect (id + source are filled in when the item is saved —
+ *  a blank source falls back to the item's name on the sheet). */
+export type SrdItemModifier = { target: ModTarget; value: number; set?: boolean };
+
 export type SrdItem = {
   name: string;
   description: string;
   qtyDefault?: number;
+  /** Numeric effects the VTT auto-applies while the item is equipped. Items can
+   *  carry several (e.g. Cloak of Protection = +1 AC AND +1 all saves);
+   *  `set` floors an ability score at `value` instead of adding to it. */
+  modifiers?: SrdItemModifier[];
   /** Loose grouping (not persisted) — kept for readability/maintenance. */
   category:
     | 'gear'
@@ -129,7 +139,8 @@ export const SRD_ITEMS: SrdItem[] = [
   { category: 'armor', name: 'Chain Mail', description: 'Heavy interlocked rings. AC 16; requires Strength 13; disadvantage on Stealth.' },
   { category: 'armor', name: 'Splint Armor', description: 'Heavy armor of vertical metal strips. AC 17; requires Strength 15; disadvantage on Stealth.' },
   { category: 'armor', name: 'Plate Armor', description: 'Full heavy plate. AC 18; requires Strength 15; disadvantage on Stealth.' },
-  { category: 'armor', name: 'Shield', description: 'Carried in one hand; grants a +2 bonus to AC.' },
+  { category: 'armor', name: 'Shield', description: 'Carried in one hand; grants a +2 bonus to AC.',
+    modifiers: [{ target: { kind: 'ac' }, value: 2 }] },
 
   // ---- Weapons (a representative selection; full stats live in the weapon book) ----
   { category: 'weapon', name: 'Dagger', description: 'Simple melee weapon. 1d4 piercing; finesse, light, thrown (20/60).' },
@@ -169,38 +180,48 @@ export const SRD_ITEMS: SrdItem[] = [
 
   // ---- Magic items (SRD selection) ------------------------------------------
   { category: 'magic', name: 'Bag of Holding', description: 'Holds up to 500 lb in an extradimensional space (interior ~64 cubic feet) while weighing 15 lb. Overloading or piercing it destroys it.' },
-  { category: 'magic', name: 'Cloak of Protection', description: 'Requires attunement. You gain a +1 bonus to AC and saving throws while you wear it.' },
-  { category: 'magic', name: 'Ring of Protection', description: 'Requires attunement. You gain a +1 bonus to AC and saving throws while you wear it.' },
+  { category: 'magic', name: 'Cloak of Protection', description: 'Requires attunement. You gain a +1 bonus to AC and saving throws while you wear it.',
+    modifiers: [{ target: { kind: 'ac' }, value: 1 }, { target: { kind: 'save' }, value: 1 }] },
+  { category: 'magic', name: 'Ring of Protection', description: 'Requires attunement. You gain a +1 bonus to AC and saving throws while you wear it.',
+    modifiers: [{ target: { kind: 'ac' }, value: 1 }, { target: { kind: 'save' }, value: 1 }] },
   { category: 'magic', name: 'Cloak of Elvenkind', description: 'Requires attunement. With the hood up, Wisdom (Perception) checks to see you have disadvantage and you have advantage on Stealth checks to hide.' },
   { category: 'magic', name: 'Boots of Elvenkind', description: 'Your steps make no sound; you have advantage on Dexterity (Stealth) checks to move silently.' },
   { category: 'magic', name: 'Boots of Striding and Springing', description: 'Requires attunement. Your walking speed becomes 30 ft (if lower), it can’t be reduced below that, and you can jump three times the normal distance.' },
   { category: 'magic', name: 'Boots of Speed', description: 'Requires attunement. As a bonus action, click the heels to double your speed and impose disadvantage on opportunity attacks against you for up to 10 minutes.' },
   { category: 'magic', name: 'Winged Boots', description: 'Requires attunement. You gain a flying speed equal to your walking speed for up to 4 hours of flight, used in increments.' },
-  { category: 'magic', name: 'Gauntlets of Ogre Power', description: 'Requires attunement. Your Strength score becomes 19 while you wear them.' },
-  { category: 'magic', name: 'Headband of Intellect', description: 'Requires attunement. Your Intelligence score becomes 19 while you wear it.' },
-  { category: 'magic', name: 'Amulet of Health', description: 'Requires attunement. Your Constitution score becomes 19 while you wear it.' },
-  { category: 'magic', name: 'Bracers of Defense', description: 'Requires attunement. You gain a +2 bonus to AC while wearing no armor and no shield.' },
+  { category: 'magic', name: 'Gauntlets of Ogre Power', description: 'Requires attunement. Your Strength score becomes 19 while you wear them.',
+    modifiers: [{ target: { kind: 'ability', ability: 'STR' }, value: 19, set: true }] },
+  { category: 'magic', name: 'Headband of Intellect', description: 'Requires attunement. Your Intelligence score becomes 19 while you wear it.',
+    modifiers: [{ target: { kind: 'ability', ability: 'INT' }, value: 19, set: true }] },
+  { category: 'magic', name: 'Amulet of Health', description: 'Requires attunement. Your Constitution score becomes 19 while you wear it.',
+    modifiers: [{ target: { kind: 'ability', ability: 'CON' }, value: 19, set: true }] },
+  { category: 'magic', name: 'Bracers of Defense', description: 'Requires attunement. You gain a +2 bonus to AC while wearing no armor and no shield.',
+    modifiers: [{ target: { kind: 'ac' }, value: 2 }] },
   { category: 'magic', name: 'Brooch of Shielding', description: 'Requires attunement. You have resistance to force damage and immunity to the magic missile spell.' },
   { category: 'magic', name: 'Pearl of Power', description: 'Requires attunement by a spellcaster. As an action, recover one expended spell slot of 3rd level or lower (once per day).' },
   { category: 'magic', name: 'Wand of Magic Missiles', description: 'Has 7 charges; expend 1 or more to cast magic missile (1st level per charge). Regains 1d6+1 charges at dawn.' },
-  { category: 'magic', name: 'Wand of the War Mage +1', description: 'Requires attunement by a spellcaster. You gain a +1 bonus to spell attack rolls and ignore half cover against your spell targets.' },
+  { category: 'magic', name: 'Wand of the War Mage +1', description: 'Requires attunement by a spellcaster. You gain a +1 bonus to spell attack rolls and ignore half cover against your spell targets.',
+    modifiers: [{ target: { kind: 'attack' }, value: 1 }] },
   { category: 'magic', name: 'Immovable Rod', description: 'A flat iron rod that, when its button is pressed, fixes magically in place (holding up to 8,000 lb) until the button is pressed again.' },
   { category: 'magic', name: 'Rope of Climbing', description: 'A 60-ft rope that animates on command to fasten, knot, or unknot itself; it has 20 hit points and regains 1 per 5 minutes.' },
   { category: 'magic', name: 'Goggles of Night', description: 'You have darkvision out to 60 ft while wearing them (or +60 ft if you already have it).' },
   { category: 'magic', name: 'Eyes of the Eagle', description: 'Requires attunement. You have advantage on Wisdom (Perception) checks that rely on sight.' },
-  { category: 'magic', name: 'Gloves of Swimming and Climbing', description: 'Requires attunement. Climbing and swimming cost no extra movement and you gain a +5 bonus to checks made to climb or swim.' },
+  { category: 'magic', name: 'Gloves of Swimming and Climbing', description: 'Requires attunement. Climbing and swimming cost no extra movement and you gain a +5 bonus to checks made to climb or swim.',
+    modifiers: [{ target: { kind: 'skill', skill: 'Athletics' }, value: 5 }] },
   { category: 'magic', name: 'Slippers of Spider Climbing', description: 'Requires attunement. You can move up, down, and across vertical surfaces and ceilings, leaving your hands free, with a climb speed equal to your walking speed.' },
   { category: 'magic', name: 'Hat of Disguise', description: 'Requires attunement. While wearing it you can cast disguise self at will.' },
   { category: 'magic', name: 'Decanter of Endless Water', description: 'A command word makes it pour fresh or salt water (stream, fountain, or geyser) up to 30 gallons per round.' },
   { category: 'magic', name: 'Driftglobe', description: 'A glass sphere you can command to cast light or daylight and float, following you at up to 60 ft.' },
   { category: 'magic', name: 'Sending Stones', description: 'A matched pair; using an action with one lets you cast sending to the holder of the other, once per day.' },
-  { category: 'magic', name: 'Stone of Good Luck (Luckstone)', description: 'Requires attunement. You gain a +1 bonus to ability checks and saving throws while it’s on your person.' },
+  { category: 'magic', name: 'Stone of Good Luck (Luckstone)', description: 'Requires attunement. You gain a +1 bonus to ability checks and saving throws while it’s on your person.',
+    modifiers: [{ target: { kind: 'skill' }, value: 1 }, { target: { kind: 'save' }, value: 1 }] },
   { category: 'magic', name: 'Ring of Jumping', description: 'Requires attunement. As a bonus action you can cast jump on yourself at will.' },
   { category: 'magic', name: 'Ring of Free Action', description: 'Requires attunement. Difficult terrain doesn’t cost extra movement, and you can’t be paralyzed or restrained by magic.' },
   { category: 'magic', name: 'Dust of Disappearance', description: 'Throwing a pinch makes you and everything within 10 ft invisible for 2d4 minutes (ends early if you attack or cast a spell).' },
   { category: 'magic', name: 'Potion of Invisibility', description: 'You become invisible for 1 hour, ending early if you attack or cast a spell.' },
   { category: 'magic', name: 'Potion of Flying', description: 'You gain a flying speed equal to your walking speed for 1 hour and can hover.' },
-  { category: 'magic', name: 'Potion of Giant Strength (Hill)', description: 'Your Strength score becomes 21 for 1 hour.' },
+  { category: 'magic', name: 'Potion of Giant Strength (Hill)', description: 'Your Strength score becomes 21 for 1 hour.',
+    modifiers: [{ target: { kind: 'ability', ability: 'STR' }, value: 21, set: true }] },
   { category: 'magic', name: 'Oil of Slipperiness', description: 'Applied to a creature or object, it grants the effect of freedom of movement for 8 hours, or coats a 10-ft square as a grease spell.' },
   { category: 'magic', name: 'Bag of Tricks (Gray)', description: 'Requires no attunement. Pull out a fuzzy ball and throw it up to 20 ft to summon a random beast (per the gray table) for up to 1 hour; up to 3 uses per day.' },
   { category: 'magic', name: 'Spell Scroll (1st level)', description: 'Casting the inscribed spell from the scroll consumes it. A caster with the spell on their list can cast it; others must succeed on an ability check or the casting fails.' },

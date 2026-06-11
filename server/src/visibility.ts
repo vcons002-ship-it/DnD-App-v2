@@ -51,7 +51,10 @@ export function lootVisibleToPlayers(m: Monster): boolean {
  *   battlefield dot colour differs, so players can't read a neutral's HP/stats)
  */
 function toPlayerMonster(m: Monster): Monster | MonsterPublic {
-  if (m.disposition === 'friendly') return m;
+  // Friendly = full stat block, but loot stays behind the same reveal gate as
+  // every other tier (a friendly NPC's pockets aren't public until the DM says).
+  if (m.disposition === 'friendly')
+    return m.loot && !lootVisibleToPlayers(m) ? { ...m, loot: undefined } : m;
   return {
     id: m.id,
     name: m.name,
@@ -196,7 +199,7 @@ export function createSnapshotBuilder(
         .filter((e) => !e.dmOnly)
         .map((e) => ({
           ...e,
-          detail: e.detail.replace(/vs AC \d+/g, 'vs AC ?'),
+          detail: e.detail.replace(/vs AC -?\d+/g, 'vs AC ?'),
           // The "Apply damage" payload is a DM-only adjudication tool.
           apply: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
