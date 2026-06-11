@@ -25,7 +25,7 @@ const MOBILE = [
   ROW('Tap a token', 'Select it'),
   ROW('Drag a token', 'Move it (your PC + friendly creatures, as a player)'),
   ROW('Hold a token (~½ s)', 'Opens the floating action menu — release keeps it open; tap away to close'),
-  ROW('Double-tap a token', 'Open its details (players)'),
+  ROW('Double-tap a token', 'Select it and open the right panel with its details'),
   ROW('Pinch', 'Zoom the map; one-finger drag pans'),
   ROW('Edge tab / ‹ ›', 'Open or collapse a side panel (they overlay the map)'),
   ROW('Section ▲ / ▼', 'Reorder panel sections (drag isn’t available on touch)'),

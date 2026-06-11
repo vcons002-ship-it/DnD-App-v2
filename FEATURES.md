@@ -421,11 +421,16 @@ pulsing ring + initiative-rank badge on the token).
 
 **Automated attacks & saves** resolve on the server:
 
-- Select an attacker, then use **Attacks** in its right panel (or right-click a
-  target — see the [floating menu](#the-floating-action-menu-right-click)) to
-  roll a weapon. The server rolls to-hit vs the target's AC, doubles dice on a
+- Select an attacker — its right panel opens with a **Combat** section: a
+  **Target** dropdown plus a small button for **every rollable action** it has
+  (weapon attacks, attack-roll spells, save-forcing abilities, heals). Pick the
+  target, click an action (or right-click a target on the map — see the
+  [floating menu](#the-floating-action-menu-right-click)). The server rolls
+  to-hit vs the target's AC, doubles dice on a
   nat-20, applies resistances/vulnerabilities, and **auto-applies damage on a
-  hit** (recorded in the roll log; you can heal it back). Toggles for
+  hit** (recorded in the roll log; you can heal it back). Save-forcing
+  abilities make the chosen target roll its save and take the damage right
+  away. Toggles for
   **Off-hand**, **2H** (versatile), and **advantage/disadvantage** are right there.
   Every HP change pops a floating **−X / +X** over the token for the whole
   table, and the roll log keeps an **HP note** ("Druk HP 42→38") so mistakes
@@ -479,7 +484,10 @@ A standalone combat dashboard meant for a second monitor or tablet. It gives you
   preview-only), with a **Make active** button to take one live. It **auto-follows
   the live map** whenever it changes (set here or from the main DM window), but
   otherwise leaves you free to preview another map.
-- A grid of **compact cards** — name, HP bar, quick damage/heal, AC, ability
+- A grid of **compact cards**, **color-coded by type** so the battlefield reads
+  at a glance — PCs cyan, friendly creatures green, neutral amber, enemies red,
+  objects gray (a tinted background + left border, matching the token dot
+  colors) — each showing name, HP bar, quick damage/heal, AC, ability
   scores, condition chips, and a **Status** picker. Cards flow and **scroll**;
   expanding one (more conditions, etc.) pushes the rest down rather than overlapping.
 - **Sort** by initiative / A–Z / type, then **drag to reorder**.
@@ -547,23 +555,28 @@ selected.
 This is the key player combat surface, and it always acts **as your own PC**
 (not the token you clicked):
 
-- Selecting **any** token shows **"Your attacks & abilities"** with your
-  **Attacks** (target defaults to the token you clicked; friendly creatures are
-  excluded from the target list) and your **Spells, Abilities & Masteries**.
+- Selecting **any** token opens a **Combat** section at the top: one **Target**
+  dropdown (defaulting to the token you clicked; friendly creatures are
+  excluded) plus small buttons for **all your rollable actions** — weapon
+  attacks, attack-roll spells, save-forcing abilities, and heals. Your full
+  **Spells, Abilities & Masteries** list sits below it for editing/preparing
+  (its rolling lives in the Combat section so there's one place to fire from).
 - **Attack-roll spells & cantrips** (Fire Bolt, Eldritch Blast, …) work just
-  like weapons: pick a target from the **Spell target** dropdown, then roll. The
+  like weapons: the
   server rolls **to-hit vs the target's AC**, doubles dice on a crit, misses on a
   nat-1, and **auto-applies the typed damage** on a hit (so the target's
-  resistances/vulnerabilities to that damage type actually count).
+  resistances/vulnerabilities to that damage type actually count). Upcastable
+  spells get a small **level select** beside their button.
 - **Healing spells apply on cast:** pick who from the **Heal target** dropdown
   (you're the default; allies are listed) and the HP lands immediately —
   healing *spells* add your casting modifier on top of the dice. You can also
   **right-click your own token** to cast your heals on yourself.
-- Pick a weapon/spell to roll it — the server resolves to-hit, damage, and
+- Click an action to roll it — the server resolves to-hit, damage, and
   advantage, and the **roll log is right below** so you see the result instantly.
-- A selected creature's **Details** (collapsible, read-only) sits up top for
-  target context — exactly as much as its disposition allows. **Double-click a
-  token** to select it and auto-expand its details.
+- A selected creature's **Details** (collapsible, read-only) sits below it for
+  target context — exactly as much as its disposition allows. **Double-click
+  (or double-tap) a token** to select it and auto-expand its details — on a
+  phone this also pops the right drawer open.
 - **Faster still:** select your token, then **right-click an enemy** to attack it
   straight from the [floating menu](#the-floating-action-menu-right-click).
 
@@ -783,7 +796,7 @@ players' and read-only creatures' sheets are view-only.
 | Select a token | Click it |
 | Add/remove from selection | Shift-click or Ctrl/Cmd-click |
 | Move a token | Drag it (your own PC as a player; any token as DM) |
-| Select **and** open details | Double-click a token |
+| Select **and** open details | Double-click — or double-tap on touch (also opens the right drawer) |
 | Open the action menu | Right-click (or long-press on touch) a token |
 | Attack a target fast | Select attacker → right-click the target → pick a weapon |
 | Delete selected tokens (DM) | **Delete** / **Backspace** |

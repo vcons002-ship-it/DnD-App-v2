@@ -105,6 +105,16 @@ function TokenShapeInner({
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const menuOpened = useRef(false); // long-press fired this touch → swallow the tap
+  // Manual double-tap detection: Konva's synthesized `dbltap` is unreliable next
+  // to these long-press handlers, so we track the previous touch ourselves and
+  // de-dupe against `dbltap` in case it DOES fire for the same gesture.
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  const lastActivate = useRef(0);
+  const activate = () => {
+    if (Date.now() - lastActivate.current < 600) return; // already fired
+    lastActivate.current = Date.now();
+    onActivate?.(token);
+  };
   const clearLongPress = () => {
     if (longPress.current) clearTimeout(longPress.current);
     longPress.current = null;
@@ -121,10 +131,24 @@ function TokenShapeInner({
   };
 
   const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
-    if (!onContextMenu) return;
     const t = e.evt.touches[0];
     if (!t) return;
     const { clientX, clientY } = t;
+    // Two quick nearby touches = a double-tap → activate (select + open the
+    // details/right panel) instead of arming another long-press.
+    const prev = lastTap.current;
+    lastTap.current = { t: Date.now(), x: clientX, y: clientY };
+    if (
+      prev &&
+      Date.now() - prev.t < 350 &&
+      Math.hypot(clientX - prev.x, clientY - prev.y) < 30
+    ) {
+      clearLongPress();
+      lastTap.current = null;
+      activate();
+      return;
+    }
+    if (!onContextMenu) return;
     clearLongPress();
     menuOpened.current = false;
     touchStart.current = { x: clientX, y: clientY };
@@ -152,6 +176,7 @@ function TokenShapeInner({
     // Cancel only once the finger has clearly moved (a real drag), not on jitter.
     if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > 12) {
       clearLongPress();
+      lastTap.current = null; // a drag is not the first tap of a double-tap
     }
   };
 
@@ -240,9 +265,9 @@ function TokenShapeInner({
       }}
       onDblClick={(e) => {
         if ((e.evt as MouseEvent).button !== 0) return;
-        onActivate?.(token);
+        activate();
       }}
-      onDblTap={() => onActivate?.(token)}
+      onDblTap={() => activate()}
       onDragStart={() => {
         clearLongPress();
         onDragActive?.(true);

@@ -13,7 +13,7 @@ import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
-import { AttackControls } from './AttackControls';
+import { CombatSection } from './CombatSection';
 import { DamageHealControls } from './DamageHealControls';
 import { ObjectControls } from './ObjectControls';
 import { LootControls } from './LootControls';
@@ -110,6 +110,24 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   if (myChar) {
     const selectingOwn = !!myToken && token.id === myToken.id;
     const consoleSections: Section[] = [];
+    // The ONE rolling surface: target dropdown + weapons + rollable abilities.
+    // First in the fallback order so it lands on top (existing saved orders
+    // slot never-seen ids in at their designed position).
+    consoleSections.push({
+      id: 'combat',
+      label: 'Combat',
+      node: myToken ? (
+        <CombatSection
+          snapshot={snapshot}
+          attacker={myToken}
+          caster={myChar}
+          kind="pc"
+          defaultTargetId={selectingOwn ? undefined : token.id}
+        />
+      ) : (
+        <p className="muted">Place your token on the map to attack.</p>
+      ),
+    });
     if (!selectingOwn) {
       consoleSections.push({
         id: 'target',
@@ -124,20 +142,6 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       });
     }
     consoleSections.push({
-      id: 'attacks',
-      label: 'Attacks',
-      node: myToken ? (
-        <AttackControls
-          snapshot={snapshot}
-          attacker={myToken}
-          weapons={myChar.weapons}
-          defaultTargetId={selectingOwn ? undefined : token.id}
-        />
-      ) : (
-        <p className="muted">Place your token on the map to attack.</p>
-      ),
-    });
-    consoleSections.push({
       id: 'abilities',
       label: 'Spells & Abilities',
       node: (
@@ -147,6 +151,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           snapshot={snapshot}
           attackerToken={myToken}
           defaultTargetId={selectingOwn ? undefined : token.id}
+          rollsElsewhere={!!myToken}
         />
       ),
     });
@@ -195,12 +200,26 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const entityKind = monster ? 'monster' : character ? 'pc' : 'token';
   const sections: Section[] = [];
 
-  if (canAttack && attackerWeapons.length > 0) {
+  // The ONE rolling surface (target dropdown + weapons + rollable abilities) —
+  // first in the fallback order so it lands on top.
+  const attackerEntity = monster ?? character;
+  const combatShown =
+    canAttack &&
+    !!attackerEntity &&
+    !objectKind &&
+    (attackerWeapons.length > 0 ||
+      attackerEntity.sheetAbilities.some((a) => a.roll));
+  if (combatShown) {
     sections.push({
-      id: 'attacks',
-      label: 'Attacks',
+      id: 'combat',
+      label: 'Combat',
       node: (
-        <AttackControls snapshot={snapshot} attacker={token} weapons={attackerWeapons} />
+        <CombatSection
+          snapshot={snapshot}
+          attacker={token}
+          caster={attackerEntity}
+          kind={monster ? 'monster' : 'pc'}
+        />
       ),
     });
   }
@@ -219,6 +238,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           editable={isDm}
           snapshot={snapshot}
           attackerToken={token}
+          rollsElsewhere={combatShown}
         />
       ),
     });
@@ -271,6 +291,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
             editable={canEditCharacter}
             snapshot={snapshot}
             attackerToken={token}
+            rollsElsewhere={combatShown}
           />
           {(character.actions.length > 0 || canEditCharacter) && (
             <ActionsTraitsView

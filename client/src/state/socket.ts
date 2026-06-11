@@ -80,6 +80,10 @@ type Store = {
    *  expanded. Sticky; double-clicking a token forces it open. */
   detailsExpanded: boolean;
   setDetailsExpanded: (open: boolean) => void;
+  /** Bumped to force the right side panel open (e.g. double-tapping a token on
+   *  a phone, where the panel is an overlay drawer that starts collapsed). */
+  rightPanelNudge: number;
+  nudgeRightPanel: () => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
   saveResolve: {
@@ -312,6 +316,8 @@ export const useStore = create<Store>((set, get) => ({
   },
   detailsExpanded: false,
   setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
+  rightPanelNudge: 0,
+  nudgeRightPanel: () => set((s) => ({ rightPanelNudge: s.rightPanelNudge + 1 })),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
     set((s) => ({

@@ -4,6 +4,9 @@ type Props = {
   side: 'left' | 'right';
   /** localStorage key prefix so width/collapsed persist per panel. */
   storageKey: string;
+  /** Incrementing it forces the panel open — used so double-tapping a token on
+   *  a phone reveals the (otherwise collapsed) overlay drawer. */
+  openSignal?: number;
   children: ReactNode;
 };
 
@@ -12,7 +15,7 @@ const MAX = 560;
 const DEFAULT = 300;
 
 /** A collapsible, drag-to-resize side panel (width persisted locally). */
-export function SidePanel({ side, storageKey, children }: Props) {
+export function SidePanel({ side, storageKey, openSignal, children }: Props) {
   const [width, setWidth] = useState<number>(() => {
     const v = Number(localStorage.getItem(`${storageKey}:w`));
     return v >= MIN && v <= MAX ? v : DEFAULT;
@@ -30,6 +33,11 @@ export function SidePanel({ side, storageKey, children }: Props) {
   useEffect(() => {
     localStorage.setItem(`${storageKey}:c`, collapsed ? '1' : '0');
   }, [collapsed, storageKey]);
+
+  // An incremented signal pops the panel open (0 = initial, never fires).
+  useEffect(() => {
+    if (openSignal) setCollapsed(false);
+  }, [openSignal]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {

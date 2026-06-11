@@ -16,6 +16,7 @@ import { useSelection } from '../lib/useSelection';
 
 export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
+  const rightPanelNudge = useStore((s) => s.rightPanelNudge);
   const claimCharacter = useStore((s) => s.claimCharacter);
   const releaseCharacter = useStore((s) => s.releaseCharacter);
   const spawnToken = useStore((s) => s.spawnToken);
@@ -130,7 +131,11 @@ export function PlayerView() {
           />
         </main>
 
-        <SidePanel side="right" storageKey={`player-right:${snapshot.sessionCode}`}>
+        <SidePanel
+          side="right"
+          storageKey={`player-right:${snapshot.sessionCode}`}
+          openSignal={rightPanelNudge}
+        >
           {selectedIds.length > 1 ? (
             <BulkActionsPanel
               snapshot={snapshot}

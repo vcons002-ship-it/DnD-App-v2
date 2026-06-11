@@ -8,9 +8,14 @@ function loadOrder(storageKey: string, fallback: string[]): string[] {
     if (!raw) return fallback;
     const saved = JSON.parse(raw) as string[];
     if (!Array.isArray(saved)) return fallback;
-    // Keep saved order, append any new ids, drop any that no longer exist.
-    const kept = saved.filter((id) => fallback.includes(id));
-    return [...kept, ...fallback.filter((id) => !kept.includes(id))];
+    // Keep the saved order and drop ids that no longer exist; ids the user has
+    // never seen slot in at their DESIGNED position (fallback index), so a new
+    // section meant for the top doesn't get appended at the bottom.
+    const next = saved.filter((id) => fallback.includes(id));
+    fallback.forEach((id, i) => {
+      if (!next.includes(id)) next.splice(Math.min(i, next.length), 0, id);
+    });
+    return next;
   } catch {
     return fallback;
   }

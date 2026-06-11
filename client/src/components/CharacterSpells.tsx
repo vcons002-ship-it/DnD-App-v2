@@ -16,6 +16,12 @@ import {
   parseActionType,
   spellCapacity,
 } from '../../../shared/spellPrep';
+import {
+  castsConcentration,
+  isConcentration,
+  spellBaseLevel,
+  upcastable,
+} from '../lib/spellcasting';
 import { Spellbook } from './Spellbook';
 
 const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
@@ -53,15 +59,6 @@ function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
   }
 }
 
-/** Does this entry support an upcast level selector (leveled, scaling roll)? */
-/** The base spell level (from the roll, else the entry's level). */
-const spellBaseLevel = (a: SheetAbility): number => a.roll?.baseLevel ?? a.level ?? 0;
-
-/** Any leveled spell can be cast with a higher slot — dice scale where the roll
- *  defines `scaleDice`; otherwise the higher-level effect is the `upcast` note. */
-const upcastable = (a: SheetAbility): boolean =>
-  a.type === 'spell' && spellBaseLevel(a) >= 1;
-
 /** An effect-bearing mastery gets a weapon binding + active toggle. */
 const autoMastery = (a: SheetAbility): boolean =>
   a.type === 'mastery' && !!a.mastery?.effect;
@@ -72,15 +69,6 @@ const isManeuver = (a: SheetAbility): boolean =>
 
 /** A stance gets an on/off toggle (a persistent attack modifier while active). */
 const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
-
-/** Does this entry have the concentration flag (tag or meta)? Spell OR stance. */
-const castsConcentration = (a: SheetAbility): boolean =>
-  (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
-  (a.meta ?? '').toLowerCase().includes('concentration');
-
-/** A concentration SPELL (by tag or meta) — casting it starts concentration. */
-const isConcentration = (a: SheetAbility): boolean =>
-  a.type === 'spell' && castsConcentration(a);
 
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
@@ -97,6 +85,7 @@ export function CharacterSpells({
   snapshot,
   attackerToken,
   defaultTargetId,
+  rollsElsewhere,
 }: {
   /** A PC or a creature — both carry `sheetAbilities`. */
   character: Character | Monster;
@@ -108,6 +97,10 @@ export function CharacterSpells({
   snapshot?: StateSnapshot;
   attackerToken?: Token;
   defaultTargetId?: string;
+  /** The right panel's Combat section owns the roll buttons + target selects —
+   *  hide them here (keep add/edit/prep/stance management) so rolling has ONE
+   *  home (naming precedent: CharacterSheet's `abilitiesElsewhere`). */
+  rollsElsewhere?: boolean;
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
@@ -121,7 +114,7 @@ export function CharacterSpells({
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
 
   // Attack-roll spells target a token (combat console only). One shared target
-  // for the panel, like the weapon AttackControls dropdown.
+  // for the panel, like the Combat section's dropdown.
   const targets = snapshot && attackerToken ? validTargets(snapshot, attackerToken) : [];
   const hasAttackSpell = character.sheetAbilities.some((a) => a.roll?.kind === 'attack');
   const validDefault =
@@ -371,7 +364,10 @@ export function CharacterSpells({
             </div>
           );
         })()}
-      {hasAttackSpell && targets.length > 0 && (
+      {rollsElsewhere && character.sheetAbilities.some((a) => a.roll) && (
+        <p className="muted spell-tag">Roll these from the Combat section.</p>
+      )}
+      {!rollsElsewhere && hasAttackSpell && targets.length > 0 && (
         <div className="dice-row">
           <span className="muted spell-tag">Spell target</span>
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
@@ -383,7 +379,7 @@ export function CharacterSpells({
           </select>
         </div>
       )}
-      {hasHealSpell && healList.length > 0 && (
+      {!rollsElsewhere && hasHealSpell && healList.length > 0 && (
         <div className="dice-row">
           <span className="muted spell-tag">Heal target</span>
           <select value={healTargetId} onChange={(e) => setHealTargetId(e.target.value)}>
@@ -502,7 +498,9 @@ export function CharacterSpells({
                   </button>
                 )}
 
-                {editable && upcastable(a) && (a.roll || isConcentration(a)) && (
+                {editable &&
+                  upcastable(a) &&
+                  ((a.roll && !rollsElsewhere) || (!a.roll && isConcentration(a))) && (
                   <select
                     className="spell-level"
                     value={lvl}
@@ -521,7 +519,7 @@ export function CharacterSpells({
                     })}
                   </select>
                 )}
-                {editable && a.roll && (
+                {editable && a.roll && !rollsElsewhere && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>
                     {rollLabel(a.roll)}
                   </button>

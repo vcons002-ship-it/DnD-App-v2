@@ -1052,3 +1052,30 @@ Smaller refinements on top of the shipped Phase 2 work.
   auto-HTTPS), all purely additive — no app-code or run-script changes; the
   local PC + quick-tunnel workflow is untouched (`PUBLIC_URL` set + blank
   `CF_TUNNEL_NAME` skips cloudflared).
+- ☑ **Color-coded Data-view cards [req].** `/dm/data` cards tint by type —
+  PC cyan, friendly green, neutral amber, enemy red, object gray (faint
+  background + 3px left border, the token dot colors) — via a
+  disposition/objectKind class on `DataCard`; the turn (gold border) and
+  multi-select (outline) markers render on top.
+- ☑ **Mobile double-tap fix [req].** Double-tapping a token now works on touch:
+  `TokenShape` detects two quick nearby touches itself (Konva's synthesized
+  `dbltap` was unreliable next to the long-press handlers; a drag clears the
+  pending tap, a `lastActivate` guard de-dupes if both fire) — AND the result
+  is visible on phones: `handleTokenActivate` bumps a store `rightPanelNudge`
+  that pops the right `SidePanel` drawer open (`openSignal` prop; panels start
+  collapsed under 820px).
+- ☑ **Unified "Combat" right-panel section (both roles) [req].** ONE rolling
+  surface at the top of the token panel: a **Target** dropdown
+  (`validTargets`; players exclude friendlies, default = the clicked token)
+  plus buttons for every rollable action of the selected attacker — weapons
+  (off-hand/2H toggles, `combat:attack`) and rollable abilities via a new
+  shared `AbilityButtons` (attack → vs AC, save/damage → the target rolls and
+  takes it now, heals → own ally select with self default; inline upcast level
+  select; concentration confirm), also reused by the floating menu so the two
+  can't drift. The old separate Attacks section (`AttackControls`) is removed —
+  moved, not duplicated — and the Spells & Abilities section keeps
+  add/edit/✓ Prep/stances with its roll buttons hidden
+  (`CharacterSpells rollsElsewhere`); the player's left-panel sheet still casts
+  untargeted as before. `ReorderableSections` now slots never-seen section ids
+  at their fallback index (not appended), so 'combat' lands on TOP for users
+  with a saved order.

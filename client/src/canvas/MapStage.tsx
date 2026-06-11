@@ -466,6 +466,7 @@ export function MapStage({
   const hpFx = useStore((s) => s.hpFx);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
+  const nudgeRightPanel = useStore((s) => s.nudgeRightPanel);
   const clearSaveResolve = useStore((s) => s.clearSaveResolve);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
@@ -561,6 +562,7 @@ export function MapStage({
     if (saveResolve) return;
     onSelectToken(tok, false);
     setDetailsExpanded(true); // open the player's read-only Details
+    nudgeRightPanel(); // and pop the right drawer open (collapsed on phones)
   });
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number) =>
     onMoveToken(tok.id, x, y),
