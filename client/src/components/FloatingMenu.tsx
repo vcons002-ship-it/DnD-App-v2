@@ -32,6 +32,7 @@ type Props = {
  */
 export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
+  const setTempHp = useStore((s) => s.setTempHp);
   const combatAttack = useStore((s) => s.combatAttack);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const mySocketId = useStore((s) => s.socket?.id);
@@ -144,6 +145,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
         <DamageHealControls
           compact
           onApply={(delta) => applyDamage(token.kind, token.refId, delta)}
+          onTemp={(amt) => setTempHp(token.kind, token.refId, amt)}
         />
       )}
 

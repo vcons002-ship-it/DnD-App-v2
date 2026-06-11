@@ -734,6 +734,8 @@ export type TokenSpawnPayload = {
   y: number;
 };
 export type DamagePayload = { kind: TokenKind; refId: string; amount: number };
+/** Grant temporary HP — sets the buffer pool to `amount` (not additive). */
+export type TempHpPayload = { kind: TokenKind; refId: string; amount: number };
 export type ConditionSetPayload = {
   kind: TokenKind;
   refId: string;
@@ -1115,6 +1117,7 @@ export interface ClientToServerEvents {
   'tokens:clearConditions': (payload: TokensClearConditionsPayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;
   'damage:apply': (payload: DamagePayload) => void;
+  'tempHp:set': (payload: TempHpPayload) => void;
   'condition:set': (payload: ConditionSetPayload) => void;
   'condition:clear': (payload: ConditionClearPayload) => void;
   'character:claim': (payload: ClaimCharacterPayload) => void;

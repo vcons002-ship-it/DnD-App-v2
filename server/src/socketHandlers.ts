@@ -34,6 +34,7 @@ import {
   addRollLog,
   advanceTurn,
   applyDamage,
+  setTempHp,
   claimCharacter,
   clearOwnershipElsewhere,
   listCharacters,
@@ -563,6 +564,14 @@ export function registerSocketHandlers(io: IOServer): void {
       applyDamage(kind, refId, amount);
       // Damage taken while concentrating prompts a CON save (DC from the amount).
       noteConcentration(sid, kind, refId, amount);
+      afterChange();
+    });
+
+    // Grant temporary HP — same audience as damage:apply (quick in-combat
+    // buff that sets the flat 2024-rules buffer pool, drained before real HP).
+    socket.on('tempHp:set', ({ kind, refId, amount }) => {
+      if (!sessionId() || !Number.isFinite(amount)) return;
+      setTempHp(kind, refId, amount);
       afterChange();
     });
 

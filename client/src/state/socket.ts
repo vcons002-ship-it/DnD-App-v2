@@ -168,6 +168,7 @@ type Store = {
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
   copyTokens: (fromMapId: string, toMapId: string, kinds: TokenKind[]) => void;
   applyDamage: (kind: TokenKind, refId: string, amount: number) => void;
+  setTempHp: (kind: TokenKind, refId: string, amount: number) => void;
   setCondition: (
     kind: TokenKind,
     refId: string,
@@ -482,6 +483,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('tokens:copy', { fromMapId, toMapId, kinds }),
   applyDamage: (kind, refId, amount) =>
     get().socket?.emit('damage:apply', { kind, refId, amount }),
+  setTempHp: (kind, refId, amount) =>
+    get().socket?.emit('tempHp:set', { kind, refId, amount }),
   setCondition: (kind, refId, condition) =>
     get().socket?.emit('condition:set', { kind, refId, condition }),
   clearCondition: (kind, refId, conditionId) =>

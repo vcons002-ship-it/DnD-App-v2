@@ -2360,6 +2360,23 @@ export function applyDamage(
   return getMonster(refId);
 }
 
+/** Set a creature's temporary-HP buffer to an exact amount (mirrors the
+ *  StatBlock edit field, but as a quick in-combat action). Temp HP is a flat
+ *  2024-rules pool drained before real HP by {@link applyDamage}; granting it
+ *  never touches real HP. Clamped non-negative. */
+export function setTempHp(
+  kind: TokenKind,
+  refId: string,
+  amount: number,
+): Character | Monster | null {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!entity || !Number.isFinite(amount)) return null;
+  const next = Math.trunc(Math.max(0, Math.min(10000, amount)));
+  db.prepare(`UPDATE ${table} SET temp_hp = ? WHERE id = ?`).run(next, refId);
+  return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+}
+
 export function setCondition(
   kind: TokenKind,
   refId: string,
