@@ -35,6 +35,8 @@ import {
   advanceTurn,
   applyDamage,
   claimCharacter,
+  clearOwnershipElsewhere,
+  listCharacters,
   setCharacterOwner,
   clearCondition,
   clearInitiative,
@@ -114,7 +116,65 @@ import {
 } from './sessions.js';
 import type { Condition, TokenKind } from '../../shared/types.js';
 
+/** Grace window after a disconnect before a player's claim is freed, so a brief
+ *  connection blip doesn't de-select their character (and others can't snipe it).
+ *  When the same player reconnects within it, the claim is handed straight back. */
+const CLAIM_GRACE_MS = 20_000;
+/** Disconnected sockets whose claims are held during their grace window:
+ *  socketId → its session + player + the pending release timer. */
+const pendingReleases = new Map<
+  string,
+  { sessionId: string; playerId: string | null; timer: NodeJS.Timeout }
+>();
+/** A claim is protected (un-stealable) while its holder is connected OR still
+ *  inside its post-disconnect grace window. */
+const isClaimProtected = (claimedBy: string | null | undefined): boolean =>
+  isConnected(claimedBy) || (!!claimedBy && pendingReleases.has(claimedBy));
+/** The player id behind a claim, whether the holder is live or grace-pending. */
+const claimHolderPlayerId = (claimedBy: string | null): string | null =>
+  (claimedBy
+    ? getConn(claimedBy)?.playerId ?? pendingReleases.get(claimedBy)?.playerId
+    : null) ?? null;
+
 export function registerSocketHandlers(io: IOServer): void {
+  /** Cancel every pending release for a player (they're back) so their claims
+   *  aren't freed, then hand back the one character they last held if no live
+   *  player holds it now. Called on (re)join. */
+  const reclaimForPlayer = (
+    sid: string,
+    playerId: string | null,
+    socketId: string,
+  ): void => {
+    if (!playerId) return;
+    for (const [oldSock, p] of pendingReleases) {
+      if (p.playerId === playerId) {
+        clearTimeout(p.timer);
+        pendingReleases.delete(oldSock);
+      }
+    }
+    for (const c of listCharacters(sid)) {
+      if (c.ownerId !== playerId) continue;
+      // Skip if a DIFFERENT live socket is actively holding it.
+      if (c.claimedBy && c.claimedBy !== socketId && isConnected(c.claimedBy)) continue;
+      claimCharacter(c.id, socketId, playerId);
+      break; // a player holds exactly one character
+    }
+  };
+
+  /** Hold a disconnected socket's claim for the grace window, then free it. */
+  const scheduleRelease = (
+    sid: string,
+    socketId: string,
+    playerId: string | null,
+  ): void => {
+    const timer = setTimeout(() => {
+      pendingReleases.delete(socketId);
+      releaseClaims(socketId);
+      broadcastSnapshots(io, sid);
+    }, CLAIM_GRACE_MS);
+    pendingReleases.set(socketId, { sessionId: sid, playerId, timer });
+  };
+
   io.on('connection', (socket) => {
     const isDm = () => getConn(socket.id)?.role === 'dm';
     const sessionId = () => getConn(socket.id)?.sessionId;
@@ -144,17 +204,23 @@ export function registerSocketHandlers(io: IOServer): void {
         });
       }
 
+      const playerId =
+        typeof payload.playerId === 'string' && payload.playerId.trim()
+          ? payload.playerId.slice(0, 64)
+          : null;
       setConn(socket.id, {
         sessionId: session.id,
         role: payload.role,
         viewMapId: session.activeMapId,
-        playerId:
-          typeof payload.playerId === 'string' && payload.playerId.trim()
-            ? payload.playerId.slice(0, 64)
-            : null,
+        playerId,
       });
       socket.join(roomName(session.id));
       touchSession(session.id); // keep the resume directory fresh
+
+      // Hand back the character this player last held (and cancel any pending
+      // release from a just-dropped connection) so a reload/reconnect lands them
+      // right back on their PC if it's still free.
+      if (payload.role === 'player') reclaimForPlayer(session.id, playerId, socket.id);
 
       const snapshot = buildSnapshot(
         session.id,
@@ -169,6 +235,8 @@ export function registerSocketHandlers(io: IOServer): void {
         });
       }
       ack({ ok: true, snapshot });
+      // Let everyone else see the (possibly) re-taken character.
+      broadcastSnapshots(io, session.id);
     });
 
     // ---- DM-only: map prep & promotion ----
@@ -517,26 +585,35 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('character:claim', ({ characterId }) => {
-      if (!sessionId()) return;
+      const sid = sessionId();
+      if (!sid) return;
       const c = getCharacter(characterId);
       if (!c) return;
       const pid = getConn(socket.id)?.playerId ?? null;
       if (!isDm()) {
-        // Never steal a character another LIVE player is holding…
-        if (c.claimedBy && c.claimedBy !== socket.id && isConnected(c.claimedBy)) return;
-        // …and a character stays its owner's even while they're offline.
-        if (c.ownerId && c.ownerId !== pid) {
+        // A character is "taken" only while another player is actively holding
+        // it — live, or within their brief disconnect grace. Once that lapses,
+        // anyone may claim (no offline lock). The same player may always reclaim.
+        if (
+          c.claimedBy &&
+          c.claimedBy !== socket.id &&
+          isClaimProtected(c.claimedBy) &&
+          claimHolderPlayerId(c.claimedBy) !== pid
+        ) {
           socket.emit('notice', {
-            message: `${c.name} belongs to another player — ask the DM to unlock it.`,
+            message: `${c.name} is being played by someone else.`,
           });
           return;
         }
       }
       claimCharacter(characterId, socket.id, isDm() ? null : pid);
+      // One owned character per player → drop their claim on any other.
+      if (pid) clearOwnershipElsewhere(sid, pid, characterId);
       afterChange();
     });
 
-    // DM: clear a character's owner + claim (player switched devices/browser).
+    // DM fallback: force a character free (e.g. a stuck claim) so anyone can grab
+    // it. Clears the live claim and the last-holder record.
     socket.on('character:unlock', ({ characterId }) => {
       if (!isDm() || !getCharacter(characterId)) return;
       setCharacterOwner(characterId, null);
@@ -555,7 +632,10 @@ export function registerSocketHandlers(io: IOServer): void {
       });
       // A player's new character is theirs from the start.
       const pid = getConn(socket.id)?.playerId;
-      if (created && !isDm() && pid) setCharacterOwner(created.id, pid);
+      if (created && !isDm() && pid) {
+        setCharacterOwner(created.id, pid);
+        clearOwnershipElsewhere(sid, pid, created.id);
+      }
       afterChange();
     });
 
@@ -564,8 +644,11 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !name?.trim()) return; // DM or player may load a saved sheet
       const created = createCharacterFromLibrary(sid, name);
       // A player loading their own sheet claims (and thereby owns) it.
-      if (created && claim && !isDm())
-        claimCharacter(created.id, socket.id, getConn(socket.id)?.playerId ?? null);
+      if (created && claim && !isDm()) {
+        const pid = getConn(socket.id)?.playerId ?? null;
+        claimCharacter(created.id, socket.id, pid);
+        if (pid) clearOwnershipElsewhere(sid, pid, created.id);
+      }
       afterChange();
     });
 
@@ -593,8 +676,13 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('character:release', () => {
-      if (!sessionId()) return;
+      const sid = sessionId();
+      if (!sid) return;
       releaseClaims(socket.id);
+      // An explicit "change character" gives it up for good — drop the
+      // last-holder record so they don't get auto-reclaimed back onto it.
+      const pid = getConn(socket.id)?.playerId;
+      if (pid) clearOwnershipElsewhere(sid, pid);
       afterChange();
     });
 
@@ -1150,10 +1238,17 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('disconnect', () => {
-      releaseClaims(socket.id);
       const sid = sessionId();
+      const playerId = getConn(socket.id)?.playerId ?? null;
       dropConn(socket.id);
-      if (sid) broadcastSnapshots(io, sid);
+      if (sid) {
+        // Hold the claim through a short grace window (handed back if they
+        // reconnect, freed if they don't) instead of de-selecting on a blip.
+        scheduleRelease(sid, socket.id, playerId);
+        broadcastSnapshots(io, sid);
+      } else {
+        releaseClaims(socket.id);
+      }
     });
   });
 }

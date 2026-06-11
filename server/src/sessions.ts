@@ -1889,14 +1889,31 @@ export function claimCharacter(
     socketId,
     characterId,
   );
-  // First claim by an identified player takes durable ownership (kept across
-  // reconnects; only the owner or the DM can claim/edit from then on).
+  // Record the most recent identified holder. Used only to hand the character
+  // back to that player on reconnect (priority) — it does NOT lock others out;
+  // a character is "taken" only while a live socket (or one in its disconnect
+  // grace) holds it.
   if (playerId) {
-    db.prepare(
-      'UPDATE characters SET owner_player_id = ? WHERE id = ? AND owner_player_id IS NULL',
-    ).run(playerId, characterId);
+    db.prepare('UPDATE characters SET owner_player_id = ? WHERE id = ?').run(
+      playerId,
+      characterId,
+    );
   }
   return getCharacter(characterId);
+}
+
+/** Enforce one owned character per player: clear `owner_player_id` on this
+ *  player's OTHER characters in the session, so reconnect reclaim is
+ *  unambiguous and an explicit "change character" doesn't snap them back.
+ *  Omit `exceptId` to clear ALL of the player's ownership in the session. */
+export function clearOwnershipElsewhere(
+  sessionId: string,
+  playerId: string,
+  exceptId?: string,
+): void {
+  db.prepare(
+    'UPDATE characters SET owner_player_id = NULL WHERE session_id = ? AND owner_player_id = ? AND id != ?',
+  ).run(sessionId, playerId, exceptId ?? '');
 }
 
 /** Set/clear a character's durable owner (DM unlock passes null; clearing also

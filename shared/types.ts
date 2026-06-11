@@ -166,12 +166,14 @@ export type Character = {
   /** Battle Master Superiority Die size (e.g. "d8"); the pool is the
    *  `resources['Superiority Dice']` counter. Unset → d8 default. */
   superiorityDie?: string;
-  /** socketId of the player who has claimed this character, or null. */
+  /** socketId of the player currently playing this character, or null. A
+   *  character is "taken" only while this points at a live socket (or one in its
+   *  brief disconnect grace) — it does not lock anyone out once that lapses. */
   claimedBy: string | null;
-  /** Durable per-browser player id of the character's owner (set on first
-   *  claim/creation by a player). Only the owner — or the DM, who can also
-   *  unlock it — may claim/edit the sheet; survives reconnects, unlike
-   *  `claimedBy`. Null = unowned (any player may claim). */
+  /** Durable per-browser id of the player who LAST held this character. Used
+   *  only to hand it back to them on reconnect (priority) — it does NOT block
+   *  others from claiming a free character. The DM can clear it via unlock.
+   *  Null = no remembered holder. */
   ownerId: string | null;
   conditions: Condition[];
   /** 5e death saving throws while at 0 HP (each caps at 3). Reset when healed

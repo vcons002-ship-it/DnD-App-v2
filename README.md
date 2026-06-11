@@ -13,7 +13,7 @@ via `PUBLIC_URL`).
 > saving throws**, a **dice roller with a shared, color-coded roll log** (with a
 > **Hide-DM-rolls** toggle), full **character sheets** (skills,
 > spells/abilities/masteries with **prepared-spell counters**, class resources,
-> inventory + a **gold purse**, import/export, **per-player ownership**),
+> inventory + a **gold purse**, import/export, **claim-based ownership**),
 > **SRD + AI (Gemini) creature creation**, a **cross-session creature/item
 > library**, **non-combat objects** (traps, doors, **lootable chests & creature
 > loot**, hidden items, player **pick-lock/open**), **paste-an-image** object
@@ -82,7 +82,7 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 
 **Characters**
 - Players claim a character (re-claimed automatically after a page reload), then view and edit their own sheet and see the party / friendly sheets.
-- **Per-player ownership:** the first claim binds a character to that player's browser — nobody else can take or edit it, even while they're offline (the DM can 🔓 unlock it if someone switches devices).
+- **Claim-based ownership:** a character is locked to others only while someone is actively playing it. On a disconnect it's held through a short grace window (so a blip doesn't free it), then released for anyone to claim; when a player rejoins they're handed back the character they last had if it's still free. The DM can 🔓 force-unlock a stuck claim as a fallback.
 - 18 skills with proficiency + computed bonuses, class-specific limited-use resources (`server/data/classTables.ts`), and item/inventory tracking.
 - **Prepared/known + cantrip counters** on the spell list (soft caps from class/level — shown red when over, never blocking) with a ✓ Prep toggle per spell, and **action-economy icons** (● action / ⚡ bonus / ↩ reaction) on every ability.
 - Robust **import/export** of a character sheet (`shared/sheetIO.ts`), with overwrite preview/confirm.

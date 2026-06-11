@@ -39,12 +39,14 @@ export function PlayerView() {
       localStorage.removeItem(claimKey); // character was deleted
       return;
     }
-    // Only auto-claim what's ours to take: free (or already ours) AND not
-    // owned by a different player. The server enforces the same rules.
-    const mine = !c.ownerId || c.ownerId === getPlayerId();
-    if (mine && (!c.claimedBy || c.claimedBy === mySocketId)) {
+    // Sync our local selection back after a reload/reconnect: the server has
+    // usually already handed the character back (claimedBy === our socket); also
+    // re-grab it if it's simply free. Never snatch one a live player now holds.
+    const heldByOther = !!c.claimedBy && c.claimedBy !== mySocketId;
+    const mineByOwner = !!c.ownerId && c.ownerId === getPlayerId();
+    if (!heldByOther || mineByOwner) {
       setClaimedId(stored);
-      claimCharacter(stored);
+      if (c.claimedBy !== mySocketId) claimCharacter(stored);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot, claimKey, claimedId]);

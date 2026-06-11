@@ -34,6 +34,7 @@ import {
   deleteCharacter,
   previewImportCharacters,
   claimCharacter,
+  clearOwnershipElsewhere,
   getCharacter,
   setCharacterOwner,
 } from './sessions.js';
@@ -248,8 +249,8 @@ describe('deleting a player character', () => {
   });
 });
 
-describe('character ownership (durable player id)', () => {
-  it('first identified claim takes ownership; later claims never overwrite it', () => {
+describe('character ownership (last-holder, for reconnect priority)', () => {
+  it('records the most recent identified holder; a new player flips it', () => {
     const s = createSession('Own');
     const c = createCharacter(s.id, { name: 'Druk' });
     expect(getCharacter(c.id)!.ownerId).toBeNull();
@@ -263,17 +264,36 @@ describe('character ownership (durable player id)', () => {
     expect(getCharacter(c.id)!.ownerId).toBe('player-A');
     expect(getCharacter(c.id)!.claimedBy).toBe('sock-A2');
 
-    // Even if a different player somehow claims, the OWNER never flips
-    // (the socket handler rejects such claims before this point anyway).
+    // When a different player claims it (it was free), they become the last
+    // holder — the previous owner no longer gets reconnect priority on it.
     claimCharacter(c.id, 'sock-B', 'player-B');
-    expect(getCharacter(c.id)!.ownerId).toBe('player-A');
+    expect(getCharacter(c.id)!.ownerId).toBe('player-B');
+    expect(getCharacter(c.id)!.claimedBy).toBe('sock-B');
   });
 
-  it('claims without a player id (legacy clients) leave the character unowned', () => {
+  it('claims without a player id (DM / legacy) leave ownership untouched', () => {
     const s = createSession('OwnLegacy');
     const c = createCharacter(s.id, { name: 'Old Hand' });
     claimCharacter(c.id, 'sock-X', null);
     expect(getCharacter(c.id)!.ownerId).toBeNull();
+    // A DM claim (null player) on an owned character keeps the owner record.
+    claimCharacter(c.id, 'sock-A', 'player-A');
+    claimCharacter(c.id, 'sock-DM', null);
+    expect(getCharacter(c.id)!.ownerId).toBe('player-A');
+  });
+
+  it('clearOwnershipElsewhere enforces one owned character per player', () => {
+    const s = createSession('OwnSole');
+    const a = createCharacter(s.id, { name: 'A' });
+    const b = createCharacter(s.id, { name: 'B' });
+    claimCharacter(a.id, 'sock-1', 'player-A');
+    claimCharacter(b.id, 'sock-1', 'player-A'); // same player switches to B
+    clearOwnershipElsewhere(s.id, 'player-A', b.id);
+    expect(getCharacter(a.id)!.ownerId).toBeNull();
+    expect(getCharacter(b.id)!.ownerId).toBe('player-A');
+    // Omitting the exception clears all of the player's ownership (release).
+    clearOwnershipElsewhere(s.id, 'player-A');
+    expect(getCharacter(b.id)!.ownerId).toBeNull();
   });
 
   it('DM unlock clears the owner AND the live claim', () => {

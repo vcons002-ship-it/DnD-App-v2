@@ -123,8 +123,9 @@ sanitization rules above and commit it to `claude/Main`.
   paste) — converted into weapons/sheetAbilities at insert; stored creatures
   keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
   `resources`, `items`, `gold`, `deathSaves`, `claimedBy` (live socket) +
-  `ownerId` (durable per-browser player id — only the owner/DM may claim, and
-  claims gate all sheet edits; DM 🔓-unlocks in the spawn list). `Monster`
+  `ownerId` (durable per-browser id of the LAST holder — reconnect priority
+  only, does NOT lock others; a char is "taken" only while `claimedBy` is a live
+  socket or one in its disconnect grace; DM 🔓-unlocks a stuck claim). `Monster`
   additionally has `disposition`, `source`, `conditions`, `objectKind`/`loot`
   (non-combat objects — but loot works on **any** creature:
   `lootVisibleToPlayers` gates objects on open/unlocked, creatures on

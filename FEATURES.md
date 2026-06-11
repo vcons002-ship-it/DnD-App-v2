@@ -523,10 +523,13 @@ A standalone combat dashboard meant for a second monitor or tablet. It gives you
   taken ones show **taken**). You hold exactly one at a time — **Change** releases
   it and reopens the chooser. After a page reload your character is
   **re-claimed automatically**.
-- **Your character is yours.** The first claim binds the character to your
-  browser — nobody else can claim or edit it, even while you're offline (other
-  players see a **🔒 locked** badge on it). If you switch to a new device, ask
-  the DM to **🔓 unlock** it from the spawn list so you can claim it again.
+- **While you're playing, it's yours.** A character others can't claim or edit
+  is marked **taken**; the lock only lasts while someone is actually playing it.
+  If your connection drops, the game **holds your character for a short grace
+  window** (so a brief blip doesn't hand it away), then frees it if you don't
+  come back. When you **rejoin, you're put right back on the character you last
+  had** if it's still free — no re-picking. The DM can **🔓 unlock** a stuck
+  claim from the spawn list as a fallback.
 - No character yet? Create one with the **New Character Form**, or **📂 Load saved
   character** from your cross-session library — either way you immediately claim it.
 

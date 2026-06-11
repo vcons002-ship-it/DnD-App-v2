@@ -1099,3 +1099,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   Combat section **always shows** for a creature/PC (not just when it has
   attacks) so toggles/resources always have a home — `CombatSection` renders a
   "No attacks or rollable abilities." note where the buttons would be.
+- ☑ **Claim-based character ownership (reconnect-friendly) [req].** Replaced the
+  "owned even while offline" lock with a live-claim model: a PC is unclaimable by
+  others only while `claimedBy` is a connected socket OR one inside a short
+  **disconnect grace window** (`CLAIM_GRACE_MS`, `pendingReleases` map +
+  `isClaimProtected`/`claimHolderPlayerId` in `socketHandlers.ts`) — a blip no
+  longer de-selects a character, and after the window it frees for anyone.
+  `owner_player_id` is repurposed to the **last holder** (updated on every
+  identified claim, one per player via `clearOwnershipElsewhere`) used purely for
+  **reconnect priority**: `join` calls `reclaimForPlayer` to cancel the pending
+  release and hand the player back the character they last held if still free.
+  Explicit "Change" clears that record so it won't snap back; DM 🔓-unlock stays
+  as a stuck-claim fallback. Picker drops the offline 🔒-locked state (taken =
+  actively held). Tests updated for last-holder semantics + `clearOwnershipElsewhere`.
