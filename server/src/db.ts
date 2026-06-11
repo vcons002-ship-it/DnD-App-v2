@@ -269,6 +269,10 @@ ensureColumn('sessions', 'combat_round', 'combat_round INTEGER NOT NULL DEFAULT 
 ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAULT 0');
 // Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).
 ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
+// Image-decal annotations: uploaded art path + draw size.
+ensureColumn('annotations', 'url', "url TEXT NOT NULL DEFAULT ''");
+ensureColumn('annotations', 'width', 'width REAL NOT NULL DEFAULT 0');
+ensureColumn('annotations', 'height', 'height REAL NOT NULL DEFAULT 0');
 ensureColumn(
   'sessions',
   'last_played_at',

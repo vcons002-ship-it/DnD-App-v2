@@ -119,6 +119,7 @@ type Store = {
   removeMeasurement: (id: string) => void;
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   addAnnotation: (payload: AnnotationAddPayload) => void;
+  pasteObject: (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: (mapId: string, mineOnly?: boolean) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
@@ -398,6 +399,7 @@ export const useStore = create<Store>((set, get) => ({
   clearMeasurements: (mapId, mineOnly) =>
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
   addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
+  pasteObject: (payload) => get().socket?.emit('object:paste', payload),
   removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
   clearAnnotations: (mapId, mineOnly) =>
     get().socket?.emit('annotation:clear', { mapId, mineOnly }),

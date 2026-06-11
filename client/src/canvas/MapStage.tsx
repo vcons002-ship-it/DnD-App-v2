@@ -205,6 +205,38 @@ function MeasureShape({
   );
 }
 
+/** A scenery image decal drawn under tokens. Click-through unless in remove mode. */
+function DecalImage({
+  url,
+  x,
+  y,
+  width,
+  height,
+  onRemove,
+}: {
+  url: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  onRemove?: () => void;
+}) {
+  const img = useImage(url);
+  if (!img) return null;
+  return (
+    <KonvaImage
+      image={img}
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      listening={!!onRemove}
+      onClick={onRemove}
+      onTap={onRemove}
+    />
+  );
+}
+
 export function MapStage({
   snapshot,
   draggableTokens,
@@ -224,6 +256,40 @@ export function MapStage({
     null,
   );
   const map = snapshot.map;
+
+  // DM: paste an image from the clipboard → upload → choose Object or Decal.
+  useEffect(() => {
+    if (snapshot.role !== 'dm') return;
+    const onPaste = async (e: ClipboardEvent) => {
+      const item = [...(e.clipboardData?.items ?? [])].find((i) =>
+        i.type.startsWith('image/'),
+      );
+      const file = item?.getAsFile();
+      if (!file) return;
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append('image', file);
+      try {
+        const res = await fetch('/api/icons', { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('upload failed');
+        const { icon } = await res.json();
+        const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+          img.onerror = () => resolve({ w: 200, h: 200 });
+          img.src = icon;
+        });
+        setPasteName('');
+        setPasteImg({ url: icon, w: dims.w, h: dims.h });
+      } catch {
+        notify('Could not paste that image.');
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.role]);
+
   const image = useImage(map?.imagePath ?? null);
 
   useEffect(() => {
@@ -259,6 +325,9 @@ export function MapStage({
   const removeMeasurement = useStore((s) => s.removeMeasurement);
   const clearMeasurements = useStore((s) => s.clearMeasurements);
   const addAnnotation = useStore((s) => s.addAnnotation);
+  const pasteObject = useStore((s) => s.pasteObject);
+  const notify = useStore((s) => s.notify);
+  const removeAnnotation = useStore((s) => s.removeAnnotation);
   const clearAnnotations = useStore((s) => s.clearAnnotations);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
@@ -302,6 +371,8 @@ export function MapStage({
   // A reference-line drag that sets the map scale (DM only).
   const [scaleMode, setScaleMode] = useState(false);
   const [matchMode, setMatchMode] = useState(false);
+  const [pasteImg, setPasteImg] = useState<{ url: string; w: number; h: number } | null>(null);
+  const [pasteName, setPasteName] = useState('');
   const [scaleLine, setScaleLine] = useState<{ origin: Pt; target: Pt } | null>(null);
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
   const [scaleFt, setScaleFt] = useState('');
@@ -1092,6 +1163,20 @@ export function MapStage({
                   }}
                 />
               )}
+              {/* Image decals (scenery) sit UNDER tokens; DM-removable via Clear. */}
+              {snapshot.annotations
+                .filter((a) => a.kind === 'image' && a.url)
+                .map((a) => (
+                  <DecalImage
+                    key={a.id}
+                    url={a.url!}
+                    x={a.x ?? 0}
+                    y={a.y ?? 0}
+                    width={a.width ?? 100}
+                    height={a.height ?? 100}
+                    onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
+                  />
+                ))}
               <FootprintLayer
                 tokens={snapshot.tokens}
                 gridSizePx={grid}
@@ -1156,7 +1241,7 @@ export function MapStage({
                 />
               )}
               {/* Map annotations: freehand strokes + text labels (shared). */}
-              {snapshot.annotations.map((a) =>
+              {snapshot.annotations.filter((a) => a.kind !== 'image').map((a) =>
                 a.kind === 'freehand' ? (
                   <Line
                     key={a.id}
@@ -1260,6 +1345,68 @@ export function MapStage({
           )}
           {matchMode && (
             <div className="scale-hint">Drag across ONE square of the map's printed grid…</div>
+          )}
+          {pasteImg && (
+            <div className="modal-backdrop" onClick={() => setPasteImg(null)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-head">
+                  <h3>Paste image</h3>
+                  <button className="btn tiny" onClick={() => setPasteImg(null)}>✕</button>
+                </div>
+                <img
+                  src={pasteImg.url}
+                  alt="pasted"
+                  style={{ maxWidth: '100%', maxHeight: 180, display: 'block', margin: '0 auto 8px' }}
+                />
+                <label className="settings-field">
+                  Name (for object)
+                  <input value={pasteName} onChange={(e) => setPasteName(e.target.value)} placeholder="Object" />
+                </label>
+                <div className="modal-actions">
+                  <button
+                    className="btn green"
+                    onClick={() => {
+                      if (!map) return;
+                      // Place at the centre of the current view, in image space.
+                      const cx = (size.w / 2 - view.x) / view.scale;
+                      const cy = (size.h / 2 - view.y) / view.scale;
+                      pasteObject({ mapId: map.id, x: cx, y: cy, icon: pasteImg.url, name: pasteName.trim() || 'Object' });
+                      setPasteImg(null);
+                    }}
+                    title="Add as a draggable object token (image, unclipped)"
+                  >
+                    🪙 Object
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      if (!map) return;
+                      const cx = (size.w / 2 - view.x) / view.scale;
+                      const cy = (size.h / 2 - view.y) / view.scale;
+                      // Clamp the decal to ~6 grid squares wide, keeping aspect.
+                      const maxW = grid * 6;
+                      const scale = pasteImg.w > maxW ? maxW / pasteImg.w : 1;
+                      const w = pasteImg.w * scale;
+                      const h = pasteImg.h * scale;
+                      addAnnotation({
+                        kind: 'image',
+                        x: cx - w / 2,
+                        y: cy - h / 2,
+                        url: pasteImg.url,
+                        width: w,
+                        height: h,
+                        color: '#ffffff',
+                      });
+                      setPasteImg(null);
+                    }}
+                    title="Add as flat scenery under the tokens (set dressing)"
+                  >
+                    🖼 Scenery decal
+                  </button>
+                  <button className="btn" onClick={() => setPasteImg(null)}>Cancel</button>
+                </div>
+              </div>
+            </div>
           )}
           {scalePrompt && (
             <div className="scale-prompt">

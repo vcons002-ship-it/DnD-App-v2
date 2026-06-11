@@ -598,14 +598,18 @@ export type StateSnapshot = {
 export type Annotation = {
   id: string;
   mapId: string;
-  kind: 'freehand' | 'text';
+  kind: 'freehand' | 'text' | 'image';
   /** Freehand: flattened image-space points [x0,y0,x1,y1,…]. */
   points?: number[];
-  /** Text: anchor point + content. */
+  /** Text/image: anchor point (top-left for image) + content. */
   x?: number;
   y?: number;
   text?: string;
   color: string;
+  /** Image decal: uploaded art path + draw size in image px. */
+  url?: string;
+  width?: number;
+  height?: number;
   /** Display name of the drawer (so they can clear just their own). */
   createdBy: string;
 };
@@ -765,6 +769,9 @@ export type AnnotationAddPayload = {
   y?: number;
   text?: string;
   color: string;
+  url?: string;
+  width?: number;
+  height?: number;
 };
 /** Remove a single annotation by id (any role). */
 export type AnnotationRemovePayload = { id: string };
@@ -1101,6 +1108,7 @@ export interface ClientToServerEvents {
   'loot:take': (payload: LootTakePayload) => void;
   'trap:disarm': (payload: TrapDisarmPayload) => void;
   'object:interact': (payload: ObjectInteractPayload) => void;
+  'object:paste': (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;

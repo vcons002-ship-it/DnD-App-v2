@@ -414,6 +414,24 @@ export function createToken(opts: {
   return getToken(id)!;
 }
 
+/** Create a pasted-image OBJECT (a non-combat 'other' object) and place its
+ *  token (shape 'image', unclipped art) at (x,y). Returns the token. */
+export function createPastedObject(
+  sessionId: string,
+  mapId: string,
+  x: number,
+  y: number,
+  icon: string,
+  name = 'Object',
+): Token {
+  const m = insertMonster(
+    sessionId,
+    { name, maxHp: 1, icon, objectKind: 'other', disposition: 'neutral', source: 'manual' },
+    { isTemplate: false, templateId: null, name },
+  );
+  return createToken({ mapId, kind: 'monster', refId: m.id, x, y, shape: 'image' });
+}
+
 /** Set a token's silhouette (DM). */
 export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
   db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);
@@ -1287,6 +1305,9 @@ type AnnotationRow = {
   y: number;
   text: string;
   color: string;
+  url: string | null;
+  width: number | null;
+  height: number | null;
   created_by: string;
 };
 
@@ -1299,6 +1320,7 @@ const rowToAnnotation = (r: AnnotationRow): Annotation => ({
   y: r.y,
   text: r.text,
   color: r.color,
+  ...(r.url ? { url: r.url, width: r.width ?? 0, height: r.height ?? 0 } : {}),
   createdBy: r.created_by,
 });
 
@@ -1312,13 +1334,16 @@ export function addAnnotation(
     y?: number;
     text?: string;
     color: string;
+    url?: string;
+    width?: number;
+    height?: number;
     createdBy: string;
   },
 ): Annotation {
   const id = newId();
   db.prepare(
-    `INSERT INTO annotations (id, session_id, map_id, kind, points, x, y, text, color, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO annotations (id, session_id, map_id, kind, points, x, y, text, color, url, width, height, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1329,6 +1354,9 @@ export function addAnnotation(
     input.y ?? 0,
     (input.text ?? '').slice(0, 200),
     input.color,
+    input.url ?? '',
+    input.width ?? 0,
+    input.height ?? 0,
     input.createdBy,
     Date.now(),
   );

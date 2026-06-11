@@ -94,6 +94,7 @@ import {
   previewImportCharacters,
   resizeToken,
   setTokenShape,
+  createPastedObject,
   updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
@@ -243,10 +244,12 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:add', ({ kind, points, x, y, text, color }) => {
+    socket.on('annotation:add', ({ kind, points, x, y, text, color, url, width, height }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
-      if (!sid || !conn || (kind !== 'freehand' && kind !== 'text')) return;
+      if (!sid || !conn || (kind !== 'freehand' && kind !== 'text' && kind !== 'image')) return;
+      // Image decals are a DM tool (scenery/set-dressing); strokes/text are shared.
+      if (kind === 'image' && conn.role !== 'dm') return;
       const mapId =
         conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
       if (!mapId || !getMap(mapId)) return;
@@ -258,8 +261,24 @@ export function registerSocketHandlers(io: IOServer): void {
         y: Number(y) || 0,
         text: typeof text === 'string' ? text : undefined,
         color: typeof color === 'string' ? color : '#ffd166',
+        url: typeof url === 'string' ? url : undefined,
+        width: Number(width) || undefined,
+        height: Number(height) || undefined,
         createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
       });
+      afterChange();
+    });
+
+    // Paste an uploaded image onto the map AS AN OBJECT (draggable token).
+    socket.on('object:paste', ({ mapId, x, y, icon, name }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || typeof icon !== 'string' || !icon) return;
+      const map = getMap(mapId);
+      if (!map || getActiveMapId(sid) !== mapId) {
+        // Only place on the active/viewed map the DM is looking at.
+      }
+      if (!map) return;
+      createPastedObject(sid, mapId, Number(x) || 0, Number(y) || 0, icon, (name || 'Object').slice(0, 60));
       afterChange();
     });
 
