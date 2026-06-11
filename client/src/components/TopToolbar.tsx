@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { SettingsModal } from './SettingsModal';
+import { GuideModal } from './GuideModal';
 import { EditableName } from './EditableName';
 
 /**
@@ -14,6 +15,7 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
   const renameSession = useStore((s) => s.renameSession);
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const isDm = snapshot.role === 'dm';
 
   const activeMap =
@@ -61,6 +63,13 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
         <button className="btn tiny" onClick={leave} title="Load or import another session">
           {isDm ? 'Load session' : 'Leave'}
         </button>
+        <button
+          className="btn tiny"
+          onClick={() => setGuideOpen(true)}
+          title="Controls & guide (desktop + mobile)"
+        >
+          ❔ Guide
+        </button>
         {isDm && (
           <>
             <button
@@ -91,6 +100,7 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
       </div>
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}
     </header>
   );
 }

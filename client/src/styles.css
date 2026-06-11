@@ -1094,3 +1094,14 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
   .side.collapsed { width: 28px; }
   .reorder-handle { min-height: 32px; }
 }
+
+/* Controls & guide modal. */
+.guide-modal { max-width: 560px; }
+.guide-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.guide-table { width: 100%; border-collapse: collapse; }
+.guide-table th {
+  text-align: left; vertical-align: top; white-space: nowrap; padding: 4px 10px 4px 0;
+  color: var(--accent); font-weight: 600; width: 40%;
+}
+.guide-table td { padding: 4px 0; color: var(--text); }
+.guide-table tr + tr th, .guide-table tr + tr td { border-top: 1px solid var(--line); }

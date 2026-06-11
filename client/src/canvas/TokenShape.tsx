@@ -96,6 +96,7 @@ function TokenShapeInner({
   // (the earlier "any touchmove cancels" version rarely fired on real devices).
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const menuOpened = useRef(false); // long-press fired this touch → swallow the tap
   const clearLongPress = () => {
     if (longPress.current) clearTimeout(longPress.current);
     longPress.current = null;
@@ -117,8 +118,23 @@ function TokenShapeInner({
     if (!t) return;
     const { clientX, clientY } = t;
     clearLongPress();
+    menuOpened.current = false;
     touchStart.current = { x: clientX, y: clientY };
-    longPress.current = setTimeout(() => openMenu(clientX, clientY), 500);
+    longPress.current = setTimeout(() => {
+      menuOpened.current = true; // opened by hold — the release tap must not act
+      openMenu(clientX, clientY);
+    }, 500);
+  };
+
+  // On lift: if the hold opened the menu, swallow the synthesized tap/click so
+  // the token doesn't re-select (and the menu's open-grace keeps it visible).
+  const handleTouchEnd = (e: KonvaEventObject<TouchEvent>) => {
+    if (menuOpened.current) {
+      e.evt.preventDefault();
+      e.cancelBubble = true;
+      menuOpened.current = false;
+    }
+    clearLongPress();
   };
 
   const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
@@ -172,7 +188,10 @@ function TokenShapeInner({
         if ((e.evt as MouseEvent).button !== 0) return;
         onSelect(token, isAdditive(e));
       }}
-      onTap={(e) => onSelect(token, isAdditive(e))}
+      onTap={(e) => {
+        if (menuOpened.current) return; // hold-opened the menu; don't re-select
+        onSelect(token, isAdditive(e));
+      }}
       onDblClick={(e) => {
         if ((e.evt as MouseEvent).button !== 0) return;
         onActivate?.(token);
@@ -185,7 +204,7 @@ function TokenShapeInner({
       onDragEnd={handleDragEnd}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
-      onTouchEnd={clearLongPress}
+      onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
       onMouseOver={handleMouseOver}
       onMouseMove={handleMouseMove}
