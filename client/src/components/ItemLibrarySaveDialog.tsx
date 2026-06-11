@@ -62,6 +62,8 @@ export function ItemLibrarySaveDialog({
       setConflict(null);
       onSaved?.();
       setTimeout(onClose, 600);
+    } catch {
+      setStatus('error'); // network failure — surface it instead of silence
     } finally {
       setBusy(false);
     }
@@ -124,7 +126,9 @@ export function ItemLibrarySaveDialog({
           <div className="modal-actions">
             <button
               className="btn green"
-              disabled={busy || !name.trim()}
+              // Stays disabled once saved — a re-click during the brief
+              // auto-close window would 409 against the copy it just saved.
+              disabled={busy || status === 'saved' || !name.trim()}
               onClick={() => save(false)}
             >
               {status === 'saved' ? 'Saved ✓' : busy ? 'Saving…' : 'Save'}

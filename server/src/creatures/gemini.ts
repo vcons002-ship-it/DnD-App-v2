@@ -484,7 +484,11 @@ export async function generateItemAI(prompt: string): Promise<{
         : 1,
       modifiers: sanitizeModifiers(p.modifiers),
     };
-  } catch {
+  } catch (err) {
+    console.warn(
+      `  [gemini] item parse error for "${prompt}":`,
+      (err as Error).message,
+    );
     return null;
   }
 }

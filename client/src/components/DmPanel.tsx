@@ -138,6 +138,9 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   const upload = async (body: FormData) => {
     setBusy(true);
     try {
+      // The route is passphrase-gated when one is configured.
+      const pass = useStore.getState().dmPassphrase;
+      if (pass) body.append('dmPassphrase', pass);
       await fetch(`/api/sessions/${snapshot.sessionCode}/maps`, {
         method: 'POST',
         body,

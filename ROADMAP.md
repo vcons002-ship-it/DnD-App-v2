@@ -1178,3 +1178,24 @@ Smaller refinements on top of the shipped Phase 2 work.
   (`getLibraryItemByName` → 409 + existing, `?overwrite=true` to replace) and
   carries the item's `modifiers`. The 💾 button sits on every inventory + loot
   row. +1 test (`getLibraryItemByName`).
+- ☑ **Modifier/item audit fixes [req].** Three-agent audit of the modifier/item/
+  loot surface; everything actionable fixed. **Trust:** client-supplied
+  modifiers/items are now sanitized at EVERY write site (`character:update`,
+  `item:set`, `object:setLoot`, `createCharacter`, character-library REST) via
+  `sanitizeModifiers` + a new shared `sanitizeItems`; the pure math
+  (`activeModifiers`) also skips malformed stored entries instead of throwing, so
+  a poisoned old row can't brick rolls or renders. `loot:take` is session-scoped;
+  `POST /sessions/:code/maps` honors the DM passphrase (client sends it from the
+  store); library-item REST clamps `qtyDefault`/description. **Correctness:**
+  flat `{kind:'attack'}` modifiers now apply to SPELL attacks (named in the log,
+  and the weapon-log label says the item instead of `[maneuver]`); death saves
+  add all-saves modifiers (RAW); friendly creatures' unrevealed loot no longer
+  leaks to players; negative-AC redaction regex; NaN-proof qty/gold clamps.
+  **UI:** sheet AC shows the EFFECTIVE value (dot + breakdown title); prepared
+  cap uses effective stats; loot gold edit is draft-based (focus+blur no longer
+  zeroes a container); loot writes rebase on the latest container (an awaited AI
+  add can't resurrect taken items); loot rows show the ✦n effects badge; save
+  dialog catches network errors + can't double-save; pickers refresh after a 💾
+  save; JSON sheet export now includes `saveProficiencies`/`sheetAbilities`/
+  `gold`. +6 tests (sanitize-on-write, malformed-row tolerance, spell-attack
+  extra, death-save extra, friendly-loot gate).

@@ -159,10 +159,13 @@ export function exportSheetJSON(c: Character): string {
       actions: c.actions,
       abilities: c.abilities,
       proficientSkills: c.proficientSkills,
+      saveProficiencies: c.saveProficiencies,
       modifiers: c.modifiers,
       spellSlots: c.spellSlots,
       resources: c.resources,
       items: c.items,
+      gold: c.gold,
+      sheetAbilities: c.sheetAbilities,
     },
     null,
     2,
@@ -198,6 +201,8 @@ export function parseSheetJSON(text: string): SheetPatch | null {
   if (strArr('resistances')) patch.resistances = strArr('resistances');
   if (strArr('weaknesses')) patch.weaknesses = strArr('weaknesses');
   if (strArr('proficientSkills')) patch.proficientSkills = strArr('proficientSkills');
+  if (strArr('saveProficiencies')) patch.saveProficiencies = strArr('saveProficiencies');
+  if (int('gold') !== undefined) patch.gold = int('gold');
 
   if (o.stats && typeof o.stats === 'object') {
     const stats: Record<string, number> = {};
@@ -211,6 +216,8 @@ export function parseSheetJSON(text: string): SheetPatch | null {
   if (Array.isArray(o.actions)) patch.actions = o.actions as CreatureAbility[];
   if (Array.isArray(o.abilities)) patch.abilities = o.abilities as CreatureAbility[];
   if (Array.isArray(o.items)) patch.items = o.items as InventoryItem[];
+  if (Array.isArray(o.sheetAbilities))
+    patch.sheetAbilities = o.sheetAbilities as SheetPatch['sheetAbilities'];
   if (o.spellSlots && typeof o.spellSlots === 'object')
     patch.spellSlots = o.spellSlots as SheetPatch['spellSlots'];
   if (o.resources && typeof o.resources === 'object')

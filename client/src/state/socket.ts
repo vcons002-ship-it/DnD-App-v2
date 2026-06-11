@@ -48,6 +48,9 @@ type Store = {
   socket: TypedSocket | null;
   status: Status;
   error: string | null;
+  /** The DM passphrase used to join (if any) — attached to the few REST calls
+   *  that are passphrase-gated server-side (e.g. map upload). */
+  dmPassphrase: string | null;
   snapshot: StateSnapshot | null;
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
   toast: { id: number; message: string } | null;
@@ -290,6 +293,7 @@ export const useStore = create<Store>((set, get) => ({
   socket: null,
   status: 'idle',
   error: null,
+  dmPassphrase: null,
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
@@ -355,7 +359,7 @@ export const useStore = create<Store>((set, get) => ({
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
-    set({ status: 'connecting', error: null });
+    set({ status: 'connecting', error: null, dmPassphrase: dmPassphrase ?? null });
 
     // Socket.IO auto-reconnects and buffers our outgoing events while offline,
     // flushing them on reconnect; we re-join on every `connect` so the server

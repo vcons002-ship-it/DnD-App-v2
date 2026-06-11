@@ -382,8 +382,13 @@ export function createApiRouter(io: IOServer): Router {
     res.json({ code: session.code, name: session.name });
   });
 
-  // DM uploads a map image (multipart) OR links a Google Slides URL.
+  // DM uploads a map image (multipart) OR links a Google Slides URL. Gated by
+  // the DM passphrase when one is configured (this is the one REST route that
+  // mutates live session state — every socket-side map mutation is DM-gated).
   router.post('/sessions/:code/maps', upload.single('image'), (req, res) => {
+    if (config.dmPassphrase && req.body?.dmPassphrase !== config.dmPassphrase) {
+      return res.status(403).json({ error: 'Incorrect DM passphrase' });
+    }
     const session = getSessionByCode(req.params.code);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 

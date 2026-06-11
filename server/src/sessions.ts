@@ -11,7 +11,12 @@ import { iconForCreature } from './creatures/srd.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { abilityMod } from '../../shared/skills.js';
-import { effectiveStats, initiativeExtra } from '../../shared/modifiers.js';
+import {
+  effectiveStats,
+  initiativeExtra,
+  sanitizeItems,
+  sanitizeModifiers,
+} from '../../shared/modifiers.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
 import type {
   Character,
@@ -1516,8 +1521,10 @@ export function createCharacter(
     JSON.stringify(opts.abilities ?? []),
     JSON.stringify(opts.proficientSkills ?? []),
     JSON.stringify(opts.saveProficiencies ?? []),
-    JSON.stringify(opts.modifiers ?? []),
-    JSON.stringify(opts.items ?? []),
+    // Sanitized: creation inputs arrive from sockets / the character library
+    // (REST-writable), and modifiers/items feed the server's roll math.
+    JSON.stringify(sanitizeModifiers(opts.modifiers, newId)),
+    JSON.stringify(sanitizeItems(opts.items, newId)),
     JSON.stringify(opts.sheetAbilities ?? []),
     JSON.stringify(spellSlots),
     JSON.stringify(resources),
@@ -1603,15 +1610,11 @@ export function setItem(
   const c = getCharacter(characterId);
   if (!c) return null;
   const items = c.items.filter((i) => i.id !== item.id);
-  items.push({
-    id: item.id || newId(),
-    name: item.name,
-    qty: item.qty,
-    note: item.note ?? '',
-    // Magic-item effects: only persisted when present so plain items stay clean.
-    ...(item.modifiers && item.modifiers.length ? { modifiers: item.modifiers } : {}),
-    ...(item.equipped ? { equipped: true } : {}),
-  });
+  // Sanitized (qty clamped, modifiers validated): item:set is player-reachable
+  // and magic-item effects feed the server's roll math.
+  const clean = sanitizeItems([{ ...item, id: item.id || newId() }], newId)[0];
+  if (!clean) return c;
+  items.push(clean);
   db.prepare('UPDATE characters SET items = ? WHERE id = ?').run(
     JSON.stringify(items),
     characterId,
@@ -1637,20 +1640,17 @@ export function setLoot(
 ): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
-  const clean: LootContents | null =
-    loot && (loot.gold > 0 || loot.items.length > 0)
-      ? {
-          gold: Math.max(0, Math.round(loot.gold)),
-          items: loot.items.map((i) => ({
-            id: i.id || newId(),
-            name: i.name,
-            qty: Math.max(1, Math.round(i.qty)),
-            note: i.note ?? '',
-            // Magic effects ride along so a looted +1 cloak works once equipped.
-            ...(i.modifiers && i.modifiers.length ? { modifiers: i.modifiers } : {}),
-          })),
-        }
-      : null;
+  // Sanitized: validates modifiers and NaN-proofs gold/qty. Containers never
+  // hold an `equipped` item (magic effects ride along but start dormant).
+  const gold =
+    loot && Number.isFinite(loot.gold) ? Math.max(0, Math.round(loot.gold)) : 0;
+  const items = loot
+    ? sanitizeItems(loot.items, newId).map(({ equipped: _e, ...i }) => ({
+        ...i,
+        qty: Math.max(1, i.qty),
+      }))
+    : [];
+  const clean: LootContents | null = gold > 0 || items.length > 0 ? { gold, items } : null;
   db.prepare('UPDATE monsters SET loot = ? WHERE id = ?').run(
     clean ? JSON.stringify(clean) : null,
     monsterId,
@@ -1711,7 +1711,7 @@ function takeLootImpl(
         loot.items.splice(idx, 1);
       }
     }
-    if (opts.gold !== undefined) {
+    if (opts.gold !== undefined && Number.isFinite(opts.gold)) {
       gained = Math.max(0, Math.min(Math.round(opts.gold), loot.gold));
       loot.gold -= gained;
     }
@@ -1866,10 +1866,15 @@ export function updateCharacter(
     put('proficient_skills', JSON.stringify(patch.proficientSkills));
   if (patch.saveProficiencies !== undefined)
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
+  // Modifiers and items feed the server's own roll math — never store a
+  // client-supplied array raw (unclamped values; a malformed target would
+  // throw inside every later resolver touching this PC).
   if (patch.modifiers !== undefined)
-    put('modifiers', JSON.stringify(patch.modifiers));
-  if (patch.items !== undefined) put('items', JSON.stringify(patch.items));
-  if (patch.gold !== undefined) put('gold', Math.max(0, Math.round(patch.gold)));
+    put('modifiers', JSON.stringify(sanitizeModifiers(patch.modifiers, newId)));
+  if (patch.items !== undefined)
+    put('items', JSON.stringify(sanitizeItems(patch.items, newId)));
+  if (patch.gold !== undefined)
+    put('gold', Number.isFinite(patch.gold) ? Math.max(0, Math.round(patch.gold)) : 0);
   if (patch.sheetAbilities !== undefined)
     put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
   if (patch.spellSlots !== undefined)

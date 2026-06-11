@@ -17,20 +17,33 @@ export type ModSource = {
   items?: InventoryItem[];
 };
 
+/** A modifier the math can safely evaluate (old DB rows / imports may hold
+ *  anything — a malformed entry must degrade to "ignored", never throw). */
+const usable = (m: SheetModifier): boolean =>
+  !!m &&
+  typeof m === 'object' &&
+  !!m.target &&
+  typeof m.target === 'object' &&
+  typeof m.target.kind === 'string' &&
+  Number.isFinite(m.value);
+
 /**
  * Every modifier currently in effect: the character's own permanent modifiers
  * plus those from EQUIPPED items (an item's modifiers do nothing until it's
  * equipped/attuned). An item modifier with a blank `source` falls back to the
  * item's name so the tooltip/log always names where the bonus came from.
+ * Malformed entries (bad imports, hand-edited saves) are silently skipped.
  */
 export function activeModifiers(c: ModSource): SheetModifier[] {
-  const own = c.modifiers ?? [];
-  const fromItems = (c.items ?? [])
-    .filter((it) => it.equipped && (it.modifiers?.length ?? 0) > 0)
+  const own = Array.isArray(c.modifiers) ? c.modifiers : [];
+  const fromItems = (Array.isArray(c.items) ? c.items : [])
+    .filter((it) => it?.equipped && Array.isArray(it.modifiers))
     .flatMap((it) =>
-      (it.modifiers ?? []).map((m) => ({ ...m, source: m.source || it.name })),
+      it.modifiers!.map((m) =>
+        usable(m) ? { ...m, source: m.source || it.name } : m,
+      ),
     );
-  return [...own, ...fromItems];
+  return [...own, ...fromItems].filter(usable);
 }
 
 export type StatBreakdown = {
@@ -165,6 +178,36 @@ export function sanitizeModifiers(
       target,
       value,
       ...(e.set && target.kind === 'ability' ? { set: true } : {}),
+    });
+  }
+  return out;
+}
+
+/**
+ * Validate an untrusted inventory-item list (socket payloads, REST bodies, JSON
+ * sheet imports) — nameless/garbled entries are dropped, qty is clamped to a
+ * non-negative integer, and nested `modifiers` go through sanitizeModifiers.
+ */
+export function sanitizeItems(
+  raw: unknown,
+  newId: () => string = () =>
+    `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+): InventoryItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: InventoryItem[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    const name = String(e.name ?? '').trim();
+    if (!name) continue;
+    const modifiers = sanitizeModifiers(e.modifiers, newId);
+    out.push({
+      id: typeof e.id === 'string' && e.id ? e.id : newId(),
+      name,
+      qty: Number.isFinite(Number(e.qty)) ? Math.max(0, Math.round(Number(e.qty))) : 1,
+      note: typeof e.note === 'string' ? e.note : '',
+      ...(modifiers.length ? { modifiers } : {}),
+      ...(e.equipped ? { equipped: true } : {}),
     });
   }
   return out;

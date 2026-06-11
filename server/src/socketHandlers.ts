@@ -733,6 +733,8 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     socket.on('loot:take', ({ monsterId, characterId, itemId, gold, all }) => {
+      const sid = sessionId();
+      if (!sid || !monsterInSession(monsterId, sid)) return; // this session only
       const m = getMonster(monsterId);
       // The taker must own the destination character; players can only take from
       // a container/corpse whose contents are actually revealed to them.

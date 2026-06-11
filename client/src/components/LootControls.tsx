@@ -3,9 +3,11 @@ import type {
   InventoryItem,
   LibraryItem,
   LootContents,
+  Monster,
   SheetModifier,
   StateSnapshot,
 } from '../../../shared/types';
+import { targetLabel } from '../../../shared/modifiers';
 import { useStore } from '../state/socket';
 import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
 
@@ -39,7 +41,10 @@ export function LootControls({
 
   const [name, setName] = useState('');
   const [qty, setQty] = useState(1);
-  const [gold, setGold] = useState(0);
+  // Gold edit draft: null = not editing (show the live value). Tracking a draft
+  // (instead of a number defaulting to 0) means focus+blur without typing can't
+  // accidentally zero the container.
+  const [goldDraft, setGoldDraft] = useState<string | null>(null);
   const [picker, setPicker] = useState(false);
   const [query, setQuery] = useState('');
   const [lib, setLib] = useState<LibraryItem[]>([]);
@@ -49,6 +54,8 @@ export function LootControls({
   const [aiBusy, setAiBusy] = useState(false);
   // The loot item being saved to the library (custom or AI-added; null = none).
   const [saveTo, setSaveTo] = useState<SaveableItem | null>(null);
+  // Bumped after a library save so an open picker refetches and shows it.
+  const [libRefresh, setLibRefresh] = useState(0);
 
   // Who receives the loot: a player takes to their own claimed PC; the DM picks.
   const myCharacter = snapshot.characters.find((c) => c.claimedBy === socketId);
@@ -68,20 +75,28 @@ export function LootControls({
     return () => {
       live = false;
     };
-  }, [picker, query]);
+  }, [picker, query, libRefresh]);
 
   const items: InventoryItem[] = loot?.items ?? [];
   const goldHeld = loot?.gold ?? 0;
   const empty = goldHeld <= 0 && items.length === 0;
 
-  // DM editing: rebuild the whole loot object and push it.
-  const write = (next: LootContents) => setLoot(monsterId, next);
+  // DM editing rebuilds the whole loot object, so always start from the LATEST
+  // container state (not render-time props): an async path (AI generate) or a
+  // blur handler could otherwise resurrect items a player took in the meantime.
+  const freshLoot = (): LootContents => {
+    const m = useStore
+      .getState()
+      .snapshot?.monsters.find((x) => x.id === monsterId) as Monster | undefined;
+    return { gold: m?.loot?.gold ?? 0, items: m?.loot?.items ?? [] };
+  };
   const addItem = (n: string, q: number, note = '', modifiers?: SheetModifier[]) => {
     if (!n.trim()) return;
-    write({
-      gold: goldHeld,
+    const cur = freshLoot();
+    setLoot(monsterId, {
+      gold: cur.gold,
       items: [
-        ...items,
+        ...cur.items,
         {
           id: newItemId(),
           name: n.trim(),
@@ -94,9 +109,12 @@ export function LootControls({
       ],
     });
   };
-  const removeLootItem = (id: string) =>
-    write({ gold: goldHeld, items: items.filter((i) => i.id !== id) });
-  const changeGold = (v: number) => write({ gold: Math.max(0, v), items });
+  const removeLootItem = (id: string) => {
+    const cur = freshLoot();
+    setLoot(monsterId, { gold: cur.gold, items: cur.items.filter((i) => i.id !== id) });
+  };
+  const changeGold = (v: number) =>
+    setLoot(monsterId, { gold: Math.max(0, v), items: freshLoot().items });
 
   if (!editable && empty) return null;
 
@@ -122,6 +140,20 @@ export function LootControls({
             <li key={it.id} className="loot-row">
               <span className="item-name">
                 {it.name}
+                {(it.modifiers?.length ?? 0) > 0 && (
+                  <span
+                    className="lib-fx"
+                    title={`Magic effects: ${it.modifiers!
+                      .map((m) =>
+                        m.set
+                          ? `${targetLabel(m.target)} = ${m.value}`
+                          : `${m.value >= 0 ? '+' : ''}${m.value} ${targetLabel(m.target)}`,
+                      )
+                      .join(', ')}`}
+                  >
+                    {' '}✦{it.modifiers!.length}
+                  </span>
+                )}
                 {it.qty > 1 && <span className="muted"> ×{it.qty}</span>}
                 {it.note && (
                   <button
@@ -153,7 +185,7 @@ export function LootControls({
                     setSaveTo({
                       name: it.name,
                       description: it.note ?? '',
-                      qtyDefault: it.qty,
+                      qtyDefault: Math.max(1, it.qty), // a run-down stack still saves a usable default
                       modifiers: it.modifiers,
                     })
                   }
@@ -207,9 +239,14 @@ export function LootControls({
             <input
               type="number"
               min={0}
-              value={gold || goldHeld}
-              onChange={(e) => setGold(Math.max(0, Number(e.target.value)))}
-              onBlur={() => changeGold(gold)}
+              value={goldDraft ?? String(goldHeld)}
+              onChange={(e) => setGoldDraft(e.target.value)}
+              onBlur={() => {
+                if (goldDraft === null) return; // untouched — write nothing
+                const v = Math.max(0, Math.round(Number(goldDraft) || 0));
+                setGoldDraft(null);
+                if (v !== goldHeld) changeGold(v);
+              }}
             />
           </label>
           <div className="item-add">
@@ -312,7 +349,11 @@ export function LootControls({
       )}
 
       {saveTo && (
-        <ItemLibrarySaveDialog item={saveTo} onClose={() => setSaveTo(null)} />
+        <ItemLibrarySaveDialog
+          item={saveTo}
+          onClose={() => setSaveTo(null)}
+          onSaved={() => setLibRefresh((n) => n + 1)}
+        />
       )}
     </div>
   );

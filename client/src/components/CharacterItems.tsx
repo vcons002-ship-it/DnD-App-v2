@@ -27,6 +27,8 @@ export function CharacterItems({
   const [fxId, setFxId] = useState<string | null>(null);
   // The item being saved to the library (custom or AI-added; null = none).
   const [saveTo, setSaveTo] = useState<SaveableItem | null>(null);
+  // Bumped after a library save so an open picker refetches and shows it.
+  const [libRefresh, setLibRefresh] = useState(0);
 
   useEffect(() => {
     if (!picker) return;
@@ -38,7 +40,7 @@ export function CharacterItems({
     return () => {
       live = false;
     };
-  }, [picker, query]);
+  }, [picker, query, libRefresh]);
 
   if (character.items.length === 0 && character.gold === 0 && !editable) return null;
 
@@ -138,7 +140,7 @@ export function CharacterItems({
                   setSaveTo({
                     name: it.name,
                     description: it.note ?? '',
-                    qtyDefault: it.qty,
+                    qtyDefault: Math.max(1, it.qty), // a run-down stack still saves a usable default
                     modifiers: it.modifiers,
                   })
                 }
@@ -276,7 +278,11 @@ export function CharacterItems({
       )}
 
       {saveTo && (
-        <ItemLibrarySaveDialog item={saveTo} onClose={() => setSaveTo(null)} />
+        <ItemLibrarySaveDialog
+          item={saveTo}
+          onClose={() => setSaveTo(null)}
+          onSaved={() => setLibRefresh((n) => n + 1)}
+        />
       )}
     </div>
   );

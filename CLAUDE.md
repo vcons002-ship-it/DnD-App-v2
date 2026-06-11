@@ -387,6 +387,9 @@ sanitization rules above and commit it to `claude/Main`.
 - Keep `shared/*` framework-free (imported by both server and client).
 - Every player-visible field must pass through `visibility.ts` — never leak via
   the client.
+- Client-supplied `SheetModifier[]`/`InventoryItem[]` must pass
+  `sanitizeModifiers`/`sanitizeItems` (`shared/modifiers.ts`) before storage —
+  they feed the server's own roll math.
 - New client→server events need a **role gate** in `socketHandlers.ts` and a
   matching entry in `ClientToServerEvents` (`shared/types.ts`); end mutations
   with `afterChange()`.

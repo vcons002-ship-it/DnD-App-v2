@@ -19,7 +19,12 @@ import {
   setItem,
   listRollLog,
 } from './sessions.js';
-import { resolveSave, resolveSkillRoll } from './combat.js';
+import {
+  resolveAbilityRoll,
+  resolveDeathSave,
+  resolveSave,
+  resolveSkillRoll,
+} from './combat.js';
 
 const mod = (
   source: string,
@@ -180,5 +185,99 @@ describe('modifiers flow through the server roll math', () => {
     const detail = listRollLog(s.id).at(-1)!.detail;
     expect(detail).toContain('+5');
     expect(detail).toContain('Boots of Elvenkind');
+  });
+
+  it('a flat attack modifier applies to SPELL attacks too (named in the log)', () => {
+    const { s, ch } = pc({ INT: 16 });
+    setItem(ch.id, {
+      id: 'wand',
+      name: 'Wand of the War Mage',
+      qty: 1,
+      note: '',
+      modifiers: [mod('', { kind: 'attack' }, 1)],
+      equipped: true,
+    });
+    resolveAbilityRoll(s.id, 'Hero', getCharacter(ch.id)!, {
+      id: 'fb',
+      name: 'Fire Bolt',
+      type: 'spell',
+      description: '',
+      level: 0,
+      roll: { kind: 'attack', dice: '1d10', damageType: 'fire' },
+    });
+    const detail = listRollLog(s.id).at(-1)!.detail;
+    expect(detail).toContain('+1[Wand of the War Mage]');
+  });
+
+  it('death saves add ALL-SAVES modifiers (a death save IS a saving throw)', () => {
+    const { s, ch } = pc({ CON: 10 });
+    updateCharacter(ch.id, {
+      curHp: 0,
+      modifiers: [mod('Cloak of Protection', { kind: 'save' }, 1)],
+    });
+    expect(resolveDeathSave(s.id, ch.id)).toBe(true);
+    const e = listRollLog(s.id).at(-1)!;
+    // A natural 20 logs a revive line with no bonus math; any other face shows
+    // the named all-saves bonus folded into the 10+ check.
+    if (!e.detail.includes('natural 20'))
+      expect(e.detail).toContain('+1[Cloak of Protection]');
+  });
+});
+
+describe('untrusted modifier/item writes are sanitized server-side', () => {
+  const session = () => {
+    const s = createSession('Sanitize');
+    const ch = createCharacter(s.id, { name: 'Mallory', level: 1, stats: { STR: 10 } });
+    return { s, ch };
+  };
+
+  it('character:update strips malformed entries and clamps values (rolls keep working)', () => {
+    const { s, ch } = session();
+    updateCharacter(ch.id, {
+      modifiers: [
+        { value: 5 }, // no target — previously crashed every later roll
+        { target: { kind: 'ac' }, value: 100000 }, // clamped to +30
+        mod('Legit', { kind: 'ability', ability: 'STR' }, 2),
+      ] as never,
+    });
+    const stored = getCharacter(ch.id)!.modifiers;
+    expect(stored).toHaveLength(2);
+    expect(stored.find((m) => m.target.kind === 'ac')!.value).toBe(30);
+    // The roll math stays healthy after the hostile patch (STR 10+2=12 → +1).
+    resolveSave(s.id, 'DM', 'pc', ch.id, 'STR');
+    expect(listRollLog(s.id).at(-1)!.detail).toContain('(+1');
+  });
+
+  it('item:set validates the whole item (qty, modifiers)', () => {
+    const { ch } = session();
+    setItem(ch.id, {
+      id: 'x',
+      name: 'Cursed Ring',
+      qty: Number.NaN,
+      note: '',
+      modifiers: [
+        { target: { kind: 'nonsense' }, value: 3 },
+        { target: { kind: 'save' }, value: 2 },
+      ] as never,
+      equipped: true,
+    });
+    const it1 = getCharacter(ch.id)!.items.find((i) => i.name === 'Cursed Ring')!;
+    expect(it1.qty).toBe(1); // NaN → default
+    expect(it1.modifiers).toHaveLength(1);
+    expect(it1.modifiers![0].target.kind).toBe('save');
+  });
+
+  it('old/garbled stored modifiers degrade to "ignored" instead of throwing', () => {
+    // Simulates a pre-sanitizer DB row: feed effectiveStats malformed data directly.
+    const eff = effectiveStats({
+      stats: { STR: 10 },
+      modifiers: [
+        { id: 'bad', source: 'x', value: 5 } as never, // no target
+        null as never,
+        mod('Belt', { kind: 'ability', ability: 'STR' }, 2),
+      ],
+      items: 'garbage' as never, // non-array items
+    });
+    expect(eff.scores.STR).toBe(12); // the one valid modifier still applies
   });
 });

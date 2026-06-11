@@ -606,6 +606,32 @@ describe('non-combat objects', () => {
     expect(drained.loot).toBeUndefined();
     expect(drained.conditions.some((c) => c.label === 'Looted')).toBe(true);
   });
+
+  it("keeps a FRIENDLY creature's loot behind the same reveal gate", () => {
+    const s = createSession('FriendlyLoot');
+    const map = createMap(s.id, { name: 'Camp' });
+    setActiveMap(s.id, map.id);
+    const ally = spawnInstance(s.id, 'Caravan Guard', 11);
+    updateMonster(ally.id, { disposition: 'friendly' });
+    createToken({ mapId: map.id, kind: 'monster', refId: ally.id, x: 1, y: 1 });
+    setLoot(ally.id, { gold: 25, items: [] });
+
+    // Friendly = full stat block, but the pockets stay private until the DM
+    // reveals them (dead + "Loot revealed", like every other creature).
+    let pm = buildSnapshot(s.id, 'player')!.monsters.find((m) => m.id === ally.id)!;
+    expect('maxHp' in pm).toBe(true); // stats ARE visible (friendly tier)
+    expect((pm as Monster).loot).toBeUndefined();
+
+    applyDamage('monster', ally.id, 999);
+    setCondition('monster', ally.id, {
+      id: 'lr',
+      label: 'Loot revealed',
+      aura: 'blue',
+      isConcentration: false,
+    });
+    pm = buildSnapshot(s.id, 'player')!.monsters.find((m) => m.id === ally.id)!;
+    expect((pm as Monster).loot!.gold).toBe(25);
+  });
 });
 
 describe('createSnapshotBuilder (fan-out path)', () => {

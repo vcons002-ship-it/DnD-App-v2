@@ -285,13 +285,18 @@ export function resolveAttack(
 
   // Flat attack-roll bonus from the attacker's feats / equipped magic items
   // (the ability mod is already in `a.c.stats`; weapon magicBonus is separate).
-  const atkExtra = a.mod ? attackExtra(a.mod).total : 0;
+  const atkExtra = a.mod ? attackExtra(a.mod) : { total: 0, parts: [] };
+  const toHitLabel = [
+    ...(maneuverToHit ? ['maneuver'] : []),
+    ...atkExtra.parts.map((p) => p.source),
+  ].join('+');
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
     twoHanded,
     noAbilityMod,
     bonusDamage: flatBonus || undefined,
     bonusLabel: flatLabels.length ? flatLabels.join('+') : undefined,
-    attackRollBonus: (maneuverToHit || 0) + atkExtra || undefined,
+    attackRollBonus: (maneuverToHit || 0) + atkExtra.total || undefined,
+    attackRollBonusLabel: toHitLabel || undefined,
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
@@ -714,8 +719,16 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
   if (!ch || ch.curHp > 0 || ch.deathSaves.successes >= 3 || ch.deathSaves.failures >= 3)
     return false;
   const face = rollDice('1d20')!.total;
+  // A death save IS a saving throw, so all-saves modifiers (Cloak of Protection
+  // etc.) apply to the 10+ check; an ability-specific save bonus doesn't (a
+  // death save has no ability), and nat 20 / nat 1 stay face-based per RAW.
+  const extra = saveExtra(ch, '');
+  const total = face + extra.total;
+  const extraNote = extra.parts
+    .map((p) => ` ${signed(p.value)}[${p.source}]`)
+    .join('');
   const log = (detail: string) =>
-    addRollLog(sessionId, { roller: ch.name, label: 'Death save', expr: 'd20', total: face, detail });
+    addRollLog(sessionId, { roller: ch.name, label: 'Death save', expr: 'd20', total, detail });
 
   if (face === 20) {
     applyDamage('pc', characterId, -1); // back to 1 HP (healing also resets saves)
@@ -727,7 +740,7 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
   let { successes, failures } = ch.deathSaves;
   let kind: string;
   if (face === 1) (failures = Math.min(3, failures + 2)), (kind = 'FAILURE ×2');
-  else if (face >= 10) (successes = Math.min(3, successes + 1)), (kind = 'SUCCESS');
+  else if (total >= 10) (successes = Math.min(3, successes + 1)), (kind = 'SUCCESS');
   else (failures = Math.min(3, failures + 1)), (kind = 'FAILURE');
 
   // 3✓ stabilizes and 3✗ dies — both are persistent states (kept as the tally so
@@ -737,7 +750,9 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
   else if (successes >= 3) outcome = ` — ${ch.name} is STABLE`;
 
   setDeathSaves(characterId, successes, failures);
-  log(`${ch.name}: d20[${face}] ${kind} (${successes}✓/${failures}✗)${outcome}`);
+  log(
+    `${ch.name}: d20[${face}]${extraNote}${extra.total ? ` = ${total}` : ''} ${kind} (${successes}✓/${failures}✗)${outcome}`,
+  );
   return true;
 }
 
@@ -766,7 +781,10 @@ function resolveSheetAbilityFor(
   sessionId: string,
   roller: string,
   kind: TokenKind,
-  entity: { id: string; stats: Record<string, number>; level: number },
+  // PCs arrive as a full-character spread, so feat/equipped-item modifiers
+  // (`modifiers`/`items`) ride along for the flat attack-roll extra; monsters
+  // simply have neither.
+  entity: { id: string; stats: Record<string, number>; level: number } & ModSource,
   ability: SheetAbility,
   castLevel?: number,
   advantage?: Advantage,
@@ -808,7 +826,14 @@ function resolveSheetAbilityFor(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
-    const { bonus, detail: bonusDetail } = spellAttackBonusDetail(stats, prof);
+    const base = spellAttackBonusDetail(stats, prof);
+    // Flat attack-roll bonus from feats / equipped items ({kind:'attack'} covers
+    // every attack roll — weapon attacks fold it in via resolveAttack).
+    const extra = attackExtra(entity);
+    const bonus = base.bonus + extra.total;
+    const bonusDetail =
+      base.detail +
+      extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
     // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
     if (
       targetTokenId &&

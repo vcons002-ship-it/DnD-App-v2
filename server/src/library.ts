@@ -10,7 +10,7 @@ import type {
   SheetModifier,
   Weapon,
 } from '../../shared/types.js';
-import { sanitizeModifiers } from '../../shared/modifiers.js';
+import { sanitizeItems, sanitizeModifiers } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
 
 // ---- Cross-session creature library ----
@@ -287,8 +287,10 @@ export function saveLibraryCharacter(
     JSON.stringify(input.abilities ?? []),
     JSON.stringify(input.proficientSkills ?? []),
     JSON.stringify(input.saveProficiencies ?? []),
-    JSON.stringify(input.modifiers ?? []),
-    JSON.stringify(input.items ?? []),
+    // Sanitized: this REST body is untrusted and modifiers/items flow into a
+    // live session's roll math via character:loadFromLibrary.
+    JSON.stringify(sanitizeModifiers(input.modifiers, newId)),
+    JSON.stringify(sanitizeItems(input.items, newId)),
     JSON.stringify(input.sheetAbilities ?? []),
     input.icon ?? '',
     Date.now(),
@@ -359,12 +361,17 @@ export function saveLibraryItem(input: {
   /** Magic effects (validated here — REST bodies and AI output are untrusted). */
   modifiers?: unknown;
 }): LibraryItem {
-  const name = input.name.trim();
+  // REST-reachable: clamp/normalize the untrusted fields (a NaN qty_default
+  // would bind as SQL NULL; a non-string description would throw a 500).
+  const name = input.name.trim().slice(0, 120);
   const id =
     (db
       .prepare('SELECT id FROM library_items WHERE LOWER(name) = ?')
       .get(name.toLowerCase()) as { id: string } | undefined)?.id ?? newId();
   const modifiers = sanitizeModifiers(input.modifiers, newId);
+  const qtyDefault = Number.isFinite(Number(input.qtyDefault))
+    ? Math.max(1, Math.round(Number(input.qtyDefault)))
+    : 1;
   db.prepare(
     `INSERT OR REPLACE INTO library_items
        (id, name, description, qty_default, data, created_at)
@@ -372,8 +379,8 @@ export function saveLibraryItem(input: {
   ).run(
     id,
     name,
-    input.description ?? '',
-    input.qtyDefault ?? 1,
+    typeof input.description === 'string' ? input.description.slice(0, 4000) : '',
+    qtyDefault,
     JSON.stringify(modifiers.length ? { modifiers } : {}),
     Date.now(),
   );
@@ -419,8 +426,15 @@ export const seedLibraryItems = db.transaction((): number => {
       if (!it.modifiers?.length) continue;
       const row = find.get(it.name.toLowerCase()) as LibItemRow | undefined;
       if (!row || rowToItem(row).modifiers?.length) continue;
+      // Merge into the existing data blob (don't wipe future extensible fields).
+      let data: Record<string, unknown> = {};
+      try {
+        data = JSON.parse(row.data || '{}') as Record<string, unknown>;
+      } catch {
+        /* garbled blob — rebuild it */
+      }
       db.prepare('UPDATE library_items SET data = ? WHERE id = ?').run(
-        JSON.stringify({ modifiers: sanitizeModifiers(it.modifiers, newId) }),
+        JSON.stringify({ ...data, modifiers: sanitizeModifiers(it.modifiers, newId) }),
         row.id,
       );
     }

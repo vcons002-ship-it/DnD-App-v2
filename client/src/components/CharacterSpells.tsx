@@ -17,6 +17,7 @@ import {
   spellCapacity,
 } from '../../../shared/spellPrep';
 import { spellAllowances, spellBudgetBreakdown } from '../../../shared/spellLists';
+import { effectiveStats } from '../../../shared/modifiers';
 import { featUsage, isFeatAbility } from '../../../shared/feats';
 import {
   confirmConcentration,
@@ -267,7 +268,14 @@ export function CharacterSpells({
             ...character.abilities.map((a) => a.name),
           ]);
           const classCantrips = cantripsKnown(character.className, lvl, character.subclass);
-          const cap = spellCapacity(character.className, lvl, character.stats, character.subclass);
+          // Effective scores so a stat item (Headband of Intellect) raises the
+          // prepared cap like every other derived number.
+          const cap = spellCapacity(
+            character.className,
+            lvl,
+            effectiveStats(character).scores,
+            character.subclass,
+          );
           // Per-LIST budget breakdown so the user sees how many of each list they
           // get ("4 Wizard + 2 Druid"), not one merged number.
           const bd = spellBudgetBreakdown(allowances, classCantrips, cap ? cap.max : null);

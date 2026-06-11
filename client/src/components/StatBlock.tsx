@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { signed } from '../../../shared/skills';
-import { type ModSource, effectiveStats } from '../../../shared/modifiers';
+import { type ModSource, effectiveAc, effectiveStats } from '../../../shared/modifiers';
 import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
 import { DAMAGE_TYPES } from '../../../shared/damage';
 
@@ -359,6 +359,7 @@ function ReadView({
   // carries `modifiers`/`items`; a monster has neither → base scores), with a
   // per-ability breakdown for the stat-math tooltip.
   const eff = effectiveStats(m as unknown as ModSource);
+  const effAc = effectiveAc(m as unknown as ModSource) || m.armorClass;
   // PCs (masteries passed) store dice-only damage; show it with the live ability
   // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
   const isPc = masteries !== undefined;
@@ -405,7 +406,20 @@ function ReadView({
       )}
       <div className="sb-meta">
         {m.level > 0 && <span>{levelLabel} {m.level}</span>}
-        {m.armorClass > 0 && <span>AC {m.armorClass}</span>}
+        {/* Effective AC (base + equipped-item/feat bonuses) — what the server
+            actually defends with; the dot + tooltip show the math. */}
+        {m.armorClass > 0 && (
+          <span
+            title={
+              effAc !== m.armorClass
+                ? `AC ${effAc} = ${m.armorClass} base ${signed(effAc - m.armorClass)} from modifiers`
+                : undefined
+            }
+          >
+            AC {effAc}
+            {effAc !== m.armorClass && <span className="sb-ab-mod-dot">•</span>}
+          </span>
+        )}
         <span>
           HP {m.curHp}/{m.maxHp}
           {m.tempHp > 0 && <span className="temp-hp"> +{m.tempHp} temp</span>}
