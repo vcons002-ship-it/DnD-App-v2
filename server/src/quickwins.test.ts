@@ -113,6 +113,19 @@ describe('HP-change FX queue (floating ±X)', () => {
     expect(drainHpFx(s.id)).toEqual([]);
     expect(drainHpFx(other.id).map((e) => e.delta)).toEqual([-3]);
   });
+
+  it('carries the damage type for the elemental burst (damage only, canonical only)', () => {
+    const s = createSession('FxType');
+    drainHpFx(s.id);
+    const ch = createCharacter(s.id, { name: 'Torch', maxHp: 30 });
+    applyDamage('pc', ch.id, 5, 'fire');
+    applyDamage('pc', ch.id, 5, 'Fire '); // normalized (case/space)
+    applyDamage('pc', ch.id, 5, 'banana'); // not a 5e type → dropped
+    applyDamage('pc', ch.id, 5); // untyped
+    applyDamage('pc', ch.id, -10, 'fire'); // heals never carry a type
+    const types = drainHpFx(s.id).map((e) => e.damageType);
+    expect(types).toEqual(['fire', 'fire', undefined, undefined, undefined]);
+  });
 });
 
 describe('hide DM rolls from players', () => {

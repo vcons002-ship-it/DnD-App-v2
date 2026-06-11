@@ -10,8 +10,21 @@ import type {
 import { targetLabel } from '../../../shared/modifiers';
 import { useStore } from '../state/socket';
 import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
+import { ModifierEditor } from './ModifierEditor';
 
 const newItemId = () => crypto.randomUUID?.() ?? String(Date.now() + Math.random());
+
+/** One-line summary of an item's magic effects, e.g. "+1 AC, STR = 19". */
+const fxSummary = (mods?: SheetModifier[]): string | undefined =>
+  mods && mods.length
+    ? `Magic effects: ${mods
+        .map((m) =>
+          m.set
+            ? `${targetLabel(m.target)} = ${m.value}`
+            : `${m.value >= 0 ? '+' : ''}${m.value} ${targetLabel(m.target)}`,
+        )
+        .join(', ')}`
+    : undefined;
 
 /**
  * Loot inside an object (chest/treasure pile). The DM stocks it with gold + items;
@@ -56,6 +69,8 @@ export function LootControls({
   const [saveTo, setSaveTo] = useState<SaveableItem | null>(null);
   // Bumped after a library save so an open picker refetches and shows it.
   const [libRefresh, setLibRefresh] = useState(0);
+  // The loot item whose magic-effects editor is open (by id; null = none).
+  const [fxId, setFxId] = useState<string | null>(null);
 
   // Who receives the loot: a player takes to their own claimed PC; the DM picks.
   const myCharacter = snapshot.characters.find((c) => c.claimedBy === socketId);
@@ -115,6 +130,20 @@ export function LootControls({
   };
   const changeGold = (v: number) =>
     setLoot(monsterId, { gold: Math.max(0, v), items: freshLoot().items });
+  // DM edits a loot item's magic effects in place (e.g. tweak an AI item's
+  // bonuses BEFORE a player loots it).
+  const setItemMods = (id: string, modifiers: SheetModifier[]) => {
+    const cur = freshLoot();
+    setLoot(monsterId, {
+      gold: cur.gold,
+      items: cur.items.map((i) =>
+        i.id === id
+          ? { ...i, ...(modifiers.length ? { modifiers } : { modifiers: undefined }) }
+          : i,
+      ),
+    });
+  };
+  const fxItem = items.find((i) => i.id === fxId) ?? null;
 
   if (!editable && empty) return null;
 
@@ -140,19 +169,22 @@ export function LootControls({
             <li key={it.id} className="loot-row">
               <span className="item-name">
                 {it.name}
-                {(it.modifiers?.length ?? 0) > 0 && (
-                  <span
-                    className="lib-fx"
-                    title={`Magic effects: ${it.modifiers!
-                      .map((m) =>
-                        m.set
-                          ? `${targetLabel(m.target)} = ${m.value}`
-                          : `${m.value >= 0 ? '+' : ''}${m.value} ${targetLabel(m.target)}`,
-                      )
-                      .join(', ')}`}
+                {/* ✦ effects: the DM can open the editor (also on plain items, to
+                    ADD effects); players just see the count + summary. */}
+                {editable ? (
+                  <button
+                    className={`item-fx${(it.modifiers?.length ?? 0) > 0 ? ' has-fx' : ''}`}
+                    title={fxSummary(it.modifiers) ?? 'Edit magic effects'}
+                    onClick={() => setFxId(it.id)}
                   >
-                    {' '}✦{it.modifiers!.length}
-                  </span>
+                    ✦{(it.modifiers?.length ?? 0) > 0 ? it.modifiers!.length : ''}
+                  </button>
+                ) : (
+                  (it.modifiers?.length ?? 0) > 0 && (
+                    <span className="lib-fx" title={fxSummary(it.modifiers)}>
+                      {' '}✦{it.modifiers!.length}
+                    </span>
+                  )
                 )}
                 {it.qty > 1 && <span className="muted"> ×{it.qty}</span>}
                 {it.note && (
@@ -354,6 +386,29 @@ export function LootControls({
           onClose={() => setSaveTo(null)}
           onSaved={() => setLibRefresh((n) => n + 1)}
         />
+      )}
+
+      {fxItem && editable && (
+        <div className="popover-backdrop spellbook-backdrop" onClick={() => setFxId(null)}>
+          <div className="item-desc-window" onClick={(e) => e.stopPropagation()}>
+            <div className="item-desc-head">
+              <h4>✦ {fxItem.name} — effects</h4>
+              <button className="res-x" title="Close" onClick={() => setFxId(null)}>
+                ✕
+              </button>
+            </div>
+            <p className="muted">
+              These ride with the item into the looter's inventory and apply once
+              it's equipped/attuned.
+            </p>
+            <ModifierEditor
+              modifiers={fxItem.modifiers ?? []}
+              onChange={(mods) => setItemMods(fxItem.id, mods)}
+              editable
+              defaultSource={fxItem.name}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

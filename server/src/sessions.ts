@@ -18,6 +18,7 @@ import {
   sanitizeModifiers,
 } from '../../shared/modifiers.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
+import { isDamageType } from '../../shared/damage.js';
 import type {
   Character,
   CombatRole,
@@ -2335,8 +2336,8 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta } = hpFxQueue[i];
-    mine.unshift({ kind, refId, delta });
+    const { kind, refId, delta, damageType } = hpFxQueue[i];
+    mine.unshift({ kind, refId, delta, ...(damageType ? { damageType } : {}) });
     hpFxQueue.splice(i, 1);
   }
   return mine;
@@ -2346,6 +2347,9 @@ export function applyDamage(
   kind: TokenKind,
   refId: string,
   amount: number,
+  /** Canonical 5e damage type when the source knew it (drives the token's
+   *  elemental burst FX); omitted for heals/untyped damage. */
+  damageType?: string,
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -2371,7 +2375,16 @@ export function applyDamage(
   const delta = nextCur + nextTemp - (entity.curHp + entity.tempHp);
   const fxDelta = delta !== 0 ? delta : amount > 0 ? -amount : 0;
   if (fxDelta !== 0 && hpFxQueue.length < 200)
-    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta: fxDelta });
+    hpFxQueue.push({
+      sessionId: entity.sessionId,
+      kind,
+      refId,
+      delta: fxDelta,
+      // Type only rides on damage (heals are sign-coded green client-side).
+      ...(fxDelta < 0 && isDamageType(damageType)
+        ? { damageType: damageType.trim().toLowerCase() }
+        : {}),
+    });
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {

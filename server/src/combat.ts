@@ -131,9 +131,11 @@ function applyDamageNoted(
   kind: TokenKind,
   refId: string,
   amount: number,
+  /** Damage type when known — rides the fx:hp event for the elemental burst. */
+  damageType?: string,
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount);
+  const after = applyDamage(kind, refId, amount, damageType);
   if (!before || !after) return undefined;
   const hp = (e: { curHp: number; tempHp: number }) =>
     `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
@@ -374,7 +376,13 @@ export function resolveAttack(
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
   let hpNote: RollEntry['hpNote'];
   if (applied > 0) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied);
+    // FX type: a fired elemental rider (flaming sword) makes the better burst
+    // than the base physical type; otherwise the weapon's own type.
+    const fxType =
+      out.hit && weapon.extraDamage && weapon.extraDamageType
+        ? weapon.extraDamageType
+        : weapon.damageType;
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -565,7 +573,7 @@ export function resolveForcedSave(
     // in order and disarms when the darts run out.
     const base = apply.split[instanceIndex] ?? 0;
     dmg = Math.floor(base * mult);
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg);
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     addRollLog(sessionId, {
       roller: 'DM',
@@ -604,7 +612,7 @@ export function resolveForcedSave(
     dmg = Math.floor(apply.amount * mult);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  const saveNote = applyDamageNoted(r.kind, r.refId, dmg);
+  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   addRollLog(sessionId, {
     roller: 'DM',
@@ -682,7 +690,7 @@ function resolveTargetedSpellAttack(opts: {
           ? `½ resisted (${opts.damageType})`
           : `×2 vulnerable (${opts.damageType})`,
       );
-    hpNote = applyDamageNoted(t.kind, t.refId, applied);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
