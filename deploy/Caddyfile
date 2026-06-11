@@ -1,0 +1,10 @@
+# Caddy reverse proxy for DnD-App-v2 — automatic free HTTPS (Let's Encrypt).
+# Replace YOURNAME.duckdns.org with your actual hostname, then:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# Caddy obtains/renews the TLS cert automatically and proxies HTTPS (:443) to the
+# app on :4000, including WebSocket (Socket.IO) upgrades — no extra config needed.
+
+YOURNAME.duckdns.org {
+	reverse_proxy localhost:4000
+}
