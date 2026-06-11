@@ -3,6 +3,7 @@ import type {
   InventoryItem,
   LibraryItem,
   LootContents,
+  SheetModifier,
   StateSnapshot,
 } from '../../../shared/types';
 import { useStore } from '../state/socket';
@@ -72,11 +73,22 @@ export function LootControls({
 
   // DM editing: rebuild the whole loot object and push it.
   const write = (next: LootContents) => setLoot(monsterId, next);
-  const addItem = (n: string, q: number, note = '') => {
+  const addItem = (n: string, q: number, note = '', modifiers?: SheetModifier[]) => {
     if (!n.trim()) return;
     write({
       gold: goldHeld,
-      items: [...items, { id: newItemId(), name: n.trim(), qty: q, note }],
+      items: [
+        ...items,
+        {
+          id: newItemId(),
+          name: n.trim(),
+          qty: q,
+          note,
+          // Library/AI magic effects ride into the container and onward to the
+          // looter's inventory (active once they equip the item).
+          ...(modifiers && modifiers.length ? { modifiers } : {}),
+        },
+      ],
     });
   };
   const removeLootItem = (id: string) =>
@@ -237,7 +249,7 @@ export function LootControls({
                     return;
                   }
                   const it = await res.json();
-                  addItem(it.name, it.qtyDefault ?? 1, it.description ?? '');
+                  addItem(it.name, it.qtyDefault ?? 1, it.description ?? '', it.modifiers);
                   setAiPrompt('');
                 } finally {
                   setAiBusy(false);
@@ -264,10 +276,13 @@ export function LootControls({
                   <button
                     key={li.id}
                     className="suggest-row"
-                    onClick={() => addItem(li.name, li.qtyDefault, li.description)}
+                    onClick={() => addItem(li.name, li.qtyDefault, li.description, li.modifiers)}
                     title="Add to this container"
                   >
                     {li.name}
+                    {(li.modifiers?.length ?? 0) > 0 && (
+                      <span className="lib-fx" title="Has magic effects"> ✦{li.modifiers!.length}</span>
+                    )}
                     <span className="muted">×{li.qtyDefault}</span>
                   </button>
                 ))}

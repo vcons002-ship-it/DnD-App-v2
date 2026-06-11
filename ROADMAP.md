@@ -1155,3 +1155,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   (`spellBudgetBreakdown`). Persisted via `ensureColumn` (characters +
   library_characters) and the items JSON; round-trips through library + JSON sheet
   I/O. +21 tests (modifiers/feats/breakdown).
+- ☑ **Item-library modifiers: SRD presets + AI [req].** `LibraryItem` carries
+  `modifiers` (stored in `library_items.data` JSON; one-time `items_modifiers_v1`
+  backfill upgrades already-seeded libraries without touching DM-edited effects).
+  SRD presets on the catalogue's numeric magic items — several allow MULTIPLE
+  effects per item (Cloak/Ring of Protection = +1 AC **and** +1 all saves, Luckstone
+  = +1 all skills + saves) — plus a new `SheetModifier.set` flag for score-floor
+  items ("your STR **becomes** 19": Gauntlets of Ogre Power, Headband of Intellect,
+  Amulet of Health, Hill Giant potion; `effectiveStats` floors after bonuses, shown
+  as "→19" in the stat-math hover and "=19" in `ModifierEditor`, which also gained a
+  "+ bonus / = set to" picker). `generateItemAI` now emits a structured `modifiers`
+  array, validated by the new `sanitizeModifiers` (shared, also guards the REST
+  save path). Pickers (`CharacterItems`/`LootControls`, incl. the loot AI path) copy
+  modifiers onto the added item with a ✦n badge, and `setLoot` no longer strips them
+  from containers. +4 tests (set-floor math, sanitizer, library round-trip, seed
+  presets + backfill).

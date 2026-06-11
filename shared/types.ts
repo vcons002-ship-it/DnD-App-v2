@@ -481,6 +481,9 @@ export type LibraryItem = {
   name: string;
   description: string;
   qtyDefault: number;
+  /** Magic effects copied onto the InventoryItem when the item is picked
+   *  (preset on SRD magic items, AI-generated ones too; apply once equipped). */
+  modifiers?: SheetModifier[];
 };
 
 /**
@@ -555,6 +558,10 @@ export type SheetModifier = {
   value: number;
   /** Marks an ASI/feat slot use (counts against the level-based feat cap). */
   slot?: boolean;
+  /** Ability targets only: the score BECOMES `value` (a floor — "your Strength
+   *  is 19", per Gauntlets of Ogre Power). Inert when the score is already
+   *  higher; ignored for non-ability targets. */
+  set?: boolean;
 };
 
 /** Contents of a lootable object (a chest/treasure pile). Items move into a

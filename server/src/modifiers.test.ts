@@ -5,6 +5,7 @@ import {
   saveExtra,
   skillExtra,
   activeModifiers,
+  sanitizeModifiers,
 } from '../../shared/modifiers.js';
 import type { SheetModifier } from '../../shared/types.js';
 import {
@@ -57,6 +58,56 @@ describe('modifier helpers (pure)', () => {
     const equipped = { stats: { STR: 10 }, items: [{ ...belt, equipped: true }] };
     expect(effectiveStats(equipped).scores.STR).toBe(12);
     expect(activeModifiers(equipped)[0].source).toBe('Belt of Hill Giant Strength');
+  });
+
+  it('a set-score modifier floors the ability ("your Strength is 19")', () => {
+    const gauntlets = (str: number, extra: SheetModifier[] = []) =>
+      effectiveStats({
+        stats: { STR: str },
+        modifiers: [
+          { ...mod('Gauntlets of Ogre Power', { kind: 'ability', ability: 'STR' }, 19), set: true },
+          ...extra,
+        ],
+      });
+    // Raises a lower score and shows up in the breakdown as a set part.
+    expect(gauntlets(12).scores.STR).toBe(19);
+    expect(gauntlets(12).breakdown.STR.parts).toEqual([
+      { source: 'Gauntlets of Ogre Power', value: 19, set: true },
+    ]);
+    // Inert when the score is already higher (and stays out of the tooltip).
+    expect(gauntlets(20).scores.STR).toBe(20);
+    expect(gauntlets(20).breakdown.STR.parts).toHaveLength(0);
+    // Floors AFTER flat bonuses; the higher of bonus-total vs floor wins.
+    const belt = mod('Belt', { kind: 'ability', ability: 'STR' }, 2);
+    expect(gauntlets(18, [belt]).scores.STR).toBe(20); // 18+2 beats the 19 floor
+    expect(gauntlets(10, [belt]).scores.STR).toBe(19); // 10+2 floored up to 19
+  });
+
+  it('sanitizeModifiers validates untrusted (AI/REST) data, keeping multiples', () => {
+    const clean = sanitizeModifiers([
+      { target: { kind: 'ac' }, value: 1, source: 'Cloak' },
+      { target: { kind: 'save' }, value: '1' }, // numeric string ok
+      { target: { kind: 'ability', ability: 'wis' }, value: 2 }, // case-fixed
+      { target: { kind: 'ability', ability: 'STR' }, value: 19, set: true },
+      { target: { kind: 'skill', skill: 'Stealth' }, value: 99 }, // clamped
+      { target: { kind: 'attack' }, value: 1, set: true }, // set only for abilities
+      { target: { kind: 'luck' }, value: 3 }, // unknown kind dropped
+      { target: { kind: 'ability', ability: 'XYZ' }, value: 2 }, // bad ability dropped
+      { target: { kind: 'ac' }, value: 0 }, // no-op dropped
+      'garbage',
+    ]);
+    expect(clean).toHaveLength(6);
+    expect(clean.map((m) => m.target.kind)).toEqual([
+      'ac', 'save', 'ability', 'ability', 'skill', 'attack',
+    ]);
+    expect(clean[1].value).toBe(1);
+    expect(clean[2].target).toEqual({ kind: 'ability', ability: 'WIS' });
+    expect(clean[3].set).toBe(true);
+    expect(clean[4].value).toBe(30);
+    expect(clean[5].set).toBeUndefined();
+    expect(clean.every((m) => m.id)).toBe(true);
+    expect(sanitizeModifiers('not an array')).toEqual([]);
+    expect(sanitizeModifiers(undefined)).toEqual([]);
   });
 
   it('effectiveAc and save/skill extras (all-save + specific-skill)', () => {

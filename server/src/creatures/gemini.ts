@@ -5,10 +5,12 @@ import type {
   CreatureAbility,
   CreatureTemplate,
   SheetAbility,
+  SheetModifier,
   Weapon,
 } from '../../../shared/types.js';
 import { iconForCreature } from './srd.js';
 import { parseActionRoll } from '../../../shared/monsterAttacks.js';
+import { sanitizeModifiers } from '../../../shared/modifiers.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
 // through on "model not found" (404). A configured model override wins.
@@ -439,19 +441,34 @@ export async function generateCharacterAI(
 /**
  * Generate a single D&D 5e item from a free-text prompt. Key-gated + fail-safe
  * (returns null with no key or on any error) like every AI path. Shape mirrors a
- * library item: name + description + a sensible default stack quantity.
+ * library item: name + description + a sensible default stack quantity, plus any
+ * numeric magic effects as structured modifiers (validated server-side; the VTT
+ * auto-applies them while the item is equipped).
  */
-export async function generateItemAI(
-  prompt: string,
-): Promise<{ name: string; description: string; qtyDefault: number } | null> {
+export async function generateItemAI(prompt: string): Promise<{
+  name: string;
+  description: string;
+  qtyDefault: number;
+  modifiers: SheetModifier[];
+} | null> {
   if (!geminiEnabled() || !prompt.trim()) return null;
   const ask =
     `Invent a single Dungeons & Dragons 5e item from this prompt: "${prompt}". ` +
     `Respond ONLY with minified JSON of shape ` +
-    `{"name":string,"description":string,"qtyDefault":number}. ` +
+    `{"name":string,"description":string,"qtyDefault":number,"modifiers":Modifier[]}. ` +
     `"name" is short (≈2–5 words). "description" is 1–3 sentences covering what ` +
     `it is, any rules effect, and rarity/attunement if magical. "qtyDefault" is a ` +
     `sensible stack size (1 for gear/weapons/armor, more for ammo/consumables). ` +
+    `"modifiers" lists every FLAT NUMERIC bonus the item grants while worn/equipped — ` +
+    `[] if none. A Modifier is {"target":Target,"value":number,"set"?:true} where ` +
+    `Target is one of {"kind":"ability","ability":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA"} | ` +
+    `{"kind":"save","ability"?:same} | {"kind":"skill","skill"?:string} | ` +
+    `{"kind":"attack"} | {"kind":"ac"} | {"kind":"initiative"}. Omitting ` +
+    `"ability"/"skill" means ALL saves/skills. "set":true means the ability score ` +
+    `BECOMES value (a floor, e.g. Gauntlets of Ogre Power) rather than adding to it. ` +
+    `Use one entry per bonus — an item may have several (a cloak giving +1 AC and ` +
+    `+1 to all saves = two entries). Do NOT encode advantage, resistances, or other ` +
+    `non-numeric effects; leave those to the description. ` +
     `Keep it SRD-safe and original.`;
   const text = await callGemini(ask);
   if (!text) return null;
@@ -465,6 +482,7 @@ export async function generateItemAI(
       qtyDefault: Number.isFinite(Number(p.qtyDefault))
         ? Math.max(1, Math.round(Number(p.qtyDefault)))
         : 1,
+      modifiers: sanitizeModifiers(p.modifiers),
     };
   } catch {
     return null;

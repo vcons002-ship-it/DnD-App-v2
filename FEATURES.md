@@ -472,6 +472,11 @@ reusable in **any** future session — not just the one they were made in.
 - Creature search merges **SRD + your library**; a library hit skips the AI.
   Name conflicts show a side-by-side prompt (it even detects when you'd shadow a
   built-in SRD name).
+- Library items can carry **magic effects** (✦n in the picker): the SRD magic
+  items come with presets (a Cloak of Protection is +1 AC *and* +1 to all saves;
+  Gauntlets of Ogre Power floor STR at 19), and **AI-generated items include
+  them automatically**. Picking the item copies its effects into the inventory,
+  where they apply once the item is **equipped/attuned** (the ⚔ toggle).
 - There's also a **character library** (see the player sheet's **💾 Save to
   library** and the **📂 Load saved character** picker) for full PCs.
 

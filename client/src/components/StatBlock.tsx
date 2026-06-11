@@ -418,11 +418,12 @@ function ReadView({
           {ABILITIES.map((a) => {
             const bd = eff.breakdown[a];
             const score = bd?.total;
-            // Tooltip shows the math when modifiers apply ("20 = 18 base + 2 …").
+            // Tooltip shows the math when modifiers apply ("20 = 18 base + 2 …");
+            // a set-score part reads "→19" (the item floors the score there).
             const mathTitle =
               bd && bd.parts.length
                 ? `${a} ${bd.total} = ${bd.base} base ${bd.parts
-                    .map((p) => `${signed(p.value)} ${p.source}`)
+                    .map((p) => `${p.set ? `→${p.value}` : signed(p.value)} ${p.source}`)
                     .join(' ')}`
                 : '';
             const title =

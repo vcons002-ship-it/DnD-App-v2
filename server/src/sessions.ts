@@ -1646,6 +1646,8 @@ export function setLoot(
             name: i.name,
             qty: Math.max(1, Math.round(i.qty)),
             note: i.note ?? '',
+            // Magic effects ride along so a looted +1 cloak works once equipped.
+            ...(i.modifiers && i.modifiers.length ? { modifiers: i.modifiers } : {}),
           })),
         }
       : null;

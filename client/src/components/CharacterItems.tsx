@@ -39,13 +39,16 @@ export function CharacterItems({
 
   if (character.items.length === 0 && character.gold === 0 && !editable) return null;
 
-  const add = (n: string, q: number, note = '') => {
+  const add = (n: string, q: number, note = '', modifiers?: SheetModifier[]) => {
     if (!n.trim()) return;
     setItem(character.id, {
       id: crypto.randomUUID?.() ?? String(Date.now()),
       name: n.trim(),
       qty: q,
       note,
+      // Library presets (e.g. Cloak of Protection's +1 AC / +1 saves) come along;
+      // they stay dormant until the player equips the item.
+      ...(modifiers && modifiers.length ? { modifiers } : {}),
     });
   };
   const changeQty = (id: string, delta: number) => {
@@ -181,10 +184,13 @@ export function CharacterItems({
                   <div key={li.id} className="lib-row">
                     <button
                       className="suggest-row"
-                      onClick={() => add(li.name, li.qtyDefault, li.description)}
+                      onClick={() => add(li.name, li.qtyDefault, li.description, li.modifiers)}
                       title="Add to inventory"
                     >
                       {li.name}
+                      {(li.modifiers?.length ?? 0) > 0 && (
+                        <span className="lib-fx" title="Has magic effects"> ✦{li.modifiers!.length}</span>
+                      )}
                       <span className="muted">×{li.qtyDefault}</span>
                     </button>
                     {li.description && (

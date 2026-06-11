@@ -1210,6 +1210,8 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
   color: var(--muted); padding: 0 2px;
 }
 .item-fx.has-fx { color: var(--cyan-bright); font-weight: 600; }
+/* Same ✦n badge inside a library-picker row (preset magic effects). */
+.lib-fx { color: var(--cyan-bright); font-weight: 600; font-size: 11px; }
 .item-equip.on { color: var(--gold); }
 .item-equip:disabled { cursor: default; opacity: 0.8; }
 .item-equip-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }

@@ -7,8 +7,10 @@ import type {
   LibraryCharacter,
   LibraryItem,
   SheetAbility,
+  SheetModifier,
   Weapon,
 } from '../../shared/types.js';
+import { sanitizeModifiers } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
 
 // ---- Cross-session creature library ----
@@ -307,14 +309,26 @@ type LibItemRow = {
   name: string;
   description: string;
   qty_default: number;
+  /** JSON blob for extensible fields — currently `{ modifiers?: SheetModifier[] }`. */
+  data: string;
 };
 
-const rowToItem = (r: LibItemRow): LibraryItem => ({
-  id: r.id,
-  name: r.name,
-  description: r.description,
-  qtyDefault: r.qty_default,
-});
+const rowToItem = (r: LibItemRow): LibraryItem => {
+  let modifiers: SheetModifier[] = [];
+  try {
+    const data = JSON.parse(r.data || '{}') as { modifiers?: unknown };
+    modifiers = sanitizeModifiers(data.modifiers, newId);
+  } catch {
+    /* legacy/garbled data — treat as a plain item */
+  }
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    qtyDefault: r.qty_default,
+    ...(modifiers.length ? { modifiers } : {}),
+  };
+};
 
 export function listLibraryItems(query = ''): LibraryItem[] {
   const q = query.trim().toLowerCase();
@@ -334,17 +348,27 @@ export function saveLibraryItem(input: {
   name: string;
   description?: string;
   qtyDefault?: number;
+  /** Magic effects (validated here — REST bodies and AI output are untrusted). */
+  modifiers?: unknown;
 }): LibraryItem {
   const name = input.name.trim();
   const id =
     (db
       .prepare('SELECT id FROM library_items WHERE LOWER(name) = ?')
       .get(name.toLowerCase()) as { id: string } | undefined)?.id ?? newId();
+  const modifiers = sanitizeModifiers(input.modifiers, newId);
   db.prepare(
     `INSERT OR REPLACE INTO library_items
        (id, name, description, qty_default, data, created_at)
-     VALUES (?, ?, ?, ?, '{}', ?)`,
-  ).run(id, name, input.description ?? '', input.qtyDefault ?? 1, Date.now());
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    name,
+    input.description ?? '',
+    input.qtyDefault ?? 1,
+    JSON.stringify(modifiers.length ? { modifiers } : {}),
+    Date.now(),
+  );
   return rowToItem(
     db.prepare('SELECT * FROM library_items WHERE id = ?').get(id) as LibItemRow,
   );
@@ -361,20 +385,38 @@ export function deleteLibraryItem(id: string): void {
  * clobber a same-named item the DM saved earlier.
  */
 export const seedLibraryItems = db.transaction((): number => {
-  if (getMeta('items_seeded_v1')) return 0;
   let added = 0;
-  const exists = db.prepare(
-    'SELECT 1 FROM library_items WHERE LOWER(name) = ? LIMIT 1',
-  );
-  for (const it of SRD_ITEMS) {
-    if (exists.get(it.name.toLowerCase())) continue;
-    saveLibraryItem({
-      name: it.name,
-      description: it.description,
-      qtyDefault: it.qtyDefault ?? 1,
-    });
-    added++;
+  if (!getMeta('items_seeded_v1')) {
+    const exists = db.prepare(
+      'SELECT 1 FROM library_items WHERE LOWER(name) = ? LIMIT 1',
+    );
+    for (const it of SRD_ITEMS) {
+      if (exists.get(it.name.toLowerCase())) continue;
+      saveLibraryItem({
+        name: it.name,
+        description: it.description,
+        qtyDefault: it.qtyDefault ?? 1,
+        modifiers: it.modifiers,
+      });
+      added++;
+    }
+    setMeta('items_seeded_v1', '1');
   }
-  setMeta('items_seeded_v1', '1');
+  // One-time upgrade for libraries seeded before items carried preset magic
+  // effects: backfill each SRD entry's modifiers onto the same-named item, but
+  // only where the item has none (a DM's hand-added effects always win).
+  if (!getMeta('items_modifiers_v1')) {
+    const find = db.prepare('SELECT * FROM library_items WHERE LOWER(name) = ?');
+    for (const it of SRD_ITEMS) {
+      if (!it.modifiers?.length) continue;
+      const row = find.get(it.name.toLowerCase()) as LibItemRow | undefined;
+      if (!row || rowToItem(row).modifiers?.length) continue;
+      db.prepare('UPDATE library_items SET data = ? WHERE id = ?').run(
+        JSON.stringify({ modifiers: sanitizeModifiers(it.modifiers, newId) }),
+        row.id,
+      );
+    }
+    setMeta('items_modifiers_v1', '1');
+  }
   return added;
 });

@@ -47,6 +47,9 @@ export function ModifierEditor({
   const [value, setValue] = useState(1);
   const [source, setSource] = useState('');
   const [slot, setSlot] = useState(false);
+  // Ability scores only: "= set to" floors the score at the value ("your
+  // Strength is 19", Gauntlets-of-Ogre-Power style) instead of adding.
+  const [setScore, setSetScore] = useState(false);
 
   const buildTarget = (): ModTarget => {
     switch (kind) {
@@ -73,11 +76,13 @@ export function ModifierEditor({
       target: buildTarget(),
       value,
       ...(allowSlot && slot ? { slot: true } : {}),
+      ...(kind === 'ability' && setScore ? { set: true } : {}),
     };
     onChange([...modifiers, m]);
     setValue(1);
     setSource('');
     setSlot(false);
+    setSetScore(false);
   };
 
   const remove = (id: string) => onChange(modifiers.filter((m) => m.id !== id));
@@ -92,7 +97,12 @@ export function ModifierEditor({
       <ul className="mod-list">
         {modifiers.map((m) => (
           <li key={m.id} className="mod-row">
-            <span className="mod-val">{m.value >= 0 ? `+${m.value}` : m.value}</span>
+            <span
+              className="mod-val"
+              title={m.set ? 'Sets the score (a floor — inert if already higher)' : undefined}
+            >
+              {m.set ? `=${m.value}` : m.value >= 0 ? `+${m.value}` : m.value}
+            </span>
             <span className="mod-target">{targetLabel(m.target)}</span>
             <span className="mod-source muted">{m.source}</span>
             {m.slot && <span className="mod-slot" title="Counts as a feat/ASI">⊛</span>}
@@ -133,12 +143,22 @@ export function ModifierEditor({
               ))}
             </select>
           )}
+          {kind === 'ability' && (
+            <select
+              value={setScore ? 'set' : 'bonus'}
+              onChange={(e) => setSetScore(e.target.value === 'set')}
+              title='"+ bonus" adds to the score; "= set to" floors it at the value (Gauntlets of Ogre Power)'
+            >
+              <option value="bonus">+ bonus</option>
+              <option value="set">= set to</option>
+            </select>
+          )}
           <input
             type="number"
             className="mod-value"
             value={value}
             onChange={(e) => setValue(Number(e.target.value))}
-            title="Bonus (can be negative)"
+            title={setScore && kind === 'ability' ? 'The score the ability becomes' : 'Bonus (can be negative)'}
           />
           <input
             className="mod-src-input"

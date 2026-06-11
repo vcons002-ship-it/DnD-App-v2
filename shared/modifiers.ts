@@ -35,14 +35,16 @@ export function activeModifiers(c: ModSource): SheetModifier[] {
 
 export type StatBreakdown = {
   base: number;
-  parts: { source: string; value: number }[];
+  parts: { source: string; value: number; set?: boolean }[];
   total: number;
 };
 
 /**
  * Effective ability scores = base + ability-target modifiers, with a per-ability
  * breakdown for the stat-math tooltip. Only abilities the creature actually has
- * a base score for are included (never fabricates scores).
+ * a base score for are included (never fabricates scores). A `set` modifier
+ * floors the score at its value AFTER bonuses ("your Strength is 19") — it only
+ * appears in the breakdown when it actually raised the score.
  */
 export function effectiveStats(c: ModSource): {
   scores: Record<string, number>;
@@ -54,10 +56,23 @@ export function effectiveStats(c: ModSource): {
   for (const ab of ABILITIES) {
     const base = c.stats?.[ab];
     if (base === undefined) continue;
-    const parts = mods
-      .filter((m) => m.target.kind === 'ability' && m.target.ability === ab)
+    const forAb = mods.filter(
+      (m) => m.target.kind === 'ability' && m.target.ability === ab,
+    );
+    const parts: StatBreakdown['parts'] = forAb
+      .filter((m) => !m.set)
       .map((m) => ({ source: m.source, value: m.value }));
-    const total = base + parts.reduce((s, p) => s + p.value, 0);
+    let total = base + parts.reduce((s, p) => s + p.value, 0);
+    const floor = forAb
+      .filter((m) => m.set)
+      .reduce<{ source: string; value: number } | null>(
+        (best, m) => (m.value > (best?.value ?? -Infinity) ? m : best),
+        null,
+      );
+    if (floor && floor.value > total) {
+      parts.push({ source: floor.source, value: floor.value, set: true });
+      total = floor.value;
+    }
     scores[ab] = total;
     breakdown[ab] = { base, parts, total };
   }
@@ -108,6 +123,51 @@ export function attackExtra(c: ModSource) {
 /** Flat bonus to initiative (the DEX mod already flows via effectiveStats). */
 export function initiativeExtra(c: ModSource) {
   return extras(c, (t) => t.kind === 'initiative');
+}
+
+/**
+ * Validate untrusted modifier data (AI output, library REST bodies) into clean
+ * `SheetModifier`s: unknown kinds/abilities and non-numeric values are dropped,
+ * values are clamped to ±30, ids are assigned, and `set` only survives on
+ * ability targets. Returns [] for anything that isn't an array.
+ */
+export function sanitizeModifiers(
+  raw: unknown,
+  newId: () => string = () =>
+    `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+): SheetModifier[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SheetModifier[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    const t = (e.target ?? {}) as Record<string, unknown>;
+    const kind = String(t.kind ?? '');
+    const ability = String(t.ability ?? '').trim().toUpperCase() as AbilityKey;
+    const skill = String(t.skill ?? '').trim();
+    let target: ModTarget;
+    if (kind === 'ability' && ABILITIES.includes(ability)) {
+      target = { kind: 'ability', ability };
+    } else if (kind === 'save') {
+      target = ABILITIES.includes(ability) ? { kind: 'save', ability } : { kind: 'save' };
+    } else if (kind === 'skill') {
+      target = skill ? { kind: 'skill', skill } : { kind: 'skill' };
+    } else if (kind === 'attack' || kind === 'ac' || kind === 'initiative') {
+      target = { kind };
+    } else {
+      continue;
+    }
+    const value = Math.max(-30, Math.min(30, Math.round(Number(e.value))));
+    if (!Number.isFinite(value) || value === 0) continue;
+    out.push({
+      id: typeof e.id === 'string' && e.id ? e.id : newId(),
+      source: String(e.source ?? '').trim(),
+      target,
+      value,
+      ...(e.set && target.kind === 'ability' ? { set: true } : {}),
+    });
+  }
+  return out;
 }
 
 /** Human label for a modifier target, e.g. "STR", "all saves", "Stealth", "AC". */
