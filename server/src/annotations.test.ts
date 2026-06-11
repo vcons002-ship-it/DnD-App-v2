@@ -6,6 +6,7 @@ import {
   listAnnotations,
   moveAnnotation,
   removeAnnotation,
+  resizeAnnotation,
   clearAnnotations,
 } from './sessions.js';
 
@@ -36,11 +37,12 @@ describe('map annotations', () => {
     addAnnotation(s.id, { mapId: map.id, kind: 'image', x: 10, y: 20, url: '/uploads/a.png', width: 100, height: 80, color: '#fff', createdBy: 'DM' });
     addAnnotation(s.id, { mapId: map.id, kind: 'image', x: 50, y: 60, url: '/uploads/b.png', width: 40, height: 40, color: '#fff', createdBy: 'DM' });
 
-    // Drag a decal to a new spot.
+    // Drag a decal to a new spot, then corner-resize it.
     const decal = listAnnotations(map.id).find((a) => a.url === '/uploads/a.png')!;
     moveAnnotation(decal.id, 200, 300);
+    resizeAnnotation(decal.id, 250, 200);
     const moved = listAnnotations(map.id).find((a) => a.id === decal.id)!;
-    expect([moved.x, moved.y]).toEqual([200, 300]);
+    expect([moved.x, moved.y, moved.width, moved.height]).toEqual([200, 300, 250, 200]);
 
     // Clear ONLY decals: the freehand stroke survives.
     clearAnnotations(map.id, undefined, 'image');

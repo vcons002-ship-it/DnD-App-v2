@@ -1407,6 +1407,11 @@ export function moveAnnotation(id: string, x: number, y: number): void {
   db.prepare('UPDATE annotations SET x = ?, y = ? WHERE id = ?').run(x, y, id);
 }
 
+/** Resize an image decal (corner-handle drag). */
+export function resizeAnnotation(id: string, width: number, height: number): void {
+  db.prepare('UPDATE annotations SET width = ?, height = ? WHERE id = ?').run(width, height, id);
+}
+
 /** A roll's "who" — the player's claimed character name, "DM", or "Player". */
 export function rollerName(sessionId: string, socketId: string, isDm: boolean): string {
   if (isDm) return 'DM';

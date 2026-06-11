@@ -52,6 +52,7 @@ import {
   clearAnnotations,
   moveAnnotation,
   removeAnnotation,
+  resizeAnnotation,
   setResource,
   setItem,
   removeItem,
@@ -313,6 +314,15 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('annotation:move', ({ id, x, y }) => {
       if (!sessionId() || !isDm() || !id) return;
       moveAnnotation(id, Number(x) || 0, Number(y) || 0);
+      afterChange();
+    });
+
+    // Resize an image decal (DM corner-handle drag).
+    socket.on('annotation:resize', ({ id, width, height }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      const w = Math.max(8, Math.min(20000, Number(width) || 0));
+      const h = Math.max(8, Math.min(20000, Number(height) || 0));
+      resizeAnnotation(id, w, h);
       afterChange();
     });
 

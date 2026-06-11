@@ -206,8 +206,9 @@ function MeasureShape({
   );
 }
 
-/** A scenery image decal drawn under tokens. DM-draggable to reposition;
- *  click-through for players (and for the DM while a map tool is active). */
+/** A scenery image decal drawn under tokens. DM-draggable to reposition, with
+ *  an aspect-locked corner handle to resize; click-through for players (and
+ *  for the DM while a map tool is active or decals are locked). */
 function DecalImage({
   url,
   x,
@@ -215,8 +216,10 @@ function DecalImage({
   width,
   height,
   draggable,
+  handleSize = 10,
   onRemove,
   onMove,
+  onResize,
 }: {
   url: string;
   x: number;
@@ -224,24 +227,64 @@ function DecalImage({
   width: number;
   height: number;
   draggable?: boolean;
+  /** Corner-handle size in image px (pre-divided by zoom for constant screen size). */
+  handleSize?: number;
   onRemove?: () => void;
   onMove?: (x: number, y: number) => void;
+  onResize?: (width: number, height: number) => void;
 }) {
   const img = useImage(url);
+  // Live size during a handle drag, so the image follows the corner before the
+  // server echoes the resize back; cleared when the real size arrives.
+  const [tmp, setTmp] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => setTmp(null), [width, height]);
   if (!img) return null;
+  const w = tmp?.w ?? width;
+  const h = tmp?.h ?? height;
+  const interactive = !!draggable && !onRemove;
+  const setCursor = (e: KonvaEventObject<MouseEvent>, cursor: string) => {
+    const stage = e.target.getStage();
+    if (stage) stage.container().style.cursor = cursor;
+  };
   return (
-    <KonvaImage
-      image={img}
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      listening={!!onRemove || !!draggable}
-      draggable={!!draggable && !onRemove}
-      onClick={onRemove}
-      onTap={onRemove}
-      onDragEnd={(e) => onMove?.(e.target.x(), e.target.y())}
-    />
+    <>
+      <KonvaImage
+        image={img}
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        listening={!!onRemove || interactive}
+        draggable={interactive}
+        onClick={onRemove}
+        onTap={onRemove}
+        onDragEnd={(e) => onMove?.(e.target.x(), e.target.y())}
+      />
+      {interactive && onResize && (
+        <Rect
+          x={x + w - handleSize / 2}
+          y={y + h - handleSize / 2}
+          width={handleSize}
+          height={handleSize}
+          fill="#4cc9f0"
+          stroke="#04060a"
+          strokeWidth={1}
+          draggable
+          onMouseEnter={(e) => setCursor(e, 'nwse-resize')}
+          onMouseLeave={(e) => setCursor(e, '')}
+          onDragMove={(e) => {
+            // Aspect-locked: the corner follows the diagonal from the anchor.
+            const nw = Math.max(16, e.target.x() + handleSize / 2 - x);
+            const nh = Math.max(16, nw * (height / Math.max(1, width)));
+            e.target.position({ x: x + nw - handleSize / 2, y: y + nh - handleSize / 2 });
+            setTmp({ w: nw, h: nh });
+          }}
+          onDragEnd={() => {
+            if (tmp) onResize(tmp.w, tmp.h);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -437,6 +480,7 @@ export function MapStage({
   const removeAnnotation = useStore((s) => s.removeAnnotation);
   const clearAnnotations = useStore((s) => s.clearAnnotations);
   const moveAnnotation = useStore((s) => s.moveAnnotation);
+  const resizeAnnotation = useStore((s) => s.resizeAnnotation);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -476,6 +520,16 @@ export function MapStage({
   const [tool, setTool] = useState<MeasureTool | null>(null);
   const [snap, setSnap] = useState(true);
   const [removeMode, setRemoveMode] = useState(false);
+  // DM preference: lock scenery decals (click-through + undraggable) so they
+  // can't be grabbed while moving tokens/panning. Persisted per session.
+  const [decalsLocked, setDecalsLocked] = useState(
+    () => localStorage.getItem(`decals-locked:${snapshot.sessionCode}`) === '1',
+  );
+  const toggleDecalsLocked = () =>
+    setDecalsLocked((cur) => {
+      localStorage.setItem(`decals-locked:${snapshot.sessionCode}`, cur ? '0' : '1');
+      return !cur;
+    });
   // A reference-line drag that sets the map scale (DM only).
   const [scaleMode, setScaleMode] = useState(false);
   const [matchMode, setMatchMode] = useState(false);
@@ -1131,13 +1185,26 @@ export function MapStage({
                     </button>
                   )}
                   {isDm && snapshot.annotations.some((a) => a.kind === 'image') && (
-                    <button
-                      className="btn tiny"
-                      title="Remove all scenery decals on this map (strokes/text stay)"
-                      onClick={() => map && clearAnnotations(map.id, false, 'image')}
-                    >
-                      Clear decals
-                    </button>
+                    <>
+                      <button
+                        className={`btn tiny ${decalsLocked ? 'on' : ''}`}
+                        title={
+                          decalsLocked
+                            ? 'Decals locked: click-through and undraggable — click to unlock'
+                            : 'Lock decals so they become click-through and undraggable'
+                        }
+                        onClick={toggleDecalsLocked}
+                      >
+                        {decalsLocked ? '🔒' : '🔓'} Decals
+                      </button>
+                      <button
+                        className="btn tiny"
+                        title="Remove all scenery decals on this map (strokes/text stay)"
+                        onClick={() => map && clearAnnotations(map.id, false, 'image')}
+                      >
+                        Clear decals
+                      </button>
+                    </>
                   )}
                 </div>
                 {isDm && (
@@ -1288,8 +1355,9 @@ export function MapStage({
                   }}
                 />
               )}
-              {/* Image decals (scenery) sit UNDER tokens; the DM drags them to
-                  reposition and removes one via the eraser tool or Clear decals. */}
+              {/* Image decals (scenery) sit UNDER tokens; the DM drags to
+                  reposition / corner-drags to resize, removes one via the
+                  eraser tool, and the 🔒 toggle makes them click-through. */}
               {snapshot.annotations
                 .filter((a) => a.kind === 'image' && a.url)
                 .map((a) => (
@@ -1300,9 +1368,11 @@ export function MapStage({
                     y={a.y ?? 0}
                     width={a.width ?? 100}
                     height={a.height ?? 100}
-                    draggable={isDm && !measureActive}
+                    draggable={isDm && !measureActive && !decalsLocked}
+                    handleSize={12 / view.scale}
                     onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
                     onMove={(x, y) => moveAnnotation(a.id, x, y)}
+                    onResize={(w, h) => resizeAnnotation(a.id, w, h)}
                   />
                 ))}
               <FootprintLayer

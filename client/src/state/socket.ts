@@ -124,6 +124,7 @@ type Store = {
   removeAnnotation: (id: string) => void;
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
+  resizeAnnotation: (id: string, width: number, height: number) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
   importMapsFromSession: (
@@ -407,6 +408,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('annotation:clear', { mapId, mineOnly, kind }),
   moveAnnotation: (id, x, y) =>
     get().socket?.emit('annotation:move', { id, x, y }),
+  resizeAnnotation: (id, width, height) =>
+    get().socket?.emit('annotation:resize', { id, width, height }),
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),

@@ -785,6 +785,8 @@ export type AnnotationClearPayload = {
 };
 /** Reposition an image decal (DM). */
 export type AnnotationMovePayload = { id: string; x: number; y: number };
+/** Resize an image decal (DM); width/height in map-image pixels. */
+export type AnnotationResizePayload = { id: string; width: number; height: number };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
 /** How to handle a referenced character whose name already exists on import. */
@@ -1077,6 +1079,7 @@ export interface ClientToServerEvents {
   'annotation:remove': (payload: AnnotationRemovePayload) => void;
   'annotation:clear': (payload: AnnotationClearPayload) => void;
   'annotation:move': (payload: AnnotationMovePayload) => void;
+  'annotation:resize': (payload: AnnotationResizePayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'session:importPreview': (
