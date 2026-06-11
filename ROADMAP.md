@@ -946,3 +946,109 @@ Smaller refinements on top of the shipped Phase 2 work.
   it would have anyway); `deleteMonster`/`deleteCharacter` route their token
   cleanup through the same guard, and deleting the only living combatant
   clears the marker.
+
+## Feature batch — combat gates, loot, shapes, spells, grid, decals & ownership
+
+- ☑ **Player move gate [req].** `token:move` lets players move only **PCs and
+  FRIENDLY creatures** — enemy/neutral creatures and **objects**
+  (chests/doors/traps) are blocked server-side, and the client no longer marks
+  unmovable tokens draggable (the drag used to ghost locally before the server
+  rejected it). Hidden-token block unchanged.
+- ☑ **Token size typed entry [req].** Manual half-foot entry + −/+ 2.5 ft
+  buttons; `resizeToken` snaps to 0.5 and clamps [0.5, 120] (min lowered from
+  2.5 for small objects).
+- ☑ **Neutral reveals nothing more than enemy [req].** Players see name +
+  conditions only for BOTH; the amber dot is the only difference. Removed the
+  `MonsterNeutral` type + client guards; `hpNote` visibility tightened to
+  **friendly/PC-only**.
+- ☑ **"Clear" initiative → "End combat" [req].** Renamed in the Initiative panel
+  and the Data view (it already cleared rolls, the turn marker, and the round).
+- ☑ **Hide DM rolls [req].** A DM toggle in the dice panel; while on, DM-rolled
+  log entries are flagged `dm_only` and filtered from player snapshots (damage
+  still applies, floating ±X still pop). `sessions.hide_dm_rolls` +
+  `roll_log.dm_only` (idempotent), `session:setHideDmRolls`,
+  `snapshot.hideDmRolls`.
+- ☑ **Player unlock/open objects [req].** Players (and DM) get **Pick lock /
+  Open / Close** on doors & chests: `object:interact` + `resolveObjectCheck`
+  (generalized from `resolveTrapDisarm`) rolls DEX (Sleight of Hand) vs the
+  object's DC and clears Locked on success; open/close is blocked while locked;
+  DM can force-unlock.
+- ☑ **Creature loot [req].** The DM stocks + reveals loot on ANY creature via a
+  Loot section in the token panel; `lootVisibleToPlayers` extends to creatures —
+  takeable only once **dead** *and* "Loot revealed" is toggled (enables a
+  perception-roll gate). `object:setLoot`/`loot:take` drop the objectKind
+  requirement (session-scoped). Loot rows gain an **ⓘ** description toggle.
+- ☑ **Token shapes [req].** `tokens.shape` (circle/square/diamond/triangle/
+  image; objects default by kind — chests/doors square, traps triangular);
+  `TokenShape` renders each silhouette with matching image clip (`image` draws
+  pasted art unclipped, selection-only outline); Shape picker in DM tools;
+  `token:setShape` (DM-only).
+- ☑ **Custom item descriptions + AI-generated items [req].** The loot editor's
+  manual "+ Add" gains a Description field, plus an "AI generate" row —
+  `POST /api/items/generate {prompt}` reuses `callGemini`, saves to the item
+  library, and drops the item straight into the container (key-gated +
+  fail-safe).
+- ☑ **Prepared/cantrip soft counters + action economy.** `shared/spellPrep.ts`
+  (`cantripsKnown` + `spellCapacity`: prepared casters = mod+level/half, known
+  casters = per-class table, null for martials; `parseActionType`).
+  `CharacterSpells` header shows "Cantrips x/y · Prepared|Known a/b" (red over
+  the cap, never blocks); ✓ Prep toggle per leveled spell
+  (`SheetAbility.prepared`); `SheetAbility.actionType` auto-derived from meta,
+  editable, shown as ●/⚡/↩ icons.
+- ☑ **Grid hide, offset, lock & match-to-map-grid [req].** Maps gain
+  `grid_offset_x/y`, `grid_locked`, `grid_hidden` (idempotent columns;
+  `map:setGrid` carries them, offsets normalize into one cell). Scale menu adds
+  **Hide grid** and **Match map grid (drag a square)** — the drag sets cell size
+  (longer side) + grid origin offset and locks the grid; locked disables the
+  grid-square input (Unlock control) while feet/width inputs still work (scale
+  is width-ft based, so distance changes never resize the cell). Grid render
+  honors the offset and skips when hidden.
+- ☑ **Paste images as object tokens or scenery decals [req].** DM presses Ctrl+V
+  → upload (reuses `/api/icons`) → dialog offers **Object** (`object:paste`
+  creates a non-combat 'other' object + an `image`-shaped token) or **Scenery
+  decal** (annotations gain an `image` kind drawn UNDER the tokens, clamped to
+  ~6 squares). Paste dialog supports drag-select **✂ Crop**, **🪄 Cut
+  background** (corner flood-fill to transparency, checkerboard preview), and
+  **↺ Undo edits** (`lib/imageEdit.ts`). Pasting an `<img>` copied from a web
+  page / Google Slides works even when the clipboard only carries a URL —
+  `POST /api/icons/from-url` fetches it server-side (http(s) only, image/* only,
+  25 MB cap, browser-like UA for googleusercontent), with specific error
+  reasons surfaced in the toast. Never hijacks a paste aimed at a text field.
+- ☑ **Decal manipulation + lock [req].** Decals are DM-draggable
+  (`annotation:move`) with an aspect-locked **corner resize** handle (constant
+  screen size at any zoom; `annotation:resize`, clamped 8–20000 px), a **🔒
+  Decals** toggle making them click-through/undraggable (DM-local, persisted
+  per session; the eraser still removes locked decals), and **Clear decals**
+  (`annotation:clear` by kind — strokes/text stay). Fixed DM "Clear mine"
+  (role was hardcoded to player).
+- ☑ **Mobile hold-to-open menu + ❔ Guide.** Long-press (~0.5 s) opens the
+  floating menu and **releasing keeps it open** (close events swallowed 450 ms
+  after opening; the touch is marked consumed so touchend doesn't re-select).
+  A **❔ Guide** button in the top toolbar for BOTH roles opens `GuideModal`
+  with Desktop/Mobile control tabs (auto-selected by pointer type), pointing at
+  FEATURES.md for the full tour.
+- ☑ **Durable per-player character ownership [req].** Each browser keeps a
+  persistent random `playerId` (localStorage) sent in the join handshake;
+  `characters.owner_player_id` is set on first claim / creation / claimed
+  library load and never overwritten. `character:claim` rejects characters held
+  by another live socket OR owned by a different player; reconnects by the
+  owner keep working. DM-only `character:unlock` (🔓 in the spawn list) clears
+  owner + claim for device switches; the player picker shows a 🔒 locked badge;
+  auto-reclaim honors ownership; `updateCharacter`'s allow-list already
+  excludes `ownerId`/`claimedBy` so patches can't forge it.
+- ☑ **Stability fixes.** Data-view expand overlay uses a CSS **grid** of
+  sections (multi-columns rebalanced on resize and overlapped in Chrome);
+  damage at 0 HP still floats the attempted −X (death-save failures read on the
+  map); weapon `extraDamage` riders roll ONCE on a hit and are **no longer
+  doubled on a crit** (amends the earlier rider entry); window-snap glitches
+  fixed (`.center`/`.stage-wrap` clip overflow, ResizeObserver updates coalesced
+  per animation frame, a `devicePixelRatio` watcher remounts the Stage when
+  monitor scaling changes).
+- ☑ **Cloud deployment kit (`deploy/`).** Host the app 24/7 on a free GCP
+  e2-micro VM with one permanent HTTPS link instead of the per-restart
+  quick-tunnel URL: `deploy/README.md` (beginner click-by-click walkthrough —
+  GCP VM + static IP → free DuckDNS hostname → `deploy/setup.sh` one-shot
+  provisioner (swapfile, Node 20, build, systemd `dndapp.service`) → Caddy
+  auto-HTTPS), all purely additive — no app-code or run-script changes; the
+  local PC + quick-tunnel workflow is untouched (`PUBLIC_URL` set + blank
+  `CF_TUNNEL_NAME` skips cloudflared).

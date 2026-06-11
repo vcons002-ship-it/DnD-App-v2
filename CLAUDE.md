@@ -10,8 +10,10 @@
 A locally-hosted, real-time **virtual tabletop (VTT) for D&D 5e**. The DM and
 players join one shared session through **separate links** and see role-specific
 views over the same live map and tokens. The server runs on the host's PC and is
-exposed to remote players via a **Cloudflare Tunnel**. Most of the roadmap
-(Phases 1–6 / WP1–WP11) is implemented.
+exposed to remote players via a **Cloudflare Tunnel** — or 24/7 on a free GCP
+e2-micro VM via the **`deploy/`** kit (stable HTTPS URL through `PUBLIC_URL`,
+no cloudflared; purely additive, the local workflow is unchanged). Most of the
+roadmap (Phases 1–6 / WP1–WP11) is implemented.
 
 ## Run / verify
 
@@ -21,7 +23,7 @@ Monorepo, npm workspaces: `shared`, `server`, `client`.
 npm install
 npm run dev        # server + client (concurrently); two browser windows = DM + player
 npm run typecheck  # tsc --noEmit for server AND client
-npm run test       # server Vitest (220+ tests across ~26 *.test.ts) — tests are SERVER-ONLY
+npm run test       # server Vitest (230+ tests across ~26 *.test.ts) — tests are SERVER-ONLY
 npm run build      # client (vite) + server (tsc)
 ```
 
@@ -109,7 +111,10 @@ sanitization rules above and commit it to `claude/Main`.
 
 - **`Token`** — a per-map placement that references a `Character`/`Monster` by
   `refId` (+ `kind`). Carries a per-token combat-role override + `hideCombatRole`
-  + a **server-computed effective `combatRole`**.
+  + a **server-computed effective `combatRole`**, a real-world `widthFt`
+  footprint (snap 0.5 ft, clamp [0.5, 120]), and a `shape`
+  (circle/square/diamond/triangle/image — objects default by kind, `image`
+  draws pasted art unclipped).
 - **`Monster` & `Character` share one tagged stat-block shape:** `level` (PC
   level / monster **CR**), `armorClass`, `speed`, `stats`, `resistances`,
   `weaknesses`, `weapons: Weapon[]` (name, melee/ranged, damage, to-hit),
@@ -121,17 +126,22 @@ sanitization rules above and commit it to `claude/Main`.
   `ownerId` (durable per-browser player id — only the owner/DM may claim, and
   claims gate all sheet edits; DM 🔓-unlocks in the spawn list). `Monster`
   additionally has `disposition`, `source`, `conditions`, `objectKind`/`loot`
-  (non-combat objects).
+  (non-combat objects — but loot works on **any** creature:
+  `lootVisibleToPlayers` gates objects on open/unlocked, creatures on
+  dead + DM "Loot revealed").
 - **Templates vs instances:** `is_template` monsters are the DM's spawn buttons;
   each placement creates a **numbered instance** (Goblin 1, 2, …) with its own
   HP/conditions, referenced by a token.
 - **`Disposition`** = `friendly | neutral | enemy` (default enemy) → drives
-  3-tier player visibility (`toPlayerMonster`): friendly = full stats, neutral =
-  name+HP+type+AC, enemy = name+conditions.
+  player visibility (`toPlayerMonster`): friendly = full stats; **neutral and
+  enemy both reveal only name+conditions** (the amber vs red dot is the only
+  player-visible difference). `hpNote` visibility is **PC/friendly-only**.
 - **`MapState`** has **two independent fog layers** (`mapFogEnabled/Revealed`,
-  `tokenFogEnabled/Revealed`).
+  `tokenFogEnabled/Revealed`) plus grid placement fields
+  (`gridOffsetX/Y`, `gridLocked`, `gridHidden`).
 - **`StateSnapshot`** is role-shaped and also carries `rollLog`, `chat`,
-  `round`, and `sessionName`.
+  `round`, `sessionName`, `annotations` (pen/text/image decals), and
+  `hideDmRolls`.
 
 ## Shared pure modules (client + server, unit-tested)
 
@@ -147,6 +157,9 @@ sanitization rules above and commit it to `claude/Main`.
   `COMBAT_ROLE_ICON`.
 - `shared/sheetIO.ts` — `parseSheet` (auto-detect text vs JSON), `parseSheetText`
   (best-effort scrape), `parseSheetJSON`, `exportSheetJSON`.
+- `shared/spellPrep.ts` — `cantripsKnown` + `spellCapacity` (prepared casters =
+  mod+level/half, known casters = per-class table, null for martials) and
+  `parseActionType` (meta string → action/bonus/reaction).
 
 ## Client structure & reuse (don't reinvent these)
 
@@ -181,9 +194,19 @@ sanitization rules above and commit it to `claude/Main`.
 
 - **Real-time VTT:** maps (upload/Slides URL, staging, active/live, rename,
   delete), tokens (place/move/resize/duplicate/hide, sequential instances, icons,
-  hover card + right-click/long-press floating menu), live sync, **two-layer fog**
+  **shapes** via `token:setShape`, hover card + right-click/long-press floating
+  menu — long-press hold-to-open works on mobile), live sync, **two-layer fog**
   (map blackout + token-only; players' covered area is seamless), disposition
-  **visibility tiers**, per-token hide.
+  **visibility tiers**, per-token hide, a shared **annotation layer** (pen +
+  text, per-person colors, Clear mine/all) with DM **scenery decals**: Ctrl+V
+  pastes an image (clipboard bitmap, inline data: URI, or a copied web/Slides
+  `<img>` fetched server-side via `/api/icons/from-url`) → a dialog drops it as
+  an **object token** (`object:paste`) or an **image decal** under the tokens
+  (crop/background-cut/undo via `lib/imageEdit.ts`; DM drag `annotation:move`,
+  corner aspect-resize `annotation:resize`, a 🔒 click-through lock, and
+  `annotation:clear` by kind for "Clear decals"). `token:move` lets players move
+  only **PCs + friendly creatures** (objects and hidden tokens are blocked
+  server-side).
 - **Creatures:** offline **SRD** search + key-gated **Gemini** lookup +
   **cross-session library** (save with side-by-side conflict prompt that also
   detects SRD-name shadowing; lookup checks library → SRD → AI).
@@ -202,14 +225,19 @@ sanitization rules above and commit it to `claude/Main`.
   finesse→DEX; monsters stay pre-baked) plus `magicBonus`/`tags`/`versatileDamage`;
   combat honors off-hand + versatile-2H toggles (`AttackControls`) and a **2024
   weapon book** (`weapons/srd.ts`, `GET /api/weapons`, "+ From book" picker that
-  sets dice + tags), player places/edits own token,
-  **high-visibility PC tokens**, party + friendly sheets read-only, sheet import
-  (text/JSON) + export.
+  sets dice + tags), **prepared/cantrip soft counters** (`shared/spellPrep.ts`;
+  header "Cantrips x/y · Prepared|Known a/b", red over cap, never blocks; ✓ Prep
+  toggle per leveled spell) + **action-economy icons** (●/⚡/↩ from
+  `SheetAbility.actionType`, auto-derived, editable), player places/edits own
+  token, **high-visibility PC tokens**, party + friendly sheets read-only, sheet
+  import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
-  descriptions; AI picks level/CR; global "AI is working" banner; editable API
-  key + model in **Settings**.
+  descriptions; AI picks level/CR; **AI-generated items** (`POST
+  /api/items/generate` → saved to the item library, dropped into the loot
+  editor); global "AI is working" banner; editable API key + model in
+  **Settings**.
 - **Combat:** initiative (Roll-all resets + auto-highlights top, **Add rolls** for
-  latecomers, Next/Clear) with a **round counter** (`combat_round`, DM-editable
+  latecomers, Next/**End combat**) with a **round counter** (`combat_round`, DM-editable
   field in the Initiative header; Next increments on a wrap, shown as a chip
   everywhere) — **objects never roll initiative**, **dead combatants keep their
   slot but are skipped** (PCs at 0 HP keep their turn for death saves), and
@@ -219,9 +247,13 @@ sanitization rules above and commit it to `claude/Main`.
   auto-applies damage on hit), **saving throws** (bulk), and **heals that apply
   on cast** (spells add the casting mod; combat-console Heal-target dropdown,
   self default). Every HP change pops a **floating ±X** over the token (`fx:hp`,
-  per-viewer filtered) and writes a DM-only **`hpNote`** ("Druk HP 42→38";
-  players see it for PCs/friendly/neutral only). Roll log shows **individual die
-  faces**, has a clear button + color-coding by roller/roll type; for players
+  per-viewer filtered; damage at 0 HP still floats the attempted amount) and
+  writes a DM-only **`hpNote`** ("Druk HP 42→38";
+  players see it for PCs/**friendly** only). Roll log shows **individual die
+  faces**, has a clear button + color-coding by roller/roll type; a **Hide DM
+  rolls** toggle (`sessions.hide_dm_rolls`, `session:setHideDmRolls`) flags
+  DM-rolled entries `dm_only` and strips them from player snapshots (damage
+  still applies, floaters still pop); for players
   enemy **AC is redacted** (`vs AC ?`) while HIT/MISS stays visible, and flat
   mastery damage (GWM prof bonus) is **folded into the damage number** rather
   than appended. A cast spell/ability's full `description`
@@ -258,7 +290,13 @@ sanitization rules above and commit it to `claude/Main`.
   client-side); the grid cell is visual-only and feet-per-square is a derived
   read-out. Scale is also settable by **dragging a reference line** ("Set scale").
   Maps with no width fall back to the legacy feet-per-square model (old saves
-  unchanged); a fresh map's width derives from its pixel size. Shared, persistent
+  unchanged); a fresh map's width derives from its pixel size. The grid can be
+  **hidden, offset, and locked** (`grid_offset_x/y`, `grid_locked`,
+  `grid_hidden` ride on `map:setGrid`; offsets normalize into one cell), and
+  **"Match map grid (drag a square)"** clones the scale-line drag: one dragged
+  printed square sets cell size + origin offset and locks the grid (the locked
+  size input gets an Unlock control; feet/width inputs still work since scale
+  is width-ft based). Shared, persistent
   **measuring shapes** via a toolbar **"Measure" dropdown** (`MeasureMenu`):
   Circle/Cone/Line/Square/Emanation, each Custom (drag) or Small/Large (classic 5e
   sizes, click-anchor→rotate→click), a snap-to-grid toggle, and click-to-remove +
@@ -266,9 +304,16 @@ sanitization rules above and commit it to `claude/Main`.
   ruler, optional `tokenId` for token-following emanations) is broadcast in the
   snapshot, drawn on the Konva canvas and coloured per drawer; tokens go
   non-listening while measuring.
+- **Objects & loot:** traps/doors/chests/items as map objects (state chips as
+  conditions, reveal/hide); **players can Pick lock / Open / Close** doors and
+  chests (`object:interact` → `resolveObjectCheck`, a DEX Sleight-of-Hand check
+  vs the object DC; DM can force-unlock); loot containers (gold + items, ⓘ
+  per-item descriptions) and **creature loot** (DM stocks any creature; takeable
+  once dead + "Loot revealed"); trap ⚡ Trigger + player 🔧 Disarm.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
-  Settings, copy link, open Data view), editable map names, Roll20 collapsible
-  embed + pop-out.
+  Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
+  modal for both roles, auto-tab by pointer type), editable map names, Roll20
+  collapsible embed + pop-out.
 
 ## Remaining / not yet built
 
