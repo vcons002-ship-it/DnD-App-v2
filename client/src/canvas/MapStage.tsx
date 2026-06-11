@@ -850,8 +850,9 @@ export function MapStage({
       return;
     }
     if (scaleMode || matchMode) {
-      // Drag a line: scaleMode → a reference distance; matchMode → one printed
-      // grid square (its longer side becomes the cell size on release).
+      // scaleMode → drag a reference line for a known distance; matchMode → drag
+      // a BOX across one printed grid square (a live square preview shows the
+      // exact cell you'll get — corner to corner).
       const pos = pointerToImage(stage);
       if (pos) {
         scaleDrawRef.current = true;
@@ -952,13 +953,14 @@ export function MapStage({
     if (scaleDrawRef.current) {
       scaleDrawRef.current = false;
       if (scaleLine && matchMode && map && imgW) {
-        // One printed square → cell size (longer side) + offset, grid locked.
-        const dx = Math.abs(scaleLine.target.x - scaleLine.origin.x);
-        const dy = Math.abs(scaleLine.target.y - scaleLine.origin.y);
-        const size = Math.round(Math.max(dx, dy));
+        // The dragged box → a square cell: side = the longer drag axis, anchored
+        // at the drag-origin corner toward the cursor (matches the preview).
+        const dx = scaleLine.target.x - scaleLine.origin.x;
+        const dy = scaleLine.target.y - scaleLine.origin.y;
+        const size = Math.round(Math.max(Math.abs(dx), Math.abs(dy)));
         if (size >= 8) {
-          const ox = Math.min(scaleLine.origin.x, scaleLine.target.x);
-          const oy = Math.min(scaleLine.origin.y, scaleLine.target.y);
+          const ox = dx >= 0 ? scaleLine.origin.x : scaleLine.origin.x - size;
+          const oy = dy >= 0 ? scaleLine.origin.y : scaleLine.origin.y - size;
           const fps = imgW && widthFt > 0 ? Math.max(1, Math.round((widthFt / imgW) * size)) : feetPerSquare;
           setGridPx(size);
           setMapGrid(map.id, size, fps, widthFt, {
@@ -1493,21 +1495,41 @@ export function MapStage({
                   listening={false}
                 />
               )}
-              {/* The scale reference line (a dashed ruler while the DM sets scale). */}
-              {scaleLine && (
-                <Line
-                  points={[
-                    scaleLine.origin.x,
-                    scaleLine.origin.y,
-                    scaleLine.target.x,
-                    scaleLine.target.y,
-                  ]}
-                  stroke="#4fd1ff"
-                  strokeWidth={Math.max(2, grid * 0.06)}
-                  dash={[grid * 0.3, grid * 0.2]}
-                  listening={false}
-                />
-              )}
+              {/* matchMode: a live SQUARE preview (the cell you'll get) anchored
+                  at the drag corner; scaleMode: a dashed reference ruler line. */}
+              {scaleLine && matchMode
+                ? (() => {
+                    const dx = scaleLine.target.x - scaleLine.origin.x;
+                    const dy = scaleLine.target.y - scaleLine.origin.y;
+                    const s = Math.max(Math.abs(dx), Math.abs(dy));
+                    return (
+                      <Rect
+                        x={dx >= 0 ? scaleLine.origin.x : scaleLine.origin.x - s}
+                        y={dy >= 0 ? scaleLine.origin.y : scaleLine.origin.y - s}
+                        width={s}
+                        height={s}
+                        stroke="#4fd1ff"
+                        strokeWidth={Math.max(2, grid * 0.06)}
+                        dash={[grid * 0.3, grid * 0.2]}
+                        fill="#4fd1ff22"
+                        listening={false}
+                      />
+                    );
+                  })()
+                : scaleLine && (
+                    <Line
+                      points={[
+                        scaleLine.origin.x,
+                        scaleLine.origin.y,
+                        scaleLine.target.x,
+                        scaleLine.target.y,
+                      ]}
+                      stroke="#4fd1ff"
+                      strokeWidth={Math.max(2, grid * 0.06)}
+                      dash={[grid * 0.3, grid * 0.2]}
+                      listening={false}
+                    />
+                  )}
               {/* Floating ±X damage/heal numbers — topmost, click-through. */}
               <HpFxLayer
                 floaters={hpFx}

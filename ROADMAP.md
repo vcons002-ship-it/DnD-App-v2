@@ -1112,3 +1112,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   Explicit "Change" clears that record so it won't snap back; DM 🔓-unlock stays
   as a stuck-claim fallback. Picker drops the offline 🔒-locked state (taken =
   actively held). Tests updated for last-holder semantics + `clearOwnershipElsewhere`.
+- ☑ **Visual polish pass (clarity + consistency) + grid-square drag.** Purely
+  cosmetic except one grid tweak. CSS (`styles.css`): consolidated drifting colors
+  into tokens (`--gold`, `--cyan-bright`, `--ok`, `--bad`, `--chat-dm/player`) so
+  active-turn gold / PC cyan read consistently; form controls gained hover
+  feedback and selects now match inputs; the floating menu caps height + scrolls
+  (long weapon/ability lists) with a flex title (no name/HP collision); section
+  `h4`s read as headers (not muted), temp-HP shows as a pill and a 0-HP line goes
+  red (`zero-hp`), dead initiative rows are dimmed+italic but legible, roll-log
+  rows got breathing room. **Grid:** "Match map grid" now drags a **box with a
+  live square preview** (corner-to-corner over one printed square) instead of an
+  ambiguous line — `MapStage` renders a `Rect` and commits a square-derived
+  size/offset; the 📏 set-scale tool keeps its line.

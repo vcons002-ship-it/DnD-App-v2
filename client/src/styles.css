@@ -11,6 +11,13 @@
   --blue: #3b82f6;
   --purple: #a855f7;
   --cyan: #22b8cf;
+  /* Highlight / semantic accents (consolidated from scattered hex). */
+  --gold: #f5c518; /* active turn, initiative rank, neutral disposition */
+  --cyan-bright: #5ce1ff; /* 2024-PC cyan: temp HP, PC card tint */
+  --ok: #3fae6b; /* calmer green for at-rest states (death saves) */
+  --bad: #c0444b; /* calmer red for at-rest states (death saves) */
+  --chat-dm: #d8a657;
+  --chat-player: #7daea3;
 }
 
 * { box-sizing: border-box; }
@@ -31,22 +38,34 @@ body {
 
 h1 { font-size: 22px; }
 h3 { margin: 0 0 8px; font-size: 15px; }
-h4 { margin: 12px 0 6px; font-size: 13px; color: var(--muted); }
+h4 { margin: 12px 0 6px; font-size: 13px; font-weight: 600; color: var(--text); }
 .muted { color: var(--muted); }
 .pad { padding: 12px; }
 .err { color: var(--red); }
 .hint { color: var(--accent); font-size: 13px; }
 
-input {
+/* Shared field box. Selects now match inputs (dark bg/border/radius) instead of
+   raw OS chrome; the native dropdown arrow is kept (a custom caret collided with
+   the tiny inline level selects). Width/margin stay input-only so inline selects
+   keep their natural compact size. */
+input, select, textarea {
   background: var(--panel-2);
   border: 1px solid var(--line);
   color: var(--text);
   border-radius: 6px;
   padding: 7px 9px;
-  width: 100%;
-  margin: 4px 0;
+  font: inherit;
 }
+input, textarea { width: 100%; margin: 4px 0; }
 input[type='number'] { width: 70px; }
+input[type='checkbox'], input[type='radio'] { width: auto; }
+select { max-width: 100%; }
+/* Hover feedback on form controls (none before — felt unresponsive on desktop). */
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--accent);
+}
 
 .btn {
   background: var(--panel-2);
@@ -60,6 +79,8 @@ input[type='number'] { width: 70px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn.red { background: #3a2326; border-color: var(--red); }
 .btn.green { background: #1f3a2a; border-color: var(--green); }
+.btn.red:hover { background: #4a2c30; }
+.btn.green:hover { background: #234a33; }
 .btn.danger:hover { border-color: var(--red); color: var(--red); }
 .btn.big { padding: 12px 18px; font-size: 16px; margin: 8px 0; display: inline-block; text-decoration: none; }
 .btn.tiny { padding: 3px 8px; font-size: 12px; }
@@ -255,12 +276,12 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .sb-entry { margin: 3px 0; line-height: 1.35; }
 .init-row { padding: 4px 0; cursor: pointer; }
 .init-row.sel { background: var(--panel-2); border-radius: 6px; }
-.init-row.turn { background: #3a3320; border-radius: 6px; box-shadow: inset 2px 0 0 #f5c518; }
+.init-row.turn { background: #3a3320; border-radius: 6px; box-shadow: inset 3px 0 0 var(--gold); }
 .init-input { width: 46px; }
 .init-name { flex: 1; }
 .init-order {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 50%; background: #f5c518; color: #000;
+  width: 20px; height: 20px; border-radius: 50%; background: var(--gold); color: #000;
   font-size: 12px; font-weight: 700; flex-shrink: 0;
 }
 /* Combat round chip (toolbar, initiative header, data view). */
@@ -276,7 +297,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   color: var(--accent); background: transparent; border: 0;
   border-bottom: 1px dashed var(--line); border-radius: 0; text-align: center;
 }
-.init-row.dead { opacity: 0.45; }
+.init-row.dead { opacity: 0.6; color: var(--muted); font-style: italic; }
 
 .init-header { display: flex; align-items: center; justify-content: space-between; }
 .init-actions { display: flex; gap: 4px; }
@@ -369,9 +390,10 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
 }
 
-.hp-line { font-size: 16px; margin: 6px 0; }
+.hp-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 16px; margin: 6px 0; }
+.hp-line.zero-hp { color: var(--red); font-weight: 600; }
 /* Temporary-HP buffer pool: a flat 2024-rules cyan accent next to real HP. */
-.temp-hp { color: #5ce1ff; font-weight: 600; }
+.temp-hp { color: var(--cyan-bright); font-weight: 600; background: rgba(92, 225, 255, 0.15); padding: 1px 6px; border-radius: 4px; }
 .size-row { margin-top: 8px; }
 
 /* Conditions */
@@ -423,10 +445,12 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 /* Token right-click / long-press floating menu */
 .floating-menu {
   position: fixed; z-index: 50; min-width: 150px;
+  max-width: min(320px, 85vw); max-height: 80vh; overflow-y: auto;
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 8px; padding: 4px; box-shadow: 0 6px 24px #0007;
 }
 .floating-menu-title {
+  display: flex; align-items: center; gap: 8px;
   font-weight: 700; font-size: 12px; padding: 4px 8px 6px;
   border-bottom: 1px solid var(--line); margin-bottom: 4px;
 }
@@ -470,7 +494,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .disposition-btns { display: flex; gap: 6px; }
 .disposition-btns .btn { flex: 1; }
 .disp-friendly.on { background: #1f3a2a; border-color: var(--green); color: #fff; }
-.disp-neutral.on { background: #3a3320; border-color: #f5c518; color: #fff; }
+.disp-neutral.on { background: #3a3320; border-color: var(--gold); color: #fff; }
 .disp-enemy.on { background: #3a2326; border-color: var(--red); color: #fff; }
 
 /* Editable stat block (DM) */
@@ -525,7 +549,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 /* Roll buttons shown next to a rollable action in the read view. */
 
 /* Floating menu: quick damage/heal + HP label */
-.floating-menu-title .fm-hp { float: right; color: var(--muted); font-weight: 600; }
+.floating-menu-title .fm-hp { margin-left: auto; color: var(--muted); font-weight: 600; }
 .fm-dmg { display: flex; gap: 4px; align-items: center; padding: 4px; }
 .fm-dmg input { width: 52px; margin: 0; }
 .fm-attacks { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
@@ -696,19 +720,19 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .data-card { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px; overflow: hidden; }
 /* Color-coded by type (matches the token dot colors): PC cyan, friendly green,
    neutral amber, enemy red, object gray. Tints stay faint for text contrast. */
-.data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff44; background: #5ce1ff10; border-left-color: #5ce1ff88; }
+.data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff44; background: #5ce1ff10; border-left-color: var(--cyan-bright); }
 .data-card.disp-friendly { background: #39c46b12; border-left-color: #39c46b88; }
-.data-card.disp-neutral { background: #f5c51810; border-left-color: #f5c51888; }
+.data-card.disp-neutral { background: #f5c51810; border-left-color: var(--gold); }
 .data-card.disp-enemy { background: #e23b3b12; border-left-color: #e23b3b88; }
 .data-card.obj { border-left-color: #8a8f9888; }
 /* Turn/selection markers stay on top of the tints. */
-.data-card.turn { border-color: #ffd21a; }
+.data-card.turn { border-color: var(--gold); }
 .data-card.selected { outline: 2px solid var(--accent); outline-offset: -1px; }
 .data-card-strip { display: flex; align-items: center; gap: 7px; padding: 6px 9px; background: var(--panel-2); }
 .data-card-strip[draggable] { cursor: grab; }
 .data-drag { color: var(--muted); cursor: grab; user-select: none; }
 .data-select { width: auto; margin: 0; flex-shrink: 0; }
-.data-rank { background: #f5c518; color: #000; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
+.data-rank { background: var(--gold); color: #000; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
 .data-card-name { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; }
 .data-expand { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 2px; }
 .data-expand:hover { color: var(--accent); }
@@ -839,7 +863,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .roll-log-header span { font-size: 12px; }
 .roll-log { margin-top: 4px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 /* Left border is tinted per-roller (inline style) so each character is easy to scan. */
-.roll-entry { display: flex; gap: 8px; align-items: baseline; background: var(--panel-2); border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; padding: 4px 8px; }
+.roll-entry { display: flex; gap: 8px; align-items: baseline; background: var(--panel-2); border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; padding: 5px 9px; }
 .roll-total { font-weight: 700; font-size: 16px; min-width: 28px; text-align: right; color: var(--accent); }
 .roll-meta { font-size: 12px; line-height: 1.3; }
 .roll-desc { display: block; margin-top: 2px; font-size: 11px; font-style: italic; opacity: 0.85; }
@@ -922,18 +946,18 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 /* In-session chat (rendered inline in the rolls + chat feed) */
 .chat-msg { font-size: 13px; line-height: 1.35; word-break: break-word; padding: 1px 0; }
 .chat-sender { font-weight: 600; margin-right: 6px; }
-.chat-msg.dm .chat-sender { color: #d8a657; }
-.chat-msg.player .chat-sender { color: #7daea3; }
+.chat-msg.dm .chat-sender { color: var(--chat-dm); }
+.chat-msg.player .chat-sender { color: var(--chat-player); }
 .chat-input { display: flex; gap: 6px; padding: 6px 0 2px; }
 .chat-input input { flex: 1; }
 
 /* Death saves (shown when a PC hits 0 HP) */
 .death-saves {
-  border: 1px solid #b3434a; border-radius: 8px; padding: 6px 10px; margin: 6px 0;
+  border: 1px solid var(--bad); border-radius: 8px; padding: 6px 10px; margin: 6px 0;
   background: rgba(179, 67, 74, 0.08);
 }
 .death-saves.dead { background: rgba(179, 67, 74, 0.2); }
-.death-saves.stable { border-color: #3fae6b; background: rgba(63, 174, 107, 0.12); }
+.death-saves.stable { border-color: var(--ok); background: rgba(63, 174, 107, 0.12); }
 .death-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .death-head .btn { margin-left: auto; }
 .death-row { display: flex; align-items: center; gap: 8px; }
@@ -943,8 +967,8 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--line);
   display: inline-block;
 }
-.death-pip.ok.on { background: #3fae6b; border-color: #3fae6b; }
-.death-pip.bad.on { background: #c0444b; border-color: #c0444b; }
+.death-pip.ok.on { background: var(--ok); border-color: var(--ok); }
+.death-pip.bad.on { background: var(--bad); border-color: var(--bad); }
 
 /* Drag-reorderable DM panel sections */
 .reorder-section { border-bottom: 1px solid var(--line); }

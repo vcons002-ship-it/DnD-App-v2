@@ -134,9 +134,9 @@ export function ScaleMenu({
                 onToggleMatchMode();
                 setOpen(false);
               }}
-              title="Drag across one square of the map's printed grid to match it"
+              title="Drag a box corner-to-corner across one square of the map's printed grid; a live square preview shows the cell you'll get"
             >
-              <span>🔲 Match map grid (drag a square)</span>
+              <span>🔲 Match map grid — drag a box across one square</span>
             </button>
             <button
               className={`measure-row ${scaleMode ? 'on' : ''}`}
