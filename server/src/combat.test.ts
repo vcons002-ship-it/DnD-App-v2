@@ -1417,7 +1417,7 @@ describe('object lock-pick + creature loot gating', () => {
     // Alive + unrevealed → hidden.
     expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(false);
     // Revealed but alive → still hidden.
-    setCondition('monster', bandit.id, { label: 'Loot revealed', aura: 'blue', isConcentration: false });
+    setCondition('monster', bandit.id, { id: 'lr', label: 'Loot revealed', aura: 'blue', isConcentration: false });
     expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(false);
     // Dead + revealed → visible.
     applyDamage('monster', bandit.id, 999);
