@@ -1382,13 +1382,29 @@ export function removeAnnotation(id: string, requireCreatedBy?: string): void {
   }
 }
 
-/** Clear a map's annotations — all, or only one drawer's (`createdBy`). */
-export function clearAnnotations(mapId: string, createdBy?: string): void {
+/** Clear a map's annotations — all, only one drawer's (`createdBy`), and/or
+ *  only one kind (e.g. 'image' = scenery decals). */
+export function clearAnnotations(
+  mapId: string,
+  createdBy?: string,
+  kind?: Annotation['kind'],
+): void {
+  const conds = ['map_id = ?'];
+  const args: string[] = [mapId];
   if (createdBy !== undefined) {
-    db.prepare('DELETE FROM annotations WHERE map_id = ? AND created_by = ?').run(mapId, createdBy);
-  } else {
-    db.prepare('DELETE FROM annotations WHERE map_id = ?').run(mapId);
+    conds.push('created_by = ?');
+    args.push(createdBy);
   }
+  if (kind !== undefined) {
+    conds.push('kind = ?');
+    args.push(kind);
+  }
+  db.prepare(`DELETE FROM annotations WHERE ${conds.join(' AND ')}`).run(...args);
+}
+
+/** Reposition an annotation's anchor (image decals dragged by the DM). */
+export function moveAnnotation(id: string, x: number, y: number): void {
+  db.prepare('UPDATE annotations SET x = ?, y = ? WHERE id = ?').run(x, y, id);
 }
 
 /** A roll's "who" — the player's claimed character name, "DM", or "Player". */

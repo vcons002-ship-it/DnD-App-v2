@@ -776,8 +776,15 @@ export type AnnotationAddPayload = {
 };
 /** Remove a single annotation by id (any role). */
 export type AnnotationRemovePayload = { id: string };
-/** Clear annotations on a map: everyone's, or only the caller's (`mineOnly`). */
-export type AnnotationClearPayload = { mapId: string; mineOnly?: boolean };
+/** Clear annotations on a map: everyone's, or only the caller's (`mineOnly`);
+ *  an optional `kind` clears only that kind (e.g. 'image' = scenery decals). */
+export type AnnotationClearPayload = {
+  mapId: string;
+  mineOnly?: boolean;
+  kind?: Annotation['kind'];
+};
+/** Reposition an image decal (DM). */
+export type AnnotationMovePayload = { id: string; x: number; y: number };
 /** Rename the session/campaign (DM). */
 export type SessionRenamePayload = { name: string };
 /** How to handle a referenced character whose name already exists on import. */
@@ -1069,6 +1076,7 @@ export interface ClientToServerEvents {
   'annotation:add': (payload: AnnotationAddPayload) => void;
   'annotation:remove': (payload: AnnotationRemovePayload) => void;
   'annotation:clear': (payload: AnnotationClearPayload) => void;
+  'annotation:move': (payload: AnnotationMovePayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'session:importPreview': (

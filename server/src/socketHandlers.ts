@@ -50,6 +50,7 @@ import {
   removeMeasurement,
   addAnnotation,
   clearAnnotations,
+  moveAnnotation,
   removeAnnotation,
   setResource,
   setItem,
@@ -290,12 +291,28 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:clear', ({ mapId, mineOnly }) => {
+    socket.on('annotation:clear', ({ mapId, mineOnly, kind }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !getMap(mapId)) return;
       const onlyMine = mineOnly || conn.role !== 'dm';
-      clearAnnotations(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
+      const k =
+        kind === 'freehand' || kind === 'text' || kind === 'image' ? kind : undefined;
+      // NOTE: pass the caller's REAL role — annotations store the DM's as
+      // createdBy 'DM', so a hardcoded `false` here made the DM's "Clear mine"
+      // look for 'Player' and delete nothing.
+      clearAnnotations(
+        mapId,
+        onlyMine ? rollerName(sid, socket.id, conn.role === 'dm') : undefined,
+        k,
+      );
+      afterChange();
+    });
+
+    // Reposition an image decal (DM drag); strokes/text never move.
+    socket.on('annotation:move', ({ id, x, y }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      moveAnnotation(id, Number(x) || 0, Number(y) || 0);
       afterChange();
     });
 

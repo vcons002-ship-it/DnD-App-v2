@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
 import { newId } from './db.js';
@@ -309,6 +310,39 @@ export function createApiRouter(io: IOServer): Router {
   router.post('/icons', upload.single('image'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'image required' });
     res.status(201).json({ icon: `/uploads/${req.file.filename}` });
+  });
+
+  // Fetch a remote image into uploads (paste of an <img> copied from a web
+  // page / Google Slides puts only its URL on the clipboard, not pixel data).
+  // http(s) only, image/* only, size-capped — same limits as direct uploads.
+  router.post('/icons/from-url', async (req, res) => {
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return res.status(400).json({ error: 'invalid url' });
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return res.status(400).json({ error: 'http(s) urls only' });
+    }
+    try {
+      const r = await fetch(parsed, { signal: AbortSignal.timeout(10_000) });
+      const type = r.headers.get('content-type') ?? '';
+      if (!r.ok || !type.startsWith('image/')) {
+        return res.status(422).json({ error: 'url is not a fetchable image' });
+      }
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.byteLength > 25 * 1024 * 1024) {
+        return res.status(413).json({ error: 'image too large' });
+      }
+      const ext = `.${(type.split('/')[1] || 'png').split(/[;+]/)[0]}`;
+      const filename = `${newId()}${ext}`;
+      fs.writeFileSync(path.join(config.uploadsDir, filename), buf);
+      res.status(201).json({ icon: `/uploads/${filename}` });
+    } catch {
+      res.status(422).json({ error: 'could not fetch that image' });
+    }
   });
 
   // Lightweight existence check used by the join screen.
