@@ -1116,6 +1116,10 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 /* Combat section ability rows: roll button + optional upcast level select. */
 .combat-ability-row { display: flex; align-items: center; gap: 4px; }
 .combat-ability-row .attack-row { flex: 1; margin: 3px 0; }
+/* Combat section toggle chips (stances / masteries / maneuvers). */
+.combat-toggles { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
+.combat-toggle-row { display: flex; align-items: center; gap: 6px; }
+.combat-toggle-row .res-name { flex: 1; min-width: 0; }
 .attack-row { display: block; width: 100%; text-align: left; margin: 3px 0; }
 
 /* Touch devices: lift the smallest controls to a ~32px hit area (visuals stay

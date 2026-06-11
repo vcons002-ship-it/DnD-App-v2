@@ -186,9 +186,14 @@ sanitization rules above and commit it to `claude/Main`.
   menu/panel), and `IconTools` (emoji/upload/clear) — used by both
   `FloatingMenu` and `SelectedTokenPanel`/`BulkActionsPanel`/`CombatSection`
   so the right-click menu and panels can't drift. **`CombatSection`** is the
-  right panel's ONE rolling surface for both roles (target dropdown +
-  off-hand/2H + WeaponButtons + AbilityButtons; `CharacterSpells
-  rollsElsewhere` hides its in-list roll buttons there). Map toolbar dropdowns
+  right panel's ONE rolling surface for both roles: target dropdown
+  (right-clicking a token aims it via the store's `combatTarget` nonce) +
+  off-hand/2H + WeaponButtons + AbilityButtons + **`AbilityToggles`**
+  (stance/mastery/maneuver chips; the ONE `useAbilityToggles` hook is shared
+  with `CharacterSpells`' inline buttons on the left sheet) + a `compact`
+  `CharacterResources` (spendable pips, management stays on the sheet).
+  `CharacterSpells rollsElsewhere` hides its in-list roll buttons AND toggles
+  there; the player console renders it read-only as a reference list. Map toolbar dropdowns
   `MeasureMenu`/`ScaleMenu`/`FogMenu` share the
   `.measure-menu`/`.popover-backdrop` popover pattern. `ReorderableSections`
   slots never-seen section ids in at their fallback index (not appended), so a

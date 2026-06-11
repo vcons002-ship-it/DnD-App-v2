@@ -9,7 +9,7 @@ const DESKTOP = [
   ROW('Shift / Ctrl-click', 'Add to a multi-selection'),
   ROW('Drag a token', 'Move it (DM: anything · player: your PC + friendly creatures)'),
   ROW('Double-click a token', 'Open its read-only details (players)'),
-  ROW('Right-click a token', 'Floating action menu — attacks/abilities of the SELECTED token against this one'),
+  ROW('Right-click a token', 'Floating action menu + sets it as your Combat-section target'),
   ROW('Drag empty map', 'Pan · mouse wheel = zoom · "Fit" recenters'),
   ROW('Delete / Backspace', 'Delete the selected token(s) (DM)'),
   ROW('Esc', 'Cancel placement / close menus'),
@@ -24,7 +24,7 @@ const DESKTOP = [
 const MOBILE = [
   ROW('Tap a token', 'Select it'),
   ROW('Drag a token', 'Move it (your PC + friendly creatures, as a player)'),
-  ROW('Hold a token (~½ s)', 'Opens the floating action menu — release keeps it open; tap away to close'),
+  ROW('Hold a token (~½ s)', 'Floating action menu + sets it as your Combat-section target — release keeps it open'),
   ROW('Double-tap a token', 'Select it and open the right panel with its details'),
   ROW('Pinch', 'Zoom the map; one-finger drag pans'),
   ROW('Edge tab / ‹ ›', 'Open or collapse a side panel (they overlay the map)'),

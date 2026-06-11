@@ -38,13 +38,17 @@ function Pips({
 }
 
 /** Spell-slot + class-resource trackers (auto-filled from class/level) with
- *  clickable pips and custom counters. Editable for the owner/DM. */
+ *  clickable pips and custom counters. Editable for the owner/DM. `compact`
+ *  (the Combat section) keeps the pips spendable but hides the add/remove
+ *  management, which stays on the character sheet. */
 export function CharacterResources({
   character,
   editable,
+  compact,
 }: {
   character: Character;
   editable: boolean;
+  compact?: boolean;
 }) {
   const setResource = useStore((s) => s.setResource);
   const [name, setName] = useState('');
@@ -55,7 +59,8 @@ export function CharacterResources({
     a.localeCompare(b),
   );
   const resources = Object.entries(character.resources);
-  if (slots.length === 0 && resources.length === 0 && !editable) return null;
+  if (slots.length === 0 && resources.length === 0 && (!editable || compact))
+    return null;
 
   const addCustom = () => {
     if (!name.trim()) return;
@@ -75,7 +80,7 @@ export function CharacterResources({
     <div className="resources">
       <div className="res-header">
         <h4>Resources</h4>
-        {editable && (
+        {editable && !compact && (
           <button
             className="btn tiny"
             onClick={() => setAdding((p) => !p)}
@@ -85,7 +90,7 @@ export function CharacterResources({
           </button>
         )}
       </div>
-      {editable && adding && (
+      {editable && !compact && adding && (
         <div className="res-add">
           <input
             autoFocus
@@ -141,7 +146,7 @@ export function CharacterResources({
               <span className="res-count muted">
                 {c.max - c.used}/{c.max}
               </span>
-              {editable && (
+              {editable && !compact && (
                 <button
                   className="res-x"
                   title="Remove counter"

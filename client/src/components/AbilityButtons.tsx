@@ -7,7 +7,7 @@ import type {
 } from '../../../shared/types';
 import {
   ROLL_ICON,
-  castsConcentration,
+  confirmConcentration,
   spellBaseLevel,
   upcastable,
 } from '../lib/spellcasting';
@@ -44,24 +44,8 @@ export function AbilityButtons({
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
   const menu = variant === 'menu';
 
-  // Warn before starting a NEW concentration while another is already running —
-  // 5e lets you keep only one, so casting ends the old. Returns false to abort.
-  const confirmConcentration = (a: SheetAbility): boolean => {
-    if (!castsConcentration(a)) return true;
-    const existing = caster.conditions.find(
-      (c) => c.isConcentration && c.label !== `Concentration: ${a.name}`,
-    );
-    if (!existing) return true;
-    const prev =
-      existing.label.replace(/^Concentration:\s*/i, '').trim() || 'another spell';
-    return window.confirm(
-      `${caster.name} is already concentrating on ${prev}. ` +
-        `Casting ${a.name} will end that concentration. Continue?`,
-    );
-  };
-
   const cast = (a: SheetAbility) => {
-    if (!confirmConcentration(a)) return;
+    if (!confirmConcentration(caster, a)) return;
     rollAbility({
       kind,
       refId: caster.id,

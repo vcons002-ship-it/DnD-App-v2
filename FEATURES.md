@@ -423,9 +423,10 @@ pulsing ring + initiative-rank badge on the token).
 
 - Select an attacker — its right panel opens with a **Combat** section: a
   **Target** dropdown plus a small button for **every rollable action** it has
-  (weapon attacks, attack-roll spells, save-forcing abilities, heals). Pick the
-  target, click an action (or right-click a target on the map — see the
-  [floating menu](#the-floating-action-menu-right-click)). The server rolls
+  (weapon attacks, attack-roll spells, save-forcing abilities, heals).
+  **Right-clicking any token fills the Target dropdown** (and opens the
+  [floating menu](#the-floating-action-menu-right-click) for the same target),
+  so "select attacker → right-click victim" arms both surfaces. The server rolls
   to-hit vs the target's AC, doubles dice on a
   nat-20, applies resistances/vulnerabilities, and **auto-applies damage on a
   hit** (recorded in the roll log; you can heal it back). Save-forcing
@@ -558,9 +559,18 @@ This is the key player combat surface, and it always acts **as your own PC**
 - Selecting **any** token opens a **Combat** section at the top: one **Target**
   dropdown (defaulting to the token you clicked; friendly creatures are
   excluded) plus small buttons for **all your rollable actions** — weapon
-  attacks, attack-roll spells, save-forcing abilities, and heals. Your full
-  **Spells, Abilities & Masteries** list sits below it for editing/preparing
-  (its rolling lives in the Combat section so there's one place to fire from).
+  attacks, attack-roll spells, save-forcing abilities, and heals.
+  **Right-clicking a token also sets this Target** — same aim as the floating
+  menu, so even if you close the menu the panel is ready to attack that target.
+- The Combat section also carries your **damage-altering toggles** (Rage,
+  masteries, maneuvers, Hunter's-Mark-style marks — the mark select follows
+  your current target) and your **Resources** (spell slots + class counters,
+  spendable pips) — so everything you touch mid-fight is in one place. The full
+  tracker stays on your left-panel sheet too.
+- Below it, **Spells, Abilities & Masteries** is a compact **reference list** —
+  tap a row to read its description — so you can see everything you've added
+  without scrolling; add/edit/prepare from your character sheet in the left
+  panel.
 - **Attack-roll spells & cantrips** (Fire Bolt, Eldritch Blast, …) work just
   like weapons: the
   server rolls **to-hit vs the target's AC**, doubles dice on a crit, misses on a

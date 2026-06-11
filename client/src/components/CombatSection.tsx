@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   Character,
   Monster,
@@ -10,6 +10,8 @@ import { resolveToken } from '../lib/entities';
 import { healTargets, validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
 import { AbilityButtons } from './AbilityButtons';
+import { AbilityToggles, hasToggle } from './AbilityToggles';
+import { CharacterResources } from './CharacterResources';
 import { WeaponButtons } from './WeaponButtons';
 
 /**
@@ -58,12 +60,28 @@ export function CombatSection({
     if (validDefault) setTargetId(validDefault);
   }, [validDefault]);
 
+  // Right-clicking a token on the map aims this dropdown at it (same target the
+  // floating menu used), so closing the menu still leaves the panel set up.
+  // Only CHANGES count (the nonce ref) — a stale value never overrides the
+  // clicked-token default on mount.
+  const combatTarget = useStore((s) => s.combatTarget);
+  const seenTargetNonce = useRef(combatTarget?.n ?? 0);
+  useEffect(() => {
+    if (!combatTarget || combatTarget.n === seenTargetNonce.current) return;
+    seenTargetNonce.current = combatTarget.n;
+    if (targets.some((t) => t.id === combatTarget.id)) setTargetId(combatTarget.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [combatTarget]);
+
   // Heals pick from allies instead (self first = default) and apply on cast.
   const healList = healTargets(snapshot, attacker);
   const hasHeal = abilities.some((a) => a.roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
 
-  if (weapons.length === 0 && abilities.length === 0)
+  const nothingRollable = weapons.length === 0 && abilities.length === 0;
+  const anyToggle = caster.sheetAbilities.some(hasToggle);
+  const isPc = 'resources' in caster;
+  if (nothingRollable && !anyToggle && !isPc)
     return <p className="muted">No attacks or rollable abilities.</p>;
 
   // A 2H toggle only matters when some weapon is versatile (has 2H damage).
@@ -75,7 +93,7 @@ export function CombatSection({
 
   return (
     <div className="attack-controls">
-      {targets.length > 0 && (
+      {targets.length > 0 && !nothingRollable && (
         <div className="dice-row">
           <span className="muted spell-tag">Target</span>
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
@@ -87,6 +105,17 @@ export function CombatSection({
           </select>
         </div>
       )}
+      {nothingRollable && (
+        <p className="muted">No attacks or rollable abilities.</p>
+      )}
+      {/* Damage/attack-altering toggles (Rage, masteries, maneuvers, marks). */}
+      <AbilityToggles
+        character={caster}
+        kind={kind}
+        snapshot={snapshot}
+        targets={targets}
+        currentTargetId={targetId || undefined}
+      />
       {weapons.length > 0 && (
         <>
           <div className="dice-row">
@@ -147,6 +176,11 @@ export function CombatSection({
         targetTokenId={targetId || undefined}
         healTargetId={healTargetId || undefined}
       />
+      {/* Spell slots + class resources, spendable right where they're used
+          (the full tracker stays on the character sheet too). */}
+      {'resources' in caster && (
+        <CharacterResources character={caster} editable compact />
+      )}
     </div>
   );
 }

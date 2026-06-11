@@ -1079,3 +1079,20 @@ Smaller refinements on top of the shipped Phase 2 work.
   untargeted as before. `ReorderableSections` now slots never-seen section ids
   at their fallback index (not appended), so 'combat' lands on TOP for users
   with a saved order.
+- ☑ **Combat section round 2: right-click targeting, toggles & resources [req].**
+  (1) **Right-clicking a token fills the Combat section's Target dropdown**
+  (store `combatTarget` {id, nonce}; set in `handleTokenMenu`, consumed only on
+  change so a stale value never overrides the clicked-token default) — the same
+  aim as the floating menu, so closing the menu leaves the panel armed at that
+  target. (2) **Damage-altering toggles moved into the Combat section**:
+  `AbilityToggles` chips (effect masteries On/Off, maneuvers Armed, stances
+  On/Off with the targeted-mark select following the current target), backed by
+  ONE shared `useAbilityToggles` hook also used by `CharacterSpells`' inline
+  buttons (left-panel sheet keeps them; right-panel lists hide them via
+  `rollsElsewhere`). (3) The player console's **Spells & Abilities is now a
+  read-only reference list** (collapsible rows → description/meta) — add/edit/
+  prep stays on the left-panel sheet. (4) **Resources ride in the Combat
+  section** (`CharacterResources compact`: spendable spell-slot/counter pips,
+  add/remove hidden) while the full tracker stays on the character sheet.
+  Concentration-confirm extracted to `lib/spellcasting.confirmConcentration`
+  (one implementation for casts, quick-casts, and stance activation).

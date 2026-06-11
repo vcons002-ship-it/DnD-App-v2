@@ -1,4 +1,4 @@
-import type { SheetAbility } from '../../../shared/types';
+import type { Condition, SheetAbility } from '../../../shared/types';
 
 /** Icon per rollable kind, so a button reads attack vs save vs damage vs heal. */
 export const ROLL_ICON: Record<string, string> = {
@@ -25,3 +25,22 @@ export const castsConcentration = (a: SheetAbility): boolean =>
 /** A concentration SPELL (by tag or meta) — casting it starts concentration. */
 export const isConcentration = (a: SheetAbility): boolean =>
   a.type === 'spell' && castsConcentration(a);
+
+/** Warn before starting a NEW concentration while another is already running —
+ *  5e lets you keep only one, so casting ends the old. Returns false to abort. */
+export function confirmConcentration(
+  caster: { name: string; conditions: Condition[] },
+  a: SheetAbility,
+): boolean {
+  if (!castsConcentration(a)) return true;
+  const existing = caster.conditions.find(
+    (c) => c.isConcentration && c.label !== `Concentration: ${a.name}`,
+  );
+  if (!existing) return true;
+  const prev =
+    existing.label.replace(/^Concentration:\s*/i, '').trim() || 'another spell';
+  return window.confirm(
+    `${caster.name} is already concentrating on ${prev}. ` +
+      `Casting ${a.name} will end that concentration. Continue?`,
+  );
+}

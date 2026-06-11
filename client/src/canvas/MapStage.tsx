@@ -467,6 +467,7 @@ export function MapStage({
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
   const nudgeRightPanel = useStore((s) => s.nudgeRightPanel);
+  const setCombatTarget = useStore((s) => s.setCombatTarget);
   const clearSaveResolve = useStore((s) => s.clearSaveResolve);
   const setFogLayer = useStore((s) => s.setFogLayer);
   const paintFog = useStore((s) => s.paintFog);
@@ -569,6 +570,9 @@ export function MapStage({
   );
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
     setHover(null);
+    // Also aim the Combat section's target dropdown at the right-clicked token,
+    // so closing the menu still leaves the side panel set up to attack it.
+    setCombatTarget(tok.id);
     setMenu({ token: tok, x: cx, y: cy });
   });
   const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) =>

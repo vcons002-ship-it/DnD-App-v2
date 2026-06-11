@@ -145,14 +145,10 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       id: 'abilities',
       label: 'Spells & Abilities',
       node: (
-        <CharacterSpells
-          character={myChar}
-          editable
-          snapshot={snapshot}
-          attackerToken={myToken}
-          defaultTargetId={selectingOwn ? undefined : token.id}
-          rollsElsewhere={!!myToken}
-        />
+        // Read-only reference list (collapsible rows → description) so the
+        // player sees everything they added without scrolling; rolling +
+        // toggles live in the Combat section, editing on the left-panel sheet.
+        <CharacterSpells character={myChar} editable={false} rollsElsewhere />
       ),
     });
     // Loot a fallen creature whose loot the DM revealed (server-gated).
