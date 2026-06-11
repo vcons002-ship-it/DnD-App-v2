@@ -1,0 +1,30 @@
+# systemd unit for DnD-App-v2 — always-on, auto-restart, start-on-boot.
+#
+# Install (or let deploy/setup.sh do it):
+#   sudo cp deploy/dndapp.service /etc/systemd/system/dndapp.service
+#   # then edit User= and WorkingDirectory= below to match your VM, and:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now dndapp
+#
+# Runs the PREBUILT server (deploy/setup.sh runs `npm run build` first), so a
+# crash-restart does NOT rebuild — important on a 1 GB e2-micro. The server reads
+# .env from the repo root (dotenv) and serves the built client from client/dist.
+
+[Unit]
+Description=DnD-App-v2 virtual tabletop
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Edit these two to match your VM (the user that cloned the repo, and its path):
+User=YOUR_LINUX_USER
+WorkingDirectory=/home/YOUR_LINUX_USER/dnd-app-v2
+ExecStart=/usr/bin/npm run start -w server
+Restart=always
+RestartSec=3
+# Give native modules / tsx a moment on a slow micro VM before declaring failure.
+TimeoutStartSec=120
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
