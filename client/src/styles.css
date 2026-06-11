@@ -1204,6 +1204,25 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
    the breakdown via the cell's title tooltip). */
 .sb-ab-mod-dot { color: var(--accent); font-size: 9px; vertical-align: super; margin-left: 1px; }
 
+/* One-shot red screen-edge flash when the player's own PC takes damage.
+   Pure CSS (GPU-composited box-shadow fade), click-through, self-expiring. */
+.hurt-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  box-shadow: inset 0 0 110px 28px rgba(214, 40, 40, 0.55);
+  animation: hurt-flash 0.85s ease-out forwards;
+}
+.hurt-vignette.big {
+  box-shadow: inset 0 0 160px 55px rgba(214, 30, 30, 0.7);
+}
+@keyframes hurt-flash {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Inventory: magic-effect badge + equipped toggle on an item row. */
 .item-fx, .item-equip, .item-save {
   background: none; border: none; cursor: pointer; font-size: 12px;

@@ -1234,6 +1234,9 @@ export type HpFxEvent = {
   refId: string;
   delta: number;
   damageType?: string;
+  /** One-shot extra: 'death' (a creature just dropped to 0 — skull + smoke
+   *  puff) or 'loot' (a container was plundered — gold sparkle; delta 0). */
+  effect?: 'death' | 'loot';
 };
 
 export interface ServerToClientEvents {
