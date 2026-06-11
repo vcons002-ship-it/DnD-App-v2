@@ -1095,4 +1095,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   section** (`CharacterResources compact`: spendable spell-slot/counter pips,
   add/remove hidden) while the full tracker stays on the character sheet.
   Concentration-confirm extracted to `lib/spellcasting.confirmConcentration`
-  (one implementation for casts, quick-casts, and stance activation).
+  (one implementation for casts, quick-casts, and stance activation). (5) The
+  Combat section **always shows** for a creature/PC (not just when it has
+  attacks) so toggles/resources always have a home — `CombatSection` renders a
+  "No attacks or rollable abilities." note where the buttons would be.

@@ -72,7 +72,6 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     !!character && (isDm || character.claimedBy === mySocketId);
   // The viewer can roll this token's attacks if they're the DM or own the PC.
   const canAttack = isDm || (!!character && character.claimedBy === mySocketId);
-  const attackerWeapons = monster?.weapons ?? character?.weapons ?? [];
   const iconTargets =
     selectedIds && selectedIds.length ? selectedIds : [token.id];
 
@@ -197,14 +196,11 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const sections: Section[] = [];
 
   // The ONE rolling surface (target dropdown + weapons + rollable abilities) —
-  // first in the fallback order so it lands on top.
+  // first in the fallback order so it lands on top. Always shown for a
+  // creature/PC (CombatSection itself shows a "No attacks" note when empty), so
+  // the toggles/resources still have a home and the section never disappears.
   const attackerEntity = monster ?? character;
-  const combatShown =
-    canAttack &&
-    !!attackerEntity &&
-    !objectKind &&
-    (attackerWeapons.length > 0 ||
-      attackerEntity.sheetAbilities.some((a) => a.roll));
+  const combatShown = canAttack && !!attackerEntity && !objectKind;
   if (combatShown) {
     sections.push({
       id: 'combat',
