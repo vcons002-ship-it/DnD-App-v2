@@ -1196,6 +1196,8 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 /* Spell economy: counters, action-type icon, prepared toggle. */
 .spell-caps { display: flex; gap: 12px; font-size: 12px; margin: 2px 0 6px; }
 .spell-caps .over { color: var(--red); font-weight: 600; }
+/* Allowed spell lists (class + subclass + feats), e.g. "Wizard (class) · Druid +2 cantrips…" */
+.spell-lists { font-size: 11px; margin: -2px 0 6px; }
 .action-icon { margin: 0 4px; color: var(--cyan); font-size: 12px; }
 .action-type-edit { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin: 2px 0; }
 .action-type-edit select { width: auto; }

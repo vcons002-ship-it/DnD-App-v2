@@ -25,6 +25,7 @@ export function LibraryCharacterDialog({
     name: name.trim(),
     race: character.race,
     className: character.className,
+    subclass: character.subclass,
     level: character.level,
     maxHp: character.maxHp,
     curHp: character.curHp,

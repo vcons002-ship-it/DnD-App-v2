@@ -22,6 +22,24 @@ const CLASSES = [
   'artificer', 'barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk',
   'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard',
 ];
+// Distinctive subclass names safe to scrape from free text (multi-word or
+// unambiguous — generic words like "hunter" would false-positive).
+const SUBCLASSES = [
+  'eldritch knight', 'battle master', 'arcane trickster', 'divine soul',
+  'draconic bloodline', 'wild magic', 'circle of the moon', 'circle of the land',
+  'college of lore', 'college of valor', 'life domain', 'light domain',
+  'war domain', 'tempest domain', 'trickery domain', 'knowledge domain',
+  'nature domain', 'grave domain', 'forge domain', 'twilight domain',
+  'oath of devotion', 'oath of vengeance', 'oath of the ancients',
+  'way of the open hand', 'way of shadow', 'way of the four elements',
+  'beast master', 'gloom stalker', 'horizon walker', 'monster slayer',
+  'hexblade', 'the fiend', 'the archfey', 'the great old one',
+  'school of evocation', 'school of abjuration', 'school of divination',
+  'school of necromancy', 'school of illusion', 'school of conjuration',
+  'school of enchantment', 'school of transmutation',
+  'champion', 'assassin', 'swashbuckler', 'samurai', 'cavalier',
+  'berserker', 'totem warrior', 'zealot', 'ancestral guardian',
+];
 const ABILITY_LABELS: Record<string, string> = {
   STR: 'str|strength',
   DEX: 'dex|dexterity',
@@ -51,6 +69,14 @@ export function parseSheetText(text: string): SheetPatch {
 
   const cls = CLASSES.find((c) => new RegExp(`\\b${c}\\b`, 'i').test(t));
   if (cls) patch.className = title(cls);
+
+  // Subclass: an explicit "Subclass:"/"Archetype:" label wins; otherwise scan
+  // for a distinctive known name.
+  const subM = t.match(/\b(?:subclass|archetype)\b\s*[:\-]\s*([A-Za-z][\w '\-]{1,40})/i);
+  const sub =
+    subM?.[1].trim() ??
+    SUBCLASSES.find((s) => new RegExp(`\\b${s}\\b`, 'i').test(t));
+  if (sub) patch.subclass = title(sub);
 
   // Level: "level N" / "lvl N" / "Nth-level" / "ClassName N".
   let level =
@@ -120,6 +146,7 @@ export function exportSheetJSON(c: Character): string {
       name: c.name,
       race: c.race,
       className: c.className,
+      subclass: c.subclass,
       level: c.level,
       maxHp: c.maxHp,
       curHp: c.curHp,
@@ -161,6 +188,7 @@ export function parseSheetJSON(text: string): SheetPatch | null {
   if (str('name') !== undefined) patch.name = str('name');
   if (str('race') !== undefined) patch.race = str('race');
   if (str('className') !== undefined) patch.className = str('className');
+  if (str('subclass') !== undefined) patch.subclass = str('subclass');
   if (str('speed') !== undefined) patch.speed = str('speed');
   if (int('level') !== undefined) patch.level = int('level');
   if (int('maxHp') !== undefined) patch.maxHp = int('maxHp');

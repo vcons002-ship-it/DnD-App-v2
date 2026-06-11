@@ -52,8 +52,34 @@ const HALF_CASTER: number[][] = [
   [4, 3, 3, 3, 2],
 ];
 
+// Third-caster subclasses (Eldritch Knight / Arcane Trickster): slots begin at
+// char level 3, max 4th level.
+const THIRD_CASTER: number[][] = [
+  [0, 0, 0, 0],
+  [0, 0, 0, 0],
+  [2, 0, 0, 0],
+  [3, 0, 0, 0],
+  [3, 0, 0, 0],
+  [3, 0, 0, 0],
+  [4, 2, 0, 0],
+  [4, 2, 0, 0],
+  [4, 2, 0, 0],
+  [4, 3, 0, 0],
+  [4, 3, 0, 0],
+  [4, 3, 0, 0],
+  [4, 3, 2, 0],
+  [4, 3, 2, 0],
+  [4, 3, 2, 0],
+  [4, 3, 3, 0],
+  [4, 3, 3, 0],
+  [4, 3, 3, 0],
+  [4, 3, 3, 1],
+  [4, 3, 3, 1],
+];
+
 const FULL = /wizard|sorcerer|cleric|druid|bard/;
 const HALF = /paladin|ranger/;
+const THIRD = /eldritch\s*knight|arcane\s*trickster/;
 
 const slotsFromTable = (table: number[][], level: number): Counters => {
   const row = table[Math.max(0, Math.min(19, level - 1))] ?? [];
@@ -69,19 +95,24 @@ const rageByLevel = (lvl: number): number =>
 
 /**
  * Derive the AUTO spell slots + limited-use class resources for a class/level
- * (5e). Players can adjust or add custom counters on top of these.
+ * (5e). The subclass adds third-caster slots (Eldritch Knight / Arcane
+ * Trickster) and subclass resources (Battle Master superiority dice). Players
+ * can adjust or add custom counters on top of these.
  */
 export function deriveClassResources(
   className: string,
   level: number,
   stats: Record<string, number> = {},
+  subclass = '',
 ): { spellSlots: Counters; resources: Counters } {
   const cn = className.toLowerCase();
+  const sub = subclass.toLowerCase();
   const lvl = Math.max(1, Math.round(level || 1));
 
   let spellSlots: Counters = {};
   if (FULL.test(cn)) spellSlots = slotsFromTable(FULL_CASTER, lvl);
   else if (HALF.test(cn)) spellSlots = slotsFromTable(HALF_CASTER, lvl);
+  else if (THIRD.test(sub)) spellSlots = slotsFromTable(THIRD_CASTER, lvl);
 
   const resources: Counters = {};
   const add = (name: string, max: number) => {
@@ -97,6 +128,10 @@ export function deriveClassResources(
   }
   if (/paladin/.test(cn)) add('Lay on Hands', lvl * 5);
   if (/bard/.test(cn)) add('Bardic Inspiration', Math.max(1, abilityMod(stats.CHA)));
+  // Subclass resources. The counter name must stay 'Superiority Dice' — the
+  // sheet's `superiorityDie` size setting points at it.
+  if (/battle\s*master/.test(sub))
+    add('Superiority Dice', lvl >= 15 ? 6 : lvl >= 7 ? 5 : lvl >= 3 ? 4 : 0);
 
   return { spellSlots, resources };
 }

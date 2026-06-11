@@ -37,12 +37,15 @@ export function CharacterSheet({
     <>
       <StatBlock
         creature={character}
-        subtitle={`${character.race} · ${character.className}`}
+        subtitle={`${character.race} · ${character.className}${
+          character.subclass ? ` (${character.subclass})` : ''
+        }`}
         identity={
           editable
             ? [
                 { key: 'race', label: 'Race', value: character.race },
                 { key: 'className', label: 'Class', value: character.className },
+                { key: 'subclass', label: 'Subclass', value: character.subclass },
               ]
             : undefined
         }

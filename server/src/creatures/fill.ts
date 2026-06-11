@@ -80,6 +80,7 @@ export async function aiFillCharacter(characterId: string): Promise<FillResult> 
   const patch: CharacterUpdatePayload = { characterId };
   if (!c.race && gen.race) patch.race = gen.race;
   if (!c.className && gen.className) patch.className = gen.className;
+  if (!c.subclass && gen.subclass) patch.subclass = gen.subclass;
   if (c.armorClass === 0 && gen.armorClass > 0) patch.armorClass = gen.armorClass;
   if (!c.speed && gen.speed) patch.speed = gen.speed;
   if (Object.keys(c.stats).length === 0 && Object.keys(gen.stats).length > 0)

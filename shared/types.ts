@@ -132,6 +132,9 @@ export type Character = {
   name: string;
   race: string;
   className: string;
+  /** Subclass / archetype (e.g. "Eldritch Knight", "Battle Master") — adjusts
+   *  derived resources and spell limits where the tables know it. */
+  subclass: string;
   /** Character level (PCs) — also used by the AI to scale stats. */
   level: number;
   maxHp: number;
@@ -483,6 +486,8 @@ export type LibraryCharacter = {
   name: string;
   race: string;
   className: string;
+  /** Subclass / archetype; optional on older saves. */
+  subclass?: string;
   level: number;
   maxHp: number;
   curHp: number;
@@ -857,6 +862,7 @@ export type CharacterUpdatePayload = {
   name?: string;
   race?: string;
   className?: string;
+  subclass?: string;
   level?: number;
   maxHp?: number;
   curHp?: number;

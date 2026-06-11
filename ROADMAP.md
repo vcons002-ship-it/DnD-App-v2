@@ -1124,3 +1124,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   live square preview** (corner-to-corner over one printed square) instead of an
   ambiguous line — `MapStage` renders a `Rect` and commits a square-derived
   size/offset; the 📏 set-scale tool keeps its line.
+- ☑ **Subclass + spell-list allowances + feats [req].** `Character.subclass`
+  (column + sheet identity field, shown in the subtitle, saved to the library /
+  JSON export, scraped from pasted sheets, AI-filled): `deriveClassResources`
+  now derives **third-caster slots** (Eldritch Knight / Arcane Trickster) and
+  **Battle Master Superiority Dice** (4/5/6), and re-derives on subclass change;
+  `spellPrep` honors EK/AT cantrips (2@3, 3@10) + a known-spells table. New
+  `shared/spellLists.ts` computes the **allowed spell lists** from class +
+  subclass + feat names (Magic Initiate per-class, Artificer Initiate,
+  Fey/Shadow Touched — matched in Traits & Feats AND sheet abilities), shown as
+  a "Lists:" breakdown under the spell counters, whose caps now include feat
+  bonuses. The features search gained a curated **feat list** (Magic Initiate ×3,
+  Fey/Shadow Touched, Lucky, Tough, Alert).

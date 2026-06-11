@@ -157,6 +157,7 @@ type LibCharacterRow = {
   name: string;
   race: string;
   class_name: string;
+  subclass: string;
   level: number;
   max_hp: number;
   cur_hp: number;
@@ -182,6 +183,7 @@ function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
     name: r.name,
     race: r.race,
     className: r.class_name,
+    subclass: r.subclass ?? '',
     level: r.level ?? 1,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
@@ -255,16 +257,17 @@ export function saveLibraryCharacter(
 
   db.prepare(
     `INSERT OR REPLACE INTO library_characters
-       (id, name, race, class_name, level, max_hp, cur_hp, armor_class, speed,
+       (id, name, race, class_name, subclass, level, max_hp, cur_hp, armor_class, speed,
         stats, spell_slots, resources, weapons, resistances, weaknesses, actions,
         abilities, proficient_skills, save_proficiencies, items,
         sheet_abilities, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
     input.race ?? '',
     input.className ?? '',
+    input.subclass ?? '',
     input.level ?? 1,
     input.maxHp ?? 10,
     input.curHp ?? input.maxHp ?? 10,

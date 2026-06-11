@@ -386,6 +386,9 @@ ensureColumn(
   'save_proficiencies',
   "save_proficiencies TEXT NOT NULL DEFAULT '[]'",
 );
+// Subclass / archetype on PCs (adjusts derived resources + spell limits).
+ensureColumn('characters', 'subclass', "subclass TEXT NOT NULL DEFAULT ''");
+ensureColumn('library_characters', 'subclass', "subclass TEXT NOT NULL DEFAULT ''");
 // Optional long text on a roll entry (e.g. a cast spell's full description).
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 // Optional "Apply damage" payload on a save/damage roll (DM click-to-target saves).
@@ -569,6 +572,7 @@ type CharacterRow = {
   name: string;
   race: string;
   class_name: string;
+  subclass: string;
   level: number;
   max_hp: number;
   cur_hp: number;
@@ -605,6 +609,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     name: r.name,
     race: r.race,
     className: r.class_name,
+    subclass: r.subclass ?? '',
     level: r.level ?? 1,
     maxHp: r.max_hp,
     curHp: r.cur_hp,

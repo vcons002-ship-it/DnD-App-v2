@@ -1441,6 +1441,7 @@ export type CharacterInput = {
   name: string;
   race?: string;
   className?: string;
+  subclass?: string;
   level?: number;
   maxHp?: number;
   curHp?: number;
@@ -1474,22 +1475,28 @@ export function createCharacter(
   const level = opts.level && opts.level > 0 ? opts.level : 1;
   // Auto-fill spell slots + class resources from 5e class/level tables, unless
   // the caller supplied them (e.g. loading a saved sheet).
-  const derived = deriveClassResources(opts.className ?? '', level, opts.stats ?? {});
+  const derived = deriveClassResources(
+    opts.className ?? '',
+    level,
+    opts.stats ?? {},
+    opts.subclass ?? '',
+  );
   const spellSlots = opts.spellSlots ?? derived.spellSlots;
   const resources = opts.resources ?? derived.resources;
   db.prepare(
     `INSERT INTO characters
-       (id, session_id, name, race, class_name, level, max_hp, cur_hp,
+       (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, weaknesses,
         actions, abilities, proficient_skills, save_proficiencies, items,
         sheet_abilities, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     opts.name.trim() || 'Adventurer',
     opts.race ?? '',
     opts.className ?? '',
+    opts.subclass ?? '',
     level,
     maxHp,
     Math.max(0, Math.min(maxHp, curHp)),
@@ -1783,6 +1790,7 @@ export function updateCharacter(
     name: string;
     race: string;
     className: string;
+    subclass: string;
     level: number;
     maxHp: number;
     curHp: number;
@@ -1816,6 +1824,7 @@ export function updateCharacter(
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.race !== undefined) put('race', patch.race);
   if (patch.className !== undefined) put('class_name', patch.className);
+  if (patch.subclass !== undefined) put('subclass', patch.subclass);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
@@ -1845,10 +1854,13 @@ export function updateCharacter(
   if (patch.resources !== undefined)
     put('resources', JSON.stringify(patch.resources));
 
-  // Re-derive spell slots / class resources when level or class changes, unless
-  // the caller passed them explicitly (preserve `used` + any custom counters).
+  // Re-derive spell slots / class resources when level, class, or subclass
+  // changes, unless the caller passed them explicitly (preserve `used` + any
+  // custom counters).
   if (
-    (patch.level !== undefined || patch.className !== undefined) &&
+    (patch.level !== undefined ||
+      patch.className !== undefined ||
+      patch.subclass !== undefined) &&
     patch.spellSlots === undefined &&
     patch.resources === undefined
   ) {
@@ -1856,6 +1868,7 @@ export function updateCharacter(
       patch.className ?? c.className,
       patch.level ?? c.level,
       patch.stats ?? c.stats,
+      patch.subclass ?? c.subclass,
     );
     put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots)));
     put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources)));

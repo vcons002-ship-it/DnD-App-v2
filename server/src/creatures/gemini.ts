@@ -346,6 +346,7 @@ export type GeneratedCharacter = {
   name: string;
   race: string;
   className: string;
+  subclass: string;
   level: number;
   maxHp: number;
   armorClass: number;
@@ -375,7 +376,7 @@ export async function generateCharacterAI(
     `Create a Dungeons & Dragons 5e character or NPC from this description: ` +
     `"${description.trim()}". Choose a sensible level if none is given. ` +
     `Respond ONLY with minified JSON of shape ` +
-    `{"name":string,"race":string,"className":string,"level":number,"maxHp":number,` +
+    `{"name":string,"race":string,"className":string,"subclass":string,"level":number,"maxHp":number,` +
     `"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
@@ -409,6 +410,7 @@ export async function generateCharacterAI(
       name,
       race: String(p.race ?? ''),
       className,
+      subclass: String(p.subclass ?? ''),
       level: Number(p.level) > 0 ? Number(p.level) : 1,
       maxHp: Number(p.maxHp) > 0 ? Math.round(Number(p.maxHp)) : 10,
       armorClass: Number(p.armorClass) > 0 ? Math.round(Number(p.armorClass)) : 0,
