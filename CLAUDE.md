@@ -179,12 +179,25 @@ sanitization rules above and commit it to `claude/Main`.
 - **`CharacterSheet`** = `StatBlock` + skills + resources + items + sheet I/O.
 - **Shared action widgets (reuse, don't re-inline):** `DamageHealControls`
   (amount + Damage/Heal, `compact` for the floating menu), `WeaponButtons`
-  (attack-button list, `variant` menu/inline), `TokenAdminButtons` (DM
-  duplicate/hide/role-badge/delete, `variant` menu/panel), and `IconTools`
-  (emoji/upload/clear) — used by both `FloatingMenu` and `SelectedTokenPanel`/
-  `BulkActionsPanel`/`AttackControls` so the right-click menu and panels can't
-  drift. Map toolbar dropdowns `MeasureMenu`/`ScaleMenu`/`FogMenu` share the
-  `.measure-menu`/`.popover-backdrop` popover pattern.
+  (attack-button list, `variant` menu/inline), `AbilityButtons` (rollable
+  attack/save/damage/heal ability buttons vs a target, `variant` menu/inline,
+  inline gets an upcast select; the ONE concentration-confirm + `ability:roll`
+  path), `TokenAdminButtons` (DM duplicate/hide/role-badge/delete, `variant`
+  menu/panel), and `IconTools` (emoji/upload/clear) — used by both
+  `FloatingMenu` and `SelectedTokenPanel`/`BulkActionsPanel`/`CombatSection`
+  so the right-click menu and panels can't drift. **`CombatSection`** is the
+  right panel's ONE rolling surface for both roles: target dropdown
+  (right-clicking a token aims it via the store's `combatTarget` nonce) +
+  off-hand/2H + WeaponButtons + AbilityButtons + **`AbilityToggles`**
+  (stance/mastery/maneuver chips; the ONE `useAbilityToggles` hook is shared
+  with `CharacterSpells`' inline buttons on the left sheet) + a `compact`
+  `CharacterResources` (spendable pips, management stays on the sheet).
+  `CharacterSpells rollsElsewhere` hides its in-list roll buttons AND toggles
+  there; the player console renders it read-only as a reference list. Map toolbar dropdowns
+  `MeasureMenu`/`ScaleMenu`/`FogMenu` share the
+  `.measure-menu`/`.popover-backdrop` popover pattern. `ReorderableSections`
+  slots never-seen section ids in at their fallback index (not appended), so a
+  new section designed for the top lands on top for existing saved orders.
 - **`useSelection`** — multi-select with optional cross-tab **BroadcastChannel
   sync** (`syncKey`), used to mirror selection between the map and Data windows.
 - Helpers: `resolveToken` (`lib/entities.ts`), `presentAuras`/`STANDARD_CONDITIONS`
@@ -223,7 +236,7 @@ sanitization rules above and commit it to `claude/Main`.
   damage on a miss; the weapon line bold-lists applicable mastery mechanics),
   **weapons** store dice-only damage (PCs add the ability mod at roll time,
   finesse→DEX; monsters stay pre-baked) plus `magicBonus`/`tags`/`versatileDamage`;
-  combat honors off-hand + versatile-2H toggles (`AttackControls`) and a **2024
+  combat honors off-hand + versatile-2H toggles (`CombatSection`) and a **2024
   weapon book** (`weapons/srd.ts`, `GET /api/weapons`, "+ From book" picker that
   sets dice + tags), **prepared/cantrip soft counters** (`shared/spellPrep.ts`;
   header "Cantrips x/y · Prepared|Known a/b", red over cap, never blocks; ✓ Prep
@@ -268,16 +281,24 @@ sanitization rules above and commit it to `claude/Main`.
   natural-attacks library (`/api/attacks`, ~42 entries: Bite/Claw/Slam/Spit/Rock…);
   creature picks are stored **dice-only (`Weapon.diceOnly`)** so the mod + to-hit come
   from the creature's **live stats** like a PC weapon (`rollWeaponAttack` adds the mod
-  for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is). A player's
-  right panel is a **combat console** — selecting any token shows the player's own
-  attacks (defaulting their target to the clicked token, friendly creatures excluded)
-  + abilities, not a duplicate sheet, with the **roll log right below it**; the
+  for `!isMonster || diceOnly`; pre-baked SRD/parsed damage stays as-is). The right
+  panel's first section for BOTH roles is a unified **"Combat" section**
+  (`CombatSection`): a target dropdown + every rollable action of the selected
+  attacker — weapons (off-hand/2H toggles) and rollable abilities
+  (attack/save/damage at the target, heals with their own ally select; inline
+  upcast). It's the ONE rolling surface: the Spells & Abilities section keeps
+  add/edit/prep/stances but its roll buttons hide there (`rollsElsewhere`). For a
+  player it acts as their **combat console** — selecting any token shows their own
+  actions (target defaulting to the clicked token, friendly creatures excluded),
+  not a duplicate sheet, with the **roll log right below it**; the
   right-click **floating menu** offers the **selected** token's attacks against the
   right-clicked token (select attacker, right-click target — right-click never
   changes selection). A compact, click-through **latest-roll overlay** can be pinned
   to the map's bottom-left corner (`RollLogOverlay`, toggled from `DicePanel`).
 - **DM Data mode** (`/dm/data`): compact sortable (init/A–Z/type) + drag-reorder
-  cards, expand into a large overlay reusing `SelectedTokenPanel`, checkbox
+  cards **color-coded by type** (PC cyan / friendly green / neutral amber /
+  enemy red / object gray — tinted background + left border, matching the dot
+  colors), expand into a large overlay reusing `SelectedTokenPanel`, checkbox
   multiselect synced to the map window driving bulk AOE/conditions/etc., plus a
   right-column roll log (full `DicePanel`).
 - **Character library:** cross-session save/load of full PC sheets

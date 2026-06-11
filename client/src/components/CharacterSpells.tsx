@@ -16,6 +16,13 @@ import {
   parseActionType,
   spellCapacity,
 } from '../../../shared/spellPrep';
+import {
+  confirmConcentration,
+  isConcentration,
+  spellBaseLevel,
+  upcastable,
+} from '../lib/spellcasting';
+import { useAbilityToggles } from './AbilityToggles';
 import { Spellbook } from './Spellbook';
 
 const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
@@ -53,15 +60,6 @@ function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
   }
 }
 
-/** Does this entry support an upcast level selector (leveled, scaling roll)? */
-/** The base spell level (from the roll, else the entry's level). */
-const spellBaseLevel = (a: SheetAbility): number => a.roll?.baseLevel ?? a.level ?? 0;
-
-/** Any leveled spell can be cast with a higher slot — dice scale where the roll
- *  defines `scaleDice`; otherwise the higher-level effect is the `upcast` note. */
-const upcastable = (a: SheetAbility): boolean =>
-  a.type === 'spell' && spellBaseLevel(a) >= 1;
-
 /** An effect-bearing mastery gets a weapon binding + active toggle. */
 const autoMastery = (a: SheetAbility): boolean =>
   a.type === 'mastery' && !!a.mastery?.effect;
@@ -72,15 +70,6 @@ const isManeuver = (a: SheetAbility): boolean =>
 
 /** A stance gets an on/off toggle (a persistent attack modifier while active). */
 const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
-
-/** Does this entry have the concentration flag (tag or meta)? Spell OR stance. */
-const castsConcentration = (a: SheetAbility): boolean =>
-  (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
-  (a.meta ?? '').toLowerCase().includes('concentration');
-
-/** A concentration SPELL (by tag or meta) — casting it starts concentration. */
-const isConcentration = (a: SheetAbility): boolean =>
-  a.type === 'spell' && castsConcentration(a);
 
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
@@ -97,6 +86,7 @@ export function CharacterSpells({
   snapshot,
   attackerToken,
   defaultTargetId,
+  rollsElsewhere,
 }: {
   /** A PC or a creature — both carry `sheetAbilities`. */
   character: Character | Monster;
@@ -108,12 +98,14 @@ export function CharacterSpells({
   snapshot?: StateSnapshot;
   attackerToken?: Token;
   defaultTargetId?: string;
+  /** The right panel's Combat section owns the roll buttons + target selects —
+   *  hide them here (keep add/edit/prep/stance management) so rolling has ONE
+   *  home (naming precedent: CharacterSheet's `abilitiesElsewhere`). */
+  rollsElsewhere?: boolean;
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
   const setResource = useStore((s) => s.setResource);
-  const setCondition = useStore((s) => s.setCondition);
-  const clearCondition = useStore((s) => s.clearCondition);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
@@ -121,7 +113,7 @@ export function CharacterSpells({
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
 
   // Attack-roll spells target a token (combat console only). One shared target
-  // for the panel, like the weapon AttackControls dropdown.
+  // for the panel, like the Combat section's dropdown.
   const targets = snapshot && attackerToken ? validTargets(snapshot, attackerToken) : [];
   const hasAttackSpell = character.sheetAbilities.some((a) => a.roll?.kind === 'attack');
   const validDefault =
@@ -188,72 +180,12 @@ export function CharacterSpells({
     setQ('');
   };
 
-  const patchStance = (
-    a: SheetAbility,
-    patch: Partial<NonNullable<SheetAbility['stance']>>,
-  ) => {
-    if (!a.stance) return;
-    setSheetAbility(kind, character.id, { ...a, stance: { ...a.stance, ...patch } });
-  };
-
-  // Toggling a stance ON spends one use of its linked counter (if it has charges).
-  // A spell-backed stance (a `level` ≥ 1, e.g. Hunter's Mark) also CASTS on
-  // activation — the server spends a spell slot and starts concentration; ending
-  // it drops that concentration.
-  // Put / remove a marking stance's status condition (e.g. "Marked") on the
-  // target creature, so everyone sees what it's under. No-op outside the combat
-  // console (where there's no snapshot/targets).
-  const tokenById = (id?: string) => snapshot?.tokens.find((t) => t.id === id);
-  const markTarget = (tokenId?: string, label?: string) => {
-    const tok = tokenById(tokenId);
-    if (tok && label)
-      setCondition(tok.kind, tok.refId, { label, aura: 'blue', isConcentration: false });
-  };
-  const unmarkTarget = (tokenId?: string, label?: string) => {
-    const tok = tokenById(tokenId);
-    if (!tok || !label || !snapshot) return;
-    const cond = resolveToken(snapshot, tok).conditions?.find((c) => c.label === label);
-    if (cond) clearCondition(tok.kind, tok.refId, cond.id);
-  };
-
-  const toggleStance = (a: SheetAbility) => {
-    const goingActive = !a.stance?.active;
-    // Activating a concentration stance starts concentration — warn if another is up.
-    if (goingActive && !confirmConcentration(a)) return;
-    const stance = { ...a.stance!, active: goingActive };
-    // A marking stance defaults to the current target when first switched on.
-    if (goingActive && stance.targeted && !stance.targetId)
-      stance.targetId = validDefault ?? targets[0]?.id;
-    setSheetAbility(kind, character.id, { ...a, stance });
-    // Tag/untag the marked target with the stance's status (Hunter's Mark → Marked).
-    if (stance.marksTargetWith) {
-      if (goingActive) markTarget(stance.targetId, stance.marksTargetWith);
-      else unmarkTarget(a.stance?.targetId, stance.marksTargetWith);
-    }
-    if (goingActive && a.useCounter && 'resources' in character) {
-      const c = character.resources[a.useCounter.name];
-      if (c && c.used < c.max) {
-        setResource({
-          characterId: character.id,
-          group: 'resources',
-          key: a.useCounter.name,
-          used: c.used + 1,
-        });
-      }
-    }
-    if ((a.level ?? 0) >= 1) {
-      if (goingActive) {
-        // Cast it: spend a slot + start concentration (handled server-side).
-        rollAbility({ kind, refId: character.id, abilityId: a.id, castLevel: a.level });
-      } else {
-        // Ending the spell ends its concentration.
-        const conc = character.conditions.find(
-          (c) => c.isConcentration && c.label === `Concentration: ${a.name}`,
-        );
-        if (conc) clearCondition(kind, character.id, conc.id);
-      }
-    }
-  };
+  // The ONE toggle implementation (shared with the Combat section's chips).
+  const { toggleStance, patchMastery, patchManeuver, moveMark } = useAbilityToggles(
+    kind,
+    character,
+    snapshot,
+  );
 
   const askAI = async () => {
     const name = q.trim();
@@ -280,23 +212,8 @@ export function CharacterSpells({
     }
   };
 
-  // Warn before starting a NEW concentration while another is already running —
-  // 5e lets you keep only one, so casting ends the old. Returns false to abort.
-  const confirmConcentration = (a: SheetAbility): boolean => {
-    if (!castsConcentration(a)) return true;
-    const existing = character.conditions.find(
-      (c) => c.isConcentration && c.label !== `Concentration: ${a.name}`,
-    );
-    if (!existing) return true;
-    const prev = existing.label.replace(/^Concentration:\s*/i, '').trim() || 'another spell';
-    return window.confirm(
-      `${character.name} is already concentrating on ${prev}. ` +
-        `Casting ${a.name} will end that concentration. Continue?`,
-    );
-  };
-
   const doRoll = (a: SheetAbility) => {
-    if (!confirmConcentration(a)) return;
+    if (!confirmConcentration(character, a)) return;
     rollAbility({
       kind,
       refId: character.id,
@@ -324,22 +241,6 @@ export function CharacterSpells({
       ...a,
       roll: { ...(a.roll ?? { kind: 'damage' }), ...patch },
     });
-
-  const patchMastery = (
-    a: SheetAbility,
-    patch: Partial<NonNullable<SheetAbility['mastery']>>,
-  ) => {
-    if (!a.mastery) return;
-    setSheetAbility(kind, character.id, { ...a, mastery: { ...a.mastery, ...patch } });
-  };
-
-  const patchManeuver = (
-    a: SheetAbility,
-    patch: Partial<NonNullable<SheetAbility['maneuver']>>,
-  ) => {
-    if (!a.maneuver) return;
-    setSheetAbility(kind, character.id, { ...a, maneuver: { ...a.maneuver, ...patch } });
-  };
 
   return (
     <div className="spells">
@@ -371,7 +272,10 @@ export function CharacterSpells({
             </div>
           );
         })()}
-      {hasAttackSpell && targets.length > 0 && (
+      {rollsElsewhere && character.sheetAbilities.some((a) => a.roll) && (
+        <p className="muted spell-tag">Roll these from the Combat section.</p>
+      )}
+      {!rollsElsewhere && hasAttackSpell && targets.length > 0 && (
         <div className="dice-row">
           <span className="muted spell-tag">Spell target</span>
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
@@ -383,7 +287,7 @@ export function CharacterSpells({
           </select>
         </div>
       )}
-      {hasHealSpell && healList.length > 0 && (
+      {!rollsElsewhere && hasHealSpell && healList.length > 0 && (
         <div className="dice-row">
           <span className="muted spell-tag">Heal target</span>
           <select value={healTargetId} onChange={(e) => setHealTargetId(e.target.value)}>
@@ -435,7 +339,9 @@ export function CharacterSpells({
                   </button>
                 )}
 
-                {editable && autoMastery(a) && (
+                {/* Play-time toggles live in the Combat section when one is
+                    shown (rollsElsewhere); inline only on the full sheet. */}
+                {editable && !rollsElsewhere && autoMastery(a) && (
                   <button
                     className={`btn tiny ${a.mastery!.active ? 'on' : ''}`}
                     title={
@@ -449,7 +355,7 @@ export function CharacterSpells({
                   </button>
                 )}
 
-                {editable && isManeuver(a) && (
+                {editable && !rollsElsewhere && isManeuver(a) && (
                   <button
                     className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
                     title={
@@ -463,30 +369,26 @@ export function CharacterSpells({
                   </button>
                 )}
 
-                {editable && isStance(a) && a.stance!.targeted && targets.length > 0 && (
-                  <select
-                    className="spell-level"
-                    value={a.stance!.targetId ?? ''}
-                    title="Marked target — the stance only affects attacks against it"
-                    onChange={(e) => {
-                      const next = e.target.value || undefined;
-                      // While active, move the mark status from the old target to the new.
-                      if (a.stance!.active && a.stance!.marksTargetWith) {
-                        unmarkTarget(a.stance!.targetId, a.stance!.marksTargetWith);
-                        markTarget(next, a.stance!.marksTargetWith);
-                      }
-                      patchStance(a, { targetId: next });
-                    }}
-                  >
-                    <option value="">— mark —</option>
-                    {targets.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {resolveToken(snapshot!, t).name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {editable && isStance(a) && (
+                {editable &&
+                  !rollsElsewhere &&
+                  isStance(a) &&
+                  a.stance!.targeted &&
+                  targets.length > 0 && (
+                    <select
+                      className="spell-level"
+                      value={a.stance!.targetId ?? ''}
+                      title="Marked target — the stance only affects attacks against it"
+                      onChange={(e) => moveMark(a, e.target.value || undefined)}
+                    >
+                      <option value="">— mark —</option>
+                      {targets.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {resolveToken(snapshot!, t).name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                {editable && !rollsElsewhere && isStance(a) && (
                   <button
                     className={`btn tiny ${a.stance!.active ? 'on' : ''}`}
                     title={
@@ -496,13 +398,15 @@ export function CharacterSpells({
                           ? 'Off — click to activate (spends one use)'
                           : 'Off — click to activate'
                     }
-                    onClick={() => toggleStance(a)}
+                    onClick={() => toggleStance(a, validDefault ?? targets[0]?.id)}
                   >
                     {a.stance!.active ? 'On' : 'Off'}
                   </button>
                 )}
 
-                {editable && upcastable(a) && (a.roll || isConcentration(a)) && (
+                {editable &&
+                  upcastable(a) &&
+                  ((a.roll && !rollsElsewhere) || (!a.roll && isConcentration(a))) && (
                   <select
                     className="spell-level"
                     value={lvl}
@@ -521,7 +425,7 @@ export function CharacterSpells({
                     })}
                   </select>
                 )}
-                {editable && a.roll && (
+                {editable && a.roll && !rollsElsewhere && (
                   <button className="btn tiny" onClick={() => doRoll(a)}>
                     {rollLabel(a.roll)}
                   </button>

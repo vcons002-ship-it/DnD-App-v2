@@ -13,7 +13,7 @@ import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterSpells } from './CharacterSpells';
 import { LibrarySaveDialog } from './LibrarySaveDialog';
-import { AttackControls } from './AttackControls';
+import { CombatSection } from './CombatSection';
 import { DamageHealControls } from './DamageHealControls';
 import { ObjectControls } from './ObjectControls';
 import { LootControls } from './LootControls';
@@ -72,7 +72,6 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
     !!character && (isDm || character.claimedBy === mySocketId);
   // The viewer can roll this token's attacks if they're the DM or own the PC.
   const canAttack = isDm || (!!character && character.claimedBy === mySocketId);
-  const attackerWeapons = monster?.weapons ?? character?.weapons ?? [];
   const iconTargets =
     selectedIds && selectedIds.length ? selectedIds : [token.id];
 
@@ -110,6 +109,24 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   if (myChar) {
     const selectingOwn = !!myToken && token.id === myToken.id;
     const consoleSections: Section[] = [];
+    // The ONE rolling surface: target dropdown + weapons + rollable abilities.
+    // First in the fallback order so it lands on top (existing saved orders
+    // slot never-seen ids in at their designed position).
+    consoleSections.push({
+      id: 'combat',
+      label: 'Combat',
+      node: myToken ? (
+        <CombatSection
+          snapshot={snapshot}
+          attacker={myToken}
+          caster={myChar}
+          kind="pc"
+          defaultTargetId={selectingOwn ? undefined : token.id}
+        />
+      ) : (
+        <p className="muted">Place your token on the map to attack.</p>
+      ),
+    });
     if (!selectingOwn) {
       consoleSections.push({
         id: 'target',
@@ -124,30 +141,13 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       });
     }
     consoleSections.push({
-      id: 'attacks',
-      label: 'Attacks',
-      node: myToken ? (
-        <AttackControls
-          snapshot={snapshot}
-          attacker={myToken}
-          weapons={myChar.weapons}
-          defaultTargetId={selectingOwn ? undefined : token.id}
-        />
-      ) : (
-        <p className="muted">Place your token on the map to attack.</p>
-      ),
-    });
-    consoleSections.push({
       id: 'abilities',
       label: 'Spells & Abilities',
       node: (
-        <CharacterSpells
-          character={myChar}
-          editable
-          snapshot={snapshot}
-          attackerToken={myToken}
-          defaultTargetId={selectingOwn ? undefined : token.id}
-        />
+        // Read-only reference list (collapsible rows → description) so the
+        // player sees everything they added without scrolling; rolling +
+        // toggles live in the Combat section, editing on the left-panel sheet.
+        <CharacterSpells character={myChar} editable={false} rollsElsewhere />
       ),
     });
     // Loot a fallen creature whose loot the DM revealed (server-gated).
@@ -195,12 +195,23 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   const entityKind = monster ? 'monster' : character ? 'pc' : 'token';
   const sections: Section[] = [];
 
-  if (canAttack && attackerWeapons.length > 0) {
+  // The ONE rolling surface (target dropdown + weapons + rollable abilities) —
+  // first in the fallback order so it lands on top. Always shown for a
+  // creature/PC (CombatSection itself shows a "No attacks" note when empty), so
+  // the toggles/resources still have a home and the section never disappears.
+  const attackerEntity = monster ?? character;
+  const combatShown = canAttack && !!attackerEntity && !objectKind;
+  if (combatShown) {
     sections.push({
-      id: 'attacks',
-      label: 'Attacks',
+      id: 'combat',
+      label: 'Combat',
       node: (
-        <AttackControls snapshot={snapshot} attacker={token} weapons={attackerWeapons} />
+        <CombatSection
+          snapshot={snapshot}
+          attacker={token}
+          caster={attackerEntity}
+          kind={monster ? 'monster' : 'pc'}
+        />
       ),
     });
   }
@@ -219,6 +230,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
           editable={isDm}
           snapshot={snapshot}
           attackerToken={token}
+          rollsElsewhere={combatShown}
         />
       ),
     });
@@ -271,6 +283,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
             editable={canEditCharacter}
             snapshot={snapshot}
             attackerToken={token}
+            rollsElsewhere={combatShown}
           />
           {(character.actions.length > 0 || canEditCharacter) && (
             <ActionsTraitsView

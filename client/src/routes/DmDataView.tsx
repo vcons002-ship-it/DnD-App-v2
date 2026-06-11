@@ -373,9 +373,11 @@ const DataCard = memo(function DataCard({
 
   return (
     <div
+      // Color-coded by type: PCs cyan, creatures by disposition, objects gray —
+      // matching the token dot colors so the battlefield reads at a glance.
       className={`data-card ${isTurn ? 'turn' : ''} ${token.kind} ${
-        selected ? 'selected' : ''
-      }`}
+        d.objectKind ? 'obj' : d.disposition ? `disp-${d.disposition}` : ''
+      } ${selected ? 'selected' : ''}`}
       onDragOver={(e) => e.preventDefault()}
       onDrop={() => onDrop(token.id)}
     >

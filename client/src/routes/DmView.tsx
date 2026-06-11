@@ -20,6 +20,7 @@ export function DmView() {
   const snapshot = useStore((s) => s.snapshot);
   const spawnToken = useStore((s) => s.spawnToken);
   const deleteToken = useStore((s) => s.deleteToken);
+  const rightPanelNudge = useStore((s) => s.rightPanelNudge);
   const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
     useSelection(snapshot, snapshot ? `dm-sel-${snapshot.sessionCode}` : undefined);
   const [pending, setPending] = useState<{
@@ -119,7 +120,11 @@ export function DmView() {
           />
         </main>
 
-        <SidePanel side="right" storageKey={`dm-right:${snapshot.sessionCode}`}>
+        <SidePanel
+          side="right"
+          storageKey={`dm-right:${snapshot.sessionCode}`}
+          openSignal={rightPanelNudge}
+        >
           {selectedIds.length > 1 ? (
             <BulkActionsPanel
               snapshot={snapshot}

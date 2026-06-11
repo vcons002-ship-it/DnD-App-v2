@@ -693,8 +693,15 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
 }
 .data-grid-empty { padding: 16px; }
-.data-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff44; }
+.data-card { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px; overflow: hidden; }
+/* Color-coded by type (matches the token dot colors): PC cyan, friendly green,
+   neutral amber, enemy red, object gray. Tints stay faint for text contrast. */
+.data-card.pc { box-shadow: inset 0 0 0 2px #5ce1ff44; background: #5ce1ff10; border-left-color: #5ce1ff88; }
+.data-card.disp-friendly { background: #39c46b12; border-left-color: #39c46b88; }
+.data-card.disp-neutral { background: #f5c51810; border-left-color: #f5c51888; }
+.data-card.disp-enemy { background: #e23b3b12; border-left-color: #e23b3b88; }
+.data-card.obj { border-left-color: #8a8f9888; }
+/* Turn/selection markers stay on top of the tints. */
 .data-card.turn { border-color: #ffd21a; }
 .data-card.selected { outline: 2px solid var(--accent); outline-offset: -1px; }
 .data-card-strip { display: flex; align-items: center; gap: 7px; padding: 6px 9px; background: var(--panel-2); }
@@ -1106,6 +1113,13 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 /* Attack controls */
 .attack-controls { margin-top: 10px; }
 .attack-controls select { flex: 1; }
+/* Combat section ability rows: roll button + optional upcast level select. */
+.combat-ability-row { display: flex; align-items: center; gap: 4px; }
+.combat-ability-row .attack-row { flex: 1; margin: 3px 0; }
+/* Combat section toggle chips (stances / masteries / maneuvers). */
+.combat-toggles { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
+.combat-toggle-row { display: flex; align-items: center; gap: 6px; }
+.combat-toggle-row .res-name { flex: 1; min-width: 0; }
 .attack-row { display: block; width: 100%; text-align: left; margin: 3px 0; }
 
 /* Touch devices: lift the smallest controls to a ~32px hit area (visuals stay

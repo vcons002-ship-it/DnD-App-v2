@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import type {
+  Character,
+  Monster,
   SheetAbility,
   StateSnapshot,
   Token,
@@ -7,18 +9,11 @@ import type {
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { useStore } from '../state/socket';
+import { AbilityButtons } from './AbilityButtons';
 import { DamageHealControls } from './DamageHealControls';
 import { ObjectControls } from './ObjectControls';
 import { WeaponButtons } from './WeaponButtons';
 import { TokenAdminButtons } from './TokenAdminButtons';
-
-/** Icon per rollable kind, so the menu reads attack vs save vs damage vs heal. */
-const ROLL_ICON: Record<string, string> = {
-  attack: '✨',
-  save: '🎯',
-  damage: '💥',
-  heal: '✚',
-};
 
 type Props = {
   snapshot: StateSnapshot;
@@ -38,7 +33,6 @@ type Props = {
 export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const combatAttack = useStore((s) => s.combatAttack);
-  const rollAbility = useStore((s) => s.rollAbility);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
@@ -179,48 +173,20 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
               }
             />
           )}
-          {pcAbilities.map((a) => (
-            <button
-              key={a.id}
-              className="btn tiny fm-spell-attack"
-              title={a.description || 'Ability'}
-              onClick={run(() =>
-                rollAbility({
-                  kind: 'pc',
-                  refId: aChar!.id,
-                  abilityId: a.id,
-                  castLevel: a.roll?.baseLevel,
-                  advantage: consumeAdvantage(attacker!.refId),
-                  // Target the right-clicked token: attack rolls resolve to-hit vs
-                  // its AC; save/damage rolls make IT roll the save and take the
-                  // damage right away; heals restore ITS HP on cast.
-                  targetTokenId: token.id,
-                }),
-              )}
-            >
-              {ROLL_ICON[a.roll!.kind] ?? '🎲'} {a.name}
-            </button>
-          ))}
-          {monAbilities.map((a) => (
-            <button
-              key={a.id}
-              className="btn tiny fm-spell-attack"
-              title={a.description || 'Ability'}
-              onClick={run(() =>
-                rollAbility({
-                  kind: 'monster',
-                  refId: aMon!.id,
-                  abilityId: a.id,
-                  castLevel: a.roll?.baseLevel,
-                  advantage: consumeAdvantage(attacker!.refId),
-                  // attack → vs AC; save/damage → target rolls + takes it now
-                  targetTokenId: token.id,
-                }),
-              )}
-            >
-              {ROLL_ICON[a.roll!.kind] ?? '🎲'} {a.name}
-            </button>
-          ))}
+          {/* Targeting the right-clicked token: attack rolls resolve to-hit vs
+              its AC; save/damage rolls make IT roll and take the damage right
+              away; heals restore ITS HP on cast. */}
+          {canCastAsSelected && (
+            <AbilityButtons
+              variant="menu"
+              abilities={aChar ? pcAbilities : monAbilities}
+              kind={aChar ? 'pc' : 'monster'}
+              caster={(aChar ?? aMon) as Character | Monster}
+              targetTokenId={token.id}
+              healTargetId={token.id}
+              onAfter={onClose}
+            />
+          )}
         </div>
       )}
 
