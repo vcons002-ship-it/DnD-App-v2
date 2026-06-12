@@ -30,7 +30,7 @@ import {
   spellcastingMod,
   spellSaveDC,
 } from '../../shared/spellMath.js';
-import { SKILLS, skillBonus, signed, proficiencyBonus } from '../../shared/skills.js';
+import { SKILLS, abilityMod, signed, proficiencyBonus } from '../../shared/skills.js';
 import {
   type ModSource,
   effectiveStats,
@@ -1062,11 +1062,17 @@ export function resolveObjectCheck(
 ): { success: boolean } {
   const dc = object.objectDc && object.objectDc > 0 ? object.objectDc : 12;
   const proficient = character.proficientSkills.includes('Sleight of Hand');
-  // Effective DEX (feat/item ability mods) + flat Sleight-of-Hand bonuses.
+  // Effective DEX (feat/item ability mods) + proficiency + flat Sleight-of-Hand
+  // bonuses, broken out like attack/save logs (e.g. "+2[DEX] +2[PROF]").
   const stats = effectiveStats(character).scores;
-  const bonus =
-    skillBonus(stats, 'DEX', character.level, proficient) +
-    skillExtra(character, 'Sleight of Hand').total;
+  const extra = skillExtra(character, 'Sleight of Hand');
+  const abil = abilityMod(stats.DEX);
+  const prof = proficient ? proficiencyBonus(character.level) : 0;
+  const bonus = abil + prof + extra.total;
+  const breakdown =
+    `${signed(abil)}[DEX]` +
+    (prof ? ` ${signed(prof)}[PROF]` : '') +
+    extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   const success = total >= dc;
@@ -1078,7 +1084,7 @@ export function resolveObjectCheck(
     expr: `DEX${proficient ? ' (prof)' : ''} vs DC ${dc}`,
     total,
     detail:
-      `${character.name} tries to ${verb} ${object.name}: ${d20detail} ${signed(bonus)} = ` +
+      `${character.name} tries to ${verb} ${object.name}: ${d20detail} ${breakdown} = ` +
       `${total} vs DC ${dc} — ${success ? ok : 'FAILED'}`,
   });
   return { success };
@@ -1101,12 +1107,18 @@ export function resolveSkillRoll(
   );
   if (!skill) return false;
   const proficient = character.proficientSkills.includes(skill.name);
-  // Effective ability mod (feat/item score bonuses) + flat skill bonuses.
+  // Effective ability mod (feat/item score bonuses) + proficiency + flat skill
+  // bonuses, shown as a labelled breakdown matching attack/save logs (e.g.
+  // "+2[DEX] +2[PROF] +1[Boots]") rather than one cooked-in number.
   const stats = effectiveStats(character).scores;
   const extra = skillExtra(character, skill.name);
-  const bonus =
-    skillBonus(stats, skill.ability, character.level, proficient) + extra.total;
-  const note = extra.parts.map((p) => `${signed(p.value)} ${p.source}`).join(', ');
+  const abil = abilityMod(stats[skill.ability]);
+  const prof = proficient ? proficiencyBonus(character.level) : 0;
+  const bonus = abil + prof + extra.total;
+  const breakdown =
+    `${signed(abil)}[${skill.ability}]` +
+    (prof ? ` ${signed(prof)}[PROF]` : '') +
+    extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const total = face + bonus;
   addRollLog(sessionId, {
@@ -1114,10 +1126,7 @@ export function resolveSkillRoll(
     label: `${skill.name} check`,
     expr: `${skill.ability}${proficient ? ' (prof)' : ''}`,
     total,
-    detail:
-      `${character.name} — ${skill.name}: ${d20detail} ${signed(bonus)} = ${total}` +
-      (proficient ? ' (proficient)' : '') +
-      (note ? ` · ${note}` : ''),
+    detail: `${character.name} — ${skill.name}: ${d20detail} ${breakdown} = ${total}`,
   });
   return true;
 }

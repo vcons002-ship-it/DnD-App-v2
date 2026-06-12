@@ -143,16 +143,20 @@ describe('combat resolution', () => {
     expect(resolveSkillRoll(s.id, 'Rogue', c, 'Stealth')).toBe(true);
     const stealth = listRollLog(s.id).at(-1)!;
     expect(stealth.label).toBe('Stealth check'); // drives skill color-coding
-    expect(stealth.detail).toContain('(proficient)');
+    // Proficiency is an explicit labelled term now (matching attack/save logs),
+    // not a cooked-in number + "(proficient)" note.
+    expect(stealth.detail).toContain('+3[DEX]');
+    expect(stealth.detail).toContain('+3[PROF]');
+    expect(stealth.detail).not.toContain('(proficient)');
     // d20 (1-20) + 3 mod + 3 prof = 7..26.
     expect(stealth.total).toBeGreaterThanOrEqual(7);
     expect(stealth.total).toBeLessThanOrEqual(26);
 
-    // Non-proficient skill: ability mod only (+3), no proficiency note.
+    // Non-proficient skill: ability mod only (+3[INT]), no PROF term.
     resolveSkillRoll(s.id, 'Rogue', c, 'Arcana');
     const arcana = listRollLog(s.id).at(-1)!;
     expect(arcana.label).toBe('Arcana check');
-    expect(arcana.detail).not.toContain('proficient');
+    expect(arcana.detail).not.toContain('[PROF]');
 
     // Unknown skill name → no roll logged.
     const before = listRollLog(s.id).length;
