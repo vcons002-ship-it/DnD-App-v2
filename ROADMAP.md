@@ -1199,3 +1199,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   save; JSON sheet export now includes `saveProficiencies`/`sheetAbilities`/
   `gold`. +6 tests (sanitize-on-write, malformed-row tolerance, spell-attack
   extra, death-save extra, friendly-loot gate).
+- ☑ **DM loot-item effects editor + typed damage bursts [req].** Every loot row's
+  ✦ opens the shared `ModifierEditor` for the DM (add/tweak an item's magic
+  effects IN the container — e.g. fix up an AI item before a player loots it);
+  players keep the read-only ✦n badge + summary tooltip. **Elemental burst FX:**
+  `HpFxEvent` carries an optional `damageType` (queued by `applyDamage`, threaded
+  from weapon type / flaming-sword rider / spell attacks / magic-missile darts /
+  forced saves; canonical types only, damage only). On the canvas, a typed hit
+  pops the type's emoji (🔥❄️⚡☠️…) + a tinted ring pulse over the struck token
+  (`BurstFx` in `HpFx.tsx`); heals pulse a soft green ring + ✨. Physical/untyped
+  damage stays plain (no noise). Performance-safe: one-shot Konva tweens on
+  non-listening nodes, no idle loops, expired with the existing ~1.2 s floater
+  lifecycle. Verified live in the browser (burst + no-burst probes, screenshots).
+  +1 test (typed fx queue).

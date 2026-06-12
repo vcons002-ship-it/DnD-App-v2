@@ -18,6 +18,7 @@ import {
   sanitizeModifiers,
 } from '../../shared/modifiers.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
+import { isDamageType } from '../../shared/damage.js';
 import type {
   Character,
   CombatRole,
@@ -1723,6 +1724,17 @@ function takeLootImpl(
     characterId,
   );
 
+  // Anything actually moved → a one-shot gold sparkle over the container.
+  const took = gained > 0 || loot.items.length < m.loot.items.length;
+  if (took && hpFxQueue.length < 200)
+    hpFxQueue.push({
+      sessionId: m.sessionId,
+      kind: 'monster',
+      refId: monsterId,
+      delta: 0,
+      effect: 'loot',
+    });
+
   const emptied = loot.gold <= 0 && loot.items.length === 0;
   setLoot(monsterId, emptied ? null : loot);
   // Flag a drained container so its state reads "Looted"/"Taken" everywhere.
@@ -2335,8 +2347,14 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta } = hpFxQueue[i];
-    mine.unshift({ kind, refId, delta });
+    const { kind, refId, delta, damageType, effect } = hpFxQueue[i];
+    mine.unshift({
+      kind,
+      refId,
+      delta,
+      ...(damageType ? { damageType } : {}),
+      ...(effect ? { effect } : {}),
+    });
     hpFxQueue.splice(i, 1);
   }
   return mine;
@@ -2346,6 +2364,9 @@ export function applyDamage(
   kind: TokenKind,
   refId: string,
   amount: number,
+  /** Canonical 5e damage type when the source knew it (drives the token's
+   *  elemental burst FX); omitted for heals/untyped damage. */
+  damageType?: string,
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -2370,8 +2391,25 @@ export function applyDamage(
   // attempted amount.
   const delta = nextCur + nextTemp - (entity.curHp + entity.tempHp);
   const fxDelta = delta !== 0 ? delta : amount > 0 ? -amount : 0;
+  // A creature (not an object, not a PC — PCs go DOWN, not dead) dropping from
+  // above 0 to 0 gets a one-shot death puff on top of the damage floater.
+  const died =
+    kind === 'monster' &&
+    !(entity as Monster).objectKind &&
+    entity.curHp > 0 &&
+    nextCur === 0;
   if (fxDelta !== 0 && hpFxQueue.length < 200)
-    hpFxQueue.push({ sessionId: entity.sessionId, kind, refId, delta: fxDelta });
+    hpFxQueue.push({
+      sessionId: entity.sessionId,
+      kind,
+      refId,
+      delta: fxDelta,
+      // Type only rides on damage (heals are sign-coded green client-side).
+      ...(fxDelta < 0 && isDamageType(damageType)
+        ? { damageType: damageType.trim().toLowerCase() }
+        : {}),
+      ...(died ? { effect: 'death' as const } : {}),
+    });
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {

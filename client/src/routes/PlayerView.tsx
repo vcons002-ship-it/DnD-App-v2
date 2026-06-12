@@ -16,6 +16,7 @@ import { useSelection } from '../lib/useSelection';
 
 export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
+  const hurtFx = useStore((s) => s.hurtFx);
   const rightPanelNudge = useStore((s) => s.rightPanelNudge);
   const claimCharacter = useStore((s) => s.claimCharacter);
   const releaseCharacter = useStore((s) => s.releaseCharacter);
@@ -157,6 +158,14 @@ export function PlayerView() {
       <AiStatus />
       <ConnectionStatus />
       <Toast />
+      {/* Red screen-edge flash when YOUR claimed PC takes damage (one-shot CSS
+          animation; bigger hits flash harder). Keyed so rapid hits restart it. */}
+      {hurtFx && (
+        <div
+          key={hurtFx.id}
+          className={`hurt-vignette${hurtFx.amount >= 10 ? ' big' : ''}`}
+        />
+      )}
     </div>
   );
 }

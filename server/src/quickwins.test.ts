@@ -113,6 +113,59 @@ describe('HP-change FX queue (floating ±X)', () => {
     expect(drainHpFx(s.id)).toEqual([]);
     expect(drainHpFx(other.id).map((e) => e.delta)).toEqual([-3]);
   });
+
+  it('carries the damage type for the elemental burst (damage only, canonical only)', () => {
+    const s = createSession('FxType');
+    drainHpFx(s.id);
+    const ch = createCharacter(s.id, { name: 'Torch', maxHp: 30 });
+    applyDamage('pc', ch.id, 5, 'fire');
+    applyDamage('pc', ch.id, 5, 'Fire '); // normalized (case/space)
+    applyDamage('pc', ch.id, 5, 'banana'); // not a 5e type → dropped
+    applyDamage('pc', ch.id, 5); // untyped
+    applyDamage('pc', ch.id, -10, 'fire'); // heals never carry a type
+    const types = drainHpFx(s.id).map((e) => e.damageType);
+    expect(types).toEqual(['fire', 'fire', undefined, undefined, undefined]);
+  });
+
+  it("flags a creature's drop to 0 as a death effect (monsters only, once)", async () => {
+    const { createMonsterTemplate, instantiateMonster } = await import('./sessions.js');
+    const s = createSession('FxDeath');
+    drainHpFx(s.id);
+    const goblin = instantiateMonster(
+      createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 }).id,
+    )!;
+    applyDamage('monster', goblin.id, 99); // 7 → 0: dies
+    applyDamage('monster', goblin.id, 5); // already dead — no second puff
+    const chest = instantiateMonster(
+      createMonsterTemplate(s.id, { name: 'Chest', maxHp: 10, objectKind: 'chest' }).id,
+    )!;
+    applyDamage('monster', chest.id, 99); // objects never "die"
+    const pc = createCharacter(s.id, { name: 'Downed', maxHp: 10 });
+    applyDamage('pc', pc.id, 99); // PCs go DOWN (death saves), no skull
+    expect(drainHpFx(s.id).map((e) => e.effect)).toEqual([
+      'death',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('queues a gold-sparkle loot effect when something is actually taken', async () => {
+    const { createMonsterTemplate, instantiateMonster, setLoot, takeLoot } =
+      await import('./sessions.js');
+    const s = createSession('FxLoot');
+    drainHpFx(s.id);
+    const chest = instantiateMonster(
+      createMonsterTemplate(s.id, { name: 'Chest', maxHp: 10, objectKind: 'chest' }).id,
+    )!;
+    setLoot(chest.id, { gold: 10, items: [{ id: 'i1', name: 'Gem', qty: 1, note: '' }] });
+    const hero = createCharacter(s.id, { name: 'Taker', maxHp: 10 });
+    takeLoot(chest.id, hero.id, { gold: 0 }); // nothing moved → no sparkle
+    takeLoot(chest.id, hero.id, { all: true }); // everything → sparkle
+    const events = drainHpFx(s.id).filter((e) => e.effect === 'loot');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ kind: 'monster', refId: chest.id, delta: 0 });
+  });
 });
 
 describe('hide DM rolls from players', () => {

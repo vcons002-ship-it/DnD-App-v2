@@ -1226,8 +1226,18 @@ export type JoinAck =
 // Server -> Client event names.
 /** Transient combat feedback: an HP change to float over the creature's token
  *  ("−7" red / "+5" green). Carries only the DELTA (never totals) and is sent
- *  per-viewer, filtered to tokens that viewer's snapshot actually contains. */
-export type HpFxEvent = { kind: TokenKind; refId: string; delta: number };
+ *  per-viewer, filtered to tokens that viewer's snapshot actually contains.
+ *  `damageType` (canonical 5e type, when the source knew it) drives a brief
+ *  elemental burst on the token — e.g. a flame flash for fire damage. */
+export type HpFxEvent = {
+  kind: TokenKind;
+  refId: string;
+  delta: number;
+  damageType?: string;
+  /** One-shot extra: 'death' (a creature just dropped to 0 — skull + smoke
+   *  puff) or 'loot' (a container was plundered — gold sparkle; delta 0). */
+  effect?: 'death' | 'loot';
+};
 
 export interface ServerToClientEvents {
   'state:snapshot': (snapshot: StateSnapshot) => void;

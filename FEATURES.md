@@ -482,6 +482,9 @@ reusable in **any** future session — not just the one they were made in.
   effects), prompting to rename/overwrite on a name clash. AI-generated items are
   **not** auto-saved — you generate one into the container, then 💾 it just like a
   custom item if you want to keep it.
+- **Loot effects are DM-editable in place**: click a loot item's **✦** to open the
+  same effects editor the inventory uses — tweak an AI item's bonuses before
+  anyone loots it.
 - There's also a **character library** (see the player sheet's **💾 Save to
   library** and the **📂 Load saved character** picker) for full PCs.
 

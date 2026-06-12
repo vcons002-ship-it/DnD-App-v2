@@ -62,6 +62,9 @@ type Store = {
   setAiBusy: (busy: boolean) => void;
   /** Transient floating ±X HP numbers (server 'fx:hp'); auto-expire ~1.2 s. */
   hpFx: HpFloater[];
+  /** One-shot red screen-edge flash when MY claimed PC takes damage (players
+   *  only — the DM claims nothing). Cleared automatically after the CSS anim. */
+  hurtFx: { id: number; amount: number } | null;
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
   showRollOverlay: boolean;
   toggleRollOverlay: () => void;
@@ -300,6 +303,7 @@ export const useStore = create<Store>((set, get) => ({
   notify: (message) => set({ toast: { id: Date.now(), message } }),
   aiBusy: false,
   hpFx: [],
+  hurtFx: null,
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
@@ -381,6 +385,24 @@ export const useStore = create<Store>((set, get) => ({
         const ids = new Set(added.map((f) => f.id));
         set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
       }, 1200);
+      // Red screen-edge flash when MY claimed PC took damage.
+      const snap = get().snapshot;
+      const hurt = events
+        .filter(
+          (e) =>
+            e.delta < 0 &&
+            e.kind === 'pc' &&
+            snap?.characters.some((c) => c.id === e.refId && c.claimedBy === socket.id),
+        )
+        .reduce((s, e) => s - e.delta, 0);
+      if (hurt > 0) {
+        const fxId = nextFloaterId++;
+        set({ hurtFx: { id: fxId, amount: hurt } });
+        setTimeout(
+          () => set((st) => (st.hurtFx?.id === fxId ? { hurtFx: null } : {})),
+          900,
+        );
+      }
     });
     socket.on('error', (err) => set({ error: err.message }));
     socket.on('notice', ({ message }) =>
