@@ -118,7 +118,12 @@ function TokenShapeInner({
         ? Math.round(Math.hypot(cx - token.x, cy - token.y) * feetPerPixel)
         : 0;
       distText.current.text(`${ft} ft`);
-      distText.current.position({ x: cx, y: cy - radius - 20 });
+      // Ride the MIDDLE of the tether (lifted just clear of the dashes), so the
+      // number reads as part of the line rather than crowding the token.
+      distText.current.position({
+        x: (token.x + cx) / 2,
+        y: (token.y + cy) / 2 - distText.current.fontSize() * 0.9,
+      });
     }
     dragOverlay.current?.getLayer()?.batchDraw();
   };
@@ -556,7 +561,7 @@ function TokenShapeInner({
           text=""
           fontSize={Math.max(13, gridSizePx * 0.34)}
           fontStyle="bold"
-          fill="#fff"
+          fill="#ffd21a"
           stroke="#000"
           strokeWidth={Math.max(2, gridSizePx * 0.03)}
           fillAfterStrokeEnabled
