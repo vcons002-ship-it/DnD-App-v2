@@ -1604,6 +1604,35 @@ export function spendSpellSlot(
   return { hasSlot: true, spent: true };
 }
 
+/**
+ * Spend one use of the class-resource counter matching a rolled sheet ability's
+ * name (using "Second Wind" ticks the Second Wind pool; same for Bardic
+ * Inspiration, Channel Divinity…). Case-insensitive exact match. Soft like every
+ * counter: when the pool is already empty the roll still happened — we report
+ * `spent: false` so the caller can nudge the player. `matched: false` when the
+ * character tracks no counter by that name.
+ */
+export function spendResourceForAbility(
+  characterId: string,
+  abilityName: string,
+): { matched: boolean; spent: boolean } {
+  const c = getCharacter(characterId);
+  if (!c) return { matched: false, spent: false };
+  const want = abilityName.trim().toLowerCase();
+  const key = Object.keys(c.resources).find(
+    (k) => k.trim().toLowerCase() === want,
+  );
+  if (!key) return { matched: false, spent: false };
+  const r = c.resources[key];
+  if (r.used >= r.max) return { matched: true, spent: false };
+  const next = { ...c.resources, [key]: { max: r.max, used: r.used + 1 } };
+  db.prepare('UPDATE characters SET resources = ? WHERE id = ?').run(
+    JSON.stringify(next),
+    characterId,
+  );
+  return { matched: true, spent: true };
+}
+
 export function setItem(
   characterId: string,
   item: Character['items'][number],

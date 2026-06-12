@@ -1236,4 +1236,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   declarative `DragGhostLayer`; each ghost auto-expires ~0.32 s after updates stop
   (covers release AND disconnect). Sender gated like `token:move`. +6 tests
   (`coveredByFog` math; fan-out to all-but-sender, cross-session isolation,
-  payload, hidden gate, fog gate, off-map skip).
+  payload, hidden gate, fog gate, off-map skip). Polish: the "N ft" label rides
+  the tether's midpoint in gold (matching the line) on both the local overlay and
+  watchers' ghosts.
+- ☑ **Resource auto-spend on ability use + always-on stat tooltip [req].**
+  Rolling a non-spell sheet ability whose name matches a class-resource counter
+  (Second Wind, Bardic Inspiration, Channel Divinity…) now spends one use
+  (`spendResourceForAbility`, case-insensitive, soft — an empty pool nudges via
+  notice but never blocks, mirroring the spell-slot path; leveled spells keep
+  spending slots, never both). The stat-cell tooltip now ALWAYS leads with the
+  math ("STR 16 = 16 base", full part list when modified) instead of only when
+  modifiers apply — so "roll STR save" no longer crowds out the breakdown and an
+  unequipped magic item is visible at a glance. +1 test.

@@ -65,6 +65,7 @@ import {
   takeLoot,
   setSheetAbility,
   removeSheetAbility,
+  spendResourceForAbility,
   spendSpellSlot,
   damageTokens,
   duplicateToken,
@@ -878,11 +879,10 @@ export function registerSocketHandlers(io: IOServer): void {
       const ok = resolveAbilityRoll(sid, roller, c, ability, cast, adv, tgt);
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
-      if (
-        ok &&
+      const leveled =
         (ability.type === 'spell' || ability.type === 'stance') &&
-        (ability.level ?? 0) >= 1
-      ) {
+        (ability.level ?? 0) >= 1;
+      if (ok && leveled) {
         const base = ability.level as number;
         const c2 = typeof castLevel === 'number' ? Math.floor(castLevel) : base;
         const slotLevel = Math.min(9, Math.max(base, c2));
@@ -890,6 +890,17 @@ export function registerSocketHandlers(io: IOServer): void {
         if (hasSlot && !spent) {
           socket.emit('notice', {
             message: `No level-${slotLevel} spell slot remaining for ${ability.name}.`,
+          });
+        }
+      }
+      // A non-spell ability that shares its name with a class-resource counter
+      // (Second Wind, Bardic Inspiration…) spends one use on cast. Soft: an
+      // empty pool never blocks the roll, it just nudges the player.
+      if (ok && !leveled) {
+        const { matched, spent } = spendResourceForAbility(refId, ability.name);
+        if (matched && !spent) {
+          socket.emit('notice', {
+            message: `No uses of ${ability.name} remaining.`,
           });
         }
       }

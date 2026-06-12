@@ -432,14 +432,16 @@ function ReadView({
           {ABILITIES.map((a) => {
             const bd = eff.breakdown[a];
             const score = bd?.total;
-            // Tooltip shows the math when modifiers apply ("20 = 18 base + 2 …");
-            // a set-score part reads "→19" (the item floors the score there).
-            const mathTitle =
-              bd && bd.parts.length
-                ? `${a} ${bd.total} = ${bd.base} base ${bd.parts
-                    .map((p) => `${p.set ? `→${p.value}` : signed(p.value)} ${p.source}`)
-                    .join(' ')}`
-                : '';
+            // Tooltip ALWAYS leads with the stat math, so hovering answers
+            // "where does this number come from": with modifiers it reads
+            // "STR 19 = 16 base →19 Gauntlets…" (a set part shows "→N"), and an
+            // unmodified score reads "STR 16 = 16 base" — which also makes an
+            // unequipped magic item easy to spot (its bonus is absent).
+            const mathTitle = bd
+              ? `${a} ${bd.total} = ${bd.base} base${bd.parts
+                  .map((p) => ` ${p.set ? `→${p.value}` : signed(p.value)} ${p.source}`)
+                  .join('')}`
+              : '';
             const title =
               [mathTitle, onRollSave && score !== undefined ? `roll ${a} save` : '']
                 .filter(Boolean)
