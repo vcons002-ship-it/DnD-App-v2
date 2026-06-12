@@ -982,19 +982,23 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .death-pip.bad.on { background: var(--bad); border-color: var(--bad); }
 
 /* Drag-reorderable DM panel sections */
-.reorder-section { border-bottom: 1px solid var(--line); }
+.reorder-section { border-bottom: 1px solid var(--line); border-left: 3px solid transparent; }
 .reorder-section.dragging { opacity: 0.5; }
+/* Per-section accent (set as --sec-accent by ReorderableSections): the bar +
+   a whisper of the color washes the WHOLE section, with a slightly stronger
+   tint on the header — combat red, conditions amber, spells violet… —
+   scannable without shouting. Unaccented sections keep the plain look (the
+   transparent border keeps their content aligned with accented ones). */
+.reorder-section.accented {
+  border-left-color: var(--sec-accent);
+  background: color-mix(in srgb, var(--sec-accent) 5%, transparent);
+}
 .reorder-handle {
   display: flex; align-items: center; gap: 7px;
   padding: 3px 14px; cursor: grab; user-select: none;
   background: var(--panel-2); border-bottom: 1px solid var(--line);
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--muted);
-  /* Per-section accent (set as --sec-accent by ReorderableSections): a slim
-     left bar + a faint left-to-right tint, so sections scan at a glance —
-     combat red, conditions amber, spells violet… — without shouting.
-     Sections with no accent keep the plain header (transparent fallbacks). */
-  border-left: 3px solid var(--sec-accent, transparent);
   background-image: linear-gradient(
     90deg,
     color-mix(in srgb, var(--sec-accent, transparent) 13%, transparent),

@@ -1267,9 +1267,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   spells violet · loot gold · sheet/character blue · maps green · initiative
   orange · dice cyan · notes slate · DM tools steel · Roll20 rose. Rendered as a
   3px left bar + a faint header tint + a gently tinted label (`--sec-accent`
-  CSS variable + `color-mix`) — scannable, not loud. Applies to both roles
-  automatically; unknown ids keep the plain header. Verified live (DM left +
-  token panel screenshots).
+  CSS variable + `color-mix`) — scannable, not loud — and a 5% wash of the
+  accent over the WHOLE section body (the bar spans the full section). Applies
+  to both roles automatically; unknown ids keep the plain look. Verified live
+  (DM left + token panel screenshots).
 - ☑ **Panning the map keeps token selection [req].** Clicking empty map to pan no
   longer deselects: the deselect now fires on RELEASE only when the pointer barely
   moved (a real click), so a pan drag (which moves the pointer) preserves the
