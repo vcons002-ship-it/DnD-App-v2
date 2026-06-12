@@ -990,6 +990,20 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   background: var(--panel-2); border-bottom: 1px solid var(--line);
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--muted);
+  /* Per-section accent (set as --sec-accent by ReorderableSections): a slim
+     left bar + a faint left-to-right tint, so sections scan at a glance —
+     combat red, conditions amber, spells violet… — without shouting.
+     Sections with no accent keep the plain header (transparent fallbacks). */
+  border-left: 3px solid var(--sec-accent, transparent);
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--sec-accent, transparent) 13%, transparent),
+    transparent 65%
+  );
+}
+/* Tint the label itself gently toward the accent (still mostly muted-gray). */
+.reorder-section.accented .reorder-label {
+  color: color-mix(in srgb, var(--sec-accent) 45%, var(--muted));
 }
 .reorder-handle:active { cursor: grabbing; }
 .reorder-grip { font-size: 13px; line-height: 1; }

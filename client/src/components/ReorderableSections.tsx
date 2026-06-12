@@ -2,6 +2,30 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export type Section = { id: string; label: string; node: ReactNode };
 
+/**
+ * Per-section accent colors, keyed by section id so every surface that uses a
+ * given section (DM panel, player console, token panel) gets the SAME color.
+ * Applied as a left border + faint header tint — enough to scan by, never loud.
+ * Logic: combat red · conditions amber · spells violet · loot gold · sheet/
+ * character blue · maps green · initiative orange · dice cyan · notes slate ·
+ * target ember (combat-adjacent) · DM tools steel · Roll20 rose.
+ */
+const SECTION_ACCENTS: Record<string, string> = {
+  combat: '#e25b5b',
+  target: '#d98a5b',
+  conditions: '#e6c54d',
+  abilities: '#a98bd4',
+  loot: '#d9b23d',
+  sheet: '#5b9de2',
+  character: '#5b9de2',
+  maps: '#5bbf7a',
+  initiative: '#e89a4a',
+  dice: '#56c8d8',
+  notes: '#8fa3b8',
+  dmtools: '#9aa5b1',
+  roll20: '#c98ba6',
+};
+
 function loadOrder(storageKey: string, fallback: string[]): string[] {
   try {
     const raw = localStorage.getItem(storageKey);
@@ -109,10 +133,15 @@ export function ReorderableSections({
       {order.map((id) => {
         const s = byId.get(id);
         if (!s) return null;
+        const accent = SECTION_ACCENTS[id];
         return (
           <div
             key={id}
-            className={`reorder-section ${dragging === id ? 'dragging' : ''}`}
+            className={`reorder-section ${accent ? 'accented' : ''} ${
+              dragging === id ? 'dragging' : ''
+            }`}
+            // The accent rides a CSS variable; the header styles consume it.
+            style={accent ? ({ '--sec-accent': accent } as React.CSSProperties) : undefined}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => onDrop(id)}
           >
