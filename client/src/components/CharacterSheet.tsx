@@ -73,8 +73,11 @@ export function CharacterSheet({
         }
       />
       {/* Traits/feats live with the character info box (stats + weapons),
-          collapsed — above Resources/Skills/Inventory. */}
-      {(character.abilities.length > 0 || editable) && (
+          collapsed — above Resources/Skills/Inventory. The Feats & ASIs editor
+          (numeric build choices) lives in here too. */}
+      {(character.abilities.length > 0 ||
+        (character.modifiers?.length ?? 0) > 0 ||
+        editable) && (
         <details className="sheet-actions-traits">
           <summary>Traits &amp; Feats</summary>
           <ActionsTraitsView
@@ -88,9 +91,9 @@ export function CharacterSheet({
                 : undefined
             }
           />
+          <CharacterModifiers character={character} editable={editable} />
         </details>
       )}
-      <CharacterModifiers character={character} editable={editable} />
       <DeathSaves character={character} editable={editable} />
       <CharacterResources character={character} editable={editable} />
       {!abilitiesElsewhere && (

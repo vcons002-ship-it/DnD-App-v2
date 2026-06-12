@@ -141,8 +141,9 @@ export function initiativeExtra(c: ModSource) {
 /**
  * Validate untrusted modifier data (AI output, library REST bodies) into clean
  * `SheetModifier`s: unknown kinds/abilities and non-numeric values are dropped,
- * values are clamped to ±30, ids are assigned, and `set` only survives on
- * ability targets. Returns [] for anything that isn't an array.
+ * values are clamped to ±30, ids are assigned, `set` only survives on ability
+ * targets, and the `slot` (feat/ASI) flag is preserved so the feat cap can count
+ * it. Returns [] for anything that isn't an array.
  */
 export function sanitizeModifiers(
   raw: unknown,
@@ -178,6 +179,7 @@ export function sanitizeModifiers(
       target,
       value,
       ...(e.set && target.kind === 'ability' ? { set: true } : {}),
+      ...(e.slot ? { slot: true } : {}),
     });
   }
   return out;

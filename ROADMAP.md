@@ -1248,3 +1248,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   math ("STR 16 = 16 base", full part list when modified) instead of only when
   modifiers apply — so "roll STR save" no longer crowds out the breakdown and an
   unequipped magic item is visible at a glance. +1 test.
+- ☑ **Feats & ASIs redesign + feat-cap bug fix [req].** ROOT BUG: `sanitizeModifiers`
+  (added to the `character:update` path in the audit pass) was dropping the `slot`
+  flag, so every ASI saved un-flagged and the feat cap counted nothing — now
+  preserved (+2 tests: flag survives sanitize, and an ASI round-trips through
+  `character:update` with `slot` intact). UI: `CharacterModifiers` is rebuilt as a
+  **compact** list by default (entries grouped by source: name + effect summary +
+  ✎/✕) instead of an always-open builder; **"+ Add feat / ASI"** opens a draft
+  with a **search picker** over a new `shared/featLibrary` (the two ASI options +
+  ~20 numeric half-feats) that **autofills** the effect, editable, then an explicit
+  **Save** locks it in. Every entry counts toward the cap (auto-`slot`, no
+  checkbox); "+ Add" is HARD-blocked at the cap. Moved inside the sheet's **Traits
+  & Feats** collapsible. Verified live: the section renders nested and the cap
+  hard-blocks at level 1 (0/0).
+- ☑ **Panning the map keeps token selection [req].** Clicking empty map to pan no
+  longer deselects: the deselect now fires on RELEASE only when the pointer barely
+  moved (a real click), so a pan drag (which moves the pointer) preserves the
+  selection — you can look around mid-decision. `MapStage` arms a screen-space
+  `clickStart` on an empty-space press and compares it on `pointerup` (≤5 px).
