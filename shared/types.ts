@@ -1157,6 +1157,9 @@ export interface ClientToServerEvents {
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload) => void;
+  /** Ephemeral, throttled live drag preview (no DB write, no snapshot) — the
+   *  server fans it out as `fx:tokenDrag` to viewers who can see the token. */
+  'token:drag': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
   'token:setShape': (payload: TokenSetShapePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
@@ -1244,4 +1247,10 @@ export interface ServerToClientEvents {
   error: (err: ServerError) => void;
   notice: (payload: NoticePayload) => void;
   'fx:hp': (payload: { events: HpFxEvent[] }) => void;
+  /** Live preview of ANOTHER user dragging a token: the token's in-progress
+   *  position, so watchers can draw a ghost tether + distance. Ephemeral (never
+   *  persisted), throttled by the sender, fanned out only to viewers who can see
+   *  the token at `x,y` (not hidden, not under fog, same map). Auto-expires
+   *  client-side shortly after the updates stop (covers release + disconnect). */
+  'fx:tokenDrag': (payload: { tokenId: string; x: number; y: number }) => void;
 }

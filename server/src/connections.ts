@@ -4,8 +4,9 @@ import type {
   Role,
   ServerToClientEvents,
 } from '../../shared/types.js';
-import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
-import { drainHpFx } from './sessions.js';
+import { buildSnapshot, createSnapshotBuilder, coveredByFog } from './visibility.js';
+import { drainHpFx, getActiveMapId, getMap } from './sessions.js';
+import type { Token } from '../../shared/types.js';
 
 export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -63,6 +64,37 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       snapshot.tokens.some((t) => t.kind === e.kind && t.refId === e.refId),
     );
     if (visible.length) io.to(socketId).emit('fx:hp', { events: visible });
+  }
+}
+
+/**
+ * Fan a live token-drag preview out to the OTHER members of the session who can
+ * actually see the token at its in-progress `x,y`: DMs always (on the map they're
+ * viewing); players only when the token isn't individually hidden and the live
+ * cell isn't under fog — the same gate the snapshot applies, so a drag can never
+ * reveal more than a committed move would. Ephemeral: no DB write, no snapshot.
+ */
+export function broadcastTokenDrag(
+  io: IOServer,
+  sessionId: string,
+  fromSocketId: string,
+  token: Token,
+  x: number,
+  y: number,
+): void {
+  const activeMapId = getActiveMapId(sessionId);
+  const map = token.mapId ? getMap(token.mapId) : null;
+  const grid = map?.gridSizePx ?? 50;
+  const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
+  const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
+  const underFog = coveredByFog(mapFog, tokenFog, grid, x, y);
+  for (const [socketId, conn] of conns) {
+    if (socketId === fromSocketId || conn.sessionId !== sessionId) continue;
+    // Players are locked to the active map; a DM may be staging another.
+    const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
+    if (token.mapId !== viewMapId) continue;
+    if (conn.role === 'player' && (token.isHidden || underFog)) continue;
+    io.to(socketId).emit('fx:tokenDrag', { tokenId: token.id, x, y });
   }
 }
 

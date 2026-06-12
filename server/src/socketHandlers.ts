@@ -21,6 +21,7 @@ import {
 } from './creatures/fill.js';
 import {
   broadcastSnapshots,
+  broadcastTokenDrag,
   dropConn,
   getConn,
   isConnected,
@@ -513,6 +514,24 @@ export function registerSocketHandlers(io: IOServer): void {
       }
       moveToken(tokenId, x, y);
       afterChange();
+    });
+
+    // Live, throttled drag preview (no DB write / snapshot) — same sender gate
+    // as token:move so a player can't broadcast a ghost for a token they can't
+    // move; recipients are filtered by visibility inside broadcastTokenDrag.
+    socket.on('token:drag', ({ tokenId, x, y }) => {
+      const sid = sessionId();
+      if (!sid) return;
+      const t = getToken(tokenId);
+      if (!t) return;
+      if (!isDm()) {
+        if (t.isHidden) return;
+        if (t.kind === 'monster') {
+          const m = getMonster(t.refId);
+          if (!m || m.disposition !== 'friendly' || m.objectKind) return;
+        }
+      }
+      broadcastTokenDrag(io, sid, socket.id, t, x, y);
     });
 
     socket.on('token:resize', ({ tokenId, widthFt }) => {

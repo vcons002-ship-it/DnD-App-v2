@@ -226,6 +226,16 @@ The grid lines are visible at rest and **brighten** while you drag a token or us
 a measure tool, to help you line things up. Maps with no width set fall back to a
 legacy feet-per-square model, so older saves are unaffected.
 
+**Drag distance readout** — while you drag any token, a dashed tether stretches
+from its starting spot to the token with a live **"N ft"** label (using the map's
+real-world scale), so you can see how far a move is as you make it. The readout is
+**shared**: everyone else at the table sees the same ghost tether + distance in
+real time, so the party can follow a move as it happens. It's gated by the usual
+visibility rules — a player never sees the preview for a **hidden** token or one
+moving **through fog** (just as they wouldn't see the finished move). The tether is
+purely transient: it vanishes the moment the token is released (and clears on its
+own if the mover disconnects), and nothing about it is ever saved.
+
 ### Spawning creatures (DM)
 
 **Where:** left panel → **Spawn** section → **Monsters**.

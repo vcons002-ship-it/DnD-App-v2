@@ -51,6 +51,8 @@ type Props = {
   onHoverEnd?: (token: Token) => void;
   /** Signals drag start/stop so the map can brighten the grid while a token moves. */
   onDragActive?: (active: boolean) => void;
+  /** Throttled live drag position, broadcast so others see a ghost tether. */
+  onDragPreview?: (token: Token, x: number, y: number) => void;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -75,10 +77,14 @@ function TokenShapeInner({
   onHover,
   onHoverEnd,
   onDragActive,
+  onDragPreview,
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
   const radius = (token.widthFt * pxPerFoot) / 2;
+  // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
+  // pixel delta into a real-world distance for the live readout.
+  const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;
   const auras = presentAuras(display.conditions);
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
@@ -94,7 +100,57 @@ function TokenShapeInner({
     (display.curHp !== undefined && display.curHp <= 0) ||
     display.conditions.some((c) => c.label.toLowerCase() === 'dead');
 
+  // Live "distance from the previous spot" readout while dragging: a dashed
+  // tether from the start position to the token + a "N ft" pill, updated
+  // imperatively (refs + batchDraw) so the drag never triggers a React render —
+  // a mid-drag re-render would re-apply token.x/y and snap the node back. The
+  // origin is the committed token.x/token.y (frozen during the drag).
+  const dragOverlay = useRef<Konva.Group>(null);
+  const tether = useRef<Konva.Line>(null);
+  const distText = useRef<Konva.Text>(null);
+  // Throttle the network preview (the local tether stays smooth either way).
+  const lastDragEmit = useRef(0);
+
+  const paintDrag = (cx: number, cy: number) => {
+    tether.current?.points([token.x, token.y, cx, cy]);
+    if (distText.current) {
+      const ft = feetPerPixel > 0
+        ? Math.round(Math.hypot(cx - token.x, cy - token.y) * feetPerPixel)
+        : 0;
+      distText.current.text(`${ft} ft`);
+      distText.current.position({ x: cx, y: cy - radius - 20 });
+    }
+    dragOverlay.current?.getLayer()?.batchDraw();
+  };
+
+  const handleDragStart = () => {
+    clearLongPress();
+    onDragActive?.(true);
+    lastDragEmit.current = 0; // let the first move broadcast immediately
+    const ov = dragOverlay.current;
+    if (ov) {
+      ov.visible(true);
+      ov.moveToTop(); // keep the tether + label above other tokens
+    }
+    paintDrag(token.x, token.y);
+  };
+
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
+    const cx = e.target.x();
+    const cy = e.target.y();
+    paintDrag(cx, cy);
+    // Broadcast the live position (throttled ~18 fps) for everyone else's ghost.
+    if (onDragPreview) {
+      const now = performance.now();
+      if (now - lastDragEmit.current >= 55) {
+        lastDragEmit.current = now;
+        onDragPreview(token, cx, cy);
+      }
+    }
+  };
+
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
+    dragOverlay.current?.visible(false); // temporary — gone on release
     onDragActive?.(false);
     onMove(token, e.target.x(), e.target.y());
   };
@@ -246,6 +302,7 @@ function TokenShapeInner({
   };
 
   return (
+    <>
     <Group
       name="token"
       x={token.x}
@@ -268,10 +325,8 @@ function TokenShapeInner({
         activate();
       }}
       onDblTap={() => activate()}
-      onDragStart={() => {
-        clearLongPress();
-        onDragActive?.(true);
-      }}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
@@ -471,6 +526,50 @@ function TokenShapeInner({
           );
         })()}
     </Group>
+    {/* Drag-distance readout (only on draggable tokens; hidden until a drag
+        starts, then driven imperatively in paintDrag — never re-renders). A
+        dashed tether from the previous spot to the token + a "N ft" pill that
+        rides above it, all cleared on release. */}
+    {draggable && (
+      <Group ref={dragOverlay} visible={false} listening={false}>
+        <Line
+          ref={tether}
+          points={[token.x, token.y, token.x, token.y]}
+          stroke="#ffd21a"
+          strokeWidth={2}
+          dash={[9, 6]}
+          opacity={0.95}
+          shadowColor="#000"
+          shadowBlur={3}
+          shadowOpacity={0.6}
+        />
+        <Circle
+          x={token.x}
+          y={token.y}
+          radius={4}
+          fill="#ffd21a"
+          stroke="#000"
+          strokeWidth={1}
+        />
+        <Text
+          ref={distText}
+          text=""
+          fontSize={Math.max(13, gridSizePx * 0.34)}
+          fontStyle="bold"
+          fill="#fff"
+          stroke="#000"
+          strokeWidth={Math.max(2, gridSizePx * 0.03)}
+          fillAfterStrokeEnabled
+          shadowColor="#000"
+          shadowBlur={4}
+          shadowOpacity={0.85}
+          align="center"
+          width={140}
+          offsetX={70}
+        />
+      </Group>
+    )}
+    </>
   );
 }
 
@@ -495,5 +594,6 @@ export const TokenShape = memo(
     p.onContextMenu === n.onContextMenu &&
     p.onHover === n.onHover &&
     p.onHoverEnd === n.onHoverEnd &&
-    p.onDragActive === n.onDragActive,
+    p.onDragActive === n.onDragActive &&
+    p.onDragPreview === n.onDragPreview,
 );
