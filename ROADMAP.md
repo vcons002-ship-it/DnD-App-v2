@@ -1271,6 +1271,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   accent over the WHOLE section body (the bar spans the full section). Applies
   to both roles automatically; unknown ids keep the plain look. Verified live
   (DM left + token panel screenshots).
+- ☑ **Skill-check roll log shows a labelled breakdown [req].** `resolveSkillRoll`
+  (and the pick-lock/disarm Sleight-of-Hand check) now log the proficiency as an
+  explicit `+P[PROF]` term in a `+M[ABILITY] +P[PROF] +X[source]` breakdown —
+  matching the attack/save log style — instead of cooking the bonus into one
+  number with a trailing "(proficient)". E.g. "Druk — Athletics: d20[20] +0[STR]
+  = 20", or proficient "+3[DEX] +3[PROF]". Verified live + test updated.
 - ☑ **Panning the map keeps token selection [req].** Clicking empty map to pan no
   longer deselects: the deselect now fires on RELEASE only when the pointer barely
   moved (a real click), so a pan drag (which moves the pointer) preserves the
