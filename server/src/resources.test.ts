@@ -7,6 +7,7 @@ import {
   setResource,
   setItem,
   removeItem,
+  spendResourceForAbility,
 } from './sessions.js';
 
 describe('class resources', () => {
@@ -49,6 +50,33 @@ describe('class resources', () => {
     expect(getCharacter(c.id)!.items[0].name).toBe('Rope');
     removeItem(c.id, 'i1');
     expect(getCharacter(c.id)!.items).toHaveLength(0);
+  });
+
+  it('rolling an ability named after a resource spends one use (Second Wind)', () => {
+    const s = createSession('SecondWind');
+    const c = createCharacter(s.id, { name: 'Brand', className: 'Fighter', level: 1 });
+    expect(c.resources['Second Wind']).toEqual({ max: 2, used: 0 });
+
+    // Case-insensitive name match; spends one use per cast.
+    expect(spendResourceForAbility(c.id, 'second wind')).toEqual({
+      matched: true,
+      spent: true,
+    });
+    expect(getCharacter(c.id)!.resources['Second Wind'].used).toBe(1);
+    expect(spendResourceForAbility(c.id, 'Second Wind').spent).toBe(true);
+
+    // Pool empty: soft — matched but nothing left to spend, counter stays put.
+    expect(spendResourceForAbility(c.id, 'Second Wind')).toEqual({
+      matched: true,
+      spent: false,
+    });
+    expect(getCharacter(c.id)!.resources['Second Wind'].used).toBe(2);
+
+    // An ability with no matching counter is a clean no-op.
+    expect(spendResourceForAbility(c.id, 'Fire Bolt')).toEqual({
+      matched: false,
+      spent: false,
+    });
   });
 });
 

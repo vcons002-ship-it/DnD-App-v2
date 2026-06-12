@@ -1252,8 +1252,30 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 
 /* Character modifiers section + feat/ASI cap. */
 .char-modifiers { margin: 8px 0; }
-.feat-cap { font-size: 12px; margin: 2px 0 4px; }
-.feat-cap.over { color: var(--red); font-weight: 600; }
+.feat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.feat-head h4 { margin: 0; }
+.feat-cap { font-size: 12px; font-weight: 600; color: var(--cyan-bright); }
+.feat-cap.over { color: var(--red); }
+
+/* Compact feat/ASI entry list. */
+.feat-list { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.feat-entry { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.feat-entry .feat-name { font-weight: 600; }
+.feat-entry .feat-fx { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feat-row-actions { display: inline-flex; gap: 2px; }
+
+/* Add/edit draft + the autofill picker. */
+.feat-draft { border: 1px solid var(--border); border-radius: 6px; padding: 6px; margin-top: 4px; display: flex; flex-direction: column; gap: 5px; }
+.feat-name-input, .feat-search { width: 100%; }
+.feat-picker { max-height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
+.feat-pick-row { display: flex; align-items: center; gap: 6px; text-align: left; background: none; border: none; color: inherit; cursor: pointer; padding: 3px 4px; border-radius: 3px; font-size: 12px; }
+.feat-pick-row:hover { background: var(--row-hover, rgba(255,255,255,0.06)); }
+.feat-pick-tag { font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; background: var(--border); color: var(--muted); }
+.feat-pick-tag.asi { background: var(--cyan); color: #06222b; }
+.feat-pick-name { font-weight: 600; }
+.feat-pick-fx { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.feat-draft-actions { display: flex; gap: 6px; }
+.char-modifiers .hint { font-size: 11px; margin: 2px 0 0; }
 .action-icon { margin: 0 4px; color: var(--cyan); font-size: 12px; }
 .action-type-edit { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin: 2px 0; }
 .action-type-edit select { width: auto; }

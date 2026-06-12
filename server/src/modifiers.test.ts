@@ -115,6 +115,28 @@ describe('modifier helpers (pure)', () => {
     expect(sanitizeModifiers(undefined)).toEqual([]);
   });
 
+  it('preserves the slot (feat/ASI) flag so the feat cap can count it', () => {
+    const clean = sanitizeModifiers([
+      { target: { kind: 'ability', ability: 'STR' }, value: 2, source: 'ASI', slot: true },
+      { target: { kind: 'ac' }, value: 1, source: 'Cloak' }, // not slotted
+    ]);
+    expect(clean[0].slot).toBe(true);
+    expect(clean[1].slot).toBeUndefined();
+  });
+
+  it('an ASI survives a character:update round-trip and counts toward the cap', () => {
+    const s = createSession('FeatCap');
+    const ch = createCharacter(s.id, { name: 'Brand', className: 'Fighter', level: 4 });
+    updateCharacter(ch.id, {
+      modifiers: [
+        mod('ASI', { kind: 'ability', ability: 'STR' }, 2),
+      ].map((m) => ({ ...m, slot: true })),
+    });
+    const stored = getCharacter(ch.id)!.modifiers;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].slot).toBe(true); // the flag survived sanitize-on-save
+  });
+
   it('effectiveAc and save/skill extras (all-save + specific-skill)', () => {
     const cloak = {
       armorClass: 15,

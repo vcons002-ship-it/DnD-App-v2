@@ -686,6 +686,9 @@ export function MapStage({
   // container coords), null when not pinching.
   const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const [pinching, setPinching] = useState(false);
+  // Screen-space pointer at an empty-space press, to tell a deliberate CLICK
+  // (deselect) from a PAN drag (keep selection so you can look around).
+  const clickStart = useRef<{ x: number; y: number } | null>(null);
 
   // Reset to fit when the map changes; otherwise refit on resize until the
   // user zooms/pans, after which we preserve their view.
@@ -898,13 +901,30 @@ export function MapStage({
     // Clicks on an existing token are handled by the token itself (select/drag).
     if (e.target.findAncestor('.token', true)) return;
     // Anywhere else on the canvas — the map image, grid, or empty space —
-    // places a pending spawn, or otherwise deselects.
+    // places a pending spawn, otherwise arms a possible deselect. We DON'T
+    // deselect on press: dragging here pans the map, and panning while a token
+    // is selected (to look around mid-decision) must keep the selection. The
+    // deselect fires on release only if the pointer barely moved (a real click).
     const pos = pointerToImage(stage);
     if (onPlaceAt && pos) {
       onPlaceAt(pos.x, pos.y);
       return;
     }
-    onSelectToken(null);
+    const p = stage.getPointerPosition();
+    clickStart.current = p ? { x: p.x, y: p.y } : null;
+  };
+
+  // Release on the stage: a near-stationary empty-space press was a click →
+  // deselect; a press that moved was a pan → keep the selection. Then run the
+  // normal stroke-end handling.
+  const handlePointerUp = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const start = clickStart.current;
+    clickStart.current = null;
+    if (start) {
+      const p = e.target.getStage()?.getPointerPosition();
+      if (p && Math.hypot(p.x - start.x, p.y - start.y) <= 5) onSelectToken(null);
+    }
+    endStroke();
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -943,6 +963,7 @@ export function MapStage({
   };
 
   const endStroke = () => {
+    clickStart.current = null; // a press that ends any other way isn't a click
     if (pinchRef.current) {
       pinchRef.current = null;
       setPinching(false);
@@ -1290,8 +1311,8 @@ export function MapStage({
             onTouchStart={handleMouseDown}
             onMouseMove={handleMouseMove}
             onTouchMove={handleMouseMove}
-            onMouseUp={endStroke}
-            onTouchEnd={endStroke}
+            onMouseUp={handlePointerUp}
+            onTouchEnd={handlePointerUp}
             onMouseLeave={endStroke}
             onWheel={handleWheel}
             style={{

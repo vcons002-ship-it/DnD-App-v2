@@ -47,13 +47,15 @@ export const DragGhostLayer = memo(function DragGhostLayer({
               shadowOpacity={0.6}
             />
             <Circle x={tok.x} y={tok.y} radius={4} fill="#ffd21a" stroke="#000" strokeWidth={1} />
+            {/* Distance rides the middle of the tether (matching the dragger's
+                own readout), gold like the line. */}
             <Text
-              x={x}
-              y={y - (tok.widthFt * pxPerFoot) / 2 - 20}
+              x={(tok.x + x) / 2}
+              y={(tok.y + y) / 2 - fontSize * 0.9}
               text={`${ft} ft`}
               fontSize={fontSize}
               fontStyle="bold"
-              fill="#fff"
+              fill="#ffd21a"
               stroke="#000"
               strokeWidth={Math.max(2, gridSizePx * 0.03)}
               fillAfterStrokeEnabled
