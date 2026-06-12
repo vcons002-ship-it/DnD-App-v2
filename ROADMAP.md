@@ -1212,3 +1212,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   non-listening nodes, no idle loops, expired with the existing ~1.2 s floater
   lifecycle. Verified live in the browser (burst + no-burst probes, screenshots).
   +1 test (typed fx queue).
+- ☑ **Richer combat FX + drag-distance readout [req].** Upgraded the bursts from
+  emoji-fades to a small composable Konva particle engine (`HpFx.tsx`): typed
+  bursts add a radial spark spray in the type's palette, lightning swaps the glyph
+  for a jagged white-on-gold bolt, heals get rising sparkles, a creature dying
+  pops a skull + smoke puff, and plundering a container pops a gold sparkle
+  (`HpFxEvent.effect` = `death`/`loot`, flagged by `applyDamage`/`takeLoot`); a
+  player taking damage on their OWN PC gets a one-shot red screen-edge **hurt
+  vignette** (pure CSS). **Drag-distance readout:** dragging any token draws a
+  dashed tether from its previous spot + a live "N ft" label (`TokenShape`,
+  imperative refs + `batchDraw` so the drag never re-renders), cleared on release;
+  local-only, never broadcast. All one-shot tweens on non-listening nodes.
+  Verified live (bolt, death puff, vignette, drag tether + "70 ft" label, gone on
+  release — screenshots). +3 tests (death-once/monsters-only, loot sparkle).

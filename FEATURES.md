@@ -226,6 +226,12 @@ The grid lines are visible at rest and **brighten** while you drag a token or us
 a measure tool, to help you line things up. Maps with no width set fall back to a
 legacy feet-per-square model, so older saves are unaffected.
 
+**Drag distance readout** — while you drag any token, a dashed tether stretches
+from its starting spot to the token with a live **"N ft"** label (using the map's
+real-world scale), so you can see how far a move is as you make it. It's purely a
+local visual aid — it vanishes the moment you release the token and is never sent
+to anyone else.
+
 ### Spawning creatures (DM)
 
 **Where:** left panel → **Spawn** section → **Monsters**.
