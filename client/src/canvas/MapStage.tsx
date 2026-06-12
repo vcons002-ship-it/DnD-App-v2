@@ -8,6 +8,7 @@ import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../share
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { HpFxLayer } from './HpFx';
+import { DragGhostLayer } from './DragGhostLayer';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { cropImage, removeBackground } from '../lib/imageEdit';
@@ -464,6 +465,8 @@ export function MapStage({
   const showDiceButton = useStore((s) => s.showDiceButton);
   const saveResolve = useStore((s) => s.saveResolve);
   const hpFx = useStore((s) => s.hpFx);
+  const dragGhosts = useStore((s) => s.dragGhosts);
+  const dragToken = useStore((s) => s.dragToken);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
   const nudgeRightPanel = useStore((s) => s.nudgeRightPanel);
@@ -567,6 +570,9 @@ export function MapStage({
   });
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number) =>
     onMoveToken(tok.id, x, y),
+  );
+  const handleTokenDragPreview = useStableCallback((tok: Token, x: number, y: number) =>
+    dragToken(tok.id, x, y),
   );
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
     setHover(null);
@@ -1419,6 +1425,7 @@ export function MapStage({
                     onHover={handleTokenHover}
                     onHoverEnd={handleTokenHoverEnd}
                     onDragActive={setDraggingToken}
+                    onDragPreview={handleTokenDragPreview}
                   />
                 );
               })}
@@ -1530,6 +1537,13 @@ export function MapStage({
                       listening={false}
                     />
                   )}
+              {/* Live ghost tethers for tokens OTHERS are dragging. */}
+              <DragGhostLayer
+                ghosts={dragGhosts}
+                tokens={snapshot.tokens}
+                pxPerFoot={pxPerFoot}
+                gridSizePx={grid}
+              />
               {/* Floating ±X damage/heal numbers — topmost, click-through. */}
               <HpFxLayer
                 floaters={hpFx}

@@ -51,6 +51,8 @@ type Props = {
   onHoverEnd?: (token: Token) => void;
   /** Signals drag start/stop so the map can brighten the grid while a token moves. */
   onDragActive?: (active: boolean) => void;
+  /** Throttled live drag position, broadcast so others see a ghost tether. */
+  onDragPreview?: (token: Token, x: number, y: number) => void;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -75,6 +77,7 @@ function TokenShapeInner({
   onHover,
   onHoverEnd,
   onDragActive,
+  onDragPreview,
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
@@ -105,6 +108,8 @@ function TokenShapeInner({
   const dragOverlay = useRef<Konva.Group>(null);
   const tether = useRef<Konva.Line>(null);
   const distText = useRef<Konva.Text>(null);
+  // Throttle the network preview (the local tether stays smooth either way).
+  const lastDragEmit = useRef(0);
 
   const paintDrag = (cx: number, cy: number) => {
     tether.current?.points([token.x, token.y, cx, cy]);
@@ -121,6 +126,7 @@ function TokenShapeInner({
   const handleDragStart = () => {
     clearLongPress();
     onDragActive?.(true);
+    lastDragEmit.current = 0; // let the first move broadcast immediately
     const ov = dragOverlay.current;
     if (ov) {
       ov.visible(true);
@@ -130,7 +136,17 @@ function TokenShapeInner({
   };
 
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
-    paintDrag(e.target.x(), e.target.y());
+    const cx = e.target.x();
+    const cy = e.target.y();
+    paintDrag(cx, cy);
+    // Broadcast the live position (throttled ~18 fps) for everyone else's ghost.
+    if (onDragPreview) {
+      const now = performance.now();
+      if (now - lastDragEmit.current >= 55) {
+        lastDragEmit.current = now;
+        onDragPreview(token, cx, cy);
+      }
+    }
   };
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
@@ -578,5 +594,6 @@ export const TokenShape = memo(
     p.onContextMenu === n.onContextMenu &&
     p.onHover === n.onHover &&
     p.onHoverEnd === n.onHoverEnd &&
-    p.onDragActive === n.onDragActive,
+    p.onDragActive === n.onDragActive &&
+    p.onDragPreview === n.onDragPreview,
 );

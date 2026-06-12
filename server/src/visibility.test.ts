@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
+import { buildSnapshot, createSnapshotBuilder, coveredByFog } from './visibility.js';
 import {
   createMonsterTemplate,
   instantiateMonster,
@@ -631,6 +631,22 @@ describe('non-combat objects', () => {
     });
     pm = buildSnapshot(s.id, 'player')!.monsters.find((m) => m.id === ally.id)!;
     expect((pm as Monster).loot!.gold).toBe(25);
+  });
+});
+
+describe('coveredByFog (shared by snapshots + the drag-preview gate)', () => {
+  it('treats a cell as covered when an enabled layer has NOT revealed it', () => {
+    const grid = 50;
+    const revealed = new Set(['0,0']); // only cell (0,0) is revealed
+    // No fog layers → nothing is ever covered.
+    expect(coveredByFog(null, null, grid, 9999, 9999)).toBe(false);
+    // Map fog on: a point in the revealed cell is clear, elsewhere covered.
+    expect(coveredByFog(revealed, null, grid, 10, 10)).toBe(false); // cell 0,0
+    expect(coveredByFog(revealed, null, grid, 80, 10)).toBe(true); // cell 1,0
+    // Token fog independently hides: revealed by map but not token → covered.
+    expect(coveredByFog(revealed, new Set(), grid, 10, 10)).toBe(true);
+    // Negative coords floor correctly (cell -1,-1 not revealed → covered).
+    expect(coveredByFog(revealed, null, grid, -10, -10)).toBe(true);
   });
 });
 

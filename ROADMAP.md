@@ -1225,3 +1225,15 @@ Smaller refinements on top of the shipped Phase 2 work.
   local-only, never broadcast. All one-shot tweens on non-listening nodes.
   Verified live (bolt, death puff, vignette, drag tether + "70 ft" label, gone on
   release — screenshots). +3 tests (death-once/monsters-only, loot sparkle).
+- ☑ **Shared (broadcast) drag-distance preview [req].** The drag tether + "N ft"
+  readout is now visible to the whole table in real time, via an ephemeral
+  `token:drag` → `fx:tokenDrag` path that mirrors `fx:hp`: throttled (~18 fps) by
+  the dragger, NO DB write / snapshot, fanned out by `broadcastTokenDrag` only to
+  viewers who can see the token at its live position. The gate reuses a new shared
+  `coveredByFog` helper (de-dups the snapshot's own fog check) plus the
+  `isHidden`/same-map checks, so a hidden or fog-covered drag never leaks to
+  players — exactly what a committed move would show, no more. Watchers render a
+  declarative `DragGhostLayer`; each ghost auto-expires ~0.32 s after updates stop
+  (covers release AND disconnect). Sender gated like `token:move`. +6 tests
+  (`coveredByFog` math; fan-out to all-but-sender, cross-session isolation,
+  payload, hidden gate, fog gate, off-map skip).

@@ -27,6 +27,23 @@ import type {
 import { deriveCombatRole } from '../../shared/combatRole.js';
 
 /**
+ * Whether a point sits under a COVERED cell of either enabled fog layer (map or
+ * token fog) — i.e. a player must not see it. Shared by the snapshot's per-token
+ * filter and the live drag-preview gate so the two can't drift. Pass the
+ * revealed-cell sets (built once by the caller) plus the grid size.
+ */
+export function coveredByFog(
+  mapFog: Set<string> | null,
+  tokenFog: Set<string> | null,
+  grid: number,
+  x: number,
+  y: number,
+): boolean {
+  const key = `${Math.floor(x / grid)},${Math.floor(y / grid)}`;
+  return (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key));
+}
+
+/**
  * Whether players may see an object's loot contents. A closed/locked container
  * keeps its contents secret until the DM opens it; loose items/piles show their
  * contents until taken. (The DM always sees loot via the full monster object.)
@@ -182,12 +199,8 @@ export function createSnapshotBuilder(
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-      const covered = (t: Token) => {
-        const key = `${Math.floor(t.x / grid)},${Math.floor(t.y / grid)}`;
-        return (
-          (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key))
-        );
-      };
+      const covered = (t: Token) =>
+        coveredByFog(mapFog, tokenFog, grid, t.x, t.y);
       // A player always sees their own claimed PC token, even under fog — they
       // know where they are; only OTHER players are kept from seeing it.
       const ownedBy = (t: Token) =>

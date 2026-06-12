@@ -43,6 +43,8 @@ type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 /** One floating damage/heal number over a token (client-side, transient). */
 export type HpFloater = HpFxEvent & { id: number };
 let nextFloaterId = 1;
+/** Per-token expiry timers for live drag ghosts (cleared/rearmed each update). */
+const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 type Store = {
   socket: TypedSocket | null;
@@ -65,6 +67,12 @@ type Store = {
   /** One-shot red screen-edge flash when MY claimed PC takes damage (players
    *  only — the DM claims nothing). Cleared automatically after the CSS anim. */
   hurtFx: { id: number; amount: number } | null;
+  /** Live in-progress positions of tokens OTHERS are dragging (server
+   *  'fx:tokenDrag'), keyed by tokenId; each auto-expires shortly after the
+   *  updates stop. Drives a ghost tether + distance over the watched token. */
+  dragGhosts: Record<string, { x: number; y: number }>;
+  /** Emit my own in-progress drag position (throttled by the caller). */
+  dragToken: (tokenId: string, x: number, y: number) => void;
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
   showRollOverlay: boolean;
   toggleRollOverlay: () => void;
@@ -304,6 +312,8 @@ export const useStore = create<Store>((set, get) => ({
   aiBusy: false,
   hpFx: [],
   hurtFx: null,
+  dragGhosts: {},
+  dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
@@ -403,6 +413,25 @@ export const useStore = create<Store>((set, get) => ({
           900,
         );
       }
+    });
+    // Live drag preview from another user — update the ghost and (re)arm its
+    // expiry, so it clears ~0.3 s after the updates stop (release OR disconnect).
+    socket.on('fx:tokenDrag', ({ tokenId, x, y }) => {
+      set((st) => ({ dragGhosts: { ...st.dragGhosts, [tokenId]: { x, y } } }));
+      const prev = dragGhostTimers.get(tokenId);
+      if (prev) clearTimeout(prev);
+      dragGhostTimers.set(
+        tokenId,
+        setTimeout(() => {
+          dragGhostTimers.delete(tokenId);
+          set((st) => {
+            if (!(tokenId in st.dragGhosts)) return {};
+            const next = { ...st.dragGhosts };
+            delete next[tokenId];
+            return { dragGhosts: next };
+          });
+        }, 320),
+      );
     });
     socket.on('error', (err) => set({ error: err.message }));
     socket.on('notice', ({ message }) =>
