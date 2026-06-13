@@ -534,12 +534,17 @@ export function MapStage({
   const strokeRef = useRef<Set<string>>(new Set());
 
   // ---- Map scale ----------------------------------------------------------
-  // Feet-per-pixel is the single source of truth for distances. When the DM has
-  // set a real map width it is exact (width / image width); otherwise we fall
-  // back to the legacy feet-per-square model so old saves are unchanged.
+  // Scale is GRID-BASED: feet-per-pixel = feet-per-square ÷ pixels-per-square,
+  // which is FIXED by the grid. So composing a map from tiles — adding one or
+  // resizing one — only changes how many squares the map spans; it never
+  // rescales the existing map or its distances. The map's total width in feet is
+  // therefore a derived read-out (extent × feet-per-pixel), computed below.
+  // (A map with no usable grid scale falls back to its stored width ÷ base image
+  // width, then to a 5 ft / 50 px default — keeping old saves unchanged.)
   const feetPerSquare = map?.feetPerSquare ?? 5;
   const mapWidthFt = map?.mapWidthFt ?? 0;
-  const fpp = mapWidthFt > 0 && imgW ? mapWidthFt / imgW : feetPerSquare / grid;
+  const gridFpp = grid > 0 && feetPerSquare > 0 ? feetPerSquare / grid : 0;
+  const fpp = gridFpp || (mapWidthFt > 0 && baseW ? mapWidthFt / baseW : 0.1);
   // Pixels per foot — tokens are sized by their real width in feet, so they keep
   // their footprint when only the visual grid cell changes.
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
@@ -643,51 +648,28 @@ export function MapStage({
   // grid cell is purely visual; the map width (ft) drives the scale, prefilled
   // from the current implied width so legacy maps show their existing scale.
   const [gridPx, setGridPx] = useState(grid);
+  // The map's total width in feet is DERIVED from the scale + the composite
+  // extent (so it grows as you add tiles, while the scale itself stays fixed).
   const [widthFt, setWidthFt] = useState(0);
   useEffect(() => setGridPx(grid), [grid]);
-  useEffect(
-    () => setWidthFt(mapWidthFt > 0 ? mapWidthFt : Math.round(fpp * imgW)),
-    [mapWidthFt, fpp, imgW],
-  );
-  // Persist a scale: width (ft) is the source of truth; feet-per-square is kept
-  // in sync as the derived read-out / legacy fallback.
+  useEffect(() => setWidthFt(Math.round(fpp * imgW)), [fpp, imgW]);
+  // Set the scale from a dragged reference line ("this line is X ft"): that fixes
+  // feet-per-pixel; store it as the grid's feet-per-square (× the px cell). The
+  // stored width is just the implied read-out for the CURRENT extent.
   const commitScale = (px: number, ftWide: number) => {
     if (!map || !imgW || ftWide <= 0) return;
-    const derivedFps = Math.max(1, Math.round((ftWide / imgW) * px));
-    setMapGrid(map.id, px, derivedFps, ftWide);
+    const fps = (ftWide / imgW) * px; // exact float → grid-based fpp is precise
+    setMapGrid(map.id, px, fps, Math.round(ftWide));
   };
-  // The DM sets the grid in FEET per square; the pixel cell is derived from the
-  // map scale (width in feet ÷ image width), so a square always means real feet.
+  // The DM sets the grid in FEET per square (the scale's source of truth); the
+  // pixel cell is derived so the typed map width holds for the current extent.
   const commitScaleFeet = (ftPerSquare: number, ftWide: number) => {
     if (!map || !imgW || ftWide <= 0 || ftPerSquare <= 0) return;
     const px = Math.max(1, Math.round((ftPerSquare * imgW) / ftWide));
     setGridPx(px);
-    setMapGrid(map.id, px, Math.max(1, Math.round(ftPerSquare)), ftWide);
+    setMapGrid(map.id, px, ftPerSquare, Math.round(ftWide));
   };
-  const derivedFtPerSquare = imgW ? (widthFt / imgW) * gridPx : feetPerSquare;
-
-  // Keep the scale CONSTANT as the map grows from tiles: the grid square stays
-  // the same size (in px AND feet) and the existing map's distances don't move —
-  // a new tile just adds AREA. We do this by growing the map's real-world width
-  // in proportion to the new pixel extent, holding feet-per-pixel (`fpp`) fixed.
-  // `next` is the tile list AFTER the pending add/move/resize.
-  const keepScale = (next: { x: number; y: number; w: number; h: number }[]) => {
-    if (!map) return;
-    const nx0 = Math.min(0, ...next.map((t) => t.x));
-    const nx1 = Math.max(baseW, ...next.map((t) => t.x + t.w));
-    const nExtW = nx1 - nx0 || imgW;
-    const newWidthFt = Math.max(1, Math.round(fpp * nExtW));
-    const fps = Math.max(1, Math.round(fpp * grid)) || Math.round(derivedFtPerSquare) || 5;
-    setMapGrid(map.id, grid, fps, newWidthFt, {
-      offsetX: map.gridOffsetX,
-      offsetY: map.gridOffsetY,
-      locked: map.gridLocked,
-      hidden: map.gridHidden,
-    });
-  };
-  // The tile list with one entry's geometry replaced (for move/resize).
-  const tilesWith = (id: string, geo: { x: number; y: number; w: number; h: number }) =>
-    tiles.map((t) => (t.id === id ? { ...t, ...geo } : t));
+  const derivedFtPerSquare = feetPerSquare;
 
   // Confirm the reference-line prompt: its real length sets the map width.
   const applyScaleFromLine = () => {
@@ -1043,9 +1025,12 @@ export function MapStage({
         if (size >= 8) {
           const ox = dx >= 0 ? scaleLine.origin.x : scaleLine.origin.x - size;
           const oy = dy >= 0 ? scaleLine.origin.y : scaleLine.origin.y - size;
-          const fps = imgW && widthFt > 0 ? Math.max(1, Math.round((widthFt / imgW) * size)) : feetPerSquare;
+          // The dragged box IS one grid square: keep its feet-per-square and set
+          // the px cell to the box, so a square = that printed square. The width
+          // read-out follows from the new grid scale × the current extent.
+          const newWidth = Math.round((feetPerSquare / size) * imgW);
           setGridPx(size);
-          setMapGrid(map.id, size, fps, widthFt, {
+          setMapGrid(map.id, size, feetPerSquare, newWidth, {
             offsetX: ox,
             offsetY: oy,
             locked: true,
@@ -1177,12 +1162,8 @@ export function MapStage({
     const w = dims.w * sc;
     const h = dims.h * sc;
     // Land it butted to the current right edge (the DM then drags it anywhere).
-    const x = extX1;
-    const y = extY0;
-    addMapImage({ mapId: map.id, imagePath: icon, x, y, w, h });
-    // Grow the map's real-world width so the grid/scale of the existing map is
-    // unchanged — the tile adds area at the same scale.
-    keepScale([...tiles, { x, y, w, h }]);
+    // The scale is grid-based, so this just ADDS area — no rescale needed.
+    addMapImage({ mapId: map.id, imagePath: icon, x: extX1, y: extY0, w, h });
     setTilesMode(true);
   };
 
@@ -1441,14 +1422,8 @@ export function MapStage({
                   height={t.h}
                   draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
                   handleSize={12 / view.scale}
-                  onMove={(x, y) => {
-                    moveMapImage(t.id, x, y);
-                    keepScale(tilesWith(t.id, { x, y, w: t.w, h: t.h }));
-                  }}
-                  onResize={(w, h) => {
-                    resizeMapImage(t.id, t.x, t.y, w, h);
-                    keepScale(tilesWith(t.id, { x: t.x, y: t.y, w, h }));
-                  }}
+                  onMove={(x, y) => moveMapImage(t.id, x, y)}
+                  onResize={(w, h) => resizeMapImage(t.id, t.x, t.y, w, h)}
                 />
               ))}
               {!image && tiles.length === 0 && (

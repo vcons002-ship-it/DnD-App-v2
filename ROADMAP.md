@@ -1304,16 +1304,20 @@ Smaller refinements on top of the shipped Phase 2 work.
   right/down. +3 server tests (CRUD/reorder/clamp, snapshot to both roles,
   cascade-on-map-delete). Verified live: base + tile render as one battlemap with
   the grid spanning both.
-- ☑ **Tiles: any direction + scale-preserving growth [req].** Tiles can now extend
-  the map in ANY direction — `MapStage` computes the composite extent as a true
-  bounding box `(minX,minY)→(maxX,maxY)` where the min corner may be NEGATIVE
-  (a tile left/up of the origin); fit, the grid lines, the fog draw + paint + the
+- ☑ **Tiles: any direction + grid-based scale [req].** Tiles can now extend the
+  map in ANY direction — `MapStage` computes the composite extent as a true
+  bounding box `(minX,minY)→(maxX,maxY)` whose min corner may be NEGATIVE (a tile
+  left/up of the origin); fit, the grid lines, the fog draw + paint + the
   cover/reveal-all cell enumeration all iterate that box's cell range instead of
-  `0..cols`. Existing tokens never move (absolute coords). And the **scale stays
-  fixed as the map grows**: adding/moving/resizing a tile auto-grows the map's
-  real-world width in proportion to the new pixel extent (`keepScale` holds
-  feet-per-pixel constant), so the grid square size, and every distance on the
-  existing map, are unchanged — the tile just adds area. Verified live: a 300 px
-  tile added to a 400 px / 120 ft base → 210 ft (= 120 × 700/400) with an
-  identical grid across both, and leftward-dragged tiles compositing with a
+  `0..cols`. Existing tokens never move (absolute coords). The map scale is now
+  **purely grid-based**: feet-per-pixel = feetPerSquare ÷ gridSizePx (fixed by the
+  grid), so the map's total width in feet is a DERIVED read-out (extent × fpp) and
+  adding/moving/**resizing** a tile only changes how many squares the map spans —
+  it never rescales the existing map. This replaced the earlier `keepScale` hack
+  (no more proportional-width writes / rounding drift); the scale-set flows store
+  a float feet-per-square so it's exact, and match-grid keeps the feet-per-square
+  while setting the px cell. Legacy single-image maps are unchanged. Verified
+  live: with grid-square pinned at 5 ft, adding a 300 px tile to a 400 px / 200 ft
+  base grows the width to 350 ft, and resizing that tile grows it further (391 ft),
+  the grid square staying 5 ft throughout; tiles also build leftward with a
   continuous grid.
