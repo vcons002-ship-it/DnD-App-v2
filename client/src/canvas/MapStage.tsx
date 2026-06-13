@@ -219,6 +219,7 @@ function DecalImage({
   height,
   draggable,
   handleSize = 10,
+  alwaysListening = false,
   onRemove,
   onMove,
   onResize,
@@ -231,6 +232,10 @@ function DecalImage({
   draggable?: boolean;
   /** Corner-handle size in image px (pre-divided by zoom for constant screen size). */
   handleSize?: number;
+  /** Keep the image listening even when not draggable, so a press over it still
+   *  bubbles to the draggable layer and PANS (map tiles want this; click-through
+   *  decals don't). It still can't be dragged unless `draggable` is set. */
+  alwaysListening?: boolean;
   onRemove?: () => void;
   onMove?: (x: number, y: number) => void;
   onResize?: (width: number, height: number) => void;
@@ -256,7 +261,7 @@ function DecalImage({
         y={y}
         width={w}
         height={h}
-        listening={!!onRemove || interactive}
+        listening={alwaysListening || !!onRemove || interactive}
         draggable={interactive}
         onClick={onRemove}
         onTap={onRemove}
@@ -758,6 +763,20 @@ export function MapStage({
     for (let y = startY; y <= extY1; y += grid) lines.push([extX0, y, extX1, y]);
     return lines;
   }, [extX0, extY0, extX1, extY1, grid, gridHidden, map?.gridOffsetX, map?.gridOffsetY]);
+
+  // A backdrop covering the whole viewport (in map coords) BEHIND the map, so a
+  // press anywhere — including the empty area off the map or over a tile —
+  // bubbles to the draggable layer and PANS. It only has to cover the viewport
+  // at mouse-down (Konva keeps dragging the layer afterwards regardless), and it
+  // recomputes on every pan/zoom; one extra viewport of margin makes that ample.
+  // Filled with the off-map colour so it looks identical to the existing backdrop.
+  const panBg = useMemo(() => {
+    const s = view.scale || 1;
+    const vw = size.w / s;
+    const vh = size.h / s;
+    const m = Math.max(vw, vh);
+    return { x: -view.x / s - m, y: -view.y / s - m, w: vw + 2 * m, h: vh + 2 * m };
+  }, [view, size]);
 
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
@@ -1408,6 +1427,15 @@ export function MapStage({
               draggable={panning}
               onDragEnd={handleLayerDragEnd}
             >
+              {/* Pan-anywhere backdrop: a press off the map (or over a tile)
+                  grabs this and drags the layer. Same colour as the off-map area. */}
+              <Rect
+                x={panBg.x}
+                y={panBg.y}
+                width={panBg.w}
+                height={panBg.h}
+                fill={CANVAS_BG}
+              />
               {/* Base image at the origin, at its own natural size. */}
               {image && <KonvaImage image={image} width={baseW} height={baseH} />}
               {/* Extra image tiles (bottom-to-top by z). DM drags/resizes them in
@@ -1422,6 +1450,10 @@ export function MapStage({
                   height={t.h}
                   draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
                   handleSize={12 / view.scale}
+                  // Tiles are part of the map: keep them listening so dragging
+                  // over the area they add still PANS (bubbles to the layer),
+                  // even when you're not arranging them.
+                  alwaysListening
                   onMove={(x, y) => moveMapImage(t.id, x, y)}
                   onResize={(w, h) => resizeMapImage(t.id, t.x, t.y, w, h)}
                 />
