@@ -8,6 +8,15 @@ import { useEffect, useRef, useState } from 'react';
  * square always means real feet. Mirrors MeasureMenu's popover pattern;
  * presentational — the canonical state lives in MapStage.
  */
+/** Common "whole map is roughly this wide" presets, archetype + feet. */
+const SCALE_PRESETS = [
+  { label: 'Room', ft: 30 },
+  { label: 'Chamber', ft: 60 },
+  { label: 'Hall', ft: 120 },
+  { label: 'Cavern', ft: 240 },
+  { label: 'Vista', ft: 480 },
+] as const;
+
 export function ScaleMenu({
   feetPerSquare,
   widthFt,
@@ -68,6 +77,15 @@ export function ScaleMenu({
     if (ft > 0 && width > 0) onCommit(ft, width);
   };
 
+  // Quick "how big is this whole map" presets (real-world width in feet). Bigger
+  // width = the same tokens read SMALLER, for the feel of a vast space. These set
+  // the map width directly, keeping the current grid-square size.
+  const applyPreset = (ft: number) => {
+    setWidthStr(String(ft));
+    onCommit(Number(ftStr) > 0 ? Number(ftStr) : 5, ft);
+  };
+  const curWidth = Math.round(widthFt);
+
   return (
     <>
       <button
@@ -110,10 +128,29 @@ export function ScaleMenu({
                 onChange={(e) => setWidthStr(e.target.value)}
                 onBlur={commit}
                 onKeyDown={(e) => e.key === 'Enter' && commit()}
-                title="Real-world map width in feet — drives the scale"
+                title="Real-world map width in feet — drives the scale. Bigger = the same tokens look smaller (more 'space')."
               />
               <span className="muted">ft</span>
             </label>
+            {/* Quick scale: how big the WHOLE map is, end to end. Picking a
+                bigger space shrinks the tokens for the feel of scale. */}
+            <div className="scale-quick">
+              <span className="scale-quick-label">Quick scale</span>
+              <div className="scale-presets">
+                {SCALE_PRESETS.map((p) => (
+                  <button
+                    key={p.ft}
+                    type="button"
+                    className={`btn tiny ${curWidth === p.ft ? 'on' : ''}`}
+                    onClick={() => applyPreset(p.ft)}
+                    title={`${p.label}: set the whole map to ~${p.ft} ft across`}
+                  >
+                    {p.label}
+                    <span className="muted"> {p.ft}′</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="measure-label">≈ {Math.round(gridPx)} px / square</div>
             {gridLocked && (
               <div className="measure-label">
