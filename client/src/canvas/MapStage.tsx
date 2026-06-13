@@ -764,6 +764,20 @@ export function MapStage({
     return lines;
   }, [extX0, extY0, extX1, extY1, grid, gridHidden, map?.gridOffsetX, map?.gridOffsetY]);
 
+  // A backdrop covering the whole viewport (in map coords) BEHIND the map, so a
+  // press anywhere — including the empty area off the map or over a tile —
+  // bubbles to the draggable layer and PANS. It only has to cover the viewport
+  // at mouse-down (Konva keeps dragging the layer afterwards regardless), and it
+  // recomputes on every pan/zoom; one extra viewport of margin makes that ample.
+  // Filled with the off-map colour so it looks identical to the existing backdrop.
+  const panBg = useMemo(() => {
+    const s = view.scale || 1;
+    const vw = size.w / s;
+    const vh = size.h / s;
+    const m = Math.max(vw, vh);
+    return { x: -view.x / s - m, y: -view.y / s - m, w: vw + 2 * m, h: vh + 2 * m };
+  }, [view, size]);
+
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
     return (
@@ -1413,6 +1427,15 @@ export function MapStage({
               draggable={panning}
               onDragEnd={handleLayerDragEnd}
             >
+              {/* Pan-anywhere backdrop: a press off the map (or over a tile)
+                  grabs this and drags the layer. Same colour as the off-map area. */}
+              <Rect
+                x={panBg.x}
+                y={panBg.y}
+                width={panBg.w}
+                height={panBg.h}
+                fill={CANVAS_BG}
+              />
               {/* Base image at the origin, at its own natural size. */}
               {image && <KonvaImage image={image} width={baseW} height={baseH} />}
               {/* Extra image tiles (bottom-to-top by z). DM drags/resizes them in
