@@ -98,6 +98,35 @@ export function broadcastTokenDrag(
   }
 }
 
+/** A player started/stopped typing in chat → pop a typing bubble over their PC
+ *  token for the OTHERS in the session (you don't need to see your own). */
+export function broadcastTyping(
+  io: IOServer,
+  sessionId: string,
+  fromSocketId: string,
+  refId: string,
+  typing: boolean,
+): void {
+  for (const [socketId, conn] of conns) {
+    if (conn.sessionId !== sessionId || socketId === fromSocketId) continue;
+    io.to(socketId).emit('fx:typing', { refId, typing });
+  }
+}
+
+/** A player sent a chat message → pop their words over their PC token for
+ *  EVERYONE in the session (the speaker sees their own bubble too). */
+export function broadcastSay(
+  io: IOServer,
+  sessionId: string,
+  refId: string,
+  text: string,
+): void {
+  for (const [socketId, conn] of conns) {
+    if (conn.sessionId !== sessionId) continue;
+    io.to(socketId).emit('fx:say', { refId, text });
+  }
+}
+
 /** Send a snapshot to a single socket (used right after join/select). */
 export function sendSnapshot(io: IOServer, socketId: string): void {
   const conn = conns.get(socketId);

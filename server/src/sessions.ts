@@ -1518,6 +1518,15 @@ export function deleteMapImage(id: string): void {
   db.prepare('DELETE FROM map_images WHERE id = ?').run(id);
 }
 
+/** The character id a player's socket currently has claimed (or null) — used to
+ *  pin chat typing/speech bubbles to their PC token. */
+export function getClaimedCharacterId(sessionId: string, socketId: string): string | null {
+  const c = db
+    .prepare('SELECT id FROM characters WHERE session_id = ? AND claimed_by = ?')
+    .get(sessionId, socketId) as { id: string } | undefined;
+  return c?.id ?? null;
+}
+
 /** A roll's "who" — the player's claimed character name, "DM", or "Player". */
 export function rollerName(sessionId: string, socketId: string, isDm: boolean): string {
   if (isDm) return 'DM';

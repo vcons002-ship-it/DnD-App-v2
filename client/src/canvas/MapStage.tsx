@@ -9,6 +9,7 @@ import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import { HpFxLayer } from './HpFx';
 import { DragGhostLayer } from './DragGhostLayer';
+import { SpeechBubbles } from './SpeechBubbles';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { cropImage, removeBackground } from '../lib/imageEdit';
@@ -484,6 +485,8 @@ export function MapStage({
   const hpFx = useStore((s) => s.hpFx);
   const dragGhosts = useStore((s) => s.dragGhosts);
   const dragToken = useStore((s) => s.dragToken);
+  const typingChars = useStore((s) => s.typingChars);
+  const sayBubbles = useStore((s) => s.sayBubbles);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
   const nudgeRightPanel = useStore((s) => s.nudgeRightPanel);
@@ -1689,6 +1692,14 @@ export function MapStage({
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
               <DragGhostLayer
                 ghosts={dragGhosts}
+                tokens={snapshot.tokens}
+                pxPerFoot={pxPerFoot}
+                gridSizePx={grid}
+              />
+              {/* Chat bubbles over PC tokens (typing "•••" + spoken words). */}
+              <SpeechBubbles
+                typingChars={typingChars}
+                sayBubbles={sayBubbles}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
                 gridSizePx={grid}
