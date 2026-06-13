@@ -219,6 +219,7 @@ function DecalImage({
   height,
   draggable,
   handleSize = 10,
+  alwaysListening = false,
   onRemove,
   onMove,
   onResize,
@@ -231,6 +232,10 @@ function DecalImage({
   draggable?: boolean;
   /** Corner-handle size in image px (pre-divided by zoom for constant screen size). */
   handleSize?: number;
+  /** Keep the image listening even when not draggable, so a press over it still
+   *  bubbles to the draggable layer and PANS (map tiles want this; click-through
+   *  decals don't). It still can't be dragged unless `draggable` is set. */
+  alwaysListening?: boolean;
   onRemove?: () => void;
   onMove?: (x: number, y: number) => void;
   onResize?: (width: number, height: number) => void;
@@ -256,7 +261,7 @@ function DecalImage({
         y={y}
         width={w}
         height={h}
-        listening={!!onRemove || interactive}
+        listening={alwaysListening || !!onRemove || interactive}
         draggable={interactive}
         onClick={onRemove}
         onTap={onRemove}
@@ -1422,6 +1427,10 @@ export function MapStage({
                   height={t.h}
                   draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
                   handleSize={12 / view.scale}
+                  // Tiles are part of the map: keep them listening so dragging
+                  // over the area they add still PANS (bubbles to the layer),
+                  // even when you're not arranging them.
+                  alwaysListening
                   onMove={(x, y) => moveMapImage(t.id, x, y)}
                   onResize={(w, h) => resizeMapImage(t.id, t.x, t.y, w, h)}
                 />
