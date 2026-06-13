@@ -1064,7 +1064,11 @@ export function MapStage({
   // the wheel, the +/− buttons (center) and two-finger pinch (the midpoint).
   const zoomAtPoint = (factor: number, px: number, py: number) => {
     setView((v) => {
-      const newScale = clamp(v.scale * factor, fit.scale * 0.25, fit.scale * 12);
+      // Max zoom: generous relative to fit, but ALSO a floor over native (1:1)
+      // pixels so you can get right in close even on a big high-res map (where
+      // fit.scale is tiny) — for the "feel of scale" of a vast space.
+      const maxScale = Math.max(fit.scale * 20, 6);
+      const newScale = clamp(v.scale * factor, fit.scale * 0.25, maxScale);
       const mx = (px - v.x) / v.scale;
       const my = (py - v.y) / v.scale;
       userAdjusted.current = true;
