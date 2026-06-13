@@ -18,6 +18,7 @@ import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
 import { ScaleMenu } from '../components/ScaleMenu';
+import { TilesMenu } from '../components/TilesMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { RollLogOverlay } from '../components/RollLogOverlay';
 import { DiceButtonOverlay } from '../components/DiceButtonOverlay';
@@ -453,9 +454,17 @@ export function MapStage({
     };
   }, []);
 
-  // Natural map dimensions (fall back to a grid-sized blank canvas).
-  const imgW = image?.naturalWidth ?? 1000;
-  const imgH = image?.naturalHeight ?? 700;
+  // Composite map dimensions. The base image sits at the origin; extra image
+  // tiles extend the map to the right/down (their stored x+w / y+h), so the
+  // logical map = the bounding box from (0,0) out to the farthest tile edge.
+  // For a legacy single-image map this is just the base image size, unchanged.
+  const tiles = snapshot.mapImages;
+  const baseW = image?.naturalWidth ?? 0;
+  const baseH = image?.naturalHeight ?? 0;
+  const extW = Math.max(baseW, 0, ...tiles.map((t) => t.x + t.w));
+  const extH = Math.max(baseH, 0, ...tiles.map((t) => t.y + t.h));
+  const imgW = extW || 1000;
+  const imgH = extH || 700;
   const grid = map?.gridSizePx ?? 50;
 
   // ---- Fog of war (two independent layers: map fog + token fog) ----
@@ -486,6 +495,13 @@ export function MapStage({
   const clearAnnotations = useStore((s) => s.clearAnnotations);
   const moveAnnotation = useStore((s) => s.moveAnnotation);
   const resizeAnnotation = useStore((s) => s.resizeAnnotation);
+  const addMapImage = useStore((s) => s.addMapImage);
+  const moveMapImage = useStore((s) => s.moveMapImage);
+  const resizeMapImage = useStore((s) => s.resizeMapImage);
+  const reorderMapImage = useStore((s) => s.reorderMapImage);
+  const removeMapImage = useStore((s) => s.removeMapImage);
+  // Tile-arrange mode: tiles become draggable/resizable on the map.
+  const [tilesMode, setTilesMode] = useState(false);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -1099,6 +1115,30 @@ export function MapStage({
     };
   };
 
+  // Upload an image file and place it as a new map tile, butted up to the right
+  // edge of the current map so it naturally extends the battlemap. Scaled down
+  // if huge so it isn't unwieldy. Enters arrange mode so it can be nudged.
+  const addTileFromFile = async (file: File) => {
+    if (!map) return;
+    const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
+      im.onerror = reject;
+      im.src = URL.createObjectURL(file);
+    }).catch(() => null);
+    if (!dims) return;
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await fetch('/api/icons', { method: 'POST', body: fd }).catch(() => null);
+    if (!res || !res.ok) return;
+    const { icon } = (await res.json()) as { icon: string };
+    // Clamp a giant upload so it's not many times the existing map.
+    const cap = Math.max(imgW, 2000);
+    const sc = dims.w > cap ? cap / dims.w : 1;
+    addMapImage({ mapId: map.id, imagePath: icon, x: imgW, y: 0, w: dims.w * sc, h: dims.h * sc });
+    setTilesMode(true);
+  };
+
   // Pan by dragging empty canvas (disabled while placing or painting fog).
   const panning = !onPlaceAt && !fogActive && !measureActive && !pinching;
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
@@ -1302,6 +1342,14 @@ export function MapStage({
                       onCoverAll={() => map && coverFog(map.id, paintLayer)}
                       onRevealAll={() => revealAll(paintLayer)}
                     />
+                    <TilesMenu
+                      tiles={tiles}
+                      arranging={tilesMode}
+                      onToggleArrange={() => setTilesMode((t) => !t)}
+                      onAddFile={addTileFromFile}
+                      onReorder={reorderMapImage}
+                      onRemove={removeMapImage}
+                    />
                   </>
                 )}
               </div>,
@@ -1332,9 +1380,25 @@ export function MapStage({
               draggable={panning}
               onDragEnd={handleLayerDragEnd}
             >
-              {image ? (
-                <KonvaImage image={image} width={imgW} height={imgH} />
-              ) : (
+              {/* Base image at the origin, at its own natural size. */}
+              {image && <KonvaImage image={image} width={baseW} height={baseH} />}
+              {/* Extra image tiles (bottom-to-top by z). DM drags/resizes them in
+                  arrange mode; otherwise they're inert map background. */}
+              {tiles.map((t) => (
+                <DecalImage
+                  key={t.id}
+                  url={t.imagePath}
+                  x={t.x}
+                  y={t.y}
+                  width={t.w}
+                  height={t.h}
+                  draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
+                  handleSize={12 / view.scale}
+                  onMove={(x, y) => moveMapImage(t.id, x, y)}
+                  onResize={(w, h) => resizeMapImage(t.id, t.x, t.y, w, h)}
+                />
+              ))}
+              {!image && tiles.length === 0 && (
                 <Rect width={imgW} height={imgH} fill="#2a2f3a" />
               )}
               {gridLines.map((pts, i) => (

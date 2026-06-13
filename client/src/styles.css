@@ -1104,6 +1104,11 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .scale-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
 .scale-presets .btn.tiny { padding: 2px 6px; }
 .scale-presets .btn.tiny.on { background: var(--cyan); color: #06222b; border-color: var(--cyan); }
+.tiles-menu .hint { padding: 4px 8px; font-size: 11px; margin: 0; }
+.tiles-menu > .btn.tiny { margin: 2px 8px; }
+.tiles-list { display: flex; flex-direction: column; gap: 2px; padding: 2px 8px 4px; max-height: 200px; overflow-y: auto; }
+.tiles-row { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.tiles-row .tiles-name { flex: 1; }
 
 /* Collapsible DM token tools in the selected-token panel */
 details.dm-token-tools { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }

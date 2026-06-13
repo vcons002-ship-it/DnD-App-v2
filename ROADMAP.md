@@ -1282,3 +1282,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   moved (a real click), so a pan drag (which moves the pointer) preserves the
   selection — you can look around mid-decision. `MapStage` arms a screen-space
   `clickStart` on an empty-space press and compares it on `pointerup` (≤5 px).
+- ☑ **Map scale: closer zoom + quick presets [req].** Max zoom is now
+  `max(fit×20, 6)` so you can get right in to native-pixel detail even on a big
+  high-res map (it was capped at `fit×12`). The Scale dropdown gained one-click
+  width presets (Room 30′ / Chamber 60′ / Hall 120′ / Cavern 240′ / Vista 480′)
+  that set the whole map's real-world width — the lever for the feel of scale
+  (bigger space = smaller-reading tokens) — with the active one highlighted and a
+  clearer tooltip.
+- ☑ **Multi-image maps (tiles) [req].** A map can now be composed of several
+  image files in addition to its base image. New `map_images` table (id, map_id,
+  image_path, x, y, w, h, z) + `MapImage` type + `mapImages` on the snapshot
+  (shaped per viewed map exactly like annotations, sent to DM AND players). DM
+  CRUD via `mapImage:add/move/resize/reorder/remove` (gated DM-only, clamped).
+  Client: the **🧩 Tiles** toolbar dropdown (`TilesMenu`) uploads a file → places
+  it at the map's right edge, an **Arrange** toggle makes tiles draggable +
+  corner-resizable on canvas (reusing `DecalImage`), and a list reorders/removes
+  each. `MapStage` computes the composite EXTENT (base image + all tiles' x+w /
+  y+h) and uses it for fit, the grid, fog cols/rows, and the scale denominator —
+  so grid/fog/scale span the whole composite; legacy single-image maps are
+  unchanged (extent == base size). Base sits at the origin, tiles extend
+  right/down. +3 server tests (CRUD/reorder/clamp, snapshot to both roles,
+  cascade-on-map-delete). Verified live: base + tile render as one battlemap with
+  the grid spanning both.

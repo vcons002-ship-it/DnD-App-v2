@@ -186,6 +186,22 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
 
+  -- Image tiles composing a map (in addition to the legacy single image_path,
+  -- which renders as the base layer at the origin). Each tile is positioned and
+  -- sized in the map's pixel space; the composite extent spans them all.
+  CREATE TABLE IF NOT EXISTS map_images (
+    id         TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    map_id     TEXT NOT NULL,
+    image_path TEXT NOT NULL DEFAULT '',
+    x          REAL NOT NULL DEFAULT 0,
+    y          REAL NOT NULL DEFAULT 0,
+    w          REAL NOT NULL DEFAULT 0,
+    h          REAL NOT NULL DEFAULT 0,
+    z          INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+
   -- Shared dice roll log per session.
   CREATE TABLE IF NOT EXISTS roll_log (
     id         TEXT PRIMARY KEY,
@@ -222,6 +238,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_monsters_session      ON monsters(session_id);
   CREATE INDEX IF NOT EXISTS idx_measurements_session  ON measurements(session_id);
   CREATE INDEX IF NOT EXISTS idx_annotations_session   ON annotations(session_id);
+  CREATE INDEX IF NOT EXISTS idx_map_images_map         ON map_images(map_id);
   CREATE INDEX IF NOT EXISTS idx_roll_log_session      ON roll_log(session_id);
   CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 `);

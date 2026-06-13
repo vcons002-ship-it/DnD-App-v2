@@ -652,6 +652,21 @@ export type StateSnapshot = {
   measurements: Measurement[];
   /** Freehand + text annotations on the shown map, visible to everyone. */
   annotations: Annotation[];
+  /** Extra image tiles composing the shown map (under the tokens/grid), in
+   *  addition to the map's base image. DM places them; everyone sees them. */
+  mapImages: MapImage[];
+};
+
+/** An image tile placed on a map (alongside the base image), forming a larger
+ *  composite. Positioned + sized in the map's pixel space; `z` is draw order. */
+export type MapImage = {
+  id: string;
+  imagePath: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
 };
 
 /** A freehand stroke or text label drawn on a map, shared and persistent. */
@@ -849,6 +864,20 @@ export type AnnotationClearPayload = {
 };
 /** Reposition an image decal (DM). */
 export type AnnotationMovePayload = { id: string; x: number; y: number };
+/** Place a new image tile on a map (path comes from an /api/icons upload). */
+export type MapImageAddPayload = {
+  mapId: string;
+  imagePath: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+export type MapImageMovePayload = { id: string; x: number; y: number };
+export type MapImageResizePayload = { id: string; x: number; y: number; w: number; h: number };
+/** Send a tile to the front (top) or back (bottom) of the map's image stack. */
+export type MapImageReorderPayload = { id: string; to: 'front' | 'back' };
+export type MapImageRemovePayload = { id: string };
 /** Resize an image decal (DM); width/height in map-image pixels. */
 export type AnnotationResizePayload = { id: string; width: number; height: number };
 /** Rename the session/campaign (DM). */
@@ -1147,6 +1176,11 @@ export interface ClientToServerEvents {
   'annotation:clear': (payload: AnnotationClearPayload) => void;
   'annotation:move': (payload: AnnotationMovePayload) => void;
   'annotation:resize': (payload: AnnotationResizePayload) => void;
+  'mapImage:add': (payload: MapImageAddPayload) => void;
+  'mapImage:move': (payload: MapImageMovePayload) => void;
+  'mapImage:resize': (payload: MapImageResizePayload) => void;
+  'mapImage:reorder': (payload: MapImageReorderPayload) => void;
+  'mapImage:remove': (payload: MapImageRemovePayload) => void;
   'session:rename': (payload: SessionRenamePayload) => void;
   'session:importMaps': (payload: SessionImportMapsPayload) => void;
   'session:importPreview': (

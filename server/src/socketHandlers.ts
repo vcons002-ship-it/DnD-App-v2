@@ -58,6 +58,11 @@ import {
   moveAnnotation,
   removeAnnotation,
   resizeAnnotation,
+  addMapImage,
+  moveMapImage,
+  resizeMapImage,
+  reorderMapImage,
+  deleteMapImage,
   setResource,
   setItem,
   removeItem,
@@ -399,6 +404,36 @@ export function registerSocketHandlers(io: IOServer): void {
       const w = Math.max(8, Math.min(20000, Number(width) || 0));
       const h = Math.max(8, Math.min(20000, Number(height) || 0));
       resizeAnnotation(id, w, h);
+      afterChange();
+    });
+
+    // ---- Map image tiles (DM composes a larger map from several images) ----
+    const px = (v: unknown) => Math.max(-100000, Math.min(100000, Number(v) || 0));
+    const dim = (v: unknown) => Math.max(1, Math.min(40000, Number(v) || 0));
+    socket.on('mapImage:add', ({ mapId, imagePath, x, y, w, h }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || !getMap(mapId) || typeof imagePath !== 'string' || !imagePath) return;
+      addMapImage(sid, { mapId, imagePath, x: px(x), y: px(y), w: dim(w), h: dim(h) });
+      afterChange();
+    });
+    socket.on('mapImage:move', ({ id, x, y }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      moveMapImage(id, px(x), px(y));
+      afterChange();
+    });
+    socket.on('mapImage:resize', ({ id, x, y, w, h }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      resizeMapImage(id, px(x), px(y), dim(w), dim(h));
+      afterChange();
+    });
+    socket.on('mapImage:reorder', ({ id, to }) => {
+      if (!sessionId() || !isDm() || !id || (to !== 'front' && to !== 'back')) return;
+      reorderMapImage(id, to);
+      afterChange();
+    });
+    socket.on('mapImage:remove', ({ id }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      deleteMapImage(id);
       afterChange();
     });
 

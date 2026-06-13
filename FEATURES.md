@@ -226,6 +226,21 @@ The grid lines are visible at rest and **brighten** while you drag a token or us
 a measure tool, to help you line things up. Maps with no width set fall back to a
 legacy feet-per-square model, so older saves are unaffected.
 
+**Quick scale presets** — the Scale dropdown has a row of one-click map sizes
+(Room 30′ · Chamber 60′ · Hall 120′ · Cavern 240′ · Vista 480′) that set the
+whole map's real-world width. A bigger space makes the same tokens read smaller
+— that's the lever for the *feel* of scale — and you can still type an exact
+width. Zoom also goes much closer now (down to native-pixel detail on big maps).
+
+**Map tiles (multi-image maps)** — build a larger battlemap out of several image
+files. Open the **🧩 Tiles** dropdown (DM), **Add image tile** to upload one (it
+drops in butted to the right edge of the current map), then turn on **Arrange on
+map** to drag it into place and corner-drag to resize. The grid, fog, and scale
+all span the whole composite, and every tile shows for players just like the base
+map. Each tile can be sent to the front/back or removed from the Tiles list. (The
+base map sits at the origin; tiles extend it to the right/down — after building a
+big map, set its overall width with the scale presets.)
+
 **Drag distance readout** — while you drag any token, a dashed tether stretches
 from its starting spot to the token with a live **"N ft"** label (using the map's
 real-world scale), so you can see how far a move is as you make it. The readout is

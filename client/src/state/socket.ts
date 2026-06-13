@@ -147,6 +147,12 @@ type Store = {
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
   resizeAnnotation: (id: string, width: number, height: number) => void;
+  /** Map image tiles (compose a larger map from several images). */
+  addMapImage: (payload: { mapId: string; imagePath: string; x: number; y: number; w: number; h: number }) => void;
+  moveMapImage: (id: string, x: number, y: number) => void;
+  resizeMapImage: (id: string, x: number, y: number, w: number, h: number) => void;
+  reorderMapImage: (id: string, to: 'front' | 'back') => void;
+  removeMapImage: (id: string) => void;
   loadCharacterFromLibrary: (name: string, claim?: boolean) => void;
   renameSession: (name: string) => void;
   importMapsFromSession: (
@@ -504,6 +510,12 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('annotation:move', { id, x, y }),
   resizeAnnotation: (id, width, height) =>
     get().socket?.emit('annotation:resize', { id, width, height }),
+  addMapImage: (payload) => get().socket?.emit('mapImage:add', payload),
+  moveMapImage: (id, x, y) => get().socket?.emit('mapImage:move', { id, x, y }),
+  resizeMapImage: (id, x, y, w, h) =>
+    get().socket?.emit('mapImage:resize', { id, x, y, w, h }),
+  reorderMapImage: (id, to) => get().socket?.emit('mapImage:reorder', { id, to }),
+  removeMapImage: (id) => get().socket?.emit('mapImage:remove', { id }),
   loadCharacterFromLibrary: (name, claim) =>
     get().socket?.emit('character:loadFromLibrary', { name, claim }),
   renameSession: (name) => get().socket?.emit('session:rename', { name }),
