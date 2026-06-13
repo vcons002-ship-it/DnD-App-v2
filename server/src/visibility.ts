@@ -5,6 +5,7 @@ import {
   listMaps,
   listMeasurements,
   listAnnotations,
+  listMapImages,
   listMonsters,
   listMonsterTemplates,
   listRollLog,
@@ -15,6 +16,7 @@ import type {
   Annotation,
   Character,
   CombatRole,
+  MapImage,
   MapState,
   Measurement,
   Monster,
@@ -93,6 +95,7 @@ type MapData = {
   tokens: Token[];
   measurements: Measurement[];
   annotations: Annotation[];
+  mapImages: MapImage[];
 };
 
 /**
@@ -161,6 +164,7 @@ export function createSnapshotBuilder(
         })),
         measurements: listMeasurements(mapId),
         annotations: listAnnotations(mapId),
+        mapImages: listMapImages(mapId),
       };
       mapData.set(mapId, d);
     }
@@ -187,7 +191,7 @@ export function createSnapshotBuilder(
       null;
     const data: MapData = map
       ? loadMapData(map.id)
-      : { tokens: [], measurements: [], annotations: [] };
+      : { tokens: [], measurements: [], annotations: [], mapImages: [] };
 
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
@@ -240,6 +244,7 @@ export function createSnapshotBuilder(
       chat,
       measurements: data.measurements,
       annotations: data.annotations,
+      mapImages: data.mapImages,
     };
   };
 }

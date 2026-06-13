@@ -27,6 +27,7 @@ import type {
   HpFxEvent,
   InventoryItem,
   LootContents,
+  MapImage,
   MapState,
   Measurement,
   Monster,
@@ -350,6 +351,7 @@ export function deleteMap(mapId: string): void {
     if (c === 0) dropInstance.run(refId);
   }
 
+  db.prepare('DELETE FROM map_images WHERE map_id = ?').run(mapId);
   db.prepare('DELETE FROM maps WHERE id = ?').run(mapId);
 
   // Promote a replacement active map and clear the stale turn marker.
@@ -1421,6 +1423,99 @@ export function moveAnnotation(id: string, x: number, y: number): void {
 /** Resize an image decal (corner-handle drag). */
 export function resizeAnnotation(id: string, width: number, height: number): void {
   db.prepare('UPDATE annotations SET width = ?, height = ? WHERE id = ?').run(width, height, id);
+}
+
+// ---- Map image tiles (compose a larger map from several images) ----
+
+type MapImageRow = {
+  id: string;
+  map_id: string;
+  image_path: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+};
+
+const rowToMapImage = (r: MapImageRow): MapImage => ({
+  id: r.id,
+  imagePath: r.image_path,
+  x: r.x,
+  y: r.y,
+  w: r.w,
+  h: r.h,
+  z: r.z,
+});
+
+/** Tiles on a map, bottom-to-top (z ascending, then insertion order). */
+export function listMapImages(mapId: string): MapImage[] {
+  return (
+    db
+      .prepare('SELECT * FROM map_images WHERE map_id = ? ORDER BY z ASC, created_at ASC')
+      .all(mapId) as MapImageRow[]
+  ).map(rowToMapImage);
+}
+
+/** Place a new image tile on a map; it lands on top of the existing stack. */
+export function addMapImage(
+  sessionId: string,
+  input: { mapId: string; imagePath: string; x: number; y: number; w: number; h: number },
+): MapImage {
+  const id = newId();
+  const topZ =
+    (db.prepare('SELECT MAX(z) AS z FROM map_images WHERE map_id = ?').get(input.mapId) as {
+      z: number | null;
+    }).z ?? 0;
+  db.prepare(
+    `INSERT INTO map_images (id, session_id, map_id, image_path, x, y, w, h, z, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    sessionId,
+    input.mapId,
+    input.imagePath,
+    input.x,
+    input.y,
+    Math.max(1, input.w),
+    Math.max(1, input.h),
+    topZ + 1,
+    Date.now(),
+  );
+  return rowToMapImage(
+    db.prepare('SELECT * FROM map_images WHERE id = ?').get(id) as MapImageRow,
+  );
+}
+
+export function moveMapImage(id: string, x: number, y: number): void {
+  db.prepare('UPDATE map_images SET x = ?, y = ? WHERE id = ?').run(x, y, id);
+}
+
+export function resizeMapImage(id: string, x: number, y: number, w: number, h: number): void {
+  db.prepare('UPDATE map_images SET x = ?, y = ?, w = ?, h = ? WHERE id = ?').run(
+    x,
+    y,
+    Math.max(1, w),
+    Math.max(1, h),
+    id,
+  );
+}
+
+/** Send a tile to the front (above all) or back (below all) of its map's stack. */
+export function reorderMapImage(id: string, to: 'front' | 'back'): void {
+  const row = db.prepare('SELECT map_id FROM map_images WHERE id = ?').get(id) as
+    | { map_id: string }
+    | undefined;
+  if (!row) return;
+  const ext = db
+    .prepare('SELECT MIN(z) AS lo, MAX(z) AS hi FROM map_images WHERE map_id = ?')
+    .get(row.map_id) as { lo: number | null; hi: number | null };
+  const z = to === 'front' ? (ext.hi ?? 0) + 1 : (ext.lo ?? 0) - 1;
+  db.prepare('UPDATE map_images SET z = ? WHERE id = ?').run(z, id);
+}
+
+export function deleteMapImage(id: string): void {
+  db.prepare('DELETE FROM map_images WHERE id = ?').run(id);
 }
 
 /** A roll's "who" — the player's claimed character name, "DM", or "Player". */

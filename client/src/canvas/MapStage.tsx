@@ -18,6 +18,7 @@ import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
 import { ScaleMenu } from '../components/ScaleMenu';
+import { TilesMenu } from '../components/TilesMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { RollLogOverlay } from '../components/RollLogOverlay';
 import { DiceButtonOverlay } from '../components/DiceButtonOverlay';
@@ -453,9 +454,20 @@ export function MapStage({
     };
   }, []);
 
-  // Natural map dimensions (fall back to a grid-sized blank canvas).
-  const imgW = image?.naturalWidth ?? 1000;
-  const imgH = image?.naturalHeight ?? 700;
+  // Composite map dimensions. The base image sits at the origin; image tiles can
+  // extend the map in ANY direction — a tile placed left/up of the origin gives a
+  // NEGATIVE min corner. The logical map is the bounding box of the base image
+  // and every tile; the grid, fog, and scale all span this box. For a legacy
+  // single-image map the box is just (0,0)→(baseW,baseH), unchanged.
+  const tiles = snapshot.mapImages;
+  const baseW = image?.naturalWidth ?? 0;
+  const baseH = image?.naturalHeight ?? 0;
+  const extX0 = Math.min(0, ...tiles.map((t) => t.x));
+  const extY0 = Math.min(0, ...tiles.map((t) => t.y));
+  const extX1 = Math.max(baseW, ...tiles.map((t) => t.x + t.w));
+  const extY1 = Math.max(baseH, ...tiles.map((t) => t.y + t.h));
+  const imgW = extX1 - extX0 || 1000;
+  const imgH = extY1 - extY0 || 700;
   const grid = map?.gridSizePx ?? 50;
 
   // ---- Fog of war (two independent layers: map fog + token fog) ----
@@ -486,6 +498,13 @@ export function MapStage({
   const clearAnnotations = useStore((s) => s.clearAnnotations);
   const moveAnnotation = useStore((s) => s.moveAnnotation);
   const resizeAnnotation = useStore((s) => s.resizeAnnotation);
+  const addMapImage = useStore((s) => s.addMapImage);
+  const moveMapImage = useStore((s) => s.moveMapImage);
+  const resizeMapImage = useStore((s) => s.resizeMapImage);
+  const reorderMapImage = useStore((s) => s.reorderMapImage);
+  const removeMapImage = useStore((s) => s.removeMapImage);
+  // Tile-arrange mode: tiles become draggable/resizable on the map.
+  const [tilesMode, setTilesMode] = useState(false);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -494,8 +513,12 @@ export function MapStage({
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
   const [paintLayer, setPaintLayer] = useState<FogLayer>('map');
   const [brushSize, setBrushSize] = useState(1); // cells per side (1,3,5)
-  const cols = Math.max(1, Math.ceil(imgW / grid));
-  const rows = Math.max(1, Math.ceil(imgH / grid));
+  // Fog cell index range over the composite box (may be negative when tiles
+  // extend left/up). Cells are keyed "col,row" = floor(x/grid),floor(y/grid).
+  const colMin = Math.floor(extX0 / grid);
+  const colMax = Math.ceil(extX1 / grid);
+  const rowMin = Math.floor(extY0 / grid);
+  const rowMax = Math.ceil(extY1 / grid);
   const mapFogEnabled = map?.mapFogEnabled ?? false;
   const tokenFogEnabled = map?.tokenFogEnabled ?? false;
   const mapRevealed = useMemo(
@@ -511,12 +534,17 @@ export function MapStage({
   const strokeRef = useRef<Set<string>>(new Set());
 
   // ---- Map scale ----------------------------------------------------------
-  // Feet-per-pixel is the single source of truth for distances. When the DM has
-  // set a real map width it is exact (width / image width); otherwise we fall
-  // back to the legacy feet-per-square model so old saves are unchanged.
+  // Scale is GRID-BASED: feet-per-pixel = feet-per-square ÷ pixels-per-square,
+  // which is FIXED by the grid. So composing a map from tiles — adding one or
+  // resizing one — only changes how many squares the map spans; it never
+  // rescales the existing map or its distances. The map's total width in feet is
+  // therefore a derived read-out (extent × feet-per-pixel), computed below.
+  // (A map with no usable grid scale falls back to its stored width ÷ base image
+  // width, then to a 5 ft / 50 px default — keeping old saves unchanged.)
   const feetPerSquare = map?.feetPerSquare ?? 5;
   const mapWidthFt = map?.mapWidthFt ?? 0;
-  const fpp = mapWidthFt > 0 && imgW ? mapWidthFt / imgW : feetPerSquare / grid;
+  const gridFpp = grid > 0 && feetPerSquare > 0 ? feetPerSquare / grid : 0;
+  const fpp = gridFpp || (mapWidthFt > 0 && baseW ? mapWidthFt / baseW : 0.1);
   // Pixels per foot — tokens are sized by their real width in feet, so they keep
   // their footprint when only the visual grid cell changes.
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
@@ -620,28 +648,28 @@ export function MapStage({
   // grid cell is purely visual; the map width (ft) drives the scale, prefilled
   // from the current implied width so legacy maps show their existing scale.
   const [gridPx, setGridPx] = useState(grid);
+  // The map's total width in feet is DERIVED from the scale + the composite
+  // extent (so it grows as you add tiles, while the scale itself stays fixed).
   const [widthFt, setWidthFt] = useState(0);
   useEffect(() => setGridPx(grid), [grid]);
-  useEffect(
-    () => setWidthFt(mapWidthFt > 0 ? mapWidthFt : Math.round(fpp * imgW)),
-    [mapWidthFt, fpp, imgW],
-  );
-  // Persist a scale: width (ft) is the source of truth; feet-per-square is kept
-  // in sync as the derived read-out / legacy fallback.
+  useEffect(() => setWidthFt(Math.round(fpp * imgW)), [fpp, imgW]);
+  // Set the scale from a dragged reference line ("this line is X ft"): that fixes
+  // feet-per-pixel; store it as the grid's feet-per-square (× the px cell). The
+  // stored width is just the implied read-out for the CURRENT extent.
   const commitScale = (px: number, ftWide: number) => {
     if (!map || !imgW || ftWide <= 0) return;
-    const derivedFps = Math.max(1, Math.round((ftWide / imgW) * px));
-    setMapGrid(map.id, px, derivedFps, ftWide);
+    const fps = (ftWide / imgW) * px; // exact float → grid-based fpp is precise
+    setMapGrid(map.id, px, fps, Math.round(ftWide));
   };
-  // The DM sets the grid in FEET per square; the pixel cell is derived from the
-  // map scale (width in feet ÷ image width), so a square always means real feet.
+  // The DM sets the grid in FEET per square (the scale's source of truth); the
+  // pixel cell is derived so the typed map width holds for the current extent.
   const commitScaleFeet = (ftPerSquare: number, ftWide: number) => {
     if (!map || !imgW || ftWide <= 0 || ftPerSquare <= 0) return;
     const px = Math.max(1, Math.round((ftPerSquare * imgW) / ftWide));
     setGridPx(px);
-    setMapGrid(map.id, px, Math.max(1, Math.round(ftPerSquare)), ftWide);
+    setMapGrid(map.id, px, ftPerSquare, Math.round(ftWide));
   };
-  const derivedFtPerSquare = imgW ? (widthFt / imgW) * gridPx : feetPerSquare;
+  const derivedFtPerSquare = feetPerSquare;
 
   // Confirm the reference-line prompt: its real length sets the map width.
   const applyScaleFromLine = () => {
@@ -677,8 +705,13 @@ export function MapStage({
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
     const s = Math.min(size.w / imgW, size.h / imgH) || 1;
-    return { scale: s, x: (size.w - imgW * s) / 2, y: (size.h - imgH * s) / 2 };
-  }, [size, imgW, imgH]);
+    // Centre the composite box, shifting by its (possibly negative) min corner.
+    return {
+      scale: s,
+      x: (size.w - imgW * s) / 2 - extX0 * s,
+      y: (size.h - imgH * s) / 2 - extY0 * s,
+    };
+  }, [size, imgW, imgH, extX0, extY0]);
 
   const [view, setView] = useState<View>(fit);
   const userAdjusted = useRef(false);
@@ -717,10 +750,14 @@ export function MapStage({
     if (gridHidden) return lines;
     const ox = (((map?.gridOffsetX ?? 0) % grid) + grid) % grid;
     const oy = (((map?.gridOffsetY ?? 0) % grid) + grid) % grid;
-    for (let x = ox; x <= imgW; x += grid) lines.push([x, 0, x, imgH]);
-    for (let y = oy; y <= imgH; y += grid) lines.push([0, y, imgW, y]);
+    // Span the whole composite box (start at the first grid-aligned line at/before
+    // its left/top edge), so the grid is continuous across tiles in any direction.
+    const startX = Math.floor((extX0 - ox) / grid) * grid + ox;
+    const startY = Math.floor((extY0 - oy) / grid) * grid + oy;
+    for (let x = startX; x <= extX1; x += grid) lines.push([x, extY0, x, extY1]);
+    for (let y = startY; y <= extY1; y += grid) lines.push([extX0, y, extX1, y]);
     return lines;
-  }, [imgW, imgH, grid, gridHidden, map?.gridOffsetX, map?.gridOffsetY]);
+  }, [extX0, extY0, extX1, extY1, grid, gridHidden, map?.gridOffsetX, map?.gridOffsetY]);
 
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
@@ -761,7 +798,7 @@ export function MapStage({
       for (let dr = -half; dr <= half; dr++) {
         const c = cc + dc;
         const r = cr + dr;
-        if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
+        if (c < colMin || r < rowMin || c >= colMax || r >= rowMax) continue;
         const key = `${c},${r}`;
         if (strokeRef.current.has(key)) continue;
         strokeRef.current.add(key);
@@ -988,9 +1025,12 @@ export function MapStage({
         if (size >= 8) {
           const ox = dx >= 0 ? scaleLine.origin.x : scaleLine.origin.x - size;
           const oy = dy >= 0 ? scaleLine.origin.y : scaleLine.origin.y - size;
-          const fps = imgW && widthFt > 0 ? Math.max(1, Math.round((widthFt / imgW) * size)) : feetPerSquare;
+          // The dragged box IS one grid square: keep its feet-per-square and set
+          // the px cell to the box, so a square = that printed square. The width
+          // read-out follows from the new grid scale × the current extent.
+          const newWidth = Math.round((feetPerSquare / size) * imgW);
           setGridPx(size);
-          setMapGrid(map.id, size, fps, widthFt, {
+          setMapGrid(map.id, size, feetPerSquare, newWidth, {
             offsetX: ox,
             offsetY: oy,
             locked: true,
@@ -1036,8 +1076,8 @@ export function MapStage({
 
   const allCells = (): string[] => {
     const all: string[] = [];
-    for (let c = 0; c < cols; c++)
-      for (let r = 0; r < rows; r++) all.push(`${c},${r}`);
+    for (let c = colMin; c < colMax; c++)
+      for (let r = rowMin; r < rowMax; r++) all.push(`${c},${r}`);
     return all;
   };
   const revealAll = (layer: FogLayer) => {
@@ -1064,7 +1104,11 @@ export function MapStage({
   // the wheel, the +/− buttons (center) and two-finger pinch (the midpoint).
   const zoomAtPoint = (factor: number, px: number, py: number) => {
     setView((v) => {
-      const newScale = clamp(v.scale * factor, fit.scale * 0.25, fit.scale * 12);
+      // Max zoom: generous relative to fit, but ALSO a floor over native (1:1)
+      // pixels so you can get right in close even on a big high-res map (where
+      // fit.scale is tiny) — for the "feel of scale" of a vast space.
+      const maxScale = Math.max(fit.scale * 20, 6);
+      const newScale = clamp(v.scale * factor, fit.scale * 0.25, maxScale);
       const mx = (px - v.x) / v.scale;
       const my = (py - v.y) / v.scale;
       userAdjusted.current = true;
@@ -1093,6 +1137,34 @@ export function MapStage({
       cx: (a.clientX + b.clientX) / 2 - ox,
       cy: (a.clientY + b.clientY) / 2 - oy,
     };
+  };
+
+  // Upload an image file and place it as a new map tile, butted up to the right
+  // edge of the current map so it naturally extends the battlemap. Scaled down
+  // if huge so it isn't unwieldy. Enters arrange mode so it can be nudged.
+  const addTileFromFile = async (file: File) => {
+    if (!map) return;
+    const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
+      im.onerror = reject;
+      im.src = URL.createObjectURL(file);
+    }).catch(() => null);
+    if (!dims) return;
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await fetch('/api/icons', { method: 'POST', body: fd }).catch(() => null);
+    if (!res || !res.ok) return;
+    const { icon } = (await res.json()) as { icon: string };
+    // Clamp a giant upload so it's not many times the existing map.
+    const cap = Math.max(imgW, 2000);
+    const sc = dims.w > cap ? cap / dims.w : 1;
+    const w = dims.w * sc;
+    const h = dims.h * sc;
+    // Land it butted to the current right edge (the DM then drags it anywhere).
+    // The scale is grid-based, so this just ADDS area — no rescale needed.
+    addMapImage({ mapId: map.id, imagePath: icon, x: extX1, y: extY0, w, h });
+    setTilesMode(true);
   };
 
   // Pan by dragging empty canvas (disabled while placing or painting fog).
@@ -1298,6 +1370,14 @@ export function MapStage({
                       onCoverAll={() => map && coverFog(map.id, paintLayer)}
                       onRevealAll={() => revealAll(paintLayer)}
                     />
+                    <TilesMenu
+                      tiles={tiles}
+                      arranging={tilesMode}
+                      onToggleArrange={() => setTilesMode((t) => !t)}
+                      onAddFile={addTileFromFile}
+                      onReorder={reorderMapImage}
+                      onRemove={removeMapImage}
+                    />
                   </>
                 )}
               </div>,
@@ -1328,9 +1408,25 @@ export function MapStage({
               draggable={panning}
               onDragEnd={handleLayerDragEnd}
             >
-              {image ? (
-                <KonvaImage image={image} width={imgW} height={imgH} />
-              ) : (
+              {/* Base image at the origin, at its own natural size. */}
+              {image && <KonvaImage image={image} width={baseW} height={baseH} />}
+              {/* Extra image tiles (bottom-to-top by z). DM drags/resizes them in
+                  arrange mode; otherwise they're inert map background. */}
+              {tiles.map((t) => (
+                <DecalImage
+                  key={t.id}
+                  url={t.imagePath}
+                  x={t.x}
+                  y={t.y}
+                  width={t.w}
+                  height={t.h}
+                  draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
+                  handleSize={12 / view.scale}
+                  onMove={(x, y) => moveMapImage(t.id, x, y)}
+                  onResize={(w, h) => resizeMapImage(t.id, t.x, t.y, w, h)}
+                />
+              ))}
+              {!image && tiles.length === 0 && (
                 <Rect width={imgW} height={imgH} fill="#2a2f3a" />
               )}
               {gridLines.map((pts, i) => (
@@ -1357,8 +1453,8 @@ export function MapStage({
                     // grid never bleeds through sub-pixel seams. (No overlap for
                     // the DM's translucent wash — it would darken at seams.)
                     const pad = isDm ? 0 : 1;
-                    for (let c = 0; c < cols; c++) {
-                      for (let r = 0; r < rows; r++) {
+                    for (let c = colMin; c < colMax; c++) {
+                      for (let r = rowMin; r < rowMax; r++) {
                         if (!mapRevealed.has(`${c},${r}`)) {
                           ctx.fillRect(
                             c * grid - pad,
@@ -1380,8 +1476,8 @@ export function MapStage({
                   opacity={0.35}
                   sceneFunc={(ctx: Konva.Context) => {
                     ctx.fillStyle = '#7a3df0';
-                    for (let c = 0; c < cols; c++) {
-                      for (let r = 0; r < rows; r++) {
+                    for (let c = colMin; c < colMax; c++) {
+                      for (let r = rowMin; r < rowMax; r++) {
                         if (!tokenRevealed.has(`${c},${r}`)) {
                           ctx.fillRect(c * grid, r * grid, grid, grid);
                         }
