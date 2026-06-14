@@ -758,6 +758,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   mark and clearing when the stance ends.
 - ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
   snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
+- ☑ **Chat speech bubbles over PC tokens.** A player's typing pops a transient
+  "•••" bubble over their claimed PC token for the OTHERS in the session
+  (`chat:typing` → ephemeral `fx:typing`, throttled, idle-cleared), and sending a
+  message floats the words over the token for everyone, sender included
+  (`fx:say`). Both are server-fanned ephemeral FX (no DB/snapshot), keyed to the
+  speaker's `claimed_by` character (`getClaimedCharacterId`), rendered by a Konva
+  `SpeechBubbles` layer (auto-measured rounded bubble + downward tail) that
+  auto-expires; the say bubble supersedes any lingering typing bubble.
 - ☑ **Map annotation layer.** Freehand pen + text labels drawn on the active map
   (`annotations` table → snapshot, `annotation:add/remove/clear`), shared and
   persistent, with colour swatches and Clear mine/all (players clear only theirs).

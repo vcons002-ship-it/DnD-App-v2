@@ -1232,6 +1232,9 @@ export interface ClientToServerEvents {
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
   'chat:send': (payload: { text: string }) => void;
+  /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
+   *  — the server pops a typing bubble over their claimed PC token for others. */
+  'chat:typing': (payload: { typing: boolean }) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
@@ -1287,4 +1290,10 @@ export interface ServerToClientEvents {
    *  the token at `x,y` (not hidden, not under fog, same map). Auto-expires
    *  client-side shortly after the updates stop (covers release + disconnect). */
   'fx:tokenDrag': (payload: { tokenId: string; x: number; y: number }) => void;
+  /** A player's PC (by character `refId`) started/stopped typing in chat — show
+   *  a typing bubble over their token. Ephemeral; auto-expires client-side. */
+  'fx:typing': (payload: { refId: string; typing: boolean }) => void;
+  /** A player sent a chat message — pop their words in a speech bubble over their
+   *  PC token (`refId` = character id) for a few seconds. Ephemeral. */
+  'fx:say': (payload: { refId: string; text: string }) => void;
 }

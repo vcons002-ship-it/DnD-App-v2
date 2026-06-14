@@ -15,6 +15,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const rollDice = useStore((s) => s.rollDice);
   const clearRollLog = useStore((s) => s.clearRollLog);
   const sendChat = useStore((s) => s.sendChat);
+  const chatTyping = useStore((s) => s.chatTyping);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
@@ -60,7 +61,31 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
       advantage: consumeAdvantage(advKey),
     });
 
+  // Typing indicator: emit `true` at most once until we've gone idle, and clear
+  // it on send/blur/idle. A "/roll" command isn't speech, so it never types.
+  const typingRef = useRef(false);
+  const idleRef = useRef<ReturnType<typeof setTimeout>>();
+  const setTyping = (on: boolean) => {
+    if (typingRef.current === on) return;
+    typingRef.current = on;
+    chatTyping(on);
+  };
+  useEffect(() => () => setTyping(false), []); // stop typing on unmount
+  const onType = (text: string) => {
+    setChatText(text);
+    const speaking = text.trim().length > 0 && !text.trim().startsWith('/');
+    if (idleRef.current) clearTimeout(idleRef.current);
+    if (speaking) {
+      setTyping(true);
+      idleRef.current = setTimeout(() => setTyping(false), 3000);
+    } else {
+      setTyping(false);
+    }
+  };
+
   const send = () => {
+    if (idleRef.current) clearTimeout(idleRef.current);
+    setTyping(false);
     const body = chatText.trim();
     if (!body) return;
     sendChat(body);
@@ -203,8 +228,9 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           title="Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice"
           value={chatText}
           maxLength={2000}
-          onChange={(e) => setChatText(e.target.value)}
+          onChange={(e) => onType(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
+          onBlur={() => setTyping(false)}
         />
         <button className="btn tiny" disabled={!chatText.trim()} onClick={send}>
           Send

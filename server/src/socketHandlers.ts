@@ -22,6 +22,8 @@ import {
 import {
   broadcastSnapshots,
   broadcastTokenDrag,
+  broadcastTyping,
+  broadcastSay,
   dropConn,
   getConn,
   isConnected,
@@ -114,6 +116,7 @@ import {
   setCombatRound,
   setHideDmRolls,
   rollerName,
+  getClaimedCharacterId,
   addChatMessage,
   setActiveMap,
   setActiveTurn,
@@ -975,7 +978,21 @@ export function registerSocketHandlers(io: IOServer): void {
         return;
       }
       addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
+      // Pop the words in a speech bubble over the speaker's PC token (players
+      // with a claimed character only; the DM has no token).
+      if (!isDm()) {
+        const refId = getClaimedCharacterId(sid, socket.id);
+        if (refId) broadcastSay(io, sid, refId, body.slice(0, 240));
+      }
       afterChange();
+    });
+
+    // Ephemeral "I'm typing" ping → a typing bubble over the player's PC token.
+    socket.on('chat:typing', ({ typing }) => {
+      const sid = sessionId();
+      if (!sid || isDm()) return; // DMs have no PC token to bubble over
+      const refId = getClaimedCharacterId(sid, socket.id);
+      if (refId) broadcastTyping(io, sid, socket.id, refId, !!typing);
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's

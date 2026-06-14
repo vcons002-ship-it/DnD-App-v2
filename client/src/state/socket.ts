@@ -45,6 +45,10 @@ export type HpFloater = HpFxEvent & { id: number };
 let nextFloaterId = 1;
 /** Per-token expiry timers for live drag ghosts (cleared/rearmed each update). */
 const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Per-character expiry timers for chat typing indicators / spoken bubbles. */
+const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const sayTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let nextSayId = 1;
 
 type Store = {
   socket: TypedSocket | null;
@@ -73,6 +77,14 @@ type Store = {
   dragGhosts: Record<string, { x: number; y: number }>;
   /** Emit my own in-progress drag position (throttled by the caller). */
   dragToken: (tokenId: string, x: number, y: number) => void;
+  /** Character refIds whose player is currently typing in chat (server
+   *  'fx:typing'); drives a "•••" bubble over their PC token. Auto-expires. */
+  typingChars: Record<string, true>;
+  /** Spoken chat lines over a PC token (server 'fx:say'), keyed by character
+   *  refId; each auto-expires a few seconds after arriving. */
+  sayBubbles: Record<string, { text: string; id: number }>;
+  /** Tell the server I started/stopped typing in chat (throttled by caller). */
+  chatTyping: (typing: boolean) => void;
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
   showRollOverlay: boolean;
   toggleRollOverlay: () => void;
@@ -320,6 +332,9 @@ export const useStore = create<Store>((set, get) => ({
   hurtFx: null,
   dragGhosts: {},
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
+  typingChars: {},
+  sayBubbles: {},
+  chatTyping: (typing) => get().socket?.emit('chat:typing', { typing }),
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
@@ -437,6 +452,62 @@ export const useStore = create<Store>((set, get) => ({
             return { dragGhosts: next };
           });
         }, 320),
+      );
+    });
+    // A teammate is typing in chat → show/hide the "•••" bubble over their PC.
+    // Re-arm a safety expiry so a dropped "stopped typing" can't leave it stuck.
+    socket.on('fx:typing', ({ refId, typing }) => {
+      const prev = typingTimers.get(refId);
+      if (prev) clearTimeout(prev);
+      if (!typing) {
+        typingTimers.delete(refId);
+        set((st) => {
+          if (!(refId in st.typingChars)) return {};
+          const next = { ...st.typingChars };
+          delete next[refId];
+          return { typingChars: next };
+        });
+        return;
+      }
+      set((st) => ({ typingChars: { ...st.typingChars, [refId]: true } }));
+      typingTimers.set(
+        refId,
+        setTimeout(() => {
+          typingTimers.delete(refId);
+          set((st) => {
+            if (!(refId in st.typingChars)) return {};
+            const next = { ...st.typingChars };
+            delete next[refId];
+            return { typingChars: next };
+          });
+        }, 6000),
+      );
+    });
+    // A teammate sent a chat line → float their words over their PC and clear
+    // any lingering typing bubble; the say bubble auto-expires after a few sec.
+    socket.on('fx:say', ({ refId, text }) => {
+      const typePrev = typingTimers.get(refId);
+      if (typePrev) clearTimeout(typePrev);
+      typingTimers.delete(refId);
+      const sayId = nextSayId++;
+      set((st) => {
+        const typingChars = { ...st.typingChars };
+        delete typingChars[refId];
+        return { typingChars, sayBubbles: { ...st.sayBubbles, [refId]: { text, id: sayId } } };
+      });
+      const prev = sayTimers.get(refId);
+      if (prev) clearTimeout(prev);
+      sayTimers.set(
+        refId,
+        setTimeout(() => {
+          sayTimers.delete(refId);
+          set((st) => {
+            if (st.sayBubbles[refId]?.id !== sayId) return {};
+            const next = { ...st.sayBubbles };
+            delete next[refId];
+            return { sayBubbles: next };
+          });
+        }, 6000),
       );
     });
     socket.on('error', (err) => set({ error: err.message }));
