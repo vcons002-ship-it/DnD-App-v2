@@ -67,7 +67,13 @@ export async function listOllamaModels(): Promise<string[]> {
 export async function ollamaChat(
   system: string,
   user: string,
-  opts: { json?: boolean; model?: string; signal?: AbortSignal; timeoutMs?: number } = {},
+  opts: {
+    json?: boolean;
+    model?: string;
+    signal?: AbortSignal;
+    timeoutMs?: number;
+    temperature?: number;
+  } = {},
 ): Promise<string | null> {
   const model = opts.model?.trim() || config.ollamaModel;
   if (!config.ollamaUrl || !model) return null;
@@ -83,7 +89,12 @@ export async function ollamaChat(
         model,
         stream: false,
         ...(opts.json ? { format: 'json' } : {}),
-        options: { temperature: opts.json ? 0 : 0.2 },
+        options: {
+          temperature: opts.temperature ?? (opts.json ? 0 : 0.2),
+          // Enlarge the context window so the grounding excerpts aren't truncated
+          // (a too-small window is a top cause of "hallucinated" rules).
+          num_ctx: config.ollamaNumCtx,
+        },
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },

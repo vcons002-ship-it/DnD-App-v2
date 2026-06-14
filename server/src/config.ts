@@ -26,6 +26,9 @@ export const config = {
   ollamaUrl: (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, ''),
   /** Default Ollama model (must be pulled locally; the chat can pick another). */
   ollamaModel: process.env.OLLAMA_MODEL || 'llama3.1',
+  /** Ollama context window (tokens). The default is small and would truncate the
+   *  grounding context (→ hallucination); 8k comfortably fits the rules excerpts. */
+  ollamaNumCtx: Number(process.env.OLLAMA_NUM_CTX) || 8192,
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */

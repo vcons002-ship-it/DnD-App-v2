@@ -5,7 +5,15 @@ import { generateText, type GenOpts } from '../ai/gateway.js';
 export { rulebookInfo, setRulebookFromPdf, clearRulebook } from './rulebook.js';
 export { assistantConfigured } from './llm.js';
 
-const SYSTEM = `You are a Dungeons & Dragons 5e (2024 rules) assistant helping the Dungeon Master adjudicate rules at the table. Answer the DM's question using ONLY the rules context provided. Be concise and practical — give the ruling first, then a brief why, and cite the relevant numbers (DCs, distances, bonuses). If the context doesn't cover the question, say so plainly and suggest where to look rather than inventing a rule. When the context includes excerpts from the DM's uploaded rulebook, treat those as AUTHORITATIVE and prefer them over the generic SRD digest if they disagree.`;
+const SYSTEM = `You are a Dungeons & Dragons 5e (2024 rules) assistant helping the Dungeon Master adjudicate rules at the table.
+
+GROUND EVERY RULING IN THE RULES CONTEXT BELOW. Do not invent or guess specific rules, numbers, DCs, ranges, durations, or mechanics that the context does not support. If a precise rule isn't in the context, say so plainly (e.g. "The provided rules don't spell this out") instead of fabricating one — accuracy matters more than completeness.
+
+You MAY reason and interpret. When a situation isn't covered verbatim, apply the closest applicable rules and general 5e principles to suggest a fair ruling — but clearly SEPARATE the two: state what the rules actually say first, then label any judgment call as interpretation (e.g. "Rules as written: … — Interpretation: …"). Never present an interpretation as if it were printed text.
+
+When the context includes excerpts from the DM's uploaded rulebook, treat those as AUTHORITATIVE and prefer them over the generic SRD digest on any conflict.
+
+Be concise and practical: give the ruling first, then a brief why, citing the relevant numbers.`;
 
 /**
  * Answer a DM rules question, grounded in the retrieval corpus (uploaded
@@ -19,7 +27,8 @@ export async function answerRules(
   const q = question.trim().slice(0, 1000);
   if (!q) return { answer: null, pages: [] };
 
-  const chunks = retrieve(q, 6);
+  // Pull a generous slice of grounding (the enlarged context window fits it).
+  const chunks = retrieve(q, 10);
   const hasBook = !!getRulebook();
   // Pages of the uploaded-rulebook chunks that informed this answer (for citing).
   const pages = [
@@ -47,6 +56,7 @@ export async function answerRules(
     `Rules context${hasBook ? ' (the DM uploaded a rulebook — its excerpts win on conflict)' : ''}:\n\n` +
     `${context}\n\n---\nDM question: ${q}\n\nAnswer:`;
 
-  const answer = await generateText(SYSTEM, user, backend);
+  // Low temperature → grounded, deterministic rulings (less drift/hallucination).
+  const answer = await generateText(SYSTEM, user, { temperature: 0.1, ...backend });
   return { answer, pages };
 }

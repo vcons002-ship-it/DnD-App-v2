@@ -91,6 +91,24 @@ describe('AI gateway — backend selection', () => {
     expect(aiAvailable()).toBe(false); // local mode needs Ollama reachable
   });
 
+  it('sends a large context window + the requested temperature to Ollama', async () => {
+    config.geminiApiKey = '';
+    let body: Record<string, unknown> = {};
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL, init?: RequestInit) => {
+        if (String(url).endsWith('/api/tags')) return new Response('{"models":[]}', { status: 200 });
+        body = JSON.parse(String(init?.body ?? '{}'));
+        return new Response(JSON.stringify({ message: { content: 'ok' } }), { status: 200 });
+      }),
+    );
+    await generateText('sys', 'user', { prefer: 'local', temperature: 0.1 });
+    const options = body.options as { num_ctx?: number; temperature?: number };
+    expect(options.num_ctx).toBe(config.ollamaNumCtx);
+    expect(config.ollamaNumCtx).toBeGreaterThanOrEqual(8192);
+    expect(options.temperature).toBe(0.1);
+  });
+
   it('fails safe to null when nothing is usable', async () => {
     config.geminiApiKey = '';
     config.aiMode = 'gemini';

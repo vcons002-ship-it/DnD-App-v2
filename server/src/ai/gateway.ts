@@ -29,6 +29,8 @@ export type GenOpts = {
   signal?: AbortSignal;
   /** Override the local-model safety timeout (the assistant runs long). */
   timeoutMs?: number;
+  /** Sampling temperature (the assistant runs low for grounded, factual answers). */
+  temperature?: number;
 };
 
 const JSON_SYSTEM =
@@ -57,7 +59,12 @@ export async function generateText(
   opts: GenOpts = {},
 ): Promise<string | null> {
   const prefer = effectivePrefer(opts.prefer);
-  const chat = { model: opts.ollamaModel, signal: opts.signal, timeoutMs: opts.timeoutMs };
+  const chat = {
+    model: opts.ollamaModel,
+    signal: opts.signal,
+    timeoutMs: opts.timeoutMs,
+    temperature: opts.temperature,
+  };
   if (prefer === 'local') {
     return ollamaChat(system, user, chat);
   }

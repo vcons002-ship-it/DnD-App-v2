@@ -788,6 +788,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   don't time out, and the handler `await`s without blocking — **other chat keeps
   flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
   stale answer.
+- ☑ **Grounded answers + large context window.** The assistant system prompt
+  forbids inventing rules/numbers not in the retrieved context (say "not covered"
+  instead), while explicitly allowing **labeled interpretation** ("Rules as
+  written: … — Interpretation: …"). Runs at low temperature (0.1) over a generous
+  10-chunk grounding slice, and sets Ollama's **`num_ctx`** (`config.ollamaNumCtx`,
+  default 8192) so the excerpts aren't truncated — a too-small window is a top
+  cause of hallucinated rules.
 - ☑ **Rulebook reader + page citations.** PDF chunks now record their **page
   range** (`chunkRulebookPages`), so an assistant answer cites the rulebook
   **pages it drew on** (stored on the `ChatMessage.pages`, rendered as clickable
