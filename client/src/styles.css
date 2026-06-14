@@ -961,6 +961,8 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .chat-msg.player .chat-sender { color: var(--chat-player); }
 .chat-input { display: flex; gap: 6px; padding: 6px 0 2px; }
 .chat-input input { flex: 1; }
+.ai-backend-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 0; font-size: 0.82em; }
+.ai-backend-row select { flex: 1; min-width: 0; }
 
 /* Death saves (shown when a PC hits 0 HP) */
 .death-saves {

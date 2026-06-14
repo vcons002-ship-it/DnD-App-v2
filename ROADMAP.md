@@ -766,14 +766,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   speaker's `claimed_by` character (`getClaimedCharacterId`), rendered by a Konva
   `SpeechBubbles` layer (auto-measured rounded bubble + downward tail) that
   auto-expires; the say bubble supersedes any lingering typing bubble.
-- ☑ **App-wide AI gateway (local Ollama + Gemini).** `server/src/ai/` is the ONE
-  chokepoint every AI feature routes through: `ollama.ts` (local HTTP client +
-  health probe) and `gateway.ts` with `generateText` (prose) + `generateJson`
-  (structured, fence-stripped). Both prefer a **local Ollama** model and fall
-  back to **Gemini**, fail-safe to null. Creature/character/item/spell generation
-  now run **locally too** (their guards use `aiAvailable()` = Ollama reachable OR
-  a Gemini key; `/api/*` `aiAvailable` flags + the boot/settings health probe
-  reflect it). Ollama URL/model are editable in Settings.
+- ☑ **App-wide AI gateway (Gemini default + local Ollama).** `server/src/ai/` is
+  the ONE chokepoint every AI feature routes through: `ollama.ts` (local HTTP
+  client + health probe + model list) and `gateway.ts` with `generateText`
+  (prose) + `generateJson` (structured, fence-stripped). Backend selection is
+  centralized: a global `aiMode` (Settings) — **`gemini`** (best quality, local
+  fallback) is the **default**, **`local`** is a lockdown that forces Ollama with
+  no cloud calls. A per-call `prefer` overrides the default unless the lockdown
+  is on. Creature/character/item/spell generation use the default; their guards +
+  `/api/*` `aiAvailable` flags respect `aiMode` (in `local`, available only when
+  Ollama is reachable). `callGemini` gained a JSON opt-out (`callGeminiText`).
+- ☑ **Chat AI-backend dropdown.** The DM's `/ask` chat has a quick dropdown
+  (`GET /api/ai/models` → locally-pulled Ollama models + Gemini when keyed),
+  **defaulting to a local model**, persisted per browser; the choice rides the
+  `assistant:ask` payload (`backend: { prefer, ollamaModel }`) so each question
+  can pick its model — overriding the global default (but not the lockdown).
 - ☑ **DM rules-assistant chatbot.** The DM types `/ask` (or `/rule`/`/rules`)
   `<question>` in chat to query a grounded 5e (2024) rules assistant
   (`assistant:ask` → `answerRules`) via the AI gateway above. Grounding corpus

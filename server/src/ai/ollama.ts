@@ -37,6 +37,28 @@ export async function refreshOllama(): Promise<boolean> {
   return reachable;
 }
 
+/** The locally-pulled model names (for the chat's backend dropdown). [] if down. */
+export async function listOllamaModels(): Promise<string[]> {
+  if (!config.ollamaUrl) return [];
+  try {
+    const res = await fetch(`${config.ollamaUrl}/api/tags`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!res.ok) {
+      reachable = false;
+      return [];
+    }
+    reachable = true;
+    const data = (await res.json()) as { models?: { name?: string }[] };
+    return (data.models ?? [])
+      .map((m) => m.name)
+      .filter((n): n is string => !!n);
+  } catch {
+    reachable = false;
+    return [];
+  }
+}
+
 /**
  * One chat completion. `json:true` asks Ollama to emit strict JSON (and nudges
  * the model via the system prompt). Returns the assistant text, or null on any
@@ -45,15 +67,16 @@ export async function refreshOllama(): Promise<boolean> {
 export async function ollamaChat(
   system: string,
   user: string,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; model?: string } = {},
 ): Promise<string | null> {
-  if (!ollamaConfigured()) return null;
+  const model = opts.model?.trim() || config.ollamaModel;
+  if (!config.ollamaUrl || !model) return null;
   try {
     const res = await fetch(`${config.ollamaUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: config.ollamaModel,
+        model,
         stream: false,
         ...(opts.json ? { format: 'json' } : {}),
         options: { temperature: opts.json ? 0 : 0.2 },
@@ -66,7 +89,7 @@ export async function ollamaChat(
       signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
-      console.warn(`  [ollama] HTTP ${res.status} from ${config.ollamaModel}`);
+      console.warn(`  [ollama] HTTP ${res.status} from ${model}`);
       reachable = false;
       return null;
     }

@@ -1238,8 +1238,13 @@ export interface ClientToServerEvents {
    *  — the server pops a typing bubble over their claimed PC token for others. */
   'chat:typing': (payload: { typing: boolean }) => void;
   /** DM-only: ask the rules assistant (SRD + uploaded rulebook). The Q&A is
-   *  posted as DM-only chat messages and answered by a local/remote LLM. */
-  'assistant:ask': (payload: { question: string }) => void;
+   *  posted as DM-only chat messages and answered by a local/remote LLM. The
+   *  optional `backend` is the chat dropdown's choice ('local' + a specific
+   *  Ollama model, or 'gemini'); omitted = the server default. */
+  'assistant:ask': (payload: {
+    question: string;
+    backend?: { prefer?: 'gemini' | 'local'; ollamaModel?: string };
+  }) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;

@@ -24,8 +24,12 @@ export const config = {
   geminiModel: process.env.GEMINI_MODEL || '',
   /** Local Ollama HTTP server base URL (the rules assistant tries this first). */
   ollamaUrl: (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, ''),
-  /** Ollama model name for the rules assistant (must be pulled locally). */
+  /** Default Ollama model (must be pulled locally; the chat can pick another). */
   ollamaModel: process.env.OLLAMA_MODEL || 'llama3.1',
+  /** Default AI backend for generation features: 'gemini' (best quality, local
+   *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
+   *  per-question backend; 'local' here is a global lockdown that wins. */
+  aiMode: (process.env.AI_MODE === 'local' ? 'local' : 'gemini') as 'gemini' | 'local',
   /** Absolute paths to local storage (created on boot). */
   dataDir: path.join(serverRoot, 'data'),
   uploadsDir: path.join(serverRoot, 'uploads'),

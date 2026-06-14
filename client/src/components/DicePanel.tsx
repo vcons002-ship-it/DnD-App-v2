@@ -36,6 +36,51 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [chatText, setChatText] = useState('');
+  // The DM's quick AI-backend choice for /ask: 'gemini' or 'local:<model>'.
+  // Defaults to local; persisted per browser. Options come from /api/ai/models.
+  const [aiBackends, setAiBackends] = useState<{
+    ollamaModels: string[];
+    defaultOllamaModel: string;
+    geminiAvailable: boolean;
+    aiMode: 'gemini' | 'local';
+  } | null>(null);
+  const [aiChoice, setAiChoice] = useState<string>(
+    () => localStorage.getItem('dnd.aiBackend') ?? '',
+  );
+  useEffect(() => {
+    if (!isDm) return;
+    fetch('/api/ai/models')
+      .then((r) => r.json())
+      .then((d) => {
+        setAiBackends(d);
+        setAiChoice((prev) => {
+          // Keep a still-valid saved choice; else default to LOCAL.
+          const valid =
+            prev === 'gemini'
+              ? d.geminiAvailable && d.aiMode !== 'local'
+              : prev.startsWith('local:') && d.ollamaModels.includes(prev.slice(6));
+          if (valid) return prev;
+          const localPick = d.ollamaModels.includes(d.defaultOllamaModel)
+            ? d.defaultOllamaModel
+            : d.ollamaModels[0];
+          if (localPick) return `local:${localPick}`;
+          return d.geminiAvailable && d.aiMode !== 'local'
+            ? 'gemini'
+            : `local:${d.defaultOllamaModel}`;
+        });
+      })
+      .catch(() => setAiBackends(null));
+  }, [isDm]);
+  const pickBackend = (choice: string) => {
+    setAiChoice(choice);
+    localStorage.setItem('dnd.aiBackend', choice);
+  };
+  const choiceToBackend = (
+    choice: string,
+  ): { prefer: 'gemini' | 'local'; ollamaModel?: string } =>
+    choice === 'gemini'
+      ? { prefer: 'gemini' }
+      : { prefer: 'local', ollamaModel: choice.replace(/^local:/, '') };
   const logRef = useRef<HTMLDivElement>(null);
   // Only auto-scroll when the user is already at the bottom, so scrolling up to
   // read history isn't interrupted by new entries.
@@ -92,7 +137,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
     // DM-only: "/ask <question>" (or "/rules …") routes to the rules assistant
     // instead of posting public chat; the Q&A appears as DM-only messages.
     const ask = isDm && body.match(/^\/(ask|rules?)\s+(.+)/is);
-    if (ask) askAssistant(ask[2].trim());
+    if (ask) askAssistant(ask[2].trim(), choiceToBackend(aiChoice));
     else sendChat(body);
     setChatText('');
   };
@@ -227,6 +272,27 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           );
         })}
       </div>
+      {isDm && aiBackends && (aiBackends.ollamaModels.length > 0 || aiBackends.geminiAvailable) && (
+        <div className="ai-backend-row" title="Which AI answers /ask rules questions">
+          <span className="muted">/ask uses:</span>
+          <select value={aiChoice} onChange={(e) => pickBackend(e.target.value)}>
+            {aiBackends.ollamaModels.map((m) => (
+              <option key={m} value={`local:${m}`}>
+                {m} (local)
+              </option>
+            ))}
+            {aiBackends.aiMode !== 'local' && aiBackends.geminiAvailable && (
+              <option value="gemini">Gemini (cloud)</option>
+            )}
+            {/* If the configured default model isn't pulled yet, still offer it. */}
+            {!aiBackends.ollamaModels.includes(aiBackends.defaultOllamaModel) && (
+              <option value={`local:${aiBackends.defaultOllamaModel}`}>
+                {aiBackends.defaultOllamaModel} (local)
+              </option>
+            )}
+          </select>
+        </div>
+      )}
       <div className="chat-input">
         <input
           placeholder={isDm ? 'Message… (/roll 2d6+3 · /ask a rules question)' : 'Message… (/roll 2d6+3)'}

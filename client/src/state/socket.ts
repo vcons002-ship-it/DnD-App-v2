@@ -213,8 +213,12 @@ type Store = {
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
   aiCreateCharacter: (description: string) => void;
-  /** DM-only: ask the rules assistant a question (answered in DM-only chat). */
-  askAssistant: (question: string) => void;
+  /** DM-only: ask the rules assistant a question (answered in DM-only chat).
+   *  `backend` is the chat dropdown's choice (local + a model, or Gemini). */
+  askAssistant: (
+    question: string,
+    backend?: { prefer?: 'gemini' | 'local'; ollamaModel?: string },
+  ) => void;
   releaseCharacter: () => void;
   setResource: (payload: ResourceSetPayload) => void;
   setItem: (characterId: string, item: InventoryItem) => void;
@@ -643,9 +647,9 @@ export const useStore = create<Store>((set, get) => ({
     set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:createCharacter', { description });
   },
-  askAssistant: (question) => {
+  askAssistant: (question, backend) => {
     set({ aiBusy: true, toast: { id: Date.now(), message: '📖 Asking the rules assistant…' } });
-    get().socket?.emit('assistant:ask', { question });
+    get().socket?.emit('assistant:ask', { question, backend });
   },
   releaseCharacter: () => get().socket?.emit('character:release'),
   setResource: (payload) => get().socket?.emit('resource:set', payload),

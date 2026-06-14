@@ -1,6 +1,6 @@
 import { retrieve } from './corpus.js';
 import { getRulebook } from './rulebook.js';
-import { generateText } from './llm.js';
+import { generateText, type GenOpts } from '../ai/gateway.js';
 
 export { rulebookInfo, setRulebookFromPdf, clearRulebook } from './rulebook.js';
 export { assistantConfigured } from './llm.js';
@@ -12,7 +12,7 @@ const SYSTEM = `You are a Dungeons & Dragons 5e (2024 rules) assistant helping t
  * rulebook > SRD digest > app data). Returns the answer text, or null if no
  * LLM backend is reachable (caller posts an "unavailable" notice).
  */
-export async function answerRules(question: string): Promise<string | null> {
+export async function answerRules(question: string, backend: GenOpts = {}): Promise<string | null> {
   const q = question.trim().slice(0, 1000);
   if (!q) return null;
 
@@ -36,5 +36,5 @@ export async function answerRules(question: string): Promise<string | null> {
     `Rules context${hasBook ? ' (the DM uploaded a rulebook — its excerpts win on conflict)' : ''}:\n\n` +
     `${context}\n\n---\nDM question: ${q}\n\nAnswer:`;
 
-  return generateText(SYSTEM, user);
+  return generateText(SYSTEM, user, backend);
 }

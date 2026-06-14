@@ -5,6 +5,7 @@ type PublicSettings = {
   geminiModel: string;
   ollamaUrl: string;
   ollamaModel: string;
+  aiMode: 'gemini' | 'local';
   dmPassphraseRequired: boolean;
 };
 
@@ -25,6 +26,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [model, setModel] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('');
   const [ollamaModel, setOllamaModel] = useState('');
+  const [aiMode, setAiMode] = useState<'gemini' | 'local'>('gemini');
   const [passphrase, setPassphrase] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
     'idle',
@@ -42,6 +44,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setModel(s.geminiModel);
         setOllamaUrl(s.ollamaUrl);
         setOllamaModel(s.ollamaModel);
+        setAiMode(s.aiMode);
       })
       .catch(() => setCurrent(null));
     fetch('/api/rulebook')
@@ -91,6 +94,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         geminiModel: model.trim(),
         ollamaUrl: ollamaUrl.trim(),
         ollamaModel: ollamaModel.trim(),
+        aiMode,
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -111,6 +115,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setModel(updated.geminiModel);
       setOllamaUrl(updated.ollamaUrl);
       setOllamaModel(updated.ollamaModel);
+      setAiMode(updated.aiMode);
       setApiKey('');
       setStatus('saved');
     } catch {
@@ -128,6 +133,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
+
+        <h4>AI backend</h4>
+        <label className="settings-field">
+          Default for AI features (creatures, characters, items)
+          <select value={aiMode} onChange={(e) => setAiMode(e.target.value as 'gemini' | 'local')}>
+            <option value="gemini">Gemini — best quality (local fallback)</option>
+            <option value="local">Local only — Ollama, no cloud calls</option>
+          </select>
+          <span className="muted">
+            The chat's <code>/ask</code> assistant has its own model dropdown
+            (defaults to local). "Local only" forces every feature onto Ollama.
+          </span>
+        </label>
 
         <h4>AI (Gemini)</h4>
         <label className="settings-field">

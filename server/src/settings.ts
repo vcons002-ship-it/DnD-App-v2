@@ -9,6 +9,7 @@ export type RuntimeSettings = {
   geminiModel?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
+  aiMode?: 'gemini' | 'local';
 };
 
 /** Load persisted settings (if any) and apply them on top of env defaults. */
@@ -22,6 +23,7 @@ export function loadSettings(): void {
       config.ollamaUrl = s.ollamaUrl.trim().replace(/\/$/, '');
     if (typeof s.ollamaModel === 'string' && s.ollamaModel.trim())
       config.ollamaModel = s.ollamaModel.trim();
+    if (s.aiMode === 'gemini' || s.aiMode === 'local') config.aiMode = s.aiMode;
   } catch {
     // No saved settings yet — env defaults stand.
   }
@@ -42,6 +44,9 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (typeof patch.ollamaModel === 'string') {
     config.ollamaModel = patch.ollamaModel.trim();
   }
+  if (patch.aiMode === 'gemini' || patch.aiMode === 'local') {
+    config.aiMode = patch.aiMode;
+  }
   if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
     void refreshOllama(); // re-probe so the "AI available" signal stays accurate
   }
@@ -54,6 +59,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
           geminiModel: config.geminiModel,
           ollamaUrl: config.ollamaUrl,
           ollamaModel: config.ollamaModel,
+          aiMode: config.aiMode,
         },
         null,
         2,
@@ -71,6 +77,7 @@ export type PublicSettings = {
   geminiModel: string;
   ollamaUrl: string;
   ollamaModel: string;
+  aiMode: 'gemini' | 'local';
   dmPassphraseRequired: boolean;
 };
 
@@ -80,6 +87,7 @@ export function publicSettings(): PublicSettings {
     geminiModel: config.geminiModel,
     ollamaUrl: config.ollamaUrl,
     ollamaModel: config.ollamaModel,
+    aiMode: config.aiMode,
     dmPassphraseRequired: !!config.dmPassphrase,
   };
 }

@@ -1000,16 +1000,26 @@ export function registerSocketHandlers(io: IOServer): void {
     // DM-only chat messages (filtered from players in visibility.ts) and answered
     // by a local Ollama model, falling back to Gemini. Fail-safe: posts a notice
     // if no backend is reachable.
-    socket.on('assistant:ask', async ({ question }) => {
+    socket.on('assistant:ask', async ({ question, backend }) => {
       const sid = sessionId();
       const q = typeof question === 'string' ? question.trim() : '';
       if (!sid || !isDm() || !q) return;
+      // Sanitize the chat's backend choice (prefer + an Ollama model name).
+      const opts =
+        backend && typeof backend === 'object'
+          ? {
+              prefer: backend.prefer === 'local' ? ('local' as const) : ('gemini' as const),
+              ...(typeof backend.ollamaModel === 'string'
+                ? { ollamaModel: backend.ollamaModel.slice(0, 80) }
+                : {}),
+            }
+          : {};
       // Show the question in the DM's feed immediately, then think.
       addChatMessage(sid, 'DM', 'dm', `❓ ${q.slice(0, 500)}`, true);
       afterChange();
       let answer: string | null = null;
       try {
-        answer = await answerRules(q);
+        answer = await answerRules(q, opts);
       } catch (err) {
         console.warn('  [assistant] failed:', (err as Error).message);
       }

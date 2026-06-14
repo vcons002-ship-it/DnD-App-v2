@@ -20,8 +20,8 @@ import {
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
-import { lookupCreatureAI, generateItemAI } from './creatures/gemini.js';
-import { aiAvailable } from './ai/gateway.js';
+import { lookupCreatureAI, generateItemAI, geminiEnabled } from './creatures/gemini.js';
+import { aiAvailable, listOllamaModels } from './ai/gateway.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
@@ -171,6 +171,17 @@ export function createApiRouter(io: IOServer): Router {
     if (typeof req.body?.ollamaModel === 'string')
       patch.ollamaModel = req.body.ollamaModel;
     res.json(updateSettings(patch));
+  });
+
+  // Available AI backends for the chat's quick model dropdown: locally-pulled
+  // Ollama models + whether Gemini is usable, plus the configured defaults.
+  router.get('/ai/models', async (_req, res) => {
+    res.json({
+      ollamaModels: await listOllamaModels(),
+      defaultOllamaModel: config.ollamaModel,
+      geminiAvailable: geminiEnabled(),
+      aiMode: config.aiMode,
+    });
   });
 
   // ---- Rules-assistant rulebook PDF (DM-only grounding override) ----
