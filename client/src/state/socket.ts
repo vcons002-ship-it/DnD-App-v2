@@ -213,6 +213,20 @@ type Store = {
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
   aiCreateCharacter: (description: string) => void;
+  /** DM-only: ask the rules assistant a question (answered in DM-only chat).
+   *  `backend` is the chat dropdown's choice (local + a model, or Gemini). */
+  askAssistant: (
+    question: string,
+    backend?: { prefer?: 'gemini' | 'local'; ollamaModel?: string },
+  ) => void;
+  /** True while the rules assistant is composing an answer (server-driven). */
+  assistantThinking: boolean;
+  /** DM-only: stop the in-flight rules-assistant request. */
+  cancelAssistant: () => void;
+  /** Rulebook reader overlay: null = closed, else open (optionally at a page). */
+  rulebookView: { page?: number } | null;
+  openRulebook: (page?: number) => void;
+  closeRulebook: () => void;
   releaseCharacter: () => void;
   setResource: (payload: ResourceSetPayload) => void;
   setItem: (characterId: string, item: InventoryItem) => void;
@@ -510,6 +524,11 @@ export const useStore = create<Store>((set, get) => ({
         }, 6000),
       );
     });
+    // The rules assistant started/finished thinking (server-driven, robust to
+    // long runs); drives the in-chat thinking indicator + Stop button.
+    socket.on('assistant:thinking', ({ thinking }) =>
+      set({ assistantThinking: thinking }),
+    );
     socket.on('error', (err) => set({ error: err.message }));
     socket.on('notice', ({ message }) =>
       // A notice is the completion signal for AI requests too — clear the spinner.
@@ -641,6 +660,18 @@ export const useStore = create<Store>((set, get) => ({
     set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });
     get().socket?.emit('ai:createCharacter', { description });
   },
+  askAssistant: (question, backend) => {
+    set({ aiBusy: true, assistantThinking: true });
+    get().socket?.emit('assistant:ask', { question, backend });
+  },
+  assistantThinking: false,
+  cancelAssistant: () => {
+    set({ assistantThinking: false });
+    get().socket?.emit('assistant:cancel');
+  },
+  rulebookView: null,
+  openRulebook: (page) => set({ rulebookView: { page } }),
+  closeRulebook: () => set({ rulebookView: null }),
   releaseCharacter: () => get().socket?.emit('character:release'),
   setResource: (payload) => get().socket?.emit('resource:set', payload),
   setItem: (characterId, item) =>

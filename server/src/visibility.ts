@@ -15,6 +15,7 @@ import {
 import type {
   Annotation,
   Character,
+  ChatMessage,
   CombatRole,
   MapImage,
   MapState,
@@ -129,6 +130,7 @@ export function createSnapshotBuilder(
   let templates: Monster[] | null = null; // DM-only
   let playerMonsters: (Monster | MonsterPublic)[] | null = null;
   let playerRollLog: RollEntry[] | null = null;
+  let playerChat: ChatMessage[] | null = null;
   const mapData = new Map<string, MapData>();
 
   /**
@@ -196,6 +198,7 @@ export function createSnapshotBuilder(
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedRollLog = rollLog;
+    let shapedChat = chat;
 
     if (role === 'player') {
       // Individually-hidden tokens, and any token sitting under a covered cell
@@ -211,6 +214,8 @@ export function createSnapshotBuilder(
         t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId;
       tokens = tokens.filter((t) => !t.isHidden && (!covered(t) || ownedBy(t)));
       shapedMonsters = playerMonsters ??= monsters.map(toPlayerMonster);
+      // Rules-assistant Q&A is a DM tool — never leak it to players.
+      shapedChat = playerChat ??= chat.filter((c) => !c.dmOnly);
       shapedRollLog = playerRollLog ??= rollLog
         // DM rolls captured while "hide my rolls" was on never reach players.
         .filter((e) => !e.dmOnly)
@@ -241,7 +246,7 @@ export function createSnapshotBuilder(
       monsterTemplates:
         role === 'dm' ? (templates ??= listMonsterTemplates(sessionId)) : [],
       rollLog: shapedRollLog,
-      chat,
+      chat: shapedChat,
       measurements: data.measurements,
       annotations: data.annotations,
       mapImages: data.mapImages,

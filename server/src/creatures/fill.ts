@@ -11,11 +11,8 @@ import {
   updateCharacter,
   updateMonster,
 } from '../sessions.js';
-import {
-  generateCharacterAI,
-  geminiEnabled,
-  lookupCreatureAI,
-} from './gemini.js';
+import { generateCharacterAI, lookupCreatureAI } from './gemini.js';
+import { aiAvailable } from '../ai/gateway.js';
 
 export type FillResult =
   | { ok: true; filled: number; id: string }
@@ -28,7 +25,7 @@ export type FillResult =
 export async function aiFillCreature(monsterId: string): Promise<FillResult> {
   const m = getMonster(monsterId);
   if (!m) return { ok: false, reason: 'not-found' };
-  if (!geminiEnabled()) return { ok: false, reason: 'no-key' };
+  if (!aiAvailable()) return { ok: false, reason: 'no-key' };
 
   const tpl = await lookupCreatureAI(m.name);
   if (!tpl) return { ok: false, reason: 'lookup-failed' };
@@ -69,7 +66,7 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
 export async function aiFillCharacter(characterId: string): Promise<FillResult> {
   const c = getCharacter(characterId);
   if (!c) return { ok: false, reason: 'not-found' };
-  if (!geminiEnabled()) return { ok: false, reason: 'no-key' };
+  if (!aiAvailable()) return { ok: false, reason: 'no-key' };
 
   const desc = [c.name, c.className, c.level ? `level ${c.level}` : '']
     .filter(Boolean)
@@ -113,7 +110,7 @@ export async function aiCreateCharacter(
   sessionId: string,
   description: string,
 ): Promise<CreateResult> {
-  if (!geminiEnabled()) return { ok: false, reason: 'no-key' };
+  if (!aiAvailable()) return { ok: false, reason: 'no-key' };
   const gen = await generateCharacterAI(description);
   if (!gen) return { ok: false, reason: 'lookup-failed' };
   const character = createCharacter(sessionId, gen);

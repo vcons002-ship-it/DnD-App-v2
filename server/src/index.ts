@@ -5,6 +5,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import { config } from './config.js';
 import { loadSettings } from './settings.js';
+import { refreshOllama } from './ai/ollama.js';
 import { seedLibraryItems } from './library.js';
 import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
@@ -12,6 +13,9 @@ import { startTunnel, publicUrl } from './tunnel.js';
 import type { IOServer } from './connections.js';
 
 loadSettings(); // apply any DM-saved API key / model overrides on top of env
+// Probe the local Ollama server in the background so the UI's "AI available"
+// signal is accurate without blocking boot (re-probed on each settings save).
+void refreshOllama().then((up) => up && console.log('  Local Ollama reachable for AI.'));
 const seeded = seedLibraryItems(); // one-time fill of the cross-session item library
 if (seeded) console.log(`  Seeded ${seeded} SRD items into the item library.`);
 

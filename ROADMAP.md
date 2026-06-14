@@ -766,6 +766,51 @@ Smaller refinements on top of the shipped Phase 2 work.
   speaker's `claimed_by` character (`getClaimedCharacterId`), rendered by a Konva
   `SpeechBubbles` layer (auto-measured rounded bubble + downward tail) that
   auto-expires; the say bubble supersedes any lingering typing bubble.
+- ☑ **App-wide AI gateway (Gemini default + local Ollama).** `server/src/ai/` is
+  the ONE chokepoint every AI feature routes through: `ollama.ts` (local HTTP
+  client + health probe + model list) and `gateway.ts` with `generateText`
+  (prose) + `generateJson` (structured, fence-stripped). Backend selection is
+  centralized: a global `aiMode` (Settings) — **`gemini`** (best quality, local
+  fallback) is the **default**, **`local`** is a lockdown that forces Ollama with
+  no cloud calls. A per-call `prefer` overrides the default unless the lockdown
+  is on. Creature/character/item/spell generation use the default; their guards +
+  `/api/*` `aiAvailable` flags respect `aiMode` (in `local`, available only when
+  Ollama is reachable). `callGemini` gained a JSON opt-out (`callGeminiText`).
+- ☑ **Chat AI-backend dropdown.** The DM's `/ask` chat has a quick dropdown
+  (`GET /api/ai/models` → locally-pulled Ollama models + Gemini when keyed),
+  **defaulting to a local model**, persisted per browser; the choice rides the
+  `assistant:ask` payload (`backend: { prefer, ollamaModel }`) so each question
+  can pick its model — overriding the global default (but not the lockdown).
+- ☑ **Assistant thinking + Stop + non-blocking.** A live in-chat "thinking"
+  indicator (server-driven `assistant:thinking`) with a **Stop** button
+  (`assistant:cancel` → an `AbortController` aborts the in-flight LLM call, also
+  on disconnect). The local call has a generous 10-min budget so slow models
+  don't time out, and the handler `await`s without blocking — **other chat keeps
+  flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
+  stale answer.
+- ☑ **Grounded answers + large context window.** The assistant system prompt
+  forbids inventing rules/numbers not in the retrieved context (say "not covered"
+  instead), while explicitly allowing **labeled interpretation** ("Rules as
+  written: … — Interpretation: …"). Runs at low temperature (0.1) over a generous
+  10-chunk grounding slice, and sets Ollama's **`num_ctx`** (`config.ollamaNumCtx`,
+  default 8192) so the excerpts aren't truncated — a too-small window is a top
+  cause of hallucinated rules.
+- ☑ **Rulebook reader + page citations.** PDF chunks now record their **page
+  range** (`chunkRulebookPages`), so an assistant answer cites the rulebook
+  **pages it drew on** (stored on the `ChatMessage.pages`, rendered as clickable
+  `p.N` chips). A toolbar **📖 Rulebook** button (DM, when one is uploaded) opens
+  a searchable **`RulebookViewer`** (`GET /api/rulebook/content`); clicking a
+  citation opens it scrolled to that page.
+- ☑ **DM rules-assistant chatbot.** The DM types `/ask` (or `/rule`/`/rules`)
+  `<question>` in chat to query a grounded 5e (2024) rules assistant
+  (`assistant:ask` → `answerRules`) via the AI gateway above. Grounding corpus
+  (`server/src/assistant/`):
+  a hand-authored **SRD 5.2 rules digest** + the app's structured data (spells,
+  skills, feats) + an optional **uploaded rulebook PDF** (`POST /api/rulebook`,
+  parsed via `pdf-parse` into chunks) which **takes precedence on any conflict**;
+  retrieval is dependency-free keyword scoring with a rulebook boost. The Q&A is
+  posted as **DM-only chat** (`chat_messages.dm_only`, stripped from player
+  snapshots in `visibility.ts`).
 - ☑ **Map annotation layer.** Freehand pen + text labels drawn on the active map
   (`annotations` table → snapshot, `annotation:add/remove/clear`), shared and
   persistent, with colour swatches and Clear mine/all (players clear only theirs).

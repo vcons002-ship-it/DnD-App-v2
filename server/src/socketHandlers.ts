@@ -32,6 +32,7 @@ import {
   setConn,
   type IOServer,
 } from './connections.js';
+import { answerRules } from './assistant/index.js';
 import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import {
   addRollLog,
@@ -131,6 +132,9 @@ import type { Condition, TokenKind } from '../../shared/types.js';
  *  connection blip doesn't de-select their character (and others can't snipe it).
  *  When the same player reconnects within it, the claim is handed straight back. */
 const CLAIM_GRACE_MS = 20_000;
+/** In-flight rules-assistant requests by socket id, so the Stop button (and a
+ *  disconnect) can abort the long-running LLM call. */
+const assistantInFlight = new Map<string, AbortController>();
 /** Disconnected sockets whose claims are held during their grace window:
  *  socketId → its session + player + the pending release timer. */
 const pendingReleases = new Map<
@@ -995,6 +999,66 @@ export function registerSocketHandlers(io: IOServer): void {
       if (refId) broadcastTyping(io, sid, socket.id, refId, !!typing);
     });
 
+    // DM-only rules assistant. The DM's question and the answer are posted as
+    // DM-only chat messages (filtered from players in visibility.ts) and answered
+    // by a local Ollama model, falling back to Gemini. Fail-safe: posts a notice
+    // if no backend is reachable.
+    socket.on('assistant:ask', async ({ question, backend }) => {
+      const sid = sessionId();
+      const q = typeof question === 'string' ? question.trim() : '';
+      if (!sid || !isDm() || !q) return;
+      // Sanitize the chat's backend choice (prefer + an Ollama model name).
+      const opts =
+        backend && typeof backend === 'object'
+          ? {
+              prefer: backend.prefer === 'local' ? ('local' as const) : ('gemini' as const),
+              ...(typeof backend.ollamaModel === 'string'
+                ? { ollamaModel: backend.ollamaModel.slice(0, 80) }
+                : {}),
+            }
+          : {};
+      // Show the question in the DM's feed immediately, then think. Other chat
+      // keeps flowing while we await (the handler yields, never blocks).
+      addChatMessage(sid, 'DM', 'dm', `❓ ${q.slice(0, 500)}`, true);
+      afterChange();
+      // A cancellable, long-running request (the Stop button aborts it).
+      const controller = new AbortController();
+      assistantInFlight.set(socket.id, controller);
+      socket.emit('assistant:thinking', { thinking: true });
+      let result: { answer: string | null; pages: number[] } = { answer: null, pages: [] };
+      try {
+        result = await answerRules(q, { ...opts, signal: controller.signal, timeoutMs: 600_000 });
+      } catch (err) {
+        console.warn('  [assistant] failed:', (err as Error).message);
+      } finally {
+        assistantInFlight.delete(socket.id);
+        socket.emit('assistant:thinking', { thinking: false });
+      }
+      if (controller.signal.aborted) {
+        // Stopped by the DM — note it, don't post a stale answer.
+        addChatMessage(sid, '📖 Rules Assistant', 'dm', '⏹ Stopped.', true);
+        afterChange();
+        socket.emit('notice', { message: 'Rules assistant stopped' });
+        return;
+      }
+      addChatMessage(
+        sid,
+        '📖 Rules Assistant',
+        'dm',
+        result.answer ??
+          'Rules assistant is unavailable. Start a local Ollama server (or set a Gemini API key in Settings) and try again.',
+        true,
+        result.answer ? result.pages : [],
+      );
+      afterChange();
+      socket.emit('notice', { message: result.answer ? 'Rules assistant answered' : 'Rules assistant unavailable' });
+    });
+
+    // DM-only: stop the in-flight rules-assistant request.
+    socket.on('assistant:cancel', () => {
+      assistantInFlight.get(socket.id)?.abort();
+    });
+
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
     // DC and auto-apply full/half of the rolled amount — DM only.
     socket.on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
@@ -1333,6 +1397,8 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('disconnect', () => {
       const sid = sessionId();
       const playerId = getConn(socket.id)?.playerId ?? null;
+      assistantInFlight.get(socket.id)?.abort(); // stop any in-flight LLM call
+      assistantInFlight.delete(socket.id);
       dropConn(socket.id);
       if (sid) {
         // Hold the claim through a short grace window (handed back if they

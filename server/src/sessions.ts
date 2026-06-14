@@ -1123,25 +1123,39 @@ export function addChatMessage(
   sender: string,
   role: ChatMessage['role'],
   text: string,
+  dmOnly = false,
+  pages: number[] = [],
 ): ChatMessage {
   const msg: ChatMessage = {
     id: newId(),
     sender,
     role,
-    text: text.slice(0, 2000),
+    text: text.slice(0, 4000),
     createdAt: Date.now(),
+    ...(dmOnly ? { dmOnly: true } : {}),
+    ...(pages.length ? { pages } : {}),
   };
   db.prepare(
-    'INSERT INTO chat_messages (id, session_id, sender, role, text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt);
+    'INSERT INTO chat_messages (id, session_id, sender, role, text, created_at, dm_only, pages) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt, dmOnly ? 1 : 0, JSON.stringify(pages));
   return msg;
+}
+
+/** Parse a stored pages JSON array defensively (old rows have '[]'). */
+function safeParsePages(raw: string): number[] {
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((n) => typeof n === 'number') : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Most-recent chat messages, oldest-first for display (capped). */
 export function listChat(sessionId: string, limit = 100): ChatMessage[] {
   const rows = db
     .prepare(
-      'SELECT id, sender, role, text, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+      'SELECT id, sender, role, text, created_at, dm_only, pages FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
     )
     .all(sessionId, limit) as {
     id: string;
@@ -1149,9 +1163,22 @@ export function listChat(sessionId: string, limit = 100): ChatMessage[] {
     role: ChatMessage['role'];
     text: string;
     created_at: number;
+    dm_only: number;
+    pages: string;
   }[];
   return rows
-    .map((r) => ({ id: r.id, sender: r.sender, role: r.role, text: r.text, createdAt: r.created_at }))
+    .map((r) => {
+      const pages = safeParsePages(r.pages);
+      return {
+        id: r.id,
+        sender: r.sender,
+        role: r.role,
+        text: r.text,
+        createdAt: r.created_at,
+        ...(r.dm_only ? { dmOnly: true } : {}),
+        ...(pages.length ? { pages } : {}),
+      };
+    })
     .reverse();
 }
 

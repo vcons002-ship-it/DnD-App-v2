@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { SettingsModal } from './SettingsModal';
 import { GuideModal } from './GuideModal';
+import { RulebookViewer } from './RulebookViewer';
 import { EditableName } from './EditableName';
 
 /**
@@ -16,7 +17,18 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [hasRulebook, setHasRulebook] = useState(false);
+  const openRulebook = useStore((s) => s.openRulebook);
   const isDm = snapshot.role === 'dm';
+
+  // Show the Rulebook reader button only when the DM has uploaded one.
+  useEffect(() => {
+    if (!isDm) return;
+    fetch('/api/rulebook')
+      .then((r) => r.json())
+      .then((b) => setHasRulebook(!!b))
+      .catch(() => setHasRulebook(false));
+  }, [isDm, settingsOpen]);
 
   const activeMap =
     snapshot.maps.find((m) => m.id === snapshot.activeMapId)?.name ?? '—';
@@ -85,6 +97,15 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
             >
               🗔 Data view
             </button>
+            {hasRulebook && (
+              <button
+                className="btn tiny"
+                onClick={() => openRulebook()}
+                title="Read / search the uploaded rulebook"
+              >
+                📖 Rulebook
+              </button>
+            )}
             <button className="btn tiny" onClick={() => setSettingsOpen(true)}>
               ⚙ Settings
             </button>
@@ -101,6 +122,7 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}
+      {isDm && <RulebookViewer />}
     </header>
   );
 }

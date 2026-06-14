@@ -70,7 +70,14 @@ sanitization rules above and commit it to `claude/Main`.
 - **Server:** Node + Express + **Socket.IO**, **SQLite** (`better-sqlite3`).
 - **Shared:** a framework-free TS package imported by both sides.
 - **Remote access:** `cloudflared` (tunnel-agnostic via `PUBLIC_URL`). **AI:**
-  Google Gemini, **key-gated and fail-safe** (works fully offline without a key).
+  one app-wide gateway (`server/src/ai/`, `generateText`/`generateJson`) routing
+  ALL features (creature/character/item/spell gen + the DM **rules-assistant**,
+  `/ask` in chat). Backend = `config.aiMode`: **`gemini`** (default, best
+  quality, local fallback) or **`local`** (Ollama-only lockdown); a per-call
+  `prefer` overrides it (the chat's model dropdown, default local) unless locked.
+  **Fail-safe** (works without either). Assistant grounded on an SRD digest + app
+  data + an optional uploaded rulebook PDF (wins on conflict). Settings hold the
+  Gemini key/model, Ollama URL/model, and the `aiMode` toggle.
 
 ## Architecture & invariants (read this first)
 

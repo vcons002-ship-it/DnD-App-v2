@@ -16,6 +16,10 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const clearRollLog = useStore((s) => s.clearRollLog);
   const sendChat = useStore((s) => s.sendChat);
   const chatTyping = useStore((s) => s.chatTyping);
+  const askAssistant = useStore((s) => s.askAssistant);
+  const assistantThinking = useStore((s) => s.assistantThinking);
+  const cancelAssistant = useStore((s) => s.cancelAssistant);
+  const openRulebook = useStore((s) => s.openRulebook);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
@@ -35,6 +39,51 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [chatText, setChatText] = useState('');
+  // The DM's quick AI-backend choice for /ask: 'gemini' or 'local:<model>'.
+  // Defaults to local; persisted per browser. Options come from /api/ai/models.
+  const [aiBackends, setAiBackends] = useState<{
+    ollamaModels: string[];
+    defaultOllamaModel: string;
+    geminiAvailable: boolean;
+    aiMode: 'gemini' | 'local';
+  } | null>(null);
+  const [aiChoice, setAiChoice] = useState<string>(
+    () => localStorage.getItem('dnd.aiBackend') ?? '',
+  );
+  useEffect(() => {
+    if (!isDm) return;
+    fetch('/api/ai/models')
+      .then((r) => r.json())
+      .then((d) => {
+        setAiBackends(d);
+        setAiChoice((prev) => {
+          // Keep a still-valid saved choice; else default to LOCAL.
+          const valid =
+            prev === 'gemini'
+              ? d.geminiAvailable && d.aiMode !== 'local'
+              : prev.startsWith('local:') && d.ollamaModels.includes(prev.slice(6));
+          if (valid) return prev;
+          const localPick = d.ollamaModels.includes(d.defaultOllamaModel)
+            ? d.defaultOllamaModel
+            : d.ollamaModels[0];
+          if (localPick) return `local:${localPick}`;
+          return d.geminiAvailable && d.aiMode !== 'local'
+            ? 'gemini'
+            : `local:${d.defaultOllamaModel}`;
+        });
+      })
+      .catch(() => setAiBackends(null));
+  }, [isDm]);
+  const pickBackend = (choice: string) => {
+    setAiChoice(choice);
+    localStorage.setItem('dnd.aiBackend', choice);
+  };
+  const choiceToBackend = (
+    choice: string,
+  ): { prefer: 'gemini' | 'local'; ollamaModel?: string } =>
+    choice === 'gemini'
+      ? { prefer: 'gemini' }
+      : { prefer: 'local', ollamaModel: choice.replace(/^local:/, '') };
   const logRef = useRef<HTMLDivElement>(null);
   // Only auto-scroll when the user is already at the bottom, so scrolling up to
   // read history isn't interrupted by new entries.
@@ -88,7 +137,11 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
     setTyping(false);
     const body = chatText.trim();
     if (!body) return;
-    sendChat(body);
+    // DM-only: "/ask <question>" (or "/rules …") routes to the rules assistant
+    // instead of posting public chat; the Q&A appears as DM-only messages.
+    const ask = isDm && body.match(/^\/(ask|rules?)\s+(.+)/is);
+    if (ask) askAssistant(ask[2].trim(), choiceToBackend(aiChoice));
+    else sendChat(body);
     setChatText('');
   };
 
@@ -168,6 +221,21 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
               <div key={item.id} className={`chat-msg ${m.role}`}>
                 <span className="chat-sender">{m.sender}</span>
                 <span className="chat-text">{m.text}</span>
+                {m.pages && m.pages.length > 0 && (
+                  <span className="chat-cites">
+                    📖 Sources:{' '}
+                    {m.pages.map((p) => (
+                      <button
+                        key={p}
+                        className="cite-chip"
+                        title={`Open the rulebook at page ${p}`}
+                        onClick={() => openRulebook(p)}
+                      >
+                        p.{p}
+                      </button>
+                    ))}
+                  </span>
+                )}
               </div>
             );
           }
@@ -222,10 +290,43 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           );
         })}
       </div>
+      {isDm && assistantThinking && (
+        <div className="assistant-thinking" title="The rules assistant is composing an answer">
+          <span className="thinking-dots">📖 Rules Assistant is thinking…</span>
+          <button className="btn tiny" onClick={cancelAssistant}>
+            ⏹ Stop
+          </button>
+        </div>
+      )}
+      {isDm && aiBackends && (aiBackends.ollamaModels.length > 0 || aiBackends.geminiAvailable) && (
+        <div className="ai-backend-row" title="Which AI answers /ask rules questions">
+          <span className="muted">/ask uses:</span>
+          <select value={aiChoice} onChange={(e) => pickBackend(e.target.value)}>
+            {aiBackends.ollamaModels.map((m) => (
+              <option key={m} value={`local:${m}`}>
+                {m} (local)
+              </option>
+            ))}
+            {aiBackends.aiMode !== 'local' && aiBackends.geminiAvailable && (
+              <option value="gemini">Gemini (cloud)</option>
+            )}
+            {/* If the configured default model isn't pulled yet, still offer it. */}
+            {!aiBackends.ollamaModels.includes(aiBackends.defaultOllamaModel) && (
+              <option value={`local:${aiBackends.defaultOllamaModel}`}>
+                {aiBackends.defaultOllamaModel} (local)
+              </option>
+            )}
+          </select>
+        </div>
+      )}
       <div className="chat-input">
         <input
-          placeholder="Message… (/roll 2d6+3)"
-          title="Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice"
+          placeholder={isDm ? 'Message… (/roll 2d6+3 · /ask a rules question)' : 'Message… (/roll 2d6+3)'}
+          title={
+            isDm
+              ? 'Chat · /roll 2d6+3 (optionally adv/dis) to roll · /ask <question> for the DM-only rules assistant'
+              : 'Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice'
+          }
           value={chatText}
           maxLength={2000}
           onChange={(e) => onType(e.target.value)}
