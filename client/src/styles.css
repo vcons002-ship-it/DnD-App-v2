@@ -963,6 +963,36 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .chat-input input { flex: 1; }
 .ai-backend-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 0; font-size: 0.82em; }
 .ai-backend-row select { flex: 1; min-width: 0; }
+.assistant-thinking {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px; margin: 4px 0; border-radius: 6px;
+  background: #2a2410; border: 1px solid var(--gold, #ffd21a); font-size: 0.85em;
+}
+.assistant-thinking .thinking-dots { color: var(--gold, #ffd21a); }
+.assistant-thinking .thinking-dots::after {
+  content: ''; animation: thinkingDots 1.2s steps(4, end) infinite;
+}
+@keyframes thinkingDots { 0% { content: ''; } 25% { content: '·'; } 50% { content: '··'; } 75% { content: '···'; } }
+.chat-cites { display: block; margin-top: 2px; font-size: 0.8em; opacity: 0.85; }
+.cite-chip {
+  display: inline-block; margin: 0 3px; padding: 0 5px; border-radius: 4px;
+  background: #2a2410; border: 1px solid var(--gold, #ffd21a); color: var(--gold, #ffd21a);
+  cursor: pointer; font-size: 0.95em;
+}
+.cite-chip:hover { background: var(--gold, #ffd21a); color: #1a1607; }
+/* Rulebook reader modal */
+.rulebook-modal { max-width: 720px; width: 92vw; max-height: 86vh; display: flex; flex-direction: column; }
+.rulebook-search { margin: 6px 0 8px; padding: 6px 8px; width: 100%; }
+.rulebook-list { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.rulebook-chunk { border-left: 3px solid #3a3a44; padding: 2px 0 2px 8px; }
+.rulebook-chunk.target { border-left-color: var(--gold, #ffd21a); background: #2a241022; }
+.rulebook-chunk-head { display: flex; align-items: baseline; gap: 8px; }
+.rulebook-page {
+  flex: none; font-size: 0.78em; color: var(--gold, #ffd21a);
+  border: 1px solid var(--gold, #ffd21a); border-radius: 4px; padding: 0 4px;
+}
+.rulebook-title { font-weight: 600; font-size: 0.9em; opacity: 0.85; }
+.rulebook-text { margin: 3px 0 0; font-size: 0.9em; line-height: 1.35; white-space: pre-wrap; }
 
 /* Death saves (shown when a PC hits 0 HP) */
 .death-saves {

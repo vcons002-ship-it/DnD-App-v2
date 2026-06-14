@@ -12,12 +12,23 @@ const SYSTEM = `You are a Dungeons & Dragons 5e (2024 rules) assistant helping t
  * rulebook > SRD digest > app data). Returns the answer text, or null if no
  * LLM backend is reachable (caller posts an "unavailable" notice).
  */
-export async function answerRules(question: string, backend: GenOpts = {}): Promise<string | null> {
+export async function answerRules(
+  question: string,
+  backend: GenOpts = {},
+): Promise<{ answer: string | null; pages: number[] }> {
   const q = question.trim().slice(0, 1000);
-  if (!q) return null;
+  if (!q) return { answer: null, pages: [] };
 
   const chunks = retrieve(q, 6);
   const hasBook = !!getRulebook();
+  // Pages of the uploaded-rulebook chunks that informed this answer (for citing).
+  const pages = [
+    ...new Set(
+      chunks
+        .filter((c) => c.source === 'rulebook' && typeof c.page === 'number')
+        .map((c) => c.page as number),
+    ),
+  ].sort((a, b) => a - b);
   const context = chunks.length
     ? chunks
         .map((c) => {
@@ -36,5 +47,6 @@ export async function answerRules(question: string, backend: GenOpts = {}): Prom
     `Rules context${hasBook ? ' (the DM uploaded a rulebook — its excerpts win on conflict)' : ''}:\n\n` +
     `${context}\n\n---\nDM question: ${q}\n\nAnswer:`;
 
-  return generateText(SYSTEM, user, backend);
+  const answer = await generateText(SYSTEM, user, backend);
+  return { answer, pages };
 }

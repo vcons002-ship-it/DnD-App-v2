@@ -67,10 +67,14 @@ export async function listOllamaModels(): Promise<string[]> {
 export async function ollamaChat(
   system: string,
   user: string,
-  opts: { json?: boolean; model?: string } = {},
+  opts: { json?: boolean; model?: string; signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<string | null> {
   const model = opts.model?.trim() || config.ollamaModel;
   if (!config.ollamaUrl || !model) return null;
+  // A generous safety timeout (default 2 min) combined with the caller's cancel
+  // signal — so a slow local model isn't cut off, but a "Stop" still works.
+  const timeout = AbortSignal.timeout(opts.timeoutMs ?? 120_000);
+  const signal = opts.signal ? AbortSignal.any([timeout, opts.signal]) : timeout;
   try {
     const res = await fetch(`${config.ollamaUrl}/api/chat`, {
       method: 'POST',
@@ -85,8 +89,7 @@ export async function ollamaChat(
           { role: 'user', content: user },
         ],
       }),
-      // Local models can be slow to load on first use; give them room.
-      signal: AbortSignal.timeout(120_000),
+      signal,
     });
     if (!res.ok) {
       console.warn(`  [ollama] HTTP ${res.status} from ${model}`);

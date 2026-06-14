@@ -198,14 +198,17 @@ async function discoverModel(): Promise<string | null> {
 
 /** Plain-text Gemini call (no JSON mime) for prose answers like the rules
  *  assistant. Shares model discovery/rotation + retries with callGemini. */
-export async function callGeminiText(prompt: string): Promise<string | null> {
-  return callGemini(prompt, { json: false });
+export async function callGeminiText(
+  prompt: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  return callGemini(prompt, { json: false, signal });
 }
 
 /** Call Gemini, discovering/rotating models so a retired one never blocks us. */
 export async function callGemini(
   prompt: string,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; signal?: AbortSignal } = {},
 ): Promise<string | null> {
   const json = opts.json !== false; // default: structured JSON (existing callers)
   let models: string[];
@@ -238,7 +241,9 @@ export async function callGemini(
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: json ? { responseMimeType: 'application/json' } : {},
           }),
-          signal: AbortSignal.timeout(20000),
+          signal: opts.signal
+            ? AbortSignal.any([AbortSignal.timeout(20000), opts.signal])
+            : AbortSignal.timeout(20000),
         });
         // Rate limits (429) and server overload (500/502/503/504) are transient
         // and common with Gemini — back off and retry before giving up.

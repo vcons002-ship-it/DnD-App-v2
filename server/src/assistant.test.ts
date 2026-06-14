@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { retrieve, resetCorpusCache } from './assistant/corpus.js';
-import { chunkRulebookText, __setRulebookForTest } from './assistant/rulebook.js';
+import {
+  chunkRulebookText,
+  chunkRulebookPages,
+  __setRulebookForTest,
+} from './assistant/rulebook.js';
 
 describe('rules-assistant corpus', () => {
   beforeEach(() => {
@@ -64,5 +68,24 @@ describe('rulebook PDF chunking', () => {
 
   it('returns no chunks for empty text', () => {
     expect(chunkRulebookText('   \n\n  ')).toEqual([]);
+  });
+
+  it('records page numbers when chunking per page (for citations)', () => {
+    const pages = [
+      { num: 11, text: 'Grappling\n\n' + 'A grapple needs a free hand. '.repeat(50) },
+      { num: 12, text: '…and the contested check resolves it. '.repeat(10) },
+      { num: 13, text: 'Shoving\n\n' + 'A shove can push or knock prone. '.repeat(5) },
+    ];
+    const chunks = chunkRulebookPages(pages);
+    expect(chunks.length).toBeGreaterThanOrEqual(2);
+    // Every chunk carries a page in the source range.
+    for (const c of chunks) {
+      expect(typeof c.page).toBe('number');
+      expect(c.page).toBeGreaterThanOrEqual(11);
+      expect(c.page).toBeLessThanOrEqual(13);
+    }
+    // The Shoving heading chunk is tagged to its page.
+    const shove = chunks.find((c) => c.title === 'Shoving');
+    expect(shove?.page).toBe(13);
   });
 });

@@ -781,6 +781,19 @@ Smaller refinements on top of the shipped Phase 2 work.
   **defaulting to a local model**, persisted per browser; the choice rides the
   `assistant:ask` payload (`backend: { prefer, ollamaModel }`) so each question
   can pick its model — overriding the global default (but not the lockdown).
+- ☑ **Assistant thinking + Stop + non-blocking.** A live in-chat "thinking"
+  indicator (server-driven `assistant:thinking`) with a **Stop** button
+  (`assistant:cancel` → an `AbortController` aborts the in-flight LLM call, also
+  on disconnect). The local call has a generous 10-min budget so slow models
+  don't time out, and the handler `await`s without blocking — **other chat keeps
+  flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
+  stale answer.
+- ☑ **Rulebook reader + page citations.** PDF chunks now record their **page
+  range** (`chunkRulebookPages`), so an assistant answer cites the rulebook
+  **pages it drew on** (stored on the `ChatMessage.pages`, rendered as clickable
+  `p.N` chips). A toolbar **📖 Rulebook** button (DM, when one is uploaded) opens
+  a searchable **`RulebookViewer`** (`GET /api/rulebook/content`); clicking a
+  citation opens it scrolled to that page.
 - ☑ **DM rules-assistant chatbot.** The DM types `/ask` (or `/rule`/`/rules`)
   `<question>` in chat to query a grounded 5e (2024) rules assistant
   (`assistant:ask` → `answerRules`) via the AI gateway above. Grounding corpus

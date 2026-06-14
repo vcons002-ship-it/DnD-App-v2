@@ -13,7 +13,14 @@ import { FEAT_LIBRARY } from '../../../shared/featLibrary.js';
  * Retrieval is dependency-free keyword scoring — robust offline, no embeddings.
  */
 export type ChunkSource = 'rulebook' | 'srd' | 'reference';
-export type Chunk = { source: ChunkSource; title: string; text: string };
+export type Chunk = {
+  source: ChunkSource;
+  title: string;
+  text: string;
+  /** Page (range) for rulebook chunks — used to cite sources. */
+  page?: number;
+  pageEnd?: number;
+};
 
 const STOP = new Set([
   'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'is', 'are', 'do', 'does',
@@ -73,7 +80,13 @@ function baseCorpus(): Chunk[] {
 function rulebookChunks(): Chunk[] {
   const doc = getRulebook();
   if (!doc) return [];
-  return doc.chunks.map((c) => ({ source: 'rulebook' as const, title: c.title, text: c.text }));
+  return doc.chunks.map((c) => ({
+    source: 'rulebook' as const,
+    title: c.title,
+    text: c.text,
+    page: c.page,
+    pageEnd: c.pageEnd,
+  }));
 }
 
 function score(chunk: Chunk, q: string[]): number {

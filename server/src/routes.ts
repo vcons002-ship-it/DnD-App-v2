@@ -31,6 +31,7 @@ import { searchWeapons } from './weapons/srd.js';
 import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
 import { rulebookInfo, setRulebookFromPdf, clearRulebook } from './assistant/index.js';
+import { getRulebookChunks } from './assistant/rulebook.js';
 import {
   deleteLibraryCharacter,
   deleteLibraryCreature,
@@ -189,6 +190,11 @@ export function createApiRouter(io: IOServer): Router {
   // the bundled SRD digest when the assistant answers.
   router.get('/rulebook', (_req, res) => {
     res.json(rulebookInfo());
+  });
+
+  // Full chunk text for the toolbar reader/search (DM backup reference).
+  router.get('/rulebook/content', (_req, res) => {
+    res.json(getRulebookChunks());
   });
 
   router.post('/rulebook', pdfUpload.single('pdf'), async (req, res) => {

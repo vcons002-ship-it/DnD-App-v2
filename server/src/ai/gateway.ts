@@ -22,7 +22,14 @@ function effectivePrefer(prefer?: 'gemini' | 'local'): 'gemini' | 'local' {
   return prefer ?? config.aiMode; // config.aiMode is 'gemini' here
 }
 
-export type GenOpts = { prefer?: 'gemini' | 'local'; ollamaModel?: string };
+export type GenOpts = {
+  prefer?: 'gemini' | 'local';
+  ollamaModel?: string;
+  /** Cancel the in-flight call (the chat's Stop button). */
+  signal?: AbortSignal;
+  /** Override the local-model safety timeout (the assistant runs long). */
+  timeoutMs?: number;
+};
 
 const JSON_SYSTEM =
   'You are a precise data generator for a D&D 5e app. Respond with ONLY a single ' +
@@ -50,15 +57,17 @@ export async function generateText(
   opts: GenOpts = {},
 ): Promise<string | null> {
   const prefer = effectivePrefer(opts.prefer);
+  const chat = { model: opts.ollamaModel, signal: opts.signal, timeoutMs: opts.timeoutMs };
   if (prefer === 'local') {
-    return ollamaChat(system, user, { model: opts.ollamaModel });
+    return ollamaChat(system, user, chat);
   }
   // Gemini-first (quality). Its v1beta API has no system role, so fold it in.
   if (geminiEnabled()) {
-    const text = await callGeminiText(`${system}\n\n${user}`);
+    const text = await callGeminiText(`${system}\n\n${user}`, opts.signal);
     if (text) return text;
   }
-  return ollamaChat(system, user, { model: opts.ollamaModel });
+  if (opts.signal?.aborted) return null; // a Stop between backends ends it
+  return ollamaChat(system, user, chat);
 }
 
 /**
@@ -68,15 +77,17 @@ export async function generateText(
  */
 export async function generateJson(prompt: string, opts: GenOpts = {}): Promise<string | null> {
   const prefer = effectivePrefer(opts.prefer);
+  const chat = { json: true, model: opts.ollamaModel, signal: opts.signal, timeoutMs: opts.timeoutMs };
   if (prefer === 'local') {
-    const l = await ollamaChat(JSON_SYSTEM, prompt, { json: true, model: opts.ollamaModel });
+    const l = await ollamaChat(JSON_SYSTEM, prompt, chat);
     return l ? extractJson(l) : null;
   }
   if (geminiEnabled()) {
-    const g = await callGemini(prompt);
+    const g = await callGemini(prompt, { signal: opts.signal });
     if (g) return extractJson(g);
   }
-  const l = await ollamaChat(JSON_SYSTEM, prompt, { json: true, model: opts.ollamaModel });
+  if (opts.signal?.aborted) return null;
+  const l = await ollamaChat(JSON_SYSTEM, prompt, chat);
   return l ? extractJson(l) : null;
 }
 

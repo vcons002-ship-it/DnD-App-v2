@@ -288,6 +288,8 @@ ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAUL
 ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
 // Per-message flag: rules-assistant Q&A is DM-only (filtered from player snapshots).
 ensureColumn('chat_messages', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
+// Rulebook page citations on an assistant answer (JSON number[]).
+ensureColumn('chat_messages', 'pages', "pages TEXT NOT NULL DEFAULT '[]'");
 // Image-decal annotations: uploaded art path + draw size.
 ensureColumn('annotations', 'url', "url TEXT NOT NULL DEFAULT ''");
 ensureColumn('annotations', 'width', 'width REAL NOT NULL DEFAULT 0');

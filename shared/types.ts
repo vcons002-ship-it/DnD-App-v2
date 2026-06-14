@@ -700,6 +700,8 @@ export type ChatMessage = {
   createdAt: number;
   /** DM-only message (rules-assistant Q&A) — stripped from player snapshots. */
   dmOnly?: boolean;
+  /** Rulebook page citations on a rules-assistant answer (clickable in the UI). */
+  pages?: number[];
 };
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
@@ -1245,6 +1247,8 @@ export interface ClientToServerEvents {
     question: string;
     backend?: { prefer?: 'gemini' | 'local'; ollamaModel?: string };
   }) => void;
+  /** DM-only: stop the in-flight rules-assistant request (the chat Stop button). */
+  'assistant:cancel': () => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
@@ -1306,4 +1310,7 @@ export interface ServerToClientEvents {
   /** A player sent a chat message — pop their words in a speech bubble over their
    *  PC token (`refId` = character id) for a few seconds. Ephemeral. */
   'fx:say': (payload: { refId: string; text: string }) => void;
+  /** DM-only: the rules assistant started (true) / finished (false) thinking, so
+   *  the chat shows a live indicator with a Stop button. */
+  'assistant:thinking': (payload: { thinking: boolean }) => void;
 }

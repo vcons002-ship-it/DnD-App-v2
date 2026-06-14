@@ -17,6 +17,9 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const sendChat = useStore((s) => s.sendChat);
   const chatTyping = useStore((s) => s.chatTyping);
   const askAssistant = useStore((s) => s.askAssistant);
+  const assistantThinking = useStore((s) => s.assistantThinking);
+  const cancelAssistant = useStore((s) => s.cancelAssistant);
+  const openRulebook = useStore((s) => s.openRulebook);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
@@ -218,6 +221,21 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
               <div key={item.id} className={`chat-msg ${m.role}`}>
                 <span className="chat-sender">{m.sender}</span>
                 <span className="chat-text">{m.text}</span>
+                {m.pages && m.pages.length > 0 && (
+                  <span className="chat-cites">
+                    📖 Sources:{' '}
+                    {m.pages.map((p) => (
+                      <button
+                        key={p}
+                        className="cite-chip"
+                        title={`Open the rulebook at page ${p}`}
+                        onClick={() => openRulebook(p)}
+                      >
+                        p.{p}
+                      </button>
+                    ))}
+                  </span>
+                )}
               </div>
             );
           }
@@ -272,6 +290,14 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           );
         })}
       </div>
+      {isDm && assistantThinking && (
+        <div className="assistant-thinking" title="The rules assistant is composing an answer">
+          <span className="thinking-dots">📖 Rules Assistant is thinking…</span>
+          <button className="btn tiny" onClick={cancelAssistant}>
+            ⏹ Stop
+          </button>
+        </div>
+      )}
       {isDm && aiBackends && (aiBackends.ollamaModels.length > 0 || aiBackends.geminiAvailable) && (
         <div className="ai-backend-row" title="Which AI answers /ask rules questions">
           <span className="muted">/ask uses:</span>
