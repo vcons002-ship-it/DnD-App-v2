@@ -19,6 +19,6 @@ describe('in-session chat', () => {
   it('trims overly long messages', () => {
     const s = createSession('Chat2');
     addChatMessage(s.id, 'Varis', 'player', 'x'.repeat(5000));
-    expect(listChat(s.id)[0].text.length).toBe(2000);
+    expect(listChat(s.id)[0].text.length).toBe(4000);
   });
 });

@@ -71,6 +71,9 @@ sanitization rules above and commit it to `claude/Main`.
 - **Shared:** a framework-free TS package imported by both sides.
 - **Remote access:** `cloudflared` (tunnel-agnostic via `PUBLIC_URL`). **AI:**
   Google Gemini, **key-gated and fail-safe** (works fully offline without a key).
+  A separate **DM rules-assistant** (`server/src/assistant/`, `/ask` in chat)
+  runs on a **local Ollama** server first with a Gemini fallback, grounded on an
+  SRD digest + app data + an optional uploaded rulebook PDF (wins on conflict).
 
 ## Architecture & invariants (read this first)
 

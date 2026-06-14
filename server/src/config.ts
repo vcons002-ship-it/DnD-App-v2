@@ -22,12 +22,18 @@ export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   /** Explicit Gemini model override; blank = auto-discover a fast model. */
   geminiModel: process.env.GEMINI_MODEL || '',
+  /** Local Ollama HTTP server base URL (the rules assistant tries this first). */
+  ollamaUrl: (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, ''),
+  /** Ollama model name for the rules assistant (must be pulled locally). */
+  ollamaModel: process.env.OLLAMA_MODEL || 'llama3.1',
   /** Absolute paths to local storage (created on boot). */
   dataDir: path.join(serverRoot, 'data'),
   uploadsDir: path.join(serverRoot, 'uploads'),
   dbPath: path.join(serverRoot, 'data', 'game.db'),
   /** Runtime settings overrides (API key / model) editable from the UI. */
   settingsPath: path.join(serverRoot, 'data', 'settings.json'),
+  /** Uploaded rulebook PDF, parsed into searchable chunks (rules assistant). */
+  rulebookPath: path.join(serverRoot, 'data', 'rulebook.json'),
   /** Where the built client lives (served in production). */
   clientDist: path.resolve(serverRoot, '..', 'client', 'dist'),
 };

@@ -29,6 +29,7 @@ import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
 import { searchWeapons } from './weapons/srd.js';
 import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
+import { rulebookInfo, setRulebookFromPdf, clearRulebook } from './assistant/index.js';
 import {
   deleteLibraryCharacter,
   deleteLibraryCreature,
@@ -56,6 +57,14 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (_req, file, cb) =>
     cb(null, file.mimetype.startsWith('image/')),
+});
+
+// Rulebook PDF upload: kept in memory so we can parse it, not stored as a file.
+const pdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 60 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) =>
+    cb(null, file.mimetype === 'application/pdf' || /\.pdf$/i.test(file.originalname)),
 });
 
 export function createApiRouter(io: IOServer): Router {
@@ -147,12 +156,49 @@ export function createApiRouter(io: IOServer): Router {
     ) {
       return res.status(403).json({ error: 'Incorrect DM passphrase' });
     }
-    const patch: { geminiApiKey?: string; geminiModel?: string } = {};
+    const patch: {
+      geminiApiKey?: string;
+      geminiModel?: string;
+      ollamaUrl?: string;
+      ollamaModel?: string;
+    } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
     if (typeof req.body?.geminiModel === 'string')
       patch.geminiModel = req.body.geminiModel;
+    if (typeof req.body?.ollamaUrl === 'string') patch.ollamaUrl = req.body.ollamaUrl;
+    if (typeof req.body?.ollamaModel === 'string')
+      patch.ollamaModel = req.body.ollamaModel;
     res.json(updateSettings(patch));
+  });
+
+  // ---- Rules-assistant rulebook PDF (DM-only grounding override) ----
+  // The uploaded book is parsed into searchable chunks and takes precedence over
+  // the bundled SRD digest when the assistant answers.
+  router.get('/rulebook', (_req, res) => {
+    res.json(rulebookInfo());
+  });
+
+  router.post('/rulebook', pdfUpload.single('pdf'), async (req, res) => {
+    if (config.dmPassphrase && req.headers['x-dm-passphrase'] !== config.dmPassphrase) {
+      return res.status(403).json({ error: 'Incorrect DM passphrase' });
+    }
+    const file = (req as { file?: Express.Multer.File }).file;
+    if (!file) return res.status(400).json({ error: 'No PDF uploaded' });
+    const info = await setRulebookFromPdf(file.buffer, file.originalname);
+    if (!info)
+      return res
+        .status(422)
+        .json({ error: 'Could not extract text from that PDF (is it a scanned image?)' });
+    res.json(info);
+  });
+
+  router.delete('/rulebook', (req, res) => {
+    if (config.dmPassphrase && req.headers['x-dm-passphrase'] !== config.dmPassphrase) {
+      return res.status(403).json({ error: 'Incorrect DM passphrase' });
+    }
+    clearRulebook();
+    res.json({ ok: true });
   });
 
   // Creature search for the autofill box: SRD + the cross-session library.

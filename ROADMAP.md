@@ -766,6 +766,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   speaker's `claimed_by` character (`getClaimedCharacterId`), rendered by a Konva
   `SpeechBubbles` layer (auto-measured rounded bubble + downward tail) that
   auto-expires; the say bubble supersedes any lingering typing bubble.
+- ☑ **DM rules-assistant chatbot.** The DM types `/ask <question>` (or `/rules`)
+  in chat to query a grounded 5e (2024) rules assistant (`assistant:ask` →
+  `answerRules`). Backend: a **local Ollama** HTTP server first
+  (`OLLAMA_URL`/`OLLAMA_MODEL`, editable in Settings), falling back to the
+  **Gemini** API key (`callGeminiText`); fail-safe — posts an "unavailable"
+  notice if neither is reachable. Grounding corpus (`server/src/assistant/`):
+  a hand-authored **SRD 5.2 rules digest** + the app's structured data (spells,
+  skills, feats) + an optional **uploaded rulebook PDF** (`POST /api/rulebook`,
+  parsed via `pdf-parse` into chunks) which **takes precedence on any conflict**;
+  retrieval is dependency-free keyword scoring with a rulebook boost. The Q&A is
+  posted as **DM-only chat** (`chat_messages.dm_only`, stripped from player
+  snapshots in `visibility.ts`).
 - ☑ **Map annotation layer.** Freehand pen + text labels drawn on the active map
   (`annotations` table → snapshot, `annotation:add/remove/clear`), shared and
   persistent, with colour swatches and Clear mine/all (players clear only theirs).

@@ -32,6 +32,7 @@ import {
   setConn,
   type IOServer,
 } from './connections.js';
+import { answerRules } from './assistant/index.js';
 import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import {
   addRollLog,
@@ -993,6 +994,35 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || isDm()) return; // DMs have no PC token to bubble over
       const refId = getClaimedCharacterId(sid, socket.id);
       if (refId) broadcastTyping(io, sid, socket.id, refId, !!typing);
+    });
+
+    // DM-only rules assistant. The DM's question and the answer are posted as
+    // DM-only chat messages (filtered from players in visibility.ts) and answered
+    // by a local Ollama model, falling back to Gemini. Fail-safe: posts a notice
+    // if no backend is reachable.
+    socket.on('assistant:ask', async ({ question }) => {
+      const sid = sessionId();
+      const q = typeof question === 'string' ? question.trim() : '';
+      if (!sid || !isDm() || !q) return;
+      // Show the question in the DM's feed immediately, then think.
+      addChatMessage(sid, 'DM', 'dm', `❓ ${q.slice(0, 500)}`, true);
+      afterChange();
+      let answer: string | null = null;
+      try {
+        answer = await answerRules(q);
+      } catch (err) {
+        console.warn('  [assistant] failed:', (err as Error).message);
+      }
+      addChatMessage(
+        sid,
+        '📖 Rules Assistant',
+        'dm',
+        answer ??
+          'Rules assistant is unavailable. Start a local Ollama server (or set a Gemini API key in Settings) and try again.',
+        true,
+      );
+      afterChange();
+      socket.emit('notice', { message: answer ? 'Rules assistant answered' : 'Rules assistant unavailable' });
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's

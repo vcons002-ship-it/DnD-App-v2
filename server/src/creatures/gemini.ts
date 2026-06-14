@@ -195,8 +195,18 @@ async function discoverModel(): Promise<string | null> {
   }
 }
 
+/** Plain-text Gemini call (no JSON mime) for prose answers like the rules
+ *  assistant. Shares model discovery/rotation + retries with callGemini. */
+export async function callGeminiText(prompt: string): Promise<string | null> {
+  return callGemini(prompt, { json: false });
+}
+
 /** Call Gemini, discovering/rotating models so a retired one never blocks us. */
-export async function callGemini(prompt: string): Promise<string | null> {
+export async function callGemini(
+  prompt: string,
+  opts: { json?: boolean } = {},
+): Promise<string | null> {
+  const json = opts.json !== false; // default: structured JSON (existing callers)
   let models: string[];
   if (resolvedModel) {
     models = [resolvedModel];
@@ -225,7 +235,7 @@ export async function callGemini(prompt: string): Promise<string | null> {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: 'application/json' },
+            generationConfig: json ? { responseMimeType: 'application/json' } : {},
           }),
           signal: AbortSignal.timeout(20000),
         });

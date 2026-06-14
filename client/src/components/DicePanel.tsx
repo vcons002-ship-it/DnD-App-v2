@@ -16,6 +16,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const clearRollLog = useStore((s) => s.clearRollLog);
   const sendChat = useStore((s) => s.sendChat);
   const chatTyping = useStore((s) => s.chatTyping);
+  const askAssistant = useStore((s) => s.askAssistant);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
@@ -88,7 +89,11 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
     setTyping(false);
     const body = chatText.trim();
     if (!body) return;
-    sendChat(body);
+    // DM-only: "/ask <question>" (or "/rules …") routes to the rules assistant
+    // instead of posting public chat; the Q&A appears as DM-only messages.
+    const ask = isDm && body.match(/^\/(ask|rules)\s+(.+)/is);
+    if (ask) askAssistant(ask[2].trim());
+    else sendChat(body);
     setChatText('');
   };
 
@@ -224,8 +229,12 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
       </div>
       <div className="chat-input">
         <input
-          placeholder="Message… (/roll 2d6+3)"
-          title="Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice"
+          placeholder={isDm ? 'Message… (/roll 2d6+3 · /ask a rules question)' : 'Message… (/roll 2d6+3)'}
+          title={
+            isDm
+              ? 'Chat · /roll 2d6+3 (optionally adv/dis) to roll · /ask <question> for the DM-only rules assistant'
+              : 'Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice'
+          }
           value={chatText}
           maxLength={2000}
           onChange={(e) => onType(e.target.value)}

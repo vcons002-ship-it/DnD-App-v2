@@ -698,6 +698,8 @@ export type ChatMessage = {
   role: Role;
   text: string;
   createdAt: number;
+  /** DM-only message (rules-assistant Q&A) — stripped from player snapshots. */
+  dmOnly?: boolean;
 };
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
@@ -1235,6 +1237,9 @@ export interface ClientToServerEvents {
   /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
    *  — the server pops a typing bubble over their claimed PC token for others. */
   'chat:typing': (payload: { typing: boolean }) => void;
+  /** DM-only: ask the rules assistant (SRD + uploaded rulebook). The Q&A is
+   *  posted as DM-only chat messages and answered by a local/remote LLM. */
+  'assistant:ask': (payload: { question: string }) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
