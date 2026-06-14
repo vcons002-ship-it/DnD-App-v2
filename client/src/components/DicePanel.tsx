@@ -91,7 +91,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
     if (!body) return;
     // DM-only: "/ask <question>" (or "/rules …") routes to the rules assistant
     // instead of posting public chat; the Q&A appears as DM-only messages.
-    const ask = isDm && body.match(/^\/(ask|rules)\s+(.+)/is);
+    const ask = isDm && body.match(/^\/(ask|rules?)\s+(.+)/is);
     if (ask) askAssistant(ask[2].trim());
     else sendChat(body);
     setChatText('');

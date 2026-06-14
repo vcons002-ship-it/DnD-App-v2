@@ -20,7 +20,8 @@ import {
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
-import { geminiEnabled, lookupCreatureAI, generateItemAI } from './creatures/gemini.js';
+import { lookupCreatureAI, generateItemAI } from './creatures/gemini.js';
+import { aiAvailable } from './ai/gateway.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
@@ -208,7 +209,7 @@ export function createApiRouter(io: IOServer): Router {
     const lib = searchLibraryCreatures(q);
     const libNames = new Set(lib.map((c) => c.name.toLowerCase()));
     const srd = searchSrd(q).filter((c) => !libNames.has(c.name.toLowerCase()));
-    res.json({ results: [...lib, ...srd], aiAvailable: geminiEnabled() });
+    res.json({ results: [...lib, ...srd], aiAvailable: aiAvailable() });
   });
 
   // Full creature lookup: library first (a DM's saved/edited copy is
@@ -248,7 +249,7 @@ export function createApiRouter(io: IOServer): Router {
         ...searchMasteries(q),
         ...searchManeuvers(q),
       ],
-      aiAvailable: geminiEnabled(),
+      aiAvailable: aiAvailable(),
     });
   });
 

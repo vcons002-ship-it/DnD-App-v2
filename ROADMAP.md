@@ -766,12 +766,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   speaker's `claimed_by` character (`getClaimedCharacterId`), rendered by a Konva
   `SpeechBubbles` layer (auto-measured rounded bubble + downward tail) that
   auto-expires; the say bubble supersedes any lingering typing bubble.
-- ☑ **DM rules-assistant chatbot.** The DM types `/ask <question>` (or `/rules`)
-  in chat to query a grounded 5e (2024) rules assistant (`assistant:ask` →
-  `answerRules`). Backend: a **local Ollama** HTTP server first
-  (`OLLAMA_URL`/`OLLAMA_MODEL`, editable in Settings), falling back to the
-  **Gemini** API key (`callGeminiText`); fail-safe — posts an "unavailable"
-  notice if neither is reachable. Grounding corpus (`server/src/assistant/`):
+- ☑ **App-wide AI gateway (local Ollama + Gemini).** `server/src/ai/` is the ONE
+  chokepoint every AI feature routes through: `ollama.ts` (local HTTP client +
+  health probe) and `gateway.ts` with `generateText` (prose) + `generateJson`
+  (structured, fence-stripped). Both prefer a **local Ollama** model and fall
+  back to **Gemini**, fail-safe to null. Creature/character/item/spell generation
+  now run **locally too** (their guards use `aiAvailable()` = Ollama reachable OR
+  a Gemini key; `/api/*` `aiAvailable` flags + the boot/settings health probe
+  reflect it). Ollama URL/model are editable in Settings.
+- ☑ **DM rules-assistant chatbot.** The DM types `/ask` (or `/rule`/`/rules`)
+  `<question>` in chat to query a grounded 5e (2024) rules assistant
+  (`assistant:ask` → `answerRules`) via the AI gateway above. Grounding corpus
+  (`server/src/assistant/`):
   a hand-authored **SRD 5.2 rules digest** + the app's structured data (spells,
   skills, feats) + an optional **uploaded rulebook PDF** (`POST /api/rulebook`,
   parsed via `pdf-parse` into chunks) which **takes precedence on any conflict**;

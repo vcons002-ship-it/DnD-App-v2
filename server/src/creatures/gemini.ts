@@ -9,6 +9,7 @@ import type {
   Weapon,
 } from '../../../shared/types.js';
 import { iconForCreature } from './srd.js';
+import { generateJson, aiAvailable } from '../ai/gateway.js';
 import { parseActionRoll } from '../../../shared/monsterAttacks.js';
 import { sanitizeModifiers } from '../../../shared/modifiers.js';
 
@@ -288,7 +289,7 @@ export async function callGemini(
 export async function lookupCreatureAI(
   name: string,
 ): Promise<CreatureTemplate | null> {
-  if (!config.geminiApiKey || !name.trim()) return null;
+  if (!aiAvailable() || !name.trim()) return null;
 
   const prompt =
     `Give a Dungeons & Dragons 5e stat block for "${name}". This may be a plain ` +
@@ -322,7 +323,7 @@ export async function lookupCreatureAI(
     `<dice> <type> damage". "abilities" are passive traits/features (no roll). ` +
     `Use SRD/average HP. Keep each description under 30 words.`;
 
-  const text = await callGemini(prompt);
+  const text = await generateJson(prompt);
   if (!text) return null;
   try {
     const parsed = JSON.parse(text) as Record<string, unknown>;
@@ -382,7 +383,7 @@ export type GeneratedCharacter = {
 export async function generateCharacterAI(
   description: string,
 ): Promise<GeneratedCharacter | null> {
-  if (!config.geminiApiKey || !description.trim()) return null;
+  if (!aiAvailable() || !description.trim()) return null;
 
   const prompt =
     `Create a Dungeons & Dragons 5e character or NPC from this description: ` +
@@ -412,7 +413,7 @@ export async function generateCharacterAI(
     `"actions" are attacks/features; "abilities" are class/racial traits. ` +
     `Use level-appropriate HP. Keep each description under 30 words.`;
 
-  const text = await callGemini(prompt);
+  const text = await generateJson(prompt);
   if (!text) return null;
   try {
     const p = JSON.parse(text) as Record<string, unknown>;
@@ -461,7 +462,7 @@ export async function generateItemAI(prompt: string): Promise<{
   qtyDefault: number;
   modifiers: SheetModifier[];
 } | null> {
-  if (!geminiEnabled() || !prompt.trim()) return null;
+  if (!aiAvailable() || !prompt.trim()) return null;
   const ask =
     `Invent a single Dungeons & Dragons 5e item from this prompt: "${prompt}". ` +
     `Respond ONLY with minified JSON of shape ` +
@@ -480,7 +481,7 @@ export async function generateItemAI(prompt: string): Promise<{
     `+1 to all saves = two entries). Do NOT encode advantage, resistances, or other ` +
     `non-numeric effects; leave those to the description. ` +
     `Keep it SRD-safe and original.`;
-  const text = await callGemini(ask);
+  const text = await generateJson(ask);
   if (!text) return null;
   try {
     const p = JSON.parse(text) as Record<string, unknown>;

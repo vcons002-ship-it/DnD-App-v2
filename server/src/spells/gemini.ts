@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import type { AbilityRoll, SheetAbility } from '../../../shared/types.js';
-import { callGemini, geminiEnabled } from '../creatures/gemini.js';
+import { geminiEnabled } from '../creatures/gemini.js';
+import { generateJson, aiAvailable } from '../ai/gateway.js';
 
 export { geminiEnabled };
 
@@ -33,7 +34,7 @@ function parseRoll(v: unknown): AbilityRoll | undefined {
  * gracefully (the app never depends on AI being reachable).
  */
 export async function lookupSpellAI(name: string): Promise<SpellLookup | null> {
-  if (!config.geminiApiKey || !name.trim()) return null;
+  if (!aiAvailable() || !name.trim()) return null;
 
   const prompt =
     `Give the Dungeons & Dragons 5e spell or class ability named "${name}". ` +
@@ -53,7 +54,7 @@ export async function lookupSpellAI(name: string): Promise<SpellLookup | null> {
     `a cantrip). Omit "roll" for purely descriptive entries. Keep the description ` +
     `under 50 words.`;
 
-  const text = await callGemini(prompt);
+  const text = await generateJson(prompt);
   if (!text) return null;
   try {
     const p = JSON.parse(text) as Record<string, unknown>;

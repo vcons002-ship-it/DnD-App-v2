@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { config } from './config.js';
 import { clearResolvedModel } from './creatures/gemini.js';
+import { refreshOllama } from './ai/ollama.js';
 
 /** The subset of config the DM can change at runtime from the Settings modal. */
 export type RuntimeSettings = {
@@ -40,6 +41,9 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   }
   if (typeof patch.ollamaModel === 'string') {
     config.ollamaModel = patch.ollamaModel.trim();
+  }
+  if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
+    void refreshOllama(); // re-probe so the "AI available" signal stays accurate
   }
   try {
     fs.writeFileSync(
