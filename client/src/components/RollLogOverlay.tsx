@@ -12,9 +12,12 @@ const MAX_STACK = 6; // cap so a busy round can't cover the map
 /**
  * Compact feed of rolls AND chat pinned to the bottom-left of the map. New
  * entries fade in and, when idle, fade out ~20s later — leaving only a faint
- * latest line as a hover target. Hovering fades the panel back to full opacity:
- * within a minute it reveals the recent stack; once the latest entry is over a
- * minute old, hovering shows only that single latest entry.
+ * latest line as a hover target. Hovering **the bottom (latest) line** fades the
+ * panel back to full opacity: within a minute it reveals the recent stack; once
+ * the latest entry is over a minute old, hovering shows only that single latest
+ * entry. The reveal trigger is the bottom line ALONE (not the whole stack), so
+ * brushing the mouse over the fading entries above can't crowd the screen back
+ * in; the expanded stack stays open until the cursor leaves the panel entirely.
  */
 export function RollLogOverlay({
   rollLog,
@@ -54,18 +57,24 @@ export function RollLogOverlay({
   }
 
   return (
-    <div
-      className="roll-log-overlay"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    // Leaving the panel collapses it; the reveal trigger (onMouseEnter) lives on
+    // the bottom line only, so hovering the fading stack above never re-expands.
+    <div className="roll-log-overlay" onMouseLeave={() => setHovered(false)}>
       {shown.map((item) => {
         const aged = now - item.createdAt >= WINDOW_MS;
         const opacity = hovered ? 1 : stale ? 0.22 : aged ? 0 : 1;
+        // The latest entry is the bottom line — the sole hover-to-reveal target.
+        const onMouseEnter =
+          item.id === latest.id ? () => setHovered(true) : undefined;
         if (item.kind === 'chat') {
           const m = item.chat;
           return (
-            <div key={item.id} className={`chat-msg ${m.role}`} style={{ opacity }}>
+            <div
+              key={item.id}
+              className={`chat-msg ${m.role}`}
+              style={{ opacity }}
+              onMouseEnter={onMouseEnter}
+            >
               <span className="chat-sender">{m.sender}</span>
               <span className="chat-text">{m.text}</span>
             </div>
@@ -78,6 +87,7 @@ export function RollLogOverlay({
             key={item.id}
             className={`roll-entry cat-${rollCategory(entry)}`}
             style={{ borderLeftColor: color, opacity }}
+            onMouseEnter={onMouseEnter}
           >
             <span className="roll-total">{entry.total}</span>
             <span className="roll-meta">
