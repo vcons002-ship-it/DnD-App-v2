@@ -328,16 +328,22 @@ export async function lookupCreatureAI(
     `<dice> <type> damage". "abilities" are passive traits/features (no roll). ` +
     `Use SRD/average HP. Keep each description under 30 words.`;
 
-  // If the name extends a known SRD creature (e.g. "Stone Goblin"), give the AI
-  // the canonical base block as a FLOOR so the variant scales UP from it rather
-  // than drifting to an arbitrary power level.
+  // If the name extends a known SRD creature (e.g. "Stone Goblin"), pass the
+  // canonical base block as a POWER FLOOR + starting point — NOT a template to
+  // copy. The variant should be MORE powerful and full of new, on-theme flavor;
+  // the only rule is "don't end up weaker than the base." Fully-custom names (no
+  // base match) skip this entirely and get full creative latitude.
   const base = findBaseCreature(name);
   const groundedPrompt = base
     ? prompt +
-      `\n\nThis is a themed VARIANT of the SRD "${base.name}" (CR ${base.level}). ` +
-      `Use this canonical stat block as the FLOOR — keep the same creature type and ` +
-      `general role, and make a STRONGER, on-theme version (raise CR/HP/AC/damage and ` +
-      `add a fitting trait or two, but don't drop below the base). Base block:\n` +
+      `\n\nThis is a themed VARIANT of the SRD "${base.name}" (CR ${base.level}). Treat ` +
+      `the base block below ONLY as a power FLOOR and a starting point — its CR, HP, AC, ` +
+      `ability scores, and damage are the MINIMUM. BE CREATIVE: invent new thematic ` +
+      `abilities, attacks, resistances/immunities, and reflavor freely to fit the name ` +
+      `(e.g. a "Stone Goblin" gains earth/stone powers and tougher AC; a "Blood Goblin" ` +
+      `gains life-drain). Make it noticeably stronger and distinct — just never weaker ` +
+      `than the base, and keep it recognizably related unless the name implies a different ` +
+      `creature type. Base block (the floor):\n` +
       JSON.stringify({
         name: base.name,
         creatureType: base.creatureType,
