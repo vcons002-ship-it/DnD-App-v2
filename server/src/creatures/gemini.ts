@@ -8,7 +8,7 @@ import type {
   SheetModifier,
   Weapon,
 } from '../../../shared/types.js';
-import { iconForCreature } from './srd.js';
+import { iconForCreature, findBaseCreature } from './srd.js';
 import { generateJson, aiAvailable } from '../ai/gateway.js';
 import { parseActionRoll } from '../../../shared/monsterAttacks.js';
 import { sanitizeModifiers } from '../../../shared/modifiers.js';
@@ -328,7 +328,36 @@ export async function lookupCreatureAI(
     `<dice> <type> damage". "abilities" are passive traits/features (no roll). ` +
     `Use SRD/average HP. Keep each description under 30 words.`;
 
-  const text = await generateJson(prompt);
+  // If the name extends a known SRD creature (e.g. "Stone Goblin"), pass the
+  // canonical base block as a POWER FLOOR + starting point — NOT a template to
+  // copy. The variant should be MORE powerful and full of new, on-theme flavor;
+  // the only rule is "don't end up weaker than the base." Fully-custom names (no
+  // base match) skip this entirely and get full creative latitude.
+  const base = findBaseCreature(name);
+  const groundedPrompt = base
+    ? prompt +
+      `\n\nThis is a themed VARIANT of the SRD "${base.name}" (CR ${base.level}). Treat ` +
+      `the base block below ONLY as a power FLOOR and a starting point — its CR, HP, AC, ` +
+      `ability scores, and damage are the MINIMUM. BE CREATIVE: invent new thematic ` +
+      `abilities, attacks, resistances/immunities, and reflavor freely to fit the name ` +
+      `(e.g. a "Stone Goblin" gains earth/stone powers and tougher AC; a "Blood Goblin" ` +
+      `gains life-drain). Make it noticeably stronger and distinct — just never weaker ` +
+      `than the base, and keep it recognizably related unless the name implies a different ` +
+      `creature type. Base block (the floor):\n` +
+      JSON.stringify({
+        name: base.name,
+        creatureType: base.creatureType,
+        level: base.level,
+        maxHp: base.maxHp,
+        armorClass: base.armorClass,
+        speed: base.speed,
+        stats: base.stats,
+        actions: base.actions,
+        abilities: base.abilities,
+      })
+    : prompt;
+
+  const text = await generateJson(groundedPrompt);
   if (!text) return null;
   try {
     const parsed = JSON.parse(text) as Record<string, unknown>;

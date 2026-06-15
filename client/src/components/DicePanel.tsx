@@ -3,6 +3,7 @@ import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
+import { linkify } from '../lib/linkify';
 import { mergeFeed } from '../lib/feed';
 import { AdvantageToggle } from './AdvantageToggle';
 
@@ -248,7 +249,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
             return (
               <div key={item.id} className={`chat-msg ${m.role}`}>
                 <span className="chat-sender">{m.sender}</span>
-                <span className="chat-text">{m.text}</span>
+                <span className="chat-text">{linkify(m.text)}</span>
                 {m.pages && m.pages.length > 0 && (
                   <span className="chat-cites">
                     📖 Sources:{' '}

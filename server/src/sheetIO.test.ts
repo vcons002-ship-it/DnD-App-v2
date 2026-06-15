@@ -45,6 +45,83 @@ describe('sheet text import', () => {
   it('returns nothing for junk', () => {
     expect(Object.keys(parseSheetText('the quick brown fox'))).toHaveLength(0);
   });
+
+  it('infers skill proficiency from a listed bonus (no marker needed)', () => {
+    // Level 5 (prof +3), DEX 16 (+3). Stealth +6 = mod+prof → proficient;
+    // Acrobatics +3 = mod only → not; Stealth +9 (expertise) also proficient.
+    const p = parseSheetText(`
+      Rookwood — Halfling Rogue 5
+      Dexterity 16  Wisdom 12
+      Acrobatics +3   Stealth +6   Perception +1
+    `);
+    expect(p.proficientSkills).toContain('Stealth');
+    expect(p.proficientSkills).not.toContain('Acrobatics');
+    expect(p.proficientSkills).not.toContain('Perception');
+  });
+
+  it('reads saving-throw proficiencies (marker and inferred)', () => {
+    // Level 5 (prof +3), CON 14 (+2), WIS 12 (+1).
+    const p = parseSheetText(`
+      Bruenor — Dwarf Fighter 5
+      Constitution 14  Wisdom 12  Strength 16
+      Saving Throws: Strength Save +6, Constitution +5, Wisdom +1
+    `);
+    expect(p.saveProficiencies).toEqual(expect.arrayContaining(['STR', 'CON']));
+    expect(p.saveProficiencies).not.toContain('WIS'); // +1 = mod only
+  });
+
+  it('pulls in feats and a Features & Traits block as trait entries', () => {
+    const p = parseSheetText(`
+      Kael — Human Fighter 6
+      Feats: Sentinel, Lucky
+
+      Features & Traits
+      Great Weapon Master
+      You can take a -5 penalty to hit for +10 damage with a heavy weapon.
+      Second Wind
+      Regain 1d10 + level hit points as a bonus action.
+
+      Equipment
+      Greatsword, Chain Mail
+    `);
+    const names = (p.abilities ?? []).map((a) => a.name.toLowerCase());
+    expect(names).toContain('sentinel');
+    expect(names).toContain('lucky');
+    expect(names).toContain('great weapon master');
+    expect(names).toContain('second wind');
+    // The block's descriptions are captured under their names…
+    const gwm = (p.abilities ?? []).find((a) => /great weapon master/i.test(a.name));
+    expect(gwm?.description).toMatch(/-5 penalty|\+10 damage/i);
+    // …and the next section (Equipment) is NOT swept into a trait.
+    expect(names).not.toContain('greatsword, chain mail');
+    expect(names).not.toContain('equipment');
+  });
+
+  it('captures spells (by level) and weapon masteries as sheet abilities', () => {
+    const p = parseSheetText(`
+      Lia — Elf Wizard 5
+      Intelligence 18
+      Spellcasting
+      Cantrips: Fire Bolt, Mage Hand, Prestidigitation
+      1st Level: Magic Missile, Shield
+      2nd Level: Misty Step, Scorching Ray
+      Weapon Masteries: Longsword (Sap), Dagger (Nick)
+
+      Equipment
+      Spellbook, Component pouch
+    `);
+    const abil = p.sheetAbilities ?? [];
+    const byName = (n: string) => abil.find((a) => a.name.toLowerCase() === n.toLowerCase());
+    expect(byName('Fire Bolt')).toMatchObject({ type: 'spell', level: 0 });
+    expect(byName('Magic Missile')).toMatchObject({ type: 'spell', level: 1 });
+    expect(byName('Misty Step')).toMatchObject({ type: 'spell', level: 2 });
+    // Masteries become "<Weapon> Mastery" entries.
+    expect(byName('Longsword Mastery')).toMatchObject({ type: 'mastery' });
+    expect(byName('Dagger Mastery')).toMatchObject({ type: 'mastery' });
+    // Every entry has an id + custom source, and the Equipment line isn't slurped.
+    expect(abil.every((a) => a.id && a.source === 'custom')).toBe(true);
+    expect(byName('Spellbook')).toBeUndefined();
+  });
 });
 
 describe('sheet JSON round-trip', () => {

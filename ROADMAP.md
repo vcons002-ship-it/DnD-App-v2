@@ -268,19 +268,32 @@ Smaller refinements on top of the shipped Phase 2 work.
   library") via `item:set`/`item:remove`. (WP6)
 - ☑ **Import/export character sheet [req].** `shared/sheetIO.ts`: a robust
   PLAIN-TEXT scraper (any sheet — name/race/class/level, HP `x/y`, AC, speed,
-  ability scores via abbreviations OR full words, marker-based skill
-  proficiencies, spell slots) AND a lossless JSON round-trip (Export JSON +
-  import). `SheetImportExport` (on the editable character sheet) previews exactly
-  which fields will be **overwritten** and confirms before applying; everything
-  it doesn't recognize is preserved. (No public Roll20 API, so this works for any
-  pasted sheet, not just Roll20.) (WP7)
+  ability scores via abbreviations OR full words, skill proficiencies, spell
+  slots) AND a lossless JSON round-trip (Export JSON + import). `SheetImportExport`
+  (on the editable character sheet) previews exactly which fields will be
+  **overwritten** and confirms before applying; everything it doesn't recognize is
+  preserved. (No public Roll20 API, so this works for any pasted sheet.) (WP7)
+  **Improved:** the scraper now infers **skill + saving-throw proficiencies** from
+  listed bonuses (bonus ≥ ability-mod + proficiency-bonus — catches Roll20/D&D
+  Beyond pastes with no markers), scrapes **feats + a "Features & Traits" block**
+  into free-text traits, and captures **spells (by level) + weapon masteries** as
+  `sheetAbilities` whose names are **resolved against the local rules DB at import**
+  (`POST /api/spells/resolve`) so known entries arrive **rollable** (unknown stay as
+  references). The preview is now **per-section checkboxes** (apply only some, or
+  "Only empty fields") instead of an all-or-nothing overwrite. A per-entry
+  **"⚡ Make rollable"** button (CharacterSpells) looks a text-only ability up in
+  the rules (local DB first via `/spells/lookup`, AI fallback) and replaces it
+  **in place** (same id — no duplicate), for homebrew/non-SRD spells the import
+  couldn't resolve.
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
   persisted per role like panel width/collapse. *(Deferred.)*
 - ☑ Buff/nerf buttons with custom text (drive the green/red rings) — via the
   existing `ConditionPicker` custom buff/nerf + auras.
-- ☑ **Collapsible Roll20 embed [req].** `Roll20Panel`: a collapsible `<iframe>`
-  with an "Open ↗" pop-out fallback (Roll20 blocks framing via X-Frame-Options).
+- ☒ **Collapsible Roll20 embed [req]** — REMOVED. The `Roll20Panel` `<iframe>`
+  never worked (Roll20 blocks framing via X-Frame-Options) so it was deleted from
+  the UI + code; share a Roll20 link via chat instead (clickable links). Sheet
+  import (paste text) stays and was improved.
 - ☑ **Dice roller + shared roll log [req].** `shared/dice.ts` parser
   (`NdM±K`, multi-term, d20 adv/dis); `dice:roll` is computed authoritatively on
   the server and written to a persisted `roll_log`, surfaced in every snapshot.
@@ -756,8 +769,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   click-to-target `apply.onFail` flow) and a `marksTargetWith` tag that puts a
   status (e.g. "Marked" for Hunter's Mark) on the marked creature, following the
   mark and clearing when the stance ends.
+- ☑ **Fully-statted SRD bestiary.** Completed `creatures/srd.ts` so EVERY entry
+  has a canonical CR (`level`), AC, speed, ability scores, and attacks (the
+  `SrdEntry` type now requires them; a completeness test guards it). Creatures
+  added from search arrive combat-ready at their intended power level (Goblin
+  stays CR 1/4, never inflated). Themed AI variants are grounded on the nearest
+  base (`findBaseCreature`, fed into the creature-AI prompt as a floor) so a
+  "Stone Goblin"/"Blood Goblin" scales UP from the standard Goblin.
 - ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
   snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
+- ☑ **Clickable links in chat.** Bare `http(s)` URLs and `[label](url)` markdown
+  in any chat message render as safe anchors (`shared/linkify.ts` →
+  `lib/linkify.tsx`) opened in a new tab with `rel="noopener noreferrer"`. The DM
+  (or anyone) can drop a web link/handout for players to click. SECURITY: only
+  `http(s)` is recognized — never raw HTML, never `javascript:`/`data:` — so chat
+  can't inject markup or a scripted href.
 - ☑ **Chat speech bubbles over PC tokens.** A player's typing pops a transient
   "•••" bubble over their claimed PC token for the OTHERS in the session
   (`chat:typing` → ephemeral `fx:typing`, throttled, idle-cleared), and sending a

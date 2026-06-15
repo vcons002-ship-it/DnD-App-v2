@@ -5,7 +5,6 @@ import { PlayerPanel } from '../components/PlayerPanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
-import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
 import { ConnectionStatus } from '../components/ConnectionStatus';
@@ -105,11 +104,6 @@ export function PlayerView() {
                     onPlaceToken={() => setPlacing((p) => !p)}
                   />
                 ),
-              },
-              {
-                id: 'roll20',
-                label: 'Roll20',
-                node: <Roll20Panel sessionCode={snapshot.sessionCode} />,
               },
             ]}
           />

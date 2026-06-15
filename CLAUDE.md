@@ -230,7 +230,13 @@ sanitization rules above and commit it to `claude/Main`.
   server-side).
 - **Creatures:** offline **SRD** search + key-gated **Gemini** lookup +
   **cross-session library** (save with side-by-side conflict prompt that also
-  detects SRD-name shadowing; lookup checks library → SRD → AI).
+  detects SRD-name shadowing; lookup checks library → SRD → AI). The SRD bestiary
+  (`creatures/srd.ts`) is **fully statted** — every entry has a canonical CR
+  (`level`), AC, speed, ability scores, and attacks (type-enforced + a completeness
+  test), so any creature from search arrives combat-ready at its INTENDED power
+  level (a Goblin stays CR 1/4). Themed AI variants are **grounded on the nearest
+  base** (`findBaseCreature`: "Stone Goblin" → the Goblin block as a floor) so they
+  scale UP rather than drift.
 - **Characters:** DM + player creation, shared tagged sheet (editable), **skills**
   with proficiency/bonuses + **click-to-roll skill checks** (server-resolved
   `skill:roll` using the sheet's mod + proficiency, adv/dis, into the roll log),
@@ -253,7 +259,12 @@ sanitization rules above and commit it to `claude/Main`.
   token, **high-visibility PC tokens**, party + friendly sheets read-only, sheet
   import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
-  descriptions; AI picks level/CR; **AI-generated items** (`POST
+  descriptions; AI picks level/CR. **Character AI generation is grounded in the
+  local rules DB** (`creatures/fill.ts` `groundAbilities`/`groundWeapons`): each
+  generated spell/ability/mastery + weapon is replaced by the canonical DB entry
+  when the name matches (so it's rollable + combat-compatible) and **de-duplicated
+  by name** against the sheet — AI fill tops up what's missing without ever making
+  a second copy of the same spell. **AI-generated items** (`POST
   /api/items/generate` returns an item with structured `modifiers`, dropped into
   the loot editor — NOT auto-saved; saving to the library is the same explicit
   💾 choice as a custom item); global "AI is working" banner; editable API key +
@@ -342,8 +353,7 @@ sanitization rules above and commit it to `claude/Main`.
   once dead + "Loot revealed"); trap ⚡ Trigger + player 🔧 Disarm.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
-  modal for both roles, auto-tab by pointer type), editable map names, Roll20
-  collapsible embed + pop-out.
+  modal for both roles, auto-tab by pointer type), editable map names.
 
 ## Remaining / not yet built
 
@@ -383,10 +393,19 @@ sanitization rules above and commit it to `claude/Main`.
   indistinguishable from empty space beyond the map.
 - **Selection sync between DM windows is same-browser only** (BroadcastChannel);
   true cross-device sync would require server-side selection state.
-- **Sheet import overwrites** the fields it recognizes (others preserved) — it
-  previews + confirms which fields change. Works on *any* pasted text, not just
-  Roll20.
-- **Roll20** has no public per-character API → manual paste + iframe/pop-out only.
+- **Sheet import is per-section + overwrites only what you pick.** The preview
+  (`SheetImportExport`) lists each recognized section as a **checkbox** (default
+  all on) with a value preview; "Only empty fields" leaves anything already filled
+  alone, then it overwrites just the checked sections. Works on *any* pasted text
+  (Roll20, D&D Beyond, …); `parseSheetText` (`shared/sheetIO.ts`) infers **skill +
+  save proficiencies** from listed bonuses (bonus ≥ ability-mod + proficiency-
+  bonus, no markers needed), scrapes **feats + a Features & Traits block** into
+  free-text traits (`abilities`), and captures **spells (by level) + weapon
+  masteries** as `sheetAbilities` — names are **resolved against the local rules
+  DB at import** (`POST /api/spells/resolve`, no AI) so known entries arrive
+  **rollable** (with their structured roll); unknown names stay as references.
+  (The old Roll20 `<iframe>` embed was removed — most sites block framing, and
+  Roll20 has no per-character export API anyway.)
 - **AI is key-gated and fails safe** — every AI path no-ops cleanly without a key.
 
 ## Gotchas for edits
