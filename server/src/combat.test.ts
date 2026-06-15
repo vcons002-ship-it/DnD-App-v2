@@ -14,6 +14,7 @@ import {
 } from './combat.js';
 import {
   createSession,
+  setCombatRound,
   createMap,
   setActiveMap,
   createToken,
@@ -245,6 +246,23 @@ describe('combat resolution', () => {
     }
     expect(detail).toContain('CRIT');
     expect(detail).toContain('auto-crit (paralyzed)');
+  });
+
+  it('stamps the combat round on a condition (and its cascade) for tracking', () => {
+    const s = createSession('Rounds');
+    const c = createCharacter(s.id, { name: 'Stunned One' });
+    setCombatRound(s.id, 3);
+    setCondition('pc', c.id, { id: 'st', label: 'Stunned', aura: 'red', isConcentration: false });
+    const conds = getCharacter(c.id)!.conditions;
+    expect(conds.find((x) => x.label === 'Stunned')?.round).toBe(3);
+    expect(conds.find((x) => x.label === 'Incapacitated')?.round).toBe(3); // cascaded
+  });
+
+  it('does not stamp a round outside combat (round 0)', () => {
+    const s = createSession('NoCombat');
+    const c = createCharacter(s.id, { name: 'Tripped' });
+    setCondition('pc', c.id, { id: 'pr', label: 'Prone', aura: 'red', isConcentration: false });
+    expect(getCharacter(c.id)!.conditions.find((x) => x.label === 'Prone')?.round).toBeUndefined();
   });
 
   it('applying Unconscious cascades Incapacitated + Prone', () => {

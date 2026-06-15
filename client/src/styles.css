@@ -409,6 +409,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .chip:hover:not(.chip-on) { border-color: var(--accent); }
 .chip-on.red { background: #3a2326; border-color: var(--red); }
 .chip-on.green { background: #1f3a2a; border-color: var(--green); }
+.cond-turn { opacity: 0.7; font-size: 0.85em; }
 .chip-on.blue { background: #1d2740; border-color: var(--blue); }
 
 /* Non-combat object (trap/door/chest/item) interact controls */

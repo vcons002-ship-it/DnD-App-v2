@@ -379,7 +379,9 @@ sanitization rules above and commit it to `claude/Main`.
   (`shared/conditionEffects.ts`): paralyzed/stunned/unconscious/petrified auto-FAIL
   STR/DEX saves; poisoned/frightened give disadvantage on ability checks; applying
   a condition CASCADES its bundle (`impliedConditions`: Unconscious → Incapacitated
-  + Prone) via `setCondition`. **Location-based** (`shared/distance.ts`
+  + Prone) via `setCondition`, which also **stamps the combat round** (`Condition.round`,
+  shown as "T{n}" on the chip — no auto-expiry, just manual duration tracking).
+  **Location-based** (`shared/distance.ts`
   `tokensWithin5ft`, grid-Chebyshev with footprint reach): a **prone** target gives
   advantage WITHIN 5 ft / disadvantage beyond; a **paralyzed/unconscious** target
   within 5 ft is an **auto-crit** (`forceCrit` in `rollWeaponAttack`). Homebrew

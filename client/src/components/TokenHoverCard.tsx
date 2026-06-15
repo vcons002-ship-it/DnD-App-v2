@@ -41,6 +41,7 @@ export function TokenHoverCard({ snapshot, token, x, y }: Props) {
               <span className={`dot ${c.aura}`} />
               {c.label}
               {c.customText ? `: ${c.customText}` : ''}
+              {c.round ? ` (T${c.round})` : ''}
             </li>
           ))}
         </ul>

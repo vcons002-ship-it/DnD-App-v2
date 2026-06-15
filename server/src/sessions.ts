@@ -2625,15 +2625,20 @@ export function setCondition(
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity) return null;
+  // Stamp the current combat round (when combat is running) for manual duration
+  // tracking — applied to the new condition and any cascaded ones.
+  const round = getSessionById(entity.sessionId)?.combatRound || 0;
+  const stamp = (c: Condition): Condition =>
+    round > 0 && c.round === undefined ? { ...c, round } : c;
   const conditions = entity.conditions.filter(
     (c) => c.label.toLowerCase() !== condition.label.toLowerCase(),
   );
-  conditions.push(condition);
+  conditions.push(stamp(condition));
   // Cascade the implied bundle (Unconscious → Incapacitated + Prone, etc.) so
   // applying one chip sets the conditions it always carries in 5e.
   for (const label of impliedConditions(condition.label)) {
     if (!conditions.some((c) => c.label.toLowerCase() === label.toLowerCase()))
-      conditions.push({ id: newId(), label, aura: 'red', isConcentration: false });
+      conditions.push(stamp({ id: newId(), label, aura: 'red', isConcentration: false }));
   }
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),
