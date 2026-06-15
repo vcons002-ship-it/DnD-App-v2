@@ -253,7 +253,12 @@ sanitization rules above and commit it to `claude/Main`.
   token, **high-visibility PC tokens**, party + friendly sheets read-only, sheet
   import (text/JSON) + export.
 - **AI:** generate/back-fill creatures *and* characters from free-text
-  descriptions; AI picks level/CR; **AI-generated items** (`POST
+  descriptions; AI picks level/CR. **Character AI generation is grounded in the
+  local rules DB** (`creatures/fill.ts` `groundAbilities`/`groundWeapons`): each
+  generated spell/ability/mastery + weapon is replaced by the canonical DB entry
+  when the name matches (so it's rollable + combat-compatible) and **de-duplicated
+  by name** against the sheet — AI fill tops up what's missing without ever making
+  a second copy of the same spell. **AI-generated items** (`POST
   /api/items/generate` returns an item with structured `modifiers`, dropped into
   the loot editor — NOT auto-saved; saving to the library is the same explicit
   💾 choice as a custom item); global "AI is working" banner; editable API key +
