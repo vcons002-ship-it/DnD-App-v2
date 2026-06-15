@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import type { Character } from '../../../shared/types';
+import type { Character, SheetAbility } from '../../../shared/types';
 import {
   exportSheetJSON,
   parseSheet,
   type SheetPatch,
 } from '../../../shared/sheetIO';
 import { useStore } from '../state/socket';
+
+/** A locally-resolved rollable entry (the spell DB returns these, minus the id). */
+type SheetAbilityHit = Omit<SheetAbility, 'id'>;
 
 /**
  * Import a character sheet from pasted plain text (any sheet — D&D Beyond,
@@ -45,6 +48,11 @@ const FIELD_LABELS: Record<string, string> = {
 
 /** A short readable preview of a parsed value. */
 function summarize(key: string, v: unknown): string {
+  if (key === 'sheetAbilities' && Array.isArray(v)) {
+    const rollable = v.filter((x) => (x as { roll?: unknown })?.roll).length;
+    const names = v.map((x) => (x as { name?: string })?.name).filter(Boolean);
+    return `${v.length} (${rollable} rollable): ${names.slice(0, 4).join(', ')}${names.length > 4 ? '…' : ''}`;
+  }
   if (Array.isArray(v)) {
     const names = v.map((x) => (x as { name?: string })?.name).filter(Boolean) as string[];
     if (names.length) return `${v.length}: ${names.slice(0, 4).join(', ')}${names.length > 4 ? '…' : ''}`;
@@ -76,7 +84,7 @@ export function SheetImportExport({ character }: { character: Character }) {
   const [included, setIncluded] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState('');
 
-  const preview = () => {
+  const preview = async () => {
     setMsg('');
     const patch = parseSheet(text);
     const keys = Object.keys(patch);
@@ -84,6 +92,30 @@ export function SheetImportExport({ character }: { character: Character }) {
       setPending(null);
       setMsg('Nothing recognized in that text.');
       return;
+    }
+    // Turn parsed spell/mastery NAMES into proper ROLLABLE entries for anything
+    // in the local rules DB (so known spells import ready to roll instead of as
+    // text-only stubs you'd have to re-add). Unknown names stay as references.
+    if (patch.sheetAbilities?.length) {
+      try {
+        const names = patch.sheetAbilities.map((a) => a.name);
+        const r = await fetch('/api/spells/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names }),
+        });
+        if (r.ok) {
+          const { resolved } = (await r.json()) as { resolved: Record<string, SheetAbilityHit> };
+          patch.sheetAbilities = patch.sheetAbilities.map((a) => {
+            const hit = resolved[a.name.trim().toLowerCase()];
+            return hit
+              ? { ...hit, id: a.id, level: a.level ?? hit.level, source: 'srd' as const }
+              : a;
+          });
+        }
+      } catch {
+        /* offline / no server — keep the name-only entries */
+      }
     }
     setPending(patch);
     setIncluded(new Set(keys)); // everything on by default

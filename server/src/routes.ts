@@ -300,6 +300,23 @@ export function createApiRouter(io: IOServer): Router {
     return res.status(404).json({ error: 'Not found locally; AI unavailable.' });
   });
 
+  // Batch, LOCAL-ONLY resolution (no AI) of names → structured rollable entries.
+  // Used by the sheet import to turn parsed spell/mastery NAMES into proper
+  // rollable abilities for everything in the local DB. Returns a name→entry map.
+  router.post('/spells/resolve', (req, res) => {
+    const names: string[] = Array.isArray(req.body?.names)
+      ? req.body.names.filter((n: unknown) => typeof n === 'string').slice(0, 200)
+      : [];
+    const resolved: Record<string, unknown> = {};
+    for (const name of names) {
+      const key = name.trim().toLowerCase();
+      if (key in resolved) continue;
+      const hit = getSpell(name) ?? getFeature(name) ?? getMastery(name) ?? getManeuver(name);
+      if (hit) resolved[key] = { ...hit, source: 'srd' };
+    }
+    res.json({ resolved });
+  });
+
   // ---- Cross-session library (DM-curated creatures + items) ----
   router.get('/library/creatures', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';

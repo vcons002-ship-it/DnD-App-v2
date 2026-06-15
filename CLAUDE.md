@@ -390,7 +390,9 @@ sanitization rules above and commit it to `claude/Main`.
   save proficiencies** from listed bonuses (bonus ≥ ability-mod + proficiency-
   bonus, no markers needed), scrapes **feats + a Features & Traits block** into
   free-text traits (`abilities`), and captures **spells (by level) + weapon
-  masteries** as `sheetAbilities` names-only (enrich via the in-sheet search/AI).
+  masteries** as `sheetAbilities` — names are **resolved against the local rules
+  DB at import** (`POST /api/spells/resolve`, no AI) so known entries arrive
+  **rollable** (with their structured roll); unknown names stay as references.
   (The old Roll20 `<iframe>` embed was removed — most sites block framing, and
   Roll20 has no per-character export API anyway.)
 - **AI is key-gated and fails safe** — every AI path no-ops cleanly without a key.

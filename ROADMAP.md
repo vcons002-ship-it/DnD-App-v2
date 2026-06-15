@@ -277,8 +277,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   listed bonuses (bonus ≥ ability-mod + proficiency-bonus — catches Roll20/D&D
   Beyond pastes with no markers), scrapes **feats + a "Features & Traits" block**
   into free-text traits, and captures **spells (by level) + weapon masteries** as
-  names-only `sheetAbilities`. The preview is now **per-section checkboxes** (apply
-  only some, or "Only empty fields") instead of an all-or-nothing overwrite.
+  `sheetAbilities` whose names are **resolved against the local rules DB at import**
+  (`POST /api/spells/resolve`) so known entries arrive **rollable** (unknown stay as
+  references). The preview is now **per-section checkboxes** (apply only some, or
+  "Only empty fields") instead of an all-or-nothing overwrite.
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
   persisted per role like panel width/collapse. *(Deferred.)*
