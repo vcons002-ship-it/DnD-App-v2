@@ -382,13 +382,17 @@ sanitization rules above and commit it to `claude/Main`.
   indistinguishable from empty space beyond the map.
 - **Selection sync between DM windows is same-browser only** (BroadcastChannel);
   true cross-device sync would require server-side selection state.
-- **Sheet import overwrites** the fields it recognizes (others preserved) — it
-  previews + confirms which fields change. Works on *any* pasted text (Roll20,
-  D&D Beyond, etc.); `parseSheetText` (`shared/sheetIO.ts`) infers **skill + save
-  proficiencies** from listed bonuses (bonus ≥ ability-mod + proficiency-bonus, so
-  no markers are needed) and scrapes **feats + a Features & Traits block** into
-  free-text trait entries. (The old Roll20 `<iframe>` embed was removed — most
-  sites block framing, and Roll20 has no per-character export API anyway.)
+- **Sheet import is per-section + overwrites only what you pick.** The preview
+  (`SheetImportExport`) lists each recognized section as a **checkbox** (default
+  all on) with a value preview; "Only empty fields" leaves anything already filled
+  alone, then it overwrites just the checked sections. Works on *any* pasted text
+  (Roll20, D&D Beyond, …); `parseSheetText` (`shared/sheetIO.ts`) infers **skill +
+  save proficiencies** from listed bonuses (bonus ≥ ability-mod + proficiency-
+  bonus, no markers needed), scrapes **feats + a Features & Traits block** into
+  free-text traits (`abilities`), and captures **spells (by level) + weapon
+  masteries** as `sheetAbilities` names-only (enrich via the in-sheet search/AI).
+  (The old Roll20 `<iframe>` embed was removed — most sites block framing, and
+  Roll20 has no per-character export API anyway.)
 - **AI is key-gated and fails safe** — every AI path no-ops cleanly without a key.
 
 ## Gotchas for edits

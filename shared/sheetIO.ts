@@ -6,6 +6,7 @@ import type {
   CharacterUpdatePayload,
   CreatureAbility,
   InventoryItem,
+  SheetAbility,
   Weapon,
 } from './types.js';
 import { SKILLS, abilityMod, proficiencyBonus } from './skills.js';
@@ -120,6 +121,92 @@ function parseFeatsAndFeatures(t: string): CreatureAbility[] {
   for (const e of captureFeatureEntries(t)) add(e.name, e.description);
 
   return out.slice(0, 40);
+}
+
+/** An id for an imported ability (works in Node + the browser). */
+const genId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `imp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+
+/** A plausible spell / feature NAME (filters out stat fragments + headers). */
+function plausibleName(s: string): boolean {
+  if (s.length < 3 || s.length > 40 || !/^[A-Za-z]/.test(s)) return false;
+  if (/\d/.test(s)) return false; // names don't carry digits; stat lines do
+  if (s.split(/\s+/).length > 6) return false;
+  return !/^(?:level|cantrips?|spells?|spellcasting|prepared|known|slots?|save|attack|dc|ability|modifier)$/i.test(s);
+}
+
+/**
+ * Best-effort: capture a "Spells / Spellcasting" block as spell NAMES (grouped by
+ * a "Cantrips"/"Nth-level" subheader where present). No structured roll — the
+ * player enriches a spell via the in-sheet search/AI; this just gets the list in.
+ */
+function parseSpells(t: string): SheetAbility[] {
+  const lines = t.split('\n');
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (/^[^\S\n]*(?:spell(?:s|book|casting)?|cantrips?)\b/i.test(l) && /\b(?:spell|cantrip)/i.test(l)) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0) return [];
+  const out: SheetAbility[] = [];
+  const seen = new Set<string>();
+  let curLevel: number | undefined;
+  const levelOf = (s: string): number | undefined => {
+    if (/\bcantrips?\b/i.test(s)) return 0;
+    const m = s.match(/\blevel\s*([0-9])\b/i) ?? s.match(/\b([0-9])(?:st|nd|rd|th)\b\s*[- ]?level/i);
+    return m ? Number(m[1]) : undefined;
+  };
+  for (let i = start; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (i > start && line && SECTION_STOP.test(line) && !/spell|cantrip/i.test(line) && line.length < 40) break;
+    if (!line) continue;
+    // A leading "Cantrips:" / "1st Level:" header sets the level; names may follow.
+    const head = line.match(/^\s*(cantrips?|level\s*[0-9]|[0-9](?:st|nd|rd|th)\s*[- ]?level)\b\s*[:\-]?\s*/i);
+    if (head) {
+      curLevel = levelOf(head[0]);
+      line = line.slice(head[0].length).trim();
+      if (!line) continue;
+    }
+    for (let nm of line.split(/[,;]|\s{2,}|•|·/)) {
+      nm = nm
+        .replace(/\([^)]*\)/g, '')
+        .replace(/[*•●◉★]/g, '')
+        .replace(/\b(?:prepared|ritual|concentration|conc\.?|at will)\b/gi, '')
+        .trim();
+      if (!plausibleName(nm) || seen.has(nm.toLowerCase())) continue;
+      seen.add(nm.toLowerCase());
+      out.push({
+        id: genId(),
+        name: nm,
+        type: 'spell',
+        ...(curLevel !== undefined ? { level: curLevel } : {}),
+        description: '',
+        source: 'custom',
+      });
+      if (out.length >= 80) return out;
+    }
+  }
+  return out;
+}
+
+/** Best-effort: a "Weapon Mastery / Masteries: …" line → mastery entries. */
+function parseMasteries(t: string): SheetAbility[] {
+  const m = t.match(/\bweapon\s*master(?:y|ies)\b\s*[:\-]?\s*([^\n]+)/i);
+  if (!m) return [];
+  const out: SheetAbility[] = [];
+  const seen = new Set<string>();
+  for (let nm of m[1].split(/[,;/]|\s{2,}/)) {
+    nm = nm.replace(/\([^)]*\)/g, '').replace(/[*•●◉★]/g, '').trim();
+    if (!plausibleName(nm) || seen.has(nm.toLowerCase())) continue;
+    seen.add(nm.toLowerCase());
+    out.push({ id: genId(), name: `${nm} Mastery`, type: 'mastery', description: '', source: 'custom' });
+  }
+  return out;
 }
 
 /** Split a "Features & Traits" block into {name, description} entries: a short,
@@ -261,6 +348,11 @@ export function parseSheetText(text: string): SheetPatch {
   // Feats + features & traits → free-text trait entries (the hard-to-parse bits).
   const feats = parseFeatsAndFeatures(t);
   if (feats.length) patch.abilities = feats;
+
+  // Spells + weapon masteries → sheet abilities (names only; enrich via the
+  // in-sheet search/AI to make them rollable).
+  const abilities = [...parseSpells(t), ...parseMasteries(t)];
+  if (abilities.length) patch.sheetAbilities = abilities;
 
   // Spell slots: "1st-level slots: 4" / "Spell Slots Level 2: 3".
   const slots: Record<string, { max: number; used: number }> = {};

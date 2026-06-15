@@ -275,8 +275,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   preserved. (No public Roll20 API, so this works for any pasted sheet.) (WP7)
   **Improved:** the scraper now infers **skill + saving-throw proficiencies** from
   listed bonuses (bonus ≥ ability-mod + proficiency-bonus — catches Roll20/D&D
-  Beyond pastes with no markers) and scrapes **feats + a "Features & Traits" block**
-  into free-text trait entries.
+  Beyond pastes with no markers), scrapes **feats + a "Features & Traits" block**
+  into free-text traits, and captures **spells (by level) + weapon masteries** as
+  names-only `sheetAbilities`. The preview is now **per-section checkboxes** (apply
+  only some, or "Only empty fields") instead of an all-or-nothing overwrite.
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
   persisted per role like panel width/collapse. *(Deferred.)*

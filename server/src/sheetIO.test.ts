@@ -96,6 +96,32 @@ describe('sheet text import', () => {
     expect(names).not.toContain('greatsword, chain mail');
     expect(names).not.toContain('equipment');
   });
+
+  it('captures spells (by level) and weapon masteries as sheet abilities', () => {
+    const p = parseSheetText(`
+      Lia — Elf Wizard 5
+      Intelligence 18
+      Spellcasting
+      Cantrips: Fire Bolt, Mage Hand, Prestidigitation
+      1st Level: Magic Missile, Shield
+      2nd Level: Misty Step, Scorching Ray
+      Weapon Masteries: Longsword (Sap), Dagger (Nick)
+
+      Equipment
+      Spellbook, Component pouch
+    `);
+    const abil = p.sheetAbilities ?? [];
+    const byName = (n: string) => abil.find((a) => a.name.toLowerCase() === n.toLowerCase());
+    expect(byName('Fire Bolt')).toMatchObject({ type: 'spell', level: 0 });
+    expect(byName('Magic Missile')).toMatchObject({ type: 'spell', level: 1 });
+    expect(byName('Misty Step')).toMatchObject({ type: 'spell', level: 2 });
+    // Masteries become "<Weapon> Mastery" entries.
+    expect(byName('Longsword Mastery')).toMatchObject({ type: 'mastery' });
+    expect(byName('Dagger Mastery')).toMatchObject({ type: 'mastery' });
+    // Every entry has an id + custom source, and the Equipment line isn't slurped.
+    expect(abil.every((a) => a.id && a.source === 'custom')).toBe(true);
+    expect(byName('Spellbook')).toBeUndefined();
+  });
 });
 
 describe('sheet JSON round-trip', () => {
