@@ -223,6 +223,43 @@ describe('combat resolution', () => {
     expect(getMonster(victim.id)!.curHp).toBe(50 - amount);
   });
 
+  it('a paralyzed target within 5 ft suffers an automatic critical hit', () => {
+    const { s, atk, tgt } = masteryFight({
+      weapon: 'Sword',
+      attackBonus: 50, // always hits (except a nat-1 fumble)
+      targetAc: 5,
+      damage: '1d6',
+      mastery: { active: false, appliesToTags: [] },
+    });
+    setCondition('monster', getToken(tgt)!.refId, {
+      id: 'p1',
+      label: 'Paralyzed',
+      aura: 'red',
+      isConcentration: false,
+    });
+    let detail = '';
+    for (let i = 0; i < 40 && !detail; i++) {
+      resolveAttack(s, 'Striker', atk, tgt, 0);
+      const last = listRollLog(s).at(-1)!.detail;
+      if (/HIT|CRIT/.test(last) && !/nat 1/.test(last)) detail = last;
+    }
+    expect(detail).toContain('CRIT');
+    expect(detail).toContain('auto-crit (paralyzed)');
+  });
+
+  it('applying Unconscious cascades Incapacitated + Prone', () => {
+    const s = createSession('Cascade');
+    const c = createCharacter(s.id, { name: 'Faint' });
+    setCondition('pc', c.id, {
+      id: 'u1',
+      label: 'Unconscious',
+      aura: 'red',
+      isConcentration: false,
+    });
+    const labels = getCharacter(c.id)!.conditions.map((x) => x.label.toLowerCase());
+    expect(labels).toEqual(expect.arrayContaining(['unconscious', 'incapacitated', 'prone']));
+  });
+
   it('resolves a trap disarm vs the trap DC and logs it', () => {
     const { s } = arena();
     const rogue = createCharacter(s.id, {

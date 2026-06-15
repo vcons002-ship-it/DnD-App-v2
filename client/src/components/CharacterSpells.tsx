@@ -287,6 +287,9 @@ export function CharacterSpells({
       ...a,
       roll: { ...(a.roll ?? { kind: 'damage' }), ...patch },
     });
+  /** Strip a roll back to a text-only entry. */
+  const clearRoll = (a: SheetAbility) =>
+    setSheetAbility(kind, character.id, { ...a, roll: undefined });
 
   return (
     <div className="spells">
@@ -585,6 +588,17 @@ export function CharacterSpells({
                       </select>
                     </label>
                   )}
+                  {/* Homebrew: add a manual roll to a text-only entry (no AI). The
+                      editor below then sets kind/dice/save/dc/type. */}
+                  {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
+                    <button
+                      className="btn tiny"
+                      title="Add a manual damage / save / attack / heal roll (homebrew — no AI needed)"
+                      onClick={() => patchRoll(a, { kind: 'damage', dice: '1d6' })}
+                    >
+                      ✏️ Add roll
+                    </button>
+                  )}
                   {editable && a.roll && (
                     <div className="sb-roll-edit">
                       <select
@@ -645,6 +659,13 @@ export function CharacterSpells({
                           }
                         />
                       )}
+                      <button
+                        className="res-x"
+                        title="Remove this roll (back to text-only)"
+                        onClick={() => clearRoll(a)}
+                      >
+                        ✕
+                      </button>
                     </div>
                   )}
                   <p>{a.description}</p>

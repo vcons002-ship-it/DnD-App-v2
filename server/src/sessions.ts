@@ -8,6 +8,7 @@ import {
   rowToToken,
 } from './db.js';
 import { iconForCreature } from './creatures/srd.js';
+import { impliedConditions } from '../../shared/conditionEffects.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { abilityMod } from '../../shared/skills.js';
@@ -2628,6 +2629,12 @@ export function setCondition(
     (c) => c.label.toLowerCase() !== condition.label.toLowerCase(),
   );
   conditions.push(condition);
+  // Cascade the implied bundle (Unconscious → Incapacitated + Prone, etc.) so
+  // applying one chip sets the conditions it always carries in 5e.
+  for (const label of impliedConditions(condition.label)) {
+    if (!conditions.some((c) => c.label.toLowerCase() === label.toLowerCase()))
+      conditions.push({ id: newId(), label, aura: 'red', isConcentration: false });
+  }
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),
     refId,

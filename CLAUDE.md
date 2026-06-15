@@ -375,6 +375,16 @@ sanitization rules above and commit it to `claude/Main`.
   **"Apply damage"** button arms a **click-to-target** mode (`save:resolve` →
   `resolveForcedSave`): each clicked creature rolls its own save and takes auto half/full
   damage (× resist/vuln); `apply` is stripped for players in `visibility.ts`.
+- **Conditions** auto-apply more 5e rules in `resolveAttack`/saves/skills
+  (`shared/conditionEffects.ts`): paralyzed/stunned/unconscious/petrified auto-FAIL
+  STR/DEX saves; poisoned/frightened give disadvantage on ability checks; applying
+  a condition CASCADES its bundle (`impliedConditions`: Unconscious → Incapacitated
+  + Prone) via `setCondition`. **Location-based** (`shared/distance.ts`
+  `tokensWithin5ft`, grid-Chebyshev with footprint reach): a **prone** target gives
+  advantage WITHIN 5 ft / disadvantage beyond; a **paralyzed/unconscious** target
+  within 5 ft is an **auto-crit** (`forceCrit` in `rollWeaponAttack`). Homebrew
+  sheet abilities get an inline **"✏️ Add roll"** editor (kind/dice/save/dc/type,
+  no AI) + a remove-roll ✕.
 - **Phase 3 stretch — Google Slides:** live token layer over a Slides embed; map
   refresh from Slides.
 - **Phase 6 AI:** spell-effect/rules resolution and AI-generated enemy dialogue.

@@ -115,15 +115,19 @@ export function rollWeaponAttack(
     attackRollBonus?: number;
     /** Log label for that extra, e.g. "maneuver" or the granting item's name. */
     attackRollBonusLabel?: string;
+    /** Force a critical hit on ANY hit (e.g. an attack within 5 ft of a paralyzed
+     *  or unconscious target). Does not turn a miss into a hit. */
+    forceCrit?: boolean;
   },
 ): AttackOutcome {
   const { face, detail: d20detail } = rollD20Detail(advantage);
   const { bonus, detail: bonusDetail } = weaponAttackBonusDetail(attacker, weapon);
   const toHitExtra = opts?.attackRollBonus ?? 0;
   const attackTotal = face + bonus + toHitExtra;
-  const crit = face === 20;
+  const natCrit = face === 20;
   const fumble = face === 1;
-  const hit = crit || (!fumble && attackTotal >= targetAC);
+  const hit = natCrit || (!fumble && attackTotal >= targetAC);
+  const crit = hit && (natCrit || !!opts?.forceCrit); // auto-crit only on a hit
 
   // Versatile weapons use their two-handed dice when wielded 2H.
   const expr =

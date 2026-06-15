@@ -4,45 +4,73 @@ import {
   saveAdvantage,
   saveAutoFail,
   checkAdvantage,
+  autoCritFromConditions,
+  impliedConditions,
 } from '../../shared/conditionEffects.js';
 
+const WITHIN = true;
+const BEYOND = false;
+
 describe('attackAdvantage', () => {
-  it('a prone target grants melee advantage but ranged disadvantage', () => {
-    expect(attackAdvantage([], ['Prone'], 'melee').state).toBe('adv');
-    expect(attackAdvantage([], ['Prone'], 'ranged').state).toBe('dis');
+  it('a prone target grants advantage WITHIN 5 ft but disadvantage BEYOND it', () => {
+    expect(attackAdvantage([], ['Prone'], WITHIN).state).toBe('adv');
+    expect(attackAdvantage([], ['Prone'], BEYOND).state).toBe('dis');
   });
 
   it('a restrained/paralyzed target grants advantage', () => {
-    expect(attackAdvantage([], ['Restrained'], 'melee').state).toBe('adv');
-    expect(attackAdvantage([], ['Paralyzed'], 'ranged').state).toBe('adv');
+    expect(attackAdvantage([], ['Restrained'], WITHIN).state).toBe('adv');
+    expect(attackAdvantage([], ['Paralyzed'], BEYOND).state).toBe('adv');
   });
 
   it('a blinded/poisoned/frightened attacker has disadvantage', () => {
-    expect(attackAdvantage(['Poisoned'], [], 'melee').state).toBe('dis');
-    expect(attackAdvantage(['Frightened'], [], 'ranged').state).toBe('dis');
+    expect(attackAdvantage(['Poisoned'], [], WITHIN).state).toBe('dis');
+    expect(attackAdvantage(['Frightened'], [], BEYOND).state).toBe('dis');
   });
 
   it('an invisible attacker has advantage; an invisible target gives disadvantage', () => {
-    expect(attackAdvantage(['Invisible'], [], 'melee').state).toBe('adv');
-    expect(attackAdvantage([], ['Invisible'], 'melee').state).toBe('dis');
+    expect(attackAdvantage(['Invisible'], [], WITHIN).state).toBe('adv');
+    expect(attackAdvantage([], ['Invisible'], WITHIN).state).toBe('dis');
   });
 
   it('advantage and disadvantage cancel to a straight roll (5e)', () => {
-    // Attacker poisoned (dis) vs a prone target in melee (adv) → cancel.
-    const r = attackAdvantage(['Poisoned'], ['Prone'], 'melee');
+    // Attacker poisoned (dis) vs a prone target within 5 ft (adv) → cancel.
+    const r = attackAdvantage(['Poisoned'], ['Prone'], WITHIN);
     expect(r.state).toBeUndefined();
     expect(r.reasons).toContain('cancel');
   });
 
   it('folds a manually-requested adv/dis into the result', () => {
-    // Manual disadvantage cancels a prone-target melee advantage.
-    expect(attackAdvantage([], ['Prone'], 'melee', 'dis').state).toBeUndefined();
-    // Manual advantage alone still yields advantage.
-    expect(attackAdvantage([], [], 'melee', 'adv').state).toBe('adv');
+    expect(attackAdvantage([], ['Prone'], WITHIN, 'dis').state).toBeUndefined();
+    expect(attackAdvantage([], [], WITHIN, 'adv').state).toBe('adv');
   });
 
   it('is a no-op with no conditions and no manual request', () => {
-    expect(attackAdvantage([], [], 'melee').state).toBeUndefined();
+    expect(attackAdvantage([], [], WITHIN).state).toBeUndefined();
+  });
+});
+
+describe('autoCritFromConditions', () => {
+  it('paralyzed/unconscious target within 5 ft → auto-crit', () => {
+    expect(autoCritFromConditions(['Paralyzed'], WITHIN)).toBe('paralyzed');
+    expect(autoCritFromConditions(['Unconscious'], WITHIN)).toBe('unconscious');
+  });
+  it('no auto-crit from beyond 5 ft, or for other conditions', () => {
+    expect(autoCritFromConditions(['Paralyzed'], BEYOND)).toBeNull();
+    expect(autoCritFromConditions(['Stunned'], WITHIN)).toBeNull(); // stunned ≠ auto-crit
+    expect(autoCritFromConditions([], WITHIN)).toBeNull();
+  });
+});
+
+describe('impliedConditions (cascading)', () => {
+  it('Unconscious implies Incapacitated + Prone', () => {
+    expect(impliedConditions('Unconscious')).toEqual(['Incapacitated', 'Prone']);
+  });
+  it('Paralyzed/Stunned/Petrified imply Incapacitated', () => {
+    for (const c of ['Paralyzed', 'Stunned', 'Petrified'])
+      expect(impliedConditions(c)).toContain('Incapacitated');
+  });
+  it('plain conditions imply nothing', () => {
+    expect(impliedConditions('Poisoned')).toEqual([]);
   });
 });
 
