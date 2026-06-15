@@ -126,10 +126,27 @@ export function broadcastCursor(
   mapId: string,
 ): void {
   const activeMapId = getActiveMapId(sessionId);
+  // The DM's pointer must not reveal hidden positions: if it's over a fogged
+  // cell, players don't receive it (DMs always see it). Players have nothing
+  // hidden to leak, so their pointers aren't fog-gated.
+  const senderIsDm = conns.get(fromSocketId)?.role === 'dm';
+  let underFog = false;
+  if (senderIsDm) {
+    const map = getMap(mapId);
+    const grid = map?.gridSizePx ?? 50;
+    const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
+    const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
+    underFog = coveredByFog(mapFog, tokenFog, grid, x, y);
+  }
   for (const [socketId, conn] of conns) {
     if (conn.sessionId !== sessionId || socketId === fromSocketId) continue;
     const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
     if (viewMapId !== mapId) continue;
+    if (conn.role === 'player' && underFog) {
+      // DM pointer crossed into fog → clear it for the player right away.
+      io.to(socketId).emit('fx:cursorHide', { id: fromSocketId });
+      continue;
+    }
     io.to(socketId).emit('fx:cursor', { id: fromSocketId, name, x, y, mapId });
   }
 }

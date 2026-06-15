@@ -491,6 +491,7 @@ export function MapStage({
   const cursors = useStore((s) => s.cursors);
   const moveCursor = useStore((s) => s.moveCursor);
   const hideCursor = useStore((s) => s.hideCursor);
+  const showCursors = useStore((s) => s.showCursors);
   const cursorThrottle = useRef(0);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
@@ -1731,7 +1732,9 @@ export function MapStage({
                 gridSizePx={grid}
               />
               {/* Live "laser pointers" for everyone else on this map. */}
-              <CursorPointers cursors={cursors} currentMapId={map?.id} scale={view.scale} />
+              {showCursors && (
+                <CursorPointers cursors={cursors} currentMapId={map?.id} scale={view.scale} />
+              )}
             </Layer>
           </Stage>
           {hover && !menu && (

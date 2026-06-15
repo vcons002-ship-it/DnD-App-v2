@@ -97,6 +97,10 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
+
+  /** Show OTHER people's live cursor pointers on the map (on by default). */
+  showCursors: boolean;
+  toggleCursors: () => void;
   /**
    * Per-entity advantage/disadvantage toggle, keyed by a character or monster id.
    * Each creature/PC has its OWN armed adv/dis that applies to ITS next roll of
@@ -367,6 +371,14 @@ export const useStore = create<Store>((set, get) => ({
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
+  // Others' pointers are ON by default; the mute choice persists per browser.
+  showCursors: localStorage.getItem('dnd.hideCursors') !== '1',
+  toggleCursors: () =>
+    set((s) => {
+      const next = !s.showCursors;
+      localStorage.setItem('dnd.hideCursors', next ? '0' : '1');
+      return { showCursors: next };
+    }),
   manualAdvantage: {},
   setManualAdvantage: (key, a) =>
     set((s) => {
@@ -784,7 +796,7 @@ export const useStore = create<Store>((set, get) => ({
 }));
 
 // Dev-only: expose the store for E2E tests / debugging (stripped from prod builds).
-if (import.meta.env.DEV) {
+if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
   (window as unknown as { __store?: typeof useStore }).__store = useStore;
 }
 

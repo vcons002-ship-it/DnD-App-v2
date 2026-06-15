@@ -794,6 +794,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   `rollerColor`). Ephemeral (no DB/snapshot), map-scoped (a DM's pointer on a
   staging map never shows to players), throttled ~20/s in image coords (correct
   under any pan/zoom), auto-expiring and cleared on mouse-leave/disconnect.
+  **On by default** with a per-browser "👆 Pointers" mute toggle (hides OTHERS'
+  pointers in your view), and the **DM's pointer is gated by fog** — when it's
+  over a covered cell players don't receive it (mirrors the token-drag fog gate),
+  so pointing can't reveal hidden positions.
 - ☑ **Condition auto-fail saves + check disadvantage.** Extended
   `shared/conditionEffects.ts`: `saveAutoFail` (Paralyzed/Stunned/Unconscious/
   Petrified automatically FAIL Strength & Dexterity saves — no roll, full damage)

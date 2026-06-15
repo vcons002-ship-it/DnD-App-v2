@@ -26,6 +26,8 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const showDiceButton = useStore((s) => s.showDiceButton);
   const setHideDmRolls = useStore((s) => s.setHideDmRolls);
   const toggleDiceButton = useStore((s) => s.toggleDiceButton);
+  const showCursors = useStore((s) => s.showCursors);
+  const toggleCursors = useStore((s) => s.toggleCursors);
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const isDm = snapshot.role === 'dm';
@@ -191,6 +193,13 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           title="Show a quick-roll d20 button in the corner of the map"
         >
           🎲 Dice
+        </button>
+        <button
+          className={`btn tiny ${showCursors ? 'on' : ''}`}
+          onClick={toggleCursors}
+          title="Show other people's live cursor pointers on the map"
+        >
+          {showCursors ? '👆 Pointers' : '🚫 Pointers'}
         </button>
         {snapshot.role === 'dm' && (
           <button
