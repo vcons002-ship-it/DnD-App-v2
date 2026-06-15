@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Condition, TokenKind } from '../../../shared/types';
+import { conditionRule } from '../../../shared/conditionRules';
 import { STANDARD_CONDITIONS } from '../lib/conditions';
 import { useStore } from '../state/socket';
 
@@ -56,6 +57,7 @@ export function ConditionPicker({ kind, refId, conditions, collapsibleEditor = f
             key={label}
             className={`chip ${active(label) ? 'chip-on red' : ''}`}
             onClick={() => toggleStandard(label)}
+            title={conditionRule(label) || undefined}
           >
             {label}
           </button>
@@ -99,7 +101,7 @@ export function ConditionPicker({ kind, refId, conditions, collapsibleEditor = f
       {conditions.length > 0 && (
         <ul className="cond-active">
           {conditions.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} title={conditionRule(c.label) || undefined}>
               <span className={`dot ${c.aura}`} />
               {c.customText ? `${c.label}: ${c.customText}` : c.label}
               <button className="x" onClick={() => clearCondition(kind, refId, c.id)}>

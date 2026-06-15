@@ -48,6 +48,7 @@ const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** Per-character expiry timers for chat typing indicators / spoken bubbles. */
 const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sayTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const cursorTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let nextSayId = 1;
 
 type Store = {
@@ -83,6 +84,11 @@ type Store = {
   /** Spoken chat lines over a PC token (server 'fx:say'), keyed by character
    *  refId; each auto-expires a few seconds after arriving. */
   sayBubbles: Record<string, { text: string; id: number }>;
+  /** Other people's live cursors ("laser pointers"), keyed by their socket id. */
+  cursors: Record<string, { name: string; x: number; y: number; mapId: string }>;
+  /** Broadcast my own cursor position (map/image coords) + clear it on leave. */
+  moveCursor: (x: number, y: number, mapId: string) => void;
+  hideCursor: () => void;
   /** Tell the server I started/stopped typing in chat (throttled by caller). */
   chatTyping: (typing: boolean) => void;
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
@@ -91,6 +97,14 @@ type Store = {
   /** Show the quick-roll d20 button in the map's bottom-right corner (toggled from DicePanel). */
   showDiceButton: boolean;
   toggleDiceButton: () => void;
+
+  /** Show OTHER people's live cursor pointers on the map (on by default). */
+  showCursors: boolean;
+  toggleCursors: () => void;
+  /** Broadcast MY OWN pointer to others (on by default). The DM turns this off to
+   *  point at secret things privately. */
+  shareCursor: boolean;
+  toggleShareCursor: () => void;
   /**
    * Per-entity advantage/disadvantage toggle, keyed by a character or monster id.
    * Each creature/PC has its OWN armed adv/dis that applies to ITS next roll of
@@ -223,6 +237,10 @@ type Store = {
   assistantThinking: boolean;
   /** DM-only: stop the in-flight rules-assistant request. */
   cancelAssistant: () => void;
+  /** DM-only: post an AI "Previously on…" recap of recent rolls + chat. */
+  requestRecap: () => void;
+  /** DM-only: make a creature speak an AI line over its token. */
+  speakAs: (tokenId: string) => void;
   /** Rulebook reader overlay: null = closed, else open (optionally at a page). */
   rulebookView: { page?: number } | null;
   openRulebook: (page?: number) => void;
@@ -348,12 +366,35 @@ export const useStore = create<Store>((set, get) => ({
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
   typingChars: {},
   sayBubbles: {},
+  cursors: {},
+  moveCursor: (x, y, mapId) => {
+    if (get().shareCursor) get().socket?.emit('cursor:move', { x, y, mapId });
+  },
+  hideCursor: () => get().socket?.emit('cursor:hide'),
   chatTyping: (typing) => get().socket?.emit('chat:typing', { typing }),
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
   toggleRollOverlay: () => set((s) => ({ showRollOverlay: !s.showRollOverlay })),
   showDiceButton: true,
   toggleDiceButton: () => set((s) => ({ showDiceButton: !s.showDiceButton })),
+  // Others' pointers are ON by default; the mute choice persists per browser.
+  showCursors: localStorage.getItem('dnd.hideCursors') !== '1',
+  toggleCursors: () =>
+    set((s) => {
+      const next = !s.showCursors;
+      localStorage.setItem('dnd.hideCursors', next ? '0' : '1');
+      return { showCursors: next };
+    }),
+  // Sharing my own pointer is ON by default; turning it off clears mine for
+  // everyone immediately (the DM's "point privately" control).
+  shareCursor: localStorage.getItem('dnd.noShareCursor') !== '1',
+  toggleShareCursor: () =>
+    set((s) => {
+      const next = !s.shareCursor;
+      localStorage.setItem('dnd.noShareCursor', next ? '0' : '1');
+      if (!next) get().socket?.emit('cursor:hide');
+      return { shareCursor: next };
+    }),
   manualAdvantage: {},
   setManualAdvantage: (key, a) =>
     set((s) => {
@@ -524,6 +565,35 @@ export const useStore = create<Store>((set, get) => ({
         }, 6000),
       );
     });
+    // A live "laser pointer" moved — show/refresh it, auto-expiring if the sender
+    // goes idle (so a stale pointer never lingers if a hide is missed).
+    socket.on('fx:cursor', ({ id, name, x, y, mapId }) => {
+      set((st) => ({ cursors: { ...st.cursors, [id]: { name, x, y, mapId } } }));
+      const prev = cursorTimers.get(id);
+      if (prev) clearTimeout(prev);
+      cursorTimers.set(
+        id,
+        setTimeout(() => {
+          cursorTimers.delete(id);
+          set((st) => {
+            const next = { ...st.cursors };
+            delete next[id];
+            return { cursors: next };
+          });
+        }, 4000),
+      );
+    });
+    socket.on('fx:cursorHide', ({ id }) => {
+      const prev = cursorTimers.get(id);
+      if (prev) clearTimeout(prev);
+      cursorTimers.delete(id);
+      set((st) => {
+        if (!(id in st.cursors)) return {};
+        const next = { ...st.cursors };
+        delete next[id];
+        return { cursors: next };
+      });
+    });
     // The rules assistant started/finished thinking (server-driven, robust to
     // long runs); drives the in-chat thinking indicator + Stop button.
     socket.on('assistant:thinking', ({ thinking }) =>
@@ -669,6 +739,14 @@ export const useStore = create<Store>((set, get) => ({
     set({ assistantThinking: false });
     get().socket?.emit('assistant:cancel');
   },
+  requestRecap: () => {
+    set({ aiBusy: true, toast: { id: Date.now(), message: '📜 Writing a recap…' } });
+    get().socket?.emit('assistant:recap');
+  },
+  speakAs: (tokenId) => {
+    set({ aiBusy: true, toast: { id: Date.now(), message: '💬 Voicing the creature…' } });
+    get().socket?.emit('creature:speak', { tokenId });
+  },
   rulebookView: null,
   openRulebook: (page) => set({ rulebookView: { page } }),
   closeRulebook: () => set({ rulebookView: null }),
@@ -732,6 +810,11 @@ export const useStore = create<Store>((set, get) => ({
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
 }));
+
+// Dev-only: expose the store for E2E tests / debugging (stripped from prod builds).
+if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+  (window as unknown as { __store?: typeof useStore }).__store = useStore;
+}
 
 // When the tab returns to the foreground, nudge a dead socket back to life.
 // iOS Safari freezes backgrounded tabs and silently drops the WebSocket; Socket.IO

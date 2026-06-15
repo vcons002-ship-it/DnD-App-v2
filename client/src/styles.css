@@ -973,6 +973,11 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   content: ''; animation: thinkingDots 1.2s steps(4, end) infinite;
 }
 @keyframes thinkingDots { 0% { content: ''; } 25% { content: '·'; } 50% { content: '··'; } 75% { content: '···'; } }
+.ask-roll {
+  background: none; border: none; cursor: pointer; opacity: 0.4;
+  font-size: 0.85em; padding: 0 3px; line-height: 1;
+}
+.ask-roll:hover { opacity: 1; }
 .chat-cites { display: block; margin-top: 2px; font-size: 0.8em; opacity: 0.85; }
 .cite-chip {
   display: inline-block; margin: 0 3px; padding: 0 5px; border-radius: 4px;

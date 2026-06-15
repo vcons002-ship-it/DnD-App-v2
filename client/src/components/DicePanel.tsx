@@ -20,11 +20,16 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const assistantThinking = useStore((s) => s.assistantThinking);
   const cancelAssistant = useStore((s) => s.cancelAssistant);
   const openRulebook = useStore((s) => s.openRulebook);
+  const requestRecap = useStore((s) => s.requestRecap);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
   const setHideDmRolls = useStore((s) => s.setHideDmRolls);
   const toggleDiceButton = useStore((s) => s.toggleDiceButton);
+  const showCursors = useStore((s) => s.showCursors);
+  const toggleCursors = useStore((s) => s.toggleCursors);
+  const shareCursor = useStore((s) => s.shareCursor);
+  const toggleShareCursor = useStore((s) => s.toggleShareCursor);
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const isDm = snapshot.role === 'dm';
@@ -191,6 +196,20 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
         >
           🎲 Dice
         </button>
+        <button
+          className={`btn tiny ${showCursors ? 'on' : ''}`}
+          onClick={toggleCursors}
+          title="Show other people's live cursor pointers on the map"
+        >
+          {showCursors ? '👆 See pointers' : '🚫 See pointers'}
+        </button>
+        <button
+          className={`btn tiny ${shareCursor ? 'on' : ''}`}
+          onClick={toggleShareCursor}
+          title="Broadcast your own pointer to others — turn off to point privately (e.g. at hidden tokens / unrevealed fog)"
+        >
+          {shareCursor ? '📡 Share mine' : '🙈 Pointer private'}
+        </button>
         {snapshot.role === 'dm' && (
           <button
             className={`btn tiny ${snapshot.hideDmRolls ? 'on' : ''}`}
@@ -198,6 +217,15 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
             title="Hide YOUR rolls (attacks/saves/checks) from players' logs — damage still applies and ±HP numbers still pop"
           >
             {snapshot.hideDmRolls ? '🙈 DM rolls hidden' : '👁 DM rolls shown'}
+          </button>
+        )}
+        {isDm && (
+          <button
+            className="btn tiny"
+            onClick={requestRecap}
+            title="AI recap of recent rolls + chat, posted to chat for everyone"
+          >
+            📜 Recap
           </button>
         )}
         {snapshot.rollLog.length > 0 && (
@@ -255,6 +283,22 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                 {r.hpNote && <span className="roll-hp-note">{r.hpNote.text}</span>}
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
+                )}
+                {isDm && (
+                  <button
+                    className="ask-roll"
+                    title="Ask the rules assistant about this roll"
+                    onClick={() =>
+                      askAssistant(
+                        `Explain this D&D 5e roll in rules terms: ${
+                          r.label ? r.label + ' — ' : ''
+                        }${r.detail}${r.description ? ' — ' + r.description : ''}`,
+                        choiceToBackend(aiChoice),
+                      )
+                    }
+                  >
+                    ❓
+                  </button>
                 )}
                 {isDm && r.apply && (
                   <button

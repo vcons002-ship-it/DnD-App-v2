@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { attackAdvantage, saveAdvantage } from '../../shared/conditionEffects.js';
+import {
+  attackAdvantage,
+  saveAdvantage,
+  saveAutoFail,
+  checkAdvantage,
+} from '../../shared/conditionEffects.js';
 
 describe('attackAdvantage', () => {
   it('a prone target grants melee advantage but ranged disadvantage', () => {
@@ -45,5 +50,40 @@ describe('saveAdvantage', () => {
   it('restrained gives disadvantage on DEX saves only', () => {
     expect(saveAdvantage(['Restrained'], 'DEX').state).toBe('dis');
     expect(saveAdvantage(['Restrained'], 'STR').state).toBeUndefined();
+  });
+});
+
+describe('saveAutoFail', () => {
+  it('paralyzed/stunned/unconscious/petrified auto-fail STR & DEX saves', () => {
+    for (const c of ['Paralyzed', 'Stunned', 'Unconscious', 'Petrified']) {
+      expect(saveAutoFail([c], 'DEX')).toBe(c.toLowerCase());
+      expect(saveAutoFail([c], 'STR')).toBe(c.toLowerCase());
+    }
+  });
+
+  it('does NOT auto-fail CON/INT/WIS/CHA saves', () => {
+    for (const ab of ['CON', 'INT', 'WIS', 'CHA'])
+      expect(saveAutoFail(['Paralyzed'], ab)).toBeNull();
+  });
+
+  it('returns null for conditions that do not auto-fail', () => {
+    expect(saveAutoFail(['Restrained'], 'DEX')).toBeNull();
+    expect(saveAutoFail([], 'DEX')).toBeNull();
+  });
+});
+
+describe('checkAdvantage', () => {
+  it('poisoned and frightened impose disadvantage on ability checks', () => {
+    expect(checkAdvantage(['Poisoned']).state).toBe('dis');
+    expect(checkAdvantage(['Frightened']).state).toBe('dis');
+  });
+
+  it('other conditions and no conditions roll straight', () => {
+    expect(checkAdvantage(['Restrained']).state).toBeUndefined();
+    expect(checkAdvantage([]).state).toBeUndefined();
+  });
+
+  it('a manual advantage cancels condition disadvantage', () => {
+    expect(checkAdvantage(['Poisoned'], 'adv').state).toBeUndefined();
   });
 });

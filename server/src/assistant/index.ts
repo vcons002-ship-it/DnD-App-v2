@@ -60,3 +60,27 @@ export async function answerRules(
   const answer = await generateText(SYSTEM, user, { temperature: 0.1, ...backend });
   return { answer, pages };
 }
+
+const RECAP_SYSTEM =
+  'You are a Dungeons & Dragons session scribe. From a transcript of recent dice rolls and chat in a live game, write a short "Previously…" recap of 3–6 sentences capturing the key events — who fought whom, notable hits or creatures downed, decisions made, and where things stand. Be vivid but concise, and do NOT invent events that are not in the transcript.';
+
+/** Summarize a session transcript into a player-facing recap. Null if empty/no backend. */
+export async function recapSession(transcript: string, backend: GenOpts = {}): Promise<string | null> {
+  const t = transcript.trim();
+  if (!t) return null;
+  return generateText(RECAP_SYSTEM, `Transcript:\n${t}\n\nWrite the recap:`, {
+    temperature: 0.4,
+    ...backend,
+  });
+}
+
+/** Generate ONE short in-character line for a creature to speak. */
+export async function creatureLine(
+  describe: string,
+  backend: GenOpts = {},
+): Promise<string | null> {
+  const sys =
+    'You voice monsters and NPCs in a Dungeons & Dragons game. Given a creature, reply with ONE short spoken line (max ~20 words) it might say in the moment — in character, no quotation marks, no narration or stage directions, just the words.';
+  const line = await generateText(sys, describe, { temperature: 0.9, ...backend });
+  return line ? line.replace(/^["']|["']$/g, '').split('\n')[0].slice(0, 200).trim() : null;
+}

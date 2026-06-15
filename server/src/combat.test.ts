@@ -164,6 +164,65 @@ describe('combat resolution', () => {
     expect(listRollLog(s.id).length).toBe(before);
   });
 
+  it('a poisoned character rolls ability checks with disadvantage', () => {
+    const s = createSession('Poisoned check');
+    const c = createCharacter(s.id, {
+      name: 'Rogue',
+      className: 'Rogue',
+      level: 5,
+      stats: { DEX: 16 },
+      proficientSkills: ['Stealth'],
+    });
+    setCondition('pc', c.id, {
+      id: 'cond1',
+      label: 'Poisoned',
+      aura: 'red',
+      isConcentration: false,
+    });
+    const fresh = getCharacter(c.id)!;
+    resolveSkillRoll(s.id, 'Rogue', fresh, 'Stealth');
+    const log = listRollLog(s.id).at(-1)!;
+    expect(log.detail).toContain('dis');
+    expect(log.detail.toLowerCase()).toContain('poisoned');
+  });
+
+  it('a paralyzed target auto-fails the DEX save and takes full damage', () => {
+    const { s, map } = arena();
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Fire Trap',
+      maxHp: 1,
+      objectKind: 'trap',
+      actions: [
+        {
+          name: 'Flame Burst',
+          description: 'DC 13 Dexterity saving throw, 4d6 fire damage (half on save).',
+        },
+      ],
+    });
+    const trap = instantiateMonster(tmpl.id)!;
+    resolveMonsterSheetAbility(s.id, 'DM', trap, trap.sheetAbilities[0]);
+    const entry = listRollLog(s.id).at(-1)!;
+    const amount = entry.apply!.amount;
+
+    // A paralyzed victim on the map.
+    const victimTmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 50 });
+    const victim = instantiateMonster(victimTmpl.id)!;
+    const vtok = createToken({ mapId: map.id, kind: 'monster', refId: victim.id, x: 2, y: 2 });
+    setCondition('monster', victim.id, {
+      id: 'cond2',
+      label: 'Paralyzed',
+      aura: 'red',
+      isConcentration: false,
+    });
+
+    resolveForcedSave(s.id, entry.id, vtok.id, undefined);
+    const saveLog = listRollLog(s.id).at(-1)!;
+    expect(saveLog.detail).toContain('auto-fails');
+    expect(saveLog.detail).toContain('FAIL');
+    // Full damage applied (no halving), so HP dropped by the whole amount.
+    expect(getMonster(victim.id)!.curHp).toBe(50 - amount);
+  });
+
   it('resolves a trap disarm vs the trap DC and logs it', () => {
     const { s } = arena();
     const rogue = createCharacter(s.id, {
