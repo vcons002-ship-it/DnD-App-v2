@@ -140,6 +140,7 @@ export function CharacterSpells({
   const [results, setResults] = useState<SpellHit[]>([]);
   const [aiAvail, setAiAvail] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [enrichId, setEnrichId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!adding) return;
@@ -221,6 +222,39 @@ export function CharacterSpells({
       notify('AI lookup failed — check your connection. Local search still works.');
     } finally {
       setAiBusy(false);
+    }
+  };
+
+  // Look a text-only entry up in the rules (local DB first, AI fallback) and
+  // REPLACE it in place — keeping its id/level/prep — so it becomes rollable
+  // without making a duplicate. Differs from "AI fill": this is grounded in the
+  // local rules DB first (exact SRD roll), and targets one named ability.
+  const makeRollable = async (a: SheetAbility) => {
+    setEnrichId(a.id);
+    notify(`Looking up "${a.name}"…`);
+    try {
+      const r = await fetch('/api/spells/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: a.name }),
+      });
+      if (!r.ok) {
+        notify(`No rules entry found for "${a.name}".`);
+        return;
+      }
+      const hit = (await r.json()) as Omit<SheetAbility, 'id'>;
+      setSheetAbility(kind, character.id, {
+        ...hit,
+        id: a.id, // replace in place — no duplicate
+        level: a.level ?? hit.level,
+        ...(a.prepared !== undefined ? { prepared: a.prepared } : {}),
+        actionType: parseActionType(hit.meta) ?? a.actionType,
+      });
+      notify(hit.roll ? `Made "${a.name}" rollable.` : `Updated "${a.name}" (no roll for it).`);
+    } catch {
+      notify('Lookup failed — check your connection.');
+    } finally {
+      setEnrichId(null);
     }
   };
 
@@ -478,6 +512,18 @@ export function CharacterSpells({
                     onClick={() => doRoll(a)}
                   >
                     🔮 Cast
+                  </button>
+                )}
+                {/* A text-only entry (e.g. imported) → look it up and make it
+                    rollable in place. Skipped for toggle-driven items. */}
+                {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
+                  <button
+                    className="btn tiny"
+                    disabled={enrichId === a.id}
+                    title="Look this up in the rules (local first, AI fallback) and make it rollable — no duplicate"
+                    onClick={() => makeRollable(a)}
+                  >
+                    {enrichId === a.id ? '…' : '⚡ Make rollable'}
                   </button>
                 )}
                 {editable && (

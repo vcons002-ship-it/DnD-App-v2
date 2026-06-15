@@ -280,7 +280,11 @@ Smaller refinements on top of the shipped Phase 2 work.
   `sheetAbilities` whose names are **resolved against the local rules DB at import**
   (`POST /api/spells/resolve`) so known entries arrive **rollable** (unknown stay as
   references). The preview is now **per-section checkboxes** (apply only some, or
-  "Only empty fields") instead of an all-or-nothing overwrite.
+  "Only empty fields") instead of an all-or-nothing overwrite. A per-entry
+  **"⚡ Make rollable"** button (CharacterSpells) looks a text-only ability up in
+  the rules (local DB first via `/spells/lookup`, AI fallback) and replaces it
+  **in place** (same id — no duplicate), for homebrew/non-SRD spells the import
+  couldn't resolve.
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
   persisted per role like panel width/collapse. *(Deferred.)*
