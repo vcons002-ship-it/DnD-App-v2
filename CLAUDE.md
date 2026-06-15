@@ -230,7 +230,13 @@ sanitization rules above and commit it to `claude/Main`.
   server-side).
 - **Creatures:** offline **SRD** search + key-gated **Gemini** lookup +
   **cross-session library** (save with side-by-side conflict prompt that also
-  detects SRD-name shadowing; lookup checks library → SRD → AI).
+  detects SRD-name shadowing; lookup checks library → SRD → AI). The SRD bestiary
+  (`creatures/srd.ts`) is **fully statted** — every entry has a canonical CR
+  (`level`), AC, speed, ability scores, and attacks (type-enforced + a completeness
+  test), so any creature from search arrives combat-ready at its INTENDED power
+  level (a Goblin stays CR 1/4). Themed AI variants are **grounded on the nearest
+  base** (`findBaseCreature`: "Stone Goblin" → the Goblin block as a floor) so they
+  scale UP rather than drift.
 - **Characters:** DM + player creation, shared tagged sheet (editable), **skills**
   with proficiency/bonuses + **click-to-roll skill checks** (server-resolved
   `skill:roll` using the sheet's mod + proficiency, adv/dis, into the roll log),

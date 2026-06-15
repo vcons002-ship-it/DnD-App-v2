@@ -769,6 +769,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   click-to-target `apply.onFail` flow) and a `marksTargetWith` tag that puts a
   status (e.g. "Marked" for Hunter's Mark) on the marked creature, following the
   mark and clearing when the stance ends.
+- ☑ **Fully-statted SRD bestiary.** Completed `creatures/srd.ts` so EVERY entry
+  has a canonical CR (`level`), AC, speed, ability scores, and attacks (the
+  `SrdEntry` type now requires them; a completeness test guards it). Creatures
+  added from search arrive combat-ready at their intended power level (Goblin
+  stays CR 1/4, never inflated). Themed AI variants are grounded on the nearest
+  base (`findBaseCreature`, fed into the creature-AI prompt as a floor) so a
+  "Stone Goblin"/"Blood Goblin" scales UP from the standard Goblin.
 - ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
   snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
 - ☑ **Clickable links in chat.** Bare `http(s)` URLs and `[label](url)` markdown

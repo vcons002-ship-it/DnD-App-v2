@@ -8,7 +8,7 @@ import type {
   SheetModifier,
   Weapon,
 } from '../../../shared/types.js';
-import { iconForCreature } from './srd.js';
+import { iconForCreature, findBaseCreature } from './srd.js';
 import { generateJson, aiAvailable } from '../ai/gateway.js';
 import { parseActionRoll } from '../../../shared/monsterAttacks.js';
 import { sanitizeModifiers } from '../../../shared/modifiers.js';
@@ -328,7 +328,30 @@ export async function lookupCreatureAI(
     `<dice> <type> damage". "abilities" are passive traits/features (no roll). ` +
     `Use SRD/average HP. Keep each description under 30 words.`;
 
-  const text = await generateJson(prompt);
+  // If the name extends a known SRD creature (e.g. "Stone Goblin"), give the AI
+  // the canonical base block as a FLOOR so the variant scales UP from it rather
+  // than drifting to an arbitrary power level.
+  const base = findBaseCreature(name);
+  const groundedPrompt = base
+    ? prompt +
+      `\n\nThis is a themed VARIANT of the SRD "${base.name}" (CR ${base.level}). ` +
+      `Use this canonical stat block as the FLOOR — keep the same creature type and ` +
+      `general role, and make a STRONGER, on-theme version (raise CR/HP/AC/damage and ` +
+      `add a fitting trait or two, but don't drop below the base). Base block:\n` +
+      JSON.stringify({
+        name: base.name,
+        creatureType: base.creatureType,
+        level: base.level,
+        maxHp: base.maxHp,
+        armorClass: base.armorClass,
+        speed: base.speed,
+        stats: base.stats,
+        actions: base.actions,
+        abilities: base.abilities,
+      })
+    : prompt;
+
+  const text = await generateJson(groundedPrompt);
   if (!text) return null;
   try {
     const parsed = JSON.parse(text) as Record<string, unknown>;
