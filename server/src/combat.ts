@@ -22,7 +22,12 @@ import {
   type Advantage,
   type Combatant,
 } from '../../shared/combatMath.js';
-import { attackAdvantage, saveAdvantage } from '../../shared/conditionEffects.js';
+import {
+  attackAdvantage,
+  saveAdvantage,
+  saveAutoFail,
+  checkAdvantage,
+} from '../../shared/conditionEffects.js';
 import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
@@ -478,6 +483,18 @@ export function resolveSaves(
     if (!tok) continue;
     const r = resolve(tok);
     if (!r) continue;
+    // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
+    const autoFail = saveAutoFail(r.conditionLabels, ability);
+    if (autoFail) {
+      addRollLog(sessionId, {
+        roller,
+        label: `${ability.toUpperCase()} save`,
+        expr: `DC ${dc}`,
+        total: 0,
+        detail: `${r.name}: auto-fails (${autoFail}) vs DC ${dc} — FAIL`,
+      });
+      continue;
+    }
     const proficient = r.saveProficiencies.some(
       (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
     );
@@ -587,27 +604,42 @@ export function resolveForcedSave(
   }
   if (apply.save) {
     const ability = apply.save;
-    const proficient = r.saveProficiencies.some(
-      (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
-    );
-    // The clicked creature's own armed adv/dis toggle folds in with its conditions.
-    const adv = saveAdvantage(r.conditionLabels, ability, advantage);
-    const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
-    const sb = saveBonus(r, ability);
-    const total = out.total + sb.add;
-    const pass = total >= apply.dc;
-    dmg = Math.floor((pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
-    // A Battle Master rider applies its condition to a target that FAILS.
-    const condTxt = apply.onFail && !pass ? ` · ${apply.onFail}` : '';
-    if (apply.onFail && !pass)
-      setTokensCondition([tokenId], {
-        label: apply.onFail,
-        aura: 'red',
-        isConcentration: false,
-      });
-    detail =
-      `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${apply.dc} — ${pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
-      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
+    // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
+    const autoFail = saveAutoFail(r.conditionLabels, ability);
+    if (autoFail) {
+      dmg = Math.floor(apply.amount * mult); // auto-fail → full damage
+      const condTxt = apply.onFail ? ` · ${apply.onFail}` : '';
+      if (apply.onFail)
+        setTokensCondition([tokenId], {
+          label: apply.onFail,
+          aura: 'red',
+          isConcentration: false,
+        });
+      detail =
+        `${r.name}: auto-fails (${autoFail}) vs DC ${apply.dc} — FAIL${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}`;
+    } else {
+      const proficient = r.saveProficiencies.some(
+        (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
+      );
+      // The clicked creature's own armed adv/dis toggle folds in with its conditions.
+      const adv = saveAdvantage(r.conditionLabels, ability, advantage);
+      const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
+      const sb = saveBonus(r, ability);
+      const total = out.total + sb.add;
+      const pass = total >= apply.dc;
+      dmg = Math.floor((pass ? Math.floor(apply.amount / 2) : apply.amount) * mult);
+      // A Battle Master rider applies its condition to a target that FAILS.
+      const condTxt = apply.onFail && !pass ? ` · ${apply.onFail}` : '';
+      if (apply.onFail && !pass)
+        setTokensCondition([tokenId], {
+          label: apply.onFail,
+          aura: 'red',
+          isConcentration: false,
+        });
+      detail =
+        `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${apply.dc} — ${pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
+        (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
+    }
   } else {
     dmg = Math.floor(apply.amount * mult);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
@@ -1119,14 +1151,22 @@ export function resolveSkillRoll(
     `${signed(abil)}[${skill.ability}]` +
     (prof ? ` ${signed(prof)}[PROF]` : '') +
     extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
-  const { face, detail: d20detail } = rollD20Detail(advantage);
+  // Conditions (Poisoned/Frightened) impose disadvantage on ability checks, folded
+  // in with any manual adv/dis (any adv + any dis cancel to a straight roll).
+  const adv = checkAdvantage(
+    character.conditions.map((x) => x.label),
+    advantage,
+  );
+  const { face, detail: d20detail } = rollD20Detail(adv.state);
   const total = face + bonus;
   addRollLog(sessionId, {
     roller,
     label: `${skill.name} check`,
     expr: `${skill.ability}${proficient ? ' (prof)' : ''}`,
     total,
-    detail: `${character.name} — ${skill.name}: ${d20detail} ${breakdown} = ${total}`,
+    detail:
+      `${character.name} — ${skill.name}: ${d20detail} ${breakdown} = ${total}` +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
   });
   return true;
 }

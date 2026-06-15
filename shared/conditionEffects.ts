@@ -79,3 +79,27 @@ export function saveAdvantage(
   if (s.has('restrained') && ability.toUpperCase() === 'DEX') dis.push('restrained (DEX)');
   return resolve([], dis, manual);
 }
+
+/** Conditions that make a creature AUTOMATICALLY FAIL Strength & Dexterity saves
+ *  (no roll): Paralyzed, Stunned, Unconscious, Petrified. Returns the condition
+ *  label causing it (for the log), or null if the save is rolled normally. */
+const AUTO_FAIL_STR_DEX = ['paralyzed', 'stunned', 'unconscious', 'petrified'];
+export function saveAutoFail(labels: string[], ability: string): string | null {
+  const ab = ability.trim().toUpperCase();
+  if (ab !== 'STR' && ab !== 'DEX') return null;
+  const s = norm(labels);
+  return AUTO_FAIL_STR_DEX.find((c) => s.has(c)) ?? null;
+}
+
+/**
+ * Net advantage on an ABILITY/SKILL CHECK from the creature's conditions plus any
+ * manual adv/dis. Conservative: Poisoned and Frightened impose disadvantage on
+ * ability checks (Blinded/Deafened auto-fail only sense-specific checks we can't
+ * detect, so those stay with the DM).
+ */
+export function checkAdvantage(labels: string[], manual?: Advantage): AdvResult {
+  const s = norm(labels);
+  const dis: string[] = [];
+  for (const c of ['poisoned', 'frightened']) if (s.has(c)) dis.push(c);
+  return resolve([], dis, manual);
+}

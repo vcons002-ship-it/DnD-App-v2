@@ -788,6 +788,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   don't time out, and the handler `await`s without blocking — **other chat keeps
   flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
   stale answer.
+- ☑ **Condition auto-fail saves + check disadvantage.** Extended
+  `shared/conditionEffects.ts`: `saveAutoFail` (Paralyzed/Stunned/Unconscious/
+  Petrified automatically FAIL Strength & Dexterity saves — no roll, full damage)
+  is wired into `resolveForcedSave` + the bulk save roller; `checkAdvantage`
+  (Poisoned/Frightened → disadvantage on ability checks) is wired into
+  `resolveSkillRoll`. Both stay conservative (position/sense-dependent cases
+  remain the DM's call). The log shows "auto-fails (Paralyzed)".
 - ☑ **Rules tooltips on conditions.** Condition chips (the picker grid, the active
   list, and the player hover card) carry a `title` with the full 5e rules text
   from `shared/conditionRules.ts` — instant, deterministic, no LLM call. Distinct
