@@ -32,7 +32,7 @@ import {
   setConn,
   type IOServer,
 } from './connections.js';
-import { answerRules } from './assistant/index.js';
+import { answerRules, recapSession, creatureLine } from './assistant/index.js';
 import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import {
   addRollLog,
@@ -99,6 +99,8 @@ import {
   getSessionById,
   getSessionByCode,
   getToken,
+  listRollLog,
+  listChat,
   listTokens,
   monsterInSession,
   moveToken,
@@ -1057,6 +1059,62 @@ export function registerSocketHandlers(io: IOServer): void {
     // DM-only: stop the in-flight rules-assistant request.
     socket.on('assistant:cancel', () => {
       assistantInFlight.get(socket.id)?.abort();
+    });
+
+    // DM-only: "Previously on…" recap of recent rolls + chat, posted to chat for
+    // everyone (so returning players can catch up).
+    socket.on('assistant:recap', async () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const rolls = listRollLog(sid, 60).map((r) => ({
+        t: r.createdAt,
+        line: `[roll] ${r.roller}: ${r.detail}${r.description ? ` (${r.description})` : ''}`,
+      }));
+      const chat = listChat(sid, 60)
+        .filter((c) => !c.dmOnly)
+        .map((c) => ({ t: c.createdAt, line: `[chat] ${c.sender}: ${c.text}` }));
+      const transcript = [...rolls, ...chat]
+        .sort((a, b) => a.t - b.t)
+        .map((x) => x.line)
+        .join('\n')
+        .slice(-6000); // keep the most recent if very long
+      let recap: string | null = null;
+      try {
+        recap = await recapSession(transcript);
+      } catch (err) {
+        console.warn('  [recap] failed:', (err as Error).message);
+      }
+      if (recap) {
+        addChatMessage(sid, '📜 Recap', 'dm', recap); // visible to everyone
+        afterChange();
+      }
+      socket.emit('notice', { message: recap ? 'Session recap posted' : 'Could not generate a recap' });
+    });
+
+    // DM-only: make a creature speak an AI-generated in-character line, floated
+    // as a speech bubble over its token (reuses the chat-bubble system).
+    socket.on('creature:speak', async ({ tokenId }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const t = getToken(tokenId);
+      if (!t || t.kind === 'pc') return; // voice monsters/NPCs, not PCs
+      const m = getMonster(t.refId);
+      if (!m) return;
+      const conds = m.conditions?.map((c) => c.label).join(', ');
+      const describe =
+        `Creature: ${m.name}${m.creatureType ? ` (${m.creatureType})` : ''}. ` +
+        `Disposition toward the party: ${m.disposition ?? 'enemy'}. ` +
+        `${m.maxHp > 0 && m.curHp <= m.maxHp * 0.35 ? 'It is badly wounded. ' : ''}` +
+        `${conds ? `Current conditions: ${conds}. ` : ''}` +
+        `Give its one spoken line right now.`;
+      let line: string | null = null;
+      try {
+        line = await creatureLine(describe);
+      } catch (err) {
+        console.warn('  [speak] failed:', (err as Error).message);
+      }
+      if (line) broadcastSay(io, sid, t.refId, line);
+      socket.emit('notice', { message: line ? `${m.name} speaks` : 'No AI backend for dialogue' });
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's

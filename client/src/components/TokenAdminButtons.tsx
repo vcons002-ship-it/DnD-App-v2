@@ -24,6 +24,7 @@ export function TokenAdminButtons({
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
+  const speakAs = useStore((s) => s.speakAs);
   const menu = variant === 'menu';
   const run = (fn: () => void) => () => {
     fn();
@@ -58,6 +59,15 @@ export function TokenAdminButtons({
       >
         {token.hideCombatRole ? '◎ Show role badge' : '◎ Hide role badge'}
       </button>
+      {token.kind !== 'pc' && (
+        <button
+          className={cls()}
+          onClick={run(() => speakAs(token.id))}
+          title="Have this creature say an AI-generated line (floats over its token)"
+        >
+          💬 Speak (AI)
+        </button>
+      )}
       <button className={cls(false, true)} onClick={run(() => deleteToken(token.id))}>
         ✕ Delete token
       </button>

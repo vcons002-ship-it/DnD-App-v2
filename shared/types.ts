@@ -1249,6 +1249,12 @@ export interface ClientToServerEvents {
   }) => void;
   /** DM-only: stop the in-flight rules-assistant request (the chat Stop button). */
   'assistant:cancel': () => void;
+  /** DM-only: generate a "Previously on…" recap of recent rolls + chat (posted
+   *  to chat for everyone). */
+  'assistant:recap': () => void;
+  /** DM-only: make a creature speak an AI-generated in-character line (floated as
+   *  a speech bubble over its token). */
+  'creature:speak': (payload: { tokenId: string }) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;

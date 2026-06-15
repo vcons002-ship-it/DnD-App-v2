@@ -788,6 +788,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   don't time out, and the handler `await`s without blocking — **other chat keeps
   flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
   stale answer.
+- ☑ **Rules tooltips on conditions.** Condition chips (the picker grid, the active
+  list, and the player hover card) carry a `title` with the full 5e rules text
+  from `shared/conditionRules.ts` — instant, deterministic, no LLM call. Distinct
+  from `conditionEffects.ts` (the narrower subset the engine auto-applies to
+  rolls).
+- ☑ **"Ask the buddy about this".** A ❓ on every roll-log entry (DM) pre-fills
+  `/ask` with that roll's detail/description, so the grounded assistant is one
+  click from any result.
+- ☑ **AI NPC dialogue → speech bubble.** A "💬 Speak (AI)" action on any creature
+  token (`creature:speak`) asks the LLM for one in-character line and floats it
+  over the token via the existing `fx:say` bubble system (the `SpeechBubbles`
+  finder now matches any token kind, not just PCs). Phase 6 'AI enemy dialogue'.
+- ☑ **Session recap.** A DM "📜 Recap" button (`assistant:recap`) summarizes the
+  recent roll log + chat into a "Previously…" recap and posts it to chat for
+  everyone (`recapSession`).
 - ☑ **Grounded answers + large context window.** The assistant system prompt
   forbids inventing rules/numbers not in the retrieved context (say "not covered"
   instead), while explicitly allowing **labeled interpretation** ("Rules as

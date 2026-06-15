@@ -113,8 +113,10 @@ export const SpeechBubbles = memo(function SpeechBubbles({
   return (
     <>
       {entries.map((e) => {
-        const tok = tokens.find((t) => t.kind === 'pc' && t.refId === e.refId);
-        if (!tok) return null; // PC not on the viewer's map
+        // PC chat bubbles AND AI creature-dialogue bubbles both key on the
+        // token's refId; match any token kind (refIds are unique per entity).
+        const tok = tokens.find((t) => t.refId === e.refId);
+        if (!tok) return null; // entity not on the viewer's map
         const radius = (tok.widthFt * pxPerFoot) / 2;
         return (
           <Bubble

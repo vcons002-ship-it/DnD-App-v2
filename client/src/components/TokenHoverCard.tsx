@@ -1,6 +1,7 @@
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { presentAuras } from '../lib/conditions';
+import { conditionRule } from '../../../shared/conditionRules';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -36,7 +37,7 @@ export function TokenHoverCard({ snapshot, token, x, y }: Props) {
       {d.conditions.length > 0 && (
         <ul className="hover-card-conds">
           {d.conditions.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} title={conditionRule(c.label) || undefined}>
               <span className={`dot ${c.aura}`} />
               {c.label}
               {c.customText ? `: ${c.customText}` : ''}

@@ -223,6 +223,10 @@ type Store = {
   assistantThinking: boolean;
   /** DM-only: stop the in-flight rules-assistant request. */
   cancelAssistant: () => void;
+  /** DM-only: post an AI "Previously on…" recap of recent rolls + chat. */
+  requestRecap: () => void;
+  /** DM-only: make a creature speak an AI line over its token. */
+  speakAs: (tokenId: string) => void;
   /** Rulebook reader overlay: null = closed, else open (optionally at a page). */
   rulebookView: { page?: number } | null;
   openRulebook: (page?: number) => void;
@@ -668,6 +672,14 @@ export const useStore = create<Store>((set, get) => ({
   cancelAssistant: () => {
     set({ assistantThinking: false });
     get().socket?.emit('assistant:cancel');
+  },
+  requestRecap: () => {
+    set({ aiBusy: true, toast: { id: Date.now(), message: '📜 Writing a recap…' } });
+    get().socket?.emit('assistant:recap');
+  },
+  speakAs: (tokenId) => {
+    set({ aiBusy: true, toast: { id: Date.now(), message: '💬 Voicing the creature…' } });
+    get().socket?.emit('creature:speak', { tokenId });
   },
   rulebookView: null,
   openRulebook: (page) => set({ rulebookView: { page } }),

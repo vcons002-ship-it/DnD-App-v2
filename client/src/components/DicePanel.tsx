@@ -20,6 +20,7 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const assistantThinking = useStore((s) => s.assistantThinking);
   const cancelAssistant = useStore((s) => s.cancelAssistant);
   const openRulebook = useStore((s) => s.openRulebook);
+  const requestRecap = useStore((s) => s.requestRecap);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const toggleRollOverlay = useStore((s) => s.toggleRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
@@ -200,6 +201,15 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
             {snapshot.hideDmRolls ? '🙈 DM rolls hidden' : '👁 DM rolls shown'}
           </button>
         )}
+        {isDm && (
+          <button
+            className="btn tiny"
+            onClick={requestRecap}
+            title="AI recap of recent rolls + chat, posted to chat for everyone"
+          >
+            📜 Recap
+          </button>
+        )}
         {snapshot.rollLog.length > 0 && (
           <button
             className="btn tiny danger"
@@ -255,6 +265,22 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                 {r.hpNote && <span className="roll-hp-note">{r.hpNote.text}</span>}
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>
+                )}
+                {isDm && (
+                  <button
+                    className="ask-roll"
+                    title="Ask the rules assistant about this roll"
+                    onClick={() =>
+                      askAssistant(
+                        `Explain this D&D 5e roll in rules terms: ${
+                          r.label ? r.label + ' — ' : ''
+                        }${r.detail}${r.description ? ' — ' + r.description : ''}`,
+                        choiceToBackend(aiChoice),
+                      )
+                    }
+                  >
+                    ❓
+                  </button>
                 )}
                 {isDm && r.apply && (
                   <button
