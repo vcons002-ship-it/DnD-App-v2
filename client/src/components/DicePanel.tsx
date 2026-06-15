@@ -28,6 +28,8 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const toggleDiceButton = useStore((s) => s.toggleDiceButton);
   const showCursors = useStore((s) => s.showCursors);
   const toggleCursors = useStore((s) => s.toggleCursors);
+  const shareCursor = useStore((s) => s.shareCursor);
+  const toggleShareCursor = useStore((s) => s.toggleShareCursor);
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const isDm = snapshot.role === 'dm';
@@ -199,7 +201,14 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           onClick={toggleCursors}
           title="Show other people's live cursor pointers on the map"
         >
-          {showCursors ? '👆 Pointers' : '🚫 Pointers'}
+          {showCursors ? '👆 See pointers' : '🚫 See pointers'}
+        </button>
+        <button
+          className={`btn tiny ${shareCursor ? 'on' : ''}`}
+          onClick={toggleShareCursor}
+          title="Broadcast your own pointer to others — turn off to point privately (e.g. at hidden tokens / unrevealed fog)"
+        >
+          {shareCursor ? '📡 Share mine' : '🙈 Pointer private'}
         </button>
         {snapshot.role === 'dm' && (
           <button

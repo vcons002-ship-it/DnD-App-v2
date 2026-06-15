@@ -101,6 +101,10 @@ type Store = {
   /** Show OTHER people's live cursor pointers on the map (on by default). */
   showCursors: boolean;
   toggleCursors: () => void;
+  /** Broadcast MY OWN pointer to others (on by default). The DM turns this off to
+   *  point at secret things privately. */
+  shareCursor: boolean;
+  toggleShareCursor: () => void;
   /**
    * Per-entity advantage/disadvantage toggle, keyed by a character or monster id.
    * Each creature/PC has its OWN armed adv/dis that applies to ITS next roll of
@@ -363,7 +367,9 @@ export const useStore = create<Store>((set, get) => ({
   typingChars: {},
   sayBubbles: {},
   cursors: {},
-  moveCursor: (x, y, mapId) => get().socket?.emit('cursor:move', { x, y, mapId }),
+  moveCursor: (x, y, mapId) => {
+    if (get().shareCursor) get().socket?.emit('cursor:move', { x, y, mapId });
+  },
   hideCursor: () => get().socket?.emit('cursor:hide'),
   chatTyping: (typing) => get().socket?.emit('chat:typing', { typing }),
   setAiBusy: (aiBusy) => set({ aiBusy }),
@@ -378,6 +384,16 @@ export const useStore = create<Store>((set, get) => ({
       const next = !s.showCursors;
       localStorage.setItem('dnd.hideCursors', next ? '0' : '1');
       return { showCursors: next };
+    }),
+  // Sharing my own pointer is ON by default; turning it off clears mine for
+  // everyone immediately (the DM's "point privately" control).
+  shareCursor: localStorage.getItem('dnd.noShareCursor') !== '1',
+  toggleShareCursor: () =>
+    set((s) => {
+      const next = !s.shareCursor;
+      localStorage.setItem('dnd.noShareCursor', next ? '0' : '1');
+      if (!next) get().socket?.emit('cursor:hide');
+      return { shareCursor: next };
     }),
   manualAdvantage: {},
   setManualAdvantage: (key, a) =>
