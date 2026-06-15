@@ -14,6 +14,9 @@ export type Condition = {
   aura: AuraColor;
   isConcentration: boolean;
   customText?: string;
+  /** Combat round it was applied on (when combat is running) — shown as "T{n}"
+   *  for manual duration tracking. Absent if applied outside combat. */
+  round?: number;
 };
 
 export type TokenKind = 'pc' | 'monster';

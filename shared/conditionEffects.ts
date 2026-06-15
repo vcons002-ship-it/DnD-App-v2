@@ -37,11 +37,16 @@ function resolve(
  * combined with any manually-requested adv/dis. `weaponKind` splits prone: a
  * melee attacker has advantage against a prone target, a ranged attacker has
  * disadvantage.
+ *
+ * `within5ft` is the real distance check (the first location-based mechanic): a
+ * prone target grants ADVANTAGE to an attacker within 5 ft (any weapon) and
+ * DISADVANTAGE from beyond it — so a ranged attacker standing adjacent still gets
+ * advantage, and a melee attacker is always within reach.
  */
 export function attackAdvantage(
   attackerLabels: string[],
   targetLabels: string[],
-  weaponKind: 'melee' | 'ranged',
+  within5ft: boolean,
   manual?: Advantage,
 ): AdvResult {
   const a = norm(attackerLabels);
@@ -54,7 +59,7 @@ export function attackAdvantage(
   for (const c of ['blinded', 'restrained', 'paralyzed', 'stunned', 'unconscious', 'petrified'])
     if (t.has(c)) adv.push(`target ${c}`);
   if (t.has('prone'))
-    weaponKind === 'melee' ? adv.push('prone target (melee)') : dis.push('prone target (ranged)');
+    within5ft ? adv.push('prone target (within 5 ft)') : dis.push('prone target (beyond 5 ft)');
 
   // Disadvantage for the attacker.
   for (const c of ['blinded', 'poisoned', 'prone', 'restrained', 'frightened'])
@@ -62,6 +67,30 @@ export function attackAdvantage(
   if (t.has('invisible')) dis.push('target invisible');
 
   return resolve(adv, dis, manual);
+}
+
+/** Paralyzed/Unconscious creatures suffer an AUTOMATIC CRITICAL HIT from any
+ *  attacker within 5 ft. Returns the condition causing it (for the log) or null. */
+const AUTO_CRIT_WITHIN_5 = ['paralyzed', 'unconscious'];
+export function autoCritFromConditions(targetLabels: string[], within5ft: boolean): string | null {
+  if (!within5ft) return null;
+  const t = norm(targetLabels);
+  return AUTO_CRIT_WITHIN_5.find((c) => t.has(c)) ?? null;
+}
+
+/**
+ * Conditions a label implies and should auto-apply alongside it (5e): the
+ * incapacitating conditions all include Incapacitated, and Unconscious also
+ * drops the creature Prone. Used so applying one chip cascades the bundle.
+ */
+const IMPLIED: Record<string, string[]> = {
+  unconscious: ['Incapacitated', 'Prone'],
+  paralyzed: ['Incapacitated'],
+  stunned: ['Incapacitated'],
+  petrified: ['Incapacitated'],
+};
+export function impliedConditions(label: string): string[] {
+  return IMPLIED[label.trim().toLowerCase()] ?? [];
 }
 
 /**

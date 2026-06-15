@@ -52,16 +52,20 @@ export function ConditionPicker({ kind, refId, conditions, collapsibleEditor = f
   const editor = (
     <>
       <div className="cond-grid">
-        {STANDARD_CONDITIONS.map((label) => (
-          <button
-            key={label}
-            className={`chip ${active(label) ? 'chip-on red' : ''}`}
-            onClick={() => toggleStandard(label)}
-            title={conditionRule(label) || undefined}
-          >
-            {label}
-          </button>
-        ))}
+        {STANDARD_CONDITIONS.map((label) => {
+          const act = active(label);
+          return (
+            <button
+              key={label}
+              className={`chip ${act ? 'chip-on red' : ''}`}
+              onClick={() => toggleStandard(label)}
+              title={conditionRule(label) || undefined}
+            >
+              {label}
+              {act?.round ? <span className="cond-turn"> (T{act.round})</span> : ''}
+            </button>
+          );
+        })}
       </div>
 
       <button
@@ -104,6 +108,7 @@ export function ConditionPicker({ kind, refId, conditions, collapsibleEditor = f
             <li key={c.id} title={conditionRule(c.label) || undefined}>
               <span className={`dot ${c.aura}`} />
               {c.customText ? `${c.label}: ${c.customText}` : c.label}
+              {c.round ? <span className="cond-turn"> (T{c.round})</span> : ''}
               <button className="x" onClick={() => clearCondition(kind, refId, c.id)}>
                 ×
               </button>

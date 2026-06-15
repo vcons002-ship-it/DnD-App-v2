@@ -5,6 +5,7 @@ import {
   getMonster,
   getRollEntry,
   getToken,
+  getMap,
   setLastAttackRole,
   setResource,
   setSheetAbility,
@@ -27,7 +28,9 @@ import {
   saveAdvantage,
   saveAutoFail,
   checkAdvantage,
+  autoCritFromConditions,
 } from '../../shared/conditionEffects.js';
+import { tokensWithin5ft } from '../../shared/distance.js';
 import { rollDice } from '../../shared/dice.js';
 import {
   effectiveDice,
@@ -282,10 +285,15 @@ export function resolveAttack(
   // Fold the attacker's & target's conditions into the requested adv/dis (5e:
   // any advantage + any disadvantage cancel to a straight roll). A maneuver or an
   // active stance that grants advantage contributes one too.
+  // Distance-based mechanics: a prone target gives advantage within 5 ft /
+  // disadvantage beyond it, and a paralyzed/unconscious target within 5 ft is an
+  // automatic critical hit.
+  const within5 = tokensWithin5ft(at, tt, getMap(at.mapId));
+  const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   const adv = attackAdvantage(
     a.conditionLabels,
     t.conditionLabels,
-    weapon.kind,
+    within5,
     advantage ??
       (maneuverFired?.spec.grantsAdvantage || stanceAdvantage ? 'adv' : undefined),
   );
@@ -304,11 +312,13 @@ export function resolveAttack(
     bonusLabel: flatLabels.length ? flatLabels.join('+') : undefined,
     attackRollBonus: (maneuverToHit || 0) + atkExtra.total || undefined,
     attackRollBonusLabel: toHitLabel || undefined,
+    forceCrit: !!autoCrit, // paralyzed/unconscious target within 5 ft → auto-crit
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
   const masteryNotes: string[] = [];
+  if (out.hit && autoCrit) masteryNotes.push(`auto-crit (${autoCrit})`);
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
     if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;

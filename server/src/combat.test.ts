@@ -14,6 +14,7 @@ import {
 } from './combat.js';
 import {
   createSession,
+  setCombatRound,
   createMap,
   setActiveMap,
   createToken,
@@ -221,6 +222,60 @@ describe('combat resolution', () => {
     expect(saveLog.detail).toContain('FAIL');
     // Full damage applied (no halving), so HP dropped by the whole amount.
     expect(getMonster(victim.id)!.curHp).toBe(50 - amount);
+  });
+
+  it('a paralyzed target within 5 ft suffers an automatic critical hit', () => {
+    const { s, atk, tgt } = masteryFight({
+      weapon: 'Sword',
+      attackBonus: 50, // always hits (except a nat-1 fumble)
+      targetAc: 5,
+      damage: '1d6',
+      mastery: { active: false, appliesToTags: [] },
+    });
+    setCondition('monster', getToken(tgt)!.refId, {
+      id: 'p1',
+      label: 'Paralyzed',
+      aura: 'red',
+      isConcentration: false,
+    });
+    let detail = '';
+    for (let i = 0; i < 40 && !detail; i++) {
+      resolveAttack(s, 'Striker', atk, tgt, 0);
+      const last = listRollLog(s).at(-1)!.detail;
+      if (/HIT|CRIT/.test(last) && !/nat 1/.test(last)) detail = last;
+    }
+    expect(detail).toContain('CRIT');
+    expect(detail).toContain('auto-crit (paralyzed)');
+  });
+
+  it('stamps the combat round on a condition (and its cascade) for tracking', () => {
+    const s = createSession('Rounds');
+    const c = createCharacter(s.id, { name: 'Stunned One' });
+    setCombatRound(s.id, 3);
+    setCondition('pc', c.id, { id: 'st', label: 'Stunned', aura: 'red', isConcentration: false });
+    const conds = getCharacter(c.id)!.conditions;
+    expect(conds.find((x) => x.label === 'Stunned')?.round).toBe(3);
+    expect(conds.find((x) => x.label === 'Incapacitated')?.round).toBe(3); // cascaded
+  });
+
+  it('does not stamp a round outside combat (round 0)', () => {
+    const s = createSession('NoCombat');
+    const c = createCharacter(s.id, { name: 'Tripped' });
+    setCondition('pc', c.id, { id: 'pr', label: 'Prone', aura: 'red', isConcentration: false });
+    expect(getCharacter(c.id)!.conditions.find((x) => x.label === 'Prone')?.round).toBeUndefined();
+  });
+
+  it('applying Unconscious cascades Incapacitated + Prone', () => {
+    const s = createSession('Cascade');
+    const c = createCharacter(s.id, { name: 'Faint' });
+    setCondition('pc', c.id, {
+      id: 'u1',
+      label: 'Unconscious',
+      aura: 'red',
+      isConcentration: false,
+    });
+    const labels = getCharacter(c.id)!.conditions.map((x) => x.label.toLowerCase());
+    expect(labels).toEqual(expect.arrayContaining(['unconscious', 'incapacitated', 'prone']));
   });
 
   it('resolves a trap disarm vs the trap DC and logs it', () => {
