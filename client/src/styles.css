@@ -959,6 +959,8 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .chat-sender { font-weight: 600; margin-right: 6px; }
 .chat-msg.dm .chat-sender { color: var(--chat-dm); }
 .chat-msg.player .chat-sender { color: var(--chat-player); }
+.chat-link { color: #6db3ff; text-decoration: underline; cursor: pointer; }
+.chat-link:hover { color: #9ccbff; }
 .chat-input { display: flex; gap: 6px; padding: 6px 0 2px; }
 .chat-input input { flex: 1; }
 .ai-backend-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 0; font-size: 0.82em; }

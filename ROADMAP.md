@@ -758,6 +758,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   mark and clearing when the stance ends.
 - ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
   snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
+- ☑ **Clickable links in chat.** Bare `http(s)` URLs and `[label](url)` markdown
+  in any chat message render as safe anchors (`shared/linkify.ts` →
+  `lib/linkify.tsx`) opened in a new tab with `rel="noopener noreferrer"`. The DM
+  (or anyone) can drop a web link/handout for players to click. SECURITY: only
+  `http(s)` is recognized — never raw HTML, never `javascript:`/`data:` — so chat
+  can't inject markup or a scripted href.
 - ☑ **Chat speech bubbles over PC tokens.** A player's typing pops a transient
   "•••" bubble over their claimed PC token for the OTHERS in the session
   (`chat:typing` → ephemeral `fx:typing`, throttled, idle-cleared), and sending a
