@@ -6,7 +6,6 @@ import { InitiativePanel } from '../components/InitiativePanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
-import { Roll20Panel } from '../components/Roll20Panel';
 import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
 import { PlacementBanner } from '../components/PlacementBanner';
@@ -87,11 +86,6 @@ export function DmView() {
                 ),
               },
               { id: 'dice', label: 'Dice, Log & Chat', node: <DicePanel snapshot={snapshot} /> },
-              {
-                id: 'roll20',
-                label: 'Roll20',
-                node: <Roll20Panel sessionCode={snapshot.sessionCode} />,
-              },
             ]}
           />
         </SidePanel>

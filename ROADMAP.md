@@ -268,19 +268,24 @@ Smaller refinements on top of the shipped Phase 2 work.
   library") via `item:set`/`item:remove`. (WP6)
 - ☑ **Import/export character sheet [req].** `shared/sheetIO.ts`: a robust
   PLAIN-TEXT scraper (any sheet — name/race/class/level, HP `x/y`, AC, speed,
-  ability scores via abbreviations OR full words, marker-based skill
-  proficiencies, spell slots) AND a lossless JSON round-trip (Export JSON +
-  import). `SheetImportExport` (on the editable character sheet) previews exactly
-  which fields will be **overwritten** and confirms before applying; everything
-  it doesn't recognize is preserved. (No public Roll20 API, so this works for any
-  pasted sheet, not just Roll20.) (WP7)
+  ability scores via abbreviations OR full words, skill proficiencies, spell
+  slots) AND a lossless JSON round-trip (Export JSON + import). `SheetImportExport`
+  (on the editable character sheet) previews exactly which fields will be
+  **overwritten** and confirms before applying; everything it doesn't recognize is
+  preserved. (No public Roll20 API, so this works for any pasted sheet.) (WP7)
+  **Improved:** the scraper now infers **skill + saving-throw proficiencies** from
+  listed bonuses (bonus ≥ ability-mod + proficiency-bonus — catches Roll20/D&D
+  Beyond pastes with no markers) and scrapes **feats + a "Features & Traits" block**
+  into free-text trait entries.
 - ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
   the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
   persisted per role like panel width/collapse. *(Deferred.)*
 - ☑ Buff/nerf buttons with custom text (drive the green/red rings) — via the
   existing `ConditionPicker` custom buff/nerf + auras.
-- ☑ **Collapsible Roll20 embed [req].** `Roll20Panel`: a collapsible `<iframe>`
-  with an "Open ↗" pop-out fallback (Roll20 blocks framing via X-Frame-Options).
+- ☒ **Collapsible Roll20 embed [req]** — REMOVED. The `Roll20Panel` `<iframe>`
+  never worked (Roll20 blocks framing via X-Frame-Options) so it was deleted from
+  the UI + code; share a Roll20 link via chat instead (clickable links). Sheet
+  import (paste text) stays and was improved.
 - ☑ **Dice roller + shared roll log [req].** `shared/dice.ts` parser
   (`NdM±K`, multi-term, d20 adv/dis); `dice:roll` is computed authoritatively on
   the server and written to a persisted `roll_log`, surfaced in every snapshot.

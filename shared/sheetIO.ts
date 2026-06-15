@@ -8,7 +8,8 @@ import type {
   InventoryItem,
   Weapon,
 } from './types.js';
-import { SKILLS } from './skills.js';
+import { SKILLS, abilityMod, proficiencyBonus } from './skills.js';
+import { FEAT_LIBRARY } from './featLibrary.js';
 
 /** Everything an import may set (a character:update without the id). */
 export type SheetPatch = Omit<CharacterUpdatePayload, 'characterId'>;
@@ -54,6 +55,105 @@ const num1 = (text: string, re: RegExp): number | undefined => {
   const m = text.match(re);
   return m ? Number(m[1]) : undefined;
 };
+const escapeRe = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+/** A signed bonus appearing right after (or just before) a label, e.g.
+ *  "Acrobatics (Dex) +5" or "+5 Acrobatics". Undefined if none is nearby. */
+function bonusNear(t: string, label: string): number | undefined {
+  const L = escapeRe(label);
+  const after = t.match(new RegExp(`${L}\\b(?:\\s*\\([a-z]{3}\\))?[^\\n+\\-\\d]{0,8}([+\\-]\\s*\\d{1,2})`, 'i'));
+  if (after) return Number(after[1].replace(/\s+/g, ''));
+  const before = t.match(new RegExp(`([+\\-]\\s*\\d{1,2})[^\\n\\d]{0,3}${L}\\b`, 'i'));
+  return before ? Number(before[1].replace(/\s+/g, '')) : undefined;
+}
+
+/** The text immediately following a label, up to the next blank line / section
+ *  header (used to scope save parsing to the "Saving Throws" list). */
+function captureAfter(t: string, labelRe: RegExp): string {
+  const m = t.match(labelRe);
+  if (!m || m.index === undefined) return '';
+  const after = t.slice(m.index + m[0].length);
+  const stop = after.search(
+    /\n\s*\n|\n[^\S\n]*(?:skills?|features?|traits?|spell|inventory|equipment|proficienc|languages?|actions?|attacks?|senses?)\b/i,
+  );
+  return (stop >= 0 ? after.slice(0, stop) : after).slice(0, 240);
+}
+
+/** A signed bonus next to an ability label inside a scoped context, e.g.
+ *  "Constitution +5" or "Con +5". */
+function bonusForAbility(ctx: string, labels: string): number | undefined {
+  const m = ctx.match(new RegExp(`\\b(?:${labels})\\b[^\\n+\\-\\d]{0,8}([+\\-]\\s*\\d{1,2})`, 'i'));
+  return m ? Number(m[1].replace(/\s+/g, '')) : undefined;
+}
+
+// Section headers that END a "Features & Traits" block when scraping feats.
+const SECTION_STOP =
+  /^[^\S\n]*(?:inventory|equipment|spell(?:s|casting|book)?|proficienc(?:y|ies)|languages?|background|actions?|attacks?|reactions?|bonus actions?|appearance|backstory|notes?|allies|treasure|coins?|gold|currency)\b/i;
+
+/**
+ * Best-effort scrape of feats + features. Three signals (union): distinctive
+ * (multi-word) library feat names mentioned anywhere, an explicit "Feats: a, b"
+ * label, and a "Features & Traits" block split into named entries. Single-word
+ * library feats are skipped here (too many are common words) — they still come
+ * in via an explicit label or the block. Returned as free-text trait entries.
+ */
+function parseFeatsAndFeatures(t: string): CreatureAbility[] {
+  const out: CreatureAbility[] = [];
+  const seen = new Set<string>();
+  const add = (name: string, description = '') => {
+    const clean = name.replace(/^[•●◉★*\s-]+|[•●◉★*\s:.-]+$/g, '').trim();
+    const key = clean.toLowerCase();
+    if (clean.length < 2 || clean.length > 60 || seen.has(key)) return;
+    seen.add(key);
+    out.push({ name: clean, description: description.trim().slice(0, 600) });
+  };
+
+  // 1) Distinctive (multi-word) library feats named anywhere → attach the blurb.
+  for (const f of FEAT_LIBRARY) {
+    if (f.group !== 'Feat' || !f.name.includes(' ')) continue;
+    if (new RegExp(`\\b${escapeRe(f.name)}\\b`, 'i').test(t)) add(f.name, f.description);
+  }
+  // 2) Explicit "Feats: Alert, Lucky" / "Feat: Sentinel".
+  const lab = t.match(/^[^\S\n]*feats?\b\s*[:\-]\s*([^\n]+)/im);
+  if (lab) for (const nm of lab[1].split(/[,;/]/)) add(title(nm.trim().toLowerCase()));
+  // 3) A "Features & Traits" / "Features" / "Traits" block → name + description.
+  for (const e of captureFeatureEntries(t)) add(e.name, e.description);
+
+  return out.slice(0, 40);
+}
+
+/** Split a "Features & Traits" block into {name, description} entries: a short,
+ *  title-cased line that doesn't end in sentence punctuation starts an entry;
+ *  the lines under it are its description, until the next name or a new section. */
+function captureFeatureEntries(t: string): { name: string; description: string }[] {
+  const lines = t.split('\n');
+  const headerRe = /^[^\S\n]*(?:features?\s*&?\s*traits?|features?|traits?)\s*:?\s*$/i;
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (headerRe.test(lines[i])) { start = i + 1; break; }
+  }
+  if (start < 0) return [];
+  const entries: { name: string; description: string }[] = [];
+  let cur: { name: string; description: string } | null = null;
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line && SECTION_STOP.test(line) && line.length < 40) break; // next section
+    if (!line) continue;
+    const isName =
+      line.length <= 60 &&
+      !/[.!?,;:]$/.test(line) &&
+      /^[A-Z(\[]/.test(line) &&
+      line.split(/\s+/).length <= 8;
+    if (isName) {
+      if (cur) entries.push(cur);
+      cur = { name: line, description: '' };
+    } else if (cur) {
+      cur.description += (cur.description ? ' ' : '') + line;
+    }
+  }
+  if (cur) entries.push(cur);
+  return entries;
+}
 
 /** Best-effort scrape of common label+number patterns from any text sheet. */
 export function parseSheetText(text: string): SheetPatch {
@@ -114,18 +214,53 @@ export function parseSheetText(text: string): SheetPatch {
   }
   if (Object.keys(stats).length) patch.stats = stats;
 
-  // Skill proficiencies — only when a marker is present (● • ✓ ✔ ★, "(P)", or
-  // the word "prof"/"proficient" near the skill). No markers => none imported.
+  const lvl = patch.level;
+  const sc = patch.stats ?? {};
+
+  // Skill proficiencies — a marker (● • ✓ ✔ ★, "(P)/(E)", or "prof"/"expert" near
+  // the skill) OR an inferred one: a listed total at least ability-mod +
+  // proficiency-bonus high implies proficiency (this is what catches Roll20 /
+  // D&D Beyond pastes that just list "Stealth +7" with no explicit marker).
   const prof: string[] = [];
   for (const s of SKILLS) {
-    const name = s.name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    const re = new RegExp(
-      `(?:[●•◉✓✔★]\\s*${name})|(?:${name}\\s*\\(P\\))|(?:${name}[^\\n]{0,14}\\bprofic)`,
+    const name = escapeRe(s.name);
+    const marker = new RegExp(
+      `(?:[●•◉✓✔★]\\s*${name})|(?:${name}\\s*\\((?:P|E|Ex)\\))|(?:${name}[^\\n]{0,16}\\b(?:profic|expert)\\w*)`,
       'i',
-    );
-    if (re.test(t)) prof.push(s.name);
+    ).test(t);
+    let isProf = marker;
+    if (!isProf && lvl !== undefined && sc[s.ability] !== undefined) {
+      const bonus = bonusNear(t, s.name);
+      if (bonus !== undefined && bonus - abilityMod(sc[s.ability]) >= proficiencyBonus(lvl)) {
+        isProf = true;
+      }
+    }
+    if (isProf) prof.push(s.name);
   }
   if (prof.length) patch.proficientSkills = prof;
+
+  // Saving-throw proficiencies — a marker near the ability + "save", or (scoped
+  // to the "Saving Throws" list) a listed bonus that implies proficiency.
+  const savesCtx = captureAfter(t, /\b(?:saving\s*throws?|saves)\b\s*[:\-]?/i);
+  const saves: string[] = [];
+  for (const [ab, labels] of Object.entries(ABILITY_LABELS)) {
+    const marker =
+      new RegExp(`\\b(?:${labels})\\b[^\\n]{0,20}\\bsav(?:e|ing)\\b[^\\n]{0,18}(?:[●•◉✓✔★]|\\(P\\)|profic)`, 'i').test(t) ||
+      new RegExp(`(?:[●•◉✓✔★]|profic\\w*)[^\\n]{0,18}\\b(?:${labels})\\b[^\\n]{0,14}\\bsav`, 'i').test(t);
+    let isProf = marker;
+    if (!isProf && savesCtx && lvl !== undefined && sc[ab] !== undefined) {
+      const bonus = bonusForAbility(savesCtx, labels);
+      if (bonus !== undefined && bonus - abilityMod(sc[ab]) >= proficiencyBonus(lvl)) {
+        isProf = true;
+      }
+    }
+    if (isProf) saves.push(ab);
+  }
+  if (saves.length) patch.saveProficiencies = saves;
+
+  // Feats + features & traits → free-text trait entries (the hard-to-parse bits).
+  const feats = parseFeatsAndFeatures(t);
+  if (feats.length) patch.abilities = feats;
 
   // Spell slots: "1st-level slots: 4" / "Spell Slots Level 2: 3".
   const slots: Record<string, { max: number; used: number }> = {};

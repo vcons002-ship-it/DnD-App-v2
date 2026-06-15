@@ -342,8 +342,7 @@ sanitization rules above and commit it to `claude/Main`.
   once dead + "Loot revealed"); trap ⚡ Trigger + player 🔧 Disarm.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
-  modal for both roles, auto-tab by pointer type), editable map names, Roll20
-  collapsible embed + pop-out.
+  modal for both roles, auto-tab by pointer type), editable map names.
 
 ## Remaining / not yet built
 
@@ -384,9 +383,12 @@ sanitization rules above and commit it to `claude/Main`.
 - **Selection sync between DM windows is same-browser only** (BroadcastChannel);
   true cross-device sync would require server-side selection state.
 - **Sheet import overwrites** the fields it recognizes (others preserved) — it
-  previews + confirms which fields change. Works on *any* pasted text, not just
-  Roll20.
-- **Roll20** has no public per-character API → manual paste + iframe/pop-out only.
+  previews + confirms which fields change. Works on *any* pasted text (Roll20,
+  D&D Beyond, etc.); `parseSheetText` (`shared/sheetIO.ts`) infers **skill + save
+  proficiencies** from listed bonuses (bonus ≥ ability-mod + proficiency-bonus, so
+  no markers are needed) and scrapes **feats + a Features & Traits block** into
+  free-text trait entries. (The old Roll20 `<iframe>` embed was removed — most
+  sites block framing, and Roll20 has no per-character export API anyway.)
 - **AI is key-gated and fails safe** — every AI path no-ops cleanly without a key.
 
 ## Gotchas for edits

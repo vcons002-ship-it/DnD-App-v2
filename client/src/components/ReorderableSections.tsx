@@ -8,7 +8,7 @@ export type Section = { id: string; label: string; node: ReactNode };
  * Applied as a left border + faint header tint — enough to scan by, never loud.
  * Logic: combat red · conditions amber · spells violet · loot gold · sheet/
  * character blue · maps green · initiative orange · dice cyan · notes slate ·
- * target ember (combat-adjacent) · DM tools steel · Roll20 rose.
+ * target ember (combat-adjacent) · DM tools steel.
  */
 const SECTION_ACCENTS: Record<string, string> = {
   combat: '#e25b5b',
@@ -23,7 +23,6 @@ const SECTION_ACCENTS: Record<string, string> = {
   dice: '#56c8d8',
   notes: '#8fa3b8',
   dmtools: '#9aa5b1',
-  roll20: '#c98ba6',
 };
 
 function loadOrder(storageKey: string, fallback: string[]): string[] {
