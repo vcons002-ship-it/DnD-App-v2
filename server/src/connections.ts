@@ -113,6 +113,35 @@ export function broadcastTyping(
   }
 }
 
+/** Fan a live cursor position out to the OTHERS in the session who are viewing
+ *  the SAME map (so a DM's pointer on a staging map never shows to players, and
+ *  vice-versa). Ephemeral: no DB, no snapshot. */
+export function broadcastCursor(
+  io: IOServer,
+  sessionId: string,
+  fromSocketId: string,
+  name: string,
+  x: number,
+  y: number,
+  mapId: string,
+): void {
+  const activeMapId = getActiveMapId(sessionId);
+  for (const [socketId, conn] of conns) {
+    if (conn.sessionId !== sessionId || socketId === fromSocketId) continue;
+    const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
+    if (viewMapId !== mapId) continue;
+    io.to(socketId).emit('fx:cursor', { id: fromSocketId, name, x, y, mapId });
+  }
+}
+
+/** Remove a socket's cursor for everyone (on mouse-leave or disconnect). */
+export function broadcastCursorHide(io: IOServer, sessionId: string, socketId: string): void {
+  for (const [otherId, conn] of conns) {
+    if (conn.sessionId !== sessionId || otherId === socketId) continue;
+    io.to(otherId).emit('fx:cursorHide', { id: socketId });
+  }
+}
+
 /** A player sent a chat message → pop their words over their PC token for
  *  EVERYONE in the session (the speaker sees their own bubble too). */
 export function broadcastSay(

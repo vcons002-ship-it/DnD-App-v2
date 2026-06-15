@@ -788,6 +788,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   don't time out, and the handler `await`s without blocking — **other chat keeps
   flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
   stale answer.
+- ☑ **Live cursor "laser pointers".** Every participant's cursor shows as a
+  small labeled arrow on the shared map (`cursor:move` → `broadcastCursor` →
+  `fx:cursor`, rendered by a Konva `CursorPointers` layer, colored per person via
+  `rollerColor`). Ephemeral (no DB/snapshot), map-scoped (a DM's pointer on a
+  staging map never shows to players), throttled ~20/s in image coords (correct
+  under any pan/zoom), auto-expiring and cleared on mouse-leave/disconnect.
 - ☑ **Condition auto-fail saves + check disadvantage.** Extended
   `shared/conditionEffects.ts`: `saveAutoFail` (Paralyzed/Stunned/Unconscious/
   Petrified automatically FAIL Strength & Dexterity saves — no roll, full damage)

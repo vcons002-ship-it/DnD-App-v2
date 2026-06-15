@@ -24,6 +24,8 @@ import {
   broadcastTokenDrag,
   broadcastTyping,
   broadcastSay,
+  broadcastCursor,
+  broadcastCursorHide,
   dropConn,
   getConn,
   isConnected,
@@ -1001,6 +1003,17 @@ export function registerSocketHandlers(io: IOServer): void {
       if (refId) broadcastTyping(io, sid, socket.id, refId, !!typing);
     });
 
+    // Live "laser pointer": relay my cursor to others on the same map.
+    socket.on('cursor:move', ({ x, y, mapId }) => {
+      const sid = sessionId();
+      if (!sid || !Number.isFinite(x) || !Number.isFinite(y) || typeof mapId !== 'string') return;
+      broadcastCursor(io, sid, socket.id, rollerName(sid, socket.id, isDm()), x, y, mapId);
+    });
+    socket.on('cursor:hide', () => {
+      const sid = sessionId();
+      if (sid) broadcastCursorHide(io, sid, socket.id);
+    });
+
     // DM-only rules assistant. The DM's question and the answer are posted as
     // DM-only chat messages (filtered from players in visibility.ts) and answered
     // by a local Ollama model, falling back to Gemini. Fail-safe: posts a notice
@@ -1457,6 +1470,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const playerId = getConn(socket.id)?.playerId ?? null;
       assistantInFlight.get(socket.id)?.abort(); // stop any in-flight LLM call
       assistantInFlight.delete(socket.id);
+      if (sid) broadcastCursorHide(io, sid, socket.id); // clear my laser pointer
       dropConn(socket.id);
       if (sid) {
         // Hold the claim through a short grace window (handed back if they

@@ -48,6 +48,7 @@ const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** Per-character expiry timers for chat typing indicators / spoken bubbles. */
 const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sayTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const cursorTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let nextSayId = 1;
 
 type Store = {
@@ -83,6 +84,11 @@ type Store = {
   /** Spoken chat lines over a PC token (server 'fx:say'), keyed by character
    *  refId; each auto-expires a few seconds after arriving. */
   sayBubbles: Record<string, { text: string; id: number }>;
+  /** Other people's live cursors ("laser pointers"), keyed by their socket id. */
+  cursors: Record<string, { name: string; x: number; y: number; mapId: string }>;
+  /** Broadcast my own cursor position (map/image coords) + clear it on leave. */
+  moveCursor: (x: number, y: number, mapId: string) => void;
+  hideCursor: () => void;
   /** Tell the server I started/stopped typing in chat (throttled by caller). */
   chatTyping: (typing: boolean) => void;
   /** Show the transparent roll-log overlay on the map (toggled from DicePanel). */
@@ -352,6 +358,9 @@ export const useStore = create<Store>((set, get) => ({
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
   typingChars: {},
   sayBubbles: {},
+  cursors: {},
+  moveCursor: (x, y, mapId) => get().socket?.emit('cursor:move', { x, y, mapId }),
+  hideCursor: () => get().socket?.emit('cursor:hide'),
   chatTyping: (typing) => get().socket?.emit('chat:typing', { typing }),
   setAiBusy: (aiBusy) => set({ aiBusy }),
   showRollOverlay: true,
@@ -527,6 +536,35 @@ export const useStore = create<Store>((set, get) => ({
           });
         }, 6000),
       );
+    });
+    // A live "laser pointer" moved — show/refresh it, auto-expiring if the sender
+    // goes idle (so a stale pointer never lingers if a hide is missed).
+    socket.on('fx:cursor', ({ id, name, x, y, mapId }) => {
+      set((st) => ({ cursors: { ...st.cursors, [id]: { name, x, y, mapId } } }));
+      const prev = cursorTimers.get(id);
+      if (prev) clearTimeout(prev);
+      cursorTimers.set(
+        id,
+        setTimeout(() => {
+          cursorTimers.delete(id);
+          set((st) => {
+            const next = { ...st.cursors };
+            delete next[id];
+            return { cursors: next };
+          });
+        }, 4000),
+      );
+    });
+    socket.on('fx:cursorHide', ({ id }) => {
+      const prev = cursorTimers.get(id);
+      if (prev) clearTimeout(prev);
+      cursorTimers.delete(id);
+      set((st) => {
+        if (!(id in st.cursors)) return {};
+        const next = { ...st.cursors };
+        delete next[id];
+        return { cursors: next };
+      });
     });
     // The rules assistant started/finished thinking (server-driven, robust to
     // long runs); drives the in-chat thinking indicator + Stop button.
@@ -744,6 +782,11 @@ export const useStore = create<Store>((set, get) => ({
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
 }));
+
+// Dev-only: expose the store for E2E tests / debugging (stripped from prod builds).
+if (import.meta.env.DEV) {
+  (window as unknown as { __store?: typeof useStore }).__store = useStore;
+}
 
 // When the tab returns to the foreground, nudge a dead socket back to life.
 // iOS Safari freezes backgrounded tabs and silently drops the WebSocket; Socket.IO

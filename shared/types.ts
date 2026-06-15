@@ -1239,6 +1239,11 @@ export interface ClientToServerEvents {
   /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
    *  — the server pops a typing bubble over their claimed PC token for others. */
   'chat:typing': (payload: { typing: boolean }) => void;
+  /** Live "laser pointer": broadcast my cursor position (in map/image coords) so
+   *  others see what I'm pointing at. Ephemeral — no DB, no snapshot. */
+  'cursor:move': (payload: { x: number; y: number; mapId: string }) => void;
+  /** My cursor left the map → remove my pointer for everyone. */
+  'cursor:hide': () => void;
   /** DM-only: ask the rules assistant (SRD + uploaded rulebook). The Q&A is
    *  posted as DM-only chat messages and answered by a local/remote LLM. The
    *  optional `backend` is the chat dropdown's choice ('local' + a specific
@@ -1316,6 +1321,11 @@ export interface ServerToClientEvents {
   /** A player sent a chat message — pop their words in a speech bubble over their
    *  PC token (`refId` = character id) for a few seconds. Ephemeral. */
   'fx:say': (payload: { refId: string; text: string }) => void;
+  /** Someone's live cursor moved — render a labeled pointer at (x,y) for the map
+   *  `mapId` (keyed by their socket id). */
+  'fx:cursor': (payload: { id: string; name: string; x: number; y: number; mapId: string }) => void;
+  /** Their cursor left the map / they disconnected → remove their pointer. */
+  'fx:cursorHide': (payload: { id: string }) => void;
   /** DM-only: the rules assistant started (true) / finished (false) thinking, so
    *  the chat shows a live indicator with a Stop button. */
   'assistant:thinking': (payload: { thinking: boolean }) => void;

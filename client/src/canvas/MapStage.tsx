@@ -10,6 +10,7 @@ import { TokenShape } from './TokenShape';
 import { HpFxLayer } from './HpFx';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
+import { CursorPointers } from './CursorPointers';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { cropImage, removeBackground } from '../lib/imageEdit';
@@ -487,6 +488,10 @@ export function MapStage({
   const dragToken = useStore((s) => s.dragToken);
   const typingChars = useStore((s) => s.typingChars);
   const sayBubbles = useStore((s) => s.sayBubbles);
+  const cursors = useStore((s) => s.cursors);
+  const moveCursor = useStore((s) => s.moveCursor);
+  const hideCursor = useStore((s) => s.hideCursor);
+  const cursorThrottle = useRef(0);
   const resolveSaveAt = useStore((s) => s.resolveSaveAt);
   const setDetailsExpanded = useStore((s) => s.setDetailsExpanded);
   const nudgeRightPanel = useStore((s) => s.nudgeRightPanel);
@@ -995,6 +1000,17 @@ export function MapStage({
       pinchRef.current = next;
       return;
     }
+    // Live "laser pointer": broadcast my cursor (throttled ~20/s) so others see
+    // what I'm pointing at — independent of any active tool.
+    const cursorStage = e.target.getStage();
+    if (cursorStage && map) {
+      const now = Date.now();
+      if (now - cursorThrottle.current > 45) {
+        cursorThrottle.current = now;
+        const cp = pointerToImage(cursorStage);
+        if (cp) moveCursor(cp.x, cp.y, map.id);
+      }
+    }
     if ((scaleMode || matchMode) && scaleDrawRef.current) {
       const stage = e.target.getStage();
       const pos = stage ? pointerToImage(stage) : null;
@@ -1415,7 +1431,10 @@ export function MapStage({
             onTouchMove={handleMouseMove}
             onMouseUp={handlePointerUp}
             onTouchEnd={handlePointerUp}
-            onMouseLeave={endStroke}
+            onMouseLeave={() => {
+              hideCursor();
+              endStroke();
+            }}
             onWheel={handleWheel}
             style={{
               cursor: onPlaceAt || fogActive || measureActive ? 'crosshair' : 'default',
@@ -1711,6 +1730,8 @@ export function MapStage({
                 pxPerFoot={pxPerFoot}
                 gridSizePx={grid}
               />
+              {/* Live "laser pointers" for everyone else on this map. */}
+              <CursorPointers cursors={cursors} currentMapId={map?.id} scale={view.scale} />
             </Layer>
           </Stage>
           {hover && !menu && (
