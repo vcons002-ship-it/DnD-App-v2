@@ -410,6 +410,18 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .chip-on.red { background: #3a2326; border-color: var(--red); }
 .chip-on.green { background: #1f3a2a; border-color: var(--green); }
 .cond-turn { opacity: 0.7; font-size: 0.85em; }
+/* Clickable decal "shop" popup */
+.decal-popup { max-width: 560px; width: 92vw; }
+.decal-title-edit { flex: 1; font-size: 1em; font-weight: 600; }
+.decal-note-edit { width: 100%; min-height: 44px; margin: 4px 0 8px; }
+.decal-note { margin: 2px 0 8px; }
+.decal-items { width: 100%; border-collapse: collapse; font-size: 13px; }
+.decal-items th, .decal-items td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--line); }
+.decal-items th.num, .decal-items td.num { text-align: right; white-space: nowrap; }
+.decal-items input { width: 100%; }
+.decal-items input.px { width: 70px; }
+.decal-items input.qx { width: 48px; }
+.decal-actions { margin-top: 8px; }
 .chip-on.blue { background: #1d2740; border-color: var(--blue); }
 
 /* Non-combat object (trap/door/chest/item) interact controls */

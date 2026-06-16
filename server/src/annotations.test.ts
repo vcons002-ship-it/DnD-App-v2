@@ -8,6 +8,7 @@ import {
   removeAnnotation,
   resizeAnnotation,
   clearAnnotations,
+  setAnnotationPopup,
 } from './sessions.js';
 
 describe('map annotations', () => {
@@ -54,5 +55,32 @@ describe('map annotations', () => {
     expect(listAnnotations(map.id)).toHaveLength(2);
     clearAnnotations(map.id, 'DM', 'image');
     expect(listAnnotations(map.id).map((a) => a.kind)).toEqual(['freehand']);
+  });
+
+  it('attaches a clickable "shop" popup to a decal and clears it', () => {
+    const s = createSession('Shop');
+    const map = createMap(s.id, { name: 'Town' });
+    addAnnotation(s.id, { mapId: map.id, kind: 'image', x: 0, y: 0, url: '/uploads/shop.png', width: 100, height: 100, color: '#fff', createdBy: 'DM' });
+    const decal = listAnnotations(map.id)[0];
+    expect(decal.popup).toBeUndefined();
+
+    setAnnotationPopup(decal.id, {
+      title: "Greta's Goods",
+      note: 'Open dawn to dusk.',
+      items: [
+        { id: 'i1', name: 'Healing Potion', price: '50 gp', qty: 3 },
+        { id: 'i2', name: 'Rope (50 ft)', price: '1 gp' },
+      ],
+    });
+    const withShop = listAnnotations(map.id)[0];
+    expect(withShop.popup?.title).toBe("Greta's Goods");
+    expect(withShop.popup?.items).toHaveLength(2);
+    expect(withShop.popup?.items[0]).toMatchObject({ name: 'Healing Potion', price: '50 gp', qty: 3 });
+
+    // Clearing the popup leaves the decal art intact.
+    setAnnotationPopup(decal.id, null);
+    const cleared = listAnnotations(map.id)[0];
+    expect(cleared.popup).toBeUndefined();
+    expect(cleared.url).toBe('/uploads/shop.png');
   });
 });

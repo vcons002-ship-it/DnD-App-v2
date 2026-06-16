@@ -173,6 +173,10 @@ type Store = {
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
   resizeAnnotation: (id: string, width: number, height: number) => void;
+  /** Clickable decal "shop" popup: which decal's popup is open, + edit/clear. */
+  decalPopupId: string | null;
+  openDecalPopup: (id: string | null) => void;
+  setDecalPopup: (id: string, popup: import('../../../shared/types').MapPopup | null) => void;
   /** Map image tiles (compose a larger map from several images). */
   addMapImage: (payload: { mapId: string; imagePath: string; x: number; y: number; w: number; h: number }) => void;
   moveMapImage: (id: string, x: number, y: number) => void;
@@ -670,6 +674,9 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('annotation:move', { id, x, y }),
   resizeAnnotation: (id, width, height) =>
     get().socket?.emit('annotation:resize', { id, width, height }),
+  decalPopupId: null,
+  openDecalPopup: (id) => set({ decalPopupId: id }),
+  setDecalPopup: (id, popup) => get().socket?.emit('annotation:setPopup', { id, popup }),
   addMapImage: (payload) => get().socket?.emit('mapImage:add', payload),
   moveMapImage: (id, x, y) => get().socket?.emit('mapImage:move', { id, x, y }),
   resizeMapImage: (id, x, y, w, h) =>
