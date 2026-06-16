@@ -1606,12 +1606,12 @@ export function MapStage({
                     onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
                     onMove={(x, y) => moveAnnotation(a.id, x, y)}
                     onResize={(w, h) => resizeAnnotation(a.id, w, h)}
-                    // DM: an always-present corner button (onEditShop) opens the
-                    // shop editor whether decals are locked or not. Locked decals
-                    // also open it on a body click; players click a shop decal to
-                    // view it read-only.
+                    // DM: the 🛒 add/edit button shows only while editing decals
+                    // (UNLOCKED) so it never clutters the map during play. When
+                    // LOCKED, a body click still opens the editor; players click a
+                    // shop decal to view it read-only.
                     onEditShop={
-                      isDm && !removeMode && !measureActive
+                      isDm && !removeMode && !measureActive && !decalsLocked
                         ? () => openDecalPopup(a.id)
                         : undefined
                     }
