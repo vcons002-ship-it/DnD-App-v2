@@ -224,10 +224,12 @@ function DecalImage({
   handleSize = 10,
   alwaysListening = false,
   badge = false,
+  hasShop = false,
   onRemove,
   onMove,
   onResize,
   onActivate,
+  onEditShop,
 }: {
   url: string;
   x: number;
@@ -241,13 +243,18 @@ function DecalImage({
    *  bubbles to the draggable layer and PANS (map tiles want this; click-through
    *  decals don't). It still can't be dragged unless `draggable` is set. */
   alwaysListening?: boolean;
-  /** Show a small "clickable" tag (this decal has a popup). */
+  /** Show a small (decorative, non-listening) tag — this decal has a popup. */
   badge?: boolean;
+  /** Whether the decal already has a shop popup (picks the DM button label). */
+  hasShop?: boolean;
   onRemove?: () => void;
   onMove?: (x: number, y: number) => void;
   onResize?: (width: number, height: number) => void;
   /** Click (no drag) → open the decal's popup. */
   onActivate?: () => void;
+  /** DM-only: render an always-clickable 🛒 corner button that opens the shop
+   *  editor regardless of the decal lock state (the discoverable add/edit path). */
+  onEditShop?: () => void;
 }) {
   const img = useImage(url);
   // Live size during a handle drag, so the image follows the corner before the
@@ -278,12 +285,32 @@ function DecalImage({
         onMouseLeave={(e) => onActivate && !interactive && setCursor(e, '')}
         onDragEnd={(e) => onMove?.(e.target.x(), e.target.y())}
       />
-      {badge && (
+      {onEditShop ? (
+        // DM: an always-clickable corner button — adds a shop (🛒 +) or edits an
+        // existing one (🛒), no matter whether decals are locked or unlocked.
+        <Label
+          x={x + 2}
+          y={y + 2}
+          opacity={0.95}
+          onClick={onEditShop}
+          onTap={onEditShop}
+          onMouseEnter={(e) => setCursor(e, 'pointer')}
+          onMouseLeave={(e) => setCursor(e, '')}
+        >
+          <Tag fill="#1c2a3a" stroke="#4cc9f0" strokeWidth={0.5} cornerRadius={3} />
+          <Text
+            text={hasShop ? ' 🛒 ' : ' 🛒 + '}
+            fontSize={Math.max(11, handleSize * 1.1)}
+            fill="#cfe8ff"
+            padding={1}
+          />
+        </Label>
+      ) : badge ? (
         <Label x={x + 2} y={y + 2} listening={false} opacity={0.92}>
           <Tag fill="#1c2a3a" stroke="#4cc9f0" strokeWidth={0.5} cornerRadius={3} />
           <Text text=" 🛒 " fontSize={Math.max(11, handleSize * 1.1)} fill="#cfe8ff" padding={1} />
         </Label>
-      )}
+      ) : null}
       {interactive && onResize && (
         <Rect
           x={x + w - handleSize / 2}
@@ -1572,13 +1599,22 @@ export function MapStage({
                     height={a.height ?? 100}
                     draggable={isDm && !measureActive && !decalsLocked}
                     handleSize={12 / view.scale}
-                    badge={!!a.popup}
+                    // Players get the decorative 🛒 marker; the DM gets a clickable
+                    // shop button instead (onEditShop), so don't double it up.
+                    badge={!isDm && !!a.popup}
+                    hasShop={!!a.popup}
                     onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
                     onMove={(x, y) => moveAnnotation(a.id, x, y)}
                     onResize={(w, h) => resizeAnnotation(a.id, w, h)}
-                    // Click → open the popup. Players: only decals that have one.
-                    // DM: when decals are LOCKED (interact mode) any decal opens
-                    // its editor; when unlocked the DM drags instead.
+                    // DM: an always-present corner button (onEditShop) opens the
+                    // shop editor whether decals are locked or not. Locked decals
+                    // also open it on a body click; players click a shop decal to
+                    // view it read-only.
+                    onEditShop={
+                      isDm && !removeMode && !measureActive
+                        ? () => openDecalPopup(a.id)
+                        : undefined
+                    }
                     onActivate={
                       removeMode || measureActive
                         ? undefined
