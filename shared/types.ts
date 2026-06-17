@@ -688,9 +688,22 @@ export type Annotation = {
   url?: string;
   width?: number;
   height?: number;
+  /** Optional clickable popup attached to an image decal — a "shop"/info panel
+   *  anyone can click open (read-only for players, editable for the DM). */
+  popup?: MapPopup;
   /** Display name of the drawer (so they can clear just their own). */
   createdBy: string;
 };
+
+/** One priced line in a decal popup ("shop"). `price` is free text ("15 gp"). */
+export type ShopItem = { id: string; name: string; price: string; qty?: number; note?: string };
+
+/** Clickable content attached to a map decal — a title, optional note, and a
+ *  list of priced items (a shop's stock). */
+export type MapPopup = { title: string; note?: string; items: ShopItem[] };
+
+/** Attach/replace (or clear with null) a decal's popup — DM only. */
+export type AnnotationSetPopupPayload = { id: string; popup: MapPopup | null };
 
 /** A shared chat message in a session. */
 export type ChatMessage = {
@@ -1183,6 +1196,7 @@ export interface ClientToServerEvents {
   'annotation:clear': (payload: AnnotationClearPayload) => void;
   'annotation:move': (payload: AnnotationMovePayload) => void;
   'annotation:resize': (payload: AnnotationResizePayload) => void;
+  'annotation:setPopup': (payload: AnnotationSetPopupPayload) => void;
   'mapImage:add': (payload: MapImageAddPayload) => void;
   'mapImage:move': (payload: MapImageMovePayload) => void;
   'mapImage:resize': (payload: MapImageResizePayload) => void;

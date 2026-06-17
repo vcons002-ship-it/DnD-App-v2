@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
@@ -22,6 +22,7 @@ import { FogMenu } from '../components/FogMenu';
 import { ScaleMenu } from '../components/ScaleMenu';
 import { TilesMenu } from '../components/TilesMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
+import { DecalPopup } from '../components/DecalPopup';
 import { RollLogOverlay } from '../components/RollLogOverlay';
 import { DiceButtonOverlay } from '../components/DiceButtonOverlay';
 
@@ -222,9 +223,13 @@ function DecalImage({
   draggable,
   handleSize = 10,
   alwaysListening = false,
+  badge = false,
+  hasShop = false,
   onRemove,
   onMove,
   onResize,
+  onActivate,
+  onEditShop,
 }: {
   url: string;
   x: number;
@@ -238,9 +243,18 @@ function DecalImage({
    *  bubbles to the draggable layer and PANS (map tiles want this; click-through
    *  decals don't). It still can't be dragged unless `draggable` is set. */
   alwaysListening?: boolean;
+  /** Show a small (decorative, non-listening) tag — this decal has a popup. */
+  badge?: boolean;
+  /** Whether the decal already has a shop popup (picks the DM button label). */
+  hasShop?: boolean;
   onRemove?: () => void;
   onMove?: (x: number, y: number) => void;
   onResize?: (width: number, height: number) => void;
+  /** Click (no drag) → open the decal's popup. */
+  onActivate?: () => void;
+  /** DM-only: render an always-clickable 🛒 corner button that opens the shop
+   *  editor regardless of the decal lock state (the discoverable add/edit path). */
+  onEditShop?: () => void;
 }) {
   const img = useImage(url);
   // Live size during a handle drag, so the image follows the corner before the
@@ -263,12 +277,40 @@ function DecalImage({
         y={y}
         width={w}
         height={h}
-        listening={alwaysListening || !!onRemove || interactive}
+        listening={alwaysListening || !!onRemove || interactive || !!onActivate}
         draggable={interactive}
-        onClick={onRemove}
-        onTap={onRemove}
+        onClick={onRemove ?? onActivate}
+        onTap={onRemove ?? onActivate}
+        onMouseEnter={(e) => onActivate && !interactive && setCursor(e, 'pointer')}
+        onMouseLeave={(e) => onActivate && !interactive && setCursor(e, '')}
         onDragEnd={(e) => onMove?.(e.target.x(), e.target.y())}
       />
+      {onEditShop ? (
+        // DM: an always-clickable corner button — adds a shop (🛒 +) or edits an
+        // existing one (🛒), no matter whether decals are locked or unlocked.
+        <Label
+          x={x + 2}
+          y={y + 2}
+          opacity={0.95}
+          onClick={onEditShop}
+          onTap={onEditShop}
+          onMouseEnter={(e) => setCursor(e, 'pointer')}
+          onMouseLeave={(e) => setCursor(e, '')}
+        >
+          <Tag fill="#1c2a3a" stroke="#4cc9f0" strokeWidth={0.5} cornerRadius={3} />
+          <Text
+            text={hasShop ? ' 🛒 ' : ' 🛒 + '}
+            fontSize={Math.max(11, handleSize * 1.1)}
+            fill="#cfe8ff"
+            padding={1}
+          />
+        </Label>
+      ) : badge ? (
+        <Label x={x + 2} y={y + 2} listening={false} opacity={0.92}>
+          <Tag fill="#1c2a3a" stroke="#4cc9f0" strokeWidth={0.5} cornerRadius={3} />
+          <Text text=" 🛒 " fontSize={Math.max(11, handleSize * 1.1)} fill="#cfe8ff" padding={1} />
+        </Label>
+      ) : null}
       {interactive && onResize && (
         <Rect
           x={x + w - handleSize / 2}
@@ -512,6 +554,7 @@ export function MapStage({
   const clearAnnotations = useStore((s) => s.clearAnnotations);
   const moveAnnotation = useStore((s) => s.moveAnnotation);
   const resizeAnnotation = useStore((s) => s.resizeAnnotation);
+  const openDecalPopup = useStore((s) => s.openDecalPopup);
   const addMapImage = useStore((s) => s.addMapImage);
   const moveMapImage = useStore((s) => s.moveMapImage);
   const resizeMapImage = useStore((s) => s.resizeMapImage);
@@ -1556,9 +1599,33 @@ export function MapStage({
                     height={a.height ?? 100}
                     draggable={isDm && !measureActive && !decalsLocked}
                     handleSize={12 / view.scale}
+                    // Players get the decorative 🛒 marker; the DM gets a clickable
+                    // shop button instead (onEditShop), so don't double it up.
+                    badge={!isDm && !!a.popup}
+                    hasShop={!!a.popup}
                     onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
                     onMove={(x, y) => moveAnnotation(a.id, x, y)}
                     onResize={(w, h) => resizeAnnotation(a.id, w, h)}
+                    // DM: the 🛒 add/edit button shows only while editing decals
+                    // (UNLOCKED) so it never clutters the map during play. When
+                    // LOCKED, a body click still opens the editor; players click a
+                    // shop decal to view it read-only.
+                    onEditShop={
+                      isDm && !removeMode && !measureActive && !decalsLocked
+                        ? () => openDecalPopup(a.id)
+                        : undefined
+                    }
+                    onActivate={
+                      removeMode || measureActive
+                        ? undefined
+                        : isDm
+                          ? decalsLocked
+                            ? () => openDecalPopup(a.id)
+                            : undefined
+                          : a.popup
+                            ? () => openDecalPopup(a.id)
+                            : undefined
+                    }
                   />
                 ))}
               <FootprintLayer
@@ -1737,6 +1804,7 @@ export function MapStage({
               )}
             </Layer>
           </Stage>
+          <DecalPopup snapshot={snapshot} />
           {hover && !menu && (
             <TokenHoverCard
               snapshot={snapshot}

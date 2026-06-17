@@ -63,6 +63,7 @@ import {
   moveAnnotation,
   removeAnnotation,
   resizeAnnotation,
+  setAnnotationPopup,
   addMapImage,
   moveMapImage,
   resizeMapImage,
@@ -130,11 +131,27 @@ import {
   touchSession,
   updateMonster,
 } from './sessions.js';
-import type { Condition, TokenKind } from '../../shared/types.js';
+import type { Condition, MapPopup, TokenKind } from '../../shared/types.js';
 
 /** Grace window after a disconnect before a player's claim is freed, so a brief
  *  connection blip doesn't de-select their character (and others can't snipe it).
  *  When the same player reconnects within it, the claim is handed straight back. */
+/** Clamp a client-supplied decal popup to safe sizes before storing. */
+function sanitizePopup(p: MapPopup): MapPopup {
+  const str = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : '');
+  return {
+    title: str(p?.title, 80) || 'Shop',
+    ...(p?.note ? { note: str(p.note, 1000) } : {}),
+    items: (Array.isArray(p?.items) ? p.items : []).slice(0, 100).map((it) => ({
+      id: str(it?.id, 40) || newId(),
+      name: str(it?.name, 80),
+      price: str(it?.price, 40),
+      ...(Number.isFinite(Number(it?.qty)) ? { qty: Math.max(0, Math.round(Number(it.qty))) } : {}),
+      ...(it?.note ? { note: str(it.note, 300) } : {}),
+    })),
+  };
+}
+
 const CLAIM_GRACE_MS = 20_000;
 /** In-flight rules-assistant requests by socket id, so the Stop button (and a
  *  disconnect) can abort the long-running LLM call. */
@@ -415,6 +432,13 @@ export function registerSocketHandlers(io: IOServer): void {
       const w = Math.max(8, Math.min(20000, Number(width) || 0));
       const h = Math.max(8, Math.min(20000, Number(height) || 0));
       resizeAnnotation(id, w, h);
+      afterChange();
+    });
+
+    // Attach/edit/clear a decal's clickable "shop" popup (DM only).
+    socket.on('annotation:setPopup', ({ id, popup }) => {
+      if (!sessionId() || !isDm() || !id) return;
+      setAnnotationPopup(id, popup ? sanitizePopup(popup) : null);
       afterChange();
     });
 

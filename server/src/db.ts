@@ -294,6 +294,8 @@ ensureColumn('chat_messages', 'pages', "pages TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('annotations', 'url', "url TEXT NOT NULL DEFAULT ''");
 ensureColumn('annotations', 'width', 'width REAL NOT NULL DEFAULT 0');
 ensureColumn('annotations', 'height', 'height REAL NOT NULL DEFAULT 0');
+// Clickable decal popup ("shop"): JSON MapPopup, or '' for none.
+ensureColumn('annotations', 'popup', "popup TEXT NOT NULL DEFAULT ''");
 ensureColumn(
   'sessions',
   'last_played_at',

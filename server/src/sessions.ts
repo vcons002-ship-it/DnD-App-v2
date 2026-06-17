@@ -1349,21 +1349,36 @@ type AnnotationRow = {
   url: string | null;
   width: number | null;
   height: number | null;
+  popup: string | null;
   created_by: string;
 };
 
-const rowToAnnotation = (r: AnnotationRow): Annotation => ({
-  id: r.id,
-  mapId: r.map_id,
-  kind: r.kind as Annotation['kind'],
-  points: JSON.parse(r.points || '[]') as number[],
-  x: r.x,
-  y: r.y,
-  text: r.text,
-  color: r.color,
-  ...(r.url ? { url: r.url, width: r.width ?? 0, height: r.height ?? 0 } : {}),
-  createdBy: r.created_by,
-});
+const parsePopup = (raw: string | null): Annotation['popup'] => {
+  if (!raw) return undefined;
+  try {
+    const p = JSON.parse(raw) as Annotation['popup'];
+    return p && Array.isArray(p.items) ? p : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const rowToAnnotation = (r: AnnotationRow): Annotation => {
+  const popup = parsePopup(r.popup);
+  return {
+    id: r.id,
+    mapId: r.map_id,
+    kind: r.kind as Annotation['kind'],
+    points: JSON.parse(r.points || '[]') as number[],
+    x: r.x,
+    y: r.y,
+    text: r.text,
+    color: r.color,
+    ...(r.url ? { url: r.url, width: r.width ?? 0, height: r.height ?? 0 } : {}),
+    ...(popup ? { popup } : {}),
+    createdBy: r.created_by,
+  };
+};
 
 export function addAnnotation(
   sessionId: string,
@@ -1451,6 +1466,14 @@ export function moveAnnotation(id: string, x: number, y: number): void {
 /** Resize an image decal (corner-handle drag). */
 export function resizeAnnotation(id: string, width: number, height: number): void {
   db.prepare('UPDATE annotations SET width = ?, height = ? WHERE id = ?').run(width, height, id);
+}
+
+/** Attach/replace a decal's clickable popup ("shop"), or clear it with null. */
+export function setAnnotationPopup(id: string, popup: Annotation['popup'] | null): void {
+  db.prepare('UPDATE annotations SET popup = ? WHERE id = ?').run(
+    popup ? JSON.stringify(popup) : '',
+    id,
+  );
 }
 
 // ---- Map image tiles (compose a larger map from several images) ----

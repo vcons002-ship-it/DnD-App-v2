@@ -225,7 +225,14 @@ sanitization rules above and commit it to `claude/Main`.
   an **object token** (`object:paste`) or an **image decal** under the tokens
   (crop/background-cut/undo via `lib/imageEdit.ts`; DM drag `annotation:move`,
   corner aspect-resize `annotation:resize`, a 🔒 click-through lock, and
-  `annotation:clear` by kind for "Clear decals"). `token:move` lets players move
+  `annotation:clear` by kind for "Clear decals"). A decal can carry a **clickable
+  "shop" popup** (`Annotation.popup`, `annotation:setPopup`): a title + note +
+  priced items (`DecalPopup`) anyone clicks open — read-only for players, inline-
+  editable for the DM. While **editing decals (UNLOCKED)** the DM gets a corner
+  🛒 button on every decal (`🛒 +` to add, `🛒` to edit); it's hidden when LOCKED
+  so it never clutters the map during play, where a decal **body** click opens the
+  editor instead (and the 🔒 lock doubles as the drag-vs-interact mode).
+  `token:move` lets players move
   only **PCs + friendly creatures** (objects and hidden tokens are blocked
   server-side).
 - **Creatures:** offline **SRD** search + key-gated **Gemini** lookup +
