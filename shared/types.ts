@@ -67,6 +67,13 @@ export type Weapon = {
   extraDamageType?: string;
   /** To-hit bonus, e.g. 5 for "+5". */
   attackBonus?: number;
+  /**
+   * Override the ability used for attack + damage. Normally STR (melee), DEX
+   * (ranged), or the better of the two (`finesse`); set this to use a different
+   * score — e.g. WIS for a Druid's Shillelagh, or any custom/magic weapon that
+   * keys off a different stat. Applies to both the to-hit and the damage modifier.
+   */
+  attackAbility?: 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
   /** Reach/range text, e.g. "5 ft" or "80/320 ft". */
   range?: string;
   /**

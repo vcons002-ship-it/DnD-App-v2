@@ -551,6 +551,7 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .sb-weapon-edit input { margin: 0; }
 .sb-weapon-edit .sb-dmg { width: 70px; }
 .sb-weapon-edit .sb-tohit { width: 44px; }
+.sb-weapon-edit .sb-weapon-ability { width: 64px; padding: 2px; }
 .sb-weapon-edit .sb-dmg-type { width: 84px; }
 .sb-weapon-edit .sb-tags { flex: 1; min-width: 110px; }
 .sb-weapon-hint { margin: 2px 0 6px; font-size: 11px; }

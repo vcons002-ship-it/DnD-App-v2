@@ -548,6 +548,12 @@ function ReadView({
                 {w.damageType ? ` ${w.damageType}` : ''}
                 {w.magicBonus ? ` +${w.magicBonus} magic` : ''}
                 {w.extraDamage ? ` + ${w.extraDamage}${w.extraDamageType ? ` ${w.extraDamageType}` : ''}` : ''}
+                {w.attackAbility ? (
+                  <span className="muted" title="Uses this ability for attack + damage">
+                    {' '}
+                    ({w.attackAbility})
+                  </span>
+                ) : ''}
                 {w.range ? ` (${w.range})` : ''}
                 {w.tags && w.tags.length > 0 && (
                   <span className="muted"> · {w.tags.map((t) => `[${t}]`).join(' ')}</span>
@@ -897,6 +903,21 @@ function WeaponEditor({
           >
             <option value="melee">melee</option>
             <option value="ranged">ranged</option>
+          </select>
+          <select
+            className="sb-weapon-ability"
+            value={w.attackAbility ?? ''}
+            title="Ability used for attack + damage. Auto = STR (melee) / DEX (ranged) / better of the two (finesse). Override for Shillelagh (WIS), custom or magic weapons."
+            onChange={(e) =>
+              setAt(i, { attackAbility: (e.target.value || undefined) as Weapon['attackAbility'] })
+            }
+          >
+            <option value="">auto</option>
+            {['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].map((ab) => (
+              <option key={ab} value={ab}>
+                {ab}
+              </option>
+            ))}
           </select>
           <input
             className="sb-dmg"

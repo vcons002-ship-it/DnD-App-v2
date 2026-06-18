@@ -51,6 +51,22 @@ describe('combat math', () => {
     expect(weaponAttackBonus(c, plain)).toBe(3); // STR +1 + prof +2
   });
 
+  it('honors an attackAbility override for to-hit AND damage (e.g. Shillelagh → WIS)', () => {
+    // STR 8 (−1), DEX 8 (−1), WIS 18 (+4); level 1 → proficiency +2.
+    const c: Combatant = { stats: { STR: 8, DEX: 8, WIS: 18 }, level: 1, isMonster: false };
+    const club: Weapon = { name: 'Shillelagh Club', kind: 'melee', damage: '1d8', attackAbility: 'WIS' };
+    // To-hit uses WIS (+4) + prof (+2) = +6, not STR.
+    expect(weaponAttackBonus(c, club)).toBe(6);
+    // Damage adds the WIS modifier too (1d8 + 4 → 5..12 on a non-crit hit).
+    for (let i = 0; i < 200; i++) {
+      const o = rollWeaponAttack({ ...c, isMonster: false }, club, 1);
+      if (o.hit && !o.crit) {
+        expect(o.damage).toBeGreaterThanOrEqual(5);
+        expect(o.damage).toBeLessThanOrEqual(12);
+      }
+    }
+  });
+
   it('uses versatile (2H) damage dice when wielded two-handed', () => {
     const atk: Combatant = { stats: { STR: 10 }, level: 1, isMonster: true }; // mod 0
     const w: Weapon = {
