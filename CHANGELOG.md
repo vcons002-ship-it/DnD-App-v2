@@ -6,6 +6,12 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
 
 ## 2026-06-18 — Float/animation/AI polish
 
+### Added
+- **Weapons can key off any ability** — a new per-weapon **attack ability**
+  override (auto / STR / DEX / CON / INT / WIS / CHA) sets which score drives both
+  the to-hit and the damage modifier. Use it for a Druid's **Shillelagh** (WIS), a
+  custom/magic weapon, etc.; "auto" keeps the normal STR/DEX/finesse rules.
+
 ### Changed
 - **Floating ±HP numbers linger longer** over a token (~1.6s rise/fade, up from
   ~0.9s) so damage/heal is easier to read.

@@ -35,9 +35,17 @@ export const profBonusForCR = (cr: number): number =>
 export const profBonusFor = (c: Combatant): number =>
   c.isMonster ? profBonusForCR(c.level) : proficiencyBonus(c.level || 1);
 
-/** Ranged → DEX; melee → the better of STR/DEX (covers finesse). */
-/** Ranged → DEX; melee `finesse` weapons → better of STR/DEX; other melee → STR. */
-function weaponAbility(c: Combatant, w: Weapon): 'STR' | 'DEX' {
+const ABILITY_CODES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
+type AbilityCode = (typeof ABILITY_CODES)[number];
+
+/**
+ * The ability a weapon attacks/damages with. An explicit `attackAbility` override
+ * wins (e.g. WIS for Shillelagh, or a custom/magic weapon); otherwise ranged → DEX,
+ * a `finesse` melee → the better of STR/DEX, and other melee → STR.
+ */
+function weaponAbility(c: Combatant, w: Weapon): AbilityCode {
+  const override = w.attackAbility?.toUpperCase() as AbilityCode | undefined;
+  if (override && ABILITY_CODES.includes(override)) return override;
   if (w.kind === 'ranged') return 'DEX';
   const finesse = (w.tags ?? []).some((t) => t.trim().toLowerCase() === 'finesse');
   if (finesse) return abilityMod(c.stats.DEX) > abilityMod(c.stats.STR) ? 'DEX' : 'STR';
