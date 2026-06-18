@@ -9,6 +9,7 @@ import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
+import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
 import { SummonControls } from '../components/SummonControls';
@@ -157,6 +158,7 @@ export function PlayerView() {
       </div>
       <AiStatus />
       <ConnectionStatus />
+      <RollRevealOverlay />
       <Toast />
       {/* Red screen-edge flash when YOUR claimed PC takes damage (one-shot CSS
           animation; bigger hits flash harder). Keyed so rapid hits restart it. */}

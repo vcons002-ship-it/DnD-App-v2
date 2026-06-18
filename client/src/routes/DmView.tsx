@@ -12,6 +12,7 @@ import { ReorderableSections } from '../components/ReorderableSections';
 import { PlacementBanner } from '../components/PlacementBanner';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
+import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
@@ -148,6 +149,7 @@ export function DmView() {
       </div>
       <AiStatus />
       <ConnectionStatus />
+      <RollRevealOverlay />
       <Toast />
     </div>
   );

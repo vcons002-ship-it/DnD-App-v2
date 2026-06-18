@@ -1096,6 +1096,8 @@ export function addRollLog(
     apply?: RollEntry['apply'];
     /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
     hpNote?: RollEntry['hpNote'];
+    /** Cosmetic attack-roll reveal payload (the brief d20 animation). */
+    reveal?: RollEntry['reveal'];
   },
 ): RollEntry {
   const id = newId();
@@ -1105,8 +1107,8 @@ export function addRollLog(
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, dm_only, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, reveal, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1118,6 +1120,7 @@ export function addRollLog(
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
+    entry.reveal ? JSON.stringify(entry.reveal) : '',
     dmOnly ? 1 : 0,
     createdAt,
   );
@@ -1227,6 +1230,7 @@ type RollLogRow = {
   description: string | null;
   apply: string | null;
   hp_note: string | null;
+  reveal: string | null;
   dm_only: number | null;
   created_at: number;
 };
@@ -1254,6 +1258,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
+    ...(r.reveal ? { reveal: JSON.parse(r.reveal) as RollEntry['reveal'] } : {}),
     ...(r.dm_only ? { dmOnly: true } : {}),
     createdAt: r.created_at,
   };

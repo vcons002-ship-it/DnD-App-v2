@@ -23,6 +23,7 @@ import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { ConditionPopover } from '../components/ConditionPopover';
 import { AiStatus } from '../components/AiStatus';
 import { Toast } from '../components/Toast';
+import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 
 const DISPOSITION_HEX: Record<string, string> = {
@@ -331,6 +332,7 @@ export function DmDataView() {
           DM window — without these, AI fills from here gave no visible feedback. */}
       <AiStatus />
       <ConnectionStatus />
+      <RollRevealOverlay />
       <Toast />
     </div>
   );

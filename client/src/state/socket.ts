@@ -27,6 +27,7 @@ import type {
   MonsterCreatePayload,
   MonsterUpdatePayload,
   Role,
+  RollReveal,
   ServerToClientEvents,
   SaveRollPayload,
   SheetAbility,
@@ -78,6 +79,14 @@ type Store = {
   /** One-shot red screen-edge flash when MY claimed PC takes damage (players
    *  only — the DM claims nothing). Cleared automatically after the CSS anim. */
   hurtFx: { id: number; amount: number } | null;
+  /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
+   *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
+  rollFx: { id: number; reveal: RollReveal } | null;
+  /** Dismiss the current roll-reveal animation (click/tap to skip). */
+  dismissRollFx: () => void;
+  /** Per-user toggle: show the roll-reveal animation (default ON). */
+  showRollAnim: boolean;
+  toggleRollAnim: () => void;
   /** Live in-progress positions of tokens OTHERS are dragging (server
    *  'fx:tokenDrag'), keyed by tokenId; each auto-expires shortly after the
    *  updates stop. Drives a ghost tether + distance over the watched token. */
@@ -376,6 +385,15 @@ export const useStore = create<Store>((set, get) => ({
   aiBusy: false,
   hpFx: [],
   hurtFx: null,
+  rollFx: null,
+  dismissRollFx: () => set({ rollFx: null }),
+  showRollAnim: localStorage.getItem('dnd.rollAnimOff') !== '1',
+  toggleRollAnim: () =>
+    set((s) => {
+      const next = !s.showRollAnim;
+      localStorage.setItem('dnd.rollAnimOff', next ? '0' : '1');
+      return { showRollAnim: next };
+    }),
   dragGhosts: {},
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
   typingChars: {},
@@ -489,6 +507,16 @@ export const useStore = create<Store>((set, get) => ({
           const label = fresh.label ?? '';
           if (/\bMISS\b/.test(detail)) playMiss();
           else if (/(check|save)$/i.test(label) && !fresh.hpNote) playSkill();
+          // Attack-roll reveal animation (the d20 + HIT/MISS/CRIT/FUMBLE + damage),
+          // shared by everyone who received the entry. Auto-dismissed; click skips.
+          if (fresh.reveal && get().showRollAnim) {
+            const fxId = nextFloaterId++;
+            set({ rollFx: { id: fxId, reveal: fresh.reveal } });
+            setTimeout(
+              () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),
+              1500,
+            );
+          }
         }
       }
       seenRollIds = new Set(log.map((e) => e.id));

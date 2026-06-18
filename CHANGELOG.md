@@ -4,6 +4,19 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Attack-roll reveal animation
+
+### Added
+- **Roll animations** — when an attack resolves, everyone who received the roll
+  sees a brief (~1.5 s) centred reveal: the natural **d20** face, the
+  **HIT / MISS / CRIT / FUMBLE** outcome (colour-coded), attacker → target, and
+  any damage. It's **non-blocking** (the map stays interactive) and **click / tap /
+  Esc skips** it. Mechanics still apply instantly server-side — the animation is
+  purely cosmetic. Default **on**, with a per-device toggle in
+  **Settings → Sound** (next to the audio mute). Driven by a structured `reveal`
+  payload on the attack's `RollEntry` (persisted, so it rides the snapshot and is
+  already per-viewer filtered — DM-hidden rolls don't animate for players).
+
 ## 2026-06-18 — Combat correctness verified (bug-pass follow-up)
 
 ### Verified (regression tests added — no behavior change needed)

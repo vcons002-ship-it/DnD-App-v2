@@ -745,6 +745,19 @@ export type Measurement = {
 };
 
 /** An entry in the session's shared dice roll log. */
+/** Cosmetic reveal for an attack roll: the natural d20 face, the outcome, and any
+ *  damage dealt — drives the brief client-side roll-reveal animation. */
+export type RollReveal = {
+  /** The natural d20 face shown (the chosen die under adv/dis). */
+  d20: number;
+  outcome: 'hit' | 'miss' | 'crit' | 'fumble';
+  attacker: string;
+  target?: string;
+  /** Damage applied on a hit (omitted/0 on a miss). */
+  damage?: number;
+  damageType?: string;
+};
+
 export type RollEntry = {
   id: string;
   /** Who rolled — a character name, "DM", or "Player". */
@@ -757,6 +770,10 @@ export type RollEntry = {
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
   description?: string;
+  /** Structured payload for the brief attack-roll REVEAL animation everyone sees
+   *  when an attack resolves (the d20 face, the HIT/MISS/CRIT/FUMBLE outcome, and
+   *  any damage). Purely cosmetic — the mechanics already applied server-side. */
+  reveal?: RollReveal;
   /** Accounting note for the HP change this roll applied ("Druk HP 42→38";
    *  temp HP shows as "42+5") — helps spot/correct mistakes. Carries the target
    *  so `visibility.ts` can shape it per viewer: players see it for PCs and

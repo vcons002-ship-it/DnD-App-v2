@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isSfxMuted, setSfxMuted, playHit } from '../lib/sfx';
+import { useStore } from '../state/socket';
 
 type PublicSettings = {
   hasKey: boolean;
@@ -35,6 +36,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [errorMsg, setErrorMsg] = useState('');
   // Per-user (this browser) combat-sound mute — default ON / unmuted.
   const [muted, setMuted] = useState(isSfxMuted());
+  // Per-user roll-reveal animation toggle (store-backed, localStorage-persisted).
+  const showRollAnim = useStore((s) => s.showRollAnim);
+  const toggleRollAnim = useStore((s) => s.toggleRollAnim);
   const [rulebook, setRulebook] = useState<RulebookInfo | null>(null);
   const [bookStatus, setBookStatus] = useState<'idle' | 'uploading' | 'error'>('idle');
   const [bookError, setBookError] = useState('');
@@ -150,6 +154,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             }}
           />
           Combat sound cues <span className="muted">(hit / miss / heal / check — this device only)</span>
+        </label>
+        <label className="settings-field settings-check">
+          <input
+            type="checkbox"
+            checked={showRollAnim}
+            onChange={toggleRollAnim}
+          />
+          Roll animations <span className="muted">(brief d20 reveal on attacks — this device only)</span>
         </label>
 
         <h4>AI backend</h4>

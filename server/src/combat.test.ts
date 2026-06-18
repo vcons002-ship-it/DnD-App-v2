@@ -117,6 +117,29 @@ describe('combat resolution', () => {
     expect(getMonster(aInst.id)!.lastAttackRole).toBe('melee');
   });
 
+  it('attaches a reveal payload (d20 + outcome + damage) to an attack roll', () => {
+    const { s, map } = arena();
+    const atkTmpl = createMonsterTemplate(s.id, {
+      name: 'Brute',
+      maxHp: 30,
+      weapons: [{ name: 'Slam', kind: 'melee', damage: '2d6+4', attackBonus: 50 }],
+    });
+    const target = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 40, armorClass: 1 });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atkTmpl.id)!.id, x: 0, y: 0 });
+    const t = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(target.id)!.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'DM', a.id, t.id, 0); // +50 vs AC 1 → hits (unless a nat 1)
+    const reveal = listRollLog(s.id).at(-1)!.reveal!;
+    expect(reveal).toBeTruthy();
+    expect(reveal.d20).toBeGreaterThanOrEqual(1);
+    expect(reveal.d20).toBeLessThanOrEqual(20);
+    // Outcome is one of the four reveal states and matches the rolled face.
+    expect(['hit', 'crit', 'miss', 'fumble']).toContain(reveal.outcome);
+    expect(reveal.outcome).toBe(reveal.d20 === 20 ? 'crit' : reveal.d20 === 1 ? 'fumble' : 'hit');
+    expect(reveal.attacker).toContain('Brute'); // instances are numbered ("Brute 1")
+    expect(reveal.target).toContain('Dummy');
+    if (reveal.outcome !== 'fumble') expect(reveal.damage).toBeGreaterThan(0);
+  });
+
   it('credits a PC with a kill when its attack drops an enemy to 0 HP', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, {
@@ -132,9 +155,15 @@ describe('combat resolution', () => {
     const tgt = createToken({ mapId: map.id, kind: 'monster', refId: gob.id, x: 1, y: 1 });
 
     expect(getCharacter(ch.id)!.killCount).toBe(0);
-    resolveAttack(s.id, ch.name, atk.id, tgt.id, 0);
-    // +50 vs AC 1 hits on anything but a nat 1, and 2d6 ≥ 2 kills a 1-HP goblin.
-    expect(getMonster(gob.id)!.curHp).toBe(0);
+    // Attack until the 1-HP goblin drops (a +50 attack still misses on a nat 1,
+    // leaving it at 1 HP — so loop past the rare fumble). A miss never credits a
+    // kill, so the count lands on exactly 1 at the killing blow.
+    let killed = false;
+    for (let i = 0; i < 40 && !killed; i++) {
+      resolveAttack(s.id, ch.name, atk.id, tgt.id, 0);
+      killed = getMonster(gob.id)!.curHp <= 0;
+    }
+    expect(killed).toBe(true);
     expect(getCharacter(ch.id)!.killCount).toBe(1);
 
     // Hitting an already-dead target does NOT double-count the kill.

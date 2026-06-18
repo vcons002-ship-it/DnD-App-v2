@@ -424,6 +424,13 @@ export function resolveAttack(
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     hpNote,
+    reveal: {
+      d20: out.face,
+      outcome: out.fumble ? 'fumble' : out.crit ? 'crit' : out.hit ? 'hit' : 'miss',
+      attacker: a.name,
+      target: t.name,
+      ...(out.hit && applied > 0 ? { damage: applied, damageType: weapon.damageType } : {}),
+    },
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
@@ -770,6 +777,13 @@ function resolveTargetedSpellAttack(opts: {
       (notes.length ? ` · ${notes.join(', ')}` : ''),
     description: opts.description,
     hpNote,
+    reveal: {
+      d20: face,
+      outcome: fumble ? 'fumble' : crit ? 'crit' : hit ? 'hit' : 'miss',
+      attacker: opts.roller,
+      target: t.name,
+      ...(hit && applied > 0 ? { damage: applied, damageType: opts.damageType } : {}),
+    },
   });
   return true;
 }
