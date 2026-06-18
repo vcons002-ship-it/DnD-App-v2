@@ -111,6 +111,10 @@ export function CharacterSpells({
   const reorderSheetAbilities = useStore((s) => s.reorderSheetAbilities);
   const setResource = useStore((s) => s.setResource);
   const rollAbility = useStore((s) => s.rollAbility);
+  const summonCast = useStore((s) => s.summonCast);
+  // The active/viewed map a summon spawns onto (from the live store, so it works
+  // on the full sheet too — not just the combat console where `snapshot` is passed).
+  const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
   // skill list / roll log), so it's one switch for all of the character's rolls.
@@ -264,6 +268,27 @@ export function CharacterSpells({
     } finally {
       setEnrichId(null);
     }
+  };
+
+  // Cast a summon-tagged ability: spawn its friendly companion near the top-left of
+  // the active map (with a little jitter so repeats don't stack) — the owner then
+  // drags it. The server spends a slot for a leveled summon spell.
+  const castSummon = (a: SheetAbility) => {
+    if (!summonMap) {
+      notify('No active map to summon onto.');
+      return;
+    }
+    const g = summonMap.gridSizePx || 50;
+    summonCast({
+      kind,
+      refId: character.id,
+      abilityId: a.id,
+      mapId: summonMap.id,
+      x: g * 2 + Math.random() * g * 2,
+      y: g * 2 + Math.random() * g * 2,
+      castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
+    });
+    notify(`Summoned ${a.summon?.name?.trim() || a.name} — drag it into place.`);
   };
 
   const doRoll = (a: SheetAbility) => {
@@ -466,6 +491,17 @@ export function CharacterSpells({
               🔮 Cast
             </button>
           )}
+          {/* Summon-tagged spell/ability: spawn its friendly companion (leveled
+              spells spend a slot server-side). Shown even in the combat console. */}
+          {editable && a.summon && (
+            <button
+              className="btn tiny"
+              title={`Summon ${a.summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
+              onClick={() => castSummon(a)}
+            >
+              {a.summon.icon || '✋'} Summon
+            </button>
+          )}
           {/* A text-only entry (e.g. imported) → look it up and make it
               rollable in place. Skipped for toggle-driven items. */}
           {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
@@ -589,6 +625,53 @@ export function CharacterSpells({
                   <option value="reaction">↩ Reaction</option>
                 </select>
               </label>
+            )}
+            {/* Mark this spell/ability as a SUMMON: a ✋ Summon button spawns its
+                friendly companion token (icon shown on the token). */}
+            {editable && (
+              <div className="action-type-edit muted summon-edit">
+                <button
+                  className={`btn tiny ${a.summon ? 'on' : ''}`}
+                  title={a.summon ? 'A summon — click to remove' : 'Make this a summon (adds a ✋ Summon button)'}
+                  onClick={() =>
+                    setSheetAbility(kind, character.id, {
+                      ...a,
+                      summon: a.summon ? undefined : { icon: '✋' },
+                    })
+                  }
+                >
+                  ✋ Summon
+                </button>
+                {a.summon && (
+                  <>
+                    <input
+                      className="summon-icon"
+                      value={a.summon.icon ?? ''}
+                      maxLength={2}
+                      placeholder="✋"
+                      title="Token icon (emoji)"
+                      onChange={(e) =>
+                        setSheetAbility(kind, character.id, {
+                          ...a,
+                          summon: { ...a.summon, icon: e.target.value || undefined },
+                        })
+                      }
+                    />
+                    <input
+                      className="sb-dmg-type"
+                      value={a.summon.name ?? ''}
+                      placeholder={`name (default: ${a.name})`}
+                      title="Summoned token name"
+                      onChange={(e) =>
+                        setSheetAbility(kind, character.id, {
+                          ...a,
+                          summon: { ...a.summon, name: e.target.value || undefined },
+                        })
+                      }
+                    />
+                  </>
+                )}
+              </div>
             )}
             {/* Homebrew: add a manual roll to a text-only entry (no AI). The
                 editor below then sets kind/dice/save/dc/type. */}

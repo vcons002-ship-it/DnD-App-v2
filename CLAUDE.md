@@ -367,11 +367,15 @@ sanitization rules above and commit it to `claude/Main`.
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
   modal for both roles, auto-tab by pointer type), editable map names. **Settings**
   also holds a per-device **combat-sound** mute (default on).
-- **Summons:** a **✋ Summon** panel (DM + players) spawns a lightweight friendly
-  creature token (Mage Hand / familiar / custom name+emoji) via `summon:create` —
-  a `disposition:'friendly'` monster, so the existing `token:move` gate lets the
-  owner drag it. **DM speaks-as:** `chat:send` carries `speakAsTokenId` so the DM
-  can voice the selected NPC (name + bubble; 🗣 toggle by the chat input).
+- **Summons (tied to a spell/ability):** a `SheetAbility` can carry a `summon`
+  spec (`{name?, icon?}`); a **✋ Summon** button on that ability (in
+  `CharacterSpells`) spawns a `disposition:'friendly'` creature token via
+  `summon:cast`, so the existing `token:move` gate lets the owner drag it. A
+  **leveled** summon spell **spends a slot** (`spendSpellSlot`); cantrips/abilities
+  don't. Known summon spells (Mage Hand, Find Familiar, Conjure Animals/Woodland
+  Beings, Spiritual Weapon) ship pre-tagged; any ability can be marked a summon in
+  its editor. **DM speaks-as:** `chat:send` carries `speakAsTokenId` so the DM can
+  voice the selected NPC (name + bubble; 🗣 toggle by the chat input).
 - **Audio cues:** client-only procedural Web Audio blips (`client/src/lib/sfx.ts`,
   no assets) — hit/heal off `fx:hp`, miss/skill off new roll-log entries; per-user
   localStorage mute.

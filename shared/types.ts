@@ -396,6 +396,11 @@ export type SheetAbility = {
    * player can adjust.
    */
   useCounter?: { name: string; max: number };
+  /** Marks this spell/ability as a SUMMON: a ✋ Summon button spawns a friendly
+   *  companion token (Find Familiar, Mage Hand, Conjure Animals…). `name`/`icon`
+   *  override the spawned token (default to the ability's name + a hand icon).
+   *  Casting a leveled summon spell spends a slot like any other leveled cast. */
+  summon?: { name?: string; icon?: string };
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -1301,8 +1306,17 @@ export interface ClientToServerEvents {
   'trap:disarm': (payload: TrapDisarmPayload) => void;
   'object:interact': (payload: ObjectInteractPayload) => void;
   'object:paste': (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
-  /** Spawn a lightweight friendly summon/companion token (DM or any player). */
-  'summon:create': (payload: { mapId: string; x: number; y: number; name: string; icon: string }) => void;
+  /** Cast a summon-tagged spell/ability: spawn its friendly companion token (and
+   *  spend a slot for a leveled spell). Owner = the casting PC (or the DM). */
+  'summon:cast': (payload: {
+    kind: TokenKind;
+    refId: string;
+    abilityId: string;
+    mapId: string;
+    x: number;
+    y: number;
+    castLevel?: number;
+  }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;

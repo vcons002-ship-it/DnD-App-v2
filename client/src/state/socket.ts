@@ -184,7 +184,15 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   addAnnotation: (payload: AnnotationAddPayload) => void;
   pasteObject: (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
-  summonCreate: (payload: { mapId: string; x: number; y: number; name: string; icon: string }) => void;
+  summonCast: (payload: {
+    kind: TokenKind;
+    refId: string;
+    abilityId: string;
+    mapId: string;
+    x: number;
+    y: number;
+    castLevel?: number;
+  }) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
@@ -728,7 +736,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
   addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
   pasteObject: (payload) => get().socket?.emit('object:paste', payload),
-  summonCreate: (payload) => get().socket?.emit('summon:create', payload),
+  summonCast: (payload) => get().socket?.emit('summon:cast', payload),
   removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
   clearAnnotations: (mapId, mineOnly, kind) =>
     get().socket?.emit('annotation:clear', { mapId, mineOnly, kind }),

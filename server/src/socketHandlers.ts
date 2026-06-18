@@ -396,23 +396,31 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    // Lightweight summon/companion: DM or any player spawns a friendly creature
-    // token. Players may only place it on the session's ACTIVE map (the only one
-    // they can see); the DM may stage it on the map they're viewing.
-    socket.on('summon:create', ({ mapId, x, y, name, icon }) => {
+    // Cast a summon-tagged spell/ability: spawn its friendly companion token. The
+    // caster must own the creature; players may only place on the ACTIVE map. A
+    // leveled spell spends a slot (cantrips/abilities don't).
+    socket.on('summon:cast', ({ kind, refId, abilityId, mapId, x, y, castLevel }) => {
       const sid = sessionId();
-      if (!sid) return;
+      if (!sid || !ownsCreature(kind, refId)) return;
       const map = getMap(mapId);
       if (!map || map.sessionId !== sid) return;
       if (!isDm() && getActiveMapId(sid) !== mapId) return;
-      createSummon(
-        sid,
-        mapId,
-        Number(x) || 0,
-        Number(y) || 0,
-        (typeof name === 'string' && name.trim() ? name : 'Summon').slice(0, 60),
-        typeof icon === 'string' ? icon.slice(0, 2000) : '',
-      );
+      const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+      const ability = ent?.sheetAbilities.find((a) => a.id === abilityId);
+      if (!ability?.summon) return;
+      const name = (ability.summon.name?.trim() || ability.name || 'Summon').slice(0, 60);
+      const icon = (ability.summon.icon || '✋').slice(0, 2000);
+      // Spend a slot for a leveled spell BEFORE spawning; bail if none left.
+      if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
+        const base = ability.level ?? 1;
+        const lvl = typeof castLevel === 'number' && castLevel >= base ? castLevel : base;
+        const { hasSlot, spent } = spendSpellSlot(refId, lvl);
+        if (hasSlot && !spent) {
+          socket.emit('notice', { message: `No level ${lvl} spell slots left.` });
+          return;
+        }
+      }
+      createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       afterChange();
     });
 

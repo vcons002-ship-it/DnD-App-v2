@@ -4,6 +4,24 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Summons tied to spells + roll-animation polish
+
+### Changed
+- **Summons are now cast from a spell/ability**, not a standalone panel. A
+  spell/ability can be tagged as a **summon** (icon + optional token name); a
+  **✋ Summon** button on it spawns the friendly companion (`summon:cast`). A
+  **leveled** summon spell **spends a slot**; cantrips/abilities don't. Known
+  summon spells (Mage Hand, Find Familiar, Conjure Animals/Woodland Beings,
+  Spiritual Weapon) ship pre-tagged; the old `summon:create` panel is removed.
+- **Roll animation — every die is rolled individually**: each damage die tumbles
+  in its real shape and settles one by one (Fireball shows all its d6s rolling,
+  crit dice tinted), with the total climbing as they land.
+- **Roll animation — colour held back** until the result reveals (grey through the
+  tumble + to-hit build-up), **real die shapes** for all types (d4 triangle … d20
+  hexagon), and it **lingers longer** after the damage concludes.
+- **Player roll log is sticky** — the player console docks the dice/log/chat to
+  the bottom of the right panel so the newest roll stays visible.
+
 ## 2026-06-18 — Sound↔animation sync + perf pass
 
 ### Changed

@@ -12,7 +12,6 @@ import { Toast } from '../components/Toast';
 import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
-import { SummonControls } from '../components/SummonControls';
 import { useSelection } from '../lib/useSelection';
 
 export function PlayerView() {
@@ -106,11 +105,6 @@ export function PlayerView() {
                     onPlaceToken={() => setPlacing((p) => !p)}
                   />
                 ),
-              },
-              {
-                id: 'summon',
-                label: 'Summon',
-                node: <SummonControls snapshot={snapshot} />,
               },
             ]}
           />

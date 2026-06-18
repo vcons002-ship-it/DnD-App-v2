@@ -151,6 +151,15 @@ describe('local spell/ability database', () => {
     expect(sb?.roll?.scaleDice).toBe('1d8'); // cantrip scaling by caster level
   });
 
+  it('tags known summon spells with a summon spec (drives the ✋ Summon button)', () => {
+    const mh = getSpell('Mage Hand');
+    expect(mh?.summon?.icon).toBe('✋');
+    expect(getSpell('Find Familiar')?.summon).toBeTruthy();
+    expect(getSpell('Conjure Animals')?.summon).toBeTruthy();
+    // A plain damage spell is NOT a summon.
+    expect(getSpell('Fireball')?.summon).toBeUndefined();
+  });
+
   it('finds entries by tag/class, not just by name', () => {
     // By class membership…
     expect(searchSpells('wizard', 100).length).toBeGreaterThan(5);

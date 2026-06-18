@@ -875,10 +875,8 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .kill-scoreboard-row .kill-num { color: var(--danger, #e06c75); font-weight: 700; }
 /* DM "speak as selected token" toggle above the chat input. */
 .btn.tiny.speak-as { align-self: flex-start; margin: 2px 0; }
-/* Lightweight summon/companion spawner. */
-.summon-panel { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
-.summon-presets { display: flex; flex-wrap: wrap; gap: 4px; }
-.summon-custom { gap: 4px; }
+/* Summon-tagging editor on a spell/ability (icon + optional token name). */
+.summon-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .summon-icon { width: 38px; text-align: center; flex: 0 0 auto; }
 /* A checkbox-style settings row (label + box on one line). */
 .settings-field.settings-check { flex-direction: row; align-items: center; gap: 8px; }
