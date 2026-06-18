@@ -6,6 +6,7 @@ import { InitiativePanel } from '../components/InitiativePanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
+import { SummonControls } from '../components/SummonControls';
 import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
 import { PlacementBanner } from '../components/PlacementBanner';
@@ -84,6 +85,11 @@ export function DmView() {
                     onSelectToken={(t) => handleSelect(t, false)}
                   />
                 ),
+              },
+              {
+                id: 'summon',
+                label: 'Summon',
+                node: <SummonControls snapshot={snapshot} />,
               },
               {
                 id: 'dice',

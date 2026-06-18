@@ -1260,6 +1260,8 @@ export interface ClientToServerEvents {
   'trap:disarm': (payload: TrapDisarmPayload) => void;
   'object:interact': (payload: ObjectInteractPayload) => void;
   'object:paste': (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
+  /** Spawn a lightweight friendly summon/companion token (DM or any player). */
+  'summon:create': (payload: { mapId: string; x: number; y: number; name: string; icon: string }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;

@@ -12,6 +12,7 @@ import {
   createMap,
   createMonsterTemplate,
   instantiateMonster,
+  createSummon,
   createToken,
   resizeToken,
   rollAllInitiative,
@@ -77,6 +78,20 @@ describe('editing & deleting saved sessions', () => {
     const moved = getSessionByCode(newCode);
     expect(moved?.id).toBe(s.id);
     expect(listMaps(s.id).map((m) => m.id)).toContain(map.id);
+  });
+
+  it('summons a friendly, movable companion token', () => {
+    const s = createSession('Summons');
+    const map = createMap(s.id, { name: 'Glade' });
+    const tok = createSummon(s.id, map.id, 10, 20, 'Mage Hand', '✋');
+    expect(tok.kind).toBe('monster');
+    const m = getMonster(tok.refId)!;
+    // Friendly so the token:move gate lets players drag it; NOT an object.
+    expect(m.disposition).toBe('friendly');
+    expect(m.objectKind).toBeFalsy();
+    expect(m.name).toBe('Mage Hand');
+    expect(m.icon).toBe('✋');
+    expect(listTokens(map.id).map((t) => t.id)).toContain(tok.id);
   });
 
   it('rejects a duplicate or too-short new code', () => {

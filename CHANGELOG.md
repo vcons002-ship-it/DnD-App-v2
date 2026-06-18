@@ -4,6 +4,18 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Summons & audio (Phase 3b)
+
+### Added
+- **Lightweight summons/companions** — a **✋ Summon** panel (DM AND players)
+  spawns a friendly creature token (Mage Hand, familiar, spiritual weapon,
+  conjured beast, or a custom name + emoji). It's a `disposition:'friendly'`
+  creature, so the existing move rules let the owner drag it and players see it
+  under token fog. Spawned via `summon:create`; placed on the active map.
+- **Combat audio cues** — procedural Web Audio blips (no assets/licensing) for
+  hit, miss, heal and skill/save checks, driven by `fx:hp` and new roll-log
+  entries. **Default on**, with a per-device mute in **Settings → Sound**.
+
 ## 2026-06-18 — Table features (Phase 3a)
 
 ### Added

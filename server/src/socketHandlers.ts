@@ -118,6 +118,7 @@ import {
   resizeToken,
   setTokenShape,
   createPastedObject,
+  createSummon,
   updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
@@ -392,6 +393,26 @@ export function registerSocketHandlers(io: IOServer): void {
       }
       if (!map) return;
       createPastedObject(sid, mapId, Number(x) || 0, Number(y) || 0, icon, (name || 'Object').slice(0, 60));
+      afterChange();
+    });
+
+    // Lightweight summon/companion: DM or any player spawns a friendly creature
+    // token. Players may only place it on the session's ACTIVE map (the only one
+    // they can see); the DM may stage it on the map they're viewing.
+    socket.on('summon:create', ({ mapId, x, y, name, icon }) => {
+      const sid = sessionId();
+      if (!sid) return;
+      const map = getMap(mapId);
+      if (!map || map.sessionId !== sid) return;
+      if (!isDm() && getActiveMapId(sid) !== mapId) return;
+      createSummon(
+        sid,
+        mapId,
+        Number(x) || 0,
+        Number(y) || 0,
+        (typeof name === 'string' && name.trim() ? name : 'Summon').slice(0, 60),
+        typeof icon === 'string' ? icon.slice(0, 2000) : '',
+      );
       afterChange();
     });
 

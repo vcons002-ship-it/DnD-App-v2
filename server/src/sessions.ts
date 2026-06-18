@@ -442,6 +442,29 @@ export function createPastedObject(
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y, shape: 'image' });
 }
 
+/**
+ * Spawn a lightweight summon/companion: a FRIENDLY creature token (Mage Hand, a
+ * conjured beast, …) with a name + icon and a minimal stat block. It's a real
+ * `monster` with `disposition:'friendly'`, so the existing token:move gate lets
+ * any player drag it, players see it under token fog, and it never auto-rolls
+ * initiative concerns beyond a normal creature. NOT an object (so it's movable).
+ */
+export function createSummon(
+  sessionId: string,
+  mapId: string,
+  x: number,
+  y: number,
+  name: string,
+  icon: string,
+): Token {
+  const m = insertMonster(
+    sessionId,
+    { name, maxHp: 1, icon, disposition: 'friendly', source: 'manual' },
+    { isTemplate: false, templateId: null, name },
+  );
+  return createToken({ mapId, kind: 'monster', refId: m.id, x, y });
+}
+
 /** Set a token's silhouette (DM). */
 export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
   db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);

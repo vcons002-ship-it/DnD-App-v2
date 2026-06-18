@@ -35,6 +35,7 @@ import type {
   TokenKind,
   TokenShape,
 } from '../../../shared/types';
+import { playHit, playMiss, playHeal, playSkill } from '../lib/sfx';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -50,6 +51,11 @@ const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const cursorTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let nextSayId = 1;
+/** Roll-log ids already heard (audio cues): so a fresh MISS/skill entry plays a
+ *  sound exactly once. Seeded on the first snapshot so a reconnect's backlog is
+ *  silent. */
+let seenRollIds = new Set<string>();
+let rollSfxReady = false;
 
 type Store = {
   socket: TypedSocket | null;
@@ -169,6 +175,7 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   addAnnotation: (payload: AnnotationAddPayload) => void;
   pasteObject: (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
+  summonCreate: (payload: { mapId: string; x: number; y: number; name: string; icon: string }) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
@@ -469,10 +476,32 @@ export const useStore = create<Store>((set, get) => ({
       reconnectionDelayMax: 5000,
     });
 
-    socket.on('state:snapshot', (snapshot) => set({ snapshot }));
+    socket.on('state:snapshot', (snapshot) => {
+      // Audio cues for newly-arrived roll-log entries: MISS (no fx:hp fires on a
+      // miss) and skill/save checks. Hits/heals are cued from fx:hp below. The
+      // first snapshot just seeds the seen-set so a backlog/reconnect is silent.
+      const log = snapshot.rollLog ?? [];
+      if (rollSfxReady) {
+        // listRollLog is newest-first, so the first unseen entry is the newest.
+        const fresh = log.find((e) => !seenRollIds.has(e.id));
+        if (fresh) {
+          const detail = fresh.detail ?? '';
+          const label = fresh.label ?? '';
+          if (/\bMISS\b/.test(detail)) playMiss();
+          else if (/(check|save)$/i.test(label) && !fresh.hpNote) playSkill();
+        }
+      }
+      seenRollIds = new Set(log.map((e) => e.id));
+      rollSfxReady = true;
+      set({ snapshot });
+    });
     socket.on('fx:hp', ({ events }) => {
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
       set((st) => ({ hpFx: [...st.hpFx, ...added] }));
+      // Audio cue: any damage → a hit thunk; otherwise any heal → a chime. These
+      // events are already per-viewer filtered server-side.
+      if (events.some((e) => e.delta < 0)) playHit();
+      else if (events.some((e) => e.delta > 0)) playHeal();
       // Expire regardless of whether a canvas rendered them.
       setTimeout(() => {
         const ids = new Set(added.map((f) => f.id));
@@ -670,6 +699,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
   addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
   pasteObject: (payload) => get().socket?.emit('object:paste', payload),
+  summonCreate: (payload) => get().socket?.emit('summon:create', payload),
   removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
   clearAnnotations: (mapId, mineOnly, kind) =>
     get().socket?.emit('annotation:clear', { mapId, mineOnly, kind }),
