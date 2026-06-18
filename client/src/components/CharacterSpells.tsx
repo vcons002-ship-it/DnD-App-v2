@@ -158,8 +158,6 @@ export function CharacterSpells({
     };
   }, [q, adding]);
 
-  if (character.sheetAbilities.length === 0 && !editable) return null;
-
   const add = (e: SpellHit) => {
     // Hard feat/ASI cap (5e): block adding a feat past the level-based limit.
     if ('className' in character && isFeatAbility(e)) {
@@ -199,6 +197,12 @@ export function CharacterSpells({
     character,
     snapshot,
   );
+
+  // Read-only with nothing to show → render nothing. MUST stay below every hook
+  // above: an early return before a hook changes the hook count between renders
+  // and crashes with React #310 ("rendered more hooks than during the previous
+  // render") — e.g. a player console for a character with no abilities.
+  if (character.sheetAbilities.length === 0 && !editable) return null;
 
   const askAI = async () => {
     const name = q.trim();
