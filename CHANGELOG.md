@@ -4,6 +4,18 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Float/animation/AI polish
+
+### Changed
+- **Floating ±HP numbers linger longer** over a token (~1.6s rise/fade, up from
+  ~0.9s) so damage/heal is easier to read.
+- **Spell attack animation breaks out the modifiers** — the reveal now adds the
+  casting modifier and proficiency as **separate steps** (e.g. `+3 INT`, `+2 PROF`)
+  instead of one combined `+7 spell`, matching weapon attacks.
+- **Ollama model dropdown lists the actually-pulled models** from the connected
+  server (`GET /api/ai/models` → Ollama's `/api/tags`), refreshed on open and
+  after saving the URL, with a connection hint — no more hardcoded guesses.
+
 ## 2026-06-18 — Plain ability checks (Stat/Save menu)
 
 ### Added

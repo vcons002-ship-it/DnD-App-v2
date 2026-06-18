@@ -42,8 +42,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [rulebook, setRulebook] = useState<RulebookInfo | null>(null);
   const [bookStatus, setBookStatus] = useState<'idle' | 'uploading' | 'error'>('idle');
   const [bookError, setBookError] = useState('');
+  // The Ollama models actually pulled on the connected server (GET /api/ai/models
+  // → Ollama's /api/tags), so the dropdown lists what's really available, not a
+  // hardcoded guess. `null` = not loaded yet.
+  const [ollamaModels, setOllamaModels] = useState<string[] | null>(null);
+
+  const loadOllamaModels = () =>
+    fetch('/api/ai/models')
+      .then((r) => r.json())
+      .then((d: { ollamaModels?: string[] }) => setOllamaModels(d.ollamaModels ?? []))
+      .catch(() => setOllamaModels([]));
 
   useEffect(() => {
+    loadOllamaModels();
     fetch('/api/settings')
       .then((r) => r.json())
       .then((s: PublicSettings) => {
@@ -123,6 +134,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setOllamaUrl(updated.ollamaUrl);
       setOllamaModel(updated.ollamaModel);
       setAiMode(updated.aiMode);
+      // The saved URL is now the live one — re-list its pulled models.
+      setOllamaModels(null);
+      loadOllamaModels();
       setApiKey('');
       setStatus('saved');
     } catch {
@@ -219,15 +233,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="settings-field">
-          Ollama model <span className="muted">(must be pulled locally)</span>
+          Ollama model{' '}
+          <span className="muted">
+            {ollamaModels === null
+              ? '(checking the connection…)'
+              : ollamaModels.length
+                ? `(${ollamaModels.length} pulled on the server)`
+                : '(none found — is Ollama running at the URL above? Save to recheck)'}
+          </span>
           <input
             list="ollama-models"
-            placeholder="llama3.1"
+            placeholder={ollamaModels?.[0] ?? 'llama3.1'}
             value={ollamaModel}
             onChange={(e) => setOllamaModel(e.target.value)}
           />
           <datalist id="ollama-models">
-            {['llama3.1', 'llama3.2', 'mistral', 'qwen2.5', 'phi3'].map((m) => (
+            {(ollamaModels ?? []).map((m) => (
               <option key={m} value={m} />
             ))}
           </datalist>

@@ -821,6 +821,9 @@ function resolveTargetedSpellAttack(opts: {
   attackBonus: number;
   /** Labelled to-hit breakdown for the log, e.g. "+3[CHA] +2[PROF]". */
   attackBonusDetail?: string;
+  /** The to-hit modifier steps (casting mod, proficiency, feat/item extras) for
+   *  the reveal animation — added one at a time instead of a single "+N spell". */
+  toHitSteps?: { label: string; value: number }[];
   dice?: string;
   damageType?: string;
   targetTokenId: string;
@@ -881,7 +884,12 @@ function resolveTargetedSpellAttack(opts: {
     reveal: {
       kind: 'attack',
       d20: face,
-      toHit: opts.attackBonus ? [{ label: 'spell', value: opts.attackBonus }] : [],
+      toHit:
+        opts.toHitSteps && opts.toHitSteps.length
+          ? opts.toHitSteps
+          : opts.attackBonus
+            ? [{ label: 'spell', value: opts.attackBonus }]
+            : [],
       attackTotal,
       outcome: fumble ? 'fumble' : crit ? 'crit' : hit ? 'hit' : 'miss',
       attacker: opts.roller,
@@ -1028,6 +1036,12 @@ function resolveSheetAbilityFor(
     const bonusDetail =
       base.detail +
       extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
+    // Each modifier as its own reveal step (casting mod, proficiency, then any
+    // feat/item extras), so the animation adds them separately — not one "+7".
+    const toHitSteps = [
+      ...base.parts,
+      ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
+    ];
     // Targeted: roll vs the token's AC and auto-apply typed damage like a weapon.
     if (
       targetTokenId &&
@@ -1038,6 +1052,7 @@ function resolveSheetAbilityFor(
         description: ability.description || undefined,
         attackBonus: bonus,
         attackBonusDetail: bonusDetail,
+        toHitSteps,
         dice,
         damageType: roll.damageType,
         targetTokenId,

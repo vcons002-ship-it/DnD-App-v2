@@ -541,11 +541,12 @@ export const useStore = create<Store>((set, get) => ({
       // on, the overlay plays the impact in sync with the damage reveal instead.
       if (events.some((e) => e.delta > 0)) playHeal();
       else if (events.some((e) => e.delta < 0) && !get().showRollAnim) playHit();
-      // Expire regardless of whether a canvas rendered them.
+      // Expire regardless of whether a canvas rendered them (after the ~1.6s
+      // float tween finishes, with a little grace).
       setTimeout(() => {
         const ids = new Set(added.map((f) => f.id));
         set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
-      }, 1200);
+      }, 1900);
       // Red screen-edge flash when MY claimed PC took damage.
       const snap = get().snapshot;
       const hurt = events
