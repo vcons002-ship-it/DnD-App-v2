@@ -512,9 +512,11 @@ export const useStore = create<Store>((set, get) => ({
           if (fresh.reveal && get().showRollAnim) {
             const fxId = nextFloaterId++;
             set({ rollFx: { id: fxId, reveal: fresh.reveal } });
+            // The overlay self-dismisses when its staged sequence finishes; this is
+            // only a safety net in case it never mounts (e.g. tab hidden).
             setTimeout(
               () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),
-              1500,
+              5000,
             );
           }
         }

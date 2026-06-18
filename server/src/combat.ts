@@ -54,6 +54,7 @@ import type {
   ManeuverSpec,
   Monster,
   RollEntry,
+  RollReveal,
   SheetAbility,
   Token,
   TokenKind,
@@ -136,6 +137,22 @@ function rollFaces(expr: string): { total: number; text: string } {
  *  ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot and
  *  correct. Carries the target so visibility can hide ENEMY changes from
  *  players. Undefined when nothing was found/changed. */
+/**
+ * The reveal's damage count-up should land on the number that actually hit HP.
+ * The weapon's own dice+mods sum to `rolledTotal`, but riders (elemental extra,
+ * stance/mastery dice) and resist/vulnerability can change the `applied` total —
+ * so append one catch-all step for the difference, labelled by its sign.
+ */
+function reconcileDamageSteps(
+  modSteps: { label: string; value: number; faces?: number[] }[],
+  rolledTotal: number,
+  applied: number,
+): { label: string; value: number; faces?: number[] }[] {
+  const diff = applied - rolledTotal;
+  if (diff === 0) return modSteps;
+  return [...modSteps, { label: diff > 0 ? 'bonus' : 'resisted', value: diff }];
+}
+
 function applyDamageNoted(
   kind: TokenKind,
   refId: string,
@@ -425,11 +442,23 @@ export function resolveAttack(
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     hpNote,
     reveal: {
+      kind: 'attack',
       d20: out.face,
+      toHit: out.toHitSteps,
+      attackTotal: out.attackTotal,
       outcome: out.fumble ? 'fumble' : out.crit ? 'crit' : out.hit ? 'hit' : 'miss',
       attacker: a.name,
       target: t.name,
-      ...(out.hit && applied > 0 ? { damage: applied, damageType: weapon.damageType } : {}),
+      ...(out.hit && applied > 0
+        ? {
+            damageDice: out.damageDiceSteps,
+            // Reconcile the rolled weapon total with what actually hit HP (riders,
+            // mastery dice, resist/vuln) so the count-up lands on the real number.
+            damageMods: reconcileDamageSteps(out.damageModSteps, out.damage, applied),
+            damage: applied,
+            damageType: weapon.damageType,
+          }
+        : {}),
     },
   });
   // The token badge follows the weapon last attacked with.
@@ -621,9 +650,12 @@ export function resolveForcedSave(
     // auto-hit, no save. New entries roll the dart's dice ON the click (capped at
     // the dart count); legacy entries apply a pre-rolled instance by index.
     let base: number;
+    let dartFaces: number[] = [];
     if (apply.dice && apply.darts) {
       if (instanceIndex >= apply.darts) return; // never exceed the dart count
-      base = rollDice(apply.dice)?.total ?? 0;
+      const rolled = rollDice(apply.dice);
+      base = rolled?.total ?? 0;
+      dartFaces = rolled?.rolls ?? [];
     } else {
       base = apply.split?.[instanceIndex] ?? 0;
     }
@@ -637,6 +669,17 @@ export function resolveForcedSave(
       expr: `dart ${instanceIndex + 1}`,
       detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
+      // A quick per-dart damage burst (the animation fires once per assigned dart).
+      reveal: {
+        kind: 'dart',
+        attacker: `${src?.expr ?? 'Spell'} · dart ${instanceIndex + 1}`,
+        target: r.name,
+        outcome: 'hit',
+        ...(apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
+        ...(mult !== 1 ? { damageMods: [{ label: mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
+        damage: dmg,
+        damageType: apply.damageType,
+      },
     });
     return;
   }
@@ -745,17 +788,22 @@ function resolveTargetedSpellAttack(opts: {
   let hpNote: RollEntry['hpNote'];
   const notes: string[] = [];
   let dmgFaces = '';
+  const revealDice: NonNullable<RollReveal['damageDice']> = [];
+  const revealMods: NonNullable<RollReveal['damageMods']> = [];
   if (hit && opts.dice) {
-    const first = rollFaces(opts.dice);
+    const first = rollDice(opts.dice)!;
     let dmg = first.total;
-    dmgFaces = first.text;
+    dmgFaces = `${opts.dice}[${first.rolls.join(',')}]`;
+    revealDice.push({ label: opts.dice, value: first.total, faces: first.rolls });
     if (crit) {
-      const second = rollFaces(opts.dice); // crit doubles the dice
+      const second = rollDice(opts.dice)!; // crit doubles the dice
       dmg += second.total;
-      dmgFaces += ` + ${second.text} crit`;
+      dmgFaces += ` + [${second.rolls.join(',')}] crit`;
+      revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls });
     }
     const mult = damageMultiplier(opts.damageType, t.resistances, t.weaknesses);
     applied = Math.max(1, Math.floor(dmg * mult));
+    if (mult !== 1) revealMods.push({ label: mult < 1 ? 'resisted' : 'vuln', value: applied - dmg });
     if (mult !== 1)
       notes.push(
         mult < 1
@@ -778,11 +826,16 @@ function resolveTargetedSpellAttack(opts: {
     description: opts.description,
     hpNote,
     reveal: {
+      kind: 'attack',
       d20: face,
+      toHit: opts.attackBonus ? [{ label: 'spell', value: opts.attackBonus }] : [],
+      attackTotal,
       outcome: fumble ? 'fumble' : crit ? 'crit' : hit ? 'hit' : 'miss',
       attacker: opts.roller,
       target: t.name,
-      ...(hit && applied > 0 ? { damage: applied, damageType: opts.damageType } : {}),
+      ...(hit && applied > 0
+        ? { damageDice: revealDice, damageMods: revealMods, damage: applied, damageType: opts.damageType }
+        : {}),
     },
   });
   return true;

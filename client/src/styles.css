@@ -894,26 +894,39 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 }
 .roll-reveal {
   pointer-events: auto; cursor: pointer;
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 20px; border-radius: 14px;
-  background: rgba(18, 19, 24, 0.92); border: 2px solid var(--line);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  animation: roll-reveal-in 1.5s ease-out forwards;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  min-width: 240px; padding: 16px 22px; border-radius: 16px;
+  background: rgba(18, 19, 24, 0.94); border: 2px solid var(--line);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+  animation: roll-reveal-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.4);
 }
+.roll-reveal-who { font-size: 13px; color: var(--muted); }
+.roll-reveal-who .rr-arrow { color: var(--text); }
+/* To-hit row: the tumbling d20 + the running total + bonus chips. */
+.roll-reveal-tohit { display: flex; align-items: center; gap: 14px; }
 .roll-reveal-die {
   flex: 0 0 auto;
-  width: 64px; height: 64px; border-radius: 12px;
+  width: 66px; height: 66px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 34px; font-weight: 800; color: #fff;
+  font-size: 36px; font-weight: 800; color: #fff;
   background: #2a2d36; border: 2px solid currentColor;
-  animation: roll-reveal-die 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.4);
 }
-.roll-reveal-body { display: flex; flex-direction: column; gap: 2px; }
-.roll-reveal-outcome { font-size: 22px; font-weight: 800; letter-spacing: 0.03em; }
-.roll-reveal-who { font-size: 13px; color: var(--muted); }
-.roll-reveal-dmg { font-size: 15px; font-weight: 700; color: #ff8a8a; }
+.roll-reveal-die.rolling { animation: rr-tumble 0.18s linear infinite; }
+.rr-buildup { display: flex; flex-direction: column; gap: 4px; min-width: 80px; }
+.rr-total { font-size: 30px; font-weight: 800; line-height: 1; animation: rr-bump 0.24s ease-out; }
+.rr-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rr-chip {
+  font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  background: #2a2d36; border: 1px solid var(--line); color: #cfd3dc;
+  animation: rr-chip-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+.rr-chip.rr-dice { background: #20303a; border-color: #2f5566; color: #bfe3f0; }
+.roll-reveal-outcome { font-size: 24px; font-weight: 800; letter-spacing: 0.03em; animation: rr-stamp 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+.roll-reveal-damage { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.rr-dmg-num { font-size: 26px; font-weight: 800; color: #ff8a8a; animation: rr-bump 0.24s ease-out; }
+.rr-dmg-type { font-size: 13px; font-weight: 600; color: var(--muted); }
 /* Outcome colour-coding (matches the log's hit/miss/crit feel). */
-.roll-reveal-crit { border-color: #ffcf4d; }
+.roll-reveal-crit { border-color: #ffcf4d; box-shadow: 0 12px 48px rgba(255, 207, 77, 0.25); }
 .roll-reveal-crit .roll-reveal-die { color: #ffcf4d; }
 .roll-reveal-crit .roll-reveal-outcome { color: #ffcf4d; }
 .roll-reveal-hit { border-color: #5fae5f; }
@@ -925,20 +938,20 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .roll-reveal-fumble { border-color: #e23b3b; }
 .roll-reveal-fumble .roll-reveal-die { color: #e23b3b; }
 .roll-reveal-fumble .roll-reveal-outcome { color: #ff6b6b; }
-@keyframes roll-reveal-in {
+@keyframes roll-reveal-pop {
   0% { opacity: 0; transform: translateY(-8px) scale(0.92); }
-  10% { opacity: 1; transform: translateY(0) scale(1); }
-  80% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes roll-reveal-die {
-  0% { transform: rotate(-180deg) scale(0.5); }
-  100% { transform: rotate(0) scale(1); }
+@keyframes rr-tumble {
+  0% { transform: rotate(-12deg) scale(0.96); }
+  50% { transform: rotate(10deg) scale(1.04); }
+  100% { transform: rotate(-12deg) scale(0.96); }
 }
+@keyframes rr-bump { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes rr-stamp { 0% { opacity: 0; transform: scale(1.6) rotate(-6deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes rr-chip-in { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
-  .roll-reveal { animation: roll-reveal-fade 1.5s linear forwards; }
-  .roll-reveal-die { animation: none; }
-  @keyframes roll-reveal-fade { 0%,85% { opacity: 1; } 100% { opacity: 0; } }
+  .roll-reveal-die.rolling, .rr-total, .rr-dmg-num, .rr-chip, .roll-reveal-outcome { animation: none; }
 }
 
 /* Skills (proficiency toggle + click-to-roll) */

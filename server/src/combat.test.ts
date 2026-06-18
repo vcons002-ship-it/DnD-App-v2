@@ -130,14 +130,26 @@ describe('combat resolution', () => {
     resolveAttack(s.id, 'DM', a.id, t.id, 0); // +50 vs AC 1 → hits (unless a nat 1)
     const reveal = listRollLog(s.id).at(-1)!.reveal!;
     expect(reveal).toBeTruthy();
-    expect(reveal.d20).toBeGreaterThanOrEqual(1);
-    expect(reveal.d20).toBeLessThanOrEqual(20);
+    expect(reveal.kind).toBe('attack');
+    expect(reveal.d20!).toBeGreaterThanOrEqual(1);
+    expect(reveal.d20!).toBeLessThanOrEqual(20);
     // Outcome is one of the four reveal states and matches the rolled face.
     expect(['hit', 'crit', 'miss', 'fumble']).toContain(reveal.outcome);
     expect(reveal.outcome).toBe(reveal.d20 === 20 ? 'crit' : reveal.d20 === 1 ? 'fumble' : 'hit');
     expect(reveal.attacker).toContain('Brute'); // instances are numbered ("Brute 1")
     expect(reveal.target).toContain('Dummy');
-    if (reveal.outcome !== 'fumble') expect(reveal.damage).toBeGreaterThan(0);
+    // The to-hit total equals the natural d20 plus every revealed bonus step.
+    const bonusSum = (reveal.toHit ?? []).reduce((s, x) => s + x.value, 0);
+    expect(reveal.attackTotal).toBe(reveal.d20! + bonusSum);
+    if (reveal.outcome !== 'fumble') {
+      expect(reveal.damage).toBeGreaterThan(0);
+      // The damage count-up (dice + mods) lands on the applied damage.
+      const dice = (reveal.damageDice ?? []).reduce((s, x) => s + x.value, 0);
+      const mods = (reveal.damageMods ?? []).reduce((s, x) => s + x.value, 0);
+      expect(dice + mods).toBe(reveal.damage);
+      // Each dice step carries its individual faces.
+      expect((reveal.damageDice ?? [])[0]?.faces?.length).toBeGreaterThan(0);
+    }
   });
 
   it('credits a PC with a kill when its attack drops an enemy to 0 HP', () => {

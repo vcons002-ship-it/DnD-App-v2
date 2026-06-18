@@ -8,14 +8,18 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
 
 ### Added
 - **Roll animations** — when an attack resolves, everyone who received the roll
-  sees a brief (~1.5 s) centred reveal: the natural **d20** face, the
-  **HIT / MISS / CRIT / FUMBLE** outcome (colour-coded), attacker → target, and
-  any damage. It's **non-blocking** (the map stays interactive) and **click / tap /
-  Esc skips** it. Mechanics still apply instantly server-side — the animation is
-  purely cosmetic. Default **on**, with a per-device toggle in
-  **Settings → Sound** (next to the audio mute). Driven by a structured `reveal`
-  payload on the attack's `RollEntry` (persisted, so it rides the snapshot and is
-  already per-viewer filtered — DM-hidden rolls don't animate for players).
+  sees a **staged** reveal: the **d20 tumbles** and lands on its natural face, then
+  each bonus (ability mod, proficiency, magic, mastery…) **flies in as a chip and
+  the to-hit total counts up**, a **HIT / MISS / CRIT / FUMBLE** stamp lands, and on
+  a hit the **damage dice roll (showing their faces) and each modifier counts the
+  damage up** to the applied total. **Magic Missile** fires a quick single-dart
+  burst each time the caster assigns a dart. It's **non-blocking** (the map stays
+  interactive) and **click / tap / Esc skips** it; mechanics still apply instantly
+  server-side. Default **on**, per-device toggle in **Settings → Sound**.
+- Driven by a structured `reveal` payload on the attack's `RollEntry` — the d20,
+  the labelled to-hit steps, the damage dice (with their faces) and modifier steps
+  — surfaced from `combatMath` and persisted (rides the snapshot, already
+  per-viewer filtered, so DM-hidden rolls don't animate for players).
 
 ## 2026-06-18 — Combat correctness verified (bug-pass follow-up)
 

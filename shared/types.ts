@@ -746,14 +746,37 @@ export type Measurement = {
 
 /** An entry in the session's shared dice roll log. */
 /** Cosmetic reveal for an attack roll: the natural d20 face, the outcome, and any
- *  damage dealt — drives the brief client-side roll-reveal animation. */
+ *  damage dealt — drives the brief client-side roll-reveal animation.
+ *
+ *  The animation plays in stages: the raw die lands, then each `toHit` step flies
+ *  in and the running total counts UP to `attackTotal`; on a hit the damage dice
+ *  land and each `damageMods` step counts the total up to `damage`. A `dart` is a
+ *  single quick damage burst (Magic Missile assigns one per click). */
+export type RevealStep = {
+  /** Short label, e.g. "STR", "PROF", "MAGIC", "GWM". */
+  label: string;
+  /** Signed amount added to the running total. */
+  value: number;
+  /** For a dice step: the individual die faces rolled (e.g. [4, 6]). */
+  faces?: number[];
+};
 export type RollReveal = {
-  /** The natural d20 face shown (the chosen die under adv/dis). */
-  d20: number;
-  outcome: 'hit' | 'miss' | 'crit' | 'fumble';
+  /** 'attack' = a to-hit + damage reveal; 'dart' = a single quick damage burst. */
+  kind?: 'attack' | 'dart';
   attacker: string;
   target?: string;
-  /** Damage applied on a hit (omitted/0 on a miss). */
+  /** The natural d20 face shown (the chosen die under adv/dis). Attacks only. */
+  d20?: number;
+  /** Bonuses added to the d20, revealed one by one (ability mod, proficiency, …). */
+  toHit?: RevealStep[];
+  /** Final to-hit total (d20 + every `toHit` step). */
+  attackTotal?: number;
+  outcome: 'hit' | 'miss' | 'crit' | 'fumble';
+  /** Damage dice with their individual faces (a crit adds a second dice step). */
+  damageDice?: RevealStep[];
+  /** Flat damage modifiers added after the dice (ability mod, magic, mastery…). */
+  damageMods?: RevealStep[];
+  /** Damage applied on a hit (the final total the count-up lands on). */
   damage?: number;
   damageType?: string;
 };
