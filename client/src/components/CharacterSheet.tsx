@@ -118,6 +118,8 @@ export function CharacterSheet({
               abilities={character.abilities}
               editable={editable}
               showTraits={false}
+              heading="Actions"
+              className="sheet-actions"
               onSave={
                 editable
                   ? (patch) => updateCharacter({ characterId: character.id, ...patch })

@@ -923,6 +923,13 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 }
 /* The stat block is already a card — just recolour its left edge to the accent. */
 .char-sheet > .statblock { border-left: 3px solid var(--sec-accent); }
+/* The Actions block is its OWN section (rose), distinct from the stats block. */
+.char-sheet > .statblock.sheet-actions { --sec-accent: #cf7d9c; }
+/* A single, always-visible section heading (e.g. "Actions") tinted to its accent. */
+.sb-block-heading {
+  margin: 0; font-size: 13px; font-weight: 600;
+  color: color-mix(in srgb, var(--sec-accent, var(--text)) 62%, var(--text));
+}
 .char-sheet > .resources h4,
 .char-sheet > .spells > h4,
 .char-sheet > .items > h4,

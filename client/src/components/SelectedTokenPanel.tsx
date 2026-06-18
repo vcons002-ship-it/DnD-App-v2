@@ -293,6 +293,7 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
               abilities={character.abilities}
               editable={canEditCharacter}
               showTraits={false}
+              heading="Actions"
               onSave={
                 canEditCharacter
                   ? (patch) =>
