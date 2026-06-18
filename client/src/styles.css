@@ -866,8 +866,70 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .spell-body { padding: 4px 6px 4px 22px; font-size: 12px; line-height: 1.4; }
 .spell-body p { margin: 2px 0; }
 .spell-meta { font-size: 11px; }
-.spell-add { margin-top: 6px; }
+.spell-add { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
 .spell-none { font-size: 12px; padding: 6px; margin: 0; }
+/* One primary "add" button (full-width, dashed) that opens an inline panel —
+   replaces a row of loose add / browse / custom buttons. */
+.add-row-btn {
+  width: 100%; margin-top: 6px; padding: 5px 8px; box-sizing: border-box;
+  background: transparent; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 6px;
+  cursor: pointer; font-size: 12px; font-weight: 600; text-align: center;
+}
+.add-row-btn:hover {
+  color: var(--text); border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.add-row-btn.on { color: var(--text); border-style: solid; }
+.add-row-btn:disabled { opacity: 0.45; cursor: default; }
+.add-row-btn:disabled:hover { color: var(--muted); border-color: var(--line); background: transparent; }
+/* Secondary "or browse / create custom" options inside the add panel. */
+.spell-add-more { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.spell-add-more .muted { font-size: 11px; }
+/* Tighter expanded spell/ability bodies so the open list stays compact. */
+.spell-entry { padding: 3px 6px; }
+.spell-body { padding: 2px 4px 4px 18px; line-height: 1.3; }
+.spell-body p { margin: 1px 0; }
+.spell-desc-edit { min-height: 32px; }
+.spell-body .sb-roll-edit { margin: 3px 0 3px 2px; }
+.spell-body .summon-edit { margin: 2px 0; }
+.spell-body .action-type-edit { margin: 1px 0; }
+
+/* ── Character-sheet sections, colour-coded for quick scanning ──
+   A coloured left tab + tinted heading + a whisper of the colour, reusing the
+   panel-section accent philosophy (stats blue · resources orange · spells
+   violet · skills green · inventory gold · traits slate). Scoped to .char-sheet
+   so only the PC sheet (your own, party, DM-viewed) is affected. */
+.char-sheet > .resources { --sec-accent: #e89a4a; }
+.char-sheet > .spells { --sec-accent: #a98bd4; }
+.char-sheet > .skills { --sec-accent: #5bbf7a; }
+.char-sheet > .items { --sec-accent: #d9b23d; }
+.char-sheet > .sheet-actions-traits { --sec-accent: #8fa3b8; }
+.char-sheet > .statblock { --sec-accent: #5b9de2; }
+.char-sheet > .resources,
+.char-sheet > .spells,
+.char-sheet > .skills,
+.char-sheet > .items,
+.char-sheet > .sheet-actions-traits {
+  margin: 8px 0 0;
+  border-left: 3px solid var(--sec-accent);
+  border-radius: 0 7px 7px 0;
+  padding: 6px 8px 8px 10px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--sec-accent) 8%, transparent),
+    transparent 60%
+  );
+}
+/* The stat block is already a card — just recolour its left edge to the accent. */
+.char-sheet > .statblock { border-left: 3px solid var(--sec-accent); }
+.char-sheet > .resources h4,
+.char-sheet > .spells > h4,
+.char-sheet > .items > h4,
+.char-sheet > .skills .skills-head h4,
+.char-sheet > .sheet-actions-traits > summary {
+  color: color-mix(in srgb, var(--sec-accent) 62%, var(--text));
+}
 /* Collapsible spell GROUPS (Cantrips / Level N / Other abilities). */
 .spell-group { margin: 6px 0 2px; }
 .spell-group-head { display: flex; align-items: baseline; gap: 6px; width: 100%; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--muted); text-align: left; cursor: pointer; padding: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }

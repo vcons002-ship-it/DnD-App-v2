@@ -36,7 +36,7 @@ export function CharacterSheet({
   const [saving, setSaving] = useState(false);
 
   return (
-    <>
+    <div className="char-sheet">
       <StatBlock
         creature={character}
         subtitle={`${character.race} · ${character.className}${
@@ -145,6 +145,6 @@ export function CharacterSheet({
       {saving && (
         <LibraryCharacterDialog character={character} onClose={() => setSaving(false)} />
       )}
-    </>
+    </div>
   );
 }

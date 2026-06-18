@@ -1003,11 +1003,12 @@ function WeaponEditor({
         </div>
         );
       })}
-      <div className="dice-row">
-        <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
-          {picking ? 'Close' : monster ? '+ Attack' : '+ Weapon'}
-        </button>
-      </div>
+      <button
+        className={`add-row-btn ${picking ? 'on' : ''}`}
+        onClick={() => setPicking((p) => !p)}
+      >
+        {picking ? '✕ Close' : monster ? '＋ Add attack' : '＋ Add weapon'}
+      </button>
       {picking && (
         <div className="weapon-picker">
           <input

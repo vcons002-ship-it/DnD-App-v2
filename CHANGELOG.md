@@ -4,6 +4,22 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Sheet UI pass (colour-coded sections + simpler add)
+
+### Changed
+- **Character-sheet sections are now colour-coded** for at-a-glance scanning — a
+  coloured left tab + tinted heading + a whisper of the colour per section (stats
+  blue · resources orange · spells violet · skills green · inventory gold · traits
+  slate), reusing the app's existing panel-accent palette. Scoped to the PC sheet
+  (your own, party, and DM-viewed).
+- **Simpler "add" affordances.** The cluttered spells row (three loose buttons:
+  add / 📖 Spellbook / ✏️ Custom) is now **one primary "＋ Add spell or ability"**
+  button that opens a panel with the search plus *Browse spellbook* / *Create
+  custom* tucked inside. The same clean full-width "＋ Add" pattern now covers
+  weapons/attacks and feats/ASIs.
+- **Expanded spells/abilities are more compact** — tighter body padding, line
+  height, and editor spacing, so an open spell list takes far less vertical room.
+
 ## 2026-06-18 — Float/animation/AI polish
 
 ### Added

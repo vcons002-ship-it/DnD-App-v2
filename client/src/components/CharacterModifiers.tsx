@@ -144,12 +144,12 @@ export function CharacterModifiers({
 
       {editable && !draft && (
         <button
-          className="btn tiny"
+          className="add-row-btn"
           disabled={atCap}
           title={atCap ? 'Feat/ASI cap reached for this level' : 'Add a feat or ASI'}
           onClick={startAdd}
         >
-          + Add feat / ASI
+          ＋ Add feat / ASI
         </button>
       )}
 
