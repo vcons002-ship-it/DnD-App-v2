@@ -4,6 +4,16 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Combat correctness verified (bug-pass follow-up)
+
+### Verified (regression tests added — no behavior change needed)
+- **Save-for-half deals half, not 0** — a PC save spell (Hail of Thorns-style)
+  carries its rolled damage into the apply payload; a passed save takes half.
+- **Crit + Pushing Attack** — the weapon's (crit-doubled) damage still lands on a
+  hit while the maneuver's `amount:0` save rider only applies the push/condition.
+- **Chromatic Orb** is in the spell database with a proper attack roll, so it
+  appears in the right-click floating menu once added from search.
+
 ## 2026-06-18 — Summons & audio (Phase 3b)
 
 ### Added

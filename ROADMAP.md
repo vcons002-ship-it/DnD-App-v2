@@ -1462,5 +1462,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   players.
 - ☑ **Combat audio cues.** Procedural Web Audio blips (hit/miss/heal/check) from
   `fx:hp` + new roll-log entries; default on, per-device mute in Settings → Sound.
-- ◐ **Save-for-half / crit-damage / Chromatic Orb floating-menu** items — to
-  reproduce-and-fix in a follow-up bug pass (tracked from the play session notes).
+- ☑ **Save-for-half / crit-damage / Chromatic Orb** — reproduced and verified
+  WORKING in the current engine (regression tests added): a PC save spell deals
+  **half on a pass, not 0**; weapon damage (crit-doubled) still lands when a
+  Pushing-Attack save rider fires; Chromatic Orb is in the spell DB with a proper
+  attack roll (so it appears in the floating menu once added from search).

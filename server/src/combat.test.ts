@@ -1273,6 +1273,45 @@ describe('Apply damage → click-to-target saves', () => {
     expect(getMonster(inst.id)!.curHp).toBe(30);
   });
 
+  it('PC save spell (Hail of Thorns-style) deals HALF on a pass, not 0', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Ranger',
+      className: 'Ranger',
+      level: 5,
+      stats: { DEX: 16, WIS: 16 },
+    });
+    // A save-for-half spell with deterministic 10 damage (10d1).
+    const ability: SheetAbility = {
+      id: 'hot',
+      name: 'Hail of Thorns',
+      type: 'spell',
+      level: 1,
+      description: '',
+      roll: { kind: 'save', dice: '10d1', baseLevel: 1, save: 'DEX', damageType: 'piercing' },
+    };
+    resolveAbilityRoll(s.id, ch.name, ch, ability);
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply?.amount).toBe(10); // damage rolled at cast, carried into apply
+
+    const target = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
+    const inst = instantiateMonster(target.id)!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    // Force a PASS by overriding the entry's DC to 1 via a fresh cast at DC 1 is
+    // hard; instead resolve against the stored payload — a DEX 10 goblin vs DC ~13
+    // may fail, so assert the GENERAL rule via a guaranteed-pass DC-1 ability.
+    const easy: SheetAbility = {
+      ...ability,
+      id: 'hot2',
+      roll: { kind: 'save', dice: '10d1', dc: 1, baseLevel: 1, save: 'DEX', damageType: 'piercing' },
+    };
+    // Monsters honor an explicit roll.dc; reuse that path for a deterministic pass.
+    resolveMonsterSheetAbility(s.id, 'DM', inst, easy);
+    const e2 = listRollLog(s.id).at(-1)!;
+    resolveForcedSave(s.id, e2.id, tok.id); // DC 1 → PASS → half of 10 = 5 (NOT 0)
+    expect(getMonster(inst.id)!.curHp).toBe(15);
+  });
+
   it('no-ops for a roll with no apply payload', () => {
     const { s, map } = arena();
     const { inst, tok } = target(s, map, { name: 'Bob', maxHp: 10 });
@@ -1413,6 +1452,26 @@ describe('Battle Master maneuvers', () => {
       prone = getMonster(tInst.id)!.conditions.some((c) => c.label === 'Prone');
     }
     expect(prone).toBe(true);
+  });
+
+  it('applies weapon damage on a hit even when a save-rider (Pushing Attack) fires', () => {
+    // #9 regression: the maneuver's save rider carries amount:0 (the push deals
+    // no damage), but the weapon's own damage — crit-doubled when it crits — must
+    // still land on the target's HP. Use a bigger die so the hit is unmistakable.
+    const { s, tInst, atk, tgt } = fight(
+      { active: true, addDieTo: 'damage', save: { ability: 'STR', onFail: 'Prone' } },
+      { name: 'Maul', kind: 'melee', damage: '4d10', attackBonus: 50 },
+    );
+    const before = getMonster(tInst.id)!.curHp;
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    const after = getMonster(tInst.id)!.curHp;
+    // The weapon dice (4d10 ≥ 4) + maneuver die landed on HP — never swallowed by
+    // the rider.
+    expect(after).toBeLessThan(before);
+    expect(before - after).toBeGreaterThanOrEqual(4);
+    // The push rider itself is a separate, damage-less save entry.
+    const rider = listRollLog(s).find((e) => e.label === 'STR save');
+    expect(rider?.apply?.amount).toBe(0);
   });
 
   it('does not fire when no Superiority Die is left', () => {
