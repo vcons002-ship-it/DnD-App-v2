@@ -289,6 +289,8 @@ type Store = {
   rollAllInitiative: () => void;
   rollMissingInitiative: () => void;
   nextTurn: () => void;
+  /** A player ends their own turn (no-op server-side unless it's their PC's turn). */
+  endTurn: () => void;
   clearInitiative: () => void;
   setRound: (round: number) => void;
   setHideDmRolls: (hide: boolean) => void;
@@ -808,6 +810,7 @@ export const useStore = create<Store>((set, get) => ({
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
   rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
+  endTurn: () => get().socket?.emit('initiative:endTurn'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
   setRound: (round) => get().socket?.emit('initiative:setRound', { round }),
   setHideDmRolls: (hide) =>

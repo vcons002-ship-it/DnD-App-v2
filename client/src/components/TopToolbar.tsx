@@ -19,7 +19,23 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [hasRulebook, setHasRulebook] = useState(false);
   const openRulebook = useStore((s) => s.openRulebook);
+  const endTurn = useStore((s) => s.endTurn);
+  const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
+
+  // A player may end their own turn: true when the active combatant is a PC
+  // token claimed by this player. (The server enforces the same rule.)
+  const myTurn =
+    !isDm &&
+    snapshot.round > 0 &&
+    !!snapshot.activeTurnTokenId &&
+    (() => {
+      const tok = snapshot.tokens.find((t) => t.id === snapshot.activeTurnTokenId);
+      if (!tok || tok.kind !== 'pc') return false;
+      return snapshot.characters.some(
+        (c) => c.id === tok.refId && c.claimedBy === mySocketId,
+      );
+    })();
 
   // Show the Rulebook reader button only when the DM has uploaded one.
   useEffect(() => {
@@ -62,6 +78,15 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
         <span className="round-chip" title="Combat round">
           Round {snapshot.round}
         </span>
+      )}
+      {myTurn && (
+        <button
+          className="btn tiny end-turn"
+          onClick={endTurn}
+          title="End your turn and advance initiative"
+        >
+          ⏭ End turn
+        </button>
       )}
       <span className="active-map">
         {isDm ? 'Active' : 'Map'}: {isDm ? activeMap : snapshot.map?.name ?? '—'}

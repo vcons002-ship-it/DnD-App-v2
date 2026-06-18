@@ -94,10 +94,11 @@ function TokenShapeInner({
     display.maxHp && display.maxHp > 0 && display.curHp !== undefined
       ? Math.max(0, Math.min(1, display.curHp / display.maxHp))
       : null;
-  // Dead = 0 HP where the viewer can see HP, or the DM's manual "Dead" condition
-  // (which reaches players even on enemies whose HP is hidden).
+  // Dead = 0 HP where the viewer can see HP, the server-computed `dead` flag on a
+  // public (HP-hidden) enemy, or the DM's manual "Dead" condition.
   const isDead =
     (display.curHp !== undefined && display.curHp <= 0) ||
+    ('dead' in display && display.dead === true) ||
     display.conditions.some((c) => c.label.toLowerCase() === 'dead');
 
   // Live "distance from the previous spot" readout while dragging: a dashed

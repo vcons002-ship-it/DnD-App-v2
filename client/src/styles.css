@@ -301,6 +301,16 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 }
 .init-row.dead { opacity: 0.6; color: var(--muted); font-style: italic; }
 
+/* Player "End turn" button in the top bar — highlighted while it's their turn. */
+.btn.tiny.end-turn {
+  margin-left: 8px; border-color: var(--good, #4caf50); color: var(--good, #4caf50);
+  font-weight: 600; animation: end-turn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes end-turn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.0); }
+  50% { box-shadow: 0 0 6px 1px rgba(76, 175, 80, 0.45); }
+}
+
 .init-header { display: flex; align-items: center; justify-content: space-between; }
 .init-actions { display: flex; gap: 4px; }
 

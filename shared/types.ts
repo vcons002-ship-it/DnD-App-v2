@@ -611,6 +611,9 @@ export type MonsterPublic = {
   conditions: Condition[];
   disposition: Disposition;
   icon: string;
+  /** Server-computed: the creature is defeated (0 HP or a "dead" condition).
+   *  Lets players see a skull on a downed enemy without exposing its HP. */
+  dead?: boolean;
   /** Non-combat object kind (chest/door/…), so players' UI shows it as an object. */
   objectKind?: ObjectKind;
   /** Loot inside an object — only sent to players once it's opened/unlocked
@@ -769,12 +772,16 @@ export type RollEntry = {
     /** Condition applied to a target that FAILS the save (Battle Master riders). */
     onFail?: string;
     /**
-     * Per-instance pre-rolled damages (e.g. Magic Missile darts). When present,
-     * the DM assigns ONE instance per clicked target (consumed in order) instead
-     * of applying the full `amount` to every target. Server-rolled; the client
-     * only tells the server which instance index to apply.
+     * Legacy: per-instance PRE-rolled damages (old Magic Missile entries). New
+     * casts use `darts`+`dice` (roll-on-click) instead; kept so old logs resolve.
      */
     split?: number[];
+    /** Split spell (Magic Missile): number of darts to assign, one per click. */
+    darts?: number;
+    /** Per-dart damage dice, rolled fresh on each click (e.g. "1d4+1"). */
+    dice?: string;
+    /** Caster's character id — lets THAT player (not just the DM) assign the darts. */
+    owner?: string;
   };
   createdAt: number;
 };
@@ -1291,6 +1298,8 @@ export interface ClientToServerEvents {
   'initiative:rollAll': () => void;
   'initiative:rollMissing': () => void;
   'initiative:next': () => void;
+  /** A player ends their own turn (server allows only when it's their PC's turn). */
+  'initiative:endTurn': () => void;
   'initiative:clear': () => void;
   'initiative:setRound': (payload: { round: number }) => void;
   'session:setHideDmRolls': (payload: { hide: boolean }) => void;

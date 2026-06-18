@@ -583,7 +583,8 @@ export function resolveForcedSave(
   advantage?: Advantage,
   instanceIndex?: number,
 ): void {
-  const apply = getRollEntry(rollId)?.apply;
+  const src = getRollEntry(rollId);
+  const apply = src?.apply;
   if (!apply) return;
   const tok = getToken(tokenId);
   if (!tok) return;
@@ -594,16 +595,22 @@ export function resolveForcedSave(
 
   let dmg: number;
   let detail: string;
-  if (apply.split && typeof instanceIndex === 'number') {
-    // A split spell (e.g. Magic Missile): apply ONE pre-rolled instance, chosen
-    // by index, to this target — auto-hit, no save. The client consumes indices
-    // in order and disarms when the darts run out.
-    const base = apply.split[instanceIndex] ?? 0;
+  if ((apply.darts || apply.split) && typeof instanceIndex === 'number') {
+    // A split spell (e.g. Magic Missile): assign ONE dart per clicked target —
+    // auto-hit, no save. New entries roll the dart's dice ON the click (capped at
+    // the dart count); legacy entries apply a pre-rolled instance by index.
+    let base: number;
+    if (apply.dice && apply.darts) {
+      if (instanceIndex >= apply.darts) return; // never exceed the dart count
+      base = rollDice(apply.dice)?.total ?? 0;
+    } else {
+      base = apply.split?.[instanceIndex] ?? 0;
+    }
     dmg = Math.floor(base * mult);
     const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     addRollLog(sessionId, {
-      roller: 'DM',
+      roller: src?.roller ?? 'DM',
       label: 'Damage',
       total: dmg,
       expr: `dart ${instanceIndex + 1}`,
@@ -963,20 +970,26 @@ function resolveSheetAbilityFor(
       ? spellSaveDC(level, stats)
       : roll.dc ?? 8 + prof + spellcastingMod(stats);
 
-  // A split spell (e.g. Magic Missile): roll each instance/dart separately so the
-  // DM can assign them one target at a time. Upcasting adds darts, not dice.
+  // A split spell (e.g. Magic Missile): assign one dart per target, each dart's
+  // dice rolled ON the click (not pre-rolled). Upcasting adds darts, not dice.
+  // `owner` lets the CASTER (the player) assign the darts, not only the DM.
   const instanceCount = splitInstanceCount(roll, castLevel);
   if (roll.kind === 'damage' && instanceCount > 0 && dice) {
-    const split = Array.from({ length: instanceCount }, () => rollDice(dice)!.total);
-    const val = split.reduce((a, b) => a + b, 0);
     addRollLog(sessionId, {
       roller,
       label: ability.name,
       expr: title,
-      total: val,
-      detail: `${title}: ${instanceCount} × [${dice}] = ${split.join(' + ')} = ${val}${dmgType} — assign one per target`,
+      total: 0,
+      detail: `${title}: ${instanceCount} × [${dice}]${dmgType} — assign one dart per target (rolls on each hit)`,
       description: ability.description || undefined,
-      apply: { amount: val, dc, damageType: roll.damageType, split },
+      apply: {
+        amount: 0,
+        dc,
+        damageType: roll.damageType,
+        darts: instanceCount,
+        dice,
+        owner: kind === 'pc' ? entity.id : undefined,
+      },
     });
     return true;
   }

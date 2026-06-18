@@ -301,7 +301,11 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                     ❓
                   </button>
                 )}
-                {isDm && r.apply && (
+                {r.apply && (isDm || !!r.apply.darts) && (() => {
+                  // Darts (Magic Missile): roll-on-click, capped at the dart count.
+                  // New entries use `darts`; legacy entries used a pre-rolled `split`.
+                  const dartCount = r.apply.darts ?? r.apply.split?.length;
+                  return (
                   <button
                     className={`btn tiny apply-dmg ${saveResolve?.rollId === r.id ? 'on' : ''}`}
                     onClick={() =>
@@ -310,26 +314,27 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
                         dc: r.apply!.dc,
                         save: r.apply!.save,
                         label: r.expr,
-                        splitTotal: r.apply!.split?.length,
+                        splitTotal: dartCount,
                       })
                     }
                     title={
-                      r.apply.split
-                        ? `Click ${r.apply.split.length} target(s) to assign each dart (${r.apply.split.join(', ')})`
-                        : r.apply.save
-                          ? `Click targets on the map to roll DC ${r.apply.dc} ${r.apply.save} saves and auto-apply full/half`
-                          : `Click targets on the map to apply ${r.apply.amount} damage`
+                      dartCount
+                        ? `Click ${dartCount} target(s) to assign each dart (rolls on each hit)`
+                        : r.apply!.save
+                          ? `Click targets on the map to roll DC ${r.apply!.dc} ${r.apply!.save} saves and auto-apply full/half`
+                          : `Click targets on the map to apply ${r.apply!.amount} damage`
                     }
                   >
                     {saveResolve?.rollId === r.id
-                      ? r.apply.split
-                        ? `🎯 Dart ${(saveResolve.splitUsed ?? 0) + 1}/${r.apply.split.length}… (Esc)`
+                      ? dartCount
+                        ? `🎯 Dart ${(saveResolve.splitUsed ?? 0) + 1}/${dartCount}… (Esc)`
                         : '🎯 Targeting… (Esc)'
-                      : r.apply.split
+                      : dartCount
                         ? `🎯 Assign darts`
                         : '🎯 Apply damage'}
                   </button>
-                )}
+                  );
+                })()}
               </span>
             </div>
           );

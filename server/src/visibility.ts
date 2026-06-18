@@ -81,6 +81,9 @@ function toPlayerMonster(m: Monster): Monster | MonsterPublic {
     conditions: m.conditions,
     disposition: m.disposition,
     icon: m.icon,
+    // Defeated enemies show a skull to players even though their HP stays
+    // hidden — a server-computed flag (0 HP or a "dead" condition).
+    dead: m.curHp <= 0 || m.conditions.some((c) => c.label.toLowerCase() === 'dead'),
     // Object kind is not secret — players should see a chest is a chest.
     ...(m.objectKind ? { objectKind: m.objectKind } : {}),
     // Loot is only revealed once the container is opened/unlocked.
@@ -201,18 +204,29 @@ export function createSnapshotBuilder(
     let shapedChat = chat;
 
     if (role === 'player') {
-      // Individually-hidden tokens, and any token sitting under a covered cell
-      // of EITHER enabled fog layer (map or token fog), are never sent.
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-      const covered = (t: Token) =>
-        coveredByFog(mapFog, tokenFog, grid, t.x, t.y);
+      // Map fog is a terrain blackout — it hides ANY token in an unrevealed cell.
+      const underMapFog = (t: Token) => coveredByFog(mapFog, null, grid, t.x, t.y);
+      // Token fog is for lurking threats: it hides ONLY enemy/neutral creatures.
+      // The party — PCs and friendly creatures — stays visible to players even
+      // under token fog (so you can always see your allies).
+      const underTokenFog = (t: Token) => coveredByFog(null, tokenFog, grid, t.x, t.y);
+      const isFoe = (t: Token) =>
+        t.kind === 'monster' &&
+        (monById.get(t.refId)?.disposition ?? 'enemy') !== 'friendly';
       // A player always sees their own claimed PC token, even under fog — they
       // know where they are; only OTHER players are kept from seeing it.
       const ownedBy = (t: Token) =>
         t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId;
-      tokens = tokens.filter((t) => !t.isHidden && (!covered(t) || ownedBy(t)));
+      tokens = tokens.filter((t) => {
+        if (t.isHidden) return false;
+        if (ownedBy(t)) return true;
+        if (underMapFog(t)) return false;
+        if (underTokenFog(t) && isFoe(t)) return false;
+        return true;
+      });
       shapedMonsters = playerMonsters ??= monsters.map(toPlayerMonster);
       // Rules-assistant Q&A is a DM tool — never leak it to players.
       shapedChat = playerChat ??= chat.filter((c) => !c.dmOnly);
@@ -226,6 +240,20 @@ export function createSnapshotBuilder(
           apply: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
+      // …except a split spell's caster keeps the apply payload for THEIR OWN
+      // entry, so the player who cast Magic Missile can assign its darts (the
+      // click-to-target path is no longer DM-only). Per-socket overlay on the
+      // shared cache, only when this viewer has such a roll in play.
+      const myDarts = rollLog.filter((e) => {
+        const owner = e.apply?.darts ? e.apply.owner : undefined;
+        return owner && charById.get(owner)?.claimedBy === socketId;
+      });
+      if (myDarts.length) {
+        const keep = new Map(myDarts.map((e) => [e.id, e.apply] as const));
+        shapedRollLog = shapedRollLog.map((e) =>
+          keep.has(e.id) ? { ...e, apply: keep.get(e.id) } : e,
+        );
+      }
     }
 
     return {

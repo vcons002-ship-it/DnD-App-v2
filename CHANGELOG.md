@@ -4,6 +4,23 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Combat & visibility fixes (bug pass)
+
+### Fixed
+- **Token fog** now hides only enemy/neutral creatures — your party (PCs +
+  friendly creatures) stays visible to players even under token fog. Map fog
+  (terrain blackout) is unchanged.
+- **Magic Missile** is now assigned by the **casting player** (not DM-gated):
+  each dart rolls its own damage on the click, capped at the dart count for the
+  slot level.
+
+### Added
+- **Players see who's dead** — a defeated enemy shows a skull even though its HP
+  stays hidden (server-computed `dead` flag).
+- **Players can end their own turn** — an "End turn" button appears in the top
+  bar on the active player's turn (server allows it only then; the DM still
+  advances anyone).
+
 ## 2026-06-16 — Map decals & shops
 
 ### Added

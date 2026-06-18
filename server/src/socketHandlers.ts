@@ -54,6 +54,7 @@ import {
   createCharacterFromLibrary,
   updateCharacter,
   getCharacter,
+  getRollEntry,
   getMonster,
   addMeasurement,
   clearMeasurements,
@@ -1158,8 +1159,15 @@ export function registerSocketHandlers(io: IOServer): void {
     // DC and auto-apply full/half of the rolled amount — DM only.
     socket.on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
       const sid = sessionId();
-      if (!sid || !isDm()) return;
+      if (!sid) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
+      // The DM resolves any apply; a player may resolve ONLY their own split
+      // spell's darts (Magic Missile), identified by the caster `owner` on the
+      // roll entry — the click-to-assign path is no longer DM-gated for those.
+      const owner = getRollEntry(rollId)?.apply?.owner;
+      const allowed =
+        isDm() || (!!owner && getCharacter(owner)?.claimedBy === socket.id);
+      if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const idx = typeof instanceIndex === 'number' ? instanceIndex : undefined;
       resolveForcedSave(sid, rollId, tokenId, adv, idx);
@@ -1389,6 +1397,22 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('initiative:next', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
+      advanceTurn(sid);
+      afterChange();
+    });
+
+    // A player may end the turn ONLY when the active combatant is their own
+    // claimed PC (the DM still advances anyone via initiative:next).
+    socket.on('initiative:endTurn', () => {
+      const sid = sessionId();
+      if (!sid) return;
+      if (!isDm()) {
+        const activeId = getSessionById(sid)?.activeTurnTokenId;
+        if (!activeId) return;
+        const tok = getToken(activeId);
+        const mine = getClaimedCharacterId(sid, socket.id);
+        if (!tok || tok.kind !== 'pc' || !mine || tok.refId !== mine) return;
+      }
       advanceTurn(sid);
       afterChange();
     });

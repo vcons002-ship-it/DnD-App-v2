@@ -146,7 +146,10 @@ sanitization rules above and commit it to `claude/Main`.
   player-visible difference). `hpNote` visibility is **PC/friendly-only**.
 - **`MapState`** has **two independent fog layers** (`mapFogEnabled/Revealed`,
   `tokenFogEnabled/Revealed`) plus grid placement fields
-  (`gridOffsetX/Y`, `gridLocked`, `gridHidden`).
+  (`gridOffsetX/Y`, `gridLocked`, `gridHidden`). **Map fog** is a terrain
+  blackout (hides ANY non-owned token in an unrevealed cell); **token fog** hides
+  ONLY enemy/neutral creatures — PCs and friendly creatures stay visible to
+  players even under token fog (a player always sees their own claimed PC too).
 - **`StateSnapshot`** is role-shaped and also carries `rollLog`, `chat`,
   `round`, `sessionName`, `annotations` (pen/text/image decals), and
   `hideDmRolls`.

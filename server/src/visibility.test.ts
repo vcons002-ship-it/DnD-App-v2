@@ -376,24 +376,50 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(2);
   });
 
-  it("never hides a player's own claimed PC token under fog (but hides it from others)", () => {
-    const session = createSession('OwnToken');
+  it('token fog hides only enemy/neutral creatures — the party stays visible', () => {
+    const session = createSession('TokenFog');
+    const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    // A claimed PC, a friendly ally, and an enemy — all under token fog.
+    const pc = createCharacter(session.id, { name: 'Hero', maxHp: 12 });
+    claimCharacter(pc.id, 'socket-A');
+    createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 10, y: 10 });
+    const allyTmpl = createMonsterTemplate(session.id, { name: 'Wolf', maxHp: 11 });
+    const ally = instantiateMonster(allyTmpl.id)!;
+    updateMonster(ally.id, { disposition: 'friendly' });
+    createToken({ mapId: map.id, kind: 'monster', refId: ally.id, x: 12, y: 12 });
+    const foe = spawnInstance(session.id, 'Orc', 9);
+    createToken({ mapId: map.id, kind: 'monster', refId: foe.id, x: 14, y: 14 });
+
+    setFogLayer(map.id, 'tokens', true);
+    coverFog(map.id, 'tokens');
+
+    // Both the owner AND another player see the party (PC + friendly) through
+    // token fog, but never the enemy.
+    for (const sock of ['socket-A', 'socket-B']) {
+      const snap = buildSnapshot(session.id, 'player', null, sock)!;
+      const refs = new Set(snap.tokens.map((t) => t.refId));
+      expect(refs.has(pc.id)).toBe(true);
+      expect(refs.has(ally.id)).toBe(true);
+      expect(refs.has(foe.id)).toBe(false);
+    }
+  });
+
+  it('map fog hides any non-owned token, but a player keeps their own PC', () => {
+    const session = createSession('MapFog');
     const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
     const pc = createCharacter(session.id, { name: 'Hero', maxHp: 12 });
     claimCharacter(pc.id, 'socket-A');
     createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 10, y: 10 });
 
-    // Cover the whole map with token fog → the PC token sits under cover.
-    setFogLayer(map.id, 'tokens', true);
-    coverFog(map.id, 'tokens');
+    // Map fog (terrain blackout) covers the whole map.
+    setFogLayer(map.id, 'map', true);
+    coverFog(map.id, 'map');
 
-    // The owning player still receives their own token...
-    const owner = buildSnapshot(session.id, 'player', null, 'socket-A')!;
-    expect(owner.tokens).toHaveLength(1);
-    // ...but a different player does not see it through the fog.
-    const other = buildSnapshot(session.id, 'player', null, 'socket-B')!;
-    expect(other.tokens).toHaveLength(0);
+    // The owning player still sees their own token; another player does not.
+    expect(buildSnapshot(session.id, 'player', null, 'socket-A')!.tokens).toHaveLength(1);
+    expect(buildSnapshot(session.id, 'player', null, 'socket-B')!.tokens).toHaveLength(0);
   });
 
   it('per-token hide keeps a token from players regardless of fog', () => {

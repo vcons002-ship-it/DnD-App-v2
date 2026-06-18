@@ -1255,19 +1255,25 @@ describe('Apply damage → click-to-target saves', () => {
     setSheetAbility('pc', ch.id, ability);
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability, 2); // cast at L2 → 4 darts
     const entry = listRollLog(s.id).at(-1)!;
-    expect(entry.apply!.split).toHaveLength(4);
-    // Each dart is 1d4+1 = 2..5; the total equals their sum.
-    expect(entry.apply!.split!.every((d) => d >= 2 && d <= 5)).toBe(true);
-    expect(entry.apply!.amount).toBe(entry.apply!.split!.reduce((a, b) => a + b, 0));
+    // Darts are no longer pre-rolled — the apply carries the dart count + dice and
+    // the caster owner, so the dice roll fresh on each click.
+    expect(entry.apply!.darts).toBe(4);
+    expect(entry.apply!.dice).toBe('1d4+1');
+    expect(entry.apply!.split).toBeUndefined();
+    expect(entry.apply!.owner).toBe(ch.id);
 
-    // Assigning dart 0 then dart 1 to two targets applies ONLY those darts'
-    // damage to each — not the full total to both (the bug we fixed).
+    // Assigning dart 0 then dart 1 to two targets applies ONLY one dart's damage
+    // (1d4+1 = 2..5) to each — not the full total to both (the bug we fixed).
     const a = target(s, map, { name: 'GobA', maxHp: 30, stats: {} });
     const b = target(s, map, { name: 'GobB', maxHp: 30, stats: {} });
     resolveForcedSave(s.id, entry.id, a.tok.id, undefined, 0);
     resolveForcedSave(s.id, entry.id, b.tok.id, undefined, 1);
-    expect(30 - getMonster(a.inst.id)!.curHp).toBe(entry.apply!.split![0]);
-    expect(30 - getMonster(b.inst.id)!.curHp).toBe(entry.apply!.split![1]);
+    const dmgA = 30 - getMonster(a.inst.id)!.curHp;
+    const dmgB = 30 - getMonster(b.inst.id)!.curHp;
+    expect(dmgA).toBeGreaterThanOrEqual(2);
+    expect(dmgA).toBeLessThanOrEqual(5);
+    expect(dmgB).toBeGreaterThanOrEqual(2);
+    expect(dmgB).toBeLessThanOrEqual(5);
   });
 });
 
