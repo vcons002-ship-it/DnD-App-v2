@@ -8,6 +8,7 @@ import type {
   CombatAttackPayload,
   CombatRole,
   CombatSavePayload,
+  CheckRollPayload,
   Condition,
   DiceRollPayload,
   FogLayer,
@@ -289,6 +290,7 @@ type Store = {
   sendChat: (text: string, speakAsTokenId?: string) => void;
   rollSkill: (payload: SkillRollPayload) => void;
   rollSave: (payload: SaveRollPayload) => void;
+  rollCheck: (payload: CheckRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -850,6 +852,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('chat:send', { text, speakAsTokenId }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   rollSave: (payload) => get().socket?.emit('save:roll', payload),
+  rollCheck: (payload) => get().socket?.emit('check:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>

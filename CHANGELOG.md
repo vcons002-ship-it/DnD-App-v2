@@ -4,6 +4,17 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Plain ability checks (Stat/Save menu)
+
+### Added
+- **Click a stat → a quick Stat/Save menu.** Clicking an ability score on the stat
+  block now opens a small popover: **🎲 Stat** rolls a plain ability check (d20 +
+  ability mod, **no proficiency**) and **🛡 Save** rolls the saving throw (adds
+  proficiency if proficient). Works for PCs and DM-controlled creatures
+  (`check:roll` → `resolveCheck`, with poisoned/frightened disadvantage and the
+  creature's armed adv/dis folded in). Enemy creature checks are mod-redacted for
+  players like other creature rolls.
+
 ## 2026-06-18 — Player AOE visibility + no enemy-stat leak
 
 ### Fixed

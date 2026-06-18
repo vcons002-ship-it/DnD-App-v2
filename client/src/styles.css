@@ -269,9 +269,18 @@ textarea:hover:not(:disabled) {
 .sb-ability { flex: 1; background: var(--panel); border-radius: 6px; padding: 3px 0; }
 .sb-ab-name { font-size: 10px; color: var(--muted); }
 .sb-ab-val { font-size: 13px; font-weight: 600; }
-/* Click an ability score to roll its saving throw. */
+/* Click an ability score → a small Stat (check) / Save menu. */
+.sb-ability-wrap { flex: 1; position: relative; }
+.sb-ability-wrap .sb-ability { width: 100%; box-sizing: border-box; }
 button.sb-ability-roll { border: 1px solid var(--line); color: var(--text); cursor: pointer; }
-button.sb-ability-roll:hover { border-color: var(--accent); background: var(--panel-2); }
+button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--accent); background: var(--panel-2); }
+.sb-roll-menu-backdrop { position: fixed; inset: 0; z-index: 30; }
+.sb-roll-menu {
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  z-index: 31; display: flex; gap: 4px; padding: 4px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); white-space: nowrap;
+}
 .sb-line { margin: 3px 0; }
 .sb-section { margin-top: 8px; }
 .sb-section h4 { margin: 6px 0 3px; color: var(--accent); }

@@ -1114,6 +1114,13 @@ export type SaveRollPayload = {
   ability: string;
   advantage?: 'adv' | 'dis';
 };
+/** Roll a PLAIN ability check (d20 + ability mod, no proficiency) for a creature. */
+export type CheckRollPayload = {
+  kind: TokenKind;
+  refId: string;
+  ability: string;
+  advantage?: 'adv' | 'dis';
+};
 /**
  * Roll a 5e skill check for a character (server-authoritative): d20 + the
  * sheet's ability modifier + proficiency bonus when proficient. `skill` is a
@@ -1354,6 +1361,7 @@ export interface ClientToServerEvents {
   'creature:speak': (payload: { tokenId: string }) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
+  'check:roll': (payload: CheckRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;

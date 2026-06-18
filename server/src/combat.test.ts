@@ -3,6 +3,7 @@ import {
   resolveAttack,
   resolveSaves,
   resolveSave,
+  resolveCheck,
   resolveSkillRoll,
   resolveTrapDisarm,
   resolveAbilityRoll,
@@ -1457,6 +1458,22 @@ describe('saving throws (stat-block click + per-creature advantage)', () => {
     const golem = instantiateMonster(tmpl.id)!;
     expect(resolveSave(s.id, 'DM', 'monster', golem.id, 'CON')).toBe(true);
     expect(listRollLog(s.id).at(-1)!.detail).toContain('Golem 1 — CON save');
+  });
+
+  it('rolls a PLAIN ability check (no proficiency) distinct from a save', () => {
+    const { s } = arena();
+    const pc = createCharacter(s.id, {
+      name: 'Cleric',
+      level: 5,
+      stats: { WIS: 16 }, // +3 mod; proficient WIS save adds +3 prof
+      saveProficiencies: ['WIS'],
+    });
+    expect(resolveCheck(s.id, 'Cleric', 'pc', pc.id, 'WIS')).toBe(true);
+    const log = listRollLog(s.id).at(-1)!;
+    expect(log.label).toBe('WIS check');
+    expect(log.detail).toContain('Cleric — WIS check');
+    // A check NEVER adds proficiency, even though the PC is proficient in WIS saves.
+    expect(log.detail).not.toContain('prof');
   });
 
   it('applies each creature’s own advantage in a bulk save', () => {

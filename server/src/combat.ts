@@ -627,6 +627,44 @@ export function resolveSave(
 }
 
 /**
+ * Roll ONE creature's PLAIN ability check — d20 + the ability modifier, with NO
+ * proficiency (that's what separates it from a skill check or a save). The armed
+ * adv/dis toggle and ability-check conditions (poisoned/frightened → disadvantage)
+ * fold in. Click-to-roll from the stat block's Stat/Save menu; PC or monster.
+ */
+export function resolveCheck(
+  sessionId: string,
+  roller: string,
+  kind: Token['kind'],
+  refId: string,
+  ability: string,
+  advantage?: Advantage,
+): boolean {
+  const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!ent) return false;
+  const ab = ability.trim().toUpperCase();
+  const c: Combatant = {
+    stats: effectiveStats(ent).scores,
+    level: ent.level,
+    isMonster: kind !== 'pc',
+  };
+  const adv = checkAdvantage(ent.conditions.map((x) => x.label), advantage);
+  // dc 0 → unused; `proficient: false` makes it a plain ability check.
+  const out = rollSavingThrow(c, ab, 0, adv.state, false);
+  addRollLog(sessionId, {
+    roller,
+    label: `${ab} check`,
+    expr: ab,
+    total: out.total,
+    detail:
+      `${ent.name} — ${ab} check: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}) = ${out.total}` +
+      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+    hideMods: hidesMods(kind, refId),
+  });
+  return true;
+}
+
+/**
  * Resolve a save/damage roll's "Apply damage" against ONE clicked target: roll the
  * target's save vs the stored DC (its own ability + proficiency + conditions), then
  * auto-apply full (fail) / half (pass) of the rolled amount, × resist/vuln. For a

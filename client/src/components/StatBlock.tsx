@@ -66,6 +66,9 @@ type Props = {
   /** When given, each ability score becomes clickable to roll that saving throw
    *  (server-resolved via `save:roll`, honoring the creature's adv/dis toggle). */
   onRollSave?: (ability: string) => void;
+  /** When given (alongside `onRollSave`), clicking a stat opens a small Stat/Save
+   *  menu — "Stat" rolls a plain ability check (no proficiency) via `check:roll`. */
+  onRollCheck?: (ability: string) => void;
   /** Omit the Actions & Traits blocks here so a parent can render them elsewhere
    *  (the character sheet collapses them to the bottom via `ActionsTraitsView`). */
   deferActionsTraits?: boolean;
@@ -111,6 +114,7 @@ export function StatBlock({
   masteries,
   monster = false,
   onRollSave,
+  onRollCheck,
   deferActionsTraits = false,
 }: Props) {
   const [editing, setEditing] = useState(false);
@@ -173,6 +177,7 @@ export function StatBlock({
         aiBusy={aiBusy}
         masteries={masteries}
         onRollSave={onRollSave}
+        onRollCheck={onRollCheck}
         deferActionsTraits={deferActionsTraits}
       />
     );
@@ -343,6 +348,7 @@ function ReadView({
   aiBusy,
   masteries,
   onRollSave,
+  onRollCheck,
   deferActionsTraits = false,
 }: {
   creature: StatSheet;
@@ -353,9 +359,12 @@ function ReadView({
   aiBusy?: boolean;
   masteries?: SheetAbility[];
   onRollSave?: (ability: string) => void;
+  onRollCheck?: (ability: string) => void;
   deferActionsTraits?: boolean;
 }) {
   const m = creature;
+  // Which ability's Stat/Save menu is open (click a score to toggle it).
+  const [rollMenu, setRollMenu] = useState<string | null>(null);
   const hasStats = ABILITIES.some((a) => m.stats[a] !== undefined);
   // Effective ability scores fold in feat/ASI + equipped-item modifiers (a PC
   // carries `modifiers`/`items`; a monster has neither → base scores), with a
@@ -449,8 +458,9 @@ function ReadView({
                   .map((p) => ` ${p.set ? `→${p.value}` : signed(p.value)} ${p.source}`)
                   .join('')}`
               : '';
+            const rollable = !!onRollSave && score !== undefined;
             const title =
-              [mathTitle, onRollSave && score !== undefined ? `roll ${a} save` : '']
+              [mathTitle, rollable ? `roll a ${a} check or save` : '']
                 .filter(Boolean)
                 .join(' · ') || undefined;
             const cell = (
@@ -463,20 +473,58 @@ function ReadView({
                 </div>
               </>
             );
-            // Clicking an ability rolls that saving throw when enabled.
-            return onRollSave && score !== undefined ? (
-              <button
-                key={a}
-                type="button"
-                className="sb-ability sb-ability-roll"
-                title={title ?? `Roll a ${a} saving throw`}
-                onClick={() => onRollSave(a)}
-              >
-                {cell}
-              </button>
-            ) : (
-              <div key={a} className="sb-ability" title={title}>
-                {cell}
+            // Clicking an ability opens a small Stat/Save menu (when both rolls are
+            // wired); falls back to rolling the save directly if only that's given.
+            if (!rollable) {
+              return (
+                <div key={a} className="sb-ability" title={title}>
+                  {cell}
+                </div>
+              );
+            }
+            const open = rollMenu === a;
+            return (
+              <div key={a} className="sb-ability-wrap">
+                <button
+                  type="button"
+                  className={`sb-ability sb-ability-roll ${open ? 'on' : ''}`}
+                  title={title ?? `Roll a ${a} check or save`}
+                  onClick={() =>
+                    onRollCheck ? setRollMenu(open ? null : a) : onRollSave!(a)
+                  }
+                >
+                  {cell}
+                </button>
+                {open && onRollCheck && (
+                  <>
+                    {/* Click-away catcher closes the menu. */}
+                    <div className="sb-roll-menu-backdrop" onClick={() => setRollMenu(null)} />
+                    <div className="sb-roll-menu">
+                      <button
+                        type="button"
+                        className="btn tiny"
+                        title={`Plain ${a} ability check (no proficiency)`}
+                        onClick={() => {
+                          onRollCheck(a);
+                          setRollMenu(null);
+                        }}
+                      >
+                        🎲 Stat
+                      </button>
+                      <button
+                        type="button"
+                        className="btn tiny"
+                        title={`${a} saving throw (adds proficiency if proficient)`}
+                        onClick={() => {
+                          onRollSave!(a);
+                          setRollMenu(null);
+                        }}
+                      >
+                        🛡 Save
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}

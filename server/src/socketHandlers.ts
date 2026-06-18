@@ -11,6 +11,7 @@ import {
   resolveObjectCheck,
   resolveSaves,
   resolveSave,
+  resolveCheck,
   resolveDeathSave,
   noteConcentration,
 } from './combat.js';
@@ -1250,6 +1251,16 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const ok = resolveSave(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
+      if (ok) afterChange();
+    });
+
+    socket.on('check:roll', ({ kind, refId, ability, advantage }) => {
+      const sid = sessionId();
+      if (!sid || typeof ability !== 'string' || typeof refId !== 'string') return;
+      const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
+      if (!allowed) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const ok = resolveCheck(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
       if (ok) afterChange();
     });
 
