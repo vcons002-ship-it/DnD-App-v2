@@ -129,7 +129,9 @@ sanitization rules above and commit it to `claude/Main`.
   (traits, free text), `icon`. `actions` is only a *transport* shape (SRD/AI/
   paste) — converted into weapons/sheetAbilities at insert; stored creatures
   keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
-  `resources`, `items`, `gold`, `deathSaves`, `claimedBy` (live socket) +
+  `resources`, `items`, `gold`, `deathSaves`, `killCount` (durable tally of
+  enemies dropped to 0 HP — public, shown on the sheet + a shared `KillScoreboard`),
+  `claimedBy` (live socket) +
   `ownerId` (durable per-browser id of the LAST holder — reconnect priority
   only, does NOT lock others; a char is "taken" only while `claimedBy` is a live
   socket or one in its disconnect grace; DM 🔓-unlocks a stuck claim). `Monster`
@@ -363,7 +365,16 @@ sanitization rules above and commit it to `claude/Main`.
   once dead + "Loot revealed"); trap ⚡ Trigger + player 🔧 Disarm.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
-  modal for both roles, auto-tab by pointer type), editable map names.
+  modal for both roles, auto-tab by pointer type), editable map names. **Settings**
+  also holds a per-device **combat-sound** mute (default on).
+- **Summons:** a **✋ Summon** panel (DM + players) spawns a lightweight friendly
+  creature token (Mage Hand / familiar / custom name+emoji) via `summon:create` —
+  a `disposition:'friendly'` monster, so the existing `token:move` gate lets the
+  owner drag it. **DM speaks-as:** `chat:send` carries `speakAsTokenId` so the DM
+  can voice the selected NPC (name + bubble; 🗣 toggle by the chat input).
+- **Audio cues:** client-only procedural Web Audio blips (`client/src/lib/sfx.ts`,
+  no assets) — hit/heal off `fx:hp`, miss/skill off new roll-log entries; per-user
+  localStorage mute.
 
 ## Remaining / not yet built
 
