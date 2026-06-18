@@ -1295,9 +1295,17 @@ describe('Apply damage → click-to-target saves', () => {
     const entry = listRollLog(s.id).at(-1)!;
     expect(entry.apply).toEqual({ amount: 10, dc: 99, save: 'DEX', damageType: 'fire' });
 
+    // The CAST animates the spell's single damage roll (Fireball-style)…
+    expect(entry.reveal?.kind).toBe('damage');
+    expect(entry.reveal?.damage).toBe(10);
+    expect(entry.reveal?.damageDice?.[0].faces?.length).toBe(10); // 10d1 → ten faces
+
     const { inst, tok } = target(s, map, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
     resolveForcedSave(s.id, entry.id, tok.id); // DC 99 → always FAIL → full 10
     expect(getMonster(inst.id)!.curHp).toBe(10);
+    // …but APPLYING the damage to each target does NOT animate (no reveal) — the
+    // dice were already rolled at cast; per-target reveals are deferred for now.
+    expect(listRollLog(s.id).at(-1)!.reveal).toBeUndefined();
     // The source roll keeps its payload so more targets can be clicked.
     expect(getRollEntry(entry.id)!.apply).toBeTruthy();
   });

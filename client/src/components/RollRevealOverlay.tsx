@@ -58,7 +58,7 @@ export function RollRevealOverlay() {
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
   const reveal = rollFx?.reveal;
-  const isDart = reveal?.kind === 'dart';
+  const isBurst = reveal?.kind === 'damage';
 
   const [stage, setStage] = useState<Stage>({
     phase: 'rolling',
@@ -83,7 +83,7 @@ export function RollRevealOverlay() {
     const dice = reveal.damageDice ?? [];
     const mods = reveal.damageMods ?? [];
 
-    if (isDart) {
+    if (isBurst) {
       setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceShown: 0, modsShown: 0 });
       at(DART_ROLL_MS, () =>
         setStage((p) => ({ ...p, diceShown: dice.length, modsShown: mods.length })),
@@ -159,7 +159,8 @@ export function RollRevealOverlay() {
         : reveal.outcome === 'hit'
           ? 'HIT'
           : 'MISS';
-  const showOutcome = stage.phase === 'outcome' || stage.phase === 'damage';
+  // A damage-only burst (cast AoE roll / Magic Missile dart) shows no HIT/MISS stamp.
+  const showOutcome = !isBurst && (stage.phase === 'outcome' || stage.phase === 'damage');
 
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
@@ -175,7 +176,7 @@ export function RollRevealOverlay() {
           {reveal.target ? <span className="rr-arrow"> → {reveal.target}</span> : ''}
         </div>
 
-        {!isDart && (
+        {!isBurst && (
           <div className="roll-reveal-tohit">
             <div className={`roll-reveal-die${stage.phase === 'rolling' ? ' rolling' : ''}`}>
               {stage.dieFace || '–'}
@@ -198,7 +199,7 @@ export function RollRevealOverlay() {
 
         {showOutcome && <div className="roll-reveal-outcome">{outcomeLabel}</div>}
 
-        {(isDart || stage.phase === 'damage') && (reveal.damage ?? 0) > 0 && (
+        {(isBurst || stage.phase === 'damage') && (reveal.damage ?? 0) > 0 && (
           <div className="roll-reveal-damage">
             <div className="rr-dmg-num" key={dmgShownNum}>
               {dmgShownNum}

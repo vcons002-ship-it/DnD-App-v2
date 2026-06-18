@@ -20,6 +20,11 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
   the labelled to-hit steps, the damage dice (with their faces) and modifier steps
   — surfaced from `combatMath` and persisted (rides the snapshot, already
   per-viewer filtered, so DM-hidden rolls don't animate for players).
+- **AoE / save spells (Fireball, etc.)** animate their damage roll **once, at
+  cast** — the single rolled total is the spell's damage. Applying it to each
+  target (the save-for-half click-to-target flow) does **not** animate, pending a
+  decision on what the DM wants revealed per target. (The principle: animate where
+  dice are actually rolled — so Magic Missile still bursts per assigned dart.)
 
 ## 2026-06-18 — Combat correctness verified (bug-pass follow-up)
 

@@ -671,7 +671,7 @@ export function resolveForcedSave(
       hpNote: dartNote,
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
-        kind: 'dart',
+        kind: 'damage',
         attacker: `${src?.expr ?? 'Spell'} · dart ${instanceIndex + 1}`,
         target: r.name,
         outcome: 'hit',
@@ -1078,9 +1078,13 @@ function resolveSheetAbilityFor(
     return true;
   }
 
-  // 'save' and 'damage' both roll the (scaled) dice; 'save' notes the target DC.
-  const dmgRoll = dice ? rollFaces(dice) : null;
+  // 'save' and 'damage' both roll the (scaled) dice ONCE at cast; 'save' notes the
+  // target DC. The single rolled total is the spell's damage — applying it to each
+  // target later (resolveForcedSave) just halves/applies this number, so only the
+  // CAST reveals an animation, not each application.
+  const dmgRoll = dice ? rollDice(dice) : null;
   const val = dmgRoll?.total ?? 0;
+  const dmgFaces = dmgRoll ? `${dice}[${dmgRoll.rolls.join(',')}]` : dice;
   const note =
     roll.kind === 'save' && roll.save
       ? ` — DC ${dc} ${roll.save} save for half`
@@ -1092,9 +1096,22 @@ function resolveSheetAbilityFor(
     label: ability.name,
     expr: title,
     total: val,
-    detail: `${title}: ${val}${dmgType} damage [${dmgRoll?.text ?? dice}]${note}`,
+    detail: `${title}: ${val}${dmgType} damage [${dmgFaces}]${note}`,
     description: ability.description || undefined,
     apply: applyPayload(roll, val, dc),
+    // Animate the spell's damage roll once, at cast (e.g. Fireball's 8d6).
+    ...(val > 0 && dmgRoll
+      ? {
+          reveal: {
+            kind: 'damage' as const,
+            attacker: title,
+            outcome: 'hit' as const,
+            damageDice: [{ label: dice, value: dmgRoll.total, faces: dmgRoll.rolls }],
+            damage: val,
+            damageType: roll.damageType,
+          },
+        }
+      : {}),
   });
   // Fired at a single target (floating menu) → roll its save + apply now.
   autoApplyToTarget(sessionId, entry, targetTokenId);

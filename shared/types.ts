@@ -761,8 +761,9 @@ export type RevealStep = {
   faces?: number[];
 };
 export type RollReveal = {
-  /** 'attack' = a to-hit + damage reveal; 'dart' = a single quick damage burst. */
-  kind?: 'attack' | 'dart';
+  /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
+   *  AoE/save spell's single damage roll, or one Magic Missile dart). */
+  kind?: 'attack' | 'damage';
   attacker: string;
   target?: string;
   /** The natural d20 face shown (the chosen die under adv/dis). Attacks only. */
