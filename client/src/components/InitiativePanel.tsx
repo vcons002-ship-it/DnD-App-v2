@@ -1,6 +1,7 @@
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
+import { KillScoreboard } from './KillScoreboard';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -86,6 +87,7 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           </button>
         </div>
       </div>
+      <KillScoreboard snapshot={snapshot} />
       {orderedTokens.map((t) => {
         const d = resolveToken(snapshot, t);
         const isTurn = t.id === snapshot.activeTurnTokenId;

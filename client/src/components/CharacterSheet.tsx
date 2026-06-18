@@ -30,6 +30,7 @@ export function CharacterSheet({
   const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCharacter = useStore((s) => s.aiFillCharacter);
   const rollSave = useStore((s) => s.rollSave);
+  const rollCheck = useStore((s) => s.rollCheck);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
   const [saving, setSaving] = useState(false);
@@ -58,6 +59,17 @@ export function CharacterSheet({
           editable
             ? (ability) =>
                 rollSave({
+                  kind: 'pc',
+                  refId: character.id,
+                  ability,
+                  advantage: consumeAdvantage(character.id),
+                })
+            : undefined
+        }
+        onRollCheck={
+          editable
+            ? (ability) =>
+                rollCheck({
                   kind: 'pc',
                   refId: character.id,
                   ability,

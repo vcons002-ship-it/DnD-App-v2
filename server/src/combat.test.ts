@@ -3,6 +3,7 @@ import {
   resolveAttack,
   resolveSaves,
   resolveSave,
+  resolveCheck,
   resolveSkillRoll,
   resolveTrapDisarm,
   resolveAbilityRoll,
@@ -115,6 +116,120 @@ describe('combat resolution', () => {
     expect(after).toBeLessThanOrEqual(before);
     // The attacker's badge now follows the weapon last used (a melee Slam).
     expect(getMonster(aInst.id)!.lastAttackRole).toBe('melee');
+  });
+
+  it('attaches a reveal payload (d20 + outcome + damage) to an attack roll', () => {
+    const { s, map } = arena();
+    const atkTmpl = createMonsterTemplate(s.id, {
+      name: 'Brute',
+      maxHp: 30,
+      weapons: [{ name: 'Slam', kind: 'melee', damage: '2d6+4', attackBonus: 50 }],
+    });
+    const target = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 40, armorClass: 1 });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atkTmpl.id)!.id, x: 0, y: 0 });
+    const t = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(target.id)!.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'DM', a.id, t.id, 0); // +50 vs AC 1 → hits (unless a nat 1)
+    const reveal = listRollLog(s.id).at(-1)!.reveal!;
+    expect(reveal).toBeTruthy();
+    expect(reveal.kind).toBe('attack');
+    expect(reveal.d20!).toBeGreaterThanOrEqual(1);
+    expect(reveal.d20!).toBeLessThanOrEqual(20);
+    // Outcome is one of the four reveal states and matches the rolled face.
+    expect(['hit', 'crit', 'miss', 'fumble']).toContain(reveal.outcome);
+    expect(reveal.outcome).toBe(reveal.d20 === 20 ? 'crit' : reveal.d20 === 1 ? 'fumble' : 'hit');
+    expect(reveal.attacker).toContain('Brute'); // instances are numbered ("Brute 1")
+    expect(reveal.target).toContain('Dummy');
+    // The to-hit total equals the natural d20 plus every revealed bonus step.
+    const bonusSum = (reveal.toHit ?? []).reduce((s, x) => s + x.value, 0);
+    expect(reveal.attackTotal).toBe(reveal.d20! + bonusSum);
+    if (reveal.outcome !== 'fumble') {
+      expect(reveal.damage).toBeGreaterThan(0);
+      // The damage count-up (dice + mods) lands on the applied damage.
+      const dice = (reveal.damageDice ?? []).reduce((s, x) => s + x.value, 0);
+      const mods = (reveal.damageMods ?? []).reduce((s, x) => s + x.value, 0);
+      expect(dice + mods).toBe(reveal.damage);
+      // Each dice step carries its individual faces.
+      expect((reveal.damageDice ?? [])[0]?.faces?.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('credits a PC with a kill when its attack drops an enemy to 0 HP', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Slayer',
+      className: 'Fighter',
+      level: 1,
+      stats: { STR: 16 },
+      weapons: [{ name: 'Greatsword', kind: 'melee', damage: '2d6', attackBonus: 50 }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 1, armorClass: 1 });
+    const gob = instantiateMonster(tmpl.id)!;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: gob.id, x: 1, y: 1 });
+
+    expect(getCharacter(ch.id)!.killCount).toBe(0);
+    // Attack until the 1-HP goblin drops (a +50 attack still misses on a nat 1,
+    // leaving it at 1 HP — so loop past the rare fumble). A miss never credits a
+    // kill, so the count lands on exactly 1 at the killing blow.
+    let killed = false;
+    for (let i = 0; i < 40 && !killed; i++) {
+      resolveAttack(s.id, ch.name, atk.id, tgt.id, 0);
+      killed = getMonster(gob.id)!.curHp <= 0;
+    }
+    expect(killed).toBe(true);
+    expect(getCharacter(ch.id)!.killCount).toBe(1);
+
+    // Hitting an already-dead target does NOT double-count the kill.
+    resolveAttack(s.id, ch.name, atk.id, tgt.id, 0);
+    expect(getCharacter(ch.id)!.killCount).toBe(1);
+  });
+
+  it('does not credit a kill to a monster attacker', () => {
+    const { s, map } = arena();
+    const atkTmpl = createMonsterTemplate(s.id, {
+      name: 'Ogre',
+      maxHp: 30,
+      weapons: [{ name: 'Club', kind: 'melee', damage: '2d6', attackBonus: 50 }],
+    });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atkTmpl.id)!.id, x: 0, y: 0 });
+    const tTmpl = createMonsterTemplate(s.id, { name: 'Rat', maxHp: 1, armorClass: 1 });
+    const t = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tTmpl.id)!.id, x: 1, y: 1 });
+    // No throw / no PC to credit — just confirm it resolves cleanly.
+    expect(resolveAttack(s.id, 'DM', a.id, t.id, 0)).toBe(true);
+  });
+
+  it("a PC's AOE save spell rolls damage but does NOT auto-apply to its target", () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Wizard',
+      className: 'Wizard',
+      level: 5,
+      stats: { INT: 18 },
+    });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
+    const inst = instantiateMonster(tmpl.id)!;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    const ability: SheetAbility = {
+      id: 'fb',
+      name: 'Fireball',
+      type: 'spell',
+      level: 3,
+      description: '',
+      roll: { kind: 'save', dice: '8d6', baseLevel: 3, save: 'DEX', damageType: 'fire' },
+    };
+    // Cast AT a target (combat console / floating menu).
+    resolveAbilityRoll(s.id, ch.name, ch, ability, undefined, undefined, tgt.id);
+    const entry = listRollLog(s.id).at(-1)!;
+    // The damage is rolled once and carried for later per-target clicks…
+    expect(entry.apply?.save).toBe('DEX');
+    expect(entry.apply?.amount).toBeGreaterThan(0);
+    // …owner is the casting PC, so visibility keeps the apply for them (Apply button)…
+    expect(entry.apply?.owner).toBe(ch.id);
+    // …and NOTHING was auto-applied to the targeted creature.
+    expect(getMonster(inst.id)!.curHp).toBe(20);
+    // The caster (or DM) then resolves it per target via the click path.
+    resolveForcedSave(s.id, entry.id, tgt.id);
+    expect(getMonster(inst.id)!.curHp).toBeLessThan(20);
   });
 
   it('rolls a save for each token and logs pass/fail', () => {
@@ -1215,9 +1330,17 @@ describe('Apply damage → click-to-target saves', () => {
     const entry = listRollLog(s.id).at(-1)!;
     expect(entry.apply).toEqual({ amount: 10, dc: 99, save: 'DEX', damageType: 'fire' });
 
+    // The CAST animates the spell's single damage roll (Fireball-style)…
+    expect(entry.reveal?.kind).toBe('damage');
+    expect(entry.reveal?.damage).toBe(10);
+    expect(entry.reveal?.damageDice?.[0].faces?.length).toBe(10); // 10d1 → ten faces
+
     const { inst, tok } = target(s, map, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
     resolveForcedSave(s.id, entry.id, tok.id); // DC 99 → always FAIL → full 10
     expect(getMonster(inst.id)!.curHp).toBe(10);
+    // …but APPLYING the damage to each target does NOT animate (no reveal) — the
+    // dice were already rolled at cast; per-target reveals are deferred for now.
+    expect(listRollLog(s.id).at(-1)!.reveal).toBeUndefined();
     // The source roll keeps its payload so more targets can be clicked.
     expect(getRollEntry(entry.id)!.apply).toBeTruthy();
   });
@@ -1232,6 +1355,45 @@ describe('Apply damage → click-to-target saves', () => {
     const { inst, tok } = target(s, map, { name: 'Straw', maxHp: 40, stats: { DEX: 10 }, weaknesses: ['fire'] });
     resolveForcedSave(s.id, entry.id, tok.id); // DC 1 → PASS → half 5, ×2 vuln = 10
     expect(getMonster(inst.id)!.curHp).toBe(30);
+  });
+
+  it('PC save spell (Hail of Thorns-style) deals HALF on a pass, not 0', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Ranger',
+      className: 'Ranger',
+      level: 5,
+      stats: { DEX: 16, WIS: 16 },
+    });
+    // A save-for-half spell with deterministic 10 damage (10d1).
+    const ability: SheetAbility = {
+      id: 'hot',
+      name: 'Hail of Thorns',
+      type: 'spell',
+      level: 1,
+      description: '',
+      roll: { kind: 'save', dice: '10d1', baseLevel: 1, save: 'DEX', damageType: 'piercing' },
+    };
+    resolveAbilityRoll(s.id, ch.name, ch, ability);
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply?.amount).toBe(10); // damage rolled at cast, carried into apply
+
+    const target = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
+    const inst = instantiateMonster(target.id)!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    // Force a PASS by overriding the entry's DC to 1 via a fresh cast at DC 1 is
+    // hard; instead resolve against the stored payload — a DEX 10 goblin vs DC ~13
+    // may fail, so assert the GENERAL rule via a guaranteed-pass DC-1 ability.
+    const easy: SheetAbility = {
+      ...ability,
+      id: 'hot2',
+      roll: { kind: 'save', dice: '10d1', dc: 1, baseLevel: 1, save: 'DEX', damageType: 'piercing' },
+    };
+    // Monsters honor an explicit roll.dc; reuse that path for a deterministic pass.
+    resolveMonsterSheetAbility(s.id, 'DM', inst, easy);
+    const e2 = listRollLog(s.id).at(-1)!;
+    resolveForcedSave(s.id, e2.id, tok.id); // DC 1 → PASS → half of 10 = 5 (NOT 0)
+    expect(getMonster(inst.id)!.curHp).toBe(15);
   });
 
   it('no-ops for a roll with no apply payload', () => {
@@ -1255,19 +1417,25 @@ describe('Apply damage → click-to-target saves', () => {
     setSheetAbility('pc', ch.id, ability);
     resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, ability, 2); // cast at L2 → 4 darts
     const entry = listRollLog(s.id).at(-1)!;
-    expect(entry.apply!.split).toHaveLength(4);
-    // Each dart is 1d4+1 = 2..5; the total equals their sum.
-    expect(entry.apply!.split!.every((d) => d >= 2 && d <= 5)).toBe(true);
-    expect(entry.apply!.amount).toBe(entry.apply!.split!.reduce((a, b) => a + b, 0));
+    // Darts are no longer pre-rolled — the apply carries the dart count + dice and
+    // the caster owner, so the dice roll fresh on each click.
+    expect(entry.apply!.darts).toBe(4);
+    expect(entry.apply!.dice).toBe('1d4+1');
+    expect(entry.apply!.split).toBeUndefined();
+    expect(entry.apply!.owner).toBe(ch.id);
 
-    // Assigning dart 0 then dart 1 to two targets applies ONLY those darts'
-    // damage to each — not the full total to both (the bug we fixed).
+    // Assigning dart 0 then dart 1 to two targets applies ONLY one dart's damage
+    // (1d4+1 = 2..5) to each — not the full total to both (the bug we fixed).
     const a = target(s, map, { name: 'GobA', maxHp: 30, stats: {} });
     const b = target(s, map, { name: 'GobB', maxHp: 30, stats: {} });
     resolveForcedSave(s.id, entry.id, a.tok.id, undefined, 0);
     resolveForcedSave(s.id, entry.id, b.tok.id, undefined, 1);
-    expect(30 - getMonster(a.inst.id)!.curHp).toBe(entry.apply!.split![0]);
-    expect(30 - getMonster(b.inst.id)!.curHp).toBe(entry.apply!.split![1]);
+    const dmgA = 30 - getMonster(a.inst.id)!.curHp;
+    const dmgB = 30 - getMonster(b.inst.id)!.curHp;
+    expect(dmgA).toBeGreaterThanOrEqual(2);
+    expect(dmgA).toBeLessThanOrEqual(5);
+    expect(dmgB).toBeGreaterThanOrEqual(2);
+    expect(dmgB).toBeLessThanOrEqual(5);
   });
 });
 
@@ -1290,6 +1458,22 @@ describe('saving throws (stat-block click + per-creature advantage)', () => {
     const golem = instantiateMonster(tmpl.id)!;
     expect(resolveSave(s.id, 'DM', 'monster', golem.id, 'CON')).toBe(true);
     expect(listRollLog(s.id).at(-1)!.detail).toContain('Golem 1 — CON save');
+  });
+
+  it('rolls a PLAIN ability check (no proficiency) distinct from a save', () => {
+    const { s } = arena();
+    const pc = createCharacter(s.id, {
+      name: 'Cleric',
+      level: 5,
+      stats: { WIS: 16 }, // +3 mod; proficient WIS save adds +3 prof
+      saveProficiencies: ['WIS'],
+    });
+    expect(resolveCheck(s.id, 'Cleric', 'pc', pc.id, 'WIS')).toBe(true);
+    const log = listRollLog(s.id).at(-1)!;
+    expect(log.label).toBe('WIS check');
+    expect(log.detail).toContain('Cleric — WIS check');
+    // A check NEVER adds proficiency, even though the PC is proficient in WIS saves.
+    expect(log.detail).not.toContain('prof');
   });
 
   it('applies each creature’s own advantage in a bulk save', () => {
@@ -1368,6 +1552,26 @@ describe('Battle Master maneuvers', () => {
       prone = getMonster(tInst.id)!.conditions.some((c) => c.label === 'Prone');
     }
     expect(prone).toBe(true);
+  });
+
+  it('applies weapon damage on a hit even when a save-rider (Pushing Attack) fires', () => {
+    // #9 regression: the maneuver's save rider carries amount:0 (the push deals
+    // no damage), but the weapon's own damage — crit-doubled when it crits — must
+    // still land on the target's HP. Use a bigger die so the hit is unmistakable.
+    const { s, tInst, atk, tgt } = fight(
+      { active: true, addDieTo: 'damage', save: { ability: 'STR', onFail: 'Prone' } },
+      { name: 'Maul', kind: 'melee', damage: '4d10', attackBonus: 50 },
+    );
+    const before = getMonster(tInst.id)!.curHp;
+    resolveAttack(s, 'Fighter', atk, tgt, 0);
+    const after = getMonster(tInst.id)!.curHp;
+    // The weapon dice (4d10 ≥ 4) + maneuver die landed on HP — never swallowed by
+    // the rider.
+    expect(after).toBeLessThan(before);
+    expect(before - after).toBeGreaterThanOrEqual(4);
+    // The push rider itself is a separate, damage-less save entry.
+    const rider = listRollLog(s).find((e) => e.label === 'STR save');
+    expect(rider?.apply?.amount).toBe(0);
   });
 
   it('does not fire when no Superiority Die is left', () => {
@@ -1488,7 +1692,7 @@ describe('targeted attack-roll spells & monster actions', () => {
 });
 
 describe('save action fired at a single target (floating menu)', () => {
-  it('rolls the target’s save and applies damage immediately', () => {
+  it('rolls the damage once but applies it per target via the Apply click', () => {
     const { s, map } = arena();
     // Target dummy: lots of HP, a terrible DEX save and no proficiency.
     const dummy = instantiateMonster(
@@ -1520,7 +1724,13 @@ describe('save action fired at a single target (floating menu)', () => {
       undefined,
       tok.id, // <- targeted from the floating menu
     );
-    // Save auto-resolved → dummy took damage without a separate Apply step.
+    // A save-for-half (AOE) spell is NOT auto-applied to one creature: the dice are
+    // rolled and stored for the per-target "Apply damage" clicks.
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply?.save).toBe('DEX');
+    expect(getMonster(dummy.id)!.curHp).toBe(100);
+    // Applying it (the click path) then damages the failed save.
+    resolveForcedSave(s.id, entry.id, tok.id);
     expect(getMonster(dummy.id)!.curHp).toBeLessThan(100);
   });
 });

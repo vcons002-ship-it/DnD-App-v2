@@ -269,9 +269,18 @@ textarea:hover:not(:disabled) {
 .sb-ability { flex: 1; background: var(--panel); border-radius: 6px; padding: 3px 0; }
 .sb-ab-name { font-size: 10px; color: var(--muted); }
 .sb-ab-val { font-size: 13px; font-weight: 600; }
-/* Click an ability score to roll its saving throw. */
+/* Click an ability score → a small Stat (check) / Save menu. */
+.sb-ability-wrap { flex: 1; position: relative; }
+.sb-ability-wrap .sb-ability { width: 100%; box-sizing: border-box; }
 button.sb-ability-roll { border: 1px solid var(--line); color: var(--text); cursor: pointer; }
-button.sb-ability-roll:hover { border-color: var(--accent); background: var(--panel-2); }
+button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--accent); background: var(--panel-2); }
+.sb-roll-menu-backdrop { position: fixed; inset: 0; z-index: 30; }
+.sb-roll-menu {
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  z-index: 31; display: flex; gap: 4px; padding: 4px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); white-space: nowrap;
+}
 .sb-line { margin: 3px 0; }
 .sb-section { margin-top: 8px; }
 .sb-section h4 { margin: 6px 0 3px; color: var(--accent); }
@@ -300,6 +309,16 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
   border-bottom: 1px dashed var(--line); border-radius: 0; text-align: center;
 }
 .init-row.dead { opacity: 0.6; color: var(--muted); font-style: italic; }
+
+/* Player "End turn" button in the top bar — highlighted while it's their turn. */
+.btn.tiny.end-turn {
+  margin-left: 8px; border-color: var(--good, #4caf50); color: var(--good, #4caf50);
+  font-weight: 600; animation: end-turn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes end-turn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.0); }
+  50% { box-shadow: 0 0 6px 1px rgba(76, 175, 80, 0.45); }
+}
 
 .init-header { display: flex; align-items: center; justify-content: space-between; }
 .init-actions { display: flex; gap: 4px; }
@@ -848,6 +867,113 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .spell-meta { font-size: 11px; }
 .spell-add { margin-top: 6px; }
 .spell-none { font-size: 12px; padding: 6px; margin: 0; }
+/* Collapsible spell GROUPS (Cantrips / Level N / Other abilities). */
+.spell-group { margin: 6px 0 2px; }
+.spell-group-head { display: flex; align-items: baseline; gap: 6px; width: 100%; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--muted); text-align: left; cursor: pointer; padding: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.spell-group-title { font-weight: 700; color: var(--text); }
+/* Tap ▲/▼ reorder within a group. */
+.spell-reorder { display: inline-flex; gap: 1px; }
+.spell-reorder .res-x { font-size: 10px; }
+.spell-desc-edit { width: 100%; box-sizing: border-box; min-height: 44px; margin: 2px 0; font: inherit; font-size: 12px; resize: vertical; }
+/* Kill count: a sheet badge + the shared scoreboard. */
+.kill-badge { font-size: 12px; color: var(--danger, #e06c75); font-weight: 600; }
+.kill-scoreboard { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 4px 6px; margin: 4px 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+.kill-scoreboard-title { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; color: var(--muted); }
+.kill-scoreboard-row { display: inline-flex; align-items: baseline; gap: 4px; }
+.kill-scoreboard-row .kill-name { font-weight: 600; }
+.kill-scoreboard-row .kill-num { color: var(--danger, #e06c75); font-weight: 700; }
+/* DM "speak as selected token" toggle above the chat input. */
+.btn.tiny.speak-as { align-self: flex-start; margin: 2px 0; }
+/* Summon-tagging editor on a spell/ability (icon + optional token name). */
+.summon-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.summon-icon { width: 38px; text-align: center; flex: 0 0 auto; }
+/* A checkbox-style settings row (label + box on one line). */
+.settings-field.settings-check { flex-direction: row; align-items: center; gap: 8px; }
+.settings-field.settings-check input { width: auto; }
+
+/* Attack-roll reveal animation — a brief, non-blocking centred card everyone sees
+   when an attack resolves. The backdrop is CLICK-THROUGH so play isn't blocked;
+   only the card captures a click (to skip early). */
+.roll-reveal-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; /* non-blocking — the map stays interactive */
+}
+.roll-reveal {
+  pointer-events: auto; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  min-width: 240px; padding: 16px 22px; border-radius: 16px;
+  background: rgba(18, 19, 24, 0.94); border: 2px solid var(--line);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+  animation: roll-reveal-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+.roll-reveal-who { font-size: 13px; color: var(--muted); }
+.roll-reveal-who .rr-arrow { color: var(--text); }
+/* To-hit row: the tumbling d20 + the running total + bonus chips. */
+.roll-reveal-tohit { display: flex; align-items: center; gap: 14px; }
+/* Dice drawn in their REAL polygon shapes (filled clip-path silhouettes):
+   d4 triangle · d6 square · d8 diamond · d10 kite · d12 pentagon · d20 hexagon. */
+.die {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; line-height: 1; color: #fff; background: #3a3f4b;
+}
+.die-big { width: 66px; height: 66px; font-size: 34px; }
+.die.rolling { animation: rr-tumble 0.18s linear infinite; }
+.die-d6 { border-radius: 12px; }
+.die-d4 { clip-path: polygon(50% 4%, 96% 95%, 4% 95%); align-items: flex-end; padding-bottom: 10%; box-sizing: border-box; }
+.die-d8 { clip-path: polygon(50% 1%, 99% 50%, 50% 99%, 1% 50%); }
+.die-d10 { clip-path: polygon(50% 1%, 92% 38%, 50% 99%, 8% 38%); }
+.die-d12 { clip-path: polygon(50% 1%, 99% 39%, 80% 99%, 20% 99%, 1% 39%); }
+.die-d20 { clip-path: polygon(50% 1%, 95% 26%, 95% 74%, 50% 99%, 5% 74%, 5% 26%); }
+/* Damage dice: small, tinted, laid out in a row by face. */
+.rr-dice-row { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 240px; }
+.rr-dice-row .die { width: 30px; height: 30px; font-size: 14px; background: #25404d; color: #cfeefb; }
+.rr-dice-row .die.die-crit { background: #5a4012; color: #ffe6b0; }
+.rr-buildup { display: flex; flex-direction: column; gap: 4px; min-width: 80px; }
+.rr-total { font-size: 30px; font-weight: 800; line-height: 1; animation: rr-bump 0.24s ease-out; }
+.rr-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rr-chip {
+  font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  background: #2a2d36; border: 1px solid var(--line); color: #cfd3dc;
+  animation: rr-chip-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+.rr-chip.rr-dice { background: #20303a; border-color: #2f5566; color: #bfe3f0; }
+.roll-reveal-outcome { font-size: 24px; font-weight: 800; letter-spacing: 0.03em; animation: rr-stamp 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+.roll-reveal-damage { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.rr-dmg-num { font-size: 26px; font-weight: 800; color: #ff8a8a; animation: rr-bump 0.24s ease-out; }
+.rr-dmg-type { font-size: 13px; font-weight: 600; color: var(--muted); }
+/* Outcome colour is HELD BACK until the result is revealed: the card + its d20
+   stay grey (pending) through the tumble + to-hit build-up, then take the outcome
+   colour at the stamp. Damage dice keep their own blue tint regardless. */
+.roll-reveal-pending { border-color: var(--line); }
+.roll-reveal-pending .roll-reveal-tohit .die { background: #3a3f4b; color: #e8eaf0; }
+.roll-reveal-crit { border-color: #ffcf4d; box-shadow: 0 12px 48px rgba(255, 207, 77, 0.25); }
+.roll-reveal-crit .roll-reveal-tohit .die { background: #6b540f; color: #fff3cf; }
+.roll-reveal-crit .roll-reveal-outcome { color: #ffcf4d; }
+.roll-reveal-hit { border-color: #5fae5f; }
+.roll-reveal-hit .roll-reveal-tohit .die { background: #2f6b35; color: #eaffea; }
+.roll-reveal-hit .roll-reveal-outcome { color: #7ed07e; }
+.roll-reveal-miss { border-color: #6a6f7d; }
+.roll-reveal-miss .roll-reveal-tohit .die { background: #3a3f4b; color: #b8bcc6; }
+.roll-reveal-miss .roll-reveal-outcome { color: #9aa0ad; }
+.roll-reveal-fumble { border-color: #e23b3b; }
+.roll-reveal-fumble .roll-reveal-tohit .die { background: #6e2020; color: #ffe0e0; }
+.roll-reveal-fumble .roll-reveal-outcome { color: #ff6b6b; }
+@keyframes roll-reveal-pop {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.92); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rr-tumble {
+  0% { transform: rotate(-12deg) scale(0.96); }
+  50% { transform: rotate(10deg) scale(1.04); }
+  100% { transform: rotate(-12deg) scale(0.96); }
+}
+@keyframes rr-bump { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes rr-stamp { 0% { opacity: 0; transform: scale(1.6) rotate(-6deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes rr-chip-in { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .die.rolling, .rr-total, .rr-dmg-num, .rr-chip, .roll-reveal-outcome { animation: none; }
+}
 
 /* Skills (proficiency toggle + click-to-roll) */
 .skills { margin-top: 10px; }
@@ -1237,6 +1363,7 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .attack-controls { margin-top: 10px; }
 .attack-controls select { flex: 1; }
 /* Combat section ability rows: roll button + optional upcast level select. */
+.combat-summon-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .combat-ability-row { display: flex; align-items: center; gap: 4px; }
 .combat-ability-row .attack-row { flex: 1; margin: 3px 0; }
 /* Combat section toggle chips (stances / masteries / maneuvers). */

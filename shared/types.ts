@@ -191,6 +191,9 @@ export type Character = {
   /** 5e death saving throws while at 0 HP (each caps at 3). Reset when healed
    *  above 0; 3 successes = stable, 3 failures = dead. */
   deathSaves: { successes: number; failures: number };
+  /** Count of enemies this PC has dropped to 0 HP — shown on the sheet + a shared
+   *  scoreboard. Visible to everyone (public). */
+  killCount: number;
   /** The combat role of this creature's most recent attack (melee/ranged/caster),
    *  so the token badge follows the weapon last used; null until it attacks. */
   lastAttackRole: CombatRole | null;
@@ -393,6 +396,11 @@ export type SheetAbility = {
    * player can adjust.
    */
   useCounter?: { name: string; max: number };
+  /** Marks this spell/ability as a SUMMON: a ✋ Summon button spawns a friendly
+   *  companion token (Find Familiar, Mage Hand, Conjure Animals…). `name`/`icon`
+   *  override the spawned token (default to the ability's name + a hand icon).
+   *  Casting a leveled summon spell spends a slot like any other leveled cast. */
+  summon?: { name?: string; icon?: string };
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -611,6 +619,9 @@ export type MonsterPublic = {
   conditions: Condition[];
   disposition: Disposition;
   icon: string;
+  /** Server-computed: the creature is defeated (0 HP or a "dead" condition).
+   *  Lets players see a skull on a downed enemy without exposing its HP. */
+  dead?: boolean;
   /** Non-combat object kind (chest/door/…), so players' UI shows it as an object. */
   objectKind?: ObjectKind;
   /** Loot inside an object — only sent to players once it's opened/unlocked
@@ -739,6 +750,43 @@ export type Measurement = {
 };
 
 /** An entry in the session's shared dice roll log. */
+/** Cosmetic reveal for an attack roll: the natural d20 face, the outcome, and any
+ *  damage dealt — drives the brief client-side roll-reveal animation.
+ *
+ *  The animation plays in stages: the raw die lands, then each `toHit` step flies
+ *  in and the running total counts UP to `attackTotal`; on a hit the damage dice
+ *  land and each `damageMods` step counts the total up to `damage`. A `dart` is a
+ *  single quick damage burst (Magic Missile assigns one per click). */
+export type RevealStep = {
+  /** Short label, e.g. "STR", "PROF", "MAGIC", "GWM". */
+  label: string;
+  /** Signed amount added to the running total. */
+  value: number;
+  /** For a dice step: the individual die faces rolled (e.g. [4, 6]). */
+  faces?: number[];
+};
+export type RollReveal = {
+  /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
+   *  AoE/save spell's single damage roll, or one Magic Missile dart). */
+  kind?: 'attack' | 'damage';
+  attacker: string;
+  target?: string;
+  /** The natural d20 face shown (the chosen die under adv/dis). Attacks only. */
+  d20?: number;
+  /** Bonuses added to the d20, revealed one by one (ability mod, proficiency, …). */
+  toHit?: RevealStep[];
+  /** Final to-hit total (d20 + every `toHit` step). */
+  attackTotal?: number;
+  outcome: 'hit' | 'miss' | 'crit' | 'fumble';
+  /** Damage dice with their individual faces (a crit adds a second dice step). */
+  damageDice?: RevealStep[];
+  /** Flat damage modifiers added after the dice (ability mod, magic, mastery…). */
+  damageMods?: RevealStep[];
+  /** Damage applied on a hit (the final total the count-up lands on). */
+  damage?: number;
+  damageType?: string;
+};
+
 export type RollEntry = {
   id: string;
   /** Who rolled — a character name, "DM", or "Player". */
@@ -751,6 +799,10 @@ export type RollEntry = {
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
   description?: string;
+  /** Structured payload for the brief attack-roll REVEAL animation everyone sees
+   *  when an attack resolves (the d20 face, the HIT/MISS/CRIT/FUMBLE outcome, and
+   *  any damage). Purely cosmetic — the mechanics already applied server-side. */
+  reveal?: RollReveal;
   /** Accounting note for the HP change this roll applied ("Druk HP 42→38";
    *  temp HP shows as "42+5") — helps spot/correct mistakes. Carries the target
    *  so `visibility.ts` can shape it per viewer: players see it for PCs and
@@ -758,6 +810,11 @@ export type RollEntry = {
   hpNote?: { kind: TokenKind; refId: string; text: string };
   /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
   dmOnly?: boolean;
+  /** The roll is by/against an ENEMY/NEUTRAL creature whose stats players can't
+   *  see — so `visibility.ts` strips the labelled ability/proficiency/magic
+   *  modifier breakdown (in `detail` and the reveal) for players, keeping the
+   *  d20, total and outcome. Friendly/PC rolls show their mods normally. */
+  hideMods?: boolean;
   /** DM-only: present on a save/damage spell's damage roll so the log can offer an
    *  "Apply damage" button that starts click-to-target save resolution. Stripped
    *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
@@ -769,12 +826,16 @@ export type RollEntry = {
     /** Condition applied to a target that FAILS the save (Battle Master riders). */
     onFail?: string;
     /**
-     * Per-instance pre-rolled damages (e.g. Magic Missile darts). When present,
-     * the DM assigns ONE instance per clicked target (consumed in order) instead
-     * of applying the full `amount` to every target. Server-rolled; the client
-     * only tells the server which instance index to apply.
+     * Legacy: per-instance PRE-rolled damages (old Magic Missile entries). New
+     * casts use `darts`+`dice` (roll-on-click) instead; kept so old logs resolve.
      */
     split?: number[];
+    /** Split spell (Magic Missile): number of darts to assign, one per click. */
+    darts?: number;
+    /** Per-dart damage dice, rolled fresh on each click (e.g. "1d4+1"). */
+    dice?: string;
+    /** Caster's character id — lets THAT player (not just the DM) assign the darts. */
+    owner?: string;
   };
   createdAt: number;
 };
@@ -1016,6 +1077,8 @@ export type LootTakePayload = {
 export type AbilitySetPayload = { kind: TokenKind; refId: string; ability: SheetAbility };
 /** Remove a spell/ability from a creature/character sheet. */
 export type AbilityRemovePayload = { kind: TokenKind; refId: string; abilityId: string };
+/** Reorder a creature's `sheetAbilities` to match a client-supplied id order. */
+export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds: string[] };
 /**
  * Roll a sheet spell/ability into the shared log (server-authoritative).
  * `castLevel` upcasts a leveled spell; omit for cantrips/abilities. For a monster
@@ -1046,6 +1109,13 @@ export type SaveResolvePayload = {
 /** Roll ONE creature's saving throw for an ability (click a stat block to roll a
  *  save). Server-authoritative: d20 + ability mod + proficiency when proficient. */
 export type SaveRollPayload = {
+  kind: TokenKind;
+  refId: string;
+  ability: string;
+  advantage?: 'adv' | 'dis';
+};
+/** Roll a PLAIN ability check (d20 + ability mod, no proficiency) for a creature. */
+export type CheckRollPayload = {
   kind: TokenKind;
   refId: string;
   ability: string;
@@ -1248,11 +1318,23 @@ export interface ClientToServerEvents {
   'trap:disarm': (payload: TrapDisarmPayload) => void;
   'object:interact': (payload: ObjectInteractPayload) => void;
   'object:paste': (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
+  /** Cast a summon-tagged spell/ability: spawn its friendly companion token (and
+   *  spend a slot for a leveled spell). Owner = the casting PC (or the DM). */
+  'summon:cast': (payload: {
+    kind: TokenKind;
+    refId: string;
+    abilityId: string;
+    mapId: string;
+    x: number;
+    y: number;
+    castLevel?: number;
+  }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
+  'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
-  'chat:send': (payload: { text: string }) => void;
+  'chat:send': (payload: { text: string; speakAsTokenId?: string }) => void;
   /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
    *  — the server pops a typing bubble over their claimed PC token for others. */
   'chat:typing': (payload: { typing: boolean }) => void;
@@ -1279,6 +1361,7 @@ export interface ClientToServerEvents {
   'creature:speak': (payload: { tokenId: string }) => void;
   'save:resolve': (payload: SaveResolvePayload) => void;
   'save:roll': (payload: SaveRollPayload) => void;
+  'check:roll': (payload: CheckRollPayload) => void;
   'skill:roll': (payload: SkillRollPayload) => void;
   'ai:fillCharacter': (payload: AiFillCharacterPayload) => void;
   'ai:createCharacter': (payload: AiCreateCharacterPayload) => void;
@@ -1291,6 +1374,8 @@ export interface ClientToServerEvents {
   'initiative:rollAll': () => void;
   'initiative:rollMissing': () => void;
   'initiative:next': () => void;
+  /** A player ends their own turn (server allows only when it's their PC's turn). */
+  'initiative:endTurn': () => void;
   'initiative:clear': () => void;
   'initiative:setRound': (payload: { round: number }) => void;
   'session:setHideDmRolls': (payload: { hide: boolean }) => void;

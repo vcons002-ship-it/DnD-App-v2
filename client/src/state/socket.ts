@@ -8,6 +8,7 @@ import type {
   CombatAttackPayload,
   CombatRole,
   CombatSavePayload,
+  CheckRollPayload,
   Condition,
   DiceRollPayload,
   FogLayer,
@@ -27,6 +28,7 @@ import type {
   MonsterCreatePayload,
   MonsterUpdatePayload,
   Role,
+  RollReveal,
   ServerToClientEvents,
   SaveRollPayload,
   SheetAbility,
@@ -35,6 +37,7 @@ import type {
   TokenKind,
   TokenShape,
 } from '../../../shared/types';
+import { playHit, playMiss, playHeal, playSkill } from '../lib/sfx';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -50,6 +53,11 @@ const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const cursorTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let nextSayId = 1;
+/** Roll-log ids already handled (audio cue + reveal), so a fresh entry fires
+ *  exactly once. The snapshot log is small (≤30, oldest-first), so a per-snapshot
+ *  Set is cheap. Seeded on the first snapshot so a reconnect's backlog is silent. */
+let seenRollIds = new Set<string>();
+let rollSfxReady = false;
 
 type Store = {
   socket: TypedSocket | null;
@@ -72,6 +80,14 @@ type Store = {
   /** One-shot red screen-edge flash when MY claimed PC takes damage (players
    *  only — the DM claims nothing). Cleared automatically after the CSS anim. */
   hurtFx: { id: number; amount: number } | null;
+  /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
+   *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
+  rollFx: { id: number; reveal: RollReveal } | null;
+  /** Dismiss the current roll-reveal animation (click/tap to skip). */
+  dismissRollFx: () => void;
+  /** Per-user toggle: show the roll-reveal animation (default ON). */
+  showRollAnim: boolean;
+  toggleRollAnim: () => void;
   /** Live in-progress positions of tokens OTHERS are dragging (server
    *  'fx:tokenDrag'), keyed by tokenId; each auto-expires shortly after the
    *  updates stop. Drives a ghost tether + distance over the watched token. */
@@ -169,6 +185,15 @@ type Store = {
   clearMeasurements: (mapId: string, mineOnly?: boolean) => void;
   addAnnotation: (payload: AnnotationAddPayload) => void;
   pasteObject: (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
+  summonCast: (payload: {
+    kind: TokenKind;
+    refId: string;
+    abilityId: string;
+    mapId: string;
+    x: number;
+    y: number;
+    castLevel?: number;
+  }) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
@@ -259,11 +284,13 @@ type Store = {
   interactObject: (payload: ObjectInteractPayload) => void;
   setSheetAbility: (kind: TokenKind, refId: string, ability: SheetAbility) => void;
   removeSheetAbility: (kind: TokenKind, refId: string, abilityId: string) => void;
+  reorderSheetAbilities: (kind: TokenKind, refId: string, orderedIds: string[]) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
   rollDeathSave: (characterId: string) => void;
-  sendChat: (text: string) => void;
+  sendChat: (text: string, speakAsTokenId?: string) => void;
   rollSkill: (payload: SkillRollPayload) => void;
   rollSave: (payload: SaveRollPayload) => void;
+  rollCheck: (payload: CheckRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
   setTokensCondition: (
@@ -289,6 +316,8 @@ type Store = {
   rollAllInitiative: () => void;
   rollMissingInitiative: () => void;
   nextTurn: () => void;
+  /** A player ends their own turn (no-op server-side unless it's their PC's turn). */
+  endTurn: () => void;
   clearInitiative: () => void;
   setRound: (round: number) => void;
   setHideDmRolls: (hide: boolean) => void;
@@ -366,6 +395,15 @@ export const useStore = create<Store>((set, get) => ({
   aiBusy: false,
   hpFx: [],
   hurtFx: null,
+  rollFx: null,
+  dismissRollFx: () => set({ rollFx: null }),
+  showRollAnim: localStorage.getItem('dnd.rollAnimOff') !== '1',
+  toggleRollAnim: () =>
+    set((s) => {
+      const next = !s.showRollAnim;
+      localStorage.setItem('dnd.rollAnimOff', next ? '0' : '1');
+      return { showRollAnim: next };
+    }),
   dragGhosts: {},
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
   typingChars: {},
@@ -466,10 +504,43 @@ export const useStore = create<Store>((set, get) => ({
       reconnectionDelayMax: 5000,
     });
 
-    socket.on('state:snapshot', (snapshot) => set({ snapshot }));
+    socket.on('state:snapshot', (snapshot) => {
+      // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
+      // log is oldest-first, so a new entry is the first one not yet seen.
+      const log = snapshot.rollLog ?? [];
+      if (rollSfxReady) {
+        const fresh = log.find((e) => !seenRollIds.has(e.id));
+        if (fresh) {
+          // When a roll will ANIMATE, the overlay plays its hit/miss/impact cues in
+          // sync with the animation beats — so suppress the immediate cue here.
+          const willAnimate = !!fresh.reveal && get().showRollAnim;
+          // Skills/saves never animate → an immediate tick.
+          if (/(check|save)$/i.test(fresh.label ?? '') && !fresh.hpNote) playSkill();
+          // An un-animated miss → immediate; an animated one plays at its stamp.
+          else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
+          if (willAnimate && fresh.reveal) {
+            const fxId = nextFloaterId++;
+            set({ rollFx: { id: fxId, reveal: fresh.reveal } });
+            // The overlay self-dismisses when its sequence finishes; safety net only.
+            setTimeout(
+              () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),
+              5000,
+            );
+          }
+        }
+      }
+      seenRollIds = new Set(log.map((e) => e.id));
+      rollSfxReady = true;
+      set({ snapshot });
+    });
     socket.on('fx:hp', ({ events }) => {
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
       set((st) => ({ hpFx: [...st.hpFx, ...added] }));
+      // Audio cue. Heals always chime here (heals don't animate). The damage
+      // "thunk" plays immediately ONLY when roll animations are off — when they're
+      // on, the overlay plays the impact in sync with the damage reveal instead.
+      if (events.some((e) => e.delta > 0)) playHeal();
+      else if (events.some((e) => e.delta < 0) && !get().showRollAnim) playHit();
       // Expire regardless of whether a canvas rendered them.
       setTimeout(() => {
         const ids = new Set(added.map((f) => f.id));
@@ -667,6 +738,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('measure:clear', { mapId, mineOnly }),
   addAnnotation: (payload) => get().socket?.emit('annotation:add', payload),
   pasteObject: (payload) => get().socket?.emit('object:paste', payload),
+  summonCast: (payload) => get().socket?.emit('summon:cast', payload),
   removeAnnotation: (id) => get().socket?.emit('annotation:remove', { id }),
   clearAnnotations: (mapId, mineOnly, kind) =>
     get().socket?.emit('annotation:clear', { mapId, mineOnly, kind }),
@@ -772,11 +844,15 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('ability:set', { kind, refId, ability }),
   removeSheetAbility: (kind, refId, abilityId) =>
     get().socket?.emit('ability:remove', { kind, refId, abilityId }),
+  reorderSheetAbilities: (kind, refId, orderedIds) =>
+    get().socket?.emit('ability:reorder', { kind, refId, orderedIds }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
-  sendChat: (text) => get().socket?.emit('chat:send', { text }),
+  sendChat: (text, speakAsTokenId) =>
+    get().socket?.emit('chat:send', { text, speakAsTokenId }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   rollSave: (payload) => get().socket?.emit('save:roll', payload),
+  rollCheck: (payload) => get().socket?.emit('check:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
   setTokensHidden: (tokenIds, hidden) =>
@@ -808,6 +884,7 @@ export const useStore = create<Store>((set, get) => ({
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
   rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
+  endTurn: () => get().socket?.emit('initiative:endTurn'),
   clearInitiative: () => get().socket?.emit('initiative:clear'),
   setRound: (round) => get().socket?.emit('initiative:setRound', { round }),
   setHideDmRolls: (hide) =>

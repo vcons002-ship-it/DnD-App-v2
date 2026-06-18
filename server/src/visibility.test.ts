@@ -40,7 +40,11 @@ import {
   setLoot,
   takeLoot,
   setCondition,
+  setHideDmRolls,
+  listRollLog,
 } from './sessions.js';
+import { resolveAttack, resolveAbilityRoll, resolveForcedSave } from './combat.js';
+import type { SheetAbility } from '../../shared/types.js';
 
 /** Helper: make a template and place one numbered instance of it. */
 const spawnInstance = (
@@ -53,6 +57,83 @@ const spawnInstance = (
   return instantiateMonster(tmpl.id)!;
 };
 import type { Monster } from '../../shared/types.js';
+
+describe('creature roll redaction + player AOE visibility', () => {
+  it('strips an enemy creature attack’s modifier breakdown from players', () => {
+    const s = createSession('Redact');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    // Enemy attacker (default disposition) with a stat-derived to-hit.
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Goblin',
+      maxHp: 10,
+      stats: { STR: 16 },
+      weapons: [{ name: 'Scimitar', kind: 'melee', damage: '1d6', diceOnly: true }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const pc = createCharacter(s.id, { name: 'Hero', maxHp: 20, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'Goblin', atk.id, tgt.id, 0);
+
+    const dmEntry = buildSnapshot(s.id, 'dm', map.id)!.rollLog.at(-1)!;
+    const plEntry = buildSnapshot(s.id, 'player')!.rollLog.at(-1)!;
+    // The DM sees the named breakdown; the player never does.
+    expect(dmEntry.detail).toMatch(/\[(STR|PROF)\]/);
+    expect(plEntry.detail).not.toMatch(/\[(STR|DEX|PROF|MAGIC)\]/);
+    expect(plEntry.hideMods).toBe(true);
+    // The player's reveal bonus chips are collapsed (no stat names).
+    expect((plEntry.reveal?.toHit ?? []).every((x) => x.label === '')).toBe(true);
+    // …and the to-hit total still adds up (d20 + the anonymous bonus).
+    const r = plEntry.reveal!;
+    expect((r.d20 ?? 0) + (r.toHit ?? []).reduce((a, x) => a + x.value, 0)).toBe(r.attackTotal);
+  });
+
+  it('shows a FRIENDLY creature’s modifiers to players (no redaction)', () => {
+    const s = createSession('Friendly');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    const tmpl = createMonsterTemplate(s.id, {
+      name: 'Wolf',
+      maxHp: 10,
+      disposition: 'friendly',
+      stats: { STR: 16 },
+      weapons: [{ name: 'Bite', kind: 'melee', damage: '1d6', diceOnly: true }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 0, y: 0 });
+    const pc = createCharacter(s.id, { name: 'Hero', maxHp: 20, armorClass: 1 });
+    const tgt = createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 1, y: 1 });
+    resolveAttack(s.id, 'Wolf', atk.id, tgt.id, 0);
+    const plEntry = buildSnapshot(s.id, 'player')!.rollLog.at(-1)!;
+    expect(plEntry.hideMods).toBeFalsy();
+    expect(plEntry.detail).toMatch(/\[(STR|PROF)\]/);
+  });
+
+  it("keeps a player's own AOE save resolution visible even when DM rolls are hidden", () => {
+    const s = createSession('AOE');
+    setHideDmRolls(s.id, true); // DM is hiding their rolls
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    const pc = createCharacter(s.id, { name: 'Wizard', className: 'Wizard', level: 5, stats: { INT: 18 } });
+    const ability: SheetAbility = {
+      id: 'fb',
+      name: 'Fireball',
+      type: 'spell',
+      level: 3,
+      description: '',
+      roll: { kind: 'save', dice: '8d6', baseLevel: 3, save: 'DEX', damageType: 'fire' },
+    };
+    resolveAbilityRoll(s.id, pc.name, pc, ability); // cast (rolls dice, no auto-apply)
+    const cast = listRollLog(s.id).at(-1)!;
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 30, stats: { DEX: 8 } });
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 1, y: 1 });
+    resolveForcedSave(s.id, cast.id, tok.id); // the caster applies it to a target
+    const res = listRollLog(s.id).at(-1)!;
+    // Attributed to the casting PC (not 'DM'), so it's NOT hidden from players.
+    expect(res.roller).toBe('Wizard');
+    expect(res.dmOnly).toBeFalsy();
+    expect(buildSnapshot(s.id, 'player')!.rollLog.some((e) => e.id === res.id)).toBe(true);
+  });
+});
 
 describe('visibility role-shaping', () => {
   it('hides monster stats and hidden tokens from players', () => {
@@ -376,24 +457,50 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(2);
   });
 
-  it("never hides a player's own claimed PC token under fog (but hides it from others)", () => {
-    const session = createSession('OwnToken');
+  it('token fog hides only enemy/neutral creatures — the party stays visible', () => {
+    const session = createSession('TokenFog');
+    const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    // A claimed PC, a friendly ally, and an enemy — all under token fog.
+    const pc = createCharacter(session.id, { name: 'Hero', maxHp: 12 });
+    claimCharacter(pc.id, 'socket-A');
+    createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 10, y: 10 });
+    const allyTmpl = createMonsterTemplate(session.id, { name: 'Wolf', maxHp: 11 });
+    const ally = instantiateMonster(allyTmpl.id)!;
+    updateMonster(ally.id, { disposition: 'friendly' });
+    createToken({ mapId: map.id, kind: 'monster', refId: ally.id, x: 12, y: 12 });
+    const foe = spawnInstance(session.id, 'Orc', 9);
+    createToken({ mapId: map.id, kind: 'monster', refId: foe.id, x: 14, y: 14 });
+
+    setFogLayer(map.id, 'tokens', true);
+    coverFog(map.id, 'tokens');
+
+    // Both the owner AND another player see the party (PC + friendly) through
+    // token fog, but never the enemy.
+    for (const sock of ['socket-A', 'socket-B']) {
+      const snap = buildSnapshot(session.id, 'player', null, sock)!;
+      const refs = new Set(snap.tokens.map((t) => t.refId));
+      expect(refs.has(pc.id)).toBe(true);
+      expect(refs.has(ally.id)).toBe(true);
+      expect(refs.has(foe.id)).toBe(false);
+    }
+  });
+
+  it('map fog hides any non-owned token, but a player keeps their own PC', () => {
+    const session = createSession('MapFog');
     const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
     const pc = createCharacter(session.id, { name: 'Hero', maxHp: 12 });
     claimCharacter(pc.id, 'socket-A');
     createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 10, y: 10 });
 
-    // Cover the whole map with token fog → the PC token sits under cover.
-    setFogLayer(map.id, 'tokens', true);
-    coverFog(map.id, 'tokens');
+    // Map fog (terrain blackout) covers the whole map.
+    setFogLayer(map.id, 'map', true);
+    coverFog(map.id, 'map');
 
-    // The owning player still receives their own token...
-    const owner = buildSnapshot(session.id, 'player', null, 'socket-A')!;
-    expect(owner.tokens).toHaveLength(1);
-    // ...but a different player does not see it through the fog.
-    const other = buildSnapshot(session.id, 'player', null, 'socket-B')!;
-    expect(other.tokens).toHaveLength(0);
+    // The owning player still sees their own token; another player does not.
+    expect(buildSnapshot(session.id, 'player', null, 'socket-A')!.tokens).toHaveLength(1);
+    expect(buildSnapshot(session.id, 'player', null, 'socket-B')!.tokens).toHaveLength(0);
   });
 
   it('per-token hide keeps a token from players regardless of fog', () => {

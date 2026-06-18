@@ -11,6 +11,7 @@ import {
   resolveObjectCheck,
   resolveSaves,
   resolveSave,
+  resolveCheck,
   resolveDeathSave,
   noteConcentration,
 } from './combat.js';
@@ -54,6 +55,7 @@ import {
   createCharacterFromLibrary,
   updateCharacter,
   getCharacter,
+  getRollEntry,
   getMonster,
   addMeasurement,
   clearMeasurements,
@@ -76,6 +78,7 @@ import {
   takeLoot,
   setSheetAbility,
   removeSheetAbility,
+  reorderSheetAbilities,
   spendResourceForAbility,
   spendSpellSlot,
   damageTokens,
@@ -116,6 +119,7 @@ import {
   resizeToken,
   setTokenShape,
   createPastedObject,
+  createSummon,
   updateMapGrid,
   rollAllInitiative,
   rollMissingInitiative,
@@ -390,6 +394,34 @@ export function registerSocketHandlers(io: IOServer): void {
       }
       if (!map) return;
       createPastedObject(sid, mapId, Number(x) || 0, Number(y) || 0, icon, (name || 'Object').slice(0, 60));
+      afterChange();
+    });
+
+    // Cast a summon-tagged spell/ability: spawn its friendly companion token. The
+    // caster must own the creature; players may only place on the ACTIVE map. A
+    // leveled spell spends a slot (cantrips/abilities don't).
+    socket.on('summon:cast', ({ kind, refId, abilityId, mapId, x, y, castLevel }) => {
+      const sid = sessionId();
+      if (!sid || !ownsCreature(kind, refId)) return;
+      const map = getMap(mapId);
+      if (!map || map.sessionId !== sid) return;
+      if (!isDm() && getActiveMapId(sid) !== mapId) return;
+      const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+      const ability = ent?.sheetAbilities.find((a) => a.id === abilityId);
+      if (!ability?.summon) return;
+      const name = (ability.summon.name?.trim() || ability.name || 'Summon').slice(0, 60);
+      const icon = (ability.summon.icon || '✋').slice(0, 2000);
+      // Spend a slot for a leveled spell BEFORE spawning; bail if none left.
+      if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
+        const base = ability.level ?? 1;
+        const lvl = typeof castLevel === 'number' && castLevel >= base ? castLevel : base;
+        const { hasSlot, spent } = spendSpellSlot(refId, lvl);
+        if (hasSlot && !spent) {
+          socket.emit('notice', { message: `No level ${lvl} spell slots left.` });
+          return;
+        }
+      }
+      createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       afterChange();
     });
 
@@ -926,6 +958,12 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    socket.on('ability:reorder', ({ kind, refId, orderedIds }) => {
+      if (!Array.isArray(orderedIds) || !ownsCreature(kind, refId)) return;
+      reorderSheetAbilities(kind, refId, orderedIds.filter((x) => typeof x === 'string'));
+      afterChange();
+    });
+
     socket.on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
@@ -985,7 +1023,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Shared in-session chat (anyone in the session).
-    socket.on('chat:send', ({ text }) => {
+    socket.on('chat:send', ({ text, speakAsTokenId }) => {
       const sid = sessionId();
       const body = typeof text === 'string' ? text.trim() : '';
       if (!sid || !body) return;
@@ -1009,10 +1047,25 @@ export function registerSocketHandlers(io: IOServer): void {
         afterChange();
         return;
       }
-      addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
-      // Pop the words in a speech bubble over the speaker's PC token (players
-      // with a claimed character only; the DM has no token).
-      if (!isDm()) {
+      // The DM may "speak as" a selected token (NPC/monster/PC): the message is
+      // attributed to that token's name and the bubble pops over it. Falls back to
+      // a plain "DM" message if no/invalid token is given.
+      const speakToken =
+        isDm() && typeof speakAsTokenId === 'string' ? getToken(speakAsTokenId) : null;
+      const speakEntity = speakToken
+        ? speakToken.kind === 'pc'
+          ? getCharacter(speakToken.refId)
+          : getMonster(speakToken.refId)
+        : null;
+      // Only speak as a token belonging to THIS session.
+      const speakAs = speakEntity && speakEntity.sessionId === sid ? speakEntity : null;
+      const sender = speakAs ? speakAs.name : rollerName(sid, socket.id, isDm());
+      addChatMessage(sid, sender, isDm() ? 'dm' : 'player', body);
+      // Pop the words in a speech bubble over the speaker's token. Players bubble
+      // over their claimed PC; the DM bubbles over the token they're speaking as.
+      if (speakAs) {
+        broadcastSay(io, sid, speakToken!.refId, body.slice(0, 240));
+      } else if (!isDm()) {
         const refId = getClaimedCharacterId(sid, socket.id);
         if (refId) broadcastSay(io, sid, refId, body.slice(0, 240));
       }
@@ -1158,8 +1211,15 @@ export function registerSocketHandlers(io: IOServer): void {
     // DC and auto-apply full/half of the rolled amount — DM only.
     socket.on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
       const sid = sessionId();
-      if (!sid || !isDm()) return;
+      if (!sid) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
+      // The DM resolves any apply; a player may resolve ONLY their own split
+      // spell's darts (Magic Missile), identified by the caster `owner` on the
+      // roll entry — the click-to-assign path is no longer DM-gated for those.
+      const owner = getRollEntry(rollId)?.apply?.owner;
+      const allowed =
+        isDm() || (!!owner && getCharacter(owner)?.claimedBy === socket.id);
+      if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const idx = typeof instanceIndex === 'number' ? instanceIndex : undefined;
       resolveForcedSave(sid, rollId, tokenId, adv, idx);
@@ -1191,6 +1251,16 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const ok = resolveSave(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
+      if (ok) afterChange();
+    });
+
+    socket.on('check:roll', ({ kind, refId, ability, advantage }) => {
+      const sid = sessionId();
+      if (!sid || typeof ability !== 'string' || typeof refId !== 'string') return;
+      const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
+      if (!allowed) return;
+      const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
+      const ok = resolveCheck(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
       if (ok) afterChange();
     });
 
@@ -1389,6 +1459,22 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('initiative:next', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
+      advanceTurn(sid);
+      afterChange();
+    });
+
+    // A player may end the turn ONLY when the active combatant is their own
+    // claimed PC (the DM still advances anyone via initiative:next).
+    socket.on('initiative:endTurn', () => {
+      const sid = sessionId();
+      if (!sid) return;
+      if (!isDm()) {
+        const activeId = getSessionById(sid)?.activeTurnTokenId;
+        if (!activeId) return;
+        const tok = getToken(activeId);
+        const mine = getClaimedCharacterId(sid, socket.id);
+        if (!tok || tok.kind !== 'pc' || !mine || tok.refId !== mine) return;
+      }
       advanceTurn(sid);
       afterChange();
     });

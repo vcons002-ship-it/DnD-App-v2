@@ -129,7 +129,9 @@ sanitization rules above and commit it to `claude/Main`.
   (traits, free text), `icon`. `actions` is only a *transport* shape (SRD/AI/
   paste) — converted into weapons/sheetAbilities at insert; stored creatures
   keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
-  `resources`, `items`, `gold`, `deathSaves`, `claimedBy` (live socket) +
+  `resources`, `items`, `gold`, `deathSaves`, `killCount` (durable tally of
+  enemies dropped to 0 HP — public, shown on the sheet + a shared `KillScoreboard`),
+  `claimedBy` (live socket) +
   `ownerId` (durable per-browser id of the LAST holder — reconnect priority
   only, does NOT lock others; a char is "taken" only while `claimedBy` is a live
   socket or one in its disconnect grace; DM 🔓-unlocks a stuck claim). `Monster`
@@ -146,7 +148,10 @@ sanitization rules above and commit it to `claude/Main`.
   player-visible difference). `hpNote` visibility is **PC/friendly-only**.
 - **`MapState`** has **two independent fog layers** (`mapFogEnabled/Revealed`,
   `tokenFogEnabled/Revealed`) plus grid placement fields
-  (`gridOffsetX/Y`, `gridLocked`, `gridHidden`).
+  (`gridOffsetX/Y`, `gridLocked`, `gridHidden`). **Map fog** is a terrain
+  blackout (hides ANY non-owned token in an unrevealed cell); **token fog** hides
+  ONLY enemy/neutral creatures — PCs and friendly creatures stay visible to
+  players even under token fog (a player always sees their own claimed PC too).
 - **`StateSnapshot`** is role-shaped and also carries `rollLog`, `chat`,
   `round`, `sessionName`, `annotations` (pen/text/image decals), and
   `hideDmRolls`.
@@ -360,7 +365,20 @@ sanitization rules above and commit it to `claude/Main`.
   once dead + "Loot revealed"); trap ⚡ Trigger + player 🔧 Disarm.
 - **Shell:** shared **TopToolbar** (editable session name, code, load session,
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
-  modal for both roles, auto-tab by pointer type), editable map names.
+  modal for both roles, auto-tab by pointer type), editable map names. **Settings**
+  also holds a per-device **combat-sound** mute (default on).
+- **Summons (tied to a spell/ability):** a `SheetAbility` can carry a `summon`
+  spec (`{name?, icon?}`); a **✋ Summon** button on that ability (in
+  `CharacterSpells`) spawns a `disposition:'friendly'` creature token via
+  `summon:cast`, so the existing `token:move` gate lets the owner drag it. A
+  **leveled** summon spell **spends a slot** (`spendSpellSlot`); cantrips/abilities
+  don't. Known summon spells (Mage Hand, Find Familiar, Conjure Animals/Woodland
+  Beings, Spiritual Weapon) ship pre-tagged; any ability can be marked a summon in
+  its editor. **DM speaks-as:** `chat:send` carries `speakAsTokenId` so the DM can
+  voice the selected NPC (name + bubble; 🗣 toggle by the chat input).
+- **Audio cues:** client-only procedural Web Audio blips (`client/src/lib/sfx.ts`,
+  no assets) — hit/heal off `fx:hp`, miss/skill off new roll-log entries; per-user
+  localStorage mute.
 
 ## Remaining / not yet built
 

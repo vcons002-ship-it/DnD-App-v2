@@ -112,6 +112,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 action · 30 ft · V,S',
     description:
       'A spectral floating hand you can use to manipulate objects, open containers, or carry up to 10 pounds within range.',
+    summon: { name: 'Mage Hand', icon: '✋' },
   },
   {
     name: 'Mending',
@@ -238,6 +239,18 @@ export const SPELL_LIST: SpellEntry[] = [
     description:
       'Lightning leaps from your hand on a melee spell attack, with advantage against a target in metal armor. On a hit it takes lightning damage and cannot take reactions.',
     roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageType: 'lightning' },
+  },
+  {
+    name: 'Sorcerous Burst',
+    type: 'spell',
+    level: 0,
+    school: 'Evocation',
+    classes: ['sorcerer'],
+    tags: ['evocation', 'sorcerer', 'cantrip'],
+    meta: '1 action · 120 ft · V,S',
+    description:
+      'Hurl sorcerous energy at a creature or object you can see. On a hit it takes 1d8 damage of a type you choose (acid, cold, fire, lightning, poison, psychic, or thunder). If you roll the maximum on a damage die you can roll one additional die, up to a number of extra dice equal to your spellcasting ability modifier.',
+    roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageType: 'force' },
   },
   {
     name: 'Spare the Dying',
@@ -602,6 +615,7 @@ export const SPELL_LIST: SpellEntry[] = [
     meta: '1 hour · 10 ft · V,S,M · Ritual',
     description:
       'You summon a spirit that takes a chosen animal form as your familiar, acting as a scout and able to deliver your touch spells.',
+    summon: { name: 'Familiar', icon: '🦉' },
   },
   {
     name: 'Fog Cloud',
@@ -1543,6 +1557,7 @@ export const SPELL_LIST: SpellEntry[] = [
       'A floating spectral weapon makes a melee spell attack, dealing force damage plus your spellcasting modifier. +1d8 per two slot levels above 2nd.',
     upcast: '+1d8 damage per two slots above 2nd.',
     roll: { kind: 'attack', dice: '1d8', baseLevel: 2, damageType: 'force' },
+    summon: { name: 'Spiritual Weapon', icon: '⚔️' },
   },
   {
     name: 'Suggestion',
@@ -1672,6 +1687,7 @@ export const SPELL_LIST: SpellEntry[] = [
     description:
       'You summon fey spirits in beast form that fight for you. More or larger beasts appear at higher slot levels.',
     upcast: 'More or larger beasts per slot above 3rd.',
+    summon: { name: 'Conjured Beast', icon: '🐺' },
   },
   {
     name: 'Counterspell',
@@ -2157,6 +2173,7 @@ export const SPELL_LIST: SpellEntry[] = [
     description:
       'You summon fey creatures that obey you; more or larger fey appear at higher slot levels.',
     upcast: 'More or larger fey per slot above 4th.',
+    summon: { name: 'Woodland Being', icon: '🍃' },
   },
   {
     name: 'Control Water',

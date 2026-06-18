@@ -4,6 +4,7 @@ import type {
   AbilityRoll,
   CreatureAbility,
   CreatureTemplate,
+  ShopItem,
   SheetAbility,
   SheetModifier,
   Weapon,
@@ -532,6 +533,55 @@ export async function generateItemAI(prompt: string): Promise<{
   } catch (err) {
     console.warn(
       `  [gemini] item parse error for "${prompt}":`,
+      (err as Error).message,
+    );
+    return null;
+  }
+}
+
+/**
+ * Stock a shop popup from a free-text description (e.g. "a dusty alchemist's
+ * stall"). Returns a list of priced items for the decal's shop popup, mirroring
+ * `generateItemAI`. Fails safe (null) without a key. Items are id-less here; the
+ * server's `sanitizePopup` assigns ids on save.
+ */
+export async function generateShopItemsAI(
+  description: string,
+): Promise<Omit<ShopItem, 'id'>[] | null> {
+  if (!aiAvailable() || !description.trim()) return null;
+  const ask =
+    `Stock a Dungeons & Dragons 5e shop from this description: "${description}". ` +
+    `Respond ONLY with minified JSON of shape ` +
+    `{"items":[{"name":string,"price":string,"qty"?:number,"note"?:string}]}. ` +
+    `Include 4–12 fitting items. "name" is short (≈2–5 words). "price" is a 5e ` +
+    `gold/silver/copper string (e.g. "15 gp", "5 sp"). "qty" is an optional stock ` +
+    `count. "note" is an optional ≤1 short sentence flavor/effect. Keep it ` +
+    `SRD-safe and original — no copied stat blocks.`;
+  const text = await generateJson(ask);
+  if (!text) return null;
+  try {
+    const p = JSON.parse(text) as Record<string, unknown>;
+    const raw = Array.isArray(p.items) ? p.items : [];
+    const items = raw
+      .map((it) => {
+        const o = it as Record<string, unknown>;
+        const name = String(o?.name ?? '').trim();
+        if (!name) return null;
+        return {
+          name: name.slice(0, 80),
+          price: String(o?.price ?? '').trim().slice(0, 40),
+          ...(Number.isFinite(Number(o?.qty))
+            ? { qty: Math.max(0, Math.round(Number(o.qty))) }
+            : {}),
+          ...(o?.note ? { note: String(o.note).trim().slice(0, 300) } : {}),
+        } as Omit<ShopItem, 'id'>;
+      })
+      .filter((x): x is Omit<ShopItem, 'id'> => x !== null)
+      .slice(0, 100);
+    return items.length ? items : null;
+  } catch (err) {
+    console.warn(
+      `  [gemini] shop parse error for "${description}":`,
       (err as Error).message,
     );
     return null;

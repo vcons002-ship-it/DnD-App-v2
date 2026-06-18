@@ -1434,3 +1434,36 @@ Smaller refinements on top of the shipped Phase 2 work.
   base grows the width to 350 ft, and resizing that tile grows it further (391 ft),
   the grid square staying 5 ft throughout; tiles also build leftward with a
   continuous grid.
+
+## Post-playtest pass (15 fixes & features — Phases 1–3 of the plan)
+
+- ☑ **Token fog hides only enemy/neutral.** PCs + friendly creatures stay visible
+  to players under token fog (map-fog terrain blackout unchanged).
+- ☑ **Players see who is dead.** Server-computed `dead` flag on `MonsterPublic`
+  shows a skull on defeated enemies while HP stays hidden.
+- ☑ **Active-player end turn.** `initiative:endTurn` lets the player whose token
+  is up advance their own turn; `initiative:next` stays DM-only.
+- ☑ **Magic Missile per-dart by the caster.** The casting player assigns darts by
+  click (each rolls its own damage, capped at the dart count).
+- ☑ **Sorcerous Burst** added to the spell DB (2024 sorcerer cantrip, rollable).
+- ☑ **Custom spell authoring.** "✏️ Custom spell" seeds a homebrew spell with an
+  inline editor (name/level/school/action + roll kind/dice/save/dc/type).
+- ☑ **Spell view redesign.** Collapsible Cantrips / Level N / Other groups with
+  per-group tap ▲/▼ reorder, persisted via `ability:reorder`.
+- ☑ **Kill count.** PCs tally enemies dropped to 0 HP (weapon + targeted spell
+  attacks); a 💀 sheet badge + a shared `KillScoreboard` (initiative header + Data
+  view). Durable `characters.kill_count`, public in snapshots.
+- ☑ **DM speaks as the selected token.** `chat:send` carries `speakAsTokenId`; the
+  DM's message shows the token's name + a bubble over it (🗣 toggle by the input).
+- ☑ **AI-fill shops.** `POST /api/shops/generate` stocks a decal shop popup from a
+  description (✨ AI fill in the editor), key-gated/fail-safe.
+- ☑ **Lightweight summons.** `summon:create` spawns a friendly companion token
+  (Mage Hand / familiar / custom) the owner can drag; ✋ Summon panel for DM +
+  players.
+- ☑ **Combat audio cues.** Procedural Web Audio blips (hit/miss/heal/check) from
+  `fx:hp` + new roll-log entries; default on, per-device mute in Settings → Sound.
+- ☑ **Save-for-half / crit-damage / Chromatic Orb** — reproduced and verified
+  WORKING in the current engine (regression tests added): a PC save spell deals
+  **half on a pass, not 0**; weapon damage (crit-doubled) still lands when a
+  Pushing-Attack save rider fires; Chromatic Orb is in the spell DB with a proper
+  attack roll (so it appears in the floating menu once added from search).

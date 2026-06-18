@@ -442,6 +442,29 @@ export function createPastedObject(
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y, shape: 'image' });
 }
 
+/**
+ * Spawn a lightweight summon/companion: a FRIENDLY creature token (Mage Hand, a
+ * conjured beast, …) with a name + icon and a minimal stat block. It's a real
+ * `monster` with `disposition:'friendly'`, so the existing token:move gate lets
+ * any player drag it, players see it under token fog, and it never auto-rolls
+ * initiative concerns beyond a normal creature. NOT an object (so it's movable).
+ */
+export function createSummon(
+  sessionId: string,
+  mapId: string,
+  x: number,
+  y: number,
+  name: string,
+  icon: string,
+): Token {
+  const m = insertMonster(
+    sessionId,
+    { name, maxHp: 1, icon, disposition: 'friendly', source: 'manual' },
+    { isTemplate: false, templateId: null, name },
+  );
+  return createToken({ mapId, kind: 'monster', refId: m.id, x, y });
+}
+
 /** Set a token's silhouette (DM). */
 export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
   db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);
@@ -1073,6 +1096,10 @@ export function addRollLog(
     apply?: RollEntry['apply'];
     /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
     hpNote?: RollEntry['hpNote'];
+    /** Cosmetic attack-roll reveal payload (the brief d20 animation). */
+    reveal?: RollEntry['reveal'];
+    /** Enemy/neutral creature roll → players see no modifier breakdown. */
+    hideMods?: boolean;
   },
 ): RollEntry {
   const id = newId();
@@ -1082,8 +1109,8 @@ export function addRollLog(
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, dm_only, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, reveal, hide_mods, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1095,11 +1122,19 @@ export function addRollLog(
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
+    entry.reveal ? JSON.stringify(entry.reveal) : '',
+    entry.hideMods ? 1 : 0,
     dmOnly ? 1 : 0,
     createdAt,
   );
   pruneRollLog(sessionId);
-  return { id, ...entry, createdAt, ...(dmOnly ? { dmOnly: true } : {}) };
+  return {
+    id,
+    ...entry,
+    createdAt,
+    ...(dmOnly ? { dmOnly: true } : {}),
+    ...(entry.hideMods ? { hideMods: true } : {}),
+  };
 }
 
 /** Keep the newest N rolls per session so long campaigns don't grow the DB forever. */
@@ -1204,6 +1239,8 @@ type RollLogRow = {
   description: string | null;
   apply: string | null;
   hp_note: string | null;
+  reveal: string | null;
+  hide_mods: number | null;
   dm_only: number | null;
   created_at: number;
 };
@@ -1231,6 +1268,8 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
+    ...(r.reveal ? { reveal: JSON.parse(r.reveal) as RollEntry['reveal'] } : {}),
+    ...(r.hide_mods ? { hideMods: true } : {}),
     ...(r.dm_only ? { dmOnly: true } : {}),
     createdAt: r.created_at,
   };
@@ -1997,6 +2036,47 @@ export function removeSheetAbility(
     refId,
   );
   return getCharacter(refId);
+}
+
+/**
+ * Reorder a creature's `sheetAbilities` to match a client-supplied id order.
+ * Unknown/missing ids are ignored; any ability not named in `orderedIds` is
+ * appended in its existing order, so a partial order (e.g. one group) never
+ * drops entries.
+ */
+export function reorderSheetAbilities(
+  kind: TokenKind,
+  refId: string,
+  orderedIds: string[],
+): Character | Monster | null {
+  const ent = kind === 'monster' ? getMonster(refId) : getCharacter(refId);
+  if (!ent) return null;
+  const byId = new Map(ent.sheetAbilities.map((a) => [a.id, a]));
+  const seen = new Set<string>();
+  const ordered: Character['sheetAbilities'] = [];
+  for (const id of orderedIds) {
+    const a = byId.get(id);
+    if (a && !seen.has(id)) {
+      ordered.push(a);
+      seen.add(id);
+    }
+  }
+  for (const a of ent.sheetAbilities) if (!seen.has(a.id)) ordered.push(a);
+  const table = kind === 'monster' ? 'monsters' : 'characters';
+  db.prepare(`UPDATE ${table} SET sheet_abilities = ? WHERE id = ?`).run(
+    JSON.stringify(ordered),
+    refId,
+  );
+  return kind === 'monster' ? getMonster(refId) : getCharacter(refId);
+}
+
+/** Credit a PC with a kill (dropped an enemy to 0 HP). Returns the new total. */
+export function incrementKillCount(characterId: string): number {
+  const c = getCharacter(characterId);
+  if (!c) return 0;
+  const next = (c.killCount ?? 0) + 1;
+  db.prepare('UPDATE characters SET kill_count = ? WHERE id = ?').run(next, characterId);
+  return next;
 }
 
 /** Patch editable fields of a character (DM or the owning player). */

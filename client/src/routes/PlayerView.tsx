@@ -9,6 +9,7 @@ import { SidePanel } from '../components/SidePanel';
 import { ReorderableSections } from '../components/ReorderableSections';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
+import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
@@ -134,23 +135,42 @@ export function PlayerView() {
           openSignal={rightPanelNudge}
         >
           {selectedIds.length > 1 ? (
-            <BulkActionsPanel
-              snapshot={snapshot}
-              selectedIds={selectedIds}
-              onClearSelection={() => setSelectedIds([])}
-            />
-          ) : selectedToken ? (
-            <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
+            <>
+              <BulkActionsPanel
+                snapshot={snapshot}
+                selectedIds={selectedIds}
+                onClearSelection={() => setSelectedIds([])}
+              />
+              <DicePanel snapshot={snapshot} />
+            </>
           ) : (
-            <p className="muted pad">Select a token to view it.</p>
+            // Collapsible + reorderable so the player can shrink the dice panel to
+            // give the combat console room (and the SidePanel edge drags to resize).
+            <ReorderableSections
+              storageKey={`player-right-order:${snapshot.sessionCode}`}
+              sections={[
+                {
+                  id: 'combat',
+                  label: 'Selected token',
+                  node: selectedToken ? (
+                    <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
+                  ) : (
+                    <p className="muted pad">Select a token to view it.</p>
+                  ),
+                },
+                {
+                  id: 'dice',
+                  label: 'Dice, Log & Chat',
+                  node: <DicePanel snapshot={snapshot} />,
+                },
+              ]}
+            />
           )}
-          {/* Roll log lives here (under the combat console) so clicking an attack
-              shows the result immediately below. */}
-          <DicePanel snapshot={snapshot} />
         </SidePanel>
       </div>
       <AiStatus />
       <ConnectionStatus />
+      <RollRevealOverlay />
       <Toast />
       {/* Red screen-edge flash when YOUR claimed PC takes damage (one-shot CSS
           animation; bigger hits flash harder). Keyed so rapid hits restart it. */}

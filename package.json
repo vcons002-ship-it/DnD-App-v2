@@ -18,5 +18,11 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
+  },
+  "comments": {
+    "overrides": "Force the patched shell-quote (>=1.8.4, GHSA-w7jw-789q-3m8p) into concurrently's tree — concurrently still resolves the vulnerable 1.8.3 and `npm audit fix` won't bump it. It's a patch release, so API-compatible."
+  },
+  "overrides": {
+    "shell-quote": "^1.8.4"
   }
 }

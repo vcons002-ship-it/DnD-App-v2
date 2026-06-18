@@ -59,13 +59,24 @@ export function weaponAttackBonus(c: Combatant, w: Weapon): number {
 export function weaponAttackBonusDetail(
   c: Combatant,
   w: Weapon,
-): { bonus: number; detail: string } {
+): { bonus: number; detail: string; parts: { label: string; value: number }[] } {
   if (typeof w.attackBonus === 'number')
-    return { bonus: w.attackBonus, detail: `${signed(w.attackBonus)}[hit]` };
+    return {
+      bonus: w.attackBonus,
+      detail: `${signed(w.attackBonus)}[hit]`,
+      parts: w.attackBonus ? [{ label: 'hit', value: w.attackBonus }] : [],
+    };
   const ability = weaponAbility(c, w);
   const abil = abilityMod(c.stats[ability]);
   const prof = profBonusFor(c);
-  return { bonus: abil + prof, detail: `${signed(abil)}[${ability}] ${signed(prof)}[PROF]` };
+  return {
+    bonus: abil + prof,
+    detail: `${signed(abil)}[${ability}] ${signed(prof)}[PROF]`,
+    parts: [
+      ...(abil ? [{ label: ability, value: abil }] : []),
+      { label: 'PROF', value: prof },
+    ],
+  };
 }
 
 /** The ability modifier a weapon uses to attack (STR/DEX per the rules above). */
@@ -89,6 +100,9 @@ export function damageParts(expr: string): { dice: string; flat: number } {
   return { dice: dice.replace(/^\+/, ''), flat };
 }
 
+/** One labelled term in an attack's reveal breakdown (mirrors `RollReveal`'s
+ *  `RevealStep`, kept local so `shared/combatMath` needn't import the big types). */
+export type AttackStep = { label: string; value: number; faces?: number[] };
 export type AttackOutcome = {
   face: number;
   bonus: number;
@@ -98,6 +112,13 @@ export type AttackOutcome = {
   hit: boolean;
   damage: number;
   detail: string;
+  /** Structured to-hit bonuses (ability mod, proficiency, maneuver…) for the
+   *  reveal animation — the running total counts d20 + these up to attackTotal. */
+  toHitSteps: AttackStep[];
+  /** Damage dice (each with its faces) — a crit appends a second dice step. */
+  damageDiceSteps: AttackStep[];
+  /** Flat damage modifiers (ability mod, magic, mastery) after the dice. */
+  damageModSteps: AttackStep[];
 };
 
 /** Resolve a weapon attack vs a target AC, including crit (double dice). */
@@ -121,8 +142,13 @@ export function rollWeaponAttack(
   },
 ): AttackOutcome {
   const { face, detail: d20detail } = rollD20Detail(advantage);
-  const { bonus, detail: bonusDetail } = weaponAttackBonusDetail(attacker, weapon);
+  const { bonus, detail: bonusDetail, parts: bonusParts } = weaponAttackBonusDetail(attacker, weapon);
   const toHitExtra = opts?.attackRollBonus ?? 0;
+  // Structured to-hit breakdown for the reveal animation (d20 + these).
+  const toHitSteps: AttackStep[] = [
+    ...bonusParts,
+    ...(toHitExtra ? [{ label: opts?.attackRollBonusLabel || 'maneuver', value: toHitExtra }] : []),
+  ];
   const attackTotal = face + bonus + toHitExtra;
   const natCrit = face === 20;
   const fumble = face === 1;
@@ -135,6 +161,8 @@ export function rollWeaponAttack(
 
   let damage = 0;
   let dmgText = '';
+  const damageDiceSteps: AttackStep[] = [];
+  const damageModSteps: AttackStep[] = [];
   if (hit) {
     const { dice, flat } = damageParts(expr);
     const magic = weapon.magicBonus ?? 0;
@@ -159,16 +187,22 @@ export function rollWeaponAttack(
     if (r1) {
       sum += r1.total;
       parts.push(`${dice}[${r1.rolls.join(',')}]`);
+      damageDiceSteps.push({ label: dice, value: r1.total, faces: r1.rolls });
     }
     if (crit && dice) {
       const r2 = rollDice(dice)!;
       sum += r2.total;
       parts.push(`+[${r2.rolls.join(',')}][CRIT]`);
+      damageDiceSteps.push({ label: 'CRIT', value: r2.total, faces: r2.rolls });
     }
     if (usableFlat) parts.push(signed(usableFlat));
     if (abil) parts.push(`${signed(abil)}[${weaponAbility(attacker, weapon)}]`);
     if (magic) parts.push(`${signed(magic)}[MAGIC]`);
     if (bonus2) parts.push(`${signed(bonus2)}[${opts?.bonusLabel || 'BONUS'}]`);
+    if (usableFlat) damageModSteps.push({ label: 'flat', value: usableFlat });
+    if (abil) damageModSteps.push({ label: weaponAbility(attacker, weapon), value: abil });
+    if (magic) damageModSteps.push({ label: 'MAGIC', value: magic });
+    if (bonus2) damageModSteps.push({ label: opts?.bonusLabel || 'BONUS', value: bonus2 });
     damage = Math.max(1, sum);
     dmgText = parts.join('') || `${damage}`;
   }
@@ -179,7 +213,19 @@ export function rollWeaponAttack(
     `${weapon.name}${twoH}: ${d20detail} ${bonusDetail}${toHitExtra ? ` ${signed(toHitExtra)}[${opts?.attackRollBonusLabel || 'maneuver'}]` : ''} = ${attackTotal} vs AC ${targetAC} — ${result}` +
     (hit ? `, ${damage} dmg (${dmgText})` : '');
 
-  return { face, bonus, attackTotal, crit, fumble, hit, damage, detail };
+  return {
+    face,
+    bonus,
+    attackTotal,
+    crit,
+    fumble,
+    hit,
+    damage,
+    detail,
+    toHitSteps,
+    damageDiceSteps,
+    damageModSteps,
+  };
 }
 
 export type SaveOutcome = {

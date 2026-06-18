@@ -10,6 +10,7 @@ import {
   listRollLog,
   setSheetAbility,
   removeSheetAbility,
+  reorderSheetAbilities,
   spendSpellSlot,
 } from './sessions.js';
 import { resolveAbilityRoll } from './combat.js';
@@ -141,6 +142,24 @@ describe('local spell/ability database', () => {
     expect(all.some((s) => s.name === 'Divine Smite')).toBe(true);
   });
 
+  it('includes Sorcerous Burst as a rollable sorcerer cantrip', () => {
+    const sb = getSpell('Sorcerous Burst');
+    expect(sb).not.toBeNull();
+    expect(sb?.level).toBe(0);
+    expect(sb?.classes).toContain('sorcerer');
+    expect(sb?.roll?.kind).toBe('attack');
+    expect(sb?.roll?.scaleDice).toBe('1d8'); // cantrip scaling by caster level
+  });
+
+  it('tags known summon spells with a summon spec (drives the ✋ Summon button)', () => {
+    const mh = getSpell('Mage Hand');
+    expect(mh?.summon?.icon).toBe('✋');
+    expect(getSpell('Find Familiar')?.summon).toBeTruthy();
+    expect(getSpell('Conjure Animals')?.summon).toBeTruthy();
+    // A plain damage spell is NOT a summon.
+    expect(getSpell('Fireball')?.summon).toBeUndefined();
+  });
+
   it('finds entries by tag/class, not just by name', () => {
     // By class membership…
     expect(searchSpells('wizard', 100).length).toBeGreaterThan(5);
@@ -173,6 +192,26 @@ describe('sheet abilities', () => {
 
     removeSheetAbility('pc', c.id, 'sp1');
     expect(getCharacter(c.id)!.sheetAbilities).toHaveLength(0);
+  });
+
+  it('reorders sheet abilities and keeps unnamed entries (durable across reload)', () => {
+    const s = createSession('Reorder');
+    const c = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5 });
+    for (const id of ['a', 'b', 'c']) {
+      setSheetAbility('pc', c.id, {
+        id,
+        name: id.toUpperCase(),
+        type: 'spell',
+        level: 1,
+      } as SheetAbility);
+    }
+    // Move 'c' to the front; 'a' is omitted from the order → appended after.
+    reorderSheetAbilities('pc', c.id, ['c', 'b']);
+    const order = getCharacter(c.id)!.sheetAbilities.map((x) => x.id);
+    expect(order).toEqual(['c', 'b', 'a']);
+    // Unknown ids are ignored without dropping anything.
+    reorderSheetAbilities('pc', c.id, ['zzz', 'a', 'b', 'c']);
+    expect(getCharacter(c.id)!.sheetAbilities.map((x) => x.id)).toEqual(['a', 'b', 'c']);
   });
 
   it('resolves an attack roll into the shared log', () => {

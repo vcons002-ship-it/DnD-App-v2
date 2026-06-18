@@ -44,8 +44,29 @@ export function CombatSection({
   // (set in the skills panel for a PC, or the creature panel for a monster);
   // we just consume it when an attack fires.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
+  const summonCast = useStore((s) => s.summonCast);
+  const summonMap = useStore((s) => s.snapshot?.map);
+  const notify = useStore((s) => s.notify);
   const weapons = caster.weapons;
   const abilities = caster.sheetAbilities.filter((a) => !!a.roll);
+  // Summon-tagged spells/abilities get a ✋ Summon button right here in the console.
+  const summonAbilities = caster.sheetAbilities.filter((a) => a.summon);
+  const castSummon = (a: (typeof summonAbilities)[number]) => {
+    if (!summonMap) {
+      notify('No active map to summon onto.');
+      return;
+    }
+    const g = summonMap.gridSizePx || 50;
+    summonCast({
+      kind,
+      refId: caster.id,
+      abilityId: a.id,
+      mapId: summonMap.id,
+      x: g * 2 + Math.random() * g * 2,
+      y: g * 2 + Math.random() * g * 2,
+    });
+    notify(`Summoned ${a.summon?.name?.trim() || a.name} — drag it into place.`);
+  };
 
   const targets = validTargets(snapshot, attacker);
   const validDefault =
@@ -81,7 +102,7 @@ export function CombatSection({
   const nothingRollable = weapons.length === 0 && abilities.length === 0;
   const anyToggle = caster.sheetAbilities.some(hasToggle);
   const isPc = 'resources' in caster;
-  if (nothingRollable && !anyToggle && !isPc)
+  if (nothingRollable && !anyToggle && !isPc && summonAbilities.length === 0)
     return <p className="muted">No attacks or rollable abilities.</p>;
 
   // A 2H toggle only matters when some weapon is versatile (has 2H damage).
@@ -176,6 +197,20 @@ export function CombatSection({
         targetTokenId={targetId || undefined}
         healTargetId={healTargetId || undefined}
       />
+      {summonAbilities.length > 0 && (
+        <div className="combat-summon-row">
+          {summonAbilities.map((a) => (
+            <button
+              key={a.id}
+              className="btn tiny"
+              title={`Summon ${a.summon?.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
+              onClick={() => castSummon(a)}
+            >
+              {a.summon?.icon || '✋'} {a.summon?.name?.trim() || a.name}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Spell slots + class resources, spendable right where they're used
           (the full tracker stays on the character sheet too). */}
       {'resources' in caster && (

@@ -29,6 +29,46 @@ import type {
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
 
+/** Sum a list of reveal steps' values. */
+const sumSteps = (steps?: { value: number }[]): number =>
+  (steps ?? []).reduce((s, x) => s + x.value, 0);
+
+/**
+ * Shape a roll-log entry for PLAYERS: always redact the target AC (`vs AC ?`), and
+ * for an ENEMY/NEUTRAL creature roll (`hideMods`) strip the creature's modifier
+ * breakdown — the bracketed ability/proficiency/magic terms (`+4[DEX] +2[PROF]`,
+ * `+4[STR]+1[MAGIC]`) and a save roll's `(+5 prof)` — plus collapse the reveal's
+ * labelled bonus chips into one anonymous step so the count-up still reaches the
+ * total without naming the creature's stats. The d20, total and outcome stay.
+ */
+function redactCreatureMods(e: RollEntry): RollEntry {
+  let detail = e.detail.replace(/vs AC -?\d+/g, 'vs AC ?');
+  if (!e.hideMods) return { ...e, detail };
+  detail = detail
+    // Bracketed stat/proficiency/magic/mastery terms (content has a letter, so
+    // dice faces like `[4,6]` are kept).
+    .replace(/\s*[+-]\d+\[[^\]]*[A-Za-z][^\]]*\]/g, '')
+    // A save roll's "(+5 prof)" / "(-1)" parenthetical modifier.
+    .replace(/\s*\([+-]?\d+(?:\s*prof)?\)/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  let reveal = e.reveal;
+  if (reveal) {
+    const anon = (total: number, base: number) => {
+      const diff = total - base;
+      return diff !== 0 ? [{ label: '', value: diff }] : [];
+    };
+    reveal = {
+      ...reveal,
+      ...(reveal.toHit ? { toHit: anon(reveal.attackTotal ?? reveal.d20 ?? 0, reveal.d20 ?? 0) } : {}),
+      ...(reveal.damageMods
+        ? { damageMods: anon(reveal.damage ?? 0, sumSteps(reveal.damageDice)) }
+        : {}),
+    };
+  }
+  return { ...e, detail, reveal };
+}
+
 /**
  * Whether a point sits under a COVERED cell of either enabled fog layer (map or
  * token fog) — i.e. a player must not see it. Shared by the snapshot's per-token
@@ -81,6 +121,9 @@ function toPlayerMonster(m: Monster): Monster | MonsterPublic {
     conditions: m.conditions,
     disposition: m.disposition,
     icon: m.icon,
+    // Defeated enemies show a skull to players even though their HP stays
+    // hidden — a server-computed flag (0 HP or a "dead" condition).
+    dead: m.curHp <= 0 || m.conditions.some((c) => c.label.toLowerCase() === 'dead'),
     // Object kind is not secret — players should see a chest is a chest.
     ...(m.objectKind ? { objectKind: m.objectKind } : {}),
     // Loot is only revealed once the container is opened/unlocked.
@@ -201,18 +244,29 @@ export function createSnapshotBuilder(
     let shapedChat = chat;
 
     if (role === 'player') {
-      // Individually-hidden tokens, and any token sitting under a covered cell
-      // of EITHER enabled fog layer (map or token fog), are never sent.
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-      const covered = (t: Token) =>
-        coveredByFog(mapFog, tokenFog, grid, t.x, t.y);
+      // Map fog is a terrain blackout — it hides ANY token in an unrevealed cell.
+      const underMapFog = (t: Token) => coveredByFog(mapFog, null, grid, t.x, t.y);
+      // Token fog is for lurking threats: it hides ONLY enemy/neutral creatures.
+      // The party — PCs and friendly creatures — stays visible to players even
+      // under token fog (so you can always see your allies).
+      const underTokenFog = (t: Token) => coveredByFog(null, tokenFog, grid, t.x, t.y);
+      const isFoe = (t: Token) =>
+        t.kind === 'monster' &&
+        (monById.get(t.refId)?.disposition ?? 'enemy') !== 'friendly';
       // A player always sees their own claimed PC token, even under fog — they
       // know where they are; only OTHER players are kept from seeing it.
       const ownedBy = (t: Token) =>
         t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId;
-      tokens = tokens.filter((t) => !t.isHidden && (!covered(t) || ownedBy(t)));
+      tokens = tokens.filter((t) => {
+        if (t.isHidden) return false;
+        if (ownedBy(t)) return true;
+        if (underMapFog(t)) return false;
+        if (underTokenFog(t) && isFoe(t)) return false;
+        return true;
+      });
       shapedMonsters = playerMonsters ??= monsters.map(toPlayerMonster);
       // Rules-assistant Q&A is a DM tool — never leak it to players.
       shapedChat = playerChat ??= chat.filter((c) => !c.dmOnly);
@@ -220,12 +274,26 @@ export function createSnapshotBuilder(
         // DM rolls captured while "hide my rolls" was on never reach players.
         .filter((e) => !e.dmOnly)
         .map((e) => ({
-          ...e,
-          detail: e.detail.replace(/vs AC -?\d+/g, 'vs AC ?'),
+          ...redactCreatureMods(e),
           // The "Apply damage" payload is a DM-only adjudication tool.
           apply: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
+      // …except the CASTER keeps the apply payload for THEIR OWN entry (stamped
+      // with `apply.owner`), so the player who cast Magic Missile can assign its
+      // darts AND the player who cast an AOE save spell gets the "Apply damage"
+      // click-to-target button — same as the DM. Per-socket overlay on the shared
+      // cache, only when this viewer has such a roll in play.
+      const mine = rollLog.filter((e) => {
+        const owner = e.apply?.owner;
+        return owner && charById.get(owner)?.claimedBy === socketId;
+      });
+      if (mine.length) {
+        const keep = new Map(mine.map((e) => [e.id, e.apply] as const));
+        shapedRollLog = shapedRollLog.map((e) =>
+          keep.has(e.id) ? { ...e, apply: keep.get(e.id) } : e,
+        );
+      }
     }
 
     return {
