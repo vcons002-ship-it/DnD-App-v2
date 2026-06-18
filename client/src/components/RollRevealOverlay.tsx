@@ -2,20 +2,20 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { playHit, playMiss } from '../lib/sfx';
 
-// Pacing (ms). Tweak to taste — attacks run ~2–2.6s, darts ~0.9s.
+// Pacing (ms). Tweak to taste.
 const ROLL_MS = 420; // d20 shuffle before it locks
-const STEP_MS = 300; // each bonus / die chip flying in
+const STEP_MS = 300; // each to-hit / modifier chip flying in
 const OUTCOME_MS = 340; // beat before the HIT/MISS stamp
-const DMG_GAP_MS = 360; // beat before damage rolls
+const DMG_GAP_MS = 300; // beat before the damage dice start rolling
 const HOLD_MS = 1600; // linger on the final numbers after damage concludes
-const DART_ROLL_MS = 280;
-const DART_HOLD_MS = 1200;
+const DART_HOLD_MS = 1200; // linger for a damage-only burst (Fireball cast / MM dart)
+const CYCLE_MS = 70; // how fast tumbling dice flip numbers
 
 type Stage = {
   phase: 'rolling' | 'tohit' | 'outcome' | 'damage';
   dieFace: number; // the big d20 number (cycles while 'rolling', then locks)
   toHitShown: number; // how many to-hit bonus chips are revealed
-  diceShown: number; // how many damage dice are revealed
+  diceLocked: number; // how many INDIVIDUAL damage dice have settled
   modsShown: number; // how many damage-mod chips are revealed
 };
 
@@ -55,11 +55,49 @@ function dieSides(label: string, fallback: number): number {
   return DIE_SIDES.includes(n) ? n : 10;
 }
 
-/** One die drawn in its real polygon shape (d4 triangle, d6 square, d8 diamond,
- *  d10 kite, d12 pentagon, d20 hexagon) with its face value centred. */
-function DieShape({ sides, value, big }: { sides: number; value: number; big?: boolean }) {
-  return <span className={`die die-d${sides}${big ? ' die-big' : ''}`}>{value}</span>;
+/** Flatten the damage dice steps into one die per rolled face (with its size). */
+function flattenDice(
+  steps: { label: string; value: number; faces?: number[] }[] | undefined,
+  baseSides: number,
+): { value: number; sides: number; crit: boolean }[] {
+  if (!steps) return [];
+  return steps.flatMap((d) => {
+    const sides = dieSides(d.label, baseSides);
+    const crit = (d.label || '').toUpperCase() === 'CRIT';
+    return (d.faces ?? [d.value]).map((f) => ({ value: f, sides, crit }));
+  });
 }
+
+/** One die drawn in its real polygon shape (d4 triangle, d6 square, d8 diamond,
+ *  d10 kite, d12 pentagon, d20 hexagon) with its face value centred. While
+ *  `rolling`, the shape tumbles and its number flickers. */
+function DieShape({
+  sides,
+  value,
+  big,
+  rolling,
+  crit,
+}: {
+  sides: number;
+  value: number;
+  big?: boolean;
+  rolling?: boolean;
+  crit?: boolean;
+}) {
+  return (
+    <span
+      className={`die die-d${sides}${big ? ' die-big' : ''}${rolling ? ' rolling' : ''}${
+        crit ? ' die-crit' : ''
+      }`}
+    >
+      {value}
+    </span>
+  );
+}
+
+/** A pseudo-random face for a tumbling die (changes with the cycle tick). */
+const flicker = (tick: number, seed: number, sides: number) =>
+  1 + ((tick * 7 + seed * 13 + 5) % sides);
 
 /**
  * A staged attack-roll reveal everyone sees when an attack resolves:
@@ -67,10 +105,11 @@ function DieShape({ sides, value, big }: { sides: number; value: number; big?: b
  *   2. each bonus (ability mod, proficiency, …) flies in and the to-hit total
  *      counts UP;
  *   3. a HIT / MISS / CRIT / FUMBLE stamp lands;
- *   4. on a hit, the damage dice roll and each modifier counts the total up.
- * A Magic Missile dart is a quick single damage burst (fires once per assigned
- * dart). Non-blocking (the map stays interactive); click / tap / Esc skips it.
- * Mechanics already applied server-side — this is purely cosmetic.
+ *   4. on a hit, EACH damage die tumbles and lands one by one (proper shapes),
+ *      and the damage total climbs as they settle.
+ * A Fireball cast / Magic Missile dart is a damage-only burst (no to-hit/stamp).
+ * Non-blocking (the map stays interactive); click / tap / Esc skips it. Mechanics
+ * already applied server-side — this is purely cosmetic.
  */
 export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const rollFx = useStore((s) => s.rollFx);
@@ -82,46 +121,78 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     phase: 'rolling',
     dieFace: 0,
     toHitShown: 0,
-    diceShown: 0,
+    diceLocked: 0,
     modsShown: 0,
   });
+  // Bumped by an interval while dice are tumbling, to flicker their numbers.
+  const [rollTick, setRollTick] = useState(0);
 
-  // Drive the timeline. Re-runs per roll (keyed on the FX id); all timers clear on
-  // unmount / replacement so a rapid follow-up roll never leaves stale steps.
+  const dice = reveal?.damageDice ?? [];
+  const mods = reveal?.damageMods ?? [];
+  const toHit = reveal?.toHit ?? [];
+  const baseSides = dieSides(dice[0]?.label ?? '', 6);
+  const faces = flattenDice(dice, baseSides);
+
+  // Drive the timeline. Re-runs per roll (keyed on the FX id); all timers/intervals
+  // clear on unmount or replacement so a rapid follow-up roll leaves nothing stale.
   useEffect(() => {
     if (!rollFx || !reveal) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    let cycle: ReturnType<typeof setInterval> | undefined;
+    const intervals: ReturnType<typeof setInterval>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
     const cleanup = () => {
       timers.forEach(clearTimeout);
-      if (cycle) clearInterval(cycle);
+      intervals.forEach(clearInterval);
+    };
+    const stopCycles = () => {
+      intervals.forEach(clearInterval);
+      intervals.length = 0;
     };
 
-    const dice = reveal.damageDice ?? [];
-    const mods = reveal.damageMods ?? [];
+    const allFaces = flattenDice(reveal.damageDice, dieSides(reveal.damageDice?.[0]?.label ?? '', 6));
+    const localMods = reveal.damageMods ?? [];
+    // Each die lands in quick succession; total dice-rolling time is bounded so a
+    // 14d6 Fireball doesn't drag (faster per-die when there are many).
+    const perDie = allFaces.length
+      ? Math.max(55, Math.min(150, Math.round(700 / allFaces.length)))
+      : 0;
+
+    // Roll the damage dice one by one (all visible + tumbling, settling in order),
+    // then reveal the flat modifiers; `start` is when the damage phase begins.
+    const scheduleDamage = (start: number, onImpact?: () => void) => {
+      let t = start;
+      at(t, () => {
+        setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, modsShown: 0 }));
+        intervals.push(setInterval(() => setRollTick((x) => x + 1), CYCLE_MS));
+        onImpact?.();
+      });
+      allFaces.forEach((_, i) => {
+        t += perDie;
+        at(t, () => setStage((p) => ({ ...p, diceLocked: i + 1 })));
+      });
+      at(t, stopCycles); // all dice settled → stop flickering
+      localMods.forEach((_, i) => {
+        t += STEP_MS;
+        at(t, () => setStage((p) => ({ ...p, modsShown: i + 1 })));
+      });
+      return t;
+    };
 
     if (isBurst) {
-      setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceShown: 0, modsShown: 0 });
-      // Impact lands with the damage dice (in sync, not at server-roll time).
-      at(DART_ROLL_MS, () => {
-        setStage((p) => ({ ...p, diceShown: dice.length, modsShown: mods.length }));
-        playHit();
-      });
-      at(DART_ROLL_MS + DART_HOLD_MS, dismiss);
+      setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceLocked: 0, modsShown: 0 });
+      const end = scheduleDamage(0, playHit); // impact lands as the dice start rolling
+      at(end + DART_HOLD_MS, dismiss);
       return cleanup;
     }
 
-    const toHit = reveal.toHit ?? [];
-    setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceShown: 0, modsShown: 0 });
-    // Tumble the die while "rolling".
-    cycle = setInterval(
-      () => setStage((p) => ({ ...p, dieFace: 1 + Math.floor(Math.random() * 20) })),
-      70,
+    setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceLocked: 0, modsShown: 0 });
+    // Tumble the d20 while "rolling".
+    intervals.push(
+      setInterval(() => setStage((p) => ({ ...p, dieFace: 1 + Math.floor(Math.random() * 20) })), CYCLE_MS),
     );
     let t = ROLL_MS;
     at(t, () => {
-      if (cycle) clearInterval(cycle);
+      stopCycles();
       setStage((p) => ({ ...p, phase: 'tohit', dieFace: reveal.d20 ?? p.dieFace }));
     });
     toHit.forEach((_, i) => {
@@ -131,38 +202,22 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     t += OUTCOME_MS;
     at(t, () => {
       setStage((p) => ({ ...p, phase: 'outcome' }));
-      // Hit/miss cue lands WITH the stamp, in sync with the animation.
       if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
       else playMiss();
     });
-    const hasDamage = (reveal.damage ?? 0) > 0 && dice.length + mods.length > 0;
-    if (hasDamage) {
-      t += DMG_GAP_MS;
-      at(t, () => setStage((p) => ({ ...p, phase: 'damage' })));
-      dice.forEach((_, i) => {
-        t += STEP_MS;
-        at(t, () => setStage((p) => ({ ...p, diceShown: i + 1 })));
-      });
-      mods.forEach((_, i) => {
-        t += STEP_MS;
-        at(t, () => setStage((p) => ({ ...p, modsShown: i + 1 })));
-      });
-    }
-    t += HOLD_MS;
-    at(t, dismiss);
+    const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
+    const end = hasDamage ? scheduleDamage(t + DMG_GAP_MS) : t;
+    at(end + HOLD_MS, dismiss);
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rollFx?.id]);
 
-  // Running totals (tweened so the numbers visibly climb).
-  const toHit = reveal?.toHit ?? [];
-  const dice = reveal?.damageDice ?? [];
-  const mods = reveal?.damageMods ?? [];
+  // Running totals (tweened so the numbers visibly climb as dice settle).
   const toHitTarget =
     (reveal?.d20 ?? 0) + toHit.slice(0, stage.toHitShown).reduce((s, x) => s + x.value, 0);
   const dmgTarget =
-    dice.slice(0, stage.diceShown).reduce((s, x) => s + x.value, 0) +
-    mods.slice(0, stage.modsShown).reduce((s, x) => s + x.value, 0);
+    faces.slice(0, stage.diceLocked).reduce((s, f) => s + f.value, 0) +
+    mods.slice(0, stage.modsShown).reduce((s, m) => s + m.value, 0);
   const toHitShownNum = useTween(stage.phase === 'rolling' ? 0 : toHitTarget);
   const dmgShownNum = useTween(dmgTarget);
 
@@ -184,13 +239,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
         : reveal.outcome === 'hit'
           ? 'HIT'
           : 'MISS';
-  // A damage-only burst (cast AoE roll / Magic Missile dart) shows no HIT/MISS stamp.
   const showOutcome = !isBurst && (stage.phase === 'outcome' || stage.phase === 'damage');
-  // Hold the colour back until the result is revealed: the card stays grey through
-  // the tumble + to-hit build-up, then takes the outcome colour at the stamp.
+  // Hold the colour back until the result reveals (grey while rolling/building up).
   const colourClass = showOutcome ? `roll-reveal-${reveal.outcome}` : 'roll-reveal-pending';
-  // Damage dice all share the weapon/spell's die size (a crit step has no "dN").
-  const baseSides = dieSides(dice[0]?.label ?? '', 6);
+  const showDamage = (isBurst || stage.phase === 'damage') && (reveal.damage ?? 0) > 0;
 
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
@@ -208,9 +260,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
 
         {!isBurst && (
           <div className="roll-reveal-tohit">
-            <span className={`die die-d20 die-big${stage.phase === 'rolling' ? ' rolling' : ''}`}>
-              {stage.dieFace || '–'}
-            </span>
+            <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} />
             <div className="rr-buildup">
               <div className="rr-total" key={toHitShownNum}>
                 {toHitShownNum}
@@ -229,19 +279,26 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
 
         {showOutcome && <div className="roll-reveal-outcome">{outcomeLabel}</div>}
 
-        {(isBurst || stage.phase === 'damage') && (reveal.damage ?? 0) > 0 && (
+        {showDamage && (
           <div className="roll-reveal-damage">
             <div className="rr-dmg-num" key={dmgShownNum}>
               {dmgShownNum}
               <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>
             </div>
-            {/* Each damage die drawn in its real shape, by face. */}
+            {/* Every damage die, each tumbling until it settles on its face. */}
             <div className="rr-dice-row">
-              {dice.slice(0, stage.diceShown).flatMap((d, di) =>
-                (d.faces ?? [d.value]).map((f, fi) => (
-                  <DieShape key={`d${di}-${fi}`} sides={baseSides} value={f} />
-                )),
-              )}
+              {faces.map((f, i) => {
+                const locked = i < stage.diceLocked;
+                return (
+                  <DieShape
+                    key={i}
+                    sides={f.sides}
+                    value={locked ? f.value : flicker(rollTick, i, f.sides)}
+                    rolling={!locked}
+                    crit={f.crit}
+                  />
+                );
+              })}
             </div>
             <div className="rr-chips">
               {mods.slice(0, stage.modsShown).map((m, i) => (

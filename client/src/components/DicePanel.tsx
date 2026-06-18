@@ -171,7 +171,9 @@ export function DicePanel({
   };
 
   return (
-    <div className="panel-section dice-panel">
+    // Player console: dock the dice/log/chat to the bottom of the panel so the
+    // latest roll stays in view as the combat console above it scrolls.
+    <div className={`panel-section dice-panel${isDm ? '' : ' dice-panel-dock'}`}>
       <h3>Dice</h3>
       <div className="dice-quick">
         {QUICK.map((q) => (
