@@ -386,9 +386,9 @@ function FloaterText({
     if (!node) return;
     const tween = new Konva.Tween({
       node,
-      y: node.y() - radius * 1.6,
+      y: node.y() - radius * 1.8,
       opacity: 0,
-      duration: 0.9,
+      duration: 1.6,
       easing: Konva.Easings.EaseOut,
     });
     tween.play();

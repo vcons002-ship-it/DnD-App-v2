@@ -68,9 +68,18 @@ export function spellAttackBonus(level: number, stats: Record<string, number>): 
 export function spellAttackBonusDetail(
   stats: Record<string, number>,
   prof: number,
-): { bonus: number; detail: string } {
+): { bonus: number; detail: string; parts: { label: string; value: number }[] } {
   const { ability, mod } = spellcastingAbility(stats);
-  return { bonus: mod + prof, detail: `${signed(mod)}[${ability}] ${signed(prof)}[PROF]` };
+  return {
+    bonus: mod + prof,
+    detail: `${signed(mod)}[${ability}] ${signed(prof)}[PROF]`,
+    // The spellcasting modifier and proficiency as SEPARATE steps, so the reveal
+    // animation adds them one at a time (mirrors the weapon to-hit breakdown).
+    parts: [
+      ...(mod ? [{ label: ability, value: mod }] : []),
+      { label: 'PROF', value: prof },
+    ],
+  };
 }
 
 /** Spell save DC = 8 + proficiency + spellcasting modifier. */

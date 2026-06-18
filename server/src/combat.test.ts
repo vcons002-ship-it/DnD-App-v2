@@ -1622,6 +1622,22 @@ describe('targeted attack-roll spells & monster actions', () => {
     expect(saw).toBe(true);
   });
 
+  it('spell attack reveal lists the casting mod and proficiency as SEPARATE steps', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
+    setSheetAbility('pc', ch.id, fireBolt);
+    const { tokenId } = dummy(s, map, {});
+    resolveAbilityRoll(s.id, 'Mage', getCharacter(ch.id)!, fireBolt, undefined, undefined, tokenId);
+    const reveal = listRollLog(s.id).at(-1)!.reveal!;
+    // INT 16 → +3 spellcasting mod, level 5 → +3 proficiency: two labelled steps,
+    // not a single combined "+6 spell".
+    const labels = (reveal.toHit ?? []).map((x) => x.label);
+    expect(labels).toContain('INT');
+    expect(labels).toContain('PROF');
+    expect(labels).not.toContain('spell');
+    expect((reveal.toHit ?? []).reduce((a, x) => a + x.value, 0)).toBe(6);
+  });
+
   it('PC spell attack doubles damage against a vulnerable target', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, { name: 'Mage', className: 'Wizard', level: 5, stats: { INT: 16 } });
