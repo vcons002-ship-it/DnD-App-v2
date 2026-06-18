@@ -1023,6 +1023,8 @@ export type LootTakePayload = {
 export type AbilitySetPayload = { kind: TokenKind; refId: string; ability: SheetAbility };
 /** Remove a spell/ability from a creature/character sheet. */
 export type AbilityRemovePayload = { kind: TokenKind; refId: string; abilityId: string };
+/** Reorder a creature's `sheetAbilities` to match a client-supplied id order. */
+export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds: string[] };
 /**
  * Roll a sheet spell/ability into the shared log (server-authoritative).
  * `castLevel` upcasts a leveled spell; omit for cantrips/abilities. For a monster
@@ -1257,6 +1259,7 @@ export interface ClientToServerEvents {
   'object:paste': (payload: { mapId: string; x: number; y: number; icon: string; name?: string }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
+  'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
   'chat:send': (payload: { text: string }) => void;

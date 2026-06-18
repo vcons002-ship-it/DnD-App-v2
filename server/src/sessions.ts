@@ -1999,6 +1999,38 @@ export function removeSheetAbility(
   return getCharacter(refId);
 }
 
+/**
+ * Reorder a creature's `sheetAbilities` to match a client-supplied id order.
+ * Unknown/missing ids are ignored; any ability not named in `orderedIds` is
+ * appended in its existing order, so a partial order (e.g. one group) never
+ * drops entries.
+ */
+export function reorderSheetAbilities(
+  kind: TokenKind,
+  refId: string,
+  orderedIds: string[],
+): Character | Monster | null {
+  const ent = kind === 'monster' ? getMonster(refId) : getCharacter(refId);
+  if (!ent) return null;
+  const byId = new Map(ent.sheetAbilities.map((a) => [a.id, a]));
+  const seen = new Set<string>();
+  const ordered: Character['sheetAbilities'] = [];
+  for (const id of orderedIds) {
+    const a = byId.get(id);
+    if (a && !seen.has(id)) {
+      ordered.push(a);
+      seen.add(id);
+    }
+  }
+  for (const a of ent.sheetAbilities) if (!seen.has(a.id)) ordered.push(a);
+  const table = kind === 'monster' ? 'monsters' : 'characters';
+  db.prepare(`UPDATE ${table} SET sheet_abilities = ? WHERE id = ?`).run(
+    JSON.stringify(ordered),
+    refId,
+  );
+  return kind === 'monster' ? getMonster(refId) : getCharacter(refId);
+}
+
 /** Patch editable fields of a character (DM or the owning player). */
 export function updateCharacter(
   characterId: string,

@@ -240,6 +240,18 @@ export const SPELL_LIST: SpellEntry[] = [
     roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageType: 'lightning' },
   },
   {
+    name: 'Sorcerous Burst',
+    type: 'spell',
+    level: 0,
+    school: 'Evocation',
+    classes: ['sorcerer'],
+    tags: ['evocation', 'sorcerer', 'cantrip'],
+    meta: '1 action · 120 ft · V,S',
+    description:
+      'Hurl sorcerous energy at a creature or object you can see. On a hit it takes 1d8 damage of a type you choose (acid, cold, fire, lightning, poison, psychic, or thunder). If you roll the maximum on a damage die you can roll one additional die, up to a number of extra dice equal to your spellcasting ability modifier.',
+    roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageType: 'force' },
+  },
+  {
     name: 'Spare the Dying',
     type: 'spell',
     level: 0,

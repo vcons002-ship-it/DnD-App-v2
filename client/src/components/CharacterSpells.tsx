@@ -108,6 +108,7 @@ export function CharacterSpells({
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
+  const reorderSheetAbilities = useStore((s) => s.reorderSheetAbilities);
   const setResource = useStore((s) => s.setResource);
   const rollAbility = useStore((s) => s.rollAbility);
   const notify = useStore((s) => s.notify);
@@ -133,6 +134,9 @@ export function CharacterSpells({
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  // Collapsible spell GROUPS (Cantrips / Level N / Other) — default open
+  // (undefined → open), so an existing sheet shows everything until collapsed.
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
@@ -295,6 +299,413 @@ export function CharacterSpells({
   const clearRoll = (a: SheetAbility) =>
     setSheetAbility(kind, character.id, { ...a, roll: undefined });
 
+  /** Author a homebrew spell from scratch: a leveled spell pre-seeded with a
+   *  damage roll + the inline editor open so name/level/dice are editable. */
+  const addCustomSpell = () => {
+    const id = crypto.randomUUID?.() ?? String(Date.now());
+    setSheetAbility(kind, character.id, {
+      id,
+      name: 'New Spell',
+      type: 'spell',
+      level: 1,
+      school: '',
+      actionType: 'action',
+      prepared: true,
+      description: '',
+      roll: { kind: 'damage', dice: '1d6' },
+    });
+    setOpen((o) => ({ ...o, [id]: true }));
+  };
+
+  /** Move an entry up/down WITHIN its display group. Swaps it with its group
+   *  neighbour in the full `sheetAbilities` order and persists via ability:reorder,
+   *  so other groups stay put. `groupIds` is the group's ids in display order. */
+  const moveInGroup = (a: SheetAbility, groupIds: string[], dir: -1 | 1) => {
+    const gi = groupIds.indexOf(a.id);
+    const swapId = groupIds[gi + dir];
+    if (!swapId) return;
+    const ids = character.sheetAbilities.map((x) => x.id);
+    const i = ids.indexOf(a.id);
+    const j = ids.indexOf(swapId);
+    if (i < 0 || j < 0) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    reorderSheetAbilities(kind, character.id, ids);
+  };
+
+  /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
+  const renderEntry = (a: SheetAbility, groupIds: string[]) => {
+    const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
+    const gi = groupIds.indexOf(a.id);
+    return (
+      <li key={a.id} className="spell-entry">
+        <div className="spell-head">
+          <button
+            className="spell-toggle"
+            onClick={() => setOpen((o) => ({ ...o, [a.id]: !o[a.id] }))}
+            title="Show details"
+          >
+            <span className="spell-caret">{open[a.id] ? '▾' : '▸'}</span>
+            <span className="spell-name">{a.name}</span>
+            {a.actionType && (
+              <span className="action-icon" title={ACTION_ICON[a.actionType].label}>
+                {ACTION_ICON[a.actionType].icon}
+              </span>
+            )}
+            {tagFor(a) && <span className="muted spell-tag">{tagFor(a)}</span>}
+          </button>
+
+          {editable && a.type === 'spell' && (a.level ?? 0) > 0 && (
+            <button
+              className={`btn tiny ${a.prepared !== false ? 'on' : ''}`}
+              title={a.prepared !== false ? 'Prepared — click to unprepare' : 'Not prepared'}
+              onClick={() =>
+                setSheetAbility(kind, character.id, { ...a, prepared: a.prepared === false })
+              }
+            >
+              {a.prepared !== false ? '✓ Prep' : 'Prep'}
+            </button>
+          )}
+
+          {/* Play-time toggles live in the Combat section when one is
+              shown (rollsElsewhere); inline only on the full sheet. */}
+          {editable && !rollsElsewhere && autoMastery(a) && (
+            <button
+              className={`btn tiny ${a.mastery!.active ? 'on' : ''}`}
+              title={
+                a.mastery!.active
+                  ? 'Active — triggers on weapons with a matching tag'
+                  : 'Inactive — click to enable'
+              }
+              onClick={() => patchMastery(a, { active: !a.mastery!.active })}
+            >
+              {a.mastery!.active ? 'On' : 'Off'}
+            </button>
+          )}
+
+          {editable && !rollsElsewhere && isManeuver(a) && (
+            <button
+              className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
+              title={
+                a.maneuver!.active
+                  ? 'Armed — spends a Superiority Die on your next attack'
+                  : 'Off — click to arm for your next attack'
+              }
+              onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
+            >
+              {a.maneuver!.active ? 'Armed' : 'Off'}
+            </button>
+          )}
+
+          {editable &&
+            !rollsElsewhere &&
+            isStance(a) &&
+            a.stance!.targeted &&
+            targets.length > 0 && (
+              <select
+                className="spell-level"
+                value={a.stance!.targetId ?? ''}
+                title="Marked target — the stance only affects attacks against it"
+                onChange={(e) => moveMark(a, e.target.value || undefined)}
+              >
+                <option value="">— mark —</option>
+                {targets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {resolveToken(snapshot!, t).name}
+                  </option>
+                ))}
+              </select>
+            )}
+          {editable && !rollsElsewhere && isStance(a) && (
+            <button
+              className={`btn tiny ${a.stance!.active ? 'on' : ''}`}
+              title={
+                a.stance!.active
+                  ? 'Active — modifying your attacks; click to end'
+                  : a.useCounter
+                    ? 'Off — click to activate (spends one use)'
+                    : 'Off — click to activate'
+              }
+              onClick={() => toggleStance(a, validDefault ?? targets[0]?.id)}
+            >
+              {a.stance!.active ? 'On' : 'Off'}
+            </button>
+          )}
+
+          {editable &&
+            upcastable(a) &&
+            ((a.roll && !rollsElsewhere) || (!a.roll && isConcentration(a))) && (
+              <select
+                className="spell-level"
+                value={lvl}
+                title="Cast at level (upcast)"
+                onChange={(e) =>
+                  setCastLevel((c) => ({ ...c, [a.id]: Number(e.target.value) }))
+                }
+              >
+                {Array.from({ length: 9 - spellBaseLevel(a) + 1 }).map((_, i) => {
+                  const v = spellBaseLevel(a) + i;
+                  return (
+                    <option key={v} value={v}>
+                      L{v}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          {editable && a.roll && !rollsElsewhere && (
+            <button className="btn tiny" onClick={() => doRoll(a)}>
+              {rollLabel(a.roll)}
+            </button>
+          )}
+          {editable && !a.roll && isConcentration(a) && (
+            <button
+              className="btn tiny"
+              title="Cast — start concentration (drops any spell you were concentrating on)"
+              onClick={() => doRoll(a)}
+            >
+              🔮 Cast
+            </button>
+          )}
+          {/* A text-only entry (e.g. imported) → look it up and make it
+              rollable in place. Skipped for toggle-driven items. */}
+          {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
+            <button
+              className="btn tiny"
+              disabled={enrichId === a.id}
+              title="Look this up in the rules (local first, AI fallback) and make it rollable — no duplicate"
+              onClick={() => makeRollable(a)}
+            >
+              {enrichId === a.id ? '…' : '⚡ Make rollable'}
+            </button>
+          )}
+          {/* Reorder within the group (tap ▲/▼ — works on touch too). */}
+          {editable && groupIds.length > 1 && (
+            <span className="spell-reorder">
+              <button
+                className="res-x"
+                title="Move up"
+                disabled={gi <= 0}
+                onClick={() => moveInGroup(a, groupIds, -1)}
+              >
+                ▲
+              </button>
+              <button
+                className="res-x"
+                title="Move down"
+                disabled={gi >= groupIds.length - 1}
+                onClick={() => moveInGroup(a, groupIds, 1)}
+              >
+                ▼
+              </button>
+            </span>
+          )}
+          {editable && (
+            <button
+              className="res-x"
+              title="Remove"
+              onClick={() => removeSheetAbility(kind, character.id, a.id)}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {open[a.id] && (
+          <div className="spell-body">
+            {/* Inline header editor — rename / relevel / set school (homebrew). */}
+            {editable && (
+              <div className="sb-roll-edit">
+                <input
+                  className="sb-dice"
+                  placeholder="name"
+                  value={a.name}
+                  onChange={(e) => setSheetAbility(kind, character.id, { ...a, name: e.target.value })}
+                />
+                {a.type === 'spell' && (
+                  <input
+                    className="sb-dc"
+                    type="number"
+                    min={0}
+                    max={9}
+                    title="Spell level (0 = cantrip)"
+                    value={a.level ?? 0}
+                    onChange={(e) =>
+                      setSheetAbility(kind, character.id, { ...a, level: Number(e.target.value) })
+                    }
+                  />
+                )}
+                <input
+                  className="sb-dmg-type"
+                  placeholder="school"
+                  value={a.school ?? ''}
+                  onChange={(e) =>
+                    setSheetAbility(kind, character.id, { ...a, school: e.target.value || undefined })
+                  }
+                />
+              </div>
+            )}
+            {a.meta && <p className="muted spell-meta">{a.meta}</p>}
+            {autoMastery(a) && (
+              <p className="muted spell-meta">
+                Triggers on weapons tagged:{' '}
+                {(a.mastery!.appliesToTags ?? []).length
+                  ? a.mastery!.appliesToTags.map((t) => `[${t}]`).join(' ')
+                  : '—'}
+              </p>
+            )}
+            {isManeuver(a) && (
+              <p className="muted spell-meta">
+                Spends a Superiority Die
+                {a.maneuver!.addDieTo === 'attack'
+                  ? ' → added to the attack roll'
+                  : a.maneuver!.addDieTo === 'damage'
+                    ? ' → added to damage on a hit'
+                    : a.maneuver!.addDieTo === 'heal'
+                      ? ' → temp HP'
+                      : ''}
+                {a.maneuver!.save
+                  ? ` · ${a.maneuver!.save.ability} save${a.maneuver!.save.onFail ? ` or ${a.maneuver!.save.onFail}` : ''}`
+                  : ''}
+              </p>
+            )}
+            {editable && (
+              <label className="action-type-edit muted">
+                Action:
+                <select
+                  value={a.actionType ?? ''}
+                  onChange={(e) =>
+                    setSheetAbility(kind, character.id, {
+                      ...a,
+                      actionType: (e.target.value || undefined) as
+                        | 'action'
+                        | 'bonus'
+                        | 'reaction'
+                        | undefined,
+                    })
+                  }
+                >
+                  <option value="">—</option>
+                  <option value="action">● Action</option>
+                  <option value="bonus">⚡ Bonus</option>
+                  <option value="reaction">↩ Reaction</option>
+                </select>
+              </label>
+            )}
+            {/* Homebrew: add a manual roll to a text-only entry (no AI). The
+                editor below then sets kind/dice/save/dc/type. */}
+            {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
+              <button
+                className="btn tiny"
+                title="Add a manual damage / save / attack / heal roll (homebrew — no AI needed)"
+                onClick={() => patchRoll(a, { kind: 'damage', dice: '1d6' })}
+              >
+                ✏️ Add roll
+              </button>
+            )}
+            {editable && a.roll && (
+              <div className="sb-roll-edit">
+                <select
+                  value={a.roll.kind}
+                  title="What this roll does"
+                  onChange={(e) =>
+                    patchRoll(a, {
+                      kind: e.target.value as NonNullable<SheetAbility['roll']>['kind'],
+                    })
+                  }
+                >
+                  <option value="attack">Attack</option>
+                  <option value="save">Save</option>
+                  <option value="damage">Damage</option>
+                  <option value="heal">Heal</option>
+                </select>
+                <input
+                  className="sb-dice"
+                  placeholder="dice e.g. 8d6"
+                  value={a.roll.dice ?? ''}
+                  onChange={(e) => patchRoll(a, { dice: e.target.value })}
+                />
+                {a.roll.kind === 'save' && (
+                  <>
+                    <select
+                      value={a.roll.save ?? 'DEX'}
+                      title="Saving throw ability"
+                      onChange={(e) => patchRoll(a, { save: e.target.value })}
+                    >
+                      {SAVE_ABILITIES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="sb-dc"
+                      placeholder="DC"
+                      value={a.roll.dc ?? ''}
+                      onChange={(e) =>
+                        patchRoll(a, {
+                          dc: e.target.value ? Number(e.target.value) : undefined,
+                        })
+                      }
+                    />
+                  </>
+                )}
+                {a.roll.kind !== 'heal' && (
+                  <input
+                    className="sb-dmg-type"
+                    placeholder="damage type e.g. fire"
+                    title="Damage type — drives resistance/vulnerability"
+                    value={a.roll.damageType ?? ''}
+                    onChange={(e) => patchRoll(a, { damageType: e.target.value || undefined })}
+                  />
+                )}
+                <button
+                  className="res-x"
+                  title="Remove this roll (back to text-only)"
+                  onClick={() => clearRoll(a)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {editable ? (
+              <textarea
+                className="spell-desc-edit"
+                placeholder="Description"
+                value={a.description ?? ''}
+                onChange={(e) =>
+                  setSheetAbility(kind, character.id, { ...a, description: e.target.value })
+                }
+              />
+            ) : (
+              <p>{a.description}</p>
+            )}
+            {a.upcast && (
+              <p className="muted spell-meta">
+                <strong>At higher levels:</strong> {a.upcast}
+              </p>
+            )}
+          </div>
+        )}
+      </li>
+    );
+  };
+
+  // ---- Group abilities for display: Cantrips / Level N / Other ----
+  const all = character.sheetAbilities;
+  const cantrips = all.filter((a) => a.type === 'spell' && (a.level ?? 0) === 0);
+  const leveled = all.filter((a) => a.type === 'spell' && (a.level ?? 0) > 0);
+  const others = all.filter((a) => a.type !== 'spell');
+  const levels = Array.from(new Set(leveled.map((a) => a.level ?? 1))).sort((x, y) => x - y);
+  type Group = { id: string; label: string; entries: SheetAbility[] };
+  const groups: Group[] = [];
+  if (cantrips.length) groups.push({ id: 'cantrips', label: 'Cantrips', entries: cantrips });
+  for (const L of levels)
+    groups.push({
+      id: `lvl-${L}`,
+      label: `Level ${L}`,
+      entries: leveled.filter((a) => (a.level ?? 1) === L),
+    });
+  if (others.length) groups.push({ id: 'other', label: 'Other abilities', entries: others });
+
   return (
     <div className="spells">
       <h4>Spells, Abilities &amp; Masteries</h4>
@@ -382,308 +793,27 @@ export function CharacterSpells({
           </select>
         </div>
       )}
-      {character.sheetAbilities.length === 0 && (
-        <p className="muted">None yet.</p>
-      )}
-      <ul className="spell-list">
-        {character.sheetAbilities.map((a) => {
-          const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
-          return (
-            <li key={a.id} className="spell-entry">
-              <div className="spell-head">
-                <button
-                  className="spell-toggle"
-                  onClick={() => setOpen((o) => ({ ...o, [a.id]: !o[a.id] }))}
-                  title="Show details"
-                >
-                  <span className="spell-caret">{open[a.id] ? '▾' : '▸'}</span>
-                  <span className="spell-name">{a.name}</span>
-                  {a.actionType && (
-                    <span
-                      className="action-icon"
-                      title={ACTION_ICON[a.actionType].label}
-                    >
-                      {ACTION_ICON[a.actionType].icon}
-                    </span>
-                  )}
-                  {tagFor(a) && <span className="muted spell-tag">{tagFor(a)}</span>}
-                </button>
-
-                {editable && a.type === 'spell' && (a.level ?? 0) > 0 && (
-                  <button
-                    className={`btn tiny ${a.prepared !== false ? 'on' : ''}`}
-                    title={a.prepared !== false ? 'Prepared — click to unprepare' : 'Not prepared'}
-                    onClick={() =>
-                      setSheetAbility(kind, character.id, { ...a, prepared: a.prepared === false })
-                    }
-                  >
-                    {a.prepared !== false ? '✓ Prep' : 'Prep'}
-                  </button>
-                )}
-
-                {/* Play-time toggles live in the Combat section when one is
-                    shown (rollsElsewhere); inline only on the full sheet. */}
-                {editable && !rollsElsewhere && autoMastery(a) && (
-                  <button
-                    className={`btn tiny ${a.mastery!.active ? 'on' : ''}`}
-                    title={
-                      a.mastery!.active
-                        ? 'Active — triggers on weapons with a matching tag'
-                        : 'Inactive — click to enable'
-                    }
-                    onClick={() => patchMastery(a, { active: !a.mastery!.active })}
-                  >
-                    {a.mastery!.active ? 'On' : 'Off'}
-                  </button>
-                )}
-
-                {editable && !rollsElsewhere && isManeuver(a) && (
-                  <button
-                    className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
-                    title={
-                      a.maneuver!.active
-                        ? 'Armed — spends a Superiority Die on your next attack'
-                        : 'Off — click to arm for your next attack'
-                    }
-                    onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
-                  >
-                    {a.maneuver!.active ? 'Armed' : 'Off'}
-                  </button>
-                )}
-
-                {editable &&
-                  !rollsElsewhere &&
-                  isStance(a) &&
-                  a.stance!.targeted &&
-                  targets.length > 0 && (
-                    <select
-                      className="spell-level"
-                      value={a.stance!.targetId ?? ''}
-                      title="Marked target — the stance only affects attacks against it"
-                      onChange={(e) => moveMark(a, e.target.value || undefined)}
-                    >
-                      <option value="">— mark —</option>
-                      {targets.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {resolveToken(snapshot!, t).name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                {editable && !rollsElsewhere && isStance(a) && (
-                  <button
-                    className={`btn tiny ${a.stance!.active ? 'on' : ''}`}
-                    title={
-                      a.stance!.active
-                        ? 'Active — modifying your attacks; click to end'
-                        : a.useCounter
-                          ? 'Off — click to activate (spends one use)'
-                          : 'Off — click to activate'
-                    }
-                    onClick={() => toggleStance(a, validDefault ?? targets[0]?.id)}
-                  >
-                    {a.stance!.active ? 'On' : 'Off'}
-                  </button>
-                )}
-
-                {editable &&
-                  upcastable(a) &&
-                  ((a.roll && !rollsElsewhere) || (!a.roll && isConcentration(a))) && (
-                  <select
-                    className="spell-level"
-                    value={lvl}
-                    title="Cast at level (upcast)"
-                    onChange={(e) =>
-                      setCastLevel((c) => ({ ...c, [a.id]: Number(e.target.value) }))
-                    }
-                  >
-                    {Array.from({ length: 9 - spellBaseLevel(a) + 1 }).map((_, i) => {
-                      const v = spellBaseLevel(a) + i;
-                      return (
-                        <option key={v} value={v}>
-                          L{v}
-                        </option>
-                      );
-                    })}
-                  </select>
-                )}
-                {editable && a.roll && !rollsElsewhere && (
-                  <button className="btn tiny" onClick={() => doRoll(a)}>
-                    {rollLabel(a.roll)}
-                  </button>
-                )}
-                {editable && !a.roll && isConcentration(a) && (
-                  <button
-                    className="btn tiny"
-                    title="Cast — start concentration (drops any spell you were concentrating on)"
-                    onClick={() => doRoll(a)}
-                  >
-                    🔮 Cast
-                  </button>
-                )}
-                {/* A text-only entry (e.g. imported) → look it up and make it
-                    rollable in place. Skipped for toggle-driven items. */}
-                {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
-                  <button
-                    className="btn tiny"
-                    disabled={enrichId === a.id}
-                    title="Look this up in the rules (local first, AI fallback) and make it rollable — no duplicate"
-                    onClick={() => makeRollable(a)}
-                  >
-                    {enrichId === a.id ? '…' : '⚡ Make rollable'}
-                  </button>
-                )}
-                {editable && (
-                  <button
-                    className="res-x"
-                    title="Remove"
-                    onClick={() => removeSheetAbility(kind, character.id, a.id)}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              {open[a.id] && (
-                <div className="spell-body">
-                  {a.meta && <p className="muted spell-meta">{a.meta}</p>}
-                  {autoMastery(a) && (
-                    <p className="muted spell-meta">
-                      Triggers on weapons tagged:{' '}
-                      {(a.mastery!.appliesToTags ?? []).length
-                        ? a.mastery!.appliesToTags.map((t) => `[${t}]`).join(' ')
-                        : '—'}
-                    </p>
-                  )}
-                  {isManeuver(a) && (
-                    <p className="muted spell-meta">
-                      Spends a Superiority Die
-                      {a.maneuver!.addDieTo === 'attack'
-                        ? ' → added to the attack roll'
-                        : a.maneuver!.addDieTo === 'damage'
-                          ? ' → added to damage on a hit'
-                          : a.maneuver!.addDieTo === 'heal'
-                            ? ' → temp HP'
-                            : ''}
-                      {a.maneuver!.save
-                        ? ` · ${a.maneuver!.save.ability} save${a.maneuver!.save.onFail ? ` or ${a.maneuver!.save.onFail}` : ''}`
-                        : ''}
-                    </p>
-                  )}
-                  {editable && (
-                    <label className="action-type-edit muted">
-                      Action:
-                      <select
-                        value={a.actionType ?? ''}
-                        onChange={(e) =>
-                          setSheetAbility(kind, character.id, {
-                            ...a,
-                            actionType: (e.target.value || undefined) as
-                              | 'action'
-                              | 'bonus'
-                              | 'reaction'
-                              | undefined,
-                          })
-                        }
-                      >
-                        <option value="">—</option>
-                        <option value="action">● Action</option>
-                        <option value="bonus">⚡ Bonus</option>
-                        <option value="reaction">↩ Reaction</option>
-                      </select>
-                    </label>
-                  )}
-                  {/* Homebrew: add a manual roll to a text-only entry (no AI). The
-                      editor below then sets kind/dice/save/dc/type. */}
-                  {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
-                    <button
-                      className="btn tiny"
-                      title="Add a manual damage / save / attack / heal roll (homebrew — no AI needed)"
-                      onClick={() => patchRoll(a, { kind: 'damage', dice: '1d6' })}
-                    >
-                      ✏️ Add roll
-                    </button>
-                  )}
-                  {editable && a.roll && (
-                    <div className="sb-roll-edit">
-                      <select
-                        value={a.roll.kind}
-                        title="What this roll does"
-                        onChange={(e) =>
-                          patchRoll(a, {
-                            kind: e.target.value as NonNullable<
-                              SheetAbility['roll']
-                            >['kind'],
-                          })
-                        }
-                      >
-                        <option value="attack">Attack</option>
-                        <option value="save">Save</option>
-                        <option value="damage">Damage</option>
-                        <option value="heal">Heal</option>
-                      </select>
-                      <input
-                        className="sb-dice"
-                        placeholder="dice e.g. 8d6"
-                        value={a.roll.dice ?? ''}
-                        onChange={(e) => patchRoll(a, { dice: e.target.value })}
-                      />
-                      {a.roll.kind === 'save' && (
-                        <>
-                          <select
-                            value={a.roll.save ?? 'DEX'}
-                            title="Saving throw ability"
-                            onChange={(e) => patchRoll(a, { save: e.target.value })}
-                          >
-                            {SAVE_ABILITIES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            className="sb-dc"
-                            placeholder="DC"
-                            value={a.roll.dc ?? ''}
-                            onChange={(e) =>
-                              patchRoll(a, {
-                                dc: e.target.value ? Number(e.target.value) : undefined,
-                              })
-                            }
-                          />
-                        </>
-                      )}
-                      {a.roll.kind !== 'heal' && (
-                        <input
-                          className="sb-dmg-type"
-                          placeholder="damage type e.g. fire"
-                          title="Damage type — drives resistance/vulnerability"
-                          value={a.roll.damageType ?? ''}
-                          onChange={(e) =>
-                            patchRoll(a, { damageType: e.target.value || undefined })
-                          }
-                        />
-                      )}
-                      <button
-                        className="res-x"
-                        title="Remove this roll (back to text-only)"
-                        onClick={() => clearRoll(a)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                  <p>{a.description}</p>
-                  {a.upcast && (
-                    <p className="muted spell-meta">
-                      <strong>At higher levels:</strong> {a.upcast}
-                    </p>
-                  )}
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {groups.length === 0 && <p className="muted">None yet.</p>}
+      {groups.map((g) => {
+        const gOpen = groupOpen[g.id] !== false;
+        const groupIds = g.entries.map((e) => e.id);
+        return (
+          <div key={g.id} className="spell-group">
+            <button
+              className="spell-group-head"
+              onClick={() => setGroupOpen((o) => ({ ...o, [g.id]: !gOpen }))}
+              title={gOpen ? 'Collapse' : 'Expand'}
+            >
+              <span className="spell-caret">{gOpen ? '▾' : '▸'}</span>
+              <span className="spell-group-title">{g.label}</span>
+              <span className="muted spell-tag">{g.entries.length}</span>
+            </button>
+            {gOpen && (
+              <ul className="spell-list">{g.entries.map((a) => renderEntry(a, groupIds))}</ul>
+            )}
+          </div>
+        );
+      })}
 
       {editable && (
         <>
@@ -693,6 +823,13 @@ export function CharacterSpells({
             </button>
             <button className="btn tiny" onClick={() => setBookOpen(true)} title="Browse the full spell list by class">
               📖 Spellbook
+            </button>
+            <button
+              className="btn tiny"
+              onClick={addCustomSpell}
+              title="Author a homebrew spell — sets name, level, dice & roll inline"
+            >
+              ✏️ Custom spell
             </button>
           </div>
           {bookOpen && (

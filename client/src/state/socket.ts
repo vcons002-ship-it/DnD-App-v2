@@ -259,6 +259,7 @@ type Store = {
   interactObject: (payload: ObjectInteractPayload) => void;
   setSheetAbility: (kind: TokenKind, refId: string, ability: SheetAbility) => void;
   removeSheetAbility: (kind: TokenKind, refId: string, abilityId: string) => void;
+  reorderSheetAbilities: (kind: TokenKind, refId: string, orderedIds: string[]) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
   rollDeathSave: (characterId: string) => void;
   sendChat: (text: string) => void;
@@ -774,6 +775,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('ability:set', { kind, refId, ability }),
   removeSheetAbility: (kind, refId, abilityId) =>
     get().socket?.emit('ability:remove', { kind, refId, abilityId }),
+  reorderSheetAbilities: (kind, refId, orderedIds) =>
+    get().socket?.emit('ability:reorder', { kind, refId, orderedIds }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
   sendChat: (text) => get().socket?.emit('chat:send', { text }),

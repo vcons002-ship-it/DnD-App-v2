@@ -858,6 +858,14 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .spell-meta { font-size: 11px; }
 .spell-add { margin-top: 6px; }
 .spell-none { font-size: 12px; padding: 6px; margin: 0; }
+/* Collapsible spell GROUPS (Cantrips / Level N / Other abilities). */
+.spell-group { margin: 6px 0 2px; }
+.spell-group-head { display: flex; align-items: baseline; gap: 6px; width: 100%; background: none; border: none; border-bottom: 1px solid var(--line); color: var(--muted); text-align: left; cursor: pointer; padding: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.spell-group-title { font-weight: 700; color: var(--text); }
+/* Tap ▲/▼ reorder within a group. */
+.spell-reorder { display: inline-flex; gap: 1px; }
+.spell-reorder .res-x { font-size: 10px; }
+.spell-desc-edit { width: 100%; box-sizing: border-box; min-height: 44px; margin: 2px 0; font: inherit; font-size: 12px; resize: vertical; }
 
 /* Skills (proficiency toggle + click-to-roll) */
 .skills { margin-top: 10px; }

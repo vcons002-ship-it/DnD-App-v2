@@ -4,6 +4,23 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Spells & character UX (Phase 2)
+
+### Added
+- **Sorcerous Burst** (2024 sorcerer cantrip) added to the spell database —
+  searchable + rollable (1d8, scales by caster level).
+- **Custom spell authoring** — a **✏️ Custom spell** button creates a homebrew
+  spell with an inline editor for name, level, school, action and roll
+  (kind/dice/save/DC/damage type), reusing the existing roll editor.
+- **Inline header edit** for any sheet ability while editing — rename, change
+  level/school, and edit the description in place.
+
+### Changed
+- **Spell view redesign** — spells/abilities are grouped into collapsible
+  **Cantrips / Level N / Other abilities** sections (each shows a count and
+  remembers open/closed). Entries can be **reordered within a group** via tap
+  ▲/▼ (works on touch); the order persists server-side (`ability:reorder`).
+
 ## 2026-06-18 — Combat & visibility fixes (bug pass)
 
 ### Fixed

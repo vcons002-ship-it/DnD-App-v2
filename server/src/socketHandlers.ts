@@ -77,6 +77,7 @@ import {
   takeLoot,
   setSheetAbility,
   removeSheetAbility,
+  reorderSheetAbilities,
   spendResourceForAbility,
   spendSpellSlot,
   damageTokens,
@@ -924,6 +925,12 @@ export function registerSocketHandlers(io: IOServer): void {
     socket.on('ability:remove', ({ kind, refId, abilityId }) => {
       if (!ownsCreature(kind, refId)) return;
       removeSheetAbility(kind, refId, abilityId);
+      afterChange();
+    });
+
+    socket.on('ability:reorder', ({ kind, refId, orderedIds }) => {
+      if (!Array.isArray(orderedIds) || !ownsCreature(kind, refId)) return;
+      reorderSheetAbilities(kind, refId, orderedIds.filter((x) => typeof x === 'string'));
       afterChange();
     });
 
