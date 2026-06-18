@@ -4,6 +4,20 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Player AOE visibility + no enemy-stat leak
+
+### Fixed
+- **A player's own AOE save resolution stays visible** even when the DM has "hide
+  my rolls" on — the per-target save/damage entry is now attributed to the caster
+  (the source roll's roller), so only true DM rolls are hidden.
+- **No more enemy stat leak in the combat log.** An ENEMY/NEUTRAL creature's roll
+  no longer shows its modifier breakdown to players — the bracketed
+  ability/proficiency/magic terms (`+4[DEX] +2[PROF]`, `+4[STR]+1[MAGIC]`) and a
+  save's `(+5 prof)` are stripped, and the roll-reveal animation collapses its
+  bonus chips into one anonymous step (the d20, total, outcome and damage dice
+  still show). FRIENDLY creatures and PCs are unaffected (their stats are already
+  visible to players). New durable `roll_log.hide_mods` flag.
+
 ## 2026-06-18 — Player combat panel + AOE damage for players
 
 ### Fixed

@@ -1098,6 +1098,8 @@ export function addRollLog(
     hpNote?: RollEntry['hpNote'];
     /** Cosmetic attack-roll reveal payload (the brief d20 animation). */
     reveal?: RollEntry['reveal'];
+    /** Enemy/neutral creature roll → players see no modifier breakdown. */
+    hideMods?: boolean;
   },
 ): RollEntry {
   const id = newId();
@@ -1107,8 +1109,8 @@ export function addRollLog(
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, reveal, dm_only, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, reveal, hide_mods, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1121,11 +1123,18 @@ export function addRollLog(
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
     entry.reveal ? JSON.stringify(entry.reveal) : '',
+    entry.hideMods ? 1 : 0,
     dmOnly ? 1 : 0,
     createdAt,
   );
   pruneRollLog(sessionId);
-  return { id, ...entry, createdAt, ...(dmOnly ? { dmOnly: true } : {}) };
+  return {
+    id,
+    ...entry,
+    createdAt,
+    ...(dmOnly ? { dmOnly: true } : {}),
+    ...(entry.hideMods ? { hideMods: true } : {}),
+  };
 }
 
 /** Keep the newest N rolls per session so long campaigns don't grow the DB forever. */
@@ -1231,6 +1240,7 @@ type RollLogRow = {
   apply: string | null;
   hp_note: string | null;
   reveal: string | null;
+  hide_mods: number | null;
   dm_only: number | null;
   created_at: number;
 };
@@ -1259,6 +1269,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
     ...(r.reveal ? { reveal: JSON.parse(r.reveal) as RollEntry['reveal'] } : {}),
+    ...(r.hide_mods ? { hideMods: true } : {}),
     ...(r.dm_only ? { dmOnly: true } : {}),
     createdAt: r.created_at,
   };

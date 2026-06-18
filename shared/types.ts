@@ -810,6 +810,11 @@ export type RollEntry = {
   hpNote?: { kind: TokenKind; refId: string; text: string };
   /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
   dmOnly?: boolean;
+  /** The roll is by/against an ENEMY/NEUTRAL creature whose stats players can't
+   *  see — so `visibility.ts` strips the labelled ability/proficiency/magic
+   *  modifier breakdown (in `detail` and the reveal) for players, keeping the
+   *  d20, total and outcome. Friendly/PC rolls show their mods normally. */
+  hideMods?: boolean;
   /** DM-only: present on a save/damage spell's damage roll so the log can offer an
    *  "Apply damage" button that starts click-to-target save resolution. Stripped
    *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */

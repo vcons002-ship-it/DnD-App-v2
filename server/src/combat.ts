@@ -153,6 +153,12 @@ function reconcileDamageSteps(
   return [...modSteps, { label: diff > 0 ? 'bonus' : 'resisted', value: diff }];
 }
 
+/** True when a creature's stats are hidden from players (an enemy/neutral monster),
+ *  so its roll's modifier breakdown must be stripped from player logs/reveals. */
+function hidesMods(kind: TokenKind, refId: string): boolean {
+  return kind === 'monster' && getMonster(refId)?.disposition !== 'friendly';
+}
+
 function applyDamageNoted(
   kind: TokenKind,
   refId: string,
@@ -460,6 +466,7 @@ export function resolveAttack(
           }
         : {}),
     },
+    hideMods: hidesMods(at.kind, at.refId),
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
@@ -728,12 +735,17 @@ export function resolveForcedSave(
   const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   addRollLog(sessionId, {
-    roller: 'DM',
+    // Attribute the resolution to whoever cast the spell (the source roll's
+    // roller), so a PLAYER applying their own AOE still sees the result even when
+    // the DM has "hide my rolls" on (only roller 'DM' is hidden). The target's own
+    // save modifier is hidden from players when it's an enemy/neutral creature.
+    roller: src?.roller ?? 'DM',
     label: apply.save ? `${apply.save.toUpperCase()} save` : 'Damage',
     expr: `DC ${apply.dc}`,
     total: dmg,
     detail,
     hpNote: saveNote,
+    hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
   });
 }
 
@@ -840,6 +852,7 @@ function resolveTargetedSpellAttack(opts: {
         ? { damageDice: revealDice, damageMods: revealMods, damage: applied, damageType: opts.damageType }
         : {}),
     },
+    hideMods: opts.attacker ? hidesMods(opts.attacker.kind, opts.attacker.refId) : false,
   });
   return true;
 }
@@ -1120,6 +1133,7 @@ function resolveSheetAbilityFor(
           },
         }
       : {}),
+    hideMods: hidesMods(kind, entity.id),
   });
   // Fired at a single target (floating menu): a no-save (auto-hit) spell applies
   // now; a SAVE-for-half spell (often AOE) does NOT — its damage is applied per

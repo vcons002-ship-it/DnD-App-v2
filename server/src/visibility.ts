@@ -29,6 +29,46 @@ import type {
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
 
+/** Sum a list of reveal steps' values. */
+const sumSteps = (steps?: { value: number }[]): number =>
+  (steps ?? []).reduce((s, x) => s + x.value, 0);
+
+/**
+ * Shape a roll-log entry for PLAYERS: always redact the target AC (`vs AC ?`), and
+ * for an ENEMY/NEUTRAL creature roll (`hideMods`) strip the creature's modifier
+ * breakdown — the bracketed ability/proficiency/magic terms (`+4[DEX] +2[PROF]`,
+ * `+4[STR]+1[MAGIC]`) and a save roll's `(+5 prof)` — plus collapse the reveal's
+ * labelled bonus chips into one anonymous step so the count-up still reaches the
+ * total without naming the creature's stats. The d20, total and outcome stay.
+ */
+function redactCreatureMods(e: RollEntry): RollEntry {
+  let detail = e.detail.replace(/vs AC -?\d+/g, 'vs AC ?');
+  if (!e.hideMods) return { ...e, detail };
+  detail = detail
+    // Bracketed stat/proficiency/magic/mastery terms (content has a letter, so
+    // dice faces like `[4,6]` are kept).
+    .replace(/\s*[+-]\d+\[[^\]]*[A-Za-z][^\]]*\]/g, '')
+    // A save roll's "(+5 prof)" / "(-1)" parenthetical modifier.
+    .replace(/\s*\([+-]?\d+(?:\s*prof)?\)/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  let reveal = e.reveal;
+  if (reveal) {
+    const anon = (total: number, base: number) => {
+      const diff = total - base;
+      return diff !== 0 ? [{ label: '', value: diff }] : [];
+    };
+    reveal = {
+      ...reveal,
+      ...(reveal.toHit ? { toHit: anon(reveal.attackTotal ?? reveal.d20 ?? 0, reveal.d20 ?? 0) } : {}),
+      ...(reveal.damageMods
+        ? { damageMods: anon(reveal.damage ?? 0, sumSteps(reveal.damageDice)) }
+        : {}),
+    };
+  }
+  return { ...e, detail, reveal };
+}
+
 /**
  * Whether a point sits under a COVERED cell of either enabled fog layer (map or
  * token fog) — i.e. a player must not see it. Shared by the snapshot's per-token
@@ -234,8 +274,7 @@ export function createSnapshotBuilder(
         // DM rolls captured while "hide my rolls" was on never reach players.
         .filter((e) => !e.dmOnly)
         .map((e) => ({
-          ...e,
-          detail: e.detail.replace(/vs AC -?\d+/g, 'vs AC ?'),
+          ...redactCreatureMods(e),
           // The "Apply damage" payload is a DM-only adjudication tool.
           apply: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
