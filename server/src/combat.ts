@@ -6,6 +6,7 @@ import {
   getRollEntry,
   getToken,
   getMap,
+  incrementKillCount,
   setLastAttackRole,
   setResource,
   setSheetAbility,
@@ -141,10 +142,23 @@ function applyDamageNoted(
   amount: number,
   /** Damage type when known — rides the fx:hp event for the elemental burst. */
   damageType?: string,
+  /** The attacking token (kind/refId) — credits a PC's kill count if this damage
+   *  drops a monster to 0 HP. */
+  attacker?: { kind: TokenKind; refId: string },
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   const after = applyDamage(kind, refId, amount, damageType);
   if (!before || !after) return undefined;
+  // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
+  if (
+    attacker?.kind === 'pc' &&
+    kind === 'monster' &&
+    amount > 0 &&
+    before.curHp > 0 &&
+    after.curHp <= 0
+  ) {
+    incrementKillCount(attacker.refId);
+  }
   const hp = (e: { curHp: number; tempHp: number }) =>
     `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
   return { kind, refId, text: `${after.name} HP ${hp(before)}→${hp(after)}` };
@@ -397,7 +411,7 @@ export function resolveAttack(
       out.hit && weapon.extraDamage && weapon.extraDamageType
         ? weapon.extraDamageType
         : weapon.damageType;
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId });
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -708,6 +722,8 @@ function resolveTargetedSpellAttack(opts: {
   damageType?: string;
   targetTokenId: string;
   advantage?: Advantage;
+  /** The casting creature — credits a PC's kill count on a killing blow. */
+  attacker?: { kind: TokenKind; refId: string };
 }): boolean {
   const tt = getToken(opts.targetTokenId);
   const t = tt && resolve(tt);
@@ -739,7 +755,7 @@ function resolveTargetedSpellAttack(opts: {
           ? `½ resisted (${opts.damageType})`
           : `×2 vulnerable (${opts.damageType})`,
       );
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -905,6 +921,7 @@ function resolveSheetAbilityFor(
         damageType: roll.damageType,
         targetTokenId,
         advantage,
+        attacker: { kind, refId: entity.id },
       })
     )
       return true;

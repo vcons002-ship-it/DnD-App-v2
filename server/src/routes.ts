@@ -20,7 +20,12 @@ import {
 import { broadcastSnapshots, type IOServer } from './connections.js';
 import { publicUrl } from './tunnel.js';
 import { searchSrd, getSrd } from './creatures/srd.js';
-import { lookupCreatureAI, generateItemAI, geminiEnabled } from './creatures/gemini.js';
+import {
+  lookupCreatureAI,
+  generateItemAI,
+  generateShopItemsAI,
+  geminiEnabled,
+} from './creatures/gemini.js';
 import { aiAvailable, listOllamaModels } from './ai/gateway.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
@@ -373,6 +378,16 @@ export function createApiRouter(io: IOServer): Router {
     const item = await generateItemAI(prompt);
     if (!item) return res.status(503).json({ error: 'AI unavailable' });
     res.status(201).json(item);
+  });
+
+  // AI-fill a shop popup from a description → a list of priced items dropped into
+  // the decal shop editor (NOT auto-saved). Key-gated: 503 when unavailable.
+  router.post('/shops/generate', async (req, res) => {
+    const description = typeof req.body?.description === 'string' ? req.body.description : '';
+    if (!description.trim()) return res.status(400).json({ error: 'description required' });
+    const items = await generateShopItemsAI(description);
+    if (!items) return res.status(503).json({ error: 'AI unavailable' });
+    res.status(201).json({ items });
   });
 
   // Cross-session character library (players + DM save/load full sheets).

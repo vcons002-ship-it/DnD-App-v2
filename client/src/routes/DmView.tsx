@@ -85,7 +85,11 @@ export function DmView() {
                   />
                 ),
               },
-              { id: 'dice', label: 'Dice, Log & Chat', node: <DicePanel snapshot={snapshot} /> },
+              {
+                id: 'dice',
+                label: 'Dice, Log & Chat',
+                node: <DicePanel snapshot={snapshot} speakAsTokenId={primaryId} />,
+              },
             ]}
           />
         </SidePanel>

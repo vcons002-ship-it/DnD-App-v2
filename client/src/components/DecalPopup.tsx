@@ -13,10 +13,13 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
   const id = useStore((s) => s.decalPopupId);
   const setOpen = useStore((s) => s.openDecalPopup);
   const save = useStore((s) => s.setDecalPopup);
+  const notify = useStore((s) => s.notify);
   const isDm = snapshot.role === 'dm';
   const ann = id ? snapshot.annotations.find((a) => a.id === id) : null;
 
   const [draft, setDraft] = useState<MapPopup | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Seed the DM's editable draft once when a decal is opened (not on every
@@ -52,6 +55,37 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
   };
 
   const data = isDm ? draft : ann.popup!;
+
+  // AI-fill: ask the server to stock the shop from a description, then APPEND
+  // the returned items to the draft (ids assigned on save by sanitizePopup).
+  const aiFill = async () => {
+    if (!draft || aiBusy || !aiPrompt.trim()) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch('/api/shops/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: aiPrompt.trim() }),
+      });
+      if (!res.ok) {
+        notify(
+          res.status === 503
+            ? 'AI is unavailable (set a Gemini key in Settings).'
+            : 'Could not generate a shop.',
+        );
+        return;
+      }
+      const { items } = (await res.json()) as { items: Omit<ShopItem, 'id'>[] };
+      const withIds: ShopItem[] = items.map((it) => ({
+        ...it,
+        id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
+      }));
+      commit({ ...draft, items: [...draft.items, ...withIds] });
+      setAiPrompt('');
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={flushAndClose}>
@@ -119,6 +153,20 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
             )}
           </tbody>
         </table>
+
+        {isDm && draft && (
+          <div className="item-ai decal-ai">
+            <input
+              placeholder="✨ Describe a shop for AI to stock…"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && aiFill()}
+            />
+            <button className="btn tiny" disabled={aiBusy || !aiPrompt.trim()} onClick={aiFill}>
+              {aiBusy ? '…' : '✨ AI fill'}
+            </button>
+          </div>
+        )}
 
         {isDm && draft && (
           <div className="dice-quick decal-actions">

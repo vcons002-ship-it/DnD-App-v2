@@ -117,6 +117,45 @@ describe('combat resolution', () => {
     expect(getMonster(aInst.id)!.lastAttackRole).toBe('melee');
   });
 
+  it('credits a PC with a kill when its attack drops an enemy to 0 HP', () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Slayer',
+      className: 'Fighter',
+      level: 1,
+      stats: { STR: 16 },
+      weapons: [{ name: 'Greatsword', kind: 'melee', damage: '2d6', attackBonus: 50 }],
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 1, armorClass: 1 });
+    const gob = instantiateMonster(tmpl.id)!;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: gob.id, x: 1, y: 1 });
+
+    expect(getCharacter(ch.id)!.killCount).toBe(0);
+    resolveAttack(s.id, ch.name, atk.id, tgt.id, 0);
+    // +50 vs AC 1 hits on anything but a nat 1, and 2d6 ≥ 2 kills a 1-HP goblin.
+    expect(getMonster(gob.id)!.curHp).toBe(0);
+    expect(getCharacter(ch.id)!.killCount).toBe(1);
+
+    // Hitting an already-dead target does NOT double-count the kill.
+    resolveAttack(s.id, ch.name, atk.id, tgt.id, 0);
+    expect(getCharacter(ch.id)!.killCount).toBe(1);
+  });
+
+  it('does not credit a kill to a monster attacker', () => {
+    const { s, map } = arena();
+    const atkTmpl = createMonsterTemplate(s.id, {
+      name: 'Ogre',
+      maxHp: 30,
+      weapons: [{ name: 'Club', kind: 'melee', damage: '2d6', attackBonus: 50 }],
+    });
+    const a = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(atkTmpl.id)!.id, x: 0, y: 0 });
+    const tTmpl = createMonsterTemplate(s.id, { name: 'Rat', maxHp: 1, armorClass: 1 });
+    const t = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tTmpl.id)!.id, x: 1, y: 1 });
+    // No throw / no PC to credit — just confirm it resolves cleanly.
+    expect(resolveAttack(s.id, 'DM', a.id, t.id, 0)).toBe(true);
+  });
+
   it('rolls a save for each token and logs pass/fail', () => {
     const { s, map } = arena();
     const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7, stats: { DEX: 14 } });

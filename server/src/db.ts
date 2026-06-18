@@ -448,6 +448,9 @@ ensureColumn('characters', 'death_failures', 'death_failures INTEGER NOT NULL DE
 // Durable per-player ownership (random browser id) — survives reconnects so
 // only the owning player (or DM) can re-claim and edit the sheet.
 ensureColumn('characters', 'owner_player_id', 'owner_player_id TEXT');
+// Tally of enemies this PC has dropped to 0 HP — shown on the sheet + a shared
+// scoreboard (everyone can see it).
+ensureColumn('characters', 'kill_count', 'kill_count INTEGER NOT NULL DEFAULT 0');
 
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
@@ -627,6 +630,7 @@ type CharacterRow = {
   superiority_die: string | null;
   death_successes: number | null;
   death_failures: number | null;
+  kill_count: number | null;
   icon: string;
 };
 
@@ -667,6 +671,7 @@ export function rowToCharacter(r: CharacterRow): Character {
       successes: r.death_successes ?? 0,
       failures: r.death_failures ?? 0,
     },
+    killCount: r.kill_count ?? 0,
     icon: r.icon ?? '',
   };
 }

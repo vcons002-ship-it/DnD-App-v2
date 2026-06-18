@@ -36,6 +36,8 @@ export type StatSheet = {
   weapons: Weapon[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  /** PCs only: enemies defeated (shown as a header badge). Monsters omit it. */
+  killCount?: number;
 };
 
 /** An extra identity text field (Type for monsters; Race/Class for PCs). */
@@ -425,6 +427,11 @@ function ReadView({
           {m.tempHp > 0 && <span className="temp-hp"> +{m.tempHp} temp</span>}
         </span>
         {m.speed && <span>{m.speed}</span>}
+        {!!m.killCount && m.killCount > 0 && (
+          <span className="kill-badge" title="Enemies this character has defeated">
+            💀 {m.killCount}
+          </span>
+        )}
       </div>
 
       {hasStats && (

@@ -866,6 +866,15 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .spell-reorder { display: inline-flex; gap: 1px; }
 .spell-reorder .res-x { font-size: 10px; }
 .spell-desc-edit { width: 100%; box-sizing: border-box; min-height: 44px; margin: 2px 0; font: inherit; font-size: 12px; resize: vertical; }
+/* Kill count: a sheet badge + the shared scoreboard. */
+.kill-badge { font-size: 12px; color: var(--danger, #e06c75); font-weight: 600; }
+.kill-scoreboard { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 4px 6px; margin: 4px 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+.kill-scoreboard-title { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; color: var(--muted); }
+.kill-scoreboard-row { display: inline-flex; align-items: baseline; gap: 4px; }
+.kill-scoreboard-row .kill-name { font-weight: 600; }
+.kill-scoreboard-row .kill-num { color: var(--danger, #e06c75); font-weight: 700; }
+/* DM "speak as selected token" toggle above the chat input. */
+.btn.tiny.speak-as { align-self: flex-start; margin: 2px 0; }
 
 /* Skills (proficiency toggle + click-to-roll) */
 .skills { margin-top: 10px; }

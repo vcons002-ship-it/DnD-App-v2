@@ -2031,6 +2031,15 @@ export function reorderSheetAbilities(
   return kind === 'monster' ? getMonster(refId) : getCharacter(refId);
 }
 
+/** Credit a PC with a kill (dropped an enemy to 0 HP). Returns the new total. */
+export function incrementKillCount(characterId: string): number {
+  const c = getCharacter(characterId);
+  if (!c) return 0;
+  const next = (c.killCount ?? 0) + 1;
+  db.prepare('UPDATE characters SET kill_count = ? WHERE id = ?').run(next, characterId);
+  return next;
+}
+
 /** Patch editable fields of a character (DM or the owning player). */
 export function updateCharacter(
   characterId: string,

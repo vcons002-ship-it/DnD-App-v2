@@ -262,7 +262,7 @@ type Store = {
   reorderSheetAbilities: (kind: TokenKind, refId: string, orderedIds: string[]) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
   rollDeathSave: (characterId: string) => void;
-  sendChat: (text: string) => void;
+  sendChat: (text: string, speakAsTokenId?: string) => void;
   rollSkill: (payload: SkillRollPayload) => void;
   rollSave: (payload: SaveRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
@@ -779,7 +779,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('ability:reorder', { kind, refId, orderedIds }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
-  sendChat: (text) => get().socket?.emit('chat:send', { text }),
+  sendChat: (text, speakAsTokenId) =>
+    get().socket?.emit('chat:send', { text, speakAsTokenId }),
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   rollSave: (payload) => get().socket?.emit('save:roll', payload),
   damageTokens: (tokenIds, amount) =>

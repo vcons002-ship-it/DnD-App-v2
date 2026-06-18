@@ -993,7 +993,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Shared in-session chat (anyone in the session).
-    socket.on('chat:send', ({ text }) => {
+    socket.on('chat:send', ({ text, speakAsTokenId }) => {
       const sid = sessionId();
       const body = typeof text === 'string' ? text.trim() : '';
       if (!sid || !body) return;
@@ -1017,10 +1017,25 @@ export function registerSocketHandlers(io: IOServer): void {
         afterChange();
         return;
       }
-      addChatMessage(sid, rollerName(sid, socket.id, isDm()), isDm() ? 'dm' : 'player', body);
-      // Pop the words in a speech bubble over the speaker's PC token (players
-      // with a claimed character only; the DM has no token).
-      if (!isDm()) {
+      // The DM may "speak as" a selected token (NPC/monster/PC): the message is
+      // attributed to that token's name and the bubble pops over it. Falls back to
+      // a plain "DM" message if no/invalid token is given.
+      const speakToken =
+        isDm() && typeof speakAsTokenId === 'string' ? getToken(speakAsTokenId) : null;
+      const speakEntity = speakToken
+        ? speakToken.kind === 'pc'
+          ? getCharacter(speakToken.refId)
+          : getMonster(speakToken.refId)
+        : null;
+      // Only speak as a token belonging to THIS session.
+      const speakAs = speakEntity && speakEntity.sessionId === sid ? speakEntity : null;
+      const sender = speakAs ? speakAs.name : rollerName(sid, socket.id, isDm());
+      addChatMessage(sid, sender, isDm() ? 'dm' : 'player', body);
+      // Pop the words in a speech bubble over the speaker's token. Players bubble
+      // over their claimed PC; the DM bubbles over the token they're speaking as.
+      if (speakAs) {
+        broadcastSay(io, sid, speakToken!.refId, body.slice(0, 240));
+      } else if (!isDm()) {
         const refId = getClaimedCharacterId(sid, socket.id);
         if (refId) broadcastSay(io, sid, refId, body.slice(0, 240));
       }

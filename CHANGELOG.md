@@ -4,6 +4,21 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Table features (Phase 3a)
+
+### Added
+- **Kill count** — each PC tallies enemies it drops to 0 HP (weapon + targeted
+  spell attacks). Shown as a 💀 badge on the sheet and a shared **scoreboard**
+  (everyone can see it) in the initiative header and DM Data view. Durable
+  (`characters.kill_count`).
+- **DM "speak as" a token** — with a token selected, the DM's chat can be voiced
+  as that NPC/monster: the message shows the token's name and a speech bubble
+  pops over it. A 🗣 toggle above the chat input switches between the token and
+  plain "DM".
+- **AI-fill shops** — the decal shop editor gets a **✨ AI fill** input: describe
+  a shop and AI stocks it with priced items (`POST /api/shops/generate`),
+  appended to the editor (not auto-saved). Key-gated, fails safe.
+
 ## 2026-06-18 — Spells & character UX (Phase 2)
 
 ### Added

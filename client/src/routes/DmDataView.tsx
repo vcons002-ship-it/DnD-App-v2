@@ -18,6 +18,7 @@ import { useStore } from '../state/socket';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { SidePanel } from '../components/SidePanel';
 import { DicePanel } from '../components/DicePanel';
+import { KillScoreboard } from '../components/KillScoreboard';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { ConditionPopover } from '../components/ConditionPopover';
 import { AiStatus } from '../components/AiStatus';
@@ -302,7 +303,11 @@ export function DmDataView() {
           )}
         </div>
         <SidePanel side="right" storageKey={`dm-data-log:${snapshot.sessionCode}`}>
-          <DicePanel snapshot={snapshot} />
+          <KillScoreboard snapshot={snapshot} className="data-scoreboard" />
+          <DicePanel
+            snapshot={snapshot}
+            speakAsTokenId={selectedIds.length === 1 ? selectedIds[0] : null}
+          />
         </SidePanel>
       </div>
 

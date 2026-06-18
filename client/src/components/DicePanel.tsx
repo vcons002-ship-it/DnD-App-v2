@@ -5,6 +5,7 @@ import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
 import { linkify } from '../lib/linkify';
 import { mergeFeed } from '../lib/feed';
+import { resolveToken } from '../lib/entities';
 import { AdvantageToggle } from './AdvantageToggle';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
@@ -12,7 +13,15 @@ const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 /** Dice roller + shared feed of rolls AND chat (visible to everyone), with a
  *  chat input. Rolls and chat are interleaved chronologically (newest at the
  *  bottom) so they share one log. */
-export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
+export function DicePanel({
+  snapshot,
+  speakAsTokenId,
+}: {
+  snapshot: StateSnapshot;
+  /** DM only: the currently-selected token, so a chat message can be "spoken as"
+   *  that NPC/monster (bubble + sender name). */
+  speakAsTokenId?: string | null;
+}) {
   const rollDice = useStore((s) => s.rollDice);
   const clearRollLog = useStore((s) => s.clearRollLog);
   const sendChat = useStore((s) => s.sendChat);
@@ -45,6 +54,15 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [chatText, setChatText] = useState('');
+  // DM "speak as the selected token" — on by default so picking an NPC and
+  // typing voices it; toggle off to speak as plain DM. Only relevant when a
+  // token is selected.
+  const [speakAs, setSpeakAs] = useState(true);
+  const speakToken =
+    isDm && speakAsTokenId
+      ? snapshot.tokens.find((t) => t.id === speakAsTokenId)
+      : undefined;
+  const speakName = speakToken ? resolveToken(snapshot, speakToken).name : null;
   // The DM's quick AI-backend choice for /ask: 'gemini' or 'local:<model>'.
   // Defaults to local; persisted per browser. Options come from /api/ai/models.
   const [aiBackends, setAiBackends] = useState<{
@@ -147,7 +165,8 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
     // instead of posting public chat; the Q&A appears as DM-only messages.
     const ask = isDm && body.match(/^\/(ask|rules?)\s+(.+)/is);
     if (ask) askAssistant(ask[2].trim(), choiceToBackend(aiChoice));
-    else sendChat(body);
+    // Speak as the selected token when the DM has the toggle on (NPC voice).
+    else sendChat(body, speakAs && speakToken ? speakToken.id : undefined);
     setChatText('');
   };
 
@@ -369,9 +388,28 @@ export function DicePanel({ snapshot }: { snapshot: StateSnapshot }) {
           </select>
         </div>
       )}
+      {speakName && (
+        <button
+          className={`btn tiny speak-as ${speakAs ? 'on' : ''}`}
+          onClick={() => setSpeakAs((v) => !v)}
+          title={
+            speakAs
+              ? `Speaking as ${speakName} — messages show its name and bubble over its token. Click to speak as the DM.`
+              : `Speaking as the DM. Click to speak as ${speakName}.`
+          }
+        >
+          🗣 {speakAs ? `As ${speakName}` : 'As DM'}
+        </button>
+      )}
       <div className="chat-input">
         <input
-          placeholder={isDm ? 'Message… (/roll 2d6+3 · /ask a rules question)' : 'Message… (/roll 2d6+3)'}
+          placeholder={
+            speakAs && speakName
+              ? `Speak as ${speakName}…`
+              : isDm
+                ? 'Message… (/roll 2d6+3 · /ask a rules question)'
+                : 'Message… (/roll 2d6+3)'
+          }
           title={
             isDm
               ? 'Chat · /roll 2d6+3 (optionally adv/dis) to roll · /ask <question> for the DM-only rules assistant'

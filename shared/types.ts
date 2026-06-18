@@ -191,6 +191,9 @@ export type Character = {
   /** 5e death saving throws while at 0 HP (each caps at 3). Reset when healed
    *  above 0; 3 successes = stable, 3 failures = dead. */
   deathSaves: { successes: number; failures: number };
+  /** Count of enemies this PC has dropped to 0 HP — shown on the sheet + a shared
+   *  scoreboard. Visible to everyone (public). */
+  killCount: number;
   /** The combat role of this creature's most recent attack (melee/ranged/caster),
    *  so the token badge follows the weapon last used; null until it attacks. */
   lastAttackRole: CombatRole | null;
@@ -1262,7 +1265,7 @@ export interface ClientToServerEvents {
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
-  'chat:send': (payload: { text: string }) => void;
+  'chat:send': (payload: { text: string; speakAsTokenId?: string }) => void;
   /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
    *  — the server pops a typing bubble over their claimed PC token for others. */
   'chat:typing': (payload: { typing: boolean }) => void;
