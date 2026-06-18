@@ -171,9 +171,7 @@ export function DicePanel({
   };
 
   return (
-    // Player console: dock the dice/log/chat to the bottom of the panel so the
-    // latest roll stays in view as the combat console above it scrolls.
-    <div className={`panel-section dice-panel${isDm ? '' : ' dice-panel-dock'}`}>
+    <div className="panel-section dice-panel">
       <h3>Dice</h3>
       <div className="dice-quick">
         {QUICK.map((q) => (
@@ -322,7 +320,10 @@ export function DicePanel({
                     ❓
                   </button>
                 )}
-                {r.apply && (isDm || !!r.apply.darts) && (() => {
+                {/* The apply payload only reaches a player on their OWN entries
+                    (visibility strips it otherwise), so its presence is the gate —
+                    the DM sees it on everything, a player only on what they cast. */}
+                {r.apply && (() => {
                   // Darts (Magic Missile): roll-on-click, capped at the dart count.
                   // New entries use `darts`; legacy entries used a pre-rolled `split`.
                   const dartCount = r.apply.darts ?? r.apply.split?.length;

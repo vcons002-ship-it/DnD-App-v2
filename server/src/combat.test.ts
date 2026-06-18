@@ -197,6 +197,40 @@ describe('combat resolution', () => {
     expect(resolveAttack(s.id, 'DM', a.id, t.id, 0)).toBe(true);
   });
 
+  it("a PC's AOE save spell rolls damage but does NOT auto-apply to its target", () => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Wizard',
+      className: 'Wizard',
+      level: 5,
+      stats: { INT: 18 },
+    });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
+    const inst = instantiateMonster(tmpl.id)!;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
+    const ability: SheetAbility = {
+      id: 'fb',
+      name: 'Fireball',
+      type: 'spell',
+      level: 3,
+      description: '',
+      roll: { kind: 'save', dice: '8d6', baseLevel: 3, save: 'DEX', damageType: 'fire' },
+    };
+    // Cast AT a target (combat console / floating menu).
+    resolveAbilityRoll(s.id, ch.name, ch, ability, undefined, undefined, tgt.id);
+    const entry = listRollLog(s.id).at(-1)!;
+    // The damage is rolled once and carried for later per-target clicks…
+    expect(entry.apply?.save).toBe('DEX');
+    expect(entry.apply?.amount).toBeGreaterThan(0);
+    // …owner is the casting PC, so visibility keeps the apply for them (Apply button)…
+    expect(entry.apply?.owner).toBe(ch.id);
+    // …and NOTHING was auto-applied to the targeted creature.
+    expect(getMonster(inst.id)!.curHp).toBe(20);
+    // The caster (or DM) then resolves it per target via the click path.
+    resolveForcedSave(s.id, entry.id, tgt.id);
+    expect(getMonster(inst.id)!.curHp).toBeLessThan(20);
+  });
+
   it('rolls a save for each token and logs pass/fail', () => {
     const { s, map } = arena();
     const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7, stats: { DEX: 14 } });
@@ -1641,7 +1675,7 @@ describe('targeted attack-roll spells & monster actions', () => {
 });
 
 describe('save action fired at a single target (floating menu)', () => {
-  it('rolls the target’s save and applies damage immediately', () => {
+  it('rolls the damage once but applies it per target via the Apply click', () => {
     const { s, map } = arena();
     // Target dummy: lots of HP, a terrible DEX save and no proficiency.
     const dummy = instantiateMonster(
@@ -1673,7 +1707,13 @@ describe('save action fired at a single target (floating menu)', () => {
       undefined,
       tok.id, // <- targeted from the floating menu
     );
-    // Save auto-resolved → dummy took damage without a separate Apply step.
+    // A save-for-half (AOE) spell is NOT auto-applied to one creature: the dice are
+    // rolled and stored for the per-target "Apply damage" clicks.
+    const entry = listRollLog(s.id).at(-1)!;
+    expect(entry.apply?.save).toBe('DEX');
+    expect(getMonster(dummy.id)!.curHp).toBe(100);
+    // Applying it (the click path) then damages the failed save.
+    resolveForcedSave(s.id, entry.id, tok.id);
     expect(getMonster(dummy.id)!.curHp).toBeLessThan(100);
   });
 });

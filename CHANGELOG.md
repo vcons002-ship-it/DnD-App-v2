@@ -4,6 +4,24 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Player combat panel + AOE damage for players
+
+### Fixed
+- **Player right panel is collapsible/resizable again** — the combat console + the
+  dice/log/chat are now **reorderable, per-section collapsible** sections (like the
+  DM panels), so the dice panel can be collapsed to give the combat section room
+  (and the panel edge drags to resize). Replaces the bottom-docked dice panel that
+  was squeezing the combat console.
+
+### Changed
+- **AOE save spells no longer auto-apply to one target.** Casting a save-for-half
+  spell (Fireball, etc.) from the combat section or floating menu now just **rolls
+  the damage once** (with the cast animation); it's applied **per target** via the
+  **Apply damage** click path — never auto-hitting a single creature.
+- **Players get the Apply damage button for their own AOE spells**, same as the DM.
+  The cast stamps the caster as `apply.owner`, so visibility keeps the payload for
+  them and `save:resolve` lets them click each target to roll its save + apply.
+
 ## 2026-06-18 — Summons tied to spells + roll-animation polish
 
 ### Changed

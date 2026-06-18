@@ -240,16 +240,17 @@ export function createSnapshotBuilder(
           apply: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
-      // …except a split spell's caster keeps the apply payload for THEIR OWN
-      // entry, so the player who cast Magic Missile can assign its darts (the
-      // click-to-target path is no longer DM-only). Per-socket overlay on the
-      // shared cache, only when this viewer has such a roll in play.
-      const myDarts = rollLog.filter((e) => {
-        const owner = e.apply?.darts ? e.apply.owner : undefined;
+      // …except the CASTER keeps the apply payload for THEIR OWN entry (stamped
+      // with `apply.owner`), so the player who cast Magic Missile can assign its
+      // darts AND the player who cast an AOE save spell gets the "Apply damage"
+      // click-to-target button — same as the DM. Per-socket overlay on the shared
+      // cache, only when this viewer has such a roll in play.
+      const mine = rollLog.filter((e) => {
+        const owner = e.apply?.owner;
         return owner && charById.get(owner)?.claimedBy === socketId;
       });
-      if (myDarts.length) {
-        const keep = new Map(myDarts.map((e) => [e.id, e.apply] as const));
+      if (mine.length) {
+        const keep = new Map(mine.map((e) => [e.id, e.apply] as const));
         shapedRollLog = shapedRollLog.map((e) =>
           keep.has(e.id) ? { ...e, apply: keep.get(e.id) } : e,
         );

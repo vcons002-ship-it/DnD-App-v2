@@ -997,14 +997,6 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .roll-log-header { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
 .roll-log-header span { font-size: 12px; }
 .roll-log { margin-top: 4px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-/* Player console: keep the roll log + chat pinned to the bottom of the scrolling
-   right panel so the newest roll is always visible without scrolling down. */
-.dice-panel-dock {
-  position: sticky; bottom: 0; z-index: 2;
-  background: var(--panel); border-top: 1px solid var(--line);
-  box-shadow: 0 -10px 18px -10px rgba(0, 0, 0, 0.6);
-}
-.dice-panel-dock .roll-log { max-height: 30vh; }
 /* Left border is tinted per-roller (inline style) so each character is easy to scan. */
 .roll-entry { display: flex; gap: 8px; align-items: baseline; background: var(--panel-2); border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; padding: 5px 9px; }
 .roll-total { font-weight: 700; font-size: 16px; min-width: 28px; text-align: right; color: var(--accent); }

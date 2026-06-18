@@ -135,19 +135,37 @@ export function PlayerView() {
           openSignal={rightPanelNudge}
         >
           {selectedIds.length > 1 ? (
-            <BulkActionsPanel
-              snapshot={snapshot}
-              selectedIds={selectedIds}
-              onClearSelection={() => setSelectedIds([])}
-            />
-          ) : selectedToken ? (
-            <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
+            <>
+              <BulkActionsPanel
+                snapshot={snapshot}
+                selectedIds={selectedIds}
+                onClearSelection={() => setSelectedIds([])}
+              />
+              <DicePanel snapshot={snapshot} />
+            </>
           ) : (
-            <p className="muted pad">Select a token to view it.</p>
+            // Collapsible + reorderable so the player can shrink the dice panel to
+            // give the combat console room (and the SidePanel edge drags to resize).
+            <ReorderableSections
+              storageKey={`player-right-order:${snapshot.sessionCode}`}
+              sections={[
+                {
+                  id: 'combat',
+                  label: 'Selected token',
+                  node: selectedToken ? (
+                    <SelectedTokenPanel snapshot={snapshot} token={selectedToken} />
+                  ) : (
+                    <p className="muted pad">Select a token to view it.</p>
+                  ),
+                },
+                {
+                  id: 'dice',
+                  label: 'Dice, Log & Chat',
+                  node: <DicePanel snapshot={snapshot} />,
+                },
+              ]}
+            />
           )}
-          {/* Roll log lives here (under the combat console) so clicking an attack
-              shows the result immediately below. */}
-          <DicePanel snapshot={snapshot} />
         </SidePanel>
       </div>
       <AiStatus />

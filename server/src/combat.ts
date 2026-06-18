@@ -749,7 +749,10 @@ function autoApplyToTarget(
   entry: RollEntry,
   targetTokenId?: string,
 ): void {
-  if (targetTokenId && entry.apply && !entry.apply.split)
+  // Save-for-half spells (typically AOE) are never auto-applied to one creature —
+  // the caster/DM clicks each target via "Apply damage". Split spells assign per
+  // dart. A no-save (auto-hit) damage spell still applies to its single target.
+  if (targetTokenId && entry.apply && !entry.apply.split && !entry.apply.save)
     resolveForcedSave(sessionId, entry.id, targetTokenId, undefined);
 }
 
@@ -1091,6 +1094,11 @@ function resolveSheetAbilityFor(
       : roll.kind === 'damage'
         ? ' (auto-hit)'
         : '';
+  // Stamp the PC caster as `owner` so THEY (not just the DM) keep the apply payload
+  // (visibility.ts) and get the "Apply damage" click-to-target button for their own
+  // AOE spell — the dice are rolled once here, applied per target on each click.
+  const apply = applyPayload(roll, val, dc);
+  if (apply && kind === 'pc') apply.owner = entity.id;
   const entry = addRollLog(sessionId, {
     roller,
     label: ability.name,
@@ -1098,7 +1106,7 @@ function resolveSheetAbilityFor(
     total: val,
     detail: `${title}: ${val}${dmgType} damage [${dmgFaces}]${note}`,
     description: ability.description || undefined,
-    apply: applyPayload(roll, val, dc),
+    apply,
     // Animate the spell's damage roll once, at cast (e.g. Fireball's 8d6).
     ...(val > 0 && dmgRoll
       ? {
@@ -1113,7 +1121,9 @@ function resolveSheetAbilityFor(
         }
       : {}),
   });
-  // Fired at a single target (floating menu) → roll its save + apply now.
+  // Fired at a single target (floating menu): a no-save (auto-hit) spell applies
+  // now; a SAVE-for-half spell (often AOE) does NOT — its damage is applied per
+  // target via "Apply damage" clicks, so it never auto-hits one creature.
   autoApplyToTarget(sessionId, entry, targetTokenId);
   return true;
 }
