@@ -4,6 +4,22 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-18 — Sound↔animation sync + perf pass
+
+### Changed
+- **Combat sounds now sync with the roll animation**, not the server roll. When a
+  roll animates, the hit/miss cue lands **with the HIT/MISS stamp** and the impact
+  lands **with the damage dice** (Fireball cast / Magic Missile dart). Heals still
+  chime on apply (they don't animate); skill/save ticks and un-animated rolls stay
+  immediate. When roll animations are off, all cues fire immediately as before.
+
+### Performance
+- Memoized the spell-grouping buckets in `CharacterSpells` and the
+  `KillScoreboard` sort so they don't recompute on unrelated re-renders.
+- `RollRevealOverlay` is now `React.memo` — it no longer re-renders on every
+  snapshot (it's a child of the snapshot-subscribing routes), only when the active
+  reveal changes.
+
 ## 2026-06-18 — Attack-roll reveal animation
 
 ### Added

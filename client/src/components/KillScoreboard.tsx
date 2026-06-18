@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 
 /**
@@ -13,9 +14,13 @@ export function KillScoreboard({
   snapshot: StateSnapshot;
   className?: string;
 }) {
-  const scored = snapshot.characters
-    .filter((c) => (c.killCount ?? 0) > 0)
-    .sort((a, b) => (b.killCount ?? 0) - (a.killCount ?? 0));
+  const scored = useMemo(
+    () =>
+      snapshot.characters
+        .filter((c) => (c.killCount ?? 0) > 0)
+        .sort((a, b) => (b.killCount ?? 0) - (a.killCount ?? 0)),
+    [snapshot.characters],
+  );
   if (scored.length === 0) return null;
   return (
     <div className={`kill-scoreboard ${className}`} title="Enemies defeated">

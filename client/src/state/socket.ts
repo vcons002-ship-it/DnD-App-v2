@@ -52,9 +52,9 @@ const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const sayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const cursorTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let nextSayId = 1;
-/** Roll-log ids already heard (audio cues): so a fresh MISS/skill entry plays a
- *  sound exactly once. Seeded on the first snapshot so a reconnect's backlog is
- *  silent. */
+/** Roll-log ids already handled (audio cue + reveal), so a fresh entry fires
+ *  exactly once. The snapshot log is small (≤30, oldest-first), so a per-snapshot
+ *  Set is cheap. Seeded on the first snapshot so a reconnect's backlog is silent. */
 let seenRollIds = new Set<string>();
 let rollSfxReady = false;
 
@@ -495,25 +495,23 @@ export const useStore = create<Store>((set, get) => ({
     });
 
     socket.on('state:snapshot', (snapshot) => {
-      // Audio cues for newly-arrived roll-log entries: MISS (no fx:hp fires on a
-      // miss) and skill/save checks. Hits/heals are cued from fx:hp below. The
-      // first snapshot just seeds the seen-set so a backlog/reconnect is silent.
+      // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
+      // log is oldest-first, so a new entry is the first one not yet seen.
       const log = snapshot.rollLog ?? [];
       if (rollSfxReady) {
-        // listRollLog is newest-first, so the first unseen entry is the newest.
         const fresh = log.find((e) => !seenRollIds.has(e.id));
         if (fresh) {
-          const detail = fresh.detail ?? '';
-          const label = fresh.label ?? '';
-          if (/\bMISS\b/.test(detail)) playMiss();
-          else if (/(check|save)$/i.test(label) && !fresh.hpNote) playSkill();
-          // Attack-roll reveal animation (the d20 + HIT/MISS/CRIT/FUMBLE + damage),
-          // shared by everyone who received the entry. Auto-dismissed; click skips.
-          if (fresh.reveal && get().showRollAnim) {
+          // When a roll will ANIMATE, the overlay plays its hit/miss/impact cues in
+          // sync with the animation beats — so suppress the immediate cue here.
+          const willAnimate = !!fresh.reveal && get().showRollAnim;
+          // Skills/saves never animate → an immediate tick.
+          if (/(check|save)$/i.test(fresh.label ?? '') && !fresh.hpNote) playSkill();
+          // An un-animated miss → immediate; an animated one plays at its stamp.
+          else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
+          if (willAnimate && fresh.reveal) {
             const fxId = nextFloaterId++;
             set({ rollFx: { id: fxId, reveal: fresh.reveal } });
-            // The overlay self-dismisses when its staged sequence finishes; this is
-            // only a safety net in case it never mounts (e.g. tab hidden).
+            // The overlay self-dismisses when its sequence finishes; safety net only.
             setTimeout(
               () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),
               5000,
@@ -528,10 +526,11 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('fx:hp', ({ events }) => {
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
       set((st) => ({ hpFx: [...st.hpFx, ...added] }));
-      // Audio cue: any damage → a hit thunk; otherwise any heal → a chime. These
-      // events are already per-viewer filtered server-side.
-      if (events.some((e) => e.delta < 0)) playHit();
-      else if (events.some((e) => e.delta > 0)) playHeal();
+      // Audio cue. Heals always chime here (heals don't animate). The damage
+      // "thunk" plays immediately ONLY when roll animations are off — when they're
+      // on, the overlay plays the impact in sync with the damage reveal instead.
+      if (events.some((e) => e.delta > 0)) playHeal();
+      else if (events.some((e) => e.delta < 0) && !get().showRollAnim) playHit();
       // Expire regardless of whether a canvas rendered them.
       setTimeout(() => {
         const ids = new Set(added.map((f) => f.id));

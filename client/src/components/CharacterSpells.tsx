@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   Character,
   Monster,
@@ -690,21 +690,21 @@ export function CharacterSpells({
   };
 
   // ---- Group abilities for display: Cantrips / Level N / Other ----
-  const all = character.sheetAbilities;
-  const cantrips = all.filter((a) => a.type === 'spell' && (a.level ?? 0) === 0);
-  const leveled = all.filter((a) => a.type === 'spell' && (a.level ?? 0) > 0);
-  const others = all.filter((a) => a.type !== 'spell');
-  const levels = Array.from(new Set(leveled.map((a) => a.level ?? 1))).sort((x, y) => x - y);
-  type Group = { id: string; label: string; entries: SheetAbility[] };
-  const groups: Group[] = [];
-  if (cantrips.length) groups.push({ id: 'cantrips', label: 'Cantrips', entries: cantrips });
-  for (const L of levels)
-    groups.push({
-      id: `lvl-${L}`,
-      label: `Level ${L}`,
-      entries: leveled.filter((a) => (a.level ?? 1) === L),
-    });
-  if (others.length) groups.push({ id: 'other', label: 'Other abilities', entries: others });
+  // Memoized: only re-buckets when the ability list identity changes, not on every
+  // render (target/cast-level/open-state changes re-render but don't regroup).
+  const groups = useMemo(() => {
+    const all = character.sheetAbilities;
+    const cantrips = all.filter((a) => a.type === 'spell' && (a.level ?? 0) === 0);
+    const leveled = all.filter((a) => a.type === 'spell' && (a.level ?? 0) > 0);
+    const others = all.filter((a) => a.type !== 'spell');
+    const levels = Array.from(new Set(leveled.map((a) => a.level ?? 1))).sort((x, y) => x - y);
+    const out: { id: string; label: string; entries: SheetAbility[] }[] = [];
+    if (cantrips.length) out.push({ id: 'cantrips', label: 'Cantrips', entries: cantrips });
+    for (const L of levels)
+      out.push({ id: `lvl-${L}`, label: `Level ${L}`, entries: leveled.filter((a) => (a.level ?? 1) === L) });
+    if (others.length) out.push({ id: 'other', label: 'Other abilities', entries: others });
+    return out;
+  }, [character.sheetAbilities]);
 
   return (
     <div className="spells">

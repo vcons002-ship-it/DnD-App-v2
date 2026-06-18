@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
+import { playHit, playMiss } from '../lib/sfx';
 
 // Pacing (ms). Tweak to taste — attacks run ~2–2.6s, darts ~0.9s.
 const ROLL_MS = 420; // d20 shuffle before it locks
@@ -54,7 +55,7 @@ function useTween(target: number, ms = 260): number {
  * dart). Non-blocking (the map stays interactive); click / tap / Esc skips it.
  * Mechanics already applied server-side — this is purely cosmetic.
  */
-export function RollRevealOverlay() {
+export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
   const reveal = rollFx?.reveal;
@@ -85,9 +86,11 @@ export function RollRevealOverlay() {
 
     if (isBurst) {
       setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceShown: 0, modsShown: 0 });
-      at(DART_ROLL_MS, () =>
-        setStage((p) => ({ ...p, diceShown: dice.length, modsShown: mods.length })),
-      );
+      // Impact lands with the damage dice (in sync, not at server-roll time).
+      at(DART_ROLL_MS, () => {
+        setStage((p) => ({ ...p, diceShown: dice.length, modsShown: mods.length }));
+        playHit();
+      });
       at(DART_ROLL_MS + DART_HOLD_MS, dismiss);
       return cleanup;
     }
@@ -109,7 +112,12 @@ export function RollRevealOverlay() {
       at(t, () => setStage((p) => ({ ...p, toHitShown: i + 1 })));
     });
     t += OUTCOME_MS;
-    at(t, () => setStage((p) => ({ ...p, phase: 'outcome' })));
+    at(t, () => {
+      setStage((p) => ({ ...p, phase: 'outcome' }));
+      // Hit/miss cue lands WITH the stamp, in sync with the animation.
+      if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
+      else playMiss();
+    });
     const hasDamage = (reveal.damage ?? 0) > 0 && dice.length + mods.length > 0;
     if (hasDamage) {
       t += DMG_GAP_MS;
@@ -224,4 +232,4 @@ export function RollRevealOverlay() {
       </div>
     </div>
   );
-}
+});
