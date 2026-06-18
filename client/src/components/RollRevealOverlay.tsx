@@ -7,9 +7,9 @@ const ROLL_MS = 420; // d20 shuffle before it locks
 const STEP_MS = 300; // each bonus / die chip flying in
 const OUTCOME_MS = 340; // beat before the HIT/MISS stamp
 const DMG_GAP_MS = 360; // beat before damage rolls
-const HOLD_MS = 800; // linger on the final numbers
+const HOLD_MS = 1600; // linger on the final numbers after damage concludes
 const DART_ROLL_MS = 280;
-const DART_HOLD_MS = 560;
+const DART_HOLD_MS = 1200;
 
 type Stage = {
   phase: 'rolling' | 'tohit' | 'outcome' | 'damage';
@@ -42,6 +42,23 @@ function useTween(target: number, ms = 260): number {
     return () => cancelAnimationFrame(raf);
   }, [target, ms]);
   return val;
+}
+
+// Die silhouettes we can draw (clip-path polygons in CSS); anything else (d100…)
+// falls back to a d10.
+const DIE_SIDES = [4, 6, 8, 10, 12, 20];
+/** Parse the die size from a dice label ("2d6" → 6, "8d6" → 6); a crit step's
+ *  label ("CRIT") has none, so callers pass the weapon's base size as fallback. */
+function dieSides(label: string, fallback: number): number {
+  const m = /d(\d+)/i.exec(label);
+  const n = m ? Number(m[1]) : fallback;
+  return DIE_SIDES.includes(n) ? n : 10;
+}
+
+/** One die drawn in its real polygon shape (d4 triangle, d6 square, d8 diamond,
+ *  d10 kite, d12 pentagon, d20 hexagon) with its face value centred. */
+function DieShape({ sides, value, big }: { sides: number; value: number; big?: boolean }) {
+  return <span className={`die die-d${sides}${big ? ' die-big' : ''}`}>{value}</span>;
 }
 
 /**
@@ -169,13 +186,18 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
           : 'MISS';
   // A damage-only burst (cast AoE roll / Magic Missile dart) shows no HIT/MISS stamp.
   const showOutcome = !isBurst && (stage.phase === 'outcome' || stage.phase === 'damage');
+  // Hold the colour back until the result is revealed: the card stays grey through
+  // the tumble + to-hit build-up, then takes the outcome colour at the stamp.
+  const colourClass = showOutcome ? `roll-reveal-${reveal.outcome}` : 'roll-reveal-pending';
+  // Damage dice all share the weapon/spell's die size (a crit step has no "dN").
+  const baseSides = dieSides(dice[0]?.label ?? '', 6);
 
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
     <div className="roll-reveal-backdrop">
       <div
         key={rollFx.id}
-        className={`roll-reveal roll-reveal-${reveal.outcome}`}
+        className={`roll-reveal ${colourClass}`}
         onClick={dismiss}
         title="Click to skip"
       >
@@ -186,9 +208,9 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
 
         {!isBurst && (
           <div className="roll-reveal-tohit">
-            <div className={`roll-reveal-die${stage.phase === 'rolling' ? ' rolling' : ''}`}>
+            <span className={`die die-d20 die-big${stage.phase === 'rolling' ? ' rolling' : ''}`}>
               {stage.dieFace || '–'}
-            </div>
+            </span>
             <div className="rr-buildup">
               <div className="rr-total" key={toHitShownNum}>
                 {toHitShownNum}
@@ -213,13 +235,15 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
               {dmgShownNum}
               <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>
             </div>
+            {/* Each damage die drawn in its real shape, by face. */}
+            <div className="rr-dice-row">
+              {dice.slice(0, stage.diceShown).flatMap((d, di) =>
+                (d.faces ?? [d.value]).map((f, fi) => (
+                  <DieShape key={`d${di}-${fi}`} sides={baseSides} value={f} />
+                )),
+              )}
+            </div>
             <div className="rr-chips">
-              {dice.slice(0, stage.diceShown).map((d, i) => (
-                <span className="rr-chip rr-dice" key={`d${i}`}>
-                  {d.label}
-                  {d.faces?.length ? ` [${d.faces.join(',')}]` : ''} = {d.value}
-                </span>
-              ))}
               {mods.slice(0, stage.modsShown).map((m, i) => (
                 <span className="rr-chip" key={`m${i}`}>
                   {m.value >= 0 ? '+' : ''}

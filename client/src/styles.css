@@ -904,14 +904,23 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .roll-reveal-who .rr-arrow { color: var(--text); }
 /* To-hit row: the tumbling d20 + the running total + bonus chips. */
 .roll-reveal-tohit { display: flex; align-items: center; gap: 14px; }
-.roll-reveal-die {
-  flex: 0 0 auto;
-  width: 66px; height: 66px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 36px; font-weight: 800; color: #fff;
-  background: #2a2d36; border: 2px solid currentColor;
+/* Dice drawn in their REAL polygon shapes (filled clip-path silhouettes):
+   d4 triangle · d6 square · d8 diamond · d10 kite · d12 pentagon · d20 hexagon. */
+.die {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; line-height: 1; color: #fff; background: #3a3f4b;
 }
-.roll-reveal-die.rolling { animation: rr-tumble 0.18s linear infinite; }
+.die-big { width: 66px; height: 66px; font-size: 34px; }
+.die.rolling { animation: rr-tumble 0.18s linear infinite; }
+.die-d6 { border-radius: 12px; }
+.die-d4 { clip-path: polygon(50% 4%, 96% 95%, 4% 95%); align-items: flex-end; padding-bottom: 10%; box-sizing: border-box; }
+.die-d8 { clip-path: polygon(50% 1%, 99% 50%, 50% 99%, 1% 50%); }
+.die-d10 { clip-path: polygon(50% 1%, 92% 38%, 50% 99%, 8% 38%); }
+.die-d12 { clip-path: polygon(50% 1%, 99% 39%, 80% 99%, 20% 99%, 1% 39%); }
+.die-d20 { clip-path: polygon(50% 1%, 95% 26%, 95% 74%, 50% 99%, 5% 74%, 5% 26%); }
+/* Damage dice: small, tinted, laid out in a row by face. */
+.rr-dice-row { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 240px; }
+.rr-dice-row .die { width: 30px; height: 30px; font-size: 14px; background: #25404d; color: #cfeefb; }
 .rr-buildup { display: flex; flex-direction: column; gap: 4px; min-width: 80px; }
 .rr-total { font-size: 30px; font-weight: 800; line-height: 1; animation: rr-bump 0.24s ease-out; }
 .rr-chips { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -925,18 +934,22 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 .roll-reveal-damage { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .rr-dmg-num { font-size: 26px; font-weight: 800; color: #ff8a8a; animation: rr-bump 0.24s ease-out; }
 .rr-dmg-type { font-size: 13px; font-weight: 600; color: var(--muted); }
-/* Outcome colour-coding (matches the log's hit/miss/crit feel). */
+/* Outcome colour is HELD BACK until the result is revealed: the card + its d20
+   stay grey (pending) through the tumble + to-hit build-up, then take the outcome
+   colour at the stamp. Damage dice keep their own blue tint regardless. */
+.roll-reveal-pending { border-color: var(--line); }
+.roll-reveal-pending .roll-reveal-tohit .die { background: #3a3f4b; color: #e8eaf0; }
 .roll-reveal-crit { border-color: #ffcf4d; box-shadow: 0 12px 48px rgba(255, 207, 77, 0.25); }
-.roll-reveal-crit .roll-reveal-die { color: #ffcf4d; }
+.roll-reveal-crit .roll-reveal-tohit .die { background: #6b540f; color: #fff3cf; }
 .roll-reveal-crit .roll-reveal-outcome { color: #ffcf4d; }
 .roll-reveal-hit { border-color: #5fae5f; }
-.roll-reveal-hit .roll-reveal-die { color: #5fae5f; }
+.roll-reveal-hit .roll-reveal-tohit .die { background: #2f6b35; color: #eaffea; }
 .roll-reveal-hit .roll-reveal-outcome { color: #7ed07e; }
 .roll-reveal-miss { border-color: #6a6f7d; }
-.roll-reveal-miss .roll-reveal-die { color: #9aa0ad; }
+.roll-reveal-miss .roll-reveal-tohit .die { background: #3a3f4b; color: #b8bcc6; }
 .roll-reveal-miss .roll-reveal-outcome { color: #9aa0ad; }
 .roll-reveal-fumble { border-color: #e23b3b; }
-.roll-reveal-fumble .roll-reveal-die { color: #e23b3b; }
+.roll-reveal-fumble .roll-reveal-tohit .die { background: #6e2020; color: #ffe0e0; }
 .roll-reveal-fumble .roll-reveal-outcome { color: #ff6b6b; }
 @keyframes roll-reveal-pop {
   0% { opacity: 0; transform: translateY(-8px) scale(0.92); }
@@ -951,7 +964,7 @@ button.sb-ability-roll:hover { border-color: var(--accent); background: var(--pa
 @keyframes rr-stamp { 0% { opacity: 0; transform: scale(1.6) rotate(-6deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
 @keyframes rr-chip-in { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
-  .roll-reveal-die.rolling, .rr-total, .rr-dmg-num, .rr-chip, .roll-reveal-outcome { animation: none; }
+  .die.rolling, .rr-total, .rr-dmg-num, .rr-chip, .roll-reveal-outcome { animation: none; }
 }
 
 /* Skills (proficiency toggle + click-to-roll) */
