@@ -900,21 +900,14 @@ export function CharacterSpells({
 
       {editable && (
         <>
-          <div className="dice-row">
-            <button className="btn tiny" onClick={() => setAdding((p) => !p)}>
-              {adding ? 'Close' : '+ Add spell / ability / mastery'}
-            </button>
-            <button className="btn tiny" onClick={() => setBookOpen(true)} title="Browse the full spell list by class">
-              📖 Spellbook
-            </button>
-            <button
-              className="btn tiny"
-              onClick={addCustomSpell}
-              title="Author a homebrew spell — sets name, level, dice & roll inline"
-            >
-              ✏️ Custom spell
-            </button>
-          </div>
+          {/* One primary "add" affordance; the search, full spellbook, and custom
+              builder all live inside the panel it opens — not three loose buttons. */}
+          <button
+            className={`add-row-btn ${adding ? 'on' : ''}`}
+            onClick={() => setAdding((p) => !p)}
+          >
+            {adding ? '✕ Close' : '＋ Add spell or ability'}
+          </button>
           {bookOpen && (
             <Spellbook
               onAdd={add}
@@ -928,36 +921,55 @@ export function CharacterSpells({
             <div className="spell-add">
               <input
                 autoFocus
-                placeholder="Search name or tag — Fireball, fire, cantrip, wizard, maneuver…"
+                placeholder="Search — Fireball, cantrip, maneuver, mastery…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
-              <div className="item-picker">
-                {results.map((r) => (
-                  <button
-                    key={r.name}
-                    className="suggest-row"
-                    onClick={() => add(r)}
-                    title={r.description}
-                  >
-                    {r.name}
-                    <span className="muted">{tagFor(r as SheetAbility) || r.type}</span>
-                  </button>
-                ))}
-                {results.length === 0 && q.trim() && !aiBusy && (
-                  <p className="muted spell-none">
-                    No local match.{' '}
-                    {aiAvail
-                      ? 'Try AI lookup below.'
-                      : 'Add a Gemini API key in Settings to use AI lookup.'}
-                  </p>
-                )}
-              </div>
+              {(q.trim() || results.length > 0) && (
+                <div className="item-picker">
+                  {results.map((r) => (
+                    <button
+                      key={r.name}
+                      className="suggest-row"
+                      onClick={() => add(r)}
+                      title={r.description}
+                    >
+                      {r.name}
+                      <span className="muted">{tagFor(r as SheetAbility) || r.type}</span>
+                    </button>
+                  ))}
+                  {results.length === 0 && q.trim() && !aiBusy && (
+                    <p className="muted spell-none">
+                      No local match.{' '}
+                      {aiAvail
+                        ? 'Try AI lookup below.'
+                        : 'Add a Gemini API key in Settings to use AI lookup.'}
+                    </p>
+                  )}
+                </div>
+              )}
               {q.trim() && aiAvail && (
                 <button className="btn tiny" disabled={aiBusy} onClick={askAI}>
                   {aiBusy ? 'Asking AI…' : `✨ Ask AI for "${q.trim()}"`}
                 </button>
               )}
+              <div className="spell-add-more">
+                <span className="muted">or</span>
+                <button
+                  className="btn tiny"
+                  onClick={() => setBookOpen(true)}
+                  title="Browse the full spell list by class"
+                >
+                  📖 Browse spellbook
+                </button>
+                <button
+                  className="btn tiny"
+                  onClick={addCustomSpell}
+                  title="Author a homebrew spell — sets name, level, dice & roll inline"
+                >
+                  ✏️ Create custom
+                </button>
+              </div>
             </div>
           )}
         </>

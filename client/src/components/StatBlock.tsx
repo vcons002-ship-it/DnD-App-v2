@@ -602,15 +602,19 @@ function ReadView({
 export function ActionsTraitsReadSections({
   actions,
   abilities,
+  hideHeadings = false,
 }: {
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
+  /** Suppress the inner Actions/Traits `<h4>`s — the caller renders a single
+   *  section heading itself (avoids "Actions / Actions" duplication). */
+  hideHeadings?: boolean;
 }) {
   return (
     <>
       {actions.length > 0 && (
         <div className="sb-section">
-          <h4>Actions</h4>
+          {!hideHeadings && <h4>Actions</h4>}
           {actions.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
@@ -620,7 +624,7 @@ export function ActionsTraitsReadSections({
       )}
       {abilities.length > 0 && (
         <div className="sb-section">
-          <h4>Traits</h4>
+          {!hideHeadings && <h4>Traits</h4>}
           {abilities.map((a, i) => (
             <p key={i} className="sb-entry">
               <strong>{a.name}.</strong> {a.description}
@@ -645,6 +649,8 @@ export function ActionsTraitsView({
   onSave,
   showActions = true,
   showTraits = true,
+  heading,
+  className = '',
 }: {
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
@@ -654,6 +660,11 @@ export function ActionsTraitsView({
    *  sheet) — the unshown kind is preserved untouched on save. */
   showActions?: boolean;
   showTraits?: boolean;
+  /** A single, always-visible section heading (e.g. "Actions") — replaces the
+   *  per-list inner h4s so the section is labelled even when empty. */
+  heading?: string;
+  /** Extra class on the root (e.g. "sheet-actions" for its own section accent). */
+  className?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [dActions, setDActions] = useState<CreatureAbility[]>(actions);
@@ -674,12 +685,15 @@ export function ActionsTraitsView({
 
   if (!editing) {
     return (
-      <div className="statblock">
-        {editable && onSave && (
+      <div className={`statblock ${className}`.trim()}>
+        {(heading || (editable && onSave)) && (
           <div className="sb-head">
-            <button className="btn tiny" onClick={startEdit}>
-              Edit
-            </button>
+            {heading && <h4 className="sb-block-heading">{heading}</h4>}
+            {editable && onSave && (
+              <button className="btn tiny" onClick={startEdit}>
+                Edit
+              </button>
+            )}
           </div>
         )}
         {(showActions ? actions.length : 0) + (showTraits ? abilities.length : 0) === 0 ? (
@@ -688,18 +702,20 @@ export function ActionsTraitsView({
           <ActionsTraitsReadSections
             actions={showActions ? actions : []}
             abilities={showTraits ? abilities : []}
+            hideHeadings={!!heading}
           />
         )}
       </div>
     );
   }
   return (
-    <div className="statblock editing">
+    <div className={`statblock editing ${className}`.trim()}>
+      {heading && <h4 className="sb-block-heading">{heading}</h4>}
       {showActions && (
-        <EntryEditor title="Actions" entries={dActions} onChange={setDActions} />
+        <EntryEditor title={heading ? '' : 'Actions'} entries={dActions} onChange={setDActions} />
       )}
       {showTraits && (
-        <EntryEditor title="Traits" entries={dAbilities} onChange={setDAbilities} />
+        <EntryEditor title={heading ? '' : 'Traits'} entries={dAbilities} onChange={setDAbilities} />
       )}
       <div className="sb-edit-actions">
         <button className="btn tiny green" onClick={save}>
@@ -1003,11 +1019,12 @@ function WeaponEditor({
         </div>
         );
       })}
-      <div className="dice-row">
-        <button className="btn tiny" onClick={() => setPicking((p) => !p)}>
-          {picking ? 'Close' : monster ? '+ Attack' : '+ Weapon'}
-        </button>
-      </div>
+      <button
+        className={`add-row-btn ${picking ? 'on' : ''}`}
+        onClick={() => setPicking((p) => !p)}
+      >
+        {picking ? '✕ Close' : monster ? '＋ Add attack' : '＋ Add weapon'}
+      </button>
       {picking && (
         <div className="weapon-picker">
           <input
@@ -1061,7 +1078,7 @@ function EntryEditor({
     onChange(entries.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   return (
     <div className="sb-section">
-      <h4>{title}</h4>
+      {title && <h4>{title}</h4>}
       {entries.map((e, i) => (
         <div key={i} className="sb-entry-edit">
           <input

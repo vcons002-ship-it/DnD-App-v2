@@ -36,7 +36,7 @@ export function CharacterSheet({
   const [saving, setSaving] = useState(false);
 
   return (
-    <>
+    <div className="char-sheet">
       <StatBlock
         creature={character}
         subtitle={`${character.race} · ${character.className}${
@@ -118,6 +118,8 @@ export function CharacterSheet({
               abilities={character.abilities}
               editable={editable}
               showTraits={false}
+              heading="Actions"
+              className="sheet-actions"
               onSave={
                 editable
                   ? (patch) => updateCharacter({ characterId: character.id, ...patch })
@@ -145,6 +147,6 @@ export function CharacterSheet({
       {saving && (
         <LibraryCharacterDialog character={character} onClose={() => setSaving(false)} />
       )}
-    </>
+    </div>
   );
 }
