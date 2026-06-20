@@ -853,6 +853,12 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .spells { margin-top: 10px; }
 .spell-list { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 4px; }
 .spell-entry { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+/* Prepared leveled spells read bright + bold (ready to cast); unprepared ones are
+   greyed and dimmed. Cantrips / abilities (no prepared state) are unaffected. */
+.spell-entry.prep-on { border-left: 3px solid var(--green); }
+.spell-entry.prep-on .spell-name { color: #5fd896; font-weight: 700; }
+.spell-entry.prep-off { opacity: 0.72; border-left: 3px solid var(--line); }
+.spell-entry.prep-off .spell-name { color: var(--muted); font-weight: 500; }
 .spell-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
 .adv-toggle { display: inline-flex; gap: 2px; }
 /* Per-creature adv/dis switch above a monster's attacks/actions (DM panel). */

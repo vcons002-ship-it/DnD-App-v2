@@ -361,8 +361,12 @@ export function CharacterSpells({
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
     const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
     const gi = groupIds.indexOf(a.id);
+    // Leveled spells carry a prepared state — show prepared ones bright/bold and
+    // unprepared ones greyed, so the ready-to-cast set is obvious at a glance.
+    const isLeveledSpell = a.type === 'spell' && (a.level ?? 0) > 0;
+    const prepClass = isLeveledSpell ? (a.prepared !== false ? 'prep-on' : 'prep-off') : '';
     return (
-      <li key={a.id} className="spell-entry">
+      <li key={a.id} className={`spell-entry ${prepClass}`.trim()}>
         <div className="spell-head">
           <button
             className="spell-toggle"
@@ -784,7 +788,15 @@ export function CharacterSpells({
     const out: { id: string; label: string; entries: SheetAbility[] }[] = [];
     if (cantrips.length) out.push({ id: 'cantrips', label: 'Cantrips', entries: cantrips });
     for (const L of levels)
-      out.push({ id: `lvl-${L}`, label: `Level ${L}`, entries: leveled.filter((a) => (a.level ?? 1) === L) });
+      out.push({
+        id: `lvl-${L}`,
+        label: `Level ${L}`,
+        // Prepared spells float to the TOP of each level; a stable sort keeps the
+        // manual ▲/▼ order within each of the prepared / unprepared groups.
+        entries: leveled
+          .filter((a) => (a.level ?? 1) === L)
+          .sort((a, b) => (a.prepared === false ? 1 : 0) - (b.prepared === false ? 1 : 0)),
+      });
     if (others.length) out.push({ id: 'other', label: 'Other abilities', entries: others });
     return out;
   }, [character.sheetAbilities]);
