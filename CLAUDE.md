@@ -90,8 +90,11 @@ sanitization rules above and commit it to `claude/Main`.
   Flux, SD3, T5/Mistral text-diffusion. Map prompts are wrapped in **top-down
   battle-map framing** (`frameMapPrompt`, configurable `comfyMapStyle` with a
   `{prompt}` placeholder — also where a battle-map LoRA's trigger word goes) since
-  base models render a scene otherwise. Configurable `comfyUrl`/`comfyModel`/
-  `comfyWorkflow`/`comfyMapStyle` in Settings; fail-safe (hidden when unreachable).
+  base models render a scene otherwise. An optional **battle-map LoRA**
+  (`comfyMapLora`) is auto-spliced into the map graph (`injectMapLora` inserts a
+  `LoraLoaderModelOnly` + rewires the sampler; skipped gracefully if not installed).
+  Configurable `comfyUrl`/`comfyModel`/`comfyWorkflow`/`comfyMapStyle`/`comfyMapLora`
+  in Settings; fail-safe (hidden when unreachable).
 
 ## Architecture & invariants (read this first)
 

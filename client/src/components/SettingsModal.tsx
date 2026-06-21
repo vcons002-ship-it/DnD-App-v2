@@ -19,6 +19,7 @@ type PublicSettings = {
   comfyModel: string;
   comfyWorkflow: string;
   comfyMapStyle: string;
+  comfyMapLora: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -62,11 +63,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [comfyModel, setComfyModel] = useState('');
   const [comfyWorkflow, setComfyWorkflow] = useState('');
   const [comfyMapStyle, setComfyMapStyle] = useState('');
+  const [comfyMapLora, setComfyMapLora] = useState('');
   // Which workflow preset is selected (built-in SD / a Flux preset / custom).
   const [preset, setPreset] = useState<ComfyPresetId>('builtin');
   const [comfy, setComfy] = useState<{
     reachable: boolean;
     models: string[];
+    loras: string[];
     usingWorkflow?: boolean;
   } | null>(null);
 
@@ -81,14 +84,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     refreshComfyStatus();
     return fetch('/api/comfy/status')
       .then((r) => r.json())
-      .then((d: { reachable?: boolean; models?: string[]; usingWorkflow?: boolean }) =>
+      .then((d: { reachable?: boolean; models?: string[]; loras?: string[]; usingWorkflow?: boolean }) =>
         setComfy({
           reachable: !!d.reachable,
           models: d.models ?? [],
+          loras: d.loras ?? [],
           usingWorkflow: !!d.usingWorkflow,
         }),
       )
-      .catch(() => setComfy({ reachable: false, models: [] }));
+      .catch(() => setComfy({ reachable: false, models: [], loras: [] }));
   };
 
   useEffect(() => {
@@ -106,6 +110,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setComfyModel(s.comfyModel ?? '');
         setComfyWorkflow(s.comfyWorkflow ?? '');
         setComfyMapStyle(s.comfyMapStyle ?? '');
+        setComfyMapLora(s.comfyMapLora ?? '');
         setPreset(detectPreset(s.comfyWorkflow ?? ''));
       })
       .catch(() => setCurrent(null));
@@ -161,6 +166,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         comfyModel: comfyModel.trim(),
         comfyWorkflow: comfyWorkflow.trim(),
         comfyMapStyle: comfyMapStyle.trim(),
+        comfyMapLora: comfyMapLora.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -186,6 +192,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setComfyModel(updated.comfyModel ?? '');
       setComfyWorkflow(updated.comfyWorkflow ?? '');
       setComfyMapStyle(updated.comfyMapStyle ?? '');
+      setComfyMapLora(updated.comfyMapLora ?? '');
       setPreset(detectPreset(updated.comfyWorkflow ?? ''));
       // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
@@ -428,6 +435,29 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             value={comfyMapStyle}
             onChange={(e) => setComfyMapStyle(e.target.value)}
           />
+        </label>
+        <label className="settings-field">
+          Battle-map LoRA <span className="muted">(optional — applied to maps only)</span>
+          <input
+            list="comfy-loras"
+            placeholder={
+              comfy && comfy.loras.length === 0
+                ? 'no LoRAs found in ComfyUI/models/loras'
+                : 'e.g. mapcraft-flux.safetensors'
+            }
+            value={comfyMapLora}
+            onChange={(e) => setComfyMapLora(e.target.value)}
+          />
+          <datalist id="comfy-loras">
+            {(comfy?.loras ?? []).map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+          <span className="muted">
+            Auto-spliced into the workflow for map generation — no JSON editing.
+            Skipped silently if it isn't installed. If the LoRA needs a trigger
+            word, add it to the style field above.
+          </span>
         </label>
 
         <h4>Rulebook (PDF)</h4>

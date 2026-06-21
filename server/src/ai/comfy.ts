@@ -56,6 +56,13 @@ export async function listComfyModels(): Promise<string[]> {
   return listLoaderOptions('CheckpointLoaderSimple', 'ckpt_name');
 }
 
+/** List installed LoRAs (for the map-LoRA picker). Same file list whichever LoRA
+ *  node exposes it; fall back if the model-only variant isn't registered. */
+export async function listComfyLoras(): Promise<string[]> {
+  const a = await listLoaderOptions('LoraLoaderModelOnly', 'lora_name');
+  return a.length ? a : listLoaderOptions('LoraLoader', 'lora_name');
+}
+
 // Loader node classes → the filename input(s) we should validate against ComfyUI.
 const LOADER_FILENAME_INPUTS: Record<string, string[]> = {
   CheckpointLoaderSimple: ['ckpt_name'],
@@ -88,6 +95,53 @@ export function bestModelMatch(requested: string, available: string[]): string |
     .filter((c) => c.score >= 0)
     .sort((x, y) => y.score - x.score);
   return scored.length ? scored[0].a : null;
+}
+
+// Nodes whose output slot 0 is the MODEL — where a model-only LoRA splices in.
+const MODEL_PRODUCER_CLASSES = new Set([
+  'UNETLoader',
+  'CheckpointLoaderSimple',
+  'CheckpointLoader',
+  'CheckpointLoaderNF4',
+  'UnetLoaderGGUF',
+  'UNETLoaderGGUF',
+]);
+
+/** Splice a model-only LoRA into `graph` (for map generation) with NO JSON editing
+ *  by the DM: find the model producer (UNet/checkpoint loader), insert a
+ *  `LoraLoaderModelOnly` after it, and rewire every model consumer through it.
+ *  Returns false (a clean no-op) when there isn't exactly one clearly-used model
+ *  node — so an unusual custom workflow just generates without the LoRA instead of
+ *  breaking. Pure (no network): the caller resolves the installed filename first. */
+export function injectMapLora(
+  graph: Record<string, unknown>,
+  loraName: string,
+  strength = 1.0,
+): boolean {
+  const nodes = Object.entries(graph) as [
+    string,
+    { class_type?: string; inputs?: Record<string, unknown> },
+  ][];
+  const isModelLink = (v: unknown, id: string) =>
+    Array.isArray(v) && v.length === 2 && v[0] === id && v[1] === 0;
+  // Model producers whose model output is actually consumed by a `model` input.
+  const used = nodes
+    .filter(([, n]) => n.class_type && MODEL_PRODUCER_CLASSES.has(n.class_type))
+    .filter(([pid]) => nodes.some(([, n]) => n.inputs && isModelLink(n.inputs.model, pid)));
+  if (used.length !== 1) return false; // zero or ambiguous → skip safely
+  const srcId = used[0][0];
+  let loraId = '__map_lora';
+  while (graph[loraId]) loraId += '_x';
+  // Rewire existing model consumers to the LoRA's output (the LoRA node, added
+  // below, keeps the original producer as ITS input).
+  for (const [, n] of nodes) {
+    if (n.inputs && isModelLink(n.inputs.model, srcId)) n.inputs.model = [loraId, 0];
+  }
+  graph[loraId] = {
+    class_type: 'LoraLoaderModelOnly',
+    inputs: { model: [srcId, 0], lora_name: loraName, strength_model: strength },
+  };
+  return true;
 }
 
 type LoaderIssue = { node: string; nodeClass: string; input: string; requested: string; available: string[] };
@@ -224,6 +278,9 @@ export type ComfyImageOpts = {
   height?: number;
   steps?: number;
   cfg?: number;
+  /** Splice this model-only LoRA into the graph (map generation); skipped if the
+   *  file isn't installed or the graph has no clear model node. */
+  injectLora?: { name: string; strength?: number };
 };
 
 /** Either a saved image path or a human-readable reason it failed (shown to the DM). */
@@ -278,6 +335,19 @@ export async function generateImage(
       cfg: Math.min(20, Math.max(1, opts.cfg ?? 7)),
       seed,
     });
+  }
+
+  // Optional map LoRA — spliced in here (before filename resolution, so the LoRA
+  // name is matched too). Fails gracefully: a missing LoRA / unsupported node /
+  // odd graph just generates without it, never an error.
+  if (opts.injectLora?.name) {
+    const loras = await listComfyLoras();
+    const match = loras.length ? bestModelMatch(opts.injectLora.name, loras) : null;
+    if (!match) {
+      console.warn(`  [comfy] map LoRA '${opts.injectLora.name}' not installed — generating without it`);
+    } else if (!injectMapLora(graph, match, opts.injectLora.strength ?? 1.0)) {
+      console.warn('  [comfy] map LoRA: no single model node to attach to — generating without it');
+    }
   }
 
   // Make loader filenames match what's actually installed (so a preset naming

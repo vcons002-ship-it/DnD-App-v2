@@ -16,6 +16,12 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
   placeholder marks where the description lands (blank = built-in default), and it's
   where you'd add a battle-map **LoRA** trigger word (e.g. Mapcraft) for far better
   results. The map-panel prompt now asks for the scene, not "top-down battle map".
+- **First-class battle-map LoRA** — Settings → *Battle-map LoRA* picks an installed
+  LoRA (dropdown from ComfyUI) that's **auto-spliced into the workflow for map
+  generation only** — no JSON editing. It inserts a `LoraLoaderModelOnly` after the
+  model loader and rewires the sampler through it, and **fails gracefully**: a LoRA
+  that isn't installed (or a workflow with no clear model node) just generates
+  without it. The filename auto-matcher covers LoRA nodes too.
 
 ## 2026-06-21 — ComfyUI: tolerate model filename mismatches
 

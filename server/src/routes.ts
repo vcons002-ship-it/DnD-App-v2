@@ -30,6 +30,7 @@ import { aiAvailable, listOllamaModels } from './ai/gateway.js';
 import {
   refreshComfy,
   listComfyModels,
+  listComfyLoras,
   generateImage,
   frameMapPrompt,
   DEFAULT_MAP_NEGATIVE,
@@ -180,6 +181,7 @@ export function createApiRouter(io: IOServer): Router {
       comfyModel?: string;
       comfyWorkflow?: string;
       comfyMapStyle?: string;
+      comfyMapLora?: string;
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
@@ -194,6 +196,7 @@ export function createApiRouter(io: IOServer): Router {
     if (typeof req.body?.comfyModel === 'string') patch.comfyModel = req.body.comfyModel;
     if (typeof req.body?.comfyWorkflow === 'string') patch.comfyWorkflow = req.body.comfyWorkflow;
     if (typeof req.body?.comfyMapStyle === 'string') patch.comfyMapStyle = req.body.comfyMapStyle;
+    if (typeof req.body?.comfyMapLora === 'string') patch.comfyMapLora = req.body.comfyMapLora;
     res.json(updateSettings(patch));
   });
 
@@ -216,6 +219,7 @@ export function createApiRouter(io: IOServer): Router {
     res.json({
       reachable,
       models: reachable ? await listComfyModels() : [],
+      loras: reachable ? await listComfyLoras() : [],
       defaultModel: config.comfyModel,
       url: config.comfyUrl,
       usingWorkflow: !!config.comfyWorkflow.trim(),
@@ -243,7 +247,14 @@ export function createApiRouter(io: IOServer): Router {
       finalPrompt = frameMapPrompt(prompt, config.comfyMapStyle);
       if (negative === undefined) negative = DEFAULT_MAP_NEGATIVE;
     }
-    const result = await generateImage(finalPrompt, { width, height, negative });
+    const result = await generateImage(finalPrompt, {
+      width,
+      height,
+      negative,
+      ...(isMap && config.comfyMapLora.trim()
+        ? { injectLora: { name: config.comfyMapLora.trim() } }
+        : {}),
+    });
     if ('error' in result) return res.status(503).json({ error: result.error });
     res.status(201).json({ path: result.path });
   });

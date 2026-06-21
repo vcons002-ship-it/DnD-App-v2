@@ -3,8 +3,45 @@ import {
   applyWorkflowTemplate,
   bestModelMatch,
   frameMapPrompt,
+  injectMapLora,
   DEFAULT_MAP_STYLE,
 } from './ai/comfy.js';
+
+// A map LoRA is spliced into the graph at generate time (no DM JSON editing),
+// and skips cleanly when the graph has no clear model node.
+describe('injectMapLora', () => {
+  // A Flux-style graph: UNETLoader (node 4) → KSampler (node 3) model input.
+  const fluxGraph = () => ({
+    '3': { class_type: 'KSampler', inputs: { model: ['4', 0], seed: 1 } },
+    '4': { class_type: 'UNETLoader', inputs: { unet_name: 'flux-2-klein-4b-fp8.safetensors' } },
+    '6': { class_type: 'CLIPTextEncode', inputs: { text: 'x', clip: ['12', 0] } },
+  });
+
+  it('inserts a LoraLoaderModelOnly and rewires the sampler through it', () => {
+    const g = fluxGraph() as Record<string, any>;
+    expect(injectMapLora(g, 'mapcraft.safetensors', 0.9)).toBe(true);
+    // The sampler now reads the model from the new LoRA node…
+    const loraId = g['3'].inputs.model[0];
+    expect(loraId).not.toBe('4');
+    // …and the LoRA node takes the original producer as its own input.
+    expect(g[loraId].class_type).toBe('LoraLoaderModelOnly');
+    expect(g[loraId].inputs.model).toEqual(['4', 0]);
+    expect(g[loraId].inputs.lora_name).toBe('mapcraft.safetensors');
+    expect(g[loraId].inputs.strength_model).toBe(0.9);
+  });
+
+  it('does NOT rewire a clip link (only the model output, slot 0)', () => {
+    const g = fluxGraph() as Record<string, any>;
+    injectMapLora(g, 'mapcraft.safetensors');
+    expect(g['6'].inputs.clip).toEqual(['12', 0]); // untouched
+  });
+
+  it('skips (returns false) when there is no model-producer node', () => {
+    const g = { '3': { class_type: 'KSampler', inputs: { model: ['99', 0] } } } as Record<string, any>;
+    expect(injectMapLora(g, 'mapcraft.safetensors')).toBe(false);
+    expect(g['__map_lora']).toBeUndefined();
+  });
+});
 
 // Map prompts get wrapped in top-down framing so base models don't render a scene.
 describe('frameMapPrompt', () => {

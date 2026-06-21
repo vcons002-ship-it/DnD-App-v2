@@ -46,6 +46,10 @@ export const config = {
    *  `{prompt}` marks where the DM's description goes (else it's appended). Blank
    *  = the built-in default. Add a battle-map LoRA's trigger word here too. */
   comfyMapStyle: process.env.COMFY_MAP_STYLE || '',
+  /** Optional battle-map LoRA filename, auto-spliced into the graph for map
+   *  generation only. Skipped gracefully if not installed. Put its trigger word
+   *  (if any) in `comfyMapStyle`. */
+  comfyMapLora: process.env.COMFY_MAP_LORA || '',
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */
