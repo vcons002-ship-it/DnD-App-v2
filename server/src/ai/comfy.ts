@@ -56,11 +56,48 @@ export async function listComfyModels(): Promise<string[]> {
   return listLoaderOptions('CheckpointLoaderSimple', 'ckpt_name');
 }
 
-/** List installed LoRAs (for the map-LoRA picker). Same file list whichever LoRA
- *  node exposes it; fall back if the model-only variant isn't registered. */
+/** Collect every model-file dropdown a node exposes (any input whose options are
+ *  a list of filenames, or whose name mentions lora/dora). Catches the file input
+ *  whatever it's named, so a custom DoRA loader's list is found without guessing. */
+async function listNodeFileOptions(nodeClass: string): Promise<string[]> {
+  if (!config.comfyUrl || !nodeClass) return [];
+  try {
+    const r = await fetch(`${config.comfyUrl}/object_info/${encodeURIComponent(nodeClass)}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return [];
+    const data = (await r.json()) as Record<
+      string,
+      { input?: { required?: Record<string, unknown>; optional?: Record<string, unknown> } }
+    >;
+    const slots = data?.[nodeClass]?.input ?? {};
+    const out: string[] = [];
+    for (const group of [slots.required, slots.optional]) {
+      for (const [name, spec] of Object.entries(group ?? {})) {
+        const opts = Array.isArray(spec) ? (spec as unknown[])[0] : undefined;
+        if (!Array.isArray(opts) || !opts.every((o) => typeof o === 'string')) continue;
+        const strs = opts as string[];
+        const looksLikeModels = strs.some((o) =>
+          /\.(safetensors|pt|pth|ckpt|bin|sft|gguf|dora|lora)$/i.test(o),
+        );
+        if (looksLikeModels || /lora|dora/i.test(name)) out.push(...strs);
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** List installed LoRAs/DoRAs for the map-LoRA picker. DoRAs share the loras
+ *  folder, so the core nodes already list them — but we also scan a configured
+ *  custom DoRA loader node (which may read its own folder), and merge, so a DoRA
+ *  shows up wherever it lives. */
 export async function listComfyLoras(): Promise<string[]> {
-  const a = await listLoaderOptions('LoraLoaderModelOnly', 'lora_name');
-  return a.length ? a : listLoaderOptions('LoraLoader', 'lora_name');
+  const sources = new Set(['LoraLoaderModelOnly', 'LoraLoader']);
+  if (config.comfyMapLoraNode.trim()) sources.add(config.comfyMapLoraNode.trim());
+  const lists = await Promise.all([...sources].map((n) => listNodeFileOptions(n)));
+  return [...new Set(lists.flat())].sort((a, b) => a.localeCompare(b));
 }
 
 // Loader node classes → the filename input(s) we should validate against ComfyUI.

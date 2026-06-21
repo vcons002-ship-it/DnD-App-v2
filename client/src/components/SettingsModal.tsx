@@ -451,12 +451,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="settings-field">
-          Battle-map LoRA <span className="muted">(optional — applied to maps only)</span>
+          Battle-map LoRA / DoRA <span className="muted">(optional — applied to maps only)</span>
           <input
             list="comfy-loras"
             placeholder={
               comfy && comfy.loras.length === 0
-                ? 'no LoRAs found in ComfyUI/models/loras'
+                ? 'no LoRAs/DoRAs found in ComfyUI/models/loras'
                 : 'e.g. mapcraft-flux.safetensors'
             }
             value={comfyMapLora}
@@ -469,7 +469,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </datalist>
           <span className="muted">
             Auto-spliced into the workflow for map generation — no JSON editing.
-            Skipped silently if it isn't installed.
+            Skipped silently if it isn't installed. LoRAs <em>and</em> DoRAs both list
+            here (they share <code>ComfyUI/models/loras</code>) — if a file you just
+            added is missing, refresh/restart ComfyUI so it rescans the folder.
           </span>
         </label>
         {comfyMapLora.trim() && (

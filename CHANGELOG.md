@@ -4,6 +4,16 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-21 — ComfyUI: broaden the map LoRA/DoRA picker search
+
+### Fixed
+- The map LoRA picker now aggregates installed files from the core LoRA nodes
+  **and** a configured custom DoRA loader node, detecting the file dropdown by its
+  options (any model-extension list) rather than a fixed input name — so DoRAs in a
+  custom loader's folder show up too. (DoRAs in the standard `models/loras` were
+  already listed; a missing freshly-added file usually just means ComfyUI needs to
+  rescan — refresh/restart it.)
+
 ## 2026-06-21 — ComfyUI: top-down framing for generated battle maps
 
 ### Added / Changed
