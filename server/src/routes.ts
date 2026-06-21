@@ -183,6 +183,8 @@ export function createApiRouter(io: IOServer): Router {
       comfyMapStyle?: string;
       comfyMapLora?: string;
       comfyMapLoraTrigger?: string;
+      comfyMapLoraStrength?: number;
+      comfyMapLoraNode?: string;
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
@@ -200,6 +202,10 @@ export function createApiRouter(io: IOServer): Router {
     if (typeof req.body?.comfyMapLora === 'string') patch.comfyMapLora = req.body.comfyMapLora;
     if (typeof req.body?.comfyMapLoraTrigger === 'string')
       patch.comfyMapLoraTrigger = req.body.comfyMapLoraTrigger;
+    if (typeof req.body?.comfyMapLoraStrength === 'number')
+      patch.comfyMapLoraStrength = req.body.comfyMapLoraStrength;
+    if (typeof req.body?.comfyMapLoraNode === 'string')
+      patch.comfyMapLoraNode = req.body.comfyMapLoraNode;
     res.json(updateSettings(patch));
   });
 
@@ -259,7 +265,13 @@ export function createApiRouter(io: IOServer): Router {
       height,
       negative,
       ...(isMap && config.comfyMapLora.trim()
-        ? { injectLora: { name: config.comfyMapLora.trim() } }
+        ? {
+            injectLora: {
+              name: config.comfyMapLora.trim(),
+              strength: config.comfyMapLoraStrength,
+              node: config.comfyMapLoraNode.trim() || undefined,
+            },
+          }
         : {}),
     });
     if ('error' in result) return res.status(503).json({ error: result.error });

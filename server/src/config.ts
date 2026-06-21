@@ -54,6 +54,13 @@ export const config = {
    *  (so the DM sets it once instead of typing it each time). Many LoRAs need
    *  none — leave blank then. */
   comfyMapLoraTrigger: process.env.COMFY_MAP_LORA_TRIGGER || '',
+  /** LoRA/DoRA strength applied to the map LoRA (the injected loader's
+   *  `strength_model`). 1 = full; lower to dial the effect back. */
+  comfyMapLoraStrength: Number(process.env.COMFY_MAP_LORA_STRENGTH) || 1,
+  /** ComfyUI node class used to load the map LoRA (blank = core
+   *  `LoraLoaderModelOnly`). Point this at a drop-in DoRA loader that exposes the
+   *  same model/lora_name/strength_model interface; skipped if not installed. */
+  comfyMapLoraNode: process.env.COMFY_MAP_LORA_NODE || '',
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */

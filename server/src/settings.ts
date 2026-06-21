@@ -17,6 +17,8 @@ export type RuntimeSettings = {
   comfyMapStyle?: string;
   comfyMapLora?: string;
   comfyMapLoraTrigger?: string;
+  comfyMapLoraStrength?: number;
+  comfyMapLoraNode?: string;
 };
 
 /** Load persisted settings (if any) and apply them on top of env defaults. */
@@ -38,6 +40,9 @@ export function loadSettings(): void {
     if (typeof s.comfyMapStyle === 'string') config.comfyMapStyle = s.comfyMapStyle;
     if (typeof s.comfyMapLora === 'string') config.comfyMapLora = s.comfyMapLora;
     if (typeof s.comfyMapLoraTrigger === 'string') config.comfyMapLoraTrigger = s.comfyMapLoraTrigger;
+    if (typeof s.comfyMapLoraStrength === 'number' && Number.isFinite(s.comfyMapLoraStrength))
+      config.comfyMapLoraStrength = s.comfyMapLoraStrength;
+    if (typeof s.comfyMapLoraNode === 'string') config.comfyMapLoraNode = s.comfyMapLoraNode.trim();
   } catch {
     // No saved settings yet — env defaults stand.
   }
@@ -79,6 +84,13 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (typeof patch.comfyMapLoraTrigger === 'string') {
     config.comfyMapLoraTrigger = patch.comfyMapLoraTrigger;
   }
+  if (typeof patch.comfyMapLoraStrength === 'number' && Number.isFinite(patch.comfyMapLoraStrength)) {
+    // Clamp to a sane LoRA/DoRA range.
+    config.comfyMapLoraStrength = Math.min(2, Math.max(0, patch.comfyMapLoraStrength));
+  }
+  if (typeof patch.comfyMapLoraNode === 'string') {
+    config.comfyMapLoraNode = patch.comfyMapLoraNode.trim();
+  }
   if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
     void refreshOllama(); // re-probe so the "AI available" signal stays accurate
   }
@@ -101,6 +113,8 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
           comfyMapStyle: config.comfyMapStyle,
           comfyMapLora: config.comfyMapLora,
           comfyMapLoraTrigger: config.comfyMapLoraTrigger,
+          comfyMapLoraStrength: config.comfyMapLoraStrength,
+          comfyMapLoraNode: config.comfyMapLoraNode,
         },
         null,
         2,
@@ -125,6 +139,8 @@ export type PublicSettings = {
   comfyMapStyle: string;
   comfyMapLora: string;
   comfyMapLoraTrigger: string;
+  comfyMapLoraStrength: number;
+  comfyMapLoraNode: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -141,6 +157,8 @@ export function publicSettings(): PublicSettings {
     comfyMapStyle: config.comfyMapStyle,
     comfyMapLora: config.comfyMapLora,
     comfyMapLoraTrigger: config.comfyMapLoraTrigger,
+    comfyMapLoraStrength: config.comfyMapLoraStrength,
+    comfyMapLoraNode: config.comfyMapLoraNode,
     dmPassphraseRequired: !!config.dmPassphrase,
   };
 }

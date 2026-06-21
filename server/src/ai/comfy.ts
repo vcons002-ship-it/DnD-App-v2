@@ -108,15 +108,18 @@ const MODEL_PRODUCER_CLASSES = new Set([
 ]);
 
 /** Splice a model-only LoRA into `graph` (for map generation) with NO JSON editing
- *  by the DM: find the model producer (UNet/checkpoint loader), insert a
- *  `LoraLoaderModelOnly` after it, and rewire every model consumer through it.
- *  Returns false (a clean no-op) when there isn't exactly one clearly-used model
- *  node — so an unusual custom workflow just generates without the LoRA instead of
- *  breaking. Pure (no network): the caller resolves the installed filename first. */
+ *  by the DM: find the model producer (UNet/checkpoint loader), insert a loader
+ *  node (`LoraLoaderModelOnly` by default, or a drop-in DoRA loader with the same
+ *  model/lora_name/strength_model interface) after it, and rewire every model
+ *  consumer through it. Returns false (a clean no-op) when there isn't exactly one
+ *  clearly-used model node — so an unusual custom workflow just generates without
+ *  the LoRA instead of breaking. Pure (no network): the caller resolves the
+ *  installed filename + verifies the node class first. */
 export function injectMapLora(
   graph: Record<string, unknown>,
   loraName: string,
   strength = 1.0,
+  nodeClass = 'LoraLoaderModelOnly',
 ): boolean {
   const nodes = Object.entries(graph) as [
     string,
@@ -138,10 +141,26 @@ export function injectMapLora(
     if (n.inputs && isModelLink(n.inputs.model, srcId)) n.inputs.model = [loraId, 0];
   }
   graph[loraId] = {
-    class_type: 'LoraLoaderModelOnly',
+    class_type: nodeClass,
     inputs: { model: [srcId, 0], lora_name: loraName, strength_model: strength },
   };
   return true;
+}
+
+/** Whether ComfyUI has a node registered under `nodeClass` (so we can skip a
+ *  configured custom LoRA loader gracefully when it isn't installed). */
+export async function nodeClassRegistered(nodeClass: string): Promise<boolean> {
+  if (!config.comfyUrl) return false;
+  try {
+    const r = await fetch(`${config.comfyUrl}/object_info/${encodeURIComponent(nodeClass)}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return false;
+    const data = (await r.json()) as Record<string, unknown>;
+    return !!data && typeof data === 'object' && nodeClass in data;
+  } catch {
+    return false;
+  }
 }
 
 type LoaderIssue = { node: string; nodeClass: string; input: string; requested: string; available: string[] };
@@ -279,8 +298,9 @@ export type ComfyImageOpts = {
   steps?: number;
   cfg?: number;
   /** Splice this model-only LoRA into the graph (map generation); skipped if the
-   *  file isn't installed or the graph has no clear model node. */
-  injectLora?: { name: string; strength?: number };
+   *  file isn't installed, the loader node isn't registered, or the graph has no
+   *  clear model node. `node` defaults to LoraLoaderModelOnly. */
+  injectLora?: { name: string; strength?: number; node?: string };
 };
 
 /** Either a saved image path or a human-readable reason it failed (shown to the DM). */
@@ -343,9 +363,15 @@ export async function generateImage(
   if (opts.injectLora?.name) {
     const loras = await listComfyLoras();
     const match = loras.length ? bestModelMatch(opts.injectLora.name, loras) : null;
+    const node = opts.injectLora.node?.trim() || 'LoraLoaderModelOnly';
+    // Verify a non-default loader node is actually installed (the default core
+    // node is always present); skip gracefully otherwise.
+    const nodeOk = node === 'LoraLoaderModelOnly' || (await nodeClassRegistered(node));
     if (!match) {
       console.warn(`  [comfy] map LoRA '${opts.injectLora.name}' not installed — generating without it`);
-    } else if (!injectMapLora(graph, match, opts.injectLora.strength ?? 1.0)) {
+    } else if (!nodeOk) {
+      console.warn(`  [comfy] map LoRA loader node '${node}' not installed — generating without it`);
+    } else if (!injectMapLora(graph, match, opts.injectLora.strength ?? 1.0, node)) {
       console.warn('  [comfy] map LoRA: no single model node to attach to — generating without it');
     }
   }

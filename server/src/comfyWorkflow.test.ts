@@ -30,6 +30,14 @@ describe('injectMapLora', () => {
     expect(g[loraId].inputs.strength_model).toBe(0.9);
   });
 
+  it('honours a custom loader node class + strength (e.g. a DoRA loader)', () => {
+    const g = fluxGraph() as Record<string, any>;
+    injectMapLora(g, 'flux-dora.safetensors', 0.75, 'DoraLoaderModelOnly');
+    const loraId = g['3'].inputs.model[0];
+    expect(g[loraId].class_type).toBe('DoraLoaderModelOnly');
+    expect(g[loraId].inputs.strength_model).toBe(0.75);
+  });
+
   it('does NOT rewire a clip link (only the model output, slot 0)', () => {
     const g = fluxGraph() as Record<string, any>;
     injectMapLora(g, 'mapcraft.safetensors');

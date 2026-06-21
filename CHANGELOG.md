@@ -25,6 +25,12 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
 - **Automatic LoRA trigger word** — an optional trigger field paired with the map
   LoRA; set it once and it's prepended to every map prompt, so you never retype it.
   (Many LoRAs need no trigger — leave it blank.)
+- **DoRA support + weight control** — the map LoRA also accepts **DoRA** files (same
+  loras folder / picker; the core loader handles standard DoRAs). A **strength**
+  slider (0–2) tunes the effect, and an advanced **LoRA loader node** field lets you
+  point the auto-injection at a drop-in DoRA loader node (same model/lora_name/
+  strength_model interface) for Flux DoRAs the core node can't load — skipped
+  gracefully if that node isn't installed.
 
 ## 2026-06-21 — ComfyUI: tolerate model filename mismatches
 
