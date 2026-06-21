@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { isSfxMuted, setSfxMuted, playHit } from '../lib/sfx';
 import { refreshComfyStatus } from '../lib/comfy';
+import {
+  COMFY_PRESETS,
+  PRESET_FILES,
+  detectPreset,
+  type ComfyPresetId,
+} from '../lib/comfyPresets';
 import { useStore } from '../state/socket';
 
 type PublicSettings = {
@@ -54,7 +60,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [comfyUrl, setComfyUrl] = useState('');
   const [comfyModel, setComfyModel] = useState('');
   const [comfyWorkflow, setComfyWorkflow] = useState('');
-  const [showWorkflow, setShowWorkflow] = useState(false);
+  // Which workflow preset is selected (built-in SD / a Flux preset / custom).
+  const [preset, setPreset] = useState<ComfyPresetId>('builtin');
   const [comfy, setComfy] = useState<{
     reachable: boolean;
     models: string[];
@@ -96,6 +103,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setComfyUrl(s.comfyUrl ?? '');
         setComfyModel(s.comfyModel ?? '');
         setComfyWorkflow(s.comfyWorkflow ?? '');
+        setPreset(detectPreset(s.comfyWorkflow ?? ''));
       })
       .catch(() => setCurrent(null));
     fetch('/api/rulebook')
@@ -173,6 +181,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setComfyUrl(updated.comfyUrl ?? '');
       setComfyModel(updated.comfyModel ?? '');
       setComfyWorkflow(updated.comfyWorkflow ?? '');
+      setPreset(detectPreset(updated.comfyWorkflow ?? ''));
       // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
       loadOllamaModels();
@@ -319,53 +328,81 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="settings-field">
-          Checkpoint{' '}
-          <span className="muted">
-            {comfy?.usingWorkflow
-              ? '(ignored — a custom workflow is active)'
-              : '(blank = first installed)'}
-          </span>
-          <input
-            list="comfy-models"
-            placeholder={comfy?.models[0] ?? 'model.safetensors'}
-            value={comfyModel}
-            onChange={(e) => setComfyModel(e.target.value)}
-            disabled={comfy?.usingWorkflow}
-          />
-          <datalist id="comfy-models">
-            {(comfy?.models ?? []).map((m) => (
-              <option key={m} value={m} />
+          Model / workflow
+          <select
+            value={preset}
+            onChange={(e) => {
+              const id = e.target.value as ComfyPresetId;
+              setPreset(id);
+              if (id !== 'custom') {
+                setComfyWorkflow(COMFY_PRESETS.find((p) => p.id === id)?.workflow ?? '');
+              }
+            }}
+          >
+            {COMFY_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
-        <button
-          type="button"
-          className="btn tiny"
-          onClick={() => setShowWorkflow((v) => !v)}
-          style={{ alignSelf: 'flex-start' }}
-        >
-          {showWorkflow ? '▾' : '▸'} Advanced: custom workflow (Flux / SD3 / text-diffusion)
-        </button>
-        {showWorkflow && (
+
+        {preset === 'builtin' && (
           <label className="settings-field">
-            <span className="muted">
-              The built-in graph only runs SD1.5/SDXL checkpoints. To use Flux,
-              SD3, or any T5/Mistral text-encoder model, export your working graph
-              from ComfyUI (gear → enable <em>Dev mode</em> → <em>Save (API Format)</em>),
-              paste the JSON here, and replace the positive-prompt text with{' '}
-              <code>"%prompt%"</code> (keep the quotes — it's text). Optional:{' '}
-              <code>"%negative%"</code>, and the <strong>unquoted</strong> numbers{' '}
-              <code>%width%</code>, <code>%height%</code>, <code>%seed%</code> — e.g.
-              change <code>"seed": 12345</code> to <code>"seed": %seed%</code> for a
-              fresh image each run. Leave blank to use the built-in SD graph.
-            </span>
+            Checkpoint <span className="muted">(blank = first installed)</span>
+            <input
+              list="comfy-models"
+              placeholder={comfy?.models[0] ?? 'model.safetensors'}
+              value={comfyModel}
+              onChange={(e) => setComfyModel(e.target.value)}
+            />
+            <datalist id="comfy-models">
+              {(comfy?.models ?? []).map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </label>
+        )}
+
+        {PRESET_FILES[preset] && (
+          <p className="muted" style={{ marginTop: 0 }}>
+            Needs these in <code>ComfyUI/models/</code> (the JSON filenames must match
+            what ComfyUI lists — edit below if yours differ):
+            <br />
+            {PRESET_FILES[preset]!.map((f) => (
+              <span key={f}>
+                • <code>{f}</code>
+                <br />
+              </span>
+            ))}
+            If your ComfyUI lacks <code>EmptyFlux2LatentImage</code>, change it to{' '}
+            <code>EmptyLatentImage</code> (same inputs).
+          </p>
+        )}
+
+        {preset === 'custom' && (
+          <p className="muted" style={{ marginTop: 0 }}>
+            Export your graph from ComfyUI (gear → <em>Dev mode</em> →{' '}
+            <em>Save (API Format)</em>), paste it below, and mark the positive prompt
+            with <code>"%prompt%"</code> (keep the quotes). Optional unquoted numbers:{' '}
+            <code>%width%</code>, <code>%height%</code>, <code>%seed%</code> — e.g.{' '}
+            <code>"seed": %seed%</code> for a fresh image each run.
+          </p>
+        )}
+
+        {preset !== 'builtin' && (
+          <label className="settings-field">
+            <span className="muted">Workflow JSON (editable):</span>
             <textarea
               className="workflow-json"
-              rows={8}
+              rows={10}
               spellCheck={false}
               placeholder='{ "3": { "class_type": "KSampler", ... } }'
               value={comfyWorkflow}
-              onChange={(e) => setComfyWorkflow(e.target.value)}
+              onChange={(e) => {
+                setComfyWorkflow(e.target.value);
+                setPreset('custom'); // any hand-edit becomes "custom"
+              }}
             />
           </label>
         )}

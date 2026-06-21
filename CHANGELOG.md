@@ -28,6 +28,10 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
     (*Save (API Format)*), paste the JSON, and mark the prompt with `%prompt%`
     (plus optional `%width%`/`%height%`/`%seed%`). The app then runs *your* graph,
     so it's model-agnostic.
+  - **Built-in Flux.2 Klein presets** — Settings offers *Flux.2 Klein 4B
+    (distilled, fastest)* and *Klein 9B (quality)* as one-click workflow presets
+    (no JSON pasting), each listing the model files it needs; the JSON stays
+    editable to match your installed filenames.
 - Fixed the Settings save to actually forward the **AI-mode** toggle (Gemini vs
   local), which wasn't being persisted.
 

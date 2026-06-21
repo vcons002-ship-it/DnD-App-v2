@@ -37,4 +37,24 @@ describe('applyWorkflowTemplate', () => {
   it('returns null on a template that is not valid JSON after substitution', () => {
     expect(applyWorkflowTemplate('{ not json', vars)).toBeNull();
   });
+
+  it('round-trips a real Flux.2 Klein graph (unquoted numerics, empty negative)', () => {
+    const flux = `{
+      "3": { "class_type": "KSampler", "inputs": {
+          "seed": %seed%, "steps": 4, "cfg": 1,
+          "sampler_name": "euler", "scheduler": "simple", "denoise": 1,
+          "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] } },
+      "4": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-4b.safetensors", "weight_dtype": "default" } },
+      "6": { "class_type": "CLIPTextEncode", "inputs": { "text": "%prompt%", "clip": ["12", 0] } },
+      "7": { "class_type": "CLIPTextEncode", "inputs": { "text": "", "clip": ["12", 0] } },
+      "5": { "class_type": "EmptyFlux2LatentImage", "inputs": { "width": %width%, "height": %height%, "batch_size": 1 } }
+    }`;
+    const g = applyWorkflowTemplate(flux, { ...vars, prompt: 'goblin warlord' }) as any;
+    expect(g['3'].inputs.seed).toBe(42);
+    expect(g['3'].inputs.steps).toBe(4); // untouched literal
+    expect(g['4'].inputs.unet_name).toBe('flux-2-klein-4b.safetensors');
+    expect(g['5'].inputs.width).toBe(768);
+    expect(g['6'].inputs.text).toBe('goblin warlord');
+    expect(g['7'].inputs.text).toBe(''); // empty negative preserved
+  });
 });
