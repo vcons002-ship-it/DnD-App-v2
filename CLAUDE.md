@@ -82,9 +82,13 @@ sanitization rules above and commit it to `claude/Main`.
 - **Local image gen (ComfyUI):** `server/src/ai/comfy.ts` drives a local
   **ComfyUI** server's HTTP API (txt2img: POST `/prompt` → poll `/history` →
   fetch `/view` → save to `uploads/`) for **token art / decals / battle maps** —
-  a 🎨 button on `IconTools` and the map panel (`POST /api/comfy/generate`,
-  `GET /api/comfy/status`). Configurable `comfyUrl`/`comfyModel` in Settings;
-  fail-safe (hidden when unreachable).
+  a 🎨 button on `IconTools`, the map panel, and the map annotation toolbar
+  (scenery → routes into the existing paste/decal dialog) (`POST /api/comfy/generate`,
+  `GET /api/comfy/status`). Built-in graph runs SD1.5/SDXL; an optional **custom
+  workflow** (`comfyWorkflow`, ComfyUI API JSON with `%prompt%`/`%width%`/… 
+  placeholders, substituted in `applyWorkflowTemplate`) runs ANY architecture —
+  Flux, SD3, T5/Mistral text-diffusion. Configurable `comfyUrl`/`comfyModel`/
+  `comfyWorkflow` in Settings; fail-safe (hidden when unreachable).
 
 ## Architecture & invariants (read this first)
 

@@ -11,6 +11,7 @@ type PublicSettings = {
   aiMode: 'gemini' | 'local';
   comfyUrl: string;
   comfyModel: string;
+  comfyWorkflow: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -52,7 +53,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   // Local ComfyUI: configured URL/checkpoint + the live connection's checkpoints.
   const [comfyUrl, setComfyUrl] = useState('');
   const [comfyModel, setComfyModel] = useState('');
-  const [comfy, setComfy] = useState<{ reachable: boolean; models: string[] } | null>(null);
+  const [comfyWorkflow, setComfyWorkflow] = useState('');
+  const [showWorkflow, setShowWorkflow] = useState(false);
+  const [comfy, setComfy] = useState<{
+    reachable: boolean;
+    models: string[];
+    usingWorkflow?: boolean;
+  } | null>(null);
 
   const loadOllamaModels = () =>
     fetch('/api/ai/models')
@@ -65,8 +72,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     refreshComfyStatus();
     return fetch('/api/comfy/status')
       .then((r) => r.json())
-      .then((d: { reachable?: boolean; models?: string[] }) =>
-        setComfy({ reachable: !!d.reachable, models: d.models ?? [] }),
+      .then((d: { reachable?: boolean; models?: string[]; usingWorkflow?: boolean }) =>
+        setComfy({
+          reachable: !!d.reachable,
+          models: d.models ?? [],
+          usingWorkflow: !!d.usingWorkflow,
+        }),
       )
       .catch(() => setComfy({ reachable: false, models: [] }));
   };
@@ -84,6 +95,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setAiMode(s.aiMode);
         setComfyUrl(s.comfyUrl ?? '');
         setComfyModel(s.comfyModel ?? '');
+        setComfyWorkflow(s.comfyWorkflow ?? '');
       })
       .catch(() => setCurrent(null));
     fetch('/api/rulebook')
@@ -136,6 +148,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         aiMode,
         comfyUrl: comfyUrl.trim(),
         comfyModel: comfyModel.trim(),
+        comfyWorkflow: comfyWorkflow.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -159,6 +172,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setAiMode(updated.aiMode);
       setComfyUrl(updated.comfyUrl ?? '');
       setComfyModel(updated.comfyModel ?? '');
+      setComfyWorkflow(updated.comfyWorkflow ?? '');
       // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
       loadOllamaModels();
@@ -305,12 +319,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="settings-field">
-          Checkpoint <span className="muted">(blank = first installed)</span>
+          Checkpoint{' '}
+          <span className="muted">
+            {comfy?.usingWorkflow
+              ? '(ignored — a custom workflow is active)'
+              : '(blank = first installed)'}
+          </span>
           <input
             list="comfy-models"
             placeholder={comfy?.models[0] ?? 'model.safetensors'}
             value={comfyModel}
             onChange={(e) => setComfyModel(e.target.value)}
+            disabled={comfy?.usingWorkflow}
           />
           <datalist id="comfy-models">
             {(comfy?.models ?? []).map((m) => (
@@ -318,6 +338,37 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             ))}
           </datalist>
         </label>
+        <button
+          type="button"
+          className="btn tiny"
+          onClick={() => setShowWorkflow((v) => !v)}
+          style={{ alignSelf: 'flex-start' }}
+        >
+          {showWorkflow ? '▾' : '▸'} Advanced: custom workflow (Flux / SD3 / text-diffusion)
+        </button>
+        {showWorkflow && (
+          <label className="settings-field">
+            <span className="muted">
+              The built-in graph only runs SD1.5/SDXL checkpoints. To use Flux,
+              SD3, or any T5/Mistral text-encoder model, export your working graph
+              from ComfyUI (gear → enable <em>Dev mode</em> → <em>Save (API Format)</em>),
+              paste the JSON here, and replace the positive-prompt text with{' '}
+              <code>"%prompt%"</code> (keep the quotes — it's text). Optional:{' '}
+              <code>"%negative%"</code>, and the <strong>unquoted</strong> numbers{' '}
+              <code>%width%</code>, <code>%height%</code>, <code>%seed%</code> — e.g.
+              change <code>"seed": 12345</code> to <code>"seed": %seed%</code> for a
+              fresh image each run. Leave blank to use the built-in SD graph.
+            </span>
+            <textarea
+              className="workflow-json"
+              rows={8}
+              spellCheck={false}
+              placeholder='{ "3": { "class_type": "KSampler", ... } }'
+              value={comfyWorkflow}
+              onChange={(e) => setComfyWorkflow(e.target.value)}
+            />
+          </label>
+        )}
 
         <h4>Rulebook (PDF)</h4>
         <p className="muted" style={{ marginTop: 0 }}>

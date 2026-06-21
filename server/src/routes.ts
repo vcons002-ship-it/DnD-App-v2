@@ -172,6 +172,7 @@ export function createApiRouter(io: IOServer): Router {
       aiMode?: 'gemini' | 'local';
       comfyUrl?: string;
       comfyModel?: string;
+      comfyWorkflow?: string;
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
@@ -184,6 +185,7 @@ export function createApiRouter(io: IOServer): Router {
       patch.aiMode = req.body.aiMode;
     if (typeof req.body?.comfyUrl === 'string') patch.comfyUrl = req.body.comfyUrl;
     if (typeof req.body?.comfyModel === 'string') patch.comfyModel = req.body.comfyModel;
+    if (typeof req.body?.comfyWorkflow === 'string') patch.comfyWorkflow = req.body.comfyWorkflow;
     res.json(updateSettings(patch));
   });
 
@@ -208,6 +210,7 @@ export function createApiRouter(io: IOServer): Router {
       models: reachable ? await listComfyModels() : [],
       defaultModel: config.comfyModel,
       url: config.comfyUrl,
+      usingWorkflow: !!config.comfyWorkflow.trim(),
     });
   });
 

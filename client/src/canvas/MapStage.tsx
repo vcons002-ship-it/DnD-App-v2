@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
@@ -14,6 +14,7 @@ import { CursorPointers } from './CursorPointers';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { cropImage, removeBackground } from '../lib/imageEdit';
+import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { useStableCallback } from '../lib/useStableCallback';
 import { useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
@@ -365,18 +366,7 @@ export function MapStage({
   // the server fetches those via /api/icons/from-url.
   useEffect(() => {
     if (snapshot.role !== 'dm') return;
-    const openWith = async (icon: string) => {
-      const dims = await new Promise<{ w: number; h: number }>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => resolve({ w: 200, h: 200 });
-        img.src = icon;
-      });
-      setPasteName('');
-      setCropSel(null);
-      setPasteImg({ url: icon, w: dims.w, h: dims.h });
-      setPasteOrig({ url: icon, w: dims.w, h: dims.h });
-    };
+    const openWith = openPasteDialog;
     const onPaste = async (e: ClipboardEvent) => {
       const item = [...(e.clipboardData?.items ?? [])].find((i) =>
         i.type.startsWith('image/'),
@@ -632,6 +622,41 @@ export function MapStage({
   const [cropSel, setCropSel] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const cropStart = useRef<{ x: number; y: number } | null>(null);
   const pastePreviewRef = useRef<HTMLImageElement>(null);
+  // Open the paste/decal dialog with an image (used by clipboard paste AND by
+  // ComfyUI scenery generation). Stable identity so the paste effect can call it.
+  const openPasteDialog = useCallback(async (icon: string) => {
+    const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ w: 200, h: 200 });
+      img.src = icon;
+    });
+    setPasteName('');
+    setCropSel(null);
+    setPasteImg({ url: icon, w: dims.w, h: dims.h });
+    setPasteOrig({ url: icon, w: dims.w, h: dims.h });
+  }, []);
+  // ComfyUI scenery generation (DM) — routes the result into the paste dialog.
+  const comfyOk = useComfyAvailable();
+  const [sceneOpen, setSceneOpen] = useState(false);
+  const [scenePrompt, setScenePrompt] = useState('');
+  const [sceneBusy, setSceneBusy] = useState(false);
+  const generateScenery = async () => {
+    if (!scenePrompt.trim() || sceneBusy) return;
+    setSceneBusy(true);
+    try {
+      const path = await comfyGenerate(scenePrompt, 'decal');
+      if (!path) {
+        notify('Generation failed — is ComfyUI running with a checkpoint loaded?');
+        return;
+      }
+      await openPasteDialog(path);
+      setSceneOpen(false);
+      setScenePrompt('');
+    } finally {
+      setSceneBusy(false);
+    }
+  };
   const [scaleLine, setScaleLine] = useState<{ origin: Pt; target: Pt } | null>(null);
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
   const [scaleFt, setScaleFt] = useState('');
@@ -1355,6 +1380,36 @@ export function MapStage({
                       onClick={() => setAnnoColor(c)}
                     />
                   ))}
+                  {isDm && comfyOk && (
+                    <>
+                      <button
+                        className={`btn tiny ${sceneOpen ? 'on' : ''}`}
+                        title="Generate scenery art with your local ComfyUI, then place it as a decal or object"
+                        onClick={() => setSceneOpen((v) => !v)}
+                      >
+                        🎨 Generate
+                      </button>
+                      {sceneOpen && (
+                        <input
+                          className="scene-prompt"
+                          autoFocus
+                          placeholder="Describe scenery — e.g. mossy stone ruins, top-down"
+                          value={scenePrompt}
+                          onChange={(e) => setScenePrompt(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && generateScenery()}
+                        />
+                      )}
+                      {sceneOpen && (
+                        <button
+                          className="btn tiny"
+                          disabled={sceneBusy || !scenePrompt.trim()}
+                          onClick={generateScenery}
+                        >
+                          {sceneBusy ? '✨…' : '✨ Go'}
+                        </button>
+                      )}
+                    </>
+                  )}
                   {snapshot.annotations.length > 0 && (
                     <button
                       className="btn tiny"

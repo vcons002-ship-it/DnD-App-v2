@@ -19,6 +19,15 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
   (`POST /api/comfy/generate`), saves the result, and drops it straight in as the
   icon / map. Configurable URL + checkpoint (auto-picks the first installed if
   blank); fail-safe — the controls stay hidden unless ComfyUI is reachable.
+  - **Scenery decals** get a 🎨 *Generate* button on the map annotation toolbar —
+    the result drops into the existing paste dialog, so you place it as a decal or
+    object with the usual crop / background-cut tools.
+  - **Custom workflow support** (Settings → *Advanced: custom workflow*): the
+    built-in graph only runs SD1.5/SDXL checkpoints. To use **Flux, SD3, or any
+    T5/Mistral "text-diffusion" model**, export your working graph from ComfyUI
+    (*Save (API Format)*), paste the JSON, and mark the prompt with `%prompt%`
+    (plus optional `%width%`/`%height%`/`%seed%`). The app then runs *your* graph,
+    so it's model-agnostic.
 - Fixed the Settings save to actually forward the **AI-mode** toggle (Gemini vs
   local), which wasn't being persisted.
 

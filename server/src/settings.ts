@@ -13,6 +13,7 @@ export type RuntimeSettings = {
   aiMode?: 'gemini' | 'local';
   comfyUrl?: string;
   comfyModel?: string;
+  comfyWorkflow?: string;
 };
 
 /** Load persisted settings (if any) and apply them on top of env defaults. */
@@ -30,6 +31,7 @@ export function loadSettings(): void {
     if (typeof s.comfyUrl === 'string' && s.comfyUrl.trim())
       config.comfyUrl = s.comfyUrl.trim().replace(/\/$/, '');
     if (typeof s.comfyModel === 'string') config.comfyModel = s.comfyModel.trim();
+    if (typeof s.comfyWorkflow === 'string') config.comfyWorkflow = s.comfyWorkflow;
   } catch {
     // No saved settings yet — env defaults stand.
   }
@@ -59,6 +61,9 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (typeof patch.comfyModel === 'string') {
     config.comfyModel = patch.comfyModel.trim();
   }
+  if (typeof patch.comfyWorkflow === 'string') {
+    config.comfyWorkflow = patch.comfyWorkflow;
+  }
   if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
     void refreshOllama(); // re-probe so the "AI available" signal stays accurate
   }
@@ -77,6 +82,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
           aiMode: config.aiMode,
           comfyUrl: config.comfyUrl,
           comfyModel: config.comfyModel,
+          comfyWorkflow: config.comfyWorkflow,
         },
         null,
         2,
@@ -97,6 +103,7 @@ export type PublicSettings = {
   aiMode: 'gemini' | 'local';
   comfyUrl: string;
   comfyModel: string;
+  comfyWorkflow: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -109,6 +116,7 @@ export function publicSettings(): PublicSettings {
     aiMode: config.aiMode,
     comfyUrl: config.comfyUrl,
     comfyModel: config.comfyModel,
+    comfyWorkflow: config.comfyWorkflow,
     dmPassphraseRequired: !!config.dmPassphrase,
   };
 }

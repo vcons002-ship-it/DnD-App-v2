@@ -259,6 +259,8 @@ textarea:hover:not(:disabled) {
 .comfy-gen { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
 .comfy-gen input { flex: 1; }
 .comfy-map-row input::placeholder { font-style: italic; }
+.scene-prompt { min-width: 230px; }
+.workflow-json { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; white-space: pre; }
 .emoji-input { width: 52px; text-align: center; font-size: 18px; }
 .upload-icon { position: relative; overflow: hidden; }
 

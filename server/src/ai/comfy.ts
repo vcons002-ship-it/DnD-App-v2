@@ -91,6 +91,33 @@ function buildGraph(opts: {
   };
 }
 
+/**
+ * Build a graph from the DM's custom workflow template (ComfyUI **API format**)
+ * by substituting placeholders. String placeholders are JSON-escaped so the
+ * result stays valid JSON; numeric ones drop in bare. Returns null on bad JSON
+ * (we DON'T fall back to the SD graph — the DM configured this for a reason, and
+ * a silent fallback would run the wrong model / fail on a missing checkpoint).
+ */
+export function applyWorkflowTemplate(
+  tmpl: string,
+  v: { prompt: string; negative: string; width: number; height: number; seed: number },
+): Record<string, unknown> | null {
+  const esc = (s: string) => JSON.stringify(s).slice(1, -1); // escape, strip quotes
+  const out = tmpl
+    .split('%prompt%').join(esc(v.prompt))
+    .split('%negative%').join(esc(v.negative))
+    .split('%seed%').join(String(v.seed))
+    .split('%width%').join(String(v.width))
+    .split('%height%').join(String(v.height));
+  try {
+    const parsed = JSON.parse(out);
+    if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>;
+  } catch (err) {
+    console.warn('  [comfy] custom workflow is not valid JSON after substitution:', (err as Error).message);
+  }
+  return null;
+}
+
 export type ComfyImageOpts = {
   negative?: string;
   width?: number;
@@ -110,26 +137,47 @@ export async function generateImage(
 ): Promise<string | null> {
   const base = config.comfyUrl;
   if (!base || !prompt.trim()) return null;
-  // Pick the checkpoint: the configured one, else the first installed.
-  let model = config.comfyModel.trim();
-  if (!model) {
-    model = (await listComfyModels())[0] ?? '';
-    if (!model) {
-      console.warn('  [comfy] no checkpoint installed — cannot generate');
-      return null;
-    }
-  }
   const clientId = randomUUID();
-  const graph = buildGraph({
-    model,
-    prompt: prompt.trim().slice(0, 2000),
-    negative: (opts.negative ?? DEFAULT_NEGATIVE).slice(0, 2000),
-    width: clampDim(opts.width, 768),
-    height: clampDim(opts.height, 768),
-    steps: Math.min(60, Math.max(8, opts.steps ?? 25)),
-    cfg: Math.min(20, Math.max(1, opts.cfg ?? 7)),
-    seed: Math.floor(Math.random() * 2 ** 31),
-  });
+  const cleanPrompt = prompt.trim().slice(0, 2000);
+  const negative = (opts.negative ?? DEFAULT_NEGATIVE).slice(0, 2000);
+  const width = clampDim(opts.width, 768);
+  const height = clampDim(opts.height, 768);
+  const seed = Math.floor(Math.random() * 2 ** 31);
+
+  let graph: Record<string, unknown> | null;
+  if (config.comfyWorkflow.trim()) {
+    // The DM supplied their own workflow (e.g. a Flux / SD3 / Mistral-encoder
+    // graph the built-in SD graph can't run) — substitute the prompt into it.
+    graph = applyWorkflowTemplate(config.comfyWorkflow, {
+      prompt: cleanPrompt,
+      negative,
+      width,
+      height,
+      seed,
+    });
+    if (!graph) return null;
+  } else {
+    // Built-in SD1.5/SDXL txt2img graph. Pick the checkpoint: configured, else
+    // the first installed.
+    let model = config.comfyModel.trim();
+    if (!model) {
+      model = (await listComfyModels())[0] ?? '';
+      if (!model) {
+        console.warn('  [comfy] no checkpoint installed — cannot generate');
+        return null;
+      }
+    }
+    graph = buildGraph({
+      model,
+      prompt: cleanPrompt,
+      negative,
+      width,
+      height,
+      steps: Math.min(60, Math.max(8, opts.steps ?? 25)),
+      cfg: Math.min(20, Math.max(1, opts.cfg ?? 7)),
+      seed,
+    });
+  }
 
   try {
     const queued = await fetch(`${base}/prompt`, {
