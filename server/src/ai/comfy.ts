@@ -64,6 +64,8 @@ const LOADER_FILENAME_INPUTS: Record<string, string[]> = {
   DualCLIPLoader: ['clip_name1', 'clip_name2'],
   TripleCLIPLoader: ['clip_name1', 'clip_name2', 'clip_name3'],
   VAELoader: ['vae_name'],
+  LoraLoader: ['lora_name'],
+  LoraLoaderModelOnly: ['lora_name'],
 };
 
 /** Best installed file for a requested name — exact, else a SAFE near-match (an
