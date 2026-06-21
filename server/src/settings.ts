@@ -14,6 +14,7 @@ export type RuntimeSettings = {
   comfyUrl?: string;
   comfyModel?: string;
   comfyWorkflow?: string;
+  comfyMapStyle?: string;
 };
 
 /** Load persisted settings (if any) and apply them on top of env defaults. */
@@ -32,6 +33,7 @@ export function loadSettings(): void {
       config.comfyUrl = s.comfyUrl.trim().replace(/\/$/, '');
     if (typeof s.comfyModel === 'string') config.comfyModel = s.comfyModel.trim();
     if (typeof s.comfyWorkflow === 'string') config.comfyWorkflow = s.comfyWorkflow;
+    if (typeof s.comfyMapStyle === 'string') config.comfyMapStyle = s.comfyMapStyle;
   } catch {
     // No saved settings yet — env defaults stand.
   }
@@ -64,6 +66,9 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (typeof patch.comfyWorkflow === 'string') {
     config.comfyWorkflow = patch.comfyWorkflow;
   }
+  if (typeof patch.comfyMapStyle === 'string') {
+    config.comfyMapStyle = patch.comfyMapStyle;
+  }
   if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
     void refreshOllama(); // re-probe so the "AI available" signal stays accurate
   }
@@ -83,6 +88,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
           comfyUrl: config.comfyUrl,
           comfyModel: config.comfyModel,
           comfyWorkflow: config.comfyWorkflow,
+          comfyMapStyle: config.comfyMapStyle,
         },
         null,
         2,
@@ -104,6 +110,7 @@ export type PublicSettings = {
   comfyUrl: string;
   comfyModel: string;
   comfyWorkflow: string;
+  comfyMapStyle: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -117,6 +124,7 @@ export function publicSettings(): PublicSettings {
     comfyUrl: config.comfyUrl,
     comfyModel: config.comfyModel,
     comfyWorkflow: config.comfyWorkflow,
+    comfyMapStyle: config.comfyMapStyle,
     dmPassphraseRequired: !!config.dmPassphrase,
   };
 }

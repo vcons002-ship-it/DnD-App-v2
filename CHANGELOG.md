@@ -4,6 +4,19 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-21 — ComfyUI: top-down framing for generated battle maps
+
+### Added / Changed
+- Generated **maps** are now wrapped in **top-down battle-map framing** server-side
+  (base models aren't trained on VTT maps, so a bare prompt rendered a scene). The
+  DM's description goes into an overhead-view frame plus a negative that rejects
+  characters, perspective, and region/city/world maps — only the **map** kind is
+  framed (token/decal art is unchanged).
+- The framing is **editable** in Settings → *Battle-map prompt style*: a `{prompt}`
+  placeholder marks where the description lands (blank = built-in default), and it's
+  where you'd add a battle-map **LoRA** trigger word (e.g. Mapcraft) for far better
+  results. The map-panel prompt now asks for the scene, not "top-down battle map".
+
 ## 2026-06-21 — ComfyUI: tolerate model filename mismatches
 
 ### Fixed

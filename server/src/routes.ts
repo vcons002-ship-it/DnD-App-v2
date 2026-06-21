@@ -27,7 +27,13 @@ import {
   geminiEnabled,
 } from './creatures/gemini.js';
 import { aiAvailable, listOllamaModels } from './ai/gateway.js';
-import { refreshComfy, listComfyModels, generateImage } from './ai/comfy.js';
+import {
+  refreshComfy,
+  listComfyModels,
+  generateImage,
+  frameMapPrompt,
+  DEFAULT_MAP_NEGATIVE,
+} from './ai/comfy.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
@@ -173,6 +179,7 @@ export function createApiRouter(io: IOServer): Router {
       comfyUrl?: string;
       comfyModel?: string;
       comfyWorkflow?: string;
+      comfyMapStyle?: string;
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
@@ -186,6 +193,7 @@ export function createApiRouter(io: IOServer): Router {
     if (typeof req.body?.comfyUrl === 'string') patch.comfyUrl = req.body.comfyUrl;
     if (typeof req.body?.comfyModel === 'string') patch.comfyModel = req.body.comfyModel;
     if (typeof req.body?.comfyWorkflow === 'string') patch.comfyWorkflow = req.body.comfyWorkflow;
+    if (typeof req.body?.comfyMapStyle === 'string') patch.comfyMapStyle = req.body.comfyMapStyle;
     res.json(updateSettings(patch));
   });
 
@@ -221,14 +229,21 @@ export function createApiRouter(io: IOServer): Router {
     const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
     if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
     const kind = req.body?.kind;
-    const dims =
-      kind === 'map'
-        ? { width: 1216, height: 832 }
-        : { width: 768, height: 768 }; // token / decal / default
+    const isMap = kind === 'map';
+    const dims = isMap
+      ? { width: 1216, height: 832 }
+      : { width: 768, height: 768 }; // token / decal / default
     const width = Number(req.body?.width) || dims.width;
     const height = Number(req.body?.height) || dims.height;
-    const negative = typeof req.body?.negative === 'string' ? req.body.negative : undefined;
-    const result = await generateImage(prompt, { width, height, negative });
+    let negative = typeof req.body?.negative === 'string' ? req.body.negative : undefined;
+    // Maps need overhead framing (base models render a scene otherwise) + a
+    // negative that rejects characters / perspective / region-or-city maps.
+    let finalPrompt = prompt;
+    if (isMap) {
+      finalPrompt = frameMapPrompt(prompt, config.comfyMapStyle);
+      if (negative === undefined) negative = DEFAULT_MAP_NEGATIVE;
+    }
+    const result = await generateImage(finalPrompt, { width, height, negative });
     if ('error' in result) return res.status(503).json({ error: result.error });
     res.status(201).json({ path: result.path });
   });

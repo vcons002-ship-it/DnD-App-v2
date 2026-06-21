@@ -126,6 +126,30 @@ const DEFAULT_NEGATIVE =
   'blurry, low quality, lowres, jpeg artifacts, watermark, signature, text, ' +
   'deformed, extra limbs, bad anatomy, frame, border';
 
+// Battle-map framing. Base diffusion models aren't trained on top-down VTT maps,
+// so a bare "ruined temple" prompt yields a scene/illustration. We wrap the DM's
+// description in an overhead-map frame (and a negative that rejects the common
+// failure modes: characters, perspective, and region/city/world maps). `{prompt}`
+// marks where the description lands. Both are overridable from Settings.
+export const DEFAULT_MAP_STYLE =
+  "top-down bird's-eye-view battle map for a tabletop RPG, seen from straight " +
+  'above (orthographic overhead view), of {prompt}; highly detailed terrain and ' +
+  'ground textures, walls, furniture and objects clearly readable from above, ' +
+  'even consistent lighting, no characters or creatures, no grid lines, no text or labels';
+
+export const DEFAULT_MAP_NEGATIVE =
+  'characters, people, creatures, monsters, tokens, perspective, isometric, side ' +
+  'view, eye-level, 3d render, photograph, portrait, world map, region map, ' +
+  'overland map, city map, hex grid, grid lines, text, labels, legend, compass, ' +
+  'watermark, border, frame';
+
+/** Wrap a map description with battle-map framing (configurable via comfyMapStyle;
+ *  `{prompt}` marks where the description goes, otherwise the frame is appended). */
+export function frameMapPrompt(userPrompt: string, style?: string): string {
+  const s = (style ?? '').trim() || DEFAULT_MAP_STYLE;
+  return s.includes('{prompt}') ? s.split('{prompt}').join(userPrompt) : `${userPrompt}, ${s}`;
+}
+
 /** Build the standard ComfyUI txt2img graph (API format) with the prompt injected. */
 function buildGraph(opts: {
   model: string;

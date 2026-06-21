@@ -41,6 +41,11 @@ export const config = {
    *  Flux, SD3, or other T5/Mistral "text-diffusion" models that need their own
    *  loader nodes. Blank = use the built-in CheckpointLoaderSimple graph. */
   comfyWorkflow: process.env.COMFY_WORKFLOW || '',
+  /** Framing wrapped around a map-generation prompt so base models (which aren't
+   *  trained on battle maps) render a top-down VTT map rather than a scene.
+   *  `{prompt}` marks where the DM's description goes (else it's appended). Blank
+   *  = the built-in default. Add a battle-map LoRA's trigger word here too. */
+  comfyMapStyle: process.env.COMFY_MAP_STYLE || '',
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */

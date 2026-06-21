@@ -18,6 +18,7 @@ type PublicSettings = {
   comfyUrl: string;
   comfyModel: string;
   comfyWorkflow: string;
+  comfyMapStyle: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -60,6 +61,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [comfyUrl, setComfyUrl] = useState('');
   const [comfyModel, setComfyModel] = useState('');
   const [comfyWorkflow, setComfyWorkflow] = useState('');
+  const [comfyMapStyle, setComfyMapStyle] = useState('');
   // Which workflow preset is selected (built-in SD / a Flux preset / custom).
   const [preset, setPreset] = useState<ComfyPresetId>('builtin');
   const [comfy, setComfy] = useState<{
@@ -103,6 +105,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setComfyUrl(s.comfyUrl ?? '');
         setComfyModel(s.comfyModel ?? '');
         setComfyWorkflow(s.comfyWorkflow ?? '');
+        setComfyMapStyle(s.comfyMapStyle ?? '');
         setPreset(detectPreset(s.comfyWorkflow ?? ''));
       })
       .catch(() => setCurrent(null));
@@ -157,6 +160,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         comfyUrl: comfyUrl.trim(),
         comfyModel: comfyModel.trim(),
         comfyWorkflow: comfyWorkflow.trim(),
+        comfyMapStyle: comfyMapStyle.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -181,6 +185,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setComfyUrl(updated.comfyUrl ?? '');
       setComfyModel(updated.comfyModel ?? '');
       setComfyWorkflow(updated.comfyWorkflow ?? '');
+      setComfyMapStyle(updated.comfyMapStyle ?? '');
       setPreset(detectPreset(updated.comfyWorkflow ?? ''));
       // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
@@ -406,6 +411,24 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             />
           </label>
         )}
+
+        <label className="settings-field">
+          Battle-map prompt style
+          <span className="muted">
+            {' '}
+            wraps your map description so the model renders a top-down VTT map, not
+            a scene. Use <code>{'{prompt}'}</code> to mark where your text goes;
+            blank = the built-in top-down framing. If you install a battle-map LoRA
+            (e.g. Mapcraft), add its trigger word here.
+          </span>
+          <textarea
+            className="workflow-json"
+            rows={3}
+            placeholder="blank = top-down bird's-eye battle map, overhead view of {prompt}, no characters, no grid…"
+            value={comfyMapStyle}
+            onChange={(e) => setComfyMapStyle(e.target.value)}
+          />
+        </label>
 
         <h4>Rulebook (PDF)</h4>
         <p className="muted" style={{ marginTop: 0 }}>

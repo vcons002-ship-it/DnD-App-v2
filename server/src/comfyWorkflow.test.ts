@@ -1,5 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { applyWorkflowTemplate, bestModelMatch } from './ai/comfy.js';
+import {
+  applyWorkflowTemplate,
+  bestModelMatch,
+  frameMapPrompt,
+  DEFAULT_MAP_STYLE,
+} from './ai/comfy.js';
+
+// Map prompts get wrapped in top-down framing so base models don't render a scene.
+describe('frameMapPrompt', () => {
+  it('substitutes the description into the built-in {prompt} frame when no style is set', () => {
+    const out = frameMapPrompt('a ruined forest temple');
+    expect(out).toContain('a ruined forest temple');
+    expect(out).toContain('top-down');
+    expect(out).not.toContain('{prompt}'); // placeholder consumed
+    expect(out).toBe(DEFAULT_MAP_STYLE.replace('{prompt}', 'a ruined forest temple'));
+  });
+
+  it('honours a custom style with a {prompt} placeholder (e.g. a LoRA trigger word)', () => {
+    const out = frameMapPrompt('a tavern', 'mapcraft, top-down map of {prompt}, gridless');
+    expect(out).toBe('mapcraft, top-down map of a tavern, gridless');
+  });
+
+  it('appends a custom style that has no placeholder', () => {
+    expect(frameMapPrompt('a cave', 'overhead battle map')).toBe('a cave, overhead battle map');
+  });
+
+  it('falls back to the default when the style is blank/whitespace', () => {
+    expect(frameMapPrompt('a cave', '   ')).toBe(DEFAULT_MAP_STYLE.replace('{prompt}', 'a cave'));
+  });
+});
 
 // Loader filenames must match ComfyUI's installed list exactly, so the app
 // auto-matches safe variants (an added -fp8 suffix) but NEVER a loose guess that
