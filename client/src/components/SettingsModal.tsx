@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 import { isSfxMuted, setSfxMuted, playHit } from '../lib/sfx';
+import { refreshComfyStatus } from '../lib/comfy';
+import {
+  COMFY_PRESETS,
+  PRESET_FILES,
+  detectPreset,
+  type ComfyPresetId,
+} from '../lib/comfyPresets';
 import { useStore } from '../state/socket';
 
 type PublicSettings = {
@@ -8,6 +15,9 @@ type PublicSettings = {
   ollamaUrl: string;
   ollamaModel: string;
   aiMode: 'gemini' | 'local';
+  comfyUrl: string;
+  comfyModel: string;
+  comfyWorkflow: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -46,6 +56,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   // → Ollama's /api/tags), so the dropdown lists what's really available, not a
   // hardcoded guess. `null` = not loaded yet.
   const [ollamaModels, setOllamaModels] = useState<string[] | null>(null);
+  // Local ComfyUI: configured URL/checkpoint + the live connection's checkpoints.
+  const [comfyUrl, setComfyUrl] = useState('');
+  const [comfyModel, setComfyModel] = useState('');
+  const [comfyWorkflow, setComfyWorkflow] = useState('');
+  // Which workflow preset is selected (built-in SD / a Flux preset / custom).
+  const [preset, setPreset] = useState<ComfyPresetId>('builtin');
+  const [comfy, setComfy] = useState<{
+    reachable: boolean;
+    models: string[];
+    usingWorkflow?: boolean;
+  } | null>(null);
 
   const loadOllamaModels = () =>
     fetch('/api/ai/models')
@@ -53,8 +74,24 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       .then((d: { ollamaModels?: string[] }) => setOllamaModels(d.ollamaModels ?? []))
       .catch(() => setOllamaModels([]));
 
+  const loadComfy = () => {
+    setComfy(null);
+    refreshComfyStatus();
+    return fetch('/api/comfy/status')
+      .then((r) => r.json())
+      .then((d: { reachable?: boolean; models?: string[]; usingWorkflow?: boolean }) =>
+        setComfy({
+          reachable: !!d.reachable,
+          models: d.models ?? [],
+          usingWorkflow: !!d.usingWorkflow,
+        }),
+      )
+      .catch(() => setComfy({ reachable: false, models: [] }));
+  };
+
   useEffect(() => {
     loadOllamaModels();
+    loadComfy();
     fetch('/api/settings')
       .then((r) => r.json())
       .then((s: PublicSettings) => {
@@ -63,6 +100,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setOllamaUrl(s.ollamaUrl);
         setOllamaModel(s.ollamaModel);
         setAiMode(s.aiMode);
+        setComfyUrl(s.comfyUrl ?? '');
+        setComfyModel(s.comfyModel ?? '');
+        setComfyWorkflow(s.comfyWorkflow ?? '');
+        setPreset(detectPreset(s.comfyWorkflow ?? ''));
       })
       .catch(() => setCurrent(null));
     fetch('/api/rulebook')
@@ -113,6 +154,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         ollamaUrl: ollamaUrl.trim(),
         ollamaModel: ollamaModel.trim(),
         aiMode,
+        comfyUrl: comfyUrl.trim(),
+        comfyModel: comfyModel.trim(),
+        comfyWorkflow: comfyWorkflow.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -134,9 +178,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setOllamaUrl(updated.ollamaUrl);
       setOllamaModel(updated.ollamaModel);
       setAiMode(updated.aiMode);
-      // The saved URL is now the live one — re-list its pulled models.
+      setComfyUrl(updated.comfyUrl ?? '');
+      setComfyModel(updated.comfyModel ?? '');
+      setComfyWorkflow(updated.comfyWorkflow ?? '');
+      setPreset(detectPreset(updated.comfyWorkflow ?? ''));
+      // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
       loadOllamaModels();
+      loadComfy();
       setApiKey('');
       setStatus('saved');
     } catch {
@@ -253,6 +302,110 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             ))}
           </datalist>
         </label>
+
+        <h4>Image generation (local — ComfyUI)</h4>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Point this at a running{' '}
+          <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank" rel="noreferrer">
+            ComfyUI
+          </a>{' '}
+          server to generate token art, decals and battle maps from a prompt — a 🎨
+          button appears on the token/decal art tools and the map panel.
+        </p>
+        <label className="settings-field">
+          ComfyUI URL{' '}
+          <span className="muted">
+            {comfy === null
+              ? '(checking…)'
+              : comfy.reachable
+                ? `(connected · ${comfy.models.length} checkpoint${comfy.models.length === 1 ? '' : 's'})`
+                : '(not reachable — start ComfyUI, then Save to recheck)'}
+          </span>
+          <input
+            placeholder="http://127.0.0.1:8188"
+            value={comfyUrl}
+            onChange={(e) => setComfyUrl(e.target.value)}
+          />
+        </label>
+        <label className="settings-field">
+          Model / workflow
+          <select
+            value={preset}
+            onChange={(e) => {
+              const id = e.target.value as ComfyPresetId;
+              setPreset(id);
+              if (id !== 'custom') {
+                setComfyWorkflow(COMFY_PRESETS.find((p) => p.id === id)?.workflow ?? '');
+              }
+            }}
+          >
+            {COMFY_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {preset === 'builtin' && (
+          <label className="settings-field">
+            Checkpoint <span className="muted">(blank = first installed)</span>
+            <input
+              list="comfy-models"
+              placeholder={comfy?.models[0] ?? 'model.safetensors'}
+              value={comfyModel}
+              onChange={(e) => setComfyModel(e.target.value)}
+            />
+            <datalist id="comfy-models">
+              {(comfy?.models ?? []).map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </label>
+        )}
+
+        {PRESET_FILES[preset] && (
+          <p className="muted" style={{ marginTop: 0 }}>
+            Needs these in <code>ComfyUI/models/</code> (the JSON filenames must match
+            what ComfyUI lists — edit below if yours differ):
+            <br />
+            {PRESET_FILES[preset]!.map((f) => (
+              <span key={f}>
+                • <code>{f}</code>
+                <br />
+              </span>
+            ))}
+            If your ComfyUI lacks <code>EmptyFlux2LatentImage</code>, change it to{' '}
+            <code>EmptyLatentImage</code> (same inputs).
+          </p>
+        )}
+
+        {preset === 'custom' && (
+          <p className="muted" style={{ marginTop: 0 }}>
+            Export your graph from ComfyUI (gear → <em>Dev mode</em> →{' '}
+            <em>Save (API Format)</em>), paste it below, and mark the positive prompt
+            with <code>"%prompt%"</code> (keep the quotes). Optional unquoted numbers:{' '}
+            <code>%width%</code>, <code>%height%</code>, <code>%seed%</code> — e.g.{' '}
+            <code>"seed": %seed%</code> for a fresh image each run.
+          </p>
+        )}
+
+        {preset !== 'builtin' && (
+          <label className="settings-field">
+            <span className="muted">Workflow JSON (editable):</span>
+            <textarea
+              className="workflow-json"
+              rows={10}
+              spellCheck={false}
+              placeholder='{ "3": { "class_type": "KSampler", ... } }'
+              value={comfyWorkflow}
+              onChange={(e) => {
+                setComfyWorkflow(e.target.value);
+                setPreset('custom'); // any hand-edit becomes "custom"
+              }}
+            />
+          </label>
+        )}
 
         <h4>Rulebook (PDF)</h4>
         <p className="muted" style={{ marginTop: 0 }}>

@@ -76,8 +76,19 @@ sanitization rules above and commit it to `claude/Main`.
   quality, local fallback) or **`local`** (Ollama-only lockdown); a per-call
   `prefer` overrides it (the chat's model dropdown, default local) unless locked.
   **Fail-safe** (works without either). Assistant grounded on an SRD digest + app
-  data + an optional uploaded rulebook PDF (wins on conflict). Settings hold the
-  Gemini key/model, Ollama URL/model, and the `aiMode` toggle.
+  data + an optional uploaded rulebook PDF (wins on conflict); it also **suggests
+  DCs** for player actions on request (the 5e DC scale is in its system prompt).
+  Settings hold the Gemini key/model, Ollama URL/model, and the `aiMode` toggle.
+- **Local image gen (ComfyUI):** `server/src/ai/comfy.ts` drives a local
+  **ComfyUI** server's HTTP API (txt2img: POST `/prompt` → poll `/history` →
+  fetch `/view` → save to `uploads/`) for **token art / decals / battle maps** —
+  a 🎨 button on `IconTools`, the map panel, and the map annotation toolbar
+  (scenery → routes into the existing paste/decal dialog) (`POST /api/comfy/generate`,
+  `GET /api/comfy/status`). Built-in graph runs SD1.5/SDXL; an optional **custom
+  workflow** (`comfyWorkflow`, ComfyUI API JSON with `%prompt%`/`%width%`/… 
+  placeholders, substituted in `applyWorkflowTemplate`) runs ANY architecture —
+  Flux, SD3, T5/Mistral text-diffusion. Configurable `comfyUrl`/`comfyModel`/
+  `comfyWorkflow` in Settings; fail-safe (hidden when unreachable).
 
 ## Architecture & invariants (read this first)
 

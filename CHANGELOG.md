@@ -4,6 +4,37 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-19 — AI DC suggestions + local ComfyUI image generation
+
+### Added
+- **AI help setting DCs** — built into the existing `/ask` rules assistant (no new
+  command): ask "what DC for climbing the wet wall?" and it returns a concrete DC +
+  the fitting ability/skill + a one-line why, using the standard 5e difficulty
+  scale. (The assistant previously refused to "invent DCs"; that's now a sanctioned
+  adjudication task.)
+- **Local ComfyUI image generation** for **token art, decals, and battle maps**.
+  Point Settings → *Image generation (ComfyUI)* at a running local ComfyUI; a 🎨
+  button then appears on the token/decal art tools (`IconTools`) and the map panel.
+  Type a prompt → the server runs a standard txt2img graph on your ComfyUI
+  (`POST /api/comfy/generate`), saves the result, and drops it straight in as the
+  icon / map. Configurable URL + checkpoint (auto-picks the first installed if
+  blank); fail-safe — the controls stay hidden unless ComfyUI is reachable.
+  - **Scenery decals** get a 🎨 *Generate* button on the map annotation toolbar —
+    the result drops into the existing paste dialog, so you place it as a decal or
+    object with the usual crop / background-cut tools.
+  - **Custom workflow support** (Settings → *Advanced: custom workflow*): the
+    built-in graph only runs SD1.5/SDXL checkpoints. To use **Flux, SD3, or any
+    T5/Mistral "text-diffusion" model**, export your working graph from ComfyUI
+    (*Save (API Format)*), paste the JSON, and mark the prompt with `%prompt%`
+    (plus optional `%width%`/`%height%`/`%seed%`). The app then runs *your* graph,
+    so it's model-agnostic.
+  - **Built-in Flux.2 Klein presets** — Settings offers *Flux.2 Klein 4B
+    (distilled, fastest)* and *Klein 9B (quality)* as one-click workflow presets
+    (no JSON pasting), each listing the model files it needs; the JSON stays
+    editable to match your installed filenames.
+- Fixed the Settings save to actually forward the **AI-mode** toggle (Gemini vs
+  local), which wasn't being persisted.
+
 ## 2026-06-18 — Sheet UI pass (colour-coded sections + simpler add)
 
 ### Changed

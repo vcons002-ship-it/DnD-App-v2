@@ -29,6 +29,18 @@ export const config = {
   /** Ollama context window (tokens). The default is small and would truncate the
    *  grounding context (→ hallucination); 8k comfortably fits the rules excerpts. */
   ollamaNumCtx: Number(process.env.OLLAMA_NUM_CTX) || 8192,
+  /** Local ComfyUI HTTP server base URL for in-app image generation (token art,
+   *  maps, decals). Unreachable → the feature stays hidden. */
+  comfyUrl: (process.env.COMFY_URL || 'http://127.0.0.1:8188').replace(/\/$/, ''),
+  /** Checkpoint (model) ComfyUI loads; blank = auto-pick the first installed one.
+   *  Only used by the BUILT-IN SD txt2img graph (ignored when comfyWorkflow set). */
+  comfyModel: process.env.COMFY_MODEL || '',
+  /** Optional custom ComfyUI workflow in **API format** (the graph posted to
+   *  `/prompt`), with `%prompt%`/`%negative%`/`%width%`/`%height%`/`%seed%`
+   *  placeholders. Set this to run ANY architecture the built-in SD graph can't —
+   *  Flux, SD3, or other T5/Mistral "text-diffusion" models that need their own
+   *  loader nodes. Blank = use the built-in CheckpointLoaderSimple graph. */
+  comfyWorkflow: process.env.COMFY_WORKFLOW || '',
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */

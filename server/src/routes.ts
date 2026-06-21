@@ -27,6 +27,7 @@ import {
   geminiEnabled,
 } from './creatures/gemini.js';
 import { aiAvailable, listOllamaModels } from './ai/gateway.js';
+import { refreshComfy, listComfyModels, generateImage } from './ai/comfy.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
@@ -168,6 +169,10 @@ export function createApiRouter(io: IOServer): Router {
       geminiModel?: string;
       ollamaUrl?: string;
       ollamaModel?: string;
+      aiMode?: 'gemini' | 'local';
+      comfyUrl?: string;
+      comfyModel?: string;
+      comfyWorkflow?: string;
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
@@ -176,6 +181,11 @@ export function createApiRouter(io: IOServer): Router {
     if (typeof req.body?.ollamaUrl === 'string') patch.ollamaUrl = req.body.ollamaUrl;
     if (typeof req.body?.ollamaModel === 'string')
       patch.ollamaModel = req.body.ollamaModel;
+    if (req.body?.aiMode === 'gemini' || req.body?.aiMode === 'local')
+      patch.aiMode = req.body.aiMode;
+    if (typeof req.body?.comfyUrl === 'string') patch.comfyUrl = req.body.comfyUrl;
+    if (typeof req.body?.comfyModel === 'string') patch.comfyModel = req.body.comfyModel;
+    if (typeof req.body?.comfyWorkflow === 'string') patch.comfyWorkflow = req.body.comfyWorkflow;
     res.json(updateSettings(patch));
   });
 
@@ -188,6 +198,39 @@ export function createApiRouter(io: IOServer): Router {
       geminiAvailable: geminiEnabled(),
       aiMode: config.aiMode,
     });
+  });
+
+  // ---- Local ComfyUI image generation (token art, maps, decals) ----
+  // Status + installed checkpoints, so the UI shows the generate controls only
+  // when a local ComfyUI is actually reachable.
+  router.get('/comfy/status', async (_req, res) => {
+    const reachable = await refreshComfy();
+    res.json({
+      reachable,
+      models: reachable ? await listComfyModels() : [],
+      defaultModel: config.comfyModel,
+      url: config.comfyUrl,
+      usingWorkflow: !!config.comfyWorkflow.trim(),
+    });
+  });
+
+  // Generate one image from a prompt and return its saved /uploads path. `kind`
+  // picks sensible dimensions (token/decal square, map landscape); width/height
+  // override it. 503 when ComfyUI is unreachable / generation failed.
+  router.post('/comfy/generate', async (req, res) => {
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
+    if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
+    const kind = req.body?.kind;
+    const dims =
+      kind === 'map'
+        ? { width: 1216, height: 832 }
+        : { width: 768, height: 768 }; // token / decal / default
+    const width = Number(req.body?.width) || dims.width;
+    const height = Number(req.body?.height) || dims.height;
+    const negative = typeof req.body?.negative === 'string' ? req.body.negative : undefined;
+    const imagePath = await generateImage(prompt, { width, height, negative });
+    if (!imagePath) return res.status(503).json({ error: 'ComfyUI unavailable or generation failed' });
+    res.status(201).json({ path: imagePath });
   });
 
   // ---- Rules-assistant rulebook PDF (DM-only grounding override) ----
@@ -495,14 +538,22 @@ export function createApiRouter(io: IOServer): Router {
       typeof req.body?.slidesUrl === 'string' && req.body.slidesUrl.trim()
         ? req.body.slidesUrl.trim()
         : null;
+    // An already-saved uploads image (e.g. a ComfyUI-generated map). Validate the
+    // shape AND that the file exists, so the body can't point at an arbitrary path.
+    const rawPath = typeof req.body?.imagePath === 'string' ? req.body.imagePath.trim() : '';
+    const existingPath =
+      /^\/uploads\/[\w.-]+$/.test(rawPath) &&
+      fs.existsSync(path.join(config.uploadsDir, path.basename(rawPath)))
+        ? rawPath
+        : null;
 
-    if (!req.file && !slidesUrl) {
-      return res.status(400).json({ error: 'Provide an image file or slidesUrl' });
+    if (!req.file && !slidesUrl && !existingPath) {
+      return res.status(400).json({ error: 'Provide an image file, slidesUrl, or imagePath' });
     }
 
     const map = createMap(session.id, {
       name,
-      imagePath: req.file ? `/uploads/${req.file.filename}` : null,
+      imagePath: req.file ? `/uploads/${req.file.filename}` : existingPath,
       slidesUrl,
     });
 

@@ -410,12 +410,12 @@ export function DicePanel({
             speakAs && speakName
               ? `Speak as ${speakName}…`
               : isDm
-                ? 'Message… (/roll 2d6+3 · /ask a rules question)'
+                ? 'Message… (/roll 2d6+3 · /ask a rule or DC)'
                 : 'Message… (/roll 2d6+3)'
           }
           title={
             isDm
-              ? 'Chat · /roll 2d6+3 (optionally adv/dis) to roll · /ask <question> for the DM-only rules assistant'
+              ? 'Chat · /roll 2d6+3 (optionally adv/dis) to roll · /ask <question> for the DM-only rules assistant — ask a rule or "what DC for …" to get a suggested DC + skill'
               : 'Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice'
           }
           value={chatText}
