@@ -18,6 +18,11 @@ type PublicSettings = {
   comfyUrl: string;
   comfyModel: string;
   comfyWorkflow: string;
+  comfyMapStyle: string;
+  comfyMapLora: string;
+  comfyMapLoraTrigger: string;
+  comfyMapLoraStrength: number;
+  comfyMapLoraNode: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -60,11 +65,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [comfyUrl, setComfyUrl] = useState('');
   const [comfyModel, setComfyModel] = useState('');
   const [comfyWorkflow, setComfyWorkflow] = useState('');
+  const [comfyMapStyle, setComfyMapStyle] = useState('');
+  const [comfyMapLora, setComfyMapLora] = useState('');
+  const [comfyMapLoraTrigger, setComfyMapLoraTrigger] = useState('');
+  const [comfyMapLoraStrength, setComfyMapLoraStrength] = useState(1);
+  const [comfyMapLoraNode, setComfyMapLoraNode] = useState('');
   // Which workflow preset is selected (built-in SD / a Flux preset / custom).
   const [preset, setPreset] = useState<ComfyPresetId>('builtin');
   const [comfy, setComfy] = useState<{
     reachable: boolean;
     models: string[];
+    loras: string[];
     usingWorkflow?: boolean;
   } | null>(null);
 
@@ -79,14 +90,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     refreshComfyStatus();
     return fetch('/api/comfy/status')
       .then((r) => r.json())
-      .then((d: { reachable?: boolean; models?: string[]; usingWorkflow?: boolean }) =>
+      .then((d: { reachable?: boolean; models?: string[]; loras?: string[]; usingWorkflow?: boolean }) =>
         setComfy({
           reachable: !!d.reachable,
           models: d.models ?? [],
+          loras: d.loras ?? [],
           usingWorkflow: !!d.usingWorkflow,
         }),
       )
-      .catch(() => setComfy({ reachable: false, models: [] }));
+      .catch(() => setComfy({ reachable: false, models: [], loras: [] }));
   };
 
   useEffect(() => {
@@ -103,6 +115,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setComfyUrl(s.comfyUrl ?? '');
         setComfyModel(s.comfyModel ?? '');
         setComfyWorkflow(s.comfyWorkflow ?? '');
+        setComfyMapStyle(s.comfyMapStyle ?? '');
+        setComfyMapLora(s.comfyMapLora ?? '');
+        setComfyMapLoraTrigger(s.comfyMapLoraTrigger ?? '');
+        setComfyMapLoraStrength(s.comfyMapLoraStrength ?? 1);
+        setComfyMapLoraNode(s.comfyMapLoraNode ?? '');
         setPreset(detectPreset(s.comfyWorkflow ?? ''));
       })
       .catch(() => setCurrent(null));
@@ -149,7 +166,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setStatus('saving');
     setErrorMsg('');
     try {
-      const body: Record<string, string> = {
+      const body: Record<string, string | number> = {
         geminiModel: model.trim(),
         ollamaUrl: ollamaUrl.trim(),
         ollamaModel: ollamaModel.trim(),
@@ -157,6 +174,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         comfyUrl: comfyUrl.trim(),
         comfyModel: comfyModel.trim(),
         comfyWorkflow: comfyWorkflow.trim(),
+        comfyMapStyle: comfyMapStyle.trim(),
+        comfyMapLora: comfyMapLora.trim(),
+        comfyMapLoraTrigger: comfyMapLoraTrigger.trim(),
+        comfyMapLoraStrength: comfyMapLoraStrength,
+        comfyMapLoraNode: comfyMapLoraNode.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -181,6 +203,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setComfyUrl(updated.comfyUrl ?? '');
       setComfyModel(updated.comfyModel ?? '');
       setComfyWorkflow(updated.comfyWorkflow ?? '');
+      setComfyMapStyle(updated.comfyMapStyle ?? '');
+      setComfyMapLora(updated.comfyMapLora ?? '');
+      setComfyMapLoraTrigger(updated.comfyMapLoraTrigger ?? '');
+      setComfyMapLoraStrength(updated.comfyMapLoraStrength ?? 1);
+      setComfyMapLoraNode(updated.comfyMapLoraNode ?? '');
       setPreset(detectPreset(updated.comfyWorkflow ?? ''));
       // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
@@ -405,6 +432,96 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               }}
             />
           </label>
+        )}
+
+        <label className="settings-field">
+          Battle-map prompt style
+          <span className="muted">
+            {' '}
+            wraps your map description so the model renders a top-down VTT map, not
+            a scene. Use <code>{'{prompt}'}</code> to mark where your text goes;
+            blank = the built-in top-down framing.
+          </span>
+          <textarea
+            className="workflow-json"
+            rows={3}
+            placeholder="blank = top-down bird's-eye battle map, overhead view of {prompt}, no characters, no grid…"
+            value={comfyMapStyle}
+            onChange={(e) => setComfyMapStyle(e.target.value)}
+          />
+        </label>
+        <label className="settings-field">
+          Battle-map LoRA <span className="muted">(optional — applied to maps only)</span>
+          <input
+            list="comfy-loras"
+            placeholder={
+              comfy && comfy.loras.length === 0
+                ? 'no LoRAs found in ComfyUI/models/loras'
+                : 'e.g. mapcraft-flux.safetensors'
+            }
+            value={comfyMapLora}
+            onChange={(e) => setComfyMapLora(e.target.value)}
+          />
+          <datalist id="comfy-loras">
+            {(comfy?.loras ?? []).map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+          <span className="muted">
+            Auto-spliced into the workflow for map generation — no JSON editing.
+            Skipped silently if it isn't installed.
+          </span>
+        </label>
+        {comfyMapLora.trim() && (
+          <>
+            <label className="settings-field">
+              LoRA / DoRA strength: <strong>{comfyMapLoraStrength.toFixed(2)}</strong>
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.05}
+                value={comfyMapLoraStrength}
+                onChange={(e) => setComfyMapLoraStrength(Number(e.target.value))}
+              />
+              <span className="muted">
+                Applied to the loader's <code>strength_model</code>. 1.0 = full; lower
+                to dial the effect back, raise above 1 for a stronger push.
+              </span>
+            </label>
+            <label className="settings-field">
+              LoRA trigger word <span className="muted">(optional)</span>
+              <input
+                placeholder="e.g. mapcraft — auto-added to every map prompt"
+                value={comfyMapLoraTrigger}
+                onChange={(e) => setComfyMapLoraTrigger(e.target.value)}
+              />
+              <span className="muted">
+                Set it once and it's prepended to every map prompt automatically. Leave
+                blank for LoRAs that don't use a trigger word.
+              </span>
+            </label>
+            <label className="settings-field">
+              LoRA loader node{' '}
+              <span className="muted">(advanced — blank = LoraLoaderModelOnly)</span>
+              <input
+                list="comfy-lora-nodes"
+                placeholder="LoraLoaderModelOnly"
+                value={comfyMapLoraNode}
+                onChange={(e) => setComfyMapLoraNode(e.target.value)}
+              />
+              <datalist id="comfy-lora-nodes">
+                <option value="LoraLoaderModelOnly" />
+              </datalist>
+              <span className="muted">
+                The core node handles standard DoRAs already. If a Flux DoRA reports
+                "lora key not loaded", point this at a drop-in DoRA loader node that
+                exposes the same <code>model</code> / <code>lora_name</code> /{' '}
+                <code>strength_model</code> interface; it's skipped if that node isn't
+                installed.
+              </span>
+            </label>
+          </>
         )}
 
         <h4>Rulebook (PDF)</h4>

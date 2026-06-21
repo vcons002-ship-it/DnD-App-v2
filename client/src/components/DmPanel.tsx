@@ -282,7 +282,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
         {comfyOk && (
           <div className="slides-row comfy-map-row">
             <input
-              placeholder="🎨 Describe a battle map — e.g. ruined forest temple, top-down"
+              placeholder="🎨 Describe the scene — e.g. ruined forest temple with a courtyard (top-down framing auto-added)"
               value={mapPrompt}
               onChange={(e) => setMapPrompt(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && generateMap()}

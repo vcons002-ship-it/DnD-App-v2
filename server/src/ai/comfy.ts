@@ -56,6 +56,13 @@ export async function listComfyModels(): Promise<string[]> {
   return listLoaderOptions('CheckpointLoaderSimple', 'ckpt_name');
 }
 
+/** List installed LoRAs (for the map-LoRA picker). Same file list whichever LoRA
+ *  node exposes it; fall back if the model-only variant isn't registered. */
+export async function listComfyLoras(): Promise<string[]> {
+  const a = await listLoaderOptions('LoraLoaderModelOnly', 'lora_name');
+  return a.length ? a : listLoaderOptions('LoraLoader', 'lora_name');
+}
+
 // Loader node classes → the filename input(s) we should validate against ComfyUI.
 const LOADER_FILENAME_INPUTS: Record<string, string[]> = {
   CheckpointLoaderSimple: ['ckpt_name'],
@@ -64,6 +71,8 @@ const LOADER_FILENAME_INPUTS: Record<string, string[]> = {
   DualCLIPLoader: ['clip_name1', 'clip_name2'],
   TripleCLIPLoader: ['clip_name1', 'clip_name2', 'clip_name3'],
   VAELoader: ['vae_name'],
+  LoraLoader: ['lora_name'],
+  LoraLoaderModelOnly: ['lora_name'],
 };
 
 /** Best installed file for a requested name — exact, else a SAFE near-match (an
@@ -86,6 +95,72 @@ export function bestModelMatch(requested: string, available: string[]): string |
     .filter((c) => c.score >= 0)
     .sort((x, y) => y.score - x.score);
   return scored.length ? scored[0].a : null;
+}
+
+// Nodes whose output slot 0 is the MODEL — where a model-only LoRA splices in.
+const MODEL_PRODUCER_CLASSES = new Set([
+  'UNETLoader',
+  'CheckpointLoaderSimple',
+  'CheckpointLoader',
+  'CheckpointLoaderNF4',
+  'UnetLoaderGGUF',
+  'UNETLoaderGGUF',
+]);
+
+/** Splice a model-only LoRA into `graph` (for map generation) with NO JSON editing
+ *  by the DM: find the model producer (UNet/checkpoint loader), insert a loader
+ *  node (`LoraLoaderModelOnly` by default, or a drop-in DoRA loader with the same
+ *  model/lora_name/strength_model interface) after it, and rewire every model
+ *  consumer through it. Returns false (a clean no-op) when there isn't exactly one
+ *  clearly-used model node — so an unusual custom workflow just generates without
+ *  the LoRA instead of breaking. Pure (no network): the caller resolves the
+ *  installed filename + verifies the node class first. */
+export function injectMapLora(
+  graph: Record<string, unknown>,
+  loraName: string,
+  strength = 1.0,
+  nodeClass = 'LoraLoaderModelOnly',
+): boolean {
+  const nodes = Object.entries(graph) as [
+    string,
+    { class_type?: string; inputs?: Record<string, unknown> },
+  ][];
+  const isModelLink = (v: unknown, id: string) =>
+    Array.isArray(v) && v.length === 2 && v[0] === id && v[1] === 0;
+  // Model producers whose model output is actually consumed by a `model` input.
+  const used = nodes
+    .filter(([, n]) => n.class_type && MODEL_PRODUCER_CLASSES.has(n.class_type))
+    .filter(([pid]) => nodes.some(([, n]) => n.inputs && isModelLink(n.inputs.model, pid)));
+  if (used.length !== 1) return false; // zero or ambiguous → skip safely
+  const srcId = used[0][0];
+  let loraId = '__map_lora';
+  while (graph[loraId]) loraId += '_x';
+  // Rewire existing model consumers to the LoRA's output (the LoRA node, added
+  // below, keeps the original producer as ITS input).
+  for (const [, n] of nodes) {
+    if (n.inputs && isModelLink(n.inputs.model, srcId)) n.inputs.model = [loraId, 0];
+  }
+  graph[loraId] = {
+    class_type: nodeClass,
+    inputs: { model: [srcId, 0], lora_name: loraName, strength_model: strength },
+  };
+  return true;
+}
+
+/** Whether ComfyUI has a node registered under `nodeClass` (so we can skip a
+ *  configured custom LoRA loader gracefully when it isn't installed). */
+export async function nodeClassRegistered(nodeClass: string): Promise<boolean> {
+  if (!config.comfyUrl) return false;
+  try {
+    const r = await fetch(`${config.comfyUrl}/object_info/${encodeURIComponent(nodeClass)}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return false;
+    const data = (await r.json()) as Record<string, unknown>;
+    return !!data && typeof data === 'object' && nodeClass in data;
+  } catch {
+    return false;
+  }
 }
 
 type LoaderIssue = { node: string; nodeClass: string; input: string; requested: string; available: string[] };
@@ -125,6 +200,30 @@ async function resolveLoaderFilenames(
 const DEFAULT_NEGATIVE =
   'blurry, low quality, lowres, jpeg artifacts, watermark, signature, text, ' +
   'deformed, extra limbs, bad anatomy, frame, border';
+
+// Battle-map framing. Base diffusion models aren't trained on top-down VTT maps,
+// so a bare "ruined temple" prompt yields a scene/illustration. We wrap the DM's
+// description in an overhead-map frame (and a negative that rejects the common
+// failure modes: characters, perspective, and region/city/world maps). `{prompt}`
+// marks where the description lands. Both are overridable from Settings.
+export const DEFAULT_MAP_STYLE =
+  "top-down bird's-eye-view battle map for a tabletop RPG, seen from straight " +
+  'above (orthographic overhead view), of {prompt}; highly detailed terrain and ' +
+  'ground textures, walls, furniture and objects clearly readable from above, ' +
+  'even consistent lighting, no characters or creatures, no grid lines, no text or labels';
+
+export const DEFAULT_MAP_NEGATIVE =
+  'characters, people, creatures, monsters, tokens, perspective, isometric, side ' +
+  'view, eye-level, 3d render, photograph, portrait, world map, region map, ' +
+  'overland map, city map, hex grid, grid lines, text, labels, legend, compass, ' +
+  'watermark, border, frame';
+
+/** Wrap a map description with battle-map framing (configurable via comfyMapStyle;
+ *  `{prompt}` marks where the description goes, otherwise the frame is appended). */
+export function frameMapPrompt(userPrompt: string, style?: string): string {
+  const s = (style ?? '').trim() || DEFAULT_MAP_STYLE;
+  return s.includes('{prompt}') ? s.split('{prompt}').join(userPrompt) : `${userPrompt}, ${s}`;
+}
 
 /** Build the standard ComfyUI txt2img graph (API format) with the prompt injected. */
 function buildGraph(opts: {
@@ -198,6 +297,10 @@ export type ComfyImageOpts = {
   height?: number;
   steps?: number;
   cfg?: number;
+  /** Splice this model-only LoRA into the graph (map generation); skipped if the
+   *  file isn't installed, the loader node isn't registered, or the graph has no
+   *  clear model node. `node` defaults to LoraLoaderModelOnly. */
+  injectLora?: { name: string; strength?: number; node?: string };
 };
 
 /** Either a saved image path or a human-readable reason it failed (shown to the DM). */
@@ -252,6 +355,25 @@ export async function generateImage(
       cfg: Math.min(20, Math.max(1, opts.cfg ?? 7)),
       seed,
     });
+  }
+
+  // Optional map LoRA — spliced in here (before filename resolution, so the LoRA
+  // name is matched too). Fails gracefully: a missing LoRA / unsupported node /
+  // odd graph just generates without it, never an error.
+  if (opts.injectLora?.name) {
+    const loras = await listComfyLoras();
+    const match = loras.length ? bestModelMatch(opts.injectLora.name, loras) : null;
+    const node = opts.injectLora.node?.trim() || 'LoraLoaderModelOnly';
+    // Verify a non-default loader node is actually installed (the default core
+    // node is always present); skip gracefully otherwise.
+    const nodeOk = node === 'LoraLoaderModelOnly' || (await nodeClassRegistered(node));
+    if (!match) {
+      console.warn(`  [comfy] map LoRA '${opts.injectLora.name}' not installed — generating without it`);
+    } else if (!nodeOk) {
+      console.warn(`  [comfy] map LoRA loader node '${node}' not installed — generating without it`);
+    } else if (!injectMapLora(graph, match, opts.injectLora.strength ?? 1.0, node)) {
+      console.warn('  [comfy] map LoRA: no single model node to attach to — generating without it');
+    }
   }
 
   // Make loader filenames match what's actually installed (so a preset naming

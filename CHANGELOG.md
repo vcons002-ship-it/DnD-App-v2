@@ -4,6 +4,34 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-21 — ComfyUI: top-down framing for generated battle maps
+
+### Added / Changed
+- Generated **maps** are now wrapped in **top-down battle-map framing** server-side
+  (base models aren't trained on VTT maps, so a bare prompt rendered a scene). The
+  DM's description goes into an overhead-view frame plus a negative that rejects
+  characters, perspective, and region/city/world maps — only the **map** kind is
+  framed (token/decal art is unchanged).
+- The framing is **editable** in Settings → *Battle-map prompt style*: a `{prompt}`
+  placeholder marks where the description lands (blank = built-in default), and it's
+  where you'd add a battle-map **LoRA** trigger word (e.g. Mapcraft) for far better
+  results. The map-panel prompt now asks for the scene, not "top-down battle map".
+- **First-class battle-map LoRA** — Settings → *Battle-map LoRA* picks an installed
+  LoRA (dropdown from ComfyUI) that's **auto-spliced into the workflow for map
+  generation only** — no JSON editing. It inserts a `LoraLoaderModelOnly` after the
+  model loader and rewires the sampler through it, and **fails gracefully**: a LoRA
+  that isn't installed (or a workflow with no clear model node) just generates
+  without it. The filename auto-matcher covers LoRA nodes too.
+- **Automatic LoRA trigger word** — an optional trigger field paired with the map
+  LoRA; set it once and it's prepended to every map prompt, so you never retype it.
+  (Many LoRAs need no trigger — leave it blank.)
+- **DoRA support + weight control** — the map LoRA also accepts **DoRA** files (same
+  loras folder / picker; the core loader handles standard DoRAs). A **strength**
+  slider (0–2) tunes the effect, and an advanced **LoRA loader node** field lets you
+  point the auto-injection at a drop-in DoRA loader node (same model/lora_name/
+  strength_model interface) for Flux DoRAs the core node can't load — skipped
+  gracefully if that node isn't installed.
+
 ## 2026-06-21 — ComfyUI: tolerate model filename mismatches
 
 ### Fixed

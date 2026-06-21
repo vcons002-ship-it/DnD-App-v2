@@ -41,6 +41,26 @@ export const config = {
    *  Flux, SD3, or other T5/Mistral "text-diffusion" models that need their own
    *  loader nodes. Blank = use the built-in CheckpointLoaderSimple graph. */
   comfyWorkflow: process.env.COMFY_WORKFLOW || '',
+  /** Framing wrapped around a map-generation prompt so base models (which aren't
+   *  trained on battle maps) render a top-down VTT map rather than a scene.
+   *  `{prompt}` marks where the DM's description goes (else it's appended). Blank
+   *  = the built-in default. Add a battle-map LoRA's trigger word here too. */
+  comfyMapStyle: process.env.COMFY_MAP_STYLE || '',
+  /** Optional battle-map LoRA filename, auto-spliced into the graph for map
+   *  generation only. Skipped gracefully if not installed. Put its trigger word
+   *  (if any) in `comfyMapStyle`. */
+  comfyMapLora: process.env.COMFY_MAP_LORA || '',
+  /** Optional trigger word for the map LoRA, auto-prepended to every map prompt
+   *  (so the DM sets it once instead of typing it each time). Many LoRAs need
+   *  none — leave blank then. */
+  comfyMapLoraTrigger: process.env.COMFY_MAP_LORA_TRIGGER || '',
+  /** LoRA/DoRA strength applied to the map LoRA (the injected loader's
+   *  `strength_model`). 1 = full; lower to dial the effect back. */
+  comfyMapLoraStrength: Number(process.env.COMFY_MAP_LORA_STRENGTH) || 1,
+  /** ComfyUI node class used to load the map LoRA (blank = core
+   *  `LoraLoaderModelOnly`). Point this at a drop-in DoRA loader that exposes the
+   *  same model/lora_name/strength_model interface; skipped if not installed. */
+  comfyMapLoraNode: process.env.COMFY_MAP_LORA_NODE || '',
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */
