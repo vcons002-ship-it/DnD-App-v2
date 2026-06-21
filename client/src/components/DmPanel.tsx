@@ -187,9 +187,9 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
     if (!mapPrompt.trim() || genMapBusy) return;
     setGenMapBusy(true);
     try {
-      const path = await comfyGenerate(mapPrompt, 'map');
+      const { path, error } = await comfyGenerate(mapPrompt, 'map');
       if (!path) {
-        window.alert('Map generation failed — is ComfyUI running with a checkpoint loaded?');
+        window.alert(error || 'Map generation failed — is ComfyUI running with a checkpoint loaded?');
         return;
       }
       const fd = new FormData();

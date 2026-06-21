@@ -228,9 +228,9 @@ export function createApiRouter(io: IOServer): Router {
     const width = Number(req.body?.width) || dims.width;
     const height = Number(req.body?.height) || dims.height;
     const negative = typeof req.body?.negative === 'string' ? req.body.negative : undefined;
-    const imagePath = await generateImage(prompt, { width, height, negative });
-    if (!imagePath) return res.status(503).json({ error: 'ComfyUI unavailable or generation failed' });
-    res.status(201).json({ path: imagePath });
+    const result = await generateImage(prompt, { width, height, negative });
+    if ('error' in result) return res.status(503).json({ error: result.error });
+    res.status(201).json({ path: result.path });
   });
 
   // ---- Rules-assistant rulebook PDF (DM-only grounding override) ----

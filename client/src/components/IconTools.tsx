@@ -26,13 +26,13 @@ export function IconTools({ onApply, note, comfyKind = 'token' }: Props) {
     setGenBusy(true);
     setGenErr('');
     try {
-      const path = await comfyGenerate(prompt, comfyKind);
+      const { path, error } = await comfyGenerate(prompt, comfyKind);
       if (path) {
         onApply(path);
         setGenOpen(false);
         setPrompt('');
       } else {
-        setGenErr('Generation failed — is ComfyUI running with a checkpoint loaded?');
+        setGenErr(error || 'Generation failed — is ComfyUI running with a checkpoint loaded?');
       }
     } finally {
       setGenBusy(false);
