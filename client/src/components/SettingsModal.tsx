@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isSfxMuted, setSfxMuted, playHit } from '../lib/sfx';
+import { refreshComfyStatus } from '../lib/comfy';
 import { useStore } from '../state/socket';
 
 type PublicSettings = {
@@ -8,6 +9,8 @@ type PublicSettings = {
   ollamaUrl: string;
   ollamaModel: string;
   aiMode: 'gemini' | 'local';
+  comfyUrl: string;
+  comfyModel: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -46,6 +49,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   // → Ollama's /api/tags), so the dropdown lists what's really available, not a
   // hardcoded guess. `null` = not loaded yet.
   const [ollamaModels, setOllamaModels] = useState<string[] | null>(null);
+  // Local ComfyUI: configured URL/checkpoint + the live connection's checkpoints.
+  const [comfyUrl, setComfyUrl] = useState('');
+  const [comfyModel, setComfyModel] = useState('');
+  const [comfy, setComfy] = useState<{ reachable: boolean; models: string[] } | null>(null);
 
   const loadOllamaModels = () =>
     fetch('/api/ai/models')
@@ -53,8 +60,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       .then((d: { ollamaModels?: string[] }) => setOllamaModels(d.ollamaModels ?? []))
       .catch(() => setOllamaModels([]));
 
+  const loadComfy = () => {
+    setComfy(null);
+    refreshComfyStatus();
+    return fetch('/api/comfy/status')
+      .then((r) => r.json())
+      .then((d: { reachable?: boolean; models?: string[] }) =>
+        setComfy({ reachable: !!d.reachable, models: d.models ?? [] }),
+      )
+      .catch(() => setComfy({ reachable: false, models: [] }));
+  };
+
   useEffect(() => {
     loadOllamaModels();
+    loadComfy();
     fetch('/api/settings')
       .then((r) => r.json())
       .then((s: PublicSettings) => {
@@ -63,6 +82,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setOllamaUrl(s.ollamaUrl);
         setOllamaModel(s.ollamaModel);
         setAiMode(s.aiMode);
+        setComfyUrl(s.comfyUrl ?? '');
+        setComfyModel(s.comfyModel ?? '');
       })
       .catch(() => setCurrent(null));
     fetch('/api/rulebook')
@@ -113,6 +134,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         ollamaUrl: ollamaUrl.trim(),
         ollamaModel: ollamaModel.trim(),
         aiMode,
+        comfyUrl: comfyUrl.trim(),
+        comfyModel: comfyModel.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -134,9 +157,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setOllamaUrl(updated.ollamaUrl);
       setOllamaModel(updated.ollamaModel);
       setAiMode(updated.aiMode);
-      // The saved URL is now the live one — re-list its pulled models.
+      setComfyUrl(updated.comfyUrl ?? '');
+      setComfyModel(updated.comfyModel ?? '');
+      // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
       loadOllamaModels();
+      loadComfy();
       setApiKey('');
       setStatus('saved');
     } catch {
@@ -249,6 +275,45 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
           <datalist id="ollama-models">
             {(ollamaModels ?? []).map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        </label>
+
+        <h4>Image generation (local — ComfyUI)</h4>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Point this at a running{' '}
+          <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank" rel="noreferrer">
+            ComfyUI
+          </a>{' '}
+          server to generate token art, decals and battle maps from a prompt — a 🎨
+          button appears on the token/decal art tools and the map panel.
+        </p>
+        <label className="settings-field">
+          ComfyUI URL{' '}
+          <span className="muted">
+            {comfy === null
+              ? '(checking…)'
+              : comfy.reachable
+                ? `(connected · ${comfy.models.length} checkpoint${comfy.models.length === 1 ? '' : 's'})`
+                : '(not reachable — start ComfyUI, then Save to recheck)'}
+          </span>
+          <input
+            placeholder="http://127.0.0.1:8188"
+            value={comfyUrl}
+            onChange={(e) => setComfyUrl(e.target.value)}
+          />
+        </label>
+        <label className="settings-field">
+          Checkpoint <span className="muted">(blank = first installed)</span>
+          <input
+            list="comfy-models"
+            placeholder={comfy?.models[0] ?? 'model.safetensors'}
+            value={comfyModel}
+            onChange={(e) => setComfyModel(e.target.value)}
+          />
+          <datalist id="comfy-models">
+            {(comfy?.models ?? []).map((m) => (
               <option key={m} value={m} />
             ))}
           </datalist>

@@ -4,6 +4,24 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-19 — AI DC suggestions + local ComfyUI image generation
+
+### Added
+- **AI help setting DCs** — built into the existing `/ask` rules assistant (no new
+  command): ask "what DC for climbing the wet wall?" and it returns a concrete DC +
+  the fitting ability/skill + a one-line why, using the standard 5e difficulty
+  scale. (The assistant previously refused to "invent DCs"; that's now a sanctioned
+  adjudication task.)
+- **Local ComfyUI image generation** for **token art, decals, and battle maps**.
+  Point Settings → *Image generation (ComfyUI)* at a running local ComfyUI; a 🎨
+  button then appears on the token/decal art tools (`IconTools`) and the map panel.
+  Type a prompt → the server runs a standard txt2img graph on your ComfyUI
+  (`POST /api/comfy/generate`), saves the result, and drops it straight in as the
+  icon / map. Configurable URL + checkpoint (auto-picks the first installed if
+  blank); fail-safe — the controls stay hidden unless ComfyUI is reachable.
+- Fixed the Settings save to actually forward the **AI-mode** toggle (Gemini vs
+  local), which wasn't being persisted.
+
 ## 2026-06-18 — Sheet UI pass (colour-coded sections + simpler add)
 
 ### Changed

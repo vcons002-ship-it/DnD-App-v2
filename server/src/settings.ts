@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { config } from './config.js';
 import { clearResolvedModel } from './creatures/gemini.js';
 import { refreshOllama } from './ai/ollama.js';
+import { refreshComfy } from './ai/comfy.js';
 
 /** The subset of config the DM can change at runtime from the Settings modal. */
 export type RuntimeSettings = {
@@ -10,6 +11,8 @@ export type RuntimeSettings = {
   ollamaUrl?: string;
   ollamaModel?: string;
   aiMode?: 'gemini' | 'local';
+  comfyUrl?: string;
+  comfyModel?: string;
 };
 
 /** Load persisted settings (if any) and apply them on top of env defaults. */
@@ -24,6 +27,9 @@ export function loadSettings(): void {
     if (typeof s.ollamaModel === 'string' && s.ollamaModel.trim())
       config.ollamaModel = s.ollamaModel.trim();
     if (s.aiMode === 'gemini' || s.aiMode === 'local') config.aiMode = s.aiMode;
+    if (typeof s.comfyUrl === 'string' && s.comfyUrl.trim())
+      config.comfyUrl = s.comfyUrl.trim().replace(/\/$/, '');
+    if (typeof s.comfyModel === 'string') config.comfyModel = s.comfyModel.trim();
   } catch {
     // No saved settings yet — env defaults stand.
   }
@@ -47,8 +53,17 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (patch.aiMode === 'gemini' || patch.aiMode === 'local') {
     config.aiMode = patch.aiMode;
   }
+  if (typeof patch.comfyUrl === 'string') {
+    config.comfyUrl = patch.comfyUrl.trim().replace(/\/$/, '');
+  }
+  if (typeof patch.comfyModel === 'string') {
+    config.comfyModel = patch.comfyModel.trim();
+  }
   if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
     void refreshOllama(); // re-probe so the "AI available" signal stays accurate
+  }
+  if (typeof patch.comfyUrl === 'string') {
+    void refreshComfy(); // re-probe the ComfyUI connection
   }
   try {
     fs.writeFileSync(
@@ -60,6 +75,8 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
           ollamaUrl: config.ollamaUrl,
           ollamaModel: config.ollamaModel,
           aiMode: config.aiMode,
+          comfyUrl: config.comfyUrl,
+          comfyModel: config.comfyModel,
         },
         null,
         2,
@@ -78,6 +95,8 @@ export type PublicSettings = {
   ollamaUrl: string;
   ollamaModel: string;
   aiMode: 'gemini' | 'local';
+  comfyUrl: string;
+  comfyModel: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -88,6 +107,8 @@ export function publicSettings(): PublicSettings {
     ollamaUrl: config.ollamaUrl,
     ollamaModel: config.ollamaModel,
     aiMode: config.aiMode,
+    comfyUrl: config.comfyUrl,
+    comfyModel: config.comfyModel,
     dmPassphraseRequired: !!config.dmPassphrase,
   };
 }

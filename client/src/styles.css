@@ -255,6 +255,10 @@ textarea:hover:not(:disabled) {
 
 /* Token icon tools */
 .icon-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* ComfyUI prompt rows (token/decal art tools + map panel). */
+.comfy-gen { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
+.comfy-gen input { flex: 1; }
+.comfy-map-row input::placeholder { font-style: italic; }
 .emoji-input { width: 52px; text-align: center; font-size: 18px; }
 .upload-icon { position: relative; overflow: hidden; }
 

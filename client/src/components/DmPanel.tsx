@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { unsupportedImageReason } from '../lib/images';
+import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { NewCharacterForm } from './NewCharacterForm';
 import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { ImportMapsDialog } from './ImportMapsDialog';
@@ -40,6 +41,10 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   const [mapName, setMapName] = useState('');
   const [slides, setSlides] = useState('');
   const [importing, setImporting] = useState(false);
+  // Local ComfyUI map generation.
+  const comfyOk = useComfyAvailable();
+  const [mapPrompt, setMapPrompt] = useState('');
+  const [genMapBusy, setGenMapBusy] = useState(false);
   const [monName, setMonName] = useState('');
   const [monHp, setMonHp] = useState(10);
   // '' = a normal creature; otherwise a non-combat object (trap/door/chest/item).
@@ -176,6 +181,27 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
     upload(fd);
   };
 
+  // Generate a battle map with the local ComfyUI, then add it (the image is
+  // already saved to uploads, so we pass its path rather than re-uploading).
+  const generateMap = async () => {
+    if (!mapPrompt.trim() || genMapBusy) return;
+    setGenMapBusy(true);
+    try {
+      const path = await comfyGenerate(mapPrompt, 'map');
+      if (!path) {
+        window.alert('Map generation failed — is ComfyUI running with a checkpoint loaded?');
+        return;
+      }
+      const fd = new FormData();
+      fd.append('imagePath', path);
+      fd.append('name', mapName || mapPrompt.trim().slice(0, 40));
+      await upload(fd);
+      setMapPrompt('');
+    } finally {
+      setGenMapBusy(false);
+    }
+  };
+
   // One spawn button per creature template (placement makes numbered instances).
   const monsters = snapshot.monsterTemplates as Monster[];
   const viewMap = snapshot.map;
@@ -253,6 +279,24 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
             Add
           </button>
         </div>
+        {comfyOk && (
+          <div className="slides-row comfy-map-row">
+            <input
+              placeholder="🎨 Describe a battle map — e.g. ruined forest temple, top-down"
+              value={mapPrompt}
+              onChange={(e) => setMapPrompt(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && generateMap()}
+            />
+            <button
+              className="btn"
+              disabled={busy || genMapBusy || !mapPrompt.trim()}
+              onClick={generateMap}
+              title="Generate a battle map with your local ComfyUI"
+            >
+              {genMapBusy ? '✨…' : '✨ Generate'}
+            </button>
+          </div>
+        )}
         <button
           className="btn tiny"
           onClick={() => setImporting(true)}
