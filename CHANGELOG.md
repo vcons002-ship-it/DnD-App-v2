@@ -22,6 +22,9 @@ landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger an
   model loader and rewires the sampler through it, and **fails gracefully**: a LoRA
   that isn't installed (or a workflow with no clear model node) just generates
   without it. The filename auto-matcher covers LoRA nodes too.
+- **Automatic LoRA trigger word** — an optional trigger field paired with the map
+  LoRA; set it once and it's prepended to every map prompt, so you never retype it.
+  (Many LoRAs need no trigger — leave it blank.)
 
 ## 2026-06-21 — ComfyUI: tolerate model filename mismatches
 

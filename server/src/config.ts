@@ -50,6 +50,10 @@ export const config = {
    *  generation only. Skipped gracefully if not installed. Put its trigger word
    *  (if any) in `comfyMapStyle`. */
   comfyMapLora: process.env.COMFY_MAP_LORA || '',
+  /** Optional trigger word for the map LoRA, auto-prepended to every map prompt
+   *  (so the DM sets it once instead of typing it each time). Many LoRAs need
+   *  none — leave blank then. */
+  comfyMapLoraTrigger: process.env.COMFY_MAP_LORA_TRIGGER || '',
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
    *  per-question backend; 'local' here is a global lockdown that wins. */

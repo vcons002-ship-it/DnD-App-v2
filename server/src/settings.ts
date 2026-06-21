@@ -16,6 +16,7 @@ export type RuntimeSettings = {
   comfyWorkflow?: string;
   comfyMapStyle?: string;
   comfyMapLora?: string;
+  comfyMapLoraTrigger?: string;
 };
 
 /** Load persisted settings (if any) and apply them on top of env defaults. */
@@ -36,6 +37,7 @@ export function loadSettings(): void {
     if (typeof s.comfyWorkflow === 'string') config.comfyWorkflow = s.comfyWorkflow;
     if (typeof s.comfyMapStyle === 'string') config.comfyMapStyle = s.comfyMapStyle;
     if (typeof s.comfyMapLora === 'string') config.comfyMapLora = s.comfyMapLora;
+    if (typeof s.comfyMapLoraTrigger === 'string') config.comfyMapLoraTrigger = s.comfyMapLoraTrigger;
   } catch {
     // No saved settings yet — env defaults stand.
   }
@@ -74,6 +76,9 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (typeof patch.comfyMapLora === 'string') {
     config.comfyMapLora = patch.comfyMapLora;
   }
+  if (typeof patch.comfyMapLoraTrigger === 'string') {
+    config.comfyMapLoraTrigger = patch.comfyMapLoraTrigger;
+  }
   if (typeof patch.ollamaUrl === 'string' || typeof patch.ollamaModel === 'string') {
     void refreshOllama(); // re-probe so the "AI available" signal stays accurate
   }
@@ -95,6 +100,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
           comfyWorkflow: config.comfyWorkflow,
           comfyMapStyle: config.comfyMapStyle,
           comfyMapLora: config.comfyMapLora,
+          comfyMapLoraTrigger: config.comfyMapLoraTrigger,
         },
         null,
         2,
@@ -118,6 +124,7 @@ export type PublicSettings = {
   comfyWorkflow: string;
   comfyMapStyle: string;
   comfyMapLora: string;
+  comfyMapLoraTrigger: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -133,6 +140,7 @@ export function publicSettings(): PublicSettings {
     comfyWorkflow: config.comfyWorkflow,
     comfyMapStyle: config.comfyMapStyle,
     comfyMapLora: config.comfyMapLora,
+    comfyMapLoraTrigger: config.comfyMapLoraTrigger,
     dmPassphraseRequired: !!config.dmPassphrase,
   };
 }

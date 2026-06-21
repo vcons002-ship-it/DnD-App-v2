@@ -182,6 +182,7 @@ export function createApiRouter(io: IOServer): Router {
       comfyWorkflow?: string;
       comfyMapStyle?: string;
       comfyMapLora?: string;
+      comfyMapLoraTrigger?: string;
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
@@ -197,6 +198,8 @@ export function createApiRouter(io: IOServer): Router {
     if (typeof req.body?.comfyWorkflow === 'string') patch.comfyWorkflow = req.body.comfyWorkflow;
     if (typeof req.body?.comfyMapStyle === 'string') patch.comfyMapStyle = req.body.comfyMapStyle;
     if (typeof req.body?.comfyMapLora === 'string') patch.comfyMapLora = req.body.comfyMapLora;
+    if (typeof req.body?.comfyMapLoraTrigger === 'string')
+      patch.comfyMapLoraTrigger = req.body.comfyMapLoraTrigger;
     res.json(updateSettings(patch));
   });
 
@@ -245,6 +248,10 @@ export function createApiRouter(io: IOServer): Router {
     let finalPrompt = prompt;
     if (isMap) {
       finalPrompt = frameMapPrompt(prompt, config.comfyMapStyle);
+      // Auto-prepend the map LoRA's trigger word (set once in Settings) so the DM
+      // never has to type it. Harmless if the LoRA isn't actually installed.
+      const trigger = config.comfyMapLora.trim() ? config.comfyMapLoraTrigger.trim() : '';
+      if (trigger) finalPrompt = `${trigger}, ${finalPrompt}`;
       if (negative === undefined) negative = DEFAULT_MAP_NEGATIVE;
     }
     const result = await generateImage(finalPrompt, {

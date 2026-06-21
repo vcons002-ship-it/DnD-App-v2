@@ -20,6 +20,7 @@ type PublicSettings = {
   comfyWorkflow: string;
   comfyMapStyle: string;
   comfyMapLora: string;
+  comfyMapLoraTrigger: string;
   dmPassphraseRequired: boolean;
 };
 
@@ -64,6 +65,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [comfyWorkflow, setComfyWorkflow] = useState('');
   const [comfyMapStyle, setComfyMapStyle] = useState('');
   const [comfyMapLora, setComfyMapLora] = useState('');
+  const [comfyMapLoraTrigger, setComfyMapLoraTrigger] = useState('');
   // Which workflow preset is selected (built-in SD / a Flux preset / custom).
   const [preset, setPreset] = useState<ComfyPresetId>('builtin');
   const [comfy, setComfy] = useState<{
@@ -111,6 +113,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         setComfyWorkflow(s.comfyWorkflow ?? '');
         setComfyMapStyle(s.comfyMapStyle ?? '');
         setComfyMapLora(s.comfyMapLora ?? '');
+        setComfyMapLoraTrigger(s.comfyMapLoraTrigger ?? '');
         setPreset(detectPreset(s.comfyWorkflow ?? ''));
       })
       .catch(() => setCurrent(null));
@@ -167,6 +170,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         comfyWorkflow: comfyWorkflow.trim(),
         comfyMapStyle: comfyMapStyle.trim(),
         comfyMapLora: comfyMapLora.trim(),
+        comfyMapLoraTrigger: comfyMapLoraTrigger.trim(),
       };
       // Only send the key if the DM typed a new one (blank = leave unchanged).
       if (apiKey.trim()) body.geminiApiKey = apiKey.trim();
@@ -193,6 +197,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setComfyWorkflow(updated.comfyWorkflow ?? '');
       setComfyMapStyle(updated.comfyMapStyle ?? '');
       setComfyMapLora(updated.comfyMapLora ?? '');
+      setComfyMapLoraTrigger(updated.comfyMapLoraTrigger ?? '');
       setPreset(detectPreset(updated.comfyWorkflow ?? ''));
       // The saved URLs are now live — re-probe Ollama models and ComfyUI.
       setOllamaModels(null);
@@ -425,8 +430,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             {' '}
             wraps your map description so the model renders a top-down VTT map, not
             a scene. Use <code>{'{prompt}'}</code> to mark where your text goes;
-            blank = the built-in top-down framing. If you install a battle-map LoRA
-            (e.g. Mapcraft), add its trigger word here.
+            blank = the built-in top-down framing.
           </span>
           <textarea
             className="workflow-json"
@@ -455,10 +459,23 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </datalist>
           <span className="muted">
             Auto-spliced into the workflow for map generation — no JSON editing.
-            Skipped silently if it isn't installed. If the LoRA needs a trigger
-            word, add it to the style field above.
+            Skipped silently if it isn't installed.
           </span>
         </label>
+        {comfyMapLora.trim() && (
+          <label className="settings-field">
+            LoRA trigger word <span className="muted">(optional)</span>
+            <input
+              placeholder="e.g. mapcraft — auto-added to every map prompt"
+              value={comfyMapLoraTrigger}
+              onChange={(e) => setComfyMapLoraTrigger(e.target.value)}
+            />
+            <span className="muted">
+              Set it once and it's prepended to every map prompt automatically. Leave
+              blank for LoRAs that don't use a trigger word.
+            </span>
+          </label>
+        )}
 
         <h4>Rulebook (PDF)</h4>
         <p className="muted" style={{ marginTop: 0 }}>
