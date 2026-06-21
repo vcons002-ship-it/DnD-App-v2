@@ -1,5 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import { applyWorkflowTemplate } from './ai/comfy.js';
+import { applyWorkflowTemplate, bestModelMatch } from './ai/comfy.js';
+
+// Loader filenames must match ComfyUI's installed list exactly, so the app
+// auto-matches safe variants (an added -fp8 suffix) but NEVER a loose guess that
+// would pair the wrong model + text encoder.
+describe('bestModelMatch', () => {
+  const installed = [
+    'flux-2-klein-4b-fp8.safetensors',
+    'flux-2-klein-9b-fp8.safetensors',
+    'qwen_image_fp8_e4m3fn.safetensors',
+  ];
+
+  it('returns the exact name when installed', () => {
+    expect(bestModelMatch('flux-2-klein-4b-fp8.safetensors', installed)).toBe(
+      'flux-2-klein-4b-fp8.safetensors',
+    );
+  });
+
+  it('matches a name whose install adds an -fp8 suffix', () => {
+    expect(bestModelMatch('flux-2-klein-4b.safetensors', installed)).toBe(
+      'flux-2-klein-4b-fp8.safetensors',
+    );
+  });
+
+  it('does NOT cross-match a different size (4b must never become 9b)', () => {
+    // 'qwen_3_4b' shares no stem with the installed 9b/qwen_image files.
+    expect(bestModelMatch('qwen_3_4b.safetensors', installed)).toBeNull();
+    // '…-4b' must not resolve to the '…-9b' install.
+    expect(bestModelMatch('flux-2-klein-99b.safetensors', ['flux-2-klein-9b-fp8.safetensors'])).toBeNull();
+  });
+
+  it('returns null when nothing is close', () => {
+    expect(bestModelMatch('totally-different.safetensors', installed)).toBeNull();
+  });
+});
 
 // The custom-workflow template lets a DM run any ComfyUI graph (Flux, SD3, etc.)
 // by substituting placeholders. The substitution must keep the JSON valid even

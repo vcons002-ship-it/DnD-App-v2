@@ -645,9 +645,9 @@ export function MapStage({
     if (!scenePrompt.trim() || sceneBusy) return;
     setSceneBusy(true);
     try {
-      const path = await comfyGenerate(scenePrompt, 'decal');
+      const { path, error } = await comfyGenerate(scenePrompt, 'decal');
       if (!path) {
-        notify('Generation failed — is ComfyUI running with a checkpoint loaded?');
+        notify(error || 'Generation failed — is ComfyUI running with a checkpoint loaded?');
         return;
       }
       await openPasteDialog(path);

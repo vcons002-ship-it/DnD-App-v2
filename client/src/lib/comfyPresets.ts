@@ -1,8 +1,9 @@
 // Ready-made ComfyUI API-format workflows the app can offer as one-click presets,
 // so the DM picks a model instead of pasting JSON. Each carries the app's
 // %prompt%/%seed%/%width%/%height% placeholders (substituted server-side at
-// generate time). The filenames below match the official Flux.2 Klein repacks —
-// if ComfyUI lists them under different names, edit the JSON after selecting.
+// generate time). The filenames below match the official Flux.2 Klein fp8 repacks;
+// the server also auto-matches near-variants (e.g. a `-fp8` suffix) against what's
+// actually installed, and reports the available names if one truly isn't found.
 
 export type ComfyPresetId = 'builtin' | 'flux2-klein-4b' | 'flux2-klein-9b' | 'custom';
 
@@ -12,7 +13,7 @@ export const FLUX2_KLEIN_4B = `{
       "seed": %seed%, "steps": 4, "cfg": 1,
       "sampler_name": "euler", "scheduler": "simple", "denoise": 1,
       "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] } },
-  "4": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-4b.safetensors", "weight_dtype": "default" } },
+  "4": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-4b-fp8.safetensors", "weight_dtype": "default" } },
   "12": { "class_type": "CLIPLoader", "inputs": { "clip_name": "qwen_3_4b.safetensors", "type": "flux2" } },
   "13": { "class_type": "VAELoader", "inputs": { "vae_name": "flux2-vae.safetensors" } },
   "6": { "class_type": "CLIPTextEncode", "inputs": { "text": "%prompt%", "clip": ["12", 0] } },
@@ -28,7 +29,7 @@ export const FLUX2_KLEIN_9B = `{
       "seed": %seed%, "steps": 20, "cfg": 5,
       "sampler_name": "euler", "scheduler": "simple", "denoise": 1,
       "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] } },
-  "4": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-base-9b-fp8.safetensors", "weight_dtype": "default" } },
+  "4": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux-2-klein-9b-fp8.safetensors", "weight_dtype": "default" } },
   "12": { "class_type": "CLIPLoader", "inputs": { "clip_name": "qwen_3_8b_fp8mixed.safetensors", "type": "flux2" } },
   "13": { "class_type": "VAELoader", "inputs": { "vae_name": "full_encoder_small_decoder.safetensors" } },
   "6": { "class_type": "CLIPTextEncode", "inputs": { "text": "%prompt%", "clip": ["12", 0] } },
@@ -62,7 +63,7 @@ export const PRESET_FILES: Partial<Record<ComfyPresetId, string[]>> = {
     'vae/flux2-vae.safetensors',
   ],
   'flux2-klein-9b': [
-    'diffusion_models/flux-2-klein-base-9b-fp8.safetensors',
+    'diffusion_models/flux-2-klein-9b-fp8.safetensors',
     'text_encoders/qwen_3_8b_fp8mixed.safetensors',
     'vae/full_encoder_small_decoder.safetensors',
   ],

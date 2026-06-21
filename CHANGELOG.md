@@ -4,6 +4,22 @@ All notable changes to the DnD VTT, newest first. Dates are when the work
 landed on `claude/Dev`. See [`ROADMAP.md`](ROADMAP.md) for the feature ledger and
 [`CLAUDE.md`](CLAUDE.md) for architecture.
 
+## 2026-06-21 — ComfyUI: tolerate model filename mismatches
+
+### Fixed
+- ComfyUI rejected a generation when a workflow's loader filename didn't exactly
+  match an installed file (e.g. a preset saying `flux-2-klein-4b.safetensors` on a
+  `flux-2-klein-4b-fp8.safetensors` install → *"Value not in list"*), and the app
+  only showed a generic "is ComfyUI running?" message.
+  - The server now **auto-matches loader filenames** (`UNETLoader`/`CLIPLoader`/
+    `VAELoader`/checkpoint) against ComfyUI's actually-installed files before
+    submitting — a safe near-match only (an added `-fp8` suffix / shared stem),
+    **never** a loose guess that would mis-pair a model with the wrong text encoder.
+  - When a model genuinely isn't installed, the DM now sees a **precise error**
+    ("ComfyUI has no unet_name 'X'. Installed: …") and ComfyUI's own workflow
+    rejection reason, instead of a generic failure.
+  - Flux.2 Klein presets updated to the canonical fp8 filenames.
+
 ## 2026-06-19 — AI DC suggestions + local ComfyUI image generation
 
 ### Added

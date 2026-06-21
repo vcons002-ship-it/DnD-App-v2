@@ -40,17 +40,23 @@ export function useComfyAvailable(): boolean {
   return ok;
 }
 
-/** Generate an image from a prompt; resolves to the `/uploads/...` path or null. */
-export async function comfyGenerate(prompt: string, kind: ComfyKind): Promise<string | null> {
+/** Generate an image from a prompt. Resolves to the saved `/uploads/...` path,
+ *  or a specific `error` message from the server (missing model, rejected
+ *  workflow, timeout…) the caller can show. */
+export async function comfyGenerate(
+  prompt: string,
+  kind: ComfyKind,
+): Promise<{ path?: string; error?: string }> {
   try {
     const r = await fetch('/api/comfy/generate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ prompt: prompt.trim(), kind }),
     });
-    if (!r.ok) return null;
-    return (await r.json()).path ?? null;
+    const data = await r.json().catch(() => ({}) as { path?: string; error?: string });
+    if (!r.ok) return { error: data.error || 'Generation failed.' };
+    return { path: data.path };
   } catch {
-    return null;
+    return { error: 'Could not reach the server.' };
   }
 }
