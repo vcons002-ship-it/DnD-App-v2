@@ -3,11 +3,7 @@
 // the server at spawn time and be unit-tested. Monster damage is baked (the
 // ability mod is already in the dice), matching rollWeaponAttack's isMonster path.
 import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from './types.js';
-
-const DAMAGE_TYPES = new Set([
-  'slashing', 'piercing', 'bludgeoning', 'fire', 'cold', 'lightning', 'thunder',
-  'acid', 'poison', 'necrotic', 'radiant', 'force', 'psychic',
-]);
+import { isDamageType } from './damage.js';
 
 /** An action is a weapon attack iff it has BOTH a "+N to hit" and damage dice. */
 function parseAttack(a: CreatureAbility): Weapon | null {
@@ -23,7 +19,7 @@ function parseAttack(a: CreatureAbility): Weapon | null {
   // Damage type = the known type word right after the first dice clause.
   let damageType: string | undefined;
   const after = desc.slice((dmg.index ?? 0) + dmg[1].length).match(/\s*([a-z]+)/i);
-  if (after && DAMAGE_TYPES.has(after[1].toLowerCase())) damageType = after[1].toLowerCase();
+  if (after && isDamageType(after[1])) damageType = after[1].toLowerCase();
 
   // Range/reach text for display.
   const range =
@@ -104,7 +100,7 @@ export function parseActionRoll(description: string): AbilityRoll | null {
 
   let damageType: string | undefined;
   const after = desc.slice((dmg.index ?? 0) + dmg[1].length).match(/\s*([a-z]+)/i);
-  if (after && DAMAGE_TYPES.has(after[1].toLowerCase())) damageType = after[1].toLowerCase();
+  if (after && isDamageType(after[1])) damageType = after[1].toLowerCase();
 
   const save = desc.match(/DC\s*(\d+)\s+([A-Za-z]+)/i);
   if (save) {

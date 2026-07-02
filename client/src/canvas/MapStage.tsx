@@ -1257,11 +1257,17 @@ export function MapStage({
       im.onerror = reject;
       im.src = URL.createObjectURL(file);
     }).catch(() => null);
-    if (!dims) return;
+    if (!dims) {
+      notify('Could not read that image file.');
+      return;
+    }
     const fd = new FormData();
     fd.append('image', file);
     const res = await fetch('/api/icons', { method: 'POST', body: fd }).catch(() => null);
-    if (!res || !res.ok) return;
+    if (!res || !res.ok) {
+      notify('Could not upload that tile image.');
+      return;
+    }
     const { icon } = (await res.json()) as { icon: string };
     // Clamp a giant upload so it's not many times the existing map.
     const cap = Math.max(imgW, 2000);

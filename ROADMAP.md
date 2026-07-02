@@ -166,10 +166,11 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Persistent creature & item library [req]
 
-- ☐ **Save custom / AI creatures & items for reuse [req].** Store custom-made and
-  Gemini-generated creatures (and, later, items) in a **cross-session local
-  library** so they're searchable and reusable in any future session — not just
-  the session they were made in. Details:
+- ☑ **Save custom / AI creatures & items for reuse [req].** _(Shipped — see
+  "Cross-session library (creatures + items)" in the DONE ledger below.)_ Store
+  custom-made and Gemini-generated creatures (and, later, items) in a
+  **cross-session local library** so they're searchable and reusable in any
+  future session — not just the session they were made in. Details:
   - A library table (e.g. `library_creatures`, `library_items`) at the app level,
     independent of any one session's templates.
   - The creature search (`GET /api/creatures`) merges results from **SRD + your
@@ -285,9 +286,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   the rules (local DB first via `/spells/lookup`, AI fallback) and replaces it
   **in place** (same id — no duplicate), for homebrew/non-SRD spells the import
   couldn't resolve.
-- ☐ **Drag-reorder toolbar sections [req].** Let DM and players drag to reorder
-  the main sections within their side toolbars (e.g. Maps / Spawn / Initiative),
-  persisted per role like panel width/collapse. *(Deferred.)*
+- ☑ **Drag-reorder toolbar sections [req].** _(Shipped — see "Drag-reorder DM
+  panel sections" in the DONE ledger; `ReorderableSections` everywhere, with tap
+  ▲/▼ on touch.)_ DM and players drag to reorder the main sections within their
+  side toolbars (e.g. Maps / Spawn / Initiative), persisted per role.
 - ☑ Buff/nerf buttons with custom text (drive the green/red rings) — via the
   existing `ConditionPicker` custom buff/nerf + auras.
 - ☒ **Collapsible Roll20 embed [req]** — REMOVED. The `Roll20Panel` `<iframe>`
@@ -569,11 +571,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   when creating a session (`createSession(name, code)` + `normalizeSessionCode`,
   `SessionCodeError` → HTTP 409), giving a stable `/join?code=TAVERN` link; random codes
   remain the default. Input + inline error in `DmRoute`.
-- ☐ **5e mechanics still NOT automated** (audit, for later): mechanical condition
-  effects beyond adv/dis (auto-fail saves while paralyzed/stunned, movement from
-  restrained/grappled), **concentration checks**, **death saving throws**, **cover**,
-  **exhaustion levels**, **timed/duration effects**, **action economy** (action/bonus/
-  reaction tracking), and **spell-slot auto-spend** on cast.
+- ◐ **5e mechanics automation** (audit). Automated **since this note**:
+  mechanical condition effects (auto-fail STR/DEX saves while paralyzed/stunned,
+  adv/dis from conditions, prone/incapacitated location rules), **concentration**
+  (auto-set + CON save prompt on damage), **death saving throws**, and
+  **spell-slot auto-spend** on cast. Still NOT automated: **cover**, **exhaustion
+  levels**, **timed/duration effect expiry** (conditions stamp the round `T{n}`
+  but never auto-expire), **action economy** (action/bonus/reaction tracking),
+  and movement restriction from **grappled/restrained**.
 
 ## Phase 6 — AI assistance (future)
 
