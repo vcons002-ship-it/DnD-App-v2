@@ -3,8 +3,11 @@
 import type { Weapon } from './types.js';
 import { abilityMod, proficiencyBonus, signed } from './skills.js';
 import { rollDice } from './dice.js';
+import type { Advantage } from './dice.js';
 
-export type Advantage = 'adv' | 'dis';
+// Single source of truth is the dice module; re-exported so combat callers can
+// keep importing `Advantage` from here.
+export type { Advantage };
 
 /** A creature reduced to what combat math needs. `level` is PC level or CR. */
 export type Combatant = {

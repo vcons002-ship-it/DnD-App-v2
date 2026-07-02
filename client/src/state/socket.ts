@@ -491,6 +491,12 @@ export const useStore = create<Store>((set, get) => ({
 
   connect: (code, role, dmPassphrase) => {
     get().socket?.disconnect();
+    // Reset the roll-cue seed so joining a DIFFERENT session treats its first
+    // snapshot as a silent backlog (otherwise the new session's newest roll —
+    // absent from the previous session's seen-set — replays its sound + reveal).
+    // Auto-reconnect keeps working: it fires socket.io's 'connect', not this.
+    seenRollIds = new Set();
+    rollSfxReady = false;
     set({ status: 'connecting', error: null, dmPassphrase: dmPassphrase ?? null });
 
     // Socket.IO auto-reconnects and buffers our outgoing events while offline,

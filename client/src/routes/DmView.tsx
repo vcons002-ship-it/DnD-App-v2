@@ -36,8 +36,11 @@ export function DmView() {
   // Delete / Backspace removes the current selection (DM only).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      // Don't hijack Delete/Backspace while the user is editing any field —
+      // dropdowns and contentEditable count too, not just INPUT/TEXTAREA.
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length) {
         selectedIds.forEach((id) => deleteToken(id));
         setSelectedIds([]);
