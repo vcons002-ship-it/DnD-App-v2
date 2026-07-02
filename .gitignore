@@ -13,3 +13,6 @@ server/uploads/
 # Logs & OS cruft
 *.log
 .DS_Store
+
+# Downloaded service manager (install-service.bat fetches nssm.exe here)
+tools/

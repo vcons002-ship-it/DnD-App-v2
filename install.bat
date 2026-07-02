@@ -157,7 +157,26 @@ if not exist ".env" (
     echo Created .env from template ^(defaults are fine for a first run^).
   )
 )
+
+REM ----- Build the client so the served app matches the code we just pulled.
+REM ----- The always-on service runs the server only and does NOT rebuild, so
+REM ----- the build has to happen here for an update to actually take effect. -----
+echo.
+echo Building the app...
+call npm run build
+if !errorlevel! neq 0 (
+  echo.
+  echo [ERROR] Build failed. See the messages above.
+  popd
+  pause
+  exit /b 1
+)
 popd
+
+REM ----- If the always-on service is installed, restart it so it serves the
+REM ----- freshly built update; otherwise offer to launch manually. -----
+sc query DnDServer >nul 2>&1
+if !errorlevel!==0 goto restart_service
 
 echo.
 echo ============================================
@@ -167,6 +186,7 @@ echo ============================================
 echo.
 echo  To play later: open that folder and double-click  start.bat
 echo  (Local-only testing without a tunnel: start-dev.bat)
+echo  (Make the server always-on: run  install-service.bat  as admin)
 echo.
 set /p LAUNCH="Start the app now? [Y/N] "
 if /i "!LAUNCH!"=="Y" (
@@ -174,6 +194,21 @@ if /i "!LAUNCH!"=="Y" (
   call npm start
   popd
 )
+echo.
+pause
+exit /b 0
+
+:restart_service
+echo.
+echo Restarting the always-on server service (DnDServer) to load the update...
+echo Windows will ask for administrator permission.
+powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-Command','Restart-Service DnDServer'"
+echo.
+echo ============================================
+echo    Updated + restarted the DnD server service.
+echo    Installed to: %INSTALL_DIR%
+echo    Your table can keep using your usual links.
+echo ============================================
 echo.
 pause
 exit /b 0
