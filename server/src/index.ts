@@ -66,6 +66,15 @@ if (fs.existsSync(config.clientDist)) {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile('index.html', { root: config.clientDist });
   });
+} else {
+  // Without a built client there's no SPA to serve, so every page (incl. /dm and
+  // /join) 404s — over a tunnel that looks like "the tunnel didn't go through".
+  // Make the cause loud instead of silent.
+  console.warn(
+    '\n  ⚠ No built client found at client/dist — /dm and /join will 404.\n' +
+      '    Run `npm run build` (or use start.bat, which builds first). If you\n' +
+      "    want hot-reload dev instead, use start-dev.bat and open :5173.\n",
+  );
 }
 
 registerSocketHandlers(io);
