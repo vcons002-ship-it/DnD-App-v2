@@ -12,6 +12,17 @@ import { registerSocketHandlers } from './socketHandlers.js';
 import { startTunnel, publicUrl } from './tunnel.js';
 import type { IOServer } from './connections.js';
 
+// Last-resort crash guards. Socket handlers already run inside a per-event
+// try/catch (see socketHandlers.ts) and async routes catch internally, but a
+// stray rejection in a background probe or a future code path should log and
+// keep the server (and the live session) up rather than exit the process.
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 loadSettings(); // apply any DM-saved API key / model overrides on top of env
 // Probe the local Ollama server in the background so the UI's "AI available"
 // signal is accurate without blocking boot (re-probed on each settings save).

@@ -216,6 +216,32 @@ export function registerSocketHandlers(io: IOServer): void {
   };
 
   io.on('connection', (socket) => {
+    // Crash boundary: every domain handler below registers through `on` instead
+    // of `socket.on`, so a throw inside a handler (a malformed payload, an
+    // invalid dice expression, a better-sqlite3 bind error) is caught and turned
+    // into an `error` notice to the sender — rather than an uncaught exception
+    // that takes down the whole process and, with it, the live table.
+    const rawOn = socket.on.bind(socket) as (
+      event: string,
+      handler: (...args: unknown[]) => void,
+    ) => void;
+    const on = ((event: string, handler: (...args: unknown[]) => void) =>
+      rawOn(event, (...args: unknown[]) => {
+        try {
+          return handler(...args);
+        } catch (err) {
+          console.error(`[socket:${event}]`, err);
+          try {
+            socket.emit('error', {
+              code: 'HANDLER_ERROR',
+              message: 'Something went wrong handling that action.',
+            });
+          } catch {
+            /* socket already gone — nothing to report to */
+          }
+        }
+      })) as typeof socket.on;
+
     const isDm = () => getConn(socket.id)?.role === 'dm';
     const sessionId = () => getConn(socket.id)?.sessionId;
 
@@ -225,7 +251,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (sid) broadcastSnapshots(io, sid);
     };
 
-    socket.on('join', (payload, ack) => {
+    on('join', (payload, ack) => {
       const session = getSessionByCode(payload.sessionCode ?? '');
       if (!session) {
         return ack({
@@ -281,7 +307,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // ---- DM-only: map prep & promotion ----
 
-    socket.on('map:select', ({ mapId }) => {
+    on('map:select', ({ mapId }) => {
       const conn = getConn(socket.id);
       if (!conn || conn.role !== 'dm') return;
       if (!getMap(mapId)) return;
@@ -289,20 +315,20 @@ export function registerSocketHandlers(io: IOServer): void {
       sendSnapshot(io, socket.id); // only this DM's staging view changes
     });
 
-    socket.on('map:setActive', ({ mapId }) => {
+    on('map:setActive', ({ mapId }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !getMap(mapId)) return;
       setActiveMap(sid, mapId);
       afterChange();
     });
 
-    socket.on('map:rename', ({ mapId, name }) => {
+    on('map:rename', ({ mapId, name }) => {
       if (!isDm() || !getMap(mapId)) return;
       renameMap(mapId, name);
       afterChange();
     });
 
-    socket.on('map:setGrid', (p) => {
+    on('map:setGrid', (p) => {
       if (!isDm() || !getMap(p.mapId)) return;
       const px = Math.round(Math.max(10, Math.min(400, p.gridSizePx)));
       const ft = Math.round(Math.max(1, Math.min(100, p.feetPerSquare)));
@@ -319,7 +345,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // Measuring shapes — any session member may draw/clear them; they're shared.
     const MEASURE_KINDS = ['cone', 'circle', 'line', 'square', 'emanation', 'ruler'];
-    socket.on('measure:add', ({ kind, origin, target, tokenId }) => {
+    on('measure:add', ({ kind, origin, target, tokenId }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !MEASURE_KINDS.includes(kind)) return;
@@ -337,7 +363,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('measure:remove', ({ id }) => {
+    on('measure:remove', ({ id }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !id) return;
@@ -349,7 +375,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('measure:clear', ({ mapId, mineOnly }) => {
+    on('measure:clear', ({ mapId, mineOnly }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !getMap(mapId)) return;
@@ -359,7 +385,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:add', ({ kind, points, x, y, text, color, url, width, height }) => {
+    on('annotation:add', ({ kind, points, x, y, text, color, url, width, height }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || (kind !== 'freehand' && kind !== 'text' && kind !== 'image')) return;
@@ -385,7 +411,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Paste an uploaded image onto the map AS AN OBJECT (draggable token).
-    socket.on('object:paste', ({ mapId, x, y, icon, name }) => {
+    on('object:paste', ({ mapId, x, y, icon, name }) => {
       const sid = sessionId();
       if (!sid || !isDm() || typeof icon !== 'string' || !icon) return;
       const map = getMap(mapId);
@@ -400,7 +426,7 @@ export function registerSocketHandlers(io: IOServer): void {
     // Cast a summon-tagged spell/ability: spawn its friendly companion token. The
     // caster must own the creature; players may only place on the ACTIVE map. A
     // leveled spell spends a slot (cantrips/abilities don't).
-    socket.on('summon:cast', ({ kind, refId, abilityId, mapId, x, y, castLevel }) => {
+    on('summon:cast', ({ kind, refId, abilityId, mapId, x, y, castLevel }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const map = getMap(mapId);
@@ -425,7 +451,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:remove', ({ id }) => {
+    on('annotation:remove', ({ id }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !id) return;
@@ -433,7 +459,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('annotation:clear', ({ mapId, mineOnly, kind }) => {
+    on('annotation:clear', ({ mapId, mineOnly, kind }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || !getMap(mapId)) return;
@@ -452,14 +478,14 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Reposition an image decal (DM drag); strokes/text never move.
-    socket.on('annotation:move', ({ id, x, y }) => {
+    on('annotation:move', ({ id, x, y }) => {
       if (!sessionId() || !isDm() || !id) return;
       moveAnnotation(id, Number(x) || 0, Number(y) || 0);
       afterChange();
     });
 
     // Resize an image decal (DM corner-handle drag).
-    socket.on('annotation:resize', ({ id, width, height }) => {
+    on('annotation:resize', ({ id, width, height }) => {
       if (!sessionId() || !isDm() || !id) return;
       const w = Math.max(8, Math.min(20000, Number(width) || 0));
       const h = Math.max(8, Math.min(20000, Number(height) || 0));
@@ -468,7 +494,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Attach/edit/clear a decal's clickable "shop" popup (DM only).
-    socket.on('annotation:setPopup', ({ id, popup }) => {
+    on('annotation:setPopup', ({ id, popup }) => {
       if (!sessionId() || !isDm() || !id) return;
       setAnnotationPopup(id, popup ? sanitizePopup(popup) : null);
       afterChange();
@@ -477,34 +503,34 @@ export function registerSocketHandlers(io: IOServer): void {
     // ---- Map image tiles (DM composes a larger map from several images) ----
     const px = (v: unknown) => Math.max(-100000, Math.min(100000, Number(v) || 0));
     const dim = (v: unknown) => Math.max(1, Math.min(40000, Number(v) || 0));
-    socket.on('mapImage:add', ({ mapId, imagePath, x, y, w, h }) => {
+    on('mapImage:add', ({ mapId, imagePath, x, y, w, h }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !getMap(mapId) || typeof imagePath !== 'string' || !imagePath) return;
       addMapImage(sid, { mapId, imagePath, x: px(x), y: px(y), w: dim(w), h: dim(h) });
       afterChange();
     });
-    socket.on('mapImage:move', ({ id, x, y }) => {
+    on('mapImage:move', ({ id, x, y }) => {
       if (!sessionId() || !isDm() || !id) return;
       moveMapImage(id, px(x), px(y));
       afterChange();
     });
-    socket.on('mapImage:resize', ({ id, x, y, w, h }) => {
+    on('mapImage:resize', ({ id, x, y, w, h }) => {
       if (!sessionId() || !isDm() || !id) return;
       resizeMapImage(id, px(x), px(y), dim(w), dim(h));
       afterChange();
     });
-    socket.on('mapImage:reorder', ({ id, to }) => {
+    on('mapImage:reorder', ({ id, to }) => {
       if (!sessionId() || !isDm() || !id || (to !== 'front' && to !== 'back')) return;
       reorderMapImage(id, to);
       afterChange();
     });
-    socket.on('mapImage:remove', ({ id }) => {
+    on('mapImage:remove', ({ id }) => {
       if (!sessionId() || !isDm() || !id) return;
       deleteMapImage(id);
       afterChange();
     });
 
-    socket.on('session:rename', ({ name }) => {
+    on('session:rename', ({ name }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       renameSession(sid, name);
@@ -512,7 +538,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Import selected maps + their tokens from another session (DM only).
-    socket.on('session:importPreview', ({ sourceCode, mapIds }, ack) => {
+    on('session:importPreview', ({ sourceCode, mapIds }, ack) => {
       const sid = sessionId();
       if (!sid || !isDm() || typeof ack !== 'function') {
         if (typeof ack === 'function') ack([]);
@@ -524,7 +550,7 @@ export function registerSocketHandlers(io: IOServer): void {
       ack(previewImportCharacters(sid, sourceCode, ids));
     });
 
-    socket.on('session:importMaps', ({ sourceCode, mapIds, resolutions }) => {
+    on('session:importMaps', ({ sourceCode, mapIds, resolutions }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       if (typeof sourceCode !== 'string' || !Array.isArray(mapIds)) return;
@@ -541,7 +567,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (n) afterChange();
     });
 
-    socket.on('map:delete', ({ mapId }) => {
+    on('map:delete', ({ mapId }) => {
       const sid = sessionId();
       const conn = getConn(socket.id);
       if (!sid || !conn || conn.role !== 'dm' || !getMap(mapId)) return;
@@ -554,25 +580,25 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('fog:setLayer', ({ mapId, layer, enabled }) => {
+    on('fog:setLayer', ({ mapId, layer, enabled }) => {
       if (!isDm() || !getMap(mapId)) return;
       setFogLayer(mapId, layer, enabled);
       afterChange();
     });
 
-    socket.on('fog:paint', ({ mapId, layer, cells, reveal }) => {
+    on('fog:paint', ({ mapId, layer, cells, reveal }) => {
       if (!isDm() || !getMap(mapId) || !Array.isArray(cells)) return;
       paintFog(mapId, layer, cells, reveal);
       afterChange();
     });
 
-    socket.on('fog:cover', ({ mapId, layer }) => {
+    on('fog:cover', ({ mapId, layer }) => {
       if (!isDm() || !getMap(mapId)) return;
       coverFog(mapId, layer);
       afterChange();
     });
 
-    socket.on('token:spawn', (p) => {
+    on('token:spawn', (p) => {
       const sid = sessionId();
       if (!sid || !getMap(p.mapId)) return;
       if (!isDm()) {
@@ -601,7 +627,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // ---- Shared: anyone in the session may move/resize tokens (per spec) ----
 
-    socket.on('token:move', ({ tokenId, x, y }) => {
+    on('token:move', ({ tokenId, x, y }) => {
       if (!sessionId()) return;
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
       // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
@@ -622,7 +648,7 @@ export function registerSocketHandlers(io: IOServer): void {
     // Live, throttled drag preview (no DB write / snapshot) — same sender gate
     // as token:move so a player can't broadcast a ghost for a token they can't
     // move; recipients are filtered by visibility inside broadcastTokenDrag.
-    socket.on('token:drag', ({ tokenId, x, y }) => {
+    on('token:drag', ({ tokenId, x, y }) => {
       const sid = sessionId();
       if (!sid) return;
       const t = getToken(tokenId);
@@ -637,13 +663,13 @@ export function registerSocketHandlers(io: IOServer): void {
       broadcastTokenDrag(io, sid, socket.id, t, x, y);
     });
 
-    socket.on('token:resize', ({ tokenId, widthFt }) => {
+    on('token:resize', ({ tokenId, widthFt }) => {
       if (!isDm()) return; // resizing is a DM action; players may only move
       resizeToken(tokenId, widthFt);
       afterChange();
     });
 
-    socket.on('token:setShape', ({ tokenId, shape }) => {
+    on('token:setShape', ({ tokenId, shape }) => {
       if (!isDm()) return;
       const ok = ['circle', 'square', 'diamond', 'triangle', 'image'];
       if (!ok.includes(shape)) return;
@@ -651,25 +677,25 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('token:delete', ({ tokenId }) => {
+    on('token:delete', ({ tokenId }) => {
       if (!isDm()) return; // removing tokens is a DM action
       deleteToken(tokenId);
       afterChange();
     });
 
-    socket.on('token:duplicate', ({ tokenId }) => {
+    on('token:duplicate', ({ tokenId }) => {
       if (!isDm()) return; // duplicating tokens is a DM action
       duplicateToken(tokenId);
       afterChange();
     });
 
-    socket.on('token:setHidden', ({ tokenId, hidden }) => {
+    on('token:setHidden', ({ tokenId, hidden }) => {
       if (!isDm()) return; // hiding tokens from players is a DM action
       setTokenHidden(tokenId, hidden);
       afterChange();
     });
 
-    socket.on('tokens:copy', ({ fromMapId, toMapId, kinds }) => {
+    on('tokens:copy', ({ fromMapId, toMapId, kinds }) => {
       if (!isDm() || !getMap(fromMapId) || !getMap(toMapId)) return;
       const n = copyTokens(fromMapId, toMapId, kinds);
       afterChange();
@@ -680,9 +706,17 @@ export function registerSocketHandlers(io: IOServer): void {
       });
     });
 
-    socket.on('damage:apply', ({ kind, refId, amount }) => {
+    // A player may only affect their own claimed PC; the DM may affect any
+    // creature. (Creatures/objects stay DM-controlled.) Shared by the HP,
+    // temp-HP and condition handlers so a player can't damage/heal/status a
+    // token they don't own — manual damage on enemies is the DM's job, and
+    // real player damage flows through server-computed combat:attack.
+    const canEditCreature = (kind: TokenKind, refId: string): boolean =>
+      isDm() || (kind === 'pc' && getCharacter(refId)?.claimedBy === socket.id);
+
+    on('damage:apply', ({ kind, refId, amount }) => {
       const sid = sessionId();
-      if (!sid || !Number.isFinite(amount)) return;
+      if (!sid || !Number.isFinite(amount) || !canEditCreature(kind, refId)) return;
       applyDamage(kind, refId, amount);
       // Damage taken while concentrating prompts a CON save (DC from the amount).
       noteConcentration(sid, kind, refId, amount);
@@ -691,31 +725,27 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // Grant temporary HP — same audience as damage:apply (quick in-combat
     // buff that sets the flat 2024-rules buffer pool, drained before real HP).
-    socket.on('tempHp:set', ({ kind, refId, amount }) => {
-      if (!sessionId() || !Number.isFinite(amount)) return;
+    on('tempHp:set', ({ kind, refId, amount }) => {
+      if (!sessionId() || !Number.isFinite(amount) || !canEditCreature(kind, refId))
+        return;
       setTempHp(kind, refId, amount);
       afterChange();
     });
 
-    // A player may only change status on their own claimed PC; the DM may change
-    // any creature's. (Creatures stay DM-controlled.)
-    const canEditConditions = (kind: TokenKind, refId: string): boolean =>
-      isDm() || (kind === 'pc' && getCharacter(refId)?.claimedBy === socket.id);
-
-    socket.on('condition:set', ({ kind, refId, condition }) => {
-      if (!sessionId() || !canEditConditions(kind, refId)) return;
+    on('condition:set', ({ kind, refId, condition }) => {
+      if (!sessionId() || !canEditCreature(kind, refId)) return;
       const full: Condition = { id: newId(), ...condition };
       setCondition(kind, refId, full);
       afterChange();
     });
 
-    socket.on('condition:clear', ({ kind, refId, conditionId }) => {
-      if (!sessionId() || !canEditConditions(kind, refId)) return;
+    on('condition:clear', ({ kind, refId, conditionId }) => {
+      if (!sessionId() || !canEditCreature(kind, refId)) return;
       clearCondition(kind, refId, conditionId);
       afterChange();
     });
 
-    socket.on('character:claim', ({ characterId }) => {
+    on('character:claim', ({ characterId }) => {
       const sid = sessionId();
       if (!sid) return;
       const c = getCharacter(characterId);
@@ -745,13 +775,13 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // DM fallback: force a character free (e.g. a stuck claim) so anyone can grab
     // it. Clears the live claim and the last-holder record.
-    socket.on('character:unlock', ({ characterId }) => {
+    on('character:unlock', ({ characterId }) => {
       if (!isDm() || !getCharacter(characterId)) return;
       setCharacterOwner(characterId, null);
       afterChange();
     });
 
-    socket.on('character:create', (p) => {
+    on('character:create', (p) => {
       const sid = sessionId();
       if (!sid || !p.name?.trim()) return; // DM or player may add a character
       const created = createCharacter(sid, {
@@ -770,7 +800,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('character:loadFromLibrary', ({ name, claim }) => {
+    on('character:loadFromLibrary', ({ name, claim }) => {
       const sid = sessionId();
       if (!sid || !name?.trim()) return; // DM or player may load a saved sheet
       const created = createCharacterFromLibrary(sid, name);
@@ -783,7 +813,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('character:update', ({ characterId, ...patch }) => {
+    on('character:update', ({ characterId, ...patch }) => {
       const c = getCharacter(characterId);
       // The DM or the owning player may edit a character's stat sheet.
       if (!c || (!isDm() && c.claimedBy !== socket.id)) return;
@@ -791,7 +821,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('character:delete', ({ characterId }) => {
+    on('character:delete', ({ characterId }) => {
       if (!isDm()) return; // DM-only: prune a PC from the spawn list
       const c = getCharacter(characterId);
       if (!c) return;
@@ -806,7 +836,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('character:release', () => {
+    on('character:release', () => {
       const sid = sessionId();
       if (!sid) return;
       releaseClaims(socket.id);
@@ -827,26 +857,26 @@ export function registerSocketHandlers(io: IOServer): void {
     const ownsCreature = (kind: 'pc' | 'monster', refId: string): boolean =>
       kind === 'pc' ? ownsCharacter(refId) : isDm();
 
-    socket.on('resource:set', ({ characterId, group, key, max, used, remove }) => {
+    on('resource:set', ({ characterId, group, key, max, used, remove }) => {
       if (!key || !ownsCharacter(characterId)) return;
       setResource(characterId, group, key, { max, used, remove });
       afterChange();
     });
 
-    socket.on('item:set', ({ characterId, item }) => {
+    on('item:set', ({ characterId, item }) => {
       if (!item?.name?.trim() || !ownsCharacter(characterId)) return;
       setItem(characterId, item);
       afterChange();
     });
 
-    socket.on('item:remove', ({ characterId, itemId }) => {
+    on('item:remove', ({ characterId, itemId }) => {
       if (!ownsCharacter(characterId)) return;
       removeItem(characterId, itemId);
       afterChange();
     });
 
     // ---- Object loot (DM fills containers; anyone who owns the target PC takes) ----
-    socket.on('object:setLoot', ({ monsterId, loot }) => {
+    on('object:setLoot', ({ monsterId, loot }) => {
       if (!isDm()) return; // only the DM stocks loot (object OR creature)
       const sid = sessionId();
       if (!sid || !monsterInSession(monsterId, sid)) return;
@@ -854,7 +884,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('loot:take', ({ monsterId, characterId, itemId, gold, all }) => {
+    on('loot:take', ({ monsterId, characterId, itemId, gold, all }) => {
       const sid = sessionId();
       if (!sid || !monsterInSession(monsterId, sid)) return; // this session only
       const m = getMonster(monsterId);
@@ -868,7 +898,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // A character attempts to disarm a trap (DM or the owning player). On success
     // the trap flips to "Disarmed" so it can't be triggered.
-    socket.on('trap:disarm', ({ monsterId, characterId, advantage }) => {
+    on('trap:disarm', ({ monsterId, characterId, advantage }) => {
       const sid = sessionId();
       if (!sid || !ownsCharacter(characterId)) return;
       const trap = getMonster(monsterId);
@@ -898,7 +928,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // Player/DM interacts with a door or chest: open it (if not locked) or pick
     // its lock (a DEX check vs the object's DC; success clears Locked).
-    socket.on('object:interact', ({ monsterId, characterId, action }) => {
+    on('object:interact', ({ monsterId, characterId, action }) => {
       const sid = sessionId();
       if (!sid) return;
       const obj = getMonster(monsterId);
@@ -946,25 +976,34 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // ---- Sheet spells/abilities (PC owner, or the DM for creatures) ----
-    socket.on('ability:set', ({ kind, refId, ability }) => {
+    on('ability:set', ({ kind, refId, ability }) => {
       if (!ability?.name?.trim() || !ownsCreature(kind, refId)) return;
+      // Validate any dice expressions BEFORE persisting: an unrollable string
+      // (e.g. "lol") stored here would make every later ability:roll throw. The
+      // roll is resolved server-side, so a bad expression is a client bug/abuse.
+      for (const expr of [ability.roll?.dice, ability.roll?.scaleDice]) {
+        if (expr && rollDice(expr) === null) {
+          socket.emit('notice', { message: `Invalid dice: "${expr}"` });
+          return;
+        }
+      }
       setSheetAbility(kind, refId, ability);
       afterChange();
     });
 
-    socket.on('ability:remove', ({ kind, refId, abilityId }) => {
+    on('ability:remove', ({ kind, refId, abilityId }) => {
       if (!ownsCreature(kind, refId)) return;
       removeSheetAbility(kind, refId, abilityId);
       afterChange();
     });
 
-    socket.on('ability:reorder', ({ kind, refId, orderedIds }) => {
+    on('ability:reorder', ({ kind, refId, orderedIds }) => {
       if (!Array.isArray(orderedIds) || !ownsCreature(kind, refId)) return;
       reorderSheetAbilities(kind, refId, orderedIds.filter((x) => typeof x === 'string'));
       afterChange();
     });
 
-    socket.on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1016,14 +1055,14 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Roll a death saving throw for a downed PC (owner or DM).
-    socket.on('death:roll', ({ characterId }) => {
+    on('death:roll', ({ characterId }) => {
       const sid = sessionId();
       if (!sid || !ownsCharacter(characterId)) return;
       if (resolveDeathSave(sid, characterId)) afterChange();
     });
 
     // Shared in-session chat (anyone in the session).
-    socket.on('chat:send', ({ text, speakAsTokenId }) => {
+    on('chat:send', ({ text, speakAsTokenId }) => {
       const sid = sessionId();
       const body = typeof text === 'string' ? text.trim() : '';
       if (!sid || !body) return;
@@ -1073,7 +1112,7 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Ephemeral "I'm typing" ping → a typing bubble over the player's PC token.
-    socket.on('chat:typing', ({ typing }) => {
+    on('chat:typing', ({ typing }) => {
       const sid = sessionId();
       if (!sid || isDm()) return; // DMs have no PC token to bubble over
       const refId = getClaimedCharacterId(sid, socket.id);
@@ -1081,12 +1120,12 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // Live "laser pointer": relay my cursor to others on the same map.
-    socket.on('cursor:move', ({ x, y, mapId }) => {
+    on('cursor:move', ({ x, y, mapId }) => {
       const sid = sessionId();
       if (!sid || !Number.isFinite(x) || !Number.isFinite(y) || typeof mapId !== 'string') return;
       broadcastCursor(io, sid, socket.id, rollerName(sid, socket.id, isDm()), x, y, mapId);
     });
-    socket.on('cursor:hide', () => {
+    on('cursor:hide', () => {
       const sid = sessionId();
       if (sid) broadcastCursorHide(io, sid, socket.id);
     });
@@ -1095,7 +1134,7 @@ export function registerSocketHandlers(io: IOServer): void {
     // DM-only chat messages (filtered from players in visibility.ts) and answered
     // by a local Ollama model, falling back to Gemini. Fail-safe: posts a notice
     // if no backend is reachable.
-    socket.on('assistant:ask', async ({ question, backend }) => {
+    on('assistant:ask', async ({ question, backend }) => {
       const sid = sessionId();
       const q = typeof question === 'string' ? question.trim() : '';
       if (!sid || !isDm() || !q) return;
@@ -1147,13 +1186,13 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     // DM-only: stop the in-flight rules-assistant request.
-    socket.on('assistant:cancel', () => {
+    on('assistant:cancel', () => {
       assistantInFlight.get(socket.id)?.abort();
     });
 
     // DM-only: "Previously on…" recap of recent rolls + chat, posted to chat for
     // everyone (so returning players can catch up).
-    socket.on('assistant:recap', async () => {
+    on('assistant:recap', async () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const rolls = listRollLog(sid, 60).map((r) => ({
@@ -1183,7 +1222,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // DM-only: make a creature speak an AI-generated in-character line, floated
     // as a speech bubble over its token (reuses the chat-bubble system).
-    socket.on('creature:speak', async ({ tokenId }) => {
+    on('creature:speak', async ({ tokenId }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const t = getToken(tokenId);
@@ -1209,7 +1248,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
     // DC and auto-apply full/half of the rolled amount — DM only.
-    socket.on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
+    on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
       const sid = sessionId();
       if (!sid) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
@@ -1226,7 +1265,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('skill:roll', ({ characterId, skill, advantage }) => {
+    on('skill:roll', ({ characterId, skill, advantage }) => {
       const sid = sessionId();
       if (!sid || typeof skill !== 'string' || !ownsCharacter(characterId)) return;
       const c = getCharacter(characterId);
@@ -1244,7 +1283,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // Click a stat block ability to roll that creature's saving throw. A PC's
     // save may be rolled by its owner or the DM; a monster's by the DM only.
-    socket.on('save:roll', ({ kind, refId, ability, advantage }) => {
+    on('save:roll', ({ kind, refId, ability, advantage }) => {
       const sid = sessionId();
       if (!sid || typeof ability !== 'string' || typeof refId !== 'string') return;
       const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
@@ -1254,7 +1293,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (ok) afterChange();
     });
 
-    socket.on('check:roll', ({ kind, refId, ability, advantage }) => {
+    on('check:roll', ({ kind, refId, ability, advantage }) => {
       const sid = sessionId();
       if (!sid || typeof ability !== 'string' || typeof refId !== 'string') return;
       const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
@@ -1264,7 +1303,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (ok) afterChange();
     });
 
-    socket.on('ai:fillCharacter', async ({ characterId }) => {
+    on('ai:fillCharacter', async ({ characterId }) => {
       const c = getCharacter(characterId);
       if (!c || (!isDm() && c.claimedBy !== socket.id)) return;
       const res = await aiFillCharacter(characterId);
@@ -1287,7 +1326,7 @@ export function registerSocketHandlers(io: IOServer): void {
       }
     });
 
-    socket.on('ai:createCharacter', async ({ description }) => {
+    on('ai:createCharacter', async ({ description }) => {
       const sid = sessionId();
       if (!sid || !description?.trim()) return; // DM or player may generate
       const res = await aiCreateCharacter(sid, description.trim());
@@ -1304,33 +1343,34 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // ---- Bulk multi-select token edits ----
 
-    socket.on('tokens:damage', ({ tokenIds, amount }) => {
-      if (!sessionId() || !Array.isArray(tokenIds) || !Number.isFinite(amount))
-        return;
+    on('tokens:damage', ({ tokenIds, amount }) => {
+      // Bulk damage/heal is a DM-only (Data-view multi-select) tool, like its
+      // tokens:setCondition / tokens:clearConditions siblings below.
+      if (!isDm() || !Array.isArray(tokenIds) || !Number.isFinite(amount)) return;
       damageTokens(tokenIds, amount);
       afterChange();
     });
 
-    socket.on('tokens:setHidden', ({ tokenIds, hidden }) => {
+    on('tokens:setHidden', ({ tokenIds, hidden }) => {
       if (!isDm() || !Array.isArray(tokenIds)) return;
       setTokensHidden(tokenIds, hidden);
       afterChange();
     });
 
-    socket.on('tokens:setCondition', ({ tokenIds, condition }) => {
+    on('tokens:setCondition', ({ tokenIds, condition }) => {
       // Bulk condition edits are a DM-only (Data view) tool.
       if (!isDm() || !Array.isArray(tokenIds) || !condition) return;
       setTokensCondition(tokenIds, condition);
       afterChange();
     });
 
-    socket.on('tokens:clearConditions', ({ tokenIds }) => {
+    on('tokens:clearConditions', ({ tokenIds }) => {
       if (!isDm() || !Array.isArray(tokenIds)) return;
       clearTokensConditions(tokenIds);
       afterChange();
     });
 
-    socket.on('monster:create', (p) => {
+    on('monster:create', (p) => {
       const sid = sessionId();
       if (!sid || !isDm() || !p.name?.trim()) return; // DM action
       createMonsterTemplate(sid, {
@@ -1355,7 +1395,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('monster:update', ({ monsterId, ...patch }) => {
+    on('monster:update', ({ monsterId, ...patch }) => {
       const sid = sessionId();
       // Editing creature stats is a DM action, scoped to the DM's own session.
       if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
@@ -1363,7 +1403,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('monster:delete', ({ monsterId }) => {
+    on('monster:delete', ({ monsterId }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
       deleteMonster(monsterId);
@@ -1372,14 +1412,14 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // Shared party notes — any joined client (DM or player) may edit, scoped to
     // their own session so notes can't leak/write across sessions.
-    socket.on('creature:setNotes', ({ monsterId, notes }) => {
+    on('creature:setNotes', ({ monsterId, notes }) => {
       const sid = sessionId();
       if (!sid || getMonster(monsterId)?.sessionId !== sid) return;
       setMonsterPlayerNotes(monsterId, notes);
       afterChange();
     });
 
-    socket.on('ai:fillCreature', async ({ monsterId }) => {
+    on('ai:fillCreature', async ({ monsterId }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
       const res = await aiFillCreature(monsterId);
@@ -1401,7 +1441,7 @@ export function registerSocketHandlers(io: IOServer): void {
       }
     });
 
-    socket.on('tokens:setIcon', ({ tokenIds, icon }) => {
+    on('tokens:setIcon', ({ tokenIds, icon }) => {
       if (!isDm() || !Array.isArray(tokenIds)) return;
       for (const id of tokenIds) {
         const t = getToken(id);
@@ -1410,25 +1450,25 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('tokens:setHideCombatRole', ({ tokenIds, hide }) => {
+    on('tokens:setHideCombatRole', ({ tokenIds, hide }) => {
       if (!isDm() || !Array.isArray(tokenIds)) return;
       setTokensHideCombatRole(tokenIds, hide);
       afterChange();
     });
 
-    socket.on('tokens:setCombatRole', ({ tokenIds, role }) => {
+    on('tokens:setCombatRole', ({ tokenIds, role }) => {
       if (!isDm() || !Array.isArray(tokenIds)) return;
       setTokensCombatRole(tokenIds, role);
       afterChange();
     });
 
-    socket.on('initiative:set', ({ tokenId, initiative }) => {
+    on('initiative:set', ({ tokenId, initiative }) => {
       if (!sessionId() || !isDm()) return;
       setTokenInitiative(tokenId, initiative);
       afterChange();
     });
 
-    socket.on('initiative:rollAll', () => {
+    on('initiative:rollAll', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
@@ -1440,7 +1480,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('initiative:rollMissing', () => {
+    on('initiative:rollMissing', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
@@ -1456,7 +1496,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('initiative:next', () => {
+    on('initiative:next', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       advanceTurn(sid);
@@ -1465,7 +1505,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // A player may end the turn ONLY when the active combatant is their own
     // claimed PC (the DM still advances anyone via initiative:next).
-    socket.on('initiative:endTurn', () => {
+    on('initiative:endTurn', () => {
       const sid = sessionId();
       if (!sid) return;
       if (!isDm()) {
@@ -1479,7 +1519,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('initiative:clear', () => {
+    on('initiative:clear', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       clearInitiative(sid); // also zeroes the round counter
@@ -1488,21 +1528,21 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // DM edits the round counter directly (fix a miscount / re-count after a
     // narrative break) without touching anyone's rolls.
-    socket.on('initiative:setRound', ({ round }) => {
+    on('initiative:setRound', ({ round }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !Number.isFinite(round)) return;
       setCombatRound(sid, Math.min(999, Math.max(0, Math.round(round))));
       afterChange();
     });
 
-    socket.on('session:setHideDmRolls', ({ hide }) => {
+    on('session:setHideDmRolls', ({ hide }) => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       setHideDmRolls(sid, !!hide);
       afterChange();
     });
 
-    socket.on('dice:roll', ({ expr, label, advantage }) => {
+    on('dice:roll', ({ expr, label, advantage }) => {
       const sid = sessionId();
       if (!sid || typeof expr !== 'string') return;
       const result = rollDice(expr.trim(), advantage);
@@ -1520,14 +1560,14 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('dice:clearLog', () => {
+    on('dice:clearLog', () => {
       const sid = sessionId();
-      if (!sid) return;
+      if (!sid || !isDm()) return; // clearing the shared roll log is a DM action
       clearRollLog(sid);
       afterChange();
     });
 
-    socket.on(
+    on(
       'combat:attack',
       ({ attackerTokenId, targetTokenId, weaponIndex, advantage, offhand, twoHanded }) => {
         const sid = sessionId();
@@ -1567,7 +1607,7 @@ export function registerSocketHandlers(io: IOServer): void {
       },
     );
 
-    socket.on('combat:save', ({ tokenIds, ability, dc, advantage, advantageByToken }) => {
+    on('combat:save', ({ tokenIds, ability, dc, advantage, advantageByToken }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !Array.isArray(tokenIds) || !Number.isFinite(dc))
         return;
@@ -1575,7 +1615,7 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    socket.on('disconnect', () => {
+    on('disconnect', () => {
       const sid = sessionId();
       const playerId = getConn(socket.id)?.playerId ?? null;
       assistantInFlight.get(socket.id)?.abort(); // stop any in-flight LLM call

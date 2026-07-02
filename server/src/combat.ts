@@ -129,7 +129,8 @@ function saveBonus(r: Resolved, ability: string): { add: number; note: string } 
 /** Roll a dice expression and keep the per-die face breakdown for the log,
  *  e.g. "2d6[3,5] +1" — so Acid Splash shows WHICH dice landed, not just a sum. */
 function rollFaces(expr: string): { total: number; text: string } {
-  const r = rollDice(expr)!;
+  const r = rollDice(expr);
+  if (!r) return { total: 0, text: expr }; // unrollable expression → no-op, never throw
   return { total: r.total, text: r.detail.replace(/ = -?\d+$/, '') };
 }
 
@@ -846,16 +847,18 @@ function resolveTargetedSpellAttack(opts: {
   let dmgFaces = '';
   const revealDice: NonNullable<RollReveal['damageDice']> = [];
   const revealMods: NonNullable<RollReveal['damageMods']> = [];
-  if (hit && opts.dice) {
-    const first = rollDice(opts.dice)!;
+  const first = hit && opts.dice ? rollDice(opts.dice) : null;
+  if (hit && opts.dice && first) {
     let dmg = first.total;
     dmgFaces = `${opts.dice}[${first.rolls.join(',')}]`;
     revealDice.push({ label: opts.dice, value: first.total, faces: first.rolls });
     if (crit) {
-      const second = rollDice(opts.dice)!; // crit doubles the dice
-      dmg += second.total;
-      dmgFaces += ` + [${second.rolls.join(',')}] crit`;
-      revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls });
+      const second = rollDice(opts.dice); // crit doubles the dice
+      if (second) {
+        dmg += second.total;
+        dmgFaces += ` + [${second.rolls.join(',')}] crit`;
+        revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls });
+      }
     }
     const mult = damageMultiplier(opts.damageType, t.resistances, t.weaknesses);
     applied = Math.max(1, Math.floor(dmg * mult));
