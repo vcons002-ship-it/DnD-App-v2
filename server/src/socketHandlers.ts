@@ -259,14 +259,15 @@ export function registerSocketHandlers(io: IOServer): void {
           error: { code: 'NO_SESSION', message: 'Session not found' },
         });
       }
-      if (
-        payload.role === 'dm' &&
-        config.dmPassphrase &&
-        payload.dmPassphrase !== config.dmPassphrase
-      ) {
+      // The DM secret is mandatory now (config.dmPassphrase is always set), so
+      // this always enforces. Players never supply it.
+      if (payload.role === 'dm' && payload.dmPassphrase !== config.dmPassphrase) {
         return ack({
           ok: false,
-          error: { code: 'BAD_PASSPHRASE', message: 'Incorrect DM passphrase' },
+          error: {
+            code: 'BAD_PASSPHRASE',
+            message: 'Incorrect DM secret. Check the server console / data/dm-secret.txt.',
+          },
         });
       }
 

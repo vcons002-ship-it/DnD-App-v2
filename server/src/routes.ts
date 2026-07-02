@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
+import dns from 'node:dns/promises';
+import net from 'node:net';
 import { config } from './config.js';
 import { newId } from './db.js';
 import {
@@ -59,10 +62,27 @@ import {
   searchLibraryCreatures,
 } from './library.js';
 
+// Only these raster extensions are ever written to /uploads. Critically this
+// EXCLUDES .svg/.html — an uploaded SVG/HTML with embedded script would be
+// served same-origin by express.static and execute in the app's origin
+// (stored XSS). The stored filename is a fresh UUID + a whitelisted extension,
+// so the client-supplied name can't smuggle one either.
+const ALLOWED_IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.avif']);
+const ALLOWED_IMAGE_MIME = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'image/avif',
+]);
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, config.uploadsDir),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.png';
+    let ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.jpe') ext = '.jpg';
+    if (!ALLOWED_IMAGE_EXT.has(ext)) ext = '.png';
     cb(null, `${newId()}${ext}`);
   },
 });
@@ -70,9 +90,83 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 25 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) =>
-    cb(null, file.mimetype.startsWith('image/')),
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    // Both the declared mime AND the extension must be a known raster type.
+    cb(null, ALLOWED_IMAGE_MIME.has(file.mimetype) && ALLOWED_IMAGE_EXT.has(ext));
+  },
 });
+
+/** True if `ip` is loopback / private / link-local (incl. the cloud metadata
+ *  address 169.254.169.254) — anything an SSRF should never be allowed to reach. */
+function isPrivateIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) || // link-local + cloud metadata
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127) // CGNAT
+    );
+  }
+  const v6 = ip.toLowerCase();
+  if (v6 === '::1' || v6 === '::') return true;
+  if (v6.startsWith('fe80') || v6.startsWith('fc') || v6.startsWith('fd')) return true;
+  const mapped = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/); // IPv4-mapped IPv6
+  return mapped ? isPrivateIp(mapped[1]) : false;
+}
+
+/** Resolve a hostname and reject if it (or any A/AAAA record) is private —
+ *  blocks SSRF to internal services / cloud metadata via the URL fetcher. */
+async function hostIsBlocked(hostname: string): Promise<boolean> {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (net.isIP(h)) return isPrivateIp(h);
+  try {
+    const addrs = await dns.lookup(h, { all: true });
+    return addrs.some((a) => isPrivateIp(a.address));
+  } catch {
+    return true; // unresolvable → don't fetch
+  }
+}
+
+/** Verify the DM secret on a REST request (header OR body field). Returns true
+ *  when authorized; otherwise writes a 403 and returns false. The secret is
+ *  mandatory (config.dmPassphrase is always set), so this always enforces. */
+function requireDm(req: Request, res: Response): boolean {
+  const supplied =
+    (typeof req.headers['x-dm-passphrase'] === 'string'
+      ? (req.headers['x-dm-passphrase'] as string)
+      : undefined) ??
+    (typeof req.body?.dmPassphrase === 'string' ? req.body.dmPassphrase : undefined);
+  if (supplied === config.dmPassphrase) return true;
+  res.status(403).json({ error: 'DM secret required.' });
+  return false;
+}
+
+/** Tiny in-memory fixed-window rate limiter (per client IP + key). Guards the
+ *  ungated, resource-spending endpoints (local image gen, remote image fetch)
+ *  from runaway loops without pulling in a dependency. Returns true when the
+ *  request should be rejected (and writes a 429). */
+const rlBuckets = new Map<string, { count: number; resetAt: number }>();
+function rateLimited(req: Request, res: Response, key: string, max: number, windowMs: number): boolean {
+  const id = `${key}:${req.ip ?? 'unknown'}`;
+  const now = Date.now();
+  const b = rlBuckets.get(id);
+  if (!b || now >= b.resetAt) {
+    rlBuckets.set(id, { count: 1, resetAt: now + windowMs });
+    return false;
+  }
+  if (b.count >= max) {
+    res.status(429).json({ error: 'Too many requests — slow down a moment.' });
+    return true;
+  }
+  b.count++;
+  return false;
+}
 
 // Rulebook PDF upload: kept in memory so we can parse it, not stored as a file.
 const pdfUpload = multer({
@@ -88,6 +182,7 @@ export function createApiRouter(io: IOServer): Router {
   // Create a new session; returns the shareable DM + player links. An optional
   // `code` lets the DM pick a memorable, stable link (e.g. "TAVERN").
   router.post('/sessions', (req, res) => {
+    if (!requireDm(req, res)) return; // only the DM creates sessions
     const name = typeof req.body?.name === 'string' ? req.body.name : undefined;
     const code = typeof req.body?.code === 'string' ? req.body.code : undefined;
     let session;
@@ -107,8 +202,12 @@ export function createApiRouter(io: IOServer): Router {
     });
   });
 
-  // Saved-session directory for the DM resume screen.
-  router.get('/sessions', (_req, res) => {
+  // Saved-session directory for the DM resume screen. DM-only: this lists EVERY
+  // session's join code, so leaving it open let anyone enumerate all campaigns
+  // (the "code is the gate" model depended on codes staying secret). Players no
+  // longer use this — they join by shared link/code, not by browsing the list.
+  router.get('/sessions', (req, res) => {
+    if (!requireDm(req, res)) return;
     res.json(listSessions());
   });
 
@@ -117,9 +216,7 @@ export function createApiRouter(io: IOServer): Router {
   // (only links to the previous code stop working). Gated by the DM passphrase
   // when one is configured, like the other DM-only mutations.
   router.patch('/sessions/:code', (req, res) => {
-    if (config.dmPassphrase && req.body?.dmPassphrase !== config.dmPassphrase) {
-      return res.status(403).json({ error: 'Incorrect DM passphrase' });
-    }
+    if (!requireDm(req, res)) return;
     const session = getSessionByCode(req.params.code);
     if (!session) return res.status(404).json({ error: 'Session not found.' });
     const name = typeof req.body?.name === 'string' ? req.body.name : undefined;
@@ -147,9 +244,7 @@ export function createApiRouter(io: IOServer): Router {
   // Delete a saved session and all of its data (cascade). Gated by the DM
   // passphrase when configured.
   router.delete('/sessions/:code', (req, res) => {
-    if (config.dmPassphrase && req.body?.dmPassphrase !== config.dmPassphrase) {
-      return res.status(403).json({ error: 'Incorrect DM passphrase' });
-    }
+    if (!requireDm(req, res)) return;
     const session = getSessionByCode(req.params.code);
     if (!session) return res.status(404).json({ error: 'Session not found.' });
     deleteSession(session.id);
@@ -163,14 +258,9 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   router.post('/settings', (req, res) => {
-    // Gate behind the DM passphrase when one is configured (matches the DM join
-    // gate); otherwise this is a local-trust action like the rest of the app.
-    if (
-      config.dmPassphrase &&
-      req.body?.dmPassphrase !== config.dmPassphrase
-    ) {
-      return res.status(403).json({ error: 'Incorrect DM passphrase' });
-    }
+    // DM-only: writes the Gemini key and the Ollama/Comfy URLs (server-side
+    // fetched → an unauthenticated write is both key-tampering and SSRF).
+    if (!requireDm(req, res)) return;
     const patch: {
       geminiApiKey?: string;
       geminiModel?: string;
@@ -239,6 +329,9 @@ export function createApiRouter(io: IOServer): Router {
   // picks sensible dimensions (token/decal square, map landscape); width/height
   // override it. 503 when ComfyUI is unreachable / generation failed.
   router.post('/comfy/generate', async (req, res) => {
+    // Player-usable (token art), so not DM-gated — but rate-limited so a loop
+    // can't hammer the local GPU. ComfyUI is local, so no cloud cost.
+    if (rateLimited(req, res, 'comfy', 12, 60_000)) return;
     const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
     if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
     const kind = req.body?.kind;
@@ -291,9 +384,7 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   router.post('/rulebook', pdfUpload.single('pdf'), async (req, res) => {
-    if (config.dmPassphrase && req.headers['x-dm-passphrase'] !== config.dmPassphrase) {
-      return res.status(403).json({ error: 'Incorrect DM passphrase' });
-    }
+    if (!requireDm(req, res)) return;
     const file = (req as { file?: Express.Multer.File }).file;
     if (!file) return res.status(400).json({ error: 'No PDF uploaded' });
     const info = await setRulebookFromPdf(file.buffer, file.originalname);
@@ -305,9 +396,7 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   router.delete('/rulebook', (req, res) => {
-    if (config.dmPassphrase && req.headers['x-dm-passphrase'] !== config.dmPassphrase) {
-      return res.status(403).json({ error: 'Incorrect DM passphrase' });
-    }
+    if (!requireDm(req, res)) return;
     clearRulebook();
     res.json({ ok: true });
   });
@@ -325,6 +414,7 @@ export function createApiRouter(io: IOServer): Router {
   // Full creature lookup: library first (a DM's saved/edited copy is
   // authoritative and shadows the SRD, matching search), then SRD, then Gemini.
   router.post('/creatures/lookup', async (req, res) => {
+    if (!requireDm(req, res)) return; // DM autofill tool; may spend the Gemini key
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
     const lib = getLibraryCreature(name);
@@ -461,6 +551,7 @@ export function createApiRouter(io: IOServer): Router {
   // caller drops it into an inventory/container; saving to the library is a
   // separate, explicit choice. Key-gated: 503 when no key / generation failed.
   router.post('/items/generate', async (req, res) => {
+    if (!requireDm(req, res)) return; // DM loot authoring; spends the Gemini key
     const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
     if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
     const item = await generateItemAI(prompt);
@@ -471,6 +562,7 @@ export function createApiRouter(io: IOServer): Router {
   // AI-fill a shop popup from a description → a list of priced items dropped into
   // the decal shop editor (NOT auto-saved). Key-gated: 503 when unavailable.
   router.post('/shops/generate', async (req, res) => {
+    if (!requireDm(req, res)) return; // DM shop authoring; spends the Gemini key
     const description = typeof req.body?.description === 'string' ? req.body.description : '';
     if (!description.trim()) return res.status(400).json({ error: 'description required' });
     const items = await generateShopItemsAI(description);
@@ -519,6 +611,12 @@ export function createApiRouter(io: IOServer): Router {
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return res.status(400).json({ error: 'http(s) urls only' });
+    }
+    if (rateLimited(req, res, 'from-url', 30, 60_000)) return;
+    // SSRF guard: never let this fetch loopback / private / link-local hosts
+    // (e.g. 169.254.169.254 cloud metadata, or an internal service on the VM).
+    if (await hostIsBlocked(parsed.hostname)) {
+      return res.status(400).json({ error: 'that url is not allowed' });
     }
     try {
       const r = await fetch(parsed, {
@@ -570,9 +668,7 @@ export function createApiRouter(io: IOServer): Router {
   // the DM passphrase when one is configured (this is the one REST route that
   // mutates live session state — every socket-side map mutation is DM-gated).
   router.post('/sessions/:code/maps', upload.single('image'), (req, res) => {
-    if (config.dmPassphrase && req.body?.dmPassphrase !== config.dmPassphrase) {
-      return res.status(403).json({ error: 'Incorrect DM passphrase' });
-    }
+    if (!requireDm(req, res)) return;
     const session = getSessionByCode(req.params.code);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 

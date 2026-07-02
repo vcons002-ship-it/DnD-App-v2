@@ -79,5 +79,17 @@ server.listen(config.port, async () => {
   console.log(`  DM:      ${base}/dm`);
   console.log(`  Players: ${base}/join`);
   console.log('  (Create a session in the DM view to get a join code.)');
+  console.log('  ──────────────────────────────────────────────');
+  // The DM secret is required to open the DM console (players never need it).
+  // Show it here so the host can copy it; hide it only when the DM supplied
+  // their own via DM_PASSPHRASE (already known to them, don't echo to logs).
+  if (config.dmSecretSource === 'env') {
+    console.log('  DM secret:  (using your DM_PASSPHRASE env var)');
+  } else {
+    console.log(`  DM secret:  ${config.dmPassphrase}`);
+    console.log('              Enter this on the DM screen to log in.');
+    console.log('              (Saved in server/data/dm-secret.txt — keep it private.)');
+  }
+  console.log('  Players just need the session code — no secret.');
   console.log('  ──────────────────────────────────────────────\n');
 });

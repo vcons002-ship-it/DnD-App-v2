@@ -44,10 +44,15 @@ export function DmRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The saved-session directory is DM-only now (it lists every join code), so
+  // it's fetched WITH the DM secret. Until the right secret is entered the list
+  // stays empty — the DM can still rejoin by typing a code directly above.
   const refreshSessions = () =>
-    fetch('/api/sessions')
-      .then((r) => r.json())
-      .then(setSessions)
+    fetch('/api/sessions', {
+      headers: passphrase ? { 'x-dm-passphrase': passphrase } : undefined,
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setSessions(Array.isArray(d) ? d : []))
       .catch(() => setSessions([]));
 
   // Refresh the saved-session list whenever we're on this screen — including
@@ -58,7 +63,7 @@ export function DmRoute() {
   useEffect(() => {
     if (status !== 'connected') refreshSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, passphrase]);
 
   const startEdit = (s: SessionSummary) => {
     setEditing(s.code);
@@ -111,7 +116,10 @@ export function DmRoute() {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customCode.trim() ? { code: customCode.trim() } : {}),
+        body: JSON.stringify({
+          ...(customCode.trim() ? { code: customCode.trim() } : {}),
+          dmPassphrase: passphrase,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -137,6 +145,14 @@ export function DmRoute() {
       <p>Start a new session or rejoin an existing one.</p>
 
       <input
+        placeholder="DM secret (required — see server console)"
+        type="password"
+        value={passphrase}
+        onChange={(e) => setPassphrase(e.target.value)}
+        title="Printed in the server console at startup and saved in server/data/dm-secret.txt. Needed for every DM action; players don't need it."
+      />
+
+      <input
         placeholder="Custom code (optional, e.g. TAVERN)"
         value={customCode}
         onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
@@ -153,12 +169,6 @@ export function DmRoute() {
         placeholder="Session code"
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
-      />
-      <input
-        placeholder="DM passphrase (if set)"
-        type="password"
-        value={passphrase}
-        onChange={(e) => setPassphrase(e.target.value)}
       />
       <button
         className="btn big"
