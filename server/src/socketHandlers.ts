@@ -417,10 +417,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm() || typeof icon !== 'string' || !icon) return;
       const map = getMap(mapId);
-      if (!map || getActiveMapId(sid) !== mapId) {
-        // Only place on the active/viewed map the DM is looking at.
-      }
-      if (!map) return;
+      if (!map) return; // the DM pastes onto whatever map they're viewing
       createPastedObject(sid, mapId, Number(x) || 0, Number(y) || 0, icon, (name || 'Object').slice(0, 60));
       afterChange();
     });

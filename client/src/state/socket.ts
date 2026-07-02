@@ -675,7 +675,11 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('assistant:thinking', ({ thinking }) =>
       set({ assistantThinking: thinking }),
     );
-    socket.on('error', (err) => set({ error: err.message }));
+    // Also surface server errors as a toast: once in-game the entry-screen
+    // `error` line isn't rendered, so a rejected action would otherwise be silent.
+    socket.on('error', (err) =>
+      set({ error: err.message, toast: { id: Date.now(), message: err.message } }),
+    );
     socket.on('notice', ({ message }) =>
       // A notice is the completion signal for AI requests too — clear the spinner.
       set({ toast: { id: Date.now(), message }, aiBusy: false }),
