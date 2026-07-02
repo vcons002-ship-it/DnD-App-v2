@@ -328,7 +328,10 @@ export function setActiveMap(sessionId: string, mapId: string): void {
  * still placed elsewhere are kept). If the deleted map was active, promote the
  * next remaining map (or none) and clear a now-dangling turn marker.
  */
-export function deleteMap(mapId: string): void {
+// Atomic: token cleanup → orphan-monster GC → map delete → active-map promotion
+// all commit together, so a mid-way failure can't strand instances or leave a
+// dangling active_map_id.
+export const deleteMap = db.transaction((mapId: string): void => {
   const map = getMap(mapId);
   if (!map) return;
   const { sessionId } = map;
@@ -365,7 +368,7 @@ export function deleteMap(mapId: string): void {
     );
     setActiveTurn(sessionId, null);
   }
-}
+});
 
 export function getActiveMapId(sessionId: string): string | null {
   return getSessionById(sessionId)?.activeMapId ?? null;
@@ -541,7 +544,10 @@ export function setTokensHideCombatRole(
   const stmt = db.prepare(
     'UPDATE tokens SET hide_combat_role = ? WHERE id = ?',
   );
-  for (const id of tokenIds) stmt.run(hide ? 1 : 0, id);
+  // One transaction instead of a WAL commit per token (bulk Data-view edits).
+  db.transaction(() => {
+    for (const id of tokenIds) stmt.run(hide ? 1 : 0, id);
+  })();
 }
 
 /** Override (role) or clear (null → auto-derive) the combat role across tokens. */
@@ -552,7 +558,9 @@ export function setTokensCombatRole(
   const stmt = db.prepare(
     'UPDATE tokens SET combat_role_override = ? WHERE id = ?',
   );
-  for (const id of tokenIds) stmt.run(role, id);
+  db.transaction(() => {
+    for (const id of tokenIds) stmt.run(role, id);
+  })();
 }
 
 /** Record the combat role of a creature's most recent attack so the token
@@ -596,16 +604,20 @@ export function setDeathSaves(
 
 /** Damage (+) / heal (−) every listed token's creature (AOE). */
 export function damageTokens(tokenIds: string[], amount: number): void {
-  for (const id of tokenIds) {
-    const t = getToken(id);
-    if (t) applyDamage(t.kind, t.refId, amount);
-  }
+  db.transaction(() => {
+    for (const id of tokenIds) {
+      const t = getToken(id);
+      if (t) applyDamage(t.kind, t.refId, amount);
+    }
+  })();
 }
 
 /** Hide/show every listed token from players. */
 export function setTokensHidden(tokenIds: string[], hidden: boolean): void {
   const stmt = db.prepare('UPDATE tokens SET is_hidden = ? WHERE id = ?');
-  for (const id of tokenIds) stmt.run(hidden ? 1 : 0, id);
+  db.transaction(() => {
+    for (const id of tokenIds) stmt.run(hidden ? 1 : 0, id);
+  })();
 }
 
 /** Apply one condition to every listed token's creature (own id per creature). */
@@ -613,22 +625,26 @@ export function setTokensCondition(
   tokenIds: string[],
   condition: Omit<Condition, 'id'>,
 ): void {
-  for (const id of tokenIds) {
-    const t = getToken(id);
-    if (t) setCondition(t.kind, t.refId, { id: newId(), ...condition });
-  }
+  db.transaction(() => {
+    for (const id of tokenIds) {
+      const t = getToken(id);
+      if (t) setCondition(t.kind, t.refId, { id: newId(), ...condition });
+    }
+  })();
 }
 
 /** Clear ALL conditions from every listed token's creature. */
 export function clearTokensConditions(tokenIds: string[]): void {
-  for (const id of tokenIds) {
-    const t = getToken(id);
-    if (!t) continue;
-    const table = t.kind === 'pc' ? 'characters' : 'monsters';
-    db.prepare(`UPDATE ${table} SET conditions = '[]' WHERE id = ?`).run(
-      t.refId,
-    );
-  }
+  db.transaction(() => {
+    for (const id of tokenIds) {
+      const t = getToken(id);
+      if (!t) continue;
+      const table = t.kind === 'pc' ? 'characters' : 'monsters';
+      db.prepare(`UPDATE ${table} SET conditions = '[]' WHERE id = ?`).run(
+        t.refId,
+      );
+    }
+  })();
 }
 
 /**
@@ -649,23 +665,25 @@ export function copyTokens(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   let copied = 0;
-  for (const t of listTokens(fromMapId)) {
-    if (!kinds.includes(t.kind)) continue;
-    if (existing.has(`${t.kind}:${t.refId}`)) continue;
-    insert.run(
-      newId(),
-      toMapId,
-      t.kind,
-      t.refId,
-      t.x,
-      t.y,
-      t.size,
-      t.initiative,
-      t.isHidden ? 1 : 0,
-      Date.now(),
-    );
-    copied++;
-  }
+  db.transaction(() => {
+    for (const t of listTokens(fromMapId)) {
+      if (!kinds.includes(t.kind)) continue;
+      if (existing.has(`${t.kind}:${t.refId}`)) continue;
+      insert.run(
+        newId(),
+        toMapId,
+        t.kind,
+        t.refId,
+        t.x,
+        t.y,
+        t.size,
+        t.initiative,
+        t.isHidden ? 1 : 0,
+        Date.now(),
+      );
+      copied++;
+    }
+  })();
   return copied;
 }
 
@@ -875,7 +893,9 @@ export function previewImportCharacters(
  * takes the next sequential name (Goblin 1 -> Goblin 3), so the two are
  * "identical but uniquely tracked". PC tokens just re-place the same character.
  */
-export function duplicateToken(tokenId: string): Token | null {
+// Atomic: insert the copied monster instance, stamp its HP/conditions, and
+// create its token as one unit.
+export const duplicateToken = db.transaction((tokenId: string): Token | null => {
   const token = getToken(tokenId);
   if (!token) return null;
   const map = getMap(token.mapId);
@@ -943,7 +963,7 @@ export function duplicateToken(tokenId: string): Token | null {
   });
   if (token.widthFt !== 5) resizeToken(copy.id, token.widthFt);
   return getToken(copy.id);
-}
+});
 
 // ---- Initiative turn order (operates on the active map) ----
 
@@ -994,17 +1014,21 @@ const rollInitiative = (token: Token): number =>
  *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
-  for (const t of listTokens(mapId)) {
-    roll.run(isObjectToken(t) ? null : rollInitiative(t), t.id);
-  }
+  db.transaction(() => {
+    for (const t of listTokens(mapId)) {
+      roll.run(isObjectToken(t) ? null : rollInitiative(t), t.id);
+    }
+  })();
 }
 
 /** Roll only for combatants that haven't rolled yet (latecomers to combat). */
 export function rollMissingInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
-  for (const t of listTokens(mapId)) {
-    if (t.initiative === null && !isObjectToken(t)) roll.run(rollInitiative(t), t.id);
-  }
+  db.transaction(() => {
+    for (const t of listTokens(mapId)) {
+      if (t.initiative === null && !isObjectToken(t)) roll.run(rollInitiative(t), t.id);
+    }
+  })();
 }
 
 /** Toggle whether the DM's own rolls are hidden from players' logs. */

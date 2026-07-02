@@ -235,6 +235,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_maps_session          ON maps(session_id);
   CREATE INDEX IF NOT EXISTS idx_tokens_map            ON tokens(map_id);
   CREATE INDEX IF NOT EXISTS idx_characters_session    ON characters(session_id);
+  -- rollerName() looks up the claimant per cursor/roll packet; index the column.
+  CREATE INDEX IF NOT EXISTS idx_characters_claimed_by ON characters(claimed_by);
   CREATE INDEX IF NOT EXISTS idx_monsters_session      ON monsters(session_id);
   CREATE INDEX IF NOT EXISTS idx_measurements_session  ON measurements(session_id);
   CREATE INDEX IF NOT EXISTS idx_annotations_session   ON annotations(session_id);
