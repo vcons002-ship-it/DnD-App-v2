@@ -67,6 +67,11 @@ export const config = {
   /** Explicit public URL override (named tunnel or custom provider). */
   publicUrl: process.env.PUBLIC_URL?.replace(/\/$/, '') || '',
   cfTunnelName: process.env.CF_TUNNEL_NAME || '',
+  /** Token for a remotely-managed Cloudflare named tunnel (created in the Zero
+   *  Trust dashboard). When set, cloudflared runs with `--token` and the public
+   *  hostname/ingress is configured in the dashboard — the easiest way to put
+   *  the app on your own domain. Pair with PUBLIC_URL = your hostname. */
+  cfTunnelToken: process.env.CF_TUNNEL_TOKEN || '',
   /** MANDATORY DM login secret (see resolveDmSecret). Always non-empty now, so
    *  every DM gate enforces it instead of no-opping on a blank value. */
   dmPassphrase: resolvedDmSecret,

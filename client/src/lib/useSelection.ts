@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
 
@@ -16,23 +16,26 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Cross-tab sync (best-effort; no-op where BroadcastChannel is unavailable).
-  const channel = useMemo(
-    () =>
-      syncKey && typeof BroadcastChannel !== 'undefined'
-        ? new BroadcastChannel(syncKey)
-        : null,
-    [syncKey],
-  );
+  // The channel is created AND closed inside one effect (held via a ref), so
+  // StrictMode's mount→cleanup→mount can't leave a listener/postMessage pointed
+  // at a channel a prior cleanup already closed.
+  const channelRef = useRef<BroadcastChannel | null>(null);
   const fromRemote = useRef(false);
   useEffect(() => {
-    if (!channel) return;
+    if (!syncKey || typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel(syncKey);
+    channelRef.current = channel;
     channel.onmessage = (e: MessageEvent) => {
       fromRemote.current = true;
       setSelectedIds(e.data as string[]);
     };
-    return () => channel.close();
-  }, [channel]);
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, [syncKey]);
   useEffect(() => {
+    const channel = channelRef.current;
     if (!channel) return;
     // Don't echo a selection we just received from another tab.
     if (fromRemote.current) {
@@ -40,7 +43,7 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
       return;
     }
     channel.postMessage(selectedIds);
-  }, [selectedIds, channel]);
+  }, [selectedIds]);
 
   const handleSelect = useCallback((token: Token | null, additive?: boolean) => {
     if (!token) {

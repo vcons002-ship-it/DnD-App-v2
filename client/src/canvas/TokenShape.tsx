@@ -254,13 +254,21 @@ function TokenShapeInner({
   useEffect(() => {
     const node = turnRing.current;
     if (!activeTurn || !node) return;
+    const layer = node.getLayer();
+    let last = 0;
+    // The ring shares the main token layer, so an animation bound to that layer
+    // would redraw the ENTIRE scene (map, fog, every token) 60×/s for all of
+    // combat. Instead: no layer arg (so Konva doesn't auto-redraw), and we
+    // batchDraw ourselves throttled to ~20fps — same visible pulse, ⅓ the draws.
     const anim = new Konva.Animation((frame) => {
-      if (!frame) return;
+      if (!frame || frame.time - last < 50) return;
+      last = frame.time;
       const t = (Math.sin(frame.time / 280) + 1) / 2; // 0..1 ease
       node.radius(turnRingR + t * 6);
       node.strokeWidth(5 + t * 4);
       node.opacity(0.65 + t * 0.35);
-    }, node.getLayer());
+      layer?.batchDraw();
+    });
     anim.start();
     return () => {
       anim.stop();

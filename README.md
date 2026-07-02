@@ -226,6 +226,20 @@ npm run typecheck   # type-check server + client
 npm test            # run the server/shared unit tests (vitest)
 ```
 
+### Run it 24/7 on your PC (Windows service)
+
+To keep the app reachable without leaving a console window open, install the
+server as a Windows service: right-click **`install-service.bat`** →
+**Run as administrator**. It registers a `DnDServer` service that starts on boot
+and auto-restarts on a crash (logs in `server\data\service.log`). Pair it with a
+stable tunnel (a Cloudflare **named/token tunnel** via `CF_TUNNEL_TOKEN` +
+`PUBLIC_URL`, or your own `PUBLIC_URL`) so your links never change.
+
+Once the service is installed: don't use `start.bat` (they'd fight over the
+port — `start.bat` now detects the service and no-ops), and running
+`install.bat` to update rebuilds the client and restarts the service for you.
+Manage it with `tools\nssm.exe stop|start|restart DnDServer`.
+
 ## Always-on cloud hosting (optional, free)
 
 Instead of running the server on your PC behind a per-restart tunnel URL, you

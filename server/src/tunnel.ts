@@ -18,15 +18,56 @@ function hasCloudflared(): Promise<boolean> {
 }
 
 /**
+ * One quick-tunnel attempt: spawn `cloudflared tunnel --url …`, resolve with the
+ * trycloudflare URL it prints, or '' if it errors / exits / doesn't print one
+ * within `timeoutMs`. A FAILED attempt's process is killed so retries don't leave
+ * orphan tunnels (which is exactly how you end up with a live URL pointing at a
+ * dead origin — a 404 that looks like "the tunnel didn't go through").
+ */
+function attemptQuickTunnel(timeoutMs: number): Promise<string> {
+  return new Promise((resolve) => {
+    const proc = spawn('cloudflared', [
+      'tunnel',
+      '--url',
+      `http://localhost:${config.port}`,
+    ]);
+    let done = false;
+    const urlRe = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
+    const timer = setTimeout(() => settle(''), timeoutMs);
+    function settle(url: string) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (!url) {
+        try {
+          proc.kill();
+        } catch {
+          /* already gone */
+        }
+      }
+      resolve(url);
+    }
+    const onData = (buf: Buffer) => {
+      const match = buf.toString().match(urlRe);
+      if (match) settle(match[0]);
+    };
+    proc.stdout.on('data', onData);
+    proc.stderr.on('data', onData); // cloudflared logs the URL to stderr
+    proc.on('error', () => settle(''));
+    proc.on('close', () => settle('')); // exited before printing a URL
+  });
+}
+
+/**
  * Start a Cloudflare Tunnel pointing at the local server and resolve the public
  * URL. Falls back to localhost (with an install hint) when cloudflared is
  * missing or a PUBLIC_URL override is configured. Tunnel-agnostic: swapping in
  * ngrok/Tailscale only means setting PUBLIC_URL or editing this file.
  */
 export async function startTunnel(): Promise<string> {
-  // Case A: an external tunnel is managed elsewhere (PUBLIC_URL set, no name to
+  // Case A: an external tunnel is managed elsewhere (PUBLIC_URL set, nothing to
   // run here) — just trust the configured URL and don't spawn anything.
-  if (config.publicUrl && !config.cfTunnelName) {
+  if (config.publicUrl && !config.cfTunnelName && !config.cfTunnelToken) {
     currentPublicUrl = config.publicUrl;
     return currentPublicUrl;
   }
@@ -40,8 +81,30 @@ export async function startTunnel(): Promise<string> {
     return publicUrl();
   }
 
-  // Case B: a pre-created named tunnel for a stable hostname. cloudflared reads
-  // its own config/ingress; the public URL comes from PUBLIC_URL.
+  // Case B1: a remotely-managed named tunnel (created in the Zero Trust
+  // dashboard) — cloudflared runs with a token and the dashboard maps your
+  // hostname → http://localhost:PORT. The public URL is your PUBLIC_URL. This is
+  // the recommended way to put the app on your OWN DOMAIN with a stable link.
+  if (config.cfTunnelToken) {
+    const proc = spawn('cloudflared', ['tunnel', 'run', '--token', config.cfTunnelToken]);
+    proc.on('error', () =>
+      console.warn('  Failed to start the token tunnel; falling back to localhost.'),
+    );
+    currentPublicUrl = config.publicUrl || publicUrl();
+    if (!config.publicUrl) {
+      console.warn(
+        '  CF_TUNNEL_TOKEN is set but PUBLIC_URL is empty — set PUBLIC_URL to the\n' +
+          '  public hostname you configured in the Cloudflare dashboard so the shared\n' +
+          '  links are correct.',
+      );
+    } else {
+      console.log(`  Cloudflare tunnel (token) started → ${currentPublicUrl}`);
+    }
+    return currentPublicUrl;
+  }
+
+  // Case B2: a locally-configured named tunnel (cloudflared reads its own
+  // config.yml ingress); the public URL comes from PUBLIC_URL.
   if (config.cfTunnelName) {
     const proc = spawn('cloudflared', ['tunnel', 'run', config.cfTunnelName]);
     proc.on('error', () =>
@@ -53,37 +116,33 @@ export async function startTunnel(): Promise<string> {
         '  CF_TUNNEL_NAME is set but PUBLIC_URL is empty — set PUBLIC_URL to your\n' +
           '  tunnel hostname so the shared links are correct.',
       );
+    } else {
+      console.log(`  Cloudflare tunnel (${config.cfTunnelName}) started → ${currentPublicUrl}`);
     }
     return currentPublicUrl;
   }
 
-  // Case C: zero-config quick tunnel — cloudflared prints a random
-  // trycloudflare.com URL which we parse from its output.
-  return new Promise((resolve) => {
-    const proc = spawn('cloudflared', [
-      'tunnel',
-      '--url',
-      `http://localhost:${config.port}`,
-    ]);
-    let resolved = false;
-    const urlRe = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
-
-    const finish = (url: string) => {
-      if (resolved) return;
-      resolved = true;
-      currentPublicUrl = url.startsWith('http') ? url : '';
-      resolve(publicUrl());
-    };
-
-    const onData = (buf: Buffer) => {
-      const match = buf.toString().match(urlRe);
-      if (match) finish(match[0]);
-    };
-    proc.stdout.on('data', onData);
-    proc.stderr.on('data', onData); // cloudflared logs the URL to stderr
-    proc.on('error', () => finish(''));
-
-    // Safety: never hang startup waiting on the tunnel.
-    setTimeout(() => finish(''), 15000);
-  });
+  // Case C: zero-config quick tunnel. trycloudflare quick tunnels are rate-
+  // limited and don't always come up on the first try, so retry a few times
+  // (each attempt gets its own process; failed ones are killed) before giving up.
+  const TRIES = 3;
+  for (let attempt = 1; attempt <= TRIES; attempt++) {
+    const url = await attemptQuickTunnel(30_000);
+    if (url) {
+      currentPublicUrl = url;
+      console.log(`  Cloudflare quick tunnel up → ${url}`);
+      return url;
+    }
+    console.warn(
+      `  Cloudflare quick tunnel attempt ${attempt}/${TRIES} didn't come up` +
+        (attempt < TRIES ? ' — retrying…' : '.'),
+    );
+  }
+  console.warn(
+    '  Quick tunnel failed — remote players can\'t reach this URL. It is rate-\n' +
+      '  limited by Cloudflare; retry start, update cloudflared, or set up a named\n' +
+      '  tunnel on your own domain (CF_TUNNEL_TOKEN + PUBLIC_URL — see README).\n' +
+      '  Falling back to localhost.',
+  );
+  return publicUrl();
 }
