@@ -4,8 +4,9 @@
 // base + matching ability modifiers; flat save/skill/attack/AC bonuses layer on
 // at roll time. Pure + unit-tested; the server computes the authoritative math.
 
-import type { InventoryItem, ModTarget, SheetModifier } from './types.js';
+import type { InventoryItem, ModTarget, SheetModifier, Weapon } from './types.js';
 import type { AbilityKey } from './skills.js';
+import { rollDice } from './dice.js';
 
 const ABILITIES: AbilityKey[] = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
@@ -211,6 +212,55 @@ export function sanitizeItems(
       ...(modifiers.length ? { modifiers } : {}),
       ...(e.equipped ? { equipped: true } : {}),
     });
+  }
+  return out;
+}
+
+/** A dice string the roller can actually evaluate (empty/garbled → not kept). */
+const validDice = (s: unknown): s is string =>
+  typeof s === 'string' && s.trim() !== '' && rollDice(s) !== null;
+
+/**
+ * Validate an untrusted weapon list (JSON sheet imports, hand-edited saves,
+ * socket payloads) before it feeds the server's authoritative roll math: dice
+ * expressions must actually parse (so a bad "100d1000" can't reach rollDice),
+ * to-hit / magic bonuses are clamped and rounded, the attack ability is checked
+ * against the six scores, and strings are length-capped. Nameless entries drop.
+ */
+export function sanitizeWeapons(raw: unknown): Weapon[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Weapon[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    const name = String(e.name ?? '').trim().slice(0, 80);
+    if (!name) continue;
+    const w: Weapon = { name, kind: e.kind === 'ranged' ? 'ranged' : 'melee' };
+    if (validDice(e.damage)) w.damage = (e.damage as string).trim();
+    if (validDice(e.versatileDamage)) w.versatileDamage = (e.versatileDamage as string).trim();
+    if (validDice(e.extraDamage)) w.extraDamage = (e.extraDamage as string).trim();
+    if (typeof e.damageType === 'string' && e.damageType.trim())
+      w.damageType = e.damageType.trim().slice(0, 30);
+    if (typeof e.extraDamageType === 'string' && e.extraDamageType.trim())
+      w.extraDamageType = e.extraDamageType.trim().slice(0, 30);
+    if (typeof e.range === 'string' && e.range.trim()) w.range = e.range.trim().slice(0, 40);
+    const ab = Number(e.attackBonus);
+    if (Number.isFinite(ab)) w.attackBonus = Math.max(-20, Math.min(20, Math.round(ab)));
+    const mb = Number(e.magicBonus);
+    if (Number.isFinite(mb) && Math.round(mb) !== 0)
+      w.magicBonus = Math.max(-10, Math.min(10, Math.round(mb)));
+    const aa = String(e.attackAbility ?? '').trim().toUpperCase();
+    if (ABILITIES.includes(aa as AbilityKey)) w.attackAbility = aa as Weapon['attackAbility'];
+    if (Array.isArray(e.tags)) {
+      const tags = e.tags
+        .filter((t): t is string => typeof t === 'string')
+        .map((t) => t.trim().toLowerCase().slice(0, 30))
+        .filter(Boolean)
+        .slice(0, 20);
+      if (tags.length) w.tags = tags;
+    }
+    if (e.diceOnly) w.diceOnly = true;
+    out.push(w);
   }
   return out;
 }

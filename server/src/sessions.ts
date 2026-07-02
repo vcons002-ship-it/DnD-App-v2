@@ -17,6 +17,7 @@ import {
   initiativeExtra,
   sanitizeItems,
   sanitizeModifiers,
+  sanitizeWeapons,
 } from '../../shared/modifiers.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
 import { isDamageType } from '../../shared/damage.js';
@@ -1750,7 +1751,7 @@ export function createCharacter(
     opts.armorClass ?? 0,
     opts.speed ?? '',
     JSON.stringify(opts.stats ?? {}),
-    JSON.stringify(opts.weapons ?? []),
+    JSON.stringify(sanitizeWeapons(opts.weapons ?? [])),
     JSON.stringify(opts.resistances ?? []),
     JSON.stringify(opts.weaknesses ?? []),
     JSON.stringify(opts.actions ?? []),
@@ -2175,7 +2176,9 @@ export function updateCharacter(
     put('resistances', JSON.stringify(patch.resistances));
   if (patch.weaknesses !== undefined)
     put('weaknesses', JSON.stringify(patch.weaknesses));
-  if (patch.weapons !== undefined) put('weapons', JSON.stringify(patch.weapons));
+  // Player-editable + REST/import-writable, and weapons feed server roll math.
+  if (patch.weapons !== undefined)
+    put('weapons', JSON.stringify(sanitizeWeapons(patch.weapons)));
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)
     put('abilities', JSON.stringify(patch.abilities));

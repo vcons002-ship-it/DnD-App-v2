@@ -6,6 +6,7 @@ import {
   skillExtra,
   activeModifiers,
   sanitizeModifiers,
+  sanitizeWeapons,
 } from '../../shared/modifiers.js';
 import type { SheetModifier } from '../../shared/types.js';
 import {
@@ -301,5 +302,42 @@ describe('untrusted modifier/item writes are sanitized server-side', () => {
       items: 'garbage' as never, // non-array items
     });
     expect(eff.scores.STR).toBe(12); // the one valid modifier still applies
+  });
+});
+
+describe('sanitizeWeapons', () => {
+  it('keeps valid weapons intact', () => {
+    const [w] = sanitizeWeapons([
+      {
+        name: 'Longsword',
+        kind: 'melee',
+        damage: '1d8',
+        versatileDamage: '1d10',
+        magicBonus: 1,
+        tags: ['Versatile', 'Heavy'],
+        attackAbility: 'STR',
+      },
+    ]);
+    expect(w.name).toBe('Longsword');
+    expect(w.damage).toBe('1d8');
+    expect(w.versatileDamage).toBe('1d10');
+    expect(w.magicBonus).toBe(1);
+    expect(w.tags).toEqual(['versatile', 'heavy']);
+    expect(w.attackAbility).toBe('STR');
+  });
+
+  it('rejects unrollable dice and clamps absurd bonuses', () => {
+    const [w] = sanitizeWeapons([
+      { name: 'Cheatblade', damage: 'lol', attackBonus: 999, magicBonus: 99 },
+    ]);
+    expect(w.damage).toBeUndefined(); // unparseable dice never reaches rollDice
+    expect(w.attackBonus).toBe(20); // clamped
+    expect(w.magicBonus).toBe(10); // clamped
+    expect(w.kind).toBe('melee'); // defaulted
+  });
+
+  it('drops nameless entries and non-arrays', () => {
+    expect(sanitizeWeapons([{ name: '   ' }, null, 5])).toEqual([]);
+    expect(sanitizeWeapons('nope' as never)).toEqual([]);
   });
 });
