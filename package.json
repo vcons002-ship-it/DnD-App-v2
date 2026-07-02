@@ -16,6 +16,9 @@
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
     "test": "npm run test -w server"
   },
+  "engines": {
+    "node": ">=20 <23"
+  },
   "devDependencies": {
     "concurrently": "^9.1.0"
   },

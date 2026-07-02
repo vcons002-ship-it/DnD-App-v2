@@ -15,9 +15,16 @@ describe('spellPrep helpers', () => {
   });
 
   it('cantrips known scales by class & level; martials learn none', () => {
-    expect(cantripsKnown('Wizard', 1)).toBe(4);
-    expect(cantripsKnown('Wizard', 10)).toBe(6);
+    // 2014 PHB values: wizards start at 3 (not 4); sorcerers at 4; bards/druids
+    // at 2; clerics at 3.
+    expect(cantripsKnown('Wizard', 1)).toBe(3);
+    expect(cantripsKnown('Wizard', 4)).toBe(4);
+    expect(cantripsKnown('Wizard', 10)).toBe(5);
+    expect(cantripsKnown('Sorcerer', 1)).toBe(4);
+    expect(cantripsKnown('Sorcerer', 10)).toBe(6);
     expect(cantripsKnown('Cleric', 1)).toBe(3);
+    expect(cantripsKnown('Bard', 1)).toBe(2);
+    expect(cantripsKnown('Druid', 1)).toBe(2);
     expect(cantripsKnown('Fighter', 5)).toBe(0);
   });
 

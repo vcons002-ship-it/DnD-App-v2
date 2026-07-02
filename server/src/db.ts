@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomInt } from 'node:crypto';
 import { config } from './config.js';
 import type {
   Character,
@@ -238,6 +238,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_monsters_session      ON monsters(session_id);
   CREATE INDEX IF NOT EXISTS idx_measurements_session  ON measurements(session_id);
   CREATE INDEX IF NOT EXISTS idx_annotations_session   ON annotations(session_id);
+  -- measurements + annotations are fetched per MAP on every snapshot build; the
+  -- session index above didn't cover that, so these avoid a full-table scan.
+  CREATE INDEX IF NOT EXISTS idx_measurements_map      ON measurements(map_id);
+  CREATE INDEX IF NOT EXISTS idx_annotations_map       ON annotations(map_id);
   CREATE INDEX IF NOT EXISTS idx_map_images_map         ON map_images(map_id);
   CREATE INDEX IF NOT EXISTS idx_roll_log_session      ON roll_log(session_id);
   CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
@@ -516,8 +520,9 @@ export const newId = (): string => randomUUID();
 export function newSessionCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
+  // Crypto RNG (not Math.random) so codes aren't predictable from prior ones.
   for (let i = 0; i < 4; i++) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    code += alphabet[randomInt(alphabet.length)];
   }
   return code;
 }

@@ -248,7 +248,7 @@ export function DicePanel({
             📜 Recap
           </button>
         )}
-        {snapshot.rollLog.length > 0 && (
+        {isDm && snapshot.rollLog.length > 0 && (
           <button
             className="btn tiny danger"
             onClick={() => {

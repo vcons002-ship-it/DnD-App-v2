@@ -154,7 +154,12 @@ type MapData = {
 export function createSnapshotBuilder(
   sessionId: string,
 ):
-  | ((role: Role, dmViewMapId?: string | null, socketId?: string) => StateSnapshot)
+  | ((
+      role: Role,
+      dmViewMapId?: string | null,
+      socketId?: string,
+      playerId?: string | null,
+    ) => StateSnapshot)
   | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
@@ -225,7 +230,7 @@ export function createSnapshotBuilder(
       ? true
       : monById.get(n.refId)?.disposition === 'friendly';
 
-  return (role, dmViewMapId, socketId) => {
+  return (role, dmViewMapId, socketId, playerId) => {
     // Players are locked to the active map; the DM may view any map for prep.
     // Fall back to the active map if the requested one is gone (e.g. the DM
     // was viewing a map that just got deleted).
@@ -240,6 +245,7 @@ export function createSnapshotBuilder(
 
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
+    let shapedCharacters: Character[] = characters;
     let shapedRollLog = rollLog;
     let shapedChat = chat;
 
@@ -267,7 +273,32 @@ export function createSnapshotBuilder(
         if (underTokenFog(t) && isFoe(t)) return false;
         return true;
       });
-      shapedMonsters = playerMonsters ??= monsters.map(toPlayerMonster);
+      // Only reveal monsters the player can actually SEE — i.e. referenced by a
+      // token that survived the hidden/fog filter above. Previously EVERY session
+      // monster (incl. hidden-token and staged-map creatures) was listed, leaking
+      // boss names / ambush existence. (The visible-monster set is the same for
+      // all players, since fog/hidden are session-level, not per-viewer.)
+      // The visible-monster set is viewer-independent (fog/hidden are
+      // session-level and `ownedBy` only affects PC tokens), so this shared
+      // memo still computes once per change-cycle.
+      const visibleMonIds = new Set(
+        tokens.filter((t) => t.kind === 'monster').map((t) => t.refId),
+      );
+      shapedMonsters = playerMonsters ??= monsters
+        .filter((m) => visibleMonIds.has(m.id))
+        .map(toPlayerMonster);
+      // Strip other players' infrastructure ids (live socket + durable browser
+      // id): a leaked ownerId is a character-hijack key — rejoin with it and the
+      // server hands you that PC. Keep the VIEWER'S OWN character intact, since
+      // its own reclaim + "this is mine" checks rely on ownerId/claimedBy.
+      shapedCharacters = characters.map((c): Character => {
+        const mine =
+          c.claimedBy === socketId || (!!playerId && c.ownerId === playerId);
+        if (mine) return c;
+        // Non-null sentinel preserves the client's "taken by someone" state
+        // without exposing the real socket id.
+        return { ...c, ownerId: null, claimedBy: c.claimedBy ? '__held__' : null };
+      });
       // Rules-assistant Q&A is a DM tool — never leak it to players.
       shapedChat = playerChat ??= chat.filter((c) => !c.dmOnly);
       shapedRollLog = playerRollLog ??= rollLog
@@ -308,7 +339,7 @@ export function createSnapshotBuilder(
       // Players don't need the full map list (DM-only prep tool).
       maps: role === 'dm' ? maps : map ? [map] : [],
       tokens,
-      characters,
+      characters: shapedCharacters,
       monsters: shapedMonsters,
       // Spawn templates are a DM-only tool.
       monsterTemplates:
@@ -335,6 +366,11 @@ export function buildSnapshot(
   dmViewMapId?: string | null,
   /** Requesting socket — a player always sees their own claimed PC token. */
   socketId?: string,
+  /** Requesting player's durable browser id — keeps THEIR own character's
+   *  owner/claim ids intact while other players' are stripped. */
+  playerId?: string | null,
 ): StateSnapshot | null {
-  return createSnapshotBuilder(sessionId)?.(role, dmViewMapId, socketId) ?? null;
+  return (
+    createSnapshotBuilder(sessionId)?.(role, dmViewMapId, socketId, playerId) ?? null
+  );
 }

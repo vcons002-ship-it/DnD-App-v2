@@ -58,6 +58,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       conn.role,
       conn.role === 'dm' ? conn.viewMapId : null,
       socketId,
+      conn.playerId,
     );
     io.to(socketId).emit('state:snapshot', snapshot);
     const visible = hpFx.filter((e) =>
@@ -168,6 +169,7 @@ export function sendSnapshot(io: IOServer, socketId: string): void {
     conn.role,
     conn.role === 'dm' ? conn.viewMapId : null,
     socketId,
+    conn.playerId,
   );
   if (snapshot) io.to(socketId).emit('state:snapshot', snapshot);
 }

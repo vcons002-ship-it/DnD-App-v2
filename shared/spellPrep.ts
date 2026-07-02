@@ -45,13 +45,15 @@ export function cantripsKnown(
   const k = classKey(className);
   const tier = (a: number, b = a, c = b) => (lv >= 10 ? c : lv >= 4 ? b : a);
   switch (k) {
-    case 'wizard':
     case 'sorcerer':
-      return lv >= 10 ? 6 : lv >= 4 ? 5 : 4; // 5/4 start, scale up
+      return lv >= 10 ? 6 : lv >= 4 ? 5 : 4; // 4 / 5 / 6
+    case 'wizard':
+      return lv >= 10 ? 5 : lv >= 4 ? 4 : 3; // 3 / 4 / 5 (wizards start lower)
     case 'cleric':
+      return tier(3, 4, 5);
     case 'druid':
     case 'bard':
-      return tier(3, 4, 5);
+      return tier(2, 3, 4); // bards/druids start at 2 cantrips
     case 'warlock':
       return tier(2, 3, 4);
     case 'artificer':
@@ -74,7 +76,9 @@ const KNOWN: Record<string, number[]> = {
   bard:    [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
   sorcerer:[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
   ranger:  [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
-  warlock: [1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
+  // 2014 warlock "Spells Known" (was a half-caster progression → players showed
+  // falsely over-cap for half their spells).
+  warlock: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
 };
 
 // Eldritch Knight / Arcane Trickster spells known (1-based by char level).

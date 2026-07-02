@@ -472,7 +472,11 @@ export function setTokenShape(tokenId: string, shape: Token['shape']): Token | n
 }
 
 export function moveToken(tokenId: string, x: number, y: number): Token | null {
-  db.prepare('UPDATE tokens SET x = ?, y = ? WHERE id = ?').run(x, y, tokenId);
+  // Never trust client coordinates: reject NaN/Infinity and clamp to a sane
+  // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
+  // would break the map view for everyone) or bind a non-finite value.
+  const clamp = (n: number) => Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
+  db.prepare('UPDATE tokens SET x = ?, y = ? WHERE id = ?').run(clamp(x), clamp(y), tokenId);
   return getToken(tokenId);
 }
 
@@ -1174,7 +1178,20 @@ export function addChatMessage(
   db.prepare(
     'INSERT INTO chat_messages (id, session_id, sender, role, text, created_at, dm_only, pages) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt, dmOnly ? 1 : 0, JSON.stringify(pages));
+  pruneChat(sessionId);
   return msg;
+}
+
+/** Keep the chat table bounded (only the most recent are ever read/shipped);
+ *  mirrors the roll-log cap so a long campaign can't grow the table forever. */
+export const CHAT_CAP = 1000;
+function pruneChat(sessionId: string): void {
+  db.prepare(
+    `DELETE FROM chat_messages WHERE session_id = ? AND id NOT IN (
+       SELECT id FROM chat_messages WHERE session_id = ?
+       ORDER BY created_at DESC, rowid DESC LIMIT ?
+     )`,
+  ).run(sessionId, sessionId, CHAT_CAP);
 }
 
 /** Parse a stored pages JSON array defensively (old rows have '[]'). */

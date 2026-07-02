@@ -12,6 +12,17 @@ import { registerSocketHandlers } from './socketHandlers.js';
 import { startTunnel, publicUrl } from './tunnel.js';
 import type { IOServer } from './connections.js';
 
+// Last-resort crash guards. Socket handlers already run inside a per-event
+// try/catch (see socketHandlers.ts) and async routes catch internally, but a
+// stray rejection in a background probe or a future code path should log and
+// keep the server (and the live session) up rather than exit the process.
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 loadSettings(); // apply any DM-saved API key / model overrides on top of env
 // Probe the local Ollama server in the background so the UI's "AI available"
 // signal is accurate without blocking boot (re-probed on each settings save).
@@ -68,5 +79,17 @@ server.listen(config.port, async () => {
   console.log(`  DM:      ${base}/dm`);
   console.log(`  Players: ${base}/join`);
   console.log('  (Create a session in the DM view to get a join code.)');
+  console.log('  ──────────────────────────────────────────────');
+  // The DM secret is required to open the DM console (players never need it).
+  // Show it here so the host can copy it; hide it only when the DM supplied
+  // their own via DM_PASSPHRASE (already known to them, don't echo to logs).
+  if (config.dmSecretSource === 'env') {
+    console.log('  DM secret:  (using your DM_PASSPHRASE env var)');
+  } else {
+    console.log(`  DM secret:  ${config.dmPassphrase}`);
+    console.log('              Enter this on the DM screen to log in.');
+    console.log('              (Saved in server/data/dm-secret.txt — keep it private.)');
+  }
+  console.log('  Players just need the session code — no secret.');
   console.log('  ──────────────────────────────────────────────\n');
 });

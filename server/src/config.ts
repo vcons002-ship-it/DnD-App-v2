@@ -1,4 +1,6 @@
 import dotenv from 'dotenv';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -13,12 +15,63 @@ dotenv.config();
 dotenv.config({ path: path.join(repoRoot, '.env') });
 dotenv.config({ path: path.join(serverRoot, '.env') });
 
+/** Where the DM secret came from — the boot banner shows it only when we own it
+ *  (generated / loaded from disk), never when the DM set DM_PASSPHRASE. */
+export type DmSecretSource = 'env' | 'file' | 'generated';
+let dmSecretSource: DmSecretSource = 'generated';
+
+/**
+ * The DM login secret is now MANDATORY (previously optional → an empty
+ * DM_PASSPHRASE left every DM gate open). Precedence:
+ *   1. `DM_PASSPHRASE` env, if set — the DM chose it, so respect it and don't log it.
+ *   2. A previously-generated secret persisted at `data/dm-secret.txt`.
+ *   3. A fresh strong random secret, written to that file (printed once at boot).
+ * Players are unaffected — they only ever supply a session code. Tests use a
+ * fixed value and never touch the filesystem.
+ */
+function resolveDmSecret(dataDir: string): string {
+  const env = process.env.DM_PASSPHRASE?.trim();
+  if (env) {
+    dmSecretSource = 'env';
+    return env;
+  }
+  if (process.env.VITEST) return 'test-dm-secret'; // deterministic; no file IO in tests
+  const file = path.join(dataDir, 'dm-secret.txt');
+  try {
+    const existing = fs.readFileSync(file, 'utf8').trim();
+    if (existing) {
+      dmSecretSource = 'file';
+      return existing;
+    }
+  } catch {
+    /* not created yet — generate one below */
+  }
+  // Readable, unambiguous alphabet (no 0/O/1/I) — the DM types this once.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let secret = '';
+  for (let i = 0; i < 10; i++) secret += alphabet[crypto.randomInt(alphabet.length)];
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(file, `${secret}\n`, { mode: 0o600 });
+  } catch (err) {
+    console.warn('  [dm-secret] could not persist:', (err as Error).message);
+  }
+  dmSecretSource = 'generated';
+  return secret;
+}
+
+const resolvedDmSecret = resolveDmSecret(path.join(serverRoot, 'data'));
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   /** Explicit public URL override (named tunnel or custom provider). */
   publicUrl: process.env.PUBLIC_URL?.replace(/\/$/, '') || '',
   cfTunnelName: process.env.CF_TUNNEL_NAME || '',
-  dmPassphrase: process.env.DM_PASSPHRASE || '',
+  /** MANDATORY DM login secret (see resolveDmSecret). Always non-empty now, so
+   *  every DM gate enforces it instead of no-opping on a blank value. */
+  dmPassphrase: resolvedDmSecret,
+  /** Where `dmPassphrase` came from (drives what the boot banner prints). */
+  dmSecretSource: dmSecretSource as DmSecretSource,
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   /** Explicit Gemini model override; blank = auto-discover a fast model. */
   geminiModel: process.env.GEMINI_MODEL || '',

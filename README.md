@@ -95,7 +95,7 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 
 **DM second screen & shell**
 - `/dm/data` — a standalone **DM Data dashboard** (compact stat cards, large expand overlay, status popovers) for a second monitor or tablet, with a **map switcher** (view/preview any map, **Make active**, auto-follows the live map) and a **collapsible/resizable** roll-log panel.
-- Shared top toolbar, copy-player-link with the join code baked in, an **❔ Guide** button (desktop & mobile control reference for both roles), optional DM passphrase gate, editable map & session names, and a persistent resume directory shown on **both** the DM and player landing screens.
+- Shared top toolbar, copy-player-link with the join code baked in, an **❔ Guide** button (desktop & mobile control reference for both roles), a required **DM secret** gate, editable map & session names, and a persistent resume directory on the DM landing screen (players join by shared link/code and auto-rejoin).
 
 ## Stack
 
@@ -196,17 +196,28 @@ Production / game night (builds the client, serves it, opens a tunnel):
 npm start
 ```
 
-The server prints the public links to share, e.g.:
+The server prints the public links to share **and the DM secret**, e.g.:
 
 ```
 DM:      https://<random>.trycloudflare.com/dm
 Players: https://<random>.trycloudflare.com/join
+──────────────────────────────────────────────
+DM secret:  K7QF9MPT2X
+            Enter this on the DM screen to log in.
+            (Saved in server/data/dm-secret.txt — keep it private.)
+Players just need the session code — no secret.
 ```
 
-Open the **DM** link, click **Create new session**, then share the **player
-link** (the DM console has a "Copy player link" button with the join code baked
-in). Players open it, enter the code, and claim a character. The DM can also open
-**`/dm/data`** on a second screen for the at-a-glance combat dashboard.
+**DM login:** open the **DM** link and enter the **DM secret** from the server
+console (or `server/data/dm-secret.txt`). It's required for every DM action and
+is generated automatically on first run — set `DM_PASSPHRASE` in `.env` to pick
+your own instead. Then click **Create new session**.
+
+**Players link in** with just the **player link** (the DM console has a "Copy
+player link" button with the join code baked in) — no secret needed. They open
+it, enter the code, and claim a character; returning players auto-rejoin. The DM
+can also open **`/dm/data`** on a second screen (enter the DM secret there too)
+for the at-a-glance combat dashboard.
 
 Other useful scripts:
 
@@ -276,7 +287,7 @@ Local data (`server/data/`, `server/uploads/`) and `.env` are git-ignored.
 | `PORT` | Local server port (default 4000) |
 | `PUBLIC_URL` | Override the public base URL (named tunnel / other provider) |
 | `CF_TUNNEL_NAME` | Use a pre-created Cloudflare named tunnel for a stable URL |
-| `DM_PASSPHRASE` | Optional gate on the DM view |
+| `DM_PASSPHRASE` | DM login secret. Optional to set — if blank, one is generated on first run and saved to `server/data/dm-secret.txt` (printed at startup). A secret is always required to act as DM. |
 | `GEMINI_API_KEY` | Optional — enables AI creature/character generation |
 | `GEMINI_MODEL` | Optional — pin a Gemini model (blank auto-picks a current one) |
 

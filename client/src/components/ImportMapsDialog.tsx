@@ -30,9 +30,11 @@ export function ImportMapsDialog({ onClose }: { onClose: () => void }) {
   >({});
 
   // All saved sessions, so the DM can pick one instead of typing its code.
+  // The directory is DM-gated now, so send the DM secret the DM logged in with.
   useEffect(() => {
-    fetch('/api/sessions')
-      .then((r) => r.json())
+    const pass = useStore.getState().dmPassphrase;
+    fetch('/api/sessions', { headers: pass ? { 'x-dm-passphrase': pass } : undefined })
+      .then((r) => (r.ok ? r.json() : []))
       .then((d: SessionSummary[]) => setSessions(Array.isArray(d) ? d : []))
       .catch(() => setSessions([]));
   }, []);

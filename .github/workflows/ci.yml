@@ -1,0 +1,31 @@
+name: CI
+
+# Runs the project's own pre-commit checklist (typecheck + tests + build) on
+# every push and PR, so regressions are caught automatically instead of relying
+# on discipline. Mirrors: npm run typecheck && npm test && npm run build.
+on:
+  push:
+  pull_request:
+
+# One run per ref; a newer push cancels an in-progress run for the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # `npm ci` compiles better-sqlite3 (native) — ubuntu-latest has the toolchain.
+      - run: npm ci
+      - name: Typecheck (server + client)
+        run: npm run typecheck
+      - name: Test (server Vitest)
+        run: npm test
+      - name: Build (client + server)
+        run: npm run build

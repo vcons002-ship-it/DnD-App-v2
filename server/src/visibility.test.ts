@@ -520,6 +520,52 @@ describe('visibility role-shaping', () => {
     expect(buildSnapshot(session.id, 'player')!.tokens).toHaveLength(0);
     expect(buildSnapshot(session.id, 'dm', map.id)!.tokens).toHaveLength(1);
   });
+
+  it('does not list a monster whose only token is hidden/off-map to players', () => {
+    const session = createSession('MonList');
+    const map = createMap(session.id, { name: 'Room', imagePath: '/u/x.png' });
+    setActiveMap(session.id, map.id);
+    const seen = spawnInstance(session.id, 'Orc', 9);
+    const ambush = spawnInstance(session.id, 'Assassin', 30);
+    createToken({ mapId: map.id, kind: 'monster', refId: seen.id, x: 10, y: 10 });
+    const hiddenTok = createToken({ mapId: map.id, kind: 'monster', refId: ambush.id, x: 20, y: 20 });
+    setTokenHidden(hiddenTok.id, true);
+
+    const player = buildSnapshot(session.id, 'player')!;
+    const names = player.monsters.map((m) => m.name);
+    // The ambusher's name/existence must not leak via the monsters array.
+    expect(names.some((n) => n.includes('Orc'))).toBe(true);
+    expect(names.some((n) => n.includes('Assassin'))).toBe(false);
+    // The DM still sees every instantiated creature.
+    expect(buildSnapshot(session.id, 'dm', map.id)!.monsters).toHaveLength(2);
+  });
+
+  it("strips other players' owner/claim ids but keeps the viewer's own", () => {
+    const session = createSession('Ids');
+    const map = createMap(session.id, { name: 'Room' });
+    setActiveMap(session.id, map.id);
+    const mine = createCharacter(session.id, { name: 'Mine', maxHp: 10 });
+    const theirs = createCharacter(session.id, { name: 'Theirs', maxHp: 10 });
+    claimCharacter(mine.id, 'socket-A', 'player-A');
+    claimCharacter(theirs.id, 'socket-B', 'player-B');
+
+    const snap = buildSnapshot(session.id, 'player', null, 'socket-A', 'player-A')!;
+    const myC = snap.characters.find((c) => c.id === mine.id)!;
+    const theirC = snap.characters.find((c) => c.id === theirs.id)!;
+
+    // The viewer keeps their own ids (reclaim + "this is mine" checks need them).
+    expect(myC.claimedBy).toBe('socket-A');
+    expect(myC.ownerId).toBe('player-A');
+    // The other player's real socket id / durable browser id never leave the
+    // server (ownerId is a hijack key); still shows as "taken by someone".
+    expect(theirC.ownerId).toBeNull();
+    expect(theirC.claimedBy).not.toBe('socket-B');
+    expect(theirC.claimedBy).toBeTruthy();
+
+    // The DM sees the real ids.
+    const dm = buildSnapshot(session.id, 'dm', map.id)!;
+    expect(dm.characters.find((c) => c.id === theirs.id)!.claimedBy).toBe('socket-B');
+  });
 });
 
 describe('creature creation', () => {
