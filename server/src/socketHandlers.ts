@@ -294,6 +294,7 @@ export function registerSocketHandlers(io: IOServer): void {
         payload.role,
         session.activeMapId,
         socket.id,
+        playerId,
       );
       if (!snapshot) {
         return ack({
