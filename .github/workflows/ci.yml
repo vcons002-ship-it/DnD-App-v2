@@ -29,3 +29,17 @@ jobs:
         run: npm test
       - name: Build (client + server)
         run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Install just Chromium (+ its system deps) for the 2-window smoke test.
+      - run: npx playwright install --with-deps chromium
+      - name: E2E smoke (DM + player, real sockets)
+        run: npm run test:e2e

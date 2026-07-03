@@ -16,3 +16,9 @@ server/uploads/
 
 # Downloaded service manager (install-service.bat fetches nssm.exe here)
 tools/
+
+# Playwright e2e output
+test-results/
+playwright-report/
+blob-report/
+.playwright/
