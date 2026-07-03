@@ -126,7 +126,9 @@ export const config = {
   /** Absolute paths to local storage (created on boot). */
   dataDir: path.join(serverRoot, 'data'),
   uploadsDir: path.join(serverRoot, 'uploads'),
-  dbPath: path.join(serverRoot, 'data', 'game.db'),
+  // DB_PATH lets tests / alternate installs point at a throwaway database
+  // instead of the real save; defaults to the durable data/game.db.
+  dbPath: process.env.DB_PATH || path.join(serverRoot, 'data', 'game.db'),
   /** Runtime settings overrides (API key / model) editable from the UI. */
   settingsPath: path.join(serverRoot, 'data', 'settings.json'),
   /** Uploaded rulebook PDF, parsed into searchable chunks (rules assistant). */
