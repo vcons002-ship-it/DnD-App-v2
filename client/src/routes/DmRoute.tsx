@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../../shared/types';
 import { useStore, loadSavedSession } from '../state/socket';
@@ -27,6 +27,8 @@ export function DmRoute() {
   const [editName, setEditName] = useState('');
   const [editCode, setEditCode] = useState('');
   const [rowErr, setRowErr] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const c = params.get('code');
@@ -109,6 +111,53 @@ export function DmRoute() {
     await refreshSessions();
   };
 
+  // Download a self-contained backup (rows + images) of a session. Needs the DM
+  // secret (in the field above), which is sent as a header.
+  const exportSessionFile = async (s: SessionSummary) => {
+    setRowErr(null);
+    try {
+      const res = await fetch(`/api/sessions/${s.code}/export`, {
+        headers: passphrase ? { 'x-dm-passphrase': passphrase } : undefined,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setRowErr(d.error ?? 'Could not export that session (enter the DM secret above).');
+        return;
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session-${s.code}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setRowErr('Could not export that session.');
+    }
+  };
+
+  // Restore a backup file as a NEW session (never overwrites an existing one).
+  const importSessionFile = async (file: File) => {
+    setImporting(true);
+    setCreateErr(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/sessions/import', {
+        method: 'POST',
+        headers: passphrase ? { 'x-dm-passphrase': passphrase } : undefined,
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCreateErr(data.error ?? 'Could not import that backup (enter the DM secret above).');
+        return;
+      }
+      await refreshSessions();
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const createSession = async () => {
     setCreating(true);
     setCreateErr(null);
@@ -160,6 +209,25 @@ export function DmRoute() {
       />
       <button className="btn big" disabled={creating} onClick={createSession}>
         {creating ? 'Creating…' : 'Create new session'}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void importSessionFile(f);
+          e.target.value = ''; // let the same file be picked again
+        }}
+      />
+      <button
+        className="btn"
+        disabled={importing}
+        onClick={() => fileRef.current?.click()}
+        title="Restore a .json backup file as a new session (won't overwrite anything)"
+      >
+        {importing ? 'Restoring…' : '⬆ Restore from backup file'}
       </button>
       {createErr && <p className="err">{createErr}</p>}
 
@@ -220,6 +288,13 @@ export function DmRoute() {
                     {s.mapCount} map{s.mapCount === 1 ? '' : 's'} · played{' '}
                     {fmtDate(s.lastPlayedAt)}
                   </span>
+                </button>
+                <button
+                  className="btn tiny session-action"
+                  title="Download a backup file of this session"
+                  onClick={() => exportSessionFile(s)}
+                >
+                  ⬇
                 </button>
                 <button
                   className="btn tiny session-action"

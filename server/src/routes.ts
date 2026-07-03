@@ -46,6 +46,7 @@ import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
 import { searchWeapons } from './weapons/srd.js';
 import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
+import { exportSession, importSession, type SessionBundle } from './backup.js';
 import { rulebookInfo, setRulebookFromPdf, clearRulebook } from './assistant/index.js';
 import { getRulebookChunks } from './assistant/rulebook.js';
 import {
@@ -176,6 +177,13 @@ const pdfUpload = multer({
     cb(null, file.mimetype === 'application/pdf' || /\.pdf$/i.test(file.originalname)),
 });
 
+// Session-backup upload: a (potentially large, base64-image-laden) JSON bundle
+// held in memory just long enough to parse + import.
+const backupUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 300 * 1024 * 1024 },
+});
+
 export function createApiRouter(io: IOServer): Router {
   const router = Router();
 
@@ -249,6 +257,45 @@ export function createApiRouter(io: IOServer): Router {
     if (!session) return res.status(404).json({ error: 'Session not found.' });
     deleteSession(session.id);
     res.json({ ok: true });
+  });
+
+  // ---- Backup & restore ----
+  // Download a self-contained JSON backup of one session (rows + inlined images).
+  router.get('/sessions/:code/export', (req, res) => {
+    if (!requireDm(req, res)) return;
+    const bundle = exportSession(req.params.code);
+    if (!bundle) return res.status(404).json({ error: 'Session not found.' });
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="session-${req.params.code}.json"`,
+    );
+    res.json(bundle);
+  });
+
+  // Restore a backup as a NEW session (never overwrites an existing one). An
+  // optional `code` field picks the new join code; otherwise one is generated.
+  router.post('/sessions/import', backupUpload.single('file'), (req, res) => {
+    if (!requireDm(req, res)) return;
+    const file = (req as { file?: Express.Multer.File }).file;
+    if (!file) return res.status(400).json({ error: 'No backup file uploaded.' });
+    let bundle: SessionBundle;
+    try {
+      bundle = JSON.parse(file.buffer.toString('utf8')) as SessionBundle;
+    } catch {
+      return res.status(400).json({ error: 'That file is not valid JSON.' });
+    }
+    const code = typeof req.body?.code === 'string' ? req.body.code : undefined;
+    try {
+      const result = importSession(bundle, code); // a brand-new session; nobody's connected
+      return res.status(201).json(result);
+    } catch (err) {
+      if (err instanceof SessionCodeError) {
+        return res.status(409).json({ error: err.message });
+      }
+      return res.status(422).json({
+        error: `Could not import that backup: ${(err as Error).message}`,
+      });
+    }
   });
 
   // ---- DM-editable runtime settings (API key / model) ----
