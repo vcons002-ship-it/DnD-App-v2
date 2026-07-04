@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.11.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "multer": "^2.0.1",
