@@ -9,6 +9,7 @@ import { refreshOllama } from './ai/ollama.js';
 import { seedLibraryItems } from './library.js';
 import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
+import { startBackupScheduler } from './backupScheduler.js';
 import { startTunnel, publicUrl } from './tunnel.js';
 import type { IOServer } from './connections.js';
 
@@ -29,6 +30,7 @@ loadSettings(); // apply any DM-saved API key / model overrides on top of env
 void refreshOllama().then((up) => up && console.log('  Local Ollama reachable for AI.'));
 const seeded = seedLibraryItems(); // one-time fill of the cross-session item library
 if (seeded) console.log(`  Seeded ${seeded} SRD items into the item library.`);
+startBackupScheduler(); // periodic on-disk backups of every session (default: bi-weekly)
 
 const app = express();
 app.set('trust proxy', true); // we sit behind the Cloudflare Tunnel
