@@ -14,9 +14,9 @@ import { listSessions } from './sessions.js';
 import { exportSession } from './backup.js';
 
 const DAY = 24 * 60 * 60 * 1000;
-const INTERVAL_DAYS = Number(process.env.BACKUP_INTERVAL_DAYS) || 14; // bi-weekly
-const KEEP = Math.max(1, Number(process.env.BACKUP_KEEP) || 6);
-const CHECK_EVERY = 6 * 60 * 60 * 1000; // re-check cadence (restart-safe, not the interval)
+const INTERVAL_DAYS = Number(process.env.BACKUP_INTERVAL_DAYS) || 3.5; // ~twice a week
+const KEEP = Math.max(1, Number(process.env.BACKUP_KEEP) || 8); // ~4 weeks of history
+const CHECK_EVERY = 3 * 60 * 60 * 1000; // re-check cadence (restart-safe, not the interval)
 const META_KEY = 'last_auto_backup_at';
 
 const backupsDir = (): string => path.join(config.dataDir, 'backups');
