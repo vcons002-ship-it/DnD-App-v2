@@ -28,6 +28,7 @@ import type {
   Token,
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
+import { peekUndo } from './undo.js';
 
 /** Sum a list of reveal steps' values. */
 const sumSteps = (steps?: { value: number }[]): number =>
@@ -336,6 +337,8 @@ export function createSnapshotBuilder(
       activeTurnTokenId: session.activeTurnTokenId,
       round: session.combatRound,
       hideDmRolls: session.hideDmRolls,
+      // DM-only: what the next undo would reverse (drives the DM's Undo button).
+      undoLabel: role === 'dm' ? peekUndo(sessionId) : null,
       // Players don't need the full map list (DM-only prep tool).
       maps: role === 'dm' ? maps : map ? [map] : [],
       tokens,

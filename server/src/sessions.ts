@@ -276,6 +276,14 @@ export function coverFog(mapId: string, layer: FogLayer): void {
   ).run(mapId);
 }
 
+/** Set a fog layer's revealed cells exactly (used by undo to restore a wipe). */
+export function setFogRevealed(mapId: string, layer: FogLayer, cells: string[]): void {
+  db.prepare(`UPDATE maps SET ${FOG_COLS[layer].revealed} = ? WHERE id = ?`).run(
+    JSON.stringify(Array.isArray(cells) ? cells : []),
+    mapId,
+  );
+}
+
 /** Rename a map (DM). Empty names are ignored. */
 export function renameMap(mapId: string, name: string): void {
   const trimmed = name.trim();

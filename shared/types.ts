@@ -653,6 +653,9 @@ export type StateSnapshot = {
   round: number;
   /** DM-only display state: are the DM's rolls currently hidden from players? */
   hideDmRolls: boolean;
+  /** DM-only: label of the action `session:undo` would reverse (e.g. "Delete
+   *  token"), or null when the undo stack is empty. Players always get null. */
+  undoLabel: string | null;
   /** All maps in the session (DM only sees the full list). */
   maps: MapState[];
   tokens: Token[];
@@ -1386,6 +1389,8 @@ export interface ClientToServerEvents {
   'initiative:clear': () => void;
   'initiative:setRound': (payload: { round: number }) => void;
   'session:setHideDmRolls': (payload: { hide: boolean }) => void;
+  /** DM-only: reverse the last destructive action (delete token/creature, cover fog). */
+  'session:undo': () => void;
   'dice:roll': (payload: DiceRollPayload) => void;
   /** Wipe the shared roll log for everyone in the session. */
   'dice:clearLog': () => void;

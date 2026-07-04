@@ -323,6 +323,8 @@ type Store = {
   setHideDmRolls: (hide: boolean) => void;
   rollDice: (payload: DiceRollPayload) => void;
   clearRollLog: () => void;
+  /** Undo the DM's last destructive action (delete token/creature, cover fog). */
+  undo: () => void;
   combatAttack: (payload: CombatAttackPayload) => void;
   combatSave: (payload: CombatSavePayload) => void;
 };
@@ -902,6 +904,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('session:setHideDmRolls', { hide }),
   rollDice: (payload) => get().socket?.emit('dice:roll', payload),
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
+  undo: () => get().socket?.emit('session:undo'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
 }));

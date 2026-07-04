@@ -20,6 +20,7 @@ export function DmView() {
   const snapshot = useStore((s) => s.snapshot);
   const spawnToken = useStore((s) => s.spawnToken);
   const deleteToken = useStore((s) => s.deleteToken);
+  const undo = useStore((s) => s.undo);
   const rightPanelNudge = useStore((s) => s.rightPanelNudge);
   const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
     useSelection(snapshot, snapshot ? `dm-sel-${snapshot.sessionCode}` : undefined);
@@ -45,11 +46,16 @@ export function DmView() {
         selectedIds.forEach((id) => deleteToken(id));
         setSelectedIds([]);
       }
+      // Ctrl/Cmd+Z undoes the last destructive action (server-side stack).
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+      }
       if (e.key === 'Escape') setPending(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedIds, deleteToken, setSelectedIds]);
+  }, [selectedIds, deleteToken, setSelectedIds, undo]);
 
   if (!snapshot) return <div className="loading">Loading…</div>;
 
@@ -99,6 +105,16 @@ export function DmView() {
         </SidePanel>
 
         <main className="center">
+          {snapshot.undoLabel && (
+            <button
+              className="btn tiny"
+              style={{ position: 'absolute', top: 8, right: 8, zIndex: 6 }}
+              onClick={undo}
+              title="Reverse the last destructive action (Ctrl+Z)"
+            >
+              ↶ Undo {snapshot.undoLabel.toLowerCase()}
+            </button>
+          )}
           {pending && snapshot.map && (
             <PlacementBanner
               snapshot={snapshot}
