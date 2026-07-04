@@ -716,7 +716,7 @@ export function createApiRouter(io: IOServer): Router {
   // mutates live session state — every socket-side map mutation is DM-gated).
   router.post('/sessions/:code/maps', upload.single('image'), (req, res) => {
     if (!requireDm(req, res)) return;
-    const session = getSessionByCode(req.params.code);
+    const session = getSessionByCode(String(req.params.code));
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const name =

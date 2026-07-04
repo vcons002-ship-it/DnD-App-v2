@@ -64,7 +64,11 @@ if (fs.existsSync(config.clientDist)) {
       },
     }),
   );
-  app.get('*', (_req, res) => {
+  // SPA fallback: serve index.html for any unmatched GET (client-side routing).
+  // A catch-all MIDDLEWARE rather than `app.get('*')` — Express 5 / path-to-regexp
+  // v8 no longer accepts a bare `*` route pattern.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile('index.html', { root: config.clientDist });
   });
