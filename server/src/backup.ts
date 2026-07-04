@@ -107,8 +107,8 @@ const tableCols = (table: string): string[] => {
 /** Insert `row` (+ overrides) into `table`, using only the columns the table
  *  actually has (so migrated columns ride along, and columns a bundle lacks fall
  *  back to their DB default). `undefined` values are omitted; explicit `null` is
- *  written. */
-function insertRow(table: string, row: Row, overrides: Row): void {
+ *  written. Exported so the undo stack can re-insert captured rows verbatim. */
+export function insertRow(table: string, row: Row, overrides: Row = {}): void {
   const merged = { ...row, ...overrides };
   const cols = tableCols(table).filter((c) => c in merged && merged[c] !== undefined);
   db.prepare(

@@ -38,6 +38,12 @@ import {
 import { answerRules, recapSession, creatureLine } from './assistant/index.js';
 import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
 import {
+  captureTokenDelete,
+  captureCreatureDelete,
+  captureFogCover,
+  popUndo,
+} from './undo.js';
+import {
   addRollLog,
   advanceTurn,
   applyDamage,
@@ -86,6 +92,7 @@ import {
   setTokensHidden,
   setTokensCondition,
   coverFog,
+  setFogRevealed,
   createMonsterTemplate,
   createToken,
   deleteMap,
@@ -592,7 +599,12 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     on('fog:cover', ({ mapId, layer }) => {
-      if (!isDm() || !getMap(mapId)) return;
+      const sid = sessionId();
+      const map = getMap(mapId);
+      if (!sid || !isDm() || !map) return;
+      // Snapshot the cells about to be wiped so "cover all" is undoable.
+      const before = layer === 'map' ? map.mapFogRevealed : map.tokenFogRevealed;
+      captureFogCover(sid, () => setFogRevealed(mapId, layer, before));
       coverFog(mapId, layer);
       afterChange();
     });
@@ -677,9 +689,30 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     on('token:delete', ({ tokenId }) => {
-      if (!isDm()) return; // removing tokens is a DM action
+      const sid = sessionId();
+      if (!sid || !isDm()) return; // removing tokens is a DM action
+      captureTokenDelete(sid, tokenId); // snapshot for undo before it's gone
       deleteToken(tokenId);
       afterChange();
+    });
+
+    // Undo the DM's last destructive action (delete token/creature, cover fog).
+    on('session:undo', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const entry = popUndo(sid);
+      if (!entry) {
+        socket.emit('notice', { message: 'Nothing to undo.' });
+        return;
+      }
+      try {
+        entry.run();
+        socket.emit('notice', { message: `Undid: ${entry.label}` });
+        afterChange();
+      } catch {
+        // The world moved on (e.g. the map is gone) — the restore rolled back.
+        socket.emit('notice', { message: `Couldn't undo "${entry.label}" — the map changed.` });
+      }
     });
 
     on('token:duplicate', ({ tokenId }) => {
@@ -821,7 +854,8 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     on('character:delete', ({ characterId }) => {
-      if (!isDm()) return; // DM-only: prune a PC from the spawn list
+      const sid = sessionId();
+      if (!sid || !isDm()) return; // DM-only: prune a PC from the spawn list
       const c = getCharacter(characterId);
       if (!c) return;
       // Never delete a character a player is actively holding (still connected).
@@ -831,6 +865,7 @@ export function registerSocketHandlers(io: IOServer): void {
         });
         return;
       }
+      captureCreatureDelete(sid, 'pc', characterId);
       deleteCharacter(characterId);
       afterChange();
     });
@@ -1405,6 +1440,7 @@ export function registerSocketHandlers(io: IOServer): void {
     on('monster:delete', ({ monsterId }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !monsterInSession(monsterId, sid)) return;
+      captureCreatureDelete(sid, 'monster', monsterId);
       deleteMonster(monsterId);
       afterChange();
     });
