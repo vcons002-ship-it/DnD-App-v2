@@ -1024,6 +1024,10 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .roll-reveal-damage { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .rr-dmg-num { font-size: 26px; font-weight: 800; color: #ff8a8a; animation: rr-bump 0.24s ease-out; }
 .rr-dmg-type { font-size: 13px; font-weight: 600; color: var(--muted); }
+/* Sub-headline (check name / rolled expression) and the neutral total for a plain
+   `/roll` — the same tumbling dice as damage, but blue instead of damage-red. */
+.rr-title { font-size: 15px; font-weight: 700; color: var(--text); margin-top: 1px; }
+.rr-roll-num { font-size: 30px; font-weight: 800; color: #bfe3f0; animation: rr-bump 0.24s ease-out; }
 /* Outcome colour is HELD BACK until the result is revealed: the card + its d20
    stay grey (pending) through the tumble + to-hit build-up, then take the outcome
    colour at the stamp. Damage dice keep their own blue tint regardless. */
@@ -1041,6 +1045,13 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .roll-reveal-fumble { border-color: #e23b3b; }
 .roll-reveal-fumble .roll-reveal-tohit .die { background: #6e2020; color: #ffe0e0; }
 .roll-reveal-fumble .roll-reveal-outcome { color: #ff6b6b; }
+/* A check vs a DC: PASS mirrors a hit (green), FAIL a miss (grey). */
+.roll-reveal-pass { border-color: #5fae5f; }
+.roll-reveal-pass .roll-reveal-tohit .die { background: #2f6b35; color: #eaffea; }
+.roll-reveal-pass .roll-reveal-outcome { color: #7ed07e; }
+.roll-reveal-fail { border-color: #6a6f7d; }
+.roll-reveal-fail .roll-reveal-tohit .die { background: #3a3f4b; color: #b8bcc6; }
+.roll-reveal-fail .roll-reveal-outcome { color: #9aa0ad; }
 @keyframes roll-reveal-pop {
   0% { opacity: 0; transform: translateY(-8px) scale(0.92); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -1054,7 +1065,7 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 @keyframes rr-stamp { 0% { opacity: 0; transform: scale(1.6) rotate(-6deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
 @keyframes rr-chip-in { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
-  .die.rolling, .rr-total, .rr-dmg-num, .rr-chip, .roll-reveal-outcome { animation: none; }
+  .die.rolling, .rr-total, .rr-dmg-num, .rr-roll-num, .rr-chip, .roll-reveal-outcome { animation: none; }
 }
 
 /* Skills (proficiency toggle + click-to-roll) */

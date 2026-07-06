@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
-import { playHit, playMiss } from '../lib/sfx';
+import { playHit, playMiss, playSkill } from '../lib/sfx';
 
 // Pacing (ms). Tweak to taste.
 const ROLL_MS = 420; // d20 shuffle before it locks
@@ -115,7 +115,13 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
   const reveal = rollFx?.reveal;
-  const isBurst = reveal?.kind === 'damage';
+  // A 'check' is a single-d20 skill/save/check → total (no damage phase). A 'dice'
+  // roll (`/roll`, dice-panel buttons) and a spell-damage 'damage' burst are both
+  // dice-only bursts (no to-hit); 'dice' just labels itself with the expression
+  // and colours its total neutrally instead of as damage.
+  const isCheck = reveal?.kind === 'check';
+  const isDice = reveal?.kind === 'dice';
+  const isBurst = reveal?.kind === 'damage' || isDice;
 
   const [stage, setStage] = useState<Stage>({
     phase: 'rolling',
@@ -180,7 +186,8 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
 
     if (isBurst) {
       setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceLocked: 0, modsShown: 0 });
-      const end = scheduleDamage(0, playHit); // impact lands as the dice start rolling
+      // A spell-damage burst "thunks" (playHit); a plain `/roll` gets a neutral tick.
+      const end = scheduleDamage(0, isDice ? playSkill : playHit);
       at(end + DART_HOLD_MS, dismiss);
       return cleanup;
     }
@@ -202,7 +209,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     t += OUTCOME_MS;
     at(t, () => {
       setStage((p) => ({ ...p, phase: 'outcome' }));
-      if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
+      // Attacks thunk/whiff on hit/miss; a check ticks (fail whiffs) — a plain
+      // check with no pass/fail (outcome 'none') still gets the neutral tick.
+      if (isCheck) reveal.outcome === 'fail' ? playMiss() : playSkill();
+      else if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
       else playMiss();
     });
     const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
@@ -238,11 +248,23 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
         ? 'FUMBLE!'
         : reveal.outcome === 'hit'
           ? 'HIT'
-          : 'MISS';
-  const showOutcome = !isBurst && (stage.phase === 'outcome' || stage.phase === 'damage');
+          : reveal.outcome === 'pass'
+            ? 'PASS'
+            : reveal.outcome === 'fail'
+              ? 'FAIL'
+              : 'MISS';
+  // The result stamp shows once the roll resolves — but only when there IS a
+  // pass/fail/hit result (a plain check or `/roll` has outcome 'none' → no stamp).
+  const showOutcome =
+    !isBurst &&
+    (stage.phase === 'outcome' || stage.phase === 'damage') &&
+    reveal.outcome !== 'none';
   // Hold the colour back until the result reveals (grey while rolling/building up).
   const colourClass = showOutcome ? `roll-reveal-${reveal.outcome}` : 'roll-reveal-pending';
-  const showDamage = (isBurst || stage.phase === 'damage') && (reveal.damage ?? 0) > 0;
+  // A 'dice' roll always shows its total (even 0/negative); a damage burst only
+  // when it dealt damage.
+  const showDamage =
+    (isBurst || stage.phase === 'damage') && (isDice || (reveal.damage ?? 0) > 0);
 
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
@@ -257,6 +279,8 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
           {reveal.attacker}
           {reveal.target ? <span className="rr-arrow"> → {reveal.target}</span> : ''}
         </div>
+        {/* Sub-headline for a check/dice roll: the check name or the expression. */}
+        {reveal.title && <div className="rr-title">{reveal.title}</div>}
 
         {!isBurst && (
           <div className="roll-reveal-tohit">
@@ -281,9 +305,9 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
 
         {showDamage && (
           <div className="roll-reveal-damage">
-            <div className="rr-dmg-num" key={dmgShownNum}>
+            <div className={isDice ? 'rr-roll-num' : 'rr-dmg-num'} key={dmgShownNum}>
               {dmgShownNum}
-              <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>
+              {!isDice && <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>}
             </div>
             {/* Every damage die, each tumbling until it settles on its face. */}
             <div className="rr-dice-row">

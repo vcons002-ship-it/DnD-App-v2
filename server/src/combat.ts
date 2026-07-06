@@ -33,6 +33,7 @@ import {
 } from '../../shared/conditionEffects.js';
 import { tokensWithin5ft } from '../../shared/distance.js';
 import { rollDice } from '../../shared/dice.js';
+import { checkReveal } from '../../shared/rollReveal.js';
 import {
   effectiveDice,
   spellAttackBonusDetail,
@@ -581,6 +582,18 @@ export function resolveSaves(
       detail:
         `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${dc} — ${pass ? 'PASS' : 'FAIL'}` +
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+      reveal: checkReveal({
+        who: r.name,
+        title: `${ability.toUpperCase()} save`,
+        face: out.face,
+        total,
+        steps: [
+          { label: ability.toUpperCase(), value: out.mod },
+          ...(sb.add ? [{ label: 'bonus', value: sb.add }] : []),
+        ],
+        outcome: pass ? 'pass' : 'fail',
+      }),
+      hideMods: hidesMods(r.kind, r.refId),
     });
   }
 }
@@ -623,6 +636,17 @@ export function resolveSave(
     detail:
       `${ent.name} — ${ab} save: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${note ? ` · ${note}` : ''} = ${total}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+    reveal: checkReveal({
+      who: ent.name,
+      title: `${ab} save`,
+      face: out.face,
+      total,
+      steps: [
+        { label: ab, value: out.mod },
+        ...e.parts.map((p) => ({ label: p.source, value: p.value })),
+      ],
+    }),
+    hideMods: hidesMods(kind, refId),
   });
   return true;
 }
@@ -660,6 +684,13 @@ export function resolveCheck(
     detail:
       `${ent.name} — ${ab} check: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}) = ${out.total}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+    reveal: checkReveal({
+      who: ent.name,
+      title: `${ab} check`,
+      face: out.face,
+      total: out.total,
+      steps: [{ label: ab, value: out.mod }],
+    }),
     hideMods: hidesMods(kind, refId),
   });
   return true;
@@ -691,6 +722,9 @@ export function resolveForcedSave(
 
   let dmg: number;
   let detail: string;
+  // A 'check' reveal for the save roll (the target's own d20) — only set when a
+  // save is actually rolled (not on auto-fail or a save-less auto-hit apply).
+  let saveReveal: RollReveal | undefined;
   if ((apply.darts || apply.split) && typeof instanceIndex === 'number') {
     // A split spell (e.g. Magic Missile): assign ONE dart per clicked target —
     // auto-hit, no save. New entries roll the dart's dice ON the click (capped at
@@ -766,6 +800,17 @@ export function resolveForcedSave(
       detail =
         `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${apply.dc} — ${pass ? 'PASS' : 'FAIL'}${apply.amount ? ` · takes ${dmg}${typeTxt}` : ''}${condTxt}` +
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
+      saveReveal = checkReveal({
+        who: r.name,
+        title: `${ability.toUpperCase()} save`,
+        face: out.face,
+        total,
+        steps: [
+          { label: ability.toUpperCase(), value: out.mod },
+          ...(sb.add ? [{ label: 'bonus', value: sb.add }] : []),
+        ],
+        outcome: pass ? 'pass' : 'fail',
+      });
     }
   } else {
     dmg = Math.floor(apply.amount * mult);
@@ -785,6 +830,7 @@ export function resolveForcedSave(
     detail,
     hpNote: saveNote,
     hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
+    ...(saveReveal ? { reveal: saveReveal } : {}),
   });
 }
 
@@ -932,13 +978,27 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
   const extraNote = extra.parts
     .map((p) => ` ${signed(p.value)}[${p.source}]`)
     .join('');
-  const log = (detail: string) =>
-    addRollLog(sessionId, { roller: ch.name, label: 'Death save', expr: 'd20', total, detail });
+  const log = (detail: string, outcome: 'pass' | 'fail') =>
+    addRollLog(sessionId, {
+      roller: ch.name,
+      label: 'Death save',
+      expr: 'd20',
+      total,
+      detail,
+      reveal: checkReveal({
+        who: ch.name,
+        title: 'Death save',
+        face,
+        total,
+        steps: extra.parts.map((p) => ({ label: p.source, value: p.value })),
+        outcome,
+      }),
+    });
 
   if (face === 20) {
     applyDamage('pc', characterId, -1); // back to 1 HP (healing also resets saves)
     setDeathSaves(characterId, 0, 0);
-    log(`${ch.name} rolls a natural 20 — regains 1 HP and is conscious!`);
+    log(`${ch.name} rolls a natural 20 — regains 1 HP and is conscious!`, 'pass');
     return true;
   }
 
@@ -957,6 +1017,7 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
   setDeathSaves(characterId, successes, failures);
   log(
     `${ch.name}: d20[${face}]${extraNote}${extra.total ? ` = ${total}` : ''} ${kind} (${successes}✓/${failures}✗)${outcome}`,
+    kind === 'SUCCESS' ? 'pass' : 'fail',
   );
   return true;
 }
@@ -1322,6 +1383,19 @@ export function resolveObjectCheck(
     detail:
       `${character.name} tries to ${verb} ${object.name}: ${d20detail} ${breakdown} = ` +
       `${total} vs DC ${dc} — ${success ? ok : 'FAILED'}`,
+    reveal: checkReveal({
+      who: character.name,
+      title: kind === 'disarm' ? 'Disarm trap' : 'Pick lock',
+      target: object.name,
+      face,
+      total,
+      steps: [
+        { label: 'DEX', value: abil },
+        { label: 'PROF', value: prof },
+        ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
+      ],
+      outcome: success ? 'pass' : 'fail',
+    }),
   });
   return { success };
 }
@@ -1371,6 +1445,17 @@ export function resolveSkillRoll(
     detail:
       `${character.name} — ${skill.name}: ${d20detail} ${breakdown} = ${total}` +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
+    reveal: checkReveal({
+      who: character.name,
+      title: `${skill.name} check`,
+      face,
+      total,
+      steps: [
+        { label: skill.ability, value: abil },
+        { label: 'PROF', value: prof },
+        ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
+      ],
+    }),
   });
   return true;
 }

@@ -522,8 +522,14 @@ export const useStore = create<Store>((set, get) => ({
           // When a roll will ANIMATE, the overlay plays its hit/miss/impact cues in
           // sync with the animation beats — so suppress the immediate cue here.
           const willAnimate = !!fresh.reveal && get().showRollAnim;
-          // Skills/saves never animate → an immediate tick.
-          if (/(check|save)$/i.test(fresh.label ?? '') && !fresh.hpNote) playSkill();
+          // A skill/save/check tick fires immediately ONLY when it won't animate —
+          // when it does, the reveal overlay plays the tick itself at the result
+          // beat. Match the reveal KIND (covers 'Pick lock'/'Disarm trap', whose
+          // labels don't end in check/save) OR the label (covers un-revealed rolls
+          // like an auto-fail bulk save).
+          const isCheckCue =
+            fresh.reveal?.kind === 'check' || /(check|save)$/i.test(fresh.label ?? '');
+          if (isCheckCue && !fresh.hpNote && !willAnimate) playSkill();
           // An un-animated miss → immediate; an animated one plays at its stamp.
           else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
           if (willAnimate && fresh.reveal) {
