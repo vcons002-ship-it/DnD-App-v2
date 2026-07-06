@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { newId } from './db.js';
 import { parseRollCommand, rollDice } from '../../shared/dice.js';
+import { diceReveal } from '../../shared/rollReveal.js';
 import {
   resolveAttack,
   resolveAbilityRoll,
@@ -1110,12 +1111,14 @@ export function registerSocketHandlers(io: IOServer): void {
           socket.emit('notice', { message: `Invalid dice: "${cmd.expr}"` });
           return;
         }
+        const roller = rollerName(sid, socket.id, isDm());
         addRollLog(sid, {
-          roller: rollerName(sid, socket.id, isDm()),
+          roller,
           label: '',
           expr: result.expr,
           total: result.total,
           detail: result.detail,
+          reveal: diceReveal(roller, result),
         });
         afterChange();
         return;
@@ -1585,12 +1588,15 @@ export function registerSocketHandlers(io: IOServer): void {
         socket.emit('notice', { message: `Invalid dice: "${expr}"` });
         return;
       }
+      const roller = rollerName(sid, socket.id, isDm());
+      const rollLabel = (label ?? '').slice(0, 40);
       addRollLog(sid, {
-        roller: rollerName(sid, socket.id, isDm()),
-        label: (label ?? '').slice(0, 40),
+        roller,
+        label: rollLabel,
         expr: result.expr,
         total: result.total,
         detail: result.detail,
+        reveal: diceReveal(roller, result, rollLabel || undefined),
       });
       afterChange();
     });

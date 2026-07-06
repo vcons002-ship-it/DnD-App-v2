@@ -429,6 +429,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   text. The **full** roll log (`DicePanel`) renders it (so others can read it); the
   compact overlay shows only the one-line result. Persisted via an idempotent
   `ensureColumn('roll_log','description',…)`.
+- ☑ **Every roll animates, not just combat [req].** The staged roll-reveal overlay
+  (`RollRevealOverlay`) — a tumbling die that lands, modifier chips flying in, a
+  result stamp, a counting-up total — now fires for **all** rolls, not only attacks
+  and spell damage. Two new `RollReveal.kind`s (`shared/rollReveal.ts` builders,
+  unit-tested): **`check`** (a single d20 + chips → total, with an optional
+  PASS/FAIL vs a DC) covers **skill checks, saving throws, ability checks, death
+  saves, and lock/trap checks** (`resolveSkillRoll`/`resolveSave`/`resolveCheck`/
+  `resolveSaves`/`resolveForcedSave`/`resolveObjectCheck`/`resolveDeathSave`); and
+  **`dice`** (an arbitrary expression whose dice tumble to a plain total) covers a
+  **`/roll` and the dice-panel buttons** (`dice:roll`). A forced save now animates
+  the target's own saving throw (a `check`) without re-animating the once-rolled
+  cast damage. Enemy/neutral creature mods stay redacted via the existing
+  `hideMods` path; the per-user **showRollAnim** toggle still suppresses it, and the
+  overlay stays click-through + skippable. Sound stays in sync (the reveal plays the
+  tick/whiff at the result beat instead of an immediate cue).
 - ☑ **Monster attack rolls (parse `actions` → `weapons`) [req].** SRD/AI monsters
   store attacks as free-text `actions`; `shared/monsterAttacks.ts`
   (`weaponsFromActions`, pure + tested) turns any action that has **both** a

@@ -777,22 +777,35 @@ export type RevealStep = {
 };
 export type RollReveal = {
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
-   *  AoE/save spell's single damage roll, or one Magic Missile dart). */
-  kind?: 'attack' | 'damage';
+   *  AoE/save spell's single damage roll, or one Magic Missile dart); 'check' = a
+   *  single d20 + modifier chips → total (a skill/ability check, saving throw,
+   *  death save, or lock/trap check — with an optional PASS/FAIL vs a DC); 'dice'
+   *  = an arbitrary dice expression (a `/roll` or the dice-panel buttons) whose
+   *  dice tumble and land on a plain total. So EVERY roll animates, not just combat. */
+  kind?: 'attack' | 'damage' | 'check' | 'dice';
   attacker: string;
   target?: string;
-  /** The natural d20 face shown (the chosen die under adv/dis). Attacks only. */
+  /** Sub-headline for a 'check'/'dice' reveal: the check name ("Stealth check",
+   *  "DEX save", "Death save") or the rolled expression ("2d6+3"). */
+  title?: string;
+  /** The natural d20 face shown (the chosen die under adv/dis). Attacks + checks. */
   d20?: number;
-  /** Bonuses added to the d20, revealed one by one (ability mod, proficiency, …). */
+  /** Bonuses added to the d20, revealed one by one (ability mod, proficiency, …).
+   *  Reused by 'check' reveals for the check's modifier chips. */
   toHit?: RevealStep[];
-  /** Final to-hit total (d20 + every `toHit` step). */
+  /** Final to-hit total (d20 + every `toHit` step); the check total for 'check'. */
   attackTotal?: number;
-  outcome: 'hit' | 'miss' | 'crit' | 'fumble';
-  /** Damage dice with their individual faces (a crit adds a second dice step). */
+  /** Attacks land 'hit'/'miss'/'crit'/'fumble'; a 'check' vs a DC lands
+   *  'pass'/'fail'; 'none' shows no stamp (a plain check/dice roll with no DC). */
+  outcome: 'hit' | 'miss' | 'crit' | 'fumble' | 'pass' | 'fail' | 'none';
+  /** Damage dice with their individual faces (a crit adds a second dice step).
+   *  Reused by 'dice' reveals for the rolled dice (one step per dice term). */
   damageDice?: RevealStep[];
-  /** Flat damage modifiers added after the dice (ability mod, magic, mastery…). */
+  /** Flat damage modifiers added after the dice (ability mod, magic, mastery…).
+   *  Reused by 'dice' reveals for the expression's flat terms. */
   damageMods?: RevealStep[];
-  /** Damage applied on a hit (the final total the count-up lands on). */
+  /** Damage applied on a hit — or, for a 'dice' reveal, the roll's total (the
+   *  final number the count-up lands on). */
   damage?: number;
   damageType?: string;
 };

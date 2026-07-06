@@ -1338,9 +1338,13 @@ describe('Apply damage → click-to-target saves', () => {
     const { inst, tok } = target(s, map, { name: 'Goblin', maxHp: 20, stats: { DEX: 10 } });
     resolveForcedSave(s.id, entry.id, tok.id); // DC 99 → always FAIL → full 10
     expect(getMonster(inst.id)!.curHp).toBe(10);
-    // …but APPLYING the damage to each target does NOT animate (no reveal) — the
-    // dice were already rolled at cast; per-target reveals are deferred for now.
-    expect(listRollLog(s.id).at(-1)!.reveal).toBeUndefined();
+    // …and the target's own SAVING THROW now animates as a 'check' reveal (every
+    // roll animates, not just combat) — the DAMAGE is NOT re-animated (it was
+    // rolled once at cast; the check carries no damage dice).
+    const applied = listRollLog(s.id).at(-1)!;
+    expect(applied.reveal?.kind).toBe('check');
+    expect(applied.reveal?.outcome).toBe('fail');
+    expect(applied.reveal?.damage).toBeUndefined();
     // The source roll keeps its payload so more targets can be clicked.
     expect(getRollEntry(entry.id)!.apply).toBeTruthy();
   });
