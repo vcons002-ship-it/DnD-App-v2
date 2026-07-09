@@ -1537,24 +1537,33 @@ describe('Battle Master maneuvers', () => {
       addDieTo: 'damage',
       save: { ability: 'STR', onFail: 'Prone' },
     });
-    // Land a hit that logs the save rider (re-arm + refill each loop).
-    let saveRollId: string | undefined;
-    for (let i = 0; i < 60 && !saveRollId; i++) {
+    // Each hit logs its OWN save-rider entry, resolved exactly ONCE against the
+    // target (a save is not re-rollable per cast — resolveForcedSave now blocks a
+    // repeat click on the same target). The STR-1 target fails most DC-10 saves, so
+    // re-attacking → resolving the fresh rider ends it Prone within a few tries.
+    let prone = false;
+    let sawRider = false;
+    for (let i = 0; i < 80 && !prone; i++) {
       const ab = getCharacter(chId)!.sheetAbilities[0];
       setSheetAbility('pc', chId, { ...ab, maneuver: { ...ab.maneuver!, active: true } });
       setResource(chId, 'resources', 'Superiority Dice', { used: 0 });
       resolveAttack(s, 'Fighter', atk, tgt, 0);
-      saveRollId = listRollLog(s).find(
-        (e) => e.label === 'STR save' && e.apply?.onFail === 'Prone',
-      )?.id;
-    }
-    expect(saveRollId).toBeTruthy();
-    // The STR-1 target fails most DC-10 saves → it ends up Prone within a few tries.
-    let prone = false;
-    for (let i = 0; i < 60 && !prone; i++) {
-      resolveForcedSave(s, saveRollId!, tgt);
+      // Newest not-yet-resolved STR-save rider from this attack.
+      const rider = listRollLog(s)
+        .filter(
+          (e) =>
+            e.label === 'STR save' &&
+            e.apply?.onFail === 'Prone' &&
+            !e.apply?.consumedTargets?.length,
+        )
+        .pop();
+      if (rider) {
+        sawRider = true;
+        resolveForcedSave(s, rider.id, tgt);
+      }
       prone = getMonster(tInst.id)!.conditions.some((c) => c.label === 'Prone');
     }
+    expect(sawRider).toBe(true);
     expect(prone).toBe(true);
   });
 

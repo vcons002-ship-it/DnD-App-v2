@@ -1319,6 +1319,15 @@ export function getRollEntry(id: string): RollEntry | null {
   return r ? rowToRollEntry(r) : null;
 }
 
+/** Persist an updated `apply` payload on a roll entry — used to record consumed
+ *  darts / resolved targets so a cast's damage can't be re-applied past its budget. */
+export function setRollApply(id: string, apply: RollEntry['apply']): void {
+  db.prepare('UPDATE roll_log SET apply = ? WHERE id = ?').run(
+    apply ? JSON.stringify(apply) : '',
+    id,
+  );
+}
+
 // ---- Measuring shapes (cone/circle/line) ----
 
 type MeasurementRow = {

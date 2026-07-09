@@ -859,6 +859,14 @@ export type RollEntry = {
     dice?: string;
     /** Caster's character id — lets THAT player (not just the DM) assign the darts. */
     owner?: string;
+    /** How many darts have already been assigned — the server budget, so a split
+     *  spell (Magic Missile) can't be re-applied past its dart count (a replayed
+     *  or double-clicked click is rejected). */
+    consumedDarts?: number;
+    /** Token ids already resolved for this cast — a save/auto-hit apply hits each
+     *  creature at most once (each creature saves once vs an AoE; blocks the
+     *  accidental double-click that would double the damage). */
+    consumedTargets?: string[];
   };
   createdAt: number;
 };

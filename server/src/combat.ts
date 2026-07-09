@@ -4,6 +4,7 @@ import {
   getCharacter,
   getMonster,
   getRollEntry,
+  setRollApply,
   getToken,
   getMap,
   incrementKillCount,
@@ -736,34 +737,41 @@ export function resolveForcedSave(
   // A 'check' reveal for the save roll (the target's own d20) — only set when a
   // save is actually rolled (not on auto-fail or a save-less auto-hit apply).
   let saveReveal: RollReveal | undefined;
-  if ((apply.darts || apply.split) && typeof instanceIndex === 'number') {
+  if (apply.darts || apply.split) {
     // A split spell (e.g. Magic Missile): assign ONE dart per clicked target —
-    // auto-hit, no save. New entries roll the dart's dice ON the click (capped at
-    // the dart count); legacy entries apply a pre-rolled instance by index.
+    // auto-hit, no save. The dart index is a SERVER counter (consumedDarts), NOT
+    // the client's instanceIndex, so a replayed / double-clicked event can't spend
+    // more darts than the spell has (previously any index < darts re-rolled fresh
+    // damage — an infinite faucet). New entries roll the dart's dice on the click;
+    // legacy entries apply a pre-rolled instance by index.
+    void instanceIndex; // ignored: the server owns the dart budget now
+    const dartTotal = apply.darts ?? apply.split?.length ?? 0;
+    const dartIdx = apply.consumedDarts ?? 0;
+    if (dartIdx >= dartTotal) return; // all darts already assigned
     let base: number;
     let dartFaces: number[] = [];
     if (apply.dice && apply.darts) {
-      if (instanceIndex >= apply.darts) return; // never exceed the dart count
       const rolled = rollDice(apply.dice);
       base = rolled?.total ?? 0;
       dartFaces = rolled?.rolls ?? [];
     } else {
-      base = apply.split?.[instanceIndex] ?? 0;
+      base = apply.split?.[dartIdx] ?? 0;
     }
     dmg = Math.floor(base * mult);
     const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
+    setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
       roller: src?.roller ?? 'DM',
       label: 'Damage',
       total: dmg,
-      expr: `dart ${instanceIndex + 1}`,
+      expr: `dart ${dartIdx + 1}`,
       detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
         kind: 'damage',
-        attacker: `${src?.expr ?? 'Spell'} · dart ${instanceIndex + 1}`,
+        attacker: `${src?.expr ?? 'Spell'} · dart ${dartIdx + 1}`,
         target: r.name,
         outcome: 'hit',
         ...(apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
@@ -774,6 +782,9 @@ export function resolveForcedSave(
     });
     return;
   }
+  // Each creature is resolved at most once per cast — RAW (one save vs an AoE),
+  // and it blocks the accidental double-click that would otherwise double the hit.
+  if ((apply.consumedTargets ?? []).includes(tokenId)) return;
   if (apply.save) {
     const ability = apply.save;
     // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
@@ -829,6 +840,11 @@ export function resolveForcedSave(
   }
   const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
+  // Mark this target consumed so a repeat click on the same creature is rejected.
+  setRollApply(rollId, {
+    ...apply,
+    consumedTargets: [...(apply.consumedTargets ?? []), tokenId],
+  });
   addRollLog(sessionId, {
     // Attribute the resolution to whoever cast the spell (the source roll's
     // roller), so a PLAYER applying their own AOE still sees the result even when
