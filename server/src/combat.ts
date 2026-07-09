@@ -4,6 +4,7 @@ import {
   getCharacter,
   getMonster,
   getRollEntry,
+  setRollApply,
   getToken,
   getMap,
   incrementKillCount,
@@ -170,9 +171,11 @@ function applyDamageNoted(
   /** The attacking token (kind/refId) — credits a PC's kill count if this damage
    *  drops a monster to 0 HP. */
   attacker?: { kind: TokenKind; refId: string },
+  /** Crit hit — a crit vs a downed PC is two death-save failures (RAW). */
+  crit = false,
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType);
+  const after = applyDamage(kind, refId, amount, damageType, crit);
   if (!before || !after) return undefined;
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
   if (
@@ -358,14 +361,22 @@ export function resolveAttack(
   let extra = 0;
   const masteryNotes: string[] = [];
   if (out.hit && autoCrit) masteryNotes.push(`auto-crit (${autoCrit})`);
+  // Roll a rider's damage dice, DOUBLING them on a crit — RAW: a critical hit
+  // doubles ALL of the attack's damage dice, riders (Hunter's Mark, a dice-adding
+  // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.
+  const rollRiderDice = (expr: string): number => {
+    const r = rollDice(expr);
+    if (!r || r.total <= 0) return 0;
+    return r.total + (out.crit ? rollDice(expr)?.total ?? 0 : 0);
+  };
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
     if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
     if (out.hit && m.effect.bonusDamage && /d\d/i.test(m.effect.bonusDamage)) {
-      const r = rollDice(m.effect.bonusDamage);
-      if (r && r.total > 0) {
-        extra += r.total;
-        masteryNotes.push(`+${r.total}[${ab.name}]`);
+      const total = rollRiderDice(m.effect.bonusDamage);
+      if (total > 0) {
+        extra += total;
+        masteryNotes.push(`+${total}[${ab.name}]`);
       }
     }
     if (!out.hit && m.effect.grazeOnMiss) {
@@ -376,13 +387,14 @@ export function resolveAttack(
       }
     }
   }
-  // Active stances that add DICE damage (e.g. Hunter's Mark +1d6) roll on a hit.
+  // Active stances that add DICE damage (e.g. Hunter's Mark +1d6) roll on a hit
+  // and double on a crit.
   if (out.hit) {
     for (const sd of stanceDice) {
-      const r = rollDice(sd.dice);
-      if (r && r.total > 0) {
-        extra += r.total;
-        masteryNotes.push(`+${r.total}[${sd.label}]`);
+      const total = rollRiderDice(sd.dice);
+      if (total > 0) {
+        extra += total;
+        masteryNotes.push(`+${total}[${sd.label}]`);
       }
     }
   }
@@ -436,7 +448,7 @@ export function resolveAttack(
       out.hit && weapon.extraDamage && weapon.extraDamageType
         ? weapon.extraDamageType
         : weapon.damageType;
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId });
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -725,34 +737,41 @@ export function resolveForcedSave(
   // A 'check' reveal for the save roll (the target's own d20) — only set when a
   // save is actually rolled (not on auto-fail or a save-less auto-hit apply).
   let saveReveal: RollReveal | undefined;
-  if ((apply.darts || apply.split) && typeof instanceIndex === 'number') {
+  if (apply.darts || apply.split) {
     // A split spell (e.g. Magic Missile): assign ONE dart per clicked target —
-    // auto-hit, no save. New entries roll the dart's dice ON the click (capped at
-    // the dart count); legacy entries apply a pre-rolled instance by index.
+    // auto-hit, no save. The dart index is a SERVER counter (consumedDarts), NOT
+    // the client's instanceIndex, so a replayed / double-clicked event can't spend
+    // more darts than the spell has (previously any index < darts re-rolled fresh
+    // damage — an infinite faucet). New entries roll the dart's dice on the click;
+    // legacy entries apply a pre-rolled instance by index.
+    void instanceIndex; // ignored: the server owns the dart budget now
+    const dartTotal = apply.darts ?? apply.split?.length ?? 0;
+    const dartIdx = apply.consumedDarts ?? 0;
+    if (dartIdx >= dartTotal) return; // all darts already assigned
     let base: number;
     let dartFaces: number[] = [];
     if (apply.dice && apply.darts) {
-      if (instanceIndex >= apply.darts) return; // never exceed the dart count
       const rolled = rollDice(apply.dice);
       base = rolled?.total ?? 0;
       dartFaces = rolled?.rolls ?? [];
     } else {
-      base = apply.split?.[instanceIndex] ?? 0;
+      base = apply.split?.[dartIdx] ?? 0;
     }
     dmg = Math.floor(base * mult);
     const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
+    setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
       roller: src?.roller ?? 'DM',
       label: 'Damage',
       total: dmg,
-      expr: `dart ${instanceIndex + 1}`,
+      expr: `dart ${dartIdx + 1}`,
       detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
         kind: 'damage',
-        attacker: `${src?.expr ?? 'Spell'} · dart ${instanceIndex + 1}`,
+        attacker: `${src?.expr ?? 'Spell'} · dart ${dartIdx + 1}`,
         target: r.name,
         outcome: 'hit',
         ...(apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
@@ -763,6 +782,9 @@ export function resolveForcedSave(
     });
     return;
   }
+  // Each creature is resolved at most once per cast — RAW (one save vs an AoE),
+  // and it blocks the accidental double-click that would otherwise double the hit.
+  if ((apply.consumedTargets ?? []).includes(tokenId)) return;
   if (apply.save) {
     const ability = apply.save;
     // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
@@ -818,6 +840,11 @@ export function resolveForcedSave(
   }
   const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
+  // Mark this target consumed so a repeat click on the same creature is rejected.
+  setRollApply(rollId, {
+    ...apply,
+    consumedTargets: [...(apply.consumedTargets ?? []), tokenId],
+  });
   addRollLog(sessionId, {
     // Attribute the resolution to whoever cast the spell (the source roll's
     // roller), so a PLAYER applying their own AOE still sees the result even when
@@ -915,7 +942,7 @@ function resolveTargetedSpellAttack(opts: {
           ? `½ resisted (${opts.damageType})`
           : `×2 vulnerable (${opts.damageType})`,
       );
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';

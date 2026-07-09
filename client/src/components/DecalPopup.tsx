@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MapPopup, ShopItem, StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { apiFetch } from '../lib/api';
 
 /**
  * The popup that opens when a clickable map decal (a "shop") is clicked. Players
@@ -21,6 +22,13 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Cancel a pending debounced save on unmount so a decal cleared from another
+  // window mid-edit can't fire save() at a now-dead annotation id.
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
 
   // Seed the DM's editable draft once when a decal is opened (not on every
   // snapshot echo, so live edits aren't clobbered).
@@ -62,7 +70,7 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
     if (!draft || aiBusy || !aiPrompt.trim()) return;
     setAiBusy(true);
     try {
-      const res = await fetch('/api/shops/generate', {
+      const res = await apiFetch('/api/shops/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: aiPrompt.trim() }),

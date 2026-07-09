@@ -419,6 +419,11 @@ export function createToken(opts: {
       : objectKind === 'chest' || objectKind === 'door'
         ? 'square'
         : 'circle');
+  // Never trust client coordinates (players place their own PC token): reject
+  // NaN/Infinity and clamp to a sane range, matching moveToken — a forged spawn
+  // can't park a token at ±1e9 and break the shared map view.
+  const clampCoord = (n: number) =>
+    Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   db.prepare(
     `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, shape, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?, ?)`,
@@ -427,8 +432,8 @@ export function createToken(opts: {
     opts.mapId,
     opts.kind,
     opts.refId,
-    opts.x,
-    opts.y,
+    clampCoord(opts.x),
+    clampCoord(opts.y),
     opts.isHidden ? 1 : 0,
     shape,
     Date.now(),
@@ -527,10 +532,14 @@ export function deleteToken(tokenId: string): void {
   if (token && sessionId) {
     const session = getSessionById(sessionId);
     if (session?.activeTurnTokenId === tokenId) {
+      const roundBefore = session.combatRound;
       advanceTurn(sessionId);
-      // Still pointing here → it was the only living combatant.
+      // Still pointing here → it was the only living combatant, and advanceTurn
+      // wrapped back to it, spuriously bumping the round. Clear the marker and
+      // undo that bump — combat is effectively over, not entering a new round.
       if (getSessionById(sessionId)?.activeTurnTokenId === tokenId) {
         setActiveTurn(sessionId, null);
+        setCombatRound(sessionId, roundBefore);
       }
     }
   }
@@ -669,27 +678,14 @@ export function copyTokens(
   const existing = new Set(
     listTokens(toMapId).map((t) => `${t.kind}:${t.refId}`),
   );
-  const insert = db.prepare(
-    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
   let copied = 0;
   db.transaction(() => {
     for (const t of listTokens(fromMapId)) {
       if (!kinds.includes(t.kind)) continue;
       if (existing.has(`${t.kind}:${t.refId}`)) continue;
-      insert.run(
-        newId(),
-        toMapId,
-        t.kind,
-        t.refId,
-        t.x,
-        t.y,
-        t.size,
-        t.initiative,
-        t.isHidden ? 1 : 0,
-        Date.now(),
-      );
+      // Clone the FULL column set (shape, width_ft, combat-role override…) — the
+      // same creature is referenced, only the map + id change.
+      cloneRow('tokens', t.id, { map_id: toMapId, created_at: Date.now() });
       copied++;
     }
   })();
@@ -831,10 +827,15 @@ export const importMaps = db.transaction(
       // reuse (or overwrite that fell back) → link tokens to the existing PC.
       return existing.id;
     };
-    const insertTok = db.prepare(
-      `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
+    // Ids of a map's rows in a content table (map_images / annotations /
+    // measurements) — cloned per map so a composed map keeps its image tiles,
+    // decals + shop popups, and measuring shapes.
+    const contentIds = (table: string, mapId: string): string[] =>
+      (
+        db.prepare(`SELECT id FROM ${table} WHERE map_id = ?`).all(mapId) as {
+          id: string;
+        }[]
+      ).map((r) => r.id);
     let imported = 0;
     for (const mapId of mapIds) {
       if (!sourceMapIds.has(mapId)) continue;
@@ -842,21 +843,41 @@ export const importMaps = db.transaction(
         session_id: targetSessionId,
         created_at: now,
       });
+      // Clone tokens with their FULL column set (shape, width_ft, combat-role
+      // override, hidden…) — a reduced INSERT dropped pasted-image shape + footprint.
+      const tokenIdMap = new Map<string, string>();
       for (const t of listTokens(mapId)) {
-        const newRef = cloneRef(t.kind, t.refId);
-        insertTok.run(
-          newId(),
-          newMapId,
-          t.kind,
-          newRef,
-          t.x,
-          t.y,
-          t.size,
-          t.initiative ?? null,
-          t.isHidden ? 1 : 0,
-          now,
-        );
+        const newTokId = cloneRow('tokens', t.id, {
+          map_id: newMapId,
+          ref_id: cloneRef(t.kind, t.refId),
+          created_at: now,
+        });
+        tokenIdMap.set(t.id, newTokId);
       }
+      // Image tiles (a tile-composed map is blank without them) + decals.
+      for (const id of contentIds('map_images', mapId))
+        cloneRow('map_images', id, {
+          session_id: targetSessionId,
+          map_id: newMapId,
+          created_at: now,
+        });
+      for (const id of contentIds('annotations', mapId))
+        cloneRow('annotations', id, {
+          session_id: targetSessionId,
+          map_id: newMapId,
+          created_at: now,
+        });
+      // Persistent measuring shapes; a token-following emanation's token_id is
+      // remapped to the freshly-cloned token (dropped if that token wasn't cloned).
+      for (const meas of db
+        .prepare('SELECT id, token_id FROM measurements WHERE map_id = ?')
+        .all(mapId) as { id: string; token_id: string | null }[])
+        cloneRow('measurements', meas.id, {
+          session_id: targetSessionId,
+          map_id: newMapId,
+          token_id: meas.token_id ? tokenIdMap.get(meas.token_id) ?? null : null,
+          created_at: now,
+        });
       imported++;
     }
     return imported;
@@ -932,27 +953,13 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
           .get(template_id) as { c: number }).c + 1;
       name = `${tmpl?.name ?? src.name} ${n}`;
     }
-    const inst = insertMonster(
-      src.sessionId,
-      {
-        name: src.name,
-        maxHp: src.maxHp,
-        creatureType: src.creatureType,
-        armorClass: src.armorClass,
-        speed: src.speed,
-        stats: src.stats,
-        resistances: src.resistances,
-        weaknesses: src.weaknesses,
-        actions: src.actions,
-        abilities: src.abilities,
-        weapons: src.weapons,
-        level: src.level,
-        icon: src.icon,
-        disposition: src.disposition,
-        source: src.source,
-      },
-      { isTemplate: false, templateId: template_id, name },
-    );
+    // Full-fidelity clone (fixes duplicated objects losing loot/objectKind and
+    // spellcaster instances losing their sheet abilities + save proficiencies).
+    const inst = insertMonster(src.sessionId, toMonsterInput(src), {
+      isTemplate: false,
+      templateId: template_id,
+      name,
+    });
     // Carry the source instance's current HP + conditions onto the copy.
     db.prepare('UPDATE monsters SET cur_hp = ?, conditions = ? WHERE id = ?').run(
       src.curHp,
@@ -1331,6 +1338,15 @@ export function getRollEntry(id: string): RollEntry | null {
     | RollLogRow
     | undefined;
   return r ? rowToRollEntry(r) : null;
+}
+
+/** Persist an updated `apply` payload on a roll entry — used to record consumed
+ *  darts / resolved targets so a cast's damage can't be re-applied past its budget. */
+export function setRollApply(id: string, apply: RollEntry['apply']): void {
+  db.prepare('UPDATE roll_log SET apply = ? WHERE id = ?').run(
+    apply ? JSON.stringify(apply) : '',
+    id,
+  );
 }
 
 // ---- Measuring shapes (cone/circle/line) ----
@@ -2174,7 +2190,10 @@ export function updateCharacter(
   if (patch.subclass !== undefined) put('subclass', patch.subclass);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
-  if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  // Clamp curHp non-negative (a negative value slips past the `curHp === 0`
+  // death-save-failure check); ignore a non-finite value rather than zeroing HP.
+  if (patch.curHp !== undefined && Number.isFinite(patch.curHp))
+    put('cur_hp', Math.max(0, Math.round(patch.curHp)));
   if (patch.tempHp !== undefined) put('temp_hp', Math.max(0, patch.tempHp));
   if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
   if (patch.speed !== undefined) put('speed', patch.speed);
@@ -2354,6 +2373,7 @@ export type MonsterInput = {
   stats?: Record<string, number>;
   resistances?: string[];
   weaknesses?: string[];
+  saveProficiencies?: string[];
   actions?: Monster['actions'];
   abilities?: Monster['abilities'];
   sheetAbilities?: Monster['sheetAbilities'];
@@ -2365,6 +2385,35 @@ export type MonsterInput = {
   objectDc?: Monster['objectDc'];
   source?: Monster['source'];
 };
+
+/** Snapshot a stored creature's copyable fields into a MonsterInput so spawn /
+ *  copy / duplicate clone the FULL creature (save proficiencies, object state,
+ *  sheet abilities…) instead of a hand-copied field list that silently drifts.
+ *  Deep-copies the nested structures so per-instance edits never alias the source. */
+function toMonsterInput(m: Monster): MonsterInput {
+  return {
+    name: m.name,
+    maxHp: m.maxHp,
+    creatureType: m.creatureType,
+    armorClass: m.armorClass,
+    speed: m.speed,
+    stats: { ...m.stats },
+    resistances: [...m.resistances],
+    weaknesses: [...m.weaknesses],
+    saveProficiencies: [...(m.saveProficiencies ?? [])],
+    actions: m.actions,
+    abilities: m.abilities,
+    weapons: JSON.parse(JSON.stringify(m.weapons ?? [])),
+    sheetAbilities: JSON.parse(JSON.stringify(m.sheetAbilities ?? [])),
+    level: m.level,
+    icon: m.icon,
+    disposition: m.disposition,
+    objectKind: m.objectKind,
+    loot: m.loot ? JSON.parse(JSON.stringify(m.loot)) : m.loot,
+    objectDc: m.objectDc,
+    source: m.source,
+  };
+}
 
 function insertMonster(
   sessionId: string,
@@ -2391,10 +2440,10 @@ function insertMonster(
   db.prepare(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
-        resistances, weaknesses, abilities, source, icon,
+        resistances, weaknesses, save_proficiencies, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
         disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2404,6 +2453,9 @@ function insertMonster(
     opts.maxHp,
     JSON.stringify(opts.resistances ?? []),
     JSON.stringify(opts.weaknesses ?? []),
+    // Save proficiencies drive resolveSaves — carry them through spawn/copy so a
+    // tuned boss keeps the saves it should pass.
+    JSON.stringify(opts.saveProficiencies ?? []),
     JSON.stringify(opts.abilities ?? []),
     opts.source ?? 'manual',
     icon,
@@ -2414,7 +2466,8 @@ function insertMonster(
     meta.isTemplate ? 1 : 0,
     meta.templateId,
     opts.disposition ?? 'enemy',
-    JSON.stringify(weapons),
+    // A spawned instance's weapons drive resolveAttack — clamp like the PC path.
+    JSON.stringify(sanitizeWeapons(weapons)),
     opts.level ?? 0,
     opts.objectKind ?? null,
     opts.loot ? JSON.stringify(opts.loot) : null,
@@ -2460,61 +2513,20 @@ export function instantiateMonster(templateId: string): Monster | null {
         'SELECT COUNT(*) AS c FROM monsters WHERE template_id = ?',
       )
       .get(templateId) as { c: number }).c + 1;
-  return insertMonster(
-    tmpl.sessionId,
-    {
-      name: tmpl.name,
-      maxHp: tmpl.maxHp,
-      creatureType: tmpl.creatureType,
-      armorClass: tmpl.armorClass,
-      speed: tmpl.speed,
-      stats: tmpl.stats,
-      resistances: tmpl.resistances,
-      weaknesses: tmpl.weaknesses,
-      actions: tmpl.actions,
-      abilities: tmpl.abilities,
-      weapons: tmpl.weapons,
-      level: tmpl.level,
-      icon: tmpl.icon,
-      disposition: tmpl.disposition,
-      objectKind: tmpl.objectKind,
-      // Each spawned container gets its own copy of the template's loot.
-      loot: tmpl.loot,
-      objectDc: tmpl.objectDc,
-      // Deep-copy so per-instance mastery/maneuver/stance toggle state doesn't
-      // alias the template's entries.
-      sheetAbilities: JSON.parse(JSON.stringify(tmpl.sheetAbilities ?? [])),
-      source: tmpl.source,
-    },
-    { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
-  );
+  // toMonsterInput carries the full stat block (save profs, object state, loot,
+  // sheet abilities) and deep-copies the nested structures per instance.
+  return insertMonster(tmpl.sessionId, toMonsterInput(tmpl), {
+    isTemplate: false,
+    templateId,
+    name: `${tmpl.name} ${n}`,
+  });
 }
 
 /** Duplicate a creature template into a new independent template. */
 export function copyMonster(monsterId: string): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
-  return createMonsterTemplate(m.sessionId, {
-    name: m.name,
-    maxHp: m.maxHp,
-    creatureType: m.creatureType,
-    armorClass: m.armorClass,
-    speed: m.speed,
-    stats: m.stats,
-    resistances: m.resistances,
-    weaknesses: m.weaknesses,
-    actions: m.actions,
-    abilities: m.abilities,
-    weapons: m.weapons,
-    level: m.level,
-    icon: m.icon,
-    disposition: m.disposition,
-    objectKind: m.objectKind,
-    loot: m.loot,
-    objectDc: m.objectDc,
-    sheetAbilities: JSON.parse(JSON.stringify(m.sheetAbilities ?? [])),
-    source: m.source,
-  });
+  return createMonsterTemplate(m.sessionId, toMonsterInput(m));
 }
 
 /** Patch editable fields of a creature (template or instance). DM-only. */
@@ -2583,7 +2595,10 @@ export function updateMonster(
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
-  if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  // Clamp curHp non-negative (a negative value slips past the `curHp === 0`
+  // death-save-failure check); ignore a non-finite value rather than zeroing HP.
+  if (patch.curHp !== undefined && Number.isFinite(patch.curHp))
+    put('cur_hp', Math.max(0, Math.round(patch.curHp)));
   if (patch.tempHp !== undefined) put('temp_hp', Math.max(0, patch.tempHp));
   if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
   if (patch.speed !== undefined) put('speed', patch.speed);
@@ -2595,7 +2610,9 @@ export function updateMonster(
     put('weaknesses', JSON.stringify(patch.weaknesses));
   if (patch.saveProficiencies !== undefined)
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
-  if (patch.weapons !== undefined) put('weapons', JSON.stringify(patch.weapons));
+  // Weapons drive resolveAttack — clamp untrusted client edits like the PC path.
+  if (patch.weapons !== undefined)
+    put('weapons', JSON.stringify(sanitizeWeapons(patch.weapons)));
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)
     put('abilities', JSON.stringify(patch.abilities));
@@ -2683,6 +2700,10 @@ export function applyDamage(
   /** Canonical 5e damage type when the source knew it (drives the token's
    *  elemental burst FX); omitted for heals/untyped damage. */
   damageType?: string,
+  /** The damage came from a CRITICAL hit. RAW: a crit against a creature at 0 HP
+   *  is TWO death-save failures, not one (and melee vs unconscious is always a
+   *  crit). Only affects the down-PC branch below. */
+  crit = false,
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -2734,12 +2755,13 @@ export function applyDamage(
     if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
       ds = { successes: 0, failures: 0 };
     } else if (amount > 0 && entity.curHp === 0 && ds.failures < 3) {
-      // Taking damage while down adds a failure; a stable creature (3✓) becomes
-      // unstable and resumes dying with that one failure.
+      // Taking damage while down adds a failure (two on a crit, per RAW); a stable
+      // creature (3✓) becomes unstable and resumes dying with those failures.
       const wasStable = ds.successes >= 3;
+      const add = crit ? 2 : 1;
       ds = {
         successes: wasStable ? 0 : ds.successes,
-        failures: wasStable ? 1 : Math.min(3, ds.failures + 1),
+        failures: Math.min(3, (wasStable ? 0 : ds.failures) + add),
       };
     }
     db.prepare(

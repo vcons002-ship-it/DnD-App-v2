@@ -86,4 +86,24 @@ describe('session export / import', () => {
   it('returns null for a missing session code', () => {
     expect(exportSession('NOPE')).toBeNull();
   });
+
+  it('drops the durable owner on import (M6) and rejects a bad bundle version', () => {
+    const src = createSession('Backup Owner');
+    const map = createMap(src.id, { name: 'M' });
+    setActiveMap(src.id, map.id);
+    const hero = createCharacter(src.id, { name: 'Owned', maxHp: 10 });
+    claimCharacter(hero.id, 'sock-1', 'browser-XYZ'); // sets ownerId = browser-XYZ
+    const bundle = exportSession(src.code)!;
+
+    const { code } = importSession(bundle);
+    const dst = getSessionByCode(code)!;
+    const imported = listCharacters(dst.id).find((c) => c.name === 'Owned')!;
+    // M6: the ownership drop used a typo'd column key (owner_id), so the durable
+    // owner_player_id was imported verbatim — a restored copy auto-reclaimed players.
+    expect(imported.ownerId).toBeNull();
+    expect(imported.claimedBy).toBeNull();
+
+    // A future/corrupt bundle version must be rejected, not silently imported.
+    expect(() => importSession({ ...bundle, version: 2 } as never)).toThrow();
+  });
 });

@@ -105,6 +105,17 @@ export function CombatSection({
   if (nothingRollable && !anyToggle && !isPc && summonAbilities.length === 0)
     return <p className="muted">No attacks or rollable abilities.</p>;
 
+  // The select state can hold an id no longer in the list (the target token was
+  // deleted, or the DM switched maps) — a stale-but-truthy id would leave the
+  // attack buttons enabled while firing at a token the server drops silently.
+  // Clamp to the live list for everything that reads it.
+  const effectiveTargetId = targets.some((t) => t.id === targetId)
+    ? targetId
+    : targets[0]?.id ?? '';
+  const effectiveHealId = healList.some((t) => t.id === healTargetId)
+    ? healTargetId
+    : healList[0]?.id ?? '';
+
   // A 2H toggle only matters when some weapon is versatile (has 2H damage).
   const anyVersatile = weapons.some(
     (w) =>
@@ -117,7 +128,7 @@ export function CombatSection({
       {targets.length > 0 && !nothingRollable && (
         <div className="dice-row">
           <span className="muted spell-tag">Target</span>
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          <select value={effectiveTargetId} onChange={(e) => setTargetId(e.target.value)}>
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
                 {resolveToken(snapshot, t).name}
@@ -135,7 +146,7 @@ export function CombatSection({
         kind={kind}
         snapshot={snapshot}
         targets={targets}
-        currentTargetId={targetId || undefined}
+        currentTargetId={effectiveTargetId || undefined}
       />
       {weapons.length > 0 && (
         <>
@@ -160,11 +171,11 @@ export function CombatSection({
           <WeaponButtons
             weapons={weapons}
             twoHanded={twoHanded}
-            disabled={!targetId}
+            disabled={!effectiveTargetId}
             onAttack={(i) =>
               combatAttack({
                 attackerTokenId: attacker.id,
-                targetTokenId: targetId,
+                targetTokenId: effectiveTargetId,
                 weaponIndex: i,
                 advantage: consumeAdvantage(attacker.refId),
                 offhand: offhand || undefined,
@@ -178,7 +189,7 @@ export function CombatSection({
         <div className="dice-row">
           <span className="muted spell-tag">Heal target</span>
           <select
-            value={healTargetId}
+            value={effectiveHealId}
             onChange={(e) => setHealTargetId(e.target.value)}
           >
             {healList.map((t, i) => (
@@ -194,8 +205,8 @@ export function CombatSection({
         abilities={abilities}
         kind={kind}
         caster={caster}
-        targetTokenId={targetId || undefined}
-        healTargetId={healTargetId || undefined}
+        targetTokenId={effectiveTargetId || undefined}
+        healTargetId={effectiveHealId || undefined}
       />
       {summonAbilities.length > 0 && (
         <div className="combat-summon-row">

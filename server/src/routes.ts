@@ -514,7 +514,11 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   // Full lookup: local spells, then masteries, then maneuvers, then Gemini (spells only).
+  // Player-reachable (managing their own spells), so NOT DM-gated — but the AI
+  // fallback spends the Gemini key, so cap the request rate per client to stop a
+  // miss-loop from draining the quota.
   router.post('/spells/lookup', async (req, res) => {
+    if (rateLimited(req, res, 'spell-ai', 30, 60_000)) return;
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
     const spell = getSpell(name);
@@ -554,6 +558,7 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   router.post('/library/creatures', (req, res) => {
+    if (!requireDm(req, res)) return; // creature curation is a DM action
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
     const overwrite = req.query.overwrite === 'true';
@@ -566,6 +571,7 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   router.delete('/library/creatures/:name', (req, res) => {
+    if (!requireDm(req, res)) return; // deletes wipe a cross-campaign resource
     deleteLibraryCreature(req.params.name);
     res.status(204).end();
   });
@@ -590,6 +596,7 @@ export function createApiRouter(io: IOServer): Router {
   });
 
   router.delete('/library/items/:id', (req, res) => {
+    if (!requireDm(req, res)) return; // deletes wipe a cross-campaign resource
     deleteLibraryItem(req.params.id);
     res.status(204).end();
   });

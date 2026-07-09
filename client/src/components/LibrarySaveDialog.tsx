@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Monster } from '../../../shared/types';
+import { apiFetch } from '../lib/api';
 
 type Existing = {
   name: string;
@@ -54,7 +55,7 @@ export function LibrarySaveDialog({
     setBusy(true);
     setStatus('idle');
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/library/creatures${overwrite ? '?overwrite=true' : ''}`,
         {
           method: 'POST',

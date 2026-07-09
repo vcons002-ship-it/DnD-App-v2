@@ -43,6 +43,7 @@ import {
   captureCreatureDelete,
   captureFogCover,
   popUndo,
+  pushUndo,
 } from './undo.js';
 import {
   addRollLog,
@@ -340,8 +341,16 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('map:setGrid', (p) => {
       if (!isDm() || !getMap(p.mapId)) return;
-      const px = Math.round(Math.max(10, Math.min(400, p.gridSizePx)));
-      const ft = Math.round(Math.max(1, Math.min(100, p.feetPerSquare)));
+      const px = Number.isFinite(p.gridSizePx)
+        ? Math.round(Math.max(10, Math.min(400, p.gridSizePx)))
+        : 50;
+      // Keep feet-per-square as a FLOAT: the "drag a line to set scale" tool sends
+      // an exact fractional value (e.g. a 3000px map declared 100ft wide over a
+      // 50px grid = 1.667 ft/sq) that drives tokenDistanceFt / reach / auto-crit.
+      // Rounding it skewed every distance rule; NaN-guard, allow fine sub-1 grids.
+      const ft = Number.isFinite(p.feetPerSquare)
+        ? Math.max(0.1, Math.min(1000, p.feetPerSquare))
+        : 5;
       // 0 = unset (fall back to feet-per-square); otherwise clamp to a sane span.
       const w = p.widthFt <= 0 ? 0 : Math.max(1, Math.min(100000, p.widthFt));
       updateMapGrid(p.mapId, px, ft, w, {
@@ -647,10 +656,18 @@ export function registerSocketHandlers(io: IOServer): void {
       // stale/forged.
       if (!isDm()) {
         const t = getToken(tokenId);
-        if (!t || t.isHidden) return;
-        if (t.kind === 'monster') {
-          const m = getMonster(t.refId);
-          if (!m || m.disposition !== 'friendly' || m.objectKind) return;
+        const m = t && t.kind === 'monster' ? getMonster(t.refId) : null;
+        const allowed =
+          !!t &&
+          !t.isHidden &&
+          (t.kind !== 'monster' || (!!m && m.disposition === 'friendly' && !m.objectKind));
+        if (!allowed) {
+          // The client optimistically moved the token (Konva) but the move is
+          // rejected and no broadcast follows — re-sync THIS socket so its node
+          // snaps back to the server position instead of leaving a client-only
+          // ghost (react-konva won't correct an unchanged x/y prop on its own).
+          sendSnapshot(io, socket.id);
+          return;
         }
       }
       moveToken(tokenId, x, y);
@@ -712,6 +729,9 @@ export function registerSocketHandlers(io: IOServer): void {
         afterChange();
       } catch {
         // The world moved on (e.g. the map is gone) — the restore rolled back.
+        // Put the entry back so the DM can retry once they fix the world, instead
+        // of permanently losing the captured rows.
+        pushUndo(sid, entry.label, entry.run);
         socket.emit('notice', { message: `Couldn't undo "${entry.label}" — the map changed.` });
       }
     });
@@ -1206,7 +1226,7 @@ export function registerSocketHandlers(io: IOServer): void {
         // Stopped by the DM — note it, don't post a stale answer.
         addChatMessage(sid, '📖 Rules Assistant', 'dm', '⏹ Stopped.', true);
         afterChange();
-        socket.emit('notice', { message: 'Rules assistant stopped' });
+        socket.emit('notice', { message: 'Rules assistant stopped', aiDone: true });
         return;
       }
       addChatMessage(
@@ -1219,7 +1239,7 @@ export function registerSocketHandlers(io: IOServer): void {
         result.answer ? result.pages : [],
       );
       afterChange();
-      socket.emit('notice', { message: result.answer ? 'Rules assistant answered' : 'Rules assistant unavailable' });
+      socket.emit('notice', { message: result.answer ? 'Rules assistant answered' : 'Rules assistant unavailable', aiDone: true });
     });
 
     // DM-only: stop the in-flight rules-assistant request.
@@ -1254,7 +1274,7 @@ export function registerSocketHandlers(io: IOServer): void {
         addChatMessage(sid, '📜 Recap', 'dm', recap); // visible to everyone
         afterChange();
       }
-      socket.emit('notice', { message: recap ? 'Session recap posted' : 'Could not generate a recap' });
+      socket.emit('notice', { message: recap ? 'Session recap posted' : 'Could not generate a recap', aiDone: true });
     });
 
     // DM-only: make a creature speak an AI-generated in-character line, floated
@@ -1280,7 +1300,7 @@ export function registerSocketHandlers(io: IOServer): void {
         console.warn('  [speak] failed:', (err as Error).message);
       }
       if (line) broadcastSay(io, sid, t.refId, line);
-      socket.emit('notice', { message: line ? `${m.name} speaks` : 'No AI backend for dialogue' });
+      socket.emit('notice', { message: line ? `${m.name} speaks` : 'No AI backend for dialogue', aiDone: true });
     });
 
     // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
@@ -1350,6 +1370,7 @@ export function registerSocketHandlers(io: IOServer): void {
           message: `Filled ${res.filled} missing field${
             res.filled === 1 ? '' : 's'
           } with AI`,
+          aiDone: true,
         });
       } else {
         socket.emit('notice', {
@@ -1359,6 +1380,7 @@ export function registerSocketHandlers(io: IOServer): void {
               : res.reason === 'nothing'
               ? 'Nothing missing to fill'
               : 'AI lookup failed',
+          aiDone: true,
         });
       }
     });
@@ -1369,11 +1391,12 @@ export function registerSocketHandlers(io: IOServer): void {
       const res = await aiCreateCharacter(sid, description.trim());
       if (res.ok) {
         afterChange();
-        socket.emit('notice', { message: `Created ${res.character.name} with AI` });
+        socket.emit('notice', { message: `Created ${res.character.name} with AI`, aiDone: true });
       } else {
         socket.emit('notice', {
           message:
             res.reason === 'no-key' ? 'No AI key configured' : 'AI lookup failed',
+          aiDone: true,
         });
       }
     });
@@ -1467,6 +1490,7 @@ export function registerSocketHandlers(io: IOServer): void {
           message: `Filled ${res.filled} missing field${
             res.filled === 1 ? '' : 's'
           } with AI`,
+          aiDone: true,
         });
       } else {
         const msg =
@@ -1475,7 +1499,7 @@ export function registerSocketHandlers(io: IOServer): void {
             : res.reason === 'nothing'
             ? 'Nothing missing to fill'
             : 'AI lookup failed';
-        socket.emit('notice', { message: msg });
+        socket.emit('notice', { message: msg, aiDone: true });
       }
     });
 

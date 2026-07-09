@@ -52,9 +52,13 @@ export function SidePanel({ side, storageKey, openSignal, children }: Props) {
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      // On touch a pointercancel (browser claims the gesture for scrolling) never
+      // fires pointerup, which would leave the panel glued to every finger move.
+      window.addEventListener('pointercancel', onUp);
     },
     [side, width],
   );

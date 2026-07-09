@@ -83,6 +83,33 @@ test('a plain /roll animates the roll-reveal overlay', async ({ browser }) => {
   await ctx.close();
 });
 
+// REST auth regression (audit H1/H2): DM-gated routes must reject a missing
+// secret, and the DM's AI endpoints must authenticate WITH it. No browser needed.
+test('DM-gated REST routes enforce the secret', async () => {
+  const api = await pwRequest.newContext();
+
+  // H2: cross-session library curation was unauthenticated (a stranger could wipe
+  // the bestiary). DELETE + POST without the secret are now rejected.
+  const del = await api.delete(`${BASE}/api/library/creatures/Goblin`);
+  expect(del.status()).toBe(403);
+  const post = await api.post(`${BASE}/api/library/creatures`, {
+    headers: { 'content-type': 'application/json' },
+    data: { name: 'Hax', maxHp: 1 },
+  });
+  expect(post.status()).toBe(403);
+
+  // H1: the DM's AI creature lookup is DM-gated; the client used to send NO secret
+  // so it always 403'd. With the secret it passes AUTH (the AI backend may be
+  // absent → 404/503, but never the 403 that broke the button).
+  const look = await api.post(`${BASE}/api/creatures/lookup`, {
+    headers: { 'content-type': 'application/json', 'x-dm-passphrase': DM_SECRET },
+    data: { name: 'zzznotarealcreature' },
+  });
+  expect(look.status()).not.toBe(403);
+
+  await api.dispose();
+});
+
 test('the DM console rejects a wrong secret', async ({ page }) => {
   const code = await makeSession();
   await page.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });

@@ -859,6 +859,14 @@ export type RollEntry = {
     dice?: string;
     /** Caster's character id — lets THAT player (not just the DM) assign the darts. */
     owner?: string;
+    /** How many darts have already been assigned — the server budget, so a split
+     *  spell (Magic Missile) can't be re-applied past its dart count (a replayed
+     *  or double-clicked click is rejected). */
+    consumedDarts?: number;
+    /** Token ids already resolved for this cast — a save/auto-hit apply hits each
+     *  creature at most once (each creature saves once vs an AoE; blocks the
+     *  accidental double-click that would double the damage). */
+    consumedTargets?: string[];
   };
   createdAt: number;
 };
@@ -1185,7 +1193,13 @@ export type AiFillCharacterPayload = { characterId: string };
 /** Generate a whole character/NPC from a free-text description (DM or player). */
 export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
-export type NoticePayload = { message: string };
+export type NoticePayload = {
+  message: string;
+  /** Set when this notice signals an AI operation finished — the client clears the
+   *  "AI is working" spinner only on these, so an unrelated notice (a spell-slot
+   *  warning, an undo) fired mid-request doesn't drop the banner early. */
+  aiDone?: boolean;
+};
 /** Create a reusable creature *template* (one spawn button). */
 export type MonsterCreatePayload = {
   name: string;
