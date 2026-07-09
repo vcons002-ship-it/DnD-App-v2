@@ -10,7 +10,7 @@ import type {
   SheetModifier,
   Weapon,
 } from '../../shared/types.js';
-import { sanitizeItems, sanitizeModifiers } from '../../shared/modifiers.js';
+import { sanitizeItems, sanitizeModifiers, sanitizeWeapons } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
 
 // ---- Cross-session creature library ----
@@ -136,7 +136,9 @@ export function saveLibraryCreature(
     JSON.stringify(input.stats ?? {}),
     JSON.stringify(input.resistances ?? []),
     JSON.stringify(input.weaknesses ?? []),
-    JSON.stringify(input.weapons ?? []),
+    // A library creature is later instantiated as a live monster whose weapons
+    // drive resolveAttack — clamp them like the character-update path does.
+    JSON.stringify(sanitizeWeapons(input.weapons ?? [])),
     JSON.stringify(input.actions ?? []),
     JSON.stringify(input.abilities ?? []),
     JSON.stringify(input.sheetAbilities ?? []),

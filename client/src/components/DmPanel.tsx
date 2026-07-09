@@ -7,6 +7,7 @@ import type {
   TokenKind,
 } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { apiFetch } from '../lib/api';
 import { unsupportedImageReason } from '../lib/images';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { NewCharacterForm } from './NewCharacterForm';
@@ -86,7 +87,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
     setGlobalAiBusy(true); // show the shared "AI is working…" banner
     notify(`✨ Asking AI for "${name}"…`);
     try {
-      const res = await fetch('/api/creatures/lookup', {
+      const res = await apiFetch('/api/creatures/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),

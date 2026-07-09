@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MapPopup, ShopItem, StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { apiFetch } from '../lib/api';
 
 /**
  * The popup that opens when a clickable map decal (a "shop") is clicked. Players
@@ -62,7 +63,7 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
     if (!draft || aiBusy || !aiPrompt.trim()) return;
     setAiBusy(true);
     try {
-      const res = await fetch('/api/shops/generate', {
+      const res = await apiFetch('/api/shops/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: aiPrompt.trim() }),

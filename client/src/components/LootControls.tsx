@@ -8,6 +8,7 @@ import type {
   StateSnapshot,
 } from '../../../shared/types';
 import { targetLabel } from '../../../shared/modifiers';
+import { apiFetch } from '../lib/api';
 import { useStore } from '../state/socket';
 import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
 import { ModifierEditor } from './ModifierEditor';
@@ -323,7 +324,7 @@ export function LootControls({
               onClick={async () => {
                 setAiBusy(true);
                 try {
-                  const res = await fetch('/api/items/generate', {
+                  const res = await apiFetch('/api/items/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: aiPrompt.trim() }),
