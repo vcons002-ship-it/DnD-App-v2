@@ -588,6 +588,18 @@ export function MapStage({
   const fogActive = isDm && fogBrush !== 'off';
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
+  // Fog-brush cells are accumulated and flushed on a short timer so a fast sweep
+  // coalesces into ~1 broadcast per 120 ms — each fog:paint triggers a full
+  // server-side snapshot rebuild + broadcast, so per-mousemove emits saturate the
+  // event loop and stutter every player's map.
+  const pendingFogRef = useRef<string[]>([]);
+  const fogFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (fogFlushRef.current) clearTimeout(fogFlushRef.current);
+    },
+    [],
+  );
 
   // ---- Map scale ----------------------------------------------------------
   // Scale is GRID-BASED: feet-per-pixel = feet-per-square ÷ pixels-per-square,
@@ -915,7 +927,23 @@ export function MapStage({
         fresh.push(key);
       }
     }
-    if (fresh.length) paintFog(map.id, paintLayer, fresh, fogBrush === 'reveal');
+    if (fresh.length) {
+      pendingFogRef.current.push(...fresh);
+      if (!fogFlushRef.current) fogFlushRef.current = setTimeout(flushFog, 120);
+    }
+  };
+  /** Emit the accumulated fog cells as ONE paint (a stroke is a single
+   *  layer/direction, so those are constant across the batch). */
+  const flushFog = () => {
+    if (fogFlushRef.current) {
+      clearTimeout(fogFlushRef.current);
+      fogFlushRef.current = null;
+    }
+    const cells = pendingFogRef.current;
+    if (cells.length && map) {
+      pendingFogRef.current = [];
+      paintFog(map.id, paintLayer, cells, fogBrush === 'reveal');
+    }
   };
 
   // Place/size a measurement. Custom = drag; standard circle/square = one click;
@@ -1192,6 +1220,7 @@ export function MapStage({
       setDraft(null);
       return;
     }
+    if (paintingRef.current) flushFog(); // emit the tail of a fog stroke at once
     paintingRef.current = false;
   };
 

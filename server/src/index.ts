@@ -40,6 +40,11 @@ const server = http.createServer(app);
 const io: IOServer = new Server(server, {
   // Behind a tunnel the Origin varies; the session code is the real gate.
   cors: { origin: true, credentials: true },
+  // Snapshots are large and highly repetitive (fog cell strings, duplicated
+  // stat blocks) — compress them on the wire. Off by default in Socket.IO v4;
+  // a ~1 KB threshold skips tiny ephemeral events (cursors, typing) where the
+  // deflate overhead isn't worth it. 5–10× smaller broadcasts on this payload.
+  perMessageDeflate: { threshold: 1024 },
 });
 
 app.use('/uploads', express.static(config.uploadsDir));

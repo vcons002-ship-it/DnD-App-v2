@@ -34,6 +34,15 @@ import { peekUndo } from './undo.js';
 const sumSteps = (steps?: { value: number }[]): number =>
   (steps ?? []).reduce((s, x) => s + x.value, 0);
 
+/** A map shaped for the snapshot's map LIST (a picker): keep the metadata + the
+ *  fog ENABLED flags, but drop the (potentially thousands of) revealed-cell
+ *  strings — the canvas reads those only from the dedicated `map` field. */
+const stripListFog = (m: MapState): MapState => ({
+  ...m,
+  mapFogRevealed: [],
+  tokenFogRevealed: [],
+});
+
 /**
  * Shape a roll-log entry for PLAYERS: always redact the target AC (`vs AC ?`), and
  * for an ENEMY/NEUTRAL creature roll (`hideMods`) strip the creature's modifier
@@ -339,8 +348,16 @@ export function createSnapshotBuilder(
       hideDmRolls: session.hideDmRolls,
       // DM-only: what the next undo would reverse (drives the DM's Undo button).
       undoLabel: role === 'dm' ? peekUndo(sessionId) : null,
-      // Players don't need the full map list (DM-only prep tool).
-      maps: role === 'dm' ? maps : map ? [map] : [],
+      // The map LIST is only a picker (name/active) — the client reads fog cells
+      // exclusively from the `map` field above, so drop the big fog arrays from
+      // the list entries (the DM's every-map fog was ~145 KB per snapshot, and
+      // the player's `[map]` duplicated the active map's fog a second time).
+      maps:
+        role === 'dm'
+          ? maps.map(stripListFog)
+          : map
+            ? [stripListFog(map)]
+            : [],
       tokens,
       characters: shapedCharacters,
       monsters: shapedMonsters,

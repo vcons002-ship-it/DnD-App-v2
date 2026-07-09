@@ -419,6 +419,11 @@ export function createToken(opts: {
       : objectKind === 'chest' || objectKind === 'door'
         ? 'square'
         : 'circle');
+  // Never trust client coordinates (players place their own PC token): reject
+  // NaN/Infinity and clamp to a sane range, matching moveToken — a forged spawn
+  // can't park a token at ±1e9 and break the shared map view.
+  const clampCoord = (n: number) =>
+    Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   db.prepare(
     `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, shape, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?, ?)`,
@@ -427,8 +432,8 @@ export function createToken(opts: {
     opts.mapId,
     opts.kind,
     opts.refId,
-    opts.x,
-    opts.y,
+    clampCoord(opts.x),
+    clampCoord(opts.y),
     opts.isHidden ? 1 : 0,
     shape,
     Date.now(),
