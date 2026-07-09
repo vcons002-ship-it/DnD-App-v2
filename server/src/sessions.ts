@@ -669,27 +669,14 @@ export function copyTokens(
   const existing = new Set(
     listTokens(toMapId).map((t) => `${t.kind}:${t.refId}`),
   );
-  const insert = db.prepare(
-    `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
   let copied = 0;
   db.transaction(() => {
     for (const t of listTokens(fromMapId)) {
       if (!kinds.includes(t.kind)) continue;
       if (existing.has(`${t.kind}:${t.refId}`)) continue;
-      insert.run(
-        newId(),
-        toMapId,
-        t.kind,
-        t.refId,
-        t.x,
-        t.y,
-        t.size,
-        t.initiative,
-        t.isHidden ? 1 : 0,
-        Date.now(),
-      );
+      // Clone the FULL column set (shape, width_ft, combat-role override…) — the
+      // same creature is referenced, only the map + id change.
+      cloneRow('tokens', t.id, { map_id: toMapId, created_at: Date.now() });
       copied++;
     }
   })();
@@ -831,10 +818,15 @@ export const importMaps = db.transaction(
       // reuse (or overwrite that fell back) → link tokens to the existing PC.
       return existing.id;
     };
-    const insertTok = db.prepare(
-      `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, initiative, is_hidden, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
+    // Ids of a map's rows in a content table (map_images / annotations /
+    // measurements) — cloned per map so a composed map keeps its image tiles,
+    // decals + shop popups, and measuring shapes.
+    const contentIds = (table: string, mapId: string): string[] =>
+      (
+        db.prepare(`SELECT id FROM ${table} WHERE map_id = ?`).all(mapId) as {
+          id: string;
+        }[]
+      ).map((r) => r.id);
     let imported = 0;
     for (const mapId of mapIds) {
       if (!sourceMapIds.has(mapId)) continue;
@@ -842,21 +834,41 @@ export const importMaps = db.transaction(
         session_id: targetSessionId,
         created_at: now,
       });
+      // Clone tokens with their FULL column set (shape, width_ft, combat-role
+      // override, hidden…) — a reduced INSERT dropped pasted-image shape + footprint.
+      const tokenIdMap = new Map<string, string>();
       for (const t of listTokens(mapId)) {
-        const newRef = cloneRef(t.kind, t.refId);
-        insertTok.run(
-          newId(),
-          newMapId,
-          t.kind,
-          newRef,
-          t.x,
-          t.y,
-          t.size,
-          t.initiative ?? null,
-          t.isHidden ? 1 : 0,
-          now,
-        );
+        const newTokId = cloneRow('tokens', t.id, {
+          map_id: newMapId,
+          ref_id: cloneRef(t.kind, t.refId),
+          created_at: now,
+        });
+        tokenIdMap.set(t.id, newTokId);
       }
+      // Image tiles (a tile-composed map is blank without them) + decals.
+      for (const id of contentIds('map_images', mapId))
+        cloneRow('map_images', id, {
+          session_id: targetSessionId,
+          map_id: newMapId,
+          created_at: now,
+        });
+      for (const id of contentIds('annotations', mapId))
+        cloneRow('annotations', id, {
+          session_id: targetSessionId,
+          map_id: newMapId,
+          created_at: now,
+        });
+      // Persistent measuring shapes; a token-following emanation's token_id is
+      // remapped to the freshly-cloned token (dropped if that token wasn't cloned).
+      for (const meas of db
+        .prepare('SELECT id, token_id FROM measurements WHERE map_id = ?')
+        .all(mapId) as { id: string; token_id: string | null }[])
+        cloneRow('measurements', meas.id, {
+          session_id: targetSessionId,
+          map_id: newMapId,
+          token_id: meas.token_id ? tokenIdMap.get(meas.token_id) ?? null : null,
+          created_at: now,
+        });
       imported++;
     }
     return imported;

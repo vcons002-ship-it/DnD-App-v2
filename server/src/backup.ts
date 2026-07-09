@@ -188,13 +188,16 @@ export const importSession = db.transaction(
       last_played_at: now,
     });
 
-    // 5. Creatures first (tokens reference them). Drop live claims/owners.
+    // 5. Creatures first (tokens reference them). Drop live claims/owners so an
+    //    imported copy doesn't auto-reclaim a player onto "their" PC in it (the
+    //    durable owner column is owner_player_id — a typo'd `owner_id` was silently
+    //    dropped by insertRow's column intersection, leaving the owner imported).
     for (const c of data.characters)
       insertRow('characters', c, {
         id: charIds.get(c.id as string),
         session_id: sid,
         claimed_by: null,
-        owner_id: null,
+        owner_player_id: null,
       });
     for (const m of data.monsters)
       insertRow('monsters', m, {
