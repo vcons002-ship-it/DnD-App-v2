@@ -87,12 +87,17 @@ export type FillResult =
  * overwriting DM-entered data. Returns how many fields were filled.
  */
 export async function aiFillCreature(monsterId: string): Promise<FillResult> {
-  const m = getMonster(monsterId);
-  if (!m) return { ok: false, reason: 'not-found' };
+  const m0 = getMonster(monsterId);
+  if (!m0) return { ok: false, reason: 'not-found' };
   if (!aiAvailable()) return { ok: false, reason: 'no-key' };
 
-  const tpl = await lookupCreatureAI(m.name);
+  const tpl = await lookupCreatureAI(m0.name);
   if (!tpl) return { ok: false, reason: 'lookup-failed' };
+
+  // Re-read AFTER the (multi-second) LLM call so DM edits made during the wait
+  // aren't clobbered by emptiness checks / a patch built from a stale snapshot.
+  const m = getMonster(monsterId);
+  if (!m) return { ok: false, reason: 'not-found' };
 
   const patch: MonsterUpdatePayload = { monsterId };
   if (!m.creatureType && tpl.creatureType) patch.creatureType = tpl.creatureType;
@@ -128,15 +133,20 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
 
 /** Back-fill ONLY the empty fields of a character from an AI-generated sheet. */
 export async function aiFillCharacter(characterId: string): Promise<FillResult> {
-  const c = getCharacter(characterId);
-  if (!c) return { ok: false, reason: 'not-found' };
+  const c0 = getCharacter(characterId);
+  if (!c0) return { ok: false, reason: 'not-found' };
   if (!aiAvailable()) return { ok: false, reason: 'no-key' };
 
-  const desc = [c.name, c.className, c.level ? `level ${c.level}` : '']
+  const desc = [c0.name, c0.className, c0.level ? `level ${c0.level}` : '']
     .filter(Boolean)
     .join(', ');
-  const gen = await generateCharacterAI(desc || c.name);
+  const gen = await generateCharacterAI(desc || c0.name);
   if (!gen) return { ok: false, reason: 'lookup-failed' };
+
+  // Re-read AFTER the (multi-second) LLM call so a weapon/spell the player added
+  // during the wait isn't clobbered by a patch built from a stale snapshot.
+  const c = getCharacter(characterId);
+  if (!c) return { ok: false, reason: 'not-found' };
 
   const patch: CharacterUpdatePayload = { characterId };
   if (!c.race && gen.race) patch.race = gen.race;
