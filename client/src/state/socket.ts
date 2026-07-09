@@ -170,6 +170,10 @@ type Store = {
   disconnect: () => void;
 
   selectMap: (mapId: string) => void;
+  /** The map the DM is currently viewing/staging (null = the session's active
+   *  map). Tracked so a reconnect can re-assert it (the server resets the view to
+   *  active on join). Always null for players (they're locked to the active map). */
+  viewMapId: string | null;
   setActiveMap: (mapId: string) => void;
   deleteMap: (mapId: string) => void;
   renameMap: (mapId: string, name: string) => void;
@@ -406,6 +410,7 @@ export const useStore = create<Store>((set, get) => ({
       localStorage.setItem('dnd.rollAnimOff', next ? '0' : '1');
       return { showRollAnim: next };
     }),
+  viewMapId: null,
   dragGhosts: {},
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
   typingChars: {},
@@ -499,7 +504,27 @@ export const useStore = create<Store>((set, get) => ({
     // Auto-reconnect keeps working: it fires socket.io's 'connect', not this.
     seenRollIds = new Set();
     rollSfxReady = false;
-    set({ status: 'connecting', error: null, dmPassphrase: dmPassphrase ?? null });
+    // Session-scoped transient state must not carry over to a different game:
+    // clear the ephemeral fx timers + slices and any armed toggles (an armed
+    // "Apply damage" / advantage would otherwise fire against a foreign id).
+    for (const m of [dragGhostTimers, typingTimers, sayTimers, cursorTimers]) {
+      m.forEach(clearTimeout);
+      m.clear();
+    }
+    set({
+      status: 'connecting',
+      error: null,
+      dmPassphrase: dmPassphrase ?? null,
+      viewMapId: null,
+      hpFx: [],
+      dragGhosts: {},
+      typingChars: {},
+      sayBubbles: {},
+      cursors: {},
+      manualAdvantage: {},
+      combatTarget: null,
+      saveResolve: null,
+    });
 
     // Socket.IO auto-reconnects and buffers our outgoing events while offline,
     // flushing them on reconnect; we re-join on every `connect` so the server
@@ -705,7 +730,19 @@ export const useStore = create<Store>((set, get) => ({
         { sessionCode: code, role, dmPassphrase, playerId: getPlayerId() },
         (ack: JoinAck) => {
           if (ack.ok) {
+            // Seed the roll-cue set from the (re)join snapshot so a roll that
+            // landed while we were away — or the existing backlog — doesn't replay
+            // its reveal + hit/miss sound as if it just happened on the next
+            // broadcast (common on mobile: a backgrounded tab reconnects on
+            // visibilitychange). rollSfxReady stays true so later rolls still cue.
+            seenRollIds = new Set((ack.snapshot.rollLog ?? []).map((e) => e.id));
+            rollSfxReady = true;
             set({ status: 'connected', snapshot: ack.snapshot, error: null });
+            // The server resets the DM's viewed map to the active one on join;
+            // re-assert a staged map so a reconnect doesn't yank the DM back to the
+            // live map (players never stage, so viewMapId is null for them).
+            const staged = get().viewMapId;
+            if (staged) socket.emit('map:select', { mapId: staged });
             // Remember the joined session so a reload/background can auto-rejoin.
             saveSession({ code, role, dmPassphrase });
           } else {
@@ -739,7 +776,10 @@ export const useStore = create<Store>((set, get) => ({
     set({ socket: null, status: 'idle', snapshot: null });
   },
 
-  selectMap: (mapId) => get().socket?.emit('map:select', { mapId }),
+  selectMap: (mapId) => {
+    set({ viewMapId: mapId });
+    get().socket?.emit('map:select', { mapId });
+  },
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
