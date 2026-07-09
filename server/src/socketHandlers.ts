@@ -340,8 +340,16 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('map:setGrid', (p) => {
       if (!isDm() || !getMap(p.mapId)) return;
-      const px = Math.round(Math.max(10, Math.min(400, p.gridSizePx)));
-      const ft = Math.round(Math.max(1, Math.min(100, p.feetPerSquare)));
+      const px = Number.isFinite(p.gridSizePx)
+        ? Math.round(Math.max(10, Math.min(400, p.gridSizePx)))
+        : 50;
+      // Keep feet-per-square as a FLOAT: the "drag a line to set scale" tool sends
+      // an exact fractional value (e.g. a 3000px map declared 100ft wide over a
+      // 50px grid = 1.667 ft/sq) that drives tokenDistanceFt / reach / auto-crit.
+      // Rounding it skewed every distance rule; NaN-guard, allow fine sub-1 grids.
+      const ft = Number.isFinite(p.feetPerSquare)
+        ? Math.max(0.1, Math.min(1000, p.feetPerSquare))
+        : 5;
       // 0 = unset (fall back to feet-per-square); otherwise clamp to a sane span.
       const w = p.widthFt <= 0 ? 0 : Math.max(1, Math.min(100000, p.widthFt));
       updateMapGrid(p.mapId, px, ft, w, {

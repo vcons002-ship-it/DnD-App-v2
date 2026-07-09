@@ -2160,7 +2160,10 @@ export function updateCharacter(
   if (patch.subclass !== undefined) put('subclass', patch.subclass);
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
-  if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  // Clamp curHp non-negative (a negative value slips past the `curHp === 0`
+  // death-save-failure check); ignore a non-finite value rather than zeroing HP.
+  if (patch.curHp !== undefined && Number.isFinite(patch.curHp))
+    put('cur_hp', Math.max(0, Math.round(patch.curHp)));
   if (patch.tempHp !== undefined) put('temp_hp', Math.max(0, patch.tempHp));
   if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
   if (patch.speed !== undefined) put('speed', patch.speed);
@@ -2562,7 +2565,10 @@ export function updateMonster(
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
-  if (patch.curHp !== undefined) put('cur_hp', patch.curHp);
+  // Clamp curHp non-negative (a negative value slips past the `curHp === 0`
+  // death-save-failure check); ignore a non-finite value rather than zeroing HP.
+  if (patch.curHp !== undefined && Number.isFinite(patch.curHp))
+    put('cur_hp', Math.max(0, Math.round(patch.curHp)));
   if (patch.tempHp !== undefined) put('temp_hp', Math.max(0, patch.tempHp));
   if (patch.armorClass !== undefined) put('armor_class', patch.armorClass);
   if (patch.speed !== undefined) put('speed', patch.speed);
@@ -2664,6 +2670,10 @@ export function applyDamage(
   /** Canonical 5e damage type when the source knew it (drives the token's
    *  elemental burst FX); omitted for heals/untyped damage. */
   damageType?: string,
+  /** The damage came from a CRITICAL hit. RAW: a crit against a creature at 0 HP
+   *  is TWO death-save failures, not one (and melee vs unconscious is always a
+   *  crit). Only affects the down-PC branch below. */
+  crit = false,
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -2715,12 +2725,13 @@ export function applyDamage(
     if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
       ds = { successes: 0, failures: 0 };
     } else if (amount > 0 && entity.curHp === 0 && ds.failures < 3) {
-      // Taking damage while down adds a failure; a stable creature (3✓) becomes
-      // unstable and resumes dying with that one failure.
+      // Taking damage while down adds a failure (two on a crit, per RAW); a stable
+      // creature (3✓) becomes unstable and resumes dying with those failures.
       const wasStable = ds.successes >= 3;
+      const add = crit ? 2 : 1;
       ds = {
         successes: wasStable ? 0 : ds.successes,
-        failures: wasStable ? 1 : Math.min(3, ds.failures + 1),
+        failures: Math.min(3, (wasStable ? 0 : ds.failures) + add),
       };
     }
     db.prepare(

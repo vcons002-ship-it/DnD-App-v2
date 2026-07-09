@@ -170,9 +170,11 @@ function applyDamageNoted(
   /** The attacking token (kind/refId) — credits a PC's kill count if this damage
    *  drops a monster to 0 HP. */
   attacker?: { kind: TokenKind; refId: string },
+  /** Crit hit — a crit vs a downed PC is two death-save failures (RAW). */
+  crit = false,
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType);
+  const after = applyDamage(kind, refId, amount, damageType, crit);
   if (!before || !after) return undefined;
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
   if (
@@ -358,14 +360,22 @@ export function resolveAttack(
   let extra = 0;
   const masteryNotes: string[] = [];
   if (out.hit && autoCrit) masteryNotes.push(`auto-crit (${autoCrit})`);
+  // Roll a rider's damage dice, DOUBLING them on a crit — RAW: a critical hit
+  // doubles ALL of the attack's damage dice, riders (Hunter's Mark, a dice-adding
+  // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.
+  const rollRiderDice = (expr: string): number => {
+    const r = rollDice(expr);
+    if (!r || r.total <= 0) return 0;
+    return r.total + (out.crit ? rollDice(expr)?.total ?? 0 : 0);
+  };
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
     if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
     if (out.hit && m.effect.bonusDamage && /d\d/i.test(m.effect.bonusDamage)) {
-      const r = rollDice(m.effect.bonusDamage);
-      if (r && r.total > 0) {
-        extra += r.total;
-        masteryNotes.push(`+${r.total}[${ab.name}]`);
+      const total = rollRiderDice(m.effect.bonusDamage);
+      if (total > 0) {
+        extra += total;
+        masteryNotes.push(`+${total}[${ab.name}]`);
       }
     }
     if (!out.hit && m.effect.grazeOnMiss) {
@@ -376,13 +386,14 @@ export function resolveAttack(
       }
     }
   }
-  // Active stances that add DICE damage (e.g. Hunter's Mark +1d6) roll on a hit.
+  // Active stances that add DICE damage (e.g. Hunter's Mark +1d6) roll on a hit
+  // and double on a crit.
   if (out.hit) {
     for (const sd of stanceDice) {
-      const r = rollDice(sd.dice);
-      if (r && r.total > 0) {
-        extra += r.total;
-        masteryNotes.push(`+${r.total}[${sd.label}]`);
+      const total = rollRiderDice(sd.dice);
+      if (total > 0) {
+        extra += total;
+        masteryNotes.push(`+${total}[${sd.label}]`);
       }
     }
   }
@@ -436,7 +447,7 @@ export function resolveAttack(
       out.hit && weapon.extraDamage && weapon.extraDamageType
         ? weapon.extraDamageType
         : weapon.damageType;
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId });
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -915,7 +926,7 @@ function resolveTargetedSpellAttack(opts: {
           ? `½ resisted (${opts.damageType})`
           : `×2 vulnerable (${opts.damageType})`,
       );
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
