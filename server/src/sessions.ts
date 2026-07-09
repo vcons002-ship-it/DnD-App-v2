@@ -932,27 +932,13 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
           .get(template_id) as { c: number }).c + 1;
       name = `${tmpl?.name ?? src.name} ${n}`;
     }
-    const inst = insertMonster(
-      src.sessionId,
-      {
-        name: src.name,
-        maxHp: src.maxHp,
-        creatureType: src.creatureType,
-        armorClass: src.armorClass,
-        speed: src.speed,
-        stats: src.stats,
-        resistances: src.resistances,
-        weaknesses: src.weaknesses,
-        actions: src.actions,
-        abilities: src.abilities,
-        weapons: src.weapons,
-        level: src.level,
-        icon: src.icon,
-        disposition: src.disposition,
-        source: src.source,
-      },
-      { isTemplate: false, templateId: template_id, name },
-    );
+    // Full-fidelity clone (fixes duplicated objects losing loot/objectKind and
+    // spellcaster instances losing their sheet abilities + save proficiencies).
+    const inst = insertMonster(src.sessionId, toMonsterInput(src), {
+      isTemplate: false,
+      templateId: template_id,
+      name,
+    });
     // Carry the source instance's current HP + conditions onto the copy.
     db.prepare('UPDATE monsters SET cur_hp = ?, conditions = ? WHERE id = ?').run(
       src.curHp,
@@ -2354,6 +2340,7 @@ export type MonsterInput = {
   stats?: Record<string, number>;
   resistances?: string[];
   weaknesses?: string[];
+  saveProficiencies?: string[];
   actions?: Monster['actions'];
   abilities?: Monster['abilities'];
   sheetAbilities?: Monster['sheetAbilities'];
@@ -2365,6 +2352,35 @@ export type MonsterInput = {
   objectDc?: Monster['objectDc'];
   source?: Monster['source'];
 };
+
+/** Snapshot a stored creature's copyable fields into a MonsterInput so spawn /
+ *  copy / duplicate clone the FULL creature (save proficiencies, object state,
+ *  sheet abilities…) instead of a hand-copied field list that silently drifts.
+ *  Deep-copies the nested structures so per-instance edits never alias the source. */
+function toMonsterInput(m: Monster): MonsterInput {
+  return {
+    name: m.name,
+    maxHp: m.maxHp,
+    creatureType: m.creatureType,
+    armorClass: m.armorClass,
+    speed: m.speed,
+    stats: { ...m.stats },
+    resistances: [...m.resistances],
+    weaknesses: [...m.weaknesses],
+    saveProficiencies: [...(m.saveProficiencies ?? [])],
+    actions: m.actions,
+    abilities: m.abilities,
+    weapons: JSON.parse(JSON.stringify(m.weapons ?? [])),
+    sheetAbilities: JSON.parse(JSON.stringify(m.sheetAbilities ?? [])),
+    level: m.level,
+    icon: m.icon,
+    disposition: m.disposition,
+    objectKind: m.objectKind,
+    loot: m.loot ? JSON.parse(JSON.stringify(m.loot)) : m.loot,
+    objectDc: m.objectDc,
+    source: m.source,
+  };
+}
 
 function insertMonster(
   sessionId: string,
@@ -2391,10 +2407,10 @@ function insertMonster(
   db.prepare(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
-        resistances, weaknesses, abilities, source, icon,
+        resistances, weaknesses, save_proficiencies, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
         disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2404,6 +2420,9 @@ function insertMonster(
     opts.maxHp,
     JSON.stringify(opts.resistances ?? []),
     JSON.stringify(opts.weaknesses ?? []),
+    // Save proficiencies drive resolveSaves — carry them through spawn/copy so a
+    // tuned boss keeps the saves it should pass.
+    JSON.stringify(opts.saveProficiencies ?? []),
     JSON.stringify(opts.abilities ?? []),
     opts.source ?? 'manual',
     icon,
@@ -2414,7 +2433,8 @@ function insertMonster(
     meta.isTemplate ? 1 : 0,
     meta.templateId,
     opts.disposition ?? 'enemy',
-    JSON.stringify(weapons),
+    // A spawned instance's weapons drive resolveAttack — clamp like the PC path.
+    JSON.stringify(sanitizeWeapons(weapons)),
     opts.level ?? 0,
     opts.objectKind ?? null,
     opts.loot ? JSON.stringify(opts.loot) : null,
@@ -2460,61 +2480,20 @@ export function instantiateMonster(templateId: string): Monster | null {
         'SELECT COUNT(*) AS c FROM monsters WHERE template_id = ?',
       )
       .get(templateId) as { c: number }).c + 1;
-  return insertMonster(
-    tmpl.sessionId,
-    {
-      name: tmpl.name,
-      maxHp: tmpl.maxHp,
-      creatureType: tmpl.creatureType,
-      armorClass: tmpl.armorClass,
-      speed: tmpl.speed,
-      stats: tmpl.stats,
-      resistances: tmpl.resistances,
-      weaknesses: tmpl.weaknesses,
-      actions: tmpl.actions,
-      abilities: tmpl.abilities,
-      weapons: tmpl.weapons,
-      level: tmpl.level,
-      icon: tmpl.icon,
-      disposition: tmpl.disposition,
-      objectKind: tmpl.objectKind,
-      // Each spawned container gets its own copy of the template's loot.
-      loot: tmpl.loot,
-      objectDc: tmpl.objectDc,
-      // Deep-copy so per-instance mastery/maneuver/stance toggle state doesn't
-      // alias the template's entries.
-      sheetAbilities: JSON.parse(JSON.stringify(tmpl.sheetAbilities ?? [])),
-      source: tmpl.source,
-    },
-    { isTemplate: false, templateId, name: `${tmpl.name} ${n}` },
-  );
+  // toMonsterInput carries the full stat block (save profs, object state, loot,
+  // sheet abilities) and deep-copies the nested structures per instance.
+  return insertMonster(tmpl.sessionId, toMonsterInput(tmpl), {
+    isTemplate: false,
+    templateId,
+    name: `${tmpl.name} ${n}`,
+  });
 }
 
 /** Duplicate a creature template into a new independent template. */
 export function copyMonster(monsterId: string): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
-  return createMonsterTemplate(m.sessionId, {
-    name: m.name,
-    maxHp: m.maxHp,
-    creatureType: m.creatureType,
-    armorClass: m.armorClass,
-    speed: m.speed,
-    stats: m.stats,
-    resistances: m.resistances,
-    weaknesses: m.weaknesses,
-    actions: m.actions,
-    abilities: m.abilities,
-    weapons: m.weapons,
-    level: m.level,
-    icon: m.icon,
-    disposition: m.disposition,
-    objectKind: m.objectKind,
-    loot: m.loot,
-    objectDc: m.objectDc,
-    sheetAbilities: JSON.parse(JSON.stringify(m.sheetAbilities ?? [])),
-    source: m.source,
-  });
+  return createMonsterTemplate(m.sessionId, toMonsterInput(m));
 }
 
 /** Patch editable fields of a creature (template or instance). DM-only. */
@@ -2595,7 +2574,9 @@ export function updateMonster(
     put('weaknesses', JSON.stringify(patch.weaknesses));
   if (patch.saveProficiencies !== undefined)
     put('save_proficiencies', JSON.stringify(patch.saveProficiencies));
-  if (patch.weapons !== undefined) put('weapons', JSON.stringify(patch.weapons));
+  // Weapons drive resolveAttack — clamp untrusted client edits like the PC path.
+  if (patch.weapons !== undefined)
+    put('weapons', JSON.stringify(sanitizeWeapons(patch.weapons)));
   if (patch.actions !== undefined) put('actions', JSON.stringify(patch.actions));
   if (patch.abilities !== undefined)
     put('abilities', JSON.stringify(patch.abilities));
