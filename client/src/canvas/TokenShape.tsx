@@ -182,6 +182,9 @@ function TokenShapeInner({
     longPress.current = null;
     touchStart.current = null;
   };
+  // Clear a pending hold on unmount so a token removed mid-press (deleted, hidden,
+  // or moved off-map by a snapshot) can't fire openMenu on a vanished token.
+  useEffect(() => clearLongPress, []);
   const openMenu = (clientX: number, clientY: number) =>
     onContextMenu?.(token, clientX, clientY);
 

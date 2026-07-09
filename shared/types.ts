@@ -1193,7 +1193,13 @@ export type AiFillCharacterPayload = { characterId: string };
 /** Generate a whole character/NPC from a free-text description (DM or player). */
 export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
-export type NoticePayload = { message: string };
+export type NoticePayload = {
+  message: string;
+  /** Set when this notice signals an AI operation finished — the client clears the
+   *  "AI is working" spinner only on these, so an unrelated notice (a spell-slot
+   *  warning, an undo) fired mid-request doesn't drop the banner early. */
+  aiDone?: boolean;
+};
 /** Create a reusable creature *template* (one spawn button). */
 export type MonsterCreatePayload = {
   name: string;

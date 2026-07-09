@@ -201,7 +201,6 @@ textarea:hover:not(:disabled) {
 .zoom-label { color: var(--muted); font-size: 12px; min-width: 38px; text-align: center; }
 .zoom-btn { min-width: 30px; font-size: 17px; line-height: 1; padding: 2px 8px; }
 .stage-controls { flex-wrap: wrap; max-width: 70%; justify-content: flex-end; }
-.ctrl-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .grid-input { width: 46px; padding: 2px 4px; font-size: 12px; }
 .zoom-label.min0 { min-width: 0; }
 .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -790,12 +789,10 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .data-stats em { color: var(--muted); font-style: normal; }
 .data-dmg { display: flex; gap: 5px; align-items: center; }
 .data-dmg input { width: 54px; margin: 0; }
-.data-conds { display: flex; flex-wrap: wrap; gap: 4px; }
 .data-cond-chip {
   font-size: 11px; border: 1px solid; border-radius: 10px; padding: 1px 7px;
   background: var(--panel-2); color: var(--text); cursor: pointer;
 }
-.data-cond-edit > summary { font-size: 12px; color: var(--muted); cursor: pointer; }
 
 /* Expanded full-sheet overlay (over everything; fits on screen when possible) */
 .data-modal-backdrop {

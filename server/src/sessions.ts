@@ -527,10 +527,14 @@ export function deleteToken(tokenId: string): void {
   if (token && sessionId) {
     const session = getSessionById(sessionId);
     if (session?.activeTurnTokenId === tokenId) {
+      const roundBefore = session.combatRound;
       advanceTurn(sessionId);
-      // Still pointing here → it was the only living combatant.
+      // Still pointing here → it was the only living combatant, and advanceTurn
+      // wrapped back to it, spuriously bumping the round. Clear the marker and
+      // undo that bump — combat is effectively over, not entering a new round.
       if (getSessionById(sessionId)?.activeTurnTokenId === tokenId) {
         setActiveTurn(sessionId, null);
+        setCombatRound(sessionId, roundBefore);
       }
     }
   }

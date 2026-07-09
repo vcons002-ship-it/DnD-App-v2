@@ -3,6 +3,7 @@ import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
+import { safeSetItem } from '../lib/storage';
 import { linkify } from '../lib/linkify';
 import { mergeFeed } from '../lib/feed';
 import { resolveToken } from '../lib/entities';
@@ -100,7 +101,7 @@ export function DicePanel({
   }, [isDm]);
   const pickBackend = (choice: string) => {
     setAiChoice(choice);
-    localStorage.setItem('dnd.aiBackend', choice);
+    safeSetItem('dnd.aiBackend', choice);
   };
   const choiceToBackend = (
     choice: string,

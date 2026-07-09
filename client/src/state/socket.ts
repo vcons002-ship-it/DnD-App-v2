@@ -38,6 +38,7 @@ import type {
   TokenShape,
 } from '../../../shared/types';
 import { playHit, playMiss, playHeal, playSkill } from '../lib/sfx';
+import { safeSetItem } from '../lib/storage';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -407,7 +408,7 @@ export const useStore = create<Store>((set, get) => ({
   toggleRollAnim: () =>
     set((s) => {
       const next = !s.showRollAnim;
-      localStorage.setItem('dnd.rollAnimOff', next ? '0' : '1');
+      safeSetItem('dnd.rollAnimOff', next ? '0' : '1');
       return { showRollAnim: next };
     }),
   viewMapId: null,
@@ -431,7 +432,7 @@ export const useStore = create<Store>((set, get) => ({
   toggleCursors: () =>
     set((s) => {
       const next = !s.showCursors;
-      localStorage.setItem('dnd.hideCursors', next ? '0' : '1');
+      safeSetItem('dnd.hideCursors', next ? '0' : '1');
       return { showCursors: next };
     }),
   // Sharing my own pointer is ON by default; turning it off clears mine for
@@ -440,7 +441,7 @@ export const useStore = create<Store>((set, get) => ({
   toggleShareCursor: () =>
     set((s) => {
       const next = !s.shareCursor;
-      localStorage.setItem('dnd.noShareCursor', next ? '0' : '1');
+      safeSetItem('dnd.noShareCursor', next ? '0' : '1');
       if (!next) get().socket?.emit('cursor:hide');
       return { shareCursor: next };
     }),
@@ -719,9 +720,10 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('error', (err) =>
       set({ error: err.message, toast: { id: Date.now(), message: err.message } }),
     );
-    socket.on('notice', ({ message }) =>
-      // A notice is the completion signal for AI requests too — clear the spinner.
-      set({ toast: { id: Date.now(), message }, aiBusy: false }),
+    socket.on('notice', ({ message, aiDone }) =>
+      // An AI-completion notice (aiDone) clears the spinner; an unrelated notice
+      // fired mid-request (slot warning, undo) must NOT drop the banner early.
+      set({ toast: { id: Date.now(), message }, ...(aiDone ? { aiBusy: false } : {}) }),
     );
 
     socket.on('connect', () => {

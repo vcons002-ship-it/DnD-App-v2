@@ -13,6 +13,7 @@ import { SpeechBubbles } from './SpeechBubbles';
 import { CursorPointers } from './CursorPointers';
 import { FootprintLayer } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
+import { safeSetItem } from '../lib/storage';
 import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { useStableCallback } from '../lib/useStableCallback';
@@ -358,6 +359,14 @@ export function MapStage({
   const [hover, setHover] = useState<{ token: Token; x: number; y: number } | null>(
     null,
   );
+  // Konva fires no mouseout for an unmounted node, so a hover card / floating menu
+  // can linger after its token leaves the snapshot (deleted, hidden, fogged, or
+  // moved off this map). Prune them when the referenced id is gone.
+  useEffect(() => {
+    const ids = new Set(snapshot.tokens.map((t) => t.id));
+    if (menu && !ids.has(menu.token.id)) setMenu(null);
+    if (hover && !ids.has(hover.token.id)) setHover(null);
+  }, [snapshot.tokens, menu, hover]);
   const map = snapshot.map;
 
   // DM: paste an image from the clipboard → upload → choose Object or Decal.
@@ -607,7 +616,7 @@ export function MapStage({
   );
   const toggleDecalsLocked = () =>
     setDecalsLocked((cur) => {
-      localStorage.setItem(`decals-locked:${snapshot.sessionCode}`, cur ? '0' : '1');
+      safeSetItem(`decals-locked:${snapshot.sessionCode}`, cur ? '0' : '1');
       return !cur;
     });
   // A reference-line drag that sets the map scale (DM only).
@@ -724,7 +733,12 @@ export function MapStage({
   const kindOf = (t: MeasureTool): Measurement['kind'] =>
     t.shape === 'line' ? (t.size === 'custom' ? 'ruler' : 'line') : t.shape;
   const tokenAt = (p: Pt): Token | undefined =>
-    snapshot.tokens.find((t) => Math.hypot(p.x - t.x, p.y - t.y) <= (grid * t.size) / 2);
+    // Match the token's RENDERED radius (widthFt ÷ feet-per-pixel), not the legacy
+    // grid×size — on a map whose grid isn't 5 ft/square those diverge and the
+    // clickable disc mis-targets an emanation onto a neighbour.
+    snapshot.tokens.find(
+      (t) => Math.hypot(p.x - t.x, p.y - t.y) <= (t.widthFt ?? t.size * 5) / fpp / 2,
+    );
 
   // DM scale control (committed on blur/Enter; synced from the live map). The
   // grid cell is purely visual; the map width (ft) drives the scale, prefilled

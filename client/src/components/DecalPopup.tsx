@@ -22,6 +22,13 @@ export function DecalPopup({ snapshot }: { snapshot: StateSnapshot }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Cancel a pending debounced save on unmount so a decal cleared from another
+  // window mid-edit can't fire save() at a now-dead annotation id.
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
 
   // Seed the DM's editable draft once when a decal is opened (not on every
   // snapshot echo, so live edits aren't clobbered).
