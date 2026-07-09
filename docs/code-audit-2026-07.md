@@ -35,6 +35,31 @@ mobile.
 
 ---
 
+## Remediation status (fixed 2026-07)
+
+All HIGH + MEDIUM findings and every actionable LOW were fixed across 10 verified
+commits (typecheck + 418 tests + build + 4 e2e green after each). Regression tests
+added: `server/src/auditFixes.test.ts` (8), `backup.test.ts` (+1), and an e2e that
+would have caught the H1/H2 auth regression.
+
+- **Fixed:** H1, H2, H3, H4, H5, H6 · M1, M2, M3, M4, M5, M6, M7, M8, M10, M11, M12
+  · L1, L2, L4, L6, L7, L8, L9, L10, L11, L12 · P1, P2, P3.
+- **Deferred (with rationale in the commit/notes):**
+  - **M9** (offline emits dropped pre-rejoin) — the only fix manipulates socket.io's
+    `sendBuffer` and risks the *normal* reconnect path; already documented in
+    `ConnectionStatus`.
+  - **P4** (monster-instance text duplicated in the DM snapshot) and **P7**
+    (async/incremental auto-backup) — larger changes; **P1**'s wire compression
+    already cuts the dominant cost, so these are better as a separate, dedicated
+    perf pass.
+  - **L3** (per-code session-metadata disclosure) — the app's deliberate
+    "the code is the secret" design; noted, not a defect to fix.
+  - **T1** (a socket.io-client harness for the inline role gates) — REST auth is now
+    covered by the new e2e; the socket gates were verified solid in the audit and
+    unchanged by these fixes. Worth adding as its own testing-infra task.
+
+---
+
 ## CRITICAL
 _None._ No auth bypass, RCE, or unrecoverable-data-loss defect was found.
 
