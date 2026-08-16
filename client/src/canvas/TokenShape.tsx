@@ -98,7 +98,7 @@ function TokenShapeInner({
   // public (HP-hidden) enemy, or the DM's manual "Dead" condition.
   const isDead =
     (display.curHp !== undefined && display.curHp <= 0) ||
-    ('dead' in display && display.dead === true) ||
+    display.dead === true ||
     display.conditions.some((c) => c.label.toLowerCase() === 'dead');
 
   // Live "distance from the previous spot" readout while dragging: a dashed

@@ -215,6 +215,9 @@ textarea:hover:not(:disabled) {
 .panel-section { padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .map-row, .init-row, .spawn-row { display: flex; align-items: center; gap: 8px; }
 .map-row { justify-content: space-between; margin: 3px 0; }
+/* Compact ▲/▼ reorder pair — tap targets that also work on touch. */
+.map-move { display: flex; flex-direction: column; gap: 1px; }
+.map-move .btn.tiny { padding: 0 5px; line-height: 1.15; font-size: 10px; }
 .map-row .link { background: none; border: none; color: var(--text); cursor: pointer; text-align: left; }
 .map-row.viewing .link { color: var(--accent); font-weight: 600; }
 .badge {

@@ -21,6 +21,10 @@ export type TokenDisplay = {
   disposition?: Disposition;
   /** Non-combat object kind (chest/door/…), undefined for creatures/PCs. */
   objectKind?: ObjectKind;
+  /** Defeated. For an enemy a player can't see HP for, this is the SERVER's
+   *  `dead` flag (visibility.ts) — the only way that viewer can know, so it must
+   *  survive into the display or the death marker never renders for them. */
+  dead?: boolean;
   /** Token art (emoji or "/uploads/…"); empty for the default circle. */
   icon: string;
 };
@@ -60,11 +64,15 @@ export function resolveToken(
       icon: m.icon,
     };
   }
+  // Public (HP-hidden) view: the server's `dead` flag is the ONLY defeat signal
+  // this viewer gets — dropping it here is why players saw the death puff but
+  // never the persistent skull.
   return {
     name: m.name,
     conditions: m.conditions,
     disposition: m.disposition,
     objectKind: m.objectKind,
+    dead: m.dead,
     icon: m.icon,
   };
 }
@@ -108,5 +116,8 @@ export const sameTokenDisplay = (a: TokenDisplay, b: TokenDisplay): boolean =>
   a.tempHp === b.tempHp &&
   a.disposition === b.disposition &&
   a.objectKind === b.objectKind &&
+  // Without this a player's enemy token never re-renders when it dies: HP is
+  // hidden, position/conditions are unchanged, so `dead` is the only difference.
+  a.dead === b.dead &&
   a.icon === b.icon &&
   sameConditions(a.conditions, b.conditions);

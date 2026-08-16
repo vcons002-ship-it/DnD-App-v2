@@ -56,7 +56,7 @@ const spawnInstance = (
   const tmpl = createMonsterTemplate(sessionId, { name, maxHp, creatureType });
   return instantiateMonster(tmpl.id)!;
 };
-import type { Monster } from '../../shared/types.js';
+import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
   it('strips an enemy creature attack’s modifier breakdown from players', () => {
@@ -836,5 +836,54 @@ describe('createSnapshotBuilder (fan-out path)', () => {
 
   it('returns null for a missing session', () => {
     expect(createSnapshotBuilder('nope')).toBeNull();
+  });
+});
+
+describe('defeated enemies read as dead to players', () => {
+  // Players never receive an enemy's HP, so the server-computed `dead` flag is
+  // their ONLY defeat signal — the client's death marker depends on it. (A
+  // client regression once dropped this field while shaping the token display,
+  // leaving players with the death animation but no persistent skull.)
+  const arena = () => {
+    const s = createSession('Dead');
+    const map = createMap(s.id, { name: 'Arena' });
+    setActiveMap(s.id, map.id);
+    return { s, map };
+  };
+  const enemyInView = (s: { id: string }, map: { id: string }, hp = 10) => {
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: hp });
+    const inst = instantiateMonster(tmpl.id)!;
+    createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+    return inst;
+  };
+  /** The enemy as a PLAYER receives it: the HP-hidden public shape, whose
+   *  `dead` flag is the only defeat signal that viewer gets. */
+  const playerView = (s: { id: string }, id: string): MonsterPublic => {
+    const m = buildSnapshot(s.id, 'player')!.monsters.find((x) => x.id === id)!;
+    expect('maxHp' in m).toBe(false); // an enemy must never arrive with HP
+    return m as MonsterPublic;
+  };
+
+  it('flags an enemy dropped to 0 HP as dead (without leaking its HP)', () => {
+    const { s, map } = arena();
+    const gob = enemyInView(s, map);
+    expect(playerView(s, gob.id).dead).toBeFalsy(); // alive to start
+
+    applyDamage('monster', gob.id, 999); // drop it
+    const shaped = playerView(s, gob.id);
+    expect(shaped.dead).toBe(true);
+    expect('curHp' in shaped).toBe(false); // still no HP leak
+  });
+
+  it('flags an enemy the DM manually marked "Dead"', () => {
+    const { s, map } = arena();
+    const gob = enemyInView(s, map);
+    setCondition('monster', gob.id, {
+      id: 'c1',
+      label: 'Dead',
+      aura: 'red',
+      isConcentration: false,
+    });
+    expect(playerView(s, gob.id).dead).toBe(true);
   });
 });

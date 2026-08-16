@@ -107,6 +107,7 @@ import {
   paintFog,
   setFogLayer,
   setTokenHidden,
+  setTokenInCombat,
   setTokensHideCombatRole,
   setTokensCombatRole,
   getActiveMapId,
@@ -122,6 +123,7 @@ import {
   firstInInitiative,
   releaseClaims,
   renameMap,
+  reorderMaps,
   renameSession,
   importMaps,
   previewImportCharacters,
@@ -336,6 +338,17 @@ export function registerSocketHandlers(io: IOServer): void {
     on('map:rename', ({ mapId, name }) => {
       if (!isDm() || !getMap(mapId)) return;
       renameMap(mapId, name);
+      afterChange();
+    });
+
+    // Reorder the DM's map list. Ids are scoped to this session by reorderMaps,
+    // so a forged list can't touch another session's maps.
+    on('map:reorder', ({ orderedIds }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || !Array.isArray(orderedIds)) return;
+      const ids = orderedIds.filter((id) => typeof id === 'string').slice(0, 500);
+      if (!ids.length) return;
+      reorderMaps(sid, ids);
       afterChange();
     });
 
@@ -745,6 +758,13 @@ export function registerSocketHandlers(io: IOServer): void {
     on('token:setHidden', ({ tokenId, hidden }) => {
       if (!isDm()) return; // hiding tokens from players is a DM action
       setTokenHidden(tokenId, hidden);
+      afterChange();
+    });
+
+    // Who joins the fight when initiative is rolled (DM's call).
+    on('token:setInCombat', ({ tokenId, inCombat }) => {
+      if (!isDm() || !getToken(tokenId)) return;
+      setTokenInCombat(tokenId, typeof inCombat === 'boolean' ? inCombat : undefined);
       afterChange();
     });
 

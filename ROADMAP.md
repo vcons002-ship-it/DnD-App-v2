@@ -1487,3 +1487,27 @@ Smaller refinements on top of the shipped Phase 2 work.
   **half on a pass, not 0**; weapon damage (crit-doubled) still lands when a
   Pushing-Attack save rider fires; Chromatic Orb is in the spell DB with a proper
   attack roll (so it appears in the floating menu once added from search).
+- ☑ **Player-visible death marker fixed.** The server already shaped a `dead`
+  flag onto enemies for players (they never receive enemy HP), but the client's
+  `resolveToken` dropped it while building the token display — so players saw the
+  transient death *puff* and never the persistent 💀. `TokenDisplay` now carries
+  `dead`, `resolveToken` passes it through, and `sameTokenDisplay` compares it
+  (without that the memoized token never re-renders on death, since HP is hidden
+  and nothing else about the token changes). Server contract locked by tests.
+- ☑ **DM map re-ordering.** Maps carry a `sort_order` (idempotent `ensureColumn`,
+  nullable-safe): `listMaps` orders by it with `created_at` as the tiebreak, so an
+  existing campaign's order is unchanged until the DM reorders, and a new map takes
+  `MAX+1` (lands at the end). `map:reorder` (DM-gated) stamps 1..N via `reorderMaps`,
+  which ignores unknown/foreign ids and keeps any map the client omitted — a stale
+  list can't drop a map. UI: tap ▲/▼ per row in the DM map list (touch-friendly,
+  matching `ReorderableSections`).
+- ☑ **Choose who rolls initiative.** "Roll all" pulled EVERY non-object token into
+  combat (hidden ambushers, bystander NPCs). Tokens now have a tri-state
+  `inCombat`: **auto** (default — joins if visible, so a hidden ambusher waits and
+  joins later via **Add rolls**), **always** (an invisible stalker is still a
+  combatant), **never** (a bystander standing in the open). One shared
+  `rollsInitiative()` predicate governs both `rollAllInitiative` and
+  `rollMissingInitiative`; objects never roll regardless. Marking a token OUT also
+  clears its initiative so it leaves the order immediately. Cycled from the DM's
+  token controls (`TokenAdminButtons`, so it's in both the right-click menu and
+  the token panel).

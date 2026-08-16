@@ -31,6 +31,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
   const setActiveMap = useStore((s) => s.setActiveMap);
   const deleteMap = useStore((s) => s.deleteMap);
   const renameMap = useStore((s) => s.renameMap);
+  const reorderMaps = useStore((s) => s.reorderMaps);
   const createMonster = useStore((s) => s.createMonster);
   const deleteMonster = useStore((s) => s.deleteMonster);
   const deleteCharacter = useStore((s) => s.deleteCharacter);
@@ -212,12 +213,23 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
     if (copyFrom && viewMap) copyTokens(copyFrom, viewMap.id, kinds);
   };
 
+  /** Move a map one slot up/down in the DM's list. Tap ▲/▼ rather than HTML5
+   *  drag so it works on touch too (same choice as ReorderableSections); the
+   *  whole new order is sent, and the server persists it per session. */
+  const moveMap = (index: number, delta: number) => {
+    const ids = snapshot.maps.map((m) => m.id);
+    const to = index + delta;
+    if (to < 0 || to >= ids.length) return;
+    [ids[index], ids[to]] = [ids[to], ids[index]];
+    reorderMaps(ids);
+  };
+
   return (
     <div className="panel">
       <div className="panel-section">
         <h3>Maps</h3>
         <div className="map-list">
-          {snapshot.maps.map((m) => (
+          {snapshot.maps.map((m, i) => (
             <div
               key={m.id}
               className={`map-row ${snapshot.map?.id === m.id ? 'viewing' : ''}`}
@@ -242,6 +254,24 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
                   Make active
                 </button>
               )}
+              <span className="map-move">
+                <button
+                  className="btn tiny"
+                  title="Move this map up"
+                  disabled={i === 0}
+                  onClick={() => moveMap(i, -1)}
+                >
+                  ▲
+                </button>
+                <button
+                  className="btn tiny"
+                  title="Move this map down"
+                  disabled={i === snapshot.maps.length - 1}
+                  onClick={() => moveMap(i, 1)}
+                >
+                  ▼
+                </button>
+              </span>
               <button
                 className="btn tiny danger"
                 title="Delete this map (removes its tokens)"
