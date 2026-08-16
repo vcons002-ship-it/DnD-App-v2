@@ -194,7 +194,8 @@ sanitization rules above and commit it to `claude/Main`.
 ## Client structure & reuse (don't reinvent these)
 
 - **Routes:** `DmView` (map screen), `DmDataView` (`/dm/data` second-screen
-  dashboard), `PlayerView`; entry routes `DmRoute`/`DmDataRoute`/`PlayerRoute`.
+  dashboard), `DmLibraryView` (`/dm/library` standalone creature browser),
+  `PlayerView`; entry routes `DmRoute`/`DmDataRoute`/`DmLibraryRoute`/`PlayerRoute`.
 - **Canvas:** `MapStage` (Konva stage, fog rendering, placement) + `TokenShape`
   (memoized; content comparators in `lib/entities.ts`, identity-stable handlers
   via `lib/useStableCallback`) + `HpFx` (floating ±X damage/heal numbers).

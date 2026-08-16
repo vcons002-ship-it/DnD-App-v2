@@ -122,6 +122,19 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
             >
               🗔 Data view
             </button>
+            <button
+              className="btn tiny"
+              onClick={() =>
+                window.open(
+                  `/dm/library?code=${snapshot.sessionCode}`,
+                  '_blank',
+                  'noopener',
+                )
+              }
+              title="Browse creatures in a new window: this session, your saved library, and SRD/AI search"
+            >
+              📚 Monsters
+            </button>
             {hasRulebook && (
               <button
                 className="btn tiny"

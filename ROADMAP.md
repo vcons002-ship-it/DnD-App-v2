@@ -1511,3 +1511,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   clears its initiative so it leaves the order immediately. Cycled from the DM's
   token controls (`TokenAdminButtons`, so it's in both the right-click menu and
   the token panel).
+- ☑ **Monster Library window (`/dm/library`).** The DM's left panel had grown
+  crowded, and exploration turned up a real gap behind the clutter: the
+  cross-campaign creature library was effectively **write-only** — `GET
+  /api/library/creatures` and `DELETE /api/library/creatures/:name` existed and
+  were unit-tested but had **zero client callers**, so saved creatures surfaced
+  only indirectly (truncated to 8) inside the search typeahead. A new standalone
+  window, opened from the toolbar beside "🗔 Data view" and mirroring the
+  `/dm/data` pattern (own `DmLibraryRoute` entry; a second window never inherits
+  the main screen's login), gathers three sources behind one search box —
+  **This session** (`snapshot.monsterTemplates`, edited via the existing
+  `TemplateEditor`), **Saved library** (browse / add / delete-with-confirm), and
+  **Find new** (SRD search + AI lookup) — with a full-width stat block in a right
+  `SidePanel`. Preview of a not-yet-added creature reuses `StatBlock` read-only
+  via a new `templateToStatSheet` adapter (`lib/entities.ts`), since a
+  `CreatureTemplate` lacks the `id`/`curHp`/`tempHp`/`saveProficiencies` a
+  `StatSheet` needs. **Placement** hands off to the map window over a
+  BroadcastChannel (`lib/spawnChannel.ts`, mirroring `useSelection`): the library
+  arms `DmView`'s existing `pending` state and the DM clicks the exact spot —
+  the sender holds its channel open, since closing right after `postMessage`
+  can drop the message. **Purely additive**: no server, schema or shared-type
+  changes (every endpoint and event already existed), and the left panel is
+  untouched. Covered by two new e2e tests, including the full two-window chain.

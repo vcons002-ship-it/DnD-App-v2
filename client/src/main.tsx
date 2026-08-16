@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { DmRoute } from './routes/DmRoute';
 import { DmDataRoute } from './routes/DmDataRoute';
+import { DmLibraryRoute } from './routes/DmLibraryRoute';
 import { PlayerRoute } from './routes/PlayerRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<Home />} />
           <Route path="/dm" element={<DmRoute />} />
           <Route path="/dm/data" element={<DmDataRoute />} />
+          <Route path="/dm/library" element={<DmLibraryRoute />} />
           <Route path="/join" element={<PlayerRoute />} />
           <Route path="/play" element={<PlayerRoute />} />
         </Routes>

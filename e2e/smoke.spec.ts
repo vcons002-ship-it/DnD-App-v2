@@ -110,6 +110,78 @@ test('DM-gated REST routes enforce the secret', async () => {
   await api.dispose();
 });
 
+// The standalone Monster Library window (audit: /dm/data has no e2e either, so
+// this is the first coverage of a second-window route end to end).
+test('the Monster Library window opens and lists the session\'s creatures', async ({ page }) => {
+  const code = await makeSession();
+  await page.goto(`/dm/library?code=${code}`, { waitUntil: 'networkidle' });
+  // A second window never inherits the main screen's login — the secret is required.
+  await page.fill('input[type=password]', DM_SECRET);
+  await page.click('button:has-text("Connect")');
+
+  // The view mounts with its three sources.
+  await expect(page.getByText('Monster Library', { exact: false }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByRole('button', { name: /Saved library/ })).toBeVisible();
+
+  // "Find new" searches the SRD without needing any session content.
+  await page.getByRole('button', { name: /Find new/ }).click();
+  await page.locator('input.library-search').fill('goblin');
+  await expect(page.locator('.library-card').first()).toBeVisible({ timeout: 10_000 });
+});
+
+// The full library chain, across two windows in one browser: find an SRD
+// creature → add it to the session → hand placement off to the map window.
+// The hand-off is a BroadcastChannel, so both pages must share a context.
+test('the Library window adds a creature and arms placement in the map window', async ({
+  browser,
+}) => {
+  const code = await makeSession();
+  // The placement banner only renders over a map, so give the session one.
+  // A Slides URL needs no file upload.
+  const api = await pwRequest.newContext();
+  const mapRes = await api.post(`${BASE}/api/sessions/${code}/maps`, {
+    headers: { 'x-dm-passphrase': DM_SECRET },
+    multipart: { name: 'Arena', slidesUrl: 'https://docs.google.com/presentation/d/e2e/embed' },
+  });
+  expect(mapRes.ok()).toBeTruthy();
+  await api.dispose();
+  const ctx = await browser.newContext();
+
+  // Map window (the one that owns the canvas and receives the hand-off).
+  const dm = await ctx.newPage();
+  await dm.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });
+  await dm.fill('input[type=password]', DM_SECRET);
+  await dm.click('button:has-text("Rejoin as DM")');
+  await expect(dm.getByText('Druk', { exact: false }).first()).toBeVisible({ timeout: 20_000 });
+
+  // Library window.
+  const lib = await ctx.newPage();
+  await lib.goto(`/dm/library?code=${code}`, { waitUntil: 'networkidle' });
+  await lib.fill('input[type=password]', DM_SECRET);
+  await lib.click('button:has-text("Connect")');
+  await expect(lib.getByRole('button', { name: /Find new/ })).toBeVisible({ timeout: 20_000 });
+
+  // Find an SRD creature and add it to this session.
+  await lib.getByRole('button', { name: /Find new/ }).click();
+  await lib.locator('input.library-search').fill('goblin');
+  await lib.locator('.library-card').first().click();
+  await lib.getByRole('button', { name: /Add to this session/ }).click();
+
+  // It lands in the session tab (the view switches there automatically).
+  const card = lib.locator('.library-card').first();
+  await expect(card).toBeVisible({ timeout: 10_000 });
+  await card.click();
+
+  // Hand placement to the map window; it arms the shared placement banner.
+  await lib.getByRole('button', { name: /Place on map/ }).click();
+  await expect(lib.getByText(/click your map window/i)).toBeVisible();
+  await expect(dm.locator('.place-banner')).toBeVisible({ timeout: 10_000 });
+
+  await ctx.close();
+});
+
 test('the DM console rejects a wrong secret', async ({ page }) => {
   const code = await makeSession();
   await page.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });
