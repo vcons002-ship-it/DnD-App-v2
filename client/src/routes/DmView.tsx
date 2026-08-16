@@ -15,6 +15,7 @@ import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
+import { useSpawnRequests } from '../lib/spawnChannel';
 
 export function DmView() {
   const snapshot = useStore((s) => s.snapshot);
@@ -28,6 +29,13 @@ export function DmView() {
     kind: 'pc' | 'monster';
     refId: string;
   } | null>(null);
+
+  // The standalone Monster Library window has no map canvas, so its "Place on
+  // map" hands off to us: arm the same placement flow the left panel uses and
+  // the DM clicks the exact spot here.
+  useSpawnRequests(snapshot?.sessionCode, (req) =>
+    setPending({ kind: req.kind === 'pc' ? 'pc' : 'monster', refId: req.refId }),
+  );
 
   const selectedToken = useMemo(
     () => snapshot?.tokens.find((t) => t.id === primaryId) ?? null,

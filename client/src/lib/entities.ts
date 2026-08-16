@@ -1,6 +1,7 @@
 import type {
   Character,
   Condition,
+  CreatureTemplate,
   Disposition,
   Monster,
   MonsterPublic,
@@ -8,6 +9,7 @@ import type {
   StateSnapshot,
   Token,
 } from '../../../shared/types';
+import type { StatSheet } from '../components/StatBlock';
 
 export type TokenDisplay = {
   name: string;
@@ -121,3 +123,32 @@ export const sameTokenDisplay = (a: TokenDisplay, b: TokenDisplay): boolean =>
   a.dead === b.dead &&
   a.icon === b.icon &&
   sameConditions(a.conditions, b.conditions);
+
+/**
+ * Adapt an SRD / library / AI `CreatureTemplate` into the `StatSheet` shape
+ * `StatBlock` renders, so a creature can be previewed BEFORE it exists as a row.
+ * A template has no live state, so HP starts full and the fields a template
+ * simply doesn't carry (id, temp HP, save proficiencies) are neutral defaults.
+ *
+ * Preview only: render it WITHOUT `onSave`, which is what makes `StatBlock`
+ * read-only — there's nothing to save a patch to until the creature is added.
+ */
+export function templateToStatSheet(t: CreatureTemplate): StatSheet {
+  return {
+    id: '',
+    name: t.name,
+    level: t.level ?? 0,
+    curHp: t.maxHp,
+    maxHp: t.maxHp,
+    tempHp: 0,
+    armorClass: t.armorClass,
+    speed: t.speed,
+    stats: t.stats,
+    resistances: t.resistances,
+    weaknesses: t.weaknesses,
+    saveProficiencies: [],
+    weapons: t.weapons ?? [],
+    actions: t.actions,
+    abilities: t.abilities,
+  };
+}
