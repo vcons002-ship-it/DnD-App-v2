@@ -125,6 +125,14 @@ export type Token = {
   initiative: number | null;
   /** Hidden tokens are never sent to players. */
   isHidden: boolean;
+  /**
+   * Whether this token joins combat when the DM rolls initiative.
+   * `undefined` = **auto**: join if visible (so a hidden ambusher waits in the
+   * wings and joins later via "Add rolls"); `true` = always (an invisible
+   * stalker is still a combatant); `false` = never (a bystander NPC standing in
+   * the open). Objects never roll regardless.
+   */
+  inCombat?: boolean;
   /** DM override of the auto-derived combat role; null = derive from stats. */
   combatRoleOverride: CombatRole | null;
   /** Hide the combat-role badge for this token. */
@@ -899,6 +907,8 @@ export type TokenDeletePayload = { tokenId: string };
 /** Duplicate one placed token into a second, independently-tracked copy. */
 export type TokenDuplicatePayload = { tokenId: string };
 export type TokenSetHiddenPayload = { tokenId: string; hidden: boolean };
+/** DM: set whether a token joins combat. Omit `inCombat` for 'auto' (visible). */
+export type TokenSetInCombatPayload = { tokenId: string; inCombat?: boolean };
 /** Copy token placements from one map to another (statuses carry via refs). */
 export type TokenCopyPayload = {
   fromMapId: string;
@@ -930,6 +940,9 @@ export type MapSelectPayload = { mapId: string };
 export type MapDeletePayload = { mapId: string };
 /** Rename a map (DM). */
 export type MapRenamePayload = { mapId: string; name: string };
+/** Set the DM's map order (drag / ▲▼ in the map list). Ids in display order;
+ *  any map omitted keeps its relative position after the listed ones. */
+export type MapReorderPayload = { orderedIds: string[] };
 /** Resize a map's grid (DM): cell size in px + feet represented by one square. */
 export type MapSetGridPayload = {
   mapId: string;
@@ -1294,6 +1307,7 @@ export interface ClientToServerEvents {
   'map:setActive': (payload: MapSetActivePayload) => void;
   'map:delete': (payload: MapDeletePayload) => void;
   'map:rename': (payload: MapRenamePayload) => void;
+  'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
@@ -1328,6 +1342,7 @@ export interface ClientToServerEvents {
   'token:delete': (payload: TokenDeletePayload) => void;
   'token:duplicate': (payload: TokenDuplicatePayload) => void;
   'token:setHidden': (payload: TokenSetHiddenPayload) => void;
+  'token:setInCombat': (payload: TokenSetInCombatPayload) => void;
   'tokens:setIcon': (payload: TokenSetIconPayload) => void;
   'tokens:setHideCombatRole': (payload: TokenSetHideRolePayload) => void;
   'tokens:setCombatRole': (payload: TokenSetRolePayload) => void;

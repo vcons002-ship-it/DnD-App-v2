@@ -23,7 +23,12 @@ import {
   listMapImages,
   listAnnotations,
   listMaps,
+  reorderMaps,
   listTokens,
+  setTokenHidden,
+  setTokenInCombat,
+  rollAllInitiative,
+  rollMissingInitiative,
   setLoot,
   addRollLog,
   getRollEntry,
@@ -190,5 +195,118 @@ describe('M5 — importMaps carries image tiles + annotations', () => {
     expect(listMapImages(newMap.id).map((i) => i.imagePath)).toEqual(['/uploads/tile.png']); // was dropped
     expect(listAnnotations(newMap.id).map((a) => a.kind)).toEqual(['image']); // was dropped
     expect(listTokens(newMap.id)[0]!.shape).toBe('image'); // reduced-column bug lost this
+  });
+});
+
+describe('DM map ordering', () => {
+  it('reorders maps, keeps legacy order until touched, and puts new maps last', () => {
+    const s = createSession('MapOrder');
+    const a = createMap(s.id, { name: 'A' });
+    const b = createMap(s.id, { name: 'B' });
+    const c = createMap(s.id, { name: 'C' });
+    // Untouched: creation order (legacy saves have sort_order 0 and rely on the
+    // created_at tiebreak, so an existing campaign's order is unchanged).
+    expect(listMaps(s.id).map((m) => m.name)).toEqual(['A', 'B', 'C']);
+
+    reorderMaps(s.id, [c.id, a.id, b.id]);
+    expect(listMaps(s.id).map((m) => m.name)).toEqual(['C', 'A', 'B']);
+
+    // A map added after a reorder lands at the END, not the front.
+    const d = createMap(s.id, { name: 'D' });
+    expect(listMaps(s.id).map((m) => m.name)).toEqual(['C', 'A', 'B', 'D']);
+    expect(d.id).toBeTruthy();
+  });
+
+  it('ignores unknown ids and keeps omitted maps (a stale list cannot drop one)', () => {
+    const s = createSession('MapOrder2');
+    const a = createMap(s.id, { name: 'A' });
+    const b = createMap(s.id, { name: 'B' });
+    const c = createMap(s.id, { name: 'C' });
+    // Client only knew about C (stale list) and sent a foreign id too.
+    reorderMaps(s.id, ['not-a-map', c.id]);
+    const names = listMaps(s.id).map((m) => m.name);
+    expect(names[0]).toBe('C'); // the listed one moves to the front
+    expect(names).toHaveLength(3); // A and B survive, in their prior order
+    expect(names.slice(1)).toEqual(['A', 'B']);
+    expect([a.id, b.id].every(Boolean)).toBe(true);
+  });
+
+  it('does not touch another session\'s maps', () => {
+    const s1 = createSession('MapOrderS1');
+    const s2 = createSession('MapOrderS2');
+    const foreign = createMap(s2.id, { name: 'Foreign' });
+    const x = createMap(s1.id, { name: 'X' });
+    const y = createMap(s1.id, { name: 'Y' });
+    reorderMaps(s1.id, [foreign.id, y.id, x.id]); // foreign id is ignored
+    expect(listMaps(s1.id).map((m) => m.name)).toEqual(['Y', 'X']);
+    expect(listMaps(s2.id).map((m) => m.name)).toEqual(['Foreign']);
+  });
+});
+
+describe('initiative pulls in only the intended combatants', () => {
+  const setup = () => {
+    const { s, map } = arena('Init');
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 });
+    const spawn = (opts: { hidden?: boolean } = {}) => {
+      const inst = instantiateMonster(tmpl.id)!;
+      const t = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+      if (opts.hidden) setTokenHidden(t.id, true);
+      return t.id;
+    };
+    return { s, map, spawn };
+  };
+  const initOf = (mapId: string, tokenId: string) =>
+    listTokens(mapId).find((t) => t.id === tokenId)!.initiative;
+
+  it('rolls for visible creatures but leaves hidden ones out of the fight', () => {
+    const { map, spawn } = setup();
+    const seen = spawn();
+    const ambush = spawn({ hidden: true });
+    rollAllInitiative(map.id);
+    expect(initOf(map.id, seen)).not.toBeNull();
+    expect(initOf(map.id, ambush)).toBeNull(); // was dragged in before
+  });
+
+  it('an ambusher joins once revealed via "Add rolls", without re-rolling the party', () => {
+    const { map, spawn } = setup();
+    const seen = spawn();
+    const ambush = spawn({ hidden: true });
+    rollAllInitiative(map.id);
+    const partyInit = initOf(map.id, seen);
+
+    setTokenHidden(ambush, false); // the trap springs
+    rollMissingInitiative(map.id);
+    expect(initOf(map.id, ambush)).not.toBeNull();
+    expect(initOf(map.id, seen)).toBe(partyInit); // existing order untouched
+  });
+
+  it('honors the DM override in both directions', () => {
+    const { map, spawn } = setup();
+    const bystander = spawn(); // visible, but not a fighter
+    const stalker = spawn({ hidden: true }); // invisible, but IS a fighter
+    setTokenInCombat(bystander, false);
+    setTokenInCombat(stalker, true);
+    rollAllInitiative(map.id);
+    expect(initOf(map.id, bystander)).toBeNull();
+    expect(initOf(map.id, stalker)).not.toBeNull();
+  });
+
+  it('marking a token OUT mid-combat drops it from the order', () => {
+    const { map, spawn } = setup();
+    const t = spawn();
+    rollAllInitiative(map.id);
+    expect(initOf(map.id, t)).not.toBeNull();
+    setTokenInCombat(t, false);
+    expect(initOf(map.id, t)).toBeNull();
+  });
+
+  it('objects never roll, however they are marked', () => {
+    const { s, map } = arena('InitObj');
+    const chest = createMonsterTemplate(s.id, { name: 'Chest', maxHp: 1, objectKind: 'chest' });
+    const inst = instantiateMonster(chest.id)!;
+    const tok = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 0, y: 0 });
+    setTokenInCombat(tok.id, true); // even forced in
+    rollAllInitiative(map.id);
+    expect(listTokens(map.id).find((t) => t.id === tok.id)!.initiative).toBeNull();
   });
 });

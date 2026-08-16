@@ -173,10 +173,38 @@ function seedExampleCharacters(sessionId: string): void {
 
 export function listMaps(sessionId: string): MapState[] {
   const rows = db
-    .prepare('SELECT * FROM maps WHERE session_id = ? ORDER BY created_at ASC')
+    .prepare(
+      // The DM's chosen order; created_at breaks ties so maps from before
+      // reordering existed (all sort_order 0) keep their original order.
+      'SELECT * FROM maps WHERE session_id = ? ORDER BY sort_order ASC, created_at ASC',
+    )
     .all(sessionId) as Parameters<typeof rowToMap>[0][];
   return rows.map(rowToMap);
 }
+
+/**
+ * Set the DM's map order from a list of ids (drag/▲▼ in the map list). Ids are
+ * stamped 1..N in the given order; any map omitted from the list keeps its
+ * relative position after them, so a stale client list can't drop a map.
+ */
+export const reorderMaps = db.transaction(
+  (sessionId: string, orderedIds: string[]): void => {
+    const current = listMaps(sessionId);
+    const known = new Set(current.map((m) => m.id));
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const id of orderedIds) {
+      if (known.has(id) && !seen.has(id)) {
+        ordered.push(id);
+        seen.add(id);
+      }
+    }
+    // Anything the client didn't mention keeps its existing relative order.
+    for (const m of current) if (!seen.has(m.id)) ordered.push(m.id);
+    const stmt = db.prepare('UPDATE maps SET sort_order = ? WHERE id = ? AND session_id = ?');
+    ordered.forEach((id, i) => stmt.run(i + 1, id, sessionId));
+  },
+);
 
 export function getMap(mapId: string): MapState | null {
   const row = db.prepare('SELECT * FROM maps WHERE id = ?').get(mapId) as
@@ -190,15 +218,23 @@ export function createMap(
   opts: { name: string; imagePath?: string | null; slidesUrl?: string | null },
 ): MapState {
   const id = newId();
+  // A new map goes to the END of the DM's ordered list.
+  const nextOrder =
+    ((
+      db
+        .prepare('SELECT MAX(sort_order) AS n FROM maps WHERE session_id = ?')
+        .get(sessionId) as { n: number | null }
+    ).n ?? 0) + 1;
   db.prepare(
-    `INSERT INTO maps (id, session_id, name, image_path, slides_url, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO maps (id, session_id, name, image_path, slides_url, sort_order, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     opts.name,
     opts.imagePath ?? null,
     opts.slidesUrl ?? null,
+    nextOrder,
     Date.now(),
   );
   // First map in a session becomes active by default.
@@ -1028,11 +1064,24 @@ const rollInitiative = (token: Token): number =>
 
 /** Roll initiative (d20 + DEX) for every COMBATANT on a map (resets the round).
  *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
+/**
+ * Whether a token should be pulled into combat when initiative is rolled.
+ * Objects never fight. Otherwise the DM's explicit per-token choice wins, and
+ * the default ('auto') is "join if visible" — so creatures parked off-screen or
+ * hidden for an ambush stay out until they're revealed and the DM clicks
+ * "Add rolls", instead of the whole map being dragged into the fight.
+ */
+export function rollsInitiative(token: Token): boolean {
+  if (isObjectToken(token)) return false;
+  if (token.inCombat !== undefined) return token.inCombat;
+  return !token.isHidden;
+}
+
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   db.transaction(() => {
     for (const t of listTokens(mapId)) {
-      roll.run(isObjectToken(t) ? null : rollInitiative(t), t.id);
+      roll.run(rollsInitiative(t) ? rollInitiative(t) : null, t.id);
     }
   })();
 }
@@ -1042,9 +1091,26 @@ export function rollMissingInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   db.transaction(() => {
     for (const t of listTokens(mapId)) {
-      if (t.initiative === null && !isObjectToken(t)) roll.run(rollInitiative(t), t.id);
+      if (t.initiative === null && rollsInitiative(t)) roll.run(rollInitiative(t), t.id);
     }
   })();
+}
+
+/**
+ * DM: set a token's combat participation (undefined = auto). Marking a token
+ * OUT also clears any initiative it already has, so it leaves the order
+ * immediately rather than lingering as a slot nobody can act on.
+ */
+export function setTokenInCombat(tokenId: string, inCombat?: boolean): Token | null {
+  if (inCombat === false) {
+    db.prepare('UPDATE tokens SET in_combat = 0, initiative = NULL WHERE id = ?').run(tokenId);
+  } else {
+    db.prepare('UPDATE tokens SET in_combat = ? WHERE id = ?').run(
+      inCombat === undefined ? null : 1,
+      tokenId,
+    );
+  }
+  return getToken(tokenId);
 }
 
 /** Toggle whether the DM's own rolls are hidden from players' logs. */

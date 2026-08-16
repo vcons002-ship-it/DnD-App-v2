@@ -327,6 +327,10 @@ ensureColumn('maps', 'grid_offset_x', 'grid_offset_x REAL NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_offset_y', 'grid_offset_y REAL NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_locked', 'grid_locked INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_hidden', 'grid_hidden INTEGER NOT NULL DEFAULT 0');
+// DM-chosen map order. Legacy rows default to 0 and are listed by created_at as
+// before, so an existing campaign's map order is untouched until the DM reorders
+// (which stamps every map 1..N); new maps take MAX+1 so they land at the end.
+ensureColumn('maps', 'sort_order', 'sort_order INTEGER NOT NULL DEFAULT 0');
 const addedMapRev = ensureColumn(
   'maps',
   'map_fog_revealed',
@@ -396,6 +400,11 @@ ensureColumn(
 );
 // Token silhouette ('circle' default; objects default to a non-circle by kind).
 ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
+// Whether this token joins combat when the DM rolls initiative. NULL = auto
+// (join if visible), 1 = always join (an invisible stalker IS a combatant),
+// 0 = never (a bystander NPC standing in the open). Nullable so existing saves
+// stay on 'auto' with no behavior change beyond the visibility rule.
+ensureColumn('tokens', 'in_combat', 'in_combat INTEGER');
 // Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
 ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
@@ -585,6 +594,7 @@ type TokenRow = {
   combat_role_override: Token['combatRoleOverride'];
   hide_combat_role: number;
   shape: string | null;
+  in_combat: number | null;
 };
 
 export function rowToToken(r: TokenRow): Token {
@@ -599,6 +609,10 @@ export function rowToToken(r: TokenRow): Token {
     widthFt: r.width_ft ?? r.size * 5,
     initiative: r.initiative,
     isHidden: !!r.is_hidden,
+    // NULL stays undefined = 'auto' (decided by visibility at roll time).
+    ...(r.in_combat === null || r.in_combat === undefined
+      ? {}
+      : { inCombat: !!r.in_combat }),
     combatRoleOverride: r.combat_role_override ?? null,
     hideCombatRole: !!r.hide_combat_role,
     // Effective role is filled in by buildSnapshot (needs creature context).

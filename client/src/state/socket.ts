@@ -178,6 +178,8 @@ type Store = {
   setActiveMap: (mapId: string) => void;
   deleteMap: (mapId: string) => void;
   renameMap: (mapId: string, name: string) => void;
+  /** DM: set the map list's order (ids in display order). */
+  reorderMaps: (orderedIds: string[]) => void;
   setMapGrid: (
     mapId: string,
     gridSizePx: number,
@@ -246,6 +248,8 @@ type Store = {
   deleteToken: (tokenId: string) => void;
   duplicateToken: (tokenId: string) => void;
   setTokenHidden: (tokenId: string, hidden: boolean) => void;
+  /** DM: whether a token joins combat (undefined = auto — join if visible). */
+  setTokenInCombat: (tokenId: string, inCombat?: boolean) => void;
   copyTokens: (fromMapId: string, toMapId: string, kinds: TokenKind[]) => void;
   applyDamage: (kind: TokenKind, refId: string, amount: number) => void;
   setTempHp: (kind: TokenKind, refId: string, amount: number) => void;
@@ -785,6 +789,7 @@ export const useStore = create<Store>((set, get) => ({
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
+  reorderMaps: (orderedIds) => get().socket?.emit('map:reorder', { orderedIds }),
   setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt, opts) =>
     get().socket?.emit('map:setGrid', {
       mapId,
@@ -846,6 +851,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:duplicate', { tokenId }),
   setTokenHidden: (tokenId, hidden) =>
     get().socket?.emit('token:setHidden', { tokenId, hidden }),
+  setTokenInCombat: (tokenId, inCombat) =>
+    get().socket?.emit('token:setInCombat', { tokenId, inCombat }),
   copyTokens: (fromMapId, toMapId, kinds) =>
     get().socket?.emit('tokens:copy', { fromMapId, toMapId, kinds }),
   applyDamage: (kind, refId, amount) =>
