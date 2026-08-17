@@ -10,7 +10,13 @@ type Props = {
 };
 
 /** The DM's initiative tracker: roll-all/add/next/clear, the turn order, and
- *  per-token initiative editing — a standalone, draggable panel section. */
+ *  per-token initiative editing — a standalone, draggable panel section.
+ *
+ *  It's also where the DM decides WHO is in the fight. Each row has a tick box;
+ *  "auto" pre-marks them from concealment (hidden by hand or sitting under fog),
+ *  so on a normal map the boxes are already right and the DM only touches the
+ *  exceptions. Unticked creatures drop out of the order into a collapsed
+ *  "Not in combat" group rather than cluttering the tracker. */
 export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Props) {
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
@@ -18,13 +24,19 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   const nextTurn = useStore((s) => s.nextTurn);
   const clearInitiative = useStore((s) => s.clearInitiative);
   const setRound = useStore((s) => s.setRound);
+  const setTokenInCombat = useStore((s) => s.setTokenInCombat);
+  const setTokensInCombat = useStore((s) => s.setTokensInCombat);
 
   // Objects (chests/doors/traps) never take turns — keep them out of the list.
   const combatants = snapshot.tokens.filter(
     (t) => !resolveToken(snapshot, t).objectKind,
   );
+  // Who "Roll all" would actually pull in (server-computed: it depends on fog).
+  const fighting = combatants.filter((t) => t.inCombatEffective);
+  const sidelined = combatants.filter((t) => !t.inCombatEffective);
+
   // Tokens ordered for initiative (rolled first, desc).
-  const orderedTokens = [...combatants].sort((a, b) => {
+  const orderedTokens = [...fighting].sort((a, b) => {
     if (a.initiative === null && b.initiative === null) return 0;
     if (a.initiative === null) return 1;
     if (b.initiative === null) return -1;
@@ -35,6 +47,80 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   orderedTokens
     .filter((t) => t.initiative !== null)
     .forEach((t, i) => rankOf.set(t.id, i + 1));
+
+  const row = (t: Token, inCombat: boolean) => {
+    const d = resolveToken(snapshot, t);
+    const isTurn = t.id === snapshot.activeTurnTokenId;
+    // Mirror of the server's turn-skip rule: dead creatures keep their slot
+    // but are walked past. PCs only count as dead at 3 failed saves (or the
+    // Dead mark) — at 0 HP they still take a turn to roll death saves.
+    const marked = d.conditions.some((c) => c.label.toLowerCase() === 'dead');
+    const pc = t.kind === 'pc'
+      ? snapshot.characters.find((c) => c.id === t.refId)
+      : undefined;
+    const isDead =
+      t.kind === 'pc'
+        ? marked || (pc?.deathSaves.failures ?? 0) >= 3
+        : marked || (d.curHp !== undefined && d.curHp <= 0);
+    return (
+      <div
+        key={t.id}
+        className={`init-row ${t.id === selectedTokenId ? 'sel' : ''} ${
+          isTurn ? 'turn' : ''
+        } ${isDead ? 'dead' : ''} ${inCombat ? '' : 'out'}`}
+        title={isDead ? 'Dead — keeps its slot, skipped on its turn' : undefined}
+        onClick={() => onSelectToken(t)}
+      >
+        <input
+          type="checkbox"
+          className="init-check"
+          checked={inCombat}
+          title={
+            inCombat
+              ? 'In the fight — untick to leave it out of initiative'
+              : 'Not in the fight — tick to pull it in'
+          }
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setTokenInCombat(t.id, e.target.checked)}
+        />
+        {inCombat ? (
+          <>
+            <span className="init-order" title="Turn order">
+              {rankOf.get(t.id) ?? '–'}
+            </span>
+            <input
+              className="init-input"
+              type="number"
+              value={t.initiative ?? ''}
+              placeholder="roll"
+              title="Initiative roll"
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) =>
+                setInitiative(
+                  t.id,
+                  e.target.value === '' ? null : Number(e.target.value),
+                )
+              }
+            />
+          </>
+        ) : (
+          <span className="init-order" title="Not rolling">
+            –
+          </span>
+        )}
+        <span className="init-name">
+          {isTurn && '▸ '}
+          {isDead && '💀 '}
+          {d.name}
+        </span>
+        {d.curHp !== undefined && (
+          <span className="muted">
+            {d.curHp}/{d.maxHp}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="panel-section">
@@ -64,14 +150,14 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           <button
             className="btn tiny"
             onClick={rollAllInitiative}
-            title="Reset combat: re-roll everyone and start at the top"
+            title="Reset combat: re-roll everyone ticked below and start at the top"
           >
             Roll all
           </button>
           <button
             className="btn tiny"
             onClick={rollMissingInitiative}
-            title="Roll only for combatants who haven't rolled"
+            title="Roll only for ticked combatants who haven't rolled"
           >
             Add rolls
           </button>
@@ -87,61 +173,50 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           </button>
         </div>
       </div>
-      <KillScoreboard snapshot={snapshot} />
-      {orderedTokens.map((t) => {
-        const d = resolveToken(snapshot, t);
-        const isTurn = t.id === snapshot.activeTurnTokenId;
-        // Mirror of the server's turn-skip rule: dead creatures keep their slot
-        // but are walked past. PCs only count as dead at 3 failed saves (or the
-        // Dead mark) — at 0 HP they still take a turn to roll death saves.
-        const marked = d.conditions.some((c) => c.label.toLowerCase() === 'dead');
-        const pc = t.kind === 'pc'
-          ? snapshot.characters.find((c) => c.id === t.refId)
-          : undefined;
-        const isDead =
-          t.kind === 'pc'
-            ? marked || (pc?.deathSaves.failures ?? 0) >= 3
-            : marked || (d.curHp !== undefined && d.curHp <= 0);
-        return (
-          <div
-            key={t.id}
-            className={`init-row ${t.id === selectedTokenId ? 'sel' : ''} ${
-              isTurn ? 'turn' : ''
-            } ${isDead ? 'dead' : ''}`}
-            title={isDead ? 'Dead — keeps its slot, skipped on its turn' : undefined}
-            onClick={() => onSelectToken(t)}
+      {combatants.length > 0 && (
+        <div className="init-pick">
+          <span className="muted">
+            In the fight: {fighting.length}/{combatants.length}
+          </span>
+          <button
+            className="btn tiny"
+            title="Put every creature on this map into the fight"
+            onClick={() => setTokensInCombat(combatants.map((t) => t.id), true)}
           >
-            <span className="init-order" title="Turn order">
-              {rankOf.get(t.id) ?? '–'}
-            </span>
-            <input
-              className="init-input"
-              type="number"
-              value={t.initiative ?? ''}
-              placeholder="roll"
-              title="Initiative roll"
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) =>
-                setInitiative(
-                  t.id,
-                  e.target.value === '' ? null : Number(e.target.value),
-                )
-              }
-            />
-            <span className="init-name">
-              {isTurn && '▸ '}
-              {isDead && '💀 '}
-              {d.name}
-            </span>
-            {d.curHp !== undefined && (
-              <span className="muted">
-                {d.curHp}/{d.maxHp}
-              </span>
-            )}
-          </div>
-        );
-      })}
+            All
+          </button>
+          <button
+            className="btn tiny"
+            title="Take everyone out — then tick just the ones that are fighting"
+            onClick={() => setTokensInCombat(combatants.map((t) => t.id), false)}
+          >
+            None
+          </button>
+          <button
+            className="btn tiny"
+            title="Back to auto: in the fight unless hidden or under fog"
+            onClick={() => setTokensInCombat(combatants.map((t) => t.id))}
+          >
+            Auto
+          </button>
+        </div>
+      )}
+      <KillScoreboard snapshot={snapshot} />
+      {orderedTokens.map((t) => row(t, true))}
+      {sidelined.length > 0 && (
+        <details className="init-out-group">
+          <summary title="Hidden or under fog, or you unticked them — tick one to pull it in">
+            Not in combat ({sidelined.length})
+          </summary>
+          {sidelined.map((t) => row(t, false))}
+        </details>
+      )}
       {combatants.length === 0 && <p className="muted">No combatants placed.</p>}
+      {combatants.length > 0 && fighting.length === 0 && (
+        <p className="muted">
+          Nobody is in the fight — tick a creature below, or press All.
+        </p>
+      )}
     </div>
   );
 }

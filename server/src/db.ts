@@ -615,6 +615,11 @@ export function rowToToken(r: TokenRow): Token {
       : { inCombat: !!r.in_combat }),
     combatRoleOverride: r.combat_role_override ?? null,
     hideCombatRole: !!r.hide_combat_role,
+    // Placeholder like `combatRole`: buildSnapshot recomputes it with the map's
+    // fog before any client sees it. Standalone consumers get the fog-free rule.
+    inCombatEffective: r.in_combat === null || r.in_combat === undefined
+      ? !r.is_hidden
+      : !!r.in_combat,
     // Effective role is filled in by buildSnapshot (needs creature context).
     combatRole: null,
     shape: (r.shape as Token['shape']) ?? 'circle',

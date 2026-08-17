@@ -28,6 +28,9 @@ import {
   setTokenHidden,
   setTokenInCombat,
   rollAllInitiative,
+  setFogLayer,
+  paintFog,
+  setTokenInitiative,
   rollMissingInitiative,
   setLoot,
   addRollLog,
@@ -35,6 +38,7 @@ import {
   importMaps,
 } from './sessions.js';
 import { resolveForcedSave } from './combat.js';
+import { buildSnapshot } from './visibility.js';
 
 function arena(name = 'Audit') {
   const s = createSession(name);
@@ -308,5 +312,89 @@ describe('initiative pulls in only the intended combatants', () => {
     setTokenInCombat(tok.id, true); // even forced in
     rollAllInitiative(map.id);
     expect(listTokens(map.id).find((t) => t.id === tok.id)!.initiative).toBeNull();
+  });
+});
+
+describe('initiative auto-marks from concealment (hidden OR fog)', () => {
+  // The DM's report: "no change in how initiative is rolled". The original rule
+  // only looked at the per-token hide flag, so creatures concealed by FOG — the
+  // common case — were still dragged into every fight.
+  const arenaWithFog = () => {
+    const { s, map } = arena('InitFog');
+    const tmpl = createMonsterTemplate(s.id, { name: 'Goblin', maxHp: 7 });
+    const spawn = (x: number, y: number) => {
+      const inst = instantiateMonster(tmpl.id)!;
+      return createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x, y }).id;
+    };
+    return { s, map, spawn };
+  };
+  const initOf = (mapId: string, id: string) =>
+    listTokens(mapId).find((t) => t.id === id)!.initiative;
+
+  it('a creature under MAP fog stays out of the fight', () => {
+    const { map, spawn } = arenaWithFog();
+    const inTheOpen = spawn(10, 10); // cell 0,0
+    const inTheDark = spawn(500, 500); // a cell we never reveal
+    setFogLayer(map.id, 'map', true);
+    paintFog(map.id, 'map', ['0,0'], true); // reveal only the first cell
+
+    rollAllInitiative(map.id);
+    expect(initOf(map.id, inTheOpen)).not.toBeNull();
+    expect(initOf(map.id, inTheDark)).toBeNull(); // was pulled in before
+  });
+
+  it('a creature under TOKEN fog stays out, but the party does not', () => {
+    const { s, map, spawn } = arenaWithFog();
+    const lurker = spawn(500, 500); // enemy, concealed
+    const hero = createCharacter(s.id, { name: 'Hero', maxHp: 10, stats: {} });
+    const heroTok = createToken({
+      mapId: map.id,
+      kind: 'pc',
+      refId: hero.id,
+      x: 500,
+      y: 500, // same covered cell
+    }).id;
+    setFogLayer(map.id, 'tokens', true);
+    paintFog(map.id, 'tokens', ['0,0'], true);
+
+    rollAllInitiative(map.id);
+    // Token fog conceals only foes — a PC in the same cell still fights.
+    expect(initOf(map.id, lurker)).toBeNull();
+    expect(initOf(map.id, heroTok)).not.toBeNull();
+  });
+
+  it('an explicit tick beats fog (the DM always wins)', () => {
+    const { map, spawn } = arenaWithFog();
+    const ambusher = spawn(500, 500);
+    setFogLayer(map.id, 'map', true);
+    paintFog(map.id, 'map', ['0,0'], true);
+
+    setTokenInCombat(ambusher, true); // "no, this one IS fighting"
+    rollAllInitiative(map.id);
+    expect(initOf(map.id, ambusher)).not.toBeNull();
+  });
+
+  it('the snapshot pre-marks the tick boxes (inCombatEffective)', () => {
+    const { s, map, spawn } = arenaWithFog();
+    const seen = spawn(10, 10);
+    const fogged = spawn(500, 500);
+    setFogLayer(map.id, 'map', true);
+    paintFog(map.id, 'map', ['0,0'], true);
+
+    const tokens = buildSnapshot(s.id, 'dm', map.id)!.tokens;
+    expect(tokens.find((t) => t.id === seen)!.inCombatEffective).toBe(true);
+    expect(tokens.find((t) => t.id === fogged)!.inCombatEffective).toBe(false);
+  });
+
+  it('typing an initiative marks the creature in-combat (no contradictory state)', () => {
+    const { map, spawn } = arenaWithFog();
+    const bystander = spawn(10, 10);
+    setTokenInCombat(bystander, false);
+    expect(listTokens(map.id).find((t) => t.id === bystander)!.inCombatEffective).toBe(false);
+
+    setTokenInitiative(bystander, 17); // the DM types a roll into its row
+    const after = listTokens(map.id).find((t) => t.id === bystander)!;
+    expect(after.initiative).toBe(17);
+    expect(after.inCombat).toBe(true);
   });
 });

@@ -19,6 +19,7 @@ import {
   sanitizeModifiers,
   sanitizeWeapons,
 } from '../../shared/modifiers.js';
+import { coveredByFog } from '../../shared/fog.js';
 import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
 import { isDamageType } from '../../shared/damage.js';
 import type {
@@ -552,10 +553,16 @@ export function setTokenInitiative(
   tokenId: string,
   initiative: number | null,
 ): Token | null {
-  db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?').run(
-    initiative,
-    tokenId,
-  );
+  // Typing a number IS a statement that this creature is in the fight — mark it
+  // in-combat too, so a hand-entered value can't contradict the tick box.
+  if (initiative === null) {
+    db.prepare('UPDATE tokens SET initiative = NULL WHERE id = ?').run(tokenId);
+  } else {
+    db.prepare('UPDATE tokens SET initiative = ?, in_combat = 1 WHERE id = ?').run(
+      initiative,
+      tokenId,
+    );
+  }
   return getToken(tokenId);
 }
 
@@ -1071,17 +1078,37 @@ const rollInitiative = (token: Token): number =>
  * hidden for an ambush stay out until they're revealed and the DM clicks
  * "Add rolls", instead of the whole map being dragged into the fight.
  */
-export function rollsInitiative(token: Token): boolean {
+export function rollsInitiative(token: Token, map?: MapState | null): boolean {
   if (isObjectToken(token)) return false;
+  // The DM's explicit tick in the initiative panel always wins.
   if (token.inCombat !== undefined) return token.inCombat;
-  return !token.isHidden;
+  // 'auto' pre-marks from concealment: hidden by hand, or sitting under fog.
+  return !token.isHidden && !concealedByFog(token, map);
+}
+
+/** Whether fog currently conceals this token from players on its map. Mirrors the
+ *  snapshot's own layer rules: MAP fog blacks out any token in an unrevealed
+ *  cell; TOKEN fog only conceals enemy/neutral creatures (the party stays
+ *  visible). Used by 'auto' so an ambusher under fog isn't dragged into a fight. */
+function concealedByFog(token: Token, map?: MapState | null): boolean {
+  const m = map ?? getMap(token.mapId);
+  if (!m) return false;
+  const grid = m.gridSizePx || 50;
+  const mapFog = m.mapFogEnabled ? new Set(m.mapFogRevealed) : null;
+  if (coveredByFog(mapFog, null, grid, token.x, token.y)) return true;
+  if (!m.tokenFogEnabled) return false;
+  // Token fog hides only foes — PCs and friendly creatures stay on the field.
+  if (token.kind === 'pc') return false;
+  if (getMonster(token.refId)?.disposition === 'friendly') return false;
+  return coveredByFog(null, new Set(m.tokenFogRevealed), grid, token.x, token.y);
 }
 
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
+  const map = getMap(mapId); // loaded once; fog sets are rebuilt per token
   db.transaction(() => {
     for (const t of listTokens(mapId)) {
-      roll.run(rollsInitiative(t) ? rollInitiative(t) : null, t.id);
+      roll.run(rollsInitiative(t, map) ? rollInitiative(t) : null, t.id);
     }
   })();
 }
@@ -1090,8 +1117,9 @@ export function rollAllInitiative(mapId: string): void {
 export function rollMissingInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   db.transaction(() => {
+    const map = getMap(mapId);
     for (const t of listTokens(mapId)) {
-      if (t.initiative === null && rollsInitiative(t)) roll.run(rollInitiative(t), t.id);
+      if (t.initiative === null && rollsInitiative(t, map)) roll.run(rollInitiative(t), t.id);
     }
   })();
 }

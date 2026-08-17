@@ -1437,6 +1437,17 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    // Bulk combat participation (the initiative panel's All / None) — one event
+    // and ONE broadcast rather than N of each.
+    on('tokens:setInCombat', ({ tokenIds, inCombat }) => {
+      if (!isDm() || !Array.isArray(tokenIds)) return;
+      const flag = typeof inCombat === 'boolean' ? inCombat : undefined;
+      for (const id of tokenIds.slice(0, 500)) {
+        if (typeof id === 'string' && getToken(id)) setTokenInCombat(id, flag);
+      }
+      afterChange();
+    });
+
     on('tokens:setCondition', ({ tokenIds, condition }) => {
       // Bulk condition edits are a DM-only (Data view) tool.
       if (!isDm() || !Array.isArray(tokenIds) || !condition) return;

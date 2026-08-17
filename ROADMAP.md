@@ -1533,3 +1533,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   can drop the message. **Purely additive**: no server, schema or shared-type
   changes (every endpoint and event already existed), and the left panel is
   untouched. Covered by two new e2e tests, including the full two-window chain.
+- ☑ **"Who rolls initiative" — made real, and moved into the initiative window.**
+  The first attempt (`50df21e`) added the `rollsInitiative` predicate but the DM
+  saw no change, for three compounding reasons: (1) the 'auto' default fell
+  through to `!isHidden`, which on a map where nothing is explicitly hidden is
+  *exactly* the old behavior; (2) **fog was ignored** — a creature concealed under
+  map/token fog was still dragged into every fight; (3) exclusion was invisible
+  (`InitiativePanel` listed every non-object token regardless of initiative) and
+  the only toggle sat in `TokenAdminButtons`, buried in the right-click menu and
+  the collapsible "DM tools" section. Now: **'auto' pre-marks** each creature from
+  concealment — hidden by hand **or under fog** — via a fog-aware `rollsInitiative`
+  (`coveredByFog` moved to a framework-free `shared/fog.ts` so `sessions.ts` can
+  use it without a circular import; token fog conceals only foes, so the party
+  still fights). The effective state ships as a server-computed
+  `Token.inCombatEffective` (mirroring `combatRole`), since it depends on fog the
+  client shouldn't re-derive. The **initiative panel is now the control surface**:
+  a tick box per row (explicit tick/untick always beats auto), **All / None / Auto**
+  via a new bulk `tokens:setInCombat` (one event + one broadcast, not N), and
+  anyone left out drops into a collapsed **"Not in combat (N)"** group instead of
+  cluttering the order. Typing a roll into a row now also marks that creature
+  in-combat, closing the `initiative:set` bypass. The stray ⚔ button was removed
+  from `TokenAdminButtons` — marking happens in the initiative window and nowhere
+  else.
