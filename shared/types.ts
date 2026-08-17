@@ -139,6 +139,11 @@ export type Token = {
   hideCombatRole: boolean;
   /** Effective role to render (server-computed in buildSnapshot); null = none. */
   combatRole: CombatRole | null;
+  /** Whether this token WOULD roll on "Roll all" — server-computed in
+   *  buildSnapshot, since it depends on fog the client shouldn't re-derive.
+   *  Drives the initiative panel's tick box: 'auto' pre-marks it from
+   *  concealment (hidden by hand or under fog), an explicit `inCombat` wins. */
+  inCombatEffective: boolean;
   /** Token silhouette. 'image' draws the (unclipped) icon as-is for pasted art. */
   shape: TokenShape;
 };
@@ -1289,6 +1294,9 @@ export type TokenSetRolePayload = {
 export type TokensDamagePayload = { tokenIds: string[]; amount: number };
 /** Hide/show every listed token from players at once. */
 export type TokensSetHiddenPayload = { tokenIds: string[]; hidden: boolean };
+/** DM: set combat participation for many tokens at once (the initiative panel's
+ *  All / None). Omit `inCombat` to return them to 'auto'. */
+export type TokensSetInCombatPayload = { tokenIds: string[]; inCombat?: boolean };
 /** Apply one condition to every listed token's creature. */
 export type TokensSetConditionPayload = {
   tokenIds: string[];
@@ -1348,6 +1356,7 @@ export interface ClientToServerEvents {
   'tokens:setCombatRole': (payload: TokenSetRolePayload) => void;
   'tokens:damage': (payload: TokensDamagePayload) => void;
   'tokens:setHidden': (payload: TokensSetHiddenPayload) => void;
+  'tokens:setInCombat': (payload: TokensSetInCombatPayload) => void;
   'tokens:setCondition': (payload: TokensSetConditionPayload) => void;
   'tokens:clearConditions': (payload: TokensClearConditionsPayload) => void;
   'tokens:copy': (payload: TokenCopyPayload) => void;

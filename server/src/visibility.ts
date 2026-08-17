@@ -11,6 +11,7 @@ import {
   listRollLog,
   listChat,
   listTokens,
+  rollsInitiative,
 } from './sessions.js';
 import type {
   Annotation,
@@ -28,6 +29,7 @@ import type {
   Token,
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
+import { coveredByFog } from '../../shared/fog.js';
 import { peekUndo } from './undo.js';
 
 /** Sum a list of reveal steps' values. */
@@ -79,22 +81,10 @@ function redactCreatureMods(e: RollEntry): RollEntry {
   return { ...e, detail, reveal };
 }
 
-/**
- * Whether a point sits under a COVERED cell of either enabled fog layer (map or
- * token fog) — i.e. a player must not see it. Shared by the snapshot's per-token
- * filter and the live drag-preview gate so the two can't drift. Pass the
- * revealed-cell sets (built once by the caller) plus the grid size.
- */
-export function coveredByFog(
-  mapFog: Set<string> | null,
-  tokenFog: Set<string> | null,
-  grid: number,
-  x: number,
-  y: number,
-): boolean {
-  const key = `${Math.floor(x / grid)},${Math.floor(y / grid)}`;
-  return (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key));
-}
+// Moved to shared/ so `sessions.ts` (which visibility.ts imports) can use the
+// same rule for initiative without a circular import. Re-exported here because
+// connections.ts and the tests already import it from this module.
+export { coveredByFog };
 
 /**
  * Whether players may see an object's loot contents. A closed/locked container
@@ -221,6 +211,8 @@ export function createSnapshotBuilder(
         tokens: listTokens(mapId).map((t) => ({
           ...t,
           combatRole: tokenCombatRole(t),
+          // Who "Roll all" would pull in, decided server-side (it depends on fog).
+          inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null),
         })),
         measurements: listMeasurements(mapId),
         annotations: listAnnotations(mapId),

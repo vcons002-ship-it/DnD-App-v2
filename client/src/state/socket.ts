@@ -302,6 +302,8 @@ type Store = {
   rollCheck: (payload: CheckRollPayload) => void;
   damageTokens: (tokenIds: string[], amount: number) => void;
   setTokensHidden: (tokenIds: string[], hidden: boolean) => void;
+  /** DM: bulk combat participation (initiative panel All / None). */
+  setTokensInCombat: (tokenIds: string[], inCombat?: boolean) => void;
   setTokensCondition: (
     tokenIds: string[],
     condition: Omit<Condition, 'id'>,
@@ -923,6 +925,8 @@ export const useStore = create<Store>((set, get) => ({
   rollCheck: (payload) => get().socket?.emit('check:roll', payload),
   damageTokens: (tokenIds, amount) =>
     get().socket?.emit('tokens:damage', { tokenIds, amount }),
+  setTokensInCombat: (tokenIds, inCombat) =>
+    get().socket?.emit('tokens:setInCombat', { tokenIds, inCombat }),
   setTokensHidden: (tokenIds, hidden) =>
     get().socket?.emit('tokens:setHidden', { tokenIds, hidden }),
   setTokensCondition: (tokenIds, condition) =>

@@ -1616,3 +1616,15 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 }
 .library-src.src-library { border-color: #5bbf7a; color: #5bbf7a; }
 .library-src.src-gemini { border-color: var(--accent); color: var(--accent); }
+
+/* Initiative: choosing who's in the fight. "Auto" pre-ticks from concealment,
+   the DM adjusts, and anyone left out drops into the collapsed group below. */
+.init-pick { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; }
+.init-pick .muted { margin-right: auto; font-size: 12px; }
+.init-check { cursor: pointer; margin: 0; flex: none; }
+.init-row.out { opacity: 0.66; }
+.init-out-group { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 4px; }
+.init-out-group > summary {
+  cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 0;
+}
+.init-out-group > summary:hover { color: var(--text); }

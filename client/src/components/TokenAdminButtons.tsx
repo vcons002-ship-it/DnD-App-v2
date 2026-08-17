@@ -22,7 +22,6 @@ export function TokenAdminButtons({
 }) {
   const duplicateToken = useStore((s) => s.duplicateToken);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
-  const setTokenInCombat = useStore((s) => s.setTokenInCombat);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
   const speakAs = useStore((s) => s.speakAs);
@@ -59,30 +58,6 @@ export function TokenAdminButtons({
         title="Hide the role badge from everyone"
       >
         {token.hideCombatRole ? '◎ Show role badge' : '◎ Hide role badge'}
-      </button>
-      {/* Who "Roll all" pulls into the fight. Cycles Auto → Always → Never so a
-          bystander NPC stays out and an invisible stalker can be forced in. */}
-      <button
-        className={cls(token.inCombat !== undefined)}
-        onClick={run(() =>
-          setTokenInCombat(
-            token.id,
-            token.inCombat === undefined ? true : token.inCombat ? false : undefined,
-          ),
-        )}
-        title={
-          token.inCombat === undefined
-            ? 'Initiative: auto — joins combat when visible. Click to always include.'
-            : token.inCombat
-              ? 'Initiative: always joins, even while hidden. Click to exclude.'
-              : 'Initiative: never joins (bystander). Click for auto.'
-        }
-      >
-        {token.inCombat === undefined
-          ? '⚔ Combat: auto'
-          : token.inCombat
-            ? '⚔ Combat: always'
-            : '⚔ Combat: never'}
       </button>
       {token.kind !== 'pc' && (
         <button
