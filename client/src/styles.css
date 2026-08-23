@@ -628,6 +628,35 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 
 /* Quick-roll D20 button pinned bottom-right of the map (Feature: DicePanel toggle).
    Sits semi-transparent until hovered, then reveals the basic dice above it. */
+/* Two-step attack: the "Roll damage" prompt pinned to the bottom-centre of the
+   map for whoever landed the hit (and the DM). Deliberately loud — it's the
+   click that finishes an attack, and a missed one leaves damage unapplied. */
+.damage-prompt {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 6; pointer-events: none;
+}
+.damage-prompt-btn {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px;
+  border: 2px solid var(--red); border-radius: 10px;
+  background: linear-gradient(180deg, #4a2126, #2a1417);
+  color: var(--text); cursor: pointer; text-align: left;
+  box-shadow: 0 4px 18px #000a, 0 0 14px rgba(226, 59, 59, 0.35);
+  animation: damage-prompt-pulse 1.6s ease-in-out infinite;
+}
+.damage-prompt-btn:hover { filter: brightness(1.18); }
+.damage-prompt-btn.crit { border-color: var(--gold); box-shadow: 0 4px 18px #000a, 0 0 18px rgba(245, 197, 24, 0.45); }
+.dp-dice { font-size: 22px; line-height: 1; }
+.dp-text { display: flex; flex-direction: column; line-height: 1.25; }
+.dp-text strong { font-size: 14px; letter-spacing: 0.02em; }
+.dp-sub { font-size: 11px; color: var(--muted); }
+@keyframes damage-prompt-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@media (prefers-reduced-motion: reduce) { .damage-prompt-btn { animation: none; } }
+
 .dice-button-overlay {
   position: absolute; right: 10px; bottom: 10px; z-index: 5;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -867,6 +896,31 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .spell-entry.prep-off .spell-name { color: var(--muted); font-weight: 500; }
 .spell-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
 .adv-toggle { display: inline-flex; gap: 2px; }
+/* Play-time (lg) variant: big, labelled ADV/DIS buttons with a loud armed state,
+   used wherever you arm a roll mid-combat (Combat section, dice panel). */
+.adv-toggle.lg { gap: 6px; }
+.adv-toggle.lg .adv-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-width: 2px;
+}
+.adv-toggle.lg .adv-up-btn.on {
+  background: #1f3a2a;
+  border-color: var(--green);
+  color: #7ce8a6;
+  box-shadow: 0 0 8px rgba(57, 196, 107, 0.55);
+}
+.adv-toggle.lg .adv-down-btn.on {
+  background: #3a2326;
+  border-color: var(--red);
+  color: #ff8b8b;
+  box-shadow: 0 0 8px rgba(226, 59, 59, 0.55);
+}
+/* The Combat section's adv/dis row + its "armed" read-out. */
+.combat-adv-row { align-items: center; gap: 8px; flex-wrap: wrap; }
+.combat-adv-row .adv-up, .combat-adv-row .adv-down { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 /* Per-creature adv/dis switch above a monster's attacks/actions (DM panel). */
 .creature-adv-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
 .creature-adv-row .muted { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -1529,13 +1583,16 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 }
 
 /* Inventory: magic-effect badge + equipped toggle on an item row. */
-.item-fx, .item-equip, .item-save {
+.item-fx, .item-equip, .item-save, .item-use {
   background: none; border: none; cursor: pointer; font-size: 12px;
   color: var(--muted); padding: 0 2px;
 }
 .item-save { opacity: 0.75; }
 .item-save:hover { opacity: 1; }
 .item-fx.has-fx { color: var(--cyan-bright); font-weight: 600; }
+/* 🧪 Use — only on items that parse as a consumable (a healing potion & co.). */
+.item-use { color: var(--green); font-size: 13px; }
+.item-use:hover { filter: brightness(1.4); }
 /* Same ✦n badge inside a library-picker row (preset magic effects). */
 .lib-fx { color: var(--cyan-bright); font-weight: 600; font-size: 11px; }
 .item-equip.on { color: var(--gold); }

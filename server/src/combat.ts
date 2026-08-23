@@ -5,6 +5,8 @@ import {
   getMonster,
   getRollEntry,
   setRollApply,
+  setRollPending,
+  getSessionById,
   getToken,
   getMap,
   incrementKillCount,
@@ -14,6 +16,9 @@ import {
   setTokensCondition,
   setConcentration,
   setDeathSaves,
+  setItem,
+  removeItem,
+  updateCharacter,
 } from './sessions.js';
 import {
   damageMultiplier,
@@ -34,7 +39,8 @@ import {
 } from '../../shared/conditionEffects.js';
 import { tokensWithin5ft } from '../../shared/distance.js';
 import { rollDice } from '../../shared/dice.js';
-import { checkReveal } from '../../shared/rollReveal.js';
+import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
+import { parseConsumable } from '../../shared/consumables.js';
 import {
   effectiveDice,
   spellAttackBonusDetail,
@@ -230,6 +236,9 @@ export function resolveAttack(
   advantage?: Advantage,
   offhand?: boolean,
   twoHanded?: boolean,
+  /** The attacking PLAYER's claimed character — allowed to roll the deferred
+   *  damage alongside the DM (they may be attacking with a companion/summon). */
+  ownerCharacterId?: string,
 ): boolean {
   const at = getToken(attackerTokenId);
   const tt = getToken(targetTokenId);
@@ -300,6 +309,8 @@ export function resolveAttack(
   // damage bonus folds into the damage number (like flat mastery damage), dice
   // damage rolls on a hit below, and a stance can grant advantage on the attack.
   let stanceAdvantage = false;
+  let stanceRerollDamage = false;
+  const stanceRerollNames: string[] = [];
   const stanceDice: { label: string; dice: string }[] = [];
   const onHitStances: SheetAbility[] = [];
   for (const ab of ch?.sheetAbilities ?? []) {
@@ -310,6 +321,11 @@ export function resolveAttack(
     // A marking stance (Hunter's Mark) only affects attacks on its marked target.
     if (st.targeted && st.targetId !== targetTokenId) continue;
     if (st.grantsAdvantage) stanceAdvantage = true;
+    // Savage Attacker: roll the weapon's damage dice twice, keep the better set.
+    if (st.rerollDamageDice) {
+      stanceRerollDamage = true;
+      stanceRerollNames.push(ab.name);
+    }
     if (st.onHitSave) onHitStances.push(ab);
     if (st.bonusDamage) {
       if (/d\d/i.test(st.bonusDamage)) {
@@ -355,12 +371,14 @@ export function resolveAttack(
     attackRollBonus: (maneuverToHit || 0) + atkExtra.total || undefined,
     attackRollBonusLabel: toHitLabel || undefined,
     forceCrit: !!autoCrit, // paralyzed/unconscious target within 5 ft → auto-crit
+    rerollDamageDice: stanceRerollDamage, // Savage Attacker
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
   const masteryNotes: string[] = [];
   if (out.hit && autoCrit) masteryNotes.push(`auto-crit (${autoCrit})`);
+  if (out.hit && stanceRerollDamage) masteryNotes.push(stanceRerollNames.join('+'));
   // Roll a rider's damage dice, DOUBLING them on a crit — RAW: a critical hit
   // doubles ALL of the attack's damage dice, riders (Hunter's Mark, a dice-adding
   // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.
@@ -440,14 +458,23 @@ export function resolveAttack(
     }
   }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  // FX type: a fired elemental rider (flaming sword) makes the better burst
+  // than the base physical type; otherwise the weapon's own type.
+  const fxType =
+    out.hit && weapon.extraDamage && weapon.extraDamageType
+      ? weapon.extraDamageType
+      : weapon.damageType;
+  // Manual damage: on a HIT the number is computed but NOT applied — it's parked
+  // on the roll entry and a second click ("Roll damage") plays the dice reveal
+  // and takes the HP off. A MISS is unaffected: Graze damage is a flat ability
+  // modifier, not a roll, so it still lands with the attack.
+  const deferDamage =
+    !!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0;
+  const damageSteps = out.hit && applied > 0
+    ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
+    : [];
   let hpNote: RollEntry['hpNote'];
-  if (applied > 0) {
-    // FX type: a fired elemental rider (flaming sword) makes the better burst
-    // than the base physical type; otherwise the weapon's own type.
-    const fxType =
-      out.hit && weapon.extraDamage && weapon.extraDamageType
-        ? weapon.extraDamageType
-        : weapon.damageType;
+  if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
@@ -457,7 +484,7 @@ export function resolveAttack(
     expr: weapon.name,
     total: out.attackTotal,
     detail:
-      `${a.name} → ${t.name}: ${out.detail}` +
+      `${a.name} → ${t.name}: ${deferDamage ? `${out.detailToHit} — roll damage` : out.detail}` +
       (masteryNotes.length ? ` · ${masteryNotes.join(', ')}` : '') +
       (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
     hpNote,
@@ -469,18 +496,35 @@ export function resolveAttack(
       outcome: out.fumble ? 'fumble' : out.crit ? 'crit' : out.hit ? 'hit' : 'miss',
       attacker: a.name,
       target: t.name,
-      ...(out.hit && applied > 0
+      // The damage half of the reveal is held back in manual-damage mode — it
+      // plays when the damage is actually rolled.
+      ...(out.hit && applied > 0 && !deferDamage
         ? {
             damageDice: out.damageDiceSteps,
             // Reconcile the rolled weapon total with what actually hit HP (riders,
             // mastery dice, resist/vuln) so the count-up lands on the real number.
-            damageMods: reconcileDamageSteps(out.damageModSteps, out.damage, applied),
+            damageMods: damageSteps,
             damage: applied,
             damageType: weapon.damageType,
           }
         : {}),
     },
     hideMods: hidesMods(at.kind, at.refId),
+    ...(deferDamage
+      ? {
+          pending: {
+            target: { kind: t.kind, refId: t.refId, name: t.name },
+            attacker: { kind: at.kind, refId: at.refId },
+            weapon: weapon.name,
+            amount: applied,
+            ...(fxType ? { damageType: fxType } : {}),
+            crit: out.crit,
+            dice: out.damageDiceSteps,
+            mods: damageSteps,
+            ...(ownerCharacterId ? { owner: ownerCharacterId } : {}),
+          },
+        }
+      : {}),
   });
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
@@ -544,6 +588,55 @@ export function resolveAttack(
       mastery: { ...ab.mastery!, active: false },
     });
   }
+  return true;
+}
+
+/**
+ * The second half of a two-step attack: play the damage that was rolled on the
+ * hit and actually take it off the target. The numbers were computed at hit time
+ * (so mastery/stance riders, resistance and the crit can't drift); this applies
+ * them, logs the damage roll with its own dice reveal, and stamps the pending
+ * payload `done` so a double-click can't damage twice.
+ */
+export function resolveAttackDamage(
+  sessionId: string,
+  roller: string,
+  rollId: string,
+): boolean {
+  const entry = getRollEntry(rollId);
+  const p = entry?.pending;
+  if (!entry || !p || p.done) return false;
+  // Claim it FIRST — two clicks racing in must not both apply.
+  setRollPending(rollId, { ...p, done: true });
+
+  const hpNote = applyDamageNoted(
+    p.target.kind,
+    p.target.refId,
+    p.amount,
+    p.damageType,
+    p.attacker,
+    p.crit,
+  );
+  noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
+  addRollLog(sessionId, {
+    roller,
+    label: 'Damage',
+    expr: p.weapon,
+    total: p.amount,
+    detail: `${p.weapon} → ${p.target.name}: ${p.amount}${p.damageType ? ` ${p.damageType}` : ''} damage${p.crit ? ' — CRIT' : ''}`,
+    hpNote,
+    reveal: {
+      kind: 'damage',
+      attacker: roller,
+      target: p.target.name,
+      outcome: p.crit ? 'crit' : 'hit',
+      ...(p.dice.length ? { damageDice: p.dice } : {}),
+      ...(p.mods.length ? { damageMods: p.mods } : {}),
+      damage: p.amount,
+      ...(p.damageType ? { damageType: p.damageType } : {}),
+    },
+    hideMods: hidesMods(p.attacker.kind, p.attacker.refId),
+  });
   return true;
 }
 
@@ -1483,6 +1576,63 @@ export function resolveSkillRoll(
         ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
       ],
     }),
+  });
+  return true;
+}
+
+/**
+ * Drink/use a consumable from a character's inventory: roll what the item does
+ * (parsed SERVER-SIDE from the item — the client's word is never taken for it),
+ * apply it, log the roll with a dice reveal so it animates like any other roll,
+ * and spend one from the stack.
+ *
+ * 5e temporary HP doesn't stack — a Potion of Heroism's 10 replaces a smaller
+ * pool and is ignored if you already have more.
+ */
+export function useConsumable(
+  sessionId: string,
+  roller: string,
+  characterId: string,
+  itemId: string,
+): boolean {
+  const c = getCharacter(characterId);
+  if (!c) return false;
+  const item = c.items.find((i) => i.id === itemId);
+  if (!item || item.qty <= 0) return false;
+  const effect = parseConsumable(item);
+  if (!effect) return false;
+  const result = rollDice(effect.dice);
+  if (!result) return false;
+  const val = Math.max(0, result.total);
+
+  let hpNote: RollEntry['hpNote'];
+  let outcome: string;
+  if (effect.kind === 'tempHp') {
+    const before = c.tempHp;
+    const next = Math.max(before, val);
+    updateCharacter(characterId, { tempHp: next });
+    outcome =
+      next > before
+        ? `${c.name} gains ${val} temporary HP`
+        : `${c.name} keeps ${before} temporary HP (${val} is no better)`;
+    hpNote = { kind: 'pc', refId: characterId, text: `${c.name} temp HP ${before}→${next}` };
+  } else {
+    hpNote = val > 0 ? applyDamageNoted('pc', characterId, -val) : undefined;
+    outcome = `${c.name} regains ${val} HP`;
+  }
+
+  // Spend one; an emptied stack leaves the sheet.
+  if (item.qty <= 1) removeItem(characterId, itemId);
+  else setItem(characterId, { ...item, qty: item.qty - 1 });
+
+  addRollLog(sessionId, {
+    roller,
+    label: item.name,
+    expr: effect.dice,
+    total: val,
+    detail: `Used ${item.name}: ${result.detail} — ${outcome}`,
+    hpNote,
+    reveal: diceReveal(c.name, result, item.name),
   });
   return true;
 }

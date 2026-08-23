@@ -52,6 +52,8 @@ export type Session = {
   combatRound: number;
   /** When true, the DM's own rolls are hidden from players' roll logs. */
   hideDmRolls: boolean;
+  /** Weapon damage is a SECOND click (roll + apply) instead of auto-applying. */
+  manualDamage: boolean;
 };
 
 type SessionRow = {
@@ -62,6 +64,7 @@ type SessionRow = {
   active_turn_token_id: string | null;
   combat_round: number | null;
   hide_dm_rolls: number | null;
+  manual_damage: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -72,6 +75,9 @@ const rowToSession = (r: SessionRow): Session => ({
   activeTurnTokenId: r.active_turn_token_id,
   combatRound: r.combat_round ?? 0,
   hideDmRolls: !!r.hide_dm_rolls,
+  // Default ON for a session that predates the column (NULL) — the two-step
+  // damage roll is the intended behavior; the DM can switch it off in Settings.
+  manualDamage: r.manual_damage === null ? true : !!r.manual_damage,
 });
 
 // ---- Sessions ----
@@ -104,7 +110,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -1141,6 +1147,14 @@ export function setTokenInCombat(tokenId: string, inCombat?: boolean): Token | n
   return getToken(tokenId);
 }
 
+/** Toggle whether weapon damage is a separate, clickable second roll. */
+export function setManualDamage(sessionId: string, manual: boolean): void {
+  db.prepare('UPDATE sessions SET manual_damage = ? WHERE id = ?').run(
+    manual ? 1 : 0,
+    sessionId,
+  );
+}
+
 /** Toggle whether the DM's own rolls are hidden from players' logs. */
 export function setHideDmRolls(sessionId: string, hide: boolean): void {
   db.prepare('UPDATE sessions SET hide_dm_rolls = ? WHERE id = ?').run(
@@ -1232,6 +1246,8 @@ export function addRollLog(
     description?: string;
     /** Optional "Apply damage" payload (save/damage spell → click-to-target saves). */
     apply?: RollEntry['apply'];
+    /** Damage rolled but not applied yet (the two-step attack's second half). */
+    pending?: RollEntry['pending'];
     /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
     hpNote?: RollEntry['hpNote'];
     /** Cosmetic attack-roll reveal payload (the brief d20 animation). */
@@ -1247,8 +1263,8 @@ export function addRollLog(
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, hp_note, reveal, hide_mods, dm_only, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, hp_note, reveal, hide_mods, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1259,6 +1275,7 @@ export function addRollLog(
     entry.detail,
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
+    entry.pending ? JSON.stringify(entry.pending) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
     entry.reveal ? JSON.stringify(entry.reveal) : '',
     entry.hideMods ? 1 : 0,
@@ -1389,6 +1406,7 @@ type RollLogRow = {
   detail: string;
   description: string | null;
   apply: string | null;
+  pending: string | null;
   hp_note: string | null;
   reveal: string | null;
   hide_mods: number | null;
@@ -1418,6 +1436,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     detail: r.detail,
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
+    ...(r.pending ? { pending: JSON.parse(r.pending) as RollEntry['pending'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
     ...(r.reveal ? { reveal: JSON.parse(r.reveal) as RollEntry['reveal'] } : {}),
     ...(r.hide_mods ? { hideMods: true } : {}),
@@ -1432,6 +1451,15 @@ export function getRollEntry(id: string): RollEntry | null {
     | RollLogRow
     | undefined;
   return r ? rowToRollEntry(r) : null;
+}
+
+/** Persist an updated `pending` payload on a roll entry — used to stamp the
+ *  damage as applied so a double-click can't take HP off twice. */
+export function setRollPending(id: string, pending: RollEntry['pending']): void {
+  db.prepare('UPDATE roll_log SET pending = ? WHERE id = ?').run(
+    pending ? JSON.stringify(pending) : '',
+    id,
+  );
 }
 
 /** Persist an updated `apply` payload on a roll entry — used to record consumed

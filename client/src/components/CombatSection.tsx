@@ -11,6 +11,7 @@ import { healTargets, validTargets } from '../lib/targets';
 import { useStore } from '../state/socket';
 import { AbilityButtons } from './AbilityButtons';
 import { AbilityToggles, hasToggle } from './AbilityToggles';
+import { AdvantageToggle } from './AdvantageToggle';
 import { CharacterResources } from './CharacterResources';
 import { WeaponButtons } from './WeaponButtons';
 
@@ -44,6 +45,9 @@ export function CombatSection({
   // (set in the skills panel for a PC, or the creature panel for a monster);
   // we just consume it when an attack fires.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
+  // …and show it right here, big, so it's obvious BEFORE you click an attack
+  // (it used to live only in the skills/dice panels, nowhere near the buttons).
+  const armedAdv = useStore((s) => s.manualAdvantage[attacker.refId]);
   const summonCast = useStore((s) => s.summonCast);
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
@@ -139,6 +143,17 @@ export function CombatSection({
       )}
       {nothingRollable && (
         <p className="muted">No attacks or rollable abilities.</p>
+      )}
+      {!nothingRollable && (
+        <div className="dice-row combat-adv-row">
+          <span className="muted spell-tag">Next roll</span>
+          <AdvantageToggle entityId={attacker.refId} size="lg" />
+          {armedAdv && (
+            <span className={armedAdv === 'adv' ? 'adv-up' : 'adv-down'}>
+              {armedAdv === 'adv' ? 'advantage armed' : 'disadvantage armed'}
+            </span>
+          )}
+        </div>
       )}
       {/* Damage/attack-altering toggles (Rage, masteries, maneuvers, marks). */}
       <AbilityToggles

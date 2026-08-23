@@ -27,6 +27,7 @@ import { TokenHoverCard } from '../components/TokenHoverCard';
 import { DecalPopup } from '../components/DecalPopup';
 import { RollLogOverlay } from '../components/RollLogOverlay';
 import { DiceButtonOverlay } from '../components/DiceButtonOverlay';
+import { DamagePrompt } from '../components/DamagePrompt';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -1937,6 +1938,8 @@ export function MapStage({
             <RollLogOverlay rollLog={snapshot.rollLog} chat={snapshot.chat} />
           )}
           {showDiceButton && <DiceButtonOverlay />}
+          {/* Two-step attacks: the big "roll the damage you just earned" button. */}
+          <DamagePrompt />
           {saveResolve && (
             <div className="save-resolve-banner">
               <span>

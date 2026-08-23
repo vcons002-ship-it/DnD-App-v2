@@ -290,6 +290,9 @@ ensureColumn('sessions', 'active_turn_token_id', 'active_turn_token_id TEXT');
 ensureColumn('sessions', 'combat_round', 'combat_round INTEGER NOT NULL DEFAULT 0');
 // Hide the DM's own rolls from players' logs while on.
 ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAULT 0');
+// Weapon damage is a separate, clickable second roll (default ON) instead of
+// auto-applying with the to-hit. Old saves adopt it; the DM can switch it off.
+ensureColumn('sessions', 'manual_damage', 'manual_damage INTEGER NOT NULL DEFAULT 1');
 // Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).
 ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
 // Per-message flag: rules-assistant Q&A is DM-only (filtered from player snapshots).
@@ -435,6 +438,8 @@ ensureColumn('library_characters', 'modifiers', "modifiers TEXT NOT NULL DEFAULT
 ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 // Optional "Apply damage" payload on a save/damage roll (DM click-to-target saves).
 ensureColumn('roll_log', 'apply', "apply TEXT NOT NULL DEFAULT ''");
+// Damage rolled on a hit but not yet applied (the two-step attack's second half).
+ensureColumn('roll_log', 'pending', "pending TEXT NOT NULL DEFAULT ''");
 // DM-only HP accounting note per roll ("Druk HP 42→38").
 ensureColumn('roll_log', 'hp_note', "hp_note TEXT NOT NULL DEFAULT ''");
 // Cosmetic attack-roll reveal payload (drives the brief d20 reveal animation).

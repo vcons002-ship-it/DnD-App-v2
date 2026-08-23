@@ -34,14 +34,19 @@ import {
   listRollLog,
   getRollEntry,
   setLoot,
+  setManualDamage,
 } from './sessions.js';
 import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
+import { getFeature, searchFeatures } from './features/srd.js';
 import type { CreatureAbility, SheetAbility } from '../../shared/types.js';
 
 function arena() {
   const s = createSession('Combat');
   const map = createMap(s.id, { name: 'Pit' });
   setActiveMap(s.id, map.id);
+  // These tests assert on damage landing WITH the attack. The two-step damage
+  // roll (the session default) is covered by its own block at the bottom.
+  setManualDamage(s.id, false);
   return { s, map };
 }
 
@@ -1571,13 +1576,22 @@ describe('Battle Master maneuvers', () => {
     // #9 regression: the maneuver's save rider carries amount:0 (the push deals
     // no damage), but the weapon's own damage — crit-doubled when it crits — must
     // still land on the target's HP. Use a bigger die so the hit is unmistakable.
-    const { s, tInst, atk, tgt } = fight(
+    const { s, chId, tInst, atk, tgt } = fight(
       { active: true, addDieTo: 'damage', save: { ability: 'STR', onFail: 'Prone' } },
       { name: 'Maul', kind: 'melee', damage: '4d10', attackBonus: 50 },
     );
-    const before = getMonster(tInst.id)!.curHp;
-    resolveAttack(s, 'Fighter', atk, tgt, 0);
-    const after = getMonster(tInst.id)!.curHp;
+    // +50 lands on everything but a nat 1, so re-attack until it hits — re-arming
+    // the maneuver each try, since firing is one-shot and spends a die.
+    let before = 0;
+    let after = 0;
+    for (let i = 0; i < 40 && after >= before; i++) {
+      const ab = getCharacter(chId)!.sheetAbilities[0];
+      setSheetAbility('pc', chId, { ...ab, maneuver: { ...ab.maneuver!, active: true } });
+      setResource(chId, 'resources', 'Superiority Dice', { used: 0 });
+      before = getMonster(tInst.id)!.curHp;
+      resolveAttack(s, 'Fighter', atk, tgt, 0);
+      after = getMonster(tInst.id)!.curHp;
+    }
     // The weapon dice (4d10 ≥ 4) + maneuver die landed on HP — never swallowed by
     // the rider.
     expect(after).toBeLessThan(before);
@@ -1798,5 +1812,80 @@ describe('object lock-pick + creature loot gating', () => {
     // Dead + revealed → visible.
     applyDamage('monster', bandit.id, 999);
     expect(lootVisibleToPlayers(getMonster(bandit.id)!)).toBe(true);
+  });
+});
+
+describe('Savage Attacker', () => {
+  /** A fighter with the feat toggled on, swinging at a dummy that can't die. */
+  const savageFight = (active: boolean, damage = '2d6') => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Savage',
+      className: 'Fighter',
+      level: 1,
+      stats: { STR: 16 },
+      weapons: [{ name: 'Greatsword', kind: 'melee', damage, attackBonus: 50 }],
+    });
+    setSheetAbility('pc', ch.id, {
+      id: 'sa',
+      name: 'Savage Attacker',
+      type: 'stance',
+      description: '',
+      stance: { active, appliesTo: 'all', rerollDamageDice: true },
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 99999, armorClass: 1 });
+    const mon = instantiateMonster(tmpl.id)!;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: mon.id, x: 1, y: 1 });
+    return { sid: s.id, atk: atk.id, tgt: tgt.id, mon: mon.id };
+  };
+
+  it('keeps the better of two damage-dice rolls', () => {
+    const f = savageFight(true);
+    let notes = 0;
+    for (let i = 0; i < 60; i++) {
+      resolveAttack(f.sid, 'Savage', f.atk, f.tgt, 0);
+      const last = listRollLog(f.sid).at(-1)!;
+      const m = /\[SAVAGE (\d+)\/(\d+)\]/.exec(last.detail);
+      if (!m) continue;
+      notes++;
+      // The kept total is never the worse of the two.
+      expect(Number(m[1])).toBeGreaterThanOrEqual(Number(m[2]));
+    }
+    expect(notes).toBeGreaterThan(0);
+  });
+
+  it('rolls higher on average than the same attack without it', () => {
+    // 1d12 has enough spread that keep-the-better is clearly visible over a run.
+    const total = (active: boolean) => {
+      const f = savageFight(active, '1d12');
+      let sum = 0;
+      let hits = 0;
+      for (let i = 0; i < 250; i++) {
+        resolveAttack(f.sid, 'Savage', f.atk, f.tgt, 0);
+        const last = listRollLog(f.sid).at(-1)!;
+        const m = /, (\d+) dmg/.exec(last.detail);
+        if (m) {
+          sum += Number(m[1]);
+          hits++;
+        }
+      }
+      return sum / hits;
+    };
+    expect(total(true)).toBeGreaterThan(total(false));
+  });
+
+  it('does nothing while the stance is off', () => {
+    const f = savageFight(false);
+    for (let i = 0; i < 20; i++) resolveAttack(f.sid, 'Savage', f.atk, f.tgt, 0);
+    expect(listRollLog(f.sid).some((e) => /SAVAGE/.test(e.detail))).toBe(false);
+  });
+
+  it('ships as a ready-to-add feat in the rules DB', () => {
+    const feat = getFeature('Savage Attacker');
+    expect(feat).toBeTruthy();
+    expect(feat!.type).toBe('stance');
+    expect(feat!.stance?.rerollDamageDice).toBe(true);
+    expect(searchFeatures('savage').some((f) => f.name === 'Savage Attacker')).toBe(true);
   });
 });

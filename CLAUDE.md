@@ -190,6 +190,10 @@ sanitization rules above and commit it to `claude/Main`.
 - `shared/spellPrep.ts` — `cantripsKnown` + `spellCapacity` (prepared casters =
   mod+level/half, known casters = per-class table, null for martials) and
   `parseActionType` (meta string → action/bonus/reaction).
+- `shared/consumables.ts` — `parseConsumable` (what drinking an inventory item
+  does: an explicit `InventoryItem.use`, else a heal-verb scrape of its
+  description, else the standard-potion name table) + `describeConsumable`.
+  Drives the inventory row's 🧪 Use button; the server re-parses on every use.
 
 ## Client structure & reuse (don't reinvent these)
 
@@ -306,8 +310,11 @@ sanitization rules above and commit it to `claude/Main`.
   slot but are skipped** (PCs at 0 HP keep their turn for death saves), and
   deleting the current-turn token ticks the marker forward first. **Dice roller +
   shared persisted roll log** (pruned to 500/session; `/roll 2d6+3 [adv|dis]`
-  typed in chat rolls too), **automated weapon attacks** (server-authoritative,
-  auto-applies damage on hit), **saving throws** (bulk), and **heals that apply
+  typed in chat rolls too), **automated weapon attacks** (server-authoritative;
+  **damage is a second click** — see the design-decisions section: the hit parks
+  its damage on `RollEntry.pending` and a big `DamagePrompt` over the map, or a
+  log button, rolls + applies it; `session:setManualDamage` switches the session
+  back to auto-apply), **saving throws** (bulk), and **heals that apply
   on cast** (spells add the casting mod; combat-console Heal-target dropdown,
   self default). Every HP change pops a **floating ±X** over the token (`fx:hp`,
   per-viewer filtered; damage at 0 HP still floats the attempted amount) and
@@ -385,6 +392,17 @@ sanitization rules above and commit it to `claude/Main`.
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
   modal for both roles, auto-tab by pointer type), editable map names. **Settings**
   also holds a per-device **combat-sound** mute (default on).
+- **Savage Attacker (2024 feat):** a `stance` sheet ability with
+  `StanceSpec.rerollDamageDice` — shipped in `server/src/features/srd.ts`, added
+  from the usual "+ Add spell / ability" search and toggled like Rage from the
+  Combat section's chip row. `rollWeaponAttack` then rolls the weapon's damage
+  dice set TWICE (the crit's doubled dice included) and keeps the better total,
+  noting `[SAVAGE kept/dropped]` in the log. Once-per-turn isn't auto-enforced —
+  the toggle is the control, like every other stance.
+- **Consumables:** any inventory item that parses as one (`shared/consumables.ts`)
+  gets a 🧪 **Use** button on its row: `item:use` rolls it server-side, applies
+  healing (or non-stacking temp HP), logs it with a dice reveal, and spends one
+  from the stack.
 - **Summons (tied to a spell/ability):** a `SheetAbility` can carry a `summon`
   spec (`{name?, icon?}`); a **✋ Summon** button on that ability (in
   `CharacterSpells`) spawns a `disposition:'friendly'` creature token via
@@ -436,8 +454,18 @@ sanitization rules above and commit it to `claude/Main`.
 
 ## Key design decisions (the "why" — don't relitigate)
 
-- **Combat damage auto-applies on a hit** (recorded in the roll log; DM can heal
-  back) instead of a per-hit confirm modal — deterministic and fast.
+- **Weapon damage is a SECOND, clickable roll** (`sessions.manual_damage`, default
+  on; DM toggle in Settings). A hit computes its damage immediately — riders,
+  resistance and the crit all resolved — but *parks* it on the roll entry
+  (`RollEntry.pending`, persisted) instead of applying it; a big `DamagePrompt`
+  over the map (plus a log button) plays the dice reveal and takes the HP off.
+  Pre-rolling keeps the numbers identical to the old one-shot path and keeps the
+  mastery/stance one-shot bookkeeping in `resolveAttack`; only the apply and the
+  animation are deferred. `pending.done` is stamped BEFORE applying, so a
+  double-click can't damage twice. A **miss is unchanged** (Graze is a flat
+  modifier, not a roll). Switching the toggle off restores the original
+  auto-apply-on-hit behavior, which was chosen over a confirm modal for speed —
+  the second click exists because it's the fun part, not as a confirmation.
 - **Combat-role badge is server-computed** and shown to players even on enemies
   (whose stats they never receive); disposition decides how much else they see.
 - **Library save conflict also checks the SRD** (saving shadows a built-in), and
