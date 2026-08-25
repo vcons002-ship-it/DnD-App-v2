@@ -16,14 +16,21 @@ import { useStore } from '../state/socket';
 export function DamagePrompt() {
   const snapshot = useStore((s) => s.snapshot);
   const combatDamage = useStore((s) => s.combatDamage);
+  // The attack's own reveal is still playing — let the d20 land and the HIT stamp
+  // drop before offering the damage. Cleared when the animation ends OR the
+  // viewer skips it (click / tap / Esc), so it never gates on the full runtime.
+  const rollFx = useStore((s) => s.rollFx);
   // The newest un-rolled hit. (The log is oldest-first and small.)
   const entry = [...(snapshot?.rollLog ?? [])]
     .reverse()
     .find((r) => r.pending && !r.pending.done);
   const rollId = entry?.id;
 
+  // Armed = there's damage waiting AND its reveal has finished (or been skipped).
+  const armed = !!entry?.pending && !!rollId && rollFx?.rollId !== rollId;
+
   useEffect(() => {
-    if (!rollId) return;
+    if (!armed || !rollId) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const el = document.activeElement;
@@ -36,9 +43,9 @@ export function DamagePrompt() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [rollId, combatDamage]);
+  }, [armed, rollId, combatDamage]);
 
-  if (!entry?.pending || !rollId) return null;
+  if (!armed || !entry?.pending || !rollId) return null;
   const p = entry.pending;
   return (
     <div className="damage-prompt">

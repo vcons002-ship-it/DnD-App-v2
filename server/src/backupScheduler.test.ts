@@ -16,7 +16,12 @@ describe('automatic backup', () => {
   // run past the 5s default. Give this disk-heavy test room so it doesn't flake.
   it('writes a valid JSON backup per session into a timestamped folder', () => {
     const s = createSession('AutoBackup');
-    const now = 1_700_000_000_000; // fixed → deterministic folder name
+    // The folder name is deterministic because the test derives `stamp` from the
+    // SAME `now` it passes in — not because the value is a constant. It must be
+    // the CURRENT time: `runBackupNow` prunes to the newest KEEP folders by name,
+    // so a pinned past timestamp (the old 1_700_000_000_000) sorts oldest and the
+    // run deletes its own backup the moment the data dir holds KEEP folders.
+    const now = Date.now();
     const n = runBackupNow(now);
     expect(n).toBeGreaterThan(0);
 

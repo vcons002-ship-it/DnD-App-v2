@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 
 // Basic dice revealed above the d20 (matches DicePanel's quick set).
@@ -10,18 +11,71 @@ const isTouch = (): boolean =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none)').matches;
 
 /**
- * A D20-shaped quick-roll button pinned to the bottom-right of the map. On a
- * mouse it sits semi-transparent until hovered, which fades it in and reveals the
- * basic dice; clicking the d20 rolls 1d20. On touch (no hover), a tap OPENS the
- * dice menu instead of rolling — otherwise hover-emulation made one tap both roll
- * a d20 AND open the menu. The menu's own d20 still rolls. Rolls go through the
+ * WHOSE advantage this arms — the same per-entity key the roll will consume, so
+ * the map switch and the panels are one switch, never two.
+ *
+ * The DM acts as the token they've selected (its attacks consume that creature's
+ * key in `CombatSection`), falling back to the generic dice-panel key. A player
+ * acts as their own claimed PC, unless they've selected a friendly creature they
+ * control (a companion/summon) — then it's that creature's, mirroring how
+ * `floatingAttacker` picks the attacker on the map.
+ */
+function advKeyFor(
+  snapshot: StateSnapshot,
+  selectedIds: string[],
+  mySocketId: string | undefined,
+): { key: string; who: string } {
+  const isDm = snapshot.role === 'dm';
+  const selected = snapshot.tokens.filter((t) => selectedIds.includes(t.id));
+  const nameOf = (refId: string, kind: string) =>
+    (kind === 'pc'
+      ? snapshot.characters.find((c) => c.id === refId)?.name
+      : snapshot.monsters.find((m) => m.id === refId)?.name) ?? 'selection';
+  if (isDm) {
+    const t = selected[0];
+    return t ? { key: t.refId, who: nameOf(t.refId, t.kind) } : { key: 'dm-dice', who: 'DM' };
+  }
+  const mine = snapshot.characters.find((c) => c.claimedBy === mySocketId);
+  const friendly = selected.find(
+    (t) =>
+      t.kind === 'monster' &&
+      snapshot.monsters.find((m) => m.id === t.refId)?.disposition === 'friendly',
+  );
+  if (friendly) return { key: friendly.refId, who: nameOf(friendly.refId, 'monster') };
+  return mine ? { key: mine.id, who: mine.name } : { key: 'dm-dice', who: 'you' };
+}
+
+/**
+ * The map's dice corner: an always-visible ADV / DIS pair over a D20-shaped
+ * quick-roll button, pinned bottom-right.
+ *
+ * The adv/dis switch lives HERE because it needs to be reachable (and readable)
+ * without hunting through a side panel — it's armed mid-turn, right before a
+ * roll. It's the same per-entity toggle the character sheet and dice panel show,
+ * so arming it here arms it everywhere; it clears itself when the roll fires.
+ *
+ * The d20 sits semi-transparent until hovered, which fades it in and reveals the
+ * basic dice; clicking it rolls 1d20 (with whatever is armed). On touch (no
+ * hover), a tap OPENS the dice menu instead of rolling — otherwise hover
+ * emulation made one tap both roll a d20 AND open the menu. Rolls go through the
  * same server-authoritative `dice:roll` path as DicePanel.
  */
-export function DiceButtonOverlay() {
+export function DiceButtonOverlay({ selectedIds }: { selectedIds: string[] }) {
   const rollDice = useStore((s) => s.rollDice);
+  const snapshot = useStore((s) => s.snapshot);
+  const mySocketId = useStore((s) => s.socket?.id);
+  const setAdv = useStore((s) => s.setManualAdvantage);
+  const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const [open, setOpen] = useState(false);
+
+  const { key, who } = snapshot
+    ? advKeyFor(snapshot, selectedIds, mySocketId)
+    : { key: 'dm-dice', who: 'DM' };
+  const adv = useStore((s) => s.manualAdvantage[key]);
+
   const roll = (d: string) => {
-    rollDice({ expr: `1${d}` });
+    // The map d20 honors the armed adv/dis like every other roll surface.
+    rollDice({ expr: `1${d}`, advantage: consumeAdvantage(key) });
     setOpen(false);
   };
 
@@ -37,7 +91,7 @@ export function DiceButtonOverlay() {
   }, [open]);
 
   return (
-    <div className={`dice-button-overlay${open ? ' open' : ''}`}>
+    <div className={`dice-button-overlay${open ? ' open' : ''}${adv ? ' armed' : ''}`}>
       {/* stopPropagation so tapping a die doesn't trip the tap-away close first */}
       <div className="dice-quick-menu" onPointerDown={(e) => e.stopPropagation()}>
         {DICE.map((d) => (
@@ -51,6 +105,29 @@ export function DiceButtonOverlay() {
           </button>
         ))}
       </div>
+      <div className="dice-adv-row" onPointerDown={(e) => e.stopPropagation()}>
+        <button
+          className={`dice-adv-btn up${adv === 'adv' ? ' on' : ''}`}
+          title={`Advantage on ${who}'s next roll of any kind, then it clears`}
+          onClick={() => setAdv(key, adv === 'adv' ? null : 'adv')}
+        >
+          ⬆ ADV
+        </button>
+        <button
+          className={`dice-adv-btn down${adv === 'dis' ? ' on' : ''}`}
+          title={`Disadvantage on ${who}'s next roll of any kind, then it clears`}
+          onClick={() => setAdv(key, adv === 'dis' ? null : 'dis')}
+        >
+          ⬇ DIS
+        </button>
+      </div>
+      {/* Armed state names WHO it applies to — on the DM's screen the answer
+          changes with the selection, so it can't be left implicit. */}
+      {adv && (
+        <div className={`dice-adv-armed ${adv}`}>
+          {who}: {adv === 'adv' ? 'advantage' : 'disadvantage'}
+        </div>
+      )}
       <button
         className="dice-d20-btn"
         onClick={() => (isTouch() ? setOpen((o) => !o) : roll('d20'))}

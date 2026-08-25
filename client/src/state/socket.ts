@@ -83,7 +83,7 @@ type Store = {
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -572,7 +572,7 @@ export const useStore = create<Store>((set, get) => ({
           else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
           if (willAnimate && fresh.reveal) {
             const fxId = nextFloaterId++;
-            set({ rollFx: { id: fxId, reveal: fresh.reveal } });
+            set({ rollFx: { id: fxId, reveal: fresh.reveal, rollId: fresh.id } });
             // The overlay self-dismisses when its sequence finishes; safety net only.
             setTimeout(
               () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),
