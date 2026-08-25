@@ -26,6 +26,7 @@ import type {
   Character,
   CombatRole,
   Condition,
+  Disposition,
   FogLayer,
   HpFxEvent,
   InventoryItem,
@@ -578,21 +579,30 @@ export function deleteToken(tokenId: string): void {
   // order, the round advances — it would have when this turn ended anyway.
   const token = getToken(tokenId);
   const sessionId = token ? getMap(token.mapId)?.sessionId : undefined;
-  if (token && sessionId) {
-    const session = getSessionById(sessionId);
-    if (session?.activeTurnTokenId === tokenId) {
-      const roundBefore = session.combatRound;
-      advanceTurn(sessionId);
-      // Still pointing here → it was the only living combatant, and advanceTurn
-      // wrapped back to it, spuriously bumping the round. Clear the marker and
-      // undo that bump — combat is effectively over, not entering a new round.
-      if (getSessionById(sessionId)?.activeTurnTokenId === tokenId) {
-        setActiveTurn(sessionId, null);
-        setCombatRound(sessionId, roundBefore);
-      }
-    }
-  }
+  if (token && sessionId) passTurnOnFrom(sessionId, tokenId);
   db.prepare('DELETE FROM tokens WHERE id = ?').run(tokenId);
+}
+
+/**
+ * Move the turn marker off `tokenId` when it's about to stop being a combatant
+ * (deleted, or unticked out of the fight). Without this the marker is left
+ * pointing at a token that's no longer in the initiative order — an orphan that
+ * renders as NO current-turn marker anywhere.
+ *
+ * A no-op unless that token currently holds the marker.
+ */
+function passTurnOnFrom(sessionId: string, tokenId: string): void {
+  const session = getSessionById(sessionId);
+  if (session?.activeTurnTokenId !== tokenId) return;
+  const roundBefore = session.combatRound;
+  advanceTurn(sessionId);
+  // Still pointing here → it was the only living combatant, and advanceTurn
+  // wrapped back to it, spuriously bumping the round. Clear the marker and
+  // undo that bump — combat is effectively over, not entering a new round.
+  if (getSessionById(sessionId)?.activeTurnTokenId === tokenId) {
+    setActiveTurn(sessionId, null);
+    setCombatRound(sessionId, roundBefore);
+  }
 }
 
 export function setTokenHidden(tokenId: string, hidden: boolean): Token | null {
@@ -685,6 +695,28 @@ export function setTokensHidden(tokenIds: string[], hidden: boolean): void {
   db.transaction(() => {
     for (const id of tokenIds) stmt.run(hidden ? 1 : 0, id);
   })();
+}
+
+/**
+ * Set the disposition of every listed token's CREATURE. PC tokens are skipped —
+ * they have no disposition — and so is anything the caller passed that isn't a
+ * real token. Disposition drives what players see, so the caller is DM-gated.
+ * Returns how many creatures actually changed, for the caller's feedback.
+ */
+export function setTokensDisposition(
+  tokenIds: string[],
+  disposition: Disposition,
+): number {
+  let changed = 0;
+  db.transaction(() => {
+    for (const id of tokenIds) {
+      const t = getToken(id);
+      if (t?.kind !== 'monster') continue;
+      updateMonster(t.refId, { disposition });
+      changed++;
+    }
+  })();
+  return changed;
 }
 
 /** Apply one condition to every listed token's creature (own id per creature). */
@@ -1086,9 +1118,13 @@ const rollInitiative = (token: Token): number =>
  */
 export function rollsInitiative(token: Token, map?: MapState | null): boolean {
   if (isObjectToken(token)) return false;
-  // The DM's explicit tick in the initiative panel always wins.
+  // The DM's explicit tick in the initiative panel always wins — including
+  // dragging a corpse back in, if they ever want that.
   if (token.inCombat !== undefined) return token.inCombat;
   // 'auto' pre-marks from concealment: hidden by hand, or sitting under fog.
+  // A corpse never joins a NEW fight either. (A PC at 0 HP is NOT dead here —
+  // they keep their turn to roll death saves; see `isDeadToken`.)
+  if (isDeadToken(token)) return false;
   return !token.isHidden && !concealedByFog(token, map);
 }
 
@@ -1137,6 +1173,10 @@ export function rollMissingInitiative(mapId: string): void {
  */
 export function setTokenInCombat(tokenId: string, inCombat?: boolean): Token | null {
   if (inCombat === false) {
+    // Taking it out of the fight drops its roll — so hand the turn marker on
+    // first if it was this token's turn, or the marker orphans and shows nowhere.
+    const sid = getMap(getToken(tokenId)?.mapId ?? '')?.sessionId;
+    if (sid) passTurnOnFrom(sid, tokenId);
     db.prepare('UPDATE tokens SET in_combat = 0, initiative = NULL WHERE id = ?').run(tokenId);
   } else {
     db.prepare('UPDATE tokens SET in_combat = ? WHERE id = ?').run(
@@ -1179,9 +1219,11 @@ function initiativeOrder(mapId: string): Token[] {
     .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
 }
 
-/** The token at the top of the initiative order, or null. */
+/** The first LIVING token in the initiative order, or null when everyone in it
+ *  is dead. Mirrors `advanceTurn`'s skip rule — handing the turn marker to a
+ *  corpse (which "Roll all" used to do) reads as the fight starting on a body. */
 export function firstInInitiative(mapId: string): string | null {
-  return initiativeOrder(mapId)[0]?.id ?? null;
+  return initiativeOrder(mapId).find((t) => !isDeadToken(t))?.id ?? null;
 }
 
 /** Advance the active-turn marker to the next LIVING token in initiative

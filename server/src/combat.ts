@@ -310,6 +310,7 @@ export function resolveAttack(
   // damage rolls on a hit below, and a stance can grant advantage on the attack.
   let stanceAdvantage = false;
   let stanceRerollDamage = false;
+  let stanceExtraCritDie = false;
   const stanceRerollNames: string[] = [];
   const stanceDice: { label: string; dice: string }[] = [];
   const onHitStances: SheetAbility[] = [];
@@ -324,6 +325,12 @@ export function resolveAttack(
     // Savage Attacker: roll the weapon's damage dice twice, keep the better set.
     if (st.rerollDamageDice) {
       stanceRerollDamage = true;
+      stanceRerollNames.push(ab.name);
+    }
+    // Savage Attacks (racial): an extra weapon die on a crit. Composes with the
+    // feat above — a character can legitimately have both.
+    if (st.extraCritDie) {
+      stanceExtraCritDie = true;
       stanceRerollNames.push(ab.name);
     }
     if (st.onHitSave) onHitStances.push(ab);
@@ -371,14 +378,16 @@ export function resolveAttack(
     attackRollBonus: (maneuverToHit || 0) + atkExtra.total || undefined,
     attackRollBonusLabel: toHitLabel || undefined,
     forceCrit: !!autoCrit, // paralyzed/unconscious target within 5 ft → auto-crit
-    rerollDamageDice: stanceRerollDamage, // Savage Attacker
+    rerollDamageDice: stanceRerollDamage, // Savage Attacker (feat)
+    extraCritDie: stanceExtraCritDie, // Savage Attacks (racial)
   });
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
   const masteryNotes: string[] = [];
   if (out.hit && autoCrit) masteryNotes.push(`auto-crit (${autoCrit})`);
-  if (out.hit && stanceRerollDamage) masteryNotes.push(stanceRerollNames.join('+'));
+  if (out.hit && (stanceRerollDamage || stanceExtraCritDie))
+    masteryNotes.push(stanceRerollNames.join('+'));
   // Roll a rider's damage dice, DOUBLING them on a crit — RAW: a critical hit
   // doubles ALL of the attack's damage dice, riders (Hunter's Mark, a dice-adding
   // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.

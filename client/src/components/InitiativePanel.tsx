@@ -31,9 +31,15 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
   const combatants = snapshot.tokens.filter(
     (t) => !resolveToken(snapshot, t).objectKind,
   );
-  // Who "Roll all" would actually pull in (server-computed: it depends on fog).
-  const fighting = combatants.filter((t) => t.inCombatEffective);
-  const sidelined = combatants.filter((t) => !t.inCombatEffective);
+  // The order must contain everyone the SERVER gives turns to — that's anyone
+  // with a rolled initiative, regardless of what fog has done since. Otherwise a
+  // creature that rolled and then slipped under fog holds the turn marker from
+  // inside the collapsed group below, and the ▸ shows nowhere at all.
+  // Un-rolled tokens are listed by `inCombatEffective` (server-computed: it
+  // depends on fog), so the pre-combat view still previews who "Roll all" takes.
+  const inOrder = (t: Token) => t.initiative !== null || t.inCombatEffective;
+  const fighting = combatants.filter(inOrder);
+  const sidelined = combatants.filter((t) => !inOrder(t));
 
   // Tokens ordered for initiative (rolled first, desc).
   const orderedTokens = [...fighting].sort((a, b) => {
@@ -49,6 +55,10 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
     .forEach((t, i) => rankOf.set(t.id, i + 1));
 
   const row = (t: Token, inCombat: boolean) => {
+    // Group membership and the tick box can disagree: a creature that rolled and
+    // then went under fog still takes turns (so it stays in the order) while its
+    // effective state is "out". Show the truth in the box.
+    const ticked = t.inCombatEffective;
     const d = resolveToken(snapshot, t);
     const isTurn = t.id === snapshot.activeTurnTokenId;
     // Mirror of the server's turn-skip rule: dead creatures keep their slot
@@ -74,11 +84,13 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
         <input
           type="checkbox"
           className="init-check"
-          checked={inCombat}
+          checked={ticked}
           title={
-            inCombat
+            ticked
               ? 'In the fight — untick to leave it out of initiative'
-              : 'Not in the fight — tick to pull it in'
+              : inCombat
+                ? 'Rolled, but currently hidden or under fog — it still takes its turn'
+                : 'Not in the fight — tick to pull it in'
           }
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => setTokenInCombat(t.id, e.target.checked)}
@@ -176,7 +188,8 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
       {combatants.length > 0 && (
         <div className="init-pick">
           <span className="muted">
-            In the fight: {fighting.length}/{combatants.length}
+            In the fight: {combatants.filter((t) => t.inCombatEffective).length}/
+            {combatants.length}
           </span>
           <button
             className="btn tiny"

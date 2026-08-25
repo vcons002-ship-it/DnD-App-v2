@@ -343,6 +343,11 @@ export type StanceSpec = {
    *  keep the better total. Applies to the qualifying weapon attacks only (the
    *  once-per-turn limit is the player's call — the toggle IS the control). */
   rerollDamageDice?: boolean;
+  /** Savage Attacks (Half-Orc racial): on a CRITICAL hit, roll one of the
+   *  weapon's damage dice one extra time and add it. A different mechanic from
+   *  `rerollDamageDice` — this one only fires on a crit, and it adds rather than
+   *  replaces. Racial passives are left switched on; the chip is the control. */
+  extraCritDie?: boolean;
   /** This stance marks a single target (e.g. Hunter's Mark): its effect applies
    *  only to attacks against the marked token. Drives a target picker in the UI. */
   targeted?: boolean;
@@ -1328,6 +1333,12 @@ export type CreatureNotesPayload = { monsterId: string; notes: string };
 export type AiFillCreaturePayload = { monsterId: string };
 /** Apply an icon (emoji or "/uploads/…") to the entities of these tokens. */
 export type TokenSetIconPayload = { tokenIds: string[]; icon: string };
+/** Set the disposition of the CREATURES behind these tokens (DM-only). PC tokens
+ *  have no disposition and are skipped. */
+export type TokensSetDispositionPayload = {
+  tokenIds: string[];
+  disposition: Disposition;
+};
 /** Hide/show the combat-role badge across one or more tokens. */
 export type TokenSetHideRolePayload = { tokenIds: string[]; hide: boolean };
 /** Override (or clear, with null) the combat role across one or more tokens. */
@@ -1397,6 +1408,7 @@ export interface ClientToServerEvents {
   'token:setHidden': (payload: TokenSetHiddenPayload) => void;
   'token:setInCombat': (payload: TokenSetInCombatPayload) => void;
   'tokens:setIcon': (payload: TokenSetIconPayload) => void;
+  'tokens:setDisposition': (payload: TokensSetDispositionPayload) => void;
   'tokens:setHideCombatRole': (payload: TokenSetHideRolePayload) => void;
   'tokens:setCombatRole': (payload: TokenSetRolePayload) => void;
   'tokens:damage': (payload: TokensDamagePayload) => void;

@@ -11,6 +11,7 @@ import type {
   CheckRollPayload,
   Condition,
   DiceRollPayload,
+  Disposition,
   FogLayer,
   HpFxEvent,
   ImportCharConflict,
@@ -318,6 +319,8 @@ type Store = {
   setCreatureNotes: (monsterId: string, notes: string) => void;
   /** DM removes a player character from the spawn list. */
   deleteCharacter: (characterId: string) => void;
+  /** DM: set the disposition of every selected creature at once. */
+  setTokensDisposition: (tokenIds: string[], disposition: Disposition) => void;
   setTokensIcon: (tokenIds: string[], icon: string) => void;
   setTokensHideCombatRole: (tokenIds: string[], hide: boolean) => void;
   setTokensCombatRole: (
@@ -955,6 +958,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('character:delete', { characterId }),
   setTokensIcon: (tokenIds, icon) =>
     get().socket?.emit('tokens:setIcon', { tokenIds, icon }),
+  setTokensDisposition: (tokenIds, disposition) =>
+    get().socket?.emit('tokens:setDisposition', { tokenIds, disposition }),
   setTokensHideCombatRole: (tokenIds, hide) =>
     get().socket?.emit('tokens:setHideCombatRole', { tokenIds, hide }),
   setTokensCombatRole: (tokenIds, role) =>

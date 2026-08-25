@@ -1889,3 +1889,74 @@ describe('Savage Attacker', () => {
     expect(searchFeatures('savage').some((f) => f.name === 'Savage Attacker')).toBe(true);
   });
 });
+
+describe('Savage Attacks (Half-Orc racial trait)', () => {
+  /** A fighter with the RACIAL trait on (extra crit die), not the feat. */
+  const orcFight = (active: boolean, damage = '1d12') => {
+    const { s, map } = arena();
+    const ch = createCharacter(s.id, {
+      name: 'Grok',
+      className: 'Barbarian',
+      level: 1,
+      stats: { STR: 16 },
+      weapons: [{ name: 'Greataxe', kind: 'melee', damage, attackBonus: 50 }],
+    });
+    setSheetAbility('pc', ch.id, {
+      id: 'sa2',
+      name: 'Savage Attacks',
+      type: 'stance',
+      description: '',
+      stance: { active, appliesTo: 'melee', extraCritDie: true },
+    });
+    const atk = createToken({ mapId: map.id, kind: 'pc', refId: ch.id, x: 0, y: 0 });
+    const tmpl = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 99999, armorClass: 1 });
+    const mon = instantiateMonster(tmpl.id)!;
+    const tgt = createToken({ mapId: map.id, kind: 'monster', refId: mon.id, x: 1, y: 1 });
+    return { sid: s.id, atk: atk.id, tgt: tgt.id };
+  };
+
+  /** Attack until a crit (or a plain hit) lands; returns that log entry. */
+  const swingUntil = (f: ReturnType<typeof orcFight>, want: 'crit' | 'hit') => {
+    for (let i = 0; i < 400; i++) {
+      resolveAttack(f.sid, 'Grok', f.atk, f.tgt, 0);
+      const last = listRollLog(f.sid).at(-1)!;
+      const isCrit = /— CRIT/.test(last.detail);
+      if (want === 'crit' ? isCrit : /— HIT/.test(last.detail)) return last;
+    }
+    throw new Error(`never rolled a ${want}`);
+  };
+
+  it('adds one extra weapon die on a CRIT', () => {
+    const f = orcFight(true);
+    const entry = swingUntil(f, 'crit');
+    // 1d12 weapon: base die + the crit's doubled die + ONE extra d12.
+    expect(entry.detail).toContain('[SAVAGE CRIT]');
+    const dice = entry.reveal?.damageDice ?? [];
+    expect(dice).toHaveLength(3);
+    expect(dice[2].label).toBe('1d12');
+    expect(dice[2].value).toBeGreaterThanOrEqual(1);
+    expect(dice[2].value).toBeLessThanOrEqual(12);
+  });
+
+  it('does NOTHING on a normal hit — it is a crit-only trait', () => {
+    const f = orcFight(true);
+    const entry = swingUntil(f, 'hit');
+    expect(entry.detail).not.toContain('SAVAGE CRIT');
+    expect(entry.reveal?.damageDice).toHaveLength(1);
+  });
+
+  it('does nothing at all while the trait is off', () => {
+    const f = orcFight(false);
+    const entry = swingUntil(f, 'crit');
+    expect(entry.detail).not.toContain('SAVAGE CRIT');
+    expect(entry.reveal?.damageDice).toHaveLength(2); // base + crit dice only
+  });
+
+  it('uses the weapon\'s own die size, not a fixed d6', () => {
+    const f = orcFight(true, '2d6');
+    const entry = swingUntil(f, 'crit');
+    const dice = entry.reveal?.damageDice ?? [];
+    expect(dice[2].label).toBe('1d6');
+    expect(dice[2].faces).toHaveLength(1);
+  });
+});
