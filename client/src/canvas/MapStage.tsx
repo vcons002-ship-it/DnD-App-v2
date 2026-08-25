@@ -882,6 +882,23 @@ export function MapStage({
     return { x: -view.x / s - m, y: -view.y / s - m, w: vw + 2 * m, h: vh + 2 * m };
   }, [view, size]);
 
+  /**
+   * Map-corner overlays that belong to the map REGARDLESS of how it's drawn —
+   * the dice corner (with its adv/dis switch), the two-step damage prompt, and
+   * the roll-log overlay. They're rendered by both the Konva path and the Slides
+   * path below: a landed hit has to be rollable, and a roll has to be armable,
+   * whichever kind of map the table happens to be on.
+   */
+  const mapOverlays = (
+    <>
+      {showRollOverlay && (
+        <RollLogOverlay rollLog={snapshot.rollLog} chat={snapshot.chat} />
+      )}
+      {showDiceButton && <DiceButtonOverlay selectedIds={selectedIds} />}
+      <DamagePrompt />
+    </>
+  );
+
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
     return (
@@ -892,6 +909,7 @@ export function MapStage({
           style={{ width: '100%', height: '100%', border: 0 }}
           allowFullScreen
         />
+        {mapOverlays}
       </div>
     );
   }
@@ -1934,12 +1952,7 @@ export function MapStage({
               onClose={() => setMenu(null)}
             />
           )}
-          {showRollOverlay && (
-            <RollLogOverlay rollLog={snapshot.rollLog} chat={snapshot.chat} />
-          )}
-          {showDiceButton && <DiceButtonOverlay />}
-          {/* Two-step attacks: the big "roll the damage you just earned" button. */}
-          <DamagePrompt />
+          {mapOverlays}
           {saveResolve && (
             <div className="save-resolve-banner">
               <span>

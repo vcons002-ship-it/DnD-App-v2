@@ -216,3 +216,43 @@ test('the DM can switch off the two-step damage roll and it sticks', async ({ pa
     page.locator('label:has-text("Damage is a separate roll") input[type=checkbox]'),
   ).not.toBeChecked({ timeout: 10_000 });
 });
+
+// The adv/dis switch is armed mid-turn, right before a roll — so it lives in the
+// map's dice corner, always legible, not only in a side panel. Assert it is
+// visible over the map, arms, and names whose roll it applies to.
+test('ADV/DIS is on the map itself and arms the next roll', async ({ page }) => {
+  const code = await makeSession();
+  // The dice corner lives inside the map stage, so the session needs a map.
+  const api = await pwRequest.newContext();
+  const mapRes = await api.post(`${BASE}/api/sessions/${code}/maps`, {
+    headers: { 'x-dm-passphrase': DM_SECRET },
+    multipart: { name: 'Arena', slidesUrl: 'https://docs.google.com/presentation/d/e2e/embed' },
+  });
+  expect(mapRes.ok()).toBeTruthy();
+  await api.dispose();
+
+  await page.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });
+  await page.fill('input[type=password]', DM_SECRET);
+  await page.click('button:has-text("Rejoin as DM")');
+  await expect(page.getByText('Druk', { exact: false }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Visible WITHOUT hovering the dice corner — that's the whole point.
+  const advBtn = page.locator('.dice-adv-btn.up');
+  await expect(advBtn).toBeVisible({ timeout: 10_000 });
+  // Legible WITHOUT hover — `toBeVisible` ignores opacity, so assert it directly.
+  await page.mouse.move(400, 200);
+  await expect(advBtn).toHaveCSS('opacity', '1');
+  await expect(page.locator('.dice-adv-armed')).toHaveCount(0);
+
+  await advBtn.click();
+  await expect(advBtn).toHaveClass(/on/);
+  await expect(page.locator('.dice-adv-armed.adv')).toBeVisible();
+
+  // Clicking again disarms; DIS is the mutually-exclusive other half.
+  await advBtn.click();
+  await expect(page.locator('.dice-adv-armed')).toHaveCount(0);
+  await page.locator('.dice-adv-btn.down').click();
+  await expect(page.locator('.dice-adv-armed.dis')).toBeVisible();
+});

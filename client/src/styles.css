@@ -660,13 +660,18 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
 .dice-button-overlay {
   position: absolute; right: 10px; bottom: 10px; z-index: 5;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  opacity: 0.4; transition: opacity .2s ease;
 }
-.dice-button-overlay:hover, .dice-button-overlay.open { opacity: 1; }
+/* The D20 stays subtle until hovered so it doesn't fight the map — but the
+   ADV/DIS switch above it is ALWAYS fully legible: it's armed mid-turn, and a
+   control you have to go hunting for may as well not exist. */
 .dice-d20-btn {
   width: 52px; height: 52px; padding: 0; border: none; background: none;
-  cursor: pointer; filter: drop-shadow(0 2px 4px #0009); transition: transform .1s ease;
+  cursor: pointer; filter: drop-shadow(0 2px 4px #0009);
+  opacity: 0.4; transition: transform .1s ease, opacity .2s ease;
 }
+.dice-button-overlay:hover .dice-d20-btn,
+.dice-button-overlay.open .dice-d20-btn,
+.dice-button-overlay.armed .dice-d20-btn { opacity: 1; }
 .dice-d20-btn svg { width: 100%; height: 100%; display: block; }
 .dice-d20-btn:active { transform: scale(0.93); }
 .dice-d20-btn .d20-outline { fill: var(--panel-2); stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; }
@@ -693,6 +698,33 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
   max-height: 360px; opacity: 1; transform: none; pointer-events: auto;
 }
 .dice-quick-menu .btn { min-width: 50px; text-align: center; }
+
+/* Map-corner ADV / DIS — the primary place you arm a roll. Same per-entity
+   switch as the sheet + dice panel; armed state is deliberately loud. */
+.dice-adv-row { display: flex; gap: 4px; }
+.dice-adv-btn {
+  padding: 6px 9px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  color: var(--text); background: #0b0d12cc; cursor: pointer;
+  border: 2px solid var(--line); border-radius: 7px;
+  box-shadow: 0 2px 6px #0008; transition: all .12s ease;
+}
+.dice-adv-btn:hover { border-color: var(--accent); }
+.dice-adv-btn.up.on {
+  background: #1f3a2a; border-color: var(--green); color: #7ce8a6;
+  box-shadow: 0 0 10px rgba(57, 196, 107, 0.6);
+}
+.dice-adv-btn.down.on {
+  background: #3a2326; border-color: var(--red); color: #ff8b8b;
+  box-shadow: 0 0 10px rgba(226, 59, 59, 0.6);
+}
+/* Names WHO the armed roll belongs to (the DM's changes with the selection). */
+.dice-adv-armed {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 6px; background: #0b0d12dd; white-space: nowrap;
+  max-width: 160px; overflow: hidden; text-overflow: ellipsis;
+}
+.dice-adv-armed.adv { color: #7ce8a6; }
+.dice-adv-armed.dis { color: #ff8b8b; }
 
 /* New character form */
 .new-char-wrap { margin-top: 8px; }
