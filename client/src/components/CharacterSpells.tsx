@@ -143,6 +143,8 @@ export function CharacterSpells({
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState(false);
+  // Monsters have no race; only a PC sheet offers the racial-trait shortcut.
+  const myRace = ('race' in character ? character.race : '')?.trim() ?? '';
   const [bookOpen, setBookOpen] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SpellHit[]>([]);
@@ -933,10 +935,21 @@ export function CharacterSpells({
             <div className="spell-add">
               <input
                 autoFocus
-                placeholder="Search — Fireball, cantrip, maneuver, mastery…"
+                placeholder="Search — Fireball, cantrip, maneuver, mastery, racial trait…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
+              {/* Racial traits are their own source in the results, but a player
+                  has to know to search for them. One click fills in their race. */}
+              {myRace && (
+                <button
+                  className="btn tiny"
+                  title={`Show ${myRace} traits`}
+                  onClick={() => setQ(myRace)}
+                >
+                  🧬 {myRace} traits
+                </button>
+              )}
               {(q.trim() || results.length > 0) && (
                 <div className="item-picker">
                   {results.map((r) => (

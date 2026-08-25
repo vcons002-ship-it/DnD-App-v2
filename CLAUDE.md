@@ -392,6 +392,15 @@ sanitization rules above and commit it to `claude/Main`.
   Settings, copy link, open Data view, **❔ Guide** — a desktop/mobile controls
   modal for both roles, auto-tab by pointer type), editable map names. **Settings**
   also holds a per-device **combat-sound** mute (default on).
+- **Racial (species) traits — their own source, NOT feats** (`server/src/races/srd.ts`,
+  merged into `/api/spells` beside `searchFeatures`): both editions, each entry
+  labelled `school: '<Race> trait (<edition>)'` so the picker self-labels, and a
+  🧬 "<race> traits" button on the sheet's add-row seeds the search from
+  `Character.race`. Covers the 2024 species plus the 2014-only **Half-Orc /
+  Half-Elf** that 2024 removed. **`Savage Attacks` (Half-Orc racial) is a
+  DIFFERENT rule from the Savage Attacker feat**: `StanceSpec.extraCritDie` adds
+  ONE extra die of the weapon's own size on a **crit** (logged `[SAVAGE CRIT]`),
+  where the feat rerolls the dice and keeps the better. Both exist; they compose.
 - **Savage Attacker (2024 feat):** a `stance` sheet ability with
   `StanceSpec.rerollDamageDice` — shipped in `server/src/features/srd.ts`, added
   from the usual "+ Add spell / ability" search and toggled like Rage from the

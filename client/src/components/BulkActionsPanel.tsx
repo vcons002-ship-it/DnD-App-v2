@@ -22,6 +22,7 @@ export function BulkActionsPanel({
   const setTokensCondition = useStore((s) => s.setTokensCondition);
   const clearTokensConditions = useStore((s) => s.clearTokensConditions);
   const setTokensIcon = useStore((s) => s.setTokensIcon);
+  const setTokensDisposition = useStore((s) => s.setTokensDisposition);
   const setTokensHidden = useStore((s) => s.setTokensHidden);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
@@ -34,6 +35,13 @@ export function BulkActionsPanel({
 
   const tokens = snapshot.tokens.filter((t) => selectedIds.includes(t.id));
   const names = tokens.map((t) => resolveToken(snapshot, t).name);
+  // Only creatures carry a disposition; PC tokens are left alone.
+  const creatures = tokens.filter((t) => t.kind === 'monster');
+  const dispositions = new Set(
+    creatures.map((t) => resolveToken(snapshot, t).disposition),
+  );
+  // Highlight a disposition only when the whole selection already shares it.
+  const allDisp = dispositions.size === 1 ? [...dispositions][0] : undefined;
 
   const deleteAll = () => {
     selectedIds.forEach((id) => deleteToken(id));
@@ -50,6 +58,38 @@ export function BulkActionsPanel({
         initial={5}
         onApply={(delta) => damageTokens(selectedIds, delta)}
       />
+
+      {/* Disposition drives what players see of a creature, so it's DM-only —
+          and PC tokens have none, hence the count of what this will touch. */}
+      {isDm && creatures.length > 0 && (
+        <>
+          <h4>
+            Disposition{' '}
+            <span className="muted">
+              ({creatures.length} creature{creatures.length === 1 ? '' : 's'}
+              {creatures.length < tokens.length ? ', PCs skipped' : ''})
+            </span>
+          </h4>
+          <div className="disposition-btns">
+            {(['friendly', 'neutral', 'enemy'] as const).map((disp) => (
+              <button
+                key={disp}
+                className={`btn tiny disp-${disp} ${allDisp === disp ? 'on' : ''}`}
+                onClick={() => setTokensDisposition(creatures.map((t) => t.id), disp)}
+                title={
+                  disp === 'friendly'
+                    ? 'Players see full stats'
+                    : disp === 'neutral'
+                      ? 'Players see name + conditions (amber dot)'
+                      : 'Players see name + conditions (red dot)'
+                }
+              >
+                {disp}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <h4>Conditions (all)</h4>
       <div className="bulk-cond">

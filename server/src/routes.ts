@@ -40,6 +40,7 @@ import {
 } from './ai/comfy.js';
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
+import { searchRaceTraits, getRaceTrait } from './races/srd.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
 import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
@@ -493,6 +494,9 @@ export function createApiRouter(io: IOServer): Router {
       results: [
         ...searchSpells(q),
         ...searchFeatures(q),
+        // Racial traits are their own source, not feats — a Half-Orc's Savage
+        // Attacks is a different rule from the Savage Attacker feat.
+        ...searchRaceTraits(q),
         ...searchMasteries(q),
         ...searchManeuvers(q),
       ],
@@ -525,6 +529,8 @@ export function createApiRouter(io: IOServer): Router {
     if (spell) return res.json({ ...spell, source: 'srd' });
     const feature = getFeature(name);
     if (feature) return res.json({ ...feature, source: 'srd' });
+    const raceTrait = getRaceTrait(name);
+    if (raceTrait) return res.json({ ...raceTrait, source: 'srd' });
     const mastery = getMastery(name);
     if (mastery) return res.json({ ...mastery, source: 'srd' });
     const maneuver = getManeuver(name);
@@ -545,7 +551,12 @@ export function createApiRouter(io: IOServer): Router {
     for (const name of names) {
       const key = name.trim().toLowerCase();
       if (key in resolved) continue;
-      const hit = getSpell(name) ?? getFeature(name) ?? getMastery(name) ?? getManeuver(name);
+      const hit =
+        getSpell(name) ??
+        getFeature(name) ??
+        getRaceTrait(name) ??
+        getMastery(name) ??
+        getManeuver(name);
       if (hit) resolved[key] = { ...hit, source: 'srd' };
     }
     res.json({ resolved });

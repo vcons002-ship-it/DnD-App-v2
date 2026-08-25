@@ -157,6 +157,10 @@ export function rollWeaponAttack(
      *  the better total. Covers the crit's extra dice too — RAW rerolls "the
      *  weapon's damage dice", which a critical hit doubles. */
     rerollDamageDice?: boolean;
+    /** Savage Attacks (Half-Orc racial): on a CRIT only, roll ONE of the weapon's
+     *  damage dice one extra time and add it. Independent of `rerollDamageDice`
+     *  — a character can have both, and they compose. */
+    extraCritDie?: boolean;
   },
 ): AttackOutcome {
   const { face, detail: d20detail } = rollD20Detail(advantage);
@@ -226,6 +230,17 @@ export function rollWeaponAttack(
       const worse = second.total > set.total ? set : second;
       savageNote = `[SAVAGE ${better.total}/${worse.total}]`;
       set = better;
+    }
+    // Savage Attacks: one more die of the weapon's own size, crits only. `dice`
+    // is "2d6"/"1d12" — take its die size and roll a single one of them.
+    if (opts?.extraCritDie && crit && dice) {
+      const sides = /d(\d+)/i.exec(dice)?.[1];
+      const extra = sides ? rollDice(`1d${sides}`) : null;
+      if (extra) {
+        set.total += extra.total;
+        set.parts.push(`+[${extra.rolls.join(',')}][SAVAGE CRIT]`);
+        set.steps.push({ label: `1d${sides}`, value: extra.total, faces: extra.rolls });
+      }
     }
     let sum = usableFlat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit
     // Compact, labelled breakdown, e.g. "2d6[4,6]+[3,5][CRIT]+4[STR]+1[MAGIC]+3[GWM]".

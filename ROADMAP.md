@@ -1589,3 +1589,34 @@ Smaller refinements on top of the shipped Phase 2 work.
   actually attack from. It's now there in a new big `size="lg"` variant, keyed on
   the same `attacker.refId` the attack already consumes, with an "advantage
   armed" read-out above the weapon buttons.
+- ☑ **Initiative: no corpses, no orphaned turn marker; racial traits; bulk
+  disposition.** Three reports from the table.
+  **(1) "A dead guard was chosen" + "the marker sometimes doesn't show"** turned
+  out to be four separate defects, all now agreeing with rules `advanceTurn` and
+  `deleteToken` already implemented: `rollsInitiative`'s 'auto' branch had no
+  dead check (a corpse joined every new fight — an explicit DM tick still drags
+  one in); `firstInInitiative` returned the top of the order *including a dead
+  token*, which is literally what "Roll all" handed the marker to;
+  `setTokenInCombat(id, false)` cleared the token's roll but left
+  `activeTurnTokenId` pointing at it, orphaning the marker so `▸` rendered
+  nowhere (the guard `deleteToken` already had is now the shared
+  `passTurnOnFrom`); and `InitiativePanel` split rows on `inCombatEffective`
+  while the server's order is "has a rolled initiative" — so a creature that
+  rolled and then slipped under fog held the marker from inside the collapsed
+  "Not in combat" group. Rows now enter the order on `initiative !== null ||
+  inCombatEffective`, and the tick box shows the effective state rather than the
+  group it landed in. A PC at 0 HP is still not "dead" — they keep their turn for
+  death saves.
+  **(2) Racial traits are their own source** (`server/src/races/srd.ts`), not
+  another `school: 'Feat'` string — the prompting case was a player whose Savage
+  Attacks comes from their race being sent to the Feats list, where it isn't even
+  the same rule. Both editions ship, tagged, since 2024 removed Half-Orc and
+  Half-Elf and promoted Orc to a full species. **Half-Orc's `Savage Attacks`
+  adds one extra weapon die on a CRIT** (`StanceSpec.extraCritDie`), distinct
+  from the Savage Attacker feat's reroll-and-keep-better; the two compose. A 🧬
+  button on the add-row seeds the search from the sheet's `race`.
+  **(3) Bulk disposition** — `tokens:setDisposition` + a `setTokensDisposition`
+  domain helper, with a "Disposition (all)" row in `BulkActionsPanel` reusing the
+  single-token `.disposition-btns`. DM-only (disposition drives player
+  visibility) and PC tokens are skipped, with the count of what will actually
+  change shown when PCs are in the selection.

@@ -94,6 +94,7 @@ import {
   damageTokens,
   duplicateToken,
   setTokensHidden,
+  setTokensDisposition,
   setTokensCondition,
   coverFog,
   setFogRevealed,
@@ -1557,6 +1558,24 @@ export function registerSocketHandlers(io: IOServer): void {
         const t = getToken(id);
         if (t) setEntityIcon(t.kind, t.refId, icon);
       }
+      afterChange();
+    });
+
+    // Bulk disposition (the multi-select panel): flip a whole ambush to friendly
+    // in one go. Disposition drives what PLAYERS see of a creature, so it stays
+    // DM-only and PC tokens — which have no disposition — are skipped.
+    on('tokens:setDisposition', ({ tokenIds, disposition }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || !Array.isArray(tokenIds)) return;
+      if (!['friendly', 'neutral', 'enemy'].includes(disposition)) return;
+      const ids = tokenIds
+        .slice(0, 500)
+        .filter((id): id is string => typeof id === 'string')
+        .filter((id) => {
+          const t = getToken(id);
+          return !!t && monsterInSession(t.refId, sid);
+        });
+      setTokensDisposition(ids, disposition);
       afterChange();
     });
 
