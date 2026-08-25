@@ -123,6 +123,9 @@ export type AttackOutcome = {
   hit: boolean;
   damage: number;
   detail: string;
+  /** `detail` WITHOUT the damage tail — the log line for a two-step attack,
+   *  where the damage is rolled separately and must not be spoiled here. */
+  detailToHit: string;
   /** Structured to-hit bonuses (ability mod, proficiency, maneuver…) for the
    *  reveal animation — the running total counts d20 + these up to attackTotal. */
   toHitSteps: AttackStep[];
@@ -150,6 +153,10 @@ export function rollWeaponAttack(
     /** Force a critical hit on ANY hit (e.g. an attack within 5 ft of a paralyzed
      *  or unconscious target). Does not turn a miss into a hit. */
     forceCrit?: boolean;
+    /** Savage Attacker (2024 feat): roll the weapon's damage dice TWICE and keep
+     *  the better total. Covers the crit's extra dice too — RAW rerolls "the
+     *  weapon's damage dice", which a critical hit doubles. */
+    rerollDamageDice?: boolean;
   },
 ): AttackOutcome {
   const { face, detail: d20detail } = rollD20Detail(advantage);
@@ -191,21 +198,40 @@ export function rollWeaponAttack(
     // damage keeps its flat.
     const usableFlat = usesAbilityMod ? 0 : flat;
     const bonus2 = opts?.bonusDamage ?? 0; // flat on-hit mastery damage (e.g. GWM), folded in
-    const r1 = dice ? rollDice(dice) : null;
+    // One complete roll of the weapon's damage dice: the base set plus, on a crit,
+    // the doubled set. Wrapped in a function so Savage Attacker can roll it twice.
+    const rollDamageSet = (): { total: number; parts: string[]; steps: AttackStep[] } => {
+      const p: string[] = [];
+      const steps: AttackStep[] = [];
+      let total = 0;
+      const r1 = dice ? rollDice(dice) : null;
+      if (r1) {
+        total += r1.total;
+        p.push(`${dice}[${r1.rolls.join(',')}]`);
+        steps.push({ label: dice, value: r1.total, faces: r1.rolls });
+      }
+      if (crit && dice) {
+        const r2 = rollDice(dice)!;
+        total += r2.total;
+        p.push(`+[${r2.rolls.join(',')}][CRIT]`);
+        steps.push({ label: 'CRIT', value: r2.total, faces: r2.rolls });
+      }
+      return { total, parts: p, steps };
+    };
+    let set = rollDamageSet();
+    let savageNote = '';
+    if (opts?.rerollDamageDice && dice) {
+      const second = rollDamageSet();
+      const better = second.total > set.total ? second : set;
+      const worse = second.total > set.total ? set : second;
+      savageNote = `[SAVAGE ${better.total}/${worse.total}]`;
+      set = better;
+    }
     let sum = usableFlat + magic + abil + bonus2; // magic/ability/bonus added once, not doubled on a crit
     // Compact, labelled breakdown, e.g. "2d6[4,6]+[3,5][CRIT]+4[STR]+1[MAGIC]+3[GWM]".
-    const parts: string[] = [];
-    if (r1) {
-      sum += r1.total;
-      parts.push(`${dice}[${r1.rolls.join(',')}]`);
-      damageDiceSteps.push({ label: dice, value: r1.total, faces: r1.rolls });
-    }
-    if (crit && dice) {
-      const r2 = rollDice(dice)!;
-      sum += r2.total;
-      parts.push(`+[${r2.rolls.join(',')}][CRIT]`);
-      damageDiceSteps.push({ label: 'CRIT', value: r2.total, faces: r2.rolls });
-    }
+    const parts: string[] = [...set.parts];
+    sum += set.total;
+    damageDiceSteps.push(...set.steps);
     if (usableFlat) parts.push(signed(usableFlat));
     if (abil) parts.push(`${signed(abil)}[${weaponAbility(attacker, weapon)}]`);
     if (magic) parts.push(`${signed(magic)}[MAGIC]`);
@@ -214,15 +240,15 @@ export function rollWeaponAttack(
     if (abil) damageModSteps.push({ label: weaponAbility(attacker, weapon), value: abil });
     if (magic) damageModSteps.push({ label: 'MAGIC', value: magic });
     if (bonus2) damageModSteps.push({ label: opts?.bonusLabel || 'BONUS', value: bonus2 });
+    if (savageNote) parts.push(savageNote);
     damage = Math.max(1, sum);
     dmgText = parts.join('') || `${damage}`;
   }
 
   const twoH = opts?.twoHanded && weapon.versatileDamage?.trim() ? ' (2H)' : '';
   const result = crit ? 'CRIT' : fumble ? 'MISS (nat 1)' : hit ? 'HIT' : 'MISS';
-  const detail =
-    `${weapon.name}${twoH}: ${d20detail} ${bonusDetail}${toHitExtra ? ` ${signed(toHitExtra)}[${opts?.attackRollBonusLabel || 'maneuver'}]` : ''} = ${attackTotal} vs AC ${targetAC} — ${result}` +
-    (hit ? `, ${damage} dmg (${dmgText})` : '');
+  const detailToHit = `${weapon.name}${twoH}: ${d20detail} ${bonusDetail}${toHitExtra ? ` ${signed(toHitExtra)}[${opts?.attackRollBonusLabel || 'maneuver'}]` : ''} = ${attackTotal} vs AC ${targetAC} — ${result}`;
+  const detail = detailToHit + (hit ? `, ${damage} dmg (${dmgText})` : '');
 
   return {
     face,
@@ -233,6 +259,7 @@ export function rollWeaponAttack(
     hit,
     damage,
     detail,
+    detailToHit,
     toHitSteps,
     damageDiceSteps,
     damageModSteps,

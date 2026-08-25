@@ -308,23 +308,35 @@ export function createSnapshotBuilder(
         .filter((e) => !e.dmOnly)
         .map((e) => ({
           ...redactCreatureMods(e),
-          // The "Apply damage" payload is a DM-only adjudication tool.
+          // The "Apply damage" payload is a DM-only adjudication tool, and the
+          // parked weapon damage is the attacker's own button.
           apply: undefined,
+          pending: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
-      // …except the CASTER keeps the apply payload for THEIR OWN entry (stamped
-      // with `apply.owner`), so the player who cast Magic Missile can assign its
-      // darts AND the player who cast an AOE save spell gets the "Apply damage"
-      // click-to-target button — same as the DM. Per-socket overlay on the shared
+      // …except the OWNER keeps their own entry's payload (both are stamped with
+      // an `owner` character id): the player who cast Magic Missile assigns its
+      // darts, the player who cast an AOE save spell gets the "Apply damage"
+      // click-to-target button, and the player who landed a hit gets the
+      // "Roll damage" button — same as the DM. Per-socket overlay on the shared
       // cache, only when this viewer has such a roll in play.
-      const mine = rollLog.filter((e) => {
-        const owner = e.apply?.owner;
-        return owner && charById.get(owner)?.claimedBy === socketId;
-      });
+      const ownedByMe = (owner?: string) =>
+        !!owner && charById.get(owner)?.claimedBy === socketId;
+      const mine = rollLog.filter(
+        (e) => ownedByMe(e.apply?.owner) || ownedByMe(e.pending?.owner),
+      );
       if (mine.length) {
-        const keep = new Map(mine.map((e) => [e.id, e.apply] as const));
+        const keep = new Map(
+          mine.map((e) => [
+            e.id,
+            {
+              ...(ownedByMe(e.apply?.owner) ? { apply: e.apply } : {}),
+              ...(ownedByMe(e.pending?.owner) ? { pending: e.pending } : {}),
+            },
+          ] as const),
+        );
         shapedRollLog = shapedRollLog.map((e) =>
-          keep.has(e.id) ? { ...e, apply: keep.get(e.id) } : e,
+          keep.has(e.id) ? { ...e, ...keep.get(e.id) } : e,
         );
       }
     }
@@ -338,6 +350,7 @@ export function createSnapshotBuilder(
       activeTurnTokenId: session.activeTurnTokenId,
       round: session.combatRound,
       hideDmRolls: session.hideDmRolls,
+      manualDamage: session.manualDamage,
       // DM-only: what the next undo would reverse (drives the DM's Undo button).
       undoLabel: role === 'dm' ? peekUndo(sessionId) : null,
       // The map LIST is only a picker (name/active) — the client reads fog cells

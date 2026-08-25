@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Character, InventoryItem, LibraryItem, SheetModifier } from '../../../shared/types';
+import { describeConsumable, parseConsumable } from '../../../shared/consumables';
 import { useStore } from '../state/socket';
 import { ModifierEditor } from './ModifierEditor';
 import { ItemLibrarySaveDialog, type SaveableItem } from './ItemLibrarySaveDialog';
@@ -15,6 +16,7 @@ export function CharacterItems({
 }) {
   const setItem = useStore((s) => s.setItem);
   const removeItem = useStore((s) => s.removeItem);
+  const useItem = useStore((s) => s.useItem);
   const updateCharacter = useStore((s) => s.updateCharacter);
   const [name, setName] = useState('');
   const [qty, setQty] = useState(1);
@@ -119,6 +121,19 @@ export function CharacterItems({
                 {it.equipped ? '⚔' : '🛡'}
               </button>
             )}
+            {/* Consumables (healing potions & co.) roll and apply themselves. */}
+            {editable && (() => {
+              const fx = parseConsumable(it);
+              return fx ? (
+                <button
+                  className="item-use"
+                  title={`Use one — ${describeConsumable(fx)}`}
+                  onClick={() => useItem(character.id, it.id)}
+                >
+                  🧪
+                </button>
+              ) : null;
+            })()}
             {editable ? (
               <span className="item-qty">
                 <button className="qbtn" onClick={() => changeQty(it.id, -1)}>

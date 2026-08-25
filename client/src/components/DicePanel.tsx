@@ -43,6 +43,7 @@ export function DicePanel({
   const toggleShareCursor = useStore((s) => s.toggleShareCursor);
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
+  const combatDamage = useStore((s) => s.combatDamage);
   const isDm = snapshot.role === 'dm';
   // A player's dice toggle is keyed to THEIR character (so it's the same switch
   // shown above their skill list); the DM's generic roller gets its own key.
@@ -198,7 +199,7 @@ export function DicePanel({
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (optional)"
         />
-        <AdvantageToggle entityId={advKey} />
+        <AdvantageToggle entityId={advKey} size="lg" />
       </div>
 
       <div className="roll-log-header">
@@ -319,6 +320,17 @@ export function DicePanel({
                     }
                   >
                     ❓
+                  </button>
+                )}
+                {/* Two-step attacks: the same "roll the damage" click as the big
+                    map prompt, reachable from the log (and for older hits). */}
+                {r.pending && !r.pending.done && (
+                  <button
+                    className="btn tiny roll-dmg"
+                    onClick={() => combatDamage(r.id)}
+                    title={`Roll the damage for this hit and apply it to ${r.pending.target.name}`}
+                  >
+                    🎲 Roll damage
                   </button>
                 )}
                 {/* The apply payload only reaches a player on their OWN entries

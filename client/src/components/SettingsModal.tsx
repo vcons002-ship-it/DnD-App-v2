@@ -51,6 +51,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [errorMsg, setErrorMsg] = useState('');
   // Per-user (this browser) combat-sound mute — default ON / unmuted.
   const [muted, setMuted] = useState(isSfxMuted());
+  // Session-wide (DM-only): weapon damage as a second, clickable roll.
+  const isDm = useStore((s) => s.snapshot?.role === 'dm');
+  const manualDamage = useStore((s) => s.snapshot?.manualDamage ?? true);
+  const setManualDamage = useStore((s) => s.setManualDamage);
   // Per-user roll-reveal animation toggle (store-backed, localStorage-persisted).
   const showRollAnim = useStore((s) => s.showRollAnim);
   const toggleRollAnim = useStore((s) => s.toggleRollAnim);
@@ -253,6 +257,24 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
           Roll animations <span className="muted">(brief d20 reveal on attacks — this device only)</span>
         </label>
+
+        {isDm && (
+          <>
+            <h4>Combat</h4>
+            <label className="settings-field settings-check">
+              <input
+                type="checkbox"
+                checked={manualDamage}
+                onChange={(e) => setManualDamage(e.target.checked)}
+              />
+              Damage is a separate roll{' '}
+              <span className="muted">
+                (a hit parks its damage on a "🎲 Roll damage" button instead of
+                applying straight away — this whole session)
+              </span>
+            </label>
+          </>
+        )}
 
         <h4>AI backend</h4>
         <label className="settings-field">

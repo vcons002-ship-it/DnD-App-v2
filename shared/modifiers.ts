@@ -204,6 +204,13 @@ export function sanitizeItems(
     const name = String(e.name ?? '').trim();
     if (!name) continue;
     const modifiers = sanitizeModifiers(e.modifiers, newId);
+    // An explicit consumable effect ("drinking this heals 2d4+2") feeds the
+    // server's own roll math, so only a rollable expression survives.
+    const rawUse = e.use as { kind?: unknown; dice?: unknown } | undefined;
+    const use =
+      rawUse && validDice(rawUse.dice)
+        ? { kind: rawUse.kind === 'tempHp' ? ('tempHp' as const) : ('heal' as const), dice: String(rawUse.dice).trim() }
+        : undefined;
     out.push({
       id: typeof e.id === 'string' && e.id ? e.id : newId(),
       name,
@@ -211,6 +218,7 @@ export function sanitizeItems(
       note: typeof e.note === 'string' ? e.note : '',
       ...(modifiers.length ? { modifiers } : {}),
       ...(e.equipped ? { equipped: true } : {}),
+      ...(use ? { use } : {}),
     });
   }
   return out;

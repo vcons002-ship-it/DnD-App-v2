@@ -287,6 +287,7 @@ type Store = {
   setResource: (payload: ResourceSetPayload) => void;
   setItem: (characterId: string, item: InventoryItem) => void;
   removeItem: (characterId: string, itemId: string) => void;
+  useItem: (characterId: string, itemId: string) => void;
   setLoot: (monsterId: string, loot: LootContents) => void;
   takeLoot: (payload: LootTakePayload) => void;
   disarmTrap: (payload: TrapDisarmPayload) => void;
@@ -337,7 +338,12 @@ type Store = {
   /** Undo the DM's last destructive action (delete token/creature, cover fog). */
   undo: () => void;
   combatAttack: (payload: CombatAttackPayload) => void;
+  /** Roll (and apply) the damage parked on a hit — the two-step attack's
+   *  second click. */
+  combatDamage: (rollId: string) => void;
   combatSave: (payload: CombatSavePayload) => void;
+  /** DM: make weapon damage a separate, clickable second roll. */
+  setManualDamage: (manual: boolean) => void;
 };
 
 /**
@@ -905,6 +911,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('item:set', { characterId, item }),
   removeItem: (characterId, itemId) =>
     get().socket?.emit('item:remove', { characterId, itemId }),
+  useItem: (characterId, itemId) =>
+    get().socket?.emit('item:use', { characterId, itemId }),
   setLoot: (monsterId, loot) =>
     get().socket?.emit('object:setLoot', { monsterId, loot }),
   takeLoot: (payload) => get().socket?.emit('loot:take', payload),
@@ -965,7 +973,10 @@ export const useStore = create<Store>((set, get) => ({
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
   undo: () => get().socket?.emit('session:undo'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
+  combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
+  setManualDamage: (manual) =>
+    get().socket?.emit('session:setManualDamage', { manual }),
 }));
 
 // Dev-only: expose the store for E2E tests / debugging (stripped from prod builds).

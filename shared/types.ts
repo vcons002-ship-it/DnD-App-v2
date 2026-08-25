@@ -339,6 +339,10 @@ export type StanceSpec = {
   bonusDamage?: string;
   /** Grants advantage on the attack roll (e.g. Reckless Attack). */
   grantsAdvantage?: boolean;
+  /** Savage Attacker (2024 feat): reroll the weapon's damage dice on a hit and
+   *  keep the better total. Applies to the qualifying weapon attacks only (the
+   *  once-per-turn limit is the player's call — the toggle IS the control). */
+  rerollDamageDice?: boolean;
   /** This stance marks a single target (e.g. Hunter's Mark): its effect applies
    *  only to attacks against the marked token. Drives a target picker in the UI. */
   targeted?: boolean;
@@ -561,6 +565,9 @@ export type InventoryItem = {
   modifiers?: SheetModifier[];
   /** Whether the item is equipped/attuned — only then do its `modifiers` apply. */
   equipped?: boolean;
+  /** Explicit "what drinking/using this does", overriding what `shared/consumables`
+   *  reads out of the description. Drives the inventory row's 🧪 Use button. */
+  use?: { kind: 'heal' | 'tempHp'; dice: string };
 };
 
 /**
@@ -666,6 +673,9 @@ export type StateSnapshot = {
   round: number;
   /** DM-only display state: are the DM's rolls currently hidden from players? */
   hideDmRolls: boolean;
+  /** Weapon damage is a separate, clickable second roll (everyone sees it — it
+   *  changes what happens after their attack lands). */
+  manualDamage: boolean;
   /** DM-only: label of the action `session:undo` would reverse (e.g. "Delete
    *  token"), or null when the undo stack is empty. Players always get null. */
   undoLabel: string | null;
@@ -823,6 +833,34 @@ export type RollReveal = {
   damageType?: string;
 };
 
+/**
+ * Damage rolled on a hit but NOT yet applied — the second half of a two-step
+ * attack. Everything is already computed (mastery/stance riders, resistance,
+ * crit) at hit time so the numbers can't drift; clicking "Roll damage" just
+ * plays the dice reveal and takes the HP off. Persisted on the roll entry so a
+ * refresh, reconnect, or server restart can't strand a hit.
+ */
+export type PendingDamage = {
+  /** Who takes it (and their name, so the button can read "→ Goblin"). */
+  target: { kind: TokenKind; refId: string; name: string };
+  /** Who dealt it — credits a PC's kill count when it drops the target. */
+  attacker: { kind: TokenKind; refId: string };
+  /** Weapon name, for the button label. */
+  weapon: string;
+  /** Final damage, post resist/vulnerability, riders included. */
+  amount: number;
+  damageType?: string;
+  /** Crit hit — a crit vs a downed PC is two death-save failures. */
+  crit: boolean;
+  /** The reveal payload: dice (with faces) and the flat modifier chips. */
+  dice: RevealStep[];
+  mods: RevealStep[];
+  /** Character id allowed to roll it besides the DM (the attacking player). */
+  owner?: string;
+  /** Already applied — the guard against a double-click applying twice. */
+  done?: boolean;
+};
+
 export type RollEntry = {
   id: string;
   /** Who rolled — a character name, "DM", or "Player". */
@@ -881,6 +919,10 @@ export type RollEntry = {
      *  accidental double-click that would double the damage). */
     consumedTargets?: string[];
   };
+  /** Damage rolled but not yet applied (manual-damage mode): drives the
+   *  "🎲 Roll damage" button. Shaped per viewer in `visibility.ts` exactly like
+   *  `apply` — the DM sees it on everything, a player only on their own attacks. */
+  pending?: PendingDamage;
   createdAt: number;
 };
 
@@ -1107,6 +1149,9 @@ export type ResourceSetPayload = {
 export type ItemSetPayload = { characterId: string; item: InventoryItem };
 /** Remove an inventory item from a character. */
 export type ItemRemovePayload = { characterId: string; itemId: string };
+/** Drink/use a consumable: the server rolls what it does, applies it, and spends
+ *  one from the stack. Same ownership gate as editing the item. */
+export type ItemUsePayload = { characterId: string; itemId: string };
 /** Set/replace the loot inside an object (DM-only). An empty payload clears it. */
 export type ObjectSetLootPayload = { monsterId: string; loot: LootContents };
 /**
@@ -1374,6 +1419,7 @@ export interface ClientToServerEvents {
   'resource:set': (payload: ResourceSetPayload) => void;
   'item:set': (payload: ItemSetPayload) => void;
   'item:remove': (payload: ItemRemovePayload) => void;
+  'item:use': (payload: ItemUsePayload) => void;
   'object:setLoot': (payload: ObjectSetLootPayload) => void;
   'loot:take': (payload: LootTakePayload) => void;
   'trap:disarm': (payload: TrapDisarmPayload) => void;
@@ -1446,6 +1492,11 @@ export interface ClientToServerEvents {
   /** Wipe the shared roll log for everyone in the session. */
   'dice:clearLog': () => void;
   'combat:attack': (payload: CombatAttackPayload) => void;
+  /** Roll (and apply) the damage parked on a hit — the two-step attack's second
+   *  click. Allowed for the DM and for the player who made the attack. */
+  'combat:damage': (payload: { rollId: string }) => void;
+  /** DM: weapon damage is a separate, clickable second roll (default on). */
+  'session:setManualDamage': (payload: { manual: boolean }) => void;
   'combat:save': (payload: CombatSavePayload) => void;
 }
 

@@ -1555,3 +1555,37 @@ Smaller refinements on top of the shipped Phase 2 work.
   in-combat, closing the `initiative:set` bypass. The stray ⚔ button was removed
   from `TokenAdminButtons` — marking happens in the initiative window and nowhere
   else.
+- ☑ **Combat feel: damage is its own roll, Savage Attacker, potion use, findable
+  ADV/DIS.** Four table-driven asks from a live session.
+  **(1) Damage as a second click.** `resolveAttack` rolled to-hit *and* damage in
+  one call and auto-applied HP, so the damage dice never got their moment. The
+  hit now computes its damage exactly as before — masteries, stances, riders,
+  resistance, crit — but *parks* it on `RollEntry.pending` (a new `roll_log`
+  column, so it survives a refresh, a reconnect, or a restart) instead of
+  applying it, and holds the damage half of the reveal back. A loud
+  `DamagePrompt` pinned over the map (Enter/Space too) and a `🎲 Roll damage`
+  button in the log then play the dice burst and take the HP off via
+  `combat:damage` → `resolveAttackDamage`. Pre-rolling was deliberate: the
+  numbers can't drift if a stance is toggled or the target moves between clicks,
+  and all the one-shot Cleave/maneuver/stance bookkeeping stays put.
+  `pending.done` is stamped **before** applying, so a double-click can't damage
+  twice; `visibility.ts` ships the payload only to the DM and the attacker (the
+  existing `apply.owner` per-socket overlay, generalized). A **miss is
+  unchanged** — Graze is a flat modifier, not a roll. Session-wide
+  `manual_damage` (default on) reverts to auto-apply from Settings.
+  **(2) Savage Attacker** — the 2024 feat as a stance toggle: new
+  `StanceSpec.rerollDamageDice`, a feat entry in `features/srd.ts`, and
+  `rollWeaponAttack` rolling the weapon's damage-dice set twice (crit dice
+  included) and keeping the better, logged as `[SAVAGE kept/dropped]`. Needed no
+  new UI — `AbilityToggles` renders any stance's chip.
+  **(3) Potion use** — a 🧪 button on any inventory row that parses as a
+  consumable (`shared/consumables.ts`: an explicit `InventoryItem.use`, else a
+  heal-verb scrape tight enough that a rope's "has 2 hit points" isn't a potion,
+  else the standard-potion name table). `item:use` re-parses server-side, rolls,
+  heals (or grants non-stacking temp HP), logs it with a dice reveal, and spends
+  one from the stack.
+  **(4) ADV/DIS** — the real bug was that `AdvantageToggle` was mounted in the
+  dice/skills panels but **not in `CombatSection`**, the one surface both roles
+  actually attack from. It's now there in a new big `size="lg"` variant, keyed on
+  the same `attacker.refId` the attack already consumes, with an "advantage
+  armed" read-out above the weapon buttons.

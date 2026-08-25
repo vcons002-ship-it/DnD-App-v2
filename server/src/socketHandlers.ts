@@ -4,10 +4,12 @@ import { parseRollCommand, rollDice } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
 import {
   resolveAttack,
+  resolveAttackDamage,
   resolveAbilityRoll,
   resolveMonsterSheetAbility,
   resolveForcedSave,
   resolveSkillRoll,
+  useConsumable,
   resolveTrapDisarm,
   resolveObjectCheck,
   resolveSaves,
@@ -136,6 +138,7 @@ import {
   rollMissingInitiative,
   setCombatRound,
   setHideDmRolls,
+  setManualDamage,
   rollerName,
   getClaimedCharacterId,
   addChatMessage,
@@ -950,6 +953,20 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    // Drink a potion: the server re-reads what the item does, rolls it, applies
+    // the healing/temp HP and spends one from the stack.
+    on('item:use', ({ characterId, itemId }) => {
+      const sid = sessionId();
+      if (!sid || typeof itemId !== 'string' || !ownsCharacter(characterId)) return;
+      const ok = useConsumable(
+        sid,
+        rollerName(sid, socket.id, isDm()),
+        characterId,
+        itemId,
+      );
+      if (ok) afterChange();
+    });
+
     // ---- Object loot (DM fills containers; anyone who owns the target PC takes) ----
     on('object:setLoot', ({ monsterId, loot }) => {
       if (!isDm()) return; // only the DM stocks loot (object OR creature)
@@ -1689,6 +1706,12 @@ export function registerSocketHandlers(io: IOServer): void {
         const roller = isDm()
           ? 'DM'
           : attackerName ?? rollerName(sid, socket.id, false);
+        // In manual-damage mode the deferred damage is rolled by the DM or by
+        // the attacking PLAYER — identified by the character they've claimed, so
+        // it works even when they're attacking with a companion/summon token.
+        const mine = isDm()
+          ? undefined
+          : listCharacters(sid).find((c) => c.claimedBy === socket.id)?.id;
         resolveAttack(
           sid,
           roller,
@@ -1698,10 +1721,31 @@ export function registerSocketHandlers(io: IOServer): void {
           advantage,
           !!offhand,
           !!twoHanded,
+          mine,
         );
         afterChange();
       },
     );
+
+    // The second half of a two-step attack: roll the parked damage and apply it.
+    // The DM may resolve any of them; a player only their own attack's.
+    on('combat:damage', ({ rollId }) => {
+      const sid = sessionId();
+      if (!sid || typeof rollId !== 'string') return;
+      const owner = getRollEntry(rollId)?.pending?.owner;
+      const allowed =
+        isDm() || (!!owner && getCharacter(owner)?.claimedBy === socket.id);
+      if (!allowed) return;
+      if (resolveAttackDamage(sid, rollerName(sid, socket.id, isDm()), rollId))
+        afterChange();
+    });
+
+    on('session:setManualDamage', ({ manual }) => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      setManualDamage(sid, !!manual);
+      afterChange();
+    });
 
     on('combat:save', ({ tokenIds, ability, dc, advantage, advantageByToken }) => {
       const sid = sessionId();

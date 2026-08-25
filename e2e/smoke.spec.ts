@@ -189,3 +189,30 @@ test('the DM console rejects a wrong secret', async ({ page }) => {
   await page.click('button:has-text("Rejoin as DM")');
   await expect(page.getByText(/Incorrect DM secret/i)).toBeVisible({ timeout: 10_000 });
 });
+
+// Two-step damage is a session-wide combat rule, so the DM's switch has to
+// survive the socket round-trip — not just flip a local checkbox. Toggle it off
+// in Settings, reopen, and confirm the server sent the new state back.
+test('the DM can switch off the two-step damage roll and it sticks', async ({ page }) => {
+  const code = await makeSession();
+  await page.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });
+  await page.fill('input[type=password]', DM_SECRET);
+  await page.click('button:has-text("Rejoin as DM")');
+  await expect(page.getByText('Druk', { exact: false }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await page.getByRole('button', { name: /Settings/ }).click();
+  const box = page.locator('label:has-text("Damage is a separate roll") input[type=checkbox]');
+  // Sessions start with the two-step roll on.
+  await expect(box).toBeChecked({ timeout: 10_000 });
+  await box.click();
+  await expect(box).not.toBeChecked({ timeout: 10_000 });
+  await page.getByRole('button', { name: '✕' }).first().click();
+
+  // Reopen: the state came back from the server's snapshot, not local memory.
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await expect(
+    page.locator('label:has-text("Damage is a separate roll") input[type=checkbox]'),
+  ).not.toBeChecked({ timeout: 10_000 });
+});

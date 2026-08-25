@@ -915,6 +915,16 @@ const FEATURES: FeatureEntry[] = [
       'Your hit point maximum increases by twice your character level, and by 2 more each time you gain a level. (Adjust Max HP on the sheet.)',
   },
   {
+    name: 'Savage Attacker',
+    type: 'stance',
+    school: 'Feat',
+    tags: ['feat', 'damage', 'reroll', 'weapon', 'stance'],
+    meta: 'Feat · once per turn · reroll weapon damage dice',
+    description:
+      'Once per turn when you hit with a weapon, you can reroll the weapon\'s damage dice and use either total. Switch this on and your weapon damage rolls twice and keeps the better set (a critical hit rerolls its doubled dice too). The once-per-turn limit is yours to keep — turn it off once you have used it.',
+    stance: { active: false, appliesTo: 'all', rerollDamageDice: true },
+  },
+  {
     name: 'Alert',
     type: 'ability',
     school: 'Feat',
