@@ -32,6 +32,9 @@ it is not a new campaign, server, or save-import system.
 Reconciled against `claude/Main` at
 `8507ded3f6033fe5526219128b48213062bb9d6a`, retaining its eight intervening commits.
 The source branch is `claude/Dev`, following this repository's two-branch model.
+After [PR #66](https://github.com/vcons002-ship-it/DnD-App-v2/pull/66) opened,
+Main's automatic launcher-only commit `1c2810f` was incorporated as well; it
+contains no application or campaign changes. The PR is open, not merged.
 
 - Preserve Main's initiative exclusions/turn-marker fixes, opt-in racial trait
   library and Savage Attacks critical die, and DM-only bulk disposition.
