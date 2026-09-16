@@ -1,0 +1,110 @@
+/* A light engraved title above the sculpture, never a plate laid over it. */
+.player-fantasy .hud-orb-cluster .hud-identity-line {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 12px;
+  right: 0;
+  height: 48px;
+  display: flex;
+  gap: 5px;
+  margin: 0;
+  align-items: center;
+  background: transparent;
+}
+.player-fantasy .hud-orb-cluster .hud-identity { text-align: center; padding-bottom: 5px; }
+.player-fantasy .hud-orb-cluster .hud-identity::after {
+  content: '◆';
+  position: absolute;
+  bottom: -4px;
+  left: 10%;
+  width: 80%;
+  font-size: 6px;
+  line-height: 6px;
+  color: #c2a377;
+  background: linear-gradient(90deg, transparent, #a98a59 38%, transparent 39%, transparent 61%, #a98a59 62%, transparent) center / 100% 1px no-repeat;
+}
+.player-fantasy .hud-orb-cluster .hud-identity strong {
+  font: 600 22px/1.15 var(--hud-display-font);
+  letter-spacing: .035em;
+  color: #eed7af;
+  text-shadow: 0 1px #362819, 0 2px 3px #000, 0 0 9px #000;
+}
+.player-fantasy .hud-orb-cluster .hud-identity small { font: 500 9px/1.3 var(--hud-display-font); letter-spacing: .025em; color: #cfba96; }
+.player-fantasy .hud-orb-cluster .hud-armor {
+  position: absolute;
+  bottom: 6px;
+  left: 24%;
+  flex-basis: 40px;
+  width: 40px;
+  height: 48px;
+  padding: 13px 0 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  isolation: isolate;
+}
+.player-fantasy .hud-shield-art { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; filter: drop-shadow(0 2px 2px #000); }
+.player-fantasy .hud-orb-cluster .hud-armor strong {
+  font: 600 18px/1.1 var(--hud-display-font);
+  color: #f0dfb9;
+  text-shadow: 0 1px 1px #090b0e, 0 0 3px #000;
+}
+.player-fantasy .hud-orb-cluster .hud-armor small {
+  font: 600 7px/1 var(--hud-display-font);
+  letter-spacing: .12em;
+  color: #bba981;
+}
+.player-fantasy .player-hud .hud-actions { bottom: calc(var(--orb-size) + 65px); }
+/* Compact means less occupied map width, not smaller pips or hidden counters. */
+.player-fantasy.resource-layout-compact { --hud-width: calc(var(--orb-size) + 174px); }
+.player-fantasy.resource-layout-concentric { --hud-width: calc(var(--orb-size) + 152px + var(--resource-wing-extension, 0px)); }
+/* Grow only for actual saved rows that fit into rings. The common <=5-ring
+   layout remains unchanged. Define this on the shared player root so the
+   bottom roll/chat overlay uses exactly the same clearance as the HUD. */
+.player-fantasy.resource-layout-concentric:has(.orb-resource-dock[data-resource-rings='6']) { --resource-wing-extension: 44px; }
+.player-fantasy.resource-layout-concentric:has(.orb-resource-dock[data-resource-rings='7']) { --resource-wing-extension: 72px; }
+.player-fantasy.resource-layout-concentric:has(.orb-resource-dock[data-resource-rings='8']) { --resource-wing-extension: 100px; }
+.player-fantasy.resource-layout-concentric:has(.orb-resource-dock[data-resource-rings='9']) { --resource-wing-extension: 128px; }
+.player-fantasy.resource-layout-concentric:has(.orb-resource-dock[data-resource-rings='10']) { --resource-wing-extension: 156px; }
+.player-fantasy .player-hud .hud-attached-panel { min-height: 0; padding-left: 0; padding-right: 5px; }
+.player-fantasy .resource-layout-picker label { display: flex; align-items: center; gap: 4px; }
+.player-fantasy .resource-layout-picker input { width: auto; accent-color: #c9a666; }
+.player-fantasy .hud-bottom { position: relative; }
+.player-fantasy .player-hud .hud-resource-wing::before { display: none; }
+.player-fantasy .hud-armor { pointer-events: auto; }
+.player-fantasy .player-hud .hud-attached-panel { position: static; isolation: auto; }
+.player-fantasy.resource-layout-concentric .player-hud .hud-attached-panel { padding-bottom: 5px; margin-bottom: 0; }
+.player-fantasy .player-hud .hud-branch-art { left: calc(var(--orb-size) - 25px); width: calc(100% - var(--orb-size) + 25px); z-index: 0; }
+/* The custom-tracker icon belongs to the resource artwork; conditions remain
+   immediately above the name and grow upward when multiple labels are active. */
+.player-fantasy .player-hud .resource-dock-tools {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  z-index: 4;
+  width: 26px;
+  height: 26px;
+  max-width: none;
+  margin: 3px 0 0 auto;
+  align-self: flex-end;
+}
+.player-fantasy.resource-layout-concentric .player-hud .resource-dock-tools { position: absolute; margin: 0; }
+.player-fantasy .player-hud .hud-status-strip {
+  position: absolute;
+  left: 58px;
+  bottom: calc(var(--orb-size) + 62px);
+  right: 5px;
+  z-index: 4;
+  margin: 0;
+  align-items: flex-end;
+}
+.player-fantasy .player-hud .custom-resource-drawer { left: 58px; bottom: calc(var(--orb-size) + 119px); }
+/* Open beside the outer-ring button, above its baseline. The compact layout
+   keeps its existing drawer placement; nothing occupies this space closed. */
+.player-fantasy.resource-layout-concentric .player-hud .custom-resource-drawer {
+  left: auto;
+  right: 6px;
+  bottom: 65px;
+}
+.player-fantasy .player-hud .core-resource-rows { position: relative; z-index: 2; }
+.player-fantasy.resource-layout-concentric .player-hud .core-resource-rows { position: static; }

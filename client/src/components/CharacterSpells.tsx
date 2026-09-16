@@ -27,6 +27,14 @@ import {
 } from '../lib/spellcasting';
 import { useAbilityToggles } from './AbilityToggles';
 import { Spellbook } from './Spellbook';
+import { effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+
+const manualRiderNote = (ability: SheetAbility): string | undefined => {
+  const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
+  return ability.type === 'spell' && ability.roll?.kind === 'damage' && (name === 'ensnaring strike' || name === "hunter's mark")
+    ? 'Legacy damage-only action: this button casts and spends a spell slot, but does not implement the spell’s on-hit/ongoing effects. Resolve follow-up damage manually without recasting.'
+    : undefined;
+};
 
 const SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
 
@@ -57,7 +65,7 @@ function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
     case 'heal':
       return '🎲 Heal';
     case 'save':
-      return '🎲 Damage (save)';
+      return roll.dice?.trim() ? '🎲 Damage (save)' : '🎯 Saving throw';
     default:
       return '🎲 Damage';
   }
@@ -123,7 +131,10 @@ export function CharacterSpells({
   // Attack-roll spells target a token (combat console only). One shared target
   // for the panel, like the Combat section's dropdown.
   const targets = snapshot && attackerToken ? validTargets(snapshot, attackerToken) : [];
-  const hasAttackSpell = character.sheetAbilities.some((a) => a.roll?.kind === 'attack');
+  const hasAttackSpell = character.sheetAbilities.some((a) => {
+    const roll = effectiveSheetAbility(a).roll;
+    return roll && roll.kind !== 'heal' && !isMultiTargetSpell(a);
+  });
   const validDefault =
     defaultTargetId && targets.some((t) => t.id === defaultTargetId)
       ? defaultTargetId
@@ -142,6 +153,12 @@ export function CharacterSpells({
   // (undefined → open), so an existing sheet shows everything until collapsed.
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
+  // This is an execution choice, not a saved edit to the ability's damage type.
+  const [castDamageTypes, setCastDamageTypes] = useState<Record<string, string>>({});
+  const damageChoice = (abilityId: string, choices: string[]) => {
+    const chosen = castDamageTypes[`${character.id}:${abilityId}`];
+    return choices.includes(chosen) ? chosen : choices[0];
+  };
   const [adding, setAdding] = useState(false);
   // Monsters have no race; only a PC sheet offers the racial-trait shortcut.
   const myRace = ('race' in character ? character.race : '')?.trim() ?? '';
@@ -295,36 +312,44 @@ export function CharacterSpells({
 
   const doRoll = (a: SheetAbility) => {
     if (!confirmConcentration(character, a)) return;
+    const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
+    const execution = effectiveSheetAbility(a, level);
     rollAbility({
       kind,
       refId: character.id,
       abilityId: a.id,
-      castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
+      castLevel: level,
+      damageType: damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
-      advantage: a.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
+      advantage: execution.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
       // Attack-roll spells resolve to-hit vs the chosen target's AC; heals apply
       // to the chosen ally (combat console).
       targetTokenId:
-        a.roll?.kind === 'attack' && targetId
-          ? targetId
-          : a.roll?.kind === 'heal' && healTargetId
-            ? healTargetId
-            : undefined,
+        execution.roll?.kind === 'heal' ? healTargetId || undefined
+          : isMultiTargetSpell(a, level) ? undefined : targetId || undefined,
     });
   };
 
   const patchRoll = (
     a: SheetAbility,
     patch: Partial<NonNullable<SheetAbility['roll']>>,
-  ) =>
+  ) => {
+    const inherited = effectiveSheetAbility(a).roll;
+    // An intentional kind/save change creates an authored variant. Keep the
+    // displayed workflow defaults in that case, rather than silently losing
+    // them when the canonical profile stops matching. Routine edits (DC etc.)
+    // must not bake the base-level single-target mode into later upcasts.
+    const changesProfile = (patch.kind !== undefined && patch.kind !== inherited?.kind) ||
+      (patch.save !== undefined && patch.save !== inherited?.save);
     setSheetAbility(kind, character.id, {
       ...a,
-      roll: { ...(a.roll ?? { kind: 'damage' }), ...patch },
+      roll: { ...((changesProfile ? inherited : a.roll) ?? { kind: inherited?.kind ?? 'damage' }), ...patch },
     });
+  };
   /** Strip a roll back to a text-only entry. */
   const clearRoll = (a: SheetAbility) =>
-    setSheetAbility(kind, character.id, { ...a, roll: undefined });
+    setSheetAbility(kind, character.id, { ...a, roll: undefined, executionProfile: 'manual' });
 
   /** Author a homebrew spell from scratch: a leveled spell pre-seeded with a
    *  damage roll + the inline editor open so name/level/dice are editable. */
@@ -334,6 +359,7 @@ export function CharacterSpells({
       id,
       name: 'New Spell',
       type: 'spell',
+      source: 'custom',
       level: 1,
       school: '',
       actionType: 'action',
@@ -362,6 +388,8 @@ export function CharacterSpells({
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
     const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
+    const displayRoll = effectiveSheetAbility(a, lvl).roll;
+    const damageTypes = spellDamageTypeChoices(a, lvl);
     const gi = groupIds.indexOf(a.id);
     // Leveled spells carry a prepared state — show prepared ones bright/bold and
     // unprepared ones greyed, so the ready-to-cast set is obvious at a glance.
@@ -464,7 +492,7 @@ export function CharacterSpells({
 
           {editable &&
             upcastable(a) &&
-            ((a.roll && !rollsElsewhere) || (!a.roll && isConcentration(a))) && (
+            ((displayRoll && !rollsElsewhere) || (!displayRoll && isConcentration(a))) && (
               <select
                 className="spell-level"
                 value={lvl}
@@ -483,12 +511,29 @@ export function CharacterSpells({
                 })}
               </select>
             )}
-          {editable && a.roll && !rollsElsewhere && (
-            <button className="btn tiny" onClick={() => doRoll(a)}>
-              {rollLabel(a.roll)}
+          {editable && displayRoll && !rollsElsewhere && (
+            <button className="btn tiny" title={manualRiderNote(a)} onClick={() => doRoll(a)}>
+              {rollLabel(displayRoll)}
             </button>
           )}
-          {editable && !a.roll && isConcentration(a) && (
+          {editable && displayRoll && !rollsElsewhere && damageTypes.length > 0 && (
+            <select
+              className="spell-level spell-damage-type"
+              aria-label={`${a.name} damage type`}
+              title={`Damage type for ${a.name} — this cast only; the saved spell is unchanged`}
+              value={damageChoice(a.id, damageTypes)}
+              onChange={(e) => setCastDamageTypes((current) => ({
+                ...current, [`${character.id}:${a.id}`]: e.target.value,
+              }))}
+            >
+              {damageTypes.map((damageType) => (
+                <option key={damageType} value={damageType}>
+                  {damageType.charAt(0).toUpperCase() + damageType.slice(1)}
+                </option>
+              ))}
+            </select>
+          )}
+          {editable && !displayRoll && isConcentration(a) && (
             <button
               className="btn tiny"
               title="Cast — start concentration (drops any spell you were concentrating on)"
@@ -510,7 +555,7 @@ export function CharacterSpells({
           )}
           {/* A text-only entry (e.g. imported) → look it up and make it
               rollable in place. Skipped for toggle-driven items. */}
-          {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
+          {editable && !displayRoll && !a.mastery && !a.maneuver && !a.stance && (
             <button
               className="btn tiny"
               disabled={enrichId === a.id}
@@ -681,7 +726,7 @@ export function CharacterSpells({
             )}
             {/* Homebrew: add a manual roll to a text-only entry (no AI). The
                 editor below then sets kind/dice/save/dc/type. */}
-            {editable && !a.roll && !a.mastery && !a.maneuver && !a.stance && (
+            {editable && !displayRoll && !a.mastery && !a.maneuver && !a.stance && (
               <button
                 className="btn tiny"
                 title="Add a manual damage / save / attack / heal roll (homebrew — no AI needed)"
@@ -690,10 +735,12 @@ export function CharacterSpells({
                 ✏️ Add roll
               </button>
             )}
-            {editable && a.roll && (
+            {!a.roll && displayRoll && <p className="muted">A compatible spell profile supplies this saving-throw action without rewriting the saved spell. Conditions and other effects remain manual.</p>}
+            {manualRiderNote(a) && <p className="muted">{manualRiderNote(a)}</p>}
+            {editable && displayRoll && (
               <div className="sb-roll-edit">
                 <select
-                  value={a.roll.kind}
+                  value={displayRoll.kind}
                   title="What this roll does"
                   onChange={(e) =>
                     patchRoll(a, {
@@ -709,13 +756,13 @@ export function CharacterSpells({
                 <input
                   className="sb-dice"
                   placeholder="dice e.g. 8d6"
-                  value={a.roll.dice ?? ''}
+                  value={displayRoll.dice ?? ''}
                   onChange={(e) => patchRoll(a, { dice: e.target.value })}
                 />
-                {a.roll.kind === 'save' && (
+                {displayRoll.kind === 'save' && (
                   <>
                     <select
-                      value={a.roll.save ?? 'DEX'}
+                      value={displayRoll.save ?? 'DEX'}
                       title="Saving throw ability"
                       onChange={(e) => patchRoll(a, { save: e.target.value })}
                     >
@@ -728,21 +775,63 @@ export function CharacterSpells({
                     <input
                       className="sb-dc"
                       placeholder="DC"
-                      value={a.roll.dc ?? ''}
+                      value={displayRoll.dc ?? ''}
                       onChange={(e) =>
                         patchRoll(a, {
                           dc: e.target.value ? Number(e.target.value) : undefined,
                         })
                       }
                     />
+                    <select title="Damage on a successful save" aria-label="Damage on a successful save"
+                      value={displayRoll.saveDamage ?? 'half'}
+                      onChange={(e) => patchRoll(a, { saveDamage: e.target.value as 'none' | 'half' })}>
+                      <option value="none">Success: no damage</option>
+                      <option value="half">Success: half damage</option>
+                    </select>
                   </>
                 )}
-                {a.roll.kind !== 'heal' && (
+                {(displayRoll.kind === 'save' || displayRoll.kind === 'damage') && <select
+                  title="Spell target workflow" aria-label="Spell target workflow"
+                  value={a.roll?.targetMode ?? ''}
+                  onChange={(e) => patchRoll(a, { targetMode: (e.target.value || undefined) as 'single' | 'multiple' | undefined })}>
+                  <option value="">Default for this spell</option>
+                  <option value="single">Selected target</option>
+                  <option value="multiple">Roll, then choose targets</option>
+                </select>}
+                <select title="Spellcasting ability" aria-label="Spellcasting ability"
+                  value={a.roll?.castingAbility ?? ''}
+                  onChange={(e) => patchRoll(a, { castingAbility: (e.target.value || undefined) as 'INT' | 'WIS' | 'CHA' | undefined })}>
+                  <option value="">Class / existing fallback</option>
+                  <option value="INT">Intelligence</option>
+                  <option value="WIS">Wisdom</option>
+                  <option value="CHA">Charisma</option>
+                </select>
+                {displayRoll.kind === 'heal' && (
+                  <>
+                    <select title="Bonus added to the healing roll" aria-label="Healing bonus"
+                      value={a.roll?.healingBonus ?? ''}
+                      onChange={(e) => patchRoll(a, { healingBonus: (e.target.value || undefined) as 'none' | 'spellcasting' | 'fighterLevel' | undefined })}>
+                      <option value="">Default ({displayRoll.healingBonus === 'fighterLevel' ? 'Fighter level'
+                        : displayRoll.healingBonus === 'none' || (displayRoll.healingBonus === undefined && a.type !== 'spell') ? 'no bonus' : 'spellcasting modifier'})</option>
+                      <option value="none">No healing bonus</option>
+                      <option value="spellcasting">Spellcasting modifier</option>
+                      <option value="fighterLevel">Fighter level</option>
+                    </select>
+                    <select title="Who receives this healing" aria-label="Healing target"
+                      value={a.roll?.healTarget ?? ''}
+                      onChange={(e) => patchRoll(a, { healTarget: (e.target.value || undefined) as 'self' | 'selected' | undefined })}>
+                      <option value="">Default ({displayRoll.healTarget === 'self' ? 'self' : 'selected ally'})</option>
+                      <option value="self">Self</option>
+                      <option value="selected">Selected ally</option>
+                    </select>
+                  </>
+                )}
+                {displayRoll.kind !== 'heal' && (
                   <input
                     className="sb-dmg-type"
                     placeholder="damage type e.g. fire"
                     title="Damage type — drives resistance/vulnerability"
-                    value={a.roll.damageType ?? ''}
+                    value={displayRoll.damageType ?? ''}
                     onChange={(e) => patchRoll(a, { damageType: e.target.value || undefined })}
                   />
                 )}

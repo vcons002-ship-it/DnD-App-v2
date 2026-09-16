@@ -11,6 +11,7 @@ import { iconForCreature } from './creatures/srd.js';
 import { impliedConditions } from '../../shared/conditionEffects.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
+import { slotReference2024 } from '../../shared/resourceDisplay.js';
 import { abilityMod } from '../../shared/skills.js';
 import {
   effectiveStats,
@@ -1488,8 +1489,10 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
 }
 
 /** A single roll-log entry by id (for "Apply damage" save resolution). */
-export function getRollEntry(id: string): RollEntry | null {
-  const r = db.prepare('SELECT * FROM roll_log WHERE id = ?').get(id) as
+export function getRollEntry(id: string, sessionId?: string): RollEntry | null {
+  const r = (sessionId === undefined
+    ? db.prepare('SELECT * FROM roll_log WHERE id = ?').get(id)
+    : db.prepare('SELECT * FROM roll_log WHERE id = ? AND session_id = ?').get(id, sessionId)) as
     | RollLogRow
     | undefined;
   return r ? rowToRollEntry(r) : null;
@@ -1917,7 +1920,17 @@ export function createCharacter(
     opts.stats ?? {},
     opts.subclass ?? '',
   );
-  const spellSlots = opts.spellSlots ?? derived.spellSlots;
+  // 2024 defaults for newly created, recognized single-class characters ONLY.
+  // An explicitly supplied saved counter map (including {}) always wins.
+  // Do not re-label legacy resource names: existing ability matching uses them.
+  const reference = slotReference2024(opts.className ?? '', level, opts.subclass ?? '');
+  const spellSlots = opts.spellSlots ?? (reference === null ? derived.spellSlots :
+    Object.fromEntries(Object.entries(reference).map(([key, max]) => [key, {
+      max, used: 0,
+      // Distinguish a new 2024 default from a legacy custom total at the same
+      // class/level, without rewriting any existing character JSON.
+      ...(derived.spellSlots[key]?.max !== max ? { maxOverride: false } : {}),
+    }])));
   const resources = opts.resources ?? derived.resources;
   db.prepare(
     `INSERT INTO characters
@@ -1968,11 +1981,15 @@ export function createCharacterFromLibrary(
   return createCharacter(sessionId, { ...lib });
 }
 
-type Counters = Record<string, { max: number; used: number }>;
+type Counters = Record<string, { max: number; used: number; maxOverride?: boolean }>;
 /** Apply derived counter maxes onto existing counters, preserving used + custom. */
-function mergeCounters(existing: Counters, derived: Counters): Counters {
+function mergeCounters(existing: Counters, derived: Counters, previous: Counters): Counters {
   const out: Counters = { ...existing };
   for (const [key, d] of Object.entries(derived)) {
+    // Explicit corrections are fixed totals, never an auto-growing bonus pool.
+    // Legacy nonstandard totals are preserved without migrating existing rows.
+    if (existing[key] && (existing[key].maxOverride ||
+        (existing[key].maxOverride !== false && existing[key].max !== previous[key]?.max))) continue;
     out[key] = { max: d.max, used: Math.min(existing[key]?.used ?? 0, d.max) };
   }
   return out;
@@ -1983,7 +2000,7 @@ export function setResource(
   characterId: string,
   group: 'spellSlots' | 'resources',
   key: string,
-  patch: { max?: number; used?: number; remove?: boolean },
+  patch: { max?: number; used?: number; remove?: boolean; preserveMax?: boolean },
 ): Character | null {
   const c = getCharacter(characterId);
   if (!c) return null;
@@ -1992,9 +2009,11 @@ export function setResource(
     delete map[key];
   } else {
     const cur = map[key] ?? { max: 0, used: 0 };
+    if ((patch.max !== undefined && (!Number.isSafeInteger(patch.max) || patch.max < 0)) ||
+        (patch.used !== undefined && (!Number.isSafeInteger(patch.used) || patch.used < 0))) return c;
     const max = patch.max ?? cur.max;
     const used = Math.max(0, Math.min(max, patch.used ?? cur.used));
-    map[key] = { max, used };
+    map[key] = { ...cur, max, used, ...(patch.max !== undefined && (map[key] || patch.preserveMax) ? { maxOverride: true } : {}) };
   }
   const col = group === 'spellSlots' ? 'spell_slots' : 'resources';
   db.prepare(`UPDATE characters SET ${col} = ? WHERE id = ?`).run(
@@ -2020,7 +2039,7 @@ export function spendSpellSlot(
   const slot = c.spellSlots[key];
   if (!slot) return { hasSlot: false, spent: false };
   if (slot.used >= slot.max) return { hasSlot: true, spent: false };
-  const next = { ...c.spellSlots, [key]: { max: slot.max, used: slot.used + 1 } };
+  const next = { ...c.spellSlots, [key]: { ...slot, used: slot.used + 1 } };
   db.prepare('UPDATE characters SET spell_slots = ? WHERE id = ?').run(
     JSON.stringify(next),
     characterId,
@@ -2049,7 +2068,7 @@ export function spendResourceForAbility(
   if (!key) return { matched: false, spent: false };
   const r = c.resources[key];
   if (r.used >= r.max) return { matched: true, spent: false };
-  const next = { ...c.resources, [key]: { max: r.max, used: r.used + 1 } };
+  const next = { ...c.resources, [key]: { ...r, used: r.used + 1 } };
   db.prepare('UPDATE characters SET resources = ? WHERE id = ?').run(
     JSON.stringify(next),
     characterId,
@@ -2397,9 +2416,9 @@ export function updateCharacter(
   // changes, unless the caller passed them explicitly (preserve `used` + any
   // custom counters).
   if (
-    (patch.level !== undefined ||
-      patch.className !== undefined ||
-      patch.subclass !== undefined) &&
+    ((patch.level !== undefined && patch.level !== c.level) ||
+      (patch.className !== undefined && patch.className !== c.className) ||
+      (patch.subclass !== undefined && patch.subclass !== c.subclass)) &&
     patch.spellSlots === undefined &&
     patch.resources === undefined
   ) {
@@ -2409,8 +2428,9 @@ export function updateCharacter(
       patch.stats ?? c.stats,
       patch.subclass ?? c.subclass,
     );
-    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots)));
-    put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources)));
+    const previous = deriveClassResources(c.className, c.level, c.stats, c.subclass);
+    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots, previous.spellSlots)));
+    put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources, previous.resources)));
   }
 
   if (sets.length) {

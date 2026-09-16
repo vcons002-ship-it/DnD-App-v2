@@ -36,11 +36,13 @@ export function effectiveDice(
   return base + `+${roll.scaleDice.trim()}`.repeat(extra);
 }
 
-/** The caster's best spellcasting ability (INT/WIS/CHA) and its modifier; ties
- *  favour INT then WIS, so the label is stable. */
+/** An explicitly selected casting ability, or the legacy best INT/WIS/CHA
+ * fallback for unknown/multiclass entries. Ties favor INT then WIS. */
 export function spellcastingAbility(
   stats: Record<string, number>,
+  selected?: AbilityRoll['castingAbility'],
 ): { ability: 'INT' | 'WIS' | 'CHA'; mod: number } {
+  if (selected) return { ability: selected, mod: abilityMod(stats[selected] ?? 10) };
   const cands = [
     { ability: 'INT' as const, mod: abilityMod(stats.INT ?? 10) },
     { ability: 'WIS' as const, mod: abilityMod(stats.WIS ?? 10) },
@@ -49,14 +51,14 @@ export function spellcastingAbility(
   return cands.reduce((best, c) => (c.mod > best.mod ? c : best));
 }
 
-/** The caster's best spellcasting ability modifier (INT/WIS/CHA). */
-export function spellcastingMod(stats: Record<string, number>): number {
-  return spellcastingAbility(stats).mod;
+/** Selected casting modifier, or the legacy best mental-stat fallback. */
+export function spellcastingMod(stats: Record<string, number>, selected?: AbilityRoll['castingAbility']): number {
+  return spellcastingAbility(stats, selected).mod;
 }
 
 /** Spell attack bonus = proficiency + spellcasting modifier. */
-export function spellAttackBonus(level: number, stats: Record<string, number>): number {
-  return proficiencyBonus(level || 1) + spellcastingMod(stats);
+export function spellAttackBonus(level: number, stats: Record<string, number>, selected?: AbilityRoll['castingAbility']): number {
+  return proficiencyBonus(level || 1) + spellcastingMod(stats, selected);
 }
 
 /**
@@ -68,8 +70,9 @@ export function spellAttackBonus(level: number, stats: Record<string, number>): 
 export function spellAttackBonusDetail(
   stats: Record<string, number>,
   prof: number,
+  selected?: AbilityRoll['castingAbility'],
 ): { bonus: number; detail: string; parts: { label: string; value: number }[] } {
-  const { ability, mod } = spellcastingAbility(stats);
+  const { ability, mod } = spellcastingAbility(stats, selected);
   return {
     bonus: mod + prof,
     detail: `${signed(mod)}[${ability}] ${signed(prof)}[PROF]`,
@@ -83,6 +86,6 @@ export function spellAttackBonusDetail(
 }
 
 /** Spell save DC = 8 + proficiency + spellcasting modifier. */
-export function spellSaveDC(level: number, stats: Record<string, number>): number {
-  return 8 + proficiencyBonus(level || 1) + spellcastingMod(stats);
+export function spellSaveDC(level: number, stats: Record<string, number>, selected?: AbilityRoll['castingAbility']): number {
+  return 8 + proficiencyBonus(level || 1) + spellcastingMod(stats, selected);
 }

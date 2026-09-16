@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
@@ -20,12 +20,16 @@ export function CharacterSheet({
   character,
   editable,
   abilitiesElsewhere = false,
+  resourceManagementControl,
+  resourceDisplayControl,
 }: {
   character: Character;
   editable: boolean;
   /** Omit the Spells & Abilities + Actions blocks — the selected-token panel
    *  renders them as their own section (mirroring the creature layout). */
   abilitiesElsewhere?: boolean;
+  resourceManagementControl?: ReactNode;
+  resourceDisplayControl?: (resourceName: string) => ReactNode;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCharacter = useStore((s) => s.aiFillCharacter);
@@ -107,7 +111,7 @@ export function CharacterSheet({
         </details>
       )}
       <DeathSaves character={character} editable={editable} />
-      <CharacterResources character={character} editable={editable} />
+      <CharacterResources character={character} editable={editable} managementControl={resourceManagementControl} displayControl={resourceDisplayControl} />
       {!abilitiesElsewhere && (
         <>
           <CharacterSpells character={character} editable={editable} />

@@ -1,0 +1,13 @@
+{
+  "mode": "built-in image_gen",
+  "intent": "new production ornament using existing orb as style reference only",
+  "asset": "client/public/art/hud/resource-branch-v4.png",
+  "source": "C:/Users/vcons/.codex/generated_images/01a03633-137b-70c0-9899-8d7e40559f99/exec-c4202f26-d95d-4fbc-aa5b-c6f277f650f0.png",
+  "reference": "client/public/art/hud/tiefling-sorcerer.png",
+  "width": 2172,
+  "height": 724,
+  "bytes": 739084,
+  "sha256": "520DE13459085F3C6D7BFC4ADB9F24193BF0D94F816EBEF5D8FEC2B51BF0F036",
+  "alphaVerified": "Top-left and upper-center sample pixels have alpha 0; original PNG retained without image processing",
+  "prompt": "Use case: stylized-concept. Asset type: production transparent PNG game HUD ornament, NOT a UI mockup. Reference image is STYLE ONLY: preserve its premium realistic sculpted dark antiqued silver and muted aged bronze, fine incised gothic flourishes and restrained highlights. Create a NEW separate horizontal decorative branch that will extend from the lower right side of that health orb. Landscape 3:1 useful composition. An elegant low curving metal filigree base flowing left to right, with a small upward-curving flourish at the far right, and a small scroll flourish at left. Bottom 35 percent contains most of the ornament; upper 65 percent is genuinely transparent and EMPTY for live Roman numerals and jewel controls laid out by code. No panel rectangle, no window frame, no straight top border, no sockets, no circles, no orbs, no jewels, no character, no lettering, no numbers. NOT a flat vector: richly detailed photoreal 3D metalwork with dark recessed chased details, subtle bevels, understated old-silver highlights and bronze patina. Sculpted openwork holes truly transparent. Real alpha transparency everywhere outside the ornament; no background, no checkerboard. Frontal orthographic view. Tight useful framing across canvas width. The left end can overlap the existing orb base in code. Keep the top center empty. No full rectangular frame."
+}

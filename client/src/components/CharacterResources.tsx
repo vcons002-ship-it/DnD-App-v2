@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
 
@@ -45,10 +45,16 @@ export function CharacterResources({
   character,
   editable,
   compact,
+  managementControl,
+  displayControl,
 }: {
   character: Character;
   editable: boolean;
   compact?: boolean;
+  /** Optional player-sheet presentation; the default owner/DM controls remain unchanged. */
+  managementControl?: ReactNode;
+  /** Optional browser-local player presentation settings; never shown for DM. */
+  displayControl?: (resourceName: string) => ReactNode;
 }) {
   const setResource = useStore((s) => s.setResource);
   const [name, setName] = useState('');
@@ -80,7 +86,7 @@ export function CharacterResources({
     <div className="resources">
       <div className="res-header">
         <h4>Resources</h4>
-        {editable && !compact && (
+        {editable && !compact && (managementControl ?? (
           <button
             className="btn tiny"
             onClick={() => setAdding((p) => !p)}
@@ -88,8 +94,12 @@ export function CharacterResources({
           >
             {adding ? 'Close' : '+ Add'}
           </button>
-        )}
+        ))}
       </div>
+      {editable && !compact && displayControl && <p className="resource-display-help">
+        Show by orb: selected custom trackers fill free positions after spell slots and class resources, up to ten.
+        Unchecked trackers stay in Additional resources. Saved per resource for this character in this browser.
+      </p>}
       {editable && !compact && adding && (
         <div className="res-add">
           <input
@@ -146,6 +156,7 @@ export function CharacterResources({
               <span className="res-count muted">
                 {c.max - c.used}/{c.max}
               </span>
+              {editable && !compact && displayControl?.(key)}
               {editable && !compact && (
                 <button
                   className="res-x"

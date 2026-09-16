@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
+import { withRollComparison } from '../../../shared/dicePresentation';
 import type {
   AbilityRollPayload,
   CharacterCreatePayload,
@@ -497,11 +498,30 @@ export const useStore = create<Store>((set, get) => ({
   resolveSaveAt: (tokenId) => {
     const arm = get().saveResolve;
     if (!arm) return;
-    // The clicked creature's own armed adv/dis toggle applies to its save.
+    const apply = get().snapshot?.rollLog.find((roll) => roll.id === arm.rollId)?.apply;
     const tok = get().snapshot?.tokens.find((t) => t.id === tokenId);
-    const advantage = tok ? get().consumeAdvantage(tok.refId) : undefined;
+    if (!apply || !tok) return;
+    if (apply.attacks && apply.attack) {
+      const index = apply.consumedAttacks ?? 0;
+      if (index >= apply.attacks || get().snapshot?.rollLog.some((roll) =>
+        roll.pending?.sourceRollId === arm.rollId && !roll.pending.done)) return;
+      // The initial next-roll toggle belongs to the first ray only. Later
+      // armed toggles are consumed from the caster (never from the target).
+      const advantage = index === 0 && apply.attack.advantage ? undefined
+        : get().consumeAdvantage(apply.attack.attacker.refId);
+      get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId, advantage, instanceIndex: index });
+      return; // Completion comes from the authoritative remaining-attack count.
+    }
+    const darts = apply.darts ?? apply.split?.length ?? 0;
+    if (darts ? (apply.consumedDarts ?? 0) >= darts
+      : apply.consumedTargets?.includes(tokenId) ||
+        (apply.targetMode === 'single' && !!apply.consumedTargets?.length)) return;
+    // The clicked creature's own armed adv/dis toggle applies to its save.
+    // Auto-hit damage and darts must not consume a future roll's toggle.
+    const advantage = apply.save ? get().consumeAdvantage(tok.refId) : undefined;
     // Split spell (Magic Missile): each click sends the next dart's index and the
-    // server applies that pre-rolled instance. Disarm once all darts are spent.
+    // server authoritatively rolls/consumes the next dart. Disarm locally once
+    // this targeting run's remaining budget is used.
     if (arm.splitTotal) {
       const idx = arm.splitUsed ?? 0;
       get().socket?.emit('save:resolve', { rollId: arm.rollId, tokenId, advantage, instanceIndex: idx });
@@ -575,7 +595,11 @@ export const useStore = create<Store>((set, get) => ({
           else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
           if (willAnimate && fresh.reveal) {
             const fxId = nextFloaterId++;
-            set({ rollFx: { id: fxId, reveal: fresh.reveal, rollId: fresh.id } });
+            set({ rollFx: {
+              id: fxId,
+              rollId: fresh.id,
+              reveal: snapshot.role === 'player' ? withRollComparison(fresh.reveal, fresh.detail) : fresh.reveal,
+            } });
             // The overlay self-dismisses when its sequence finishes; safety net only.
             setTimeout(
               () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),

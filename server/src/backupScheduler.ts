@@ -8,6 +8,7 @@
 // (gitignored); the oldest are pruned to KEEP.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { config } from './config.js';
 import { getMeta, setMeta } from './db.js';
 import { listSessions } from './sessions.js';
@@ -25,25 +26,44 @@ const backupsDir = (): string => path.join(config.dataDir, 'backups');
  *  old folders. Returns how many sessions were written. */
 export function runBackupNow(now = Date.now()): number {
   const sessions = listSessions();
-  setMeta(META_KEY, String(now)); // stamp first, so a mid-run crash doesn't loop
   if (!sessions.length) return 0;
 
   const stamp = new Date(now).toISOString().slice(0, 19).replace(/[:T]/g, '-');
   const dir = path.join(backupsDir(), stamp);
   fs.mkdirSync(dir, { recursive: true });
   let written = 0;
+  const files: { file: string; sha256: string }[] = [];
+  const warnings: string[] = [];
   for (const s of sessions) {
     try {
       const bundle = exportSession(s.code);
-      if (!bundle) continue;
-      fs.writeFileSync(path.join(dir, `session-${s.code}.json`), JSON.stringify(bundle));
+      if (!bundle) { warnings.push(`Missing session: ${s.code}`); continue; }
+      const file = `session-${s.code}.json`;
+      const serialized = JSON.stringify(bundle);
+      const filePath = path.join(dir, file);
+      fs.writeFileSync(`${filePath}.partial`, serialized);
+      // Verify written bytes before making this session's file final.
+      const digest = (bytes: string | Buffer) => crypto.createHash('sha256').update(bytes).digest('hex');
+      const sha256 = digest(serialized);
+      if (digest(fs.readFileSync(`${filePath}.partial`)) !== sha256) throw new Error('Backup verification failed');
+      fs.renameSync(`${filePath}.partial`, filePath);
+      files.push({ file, sha256 });
+      warnings.push(...(bundle.assetWarnings ?? []).map(w => `${s.code}: ${w}`));
       written++;
     } catch (err) {
+      warnings.push(`Export failed: ${s.code}`);
       console.warn(`  [backup] could not export ${s.code}:`, (err as Error).message);
     }
   }
-  pruneOldBackups();
-  console.log(`  [backup] wrote ${written} session backup(s) → data/backups/${stamp}`);
+  const complete = written === sessions.length && warnings.length === 0;
+  const manifest = { version: 1, complete, createdAt: now, expectedSessions: sessions.length, files, warnings };
+  fs.writeFileSync(path.join(dir, 'manifest.json.partial'), JSON.stringify(manifest, null, 2));
+  fs.renameSync(path.join(dir, 'manifest.json.partial'), path.join(dir, 'manifest.json'));
+  if (complete) {
+    setMeta(META_KEY, String(now));
+    pruneOldBackups();
+  }
+  console.log(`  [backup] ${complete ? 'verified' : 'INCOMPLETE; previous backups retained'}: ${written} session backup(s) → data/backups/${stamp}`);
   return written;
 }
 
@@ -52,7 +72,12 @@ function pruneOldBackups(): void {
   try {
     const dirs = fs
       .readdirSync(backupsDir(), { withFileTypes: true })
-      .filter((d) => d.isDirectory())
+      // Never prune legacy/unverified folders or an interrupted/partial backup.
+      .filter((d) => {
+        if (!d.isDirectory() || !/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/.test(d.name)) return false;
+        try { return JSON.parse(fs.readFileSync(path.join(backupsDir(), d.name, 'manifest.json'), 'utf8')).complete === true; }
+        catch { return false; }
+      })
       .map((d) => d.name)
       .sort(); // ISO-ish timestamp names sort chronologically
     for (const old of dirs.slice(0, Math.max(0, dirs.length - KEEP))) {

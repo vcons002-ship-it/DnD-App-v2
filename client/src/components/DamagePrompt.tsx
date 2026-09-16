@@ -32,12 +32,12 @@ export function DamagePrompt() {
   useEffect(() => {
     if (!armed || !rollId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.defaultPrevented || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
       const el = document.activeElement;
       const tag = el?.tagName.toLowerCase();
       // Don't steal the key from chat, a dice expression, or any other field.
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-      if (el instanceof HTMLElement && el.isContentEditable) return;
+      if (el instanceof HTMLElement && (el.isContentEditable || el.closest('button, a, [role="button"], [role="slider"], dialog'))) return;
       e.preventDefault();
       combatDamage(rollId);
     };

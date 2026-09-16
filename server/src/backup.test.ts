@@ -87,6 +87,12 @@ describe('session export / import', () => {
     expect(exportSession('NOPE')).toBeNull();
   });
 
+  it('reports missing upload assets instead of silently claiming a complete export', () => {
+    const s = createSession('Missing artwork');
+    createCharacter(s.id, { name: 'Missing icon', icon: '/uploads/absent-backup-test.png' });
+    expect(exportSession(s.code)?.assetWarnings).toContain('Unreadable upload: absent-backup-test.png');
+  });
+
   it('drops the durable owner on import (M6) and rejects a bad bundle version', () => {
     const src = createSession('Backup Owner');
     const map = createMap(src.id, { name: 'M' });

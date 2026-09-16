@@ -1,0 +1,96 @@
+.player-fantasy .player-condition-control {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.player-fantasy .player-condition-control .player-condition-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 5px;
+  border: 1px solid #765840;
+  border-radius: 3px;
+  background: linear-gradient(#332623ee, #211b19ee);
+  color: #edc7ad;
+  font: 10px/1.25 'Segoe UI', sans-serif;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.player-fantasy .player-condition-control .player-condition-chip:hover {
+  border-color: #dcc49a;
+  filter: brightness(1.15);
+}
+.player-fantasy .player-condition-control .player-condition-chip.aura-green {
+  color: #c5e8bf;
+  border-color: #536946;
+  background: linear-gradient(#293126ee, #1a2119ee);
+}
+.player-fantasy .player-condition-control .player-condition-chip.aura-blue {
+  color: #c4dcf2;
+  border-color: #4b627a;
+  background: linear-gradient(#25313eee, #171e29ee);
+}
+.player-fantasy .player-condition-control .player-condition-chip.empty {
+  color: #bfb4a1;
+  border-color: #4c4437;
+  background: #181715a6;
+}
+.player-condition-chip .player-condition-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 50%;
+  background: #d66f55;
+  box-shadow: 0 0 3px #d66f5560;
+}
+.player-condition-chip.aura-green .player-condition-dot { background: #92c378; }
+.player-condition-chip.aura-blue .player-condition-dot { background: #7caedc; }
+.player-condition-anchor {
+  position: fixed;
+  z-index: 110;
+}
+.player-condition-anchor .player-condition-editor {
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px;
+  font-size: 12px;
+}
+.player-condition-editor > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.player-condition-editor h3 {
+  margin: 0;
+  color: #e8d0a3;
+  font: 13px/1.3 var(--hud-display-font, Georgia, serif);
+}
+.player-condition-editor .cond-grid {
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.player-condition-editor .chip {
+  padding: 3px 6px;
+  font-size: 11px;
+}
+.player-condition-editor .buff-row {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.player-condition-editor .buff-row input {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
+.player-condition-editor .cond-active {
+  font-size: 11px;
+}

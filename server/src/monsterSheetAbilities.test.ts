@@ -10,6 +10,7 @@ import {
   getMonster,
   updateMonster,
   listRollLog,
+  setManualDamage,
 } from './sessions.js';
 import { resolveMonsterSheetAbility } from './combat.js';
 import { db, migrateLegacyMonsterActions } from './db.js';
@@ -178,6 +179,9 @@ describe('legacy action merge (ONE rollable system)', () => {
 describe('hpNote disposition shaping for players', () => {
   it('players see friendly/neutral/PC HP changes but never enemy ones', () => {
     const s = createSession('HpNote');
+    // This test examines an applied HP note. Spell attacks now honor the same
+    // two-step setting as weapons; its parked-damage flow has separate tests.
+    setManualDamage(s.id, false);
     const map = createMap(s.id, { name: 'M' });
     setActiveMap(s.id, map.id);
     const caster = instantiateMonster(

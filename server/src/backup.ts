@@ -28,6 +28,8 @@ export type SessionBundle = {
   chat: Row[];
   /** uploaded filename (no path) -> base64 contents */
   assets: Record<string, string>;
+  /** Explicitly report omissions; never label an incomplete export self-contained. */
+  assetWarnings?: string[];
 };
 
 /** Cap on total inlined image bytes, so a giant campaign can't OOM the export. */
@@ -78,17 +80,24 @@ export function exportSession(code: string): SessionBundle | null {
   const scan = JSON.stringify({ ...bundle, assets: undefined });
   for (const m of scan.matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) refs.add(m[1]);
   let total = 0;
+  const warnings: string[] = [];
   for (const file of refs) {
-    if (!safeUploadName(file)) continue;
+    if (!safeUploadName(file)) { warnings.push(`Unsafe upload reference: ${file}`); continue; }
     try {
+      const size = fs.statSync(path.join(config.uploadsDir, file)).size;
+      if (total + size > MAX_ASSET_BYTES) {
+        warnings.push(`Asset capacity exceeded: ${file}`);
+        continue;
+      }
       const buf = fs.readFileSync(path.join(config.uploadsDir, file));
+      if (total + buf.length > MAX_ASSET_BYTES) { warnings.push(`Asset capacity exceeded: ${file}`); continue; }
       total += buf.length;
-      if (total > MAX_ASSET_BYTES) break; // safety cap; import just misses these
       bundle.assets[file] = buf.toString('base64');
     } catch {
-      /* file gone — skip; the reference stays but resolves to a broken image */
+      warnings.push(`Unreadable upload: ${file}`);
     }
   }
+  if (warnings.length) bundle.assetWarnings = warnings;
   return bundle;
 }
 

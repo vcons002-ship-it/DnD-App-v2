@@ -1,7 +1,9 @@
 import { config } from './config.js';
+import { invokeSafely } from './safeHandler.js';
 import { newId } from './db.js';
 import { parseRollCommand, rollDice } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
+import { spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
   resolveAttack,
   resolveAttackDamage,
@@ -242,9 +244,7 @@ export function registerSocketHandlers(io: IOServer): void {
     ) => void;
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
-        try {
-          return handler(...args);
-        } catch (err) {
+        invokeSafely(() => handler(...args), (err) => {
           console.error(`[socket:${event}]`, err);
           try {
             socket.emit('error', {
@@ -254,7 +254,7 @@ export function registerSocketHandlers(io: IOServer): void {
           } catch {
             /* socket already gone — nothing to report to */
           }
-        }
+        });
       })) as typeof socket.on;
 
     const isDm = () => getConn(socket.id)?.role === 'dm';
@@ -267,6 +267,11 @@ export function registerSocketHandlers(io: IOServer): void {
     };
 
     on('join', (payload, ack) => {
+      // TypeScript does not validate untrusted Socket.IO payloads at runtime.
+      if (typeof ack !== 'function') return;
+      if (!payload || (payload.role !== 'dm' && payload.role !== 'player')) {
+        return ack({ ok: false, error: { code: 'BAD_ROLE', message: 'Choose DM or player.' } });
+      }
       const session = getSessionByCode(payload.sessionCode ?? '');
       if (!session) {
         return ack({
@@ -826,7 +831,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid) return;
       const c = getCharacter(characterId);
-      if (!c) return;
+      if (!c || c.sessionId !== sid) return;
       const pid = getConn(socket.id)?.playerId ?? null;
       if (!isDm()) {
         // A character is "taken" only while another player is actively holding
@@ -853,7 +858,7 @@ export function registerSocketHandlers(io: IOServer): void {
     // DM fallback: force a character free (e.g. a stuck claim) so anyone can grab
     // it. Clears the live claim and the last-holder record.
     on('character:unlock', ({ characterId }) => {
-      if (!isDm() || !getCharacter(characterId)) return;
+      if (!isDm() || getCharacter(characterId)?.sessionId !== sessionId()) return;
       setCharacterOwner(characterId, null);
       afterChange();
     });
@@ -893,7 +898,7 @@ export function registerSocketHandlers(io: IOServer): void {
     on('character:update', ({ characterId, ...patch }) => {
       const c = getCharacter(characterId);
       // The DM or the owning player may edit a character's stat sheet.
-      if (!c || (!isDm() && c.claimedBy !== socket.id)) return;
+      if (!c || c.sessionId !== sessionId() || (!isDm() && c.claimedBy !== socket.id)) return;
       updateCharacter(characterId, patch);
       afterChange();
     });
@@ -902,7 +907,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const sid = sessionId();
       if (!sid || !isDm()) return; // DM-only: prune a PC from the spawn list
       const c = getCharacter(characterId);
-      if (!c) return;
+      if (!c || c.sessionId !== sid) return;
       // Never delete a character a player is actively holding (still connected).
       if (isConnected(c.claimedBy)) {
         socket.emit('notice', {
@@ -929,16 +934,29 @@ export function registerSocketHandlers(io: IOServer): void {
     // ---- Resources & items (DM or the owning player) ----
     const ownsCharacter = (characterId: string): boolean => {
       const c = getCharacter(characterId);
-      return !!c && (isDm() || c.claimedBy === socket.id);
+      return !!c && c.sessionId === sessionId() && (isDm() || c.claimedBy === socket.id);
     };
     // Who may edit/roll sheet abilities on a creature: a PC's owner or the DM;
     // monster sheet abilities are DM-authored (like monster:update).
     const ownsCreature = (kind: 'pc' | 'monster', refId: string): boolean =>
-      kind === 'pc' ? ownsCharacter(refId) : isDm();
+      kind === 'pc' ? ownsCharacter(refId) : kind === 'monster' && isDm() &&
+        !!sessionId() && monsterInSession(refId, sessionId()!);
 
-    on('resource:set', ({ characterId, group, key, max, used, remove }) => {
-      if (!key || !ownsCharacter(characterId)) return;
-      setResource(characterId, group, key, { max, used, remove });
+    // Casting and applying a roll may only target a token in the caller's
+    // current, role-shaped map. Reuse visibility shaping so hidden/fog/staged
+    // tokens cannot be attacked by replaying an old or guessed token id.
+    const canTargetSpellToken = (tokenId: string): boolean => {
+      const conn = getConn(socket.id);
+      if (!conn) return false;
+      const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, socket.id, conn.playerId);
+      return !!snapshot?.tokens.some((token) => token.id === tokenId);
+    };
+
+    on('resource:set', ({ characterId, group, key, max, used, remove, preserveMax }) => {
+      if ((group !== 'spellSlots' && group !== 'resources') ||
+          typeof key !== 'string' || !key.trim() ||
+          ['__proto__', 'constructor', 'prototype'].includes(key) || !ownsCharacter(characterId)) return;
+      setResource(characterId, group, key, { max, used, remove, preserveMax });
       afterChange();
     });
 
@@ -1096,27 +1114,41 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId, damageType }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const tgt = typeof targetTokenId === 'string' ? targetTokenId : undefined;
-      const cast = typeof castLevel === 'number' ? castLevel : undefined;
+      if (tgt !== undefined && !canTargetSpellToken(tgt)) {
+        socket.emit('notice', { message: 'That target is no longer available on this map. Select it again.' });
+        return;
+      }
+      const cast = typeof castLevel === 'number' && Number.isFinite(castLevel)
+        ? Math.min(9, Math.max(0, Math.floor(castLevel))) : undefined;
+      const selectedDamageType = typeof damageType === 'string' ? damageType.trim().toLowerCase() : undefined;
+      const validDamageChoice = (ability: import('../../shared/types.js').SheetAbility): boolean => {
+        const choices = spellDamageTypeChoices(ability, cast);
+        if (choices.length && (!selectedDamageType || !choices.includes(selectedDamageType))) {
+          socket.emit('notice', { message: `Choose a damage type for ${ability.name}: ${choices.join(', ')}.` });
+          return false;
+        }
+        return true;
+      };
       const roller = rollerName(sid, socket.id, isDm());
 
       if (kind === 'monster') {
         const m = getMonster(refId);
         const ability = m?.sheetAbilities.find((a) => a.id === abilityId);
-        if (!m || !ability) return;
+        if (!m || !ability || !validDamageChoice(ability)) return;
         // CR-based DC/to-hit; no spell slots for creatures.
-        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt)) afterChange();
+        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) afterChange();
         return;
       }
 
       const c = getCharacter(refId);
       const ability = c?.sheetAbilities.find((a) => a.id === abilityId);
-      if (!c || !ability) return;
-      const ok = resolveAbilityRoll(sid, roller, c, ability, cast, adv, tgt);
+      if (!c || !ability || !validDamageChoice(ability)) return;
+      const ok = resolveAbilityRoll(sid, roller, c, ability, cast, adv, tgt, selectedDamageType);
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
       const leveled =
@@ -1124,7 +1156,7 @@ export function registerSocketHandlers(io: IOServer): void {
         (ability.level ?? 0) >= 1;
       if (ok && leveled) {
         const base = ability.level as number;
-        const c2 = typeof castLevel === 'number' ? Math.floor(castLevel) : base;
+        const c2 = cast ?? base;
         const slotLevel = Math.min(9, Math.max(base, c2));
         const { hasSlot, spent } = spendSpellSlot(refId, slotLevel);
         if (hasSlot && !spent) {
@@ -1341,18 +1373,19 @@ export function registerSocketHandlers(io: IOServer): void {
       socket.emit('notice', { message: line ? `${m.name} speaks` : 'No AI backend for dialogue', aiDone: true });
     });
 
-    // "Apply damage" click-to-target: roll one creature's save vs a logged spell's
-    // DC and auto-apply full/half of the rolled amount — DM only.
+    // Apply a caster-owned logged spell to a visible target: save, damage, dart,
+    // or an individual ray. The DM may resolve any cast in their own session.
     on('save:resolve', ({ rollId, tokenId, advantage, instanceIndex }) => {
       const sid = sessionId();
       if (!sid) return;
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
-      // The DM resolves any apply; a player may resolve ONLY their own split
-      // spell's darts (Magic Missile), identified by the caster `owner` on the
-      // roll entry — the click-to-assign path is no longer DM-gated for those.
-      const owner = getRollEntry(rollId)?.apply?.owner;
+      // Caster ownership never grants access to another session's source roll.
+      const entry = getRollEntry(rollId, sid);
+      if (!entry?.apply || !canTargetSpellToken(tokenId)) return;
+      const owner = entry.apply.owner;
+      const caster = owner ? getCharacter(owner) : null;
       const allowed =
-        isDm() || (!!owner && getCharacter(owner)?.claimedBy === socket.id);
+        isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
       if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const idx = typeof instanceIndex === 'number' ? instanceIndex : undefined;
@@ -1751,9 +1784,12 @@ export function registerSocketHandlers(io: IOServer): void {
     on('combat:damage', ({ rollId }) => {
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string') return;
-      const owner = getRollEntry(rollId)?.pending?.owner;
+      const entry = getRollEntry(rollId, sid);
+      if (!entry?.pending) return;
+      const owner = entry.pending.owner;
+      const caster = owner ? getCharacter(owner) : null;
       const allowed =
-        isDm() || (!!owner && getCharacter(owner)?.claimedBy === socket.id);
+        isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
       if (!allowed) return;
       if (resolveAttackDamage(sid, rollerName(sid, socket.id, isDm()), rollId))
         afterChange();

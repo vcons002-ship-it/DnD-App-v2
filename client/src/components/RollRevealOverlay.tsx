@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { playHit, playMiss, playSkill } from '../lib/sfx';
+import { ThreeDie } from './ThreeDie';
+import type { RollComparison } from '../../../shared/types';
 
 // Pacing (ms). Tweak to taste.
 const ROLL_MS = 420; // d20 shuffle before it locks
@@ -24,6 +26,7 @@ function useTween(target: number, ms = 260): number {
   const [val, setVal] = useState(target);
   const from = useRef(target);
   useEffect(() => {
+    if (ms === 0) { from.current = target; setVal(target); return; }
     const start = performance.now();
     const a = from.current;
     const b = target;
@@ -46,7 +49,7 @@ function useTween(target: number, ms = 260): number {
 
 // Die silhouettes we can draw (clip-path polygons in CSS); anything else (d100…)
 // falls back to a d10.
-const DIE_SIDES = [4, 6, 8, 10, 12, 20];
+const DIE_SIDES = [4, 6, 8, 10, 12, 20, 100];
 /** Parse the die size from a dice label ("2d6" → 6, "8d6" → 6); a crit step's
  *  label ("CRIT") has none, so callers pass the weapon's base size as fallback. */
 function dieSides(label: string, fallback: number): number {
@@ -84,9 +87,11 @@ function DieShape({
   rolling?: boolean;
   crit?: boolean;
 }) {
+  const player = useStore(s => s.snapshot?.role === 'player');
+  if (player) return <ThreeDie sides={sides} value={value} big={big} rolling={rolling} crit={crit} />;
   return (
     <span
-      className={`die die-d${sides}${big ? ' die-big' : ''}${rolling ? ' rolling' : ''}${
+      className={`die die-d${sides === 100 ? 10 : sides}${big ? ' die-big' : ''}${rolling ? ' rolling' : ''}${
         crit ? ' die-crit' : ''
       }`}
     >
@@ -98,6 +103,44 @@ function DieShape({
 /** A pseudo-random face for a tumbling die (changes with the cycle tick). */
 const flicker = (tick: number, seed: number, sides: number) =>
   1 + ((tick * 7 + seed * 13 + 5) % sides);
+
+/** Both server-recorded candidates remain visible. The kept/discarded labels
+ * appear only after the dice land; no random or inferred result is introduced. */
+function ComparedDice({ comparison, locked, tick }: {
+  comparison: RollComparison;
+  locked: number;
+  tick: number;
+}) {
+  const settled = comparison.sets.every((set) => locked >= set.dice.length);
+  return (
+    <div className="rr-comparison" data-mode={comparison.mode}>
+      <div className="rr-comparison-title">
+        {comparison.mode === 'adv' ? 'Advantage · keep higher' : 'Disadvantage · keep lower'}
+      </div>
+      <div className="rr-comparison-sets">
+        {comparison.sets.map((set, setIndex) => {
+          const kept = setIndex === comparison.kept;
+          return (
+            <div key={setIndex} className={`rr-candidate${settled ? kept ? ' is-kept' : ' is-discarded' : ''}`}
+              data-candidate={setIndex} data-result={settled ? kept ? 'kept' : 'discarded' : 'rolling'}>
+              <div className="rr-candidate-label">{settled ? kept ? 'Kept' : 'Discarded' : `Roll ${setIndex + 1}`}</div>
+              <div className="rr-candidate-dice">
+                {set.dice.map((die, i) => (
+                  <span key={i} className="rr-candidate-die">
+                    {die.negative && <span className="rr-negative-die" title="Subtract this die">−</span>}
+                    <DieShape sides={die.sides} big={set.dice.length === 1 && die.sides !== 100}
+                      value={i < locked ? die.value : flicker(tick, setIndex * 101 + i, die.sides)} rolling={i >= locked} />
+                  </span>
+                ))}
+              </div>
+              {comparison.kind === 'dice' && <div className="rr-candidate-total">{settled ? `Set total ${set.total}` : 'Rolling…'}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /**
  * A staged attack-roll reveal everyone sees when an attack resolves:
@@ -112,9 +155,19 @@ const flicker = (tick: number, seed: number, sides: number) =>
  * already applied server-side — this is purely cosmetic.
  */
 export const RollRevealOverlay = memo(function RollRevealOverlay() {
+  const player = useStore(s => s.snapshot?.role === 'player');
+  const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    const changed = () => setReducedMotion(media.matches);
+    media.addEventListener('change', changed);
+    return () => media.removeEventListener('change', changed);
+  }, []);
+  const staticReveal = player && reducedMotion;
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
   const reveal = rollFx?.reveal;
+  const comparison = player ? reveal?.comparison : undefined;
   // A 'check' is a single-d20 skill/save/check → total (no damage phase). A 'dice'
   // roll (`/roll`, dice-panel buttons) and a spell-damage 'damage' burst are both
   // dice-only bursts (no to-hit); 'dice' just labels itself with the expression
@@ -156,26 +209,37 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     };
 
     const allFaces = flattenDice(reveal.damageDice, dieSides(reveal.damageDice?.[0]?.label ?? '', 6));
+    const visualDiceCount = comparison?.kind === 'dice'
+      ? Math.max(...comparison.sets.map((set) => set.dice.length))
+      : allFaces.length;
     const localMods = reveal.damageMods ?? [];
+    if (staticReveal) {
+      setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, modsShown: localMods.length });
+      at(HOLD_MS, dismiss);
+      return cleanup;
+    }
     // Each die lands in quick succession; total dice-rolling time is bounded so a
     // 14d6 Fireball doesn't drag (faster per-die when there are many).
-    const perDie = allFaces.length
-      ? Math.max(55, Math.min(150, Math.round(700 / allFaces.length)))
+    const perDie = visualDiceCount
+      ? Math.max(55, Math.min(150, Math.round(700 / visualDiceCount)))
       : 0;
 
     // Roll the damage dice one by one (all visible + tumbling, settling in order),
     // then reveal the flat modifiers; `start` is when the damage phase begins.
     const scheduleDamage = (start: number, onImpact?: () => void) => {
       let t = start;
-      at(t, () => {
+      at(start, () => {
         setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, modsShown: 0 }));
         intervals.push(setInterval(() => setRollTick((x) => x + 1), CYCLE_MS));
         onImpact?.();
       });
-      allFaces.forEach((_, i) => {
+      // Player dice get a readable tumble before settling; the established DM
+      // timeline is unchanged. Both compared sets land in the same sequence.
+      if (player && visualDiceCount) t += ROLL_MS;
+      for (let i = 0; i < visualDiceCount; i++) {
         t += perDie;
         at(t, () => setStage((p) => ({ ...p, diceLocked: i + 1 })));
-      });
+      }
       at(t, stopCycles); // all dice settled → stop flickering
       localMods.forEach((_, i) => {
         t += STEP_MS;
@@ -220,16 +284,22 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     at(end + HOLD_MS, dismiss);
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rollFx?.id]);
+  }, [rollFx?.id, staticReveal]);
 
   // Running totals (tweened so the numbers visibly climb as dice settle).
   const toHitTarget =
     (reveal?.d20 ?? 0) + toHit.slice(0, stage.toHitShown).reduce((s, x) => s + x.value, 0);
+  // Compared expression sets include negative dice in their visual order, while
+  // legacy reveal.damageDice contains only positive dice (negative terms remain
+  // modifier chips). Do not count a later positive die before it visibly lands.
+  const positiveDiceLocked = comparison?.kind === 'dice'
+    ? comparison.sets[comparison.kept].dice.slice(0, stage.diceLocked).filter((die) => !die.negative).length
+    : stage.diceLocked;
   const dmgTarget =
-    faces.slice(0, stage.diceLocked).reduce((s, f) => s + f.value, 0) +
+    faces.slice(0, positiveDiceLocked).reduce((s, f) => s + f.value, 0) +
     mods.slice(0, stage.modsShown).reduce((s, m) => s + m.value, 0);
-  const toHitShownNum = useTween(stage.phase === 'rolling' ? 0 : toHitTarget);
-  const dmgShownNum = useTween(dmgTarget);
+  const toHitShownNum = useTween(stage.phase === 'rolling' ? 0 : toHitTarget, staticReveal ? 0 : 260);
+  const dmgShownNum = useTween(dmgTarget, staticReveal ? 0 : 260);
 
   // Skip on Escape (parity with click/tap-to-skip).
   useEffect(() => {
@@ -283,8 +353,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
         {reveal.title && <div className="rr-title">{reveal.title}</div>}
 
         {!isBurst && (
-          <div className="roll-reveal-tohit">
-            <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} />
+          <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>
+            {comparison?.kind === 'd20'
+              ? <ComparedDice comparison={comparison} locked={stage.phase === 'rolling' ? 0 : 1} tick={stage.dieFace} />
+              : <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} />}
             <div className="rr-buildup">
               <div className="rr-total" key={toHitShownNum}>
                 {toHitShownNum}
@@ -310,20 +382,21 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
               {!isDice && <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>}
             </div>
             {/* Every damage die, each tumbling until it settles on its face. */}
-            <div className="rr-dice-row">
+            {comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} tick={rollTick} /> : <div className="rr-dice-row">
               {faces.map((f, i) => {
                 const locked = i < stage.diceLocked;
                 return (
                   <DieShape
                     key={i}
                     sides={f.sides}
+                    big={player && faces.length <= 3}
                     value={locked ? f.value : flicker(rollTick, i, f.sides)}
                     rolling={!locked}
                     crit={f.crit}
                   />
                 );
               })}
-            </div>
+            </div>}
             <div className="rr-chips">
               {mods.slice(0, stage.modsShown).map((m, i) => (
                 <span className="rr-chip" key={`m${i}`}>

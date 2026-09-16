@@ -1,0 +1,86 @@
+.three-die {
+  display: inline-block;
+  width: 68px;
+  height: 68px;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+.three-die.big {
+  width: 116px;
+  height: 116px;
+}
+.percentile-pair {
+  display: inline-flex;
+  gap: 0;
+  align-items: center;
+}
+
+/* Only emitted by the player comparison presentation; DM roll UI is unchanged. */
+.rr-comparison {
+  width: 320px;
+  max-width: calc(100vw - 80px);
+}
+.rr-comparison-title {
+  margin-bottom: 7px;
+  color: #dfcaa6;
+  font: 12px Georgia, serif;
+  letter-spacing: 0.035em;
+}
+.rr-comparison:has(.percentile-pair) {
+  width: 400px;
+}
+.rr-comparison .percentile-pair .three-die {
+  width: 86px;
+  height: 86px;
+}
+.rr-comparison-sets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.rr-candidate {
+  min-width: 0;
+  border: 1px solid #5d5548;
+  border-radius: 5px;
+  padding: 5px;
+  background: #0b1019a8;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.rr-candidate.is-kept {
+  border-color: #d4b376;
+  background: linear-gradient(150deg, #53432944, #0b1019a8);
+  box-shadow: inset 0 0 12px #d4b37616;
+}
+.rr-candidate.is-discarded {
+  border-color: #514b45;
+}
+.rr-candidate.is-discarded canvas { opacity: 0.62; }
+.rr-candidate-label {
+  color: #baa98f;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.rr-candidate.is-kept .rr-candidate-label { color: #ffe2a7; }
+.rr-candidate-dice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  max-height: 238px;
+  overflow: auto;
+}
+.rr-candidate-die { position: relative; display: inline-flex; }
+.rr-negative-die {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: #eab2a2;
+  font-size: 17px;
+}
+.rr-candidate-total { color: #d4c5ab; font-size: 11px; }
+.rr-tohit-compared { flex-direction: column; }
+.rr-tohit-compared .rr-buildup { align-items: center; }
+@media (prefers-reduced-motion: reduce) {
+  .rr-candidate { transition: none; }
+}

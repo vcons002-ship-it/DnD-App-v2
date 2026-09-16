@@ -1,0 +1,119 @@
+/* Player-only: retain the existing d20 art and quick-button palette. A connected
+   padded region owns the space between the trigger and the responsive popup. */
+.player-fantasy .dice-button-overlay.player-dice-picker {
+  width: 174px;
+  height: 54px;
+  display: block;
+}
+.player-fantasy .dice-button-overlay.player-dice-picker.open {
+  z-index: 46;
+}
+/* Keep the upstream per-entity ADV/DIS controls legible alongside the die.
+   They never fade with the d20, and the target label stays within this corner. */
+.player-fantasy .player-dice-picker .dice-adv-row {
+  position: absolute;
+  left: 64px;
+  top: 3px;
+  gap: 4px;
+}
+.player-fantasy .player-dice-picker .dice-adv-btn {
+  min-width: 48px;
+  min-height: 26px;
+  padding: 4px 6px;
+  font-size: 10px;
+  line-height: 14px;
+  opacity: 1;
+}
+.player-fantasy .player-dice-picker .dice-adv-btn:focus-visible {
+  outline: 2px solid #e2c796;
+  outline-offset: 2px;
+}
+.player-fantasy .player-dice-picker .dice-adv-armed {
+  position: absolute;
+  left: 64px;
+  top: 32px;
+  box-sizing: border-box;
+  max-width: 110px;
+  padding: 2px 4px;
+  font-size: 9px;
+  line-height: 12px;
+}
+/* The map zoom/fit row has its own lane instead of sharing the ADV buttons. */
+.player-fantasy .stage-wrap .stage-controls {
+  left: 188px;
+}
+@media (max-width: 600px) {
+  .player-fantasy .stage-wrap .stage-controls {
+    left: 70px;
+    top: 66px;
+  }
+}
+.player-fantasy .player-dice-picker .dice-picker-disclosure {
+  position: absolute;
+  top: 32px;
+  left: 37px;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  display: grid;
+  place-items: center;
+  color: #e2c796;
+  background: linear-gradient(#35302a, #171b22);
+  border: 1px solid #8b744e;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px #0009;
+}
+.player-fantasy .player-dice-picker .dice-picker-disclosure:hover {
+  color: #fff0c9;
+  border-color: #e2c796;
+}
+.player-fantasy .player-dice-picker .dice-picker-disclosure svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: transform .12s;
+}
+.player-fantasy .player-dice-picker .dice-picker-disclosure[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+.player-fantasy .player-dice-picker .player-dice-menu-region {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  padding-top: 4px;
+  width: min(232px, calc((100vw - 20px) / var(--player-ui-scale, .85)));
+  box-sizing: border-box;
+}
+.player-fantasy .player-dice-picker .player-dice-menu-region[hidden] { display: none; }
+.player-fantasy .player-dice-picker .player-dice-menu-region .dice-quick-menu {
+  position: static;
+  top: auto;
+  left: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px;
+  max-height: min(300px, calc((100dvh - 140px) / var(--player-ui-scale, .85)));
+  overflow: auto;
+  pointer-events: auto;
+  opacity: 1;
+  transform: none;
+  transition: none;
+  background: #10151aed;
+  border-color: #786348;
+  box-shadow: 0 5px 16px #0009;
+}
+.player-fantasy .player-dice-picker .dice-quick-menu .btn {
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-fantasy .player-dice-picker .dice-picker-disclosure svg { transition: none; }
+}

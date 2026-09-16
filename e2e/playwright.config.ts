@@ -1,12 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 import os from 'node:os';
+import { mkdtempSync } from 'node:fs';
 
 // A throwaway DB + fixed DM secret + no tunnel, so the smoke test never touches
 // the real save and doesn't need to scrape the generated secret.
 const PORT = 4099;
 const DM_SECRET = 'e2e-secret';
-const DB_PATH = path.join(os.tmpdir(), `dnd-e2e-${process.pid}.db`);
+const DATA_ROOT = mkdtempSync(path.join(os.tmpdir(), 'dnd-e2e-'));
+const DB_PATH = path.join(DATA_ROOT, 'game.db');
 // Playwright runs the config from the repo root (via the `test:e2e` script).
 const serverDir = path.resolve('server');
 
@@ -37,6 +39,11 @@ export default defineConfig({
       PUBLIC_URL: `http://localhost:${PORT}`, // skip cloudflared
       DM_PASSPHRASE: DM_SECRET,
       DB_PATH,
+      DATA_ROOT,
+      OLLAMA_URL: 'http://127.0.0.1:1',
+      COMFY_URL: 'http://127.0.0.1:1',
+      GEMINI_API_KEY: '',
+      AI_MODE: 'local',
     },
   },
 });

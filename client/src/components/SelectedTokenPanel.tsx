@@ -21,16 +21,24 @@ import { IconTools } from './IconTools';
 import { TokenAdminButtons } from './TokenAdminButtons';
 import { AdvantageToggle } from './AdvantageToggle';
 import { ReorderableSections, type Section } from './ReorderableSections';
+import '../player-combat.css';
 
 type Props = {
   snapshot: StateSnapshot;
   token: Token;
   /** All selected token ids, so icon changes can apply to the whole selection. */
   selectedIds?: string[];
+  /** Player HUD only: the outer dock already provides the Combat heading. */
+  compactPlayerConsole?: boolean;
 };
 
 /** Right-side detail panel for the currently selected token (DM + player). */
-export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
+export function SelectedTokenPanel({
+  snapshot,
+  token,
+  selectedIds,
+  compactPlayerConsole = false,
+}: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
   const setTempHp = useStore((s) => s.setTempHp);
   const resizeToken = useStore((s) => s.resizeToken);
@@ -107,28 +115,33 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
   }
 
   // Player combat console: their attacks (vs the clicked token) + abilities.
-  // Same rearrangeable/collapsible sections as the DM token panel.
+  // The compact HUD owns the single combat heading; reference sections remain
+  // rearrangeable/collapsible without moving the action controls out of reach.
   if (myChar) {
     const selectingOwn = !!myToken && token.id === myToken.id;
     const consoleSections: Section[] = [];
+    const combatControls = myToken ? (
+      <CombatSection
+        snapshot={snapshot}
+        attacker={myToken}
+        caster={myChar}
+        kind="pc"
+        defaultTargetId={selectingOwn ? undefined : token.id}
+        compactPlayer={compactPlayerConsole}
+      />
+    ) : (
+      <p className="muted">Place your token on the map to attack.</p>
+    );
     // The ONE rolling surface: target dropdown + weapons + rollable abilities.
     // First in the fallback order so it lands on top (existing saved orders
     // slot never-seen ids in at their designed position).
-    consoleSections.push({
-      id: 'combat',
-      label: 'Combat',
-      node: myToken ? (
-        <CombatSection
-          snapshot={snapshot}
-          attacker={myToken}
-          caster={myChar}
-          kind="pc"
-          defaultTargetId={selectingOwn ? undefined : token.id}
-        />
-      ) : (
-        <p className="muted">Place your token on the map to attack.</p>
-      ),
-    });
+    if (!compactPlayerConsole) {
+      consoleSections.push({
+        id: 'combat',
+        label: 'Combat',
+        node: combatControls,
+      });
+    }
     if (!selectingOwn) {
       consoleSections.push({
         id: 'target',
@@ -168,10 +181,10 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
       });
     }
     return (
-      <div className="panel-section">
-        {selectingOwn ? (
+      <div className={`panel-section${compactPlayerConsole ? ' compact-player-console' : ''}`}>
+        {selectingOwn && !compactPlayerConsole ? (
           <h3>Your attacks &amp; abilities</h3>
-        ) : (
+        ) : !selectingOwn ? (
           <>
             <h3>{d.name}</h3>
             {canSeeHp && (
@@ -183,7 +196,8 @@ export function SelectedTokenPanel({ snapshot, token, selectedIds }: Props) {
               </div>
             )}
           </>
-        )}
+        ) : null}
+        {compactPlayerConsole && combatControls}
         <ReorderableSections
           storageKey={`playerConsole:${snapshot.sessionCode}`}
           sections={consoleSections}

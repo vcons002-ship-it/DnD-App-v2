@@ -1,0 +1,162 @@
+/* A spherical force field, not a heraldic shield. A final absorbed hit can
+   dissipate for 650 ms; no inactive rim, emblem or glow is left behind.
+   Absolute layers never move the globe, guardian or resource artwork. */
+.player-fantasy .orb-temp-shield {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border: 1px solid #a9eaff8c;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 29% 18%, #c7faff40 0, #78daff0d 16%, transparent 38%),
+    radial-gradient(circle, transparent 48%, #65b5f510 65%, #68c6ff33 84%, #b8f4ff80 100%);
+  box-shadow: inset 0 0 12px #7adaff66, inset -3px -3px 8px #5c8dff26, 0 0 8px #70d4ff5c;
+  animation: orb-shield-breathe 4.8s ease-in-out infinite;
+}
+.player-fantasy .orb-temp-shield::before,
+.player-fantasy .orb-temp-shield::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+.player-fantasy .orb-temp-shield::before {
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(from 15deg, transparent 0 12%, #87e7ff99 17%, #e9ffffed 19%, transparent 25% 59%, #729aff55 64%, #91f1ffbf 68%, transparent 76%);
+  mask-image: radial-gradient(circle, transparent 58%, #000 68%);
+  animation: orb-shield-orbit 12s linear infinite;
+}
+.player-fantasy .orb-temp-shield::after {
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 42%, #96dfff0a 45%, #d5fcff24 49%, #d5fcff08 53%, transparent 57%);
+  animation: orb-shield-sheen 7s ease-in-out infinite;
+}
+.player-fantasy .orb-ward-flow {
+  position: absolute;
+  inset: 3%;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: #b7f4ff70;
+  border-left-color: #93cfff25;
+  background: radial-gradient(ellipse at 20% 20%, #9aedff12, transparent 55%);
+  pointer-events: none;
+}
+.player-fantasy .orb-ward-flow.flow-back {
+  transform: rotate(-32deg) scaleX(.66);
+  opacity: .5;
+  animation: orb-ward-drift-back 9s ease-in-out infinite alternate;
+}
+.player-fantasy .orb-ward-flow.flow-front {
+  transform: rotate(58deg) scaleX(.7);
+  border-top-color: transparent;
+  border-bottom-color: #b2eeff66;
+  border-right-color: #8bc6ff35;
+  animation: orb-ward-drift-front 11s ease-in-out infinite alternate;
+}
+.player-fantasy .orb-ward-spark {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 18% 18%, #e2ffff 0 .5%, #9beaff50 1%, transparent 2.5%),
+    radial-gradient(circle at 92% 65%, #d1ffffbd 0 .4%, #69caff26 1%, transparent 2%);
+  animation: orb-shield-orbit 18s linear infinite reverse;
+}
+/* The shell remains fixed. Two travelling wavefronts cross its surface from a
+   localized impact, instead of scaling/bouncing the globe or guardian art. */
+.player-fantasy .orb-temp-shield[data-shield-effect='hit'] { animation: none; opacity: 1; }
+.player-fantasy .orb-temp-shield[data-shield-effect='breaking'] {
+  animation: orb-ward-dissipate 650ms ease-out both;
+}
+.player-fantasy .orb-ward-impact {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: calc(.58 + var(--ward-hit-strength, 1) * .42);
+  pointer-events: none;
+}
+.player-fantasy .orb-ward-impact-flare {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 28% 27%, #efffffdf 0, #c0f6ffbf 4%, #64d0ff66 13%, #337afa16 27%, transparent 45%);
+  animation: orb-ward-impact-flare 450ms ease-out both;
+}
+.player-fantasy .orb-ward-impact-ring {
+  position: absolute;
+  width: 120%;
+  height: 120%;
+  left: -32%;
+  top: -33%;
+  border-radius: 50%;
+  border: 2px solid #d6fcfff2;
+  background: radial-gradient(circle, transparent 58%, #b5f4ff0d 63%, #85d9ff50 68%, transparent 72%);
+  box-shadow: inset 0 0 6px #a1ecff99, 0 0 5px #59baff99;
+  animation: orb-ward-impact-ring 690ms cubic-bezier(.12,.6,.32,1) both;
+}
+.player-fantasy .orb-ward-impact-ring.ring-second {
+  border-width: 1px;
+  border-color: #9bd7ffbf;
+  animation-duration: 660ms;
+  animation-delay: 100ms;
+}
+.player-fantasy .orb-ward-impact-edge {
+  position: absolute;
+  inset: 1%;
+  border-radius: 50%;
+  border: 2px solid #d6fdffcc;
+  box-shadow: inset 0 0 11px #58baffb3;
+  mask-image: conic-gradient(from -62deg, #000, transparent 36%, #0009 58%, transparent 83%, #000);
+  animation: orb-ward-impact-edge 750ms ease-out both;
+}
+.player-fantasy .orb-readout { white-space: nowrap; }
+.player-fantasy .orb-readout > .orb-temp-bonus {
+  margin-left: 4px;
+  color: #83d8ff;
+  font: bold 17px/1 Georgia, serif;
+  text-shadow: 0 1px 3px #031324, 0 0 7px #168edca6;
+}
+@keyframes orb-shield-breathe { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
+@keyframes orb-shield-orbit { to { transform: rotate(360deg); } }
+@keyframes orb-shield-sheen { 0%, 20% { transform: translateX(-55%); opacity: 0; } 45% { opacity: 1; } 70%, 100% { transform: translateX(55%); opacity: 0; } }
+@keyframes orb-ward-drift-back { to { transform: rotate(22deg) scaleX(.85); opacity: .85; } }
+@keyframes orb-ward-drift-front { to { transform: rotate(108deg) scaleX(.45); opacity: .5; } }
+@keyframes orb-ward-impact-flare {
+  0% { opacity: .3; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes orb-ward-impact-ring {
+  0% { transform: scale(.07); opacity: 0; }
+  12% { opacity: 1; }
+  65% { opacity: .65; }
+  100% { transform: scale(1.65); opacity: 0; }
+}
+@keyframes orb-ward-impact-edge {
+  0% { opacity: .15; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes orb-ward-dissipate {
+  0%, 15% { opacity: 1; }
+  55% { opacity: .75; }
+  100% { opacity: 0; }
+}
+.player-fantasy .liquid-orb[data-liquid-motion='paused'] ~ .orb-temp-shield,
+.player-fantasy .liquid-orb[data-liquid-motion='paused'] ~ .orb-temp-shield *,
+.player-fantasy .liquid-orb[data-liquid-motion='paused'] ~ .orb-temp-shield::before,
+.player-fantasy .liquid-orb[data-liquid-motion='paused'] ~ .orb-temp-shield::after { animation-play-state: paused; }
+/* The ward also owns its visibility pause: WebGL failure can prevent the
+   sibling liquid canvas from installing its own visibility listeners. */
+.player-fantasy .orb-temp-shield[data-shield-paused='true'],
+.player-fantasy .orb-temp-shield[data-shield-paused='true'] *,
+.player-fantasy .orb-temp-shield[data-shield-paused='true']::before,
+.player-fantasy .orb-temp-shield[data-shield-paused='true']::after { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .player-fantasy .orb-temp-shield,
+  .player-fantasy .orb-temp-shield *,
+  .player-fantasy .orb-temp-shield::before,
+  .player-fantasy .orb-temp-shield::after { animation: none; }
+  .player-fantasy .orb-temp-shield::after { display: none; }
+  .player-fantasy .orb-ward-impact { display: none; }
+}

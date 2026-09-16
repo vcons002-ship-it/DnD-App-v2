@@ -251,7 +251,7 @@ export function createSnapshotBuilder(
     let shapedRollLog = rollLog;
     let shapedChat = chat;
 
-    if (role === 'player') {
+    if (role !== 'dm') {
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;

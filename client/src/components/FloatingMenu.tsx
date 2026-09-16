@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { effectiveSheetAbility } from '../../../shared/spellExecution';
 import type {
   Character,
   Monster,
@@ -76,8 +77,10 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   // Right-clicking the caster's OWN token still offers its heals (cast on self);
   // other rollable kinds need a distinct target.
   const targetingSelf = !!attacker && attacker.id === token.id;
-  const castable = (a: SheetAbility) =>
-    !!a.roll && (!targetingSelf || a.roll.kind === 'heal');
+  const castable = (a: SheetAbility) => {
+    const roll = effectiveSheetAbility(a).roll;
+    return !!roll && (!targetingSelf || roll.kind === 'heal');
+  };
   const pcAbilities: SheetAbility[] =
     aChar && (isDm || aChar.claimedBy === mySocketId)
       ? aChar.sheetAbilities.filter(castable)

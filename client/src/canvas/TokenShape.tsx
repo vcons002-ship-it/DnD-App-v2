@@ -5,6 +5,7 @@ import {
   Rect,
   RegularPolygon,
   Line,
+  Shape,
   Text,
   Image as KonvaImage,
 } from 'react-konva';
@@ -322,6 +323,7 @@ function TokenShapeInner({
     <>
     <Group
       name="token"
+      tokenId={token.id}
       x={token.x}
       y={token.y}
       listening={listening}
@@ -354,6 +356,9 @@ function TokenShapeInner({
       onMouseOut={handleMouseOut}
       opacity={token.isHidden ? 0.45 : 1}
     >
+      {/* The entire painted token is decoration. Names, badges, HP bars and
+          status/turn rings must not steal clicks from nearby token bodies. */}
+      <Group name="token-art" listening={false}>
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
       {auras.map((a, i) => (
         <Circle
@@ -542,6 +547,47 @@ function TokenShapeInner({
             />
           );
         })()}
+      </Group>
+      {/* One hit-only node follows the actual body silhouette, without padding
+          from labels, shadows, selected outlines or decorative rings. The empty
+          scene function paints nothing; Konva uses hitFunc on its separate hit
+          canvas, and events still bubble to the existing draggable token group.
+          Group listening=false (e.g. measuring) also disables this hit region. */}
+      <Shape
+        name="token-hit-region"
+        tokenId={token.id}
+        fill="#000"
+        strokeEnabled={false}
+        shadowEnabled={false}
+        perfectDrawEnabled={false}
+        sceneFunc={() => {}}
+        hitFunc={(ctx, hitShape) => {
+          ctx.beginPath();
+          // An image token paints a circular fallback until its icon loads
+          // (or if the icon is missing/failed), so its hit region must too.
+          if (shape === 'square' || (shape === 'image' && hasImageIcon && iconImg)) {
+            ctx.rect(-radius, -radius, radius * 2, radius * 2);
+          } else if (shape === 'diamond') {
+            // RegularPolygon's four vertices lie on its 1.3r radius, not on
+            // the smaller icon clipping path used by the existing artwork.
+            const r = radius * 1.3;
+            ctx.moveTo(0, -r);
+            ctx.lineTo(r, 0);
+            ctx.lineTo(0, r);
+            ctx.lineTo(-r, 0);
+            ctx.closePath();
+          } else if (shape === 'triangle') {
+            ctx.moveTo(0, -radius);
+            ctx.lineTo(radius * 0.87, radius * 0.5);
+            ctx.lineTo(-radius * 0.87, radius * 0.5);
+            ctx.closePath();
+          } else {
+            ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
+            ctx.closePath();
+          }
+          ctx.fillStrokeShape(hitShape);
+        }}
+      />
     </Group>
     {/* Drag-distance readout (only on draggable tokens; hidden until a drag
         starts, then driven imperatively in paintDrag — never re-renders). A
