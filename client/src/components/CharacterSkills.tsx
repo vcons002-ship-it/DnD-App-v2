@@ -19,9 +19,18 @@ import { AdvantageToggle } from './AdvantageToggle';
 export function CharacterSkills({
   character,
   editable,
+  defaultOpen = false,
+  compact = false,
+  hideAdvantage = false,
+  onRolled,
 }: {
   character: Character;
   editable: boolean;
+  defaultOpen?: boolean;
+  compact?: boolean;
+  /** A containing checks panel can provide the same shared advantage control. */
+  hideAdvantage?: boolean;
+  onRolled?: () => void;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const rollSkill = useStore((s) => s.rollSkill);
@@ -40,19 +49,18 @@ export function CharacterSkills({
     updateCharacter({ characterId: character.id, proficientSkills: [...next] });
   };
 
-  const roll = (name: string) =>
+  const roll = (name: string) => {
     rollSkill({
       characterId: character.id,
       skill: name,
       advantage: consumeAdvantage(character.id),
     });
+    onRolled?.();
+  };
 
-  return (
-    <details className="skills collapse-section">
-      <summary className="collapse-head">
-        Skills <span className="muted">Proficiency {signed(pb)}</span>
-      </summary>
-      {editable && (
+  const contents = (
+    <>
+      {editable && !hideAdvantage && (
         <div className="skills-head">
           <AdvantageToggle entityId={character.id} className="skill-adv" />
         </div>
@@ -71,6 +79,7 @@ export function CharacterSkills({
                 disabled={!editable}
                 onClick={() => toggle(s.name)}
                 aria-pressed={isProf}
+                aria-label={`Toggle ${s.name} proficiency`}
                 title={
                   editable
                     ? isProf
@@ -88,17 +97,33 @@ export function CharacterSkills({
                 className="skill-roll"
                 disabled={!editable}
                 onClick={() => roll(s.name)}
+                aria-label={`Roll ${s.name} check ${signed(bonus)}`}
                 title={editable ? `Roll ${s.name} (d20 ${signed(bonus)})` : undefined}
               >
                 <span className="skill-name">{s.name}</span>
                 <span className="skill-abil muted">{s.ability}</span>
                 <span className="skill-bonus">{signed(bonus)}</span>
-                {editable && <span className="skill-die" aria-hidden="true">🎲</span>}
+                {editable && !compact && <span className="skill-die" aria-hidden="true">🎲</span>}
               </button>
             </div>
           );
         })}
       </div>
+    </>
+  );
+  if (compact) {
+    return (
+      <div className="skills compact-skills">
+        {contents}
+      </div>
+    );
+  }
+  return (
+    <details className="skills collapse-section" open={defaultOpen || undefined}>
+      <summary className="collapse-head">
+        Skills <span className="muted">Proficiency {signed(pb)}</span>
+      </summary>
+      {contents}
     </details>
   );
 }

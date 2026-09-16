@@ -70,6 +70,7 @@ test('a plain /roll animates the roll-reveal overlay', async ({ browser }) => {
   });
 
   // Type a dice command into the shared chat and send it.
+  await page.locator('.player-chat header button').click();
   const chat = page.locator('input[placeholder^="Message"]').first();
   await chat.fill('/roll 2d6+3');
   await chat.press('Enter');

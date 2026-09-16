@@ -1,0 +1,187 @@
+/* Presentation only: never change a gem button's size, position or transform.
+   In particular, concentric controls keep their translate(-50%, -50%) centre. */
+.player-fantasy .orb-resource-dock .resource-jewel.resource-gem,
+.player-fantasy .orb-resource-dock .resource-jewel.resource-gem.extra {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+.player-fantasy .resource-gem > .resource-gem-art,
+.player-fantasy .resource-gem > .resource-gem-reaction {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.player-fantasy .resource-gem svg,
+.player-fantasy .resource-gem svg * { pointer-events: none; }
+.resource-gem-art,
+.resource-gem-reaction {
+  --gem-flare: #fff0ff;
+  --gem-light: #dfb9ff;
+  --gem-mid: #a461e0;
+  --gem-deep: #51217f;
+  --gem-ink: #1a1031;
+}
+.gem-kind-sorcery {
+  --gem-flare: #fff1fc; --gem-light: #ffade1; --gem-mid: #e652b0;
+  --gem-deep: #811c63; --gem-ink: #2b0d29;
+}
+.gem-kind-superiority,
+.gem-kind-surge,
+.gem-kind-divinity {
+  --gem-flare: #fff7d8; --gem-light: #ffe08c; --gem-mid: #e8a53c;
+  --gem-deep: #864415; --gem-ink: #2b1a0b;
+}
+.gem-kind-nature,
+.gem-kind-healing,
+.gem-kind-wind {
+  --gem-flare: #edfff1; --gem-light: #a4f2bb; --gem-mid: #3db982;
+  --gem-deep: #155c49; --gem-ink: #0b2525;
+}
+.gem-kind-focus,
+.gem-kind-resolve {
+  --gem-flare: #efffff; --gem-light: #b3f0ff; --gem-mid: #52bddf;
+  --gem-deep: #1f577f; --gem-ink: #102439;
+}
+.gem-kind-rage {
+  --gem-flare: #fff1e9; --gem-light: #ffb2a8; --gem-mid: #e65767;
+  --gem-deep: #861b35; --gem-ink: #2e1020;
+}
+.gem-kind-custom,
+.gem-kind-inspiration {
+  --gem-flare: #fffaef; --gem-light: #e6f6d4; --gem-mid: #9ccbd0;
+  --gem-deep: #756488; --gem-ink: #24243a;
+}
+.player-fantasy .resource-gem .gem-lit-body { opacity: 0; }
+.player-fantasy .resource-gem.lit .gem-lit-body { opacity: 1; }
+.player-fantasy .resource-gem .gem-level-radiance { opacity: 0; }
+/* A steady L1-IX intensity ladder, restricted to available spell slots at rest.
+   Keep metal, spent facets, custom/class resources and event particles intact. */
+.player-fantasy .resource-gem.lit[data-gem-spell-level][data-gem-effect='idle'] .gem-lit-body {
+  filter: brightness(var(--gem-idle-brightness, 1));
+}
+.player-fantasy .resource-gem.lit[data-gem-spell-level][data-gem-effect='idle'] .gem-level-radiance {
+  opacity: var(--gem-idle-radiance, 0);
+}
+.player-fantasy .resource-gem .gem-facet-reflection { opacity: .86; }
+.player-fantasy .resource-gem:hover .gem-facet-reflection,
+.player-fantasy .resource-gem:focus-visible .gem-facet-reflection { opacity: 1; }
+.player-fantasy .resource-gem .resource-gem-reaction { z-index: 2; }
+.player-fantasy .resource-gem .gem-energy-thread {
+  stroke-dasharray: 32 68;
+  stroke-dashoffset: 0;
+  opacity: 0;
+}
+.player-fantasy .resource-gem .gem-energy-mote,
+.player-fantasy .resource-gem .gem-reaction-flare,
+.player-fantasy .resource-gem .gem-event-sparkle {
+  transform-origin: 16px 16px;
+  opacity: 0;
+}
+
+/* Finite events only. Resource changes do not imply HP conversion: energy
+   disperses immediately above this socket or converges locally back into it. */
+.player-fantasy .resource-gem[data-gem-effect='spend'] .gem-lit-body {
+  animation: gem-color-spend 950ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='restore'] .gem-lit-body {
+  animation: gem-color-restore 1100ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='spend'] .gem-energy-thread {
+  animation: gem-thread-spend 950ms cubic-bezier(.22,.52,.3,1) both;
+}
+.player-fantasy .resource-gem[data-gem-effect='restore'] .gem-energy-thread {
+  animation: gem-thread-restore 1100ms cubic-bezier(.38,.04,.56,1) both;
+}
+.player-fantasy .resource-gem[data-gem-effect='spend'] .gem-energy-mote {
+  animation: gem-mote-spend 950ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='restore'] .gem-energy-mote {
+  animation: gem-mote-restore 1100ms ease-in-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='spend'] .gem-reaction-flare {
+  animation: gem-flare-spend 950ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='restore'] .gem-reaction-flare {
+  animation: gem-flare-restore 1100ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='spend'] .gem-event-sparkle {
+  animation: gem-spark-spend 950ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='restore'] .gem-event-sparkle {
+  animation: gem-spark-restore 1100ms ease-out both;
+}
+@keyframes gem-color-spend {
+  0%, 14% { opacity: 1; }
+  35% { opacity: .72; }
+  74% { opacity: .12; }
+  100% { opacity: 0; }
+}
+@keyframes gem-color-restore {
+  0%, 27% { opacity: 0; }
+  48% { opacity: .26; }
+  67%, 100% { opacity: 1; }
+}
+@keyframes gem-thread-spend {
+  0%, 7% { stroke-dashoffset: 30; opacity: 0; }
+  18% { opacity: .98; }
+  73% { opacity: .72; }
+  100% { stroke-dashoffset: -100; opacity: 0; }
+}
+@keyframes gem-thread-restore {
+  0% { stroke-dashoffset: -100; opacity: 0; }
+  18% { opacity: .85; }
+  50% { opacity: .98; }
+  73%, 100% { stroke-dashoffset: 32; opacity: 0; }
+}
+@keyframes gem-mote-spend {
+  0%, 8% { transform: translate(0,0) scale(.45); opacity: 0; }
+  19% { transform: translate(calc(var(--mote-x) * .18),calc(var(--mote-y) * .18)) scale(1); opacity: 1; }
+  76% { transform: translate(calc(var(--mote-x) * .84),calc(var(--mote-y) * .84)) scale(.9); opacity: .74; }
+  100% { transform: translate(var(--mote-x),var(--mote-y)) scale(.35); opacity: 0; }
+}
+@keyframes gem-mote-restore {
+  0% { transform: translate(var(--mote-x),var(--mote-y)) scale(.8); opacity: 0; }
+  19% { transform: translate(calc(var(--mote-x) * .85),calc(var(--mote-y) * .85)) scale(1); opacity: .9; }
+  58% { transform: translate(calc(var(--mote-x) * .25),calc(var(--mote-y) * .25)) scale(1.08); opacity: 1; }
+  76%, 100% { transform: translate(0,0) scale(.5); opacity: 0; }
+}
+@keyframes gem-flare-spend {
+  0% { transform: scale(.5); opacity: .3; }
+  14% { transform: scale(1.02); opacity: .98; }
+  46% { transform: scale(.8); opacity: .25; }
+  100% { transform: scale(.3); opacity: 0; }
+}
+@keyframes gem-flare-restore {
+  0%, 36% { transform: scale(.24); opacity: 0; }
+  59% { transform: scale(.8); opacity: .65; }
+  73% { transform: scale(1.09); opacity: .92; }
+  100% { transform: scale(.6); opacity: 0; }
+}
+@keyframes gem-spark-spend {
+  0% { transform: scale(.35) rotate(-10deg); opacity: 0; }
+  14% { transform: scale(.86) rotate(0deg); opacity: .9; }
+  38%, 100% { transform: scale(.28) rotate(10deg); opacity: 0; }
+}
+@keyframes gem-spark-restore {
+  0%, 49% { transform: scale(.22) rotate(-12deg); opacity: 0; }
+  70% { transform: scale(.98) rotate(0deg); opacity: 1; }
+  100% { transform: scale(.25) rotate(12deg); opacity: 0; }
+}
+.player-fantasy .resource-gem[data-gem-paused='true'] .resource-gem-art *,
+.player-fantasy .resource-gem[data-gem-paused='true'] .resource-gem-reaction * {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-fantasy .resource-gem .resource-gem-reaction { display: none; }
+  .player-fantasy .resource-gem .resource-gem-art * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

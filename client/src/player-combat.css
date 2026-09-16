@@ -1,0 +1,179 @@
+/* Explicitly opt-in player console. Shared DM controls and their layout do not
+   acquire these classes, even though the components and event handlers are reused. */
+.player-fantasy .player-combat .panel-section.compact-player-console {
+  padding: 7px;
+}
+.player-fantasy .compact-player-console > h3 {
+  margin: 0 0 4px;
+}
+.player-fantasy .compact-player-console > .hp-line {
+  margin: 2px 0 6px;
+  font-size: 12px;
+}
+.player-fantasy .compact-player-combat {
+  margin-top: 0;
+}
+.player-fantasy .compact-player-combat .dice-row {
+  gap: 5px;
+  margin: 0;
+  align-items: center;
+}
+.player-fantasy .compact-player-combat .combat-roll-controls {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #67563980;
+}
+.player-fantasy .compact-player-combat .combat-target-row select {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  min-height: 28px;
+  font-size: 12px;
+}
+.player-fantasy .compact-player-combat .combat-target-row > .spell-tag,
+.player-fantasy .compact-player-combat .combat-adv-row > .spell-tag {
+  width: 34px;
+  flex-shrink: 0;
+}
+.player-fantasy .compact-player-combat .combat-adv-row {
+  flex-wrap: nowrap;
+}
+.player-fantasy .compact-player-combat .adv-toggle.lg {
+  display: flex;
+  flex: 1;
+  gap: 5px;
+}
+.player-fantasy .compact-player-combat .adv-toggle.lg .adv-btn {
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+  flex: 1;
+}
+/* The highlighted, labelled buttons carry the visible state. Keep the longer
+   live announcement accessible without allowing it to add another HUD row. */
+.player-fantasy .compact-player-combat .combat-armed-note {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.player-fantasy .compact-player-combat .combat-toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 6px 0;
+}
+.player-fantasy .compact-player-combat .combat-toggle-row {
+  min-width: 0;
+  gap: 4px;
+  padding: 3px 4px 3px 6px;
+  border: 1px solid #66543580;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #3b322329, #11131860);
+}
+.player-fantasy .compact-player-combat .combat-toggle-row .res-name {
+  font-size: 11px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.player-fantasy .player-combat .compact-player-combat .combat-toggle-row .btn {
+  min-height: 26px;
+  padding: 3px 5px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.player-fantasy .compact-player-combat .combat-toggle-row:has(select) {
+  grid-column: 1 / -1;
+}
+.player-fantasy .compact-player-combat .combat-toggle-row select {
+  flex: 1;
+  min-width: 65px;
+  max-width: 46%;
+}
+.player-fantasy .compact-player-combat .combat-weapon-options {
+  margin: 6px 0 4px;
+}
+.player-fantasy .compact-player-combat .combat-weapon-options > .spell-tag {
+  margin-right: auto;
+}
+.player-fantasy .player-combat .compact-player-combat .combat-weapon-options .btn {
+  min-height: 26px;
+  padding: 3px 8px;
+}
+.player-fantasy .compact-player-combat .combat-weapon-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 5px;
+}
+.player-fantasy .compact-player-combat .combat-weapon-list .attack-row {
+  min-width: 0;
+  margin: 0;
+  padding: 5px 7px;
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.player-fantasy .compact-player-combat .combat-weapon-list .attack-row .muted {
+  white-space: nowrap;
+  font-size: 10px;
+}
+.player-fantasy .compact-player-combat .combat-ability-row .attack-row {
+  padding: 5px 7px;
+  margin: 2px 0;
+  font-size: 12px;
+}
+.player-fantasy .compact-player-combat .combat-ability-row .spell-level {
+  min-height: 28px;
+  margin: 0;
+  padding: 2px 3px;
+  font-size: 11px;
+}
+.player-fantasy .player-combat .compact-player-combat .resources {
+  margin-top: 6px;
+  padding-top: 5px;
+}
+.player-fantasy .compact-player-combat .res-header h4,
+.player-fantasy .compact-player-combat .res-sub {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #bca67e;
+}
+.player-fantasy .compact-player-combat .res-group {
+  margin-top: 3px;
+}
+.player-fantasy .compact-player-combat .res-row {
+  gap: 5px;
+  padding: 2px 0;
+}
+.player-fantasy .compact-player-combat .res-name {
+  font-size: 11px;
+}
+.player-fantasy .compact-player-combat .pips {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.player-fantasy .compact-player-console > .reorder-section {
+  margin-top: 6px;
+}
+.player-fantasy .compact-player-console > .reorder-section > .reorder-handle {
+  padding: 5px 3px;
+  min-height: 27px;
+}
+.player-fantasy .compact-player-console .reorder-label {
+  font-size: 11px;
+}
+@media (pointer: coarse) {
+  .player-fantasy .player-combat .compact-player-combat .combat-toggle-row .btn,
+  .player-fantasy .player-combat .compact-player-combat .combat-weapon-options .btn,
+  .player-fantasy .compact-player-combat .adv-toggle.lg .adv-btn {
+    min-height: 32px;
+  }
+}

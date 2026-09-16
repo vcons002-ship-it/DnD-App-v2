@@ -1,4 +1,7 @@
 node_modules/
+/.preview-data/
+/.preview-review/
+/preview-evidence/
 dist/
 build/
 
@@ -16,6 +19,16 @@ server/uploads/
 
 # Downloaded service manager (install-service.bat fetches nssm.exe here)
 tools/
+!tools/
+tools/*
+!tools/copy-preview-campaign.py
+!tools/start-player-preview.ps1
+!tools/verify-player-preview.cjs
+!tools/verify-campaign-startup.cjs
+!tools/verify-player-layout.cjs
+!tools/record-orb-motion.cjs
+!tools/record-resource-gems.cjs
+!tools/preview-nine-resource-rings.cjs
 
 # Playwright e2e output
 test-results/

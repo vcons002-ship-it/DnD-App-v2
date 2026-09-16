@@ -14,6 +14,7 @@ import { AbilityToggles, hasToggle } from './AbilityToggles';
 import { AdvantageToggle } from './AdvantageToggle';
 import { CharacterResources } from './CharacterResources';
 import { WeaponButtons } from './WeaponButtons';
+import { effectiveSheetAbility } from '../../../shared/spellExecution';
 
 /**
  * The right panel's unified "Combat" section: ONE target dropdown plus every
@@ -32,6 +33,7 @@ export function CombatSection({
   caster,
   kind,
   defaultTargetId,
+  compactPlayer = false,
 }: {
   snapshot: StateSnapshot;
   attacker: Token;
@@ -39,6 +41,8 @@ export function CombatSection({
   caster: Character | Monster;
   kind: TokenKind;
   defaultTargetId?: string;
+  /** Presentation only; all rolling, targeting and resource actions are shared. */
+  compactPlayer?: boolean;
 }) {
   const combatAttack = useStore((s) => s.combatAttack);
   // Advantage/disadvantage is the attacking creature's shared per-entity toggle
@@ -52,7 +56,7 @@ export function CombatSection({
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
   const weapons = caster.weapons;
-  const abilities = caster.sheetAbilities.filter((a) => !!a.roll);
+  const abilities = caster.sheetAbilities.filter((a) => !!effectiveSheetAbility(a).roll);
   // Summon-tagged spells/abilities get a ✋ Summon button right here in the console.
   const summonAbilities = caster.sheetAbilities.filter((a) => a.summon);
   const castSummon = (a: (typeof summonAbilities)[number]) => {
@@ -100,7 +104,7 @@ export function CombatSection({
 
   // Heals pick from allies instead (self first = default) and apply on cast.
   const healList = healTargets(snapshot, attacker);
-  const hasHeal = abilities.some((a) => a.roll?.kind === 'heal');
+  const hasHeal = abilities.some((a) => effectiveSheetAbility(a).roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
 
   const nothingRollable = weapons.length === 0 && abilities.length === 0;
@@ -127,12 +131,12 @@ export function CombatSection({
       (w.tags ?? []).some((t) => t.toLowerCase() === 'versatile'),
   );
 
-  return (
-    <div className="attack-controls">
+  const rollControls = (
+    <>
       {targets.length > 0 && !nothingRollable && (
-        <div className="dice-row">
+        <div className="dice-row combat-target-row">
           <span className="muted spell-tag">Target</span>
-          <select value={effectiveTargetId} onChange={(e) => setTargetId(e.target.value)}>
+          <select aria-label="Attack target" value={effectiveTargetId} onChange={(e) => setTargetId(e.target.value)}>
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
                 {resolveToken(snapshot, t).name}
@@ -141,19 +145,43 @@ export function CombatSection({
           </select>
         </div>
       )}
-      {nothingRollable && (
-        <p className="muted">No attacks or rollable abilities.</p>
-      )}
       {!nothingRollable && (
         <div className="dice-row combat-adv-row">
-          <span className="muted spell-tag">Next roll</span>
+          <span className="muted spell-tag">{compactPlayer ? 'Roll' : 'Next roll'}</span>
           <AdvantageToggle entityId={attacker.refId} size="lg" />
           {armedAdv && (
-            <span className={armedAdv === 'adv' ? 'adv-up' : 'adv-down'}>
+            <span className={`${armedAdv === 'adv' ? 'adv-up' : 'adv-down'}${compactPlayer ? ' combat-armed-note' : ''}`} role="status">
               {armedAdv === 'adv' ? 'advantage armed' : 'disadvantage armed'}
             </span>
           )}
         </div>
+      )}
+    </>
+  );
+
+  const weaponButtons = (
+    <WeaponButtons
+      weapons={weapons}
+      twoHanded={twoHanded}
+      disabled={!effectiveTargetId}
+      onAttack={(i) =>
+        combatAttack({
+          attackerTokenId: attacker.id,
+          targetTokenId: effectiveTargetId,
+          weaponIndex: i,
+          advantage: consumeAdvantage(attacker.refId),
+          offhand: offhand || undefined,
+          twoHanded: twoHanded || undefined,
+        })
+      }
+    />
+  );
+
+  return (
+    <div className={`attack-controls${compactPlayer ? ' compact-player-combat' : ''}`}>
+      {compactPlayer ? <div className="combat-roll-controls">{rollControls}</div> : rollControls}
+      {nothingRollable && (
+        <p className="muted">No attacks or rollable abilities.</p>
       )}
       {/* Damage/attack-altering toggles (Rage, masteries, maneuvers, marks). */}
       <AbilityToggles
@@ -165,7 +193,8 @@ export function CombatSection({
       />
       {weapons.length > 0 && (
         <>
-          <div className="dice-row">
+          <div className="dice-row combat-weapon-options">
+            {compactPlayer && <span className="muted spell-tag">Weapons</span>}
             <button
               className={`btn tiny ${offhand ? 'on' : ''}`}
               title="Off-hand attack: drop the ability modifier from damage"
@@ -183,21 +212,7 @@ export function CombatSection({
               </button>
             )}
           </div>
-          <WeaponButtons
-            weapons={weapons}
-            twoHanded={twoHanded}
-            disabled={!effectiveTargetId}
-            onAttack={(i) =>
-              combatAttack({
-                attackerTokenId: attacker.id,
-                targetTokenId: effectiveTargetId,
-                weaponIndex: i,
-                advantage: consumeAdvantage(attacker.refId),
-                offhand: offhand || undefined,
-                twoHanded: twoHanded || undefined,
-              })
-            }
-          />
+          {compactPlayer ? <div className="combat-weapon-list">{weaponButtons}</div> : weaponButtons}
         </>
       )}
       {hasHeal && healList.length > 0 && (
@@ -237,9 +252,9 @@ export function CombatSection({
           ))}
         </div>
       )}
-      {/* Spell slots + class resources, spendable right where they're used
-          (the full tracker stays on the character sheet too). */}
-      {'resources' in caster && (
+      {/* The compact player HUD already owns the editable resource rack.
+          Keep the original resource controls in the unchanged DM console. */}
+      {'resources' in caster && !compactPlayer && (
         <CharacterResources character={caster} editable compact />
       )}
     </div>

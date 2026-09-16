@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.resolve(__dirname, '..');
@@ -14,6 +15,25 @@ const repoRoot = path.resolve(serverRoot, '..');
 dotenv.config();
 dotenv.config({ path: path.join(repoRoot, '.env') });
 dotenv.config({ path: path.join(serverRoot, '.env') });
+
+// Optional isolation boundary for previews/tests. Normal installs keep every
+// existing path and credential; a sandbox keeps ALL mutable files together.
+const dataDir = process.env.DATA_ROOT
+  ? path.resolve(process.env.DATA_ROOT)
+  : path.join(serverRoot, 'data');
+const uploadsDir = process.env.DATA_ROOT
+  ? path.join(dataDir, 'uploads')
+  : path.join(serverRoot, 'uploads');
+
+// Refuse test startup before secrets, migrations, uploads or backups can write
+// anywhere outside the disposable directory allocated by vitest.config.ts.
+if (process.env.VITEST) {
+  const database = path.resolve(process.env.DB_PATH || path.join(dataDir, 'game.db'));
+  if (path.dirname(dataDir) !== path.resolve(os.tmpdir()) ||
+      !path.basename(dataDir).startsWith('dnd-unit-') || path.dirname(database) !== dataDir) {
+    throw new Error('Tests require an isolated dnd-unit-* temporary data root and database.');
+  }
+}
 
 /** Where the DM secret came from — the boot banner shows it only when we own it
  *  (generated / loaded from disk), never when the DM set DM_PASSPHRASE. */
@@ -60,9 +80,12 @@ function resolveDmSecret(dataDir: string): string {
   return secret;
 }
 
-const resolvedDmSecret = resolveDmSecret(path.join(serverRoot, 'data'));
+const resolvedDmSecret = resolveDmSecret(dataDir);
 
 export const config = {
+  preview: process.env.DND_PREVIEW === '1',
+  // No override retains Node's existing dual-stack default in normal installs.
+  host: process.env.DND_HOST || undefined,
   port: Number(process.env.PORT ?? 4000),
   /** Explicit public URL override (named tunnel or custom provider). */
   publicUrl: process.env.PUBLIC_URL?.replace(/\/$/, '') || '',
@@ -124,15 +147,15 @@ export const config = {
    *  per-question backend; 'local' here is a global lockdown that wins. */
   aiMode: (process.env.AI_MODE === 'local' ? 'local' : 'gemini') as 'gemini' | 'local',
   /** Absolute paths to local storage (created on boot). */
-  dataDir: path.join(serverRoot, 'data'),
-  uploadsDir: path.join(serverRoot, 'uploads'),
+  dataDir,
+  uploadsDir,
   // DB_PATH lets tests / alternate installs point at a throwaway database
   // instead of the real save; defaults to the durable data/game.db.
-  dbPath: process.env.DB_PATH || path.join(serverRoot, 'data', 'game.db'),
+  dbPath: process.env.DB_PATH || path.join(dataDir, 'game.db'),
   /** Runtime settings overrides (API key / model) editable from the UI. */
-  settingsPath: path.join(serverRoot, 'data', 'settings.json'),
+  settingsPath: path.join(dataDir, 'settings.json'),
   /** Uploaded rulebook PDF, parsed into searchable chunks (rules assistant). */
-  rulebookPath: path.join(serverRoot, 'data', 'rulebook.json'),
+  rulebookPath: path.join(dataDir, 'rulebook.json'),
   /** Where the built client lives (served in production). */
   clientDist: path.resolve(serverRoot, '..', 'client', 'dist'),
 };

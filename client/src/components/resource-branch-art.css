@@ -1,0 +1,26 @@
+/* The original scrollwork keeps its existing 177 x 91 logical-pixel scale at
+   both ends. Only the repeating inlay takes up the newly available width.
+   PlayerHud owns the outer branch's position, height and available width. */
+.player-fantasy .hud-branch-art.resource-branch-extended {
+  display: flex;
+  align-items: stretch;
+  pointer-events: none;
+  user-select: none;
+}
+.resource-branch-extended .resource-branch-cap,
+.resource-branch-extended .resource-branch-middle {
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+.resource-branch-extended .resource-branch-cap-start { flex: 0 0 67.4121px; }
+.resource-branch-extended .resource-branch-cap-end { flex: 0 0 60.3252px; }
+.resource-branch-extended .resource-branch-inlay {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+}
+.resource-branch-extended .resource-branch-middle { flex: 1 1 0; min-width: 0; width: 0; }
+.resource-branch-extended .resource-branch-middle-mirrored { transform: scaleX(-1); }

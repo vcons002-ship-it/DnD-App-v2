@@ -6,6 +6,91 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Cross-cutting invariants (must always hold)
 
+### Player dark-fantasy preview — September 2026
+
+- ☑ Bottom-left race/class orb HUD, animated HP/temp HP, editable jewel resource
+  rows and visibly marked extra spell-slot capacity; existing counters retained.
+- ☑ Independent top-right combat and bottom-right chat; existing combat controls,
+  log overlay and dice picker reused. DM layout/mechanics unchanged.
+- ☑ 3D d4/d6/d8/d10/d12/d20 and paired-d10 percentile dice in the existing popup;
+  server-authoritative outcomes and reduced-motion fallback.
+- ☑ Fully isolated testing, resource maximum preservation, role/session gates,
+  async error handling and verified backup-completion reporting.
+- ☑ Campaign-copy startup compatibility and desktop/laptop browser walkthrough.
+- ☑ Player review revision 2: face-forward dice landings; both authoritative
+  advantage/disadvantage sets; left-edge relief-icon rail with hover/focus help;
+  compact orb/resource dock; single-heading, corner-docked combat console.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_2_2026-09-16.md).
+- ☑ Player review revision 3: independent two-axis combat/chat resizing; smaller
+  browser-local UI scale controls; bottom activity feed and chat bubble; compact
+  Skills/Abilities/Saves drawer; Roman resource medallions and orb identity crest.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_3_2026-09-16.md).
+- ☑ Player review revision 4: connected responsive dice picker; familiar Stat/Save
+  popup; unobscured guardian art; non-scrolling class-resource clusters with a
+  separate custom drawer; directly editable named condition chips.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_4_2026-09-16.md).
+- ☑ Player review revision 5: unobstructed common damage-action dock; existing
+  spell targeting beside weapon damage; engraved identity and AC shield above
+  the orb; selectable compact/concentric resources without visible fractions.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_5_2026-09-16.md).
+- ☑ Player review revision 6: bottom-aligned concentric resource sigils with
+  upward, level-aligned jewels; transparent map-through orb/name/resource art;
+  integrated AC/temp HP and relocated utility controls; liquid depth, bubbles
+  and cosmetic HP-change reactions; corrected female guardian artwork.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_6_2026-09-16.md).
+- ☑ Player review revision 7: temporary HP at the bottom-right of the guardian
+  artwork opposite AC, with clear resource-symbol spacing.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_7_2026-09-16.md).
+- ☑ Player review revision 8: restored the original resource-symbol height;
+  only temporary HP is compacted to fit below it at the bottom-right.
+  [Revision notes](docs/PLAYER_HUD_REVISION_8_2026-09-16.md).
+- ☑ Player review revision 9: temporary HP is a transparent animated ward over
+  the globe with blue +X text; AC is an engraved metal shield nudged left.
+  Resource positions and existing health behavior are unchanged.
+  [Revision notes](docs/PLAYER_HUD_REVISION_9_2026-09-16.md).
+- ☑ Player review revision 10: replaced the temporary-HP crest with a spherical
+  magical force field; no effect or bonus remains visible at zero temporary HP.
+  [Revision notes](docs/PLAYER_HUD_REVISION_10_2026-09-16.md).
+- ☑ Player review revision 11: refined ruby life-fluid with a thin wet surface,
+  depth-aware translucency, irregular currents and distinct damage/healing
+  motion; no minimum wobble or changes to gameplay, art placement or resources.
+  [Revision notes](docs/PLAYER_HUD_REVISION_11_2026-09-16.md).
+- ☑ Player review revision 12: visible rolling liquid crests and contained
+  damage splashes, stronger internal depth, and temporary-HP hit ripples with
+  a brief final-hit dissipation; no gameplay or HUD geometry changes.
+  [Revision notes](docs/PLAYER_HUD_REVISION_12_2026-09-16.md).
+- ☑ Player review revision 13: dimensional colored resource gems in engraved
+  sockets, inner emission and finite spend/restore energy streams; existing
+  counters, extra-capacity guidance, click targets and arc geometry retained.
+  [Revision notes](docs/PLAYER_HUD_REVISION_13_2026-09-16.md).
+- ☑ Player review revision 14: nine concentric resource rings with a wider
+  segmented filigree base and matching bottom-feed clearance; original orb,
+  symbol baseline and ordinary five-or-fewer-ring layout retained.
+  [Revision notes](docs/PLAYER_HUD_REVISION_14_2026-09-16.md).
+- ☑ Player review revision 15: tenth outer resource ring, adjacent additional-
+  resources icon, and a shared overflow drawer instead of upper resource rows.
+  Saved counters and existing correction/spending controls are unchanged.
+  [Revision notes](docs/PLAYER_HUD_REVISION_15_2026-09-16.md).
+- ☑ Player review revision 16: custom trackers fill available resource rings
+  after spell slots and class resources; priority-based ten-row rack and shared
+  overflow, with existing saved counters and resource behavior retained.
+  [Revision notes](docs/PLAYER_HUD_REVISION_16_2026-09-16.md).
+- ☑ Player review revision 17: per-custom-resource Show by orb preference in
+  Character > Resources, browser-local to each character; empty overflow icon
+  and drawer are hidden. No counter or DM behavior changes.
+  [Revision notes](docs/PLAYER_HUD_REVISION_17_2026-09-16.md).
+- ☑ Player review revision 18: reviewed spell saves/targeting, separate spell
+  attack damage and per-ray attacks, casting/healing corrections, per-cast
+  damage types and silhouette-accurate token clicks. Shared mechanics corrected;
+  DM layout and saved definitions retained. Further spell lifecycle work is open.
+  [Revision notes and remaining backlog](docs/PLAYER_HUD_REVISION_18_2026-09-16.md).
+- ☑ Main reconciliation and release defaults: concentric arcs, final guardian
+  art and compact player layout by default; newer Main initiative/racial-trait,
+  ADV/DIS, Slides overlay and reveal-timing fixes retained.
+- ☐ Final PR review and approved production deployment. A PR is not a shipped
+  server update. See [current release candidate](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
+- See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
+
 - ☑ **Durable sessions [req].** Every session code, its game state (maps, tokens,
   positions, HP, conditions, initiative), and created/last-played **dates**
   persist in local SQLite (`server/src/db.ts`). Restarting the server / re-running

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
@@ -17,11 +17,14 @@ const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 export function DicePanel({
   snapshot,
   speakAsTokenId,
+  compact = false,
 }: {
   snapshot: StateSnapshot;
   /** DM only: the currently-selected token, so a chat message can be "spoken as"
    *  that NPC/monster (bubble + sender name). */
   speakAsTokenId?: string | null;
+  /** Player floating chat: tuck the existing roller/settings above the feed. */
+  compact?: boolean;
 }) {
   const rollDice = useStore((s) => s.rollDice);
   const clearRollLog = useStore((s) => s.clearRollLog);
@@ -172,8 +175,11 @@ export function DicePanel({
     setChatText('');
   };
 
+  const Controls = compact ? 'details' : Fragment;
   return (
     <div className="panel-section dice-panel">
+      <Controls {...(compact ? { className: 'chat-dice-options' } : {})}>
+      {compact && <summary>Dice & display options</summary>}
       <h3>Dice</h3>
       <div className="dice-quick">
         {QUICK.map((q) => (
@@ -262,6 +268,7 @@ export function DicePanel({
           </button>
         )}
       </div>
+      </Controls>
       <div className="roll-log" ref={logRef} onScroll={onLogScroll}>
         {feed.length === 0 && <p className="muted">No rolls or messages yet.</p>}
         {feed.map((item) => {
@@ -340,33 +347,42 @@ export function DicePanel({
                   // Darts (Magic Missile): roll-on-click, capped at the dart count.
                   // New entries use `darts`; legacy entries used a pre-rolled `split`.
                   const dartCount = r.apply.darts ?? r.apply.split?.length;
+                  const attacks = r.apply.attacks ?? 0;
+                  const remainingAttacks = Math.max(0, attacks - (r.apply.consumedAttacks ?? 0));
+                  const remainingDarts = Math.max(0, (dartCount ?? 0) - (r.apply.consumedDarts ?? 0));
+                  const completed = (attacks > 0 && remainingAttacks === 0) || (dartCount ? remainingDarts === 0 : false) ||
+                    (r.apply.targetMode === 'single' && !!r.apply.consumedTargets?.length);
+                  const saveOnly = !!r.apply.save && r.apply.amount === 0 && !dartCount;
                   return (
                   <button
                     className={`btn tiny apply-dmg ${saveResolve?.rollId === r.id ? 'on' : ''}`}
+                    disabled={completed}
                     onClick={() =>
                       armSaveResolve({
                         rollId: r.id,
                         dc: r.apply!.dc,
                         save: r.apply!.save,
                         label: r.expr,
-                        splitTotal: dartCount,
+                        splitTotal: dartCount ? remainingDarts : undefined,
                       })
                     }
                     title={
-                      dartCount
-                        ? `Click ${dartCount} target(s) to assign each dart (rolls on each hit)`
+                      completed ? 'All targets or attacks for this cast have been assigned; finish any pending damage separately.' : attacks
+                        ? `Assign ${remainingAttacks} remaining spell attacks; each click rolls one ray, then finish its damage`
+                        : dartCount
+                        ? `Click ${remainingDarts} target(s) to assign the remaining darts (rolls on each hit)`
                         : r.apply!.save
-                          ? `Click targets on the map to roll DC ${r.apply!.dc} ${r.apply!.save} saves and auto-apply full/half`
+                          ? `Click targets on the map to roll DC ${r.apply!.dc} ${r.apply!.save} saves${saveOnly ? '; spell effects remain manual' : `; success takes ${r.apply!.saveDamage === 'none' ? 'no' : 'half'} damage`}`
                           : `Click targets on the map to apply ${r.apply!.amount} damage`
                     }
                   >
-                    {saveResolve?.rollId === r.id
-                      ? dartCount
-                        ? `🎯 Dart ${(saveResolve.splitUsed ?? 0) + 1}/${dartCount}… (Esc)`
+                    {completed ? attacks ? '✓ Attacks assigned' : '✓ Resolved' : saveResolve?.rollId === r.id
+                      ? attacks ? `🎯 ${remainingAttacks} attacks left… (Esc)` : dartCount
+                        ? `🎯 Dart ${(saveResolve.splitUsed ?? 0) + 1}/${saveResolve.splitTotal}… (Esc)`
                         : '🎯 Targeting… (Esc)'
-                      : dartCount
+                      : attacks ? '🎯 Assign rays' : dartCount
                         ? `🎯 Assign darts`
-                        : '🎯 Apply damage'}
+                        : saveOnly ? '🎯 Roll saving throws' : '🎯 Apply damage'}
                   </button>
                   );
                 })()}

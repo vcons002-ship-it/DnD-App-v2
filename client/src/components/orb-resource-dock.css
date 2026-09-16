@@ -1,0 +1,174 @@
+/* Live controls on an open sculpted branch. Only overflow trackers scroll. */
+.player-fantasy .orb-resource-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: static;
+}
+.player-fantasy .orb-resource-dock .resource-dock-tools {
+  order: 2;
+  justify-content: flex-start;
+  gap: 7px;
+  margin: 0;
+}
+.player-fantasy .orb-resource-dock .resource-title { font: 11px Georgia, serif; }
+.player-fantasy .orb-resource-dock .resource-title span { font-size: 10px; }
+.player-fantasy .orb-resource-dock .resource-dock-tools .btn {
+  font-size: 10px;
+  padding: 2px 5px;
+  background: #151719c9;
+}
+.player-fantasy .core-resource-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  overflow: visible;
+  max-height: none;
+  pointer-events: auto;
+}
+.player-fantasy .orb-resource-dock .core-resource {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 5px;
+  min-width: 0;
+  background: none;
+  padding: 0;
+  filter: drop-shadow(0 2px 2px #000);
+}
+.player-fantasy .orb-resource-dock .core-resource .jewel-label { justify-content: center; gap: 3px; flex: 0 0 26px; }
+.player-fantasy .orb-resource-dock .core-resource .resource-amount { margin-left: 0; font-size: 10px; }
+.player-fantasy .orb-resource-dock .core-resource .resource-sigil { width: 26px; height: 26px; flex-basis: 26px; }
+.player-fantasy .orb-resource-dock .core-resource .resource-sigil-trigger { min-height: 26px; }
+.player-fantasy .orb-resource-dock .core-resource .jewel-sockets { justify-content: flex-start; gap: 3px; flex: 1; }
+.player-fantasy .orb-resource-dock .core-resource .resource-jewel { width: 17px; height: 17px; flex-basis: 17px; }
+.player-fantasy .orb-resource-dock .core-resource .resource-reference-warning { padding: 0; font-size: 8px; text-align: center; }
+.player-fantasy .orb-resource-dock .core-resource.class-resource {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  gap: 5px;
+  padding: 0;
+  background: linear-gradient(90deg, transparent, #b5a17d45, transparent) center bottom / 90% 1px no-repeat;
+}
+.player-fantasy .orb-resource-dock .core-resource.class-resource .jewel-label { flex: 0 0 26px; justify-content: center; }
+.player-fantasy .orb-resource-dock .core-resource.class-resource .resource-sigil-caption { display: none; }
+.player-fantasy .orb-resource-dock .core-resource.class-resource .jewel-sockets { justify-content: flex-start; flex: 1; }
+.player-fantasy .orb-resource-dock .custom-resource-drawer {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: 300px;
+  max-width: calc(95vw / var(--player-ui-scale));
+  padding: 12px;
+  pointer-events: auto;
+  z-index: 8;
+  box-sizing: border-box;
+}
+.player-fantasy .orb-resource-dock .custom-resource-rows { max-height: min(320px, 45vh); overflow: auto; }
+.player-fantasy .orb-resource-dock .custom-resource-drawer .jewel-row { grid-template-columns: 118px minmax(0, 1fr); padding: 5px 0; }
+.player-fantasy .orb-resource-dock .custom-resource-drawer .resource-sigil-caption { max-width: 63px; font-family: Georgia, serif; font-size: 11px; }
+.player-fantasy .orb-resource-dock .resource-adjust { z-index: 10; }
+.player-fantasy .empty-resource-dock { color: #beb5a5; font-size: 10px; }
+
+/* Concentric rails share the orb's centre; the jewels are ordinary keyboard-
+   accessible HTML buttons over decorative SVG, not baked-in illustrations. */
+.player-fantasy .concentric-resource-rows {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  z-index: 2;
+  margin: 0;
+  pointer-events: none;
+}
+.player-fantasy .orb-resource-dock .core-resource.curved-resource { display: contents; }
+.player-fantasy .curved-resource .resource-arc-metal {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.player-fantasy .resource-arc-metal path { fill: none; stroke: #b3a184; stroke-width: .75px; opacity: .55; }
+.player-fantasy .orb-resource-dock .curved-resource .jewel-label,
+.player-fantasy .orb-resource-dock .curved-resource .resource-jewel {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  white-space: nowrap;
+  filter: drop-shadow(0 2px 2px #000);
+}
+.player-fantasy .orb-resource-dock .curved-resource .jewel-sockets { display: contents; }
+.player-fantasy .orb-resource-dock .curved-resource .resource-sigil-caption { display: none; }
+.player-fantasy .orb-resource-dock .curved-resource .resource-reference-warning { display: none; }
+.player-fantasy .compact-resource-rows { display: grid; gap: 2px; }
+.player-fantasy .orb-resource-dock .resource-custom-trigger {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+}
+.player-fantasy .resource-custom-trigger > svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 2px #000); }
+.player-fantasy .resource-custom-trigger:hover > svg,
+.player-fantasy .resource-custom-trigger:focus-visible > svg { filter: drop-shadow(0 2px 2px #000) brightness(1.3); }
+.player-fantasy .resource-custom-trigger .resource-tool-tooltip {
+  position: absolute;
+  right: -1px;
+  bottom: calc(100% + 7px);
+  padding: 5px 8px;
+  border: 1px solid #8f7852;
+  border-radius: 3px;
+  color: #eed7af;
+  background: #151719f5;
+  font: 11px Georgia, serif;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+}
+.player-fantasy .resource-custom-trigger:hover .resource-tool-tooltip,
+.player-fantasy .resource-custom-trigger:focus-visible .resource-tool-tooltip { visibility: visible; opacity: 1; }
+.player-fantasy .custom-resource-help { font-size: 10px; line-height: 1.4; }
+.player-fantasy .custom-resource-preference {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  margin: 0 2px 0 6px;
+  font-size: 11px;
+  color: #e1cda5;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.player-fantasy .custom-resource-preference input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  margin: 0;
+  accent-color: #c9a666;
+}
+.player-fantasy .resource-display-help {
+  display: block;
+  margin: 5px 0 10px;
+  color: #b7b0a3;
+  font: 11px/1.45 'Segoe UI', sans-serif;
+}
+.player-fantasy .custom-resource-drawer .resource-reference { font-size: 10px; }
+.player-fantasy .player-resource-row-dialog {
+  width: min(340px, calc(100vw - 36px));
+  max-height: calc(100dvh - 48px);
+  box-sizing: border-box;
+  padding: 16px;
+  overflow: auto;
+}
+.player-fantasy .player-resource-row-dialog::backdrop { background: #0006; }
+.player-fantasy .player-resource-row-editor label { display: block; margin: 10px 0; font-size: 12px; }
+.player-fantasy .player-resource-row-editor input,
+.player-fantasy .player-resource-row-editor select { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; }
+.player-fantasy .player-resource-row-editor p { font-size: 11px; line-height: 1.4; }

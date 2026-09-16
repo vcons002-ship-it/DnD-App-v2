@@ -94,7 +94,7 @@ export function broadcastTokenDrag(
     // Players are locked to the active map; a DM may be staging another.
     const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
     if (token.mapId !== viewMapId) continue;
-    if (conn.role === 'player' && (token.isHidden || underFog)) continue;
+    if (conn.role !== 'dm' && (token.isHidden || underFog)) continue;
     io.to(socketId).emit('fx:tokenDrag', { tokenId: token.id, x, y });
   }
 }

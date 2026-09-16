@@ -38,6 +38,8 @@ type Props = {
   onMoveToken: (tokenId: string, x: number, y: number) => void;
   /** When set (DM placing a unit), a map click reports image-space coords. */
   onPlaceAt?: (x: number, y: number) => void;
+  /** Presentation-only: avoid duplicating the compact feed beside open chat. */
+  fullChatVisible?: boolean;
 };
 
 type View = { scale: number; x: number; y: number };
@@ -350,6 +352,7 @@ export function MapStage({
   onSelectToken,
   onMoveToken,
   onPlaceAt,
+  fullChatVisible = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
@@ -891,11 +894,11 @@ export function MapStage({
    */
   const mapOverlays = (
     <>
-      {showRollOverlay && (
+      {showRollOverlay && !fullChatVisible && (
         <RollLogOverlay rollLog={snapshot.rollLog} chat={snapshot.chat} />
       )}
       {showDiceButton && <DiceButtonOverlay selectedIds={selectedIds} />}
-      <DamagePrompt />
+      {isDm && <DamagePrompt />}
     </>
   );
 
@@ -1953,7 +1956,7 @@ export function MapStage({
             />
           )}
           {mapOverlays}
-          {saveResolve && (
+          {isDm && saveResolve && (
             <div className="save-resolve-banner">
               <span>
                 {saveResolve.save

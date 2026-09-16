@@ -170,8 +170,10 @@ export type Character = {
   armorClass: number;
   speed: string;
   stats: Record<string, number>;
-  spellSlots: Record<string, { max: number; used: number }>;
-  resources: Record<string, { max: number; used: number }>;
+  /** maxOverride: true = explicit fixed maximum; false = known newer default.
+   * Missing metadata on an existing save is supported without a migration. */
+  spellSlots: Record<string, { max: number; used: number; maxOverride?: boolean }>;
+  resources: Record<string, { max: number; used: number; maxOverride?: boolean }>;
   /** Permanent stat/roll adjustments (ASI, Resilient, racial). Magic-item
    *  effects live on the items themselves; both feed the effective-stat math
    *  in shared/modifiers.ts. */
@@ -235,6 +237,8 @@ export type CreatureAbility = {
  * above it (or, for cantrips at level 0, per caster-level tier).
  */
 export type AbilityRoll = {
+  /** Casting-time choices for a variable-type spell; a saved fixed type wins. */
+  damageTypeChoices?: string[];
   /** What the roll button does. */
   kind: 'attack' | 'save' | 'damage' | 'heal';
   /** Base dice for damage/heal, e.g. "8d6" or "3d4+3". */
@@ -243,6 +247,16 @@ export type AbilityRoll = {
   damageType?: string;
   /** For `save` rolls: the ability targets save with, e.g. "DEX". */
   save?: string;
+  /** On a successful save: no damage, or half (legacy rolls default to half). */
+  saveDamage?: 'none' | 'half';
+  /** Single-target saves resolve on cast; multiple-target rolls stay assignable. */
+  targetMode?: 'single' | 'multiple';
+  /** Explicit casting ability for a spell, including feats and multiclass spells. */
+  castingAbility?: 'INT' | 'WIS' | 'CHA';
+  /** Explicit healing addition; omitted preserves legacy spell/ability behavior. */
+  healingBonus?: 'none' | 'spellcasting' | 'fighterLevel';
+  /** Reviewed self-healing features do not use the selected friendly target. */
+  healTarget?: 'self' | 'selected';
   /** Explicit save DC (monster stat blocks give one); when unset it's derived. */
   dc?: number;
   /** Dice added per slot level above `baseLevel` (or per cantrip tier). */
@@ -253,11 +267,14 @@ export type AbilityRoll = {
    * Number of separate damage instances at `baseLevel` — e.g. Magic Missile's 3
    * darts. Each instance rolls `dice` independently and is assigned to a target
    * ONE click at a time (rather than the full total hitting every target). Only
-   * meaningful for `kind: 'damage'` (auto-hit, no save).
+   * meaningful for `kind: 'damage'` (auto-hit) or `kind: 'attack'` (one separate
+   * attack per ray). Attack instances share one casting/slot expenditure.
    */
   instances?: number;
   /** Extra instances per slot level above `baseLevel` (Magic Missile: +1 dart). */
   scaleInstances?: number;
+  /** Cantrip attack counts grow at levels 5/11/17 rather than by spell slot. */
+  instanceScaling?: 'cantrip';
 };
 
 /**
@@ -412,6 +429,8 @@ export type SheetAbility = {
   upcast?: string;
   /** Optional structured roll; absent for purely descriptive entries. */
   roll?: AbilityRoll;
+  /** Opt out of reviewed runtime spell defaults (e.g. after removing a roll). */
+  executionProfile?: 'manual';
   /** Weapon-mastery config (only when `type` is `mastery`). */
   mastery?: WeaponMastery;
   /** Battle Master maneuver config (only when `type` is `maneuver`). */
@@ -803,6 +822,18 @@ export type RevealStep = {
   /** For a dice step: the individual die faces rolled (e.g. [4, 6]). */
   faces?: number[];
 };
+/** Client-only presentation of both candidates already recorded by the server.
+ * Optional so older persisted roll reveals remain fully compatible. */
+export type RollComparison = {
+  mode: 'adv' | 'dis';
+  kind: 'd20' | 'dice';
+  kept: 0 | 1;
+  sets: [
+    { total: number; dice: { sides: number; value: number; negative?: boolean }[] },
+    { total: number; dice: { sides: number; value: number; negative?: boolean }[] },
+  ];
+};
+
 export type RollReveal = {
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
    *  AoE/save spell's single damage roll, or one Magic Missile dart); 'check' = a
@@ -836,6 +867,8 @@ export type RollReveal = {
    *  final number the count-up lands on). */
   damage?: number;
   damageType?: string;
+  /** Presentation metadata only; never used to choose or apply an outcome. */
+  comparison?: RollComparison;
 };
 
 /**
@@ -846,6 +879,8 @@ export type RollReveal = {
  * refresh, reconnect, or server restart can't strand a hit.
  */
 export type PendingDamage = {
+  /** Multi-ray cast whose next attack waits until this hit's damage is applied. */
+  sourceRollId?: string;
   /** Who takes it (and their name, so the button can read "→ Goblin"). */
   target: { kind: TokenKind; refId: string; name: string };
   /** Who dealt it — credits a PC's kill count when it drops the target. */
@@ -894,13 +929,15 @@ export type RollEntry = {
    *  modifier breakdown (in `detail` and the reveal) for players, keeping the
    *  d20, total and outcome. Friendly/PC rolls show their mods normally. */
   hideMods?: boolean;
-  /** DM-only: present on a save/damage spell's damage roll so the log can offer an
-   *  "Apply damage" button that starts click-to-target save resolution. Stripped
-   *  for players in `visibility.ts`. `save` empty ⇒ auto-hit (full damage, no save). */
+  /** A caster-owned spell application: damage, save-only, darts, or separate
+   *  attack rays. The DM and owning caster may target it; others receive no
+   *  apply payload. Without save/attack metadata it is automatic damage. */
   apply?: {
     amount: number;
     dc: number;
     save?: string;
+    saveDamage?: 'none' | 'half';
+    targetMode?: 'single' | 'multiple';
     damageType?: string;
     /** Condition applied to a target that FAILS the save (Battle Master riders). */
     onFail?: string;
@@ -919,6 +956,17 @@ export type RollEntry = {
      *  spell (Magic Missile) can't be re-applied past its dart count (a replayed
      *  or double-clicked click is rejected). */
     consumedDarts?: number;
+    /** Separate attack rolls from one cast (e.g. Scorching Ray). */
+    attacks?: number;
+    consumedAttacks?: number;
+    attack?: {
+      attacker: { kind: TokenKind; refId: string };
+      bonus: number;
+      bonusDetail?: string;
+      toHitSteps?: { label: string; value: number }[];
+      /** The armed next-roll override applies only to the first ray. */
+      advantage?: 'adv' | 'dis';
+    };
     /** Token ids already resolved for this cast — a save/auto-hit apply hits each
      *  creature at most once (each creature saves once vs an AoE; blocks the
      *  accidental double-click that would double the damage). */
@@ -1149,6 +1197,8 @@ export type ResourceSetPayload = {
   max?: number;
   used?: number;
   remove?: boolean;
+  /** Explicit fixed total from the manual capacity editor (not a bonus pool). */
+  preserveMax?: boolean;
 };
 /** Upsert an inventory item on a character. */
 export type ItemSetPayload = { characterId: string; item: InventoryItem };
@@ -1189,6 +1239,8 @@ export type AbilityRollPayload = {
   abilityId: string;
   castLevel?: number;
   advantage?: 'adv' | 'dis';
+  /** A choice from the spell's reviewed/authored damageTypeChoices. */
+  damageType?: string;
   /** Attack-roll spells target a token: the server resolves to-hit vs its AC and
    *  auto-applies typed damage (× resist/vuln) on a hit, like a weapon attack. */
   targetTokenId?: string;

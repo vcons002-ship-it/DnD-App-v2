@@ -1,0 +1,103 @@
+/* The rack is an open filigree branch of the orb, not another window. */
+.player-fantasy .jeweled-resources .jewel-row {
+  grid-template-columns: var(--resource-label-width, 104px) minmax(0, 1fr);
+  gap: 0 5px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: linear-gradient(90deg, transparent, #ae85512a 19%, #b9955b1b 68%, transparent) 0 50% / 100% 1px no-repeat;
+}
+.player-fantasy .jeweled-resources .jewel-label {
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+}
+.player-fantasy .jewel-label .resource-sigil-trigger {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 28px;
+  border-radius: 3px;
+}
+.player-fantasy .resource-sigil-trigger:hover,
+.player-fantasy .resource-sigil-trigger:focus-visible {
+  filter: brightness(1.3);
+}
+.player-fantasy .resource-sigil-trigger:focus-visible {
+  outline: 1px solid #c3a675;
+  outline-offset: 1px;
+}
+.player-fantasy .resource-sigil {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  overflow: visible;
+  filter: drop-shadow(0 1px 1px #000);
+}
+.player-fantasy .resource-sigil-letter {
+  font-family: var(--hud-display-font, 'Palatino Linotype', Georgia, serif);
+  font-weight: 700;
+  letter-spacing: -.06em;
+  paint-order: stroke fill;
+  stroke: #0009;
+  stroke-width: .5px;
+}
+.player-fantasy .resource-sigil-caption {
+  min-width: 0;
+  max-width: 43px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 22px;
+  font: 9px/1.15 var(--hud-display-font, 'Palatino Linotype', Georgia, serif);
+  color: #d8c096;
+}
+.player-fantasy .jeweled-resources .jewel-label > .resource-amount {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: #e8d8b4;
+  font: 10px/1 Georgia, serif;
+  text-shadow: 0 1px 2px #000;
+}
+.player-fantasy .jeweled-resources .resource-amount small { font-size: 9px; }
+.player-fantasy .jeweled-resources .jewel-sockets { gap: 3px; }
+.player-fantasy .jeweled-resources .resource-jewel {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  padding: 2px;
+}
+.player-fantasy .jeweled-resources .resource-jewel b {
+  width: 10px;
+  height: 10px;
+  right: -4px;
+  top: -4px;
+  font: bold 9px/7px sans-serif;
+}
+.player-fantasy .jeweled-resources .resource-jewel:focus-visible {
+  outline: 1px solid #faf1d5;
+  outline-offset: 2px;
+}
+.player-fantasy .jeweled-resources .extra-caption,
+.player-fantasy .jeweled-resources .resource-reference-warning {
+  grid-column: 1 / -1;
+  padding: 0 0 2px 30px;
+  font-size: 9px;
+}
+/* Portalled outside the scrolling rack so keyboard and mouse tips cannot clip. */
+.player-resource-tooltip {
+  position: fixed;
+  z-index: 1600;
+  box-sizing: border-box;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 7px 9px;
+  border: 1px solid #997846;
+  border-radius: 4px;
+  background: #151413f5;
+  color: #eedec2;
+  box-shadow: 0 3px 12px #000a;
+  font: 12px/1.3 'Segoe UI', sans-serif;
+  pointer-events: none;
+}
+.player-resource-tooltip strong { display: block; font-family: Georgia, serif; }
+.player-resource-tooltip small { display: block; margin-top: 2px; color: #c0b49e; }

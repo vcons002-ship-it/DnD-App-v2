@@ -49,7 +49,7 @@ const io: IOServer = new Server(server, {
 
 app.use('/uploads', express.static(config.uploadsDir));
 app.use('/api', createApiRouter(io));
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, preview: config.preview }));
 
 // Serve the built client (SPA) in production; Vite handles dev separately.
 // Caching matters here: Vite emits content-HASHED asset filenames (safe to
@@ -90,7 +90,7 @@ if (fs.existsSync(config.clientDist)) {
 
 registerSocketHandlers(io);
 
-server.listen(config.port, async () => {
+server.listen(config.port, config.host, async () => {
   console.log(`\n  DnD-App-v2 server listening on http://localhost:${config.port}`);
   await startTunnel();
   const base = publicUrl();

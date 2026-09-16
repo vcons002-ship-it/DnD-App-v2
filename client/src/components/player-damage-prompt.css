@@ -1,0 +1,39 @@
+/* Sibling of the player panels, never underneath the canvas or HUD. Top-centre
+   keeps the bottom chat overlay readable and leaves map targets clickable. */
+.player-fantasy .player-damage-dock {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 52;
+  width: min(310px, calc(100vw - 24px));
+  pointer-events: none;
+}
+.player-fantasy .player-damage-dock .damage-prompt {
+  position: relative;
+  inset: auto;
+  transform: none;
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+}
+.player-fantasy .player-damage-dock .damage-prompt-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  gap: 8px;
+  border: 1px solid #b69a68;
+  border-radius: 4px 12px 4px 12px;
+  background: linear-gradient(160deg, #463528f5, #181820f5 65%);
+  box-shadow: inset 0 0 0 2px #141419, 0 5px 18px #000b;
+  animation: none;
+}
+.player-fantasy .player-damage-dock .damage-prompt-btn.crit { border-color: #ffd275; }
+.player-fantasy .player-damage-dock .dp-text { min-width: 0; }
+.player-fantasy .player-damage-dock .dp-text strong { font: 600 12px var(--hud-display-font); color: #f3dcaf; }
+.player-fantasy .player-damage-dock .dp-sub { margin-top: 3px; overflow-wrap: anywhere; }
+.player-fantasy .player-damage-dock .dp-dice { color: #e2c28a; font-size: 20px; }
+.player-fantasy .damage-prompt-dismiss { pointer-events: auto; cursor: pointer; color: #d6c8b0; background: #19191ff2; border: 1px solid #68573d; border-radius: 4px; padding: 4px; font-size: 10px; }
+.player-fantasy .spell-prompt.targeting .damage-prompt-btn { border-color: #78bda8; }
+/* A deliberately opened settings dialog must remain operable above prompts. */
+.player-fantasy .player-layout-controls:has(.player-layout-options) { z-index: 55; }

@@ -1,0 +1,71 @@
+{
+  "auditDate": "2026-09-16",
+  "scope": "Read-only inspection of final generated artwork. No image pixels, gameplay state, servers, or databases changed.",
+  "method": {
+    "visualInspection": "Viewed all three final PNGs at source resolution.",
+    "alphaProbe": "System.Drawing reads at the existing CSS orb centers; 59,785 samples on a 2px grid inside a disk of radius 0.22 times the image width for each asset.",
+    "holeScanline": "Horizontal scan through the existing CSS orb center; boundary threshold alpha greater than 100.",
+    "frameProbe": "Radial samples every 0.001 image width at angles -55, -45, -35, -25, -15, 0, 15, and 25 degrees; alpha threshold greater than 100.",
+    "limitations": "Sampled alpha and local frame checks, not pixel-perfect image identity or full browser collision verification. Existing ornaments may intentionally overlap the globe edge. Runtime layout review remains separate."
+  },
+  "assets": [
+    {
+      "path": "client/public/art/hud/half-orc-fighter-v9.png",
+      "referencePath": "client/public/art/hud/half-orc-fighter.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1655275,
+      "sha256": "B4BCEBDFD783F6D94A02037EFACFF165415425D9F3954ADE5315AF1EFA5056CA",
+      "referenceSha256": "AA12C5B607B9EFFC7371536F3BB258E456CDD0BED0FEA7C65BEB6A4F726E5E75",
+      "existingOrbGeometry": { "centerXFraction": 0.62, "centerYFraction": 0.489, "radiusFraction": 0.31 },
+      "centerAlpha": 0,
+      "centralDiskSamplesAboveAlpha1": 0,
+      "centralDiskMaximumAlpha": 1,
+      "referenceHoleScanline": { "left": 380, "right": 1144, "centerX": 762, "width": 764 },
+      "finalHoleScanline": { "left": 385, "right": 1140, "centerX": 762.5, "width": 755 },
+      "maximumFrameRadiusFractionInProbedSector": { "reference": 0.374, "final": 0.377 },
+      "maximumSameAngleFrameDriftFraction": 0.014,
+      "visualNotes": "One armored foreground arm and a gloved hand rest naturally on the lower rim. The hand is enlarged from the v8 attempt per the user's correction. Exposed neckline and upper arm are intentional requested design details. Bronze/red materials and the circular opening remain coherent.",
+      "alignmentStatus": "Compatible with the existing orb geometry; no positioning correction recommended."
+    },
+    {
+      "path": "client/public/art/hud/half-elf-ranger-v7.png",
+      "referencePath": "client/public/art/hud/half-elf-ranger.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1729331,
+      "sha256": "A776450E2828D411EE1392180075F1FF633968FF8359CB84768F9802F9182045",
+      "referenceSha256": "DCC4DC28EEEB6B08260411D30A6CC09726BF5CF82241D7939F753947C98E7170",
+      "existingOrbGeometry": { "centerXFraction": 0.567, "centerYFraction": 0.55, "radiusFraction": 0.295 },
+      "centerAlpha": 0,
+      "centralDiskSamplesAboveAlpha1": 0,
+      "centralDiskMaximumAlpha": 1,
+      "referenceHoleScanline": { "left": 340, "right": 1078, "centerX": 709, "width": 738 },
+      "finalHoleScanline": { "left": 347, "right": 1075, "centerX": 711, "width": 728 },
+      "maximumFrameRadiusFractionInProbedSector": { "reference": 0.411, "final": 0.416 },
+      "maximumSameAngleFrameDriftFraction": 0.007,
+      "visualNotes": "The awkward upright bow is absent. A quiver and arrows sit behind the ranger's left shoulder; one coherent foreground arm leads to a gloved hand resting along the lower-left orb rim. No duplicated visible limb was identified. Hood, foliage frame, green-bronze materials and wolf ornament remain coherent. The transparent scanline opening is 10 pixels narrower than the original, with its center 2 pixels farther right; this is negligible at the existing HUD scale.",
+      "alignmentStatus": "Compatible with the existing ranger-specific orb geometry; no positioning correction recommended."
+    },
+    {
+      "path": "client/public/art/hud/tiefling-sorcerer-v6.png",
+      "referencePath": "client/public/art/hud/tiefling-sorcerer.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1902020,
+      "sha256": "00C9BFE99F6D2EA699D1471A015E146C3054DE8F0437CD34DF6BA0144B7D24E4",
+      "referenceSha256": "335A50C60739F6AF052AEA1F3C0750C921AFCABAEBC501622C86CB4C5EEB1957",
+      "existingOrbGeometry": { "centerXFraction": 0.62, "centerYFraction": 0.488, "radiusFraction": 0.31 },
+      "centerAlpha": 0,
+      "centralDiskSamplesAboveAlpha1": 0,
+      "centralDiskMaximumAlpha": 1,
+      "referenceHoleScanline": { "left": 383, "right": 1158, "centerX": 770.5, "width": 775 },
+      "finalHoleScanline": { "left": 384, "right": 1158, "centerX": 771, "width": 774 },
+      "maximumFrameRadiusFractionInProbedSector": { "reference": 0.356, "final": 0.357 },
+      "maximumSameAngleFrameDriftFraction": 0.002,
+      "visualNotes": "The duplicated lower forearm/hand is absent. One visible foreground arm leads to the hand gripping the left rim; the removed limb area now contains matching drapery and ornament. The bottom central metal point extends roughly 0.008 image width farther into the opening than the original.",
+      "alignmentStatus": "Compatible with the existing orb geometry; no positioning correction recommended."
+    }
+  ],
+  "conclusion": "All final assets retain genuine transparent globe openings, unchanged image dimensions and negligible center drift at HUD scale. No unacceptable new ring-alignment problem identified from the sampled image geometry. Original unsuffixed assets remain available."
+}

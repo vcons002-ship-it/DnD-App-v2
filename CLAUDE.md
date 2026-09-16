@@ -5,6 +5,12 @@
 > in [`README.md`](README.md). This file is the architecture + conventions +
 > status summary — keep it concise (it loads into every session).
 
+> **Player HUD release candidate:** current defaults and merge/deployment limits
+> are in [`docs/PLAYER_HUD_RELEASE_2026-09-16.md`](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
+> `PlayerView` now uses the dark-fantasy corner HUD and concentric resources by
+> default. DM layout remains on the existing panels. Preview revision notes are
+> historical; never use their copied test data as a replacement for a campaign.
+
 ## What this is
 
 A locally-hosted, real-time **virtual tabletop (VTT) for D&D 5e**. The DM and

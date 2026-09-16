@@ -1,0 +1,1032 @@
+/* Player-only presentation. Deliberately no :root/body/global overrides: the
+   DM's layout, sidebar sizing, combat placement and defaults are unchanged. */
+@font-face {
+  font-family: 'Cinzel HUD';
+  src: url('/fonts/Cinzel-Variable.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+.player-fantasy .local-preview-notice {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+  padding: 5px 12px;
+  font-size: 10px;
+  color: #f0d3a2;
+  background: #201b16e8;
+  border: 1px solid #9b794d;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.player-fantasy {
+  color-scheme: dark;
+  scrollbar-color: #766346 #171a1f;
+  --panel: #171a1f;
+  --panel-2: #22252c;
+  --line: #51483c;
+  --text: #eee7d8;
+  --muted: #bdb6a8;
+  --accent: #c8ac75;
+  --hud-display-font: 'Cinzel HUD', Georgia, serif;
+  --player-ui-scale: .85;
+  --hud-width: 454px;
+  --orb-size: 224px;
+  --combat-width: 320px;
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.player-fantasy .body {
+  display: block;
+  isolation: isolate;
+}
+.player-fantasy > .topbar,
+.player-fantasy .dice-button-overlay,
+.player-fantasy .stage-controls,
+.player-fantasy .player-claim,
+.player-fantasy .roll-reveal,
+.player-fantasy .floating-menu,
+.player-fantasy .token-hover-card {
+  zoom: var(--player-ui-scale);
+}
+.player-fantasy .center {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.player-fantasy .fantasy-window {
+  color: var(--text);
+  background: linear-gradient(135deg, #252629f7, #101317fa 65%);
+  border: 1px solid #766346;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 3px #111419,
+    inset 0 0 0 4px #403b31,
+    0 10px 24px #0009;
+}
+.player-fantasy h2,
+.player-fantasy .hud-identity strong,
+.player-fantasy .resource-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.player-fantasy .btn {
+  border-radius: 3px;
+  background: linear-gradient(#303034, #1c1e22);
+  border-color: #64573e;
+  color: #eee5d2;
+}
+.player-fantasy .btn:hover {
+  border-color: #e4c78e;
+  background: linear-gradient(#45403a, #25252b);
+}
+.player-fantasy .btn.on {
+  background: linear-gradient(#57482c, #2b2923);
+  border-color: #d2b67e;
+}
+.player-fantasy button:focus-visible {
+  outline: 2px solid #e7ce9a;
+  outline-offset: 3px;
+}
+.player-fantasy .hint {
+  color: #d5bc8b;
+}
+.player-fantasy .player-combat,
+.player-fantasy .player-chat {
+  position: absolute;
+  right: 6px;
+  width: var(--combat-width);
+  z-index: 25;
+}
+.player-fantasy .player-combat {
+  top: 6px;
+  max-height: min(64%, 540px);
+  display: flex;
+  flex-direction: column;
+}
+.player-fantasy .floating-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #625137;
+}
+.player-fantasy .floating-panel-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.player-fantasy .floating-panel-header small {
+  color: #d0b888;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+.player-fantasy .player-combat > .floating-panel-header {
+  min-height: 30px;
+  padding: 4px 9px;
+  gap: 10px;
+}
+.player-fantasy .player-combat > .floating-panel-header h2 {
+  font-size: 16px;
+}
+.player-fantasy .player-combat > .floating-panel-header small {
+  margin-left: auto;
+}
+.player-fantasy .player-combat > .floating-panel-header button {
+  min-width: 26px;
+  min-height: 25px;
+  font-size: 16px;
+  line-height: 1;
+}
+.player-fantasy .floating-panel-content {
+  overflow: auto;
+  min-height: 0;
+  scrollbar-color: #7b684b #17191f;
+  scrollbar-width: thin;
+}
+.player-fantasy [hidden] {
+  display: none !important;
+}
+.player-fantasy .player-combat .panel-section {
+  padding: 10px;
+}
+.player-fantasy .player-combat .panel-section > h3 {
+  font-size: 13px;
+  color: #bdb6a8;
+}
+.player-fantasy .player-combat .attack-controls .btn {
+  min-height: 29px;
+}
+.player-fantasy .player-combat .resources {
+  border-top: 1px solid #584a35;
+  padding-top: 6px;
+}
+.player-fantasy .player-chat {
+  bottom: 12px;
+  height: 325px;
+  display: flex;
+  flex-direction: column;
+}
+.player-fantasy .player-chat.collapsed {
+  height: auto;
+}
+.player-fantasy .player-chat .floating-panel-content {
+  flex: 1;
+  overflow: hidden;
+}
+.player-fantasy .player-chat .dice-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 7px;
+}
+.player-fantasy .player-chat .roll-log {
+  flex: 1;
+  min-height: 45px;
+  max-height: none;
+  overflow: auto;
+}
+.player-fantasy .player-chat .chat-input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.player-fantasy .chat-dice-options {
+  flex: 0 1 auto;
+  max-height: 54%;
+  overflow: auto;
+}
+.player-fantasy .chat-dice-options summary {
+  cursor: pointer;
+  color: #d7be91;
+  font-size: 12px;
+  padding: 3px 0;
+}
+.player-fantasy .chat-dice-options h3 {
+  display: none;
+}
+.player-fantasy .ability-roll-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.player-fantasy .ability-roll-cell {
+  padding: 10px;
+  text-align: center;
+  border: 1px solid #6e5b3d;
+  background: radial-gradient(ellipse at top, #413b30, #191c22);
+}
+.player-fantasy .ability-roll-cell strong {
+  display: block;
+  color: #e8cf9e;
+  font:
+    17px Georgia,
+    serif;
+  margin-bottom: 6px;
+}
+.player-fantasy .ability-roll-cell .btn {
+  margin: 2px;
+  font-size: 11px;
+}
+.player-fantasy .player-claim {
+  position: absolute;
+  z-index: 32;
+  left: 15px;
+  top: 70px;
+  width: 345px;
+  max-height: calc(100% - 90px);
+  overflow: auto;
+}
+.player-fantasy .player-hud {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  width: var(--hud-width);
+  z-index: 30;
+  pointer-events: none;
+  zoom: var(--player-ui-scale);
+}
+.player-fantasy .player-hud button,
+.player-fantasy .player-hud input,
+.player-fantasy .player-hud a,
+.player-fantasy .player-hud .fantasy-window {
+  pointer-events: auto;
+}
+.player-fantasy .hud-actions {
+  position: absolute;
+  bottom: calc(var(--orb-size) + 8px);
+  left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 3px;
+  align-items: center;
+  border-left: 1px solid #aa87583d;
+  background: linear-gradient(90deg, #0d1018ba, transparent);
+}
+.player-fantasy .hud-actions .hud-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 6px;
+  border: 1px solid #95805b;
+  border-radius: 4px 10px 4px 10px;
+  color: #dbc396;
+  background: radial-gradient(ellipse at 30% 5%, #65564280, transparent 70%), linear-gradient(145deg, #292a2c, #10141b 70%);
+  box-shadow: inset 0 0 0 2px #141619, inset 0 0 0 3px #56493780, 0 3px 8px #0009;
+}
+.player-fantasy .hud-icon-button svg {
+  width: 27px;
+  height: 27px;
+  filter: drop-shadow(0 1px 1px #000) drop-shadow(0 -1px 1px #f8deb526);
+}
+.player-fantasy .hud-icon-button:hover,
+.player-fantasy .hud-icon-button:focus-visible {
+  color: #ffe7b6;
+  box-shadow: inset 0 0 0 2px #292219, 0 0 12px #eab76535;
+}
+.player-fantasy .hud-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  text-align: left;
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  padding: 8px 12px;
+  border: 1px solid #9a8056;
+  border-radius: 3px;
+  color: #efdbb6;
+  background: #14171bf5;
+  box-shadow: 0 5px 15px #0009;
+  transition: opacity .12s, transform .12s;
+  z-index: 5;
+}
+.player-fantasy .hud-tooltip strong {
+  display: block;
+  font: 15px Georgia, serif;
+}
+.player-fantasy .hud-tooltip small {
+  display: block;
+  color: #bcb3a5;
+  font: 11px 'Segoe UI', sans-serif;
+  margin-top: 3px;
+}
+.player-fantasy .hud-icon-button:hover .hud-tooltip,
+.player-fantasy .hud-icon-button:focus-visible .hud-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(-50%);
+}
+.player-fantasy .hud-bottom {
+  display: flex;
+  align-items: flex-end;
+}
+.player-fantasy .hud-orb-cluster {
+  position: relative;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  flex: 0 0 var(--orb-size);
+  z-index: 1;
+}
+.player-fantasy .health-reliquary {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: #fff3e4;
+}
+.player-fantasy .orb-holder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 5px #000c);
+}
+.player-fantasy .main-orb {
+  position: absolute;
+  left: 31%;
+  top: 17.9%;
+  width: 62%;
+  aspect-ratio: 1;
+}
+.player-fantasy .half-elf-ranger .main-orb {
+  left: 27.2%;
+  top: 25.5%;
+  width: 59%;
+}
+.player-fantasy .tiefling-sorcerer .main-orb {
+  left: 31%;
+  top: 17.8%;
+  width: 62%;
+}
+.player-fantasy .generic-orb .main-orb {
+  border: 7px ridge #9e845a;
+  border-radius: 50%;
+  left: 18%;
+  width: 74%;
+  top: 10%;
+}
+.player-fantasy .liquid-orb {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0b0b11;
+  box-shadow:
+    inset 0 0 15px #000,
+    0 0 8px #bf162025;
+}
+.player-fantasy .liquid-orb canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.player-fantasy .orb-fallback-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: radial-gradient(
+    ellipse at 35% 10%,
+    #ff7371,
+    #b10d25 42%,
+    #3a0016
+  );
+}
+.player-fantasy .temporary .orb-fallback-fill {
+  background: radial-gradient(
+    ellipse at 35% 10%,
+    #aeffff,
+    #1285b3 45%,
+    #061d3c
+  );
+}
+.player-fantasy .liquid-orb:not(.fallback) .orb-fallback-fill {
+  display: none;
+}
+.player-fantasy .liquid-orb.fallback canvas {
+  display: none;
+}
+.player-fantasy .orb-readout {
+  position: absolute;
+  left: 32%;
+  width: 61%;
+  top: 47%;
+  z-index: 3;
+  text-shadow:
+    0 2px 4px #000,
+    0 0 10px #000;
+}
+.player-fantasy .orb-readout strong {
+  font:
+    bold 31px Georgia,
+    serif;
+}
+.player-fantasy .orb-readout > span {
+  font-size: 15px;
+}
+.player-fantasy .orb-readout small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  margin-top: 2px;
+}
+.player-fantasy .half-elf-ranger .orb-readout {
+  left: 26%;
+  top: 53%;
+}
+.player-fantasy .hud-attached-panel {
+  position: relative;
+  flex: 1;
+  margin: 0 0 5px -2px;
+  padding: 0 9px 16px 3px;
+  min-width: 0;
+  isolation: isolate;
+  min-height: 110px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.player-fantasy .hud-branch-art {
+  position: absolute;
+  bottom: -8px;
+  left: -27px;
+  width: calc(100% + 30px);
+  height: 91px;
+  object-fit: fill;
+  pointer-events: none;
+  z-index: -1;
+  filter: drop-shadow(0 3px 3px #000b);
+}
+.player-fantasy .hud-resource-wing::before {
+  content: '';
+  position: absolute;
+  inset: -8px -5px 4px -10px;
+  background: radial-gradient(ellipse, #080a0ee6 35%, #080a0e9c 60%, transparent 76%);
+  pointer-events: none;
+  z-index: -2;
+}
+.player-fantasy .hud-identity-line { display: flex; gap: 6px; align-items: center; margin-bottom: 5px; }
+.player-fantasy .hud-wing-art {
+  position: absolute;
+  inset: -12px -1px -4px -26px;
+  width: calc(100% + 27px);
+  height: calc(100% + 16px);
+  z-index: -1;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 3px #000b);
+}
+.player-fantasy .hud-identity {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-shadow: 0 2px 2px #000, 0 0 8px #000;
+}
+.player-fantasy .hud-crest-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  filter: drop-shadow(0 3px 3px #000b);
+}
+.player-fantasy .hud-identity strong {
+  display: block;
+  color: #f5dfae;
+  font-family: Georgia, 'Palatino Linotype', serif;
+  font-weight: 500;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: .02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-fantasy .hud-identity small {
+  display: block;
+  color: #d1bc91;
+  font-family: Georgia, 'Palatino Linotype', serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .015em;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-fantasy .hud-armor {
+  position: relative;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 34px;
+  text-align: center;
+  z-index: 4;
+  color: #f1d8a5;
+  font-family: var(--hud-display-font);
+  padding: 3px 2px 4px;
+  box-sizing: border-box;
+  border: 1px solid #b19b6e;
+  border-radius: 6px 6px 15px 15px;
+  background: linear-gradient(135deg, #e3c18b 0, #675239 9%, #171a1e 14%, #302b25 60%, #b69a61 96%);
+  box-shadow: inset 0 0 0 2px #12161b, 0 2px 5px #000b;
+  text-shadow: 0 2px 2px #000;
+}
+.player-fantasy .hud-armor small {
+  display: block;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: .12em;
+}
+.player-fantasy .hud-armor strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.25;
+}
+.player-fantasy .hud-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.player-fantasy .resource-title {
+  background: none;
+  color: #decca8;
+  border: none;
+  padding: 2px 0;
+  font-family: var(--hud-display-font);
+  font-size: 11px;
+  cursor: pointer;
+}
+.player-fantasy .resource-title span {
+  color: var(--muted);
+  font:
+    11px 'Segoe UI',
+    sans-serif;
+}
+.player-fantasy .resource-rows {
+  max-height: 118px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  pointer-events: auto;
+}
+.player-fantasy .expanded .resource-rows {
+  max-height: min(350px, 48vh);
+}
+.player-fantasy .jewel-row {
+  display: grid;
+  grid-template-columns: minmax(82px, .95fr) minmax(0, 1.3fr);
+  gap: 0 6px;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 0;
+  border-top: 1px solid #423e36;
+}
+.player-fantasy .jewel-label {
+  display: flex;
+  gap: 3px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 10px;
+}
+.player-fantasy .jewel-label > span {
+  white-space: nowrap;
+  color: #d1c2a4;
+}
+.player-fantasy .jewel-label button {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #e9d9b9;
+  font:
+    11px Georgia,
+    serif;
+  cursor: pointer;
+}
+.player-fantasy .jewel-label small {
+  color: var(--muted);
+}
+.player-fantasy .edit-rune {
+  color: #bea16d;
+  font-size: 12px;
+  display: none;
+}
+.player-fantasy .jewel-sockets {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  padding: 0;
+  align-items: center;
+}
+.player-fantasy .resource-jewel {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  flex: 0 0 22px;
+  border-radius: 50%;
+  border: 1px solid #9c8a69;
+  background: conic-gradient(
+    #b7a07d,
+    #514839,
+    #151719,
+    #917b56,
+    #252727,
+    #b7a07d
+  );
+  box-shadow:
+    0 2px 3px #000,
+    inset 0 0 0 2px #292624;
+  cursor: pointer;
+}
+.player-fantasy .resource-jewel > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 24%, #434958, #151722 57%, #07090d);
+  box-shadow:
+    inset -1px -2px 3px #000,
+    inset 0 1px 2px #79839f30;
+}
+.player-fantasy .resource-jewel.lit > span {
+  background: radial-gradient(
+    circle at 30% 24%,
+    #fff6ff 0%,
+    #caceff 12%,
+    #718beb 32%,
+    #443183 70%,
+    #211438
+  );
+  box-shadow:
+    0 0 7px #a494ff66,
+    inset -1px -2px 3px #171038;
+}
+.player-fantasy .class-resource .resource-jewel.lit > span {
+  background: radial-gradient(
+    circle at 30% 24%,
+    #fffbe1 0%,
+    #efcb80 12%,
+    #b57529 35%,
+    #603418 75%
+  );
+  box-shadow: 0 0 7px #e6b76650;
+}
+.player-fantasy .resource-jewel.extra {
+  border: 2px solid #e6bd69;
+  box-shadow:
+    0 0 0 1px #705019,
+    0 0 6px #e5b75d40;
+}
+.player-fantasy .resource-jewel b {
+  position: absolute;
+  right: -4px;
+  top: -6px;
+  background: #352512;
+  color: #ffe2a1;
+  border: 1px solid #b8883d;
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  font: bold 11px/9px sans-serif;
+}
+.player-fantasy .resource-jewel:hover {
+  filter: brightness(1.3);
+}
+.player-fantasy .extra-caption {
+  grid-column: 1 / -1;
+  color: #e4bc75;
+  font-size: 10px;
+}
+.player-fantasy .resource-reference {
+  color: #b7ae99;
+  margin-right: auto;
+  font-size: 12px;
+  text-decoration: none;
+  padding: 0;
+}
+.player-fantasy .resource-more,
+.player-fantasy .hud-status-strip button {
+  background: none;
+  border: 0;
+  color: #d5bc8b;
+  cursor: pointer;
+  padding: 3px 0;
+  font-size: 11px;
+}
+.player-fantasy .hud-status-strip {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  align-items: center;
+  border-top: 0;
+  margin-top: 3px;
+}
+.player-fantasy .resource-adjust {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  bottom: calc(100% + 10px);
+  max-height: 52vh;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #a28552;
+  border-radius: 4px;
+  background: #171a20;
+  box-shadow: 0 10px 30px #000c;
+  pointer-events: auto;
+  min-width: 280px;
+  z-index: 4;
+}
+.player-fantasy .resource-adjust p {
+  font-size: 11px;
+  margin: 8px 0;
+}
+.player-fantasy .resource-adjust label {
+  display: block;
+  font-size: 12px;
+}
+.player-fantasy .resource-adjust select {
+  display: block;
+  width: 100%;
+}
+.player-fantasy .adjust-fields {
+  display: flex;
+  gap: 20px;
+}
+.player-fantasy .adjust-fields input {
+  display: block;
+  width: 100%;
+}
+.player-fantasy .hud-drawer {
+  position: absolute;
+  /* Open controls must stay above the fixed conditions/token-placement strip. */
+  z-index: 6;
+  left: 63px;
+  bottom: calc(100% + 8px);
+  width: 380px;
+  max-height: 49vh;
+  overflow: auto;
+  padding: 16px;
+  animation: hud-slide 0.18s ease-out;
+}
+.player-fantasy .hud-checks-drawer {
+  width: 300px;
+  padding: 10px;
+  max-height: min(480px, calc(94vh / var(--player-ui-scale) - var(--orb-size)));
+}
+.player-fantasy .hud-checks-drawer > .hud-heading h3 {
+  font-size: 14px;
+  margin: 0;
+  font-family: var(--hud-display-font);
+}
+.player-fantasy .hud-death {
+  position: absolute;
+  bottom: 57px;
+  left: 15px;
+  width: 225px;
+  padding: 8px;
+}
+.player-fantasy .character-window {
+  margin: auto;
+  padding: 0;
+  width: min(980px, 92vw);
+  max-height: 86vh;
+  overflow: hidden;
+}
+.player-fantasy .character-window::backdrop {
+  background: #05080cb0;
+}
+.player-fantasy .character-window-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  padding: 20px 26px 12px;
+  border-bottom: 1px solid #6c5a3a;
+  background: radial-gradient(ellipse at 15% 0, #5b483430, transparent 70%);
+}
+.player-fantasy .character-window-head h2 {
+  font-size: 30px;
+  margin: 3px 0;
+  color: #f0d5a6;
+}
+.player-fantasy .character-window-head p {
+  margin: 0;
+  color: #beb7aa;
+}
+.player-fantasy .character-window-head small {
+  color: #c4a976;
+  letter-spacing: 0.19em;
+  font-size: 10px;
+}
+.player-fantasy .character-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 26px;
+  border-bottom: 1px solid #4b4334;
+}
+.player-fantasy .character-window-content {
+  padding: 20px 26px;
+  max-height: calc(86vh - 209px);
+  overflow: auto;
+}
+.player-fantasy .character-window-content .char-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 16px 24px;
+  align-items: start;
+}
+.player-fantasy .character-window-content .char-sheet > :first-child {
+  grid-row: span 4;
+}
+.player-fantasy .character-window-content .items {
+  grid-column: 1 / -1;
+}
+.player-fantasy .character-window-content .item-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.player-fantasy .character-window-content .item-row {
+  padding: 12px;
+  background: #23252a;
+  border: 1px solid #504738;
+  border-radius: 3px;
+}
+.player-fantasy .character-window-content .spell-body {
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px 18px;
+}
+.player-fantasy .character-window-content .spell-toggle {
+  font-size: 14px;
+  padding: 9px;
+}
+.player-fantasy .character-window footer {
+  padding: 8px 26px;
+  border-top: 1px solid #4b4334;
+  color: #b5aa92;
+  font-size: 11px;
+}
+.player-fantasy .roll-log-overlay {
+  left: calc(var(--hud-width) * var(--player-ui-scale) + 8px);
+  right: 52px;
+  bottom: 8px;
+  width: auto;
+  max-width: none;
+  z-index: 15;
+  max-height: 32%;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.player-fantasy .roll-log-overlay .roll-entry,
+.player-fantasy .roll-log-overlay .chat-msg {
+  max-width: 100%;
+  background: #101318dc;
+  border-radius: 3px;
+  font-size: calc(12px * var(--player-ui-scale));
+  padding: 5px 8px;
+}
+.player-fantasy .dice-button-overlay {
+  top: 6px;
+  left: 6px;
+  bottom: auto;
+  right: auto;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  z-index: 24;
+}
+.player-fantasy .stage-controls {
+  top: 16px;
+  left: 70px;
+  right: auto;
+  z-index: 24;
+}
+.player-fantasy .dice-quick-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 60px;
+  transform: translateY(-6px);
+}
+.player-fantasy .dice-button-overlay:hover .dice-quick-menu,
+.player-fantasy .dice-button-overlay.open .dice-quick-menu {
+  transform: translateY(0);
+}
+.player-fantasy .roll-reveal {
+  border: 1px solid #9c845b;
+  border-radius: 6px;
+  background: radial-gradient(ellipse at top, #303036, #10131bef 75%);
+  box-shadow:
+    inset 0 0 0 4px #171b23,
+    inset 0 0 0 5px #534938,
+    0 16px 60px #000b;
+}
+.player-fantasy .roll-reveal-who {
+  color: #e5ceaa;
+  font-family: Georgia, serif;
+}
+.player-fantasy .rr-chip {
+  color: #eddfc4;
+  border-color: #66583e;
+  background: #242730;
+}
+@keyframes hud-slide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (max-width: 1400px) {
+  .player-fantasy {
+    --hud-width: 430px;
+    --orb-size: 204px;
+    --combat-width: 304px;
+  }
+}
+@media (max-height: 800px) {
+  .player-fantasy .expanded .resource-rows {
+    max-height: 240px;
+  }
+}
+@media (max-width: 1000px) {
+  .player-fantasy .local-preview-notice .preview-detail {
+    display: none;
+  }
+  .player-fantasy {
+    --combat-width: 285px;
+    --hud-width: 410px;
+    --orb-size: 184px;
+  }
+  .player-fantasy .hud-actions {
+    gap: 3px;
+    padding-left: 4px;
+  }
+  .player-fantasy .character-window-content .char-sheet,
+  .player-fantasy .character-window-content .item-list {
+    display: block;
+  }
+}
+@media (max-width: 760px) {
+  .player-fantasy {
+    --hud-width: min(96vw, 458px);
+    --combat-width: min(80vw, 305px);
+  }
+  .player-fantasy .roll-log-overlay {
+    left: calc(var(--hud-width) * var(--player-ui-scale) + 8px);
+    right: 42px;
+    bottom: 8px;
+  }
+  .player-fantasy .character-tabs {
+    flex-wrap: wrap;
+    padding: 8px;
+  }
+  .player-fantasy .character-window-content {
+    padding: 12px;
+  }
+  .player-fantasy .hud-drawer {
+    width: min(380px, 90vw);
+    max-height: 42vh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-fantasy *,
+  .player-fantasy *::before,
+  .player-fantasy *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
