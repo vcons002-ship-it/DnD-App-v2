@@ -53,5 +53,25 @@ the disposable demonstration's counters were restored, with no added rows
 or altered maxima. The footage contains actual browser frames, not generated
 motion. Capture/encoding cadence is not a gameplay frame-rate benchmark.
 
-Local tests use Node 24.16, outside the declared Node 20-22 range; no Node 22
-CI run or general performance benchmark is claimed.
+Initial local tests used Node 24.16, outside the declared Node 20-22 range.
+GitHub Node 22 validation is tracked below; no general performance benchmark
+is claimed.
+
+## PR release follow-up
+
+The first GitHub Node 22 / Ubuntu run passed typecheck, build, unit tests and
+97 of 98 browser tests. The combined phase-sampling/reduced-motion gem test
+still saw test-paused animation objects after switching media preferences;
+the separate reduced-motion and hidden-tab tests passed. Local Chrome 153
+did not reproduce that retained-object behavior.
+
+The fixture now reloads after deterministic screenshot phase sampling, checks
+that untouched CSS animations are naturally running, then switches to reduced
+motion and polls for zero actual animations. The computed-style checks still
+require every gem animation to be disabled. This separates the browser's
+handling of test-owned paused/seeked objects from the real user preference
+transition; no application visuals or gameplay code was changed to make CI pass.
+
+The corrected fixture passed all eight local gem tests plus three repeated
+runs of the combined tier/reduced-motion case. Local server/client typechecks
+and all 597 unit tests were repeated successfully before the follow-up commit.

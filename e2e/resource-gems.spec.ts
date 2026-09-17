@@ -318,9 +318,16 @@ test('idle gemstone light visibly fades in and out with stronger spell tiers, st
       * Number(getComputedStyle(element.querySelector('.gem-lit-body')!).opacity),
   })));
   const verifyProgression = async (phase: number, reduced = false) => {
-    const sampled = await holdIdlePhase(resources(page).locator('.resource-jewel'), phase);
-    if (reduced) expect(sampled).toBe(0);
-    if (!reduced) expect(sampled, 'Available gemstones must actually run a repeating light animation').toBeGreaterThan(0);
+    if (reduced) {
+      // Do not pause or seek animations while testing that motion is disabled.
+      // Poll the browser's real animation list as the media rule takes effect.
+      await expect.poll(() => resources(page).locator('.resource-jewel').evaluateAll((elements) =>
+        elements.reduce((count, element) => count + element.getAnimations({ subtree: true }).length, 0)),
+      ).toBe(0);
+    } else {
+      expect(await holdIdlePhase(resources(page).locator('.resource-jewel'), phase),
+        'Available gemstones must actually run a repeating light animation').toBeGreaterThan(0);
+    }
     const activeBrightness: number[] = [];
     const activeRadiance: number[] = [];
     const activeBloom: number[] = [];
@@ -430,6 +437,15 @@ test('idle gemstone light visibly fades in and out with stronger spell tiers, st
 
   // Reduced motion keeps available gems clearly lit with their tier ladder,
   // but removes the continuously running pulse as well as finite reactions.
+  // A fresh document discards every animation paused/seeked by phase sampling.
+  // This exercises natural CSS animations, not browser-version-specific WAAPI
+  // ownership of the animation objects the test has previously manipulated.
+  await page.reload();
+  await expect(spellGems(9)).toHaveCount(3);
+  await idle(page);
+  expect(await spellGems(9).first().evaluate((element) =>
+    element.getAnimations({ subtree: true }).filter((animation) => animation.playState === 'running').length),
+  'Fresh available gems animate naturally before the preference changes').toBeGreaterThan(0);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(spellGems(9).first()).toHaveAttribute('data-gem-motion', 'reduced');
   pulseEvidence.reducedMotion = await verifyProgression(0, true);
