@@ -95,9 +95,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   bloom; exact per-roll floating-damage timing and painted 3D landing callbacks.
   Authoritative HP and the existing manual damage workflow remain unchanged.
   [Revision notes and evidence](docs/PLAYER_HUD_REVISION_20_2026-09-17.md).
+- ☑ Player review revision 21: an engraved skull-and-tally crest in the health
+  orb's lower rim, using the existing saved kill count and matching Cinzel type.
+  No new kill-credit automation or changes to DM layout, AC or resource positions.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_21_2026-09-17.md).
 - ◐ PR #66 merged into Main and the official local updater built its client and
   server code. Production service restart did not complete after UAC was cancelled;
-  revisions 19-20 are development-only and have not been deployed.
+  revisions 19-21 are development-only and have not been deployed.
   See [release scope](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
 - See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
 

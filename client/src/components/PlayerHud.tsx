@@ -4,6 +4,7 @@ import { useStore } from '../state/socket';
 import { LiquidOrb } from './LiquidOrb';
 import { TemporaryHpShield } from './TemporaryHpShield';
 import { ArmorClassBadge } from './ArmorClassBadge';
+import { OrbKillCount } from './OrbKillCount';
 import { JeweledResources } from './JeweledResources';
 import { ResourceBranchArt, type GuardianArt } from './ResourceBranchArt';
 import { PlayerResourceRowEditor } from './PlayerResourceRowEditor';
@@ -312,6 +313,7 @@ export function PlayerHud({
           </span>
         </button>
             <ArmorClassBadge value={effectiveAc(character) || character.armorClass} />
+            <OrbKillCount name={character.name} value={character.killCount ?? 0} />
         </div>
         <div className="hud-attached-panel hud-resource-wing">
           <ResourceBranchArt guardian={art} extended={resourceLayout === 'concentric' && resourceRingCount > 5} />
