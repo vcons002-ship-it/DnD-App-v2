@@ -107,9 +107,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   visible 3.6-second cycle, with a broader colored halo and tiered inner glow.
   Spent gems remain dark; reduced motion keeps steady illumination.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_23_2026-09-17.md).
+- ☑ Player review revision 24: moved the breathing light inside each gemstone,
+  with a deeper crystal body, clipped luminous core and refracted facet light;
+  exterior bloom is now a faint spill around the unchanged socket.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_24_2026-09-17.md).
 - ◐ PR #66 merged into Main and the official local updater built its client and
   server code. Production service restart did not complete after UAC was cancelled;
-  revisions 19-23 are development-only and have not been deployed to production.
+  revisions 19-24 are development-only and have not been deployed to production.
   See [release scope](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
 - See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
 

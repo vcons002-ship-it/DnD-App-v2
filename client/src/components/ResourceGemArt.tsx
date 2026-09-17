@@ -23,6 +23,7 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
   const cavity = `gem-cavity-${id}`;
   const heart = `gem-heart-${id}`;
   const emission = `gem-emission-${id}`;
+  const cutClip = `gem-cut-${id}`;
   const bloom = `gem-bloom-${id}`;
   const dark = `gem-dark-${id}`;
   const flare = `gem-flare-${id}`;
@@ -35,10 +36,10 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
   const idleLight = {
     '--gem-idle-brightness': 1 + levelStep * .03,
     '--gem-idle-radiance': .15 + levelStep * .035,
-    '--gem-bloom-strength': .86 + levelStep * .017,
-    '--gem-bloom-trough': .12 + levelStep * .014,
-    '--gem-core-trough': .16 + levelStep * .018,
-    '--gem-core-peak': .74 + levelStep * .025,
+    '--gem-bloom-strength': .16 + levelStep * .008,
+    '--gem-bloom-trough': .025 + levelStep * .003,
+    '--gem-core-trough': .18 + levelStep * .012,
+    '--gem-core-peak': .9 + levelStep * .012,
     // A gentle wave across a row; phase affects only decorative light, never
     // socket geometry or the resource's authoritative state.
     '--gem-breathe-delay': `${-(Math.abs(ordinal) % 4) * .16 - levelStep * .1}s`,
@@ -47,6 +48,7 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
     <svg className={`resource-gem-art ${palette}`} data-gem-art-variant={variant}
       viewBox="0 0 32 32" style={idleLight} aria-hidden="true" focusable="false">
       <defs>
+        <clipPath id={cutClip}><path d={cut} /></clipPath>
         <linearGradient id={metal} x1=".18" y1="0" x2=".77" y2="1">
           <stop offset="0" stopColor="#f0d49a" />
           <stop offset=".18" stopColor="#957344" />
@@ -67,25 +69,26 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
           <stop offset=".6" stopColor="#181d26" />
           <stop offset="1" stopColor="#070b11" />
         </linearGradient>
+        {/* A deep, colored body gives the embedded light room to brighten.
+            The brightest area belongs to the pulsing core, not a fixed white
+            reflection painted over the top of the crystal. */}
         <radialGradient id={heart} cx={variant === 1 ? '.42' : '.35'} cy=".35" r=".72">
-          <stop offset="0" stopColor="var(--gem-flare)" />
-          <stop offset=".19" stopColor="var(--gem-light)" />
-          <stop offset=".5" stopColor="var(--gem-mid)" />
-          <stop offset=".84" stopColor="var(--gem-deep)" />
+          <stop offset="0" stopColor="var(--gem-mid)" />
+          <stop offset=".4" stopColor="var(--gem-deep)" />
+          <stop offset=".84" stopColor="var(--gem-ink)" />
           <stop offset="1" stopColor="var(--gem-ink)" />
         </radialGradient>
-        <radialGradient id={emission} gradientUnits="userSpaceOnUse" cx="16.7" cy="18.4" r="8.8">
+        <radialGradient id={emission} gradientUnits="userSpaceOnUse" cx="16" cy="18" r="12">
           <stop offset="0" stopColor="var(--gem-flare)" />
-          <stop offset=".2" stopColor="var(--gem-light)" />
-          <stop offset=".43" stopColor="var(--gem-energy)" stopOpacity=".98" />
-          <stop offset=".72" stopColor="var(--gem-energy)" stopOpacity=".78" />
+          <stop offset=".15" stopColor="var(--gem-light)" />
+          <stop offset=".4" stopColor="var(--gem-energy)" stopOpacity=".98" />
+          <stop offset=".7" stopColor="var(--gem-mid)" stopOpacity=".76" />
           <stop offset="1" stopColor="var(--gem-deep)" stopOpacity="0" />
         </radialGradient>
-        {/* The existing cut emits a soft colored halo beneath its setting.
-            Only light opacity breathes: no duplicate stone or scaling socket.
-            Give the halo room to remain visible at the default 85% UI scale. */}
-        <filter id={bloom} filterUnits="userSpaceOnUse" x="-14" y="-14" width="60" height="60" colorInterpolationFilters="sRGB">
-          <feGaussianBlur stdDeviation="4.2" />
+        {/* Just a trace of spill beside the setting. The visible pulse comes
+            from the clipped internal light, not a foggy aura outside the gem. */}
+        <filter id={bloom} filterUnits="userSpaceOnUse" x="-6" y="-6" width="44" height="44" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="2" />
         </filter>
         <radialGradient id={flare}>
           <stop offset="0" stopColor="#ffffff" />
@@ -95,7 +98,7 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
         </radialGradient>
       </defs>
       <path className="gem-emission-bloom" d={cut} fill="var(--gem-energy)"
-        stroke="var(--gem-energy)" strokeWidth="10" filter={`url(#${bloom})`} />
+        stroke="var(--gem-energy)" strokeWidth="4" filter={`url(#${bloom})`} />
       {/* Engraved bronze setting and dark recess sit behind the cut stone. */}
       <path d="m16 .8 4 3 6-.2 2.4 6.1 2.8 6.3-2.8 6.3-2.4 6.1-6-.2-4 3-4-3-6 .2-2.4-6.1L.8 16l2.8-6.3L6 3.6l6 .2Z"
         fill={`url(#${metal})`} stroke="#15110e" strokeWidth="1.05" />
@@ -120,20 +123,28 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
       <g className="gem-lit-body">
         {/* The same emitted color catches the recessed inner setting. */}
         <path d="m5.3 20.5 5.5 6.8h10.5l5.6-6.7" fill="none"
-          stroke="var(--gem-energy)" strokeWidth="3.6" strokeOpacity=".8" />
+          stroke="var(--gem-energy)" strokeWidth="1.4" strokeOpacity=".28" />
         <path d={cut} fill="var(--gem-deep)" stroke="var(--gem-ink)" strokeWidth=".8" />
-        <path d="m11 6 10 0-1 5h-8Z" fill="var(--gem-light)" />
+        <path d="m11 6 10 0-1 5h-8Z" fill="var(--gem-mid)" />
         <path d="m21 6 6 6-4 2-3-3Z" fill="var(--gem-mid)" />
         <path d="m27 12v9l-4-1v-6Z" fill="var(--gem-deep)" />
         <path d="m27 21-6 6-2-4 4-3Z" fill="var(--gem-ink)" />
         <path d="M21 27H11l1-4h7Z" fill="var(--gem-deep)" />
         <path d="m11 27-6-6 4-1 3 3Z" fill="var(--gem-mid)" />
         <path d="M5 21v-9l4 2v6Z" fill="var(--gem-light)" fillOpacity=".56" />
-        <path d="m5 12 6-6 1 5-3 3Z" fill="var(--gem-flare)" fillOpacity=".88" />
+        <path d="m5 12 6-6 1 5-3 3Z" fill="var(--gem-light)" fillOpacity=".65" />
         <path d={table} fill={`url(#${heart})`} stroke="var(--gem-light)" strokeOpacity=".7" strokeWidth=".55" />
-        {/* A second, saturated light source lives below the white reflection.
-            Facet overlays and the dark pavilion retain the cut-stone shape. */}
-        <path className="gem-inner-emission" d={table} fill={`url(#${emission})`} />
+        {/* Light lives within this same cut, refracting onto its lower facets.
+            The entire light group is clipped under the crown and metal claws;
+            crisp pavilion shadows and surface reflections remain above it. */}
+        <g className="gem-inner-emission" clipPath={`url(#${cutClip})`}>
+          <path d={cut} fill={`url(#${emission})`} />
+          <path d="m5 21 4-1 3 3-1 4Z" fill="var(--gem-light)" fillOpacity=".56" />
+          <path d="m21 27-2-4 4-3 4 1Z" fill="var(--gem-energy)" fillOpacity=".58" />
+          <path d="m12 23 4-5 3 5-3 2Z" fill="var(--gem-light)" fillOpacity=".42" />
+          <path d="m9 20 3 3h7l4-3" fill="none" stroke="var(--gem-light)"
+            strokeOpacity=".7" strokeWidth=".8" />
+        </g>
         {/* Tier radiance stays saturated rather than whitening the whole cut. */}
         <path className="gem-level-radiance" d={table} fill={`url(#${emission})`} />
         <path d="m12 11 8 0-5.5 6.5L9 14Z" fill="#ffffff" fillOpacity=".17" />

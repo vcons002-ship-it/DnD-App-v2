@@ -91,7 +91,7 @@ async function setLayout(page: Page, layout: 'compact' | 'concentric') {
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 }
 
-test('native-size resource glow stays readable over dark, medium and bright map tones', async ({ page, request }, testInfo) => {
+test('native-size gemstone light pulses primarily inside the cut rather than around the socket on every map tone', async ({ page, request }, testInfo) => {
   const fixture = await gemFixture(request);
   fixture.socket.emit('character:update', {
     characterId: fixture.characterId,
@@ -114,8 +114,23 @@ test('native-size resource glow stays readable over dark, medium and bright map 
       background-image: linear-gradient(#ffffff0e 1px, transparent 1px), linear-gradient(90deg,#ffffff0e 1px,transparent 1px);
       background-size: 48px 48px; }
   ` });
-  const emissionEvidence: { background: string; changedOutsideSocket: number; largestChannelChange: number }[] = [];
+  const emissionEvidence: {
+    background: string; internalPixels: number; changedInternalPixels: number;
+    internalMeanChange: number; outsideMeanChange: number; largestInternalChange: number;
+  }[] = [];
   const clip = { x: Math.floor(box!.x) - 5, y: Math.floor(box!.y) - 5, width: 25, height: 25 };
+  // The octagonal cut in the unchanged 32x32 art viewBox. Test the gemstone,
+  // not its surrounding bronze frame or the rectangular button background.
+  const cut = [[11, 6], [21, 6], [27, 12], [27, 21], [21, 27], [11, 27], [5, 21], [5, 12]];
+  const insideCut = (x: number, y: number) => {
+    let inside = false;
+    for (let index = 0, previous = cut.length - 1; index < cut.length; previous = index, index += 1) {
+      const [xi, yi] = cut[index];
+      const [xj, yj] = cut[previous];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
   const pixels = async () => {
     const buffer = await page.screenshot({ clip });
     return page.evaluate(async (encoded) => {
@@ -133,34 +148,49 @@ test('native-size resource glow stays readable over dark, medium and bright map 
     for (const [name, color] of [['dark', '#171e24'], ['medium', '#6b756b'], ['bright', '#c2b79c']] as const) {
       await page.evaluate((value) => document.documentElement.style.setProperty('--gem-proof-map', value), color);
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
-      const screenshotPath = testInfo.outputPath(`resource-glow-${name}-native.png`);
-      await page.screenshot({ path: screenshotPath, clip: { x: 0, y: 360, width: 610, height: 408 } });
-      await testInfo.attach(`resource-glow-${name}-native`, { path: screenshotPath, contentType: 'image/png' });
-      // Compare actual native-resolution pixels, not just a CSS variable or a
-      // white reflection inside the stone. Temporarily suppress ONLY this
-      // stone's bloom; unchanged game state/geometry must now emit visibly less
-      // colored light beyond the original socket's rectangular bounds.
-      const illuminated = await pixels();
-      await first.locator('.gem-emission-bloom').evaluate((element) => element.setAttribute('style', 'visibility:hidden'));
-      const unlit = await pixels();
-      await first.locator('.gem-emission-bloom').evaluate((element) => element.removeAttribute('style'));
-      let changedOutsideSocket = 0;
-      let largestChannelChange = 0;
-      for (let index = 0; index < illuminated.values.length; index += 4) {
-        const x = clip.x + (index / 4) % illuminated.width + .5;
-        const y = clip.y + Math.floor((index / 4) / illuminated.width) + .5;
-        if (x >= box!.x && x <= box!.x + box!.width && y >= box!.y && y <= box!.y + box!.height) continue;
-        const change = Math.max(...[0, 1, 2].map((channel) => Math.abs(illuminated.values[index + channel] - unlit.values[index + channel])));
-        largestChannelChange = Math.max(largestChannelChange, change);
-        if (change >= 6) changedOutsideSocket += 1;
+      // Compare actual native-resolution pulse phases. Every other gemstone
+      // remains frozen at the crest, isolating light from this original cut.
+      await holdIdlePhase(first, .5);
+      const trough = await pixels();
+      const troughPath = testInfo.outputPath(`resource-inner-glow-${name}-native-trough.png`);
+      await page.screenshot({ path: troughPath, clip: { x: 0, y: 360, width: 610, height: 408 } });
+      await testInfo.attach(`resource-inner-glow-${name}-native-trough`, { path: troughPath, contentType: 'image/png' });
+      await holdIdlePhase(first, 0);
+      const crest = await pixels();
+      const crestPath = testInfo.outputPath(`resource-inner-glow-${name}-native-crest.png`);
+      await page.screenshot({ path: crestPath, clip: { x: 0, y: 360, width: 610, height: 408 } });
+      await testInfo.attach(`resource-inner-glow-${name}-native-crest`, { path: crestPath, contentType: 'image/png' });
+      let internalPixels = 0;
+      let changedInternalPixels = 0;
+      let internalChange = 0;
+      let outsidePixels = 0;
+      let outsideChange = 0;
+      let largestInternalChange = 0;
+      for (let index = 0; index < crest.values.length; index += 4) {
+        const x = clip.x + (index / 4) % crest.width + .5;
+        const y = clip.y + Math.floor((index / 4) / crest.width) + .5;
+        const change = Math.max(...[0, 1, 2].map((channel) => Math.abs(crest.values[index + channel] - trough.values[index + channel])));
+        if (insideCut((x - box!.x) / box!.width * 32, (y - box!.y) / box!.height * 32)) {
+          internalPixels += 1;
+          internalChange += change;
+          largestInternalChange = Math.max(largestInternalChange, change);
+          if (change >= 8) changedInternalPixels += 1;
+        } else if (x < box!.x || x > box!.x + box!.width || y < box!.y || y > box!.y + box!.height) {
+          outsidePixels += 1;
+          outsideChange += change;
+        }
       }
-      emissionEvidence.push({ background: name, changedOutsideSocket, largestChannelChange });
-      expect(changedOutsideSocket, `${name}: emitted color must extend beyond the actual 14.45px socket`).toBeGreaterThanOrEqual(8);
-      expect(largestChannelChange, `${name}: bloom cannot be an imperceptible subpixel decoration`).toBeGreaterThanOrEqual(12);
+      const internalMeanChange = internalChange / internalPixels;
+      const outsideMeanChange = outsideChange / outsidePixels;
+      emissionEvidence.push({ background: name, internalPixels, changedInternalPixels, internalMeanChange, outsideMeanChange, largestInternalChange });
+      expect(changedInternalPixels, `${name}: light must visibly change inside the original native-size stone`).toBeGreaterThanOrEqual(15);
+      expect(internalMeanChange, `${name}: internal pulse cannot be an imperceptible opacity decoration`).toBeGreaterThanOrEqual(8);
+      expect(internalMeanChange, `${name}: the gemstone must be the light source, not a surrounding halo`).toBeGreaterThan(outsideMeanChange * 2);
+      expect(largestInternalChange).toBeGreaterThanOrEqual(20);
     }
-    const evidencePath = testInfo.outputPath('native-size-emission-pixel-proof.json');
-    await writeFile(evidencePath, JSON.stringify({ gemWidth: box!.width, mapTonesAreControlledFixtureSwatches: true, emissionEvidence }, null, 2));
-    await testInfo.attach('native-size-emission-pixel-proof', { path: evidencePath, contentType: 'application/json' });
+    const evidencePath = testInfo.outputPath('native-size-internal-light-pixel-proof.json');
+    await writeFile(evidencePath, JSON.stringify({ gemWidth: box!.width, mapTonesAreControlledFixtureSwatches: true, onlyFirstGemPhaseVaries: true, emissionEvidence }, null, 2));
+    await testInfo.attach('native-size-internal-light-pixel-proof', { path: evidencePath, contentType: 'application/json' });
   } finally {
     await backdrop.evaluate((element) => element.remove());
     await page.evaluate(() => document.documentElement.style.removeProperty('--gem-proof-map'));
@@ -304,11 +334,12 @@ test('idle gemstone light visibly fades in and out with stronger spell tiers, st
           const brightness = Number(/^brightness\(([^)]+)\)$/.exec(gem.filter)?.[1]);
           expect(brightness, `Level ${level} internal glow`).toBeGreaterThanOrEqual(1);
           expect(gem.radiance, `Level ${level} emitted radiance`).toBeGreaterThan(0);
+          expect(gem.bloom, `Level ${level} halo must remain subordinate to the gemstone`).toBeLessThanOrEqual(.25);
           if (reduced || phase === 0) {
-            expect(gem.bloom, `Level ${level} light must be visible at its crest`).toBeGreaterThanOrEqual(.8);
+            expect(gem.core, `Level ${level} internal light must be visible at its crest`).toBeGreaterThanOrEqual(.85);
           } else {
-            expect(gem.bloom, `Level ${level} light must visibly fade at its trough`).toBeLessThanOrEqual(.3);
-            expect(gem.bloom, `Level ${level} is still available at the trough`).toBeGreaterThan(0);
+            expect(gem.core, `Level ${level} internal light must visibly fade at its trough`).toBeLessThanOrEqual(.3);
+            expect(gem.core, `Level ${level} is still available at the trough`).toBeGreaterThan(0);
           }
           expect(gem.opacity).toBe(1);
         } else {
@@ -355,9 +386,10 @@ test('idle gemstone light visibly fades in and out with stronger spell tiers, st
     await testInfo.attach(`spell-level-idle-glow-${layout}-trough`, { path: troughPath, contentType: 'image/png' });
     const crest = await verifyProgression(0);
     for (let level = 0; level < 9; level += 1) {
-      expect(crest.bloom[level] - trough.bloom[level], `L${level + 1} needs a clear fade, not a nearly static shimmer`).toBeGreaterThanOrEqual(.55);
-      expect(crest.bloom[level] / trough.bloom[level], `L${level + 1} bloom contrast`).toBeGreaterThanOrEqual(3);
-      expect(crest.core[level] - trough.core[level], `L${level + 1} light must also pulse inside the cut stone`).toBeGreaterThanOrEqual(.5);
+      expect(crest.core[level] - trough.core[level], `L${level + 1} needs a clear internal fade, not a nearly static shimmer`).toBeGreaterThanOrEqual(.6);
+      expect(crest.core[level] / trough.core[level], `L${level + 1} internal light contrast`).toBeGreaterThanOrEqual(3);
+      expect(crest.core[level] - trough.core[level], `L${level + 1} the surrounding halo must not overpower its inner light`)
+        .toBeGreaterThan((crest.bloom[level] - trough.bloom[level]) * 3);
       expect(crest.radiance[level], 'Static facets retain spell-tier legibility throughout the pulse').toBe(trough.radiance[level]);
     }
     expect(await geometry(resources(page).locator('.resource-jewel')), 'Light fades must not move or scale resource controls').toEqual(initialGeometry);
@@ -439,16 +471,19 @@ test('native laptop gems visibly breathe through two real-time cycles without mo
     requestAnimationFrame(frame);
   }));
   expect(samples.length).toBeGreaterThan(30);
-  const minimum = Math.min(...samples.map((sample) => sample.bloom));
-  const maximum = Math.max(...samples.map((sample) => sample.bloom));
-  expect(minimum).toBeLessThan(.2);
-  expect(maximum).toBeGreaterThan(.8);
-  expect(maximum - minimum, 'A live browser must paint the fade, not just declare unused keyframes').toBeGreaterThan(.6);
-  expect(Math.max(...samples.map((sample) => sample.core)) - Math.min(...samples.map((sample) => sample.core))).toBeGreaterThan(.5);
+  const coreMinimum = Math.min(...samples.map((sample) => sample.core));
+  const coreMaximum = Math.max(...samples.map((sample) => sample.core));
+  const bloomMinimum = Math.min(...samples.map((sample) => sample.bloom));
+  const bloomMaximum = Math.max(...samples.map((sample) => sample.bloom));
+  expect(coreMinimum).toBeLessThan(.3);
+  expect(coreMaximum).toBeGreaterThan(.85);
+  expect(coreMaximum - coreMinimum, 'A live browser must paint the inner fade, not just declare unused keyframes').toBeGreaterThan(.6);
+  expect(bloomMaximum, 'External light stays a subtle reflection around the socket').toBeLessThanOrEqual(.25);
+  expect(coreMaximum - coreMinimum).toBeGreaterThan((bloomMaximum - bloomMinimum) * 3);
   expect(await geometry(resources(page).locator('.resource-jewel'))).toEqual(initialGeometry);
   await expect(gems(page, 'L1').last().locator('.gem-emission-bloom')).toHaveCSS('opacity', '0');
   const evidencePath = testInfo.outputPath('gem-live-pulse-samples.json');
-  await writeFile(evidencePath, JSON.stringify({ viewport: '1366x768', unchangedGeometry: true, minimum, maximum, samples }, null, 2));
+  await writeFile(evidencePath, JSON.stringify({ viewport: '1366x768', unchangedGeometry: true, coreMinimum, coreMaximum, bloomMinimum, bloomMaximum, samples }, null, 2));
   await testInfo.attach('gem-live-pulse-samples', { path: evidencePath, contentType: 'application/json' });
 });
 
