@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { io } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
-import { abilityMod, proficiencyBonus, signed, skillBonus } from '../shared/skills';
+import { SKILLS, abilityMod, proficiencyBonus, signed, skillBonus } from '../shared/skills';
 import { effectiveStats, saveExtra, skillExtra } from '../shared/modifiers';
 import { DM_SECRET, PORT } from './playwright.config';
 
@@ -65,7 +65,7 @@ test('compact checks share advantage, expose all roll types and preserve profici
     await expect(checks.getByRole('button', { name: 'Adv', exact: true })).toHaveCount(1);
     await expect(checks.getByRole('button', { name: 'Dis', exact: true })).toHaveCount(1);
     await expect(checks.getByRole('tabpanel', { name: 'Skills', exact: true }).getByRole('button', { name: /^Roll / })).toHaveCount(18);
-    expect((await checks.boundingBox())!.width).toBeLessThanOrEqual(330);
+    expect((await page.locator('.hud-checks-drawer').boundingBox())!.width).toBeLessThanOrEqual(208);
     expect(await checks.locator('.skill-list').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
     // The existing dot still sends character:update; no local-only proficiency state.
@@ -132,3 +132,91 @@ test('compact checks share advantage, expose all roll types and preserve profici
     observer.disconnect();
   }
 });
+
+for (const layout of [
+  { width: 1920, height: 1080, scale: .85 },
+  { width: 1366, height: 768, scale: 1.15 },
+  { width: 760, height: 768, scale: .7 },
+]) {
+  test(`quick checks remain narrow and readable at ${layout.width}px / ${Math.round(layout.scale * 100)}%`, async ({ page, request }) => {
+    const response = await request.post('/api/sessions', {
+      headers: { 'x-dm-passphrase': DM_SECRET },
+      data: { name: 'Compact checks layout' },
+    });
+    expect(response.ok()).toBeTruthy();
+    const { code } = await response.json();
+    const observer = io(`http://localhost:${PORT}`, { transports: ['websocket'], forceNew: true });
+    let snapshot: StateSnapshot;
+    observer.on('state:snapshot', (next: StateSnapshot) => { snapshot = next; });
+    try {
+      const joined = await observer.timeout(5000).emitWithAck('join', {
+        sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET,
+      });
+      expect(joined.ok).toBe(true);
+      snapshot = joined.snapshot;
+      const character = () => snapshot.characters.find((entry) => entry.name === 'Druk')!;
+      observer.emit('character:update', {
+        characterId: character().id,
+        stats: { STR: 18, DEX: 14, CON: 16, INT: 10, WIS: 12, CHA: 8 },
+      });
+      await expect.poll(() => character().stats.STR).toBe(18);
+      const savedResources = JSON.stringify([character().spellSlots, character().resources]);
+      const initialRolls = snapshot.rollLog.length;
+      await page.setViewportSize({ width: layout.width, height: layout.height });
+      await page.addInitScript((scale) => {
+        localStorage.setItem('dnd:player-layout:v1', JSON.stringify({ scale }));
+      }, layout.scale);
+      await page.goto(`/join?code=${code}`);
+      await page.getByRole('button', { name: 'Join', exact: true }).click();
+      await page.locator('.claim-row').filter({ hasText: 'Druk' }).click();
+      await page.locator('.hud-actions').getByRole('button', { name: 'Checks', exact: true }).click();
+      const drawer = page.locator('.hud-checks-drawer');
+      const checks = drawer.locator('.compact-checks');
+      await expect(checks).toBeVisible();
+      // CSS zoom rounds fractional layout pixels; compare within one CSS pixel.
+      expect(await drawer.evaluate((element) => parseFloat(getComputedStyle(element).width))).toBeCloseTo(244, 0);
+      expect((await drawer.boundingBox())!.width).toBeLessThanOrEqual(244 * layout.scale + 1);
+      expect(await drawer.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+      // The longest names (Animal Handling / Sleight of Hand) must remain fully
+      // legible beside their stats and bonuses, not ellipsized or off-canvas.
+      for (const skill of SKILLS) {
+        const row = checks.locator('.skill-row').filter({ hasText: skill.name });
+        await row.scrollIntoViewIfNeeded();
+        await expect(row.getByRole('button', { name: new RegExp(`^Roll ${skill.name} check `) })).toBeVisible();
+        expect(await row.evaluate((element) => {
+          const rowRect = element.getBoundingClientRect();
+          return [...element.querySelectorAll('.skill-name, .skill-abil, .skill-bonus')].every((span) => {
+            const range = document.createRange();
+            range.selectNodeContents(span);
+            const labelRect = span.getBoundingClientRect();
+            return span.scrollWidth <= span.clientWidth + 1 && [...range.getClientRects()].every((rect) =>
+              rect.left >= labelRect.left - 1 && rect.right <= labelRect.right + 1
+              && rect.left >= rowRect.left - 1 && rect.right <= rowRect.right + 1);
+          });
+        })).toBe(true);
+      }
+      await checks.getByRole('tab', { name: 'Stats', exact: true }).click();
+      for (const name of ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma']) {
+        const stat = checks.getByRole('button', { name: new RegExp(`^${name} .*Choose check or save$`) });
+        await stat.scrollIntoViewIfNeeded();
+        expect(await stat.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+        await stat.click();
+        const chooser = checks.getByRole('group', { name: `${name} roll options`, exact: true });
+        await expect(chooser).toBeVisible();
+        await expect(chooser.getByRole('button')).toHaveCount(2);
+        const menuRect = (await chooser.boundingBox())!;
+        const drawerRect = (await drawer.boundingBox())!;
+        expect(menuRect.x).toBeGreaterThanOrEqual(drawerRect.x);
+        expect(menuRect.x + menuRect.width).toBeLessThanOrEqual(drawerRect.x + drawerRect.width);
+        await page.keyboard.press('Escape');
+        await expect(stat).toBeFocused();
+      }
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      expect(snapshot.rollLog.length).toBe(initialRolls);
+      expect(JSON.stringify([character().spellSlots, character().resources])).toBe(savedResources);
+    } finally {
+      observer.disconnect();
+    }
+  });
+}

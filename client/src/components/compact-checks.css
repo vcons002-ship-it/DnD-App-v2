@@ -1,4 +1,12 @@
 /* Scoped to the optional player quick-check panel; DM/sheet defaults stay intact. */
+.player-fantasy .hud-drawer.hud-checks-drawer {
+  /* A single skill column only needs its label, stat and bonus. Keep this
+     narrower than generic HUD drawers, including their small-screen override. */
+  box-sizing: border-box;
+  width: 244px;
+  max-width: calc(100vw / var(--player-ui-scale, .85) - 88px);
+  padding: 8px;
+}
 .compact-checks {
   min-width: 0;
   font-size: 12px;
@@ -7,7 +15,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   color: #baac96;
   margin-bottom: 6px;
 }
@@ -48,16 +56,16 @@
   gap: 0;
 }
 .compact-checks .compact-skills .skill-row { gap: 1px; min-width: 0; }
-.compact-checks .compact-skills .skill-prof { width: 24px; min-height: 26px; flex: 0 0 24px; padding: 6px; }
+.compact-checks .compact-skills .skill-prof { width: 22px; min-height: 26px; flex: 0 0 22px; padding: 6px; }
 .compact-checks .compact-skills .skill-dot { width: 8px; height: 8px; }
 .compact-checks .compact-skills .skill-roll {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 26px 28px;
+  grid-template-columns: minmax(0, 1fr) 23px 24px;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   min-height: 26px;
-  padding: 3px 5px;
+  padding: 3px 4px;
   font-size: 12px;
   border-radius: 3px;
 }
@@ -67,7 +75,7 @@
 .compact-checks .compact-checks-abilities { display: grid; gap: 2px; }
 .compact-checks .compact-checks-ability {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) 47px 28px;
+  grid-template-columns: 8px minmax(0, 1fr) 42px 24px;
   align-items: center;
   gap: 5px;
   padding: 6px 5px;

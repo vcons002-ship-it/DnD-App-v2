@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 import type { PlayerLayoutController, PlayerPanelName, PlayerPanelSize } from '../lib/usePlayerLayout';
 
 export function ChatBubbleIcon() {
@@ -90,8 +91,42 @@ function DimensionInput({ label, value, min, max, onCommit }: {
 
 export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutController }) {
   const [open, setOpen] = useState(false);
+  const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
+  const [placement, setPlacement] = useState({ shift: 0, height: 480 });
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const options = useRef<HTMLElement>(null);
+  // Join the player's existing toolbar flow instead of estimating a spare map
+  // coordinate. Map controls can grow or move without overlapping this button.
+  // This component is never mounted by the DM view.
+  useLayoutEffect(() => {
+    const actions = root.current?.closest('.player-fantasy')?.querySelector<HTMLElement>('.topbar-actions');
+    if (actions) setToolbar(actions);
+  }, []);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const button = trigger.current?.getBoundingClientRect();
+      const panel = options.current?.getBoundingClientRect();
+      if (!button || !panel) return;
+      const unshiftedLeft = button.right - panel.width;
+      const left = Math.max(8, Math.min(unshiftedLeft, window.innerWidth - panel.width - 8));
+      const next = {
+        shift: (left - unshiftedLeft) / layout.scale,
+        height: Math.max(0, (window.innerHeight - button.bottom - 8) / layout.scale - 8),
+      };
+      setPlacement((current) => Math.abs(current.shift - next.shift) < .25 && Math.abs(current.height - next.height) < .25 ? current : next);
+    };
+    place();
+    const resize = new ResizeObserver(place);
+    const header = toolbar?.closest('header');
+    if (header) resize.observe(header);
+    window.addEventListener('resize', place);
+    return () => {
+      resize.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, [open, layout.scale, toolbar]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: globalThis.PointerEvent) => {
@@ -109,11 +144,12 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
       document.removeEventListener('keydown', escape);
     };
   }, [open]);
-  return <div className="player-layout-controls" ref={root}>
+  const controls = <div className={`player-layout-controls${toolbar ? ' in-toolbar' : ''}`} ref={root}
+    style={{ '--player-options-shift': `${placement.shift}px`, '--player-options-max-height': `${placement.height}px` } as CSSProperties}>
     <button type="button" ref={trigger} className="btn player-layout-trigger" aria-label="Interface settings" title="Interface settings: scale and panel sizes" aria-expanded={open} aria-controls="player-layout-options" onClick={() => setOpen((value) => !value)}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 3-1 3-3 1v3l-2 2 2 2v3l3 1 1 3h6l1-3 3-1v-3l2-2-2-2V7l-3-1-1-3Z" /><circle cx="12" cy="12" r="3.5" /></svg>
     </button>
-    {open && <section id="player-layout-options" className="player-layout-options fantasy-window" aria-label="Interface settings">
+    {open && <section ref={options} id="player-layout-options" className="player-layout-options fantasy-window" aria-label="Interface settings">
       <header><h2>Interface</h2><button type="button" className="btn tiny" aria-label="Close interface settings" onClick={() => setOpen(false)}>×</button></header>
       <label className="player-scale-label" htmlFor="player-ui-scale">UI scale <output>{Math.round(layout.scale * 100)}%</output></label>
       <input id="player-ui-scale" type="range" min="70" max="115" step="5" value={Math.round(layout.scale * 100)} onChange={(event) => layout.setScale(Number(event.target.value) / 100)} />
@@ -141,4 +177,5 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
       <small>Saved on this browser only. Map scale and campaign data are unchanged.</small>
     </section>}
   </div>;
+  return toolbar ? createPortal(controls, toolbar) : controls;
 }

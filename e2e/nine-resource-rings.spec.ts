@@ -110,6 +110,15 @@ function counters(character: Character) { return { spellSlots: character.spellSl
 for (const guardian of guardians) test(`${guardian.art}: nine spell rings and the tenth class ring stay aligned and clickable`, async ({ page, request }) => {
   const setup = await fixture(request, guardian);
   await join(page, setup);
+  await expect(page.locator('.resource-branch-extended')).toHaveAttribute('data-resource-art', guardian.art);
+  const trim = `/art/hud/resource-branch-${guardian.className.toLowerCase()}-v1.png`;
+  await expect(page.locator('.resource-branch-extended image')).toHaveCount(5);
+  for (const segment of await page.locator('.resource-branch-extended image').all()) {
+    await expect(segment).toHaveAttribute('href', trim);
+  }
+  const trimResponse = await request.get(trim);
+  expect(trimResponse.ok()).toBe(true);
+  expect(trimResponse.headers()['content-type']).toContain('image/png');
   const dock = page.getByRole('region', { name: 'Character resources', exact: true });
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));

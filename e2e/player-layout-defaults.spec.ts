@@ -6,9 +6,9 @@ import { DM_SECRET, PORT } from './playwright.config';
 const STORAGE_KEY = 'dnd:player-layout:v1';
 const connections: Socket[] = [];
 const guardians = [
-  { race: 'Half-Orc', className: 'Fighter', art: 'half-orc-fighter-v9.png' },
-  { race: 'Tiefling', className: 'Sorcerer', art: 'tiefling-sorcerer-v6.png' },
-  { race: 'Half-Elf', className: 'Ranger', art: 'half-elf-ranger-v7.png' },
+  { race: 'Half-Orc', className: 'Fighter', art: 'half-orc-fighter-v9.png', branch: 'resource-branch-fighter-v1.png' },
+  { race: 'Tiefling', className: 'Sorcerer', art: 'tiefling-sorcerer-v6.png', branch: 'resource-branch-sorcerer-v1.png' },
+  { race: 'Half-Elf', className: 'Ranger', art: 'half-elf-ranger-v7.png', branch: 'resource-branch-ranger-v1.png' },
 ];
 
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -72,7 +72,9 @@ for (const guardian of guardians) {
     await expect(page.locator('.orb-holder')).toHaveAttribute('src', `/art/hud/${guardian.art}`);
     await expect.poll(() => page.locator('.orb-holder').evaluate((image) =>
       (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
-    await expect(page.locator('.hud-branch-art')).toHaveAttribute('src', '/art/hud/resource-branch-v4.png');
+    await expect(page.locator('.hud-branch-art')).toHaveAttribute('src', `/art/hud/${guardian.branch}`);
+    await expect.poll(() => page.locator('.hud-branch-art').evaluate((image) =>
+      (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
     await expect(page.locator('.main-orb .liquid-orb-effects')).toBeVisible();
     await expect(page.locator('.hud-actions button')).toHaveCount(5);
     await expect(page.locator('.side.left')).toHaveCount(0);
@@ -81,6 +83,15 @@ for (const guardian of guardians) {
     expect(counters((await setup.snapshot()).characters.find((character) => character.id === setup.id)!)).toEqual(counters(setup.saved));
   });
 }
+
+test('unmatched character keeps neutral resource trim without changing counters', async ({ page, request }) => {
+  const setup = await fixture(request, { race: 'Human', className: 'Wizard', art: '', branch: 'resource-branch-v4.png' });
+  await enter(page, setup);
+  await expect(page.locator('.hud-branch-art')).toHaveAttribute('data-resource-art', 'generic');
+  await expect(page.locator('.hud-branch-art')).toHaveAttribute('src', '/art/hud/resource-branch-v4.png');
+  await expect(page.locator('.orb-holder')).toHaveCount(0);
+  expect(counters((await setup.snapshot()).characters.find((character) => character.id === setup.id)!)).toEqual(counters(setup.saved));
+});
 
 for (const sample of [
   { name: 'older preferences without a resource layout', value: JSON.stringify({ scale: .9 }) },

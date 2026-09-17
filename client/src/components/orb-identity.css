@@ -54,6 +54,46 @@
   letter-spacing: .12em;
   color: #bba981;
 }
+/* A trophy in the existing lower rim, beside AC. Never raise the resource
+   baseline or cover the globe/readout to make room for this saved tally. */
+.player-fantasy .hud-orb-cluster .orb-kill-count {
+  position: absolute;
+  left: 46.5%;
+  bottom: 1px;
+  width: 48.5%;
+  height: 14.5%;
+  z-index: 4;
+  pointer-events: none;
+  color: #f5dfb2;
+  font-family: var(--hud-display-font);
+  text-shadow: 0 1px 2px #000, 0 0 4px #000;
+}
+.player-fantasy .orb-kill-crest {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 2px #000b);
+}
+.player-fantasy .orb-kill-inscription {
+  position: absolute;
+  inset: 1px 13% 1px 33%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.player-fantasy .orb-kill-value {
+  font: 600 calc(var(--orb-size) * .1)/1 var(--hud-display-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.player-fantasy .orb-kill-inscription small {
+  font: 600 7px/1 var(--hud-display-font);
+  color: #d4bb8a;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
 .player-fantasy .player-hud .hud-actions { bottom: calc(var(--orb-size) + 65px); }
 /* Compact means less occupied map width, not smaller pips or hidden counters. */
 .player-fantasy.resource-layout-compact { --hud-width: calc(var(--orb-size) + 174px); }

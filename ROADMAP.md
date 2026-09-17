@@ -87,8 +87,34 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - ☑ Main reconciliation and release defaults: concentric arcs, final guardian
   art and compact player layout by default; newer Main initiative/racial-trait,
   ADV/DIS, Slides overlay and reveal-timing fixes retained.
-- ☐ Final PR review and approved production deployment. A PR is not a shipped
-  server update. See [current release candidate](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
+- ☑ Player review revision 19: narrower Skills/Stats/Save drawer; shared
+  per-attacker 2H/off-hand intent for panel and right-click attacks; non-overlapping
+  player toolbar settings; character-matched resource trim with neutral fallback.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_19_2026-09-17.md).
+- ☑ Player review revision 20: visible inner gem emission and small colored
+  bloom; exact per-roll floating-damage timing and painted 3D landing callbacks.
+  Authoritative HP and the existing manual damage workflow remain unchanged.
+  [Revision notes and evidence](docs/PLAYER_HUD_REVISION_20_2026-09-17.md).
+- ☑ Player review revision 21: an engraved skull-and-tally crest in the health
+  orb's lower rim, using the existing saved kill count and matching Cinzel type.
+  No new kill-credit automation or changes to DM layout, AC or resource positions.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_21_2026-09-17.md).
+- ☑ Player review revision 22: visible per-die damage and modifier breakdowns
+  in full history and the bottom overlay; new rolls retain bonus/rider faces
+  without changing damage calculations, spending or animation steps.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_22_2026-09-17.md).
+- ☑ Player review revision 23: resource-gem light now fades down and up on a
+  visible 3.6-second cycle, with a broader colored halo and tiered inner glow.
+  Spent gems remain dark; reduced motion keeps steady illumination.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_23_2026-09-17.md).
+- ☑ Player review revision 24: moved the breathing light inside each gemstone,
+  with a deeper crystal body, clipped luminous core and refracted facet light;
+  exterior bloom is now a faint spill around the unchanged socket.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_24_2026-09-17.md).
+- ◐ PR #66 merged into Main and the official local updater built its client and
+  server code. Production service restart did not complete after UAC was cancelled;
+  revisions 19-24 are development-only and have not been deployed to production.
+  See [release scope](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
 - See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
 
 - ☑ **Durable sessions [req].** Every session code, its game state (maps, tokens,

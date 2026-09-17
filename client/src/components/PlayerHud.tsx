@@ -4,8 +4,9 @@ import { useStore } from '../state/socket';
 import { LiquidOrb } from './LiquidOrb';
 import { TemporaryHpShield } from './TemporaryHpShield';
 import { ArmorClassBadge } from './ArmorClassBadge';
+import { OrbKillCount } from './OrbKillCount';
 import { JeweledResources } from './JeweledResources';
-import { ResourceBranchArt } from './ResourceBranchArt';
+import { ResourceBranchArt, type GuardianArt } from './ResourceBranchArt';
 import { PlayerResourceRowEditor } from './PlayerResourceRowEditor';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterItems } from './CharacterItems';
@@ -27,7 +28,7 @@ type WindowTab =
   | 'Spellbook'
   | 'Checks & saves'
   | 'Party';
-export function orbArt(character: Character): string | null {
+export function orbArt(character: Character): GuardianArt | null {
   const race = character.race.toLowerCase().replace(/[\s-]/g, '');
   const cls = character.className.trim().toLowerCase();
   if (race === 'halforc' && cls === 'fighter') return 'half-orc-fighter';
@@ -312,9 +313,10 @@ export function PlayerHud({
           </span>
         </button>
             <ArmorClassBadge value={effectiveAc(character) || character.armorClass} />
+            <OrbKillCount name={character.name} value={character.killCount ?? 0} />
         </div>
         <div className="hud-attached-panel hud-resource-wing">
-          <ResourceBranchArt extended={resourceLayout === 'concentric' && resourceRingCount > 5} />
+          <ResourceBranchArt guardian={art} extended={resourceLayout === 'concentric' && resourceRingCount > 5} />
           <JeweledResources character={character} layout={resourceLayout} overflowCustomResources={overflowCustomResources} onRingCountChange={setResourceRingCount} />
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />

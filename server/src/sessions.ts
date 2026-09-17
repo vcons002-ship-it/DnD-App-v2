@@ -1298,8 +1298,10 @@ export function addRollLog(
     /** Enemy/neutral creature roll → players see no modifier breakdown. */
     hideMods?: boolean;
   },
+  /** Server-reserved ID lets a damage FX reference its exact forthcoming roll.
+   *  Never supplied by a client; ordinary log callers keep automatic IDs. */
+  id = newId(),
 ): RollEntry {
-  const id = newId();
   const createdAt = Date.now();
   // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
   // is on, so player snapshots can drop it (damage still applied separately).
@@ -2864,11 +2866,12 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, effect } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, effect, rollId } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
       delta,
+      ...(rollId ? { rollId } : {}),
       ...(damageType ? { damageType } : {}),
       ...(effect ? { effect } : {}),
     });
@@ -2888,6 +2891,8 @@ export function applyDamage(
    *  is TWO death-save failures, not one (and melee vs unconscious is always a
    *  crit). Only affects the down-PC branch below. */
   crit = false,
+  /** Cosmetic correlation only; never defers the authoritative HP mutation. */
+  rollId?: string,
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -2925,6 +2930,7 @@ export function applyDamage(
       kind,
       refId,
       delta: fxDelta,
+      ...(rollId ? { rollId } : {}),
       // Type only rides on damage (heals are sign-coded green client-side).
       ...(fxDelta < 0 && isDamageType(damageType)
         ? { damageType: damageType.trim().toLowerCase() }

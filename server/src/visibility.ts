@@ -76,6 +76,18 @@ function redactCreatureMods(e: RollEntry): RollEntry {
       ...(reveal.damageMods
         ? { damageMods: anon(reveal.damage ?? 0, sumSteps(reveal.damageDice)) }
         : {}),
+      ...(reveal.damageBreakdown ? {
+        damageBreakdown: {
+          // Retain visible die faces but never disclose the creature feature,
+          // rider or item name carried only by this richer log-only payload.
+          dice: reveal.damageBreakdown.dice.map((step) => ({
+            ...step,
+            label: /^(\d+d\d+)(?=\s|$)/i.exec(step.label)?.[1] ?? (step.label === 'CRIT' ? 'CRIT' : 'dice'),
+          })),
+          mods: anon(reveal.damage ?? 0, sumSteps(reveal.damageBreakdown.dice)),
+          ...(reveal.damageBreakdown.mixedTypes ? { mixedTypes: true } : {}),
+        },
+      } : {}),
     };
   }
   return { ...e, detail, reveal };
@@ -331,7 +343,10 @@ export function createSnapshotBuilder(
             e.id,
             {
               ...(ownedByMe(e.apply?.owner) ? { apply: e.apply } : {}),
-              ...(ownedByMe(e.pending?.owner) ? { pending: e.pending } : {}),
+              ...(ownedByMe(e.pending?.owner) ? { pending: e.hideMods && e.pending
+                // Pending data remains the existing owner's action payload;
+                // new named log-only detail is not needed before resolution.
+                ? { ...e.pending, damageBreakdown: undefined } : e.pending } : {}),
             },
           ] as const),
         );

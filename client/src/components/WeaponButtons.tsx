@@ -4,7 +4,8 @@ import type { Weapon } from '../../../shared/types';
  * Shared list of weapon-attack buttons (icon + name + damage). The parent wires
  * how each weapon is rolled via `onAttack(index)` so the same rendering serves
  * the quick right-click menu (`variant="menu"`) and the Combat section's
- * roller (`variant="inline"`, which also passes `twoHanded` to show 2H damage).
+ * roller (`variant="inline"`). Both surfaces pass the attacker's shared
+ * `twoHanded` choice so their labels match the intent sent to the server.
  */
 export function WeaponButtons({
   weapons,

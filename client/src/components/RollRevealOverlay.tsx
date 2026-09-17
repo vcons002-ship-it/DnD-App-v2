@@ -14,10 +14,11 @@ const DART_HOLD_MS = 1200; // linger for a damage-only burst (Fireball cast / MM
 const CYCLE_MS = 70; // how fast tumbling dice flip numbers
 
 type Stage = {
-  phase: 'rolling' | 'tohit' | 'outcome' | 'damage';
+  phase: 'rolling' | 'landing' | 'tohit' | 'outcome' | 'damage';
   dieFace: number; // the big d20 number (cycles while 'rolling', then locks)
   toHitShown: number; // how many to-hit bonus chips are revealed
   diceLocked: number; // how many INDIVIDUAL damage dice have settled
+  diceStopping: number; // authoritative faces assigned; 3D landing may still run
   modsShown: number; // how many damage-mod chips are revealed
 };
 
@@ -80,15 +81,17 @@ function DieShape({
   big,
   rolling,
   crit,
+  onSettled,
 }: {
   sides: number;
   value: number;
   big?: boolean;
   rolling?: boolean;
   crit?: boolean;
+  onSettled?: () => void;
 }) {
   const player = useStore(s => s.snapshot?.role === 'player');
-  if (player) return <ThreeDie sides={sides} value={value} big={big} rolling={rolling} crit={crit} />;
+  if (player) return <ThreeDie sides={sides} value={value} big={big} rolling={rolling} crit={crit} onSettled={onSettled} />;
   return (
     <span
       className={`die die-d${sides === 100 ? 10 : sides}${big ? ' die-big' : ''}${rolling ? ' rolling' : ''}${
@@ -106,10 +109,12 @@ const flicker = (tick: number, seed: number, sides: number) =>
 
 /** Both server-recorded candidates remain visible. The kept/discarded labels
  * appear only after the dice land; no random or inferred result is introduced. */
-function ComparedDice({ comparison, locked, tick }: {
+function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
   comparison: RollComparison;
   locked: number;
+  stopping: number;
   tick: number;
+  onSettled?: (index: number, set: number) => void;
 }) {
   const settled = comparison.sets.every((set) => locked >= set.dice.length);
   return (
@@ -129,7 +134,8 @@ function ComparedDice({ comparison, locked, tick }: {
                   <span key={i} className="rr-candidate-die">
                     {die.negative && <span className="rr-negative-die" title="Subtract this die">−</span>}
                     <DieShape sides={die.sides} big={set.dice.length === 1 && die.sides !== 100}
-                      value={i < locked ? die.value : flicker(tick, setIndex * 101 + i, die.sides)} rolling={i >= locked} />
+                      value={i < stopping ? die.value : flicker(tick, setIndex * 101 + i, die.sides)} rolling={i >= stopping}
+                      onSettled={() => onSettled?.(i, setIndex)} />
                   </span>
                 ))}
               </div>
@@ -166,6 +172,19 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const staticReveal = player && reducedMotion;
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
+  // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
+  // with its damage must never briefly paint the previous roll's final total.
+  return rollFx ? <RollSequence key={rollFx.id} rollFx={rollFx} player={player} staticReveal={staticReveal} dismiss={dismiss} /> : null;
+});
+
+function RollSequence({ rollFx, player, staticReveal, dismiss }: {
+  rollFx: NonNullable<ReturnType<typeof useStore.getState>['rollFx']>;
+  player: boolean;
+  staticReveal: boolean;
+  dismiss: () => void;
+}) {
+  const releaseImpact = useStore((s) => s.releaseRollImpact);
+  const landings = useRef<{ d20?: (set: number) => void; damage?: (index: number, set: number) => void }>({});
   const reveal = rollFx?.reveal;
   const comparison = player ? reveal?.comparison : undefined;
   // A 'check' is a single-d20 skill/save/check → total (no damage phase). A 'dice'
@@ -181,6 +200,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     dieFace: 0,
     toHitShown: 0,
     diceLocked: 0,
+    diceStopping: 0,
     modsShown: 0,
   });
   // Bumped by an interval while dice are tumbling, to flicker their numbers.
@@ -202,6 +222,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     const cleanup = () => {
       timers.forEach(clearTimeout);
       intervals.forEach(clearInterval);
+      landings.current = {};
     };
     const stopCycles = () => {
       intervals.forEach(clearInterval);
@@ -214,7 +235,8 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       : allFaces.length;
     const localMods = reveal.damageMods ?? [];
     if (staticReveal) {
-      setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, modsShown: localMods.length });
+      setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
+      at(0, () => releaseImpact(rollFx.rollId));
       at(HOLD_MS, dismiss);
       return cleanup;
     }
@@ -224,12 +246,84 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       ? Math.max(55, Math.min(150, Math.round(700 / visualDiceCount)))
       : 0;
 
+    if (player) {
+      // One presentation clock: the mesh reports its painted, face-forward
+      // landing. Only then may totals count it, labels resolve, and damage FX
+      // play. Server HP/data already changed; this gates cosmetic feedback only.
+      const startDamage = (delay: number, sound?: () => void) => {
+        const landed = new Set<string>();
+        let finished = false;
+        const complete = () => {
+          if (finished) return;
+          finished = true;
+          stopCycles();
+          localMods.forEach((_, i) => at(STEP_MS * (i + 1), () => setStage((p) => ({ ...p, modsShown: i + 1 }))));
+          const end = localMods.length * STEP_MS + 260;
+          at(end, () => { sound?.(); releaseImpact(rollFx.rollId); });
+          at(end + (isBurst ? DART_HOLD_MS : HOLD_MS), dismiss);
+        };
+        landings.current.damage = (index, set) => {
+          landed.add(`${index}:${set}`);
+          let locked = 0;
+          while (locked < visualDiceCount) {
+            const sets = comparison?.kind === 'dice'
+              ? comparison.sets.flatMap((candidate, group) => locked < candidate.dice.length ? [group] : []) : [0];
+            if (!sets.every((group) => landed.has(`${locked}:${group}`))) break;
+            locked++;
+          }
+          setStage((p) => ({ ...p, diceLocked: locked }));
+          if (locked === visualDiceCount) complete();
+        };
+        at(delay, () => {
+          setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, diceStopping: 0, modsShown: 0 }));
+          if (!visualDiceCount) { complete(); return; }
+          intervals.push(setInterval(() => setRollTick((x) => x + 1), CYCLE_MS));
+          for (let i = 0; i < visualDiceCount; i++) {
+            at(ROLL_MS + perDie * (i + 1), () => setStage((p) => ({ ...p, diceStopping: i + 1 })));
+          }
+        });
+      };
+      if (isBurst) startDamage(0, isDice ? playSkill : playHit);
+      else {
+        // Also reset when reduced-motion changes during the same visible roll.
+        setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceLocked: 0, diceStopping: 0, modsShown: 0 });
+        const landed = new Set<number>();
+        landings.current.d20 = (set) => {
+          landed.add(set);
+          if (landed.size < (comparison?.kind === 'd20' ? comparison.sets.length : 1)) return;
+          landings.current.d20 = undefined;
+          stopCycles();
+          setStage((p) => ({ ...p, phase: 'tohit', dieFace: reveal.d20 ?? p.dieFace }));
+          toHit.forEach((_, i) => at(STEP_MS * (i + 1), () => setStage((p) => ({ ...p, toHitShown: i + 1 }))));
+          const outcomeAt = toHit.length * STEP_MS + OUTCOME_MS;
+          at(outcomeAt, () => {
+            setStage((p) => ({ ...p, phase: 'outcome' }));
+            if (isCheck) reveal.outcome === 'fail' ? playMiss() : playSkill();
+            else if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
+            else playMiss();
+          });
+          const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
+          if (hasDamage) startDamage(outcomeAt + DMG_GAP_MS);
+          else {
+            at(outcomeAt, () => releaseImpact(rollFx.rollId));
+            at(outcomeAt + HOLD_MS, dismiss);
+          }
+        };
+        intervals.push(setInterval(() => setStage((p) => ({ ...p, dieFace: 1 + Math.floor(Math.random() * 20) })), CYCLE_MS));
+        at(ROLL_MS, () => {
+          stopCycles();
+          setStage((p) => ({ ...p, phase: 'landing', dieFace: reveal.d20 ?? p.dieFace }));
+        });
+      }
+      return cleanup;
+    }
+
     // Roll the damage dice one by one (all visible + tumbling, settling in order),
     // then reveal the flat modifiers; `start` is when the damage phase begins.
     const scheduleDamage = (start: number, onImpact?: () => void) => {
       let t = start;
       at(start, () => {
-        setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, modsShown: 0 }));
+        setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, diceStopping: 0, modsShown: 0 }));
         intervals.push(setInterval(() => setRollTick((x) => x + 1), CYCLE_MS));
         onImpact?.();
       });
@@ -238,25 +332,26 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       if (player && visualDiceCount) t += ROLL_MS;
       for (let i = 0; i < visualDiceCount; i++) {
         t += perDie;
-        at(t, () => setStage((p) => ({ ...p, diceLocked: i + 1 })));
+        at(t, () => setStage((p) => ({ ...p, diceLocked: i + 1, diceStopping: i + 1 })));
       }
       at(t, stopCycles); // all dice settled → stop flickering
       localMods.forEach((_, i) => {
         t += STEP_MS;
         at(t, () => setStage((p) => ({ ...p, modsShown: i + 1 })));
       });
+      at(t + 260, () => releaseImpact(rollFx.rollId));
       return t;
     };
 
     if (isBurst) {
-      setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceLocked: 0, modsShown: 0 });
+      setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceLocked: 0, diceStopping: 0, modsShown: 0 });
       // A spell-damage burst "thunks" (playHit); a plain `/roll` gets a neutral tick.
       const end = scheduleDamage(0, isDice ? playSkill : playHit);
       at(end + DART_HOLD_MS, dismiss);
       return cleanup;
     }
 
-    setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceLocked: 0, modsShown: 0 });
+    setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceLocked: 0, diceStopping: 0, modsShown: 0 });
     // Tumble the d20 while "rolling".
     intervals.push(
       setInterval(() => setStage((p) => ({ ...p, dieFace: 1 + Math.floor(Math.random() * 20) })), CYCLE_MS),
@@ -281,6 +376,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     });
     const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
     const end = hasDamage ? scheduleDamage(t + DMG_GAP_MS) : t;
+    if (!hasDamage) at(t, () => releaseImpact(rollFx.rollId));
     at(end + HOLD_MS, dismiss);
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -298,7 +394,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const dmgTarget =
     faces.slice(0, positiveDiceLocked).reduce((s, f) => s + f.value, 0) +
     mods.slice(0, stage.modsShown).reduce((s, m) => s + m.value, 0);
-  const toHitShownNum = useTween(stage.phase === 'rolling' ? 0 : toHitTarget, staticReveal ? 0 : 260);
+  const toHitShownNum = useTween(stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : toHitTarget, staticReveal ? 0 : 260);
   const dmgShownNum = useTween(dmgTarget, staticReveal ? 0 : 260);
 
   // Skip on Escape (parity with click/tap-to-skip).
@@ -342,6 +438,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       <div
         key={rollFx.id}
         className={`roll-reveal ${colourClass}`}
+        data-roll-id={rollFx.rollId}
+        data-reveal-kind={reveal.kind}
+        data-phase={stage.phase}
+        data-impact-ready={!!rollFx.impactReady}
         onClick={dismiss}
         title="Click to skip"
       >
@@ -355,8 +455,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
         {!isBurst && (
           <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>
             {comparison?.kind === 'd20'
-              ? <ComparedDice comparison={comparison} locked={stage.phase === 'rolling' ? 0 : 1} tick={stage.dieFace} />
-              : <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} />}
+              ? <ComparedDice comparison={comparison} stopping={stage.phase === 'rolling' ? 0 : 1}
+                locked={stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : 1} tick={stage.dieFace}
+                onSettled={(_, set) => landings.current.d20?.(set)} />
+              : <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} onSettled={() => landings.current.d20?.(0)} />}
             <div className="rr-buildup">
               <div className="rr-total" key={toHitShownNum}>
                 {toHitShownNum}
@@ -382,9 +484,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
               {!isDice && <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>}
             </div>
             {/* Every damage die, each tumbling until it settles on its face. */}
-            {comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} tick={rollTick} /> : <div className="rr-dice-row">
+            {comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={rollTick}
+              onSettled={(index, set) => landings.current.damage?.(index, set)} /> : <div className="rr-dice-row">
               {faces.map((f, i) => {
-                const locked = i < stage.diceLocked;
+                const locked = i < stage.diceStopping;
                 return (
                   <DieShape
                     key={i}
@@ -393,6 +496,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
                     value={locked ? f.value : flicker(rollTick, i, f.sides)}
                     rolling={!locked}
                     crit={f.crit}
+                    onSettled={() => landings.current.damage?.(i, 0)}
                   />
                 );
               })}
@@ -410,4 +514,4 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       </div>
     </div>
   );
-});
+}

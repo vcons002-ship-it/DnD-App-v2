@@ -25,49 +25,78 @@
   --gem-flare: #fff0ff;
   --gem-light: #dfb9ff;
   --gem-mid: #a461e0;
+  --gem-energy: #c46cff;
   --gem-deep: #51217f;
   --gem-ink: #1a1031;
 }
 .gem-kind-sorcery {
+  --gem-energy: #ff66cf;
   --gem-flare: #fff1fc; --gem-light: #ffade1; --gem-mid: #e652b0;
   --gem-deep: #811c63; --gem-ink: #2b0d29;
 }
 .gem-kind-superiority,
 .gem-kind-surge,
 .gem-kind-divinity {
+  --gem-energy: #ffc04d;
   --gem-flare: #fff7d8; --gem-light: #ffe08c; --gem-mid: #e8a53c;
   --gem-deep: #864415; --gem-ink: #2b1a0b;
 }
 .gem-kind-nature,
 .gem-kind-healing,
 .gem-kind-wind {
+  --gem-energy: #5affac;
   --gem-flare: #edfff1; --gem-light: #a4f2bb; --gem-mid: #3db982;
   --gem-deep: #155c49; --gem-ink: #0b2525;
 }
 .gem-kind-focus,
 .gem-kind-resolve {
+  --gem-energy: #67e3ff;
   --gem-flare: #efffff; --gem-light: #b3f0ff; --gem-mid: #52bddf;
   --gem-deep: #1f577f; --gem-ink: #102439;
 }
 .gem-kind-rage {
+  --gem-energy: #ff627f;
   --gem-flare: #fff1e9; --gem-light: #ffb2a8; --gem-mid: #e65767;
   --gem-deep: #861b35; --gem-ink: #2e1020;
 }
 .gem-kind-custom,
 .gem-kind-inspiration {
+  --gem-energy: #abe6df;
   --gem-flare: #fffaef; --gem-light: #e6f6d4; --gem-mid: #9ccbd0;
   --gem-deep: #756488; --gem-ink: #24243a;
 }
 .player-fantasy .resource-gem .gem-lit-body { opacity: 0; }
 .player-fantasy .resource-gem.lit .gem-lit-body { opacity: 1; }
 .player-fantasy .resource-gem .gem-level-radiance { opacity: 0; }
-/* A steady L1-IX intensity ladder, restricted to available spell slots at rest.
-   Keep metal, spent facets, custom/class resources and event particles intact. */
-.player-fantasy .resource-gem.lit[data-gem-spell-level][data-gem-effect='idle'] .gem-lit-body {
+.player-fantasy .resource-gem .gem-emission-bloom { opacity: 0; }
+.player-fantasy .resource-gem.lit .gem-emission-bloom { opacity: var(--gem-bloom-strength, .16); }
+.player-fantasy .resource-gem .gem-inner-emission { opacity: var(--gem-core-peak, .9); }
+/* Available gems breathe over 3.6 seconds, with a large light/dim contrast at
+   normal laptop scale. The core and refracted light beneath the facets do the
+   visible breathing; the outer halo is only a faint trace. The stone, metal,
+   hit target and arc geometry stay completely still. Spell
+   tiers brighten both ends of the cycle. Spent gems never run the idle loop. */
+.player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-lit-body {
   filter: brightness(var(--gem-idle-brightness, 1));
 }
-.player-fantasy .resource-gem.lit[data-gem-spell-level][data-gem-effect='idle'] .gem-level-radiance {
-  opacity: var(--gem-idle-radiance, 0);
+.player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-level-radiance {
+  opacity: var(--gem-idle-radiance, .15);
+}
+.player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-emission-bloom {
+  animation: gem-bloom-breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--gem-breathe-delay, 0s);
+}
+.player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-inner-emission {
+  animation: gem-core-breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--gem-breathe-delay, 0s);
+}
+@keyframes gem-bloom-breathe {
+  0%, 100% { opacity: var(--gem-bloom-strength, .16); }
+  50% { opacity: var(--gem-bloom-trough, .025); }
+}
+@keyframes gem-core-breathe {
+  0%, 100% { opacity: var(--gem-core-peak, .9); }
+  50% { opacity: var(--gem-core-trough, .18); }
 }
 .player-fantasy .resource-gem .gem-facet-reflection { opacity: .86; }
 .player-fantasy .resource-gem:hover .gem-facet-reflection,
@@ -92,6 +121,12 @@
 }
 .player-fantasy .resource-gem[data-gem-effect='restore'] .gem-lit-body {
   animation: gem-color-restore 1100ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='spend'] .gem-emission-bloom {
+  animation: gem-bloom-spend 950ms ease-out both;
+}
+.player-fantasy .resource-gem[data-gem-effect='restore'] .gem-emission-bloom {
+  animation: gem-bloom-restore 1100ms ease-out both;
 }
 .player-fantasy .resource-gem[data-gem-effect='spend'] .gem-energy-thread {
   animation: gem-thread-spend 950ms cubic-bezier(.22,.52,.3,1) both;
@@ -127,6 +162,18 @@
   0%, 27% { opacity: 0; }
   48% { opacity: .26; }
   67%, 100% { opacity: 1; }
+}
+@keyframes gem-bloom-spend {
+  0% { opacity: var(--gem-bloom-strength, .16); }
+  14% { opacity: .3; }
+  48% { opacity: .08; }
+  100% { opacity: 0; }
+}
+@keyframes gem-bloom-restore {
+  0%, 27% { opacity: 0; }
+  48% { opacity: .08; }
+  73% { opacity: .3; }
+  100% { opacity: var(--gem-bloom-strength, .16); }
 }
 @keyframes gem-thread-spend {
   0%, 7% { stroke-dashoffset: 30; opacity: 0; }
@@ -176,7 +223,12 @@
 }
 .player-fantasy .resource-gem[data-gem-paused='true'] .resource-gem-art *,
 .player-fantasy .resource-gem[data-gem-paused='true'] .resource-gem-reaction * {
-  animation-play-state: paused;
+  /* Must win over the more specific active-idle animation shorthand. */
+  animation-play-state: paused !important;
+}
+.player-fantasy .resource-gem[data-gem-motion='reduced'] .resource-gem-art * {
+  animation: none !important;
+  transition: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .player-fantasy .resource-gem .resource-gem-reaction { display: none; }

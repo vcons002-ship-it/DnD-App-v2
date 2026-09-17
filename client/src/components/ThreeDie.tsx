@@ -42,6 +42,7 @@ const MeshDie = memo(function MeshDie({
   crit,
   tens,
   percentileOnes,
+  onSettled,
 }: {
   sides: number;
   value: number;
@@ -50,10 +51,14 @@ const MeshDie = memo(function MeshDie({
   crit?: boolean;
   tens?: boolean;
   percentileOnes?: boolean;
+  onSettled?: () => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const state = useRef({ value, rolling });
   state.current = { value, rolling };
+  const settledCallback = useRef(onSettled);
+  settledCallback.current = onSettled;
+  const repaint = useRef<() => void>();
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
@@ -78,7 +83,7 @@ const MeshDie = memo(function MeshDie({
     let lastAngles: V3 = [0, 0, 0];
     let landingAngles: V3 = [0, 0, 0];
     let stopped = false;
-    let paintedValue: number | undefined;
+    let reportedSettled = false;
     const size = big ? 116 : 68;
     const dpr = Math.min(devicePixelRatio, 2);
     canvas.width = size * dpr;
@@ -91,14 +96,13 @@ const MeshDie = memo(function MeshDie({
       }
       prev = now;
       const rolling = !!state.current.rolling && !reduced.matches;
-      paintedValue = state.current.value;
       if (wasRolling && !rolling) {
         settledAt = now;
         // Take the short rotation home instead of unwinding every full tumble.
         landingAngles = lastAngles.map((a) => Math.atan2(Math.sin(a), Math.cos(a))) as V3;
       }
       wasRolling = rolling;
-      if (rolling) phase = now * 0.011;
+      if (rolling) { phase = now * 0.011; reportedSettled = false; }
       const ease = rolling
         ? 1
         : reduced.matches
@@ -217,30 +221,31 @@ const MeshDie = memo(function MeshDie({
         ctx.restore();
       }
       if (rolling || ease > 0) frame = requestAnimationFrame(draw);
+      else if (!reportedSettled) {
+        reportedSettled = true;
+        // Report only after the authoritative face has actually been painted.
+        settledCallback.current?.();
+      }
     };
     const restart = () => {
       cancelAnimationFrame(frame);
-      draw(performance.now() + 33);
+      prev = -100;
+      draw(performance.now());
     };
-    // Draw settled value changes, but no continuous animation on a still die.
-    const timer = setInterval(() => {
-      if (
-        paintedValue !== state.current.value ||
-        wasRolling !== (!!state.current.rolling && !reduced.matches)
-      )
-        restart();
-    }, 100);
+    repaint.current = restart;
     document.addEventListener('visibilitychange', restart);
     reduced.addEventListener('change', restart);
     restart();
     return () => {
       stopped = true;
       cancelAnimationFrame(frame);
-      clearInterval(timer);
+      repaint.current = undefined;
       document.removeEventListener('visibilitychange', restart);
       reduced.removeEventListener('change', restart);
     };
   }, [sides, big, crit, tens, percentileOnes]);
+  // Start landing on the prop update, not on a separate 100ms polling clock.
+  useEffect(() => { repaint.current?.(); }, [value, rolling]);
   return (
     <canvas
       ref={ref}
@@ -259,7 +264,14 @@ export function ThreeDie(props: {
   big?: boolean;
   rolling?: boolean;
   crit?: boolean;
+  onSettled?: () => void;
 }) {
+  const landed = useRef(new Set<string>());
+  if (props.rolling) landed.current.clear();
+  const percentileSettled = (part: string) => {
+    landed.current.add(part);
+    if (landed.current.size === 2) props.onSettled?.();
+  };
   if (props.sides === 100) {
     const [tens, ones] = percentileFaces(props.value);
     return (
@@ -267,8 +279,8 @@ export function ThreeDie(props: {
         className="percentile-pair"
         aria-label={`Percentile roll: ${props.rolling ? 'rolling' : props.value}`}
       >
-        <MeshDie {...props} sides={10} value={tens} tens />
-        <MeshDie {...props} sides={10} value={ones} percentileOnes />
+        <MeshDie {...props} sides={10} value={tens} tens onSettled={() => percentileSettled('tens')} />
+        <MeshDie {...props} sides={10} value={ones} percentileOnes onSettled={() => percentileSettled('ones')} />
       </span>
     );
   }

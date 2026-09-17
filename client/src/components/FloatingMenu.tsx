@@ -9,6 +9,7 @@ import type {
   Weapon,
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
+import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
 import { AbilityButtons } from './AbilityButtons';
 import { DamageHealControls } from './DamageHealControls';
@@ -36,6 +37,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   const setTempHp = useStore((s) => s.setTempHp);
   const combatAttack = useStore((s) => s.combatAttack);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
+  const { offhand, twoHanded } = useWeaponAttackOptions(attacker);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
   const d = resolveToken(snapshot, token);
@@ -165,6 +167,7 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
           {canAttackAsSelected && (
             <WeaponButtons
               weapons={aWeapons}
+              twoHanded={twoHanded}
               variant="menu"
               onAttack={(i) =>
                 run(() =>
@@ -173,6 +176,8 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
                     targetTokenId: token.id,
                     weaponIndex: i,
                     advantage: consumeAdvantage(attacker!.refId),
+                    offhand: offhand || undefined,
+                    twoHanded: twoHanded || undefined,
                   }),
                 )()
               }

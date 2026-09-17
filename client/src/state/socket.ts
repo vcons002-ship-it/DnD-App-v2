@@ -46,6 +46,8 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
+export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
+
 /** One floating damage/heal number over a token (client-side, transient). */
 export type HpFloater = HpFxEvent & { id: number };
 let nextFloaterId = 1;
@@ -61,6 +63,9 @@ let nextSayId = 1;
  *  Set is cheap. Seeded on the first snapshot so a reconnect's backlog is silent. */
 let seenRollIds = new Set<string>();
 let rollSfxReady = false;
+/** Cosmetic events waiting only for THEIR visible roll's result beat. Never
+ *  persisted/replayed; unrelated/manual adjustments bypass this map. */
+const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
   socket: TypedSocket | null;
@@ -80,12 +85,14 @@ type Store = {
   setAiBusy: (busy: boolean) => void;
   /** Transient floating ±X HP numbers (server 'fx:hp'); auto-expire ~1.2 s. */
   hpFx: HpFloater[];
+  presentHpFx: (events: HpFloater[]) => void;
+  releaseRollImpact: (rollId: string) => void;
   /** One-shot red screen-edge flash when MY claimed PC takes damage (players
    *  only — the DM claims nothing). Cleared automatically after the CSS anim. */
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal; rollId: string } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -135,6 +142,10 @@ type Store = {
   setManualAdvantage: (key: string, a: 'adv' | 'dis' | null) => void;
   /** Read an entity's armed adv/dis AND clear it (called at roll time). */
   consumeAdvantage: (key: string) => 'adv' | 'dis' | undefined;
+  /** Session-only weapon choices shared by panel and right-click attacks.
+   *  Keyed by kind:refId so another selected creature never borrows them. */
+  weaponAttackOptions: Record<string, WeaponAttackOptions>;
+  toggleWeaponAttackOption: (key: string, option: keyof WeaponAttackOptions) => void;
   /** Player UI: whether the selected creature's read-only "Details" panel is
    *  expanded. Sticky; double-clicking a token forces it open. */
   detailsExpanded: boolean;
@@ -417,16 +428,45 @@ export const useStore = create<Store>((set, get) => ({
   notify: (message) => set({ toast: { id: Date.now(), message } }),
   aiBusy: false,
   hpFx: [],
+  presentHpFx: (added) => {
+    if (!added.length) return;
+    set((st) => ({ hpFx: [...st.hpFx, ...added] }));
+    // Lifetimes begin when DISPLAYED, not while waiting for a die to land.
+    setTimeout(() => {
+      const ids = new Set(added.map((f) => f.id));
+      set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
+    }, 1900);
+    const snap = get().snapshot;
+    const hurt = added.filter((e) => e.delta < 0 && e.kind === 'pc' &&
+      snap?.characters.some((c) => c.id === e.refId && c.claimedBy === get().socket?.id))
+      .reduce((sum, e) => sum - e.delta, 0);
+    if (hurt > 0) {
+      const fxId = nextFloaterId++;
+      set({ hurtFx: { id: fxId, amount: hurt } });
+      setTimeout(() => set((st) => st.hurtFx?.id === fxId ? { hurtFx: null } : {}), 900);
+    }
+  },
+  releaseRollImpact: (rollId) => {
+    const waiting = heldHpFx.get(rollId);
+    heldHpFx.delete(rollId);
+    // A late fx packet for a completed reveal must display immediately too.
+    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true } } : {});
+    if (waiting) get().presentHpFx(waiting);
+  },
   hurtFx: null,
   rollFx: null,
-  dismissRollFx: () => set({ rollFx: null }),
+  dismissRollFx: () => {
+    const current = get().rollFx;
+    if (current) get().releaseRollImpact(current.rollId);
+    set({ rollFx: null });
+  },
   showRollAnim: localStorage.getItem('dnd.rollAnimOff') !== '1',
-  toggleRollAnim: () =>
-    set((s) => {
-      const next = !s.showRollAnim;
-      safeSetItem('dnd.rollAnimOff', next ? '0' : '1');
-      return { showRollAnim: next };
-    }),
+  toggleRollAnim: () => {
+    const next = !get().showRollAnim;
+    safeSetItem('dnd.rollAnimOff', next ? '0' : '1');
+    set({ showRollAnim: next });
+    if (!next) get().dismissRollFx();
+  },
   viewMapId: null,
   dragGhosts: {},
   dragToken: (tokenId, x, y) => get().socket?.emit('token:drag', { tokenId, x, y }),
@@ -479,6 +519,17 @@ export const useStore = create<Store>((set, get) => ({
       });
     return cur;
   },
+  weaponAttackOptions: {},
+  toggleWeaponAttackOption: (key, option) =>
+    set((s) => {
+      const current = s.weaponAttackOptions[key] ?? { offhand: false, twoHanded: false };
+      return {
+        weaponAttackOptions: {
+          ...s.weaponAttackOptions,
+          [key]: { ...current, [option]: !current[option] },
+        },
+      };
+    }),
   detailsExpanded: false,
   setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
   rightPanelNudge: 0,
@@ -540,6 +591,7 @@ export const useStore = create<Store>((set, get) => ({
     // Auto-reconnect keeps working: it fires socket.io's 'connect', not this.
     seenRollIds = new Set();
     rollSfxReady = false;
+    heldHpFx.clear();
     // Session-scoped transient state must not carry over to a different game:
     // clear the ephemeral fx timers + slices and any armed toggles (an armed
     // "Apply damage" / advantage would otherwise fire against a foreign id).
@@ -553,11 +605,14 @@ export const useStore = create<Store>((set, get) => ({
       dmPassphrase: dmPassphrase ?? null,
       viewMapId: null,
       hpFx: [],
+      rollFx: null,
+      hurtFx: null,
       dragGhosts: {},
       typingChars: {},
       sayBubbles: {},
       cursors: {},
       manualAdvantage: {},
+      weaponAttackOptions: {},
       combatTarget: null,
       saveResolve: null,
     });
@@ -578,7 +633,11 @@ export const useStore = create<Store>((set, get) => ({
       // log is oldest-first, so a new entry is the first one not yet seen.
       const log = snapshot.rollLog ?? [];
       if (rollSfxReady) {
-        const fresh = log.find((e) => !seenRollIds.has(e.id));
+        const unseen = log.filter((e) => !seenRollIds.has(e.id));
+        // Concentration notes can precede Damage, and a targeted cast can emit
+        // cast + target-save reveals together. Show the latest actual result;
+        // do not let a bookkeeping note hide its animation/correlated effects.
+        const fresh = [...unseen].reverse().find((e) => e.reveal) ?? unseen[0];
         if (fresh) {
           // When a roll will ANIMATE, the overlay plays its hit/miss/impact cues in
           // sync with the animation beats — so suppress the immediate cue here.
@@ -594,16 +653,22 @@ export const useStore = create<Store>((set, get) => ({
           // An un-animated miss → immediate; an animated one plays at its stamp.
           else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
           if (willAnimate && fresh.reveal) {
+            // Replacement/skip flushes the previous roll's remaining feedback,
+            // never attaching its numbers to the newly arriving roll.
+            get().dismissRollFx();
             const fxId = nextFloaterId++;
             set({ rollFx: {
               id: fxId,
               rollId: fresh.id,
               reveal: snapshot.role === 'player' ? withRollComparison(fresh.reveal, fresh.detail) : fresh.reveal,
             } });
-            // The overlay self-dismisses when its sequence finishes; safety net only.
+            // The overlay self-dismisses. A fixed 5s cutoff truncated large
+            // dice pools/modifier sequences; budget the fallback from content.
+            const count = (fresh.reveal.damageDice ?? []).reduce((sum, step) => sum + (step.faces?.length ?? 1), 0);
+            const safetyMs = 6000 + count * 150 + ((fresh.reveal.toHit?.length ?? 0) + (fresh.reveal.damageMods?.length ?? 0)) * 300;
             setTimeout(
-              () => set((st) => (st.rollFx?.id === fxId ? { rollFx: null } : {})),
-              5000,
+              () => { if (get().rollFx?.id === fxId) get().dismissRollFx(); },
+              safetyMs,
             );
           }
         }
@@ -614,36 +679,18 @@ export const useStore = create<Store>((set, get) => ({
     });
     socket.on('fx:hp', ({ events }) => {
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
-      set((st) => ({ hpFx: [...st.hpFx, ...added] }));
-      // Audio cue. Heals always chime here (heals don't animate). The damage
-      // "thunk" plays immediately ONLY when roll animations are off — when they're
-      // on, the overlay plays the impact in sync with the damage reveal instead.
-      if (events.some((e) => e.delta > 0)) playHeal();
-      else if (events.some((e) => e.delta < 0) && !get().showRollAnim) playHit();
-      // Expire regardless of whether a canvas rendered them (after the ~1.6s
-      // float tween finishes, with a little grace).
-      setTimeout(() => {
-        const ids = new Set(added.map((f) => f.id));
-        set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
-      }, 1900);
-      // Red screen-edge flash when MY claimed PC took damage.
-      const snap = get().snapshot;
-      const hurt = events
-        .filter(
-          (e) =>
-            e.delta < 0 &&
-            e.kind === 'pc' &&
-            snap?.characters.some((c) => c.id === e.refId && c.claimedBy === socket.id),
-        )
-        .reduce((s, e) => s - e.delta, 0);
-      if (hurt > 0) {
-        const fxId = nextFloaterId++;
-        set({ hurtFx: { id: fxId, amount: hurt } });
-        setTimeout(
-          () => set((st) => (st.hurtFx?.id === fxId ? { hurtFx: null } : {})),
-          900,
-        );
+      const current = get().rollFx;
+      const immediate: HpFloater[] = [];
+      for (const event of added) {
+        if (event.delta < 0 && event.rollId && get().showRollAnim &&
+          current?.rollId === event.rollId && !current.impactReady) {
+          heldHpFx.set(event.rollId, [...(heldHpFx.get(event.rollId) ?? []), event]);
+        } else immediate.push(event);
       }
+      get().presentHpFx(immediate);
+      if (immediate.some((e) => e.delta > 0)) playHeal();
+      else if (immediate.some((e) => e.delta < 0 &&
+        (!get().showRollAnim || !e.rollId || current?.rollId !== e.rollId))) playHit();
     });
     // Live drag preview from another user — update the ghost and (re)arm its
     // expiry, so it clears ~0.3 s after the updates stop (release OR disconnect).
@@ -814,7 +861,8 @@ export const useStore = create<Store>((set, get) => ({
   disconnect: () => {
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
-    set({ socket: null, status: 'idle', snapshot: null });
+    heldHpFx.clear();
+    set({ socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {

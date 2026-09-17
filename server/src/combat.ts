@@ -22,6 +22,7 @@ import {
   removeItem,
   updateCharacter,
 } from './sessions.js';
+import { newId } from './db.js';
 import {
   damageMultiplier,
   profBonusFor,
@@ -40,7 +41,7 @@ import {
   autoCritFromConditions,
 } from '../../shared/conditionEffects.js';
 import { tokensWithin5ft } from '../../shared/distance.js';
-import { rollDice } from '../../shared/dice.js';
+import { rollDice, type DiceResult } from '../../shared/dice.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
 import { criticalDiceExpression, effectiveSheetAbility, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
@@ -174,6 +175,36 @@ function reconcileDamageSteps(
   return [...modSteps, { label: diff > 0 ? 'bonus' : 'resisted', value: diff }];
 }
 
+type DamageBreakdown = NonNullable<RollReveal['damageBreakdown']>;
+
+/** Preserve an existing roll's faces for the log without rolling again or
+ * changing the animation's steps. Expressions can mix dice and flat bonuses. */
+function appendDamageBreakdownRoll(detail: DamageBreakdown, rolled: DiceResult, source: string): void {
+  const terms = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
+  let faceIndex = 0;
+  for (const match of rolled.expr.replace(/\s+/g, '').matchAll(terms)) {
+    if (match[3] !== undefined) {
+      const count = match[2] ? Number(match[2]) : 1;
+      const faces = rolled.rolls.slice(faceIndex, faceIndex + count);
+      faceIndex += count;
+      const negative = match[1] === '-';
+      const step = {
+        label: `${count}d${match[3]} (${source})`,
+        value: faces.reduce((sum, face) => sum + face, 0) * (negative ? -1 : 1),
+        faces,
+      };
+      (negative ? detail.mods : detail.dice).push(step);
+    } else {
+      const value = Number(match[5]) * (match[4] === '-' ? -1 : 1);
+      if (value) detail.mods.push({ label: source, value });
+    }
+  }
+}
+
+function damageBreakdownTotal(detail: DamageBreakdown): number {
+  return [...detail.dice, ...detail.mods].reduce((sum, step) => sum + step.value, 0);
+}
+
 /** True when a creature's stats are hidden from players (an enemy/neutral monster),
  *  so its roll's modifier breakdown must be stripped from player logs/reveals. */
 function hidesMods(kind: TokenKind, refId: string): boolean {
@@ -191,9 +222,11 @@ function applyDamageNoted(
   attacker?: { kind: TokenKind; refId: string },
   /** Crit hit — a crit vs a downed PC is two death-save failures (RAW). */
   crit = false,
+  /** The exact reveal that should release this transient damage floater. */
+  rollId?: string,
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType, crit);
+  const after = applyDamage(kind, refId, amount, damageType, crit, rollId);
   if (!before || !after) return undefined;
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
   if (
@@ -274,6 +307,7 @@ export function resolveAttack(
   let cleaveToDisable: { characterId: string; ability: SheetAbility } | null = null;
   let flatBonus = 0;
   const flatLabels: string[] = [];
+  const featureBreakdown: DamageBreakdown = { dice: [], mods: [] };
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
     if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
@@ -281,9 +315,11 @@ export function resolveAttack(
     if (m.effect.profBonusDamage) {
       flatBonus += profBonusFor(a.c);
       flatLabels.push(m.weaponLabel || ab.name);
+      featureBreakdown.mods.push({ label: m.weaponLabel || ab.name, value: profBonusFor(a.c) });
     } else if (m.effect.bonusDamage && /^[+-]?\d+$/.test(m.effect.bonusDamage.trim())) {
       flatBonus += parseInt(m.effect.bonusDamage.trim(), 10);
       flatLabels.push(m.weaponLabel || ab.name);
+      featureBreakdown.mods.push({ label: m.weaponLabel || ab.name, value: parseInt(m.effect.bonusDamage.trim(), 10) });
     }
   }
   const noAbilityMod = !!offhand || !!cleaveToDisable;
@@ -307,12 +343,14 @@ export function resolveAttack(
           (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
     );
     if (man?.maneuver && hasDie) {
-      const die = rollDice(ch.superiorityDie || 'd8')?.total ?? 0;
+      const rolled = rollDice(ch.superiorityDie || 'd8');
+      const die = rolled?.total ?? 0;
       maneuverFired = { ability: man, spec: man.maneuver, die };
       if (man.maneuver.addDieTo === 'attack') maneuverToHit = die;
       else if (man.maneuver.addDieTo === 'damage') {
         flatBonus += die;
         flatLabels.push(man.name);
+        if (rolled) appendDamageBreakdownRoll(featureBreakdown, rolled, man.name);
       }
     }
   }
@@ -354,6 +392,7 @@ export function resolveAttack(
         if (Number.isFinite(flat) && flat !== 0) {
           flatBonus += flat;
           flatLabels.push(ab.name);
+          featureBreakdown.mods.push({ label: ab.name, value: flat });
         }
       }
     }
@@ -394,6 +433,19 @@ export function resolveAttack(
     extraCritDie: stanceExtraCritDie, // Savage Attacks (racial)
   });
 
+  // The existing reveal keeps its aggregate steps (and animation timing). The
+  // separate log-only ledger names each source and retains every rider face.
+  const damageBreakdown: DamageBreakdown = {
+    dice: [...out.damageDiceSteps, ...(out.hit ? featureBreakdown.dice : [])],
+    mods: out.hit
+      ? [...(flatBonus ? out.damageModSteps.slice(0, -1) : out.damageModSteps), ...featureBreakdown.mods]
+      : [],
+  };
+  if (out.hit) {
+    const minimumAdjustment = out.damage - damageBreakdownTotal(damageBreakdown);
+    if (minimumAdjustment) damageBreakdown.mods.push({ label: 'minimum damage', value: minimumAdjustment });
+  }
+
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
   const masteryNotes: string[] = [];
@@ -403,16 +455,25 @@ export function resolveAttack(
   // Roll a rider's damage dice, DOUBLING them on a crit — RAW: a critical hit
   // doubles ALL of the attack's damage dice, riders (Hunter's Mark, a dice-adding
   // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.
-  const rollRiderDice = (expr: string): number => {
+  const rollRiderDice = (expr: string, source: string): number => {
     const r = rollDice(expr);
-    if (!r || r.total <= 0) return 0;
-    return r.total + (out.crit ? rollDice(expr)?.total ?? 0 : 0);
+    if (!r) return 0;
+    appendDamageBreakdownRoll(damageBreakdown, r, source);
+    if (r.total <= 0) {
+      if (r.total) damageBreakdown.mods.push({ label: `${source} not applied`, value: -r.total });
+      return 0;
+    }
+    const critical = out.crit ? rollDice(expr) : null;
+    if (critical) appendDamageBreakdownRoll(damageBreakdown, critical, `${source} CRIT`);
+    const total = r.total + (critical?.total ?? 0);
+    if (total <= 0) damageBreakdown.mods.push({ label: `${source} not applied`, value: -total });
+    return total;
   };
   for (const ab of ch?.sheetAbilities ?? []) {
     const m = ab.mastery;
     if (ab.type !== 'mastery' || !m?.active || !m.effect || !triggers(m)) continue;
     if (out.hit && m.effect.bonusDamage && /d\d/i.test(m.effect.bonusDamage)) {
-      const total = rollRiderDice(m.effect.bonusDamage);
+      const total = rollRiderDice(m.effect.bonusDamage, ab.name);
       if (total > 0) {
         extra += total;
         masteryNotes.push(`+${total}[${ab.name}]`);
@@ -430,7 +491,7 @@ export function resolveAttack(
   // and double on a crit.
   if (out.hit) {
     for (const sd of stanceDice) {
-      const total = rollRiderDice(sd.dice);
+      const total = rollRiderDice(sd.dice, sd.label);
       if (total > 0) {
         extra += total;
         masteryNotes.push(`+${total}[${sd.label}]`);
@@ -459,7 +520,12 @@ export function resolveAttack(
   // Apply the target's resistance/vulnerability to the weapon's damage type.
   const mult = damageMultiplier(weapon.damageType, t.resistances, t.weaknesses);
   if (mult !== 1 && applied > 0) {
+    const beforeResistance = applied;
     applied = Math.floor(applied * mult);
+    if (out.hit) damageBreakdown.mods.push({
+      label: `${weapon.damageType || 'weapon'} ${mult < 1 ? 'resisted' : 'vulnerable'}`,
+      value: applied - beforeResistance,
+    });
     masteryNotes.push(
       mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
     );
@@ -468,17 +534,36 @@ export function resolveAttack(
   // rolled ONCE on a hit — never doubled on a crit (only the weapon's own dice
   // crit) — and resisted on its OWN type.
   if (out.hit && weapon.extraDamage) {
-    let ex = rollDice(weapon.extraDamage)?.total ?? 0;
+    const secondaryRoll = rollDice(weapon.extraDamage);
+    let ex = secondaryRoll?.total ?? 0;
     const exMult = damageMultiplier(weapon.extraDamageType, t.resistances, t.weaknesses);
     ex = Math.floor(ex * exMult);
+    if (secondaryRoll) {
+      const source = `${weapon.extraDamageType || 'extra'} rider`;
+      appendDamageBreakdownRoll(damageBreakdown, secondaryRoll, source);
+      const adjustment = Math.max(0, ex) - secondaryRoll.total;
+      if (adjustment) damageBreakdown.mods.push({
+        label: ex > 0
+          ? `${weapon.extraDamageType || 'extra'} ${exMult < 1 ? 'resisted' : 'vulnerable'}`
+          : `${source} not applied`,
+        value: adjustment,
+      });
+    }
     if (ex > 0) {
       applied += ex;
+      if (weapon.extraDamageType?.toLowerCase() !== weapon.damageType?.toLowerCase()) {
+        damageBreakdown.mixedTypes = true;
+      }
       const exType = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
       const exNote = exMult < 1 ? ' (½ resisted)' : exMult > 1 ? ' (×2 vuln)' : '';
       masteryNotes.push(`+${ex}${exType}${exNote}`);
     }
   }
   if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  if (out.hit) {
+    const finalAdjustment = applied - damageBreakdownTotal(damageBreakdown);
+    if (finalAdjustment) damageBreakdown.mods.push({ label: 'minimum damage', value: finalAdjustment });
+  }
   // FX type: a fired elemental rider (flaming sword) makes the better burst
   // than the base physical type; otherwise the weapon's own type.
   const fxType =
@@ -494,9 +579,10 @@ export function resolveAttack(
   const damageSteps = out.hit && applied > 0
     ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
     : [];
+  const attackRollId = newId();
   let hpNote: RollEntry['hpNote'];
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -525,6 +611,7 @@ export function resolveAttack(
             // Reconcile the rolled weapon total with what actually hit HP (riders,
             // mastery dice, resist/vuln) so the count-up lands on the real number.
             damageMods: damageSteps,
+            damageBreakdown,
             damage: applied,
             damageType: weapon.damageType,
           }
@@ -542,11 +629,12 @@ export function resolveAttack(
             crit: out.crit,
             dice: out.damageDiceSteps,
             mods: damageSteps,
+            damageBreakdown,
             ...(ownerCharacterId ? { owner: ownerCharacterId } : {}),
           },
         }
       : {}),
-  });
+  }, attackRollId);
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
 
@@ -633,6 +721,7 @@ export function resolveAttackDamage(
   // Claim it FIRST — two clicks racing in must not both apply.
   setRollPending(rollId, { ...p, done: true });
 
+  const damageRollId = newId();
   const hpNote = applyDamageNoted(
     p.target.kind,
     p.target.refId,
@@ -640,6 +729,7 @@ export function resolveAttackDamage(
     p.damageType,
     p.attacker,
     p.crit,
+    damageRollId,
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
   addRollLog(sessionId, {
@@ -656,11 +746,12 @@ export function resolveAttackDamage(
       outcome: p.crit ? 'crit' : 'hit',
       ...(p.dice.length ? { damageDice: p.dice } : {}),
       ...(p.mods.length ? { damageMods: p.mods } : {}),
+      ...(p.damageBreakdown ? { damageBreakdown: p.damageBreakdown } : {}),
       damage: p.amount,
       ...(p.damageType ? { damageType: p.damageType } : {}),
     },
     hideMods: hidesMods(p.attacker.kind, p.attacker.refId),
-  });
+  }, damageRollId);
   return true;
 }
 
@@ -895,7 +986,8 @@ export function resolveForcedSave(
       base = apply.split?.[dartIdx] ?? 0;
     }
     dmg = Math.floor(base * mult);
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
+    const dartRollId = newId();
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
@@ -916,7 +1008,7 @@ export function resolveForcedSave(
         damage: dmg,
         damageType: apply.damageType,
       },
-    });
+    }, dartRollId);
     return;
   }
   // Each creature is resolved at most once per cast — RAW (one save vs an AoE),
@@ -977,7 +1069,12 @@ export function resolveForcedSave(
     dmg = Math.floor(apply.amount * mult);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
+  const resolutionRollId = newId();
+  // A real save waits for its own result. An auto-hit/auto-fail application
+  // without a new reveal may instead share its still-playing cast animation.
+  // Clients never wait on a source roll that has already finished or is hidden.
+  const fxRollId = saveReveal ? resolutionRollId : src?.reveal ? src.id : undefined;
+  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   // Mark this target consumed so a repeat click on the same creature is rejected.
   setRollApply(rollId, {
@@ -997,7 +1094,7 @@ export function resolveForcedSave(
     hpNote: saveNote,
     hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
     ...(saveReveal ? { reveal: saveReveal } : {}),
-  });
+  }, resolutionRollId);
 }
 
 /**
@@ -1092,8 +1189,9 @@ function resolveTargetedSpellAttack(opts: {
       );
   }
   const deferDamage = !!getSessionById(opts.sessionId)?.manualDamage && hit && applied > 0 && !!opts.attacker;
+  const attackRollId = newId();
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -1142,7 +1240,7 @@ function resolveTargetedSpellAttack(opts: {
         ...(opts.attacker.kind === 'pc' ? { owner: opts.attacker.refId } : {}),
       },
     } : {}),
-  });
+  }, attackRollId);
   return true;
 }
 
