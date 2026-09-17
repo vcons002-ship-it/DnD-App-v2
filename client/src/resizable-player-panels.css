@@ -101,10 +101,18 @@
 .player-fantasy .player-panel-resize.chat svg { transform: scaleY(-1); }
 .player-fantasy .player-layout-controls {
   position: absolute;
-  top: 15px;
-  left: 248px;
+  top: 66px;
+  left: 6px;
   zoom: var(--player-ui-scale, .85);
   z-index: 42;
+}
+.player-fantasy .topbar-actions > .player-layout-controls.in-toolbar {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex: 0 0 auto;
+  /* The topbar already uses the browser-local UI scale. Do not apply it twice. */
+  zoom: 1;
 }
 .player-fantasy .player-layout-trigger {
   display: grid;
@@ -117,12 +125,15 @@
 .player-fantasy .player-layout-trigger svg { width: 20px; height: 20px; }
 .player-fantasy .player-layout-options {
   position: absolute;
-  top: 38px;
-  left: -180px;
+  top: calc(100% + 8px);
+  left: auto;
+  right: calc(0px - var(--player-options-shift, 0px));
   width: 290px;
+  max-width: calc((100vw - 16px) / var(--player-ui-scale, .85));
   padding: 12px;
   font-size: 12px;
-  max-height: calc(90vh / var(--player-ui-scale, .85) - 100px);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  max-height: var(--player-options-max-height, 480px);
   overflow: auto;
 }
 .player-fantasy .player-layout-options header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -137,3 +148,11 @@
 .player-fantasy .player-layout-options input[type='number'] { width: 65px; min-width: 0; padding: 3px 4px; font-size: 12px; }
 .player-fantasy .player-layout-options p { font-size: 11px; line-height: 1.5; color: #b8b0a4; margin: 12px 0; }
 .player-fantasy .player-layout-options > small { display: block; margin-top: 10px; font-size: 10px; color: #aaa295; }
+/* At narrow widths the dice/zoom controls use two left-corner lanes. Reserve
+   their vertical band before the right panel, including at 115% UI scale. */
+@media (max-width: 680px) {
+  .player-fantasy .player-combat {
+    top: 112px;
+    max-height: calc(100% - 118px);
+  }
+}

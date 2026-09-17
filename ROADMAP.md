@@ -87,8 +87,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - ☑ Main reconciliation and release defaults: concentric arcs, final guardian
   art and compact player layout by default; newer Main initiative/racial-trait,
   ADV/DIS, Slides overlay and reveal-timing fixes retained.
-- ☐ Final PR review and approved production deployment. A PR is not a shipped
-  server update. See [current release candidate](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
+- ☑ Player review revision 19: narrower Skills/Stats/Save drawer; shared
+  per-attacker 2H/off-hand intent for panel and right-click attacks; non-overlapping
+  player toolbar settings; character-matched resource trim with neutral fallback.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_19_2026-09-17.md).
+- ◐ PR #66 merged into Main and the official local updater built its client and
+  server code. Production service restart did not complete after UAC was cancelled;
+  new revision 19 work is development-only and has not been deployed.
+  See [release scope](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
 - See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
 
 - ☑ **Durable sessions [req].** Every session code, its game state (maps, tokens,

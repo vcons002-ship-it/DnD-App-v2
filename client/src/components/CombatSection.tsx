@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { healTargets, validTargets } from '../lib/targets';
+import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
 import { AbilityButtons } from './AbilityButtons';
 import { AbilityToggles, hasToggle } from './AbilityToggles';
@@ -82,8 +83,7 @@ export function CombatSection({
       ? defaultTargetId
       : undefined;
   const [targetId, setTargetId] = useState(validDefault ?? targets[0]?.id ?? '');
-  const [offhand, setOffhand] = useState(false);
-  const [twoHanded, setTwoHanded] = useState(false);
+  const { offhand, twoHanded, toggleOption } = useWeaponAttackOptions(attacker);
   // Pre-select the clicked token as the target when it changes.
   useEffect(() => {
     if (validDefault) setTargetId(validDefault);
@@ -198,7 +198,8 @@ export function CombatSection({
             <button
               className={`btn tiny ${offhand ? 'on' : ''}`}
               title="Off-hand attack: drop the ability modifier from damage"
-              onClick={() => setOffhand((o) => !o)}
+              aria-pressed={offhand}
+              onClick={() => toggleOption('offhand')}
             >
               Off-hand
             </button>
@@ -206,7 +207,8 @@ export function CombatSection({
               <button
                 className={`btn tiny ${twoHanded ? 'on' : ''}`}
                 title="Two-handed: use a versatile weapon's 2H damage dice"
-                onClick={() => setTwoHanded((t) => !t)}
+                aria-pressed={twoHanded}
+                onClick={() => toggleOption('twoHanded')}
               >
                 2H
               </button>

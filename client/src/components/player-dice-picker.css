@@ -42,7 +42,7 @@
 .player-fantasy .stage-wrap .stage-controls {
   left: 188px;
 }
-@media (max-width: 600px) {
+@media (max-width: 800px) {
   .player-fantasy .stage-wrap .stage-controls {
     left: 70px;
     top: 66px;
@@ -113,6 +113,19 @@
   min-height: 28px;
   padding: 4px 6px;
   font-size: 12px;
+}
+@media (max-width: 800px) {
+  /* A narrow hover bridge passes down the die's own lane, to the left of the
+     zoom buttons. The card opens below that row, so neither the visible menu
+     nor an invisible padded rectangle steals a zoom/fit click. */
+  .player-fantasy .player-dice-picker .player-dice-menu-region {
+    width: 59px;
+    padding-top: 54px;
+  }
+  .player-fantasy .player-dice-picker .player-dice-menu-region .dice-quick-menu {
+    width: min(232px, calc((100vw - 20px) / var(--player-ui-scale, .85)));
+    max-height: min(300px, calc((100dvh - 250px) / var(--player-ui-scale, .85)));
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .player-fantasy .player-dice-picker .dice-picker-disclosure svg { transition: none; }

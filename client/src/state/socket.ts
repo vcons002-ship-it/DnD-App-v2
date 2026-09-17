@@ -46,6 +46,8 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
+export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
+
 /** One floating damage/heal number over a token (client-side, transient). */
 export type HpFloater = HpFxEvent & { id: number };
 let nextFloaterId = 1;
@@ -135,6 +137,10 @@ type Store = {
   setManualAdvantage: (key: string, a: 'adv' | 'dis' | null) => void;
   /** Read an entity's armed adv/dis AND clear it (called at roll time). */
   consumeAdvantage: (key: string) => 'adv' | 'dis' | undefined;
+  /** Session-only weapon choices shared by panel and right-click attacks.
+   *  Keyed by kind:refId so another selected creature never borrows them. */
+  weaponAttackOptions: Record<string, WeaponAttackOptions>;
+  toggleWeaponAttackOption: (key: string, option: keyof WeaponAttackOptions) => void;
   /** Player UI: whether the selected creature's read-only "Details" panel is
    *  expanded. Sticky; double-clicking a token forces it open. */
   detailsExpanded: boolean;
@@ -479,6 +485,17 @@ export const useStore = create<Store>((set, get) => ({
       });
     return cur;
   },
+  weaponAttackOptions: {},
+  toggleWeaponAttackOption: (key, option) =>
+    set((s) => {
+      const current = s.weaponAttackOptions[key] ?? { offhand: false, twoHanded: false };
+      return {
+        weaponAttackOptions: {
+          ...s.weaponAttackOptions,
+          [key]: { ...current, [option]: !current[option] },
+        },
+      };
+    }),
   detailsExpanded: false,
   setDetailsExpanded: (detailsExpanded) => set({ detailsExpanded }),
   rightPanelNudge: 0,
@@ -558,6 +575,7 @@ export const useStore = create<Store>((set, get) => ({
       sayBubbles: {},
       cursors: {},
       manualAdvantage: {},
+      weaponAttackOptions: {},
       combatTarget: null,
       saveResolve: null,
     });
@@ -814,7 +832,7 @@ export const useStore = create<Store>((set, get) => ({
   disconnect: () => {
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
-    set({ socket: null, status: 'idle', snapshot: null });
+    set({ socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {} });
   },
 
   selectMap: (mapId) => {
