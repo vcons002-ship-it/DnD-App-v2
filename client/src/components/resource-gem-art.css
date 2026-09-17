@@ -70,14 +70,32 @@
 .player-fantasy .resource-gem .gem-level-radiance { opacity: 0; }
 .player-fantasy .resource-gem .gem-emission-bloom { opacity: 0; }
 .player-fantasy .resource-gem.lit .gem-emission-bloom { opacity: var(--gem-bloom-strength, .86); }
-/* Every available resource emits light; spell tiers add a steady L1-IX ladder.
-   The cut's bloom sits behind the metal. Spent stones keep their dark facets,
-   and nothing changes the button geometry or introduces an idle animation. */
+.player-fantasy .resource-gem .gem-inner-emission { opacity: var(--gem-core-peak, .74); }
+/* Available gems breathe over 3.6 seconds, with a large light/dim contrast at
+   normal laptop scale. The cut's halo and inner emission move together while
+   the stone, metal, hit target and arc geometry stay completely still. Spell
+   tiers brighten both ends of the cycle. Spent gems never run the idle loop. */
 .player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-lit-body {
   filter: brightness(var(--gem-idle-brightness, 1));
 }
 .player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-level-radiance {
   opacity: var(--gem-idle-radiance, .15);
+}
+.player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-emission-bloom {
+  animation: gem-bloom-breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--gem-breathe-delay, 0s);
+}
+.player-fantasy .resource-gem.lit[data-gem-effect='idle'] .gem-inner-emission {
+  animation: gem-core-breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--gem-breathe-delay, 0s);
+}
+@keyframes gem-bloom-breathe {
+  0%, 100% { opacity: var(--gem-bloom-strength, .86); }
+  50% { opacity: var(--gem-bloom-trough, .12); }
+}
+@keyframes gem-core-breathe {
+  0%, 100% { opacity: var(--gem-core-peak, .74); }
+  50% { opacity: var(--gem-core-trough, .16); }
 }
 .player-fantasy .resource-gem .gem-facet-reflection { opacity: .86; }
 .player-fantasy .resource-gem:hover .gem-facet-reflection,
@@ -204,7 +222,12 @@
 }
 .player-fantasy .resource-gem[data-gem-paused='true'] .resource-gem-art *,
 .player-fantasy .resource-gem[data-gem-paused='true'] .resource-gem-reaction * {
-  animation-play-state: paused;
+  /* Must win over the more specific active-idle animation shorthand. */
+  animation-play-state: paused !important;
+}
+.player-fantasy .resource-gem[data-gem-motion='reduced'] .resource-gem-art * {
+  animation: none !important;
+  transition: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .player-fantasy .resource-gem .resource-gem-reaction { display: none; }

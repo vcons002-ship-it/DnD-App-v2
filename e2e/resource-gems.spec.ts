@@ -66,6 +66,24 @@ async function geometry(locator: Locator) {
   }));
 }
 
+// Sample the real CSS keyframes instead of racing wall-clock animation phases.
+// Negative stagger delays remain an implementation detail: every stone is
+// compared at the same point in its own pulse. Finite spend/restore effects are
+// deliberately not paused or retimed by this helper.
+async function holdIdlePhase(locator: Locator, phase: number) {
+  return locator.evaluateAll((elements, normalizedPhase) => {
+    let sampled = 0;
+    for (const element of elements) for (const animation of element.getAnimations({ subtree: true })) {
+      const timing = animation.effect?.getTiming();
+      if (!timing || timing.iterations !== Infinity || typeof timing.duration !== 'number') continue;
+      animation.pause();
+      animation.currentTime = timing.delay + timing.duration * (1 + normalizedPhase);
+      sampled += 1;
+    }
+    return sampled;
+  }, phase);
+}
+
 async function setLayout(page: Page, layout: 'compact' | 'concentric') {
   await page.getByRole('button', { name: 'Interface settings', exact: true }).click();
   await page.getByLabel(layout === 'compact' ? 'Compact rows' : 'Concentric arcs', { exact: true }).check();
@@ -83,6 +101,7 @@ test('native-size resource glow stays readable over dark, medium and bright map 
   await joinPlayer(page, fixture.code);
   await setLayout(page, 'concentric');
   await idle(page);
+  expect(await holdIdlePhase(resources(page).locator('.resource-jewel'), 0), 'Native emission proof samples the actual pulse crest').toBeGreaterThan(0);
   const first = gems(page, 'L1').first();
   const box = await first.boundingBox();
   expect(box!.width, 'Default 85% laptop UI, not an enlarged art demonstration').toBeGreaterThan(14);
@@ -243,7 +262,7 @@ test('faceted gems retain labels, hit targets, geometry and manual single/multi 
   expect(errors).toEqual([]);
 });
 
-test('spell levels progressively brighten idle gems without tiering custom resources or changing spent gems and reactions', async ({ page, request }, testInfo) => {
+test('idle gemstone light visibly fades in and out with stronger spell tiers, stable geometry and dark spent sockets', async ({ page, request }, testInfo) => {
   const fixture = await gemFixture(request);
   const spellSlots = Object.fromEntries(Array.from({ length: 9 }, (_, index) => [
     `L${index + 1}`, { max: index === 0 ? 6 : 3, used: 1, maxOverride: true },
@@ -263,9 +282,19 @@ test('spell levels progressively brighten idle gems without tiering custom resou
     opacity: Number(getComputedStyle(element.querySelector('.gem-lit-body')!).opacity),
     radiance: Number(getComputedStyle(element.querySelector('.gem-level-radiance')!).opacity),
     bloom: Number(getComputedStyle(element.querySelector('.gem-emission-bloom')!).opacity),
+    // Inner emission is a child of the lit body; spent stones hide that whole
+    // body rather than replacing the inner path's own paint value.
+    core: Number(getComputedStyle(element.querySelector('.gem-inner-emission')!).opacity)
+      * Number(getComputedStyle(element.querySelector('.gem-lit-body')!).opacity),
   })));
-  const verifyProgression = async () => {
+  const verifyProgression = async (phase: number, reduced = false) => {
+    const sampled = await holdIdlePhase(resources(page).locator('.resource-jewel'), phase);
+    if (reduced) expect(sampled).toBe(0);
+    if (!reduced) expect(sampled, 'Available gemstones must actually run a repeating light animation').toBeGreaterThan(0);
     const activeBrightness: number[] = [];
+    const activeRadiance: number[] = [];
+    const activeBloom: number[] = [];
+    const activeCore: number[] = [];
     for (let level = 1; level <= 9; level += 1) {
       await expect(spellGems(level)).toHaveCount(level === 1 ? 6 : 3);
       const paint = await idlePaint(spellGems(level));
@@ -273,21 +302,33 @@ test('spell levels progressively brighten idle gems without tiering custom resou
         expect(gem.effect).toBe('idle');
         if (gem.lit) {
           const brightness = Number(/^brightness\(([^)]+)\)$/.exec(gem.filter)?.[1]);
-          expect(brightness, `Level ${level} internal glow`).toBeCloseTo(1 + .03 * (level - 1), 4);
-          expect(gem.radiance, `Level ${level} emitted radiance`).toBeCloseTo(.15 + .035 * (level - 1), 4);
-          expect(gem.bloom, `Level ${level} bounded colored emission`).toBeCloseTo(.86 + .017 * (level - 1), 4);
+          expect(brightness, `Level ${level} internal glow`).toBeGreaterThanOrEqual(1);
+          expect(gem.radiance, `Level ${level} emitted radiance`).toBeGreaterThan(0);
+          if (reduced || phase === 0) {
+            expect(gem.bloom, `Level ${level} light must be visible at its crest`).toBeGreaterThanOrEqual(.8);
+          } else {
+            expect(gem.bloom, `Level ${level} light must visibly fade at its trough`).toBeLessThanOrEqual(.3);
+            expect(gem.bloom, `Level ${level} is still available at the trough`).toBeGreaterThan(0);
+          }
           expect(gem.opacity).toBe(1);
         } else {
           expect(gem.filter).toBe('none');
           expect(gem.radiance).toBe(0);
           expect(gem.bloom).toBe(0);
+          expect(gem.core).toBe(0);
           expect(gem.opacity).toBe(0);
         }
       }
       activeBrightness.push(Number(/^brightness\(([^)]+)\)$/.exec(paint[0].filter)?.[1]));
+      activeRadiance.push(paint[0].radiance);
+      activeBloom.push(paint[0].bloom);
+      activeCore.push(paint[0].core);
     }
     for (let index = 1; index < activeBrightness.length; index += 1) {
       expect(activeBrightness[index]).toBeGreaterThan(activeBrightness[index - 1]);
+      expect(activeRadiance[index]).toBeGreaterThan(activeRadiance[index - 1]);
+      expect(activeBloom[index]).toBeGreaterThan(activeBloom[index - 1]);
+      expect(activeCore[index]).toBeGreaterThan(activeCore[index - 1]);
     }
     // Extra capacity has an engraving, not a brighter tier than its own level.
     await expect(spellGems(1).nth(4)).toHaveClass(/extra/);
@@ -295,30 +336,48 @@ test('spell levels progressively brighten idle gems without tiering custom resou
     for (const gem of await gems(page, 'Sorcery Points').all()) {
       await expect(gem).not.toHaveAttribute('data-gem-spell-level');
       const paint = (await idlePaint(gem))[0];
-      expect(paint.filter).toBe(paint.lit ? 'brightness(1)' : 'none');
-      expect(paint.radiance).toBe(paint.lit ? .15 : 0);
-      expect(paint.bloom).toBe(paint.lit ? .86 : 0);
+      const levelOnePaint = (await idlePaint(spellGems(1).first()))[0];
+      expect(paint.filter).toBe(paint.lit ? levelOnePaint.filter : 'none');
+      expect(paint.radiance).toBe(paint.lit ? levelOnePaint.radiance : 0);
+      expect(paint.bloom).toBe(paint.lit ? levelOnePaint.bloom : 0);
+      expect(paint.core).toBe(paint.lit ? levelOnePaint.core : 0);
     }
+    return { brightness: activeBrightness, radiance: activeRadiance, bloom: activeBloom, core: activeCore };
   };
 
+  const pulseEvidence: Record<string, unknown> = {};
   for (const layout of ['compact', 'concentric'] as const) {
     await setLayout(page, layout);
-    await verifyProgression();
-    const screenshotPath = testInfo.outputPath(`spell-level-idle-glow-${layout}.png`);
-    await page.screenshot({ path: screenshotPath });
-    await testInfo.attach(`spell-level-idle-glow-${layout}`, {
-      path: screenshotPath, contentType: 'image/png',
-    });
+    const initialGeometry = await geometry(resources(page).locator('.resource-jewel'));
+    const trough = await verifyProgression(.5);
+    const troughPath = testInfo.outputPath(`spell-level-idle-glow-${layout}-trough.png`);
+    await page.screenshot({ path: troughPath });
+    await testInfo.attach(`spell-level-idle-glow-${layout}-trough`, { path: troughPath, contentType: 'image/png' });
+    const crest = await verifyProgression(0);
+    for (let level = 0; level < 9; level += 1) {
+      expect(crest.bloom[level] - trough.bloom[level], `L${level + 1} needs a clear fade, not a nearly static shimmer`).toBeGreaterThanOrEqual(.55);
+      expect(crest.bloom[level] / trough.bloom[level], `L${level + 1} bloom contrast`).toBeGreaterThanOrEqual(3);
+      expect(crest.core[level] - trough.core[level], `L${level + 1} light must also pulse inside the cut stone`).toBeGreaterThanOrEqual(.5);
+      expect(crest.radiance[level], 'Static facets retain spell-tier legibility throughout the pulse').toBe(trough.radiance[level]);
+    }
+    expect(await geometry(resources(page).locator('.resource-jewel')), 'Light fades must not move or scale resource controls').toEqual(initialGeometry);
+    const crestPath = testInfo.outputPath(`spell-level-idle-glow-${layout}-crest.png`);
+    await page.screenshot({ path: crestPath });
+    await testInfo.attach(`spell-level-idle-glow-${layout}-crest`, { path: crestPath, contentType: 'image/png' });
+    pulseEvidence[layout] = { trough, crest, unchangedGeometry: true };
   }
   await resources(page).getByRole('button', { name: /^Additional resources/ }).click();
   const customL9 = page.getByRole('region', { name: 'Additional resource trackers', exact: true })
     .getByRole('group', { name: /^L9:/ }).locator('.resource-jewel');
   await expect(customL9).toHaveCount(2);
+  expect(await holdIdlePhase(customL9, 0)).toBeGreaterThan(0);
   for (const gem of await customL9.all()) await expect(gem).not.toHaveAttribute('data-gem-spell-level');
+  const levelOnePaint = (await idlePaint(spellGems(1).first()))[0];
   for (const paint of await idlePaint(customL9)) {
-    expect(paint.filter).toBe('brightness(1)');
-    expect(paint.radiance).toBe(.15);
-    expect(paint.bloom).toBe(.86);
+    expect(paint.filter).toBe(levelOnePaint.filter);
+    expect(paint.radiance).toBe(levelOnePaint.radiance);
+    expect(paint.bloom).toBe(levelOnePaint.bloom);
+    expect(paint.core).toBe(levelOnePaint.core);
   }
   await page.getByRole('button', { name: 'Close additional resources', exact: true }).click();
 
@@ -327,25 +386,70 @@ test('spell levels progressively brighten idle gems without tiering custom resou
   fixture.socket.emit('resource:set', { characterId: fixture.characterId, group: 'spellSlots', key: 'L9', used: 2 });
   await expect(spellGems(9).nth(1)).toHaveAttribute('data-gem-effect', 'spend');
   await expect(spellGems(9).nth(1).locator('.gem-level-radiance')).toHaveCSS('opacity', '0');
+  await expect(spellGems(9).nth(1).locator('.gem-emission-bloom')).toHaveCSS('animation-iteration-count', '1');
   await idle(page);
   expect((await idlePaint(spellGems(9).nth(1)))[0]).toMatchObject({ lit: false, filter: 'none', radiance: 0, opacity: 0 });
   fixture.socket.emit('resource:set', { characterId: fixture.characterId, group: 'spellSlots', key: 'L9', used: 1 });
   await expect(spellGems(9).nth(1)).toHaveAttribute('data-gem-effect', 'restore');
   await expect(spellGems(9).nth(1).locator('.gem-level-radiance')).toHaveCSS('opacity', '0');
+  await expect(spellGems(9).nth(1).locator('.gem-emission-bloom')).toHaveCSS('animation-iteration-count', '1');
   await idle(page);
-  await verifyProgression();
+  await verifyProgression(0);
 
-  // This is static illumination: reducing motion must retain tier legibility
-  // without introducing any continuously running animation.
+  // Reduced motion keeps available gems clearly lit with their tier ladder,
+  // but removes the continuously running pulse as well as finite reactions.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(spellGems(9).first()).toHaveAttribute('data-gem-motion', 'reduced');
-  await verifyProgression();
+  pulseEvidence.reducedMotion = await verifyProgression(0, true);
   const animations = await resources(page).locator('.resource-jewel, .resource-jewel *').evaluateAll((elements) =>
     elements.map((element) => getComputedStyle(element).animationName));
   expect(animations.every((name) => name === 'none')).toBe(true);
+  const evidencePath = testInfo.outputPath('gem-idle-pulse-proof.json');
+  await writeFile(evidencePath, JSON.stringify(pulseEvidence, null, 2));
+  await testInfo.attach('gem-idle-pulse-proof', { path: evidencePath, contentType: 'application/json' });
   const saved = (await fixture.snapshot()).characters.find((character) => character.id === fixture.characterId)!;
   expect(saved.spellSlots).toMatchObject(spellSlots);
   expect(saved.resources).toMatchObject({ 'Sorcery Points': { max: 6, used: 2 }, L9: { max: 2, used: 0 } });
+});
+
+test('native laptop gems visibly breathe through two real-time cycles without moving their sockets', async ({ page, request }, testInfo) => {
+  const fixture = await gemFixture(request);
+  fixture.socket.emit('character:update', {
+    characterId: fixture.characterId,
+    spellSlots: { L1: { max: 4, used: 1 }, L5: { max: 3, used: 1, maxOverride: true }, L9: { max: 3, used: 1, maxOverride: true } },
+  });
+  await fixture.snapshot();
+  await joinPlayer(page, fixture.code);
+  await setLayout(page, 'concentric');
+  await idle(page);
+  const first = gems(page, 'L1').first();
+  const initialGeometry = await geometry(resources(page).locator('.resource-jewel'));
+  const samples = await first.evaluate((element) => new Promise<{ at: number; bloom: number; core: number }[]>((resolve) => {
+    const started = performance.now();
+    const result: { at: number; bloom: number; core: number }[] = [];
+    const frame = () => {
+      const at = performance.now() - started;
+      result.push({ at,
+        bloom: Number(getComputedStyle(element.querySelector('.gem-emission-bloom')!).opacity),
+        core: Number(getComputedStyle(element.querySelector('.gem-inner-emission')!).opacity),
+      });
+      if (at < 7600) requestAnimationFrame(frame);
+      else resolve(result);
+    };
+    requestAnimationFrame(frame);
+  }));
+  expect(samples.length).toBeGreaterThan(30);
+  const minimum = Math.min(...samples.map((sample) => sample.bloom));
+  const maximum = Math.max(...samples.map((sample) => sample.bloom));
+  expect(minimum).toBeLessThan(.2);
+  expect(maximum).toBeGreaterThan(.8);
+  expect(maximum - minimum, 'A live browser must paint the fade, not just declare unused keyframes').toBeGreaterThan(.6);
+  expect(Math.max(...samples.map((sample) => sample.core)) - Math.min(...samples.map((sample) => sample.core))).toBeGreaterThan(.5);
+  expect(await geometry(resources(page).locator('.resource-jewel'))).toEqual(initialGeometry);
+  await expect(gems(page, 'L1').last().locator('.gem-emission-bloom')).toHaveCSS('opacity', '0');
+  const evidencePath = testInfo.outputPath('gem-live-pulse-samples.json');
+  await writeFile(evidencePath, JSON.stringify({ viewport: '1366x768', unchangedGeometry: true, minimum, maximum, samples }, null, 2));
+  await testInfo.attach('gem-live-pulse-samples', { path: evidencePath, contentType: 'application/json' });
 });
 
 test('existing Magic Missile cast automatically spends exactly one matching spell-slot gem', async ({ page, request }) => {
@@ -456,6 +560,13 @@ test('hidden pages cancel gem reactions and resume without replaying hidden reso
   await expect(gems(page, 'L1').last()).toHaveAttribute('data-gem-paused', 'true');
   await expect(gems(page, 'L1').last()).toHaveAttribute('data-gem-effect', 'idle');
   await expect(resources(page).locator('.resource-gem-reaction')).toHaveCount(0);
+  const activeBloom = gems(page, 'L1').first().locator('.gem-emission-bloom');
+  const activeCore = gems(page, 'L1').first().locator('.gem-inner-emission');
+  await expect(activeBloom).toHaveCSS('animation-play-state', 'paused');
+  await expect(activeCore).toHaveCSS('animation-play-state', 'paused');
+  const pausedAt = await activeBloom.evaluate((element) => element.getAnimations()[0].currentTime);
+  await page.waitForTimeout(150);
+  expect(await activeBloom.evaluate((element) => element.getAnimations()[0].currentTime), 'Hidden-page idle light must stop advancing').toBe(pausedAt);
   fixture.socket.emit('resource:set', { characterId: fixture.characterId, group: 'spellSlots', key: 'L1', used: 3 });
   await expect(row(page, 'L1')).toHaveAccessibleName('L1: 1 of 4 remaining');
   expect(await effects(page).count()).toBe(0);
@@ -464,6 +575,8 @@ test('hidden pages cancel gem reactions and resume without replaying hidden reso
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect(gems(page, 'L1').last()).toHaveAttribute('data-gem-paused', 'false');
+  await expect(activeBloom).toHaveCSS('animation-play-state', 'running');
+  await expect(activeCore).toHaveCSS('animation-play-state', 'running');
   expect(await effects(page).count()).toBe(0);
   await expect(resources(page).locator('.resource-gem-reaction')).toHaveCount(0);
   fixture.socket.emit('resource:set', { characterId: fixture.characterId, group: 'spellSlots', key: 'L1', used: 0 });

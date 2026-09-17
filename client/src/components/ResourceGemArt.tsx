@@ -36,6 +36,12 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
     '--gem-idle-brightness': 1 + levelStep * .03,
     '--gem-idle-radiance': .15 + levelStep * .035,
     '--gem-bloom-strength': .86 + levelStep * .017,
+    '--gem-bloom-trough': .12 + levelStep * .014,
+    '--gem-core-trough': .16 + levelStep * .018,
+    '--gem-core-peak': .74 + levelStep * .025,
+    // A gentle wave across a row; phase affects only decorative light, never
+    // socket geometry or the resource's authoritative state.
+    '--gem-breathe-delay': `${-(Math.abs(ordinal) % 4) * .16 - levelStep * .1}s`,
   } as CSSProperties;
   return <>
     <svg className={`resource-gem-art ${palette}`} data-gem-art-variant={variant}
@@ -75,11 +81,11 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
           <stop offset=".72" stopColor="var(--gem-energy)" stopOpacity=".78" />
           <stop offset="1" stopColor="var(--gem-deep)" stopOpacity="0" />
         </radialGradient>
-        {/* One small static blur of this stone's own cut, underneath its metal
-            setting. At the default 85% UI its soft edge is about 1.5px, not a
-            separate round light or another gemstone layered over the art. */}
-        <filter id={bloom} filterUnits="userSpaceOnUse" x="-10" y="-10" width="52" height="52" colorInterpolationFilters="sRGB">
-          <feGaussianBlur stdDeviation="3.2" />
+        {/* The existing cut emits a soft colored halo beneath its setting.
+            Only light opacity breathes: no duplicate stone or scaling socket.
+            Give the halo room to remain visible at the default 85% UI scale. */}
+        <filter id={bloom} filterUnits="userSpaceOnUse" x="-14" y="-14" width="60" height="60" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="4.2" />
         </filter>
         <radialGradient id={flare}>
           <stop offset="0" stopColor="#ffffff" />
@@ -89,7 +95,7 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
         </radialGradient>
       </defs>
       <path className="gem-emission-bloom" d={cut} fill="var(--gem-energy)"
-        stroke="var(--gem-energy)" strokeWidth="6.5" filter={`url(#${bloom})`} />
+        stroke="var(--gem-energy)" strokeWidth="10" filter={`url(#${bloom})`} />
       {/* Engraved bronze setting and dark recess sit behind the cut stone. */}
       <path d="m16 .8 4 3 6-.2 2.4 6.1 2.8 6.3-2.8 6.3-2.4 6.1-6-.2-4 3-4-3-6 .2-2.4-6.1L.8 16l2.8-6.3L6 3.6l6 .2Z"
         fill={`url(#${metal})`} stroke="#15110e" strokeWidth="1.05" />
@@ -127,7 +133,7 @@ export const ResourceGemArt = memo(function ResourceGemArt({ kind, ordinal, spel
         <path d={table} fill={`url(#${heart})`} stroke="var(--gem-light)" strokeOpacity=".7" strokeWidth=".55" />
         {/* A second, saturated light source lives below the white reflection.
             Facet overlays and the dark pavilion retain the cut-stone shape. */}
-        <path d={table} fill={`url(#${emission})`} fillOpacity=".96" />
+        <path className="gem-inner-emission" d={table} fill={`url(#${emission})`} />
         {/* Tier radiance stays saturated rather than whitening the whole cut. */}
         <path className="gem-level-radiance" d={table} fill={`url(#${emission})`} />
         <path d="m12 11 8 0-5.5 6.5L9 14Z" fill="#ffffff" fillOpacity=".17" />

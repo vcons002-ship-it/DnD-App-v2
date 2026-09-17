@@ -103,9 +103,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   in full history and the bottom overlay; new rolls retain bonus/rider faces
   without changing damage calculations, spending or animation steps.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_22_2026-09-17.md).
+- ☑ Player review revision 23: resource-gem light now fades down and up on a
+  visible 3.6-second cycle, with a broader colored halo and tiered inner glow.
+  Spent gems remain dark; reduced motion keeps steady illumination.
+  [Revision notes and validation](docs/PLAYER_HUD_REVISION_23_2026-09-17.md).
 - ◐ PR #66 merged into Main and the official local updater built its client and
   server code. Production service restart did not complete after UAC was cancelled;
-  revisions 19-22 are development-only and have not been deployed.
+  revisions 19-23 are development-only and have not been deployed to production.
   See [release scope](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
 - See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
 
