@@ -91,3 +91,11 @@ the existing critical-hit doubling rule remains unchanged. These release
 follow-ups change test fixtures only, not game rules or production code.
 Local server/client typechecks and all 598 unit tests passed after adding
 the explicit critical-hit case; the full client/server build also passed.
+
+The next PR browser run passed all 98 cases while its parallel push run missed
+one map-target click in the spell workflow fixture. Fifteen local repeats did
+not reproduce that failure. Inspection found that the fixture waited for a
+separate DM socket, then conditionally skipped dismissing a player reveal that
+could still be in transit. It now waits for each expected player reveal and
+the visible targeting state before issuing the next real map click. No click
+retry, gameplay bypass, application change, or arbitrary sleep was added.

@@ -68,7 +68,11 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
   const combat = page.getByRole('region', { name: 'Combat panel', exact: true });
   await expect(combat).toBeVisible();
   const row = (name: string) => combat.locator('.combat-ability-row').filter({ hasText: name });
-  const dismissReveal = async () => {
+  const dismissReveal = async (expectedRollId?: string) => {
+    // A DM-socket snapshot confirms server completion, not that this player's
+    // socket has rendered the same roll yet. Wait for the known result before
+    // dismissing it, otherwise a late reveal can intercept the next map click.
+    if (expectedRollId) await expect(page.locator('.roll-reveal')).toHaveAttribute('data-roll-id', expectedRollId);
     if (await page.locator('.roll-reveal').count()) {
       await page.locator('.roll-reveal').click({ position: { x: 10, y: 10 } });
       await expect(page.locator('.roll-reveal')).toHaveCount(0);
@@ -101,7 +105,7 @@ test('single save casts at selected target; area save and damage apply independe
   expect(state.characters.find((character) => character.id === f.characterId)!.sheetAbilities).toEqual(f.abilities);
   expect(state.characters.find((character) => character.id === f.characterId)!.spellSlots.L2.used).toBe(1);
   expect(state.monsters.every((monster: any) => monster.curHp === 200 && monster.conditions.length === 0)).toBe(true);
-  await f.dismissReveal();
+  await f.dismissReveal(state.rollLog.at(-1)!.id);
   await expect(page.locator('.spell-damage-dock')).toHaveCount(0);
 
   // Upcasting the same raw saved spell changes only this cast's target workflow.
@@ -113,11 +117,12 @@ test('single save casts at selected target; area save and damage apply independe
   const cast = [...(await f.snapshot()).rollLog].reverse().find((roll) => roll.label === 'Hold Person')!;
   expect(cast.apply!.targetMode).toBe('multiple');
   await dock.locator('.damage-prompt-btn').click();
+  await expect(dock).toContainText('Choose targets on the map');
   for (const target of targets) {
     await f.clickToken(target.id);
     await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === cast.id)?.apply?.consumedTargets)
       .toContain(target.id);
-    await f.dismissReveal();
+    await f.dismissReveal((await f.snapshot()).rollLog.at(-1)!.id);
   }
   const beforeDuplicate = (await f.snapshot()).rollLog.length;
   await f.clickToken(targets[0].id);
@@ -133,11 +138,12 @@ test('single save casts at selected target; area save and damage apply independe
   const fireball = state.rollLog.find((roll) => roll.label === 'Fireball')!;
   const hpBefore = targets.map((target) => (state.monsters.find((monster) => monster.id === target.refId) as any).curHp);
   await dock.locator('.damage-prompt-btn').click();
+  await expect(dock).toContainText('Choose targets on the map');
   for (const target of targets) {
     await f.clickToken(target.id);
     await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === fireball.id)?.apply?.consumedTargets)
       .toContain(target.id);
-    await f.dismissReveal();
+    await f.dismissReveal((await f.snapshot()).rollLog.at(-1)!.id);
   }
   state = await f.snapshot();
   targets.forEach((target, index) => {
