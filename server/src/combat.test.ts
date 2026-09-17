@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   resolveAttack,
   resolveSaves,
@@ -484,24 +484,31 @@ describe('weapon masteries', () => {
     expect(sawMiss).toBe(true);
   });
 
-  it('adds mastery bonus damage on a hit', () => {
-    // High to-hit vs low AC → almost always a hit; "5d1" is a constant 5.
+  it.each([
+    { outcome: 'hit', randomValue: .5, face: 11, bonus: 5, damage: 10 },
+    { outcome: 'crit', randomValue: .999, face: 20, bonus: 10, damage: 17 },
+  ])('adds mastery bonus damage on a $outcome', ({ outcome, randomValue, face, bonus, damage }) => {
+    // A crit doubles both weapon and mastery dice, but not STR's +3:
+    // normal = 2 + 5 + 3; critical = 4 + 10 + 3.
     const { s, atk, tgt } = masteryFight({
       weapon: 'Maul',
       attackBonus: 50,
       targetAc: 1,
+      damage: '2d1',
       mastery: { appliesToTags: ['test'], active: true, effect: { bonusDamage: '5d1' } },
     });
-    let sawHit = false;
-    for (let i = 0; i < 80 && !sawHit; i++) {
+    const ref = getToken(tgt)!.refId;
+    const before = getMonster(ref)!.curHp;
+    const random = vi.spyOn(Math, 'random').mockReturnValue(randomValue);
+    try {
       resolveAttack(s, 'Striker', atk, tgt, 0);
-      const last = listRollLog(s).at(-1)!;
-      if (/\bHIT\b|CRIT/.test(last.detail)) {
-        sawHit = true;
-        expect(last.detail).toContain('+5[TestMastery]');
-      }
+    } finally {
+      random.mockRestore();
     }
-    expect(sawHit).toBe(true);
+    const last = listRollLog(s).at(-1)!;
+    expect(last.reveal).toMatchObject({ d20: face, outcome, damage });
+    expect(last.detail).toContain(`+${bonus}[TestMastery]`);
+    expect(before - getMonster(ref)!.curHp).toBe(damage);
   });
 
   it('does nothing when the mastery is inactive', () => {

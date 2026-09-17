@@ -83,3 +83,11 @@ checks a non-critical miss explicitly, and restores the random source before
 the remaining tests. The natural-20 gameplay rule is unchanged. The full local
 98-test browser rerun passed after the gem fixture correction, including a
 damage floater appearing 123 ms after the final damage total was displayed.
+
+The parallel push check also caught a pre-existing mastery fixture accepting
+either HIT or CRIT while always expecting the non-critical `5d1` bonus of 5.
+Its deterministic coverage now distinguishes ordinary hits from critical hits;
+the existing critical-hit doubling rule remains unchanged. These release
+follow-ups change test fixtures only, not game rules or production code.
+Local server/client typechecks and all 598 unit tests passed after adding
+the explicit critical-hit case; the full client/server build also passed.
