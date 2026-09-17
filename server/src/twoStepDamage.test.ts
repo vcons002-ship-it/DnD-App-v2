@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { resolveAttack, resolveAttackDamage } from './combat.js';
 import {
   createSession,
@@ -138,10 +138,19 @@ describe('two-step damage', () => {
     const tmpl = createMonsterTemplate(s.id, { name: 'Wall', maxHp: 50, armorClass: 40 });
     const inst = instantiateMonster(tmpl.id)!;
     const tgt = createToken({ mapId: map.id, kind: 'monster', refId: inst.id, x: 1, y: 1 });
-    resolveAttack(s.id, 'Fumbler', atk.id, tgt.id, 0);
+    const before = getMonster(inst.id)!.curHp;
+    // High AC cannot guarantee a miss: a natural 20 always hits. Pin this
+    // miss-only fixture to a non-critical 11 without changing combat rules.
+    const random = vi.spyOn(Math, 'random').mockReturnValue(.5);
+    try {
+      resolveAttack(s.id, 'Fumbler', atk.id, tgt.id, 0);
+    } finally {
+      random.mockRestore();
+    }
     const last = listRollLog(s.id).at(-1)!;
+    expect(last.reveal).toMatchObject({ d20: 11, outcome: 'miss' });
     expect(last.pending).toBeUndefined();
-    expect(getMonster(inst.id)!.curHp).toBe(50);
+    expect(getMonster(inst.id)!.curHp).toBe(before);
   });
 
   it('bakes resistance into the parked number', () => {

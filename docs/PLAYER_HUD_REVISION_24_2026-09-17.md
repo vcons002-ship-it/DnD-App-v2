@@ -75,3 +75,11 @@ transition; no application visuals or gameplay code was changed to make CI pass.
 The corrected fixture passed all eight local gem tests plus three repeated
 runs of the combined tier/reduced-motion case. Local server/client typechecks
 and all 597 unit tests were repeated successfully before the follow-up commit.
+
+A subsequent PR check exposed an unrelated existing random miss fixture in
+`twoStepDamage.test.ts`: even a -20 attack bonus against AC 40 can hit on a
+natural 20. That fixture now controls the random roll during its attack only,
+checks a non-critical miss explicitly, and restores the random source before
+the remaining tests. The natural-20 gameplay rule is unchanged. The full local
+98-test browser rerun passed after the gem fixture correction, including a
+damage floater appearing 123 ms after the final damage total was displayed.
