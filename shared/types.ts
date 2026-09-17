@@ -863,6 +863,10 @@ export type RollReveal = {
   /** Flat damage modifiers added after the dice (ability mod, magic, mastery…).
    *  Reused by 'dice' reveals for the expression's flat terms. */
   damageMods?: RevealStep[];
+  /** Optional log-only accounting of the damage dice, feature riders and
+   *  adjustments. Unlike animation steps, these retain each already-rolled
+   *  rider's faces. Never used to roll, animate or apply damage. */
+  damageBreakdown?: { dice: RevealStep[]; mods: RevealStep[]; mixedTypes?: boolean };
   /** Damage applied on a hit — or, for a 'dice' reveal, the roll's total (the
    *  final number the count-up lands on). */
   damage?: number;
@@ -895,6 +899,8 @@ export type PendingDamage = {
   /** The reveal payload: dice (with faces) and the flat modifier chips. */
   dice: RevealStep[];
   mods: RevealStep[];
+  /** Log-only detail, withheld from the attack reveal until damage is applied. */
+  damageBreakdown?: RollReveal['damageBreakdown'];
   /** Character id allowed to roll it besides the DM (the attacking player). */
   owner?: string;
   /** Already applied — the guard against a double-click applying twice. */

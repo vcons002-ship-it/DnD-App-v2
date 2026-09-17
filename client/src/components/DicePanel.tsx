@@ -3,6 +3,7 @@ import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
+import { RollDamageBreakdown } from './RollDamageBreakdown';
 import { safeSetItem } from '../lib/storage';
 import { linkify } from '../lib/linkify';
 import { mergeFeed } from '../lib/feed';
@@ -309,6 +310,7 @@ export function DicePanel({
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}
                 <span className="muted">{renderRollDetail(r.detail)}</span>
+                <RollDamageBreakdown entry={r} />
                 {r.hpNote && <span className="roll-hp-note">{r.hpNote.text}</span>}
                 {r.description && (
                   <span className="roll-desc muted">{r.description}</span>

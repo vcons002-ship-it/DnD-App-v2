@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { RollEntry, ChatMessage } from '../../../shared/types';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
+import { RollDamageBreakdown } from './RollDamageBreakdown';
 import { mergeFeed, type FeedItem } from '../lib/feed';
 
 const WINDOW_MS = 20_000; // after this, the latest line dims to a faint hover target
@@ -79,6 +80,7 @@ export function RollLogOverlay({
               <strong style={{ color }}>{entry.roller}</strong>
               {entry.label ? ` · ${entry.label}` : ''}{' '}
               <span className="muted">{renderRollDetail(entry.detail)}</span>
+              <RollDamageBreakdown entry={entry} />
               {entry.hpNote && (
                 <span className="roll-hp-note">{entry.hpNote.text}</span>
               )}
