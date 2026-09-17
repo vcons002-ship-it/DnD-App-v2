@@ -61,9 +61,16 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       conn.playerId,
     );
     io.to(socketId).emit('state:snapshot', snapshot);
+    const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
     const visible = hpFx.filter((e) =>
       snapshot.tokens.some((t) => t.kind === e.kind && t.refId === e.refId),
-    );
+    ).map((event) => {
+      if (!event.rollId || visibleRolls.has(event.rollId)) return event;
+      // Hidden DM rolls still cause visible HP feedback, but never expose a
+      // hidden roll ID or make that feedback wait for an unavailable reveal.
+      const { rollId: _hiddenRollId, ...uncorrelated } = event;
+      return uncorrelated;
+    });
     if (visible.length) io.to(socketId).emit('fx:hp', { events: visible });
   }
 }

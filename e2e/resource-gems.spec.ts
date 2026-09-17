@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
@@ -71,6 +72,81 @@ async function setLayout(page: Page, layout: 'compact' | 'concentric') {
   await page.getByRole('button', { name: 'Close interface settings', exact: true }).click();
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 }
+
+test('native-size resource glow stays readable over dark, medium and bright map tones', async ({ page, request }, testInfo) => {
+  const fixture = await gemFixture(request);
+  fixture.socket.emit('character:update', {
+    characterId: fixture.characterId,
+    spellSlots: { L1: { max: 4, used: 1 }, L5: { max: 3, used: 1, maxOverride: true }, L9: { max: 3, used: 1, maxOverride: true } },
+  });
+  await fixture.snapshot();
+  await joinPlayer(page, fixture.code);
+  await setLayout(page, 'concentric');
+  await idle(page);
+  const first = gems(page, 'L1').first();
+  const box = await first.boundingBox();
+  expect(box!.width, 'Default 85% laptop UI, not an enlarged art demonstration').toBeGreaterThan(14);
+  expect(box!.width).toBeLessThan(16);
+  // Controlled map-tone swatches make alpha/emission comparisons repeatable;
+  // this fixture does not read any preview or production campaign/map data.
+  const backdrop = await page.addStyleTag({ content: `
+    .stage-wrap { background: var(--gem-proof-map, #171e24) !important; }
+    .stage-wrap::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+      background-image: linear-gradient(#ffffff0e 1px, transparent 1px), linear-gradient(90deg,#ffffff0e 1px,transparent 1px);
+      background-size: 48px 48px; }
+  ` });
+  const emissionEvidence: { background: string; changedOutsideSocket: number; largestChannelChange: number }[] = [];
+  const clip = { x: Math.floor(box!.x) - 5, y: Math.floor(box!.y) - 5, width: 25, height: 25 };
+  const pixels = async () => {
+    const buffer = await page.screenshot({ clip });
+    return page.evaluate(async (encoded) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${encoded}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width; canvas.height = image.height;
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      return { width: image.width, values: Array.from(context.getImageData(0, 0, image.width, image.height).data) };
+    }, buffer.toString('base64'));
+  };
+  try {
+    for (const [name, color] of [['dark', '#171e24'], ['medium', '#6b756b'], ['bright', '#c2b79c']] as const) {
+      await page.evaluate((value) => document.documentElement.style.setProperty('--gem-proof-map', value), color);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+      const screenshotPath = testInfo.outputPath(`resource-glow-${name}-native.png`);
+      await page.screenshot({ path: screenshotPath, clip: { x: 0, y: 360, width: 610, height: 408 } });
+      await testInfo.attach(`resource-glow-${name}-native`, { path: screenshotPath, contentType: 'image/png' });
+      // Compare actual native-resolution pixels, not just a CSS variable or a
+      // white reflection inside the stone. Temporarily suppress ONLY this
+      // stone's bloom; unchanged game state/geometry must now emit visibly less
+      // colored light beyond the original socket's rectangular bounds.
+      const illuminated = await pixels();
+      await first.locator('.gem-emission-bloom').evaluate((element) => element.setAttribute('style', 'visibility:hidden'));
+      const unlit = await pixels();
+      await first.locator('.gem-emission-bloom').evaluate((element) => element.removeAttribute('style'));
+      let changedOutsideSocket = 0;
+      let largestChannelChange = 0;
+      for (let index = 0; index < illuminated.values.length; index += 4) {
+        const x = clip.x + (index / 4) % illuminated.width + .5;
+        const y = clip.y + Math.floor((index / 4) / illuminated.width) + .5;
+        if (x >= box!.x && x <= box!.x + box!.width && y >= box!.y && y <= box!.y + box!.height) continue;
+        const change = Math.max(...[0, 1, 2].map((channel) => Math.abs(illuminated.values[index + channel] - unlit.values[index + channel])));
+        largestChannelChange = Math.max(largestChannelChange, change);
+        if (change >= 6) changedOutsideSocket += 1;
+      }
+      emissionEvidence.push({ background: name, changedOutsideSocket, largestChannelChange });
+      expect(changedOutsideSocket, `${name}: emitted color must extend beyond the actual 14.45px socket`).toBeGreaterThanOrEqual(8);
+      expect(largestChannelChange, `${name}: bloom cannot be an imperceptible subpixel decoration`).toBeGreaterThanOrEqual(12);
+    }
+    const evidencePath = testInfo.outputPath('native-size-emission-pixel-proof.json');
+    await writeFile(evidencePath, JSON.stringify({ gemWidth: box!.width, mapTonesAreControlledFixtureSwatches: true, emissionEvidence }, null, 2));
+    await testInfo.attach('native-size-emission-pixel-proof', { path: evidencePath, contentType: 'application/json' });
+  } finally {
+    await backdrop.evaluate((element) => element.remove());
+    await page.evaluate(() => document.documentElement.style.removeProperty('--gem-proof-map'));
+  }
+});
 
 test('faceted gems retain labels, hit targets, geometry and manual single/multi resource edits', async ({ page, request }) => {
   const fixture = await gemFixture(request);
@@ -167,7 +243,7 @@ test('faceted gems retain labels, hit targets, geometry and manual single/multi 
   expect(errors).toEqual([]);
 });
 
-test('spell levels progressively brighten idle gems without changing custom resources, spent gems or reaction effects', async ({ page, request }, testInfo) => {
+test('spell levels progressively brighten idle gems without tiering custom resources or changing spent gems and reactions', async ({ page, request }, testInfo) => {
   const fixture = await gemFixture(request);
   const spellSlots = Object.fromEntries(Array.from({ length: 9 }, (_, index) => [
     `L${index + 1}`, { max: index === 0 ? 6 : 3, used: 1, maxOverride: true },
@@ -186,6 +262,7 @@ test('spell levels progressively brighten idle gems without changing custom reso
     filter: getComputedStyle(element.querySelector('.gem-lit-body')!).filter,
     opacity: Number(getComputedStyle(element.querySelector('.gem-lit-body')!).opacity),
     radiance: Number(getComputedStyle(element.querySelector('.gem-level-radiance')!).opacity),
+    bloom: Number(getComputedStyle(element.querySelector('.gem-emission-bloom')!).opacity),
   })));
   const verifyProgression = async () => {
     const activeBrightness: number[] = [];
@@ -196,12 +273,14 @@ test('spell levels progressively brighten idle gems without changing custom reso
         expect(gem.effect).toBe('idle');
         if (gem.lit) {
           const brightness = Number(/^brightness\(([^)]+)\)$/.exec(gem.filter)?.[1]);
-          expect(brightness, `Level ${level} internal glow`).toBeCloseTo(1 + .07 * (level - 1), 4);
-          expect(gem.radiance, `Level ${level} emitted radiance`).toBeCloseTo(.065 * (level - 1), 4);
+          expect(brightness, `Level ${level} internal glow`).toBeCloseTo(1 + .03 * (level - 1), 4);
+          expect(gem.radiance, `Level ${level} emitted radiance`).toBeCloseTo(.15 + .035 * (level - 1), 4);
+          expect(gem.bloom, `Level ${level} bounded colored emission`).toBeCloseTo(.86 + .017 * (level - 1), 4);
           expect(gem.opacity).toBe(1);
         } else {
           expect(gem.filter).toBe('none');
           expect(gem.radiance).toBe(0);
+          expect(gem.bloom).toBe(0);
           expect(gem.opacity).toBe(0);
         }
       }
@@ -216,8 +295,9 @@ test('spell levels progressively brighten idle gems without changing custom reso
     for (const gem of await gems(page, 'Sorcery Points').all()) {
       await expect(gem).not.toHaveAttribute('data-gem-spell-level');
       const paint = (await idlePaint(gem))[0];
-      expect(paint.filter).toBe('none');
-      expect(paint.radiance).toBe(0);
+      expect(paint.filter).toBe(paint.lit ? 'brightness(1)' : 'none');
+      expect(paint.radiance).toBe(paint.lit ? .15 : 0);
+      expect(paint.bloom).toBe(paint.lit ? .86 : 0);
     }
   };
 
@@ -236,8 +316,9 @@ test('spell levels progressively brighten idle gems without changing custom reso
   await expect(customL9).toHaveCount(2);
   for (const gem of await customL9.all()) await expect(gem).not.toHaveAttribute('data-gem-spell-level');
   for (const paint of await idlePaint(customL9)) {
-    expect(paint.filter).toBe('none');
-    expect(paint.radiance).toBe(0);
+    expect(paint.filter).toBe('brightness(1)');
+    expect(paint.radiance).toBe(.15);
+    expect(paint.bloom).toBe(.86);
   }
   await page.getByRole('button', { name: 'Close additional resources', exact: true }).click();
 

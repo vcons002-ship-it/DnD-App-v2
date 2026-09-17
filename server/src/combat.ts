@@ -22,6 +22,7 @@ import {
   removeItem,
   updateCharacter,
 } from './sessions.js';
+import { newId } from './db.js';
 import {
   damageMultiplier,
   profBonusFor,
@@ -191,9 +192,11 @@ function applyDamageNoted(
   attacker?: { kind: TokenKind; refId: string },
   /** Crit hit — a crit vs a downed PC is two death-save failures (RAW). */
   crit = false,
+  /** The exact reveal that should release this transient damage floater. */
+  rollId?: string,
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType, crit);
+  const after = applyDamage(kind, refId, amount, damageType, crit, rollId);
   if (!before || !after) return undefined;
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
   if (
@@ -494,9 +497,10 @@ export function resolveAttack(
   const damageSteps = out.hit && applied > 0
     ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
     : [];
+  const attackRollId = newId();
   let hpNote: RollEntry['hpNote'];
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   addRollLog(sessionId, {
@@ -546,7 +550,7 @@ export function resolveAttack(
           },
         }
       : {}),
-  });
+  }, attackRollId);
   // The token badge follows the weapon last attacked with.
   setLastAttackRole(a.kind, a.refId, weapon.kind === 'ranged' ? 'ranged' : 'melee');
 
@@ -633,6 +637,7 @@ export function resolveAttackDamage(
   // Claim it FIRST — two clicks racing in must not both apply.
   setRollPending(rollId, { ...p, done: true });
 
+  const damageRollId = newId();
   const hpNote = applyDamageNoted(
     p.target.kind,
     p.target.refId,
@@ -640,6 +645,7 @@ export function resolveAttackDamage(
     p.damageType,
     p.attacker,
     p.crit,
+    damageRollId,
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
   addRollLog(sessionId, {
@@ -660,7 +666,7 @@ export function resolveAttackDamage(
       ...(p.damageType ? { damageType: p.damageType } : {}),
     },
     hideMods: hidesMods(p.attacker.kind, p.attacker.refId),
-  });
+  }, damageRollId);
   return true;
 }
 
@@ -895,7 +901,8 @@ export function resolveForcedSave(
       base = apply.split?.[dartIdx] ?? 0;
     }
     dmg = Math.floor(base * mult);
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
+    const dartRollId = newId();
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
@@ -916,7 +923,7 @@ export function resolveForcedSave(
         damage: dmg,
         damageType: apply.damageType,
       },
-    });
+    }, dartRollId);
     return;
   }
   // Each creature is resolved at most once per cast — RAW (one save vs an AoE),
@@ -977,7 +984,12 @@ export function resolveForcedSave(
     dmg = Math.floor(apply.amount * mult);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType);
+  const resolutionRollId = newId();
+  // A real save waits for its own result. An auto-hit/auto-fail application
+  // without a new reveal may instead share its still-playing cast animation.
+  // Clients never wait on a source roll that has already finished or is hidden.
+  const fxRollId = saveReveal ? resolutionRollId : src?.reveal ? src.id : undefined;
+  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   // Mark this target consumed so a repeat click on the same creature is rejected.
   setRollApply(rollId, {
@@ -997,7 +1009,7 @@ export function resolveForcedSave(
     hpNote: saveNote,
     hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
     ...(saveReveal ? { reveal: saveReveal } : {}),
-  });
+  }, resolutionRollId);
 }
 
 /**
@@ -1092,8 +1104,9 @@ function resolveTargetedSpellAttack(opts: {
       );
   }
   const deferDamage = !!getSessionById(opts.sessionId)?.manualDamage && hit && applied > 0 && !!opts.attacker;
+  const attackRollId = newId();
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -1142,7 +1155,7 @@ function resolveTargetedSpellAttack(opts: {
         ...(opts.attacker.kind === 'pc' ? { owner: opts.attacker.refId } : {}),
       },
     } : {}),
-  });
+  }, attackRollId);
   return true;
 }
 

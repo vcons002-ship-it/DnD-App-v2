@@ -1578,6 +1578,9 @@ export type HpFxEvent = {
   kind: TokenKind;
   refId: string;
   delta: number;
+  /** Matching visible roll reveal, when this damage belongs to an attack.
+   *  Presentation only: HP is already authoritative. Omitted for hidden rolls. */
+  rollId?: string;
   damageType?: string;
   /** One-shot extra: 'death' (a creature just dropped to 0 — skull + smoke
    *  puff) or 'loot' (a container was plundered — gold sparkle; delta 0). */
