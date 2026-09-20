@@ -1,5 +1,16 @@
 # Accepted static miniatures
 
+This directory is the historical Druk v7 / Varis v3 review archive. The newer
+live battlefield models and their integration are documented in
+[Character miniatures](../../docs/MINIATURE_BATTLEFIELD_2026-09-20.md).
+
+The separate [runtime provenance archive](runtime-provenance/manifest.json)
+records the selected full-detail
+battlefield revisions, including Varis's user-requested reuse of the accepted
+Druk v7/v8 glove sculpts and his newly reconstructed shortsword and dagger.
+Wrist fitting and local cuff edits are documented there. It does not replace
+the historical review models or manifests below.
+
 These are the selected high-detail **review assets**, not a new live VTT feature. No campaign token, database, server setting, or player workflow is changed by this package. The models have no rigs or character animations.
 
 | Character | Selected revision | Model | Triangles | Size |

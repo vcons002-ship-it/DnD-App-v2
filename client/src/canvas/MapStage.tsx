@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
@@ -7,6 +7,10 @@ import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
+import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
+import { MiniatureFallback } from './MiniatureFallback';
+import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap } from './miniatureProjection';
+import { resolveMiniature } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
@@ -17,7 +21,7 @@ import { safeSetItem } from '../lib/storage';
 import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { useStableCallback } from '../lib/useStableCallback';
-import { useStore } from '../state/socket';
+import { getPlayerId, useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
@@ -44,6 +48,8 @@ type Props = {
 
 type View = { scale: number; x: number; y: number };
 type Pt = { x: number; y: number };
+
+const MiniatureLayer = lazy(() => import('./MiniatureLayer').then((module) => ({ default: module.MiniatureLayer })));
 
 /**
  * Who the floating menu attacks `target` as. The DM uses the selected token.
@@ -356,7 +362,25 @@ export function MapStage({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
+  const groundTokenLayerRef = useRef<Konva.Layer>(null);
+  const tokenLayerRef = useRef<Konva.Layer>(null);
+  const miniatureRef = useRef<MiniatureLayerHandle>(null);
+  const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
+  const handleMiniatureReady = useCallback((ids: ReadonlySet<string>) => {
+    setReadyMiniatures((old) => old.size === ids.size && [...old].every((id) => ids.has(id)) ? old : ids);
+  }, []);
+  const handleMiniatureUnavailable = useCallback(() => setReadyMiniatures(new Set()), []);
+  const handleTokenVisualMove = useCallback((token: Token, x: number, y: number, finished: boolean) => {
+    miniatureRef.current?.moveToken(token.id, x, y, finished);
+  }, []);
   const [size, setSize] = useState({ w: 800, h: 600 });
+  const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
+  const [tilted, setTilted] = useState(() => {
+    try { return localStorage.getItem(viewPreferenceKey) === 'tilted'; }
+    catch { return false; }
+  });
+  const tiltDegrees = tilted ? BATTLEFIELD_TILT_DEGREES : 0;
+  const groundScaleY = groundYScale(tiltDegrees);
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
     null,
   );
@@ -739,8 +763,15 @@ export function MapStage({
   const [draft, setDraft] = useState<DraftMeasure | null>(null);
   const drawingRef = useRef(false); // a custom drag is in progress
   const pendingRef = useRef(false); // click-rotate / emanation-radius: awaiting 2nd click
-  const snapPt = (p: Pt): Pt =>
-    snap ? { x: Math.round(p.x / grid) * grid, y: Math.round(p.y / grid) * grid } : p;
+  const snapPt = (p: Pt): Pt => {
+    if (!snap) return p;
+    const ox = map?.gridOffsetX ?? 0;
+    const oy = map?.gridOffsetY ?? 0;
+    return {
+      x: Math.round((p.x - ox) / grid) * grid + ox,
+      y: Math.round((p.y - oy) / grid) * grid + oy,
+    };
+  };
   // Feet -> stored image-space distance (square stores HALF its side; circle/
   // emanation a radius; cone/line a length).
   const presetPx = (shape: MeasureShapeKind, ft: number): number =>
@@ -816,14 +847,14 @@ export function MapStage({
 
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
-    const s = Math.min(size.w / imgW, size.h / imgH) || 1;
+    const s = Math.min(size.w / imgW, size.h / (imgH * groundScaleY)) || 1;
     // Centre the composite box, shifting by its (possibly negative) min corner.
     return {
       scale: s,
       x: (size.w - imgW * s) / 2 - extX0 * s,
-      y: (size.h - imgH * s) / 2 - extY0 * s,
+      y: (size.h - imgH * s * groundScaleY) / 2 - extY0 * s * groundScaleY,
     };
-  }, [size, imgW, imgH, extX0, extY0]);
+  }, [size, imgW, imgH, extX0, extY0, groundScaleY]);
 
   const [view, setView] = useState<View>(fit);
   const userAdjusted = useRef(false);
@@ -880,10 +911,34 @@ export function MapStage({
   const panBg = useMemo(() => {
     const s = view.scale || 1;
     const vw = size.w / s;
-    const vh = size.h / s;
+    const vh = size.h / (s * groundScaleY);
     const m = Math.max(vw, vh);
-    return { x: -view.x / s - m, y: -view.y / s - m, w: vw + 2 * m, h: vh + 2 * m };
-  }, [view, size]);
+    return { x: -view.x / s - m, y: -view.y / (s * groundScaleY) - m, w: vw + 2 * m, h: vh + 2 * m };
+  }, [view, size, groundScaleY]);
+
+  const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
+    // Only role-filtered snapshot tokens are eligible; never fetch hidden PCs
+    // for a player even if a stale snapshot reaches this component.
+    if (token.isHidden && !isDm) return [];
+    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind);
+    return definition ? [{ id: token.id, x: token.x, y: token.y,
+      diameter: token.widthFt * pxPerFoot, hidden: token.isHidden, definition }] : [];
+  }), [snapshot, isDm, pxPerFoot]);
+  useEffect(() => {
+    if (!miniatureTokens.length) handleMiniatureReady(new Set());
+  }, [miniatureTokens.length, handleMiniatureReady]);
+
+  // Flat tokens belong to the ground plane, beneath miniature geometry.
+  // Only ready miniature HUDs and shared tools belong above WebGL. Konva
+  // keeps all hit regions so changing visual depth never changes input ownership.
+  useEffect(() => {
+    const background = layerRef.current?.getNativeCanvasElement();
+    const groundTokens = groundTokenLayerRef.current?.getNativeCanvasElement();
+    const foreground = tokenLayerRef.current?.getNativeCanvasElement();
+    if (background) background.style.zIndex = '0';
+    if (groundTokens) groundTokens.style.zIndex = '0';
+    if (foreground) foreground.style.zIndex = '2';
+  }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   /**
    * Map-corner overlays that belong to the map REGARDLESS of how it's drawn —
@@ -927,7 +982,7 @@ export function MapStage({
       t.invert();
       return t.point(p);
     }
-    return { x: (p.x - view.x) / view.scale, y: (p.y - view.y) / view.scale };
+    return screenToMap(p.x, p.y, view, tiltDegrees);
   };
 
   /** Paint the brush footprint under the cursor (reveal/hide), once per stroke. */
@@ -1347,6 +1402,14 @@ export function MapStage({
 
   // Pan by dragging empty canvas (disabled while placing or painting fog).
   const panning = !onPlaceAt && !fogActive && !measureActive && !pinching;
+  const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
+    if (e.target.getClassName() !== 'Layer') return;
+    const position = { x: e.target.x(), y: e.target.y() };
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]) {
+      if (layer) { layer.position(position); layer.batchDraw(); }
+    }
+    miniatureRef.current?.setView({ ...view, ...position });
+  };
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
     if (e.target.getClassName() !== 'Layer') return;
@@ -1358,6 +1421,59 @@ export function MapStage({
     userAdjusted.current = false;
     setView(fit);
   };
+
+  const chooseTilt = (next: boolean) => {
+    if (next === tilted) return;
+    const nextGroundScaleY = groundYScale(next ? BATTLEFIELD_TILT_DEGREES : 0);
+    // Keep the same map point under the viewport center and retain zoom.
+    userAdjusted.current = true;
+    setView((current) => ({
+      ...current,
+      y: size.h / 2 - (size.h / 2 - current.y) * nextGroundScaleY / groundScaleY,
+    }));
+    setTilted(next);
+    safeSetItem(viewPreferenceKey, next ? 'tilted' : 'flat');
+  };
+
+  const renderTokens = (miniatures: boolean) => snapshot.tokens.filter((token) =>
+    (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
+  ).map((t) => {
+    const d = resolveToken(snapshot, t);
+    // Players may drag only their side: PCs + friendly creatures,
+    // never objects. Mirrors the server's token:move gate — without
+    // this the drag succeeds locally (a ghost move on the player's
+    // screen) even though the server rejects it.
+    const movable =
+      isDm ||
+      t.kind === 'pc' ||
+      (d.disposition === 'friendly' && !d.objectKind);
+    return (
+      <TokenShape
+        key={t.id}
+        token={t}
+        display={d}
+        gridSizePx={grid}
+        pxPerFoot={pxPerFoot}
+        miniatureReady={miniatures}
+        draggable={
+          draggableTokens && movable && !fogActive && !measureActive && !saveResolve
+        }
+        listening={!measureActive}
+        selected={selectedIds.includes(t.id)}
+        activeTurn={t.id === activeTurnTokenId}
+        initiativeRank={initiativeRank.get(t.id) ?? null}
+        onSelect={handleTokenSelect}
+        onActivate={handleTokenActivate}
+        onMove={handleTokenMove}
+        onContextMenu={handleTokenMenu}
+        onHover={handleTokenHover}
+        onHoverEnd={handleTokenHoverEnd}
+        onDragActive={setDraggingToken}
+        onDragPreview={handleTokenDragPreview}
+        onVisualMove={handleTokenVisualMove}
+      />
+    );
+  });
 
   return (
     <div className="stage-wrap" ref={containerRef}>
@@ -1383,6 +1499,15 @@ export function MapStage({
             <button className="btn tiny" onClick={resetView} title="Fit to window">
               Fit
             </button>
+            <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
+              <span className="muted">Your view</span>
+              <button className={`btn tiny ${tilted ? 'on' : ''}`} aria-pressed={tilted}
+                aria-label="Tilted battlefield view" title="45° tilt — only changes your view"
+                onClick={() => chooseTilt(true)}>45°</button>
+              <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
+                aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
+                onClick={() => chooseTilt(false)}>Overhead</button>
+            </div>
           </div>
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
               via a portal, but keep all their state/handlers here in MapStage. */}
@@ -1615,8 +1740,9 @@ export function MapStage({
               x={view.x}
               y={view.y}
               scaleX={view.scale}
-              scaleY={view.scale}
+              scaleY={view.scale * groundScaleY}
               draggable={panning}
+              onDragMove={handleLayerDragMove}
               onDragEnd={handleLayerDragEnd}
             >
               {/* Pan-anywhere backdrop: a press off the map (or over a tile)
@@ -1759,41 +1885,32 @@ export function MapStage({
                 gridSizePx={grid}
                 pxPerFoot={pxPerFoot}
               />
-              {snapshot.tokens.map((t) => {
-                const d = resolveToken(snapshot, t);
-                // Players may drag only their side: PCs + friendly creatures,
-                // never objects. Mirrors the server's token:move gate — without
-                // this the drag succeeds locally (a ghost move on the player's
-                // screen) even though the server rejects it.
-                const movable =
-                  isDm ||
-                  t.kind === 'pc' ||
-                  (d.disposition === 'friendly' && !d.objectKind);
-                return (
-                  <TokenShape
-                    key={t.id}
-                    token={t}
-                    display={d}
-                    gridSizePx={grid}
-                    pxPerFoot={pxPerFoot}
-                    draggable={
-                      draggableTokens && movable && !fogActive && !measureActive && !saveResolve
-                    }
-                    listening={!measureActive}
-                    selected={selectedIds.includes(t.id)}
-                    activeTurn={t.id === activeTurnTokenId}
-                    initiativeRank={initiativeRank.get(t.id) ?? null}
-                    onSelect={handleTokenSelect}
-                    onActivate={handleTokenActivate}
-                    onMove={handleTokenMove}
-                    onContextMenu={handleTokenMenu}
-                    onHover={handleTokenHover}
-                    onHoverEnd={handleTokenHoverEnd}
-                    onDragActive={setDraggingToken}
-                    onDragPreview={handleTokenDragPreview}
-                  />
-                );
-              })}
+            </Layer>
+            <Layer
+              ref={groundTokenLayerRef}
+              name="ground-token-layer"
+              x={view.x}
+              y={view.y}
+              scaleX={view.scale}
+              scaleY={view.scale * groundScaleY}
+              draggable={panning}
+              onDragMove={handleLayerDragMove}
+              onDragEnd={handleLayerDragEnd}
+            >
+              {renderTokens(false)}
+            </Layer>
+            <Layer
+              ref={tokenLayerRef}
+              name="miniature-hud-layer"
+              x={view.x}
+              y={view.y}
+              scaleX={view.scale}
+              scaleY={view.scale * groundScaleY}
+              draggable={panning}
+              onDragMove={handleLayerDragMove}
+              onDragEnd={handleLayerDragEnd}
+            >
+              {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.
@@ -1930,6 +2047,10 @@ export function MapStage({
               )}
             </Layer>
           </Stage>
+          {miniatureTokens.length > 0 && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
+            <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view}
+              tiltDegrees={tiltDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady} />
+          </Suspense></MiniatureFallback>}
           <DecalPopup snapshot={snapshot} />
           {hover && !menu && (
             <TokenHoverCard
@@ -2090,8 +2211,7 @@ export function MapStage({
                     onClick={() => {
                       if (!map) return;
                       // Place at the centre of the current view, in image space.
-                      const cx = (size.w / 2 - view.x) / view.scale;
-                      const cy = (size.h / 2 - view.y) / view.scale;
+                      const { x: cx, y: cy } = screenToMap(size.w / 2, size.h / 2, view, tiltDegrees);
                       pasteObject({ mapId: map.id, x: cx, y: cy, icon: pasteImg.url, name: pasteName.trim() || 'Object' });
                       setPasteImg(null);
                     }}
@@ -2103,8 +2223,7 @@ export function MapStage({
                     className="btn"
                     onClick={() => {
                       if (!map) return;
-                      const cx = (size.w / 2 - view.x) / view.scale;
-                      const cy = (size.h / 2 - view.y) / view.scale;
+                      const { x: cx, y: cy } = screenToMap(size.w / 2, size.h / 2, view, tiltDegrees);
                       // Clamp the decal to ~6 grid squares wide, keeping aspect.
                       const maxW = grid * 6;
                       const scale = pasteImg.w > maxW ? maxW / pasteImg.w : 1;

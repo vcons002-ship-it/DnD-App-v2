@@ -6,6 +6,21 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Cross-cutting invariants (must always hold)
 
+### Character miniatures — September 2026
+
+- ☑ Druk, Varis and Vanec use their 3D miniatures on the battlefield, retaining
+  health bars, selection and the existing token controls.
+- ☑ PC names and crowns appear only on 2D fallback tokens; ready 3D miniatures omit them.
+- ☑ Flat tokens render beneath miniature geometry so rear monsters cannot cover
+  the figures; miniature health/status HUD and map tools remain above them.
+- ☑ Overhead is the default; an optional 45-degree tilt projects map and models together;
+  drag, pan, zoom, touch and measurement use the same map coordinates.
+- ☑ Each player can switch between Overhead and 45 degrees beside zoom. The choice
+  stays local, persists on reload, and preserves the current zoom and center.
+- ☑ Full-detail assets, lazy loading, preserved Vanec effects and portrait
+  fallback when a model or WebGL is unavailable. See
+  [runtime assets and verification](docs/MINIATURE_BATTLEFIELD_2026-09-20.md).
+
 ### Player dark-fantasy preview — September 2026
 
 - ☑ Bottom-left race/class orb HUD, animated HP/temp HP, editable jewel resource

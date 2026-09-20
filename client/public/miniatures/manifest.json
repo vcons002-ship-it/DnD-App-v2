@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "status": "reviewed_runtime_bundle",
+  "models": [
+    {
+      "id": "druk",
+      "url": "/miniatures/druk-6327e0b13869.glb",
+      "sha256": "6327e0b138691afa94772a21c84f62604588fd7ec82d12fae49ca8f642fd448e",
+      "bytes": 35501804,
+      "triangles": 916637,
+      "baseCenter": [
+        0.03537392616271973,
+        -1.1119999885559082,
+        0.0656827986240387
+      ],
+      "baseDiameter": 1.3600000143051147,
+      "sourceVersion": "druk-v9/final-07/druk.glb",
+      "sourceSha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "sourceTriangles": 916637,
+      "compression": "EXT_meshopt_compression",
+      "originalTextures": true,
+      "sourceImageHashes": [
+        "f5139df3438e7eb6f674d914192e4ba456b8669e59da5066e9cabee0ea142db8",
+        "3464ae554a018388053d44fe988fe77e403239dd7368166fa753099a5d0d9f43",
+        "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+        "92440024215241427bd6f5d65b6760d72cf2755d88501ff902dba06a458b6da2",
+        "0f3bc4450daea7e30a02eb1036ed71ee2dad114a4b2e2e56df8d2e069c27584f",
+        "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c"
+      ]
+    },
+    {
+      "id": "varis",
+      "url": "/miniatures/varis-6bf5fc9672ac.glb",
+      "sha256": "6bf5fc9672ac39a0eeecf523b8dea4092b9446064c692dfc78ae995666faef42",
+      "bytes": 39946880,
+      "triangles": 905238,
+      "baseCenter": [
+        0.08445727825164795,
+        -0.9991905093193054,
+        -0.0005622506141662598
+      ],
+      "baseDiameter": 1.2431232929229736,
+      "sourceVersion": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/varis.glb",
+      "sourceSha256": "70290f15b4fc4eaa30f6098eba5586e5ee9da2d1fb23897e3a050533cf02afce",
+      "sourceTriangles": 905238,
+      "compression": "EXT_meshopt_compression",
+      "originalTextures": true,
+      "sourceImageHashes": [
+        "fe1b6237f6749da20663333ecdc1a849003efebcce3c9fd03383c86018724597",
+        "13b9bf6a5f63c01fdc6bbdd3e1572534cd2e0afb5a7b7ca89764d691aa41d085",
+        "45a3e3723643deb094dec3ba701321212ab5fb517d4020c38f09c6df8223521e",
+        "3464ae554a018388053d44fe988fe77e403239dd7368166fa753099a5d0d9f43",
+        "e325a7f9851900945f6db644eb9f4ceab5c9cf4e8a2073d8fa1a36b23170ce6f",
+        "ac695e6956bb4d53f245e57ea12cbf2be07e25d93d9d0172f9626138062fdcda",
+        "a5d65d44bc74f90ef83ea44c2c0788e97c77028244eac747184bd32d05122b1f",
+        "c183350cb937ca68a9816efdf52c285d6e7a8ebea7222cf0f3c4ff6b7b004463",
+        "a81583d925c3b0416bae412af66e63b8ee34330fafcbc5a73abf742d01074054",
+        "16540a081cca67c673e49cd1c34f144851f74879bab68a1b63fb45b90e5de89d",
+        "e343586ce92887a0fae5ab204b0c3ca8832880866eafd50f1c20280ca6b5f6c7",
+        "969f300af4a899cc017303cccbbc2ca53549f4d049573cbb722054529ea2f089"
+      ]
+    },
+    {
+      "id": "vanec",
+      "url": "/miniatures/vanec-f1fd3b7ba9b5.glb",
+      "sha256": "f1fd3b7ba9b54d804c030168ad7771519336869091e4b1901d271c7503b95847",
+      "bytes": 47597248,
+      "triangles": 1138771,
+      "baseCenter": [
+        -0.00920414924621582,
+        -0.9993069767951965,
+        0.019209861755371094
+      ],
+      "baseDiameter": 1.1495295763015747,
+      "sourceVersion": "vanec-v4/assembly-04/vanec-refined-animated.glb",
+      "sourceSha256": "9392a138baf3bc09791acfdd20a7f6451c76bca99dc8478c277d456fce87cacd",
+      "sourceTriangles": 1138771,
+      "compression": "EXT_meshopt_compression",
+      "originalTextures": true,
+      "sourceImageHashes": [
+        "04761e80ed438bebf0f4729023f39fed2cfe973acd4a904266ec99bde7a0599c",
+        "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
+        "535fc6523fe768e6f21bd3ca783f6ebe8124ff381f1479ca2cf948e52425755c",
+        "b30a611ec580eb03d5a00413260db23873da0a6912db1a55dd847e47901de161",
+        "0afa33c5b26cc0410c97c7c9016f9774d7785045b90cd74355de1aa41fa170e0",
+        "bc4988e23a29c211523503afb0b8b48f6803314c0241dd7a75d7c4db13bfde3c",
+        "c5fe3a8c38ca4e839f9abffd57c73296142ad66f313e27b9bc58e089c9a15bfe",
+        "1848b6ce99a4fbb8c96b25ad2067944218e4ef989ad0e3c4431876ddb98cf8a9",
+        "e4639488d35620ced47c92b7e389844a609adea7a6f2b5370eeb1ecb72cdcd07"
+      ],
+      "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json"
+    }
+  ],
+  "files": [
+    {
+      "url": "/miniatures/vanec-fx-2e60effcfd99.json",
+      "sha256": "2e60effcfd996465676ec59bdbb7956ba43039f56e57619a76c1c9d971ff61d3",
+      "bytes": 28585
+    }
+  ]
+}

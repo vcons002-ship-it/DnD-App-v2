@@ -1,0 +1,1484 @@
+{
+  "schemaVersion": 1,
+  "description": "Selected references, prompts and receipts for the final runtime miniature revisions. Reference artwork is not a render of the reconstructed mesh.",
+  "sourcePathNote": "Original receipts retain local generation paths for audit. Match their DnD-token-models-relative suffix to this archive; included files are listed below.",
+  "models": [
+    {
+      "id": "druk",
+      "source": "druk-v9/final-07/druk.glb",
+      "sourceSha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "runtimeSha256": "6327e0b138691afa94772a21c84f62604588fd7ec82d12fae49ca8f642fd448e",
+      "runtimeFile": "druk-6327e0b13869.glb",
+      "triangles": 916637,
+      "originalImageBytesExact": true
+    },
+    {
+      "id": "varis",
+      "source": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/varis.glb",
+      "sourceSha256": "70290f15b4fc4eaa30f6098eba5586e5ee9da2d1fb23897e3a050533cf02afce",
+      "runtimeSha256": "6bf5fc9672ac39a0eeecf523b8dea4092b9446064c692dfc78ae995666faef42",
+      "runtimeFile": "varis-6bf5fc9672ac.glb",
+      "triangles": 905238,
+      "originalImageBytesExact": true
+    },
+    {
+      "id": "vanec",
+      "source": "vanec-v4/assembly-04/vanec-refined-animated.glb",
+      "sourceSha256": "9392a138baf3bc09791acfdd20a7f6451c76bca99dc8478c277d456fce87cacd",
+      "runtimeSha256": "f1fd3b7ba9b54d804c030168ad7771519336869091e4b1901d271c7503b95847",
+      "runtimeFile": "vanec-f1fd3b7ba9b5.glb",
+      "triangles": 1138771,
+      "originalImageBytesExact": true
+    }
+  ],
+  "files": [
+    {
+      "path": "druk-v7/assembled-03/receipt.json",
+      "sha256": "0c545dc0c84241e7e97bf79d64e1d194c0a00435d371957daabfc6cacefb82c7",
+      "bytes": 45954,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v7/hand-fit/proportion-fitted-01/handoff.json",
+      "sha256": "88cd6c29618155521b188b840d637bda0afba7de6cc74a1d41a7c217f611b548",
+      "bytes": 3982,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v7/multiview/generation-01/generation-receipt.json",
+      "sha256": "4413cbbad778affb32422539d1d531f242c2a755ac8714d56c2d0680bd6edeb2",
+      "bytes": 3602,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v7/references/enhanced/PROMPTS.md",
+      "sha256": "f78e00307d278b2d4f600ade6987dd80a6b88da55239d20d5904900b8fe6aa7d",
+      "bytes": 4963,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v7/references/enhanced/back.png",
+      "sha256": "1ceae0ed8e2076be7ac82cb8b9aada2bc45df1ee7efbe80297655d66e88accef",
+      "bytes": 1108569,
+      "role": "Actual four-view input for the reused Druk glove reconstruction"
+    },
+    {
+      "path": "druk-v7/references/enhanced/front.png",
+      "sha256": "d3526c3b821d6801b0be52c8ae9d7465b554b8030b883290802667954e78d84f",
+      "bytes": 1124440,
+      "role": "Actual four-view input for the reused Druk glove reconstruction"
+    },
+    {
+      "path": "druk-v7/references/enhanced/left.png",
+      "sha256": "5e7c6bb5192636752071f78a15fe71d93a0243f571652aead479497d5a7cce28",
+      "bytes": 592305,
+      "role": "Actual four-view input for the reused Druk glove reconstruction"
+    },
+    {
+      "path": "druk-v7/references/enhanced/right.png",
+      "sha256": "c4090914c593caf20f2f0e129bbb45dea5d9f6f091ba1249b9720e00c52c06c0",
+      "bytes": 636804,
+      "role": "Actual four-view input for the reused Druk glove reconstruction"
+    },
+    {
+      "path": "druk-v7/references/guides/clay-back.png",
+      "sha256": "059569417c18ef6197aec08fe0f18e7a5a4d18cd3cde8ba15dc87e8b90ddc365",
+      "bytes": 612413,
+      "role": "Original 3D guide for the reused Druk glove reference"
+    },
+    {
+      "path": "druk-v7/references/guides/clay-front.png",
+      "sha256": "3c1657a7b3095db526907681c724916a31c130ed70d14fe8a4f123bf7b07e61d",
+      "bytes": 631916,
+      "role": "Original 3D guide for the reused Druk glove reference"
+    },
+    {
+      "path": "druk-v7/references/guides/clay-left.png",
+      "sha256": "56e68cfb811fc2ddfb2e9c50f731b161fea9e12aac9370823db9ca1c67f062c7",
+      "bytes": 563197,
+      "role": "Original 3D guide for the reused Druk glove reference"
+    },
+    {
+      "path": "druk-v7/references/guides/clay-right.png",
+      "sha256": "4ad016f0da6dbbe82c2c53af44478660385f0cb41a5c01b63f6f442f4b35cb54",
+      "bytes": 574384,
+      "role": "Original 3D guide for the reused Druk glove reference"
+    },
+    {
+      "path": "druk-v7/references/guides/matrices.json",
+      "sha256": "0614f76d7954ad4eaf7083fea7c649589b6e1a72a11466c96ffb003ba0c73a81",
+      "bytes": 19836,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v7/references/guides/receipt.json",
+      "sha256": "81565d0bb0798c51f7d9458b76f8ab09f29a71da513310ffc8cd9134759518e0",
+      "bytes": 23333,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v7/right-wrist-02/preservation-receipt.json",
+      "sha256": "3617b940ddb28a046a5c0eb1bca0b9944966c10a253d42906cec7ebbd7d4201f",
+      "bytes": 2099139,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v8/reuse/fit-anchors.json",
+      "sha256": "a3b180db42c047f29a0b435abef23a93155e9146d2a85fba1963a73d548504a0",
+      "bytes": 57686,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v8/reuse/glove-sculpts-receipt.json",
+      "sha256": "5d1ca5df65ab62809d165c870a22b65630bfbfaad8fc3b7d9cf18a2dde9b6c76",
+      "bytes": 64960,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v8/reuse/left-glove-views/back.png",
+      "sha256": "c217329c137aea6f2a6f2a9d776bea7d1fdc636c75cd97ee52611d50e7f1715a",
+      "bytes": 1486448,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/left-glove-views/front.png",
+      "sha256": "cef8f4cc706d9bccd6bf17e58abb61078abcf46429fe5f130183fe47e31a759d",
+      "bytes": 1502067,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/left-glove-views/left.png",
+      "sha256": "d02c20d220f2dcb802b9d5781f9ef2aeb6f77f3d3ceb5425f02aa9358d37de0a",
+      "bytes": 1212870,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/left-glove-views/render-receipt.json",
+      "sha256": "e169f4b12c724da2344caf894a3e1fc05642b27fdfbfe7e4cb774440bd2a1201",
+      "bytes": 4034,
+      "role": "Glove source render cameras and hashes"
+    },
+    {
+      "path": "druk-v8/reuse/left-glove-views/right.png",
+      "sha256": "d0e9472cdcfd5d0e3399c8bcd760fc7732c0c289d6758ec3159d5d7da986e8b4",
+      "bytes": 1214036,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/right-glove-views/back.png",
+      "sha256": "dc53d99b7d97a8599bd418d6226d4b3deedc34a0e617dafe54d0c89419942eff",
+      "bytes": 1097632,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/right-glove-views/front.png",
+      "sha256": "7e81c9dfe4378b22ddbd4ab76601f7d688c63660b2fb6481106589ec28de1ab8",
+      "bytes": 1224699,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/right-glove-views/left.png",
+      "sha256": "d93d80954e44eb1dc36e2205119cf67c220d340af81c1290881f71bc3d9af7c0",
+      "bytes": 1457595,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/right-glove-views/render-receipt.json",
+      "sha256": "903485f25509c40d993a5178b080ff5d7621b272f2ce93b3c2d601e776e680a7",
+      "bytes": 4059,
+      "role": "Glove source render cameras and hashes"
+    },
+    {
+      "path": "druk-v8/reuse/right-glove-views/right.png",
+      "sha256": "8e0a2a1816cd84ba2c6e7d5fd229c802051ce2a1a23161544330814ffac12b68",
+      "bytes": 1461374,
+      "role": "Actual accepted Druk glove source render"
+    },
+    {
+      "path": "druk-v8/reuse/visual-review.json",
+      "sha256": "652f769cd4c6bfe554cfd3603e8902d7f1bbec15fc3f16f37a23be0a411f75b1",
+      "bytes": 2473,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "druk-v9/CHARACTER_WORKFLOW_FINAL04.md",
+      "sha256": "c0f9a30da7fd63b04f6501eb653cda651d05b37457bdf0056f76e581b08e51dc",
+      "bytes": 10725,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/README.md",
+      "sha256": "91945d464cb40478bc3789dd9b64cfe0dd4c515994d803f00a5b637326ac9f54",
+      "bytes": 4594,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/WORKFLOW.md",
+      "sha256": "66cb174931ffb19e5f8002d5e53a8c057d3927ec47272f6ef359195317e03220",
+      "bytes": 4481,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/final-07/druk.assembly.json",
+      "sha256": "d6d33d7f62930d35c55dfec85271a8fd6e10db03ca46eb69e0c60dc284149102",
+      "bytes": 49696,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/final-07/inspection/back.png",
+      "sha256": "2743c7731918afc7a0ff943096b842b917237f903166d54a7e64adc0b9e2e15f",
+      "bytes": 1345252,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/final-07/inspection/overhead.png",
+      "sha256": "c748f3dc9cf9f6996f84146b885c87782357ef96519d18739dab6688b988ed37",
+      "bytes": 1862192,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/final-07/inspection/render-receipt.json",
+      "sha256": "b0403b0a92d8fd55f4dd17395db812eecb3a59c4ee75d92c91e0dd25248614ef",
+      "bytes": 9222,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/final-07/inspection/three-quarter.png",
+      "sha256": "7eb0a27cdfb25b8a64034f4e3ff187f2c9911e383496997fee929243d8ccd293",
+      "bytes": 1440577,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/final-07/visual-review.json",
+      "sha256": "7b13c367286535f3632bdcc9e82741ba91f939bbaf6d8241373050c410cb501e",
+      "bytes": 732,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/generation-01/job-provenance.json",
+      "sha256": "5815ec7572bcc4b21d4509e6814523d29d6a123ecbc2f9ddd8c725bd8212c2e7",
+      "bytes": 4909,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/source/druk-head-reference.png",
+      "sha256": "a827867936d542fa5a887f2cea36c7878005824acf715b35be35c5c105c8cd05",
+      "bytes": 1712119,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/multiview/generation-01/generation_receipt.json",
+      "sha256": "b866c353907c7e69b4d779dc8f2c4d5e58ba428e602e7d68a77ed7c021ab05e1",
+      "bytes": 2693,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/multiview/generation-01/independent-audit.json",
+      "sha256": "20fd66c24f25e80c8c141ec5020a7701e9010e0e1ca78f33b9b2abedb78bcbb6",
+      "bytes": 4444,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/multiview/input-manifest.json",
+      "sha256": "2d9be9e5fed6d8b4da53f48abfcf797f51dff33873258546295d65c7d0adc73b",
+      "bytes": 2465,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/selected-model.json",
+      "sha256": "78c840f1f51d73a7df89ab3a0ce815fb36b7845ad22e9eb8508805882b5e33b2",
+      "bytes": 1440,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/views-ready-01/back.png",
+      "sha256": "82e7dbe526ab81df2667f51cd08bb1f2039991954de3cd4069b9f6ca9b1e07b0",
+      "bytes": 2047132,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/views-ready-01/front.png",
+      "sha256": "5c972f80b7d640aed272874615e4e074c6f6f2377bacde00d19a20341f42f798",
+      "bytes": 2101286,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/views-ready-01/left-side.png",
+      "sha256": "389962e39cfe319b38930b3af4bff36b60615637f515e15d302e4ad631f25de7",
+      "bytes": 1922661,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/views-ready-01/manifest.json",
+      "sha256": "f9e225b010a72ed4be90772e696331fe6a4cdf4c6b55ae7d4142f221cd4b86ea",
+      "bytes": 4256,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "druk-v9/views-ready-01/right-side.png",
+      "sha256": "372b33d0509236df13819dbe7a28f7e62d2a699407debaccc7082fd10776b929",
+      "bytes": 1970983,
+      "role": "previously selected Druk source, reference or final review evidence"
+    },
+    {
+      "path": "runtime-full-v1/druk/base-metadata.json",
+      "sha256": "190489fcbd34124f241bb673cba76c21b140a45b58cfbb9574b745b95637397d",
+      "bytes": 833,
+      "role": "Full-detail runtime compression or native base measurement audit"
+    },
+    {
+      "path": "runtime-full-v1/druk/druk-full.compression.json",
+      "sha256": "81c16c23629b1c54a27ef14c153d3a02de52db75cb6bcf52dc3e3e6980bcafe3",
+      "bytes": 5236,
+      "role": "Full-detail runtime compression or native base measurement audit"
+    },
+    {
+      "path": "runtime-full-v1/handoff.json",
+      "sha256": "f1aed7833815f55b3077694a2634a039de71ee21493b4ce38e701c2c55da0534",
+      "bytes": 17362,
+      "role": "Final full-quality runtime handoff"
+    },
+    {
+      "path": "runtime-full-v1/vanec/base-metadata.json",
+      "sha256": "41313c686329e62ac5f9dca1d277454a52018391e91b597256b0bf663e845165",
+      "bytes": 859,
+      "role": "Full-detail runtime compression or native base measurement audit"
+    },
+    {
+      "path": "runtime-full-v1/vanec/independent-review.json",
+      "sha256": "5f1688da0317638a5129bc1dc1bacdd0e7c133ee3ef28a13197bfca488e77fc7",
+      "bytes": 104847,
+      "role": "Independent app-decoder equivalence audit"
+    },
+    {
+      "path": "runtime-full-v1/vanec/vanec-full-02.compression.json",
+      "sha256": "c25fccf1d09a67652cc6dd3154e8205b644a860df6a2ac06c39d5d4da819075d",
+      "bytes": 6883,
+      "role": "Full-detail runtime compression or native base measurement audit"
+    },
+    {
+      "path": "runtime-full-v1/varis/base-metadata.json",
+      "sha256": "ea0d5c080609996f9ca4d0b2567a52502f4c330dd7d08be792311bac980c4a62",
+      "bytes": 883,
+      "role": "Full-detail runtime compression or native base measurement audit"
+    },
+    {
+      "path": "runtime-full-v1/varis/varis-full-04.compression.json",
+      "sha256": "6952e5076a6fa542265de24958b1c79cecf9a9ced1661136de91f52bf58ce73f",
+      "bytes": 8540,
+      "role": "Full-detail runtime compression or native base measurement audit"
+    },
+    {
+      "path": "runtime-full-v1/varis/varis-full-04.node-transform-restoration.json",
+      "sha256": "8eb9f6782eee4b7093d40ed2419af4a90b2d8cd30db908825891ebb02c128326",
+      "bytes": 7695,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "vanec-v4/README.md",
+      "sha256": "69ff98a52fe48e049b4164969d6c14d5f537f6f6bea26e4e48ecc6c46ed1e883",
+      "bytes": 8470,
+      "role": "reviewed_actual_model_mobile_video_and_delivery_proof"
+    },
+    {
+      "path": "vanec-v4/assembly-04/fx-animation.json",
+      "sha256": "2e60effcfd996465676ec59bdbb7956ba43039f56e57619a76c1c9d971ff61d3",
+      "bytes": 28585,
+      "role": "selected_final_artifact_and_preservation"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/back.png",
+      "sha256": "20870f0901785efd077ce21952ab939dd970ad3566e0577461c41c4b095a2aec",
+      "bytes": 2121053,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/front.png",
+      "sha256": "a0965f1354d6055316309b65b5c514f1389f6496e920c4a7b553781a8a7fb570",
+      "bytes": 2165742,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/left-side.png",
+      "sha256": "f117cdbbd56dfa9fa6bc50443b8c814a71ef7db26a9eaf51b59321eccdcb0b8d",
+      "bytes": 1885788,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/overhead.png",
+      "sha256": "1301abf2267530fef8cf9bafe625aba01d99f9f51ac688b64686338dee37fb72",
+      "bytes": 2204243,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/render-receipt.json",
+      "sha256": "a21cacf84bcb6a8020ed268062fec88a7ec12cb1aa5237a404ce174895c21a6b",
+      "bytes": 10159,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/right-side.png",
+      "sha256": "3a1b4ec03417dd1a4b403a15f39877fed346d05680f270c43150d1043066001b",
+      "bytes": 1882538,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/staff-back.png",
+      "sha256": "2d5292a32a0555ff56fd2b9f51b4bdaa6c125365d71d9cd7a36f7c77b21c03ad",
+      "bytes": 2276145,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/staff-front.png",
+      "sha256": "6bdda4f13271b54b3bbbcd64a6f313749749aa14ba0ca5bfaf3d2993b707bfda",
+      "bytes": 2341749,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/staff-head-back.png",
+      "sha256": "80214fbff7b6a213b16cbdaa75c6bccea01124c6da55915caf7afc892e434a48",
+      "bytes": 2098412,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/staff-head-front.png",
+      "sha256": "bb5b2b2845870ce72296cc2d9c248e18fc44bc64754764cb7900e782b135d15e",
+      "bytes": 2093012,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/staff-head-side.png",
+      "sha256": "43d020184fa41dd9998055635d76415da604f62b12ed96e2358520fbf8dc9dee",
+      "bytes": 2564992,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/staff-side.png",
+      "sha256": "e4d1687823c3b730cc1d6781fe8e63f2f10ab4e03e324ad885e19dbee7281969",
+      "bytes": 2054578,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/inspection/three-quarter.png",
+      "sha256": "c757398963026cd6f90ad1068f774c13bdbcf897c7f49980071e80f9d454f8f4",
+      "bytes": 2113269,
+      "role": "actual_final_export_render"
+    },
+    {
+      "path": "vanec-v4/assembly-04/preservation.json",
+      "sha256": "950f156bc57d3b14f1bd50164a238d146228b7a81a6b2076e311522c3cfd8263",
+      "bytes": 24537,
+      "role": "selected_final_artifact_and_preservation"
+    },
+    {
+      "path": "vanec-v4/assembly-04/pulse-proof/frame-0001.png",
+      "sha256": "1e736252e7edd38ec2fac6a4e833a08d692043c19170acf00f8bc8755dbde4a9",
+      "bytes": 3506468,
+      "role": "actual_minimum_maximum_glow_proof"
+    },
+    {
+      "path": "vanec-v4/assembly-04/pulse-proof/frame-0025.png",
+      "sha256": "b4813f3bd8f7cfda6d9569cf96c87fbb8b8167612d34ac16980773f925443a52",
+      "bytes": 3506468,
+      "role": "actual_minimum_maximum_glow_proof"
+    },
+    {
+      "path": "vanec-v4/assembly-04/pulse-proof/frame-0193.png",
+      "sha256": "bac259dd86a1b39bbdded17e035383254bb424bc15f869a0ca8f1197e8c732a4",
+      "bytes": 3506468,
+      "role": "actual_minimum_maximum_glow_proof"
+    },
+    {
+      "path": "vanec-v4/assembly-04/pulse-proof/frame-0217.png",
+      "sha256": "890ddda987a4a6511fdcf4f416802208b9725e48dbe2bb89c727a67ae8586a65",
+      "bytes": 3506468,
+      "role": "actual_minimum_maximum_glow_proof"
+    },
+    {
+      "path": "vanec-v4/assembly-04/pulse-proof/render-receipt.json",
+      "sha256": "ab017755a253546e99818d1097072ec8b544d0b8cf1e8851f34ea045550259d0",
+      "bytes": 10973,
+      "role": "actual_minimum_maximum_glow_proof"
+    },
+    {
+      "path": "vanec-v4/assembly-04/staff-face-mask.json",
+      "sha256": "38b8391ea4be523847de3d257a6858b1dc9a0e19f1d9b979694b5be3de8915ae",
+      "bytes": 210587,
+      "role": "selected_final_artifact_and_preservation"
+    },
+    {
+      "path": "vanec-v4/crown-multiview/generation-01/completion.json",
+      "sha256": "f967660115f5cde969d31733434f0ab4506f9c46ed957fed4992c1bad7c36338",
+      "bytes": 2055,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/crown-multiview/generation-01/generation_receipt.json",
+      "sha256": "d04c10eb63f26b82a13909888e0d140d0d8da67de1f6721eb0b88fef9ff6a1c8",
+      "bytes": 2709,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/crown-multiview/generation-01/raw-audit.json",
+      "sha256": "e82062d510513f0025c3c68f39dce71bb84a97588950bf6ecebcccec33d43a81",
+      "bytes": 3234,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/crown-multiview/generation-01/submitted.json",
+      "sha256": "8ec5894f680848357fbcb4be299ac59db44a38847912e16812cda906bd1befeb",
+      "bytes": 1197,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/crown-references/back.png",
+      "sha256": "7d69d7acea91c34afc4331f87b7fa94ce53517874b2741cfcc0799bb3373a426",
+      "bytes": 1961320,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/crown-references/front.png",
+      "sha256": "fa7f1907175f775ac85f22c5c6438d7d2f77d84ef36815c047f560216bba9c35",
+      "bytes": 1971187,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/crown-references/left.png",
+      "sha256": "7de82e7d1b443c5d30398b43853756e924b8feadac631b26e479f1defa70a8da",
+      "bytes": 1409891,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/crown-references/prompts.json",
+      "sha256": "cc560415a334e399d03b8d17e97d2173463c226681d5c3608eaa59f784d260be",
+      "bytes": 6390,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/crown-references/reference-manifest.json",
+      "sha256": "697134ba91984d3c6c9ba02df8cf48428c5abf038187ca40d08c795af5036f1f",
+      "bytes": 3604,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/crown-references/right.png",
+      "sha256": "2ab1ed5a809f755420758f3966a7fafcfd621fc7edba23ea148c5a1b8dc6e734",
+      "bytes": 1390433,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/dense-crown-01/receipt.json",
+      "sha256": "38972d0598153f95d3a939590dc7e59662553848a21e0423d2ed3350faebd5c3",
+      "bytes": 9079,
+      "role": "full_density_uv_transfer_receipt"
+    },
+    {
+      "path": "vanec-v4/dense-staff-01/receipt.json",
+      "sha256": "6ebd87dad96af24634f7e9c849d2a2080fd544be960fed81969634f334011c73",
+      "bytes": 8346,
+      "role": "full_density_uv_transfer_receipt"
+    },
+    {
+      "path": "vanec-v4/handoff.json",
+      "sha256": "986d60725ac2beb1ff716af21798e308cad07787777b9c5e29a5cffeaf607faf",
+      "bytes": 24687,
+      "role": "selected source and generation manifest"
+    },
+    {
+      "path": "vanec-v4/mask-review-03/inspection/mask-foot-front.png",
+      "sha256": "a59634674c6ed0c9753827aabd2ddf5f042696ec47a9961392d4ef2535b2114f",
+      "bytes": 1686777,
+      "role": "identical_final_old_staff_mask_visualization"
+    },
+    {
+      "path": "vanec-v4/mask-review-03/inspection/mask-foot-side.png",
+      "sha256": "e1c1654c44abe65c6b529ae263ffae913e3f8136d4c64079ca35a3baebaea730",
+      "bytes": 1831054,
+      "role": "identical_final_old_staff_mask_visualization"
+    },
+    {
+      "path": "vanec-v4/mask-review-03/inspection/mask-staff-front.png",
+      "sha256": "6ae9c3bc8b83bcf653e6561feaa8aedb62d6427e60cc5e326e2d6a933be27ec7",
+      "bytes": 1752553,
+      "role": "identical_final_old_staff_mask_visualization"
+    },
+    {
+      "path": "vanec-v4/mask-review-03/inspection/mask-staff-side.png",
+      "sha256": "a855e17e8d3152fa699410325eddea0568c0e612e3b9fb6d52f8d4901fc2e863",
+      "bytes": 1557741,
+      "role": "identical_final_old_staff_mask_visualization"
+    },
+    {
+      "path": "vanec-v4/mask-review-03/inspection/render-receipt.json",
+      "sha256": "14c8d7c310e9baf99eae0cc18fcd2beb616d1bb322aed7f3649e6a7659bfa11c",
+      "bytes": 3843,
+      "role": "identical_final_old_staff_mask_visualization"
+    },
+    {
+      "path": "vanec-v4/multiview/generation-01/completion.json",
+      "sha256": "4a5a82827be2b05c2c1b4680617f0e383e7b71ed4d6ca4b948ced6ff017fdda5",
+      "bytes": 2042,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/multiview/generation-01/generation_receipt.json",
+      "sha256": "ef84f48699146ae479217e63d707d8950814d563b36a9b0678b6cc5161d44f60",
+      "bytes": 2659,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/multiview/generation-01/raw-audit.json",
+      "sha256": "240b3f6bba0992365968caf90a49d881b16a2fe1807b61f6785d9cdd54ca30a0",
+      "bytes": 3216,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/multiview/generation-01/submitted.json",
+      "sha256": "1245e231fe9701a1d7e73dc61e3f5e0e93d9e2300104a8d4b767e01a268090d4",
+      "bytes": 1174,
+      "role": "genuine_same_job_raw_output_and_effective_provenance"
+    },
+    {
+      "path": "vanec-v4/projected-staff-02/projection-receipt.json",
+      "sha256": "53f4b943dc5b5798ad7fd05ae8cbc00e7e70455b18950ec0fcf70ff643d025d3",
+      "bytes": 1777399,
+      "role": "unaltered_reference_png_projection_proof"
+    },
+    {
+      "path": "vanec-v4/references/back.png",
+      "sha256": "bc4988e23a29c211523503afb0b8b48f6803314c0241dd7a75d7c4db13bfde3c",
+      "bytes": 234401,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/references/front.png",
+      "sha256": "0afa33c5b26cc0410c97c7c9016f9774d7785045b90cd74355de1aa41fa170e0",
+      "bytes": 227840,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/references/left.png",
+      "sha256": "c5fe3a8c38ca4e839f9abffd57c73296142ad66f313e27b9bc58e089c9a15bfe",
+      "bytes": 195847,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/references/prompts.json",
+      "sha256": "9f24422711a6ee5996c77e560949d0ea7449c5a6fecb95950fc37d6ab9858b85",
+      "bytes": 6648,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/references/reference-manifest.json",
+      "sha256": "a35b66202070ad710910583e54d2aa65bd7601fc30da865f1442df4fecfcef89",
+      "bytes": 3744,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/references/right.png",
+      "sha256": "1848b6ce99a4fbb8c96b25ad2067944218e4ef989ad0e3c4431876ddb98cf8a9",
+      "bytes": 213641,
+      "role": "selected_original_reference_and_exact_prompt"
+    },
+    {
+      "path": "vanec-v4/ruby-fit-01/fit-receipt.json",
+      "sha256": "5e349ce520ffb5bc5c2e7024c9494b6ac122a209027d507a7dbe7adb45949e9b",
+      "bytes": 2724,
+      "role": "ruby_surface_projection_proof"
+    },
+    {
+      "path": "vanec-v4/source-details.json",
+      "sha256": "ab5e353f7a3de7cc87e6571142c45bb5dc91eff6babe26a7d771b6696f054455",
+      "bytes": 690,
+      "role": "selected_reproduction_tool_or_camera_configuration"
+    },
+    {
+      "path": "vanec-v4/staff-fit-02/fit-receipt.json",
+      "sha256": "6f807ffea330fa0acf166b523d0bc421ae8e0db277c2ec6033495531558e84c7",
+      "bytes": 12479713,
+      "role": "component_transforms_and_source_triangle_ids"
+    },
+    {
+      "path": "vanec-v4/staff-fit-05/fit-refinement-receipt.json",
+      "sha256": "f469069b23f9b2a50c12ecac10192ae5626408d5f2bf8bda4a5186e625591496",
+      "bytes": 1404,
+      "role": "bounded_shaft_only_geometry_adjustment"
+    },
+    {
+      "path": "vanec-v4/video-01/decoded-000.png",
+      "sha256": "2db8de9df4f1091342fedc1761dde9e4837a779debd8da029fd7e47f2753f548",
+      "bytes": 571299,
+      "role": "reviewed_decoded_mobile_video_sample"
+    },
+    {
+      "path": "vanec-v4/video-01/decoded-024.png",
+      "sha256": "5bf0ee254c8a406531ad003b88fc429c8931463b0b01a56a268cd92ec4491853",
+      "bytes": 584381,
+      "role": "reviewed_decoded_mobile_video_sample"
+    },
+    {
+      "path": "vanec-v4/video-01/decoded-048.png",
+      "sha256": "707b6ece8da290d074450f036794c9dc4252e2ded75b923ad725f37434832026",
+      "bytes": 552043,
+      "role": "reviewed_decoded_mobile_video_sample"
+    },
+    {
+      "path": "vanec-v4/video-01/decoded-096.png",
+      "sha256": "5242c5baa5635b0408bb6db0219e33adc83e4e8fe333937d73d21c77daaf45dd",
+      "bytes": 652283,
+      "role": "reviewed_decoded_mobile_video_sample"
+    },
+    {
+      "path": "vanec-v4/video-01/decoded-144.png",
+      "sha256": "98ae03035c1ce0a1316ff58f797478d1397fc35bc032ad20d5bbedbbf95312bf",
+      "bytes": 574783,
+      "role": "reviewed_decoded_mobile_video_sample"
+    },
+    {
+      "path": "vanec-v4/video-01/decoded-191.png",
+      "sha256": "810d2437e17b4ecd0a70916c7f2c536d7c69eb18472b41d9e7b0105cf93c33a0",
+      "bytes": 650994,
+      "role": "reviewed_decoded_mobile_video_sample"
+    },
+    {
+      "path": "vanec-v4/video-01/publication.json",
+      "sha256": "bb40b8559bacaea032f8fbddaded7f51725fe29b8e430a9d8efe1651de53660f",
+      "bytes": 1481,
+      "role": "reviewed_actual_model_mobile_video_and_delivery_proof"
+    },
+    {
+      "path": "vanec-v4/video-01/video-verification.json",
+      "sha256": "71da4c4476cd12ac41290c0d23803ea4c2ac46ce951b5669b479653230801fd9",
+      "bytes": 8762,
+      "role": "reviewed_actual_model_mobile_video_and_delivery_proof"
+    },
+    {
+      "path": "vanec-v4/video-render-01/render-receipt.json",
+      "sha256": "5cd12a9e31e66eaa35f07d8b0b2e7b6bc096f1f2987ce07ea0dc32c04faa75e0",
+      "bytes": 139939,
+      "role": "reviewed_actual_model_mobile_video_and_delivery_proof"
+    },
+    {
+      "path": "varis-v4/candidate-09/receipt.json",
+      "sha256": "5870b2c95be516aa133443bda5094b08df51c972467c4a444ea33f5905f58a74",
+      "bytes": 37996,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "varis-v4/candidate-09/root-visual-review.json",
+      "sha256": "18c43eb7b9a22baafadde281ea75ba4fbe4f7d3b5af2701d45da9926ffda9920",
+      "bytes": 642,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/HANDOFF.md",
+      "sha256": "b5d345c254203ddc65548b942a13947ac528f4ecd9141c244288268333315d19",
+      "bytes": 4439,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-01/receipt.json",
+      "sha256": "2ab5c800011180d0f74c2b549a95cc47f32acdaf6c1c5ed811cfb385cdff6dba",
+      "bytes": 217239,
+      "role": "provenance"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-06/receipt.json",
+      "sha256": "24bd7f3001f0a4dc1ff039e0e51de60d117a2f28b1a55690f3846a50a4ab9210",
+      "bytes": 1260546,
+      "role": "provenance"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/back.png",
+      "sha256": "5b9ab026478bc92e38dd631a690b4c4aa4bd04d8c63ba7f540faf4d99a277e77",
+      "bytes": 1536857,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/front.png",
+      "sha256": "0752641331212420aa8bfb53c1390c48dcc157308d017c47478d54f330225968",
+      "bytes": 1631491,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/outer.png",
+      "sha256": "7d90a38dff3650893d2d8192cc767bc81fe37d70371660e63cd59ee0dea32a87",
+      "bytes": 1412079,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/receipt.json",
+      "sha256": "cad44ffc14f820ff67d7a426c8057f7a8d6774d74bc818457369939eb8df63be",
+      "bytes": 5813,
+      "role": "receipt"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/three-quarter.png",
+      "sha256": "4e6816cedfae1dba1368514557954fe18765cf607ecceb88a55cd93e0fa328b3",
+      "bytes": 1591032,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/top.png",
+      "sha256": "509206593f034acce308436cd6b2ef7278356f69cafc67852d0a736853fced4c",
+      "bytes": 1836772,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/full/underside.png",
+      "sha256": "22ae0d62e4e457d726ab5c04c6d60318ff5bfcc3033a7aa29999fd057c721b5c",
+      "bytes": 1473517,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/back.png",
+      "sha256": "892c09a37bbc7565944cf76acee2c87f1de5183b35bbf8807e0480aabae8e5aa",
+      "bytes": 1729428,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/front.png",
+      "sha256": "eb5432471162f6b43074673438101db7c8d1998f5499adb80d1e66a4ac52b57f",
+      "bytes": 1742970,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/outer.png",
+      "sha256": "a3cd755bd74cbd7fd79e802b6024769f67569293514b45dd6c80667d59fc03b0",
+      "bytes": 2147575,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/receipt.json",
+      "sha256": "9dc7718238261e08a9428ded82de0d2d86861c286032d8f312ff1d01ea69b8f2",
+      "bytes": 6082,
+      "role": "receipt"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/three-quarter.png",
+      "sha256": "dbf53f5c5fa33a021a9f17acb56d2e6d26b78e78d7c4babea97aa34a56e0fb2c",
+      "bytes": 1982625,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/top.png",
+      "sha256": "211c9ea3921538ed9725dfe12e604cb6f49ab528e91c9019aa70b9e367b5bcc9",
+      "bytes": 2155562,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/left-grip/underside.png",
+      "sha256": "fecf35e9d16284ec46411458fcab93256b720b2033e6a281a01e3b632801e3af",
+      "bytes": 2061152,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/receipt.json",
+      "sha256": "db2486a69b6e06f720add846ec64ba6a8ef8d232ee769907bf65d73265f3cabe",
+      "bytes": 1307225,
+      "role": "provenance"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/back.png",
+      "sha256": "b079067c76fb6363316196749388bb93dd6fee2171d20f5df34417023eff670f",
+      "bytes": 1641895,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/front.png",
+      "sha256": "4c001aea6ab67951070072344d6988efe02869ec38bc788254d24d7791604bd7",
+      "bytes": 1789012,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/outer.png",
+      "sha256": "38a240c3ecb1a4fb667b28ad50d8959a6d54d29985245d4d01b52ea36fc85772",
+      "bytes": 2159659,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/receipt.json",
+      "sha256": "447a7bad21820a2025de43055ff6fe371adee93c5e5d1cac43371f0d55cde9ef",
+      "bytes": 6101,
+      "role": "receipt"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/three-quarter.png",
+      "sha256": "5062bbe1d1552a88ab79099cd518bb470be25ddeae5cc07fa289a5fda104d138",
+      "bytes": 1916054,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/top.png",
+      "sha256": "f01c2a7a9f658081d2dceb29eb02741ad9b0a3ab192fe683c4f567bce2952731",
+      "bytes": 2159830,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/right-grip/underside.png",
+      "sha256": "b700731064ab5a5d1b0bc3187663a048906b2a8626460009360c210105140f00",
+      "bytes": 2143745,
+      "role": "views"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/candidate-07/visual-review.json",
+      "sha256": "a115eaf00a7337224204cdd586ccde02211be4d9359b3a8ea7fdb6b867ae0648",
+      "bytes": 4099,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/anatomical-wrist-01/handoff.json",
+      "sha256": "189154b3fc56f96fda03fe1b221ec00b3571fb4389978c4cdc0de4bfd4130825",
+      "bytes": 17306,
+      "role": "selected source and generation manifest"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/independent-fit-review/final-anatomical07-independent-audit.json",
+      "sha256": "c00674b9160b462209274079f890b926321462535a80dee7a6ea035384a378dd",
+      "bytes": 44995,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/independent-fit-review/weapon-alignment01-independent-audit.json",
+      "sha256": "76edd516770eacd8bac4914eff2bfc55b043bca66143a2215bd65e89a70e7210",
+      "bytes": 77967,
+      "role": "Selected final Varis assembly and preservation audit"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/independent-fit-review/wrist-fold-measurements.json",
+      "sha256": "d2d41dde0f9cf7580dc13b2276b90d5d739ab14cba6dbf4530862eae5f5a2111",
+      "bytes": 89231,
+      "role": "provenance"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/full/front.png",
+      "sha256": "c9f7996fb145c19b0c170399af598be615bedd199072ac63dc729fea4fddb9ea",
+      "bytes": 1645265,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/full/receipt.json",
+      "sha256": "5cb8cc65ed1bddf3a4b7392cb36bd218ebbf9677efc2d045743ef746a3aa9a93",
+      "bytes": 5812,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/full/three-quarter.png",
+      "sha256": "ae31a3637fb46c33dc9c008bf94855964b66f98efbf28b13c297c7ab28fac38d",
+      "bytes": 1600528,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/left-grip/back.png",
+      "sha256": "d9ae9c681fc2bd0d0358b0e941e48cb8f424a72f81a9b6cfc3096b74e110a87c",
+      "bytes": 1844084,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/left-grip/front.png",
+      "sha256": "7cfaf8c42978459c946520e8f5ebce741561a8ac497e7c562452d2e9d7772a39",
+      "bytes": 1928190,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/left-grip/receipt.json",
+      "sha256": "ddcea594647aec6e55092af5c138e70361b146b9bc506abbe014d6626646951d",
+      "bytes": 6082,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/left-grip/underside.png",
+      "sha256": "5a740f22452c0c222e1a41b1e7fd6f141dacbe60719325eff876fc202d2d82de",
+      "bytes": 2056467,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/receipt.json",
+      "sha256": "c6abfa768a3826950fce84c2a78e2aedf998b25477a7e0399274150ccbd24ad0",
+      "bytes": 62896,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/right-grip/back.png",
+      "sha256": "5a7124abbc4c248d646b2024c769f9bec3e9ec79c2883634972363cdaad695c7",
+      "bytes": 1875303,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/right-grip/front.png",
+      "sha256": "3d5749b9bc21c7f66e66bb3c34b86c5eddbc8e92530553524f88a344e03fcdca",
+      "bytes": 2017499,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/right-grip/receipt.json",
+      "sha256": "04365305b7442257b13f4d2b14a613384c1afcff19ae72118f517fc93eea40f4",
+      "bytes": 6101,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/right-grip/underside.png",
+      "sha256": "301636e215200b9abe67189c3137e1fe76f90a3a52681074305586290b82d514",
+      "bytes": 2147585,
+      "role": "Actual exported selected Varis model render reviewed by the selecting task"
+    },
+    {
+      "path": "varis-v5/druk-hands-fit-01/weapon-alignment-01/candidate-01/visual-review.json",
+      "sha256": "75a12280b54e9b6771b8a18223a6042a512443d1ee6180a38b5a65a83f7d8d5a",
+      "bytes": 3344,
+      "role": "Selected final Varis actual visual review"
+    },
+    {
+      "path": "varis-v5/selected-model.json",
+      "sha256": "b6bcc51f8a1969cd29fc3d96b9a705628692559727b5e2b13e6ec93e81fc8da5",
+      "bytes": 1135,
+      "role": "Explicit selected Varis wrist fit or actual exported-model review evidence"
+    },
+    {
+      "path": "varis-v5/source-cut-04/mask.json",
+      "sha256": "1df11f516f2ff1340139d9cdef279bbab7da5032b4db31b3dbe3bb2e13201703",
+      "bytes": 84395,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "varis-v5/source-cut-04/rings.json",
+      "sha256": "6396689868e295b42ad0091f50ed59b9b0aa4ddc4859f9a2f9103a1d5c4ca91f",
+      "bytes": 9428,
+      "role": "Selected Varis source lineage; historical receipt status applies to its original stage"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/dense-full-01/receipt.json",
+      "sha256": "a734bab701c10bb28892024df3c104fd5e872935e0cf30d9ed42fb6a2528d354",
+      "bytes": 8076,
+      "role": "dense recovery receipt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/generation-01/generation_receipt.json",
+      "sha256": "83eea1228b21248c2bae12f989d8fdb3be05abf59cb2343d8cbdd4cfb2a14f92",
+      "bytes": 2770,
+      "role": "generation receipt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/polished-01/receipt.json",
+      "sha256": "a6f39688851c5c5cb30688469febb523dc944f1fe07a1a2618eeb47a632d6cff",
+      "bytes": 1337,
+      "role": "shape cleanup receipt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-01/clay/front.png",
+      "sha256": "85ea5ac65c6e688a7fb0456bd234af6ac68930eb6f4f9182fbdc21af205484c4",
+      "bytes": 741331,
+      "role": "matched clay comparison"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-01/clay/three-quarter-front.png",
+      "sha256": "d3405c92352c6713d9bd4295b0461d9362296969044da011f9362f150f3019d5",
+      "bytes": 741898,
+      "role": "matched clay comparison"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-01/projection-receipt.json",
+      "sha256": "17d3313fedcd03a2781d896395540c853618ccfcf7a277479ef9b37dc0674073",
+      "bytes": 3849976,
+      "role": "projection receipt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/alpha-geometry-preservation.json",
+      "sha256": "c2fd43832878b6f0ba81897e1708916f1d68a086b974700c1c5462b5abd4f5c6",
+      "bytes": 846,
+      "role": "alpha geometry preservation"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/alpha-repair-receipt.json",
+      "sha256": "a7da4541c26e01aa1115335ca9436734eb965526422c403cc80c4a852fbe2893",
+      "bytes": 52318,
+      "role": "alpha uv repair receipt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/geometry-audit.json",
+      "sha256": "967d8d9aadd042e9b66d064656853362306b5ef5ae669750768b3c94ba06a9f0",
+      "bytes": 2532,
+      "role": "geometry audit"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/inspection/back.png",
+      "sha256": "7b9f139d6587696b493e39fa12a5c19b43dc26864748f432399ee6cdb3ec6834",
+      "bytes": 962510,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/inspection/front.png",
+      "sha256": "cc44c7ecabbe4b16bf65419105a2da96e01f0ad9dbf6b2ee66dcf732147a9092",
+      "bytes": 961990,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/inspection/left.png",
+      "sha256": "b05cc19e037d6b7724a26dcf82fb260ba3a0b027633f2253fd0978db5f05f723",
+      "bytes": 856855,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/inspection/right.png",
+      "sha256": "4353d88801bd5e2f758fa1daf0ed9fdbf5b155311ae04ec109cef47a74d90ac8",
+      "bytes": 855191,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/inspection/three-quarter-back.png",
+      "sha256": "c7f6163d0e254d9c40cd2557c09109b1eea2327b9bb73050a51eed81e8284c4b",
+      "bytes": 948381,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/projected-02/inspection/three-quarter-front.png",
+      "sha256": "307f5942eacb69167b6a471ddd5d9c7678365153307fd2777ab39f0bdb256c19",
+      "bytes": 956297,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/selected-weapon.json",
+      "sha256": "aa2bc987c264cd5d7834803a4703483fa7e69cef4bf040d14895ed77f5e84e15",
+      "bytes": 7308,
+      "role": "selection and fit anchors"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/back.png",
+      "sha256": "16540a081cca67c673e49cd1c34f144851f74879bab68a1b63fb45b90e5de89d",
+      "bytes": 407345,
+      "role": "output"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/back.prompt.txt",
+      "sha256": "af0106cc408120dd0a7398fe1194113df5025a29ecf8a1c57423e67594f04937",
+      "bytes": 715,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/front.png",
+      "sha256": "a81583d925c3b0416bae412af66e63b8ee34330fafcbc5a73abf742d01074054",
+      "bytes": 408668,
+      "role": "material/detail identity and matching enhanced landmarks"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/front.prompt.txt",
+      "sha256": "c9fdbddc4e5a7f0104a8159b2ce9e067bd8aa8963e72ae0907ee316b6ac3f15d",
+      "bytes": 1593,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/left.png",
+      "sha256": "e343586ce92887a0fae5ab204b0c3ca8832880866eafd50f1c20280ca6b5f6c7",
+      "bytes": 244319,
+      "role": "material/detail identity and matching enhanced landmarks"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/left.prompt.txt",
+      "sha256": "4c9ceba34a56b78f431918aeb7538375cb2894a0aa869a67fa1134a32b31409a",
+      "bytes": 705,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/references.json",
+      "sha256": "92064c7f72bb73855a60a931859b7a23227d2c474ee47eb3af9409bf97fb74cb",
+      "bytes": 8511,
+      "role": "reference manifest"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/right.png",
+      "sha256": "969f300af4a899cc017303cccbbc2ca53549f4d049573cbb722054529ea2f089",
+      "bytes": 246657,
+      "role": "output"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guided-01/right.prompt.txt",
+      "sha256": "4b1d67d68d1eac2ac7ff40c27efcf0a8b7e625844d48d58b998f3c04bd0b45d7",
+      "bytes": 748,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/context/back.png",
+      "sha256": "dd1b7ef537443be05d7d99bbd7c88fdf8b32e1229b04edfaa853eca14b06e62f",
+      "bytes": 1266150,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/context/front.png",
+      "sha256": "c19111bf6f233f045ed7252882cd9f52929eefd3fc137729ea5c04f20d469122",
+      "bytes": 1228924,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/context/left.png",
+      "sha256": "5755aec9529dfdfed71ec6005b9f6b4aa57cdda109661f55b8b8921beaf0ca5c",
+      "bytes": 1124410,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/context/right.png",
+      "sha256": "f73f9e87c162133f69d334e70a7537c35e25a6c90e57138427fdcf317df1edf5",
+      "bytes": 1147733,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/receipt.json",
+      "sha256": "922ba88d94bb570a82e50f22e8bfdc6d59bf72d4aa5f6a1d47703c1c3a952d14",
+      "bytes": 6652,
+      "role": "source guide frame"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/weapon/back.png",
+      "sha256": "23437f11c25727b253b93232b8db216637dc238282e29d989266e52369deb919",
+      "bytes": 849308,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/weapon/front.png",
+      "sha256": "589cc7448bcb78b780b935571a738ecf626d6bc653b18879a3f1d2f7a100e7d6",
+      "bytes": 840163,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/weapon/left.png",
+      "sha256": "4a3ce8e2d4ddd431609f52a152cb81b7ad9c0731dbb5346cd14ef231606162b6",
+      "bytes": 784097,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/source-guides-02/weapon/right.png",
+      "sha256": "816aacea32463ab482a9548cf49ba519033f48e4950a807e8757230e05314071",
+      "bytes": 774414,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/dagger/views/front.png",
+      "sha256": "c60a65aa724b0f5d1b88416bdbc785e373c32d83f511364eda546cd7a95cdcba",
+      "bytes": 375609,
+      "role": "material/detail identity and matching enhanced landmarks"
+    },
+    {
+      "path": "varis-weapons-v1/selected-provenance.json",
+      "sha256": "8db60b72a791689f4846534f0990fca125ec08ccb1c5bc6d8be1877570d67c77",
+      "bytes": 25082,
+      "role": "selected source and generation manifest"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/dense-full-01/receipt.json",
+      "sha256": "fd55cc000f63e268a902668004e883301a23dde55d6a06f23658aedc0b85253a",
+      "bytes": 8096,
+      "role": "dense recovery receipt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/generation-01/generation_receipt.json",
+      "sha256": "8da82f7c1bf17f77280c5579f5d67225c419958ccbd482bf16d41d0639ff762e",
+      "bytes": 2796,
+      "role": "generation receipt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/polished-04/receipt.json",
+      "sha256": "026f78ef63ad595912cb8c8ae08843c716d83dec675a461597bb3633e253d64c",
+      "bytes": 1643,
+      "role": "shape cleanup receipt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-03/clay/front.png",
+      "sha256": "8b336c34a586b8ec49e042a288386d81656180d42fae950ceed7c1002aad0b77",
+      "bytes": 737353,
+      "role": "matched clay comparison"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-03/clay/three-quarter-front.png",
+      "sha256": "16f051dd5fafd080a986cb0cbb8ff80376e02a51b536be16ca159489a1028662",
+      "bytes": 736390,
+      "role": "matched clay comparison"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/geometry-audit.json",
+      "sha256": "e81a9c047c6ee63ae1c4f443f1316b04e5035fbca9cffdd8b7c427196482ea24",
+      "bytes": 2524,
+      "role": "geometry audit"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/inspection/back.png",
+      "sha256": "8c0fba8f2db4a79ee964ca9df5323470c7b8c5751023a0651dd641b771f8af0e",
+      "bytes": 874818,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/inspection/front.png",
+      "sha256": "b072bee3a09fb444501878b71e49b9d0cf7f2524e2d335ce6817b6e60fbdfba7",
+      "bytes": 877978,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/inspection/left.png",
+      "sha256": "e2c99889382506d4cf7a41f7a1040736dc617c4100e3e85fef9a99d690a07fa8",
+      "bytes": 808546,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/inspection/right.png",
+      "sha256": "f873a86c1d24270224c89198a657a5b055849682dc7813132635638019e15370",
+      "bytes": 810363,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/inspection/three-quarter-back.png",
+      "sha256": "4e18fe8061cd4f3016367d584a0cc4a3c7574ce0d5ea1b2cae815267b6978bf2",
+      "bytes": 868834,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/inspection/three-quarter-front.png",
+      "sha256": "40a3f9062dcb28d28f39419e014d823a38eddaabaaf92d7b3178d23a773feaac",
+      "bytes": 872577,
+      "role": "approved actual review renders"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/projected-04/projection-receipt.json",
+      "sha256": "abc065c47bd41cfabc3f86869364e9df55e6a9fb2eb565b1cb7214f8e63c14f5",
+      "bytes": 2567791,
+      "role": "projection receipt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/selected-weapon.json",
+      "sha256": "981a2ca3ab0138284693bcaa196284db2f6b06f5ef7d857319ec82086df791c7",
+      "bytes": 7421,
+      "role": "selection and fit anchors"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/back.png",
+      "sha256": "ac695e6956bb4d53f245e57ea12cbf2be07e25d93d9d0172f9626138062fdcda",
+      "bytes": 302550,
+      "role": "output"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/back.prompt.txt",
+      "sha256": "4d37868697fe0a9764cf122460d34caa1f395ca4e80af2a04a65c161ead74e9b",
+      "bytes": 1429,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/front.png",
+      "sha256": "e325a7f9851900945f6db644eb9f4ceab5c9cf4e8a2073d8fa1a36b23170ce6f",
+      "bytes": 298177,
+      "role": "material/detail identity and matching enhanced landmarks"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/front.prompt.txt",
+      "sha256": "6304f487bd971e8e1c0a78c0c587ae5d014183974b573dffa2e7c6fea2682303",
+      "bytes": 1727,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/left.png",
+      "sha256": "a5d65d44bc74f90ef83ea44c2c0788e97c77028244eac747184bd32d05122b1f",
+      "bytes": 179689,
+      "role": "material/detail identity and matching enhanced landmarks"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/left.prompt.txt",
+      "sha256": "770fcb8bf8aa1ce0e40d0a065e7d0e15248119646fee14cc7548c7965a197a1d",
+      "bytes": 1332,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/references.json",
+      "sha256": "19ce35f09aca7ae311f7d2850e90c2bcfc06aea9cea6fbff0cd3925613f5a4d1",
+      "bytes": 8602,
+      "role": "reference manifest"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/right.png",
+      "sha256": "c183350cb937ca68a9816efdf52c285d6e7a8ebea7222cf0f3c4ff6b7b004463",
+      "bytes": 188226,
+      "role": "output"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guided-01/right.prompt.txt",
+      "sha256": "e0982d6aedb701d1012670adc9326885191e244858202552d08cd183f2d4d251",
+      "bytes": 1243,
+      "role": "prompt"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/context/back.png",
+      "sha256": "ddb8818755cda69154cd635fe48c2a3c9349ed570944839d420d3e8968a38f1a",
+      "bytes": 1083769,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/context/front.png",
+      "sha256": "05c34a2dfa4bf3b2a233235a81913f35459b04f2c337af5185d19bf230f53282",
+      "bytes": 1088319,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/context/left.png",
+      "sha256": "f2ad85c88b11174bb2942e036b3f3dda536333cda01d6fcde877771fb68f5f02",
+      "bytes": 972623,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/context/right.png",
+      "sha256": "7d1f759d18e15076ce927c8e2f592f8fe59416897c8681320b0f85fae33a28ae",
+      "bytes": 959208,
+      "role": "same-camera original grip/guard context"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/receipt.json",
+      "sha256": "8b0b71b4cf8a417b219b63742b71e82ea1fccb3d0a61a8f9d4c7c04132513c97",
+      "bytes": 7526,
+      "role": "source guide frame"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/weapon/back.png",
+      "sha256": "47ecab041160621a6c13d884246ef2655b72bf82157b8d396d031a995779f3d6",
+      "bytes": 846852,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/weapon/front.png",
+      "sha256": "238c94a023cdd2abd11123d162cfb168c57ee38932cf06f3b6fa002146cb8620",
+      "bytes": 863373,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/weapon/left.png",
+      "sha256": "e5ea11b1cca1069d9a84e34ad6b64a879195d4db8bf03de0966d11f9cb02219f",
+      "bytes": 779195,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/source-guides-01/weapon/right.png",
+      "sha256": "62ae155d8c41ad92536116ca3459952dcc67cca00e055dd0ef42f749557a9341",
+      "bytes": 783210,
+      "role": "original registered source geometry/camera"
+    },
+    {
+      "path": "varis-weapons-v1/shortsword/views/front.png",
+      "sha256": "6449a9ed961072224fda29a325317749ba07584d141afdb40aff23a7594dbf41",
+      "bytes": 280153,
+      "role": "material/detail identity and matching enhanced landmarks"
+    }
+  ],
+  "varisHandSources": [
+    {
+      "side": "right",
+      "path": "druk-v8/reuse/parts/right-glove-sculpt.glb",
+      "sha256": "6a36d66457df969579a7d23aca9437bd2aceb017d03e14cd7e919d9e79c967df"
+    },
+    {
+      "side": "left",
+      "path": "druk-v8/reuse/parts/left-glove-sculpt.glb",
+      "sha256": "bb9b6f842861f9471eb80d3ec389f38500735cfae2fa2f4ff31b5f377a253df8"
+    }
+  ],
+  "varisWorkflow": {
+    "decision": "User requested reuse of the accepted Druk glove sculpts after rejecting the new Varis hand reconstructions.",
+    "source": "Druk V7 actual multiview-generated glove sculpts, extracted losslessly for V8; no Druk sword reuse.",
+    "fitting": "Measured nonuniform fitting at the anatomical wrist; connected proximal cuff/crease faces are trimmed, and two short internal leather overlaps close the wrist contours. Retained source vertex, normal, UV and image bytes are exact. Finger topology is retained; world proportions change through the measured transforms. The whole fitted hand is not claimed to be a rigid source copy.",
+    "selectedHandGeometryBranch": "anatomical-wrist-01/candidate-01 -> candidate-06 -> candidate-07; no failed taper/recess deformation and no candidate-08 material tint. Any later rigid weapon roll is recorded by the final selection.",
+    "weapons": "Selected source-guided four-view shortsword projected-04 and dagger projected-02. Full reconstructed blades/materials are retained; final fit adjustments are documented in assembly evidence.",
+    "rejectedVarisHandGenerationsIncluded": false
+  }
+}

@@ -158,6 +158,10 @@ textarea:hover:not(:disabled) {
   -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
 }
 .stage-wrap canvas { -webkit-touch-callout: none; }
+.miniature-layer {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  overflow: hidden;
+}
 
 /* ---- Mobile / touch responsive mode ---- */
 @media (max-width: 820px) {
@@ -201,6 +205,8 @@ textarea:hover:not(:disabled) {
 .zoom-label { color: var(--muted); font-size: 12px; min-width: 38px; text-align: center; }
 .zoom-btn { min-width: 30px; font-size: 17px; line-height: 1; padding: 2px 8px; }
 .stage-controls { flex-wrap: wrap; max-width: 70%; justify-content: flex-end; }
+.battlefield-view-options { display: flex; align-items: center; gap: 3px; }
+.battlefield-view-options > span { font-size: 12px; margin-right: 3px; white-space: nowrap; }
 .grid-input { width: 46px; padding: 2px 4px; font-size: 12px; }
 .zoom-label.min0 { min-width: 0; }
 .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
