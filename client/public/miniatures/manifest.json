@@ -4,6 +4,8 @@
   "models": [
     {
       "id": "druk",
+      "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
+      "baseTextureSha256": "e19b0a12af0c4f383b3731a90016184ad6799f0e6441df9e520d44595cf9013b",
       "url": "/miniatures/druk-6327e0b13869.glb",
       "sha256": "6327e0b138691afa94772a21c84f62604588fd7ec82d12fae49ca8f642fd448e",
       "bytes": 35501804,
@@ -92,6 +94,11 @@
     }
   ],
   "files": [
+    {
+      "url": "/miniatures/druk-basalt-e19b0a12af0c.png",
+      "sha256": "e19b0a12af0c4f383b3731a90016184ad6799f0e6441df9e520d44595cf9013b",
+      "bytes": 3697842
+    },
     {
       "url": "/miniatures/vanec-fx-2e60effcfd99.json",
       "sha256": "2e60effcfd996465676ec59bdbb7956ba43039f56e57619a76c1c9d971ff61d3",

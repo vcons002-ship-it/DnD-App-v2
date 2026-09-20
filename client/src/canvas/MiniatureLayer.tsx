@@ -8,6 +8,8 @@ import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
+import { facingAfterMove } from '../../../shared/tokenFacing';
+import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import {
   miniatureCameraTarget,
   type BattlefieldView,
@@ -15,6 +17,7 @@ import {
 
 export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
+  facing?: number;
   definition: MiniatureDefinition;
 };
 type Props = {
@@ -119,7 +122,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
   const loading = new Map<string, string>();
-  const moves = new Map<string, { x: number; y: number; fromX: number; fromY: number; until: number }>();
+  const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
   const abort = new AbortController();
   let props = initial;
   let view = initial.view;
@@ -193,6 +196,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (move && move.until < now) moves.delete(token.id);
         const position = moves.get(token.id) ?? token;
         instance.root.position.set(position.x, 0, position.y);
+        instance.root.rotation.y = position.facing ?? 0;
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
       }
       try { renderer.render(scene, camera); publish(); } catch { fail(); }
@@ -224,6 +228,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     const position = moves.get(token.id) ?? token;
     instance.root.position.set(position.x, 0, position.y);
+    instance.root.rotation.y = position.facing ?? 0;
     instance.materials.forEach((material, index) => {
       const transparent = token.hidden || instance.originalTransparent[index];
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
@@ -263,7 +268,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (failed || loading.get(token.id) === token.definition.url) continue;
       loading.set(token.id, token.definition.url);
       const definition = token.definition;
-      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url).catch(() => null));
+      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
+        .then(async gltf => {
+          try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
+          catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
+        }).catch(() => null));
       if (definition.fxUrl && !manifests.has(definition.fxUrl)) {
         manifests.set(definition.fxUrl, fetch(definition.fxUrl, { signal: abort.signal })
           .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
@@ -338,7 +347,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (disposed) return;
       const token = props.tokens.find((item) => item.id === id);
       if (!token) return;
-      moves.set(id, { x, y, fromX: token.x, fromY: token.y, until: finished ? performance.now() + 1500 : Infinity });
+      moves.set(id, { x, y, facing: facingAfterMove(token.x, token.y, x, y, token.facing),
+        fromX: token.x, fromY: token.y, until: finished ? performance.now() + 1500 : Infinity });
       invalidate();
     },
     dispose,

@@ -8,6 +8,7 @@ import {
   rowToToken,
 } from './db.js';
 import { iconForCreature } from './creatures/srd.js';
+import { facingAfterMove } from '../../shared/tokenFacing.js';
 import { impliedConditions } from '../../shared/conditionEffects.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
@@ -538,7 +539,11 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
   // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
   // would break the map view for everyone) or bind a non-finite value.
   const clamp = (n: number) => Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
-  db.prepare('UPDATE tokens SET x = ?, y = ? WHERE id = ?').run(clamp(x), clamp(y), tokenId);
+  const previous = getToken(tokenId);
+  if (!previous) return null;
+  const nextX = clamp(x), nextY = clamp(y);
+  const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
+  db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
   return getToken(tokenId);
 }
 
@@ -1060,6 +1065,7 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
     isHidden: token.isHidden,
   });
   if (token.widthFt !== 5) resizeToken(copy.id, token.widthFt);
+  db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(token.facing ?? 0, copy.id);
   return getToken(copy.id);
 });
 

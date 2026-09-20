@@ -408,6 +408,7 @@ ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
 // 0 = never (a bystander NPC standing in the open). Nullable so existing saves
 // stay on 'auto' with no behavior change beyond the visibility rule.
 ensureColumn('tokens', 'in_combat', 'in_combat INTEGER');
+ensureColumn('tokens', 'facing', 'facing REAL NOT NULL DEFAULT 0');
 // Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
 ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
@@ -600,6 +601,7 @@ type TokenRow = {
   hide_combat_role: number;
   shape: string | null;
   in_combat: number | null;
+  facing?: number;
 };
 
 export function rowToToken(r: TokenRow): Token {
@@ -610,6 +612,7 @@ export function rowToToken(r: TokenRow): Token {
     refId: r.ref_id,
     x: r.x,
     y: r.y,
+    facing: r.facing ?? 0,
     size: r.size,
     widthFt: r.width_ft ?? r.size * 5,
     initiative: r.initiative,

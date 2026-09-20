@@ -113,6 +113,8 @@ export type Token = {
   refId: string;
   x: number;
   y: number;
+  /** Last movement direction in radians around glTF Y; zero faces map south. */
+  facing?: number;
   /** Legacy size in grid squares (1 = Medium, 2 = Large, ...); kept for back-compat. */
   size: number;
   /**

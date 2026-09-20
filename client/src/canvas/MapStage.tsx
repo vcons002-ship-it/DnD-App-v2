@@ -922,6 +922,7 @@ export function MapStage({
     if (token.isHidden && !isDm) return [];
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
+      facing: token.facing ?? 0,
       diameter: token.widthFt * pxPerFoot, hidden: token.isHidden, definition }] : [];
   }), [snapshot, isDm, pxPerFoot]);
   useEffect(() => {

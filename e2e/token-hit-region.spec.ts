@@ -9,7 +9,7 @@ const imageUrl = 'https://token-hit.test/portrait.svg';
 const imageFixture = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#4388bf"/></svg>';
 
 type Hit = { name: string; tokenId: string } | null;
-type RenderOptions = { shape?: string; icon?: string; listening?: boolean; adjacent?: boolean };
+type RenderOptions = { shape?: string; icon?: string; listening?: boolean; adjacent?: boolean; miniatureReady?: boolean };
 type QaWindow = Window & { __tokenHitQA: {
   render: (options: RenderOptions) => void;
   hits: (points: number[][]) => Hit[];
@@ -45,12 +45,12 @@ test.beforeAll(async () => {
           widthFt: 5, shape: 'circle', combatRole: 'caster' };
         const props = { display, gridSizePx: 40, pxPerFoot: 16, draggable: true,
           selected: true, activeTurn: true, initiativeRank: 1, ...callbacks };
-        const render = ({ shape = 'circle', icon = '', listening = true, adjacent = false } = {}) => {
+        const render = ({ shape = 'circle', icon = '', listening = true, adjacent = false, miniatureReady = false } = {}) => {
           flushSync(() => root.render(<Stage width={500} height={420} ref={stageRef}>
             <Layer>
               {adjacent && <TokenShape {...props} activeTurn={false} initiativeRank={null}
                 token={{ ...token, id: 'behind', kind: 'monster', y: 135 }} />}
-              <TokenShape {...props} display={{ ...display, icon }} listening={listening} token={{ ...token, shape }} />
+              <TokenShape {...props} miniatureReady={miniatureReady} display={{ ...display, icon }} listening={listening} token={{ ...token, shape }} />
             </Layer>
           </Stage>));
           stageRef.current.draw();
@@ -107,6 +107,23 @@ for (const sample of [
       .toEqual({ hitShapes: 1, listeningArt: 0 });
   });
 }
+
+test('ready miniatures always hit only their round base, regardless of the old portrait shape', async ({ page }) => {
+  for (const shape of ['square', 'image', 'diamond', 'triangle', 'circle']) {
+    await mount(page, { shape, miniatureReady: true, adjacent: true });
+    expect(await page.evaluate(() => (window as unknown as QaWindow).__tokenHitQA.hits([
+      [200, 200], [239, 200], [239, 239], [250, 200], [200, 135], [200, 100], [200, 246],
+    ]))).toEqual([
+      { name: 'token-hit-region', tokenId: 'front' }, { name: 'token-hit-region', tokenId: 'front' },
+      null, null, { name: 'token-hit-region', tokenId: 'behind' },
+      { name: 'token-hit-region', tokenId: 'behind' }, null,
+    ]);
+    await page.mouse.click(239, 239);
+    expect(await page.evaluate(() => (window as unknown as QaWindow).__tokenHitQA.events.filter(e => e.name === 'select'))).toEqual([]);
+    await page.mouse.click(200, 200);
+    expect(await page.evaluate(() => (window as unknown as QaWindow).__tokenHitQA.events.filter(e => e.name === 'select').map(e => e.tokenId))).toEqual(['front']);
+  }
+});
 
 test('loading and failed image icons keep the circular fallback hit region', async ({ page }) => {
   await mount(page, { shape: 'image' });
