@@ -174,6 +174,43 @@ test('movement heading survives reconnect and uses the same base hit region in b
   expect(warnings).toEqual([]);
 });
 
+test('active miniature ring stays off the HUD and held drags preview facing before placement', async ({ page, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  for (const token of setup.ready.tokens) setup.socket.emit('initiative:set', { tokenId: token.id, initiative: token.id === druk.id ? 30 : 10 });
+  setup.socket.emit('initiative:rollMissing');
+  expect((await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
+  await enter(page, setup.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  const view = (await tokenView(page, druk.id))!;
+  expect(await page.evaluate(() => (window as any).Konva.stages.flatMap((s: any) => s.find('.active-turn-ring')).length)).toBe(0);
+  await page.mouse.move(view.x, view.y);
+  await page.mouse.down();
+  for (const [name, dx, dy] of [['east', 100, 0], ['southeast', 100, 80]] as const) {
+    await page.mouse.move(view.x + dx * view.scaleX, view.y + dy * view.scaleY, { steps: 20 });
+    await afterPaint(page);
+    const pending = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+    // Cursor position changes while the authoritative start remains untouched.
+    expect([pending.x, pending.y, pending.facing]).toEqual([druk.x, druk.y, 0]);
+    await page.screenshot({ path: info.outputPath(`held-${name}.png`) });
+  }
+  await page.mouse.up();
+  await expect.poll(async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.x).toBeGreaterThan(druk.x + 95);
+  const finished = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+  expect(finished.facing).toBeCloseTo(Math.atan2(finished.x - druk.x, finished.y - druk.y), 5);
+  expect((await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
+  const contextLost = page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="miniature-layer"] canvas') as HTMLCanvasElement;
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }));
+  });
+  await contextLost;
+  await expect(layer).toHaveAttribute('data-miniature-status', 'unavailable');
+  await expect.poll(() => page.evaluate(() => (window as any).Konva.stages.flatMap((s: any) => s.find('.active-turn-ring')).length)).toBe(1);
+});
+
 test('rear flat tokens are occluded by miniature pixels and keep their hit regions', async ({ page, request }, info) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 1000 });

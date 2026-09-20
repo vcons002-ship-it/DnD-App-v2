@@ -286,7 +286,7 @@ function TokenShapeInner({
     return () => {
       anim.stop();
     };
-  }, [activeTurn, turnRingR]);
+  }, [activeTurn, turnRingR, miniatureReady]);
 
   const roleBadgeR = Math.max(11, radius * 0.36);
 
@@ -378,8 +378,9 @@ function TokenShapeInner({
           strokeWidth={4}
         />
       ))}
-      {activeTurn && (
+      {activeTurn && !miniatureReady && (
         <Circle
+          name="active-turn-ring"
           ref={turnRing}
           radius={turnRingR}
           stroke="#ffd21a"

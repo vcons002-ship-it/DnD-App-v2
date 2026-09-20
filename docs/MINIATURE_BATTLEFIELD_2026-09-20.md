@@ -47,6 +47,14 @@ column. Existing tokens start facing south; stationary moves preserve heading.
 All viewers receive the same heading, including after reconnecting. Drag previews
 turn immediately, then reconcile with the authoritative snapshot. Rotation is
 around the base center and does not rotate health bars or change the hit region.
+While a drag is held, its start remains the last committed position: moving the
+cursor around previews the start-to-current direction before release. Each
+subsequent drag begins from its own starting position, even in the same turn.
+
+The active-turn ring for a ready miniature is a pulsing mesh on the ground
+plane, using the same depth buffer as the figures. The base, body and weapons
+occlude its rear arc; it follows the token during held drags. Reduced motion
+keeps the ring steady. The original 2D ring returns with portrait fallback.
 
 Druk's terrain top and four small stones use a generated 1254-by-1254 cooled
 basalt texture with restrained bump relief and a charcoal material tint. The

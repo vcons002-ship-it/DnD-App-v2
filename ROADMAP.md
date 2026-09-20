@@ -10,6 +10,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 - ☑ Druk has a detailed dark basalt base top; the decorated rim is preserved.
 - ☑ Ready miniatures receive input only through their circular base footprint.
+- ☑ Active-turn rings sit on the ground beneath the 3D figures and follow held drags.
 - ☑ Miniatures face the start-to-end direction of their last move, shared by all
   viewers and retained after reconnecting. Stationary drops preserve facing.
 
