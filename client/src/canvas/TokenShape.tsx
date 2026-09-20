@@ -41,10 +41,8 @@ type Props = {
   /** When false (e.g. a measure tool is active), the token ignores all pointer
    *  events so clicks/drags fall through to the stage. */
   listening?: boolean;
-  /** Only the portrait is replaced; the existing HUD and hit region stay live. */
+  /** Replaces the portrait and PC name; health and the hit region stay live. */
   miniatureReady?: boolean;
-  /** Flat overhead miniatures do not need extra space above their footprint. */
-  miniatureTilted?: boolean;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -78,7 +76,6 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
-  miniatureTilted = true,
   onSelect,
   onActivate,
   onMove,
@@ -92,9 +89,6 @@ function TokenShapeInner({
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
   const radius = (token.widthFt * pxPerFoot) / 2;
-  // At the tilted camera angle the model rises above its base footprint.
-  // Keep the name above its head; base badges and HP retain their anchors.
-  const miniatureLabelLift = miniatureReady && miniatureTilted ? radius * 0.75 : 0;
   // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
   // pixel delta into a real-world distance for the live readout.
   const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;
@@ -466,7 +460,7 @@ function TokenShapeInner({
           verticalAlign="middle"
         />
       )}
-      <Text
+      {!(token.kind === 'pc' && miniatureReady) && <Text
         name="token-label"
         text={display.name}
         fontSize={Math.max(11, gridSizePx * 0.28)}
@@ -475,8 +469,8 @@ function TokenShapeInner({
         width={radius * 4}
         offsetX={radius * 2}
         // PC names sit a little higher to make room for the crown above the rim.
-        y={-radius - (token.kind === 'pc' ? 34 : 18) - miniatureLabelLift}
-      />
+        y={-radius - (token.kind === 'pc' ? 34 : 18)}
+      />}
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
         <Group name="token-health" y={radius + 4} offsetX={radius}>
@@ -549,7 +543,7 @@ function TokenShapeInner({
         </Group>
       )}
       {/* The crown distinguishes 2D player-character tokens. A ready miniature
-          provides its own silhouette, so it keeps only the existing name/HUD. */}
+          provides its own silhouette, so it keeps only the health/status HUD. */}
       {token.kind === 'pc' && !miniatureReady &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
@@ -560,7 +554,7 @@ function TokenShapeInner({
               width={radius * 2}
               offsetX={radius}
               offsetY={crown / 2}
-              y={-radius - crown / 2 - 2 - miniatureLabelLift}
+              y={-radius - crown / 2 - 2}
               align="center"
               verticalAlign="middle"
             />
@@ -671,7 +665,6 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
-    p.miniatureTilted === n.miniatureTilted &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&

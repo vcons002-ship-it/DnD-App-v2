@@ -362,6 +362,7 @@ export function MapStage({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
+  const groundTokenLayerRef = useRef<Konva.Layer>(null);
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
@@ -927,12 +928,15 @@ export function MapStage({
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
 
-  // The two Konva scene canvases share a stacking context with the WebGL
-  // canvas. Its transparent surface sits above the map and below all token HUD.
+  // Flat tokens belong to the ground plane, beneath miniature geometry.
+  // Only ready miniature HUDs and shared tools belong above WebGL. Konva
+  // keeps all hit regions so changing visual depth never changes input ownership.
   useEffect(() => {
     const background = layerRef.current?.getNativeCanvasElement();
+    const groundTokens = groundTokenLayerRef.current?.getNativeCanvasElement();
     const foreground = tokenLayerRef.current?.getNativeCanvasElement();
     if (background) background.style.zIndex = '0';
+    if (groundTokens) groundTokens.style.zIndex = '0';
     if (foreground) foreground.style.zIndex = '2';
   }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
@@ -1401,7 +1405,7 @@ export function MapStage({
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
-    for (const layer of [layerRef.current, tokenLayerRef.current]) {
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]) {
       if (layer) { layer.position(position); layer.batchDraw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
@@ -1430,6 +1434,46 @@ export function MapStage({
     setTilted(next);
     safeSetItem(viewPreferenceKey, next ? 'tilted' : 'flat');
   };
+
+  const renderTokens = (miniatures: boolean) => snapshot.tokens.filter((token) =>
+    (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
+  ).map((t) => {
+    const d = resolveToken(snapshot, t);
+    // Players may drag only their side: PCs + friendly creatures,
+    // never objects. Mirrors the server's token:move gate — without
+    // this the drag succeeds locally (a ghost move on the player's
+    // screen) even though the server rejects it.
+    const movable =
+      isDm ||
+      t.kind === 'pc' ||
+      (d.disposition === 'friendly' && !d.objectKind);
+    return (
+      <TokenShape
+        key={t.id}
+        token={t}
+        display={d}
+        gridSizePx={grid}
+        pxPerFoot={pxPerFoot}
+        miniatureReady={miniatures}
+        draggable={
+          draggableTokens && movable && !fogActive && !measureActive && !saveResolve
+        }
+        listening={!measureActive}
+        selected={selectedIds.includes(t.id)}
+        activeTurn={t.id === activeTurnTokenId}
+        initiativeRank={initiativeRank.get(t.id) ?? null}
+        onSelect={handleTokenSelect}
+        onActivate={handleTokenActivate}
+        onMove={handleTokenMove}
+        onContextMenu={handleTokenMenu}
+        onHover={handleTokenHover}
+        onHoverEnd={handleTokenHoverEnd}
+        onDragActive={setDraggingToken}
+        onDragPreview={handleTokenDragPreview}
+        onVisualMove={handleTokenVisualMove}
+      />
+    );
+  });
 
   return (
     <div className="stage-wrap" ref={containerRef}>
@@ -1843,7 +1887,8 @@ export function MapStage({
               />
             </Layer>
             <Layer
-              ref={tokenLayerRef}
+              ref={groundTokenLayerRef}
+              name="ground-token-layer"
               x={view.x}
               y={view.y}
               scaleX={view.scale}
@@ -1852,44 +1897,20 @@ export function MapStage({
               onDragMove={handleLayerDragMove}
               onDragEnd={handleLayerDragEnd}
             >
-              {snapshot.tokens.map((t) => {
-                const d = resolveToken(snapshot, t);
-                // Players may drag only their side: PCs + friendly creatures,
-                // never objects. Mirrors the server's token:move gate — without
-                // this the drag succeeds locally (a ghost move on the player's
-                // screen) even though the server rejects it.
-                const movable =
-                  isDm ||
-                  t.kind === 'pc' ||
-                  (d.disposition === 'friendly' && !d.objectKind);
-                return (
-                  <TokenShape
-                    key={t.id}
-                    token={t}
-                    display={d}
-                    gridSizePx={grid}
-                    pxPerFoot={pxPerFoot}
-                    miniatureReady={readyMiniatures.has(t.id) && miniatureTokens.some((miniature) => miniature.id === t.id)}
-                    miniatureTilted={tilted}
-                    draggable={
-                      draggableTokens && movable && !fogActive && !measureActive && !saveResolve
-                    }
-                    listening={!measureActive}
-                    selected={selectedIds.includes(t.id)}
-                    activeTurn={t.id === activeTurnTokenId}
-                    initiativeRank={initiativeRank.get(t.id) ?? null}
-                    onSelect={handleTokenSelect}
-                    onActivate={handleTokenActivate}
-                    onMove={handleTokenMove}
-                    onContextMenu={handleTokenMenu}
-                    onHover={handleTokenHover}
-                    onHoverEnd={handleTokenHoverEnd}
-                    onDragActive={setDraggingToken}
-                    onDragPreview={handleTokenDragPreview}
-                    onVisualMove={handleTokenVisualMove}
-                  />
-                );
-              })}
+              {renderTokens(false)}
+            </Layer>
+            <Layer
+              ref={tokenLayerRef}
+              name="miniature-hud-layer"
+              x={view.x}
+              y={view.y}
+              scaleX={view.scale}
+              scaleY={view.scale * groundScaleY}
+              draggable={panning}
+              onDragMove={handleLayerDragMove}
+              onDragEnd={handleLayerDragEnd}
+            >
+              {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.

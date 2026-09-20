@@ -9,8 +9,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 ### Character miniatures — September 2026
 
 - ☑ Druk, Varis and Vanec use their 3D miniatures on the battlefield, retaining
-  labels, health bars, selection and the existing token controls.
-- ☑ PC crowns appear only on 2D fallback tokens; ready 3D miniatures omit them.
+  health bars, selection and the existing token controls.
+- ☑ PC names and crowns appear only on 2D fallback tokens; ready 3D miniatures omit them.
+- ☑ Flat tokens render beneath miniature geometry so rear monsters cannot cover
+  the figures; miniature health/status HUD and map tools remain above them.
 - ☑ A 25-degree tilt from overhead projects the map and models together;
   drag, pan, zoom, touch and measurement use the same map coordinates.
 - ☑ Each player can switch between Tilted and Flat beside zoom. The choice

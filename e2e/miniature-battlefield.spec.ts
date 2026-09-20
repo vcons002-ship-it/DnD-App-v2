@@ -90,7 +90,7 @@ async function tokenView(page: Page, id: string) {
   }, id);
 }
 
-test('real miniatures retain labels and health; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
+test('real miniatures hide player names and retain health; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const setup = await fixture(page, request);
@@ -102,7 +102,7 @@ test('real miniatures retain labels and health; tilted drag round-trips and hidd
   await expect(layer).toHaveAttribute('data-tilt-degrees', '25');
   const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
   const view = (await tokenView(page, druk.id))!;
-  expect(view.texts).toContain('Druk');
+  expect(view.texts).not.toContain('Druk');
   expect(view.healthBars.length).toBeGreaterThanOrEqual(2);
   expect(view.visibleBodyImages).toBe(0);
   expect(view.bodyVisible).toBe(false);
@@ -134,6 +134,87 @@ test('real miniatures retain labels and health; tilted drag round-trips and hidd
   expect(errors).toEqual([]);
 });
 
+test('rear flat tokens are occluded by miniature pixels and keep their hit regions', async ({ page, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await enter(page, setup.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  const view = (await tokenView(page, druk.id))!;
+  const diameter = druk.widthFt * 20 * view.scaleX;
+  const clip = {
+    x: Math.floor(view.x - diameter * 0.8), y: Math.floor(view.y - diameter * 1.8),
+    width: Math.ceil(diameter * 1.6), height: Math.ceil(diameter * 1.8),
+  };
+  await afterPaint(page);
+  const before = await page.screenshot({ clip });
+  const withoutMiniatures = async () => {
+    await layer.evaluate(el => { el.style.visibility = 'hidden'; });
+    try { return await page.screenshot({ clip }); }
+    finally { await layer.evaluate(el => { el.style.visibility = ''; }); }
+  };
+  const groundBefore = await withoutMiniatures();
+  setup.socket.emit('monster:create', { name: 'Rear goblin', maxHp: 7, icon: '👺', disposition: 'enemy' });
+  const template = (await setup.snapshot()).monsterTemplates.find(t => t.name === 'Rear goblin')!;
+  setup.socket.emit('token:spawn', { mapId: setup.mapId, kind: 'monster', refId: template.id, x: druk.x, y: druk.y - 100 });
+  const rear = (await setup.snapshot()).tokens.find(t => t.kind === 'monster')!;
+  await expect.poll(() => tokenView(page, rear.id)).not.toBeNull();
+  await afterPaint(page);
+  const after = await page.screenshot({ clip });
+  const groundAfter = await withoutMiniatures();
+  // Compare actual browser pixels, not just z-index values. Find interior
+  // miniature pixels that overlap the newly painted ground token; the model
+  // must remain unchanged there, while the token is painted behind it.
+  const pixels = await page.evaluate(async (images) => {
+    const decoded = await Promise.all(images.map(async base64 => {
+      const bytes = Uint8Array.from(atob(base64), ch => ch.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(bitmap, 0, 0); bitmap.close();
+      return { width: canvas.width, height: canvas.height, data: ctx.getImageData(0, 0, canvas.width, canvas.height).data };
+    }));
+    const [before, groundBefore, after, groundAfter] = decoded;
+    const distance = (a: Uint8ClampedArray, b: Uint8ClampedArray, i: number) =>
+      Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+    let overlap = 0, preserved = 0;
+    for (let y = 2; y < before.height - 2; y++) for (let x = 2; x < before.width - 2; x++) {
+      const i = (y * before.width + x) * 4;
+      if (distance(groundBefore.data, groundAfter.data, i) < 80) continue;
+      let interior = true;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const j = ((y + dy) * before.width + x + dx) * 4;
+        if (distance(before.data, groundBefore.data, j) < 60) interior = false;
+      }
+      if (!interior) continue;
+      overlap++;
+      if (distance(before.data, after.data, i) < 8) preserved++;
+    }
+    return { overlap, preserved };
+  }, [before, groundBefore, after, groundAfter].map(image => image.toString('base64')));
+  expect(pixels.overlap).toBeGreaterThan(100);
+  expect(pixels.preserved / pixels.overlap).toBeGreaterThan(0.98);
+  await page.screenshot({ path: info.outputPath('rear-monster-occlusion.png') });
+  const point = (await tokenView(page, rear.id))!;
+  await page.mouse.click(point.x, point.y, { button: 'right' });
+  await expect(page.locator('.floating-menu')).toBeVisible();
+  // Server movement from rear to front keeps the flat token and its hit region
+  // together; switching to Flat still uses its original map position.
+  setup.socket.emit('token:move', { tokenId: rear.id, x: druk.x + 100, y: druk.y + 100 });
+  await expect.poll(async () => (await tokenView(page, rear.id))?.x).toBeCloseTo(view.x + 100 * view.scaleX, 1);
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+  const flat = (await tokenView(page, rear.id))!;
+  expect(flat.scaleY / flat.scaleX).toBeCloseTo(1, 5);
+  expect(flat.texts).toContain('Rear goblin 1');
+  expect((await tokenView(page, druk.id))!.texts).not.toContain('Druk');
+  expect(errors).toEqual([]);
+});
+
 test('mobile tap and pinch keep the miniature projection aligned', async ({ browser, request }, info) => {
   test.setTimeout(120_000);
   const context = await browser.newContext({ viewport: { width: 430, height: 932 }, hasTouch: true, deviceScaleFactor: 2 });
@@ -147,7 +228,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     const before = (await tokenView(page, druk.id))!;
     await page.touchscreen.tap(before.x, before.y);
     await page.screenshot({ path: info.outputPath('mobile-miniatures.png') });
-    expect(before.texts).toContain('Druk');
+    expect(before.texts).not.toContain('Druk');
     expect(before.healthBars.length).toBeGreaterThanOrEqual(2);
     const cdp = await context.newCDPSession(page);
     const center = { x: 215, y: 430 };

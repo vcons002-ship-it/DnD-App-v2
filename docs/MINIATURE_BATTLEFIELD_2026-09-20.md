@@ -24,8 +24,12 @@ so a shifted grid's visible intersections are valid snap targets. A browser
 regression draws a 15-by-20-foot diagonal and verifies its 25-foot distance,
 saved endpoints, and a freehand stroke's original map coordinates.
 
-Name labels sit above each miniature. PC crowns are hidden once a miniature is
-ready and remain visible on the 2D fallback in both DM and player views.
+PC name labels and crowns are hidden once a miniature is ready. Both remain
+visible on the 2D fallback in DM and player views, including after WebGL failure.
+Flat tokens render on a separate ground canvas below the miniature canvas, so
+monsters in rear squares no longer cover the figures. Ready miniature HUDs and
+shared map tools stay on the foreground canvas. All three Konva layers pan and
+zoom together; their existing hit regions and permission checks remain active.
 Health bars, condition markers, turn
 indicators and combat-role badges retain their existing behavior. Konva owns
 all input and the token footprint; the transparent Three.js layer ignores
@@ -120,17 +124,21 @@ Chrome executable if Playwright's bundled browser is unavailable.
 The runtime validator checks exact hashes, embedded buffers/images, base
 metadata, animation/material references, source triangle counts and original
 embedded image hashes. Browser tests use the production build, real GLBs and a disposable test
-database. They exercise labels/health, tilted drag coordinates, role-hidden
+database. They exercise miniature name suppression and fallback labels/health,
+rear-monster occlusion using actual screenshot pixels, tilted drag coordinates, role-hidden
 tokens, mobile tap/pinch, shifted-grid rulers, annotation coordinates, separate
 players' flat/tilted preferences, reload persistence and rendering-failure fallback. Desktop Chrome touch
 emulation verifies layout and interactions; it is not a physical-phone FPS
 benchmark.
 Run the full browser suite for release because the shared map projection also
 affects interactions outside the miniature-specific tests. The final bundle
-passed all 106 browser tests across 21 files, with no failures, skips or flaky
+passed all 107 browser tests across 21 files, with no failures, skips or flaky
 results, plus 598 server tests, both typechecks and the production build.
-Eight actual browser screenshots were reviewed, covering desktop/mobile,
-zoomed and flat views, projected rulers and the context-loss fallback.
+The original eight reviewed screenshots covered desktop/mobile, zoomed and
+flat views, projected rulers and the context-loss fallback. The layering fix
+also has reviewed full-map and close-up captures at 45 degrees, with six 2D
+monsters including three directly behind the player figures. The live default
+remains 25 degrees.
 
 ## Deployment
 
