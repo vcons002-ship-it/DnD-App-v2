@@ -107,6 +107,9 @@ test('real miniatures retain labels and health; tilted drag round-trips and hidd
   expect(view.visibleBodyImages).toBe(0);
   expect(view.bodyVisible).toBe(false);
   expect(view.miniatureReady).toBe(true);
+  for (const token of setup.ready.tokens) {
+    expect((await tokenView(page, token.id))!.texts).not.toContain('👑');
+  }
   expect(view.scaleY / view.scaleX).toBeCloseTo(Math.cos(25 * Math.PI / 180), 4);
   await page.screenshot({ path: info.outputPath('desktop-miniatures.png') });
   await page.mouse.move(view.x, view.y);
@@ -272,6 +275,7 @@ test('failed model download keeps the original usable token', async ({ page, req
   const point = (await tokenView(page, druk.id))!;
   expect(point.healthBars.length).toBeGreaterThanOrEqual(2);
   expect(point.bodyVisible).toBe(true);
+  expect(point.texts).toContain('👑');
   await page.mouse.click(point.x, point.y, { button: 'right' });
   await expect(page.locator('.floating-menu')).toBeVisible();
 });
@@ -298,6 +302,7 @@ test('WebGL context loss restores all token bodies, HUD and menus', async ({ pag
     await expect.poll(async () => (await tokenView(page, token.id))?.bodyVisible).toBe(true);
     const view = (await tokenView(page, token.id))!;
     expect(view.miniatureReady).toBe(false);
+    expect(view.texts).toContain('👑');
     expect(view.texts).toContain(setup.initial.characters.find(character => character.id === token.refId)!.name);
     expect(view.healthBars.length).toBeGreaterThanOrEqual(2);
   }

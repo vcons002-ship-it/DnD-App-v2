@@ -93,7 +93,7 @@ function TokenShapeInner({
   // so changing only the grid cell size never rescales a token.
   const radius = (token.widthFt * pxPerFoot) / 2;
   // At the tilted camera angle the model rises above its base footprint.
-  // Keep the name/crown above its head; base badges and HP retain their anchors.
+  // Keep the name above its head; base badges and HP retain their anchors.
   const miniatureLabelLift = miniatureReady && miniatureTilted ? radius * 0.75 : 0;
   // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
   // pixel delta into a real-world distance for the live readout.
@@ -548,10 +548,9 @@ function TokenShapeInner({
           />
         </Group>
       )}
-      {/* Player-character tokens wear a crown just above the rim (with the name
-          lifted above it) so the party stands out from creatures without the old
-          halo crowding the status rings. */}
-      {token.kind === 'pc' &&
+      {/* The crown distinguishes 2D player-character tokens. A ready miniature
+          provides its own silhouette, so it keeps only the existing name/HUD. */}
+      {token.kind === 'pc' && !miniatureReady &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
           return (

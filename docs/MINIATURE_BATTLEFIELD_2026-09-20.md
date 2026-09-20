@@ -24,7 +24,9 @@ so a shifted grid's visible intersections are valid snap targets. A browser
 regression draws a 15-by-20-foot diagonal and verifies its 25-foot distance,
 saved endpoints, and a freehand stroke's original map coordinates.
 
-Name labels sit above each miniature. Health bars, condition markers, turn
+Name labels sit above each miniature. PC crowns are hidden once a miniature is
+ready and remain visible on the 2D fallback in both DM and player views.
+Health bars, condition markers, turn
 indicators and combat-role badges retain their existing behavior. Konva owns
 all input and the token footprint; the transparent Three.js layer ignores
 pointer events. The renderer receives only tokens in the role-filtered snapshot.
