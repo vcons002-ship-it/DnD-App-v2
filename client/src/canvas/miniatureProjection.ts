@@ -1,5 +1,5 @@
 /** The map is an orthographic ground plane: its stored coordinates never change. */
-export const BATTLEFIELD_TILT_DEGREES = 25;
+export const BATTLEFIELD_TILT_DEGREES = 45;
 export const groundYScale = (tiltDegrees: number) => Math.cos(tiltDegrees * Math.PI / 180);
 
 export type BattlefieldView = { x: number; y: number; scale: number };

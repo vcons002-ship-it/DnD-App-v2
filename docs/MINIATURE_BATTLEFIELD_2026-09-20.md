@@ -6,8 +6,8 @@ whitespace. No campaign migration or manual token replacement is required.
 Portraits remain in character sheets and provide the map fallback until a model
 has actually rendered, or if loading/WebGL fails.
 
-The battlefield defaults to 25 degrees from overhead. Each player can select
-**Tilted** or **Flat** beside the zoom controls. The choice is saved in that
+The battlefield defaults to directly **Overhead**. Each player can select
+**45?** as the tilted alternative beside the zoom controls. The choice is saved in that
 player's browser and never broadcast to other players; it applies across maps
 and sessions on that browser. Switching preserves the current zoom and center
 point. Flat mode uses a true overhead camera and a square, uncompressed grid.
@@ -138,7 +138,7 @@ The original eight reviewed screenshots covered desktop/mobile, zoomed and
 flat views, projected rulers and the context-loss fallback. The layering fix
 also has reviewed full-map and close-up captures at 45 degrees, with six 2D
 monsters including three directly behind the player figures. The live default
-remains 25 degrees.
+is overhead, with 45 degrees available as the per-player alternative.
 
 ## Deployment
 

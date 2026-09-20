@@ -55,11 +55,13 @@ async function fixture(page: Page, request: APIRequestContext) {
   return { code, socket, snapshot, mapId: map.id, initial, ready };
 }
 
-async function enter(page: Page, code: string, characterName = 'Druk') {
+async function enter(page: Page, code: string, characterName = 'Druk', tilted = true) {
   await page.goto(`/join?code=${code}`);
   await page.getByRole('button', { name: 'Join', exact: true }).click();
   await page.locator('.claim-row').filter({ hasText: characterName }).click();
   await expect(page.getByTestId('player-hud')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Flat battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  if (tilted) await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
 }
 
 async function afterPaint(page: Page) {
@@ -99,7 +101,7 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   await enter(page, setup.code);
   const layer = page.getByTestId('miniature-layer');
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-  await expect(layer).toHaveAttribute('data-tilt-degrees', '25');
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
   const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
   const view = (await tokenView(page, druk.id))!;
   expect(view.texts).not.toContain('Druk');
@@ -110,7 +112,7 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   for (const token of setup.ready.tokens) {
     expect((await tokenView(page, token.id))!.texts).not.toContain('👑');
   }
-  expect(view.scaleY / view.scaleX).toBeCloseTo(Math.cos(25 * Math.PI / 180), 4);
+  expect(view.scaleY / view.scaleX).toBeCloseTo(Math.cos(45 * Math.PI / 180), 4);
   await page.screenshot({ path: info.outputPath('desktop-miniatures.png') });
   await page.mouse.move(view.x, view.y);
   await page.mouse.down();
@@ -238,7 +240,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     await expect.poll(async () => (await tokenView(page, druk.id))!.scaleX).toBeGreaterThan(before.scaleX);
     const after = (await tokenView(page, druk.id))!;
     expect(after.scaleX).toBeGreaterThan(before.scaleX);
-    expect(after.scaleY / after.scaleX).toBeCloseTo(Math.cos(25 * Math.PI / 180), 4);
+    expect(after.scaleY / after.scaleX).toBeCloseTo(Math.cos(45 * Math.PI / 180), 4);
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3');
     await afterPaint(page);
     await page.screenshot({ path: info.outputPath('mobile-miniatures-zoomed.png') });
@@ -256,7 +258,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     await afterPaint(page);
     await page.screenshot({ path: info.outputPath('mobile-flat-miniatures.png') });
     await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).tap();
-    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees', '25');
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees', '45');
   } finally { await context.close(); }
 });
 
@@ -309,23 +311,26 @@ test('rulers, grid snapping and drawn annotations use the tilted map plane', asy
   await page.screenshot({ path: info.outputPath('tilted-ruler-and-annotation.png') });
 });
 
-test('flat view is local to each player, persists on reload and keeps token dragging aligned', async ({ page, browser, request }, info) => {
+test('overhead is the default; each player can persist overhead or 45 degrees with aligned dragging', async ({ page, browser, request }, info) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const setup = await fixture(page, request);
-  await enter(page, setup.code);
+  await enter(page, setup.code, 'Druk', false);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees', '0');
   const layer = page.getByTestId('miniature-layer');
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
   const otherContext = await browser.newContext({ baseURL: `http://localhost:${PORT}`, viewport: { width: 1440, height: 1000 } });
   try {
     const otherPage = await otherContext.newPage();
-    await enter(otherPage, setup.code, 'Varis');
+    await enter(otherPage, setup.code, 'Varis', false);
     const otherLayer = otherPage.getByTestId('miniature-layer');
     await expect(otherLayer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    await expect(otherLayer).toHaveAttribute('data-tilt-degrees', '0');
+    await otherPage.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
     await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
     await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
     await expect(page.getByRole('button', { name: 'Flat battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(otherLayer).toHaveAttribute('data-tilt-degrees', '25');
+    await expect(otherLayer).toHaveAttribute('data-tilt-degrees', '45');
     const druk = setup.ready.tokens.find(token => token.refId === setup.initial.characters.find(character => character.name === 'Druk')!.id)!;
     await expect.poll(async () => { const v = (await tokenView(page, druk.id))!; return v.scaleY / v.scaleX; }).toBeCloseTo(1, 5);
     const point = (await tokenView(page, druk.id))!;
@@ -340,10 +345,12 @@ test('flat view is local to each player, persists on reload and keeps token drag
     await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
     await afterPaint(page);
     await page.screenshot({ path: info.outputPath('flat-player-view.png') });
-    await expect(otherLayer).toHaveAttribute('data-tilt-degrees', '25');
+    await expect(otherLayer).toHaveAttribute('data-tilt-degrees', '45');
     await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
-    await expect(layer).toHaveAttribute('data-tilt-degrees', '25');
-    await expect.poll(async () => { const v = (await tokenView(page, druk.id))!; return v.scaleY / v.scaleX; }).toBeCloseTo(Math.cos(25 * Math.PI / 180), 5);
+    await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
+    await expect.poll(async () => { const v = (await tokenView(page, druk.id))!; return v.scaleY / v.scaleX; }).toBeCloseTo(Math.cos(45 * Math.PI / 180), 5);
+    await page.reload();
+    await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
   } finally { await otherContext.close(); }
 });
 

@@ -13,9 +13,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - ☑ PC names and crowns appear only on 2D fallback tokens; ready 3D miniatures omit them.
 - ☑ Flat tokens render beneath miniature geometry so rear monsters cannot cover
   the figures; miniature health/status HUD and map tools remain above them.
-- ☑ A 25-degree tilt from overhead projects the map and models together;
+- ☑ Overhead is the default; an optional 45-degree tilt projects map and models together;
   drag, pan, zoom, touch and measurement use the same map coordinates.
-- ☑ Each player can switch between Tilted and Flat beside zoom. The choice
+- ☑ Each player can switch between Overhead and 45 degrees beside zoom. The choice
   stays local, persists on reload, and preserves the current zoom and center.
 - ☑ Full-detail assets, lazy loading, preserved Vanec effects and portrait
   fallback when a model or WebGL is unavailable. See

@@ -376,8 +376,8 @@ export function MapStage({
   const [size, setSize] = useState({ w: 800, h: 600 });
   const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
   const [tilted, setTilted] = useState(() => {
-    try { return localStorage.getItem(viewPreferenceKey) !== 'flat'; }
-    catch { return true; }
+    try { return localStorage.getItem(viewPreferenceKey) === 'tilted'; }
+    catch { return false; }
   });
   const tiltDegrees = tilted ? BATTLEFIELD_TILT_DEGREES : 0;
   const groundScaleY = groundYScale(tiltDegrees);
@@ -1502,11 +1502,11 @@ export function MapStage({
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
               <button className={`btn tiny ${tilted ? 'on' : ''}`} aria-pressed={tilted}
-                aria-label="Tilted battlefield view" title="Tilted view — only changes your view"
-                onClick={() => chooseTilt(true)}>Tilted</button>
+                aria-label="Tilted battlefield view" title="45° tilt — only changes your view"
+                onClick={() => chooseTilt(true)}>45°</button>
               <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
-                onClick={() => chooseTilt(false)}>Flat</button>
+                onClick={() => chooseTilt(false)}>Overhead</button>
             </div>
           </div>
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
