@@ -41,6 +41,10 @@ type Props = {
   /** When false (e.g. a measure tool is active), the token ignores all pointer
    *  events so clicks/drags fall through to the stage. */
   listening?: boolean;
+  /** Only the portrait is replaced; the existing HUD and hit region stay live. */
+  miniatureReady?: boolean;
+  /** Flat overhead miniatures do not need extra space above their footprint. */
+  miniatureTilted?: boolean;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -54,6 +58,8 @@ type Props = {
   onDragActive?: (active: boolean) => void;
   /** Throttled live drag position, broadcast so others see a ghost tether. */
   onDragPreview?: (token: Token, x: number, y: number) => void;
+  /** Local WebGL position, without a React render or network throttle. */
+  onVisualMove?: (token: Token, x: number, y: number, finished: boolean) => void;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -71,6 +77,8 @@ function TokenShapeInner({
   activeTurn,
   initiativeRank,
   listening = true,
+  miniatureReady = false,
+  miniatureTilted = true,
   onSelect,
   onActivate,
   onMove,
@@ -79,10 +87,14 @@ function TokenShapeInner({
   onHoverEnd,
   onDragActive,
   onDragPreview,
+  onVisualMove,
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
   const radius = (token.widthFt * pxPerFoot) / 2;
+  // At the tilted camera angle the model rises above its base footprint.
+  // Keep the name/crown above its head; base badges and HP retain their anchors.
+  const miniatureLabelLift = miniatureReady && miniatureTilted ? radius * 0.75 : 0;
   // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
   // pixel delta into a real-world distance for the live readout.
   const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;
@@ -133,6 +145,7 @@ function TokenShapeInner({
   const handleDragStart = () => {
     clearLongPress();
     onDragActive?.(true);
+    onVisualMove?.(token, token.x, token.y, false);
     lastDragEmit.current = 0; // let the first move broadcast immediately
     const ov = dragOverlay.current;
     if (ov) {
@@ -146,6 +159,7 @@ function TokenShapeInner({
     const cx = e.target.x();
     const cy = e.target.y();
     paintDrag(cx, cy);
+    onVisualMove?.(token, cx, cy, false);
     // Broadcast the live position (throttled ~18 fps) for everyone else's ghost.
     if (onDragPreview) {
       const now = performance.now();
@@ -159,6 +173,7 @@ function TokenShapeInner({
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     dragOverlay.current?.visible(false); // temporary — gone on release
     onDragActive?.(false);
+    onVisualMove?.(token, e.target.x(), e.target.y(), true);
     onMove(token, e.target.x(), e.target.y());
   };
 
@@ -324,6 +339,7 @@ function TokenShapeInner({
     <Group
       name="token"
       tokenId={token.id}
+      miniatureReady={miniatureReady}
       x={token.x}
       y={token.y}
       listening={listening}
@@ -379,6 +395,8 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
+      {miniatureReady && selected && <Circle radius={radius} stroke="#ffffff" strokeWidth={4} />}
+      <Group name="token-body" visible={!miniatureReady}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
           // Pasted art: draw the whole image as-is (no clip), with an outline
@@ -434,6 +452,7 @@ function TokenShapeInner({
           )}
         </>
       )}
+      </Group>
       {/* Death marker when downed (visible HP at 0, or a manual "Dead" mark). */}
       {isDead && (
         <Text
@@ -448,6 +467,7 @@ function TokenShapeInner({
         />
       )}
       <Text
+        name="token-label"
         text={display.name}
         fontSize={Math.max(11, gridSizePx * 0.28)}
         fill="#fff"
@@ -455,11 +475,11 @@ function TokenShapeInner({
         width={radius * 4}
         offsetX={radius * 2}
         // PC names sit a little higher to make room for the crown above the rim.
-        y={-radius - (token.kind === 'pc' ? 34 : 18)}
+        y={-radius - (token.kind === 'pc' ? 34 : 18) - miniatureLabelLift}
       />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
-        <Group y={radius + 4} offsetX={radius}>
+        <Group name="token-health" y={radius + 4} offsetX={radius}>
           <Rect width={radius * 2} height={6} fill="#0008" cornerRadius={3} />
           <Rect
             width={radius * 2 * hpFrac}
@@ -541,7 +561,7 @@ function TokenShapeInner({
               width={radius * 2}
               offsetX={radius}
               offsetY={crown / 2}
-              y={-radius - crown / 2 - 2}
+              y={-radius - crown / 2 - 2 - miniatureLabelLift}
               align="center"
               verticalAlign="middle"
             />
@@ -651,6 +671,8 @@ export const TokenShape = memo(
     p.activeTurn === n.activeTurn &&
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
+    p.miniatureReady === n.miniatureReady &&
+    p.miniatureTilted === n.miniatureTilted &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&
@@ -658,5 +680,6 @@ export const TokenShape = memo(
     p.onHover === n.onHover &&
     p.onHoverEnd === n.onHoverEnd &&
     p.onDragActive === n.onDragActive &&
-    p.onDragPreview === n.onDragPreview,
+    p.onDragPreview === n.onDragPreview &&
+    p.onVisualMove === n.onVisualMove,
 );

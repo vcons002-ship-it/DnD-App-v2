@@ -6,6 +6,18 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Cross-cutting invariants (must always hold)
 
+### Character miniatures — September 2026
+
+- ☑ Druk, Varis and Vanec use their 3D miniatures on the battlefield, retaining
+  labels, health bars, selection and the existing token controls.
+- ☑ A 25-degree tilt from overhead projects the map and models together;
+  drag, pan, zoom, touch and measurement use the same map coordinates.
+- ☑ Each player can switch between Tilted and Flat beside zoom. The choice
+  stays local, persists on reload, and preserves the current zoom and center.
+- ☑ Full-detail assets, lazy loading, preserved Vanec effects and portrait
+  fallback when a model or WebGL is unavailable. See
+  [runtime assets and verification](docs/MINIATURE_BATTLEFIELD_2026-09-20.md).
+
 ### Player dark-fantasy preview — September 2026
 
 - ☑ Bottom-left race/class orb HUD, animated HP/temp HP, editable jewel resource

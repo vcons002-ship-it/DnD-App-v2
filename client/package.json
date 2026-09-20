@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node ../scripts/token-assets/validate-runtime.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
@@ -17,11 +18,13 @@
     "react-konva": "^18.2.10",
     "react-router-dom": "^7.18.1",
     "socket.io-client": "^4.8.1",
+    "three": "^0.186.0",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^5.2.0",
     "typescript": "^5.7.3",
     "vite": "^7.3.6"
