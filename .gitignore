@@ -1,6 +1,7 @@
 node_modules/
 /.preview-data/
 /.preview-review/
+/.token-preview/
 /preview-evidence/
 dist/
 build/

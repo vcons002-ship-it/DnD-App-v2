@@ -1,0 +1,29 @@
+name: Accepted miniature assets
+
+on:
+  pull_request:
+    paths:
+      - 'assets/miniatures/**'
+      - 'scripts/token-assets/**'
+      - 'docs/token-generation/**'
+      - '.gitattributes'
+      - '.github/workflows/token-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate verifier guardrails
+        run: node --test scripts/token-assets/validate.test.mjs
+      - name: Verify accepted model hashes and GLB structure
+        run: node scripts/token-assets/validate.mjs
