@@ -13,7 +13,7 @@ assert.equal(manifest.status, 'reviewed_runtime_bundle', 'Only reviewed final mo
 assert.deepEqual(manifest.models.map(model => model.id).sort(), ['druk', 'vanec', 'varis']);
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const verifyFile = entry => {
-  assert.match(entry.url, /^\/miniatures\/[a-z0-9-]+\.(glb|json)$/);
+  assert.match(entry.url, /^\/miniatures\/[a-z0-9-]+\.(glb|json|png)$/);
   const bytes = readFileSync(path.join(directory, path.basename(entry.url)));
   assert.equal(bytes.length, entry.bytes, entry.url);
   assert.equal(digest(bytes), entry.sha256, entry.url);
@@ -31,6 +31,15 @@ for (const model of manifest.models) {
   assert.equal(bytes.readUInt32LE(8), bytes.length);
   assert.equal(bytes.readUInt32LE(16), 0x4e4f534a);
   const gltf = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
+  if (model.baseTextureUrl) {
+    const texture = manifest.files.find(file => file.url === model.baseTextureUrl);
+    assert(texture, 'Missing base texture manifest entry.');
+    assert.equal(texture.sha256, model.baseTextureSha256);
+    const png = verifyFile(texture);
+    assert.equal(png.toString('hex', 0, 8), '89504e470d0a1a0a');
+    assert(png.readUInt32BE(16) >= 1024 && png.readUInt32BE(20) >= 1024);
+    assert(gltf.nodes.some(node => node.name === 'Druk_Base_Earthy_Stone_Moss_Top'));
+  }
   assert(gltf.extensionsRequired?.includes('EXT_meshopt_compression'),
     'The runtime must declare its Meshopt decoder requirement.');
   assert(gltf.bufferViews.some(view => view.extensions?.EXT_meshopt_compression),

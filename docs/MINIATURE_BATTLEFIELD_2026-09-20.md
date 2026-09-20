@@ -36,6 +36,33 @@ all input and the token footprint; the transparent Three.js layer ignores
 pointer events. The renderer receives only tokens in the role-filtered snapshot.
 DM-hidden tokens are translucent; player-hidden tokens are not instantiated.
 
+Ready miniatures accept clicks, taps, context menus and drags only within their
+circular base footprint, regardless of the old portrait shape. Figure geometry,
+weapons and health/status decoration never enlarge that target. At 45 degrees
+the circular footprint projects to the same ellipse as the ground plane.
+
+Miniatures face their last move's direction. The server derives `facing` from
+the previous and accepted map coordinates and persists it in an additive SQLite
+column. Existing tokens start facing south; stationary moves preserve heading.
+All viewers receive the same heading, including after reconnecting. Drag previews
+turn immediately, then reconcile with the authoritative snapshot. Rotation is
+around the base center and does not rotate health bars or change the hit region.
+While a drag is held, its start remains the last committed position: moving the
+cursor around previews the start-to-current direction before release. Each
+subsequent drag begins from its own starting position, even in the same turn.
+
+The active-turn ring for a ready miniature is a pulsing mesh on the ground
+plane, using the same depth buffer as the figures. The base, body and weapons
+occlude its rear arc; it follows the token during held drags. Reduced motion
+keeps the ring steady. The original 2D ring returns with portrait fallback.
+
+Druk's terrain top and four small stones use a generated 1254-by-1254 cooled
+basalt texture with restrained bump relief and a charcoal material tint. The
+original geometry, foot contact, brass rim and orb inlay are retained. The PNG
+is a separately hashed runtime asset, applied through planar UVs at load time;
+the archived source GLB remains unchanged. See the
+[texture provenance and prompt](token-generation/DRUK_BASE_BASALT.md).
+
 ## Runtime assets
 
 The authoritative bundle is

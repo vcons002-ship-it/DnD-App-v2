@@ -286,7 +286,7 @@ function TokenShapeInner({
     return () => {
       anim.stop();
     };
-  }, [activeTurn, turnRingR]);
+  }, [activeTurn, turnRingR, miniatureReady]);
 
   const roleBadgeR = Math.max(11, radius * 0.36);
 
@@ -378,8 +378,9 @@ function TokenShapeInner({
           strokeWidth={4}
         />
       ))}
-      {activeTurn && (
+      {activeTurn && !miniatureReady && (
         <Circle
+          name="active-turn-ring"
           ref={turnRing}
           radius={turnRingR}
           stroke="#ffd21a"
@@ -578,7 +579,12 @@ function TokenShapeInner({
           ctx.beginPath();
           // An image token paints a circular fallback until its icon loads
           // (or if the icon is missing/failed), so its hit region must too.
-          if (shape === 'square' || (shape === 'image' && hasImageIcon && iconImg)) {
+          if (miniatureReady) {
+            // The model, weapon and HUD never receive input. Its circular base
+            // is the sole hit region, even if its old portrait used another shape.
+            ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
+            ctx.closePath();
+          } else if (shape === 'square' || (shape === 'image' && hasImageIcon && iconImg)) {
             ctx.rect(-radius, -radius, radius * 2, radius * 2);
           } else if (shape === 'diamond') {
             // RegularPolygon's four vertices lie on its 1.3r radius, not on

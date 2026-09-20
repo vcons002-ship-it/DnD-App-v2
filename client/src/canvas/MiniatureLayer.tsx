@@ -1,13 +1,15 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
-  Material, Mesh, MeshStandardMaterial, OrthographicCamera, PMREMGenerator,
+  Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Scene, Texture, WebGLRenderer, type WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
+import { facingAfterMove } from '../../../shared/tokenFacing';
+import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import {
   miniatureCameraTarget,
   type BattlefieldView,
@@ -15,6 +17,8 @@ import {
 
 export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
+  facing?: number;
+  activeTurn?: boolean;
   definition: MiniatureDefinition;
 };
 type Props = {
@@ -36,6 +40,7 @@ type FxManifest = {
 };
 type Instance = {
   root: Group;
+  turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   url: string;
   materials: Material[];
   originalOpacity: number[];
@@ -119,7 +124,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
   const loading = new Map<string, string>();
-  const moves = new Map<string, { x: number; y: number; fromX: number; fromY: number; until: number }>();
+  const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
   const abort = new AbortController();
   let props = initial;
   let view = initial.view;
@@ -181,7 +186,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const draw = (now: number) => {
     frame = 0;
     if (disposed || failed || document.hidden) return;
-    const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx);
+    const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     if (now - lastPaint >= 1000 / 24) {
       lastPaint = now;
@@ -193,6 +198,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (move && move.until < now) moves.delete(token.id);
         const position = moves.get(token.id) ?? token;
         instance.root.position.set(position.x, 0, position.y);
+        instance.root.rotation.y = position.facing ?? 0;
+        const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
+        instance.turnRing.scale.setScalar(token.definition.baseDiameter * (1 + pulse * 0.06));
+        instance.turnRing.material.opacity = (0.65 + pulse * 0.35) * (token.hidden ? 0.45 : 1);
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
       }
       try { renderer.render(scene, camera); publish(); } catch { fail(); }
@@ -213,6 +222,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
     instance.materials.forEach((material) => material.dispose());
+    instance.turnRing.geometry.dispose();
+    instance.turnRing.material.dispose();
     instances.delete(id);
     loading.delete(id);
     moves.delete(id);
@@ -224,6 +235,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     const position = moves.get(token.id) ?? token;
     instance.root.position.set(position.x, 0, position.y);
+    instance.root.rotation.y = position.facing ?? 0;
+    instance.turnRing.visible = !!token.activeTurn;
     instance.materials.forEach((material, index) => {
       const transparent = token.hidden || instance.originalTransparent[index];
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
@@ -263,7 +276,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (failed || loading.get(token.id) === token.definition.url) continue;
       loading.set(token.id, token.definition.url);
       const definition = token.definition;
-      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url).catch(() => null));
+      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
+        .then(async gltf => {
+          try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
+          catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
+        }).catch(() => null));
       if (definition.fxUrl && !manifests.has(definition.fxUrl)) {
         manifests.set(definition.fxUrl, fetch(definition.fxUrl, { signal: abort.signal })
           .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
@@ -277,6 +294,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const centered = new Group();
         const model = gltf.scene.clone(true);
         centered.add(model); root.add(centered);
+        // A ground-plane marker in the same depth buffer as the miniature:
+        // body, base and weapons occlude its rear arc. It follows live drags
+        // through the root group and never participates in pointer input.
+        const turnRing = new Mesh(new RingGeometry(0.58, 0.65, 96), new MeshBasicMaterial({
+          color: '#ffd21a', transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false,
+        }));
+        turnRing.rotation.x = -Math.PI / 2;
+        turnRing.position.y = 0.001;
+        turnRing.renderOrder = -1;
+        root.add(turnRing);
         const cloned = new Map<Material, Material>();
         model.traverse((node) => {
           if (!(node instanceof Mesh)) return;
@@ -290,7 +317,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          root, url: definition.url, materials,
+          root, turnRing, url: definition.url, materials,
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
         };
@@ -338,7 +365,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (disposed) return;
       const token = props.tokens.find((item) => item.id === id);
       if (!token) return;
-      moves.set(id, { x, y, fromX: token.x, fromY: token.y, until: finished ? performance.now() + 1500 : Infinity });
+      moves.set(id, { x, y, facing: facingAfterMove(token.x, token.y, x, y, token.facing),
+        fromX: token.x, fromY: token.y, until: finished ? performance.now() + 1500 : Infinity });
       invalidate();
     },
     dispose,

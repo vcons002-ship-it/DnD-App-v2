@@ -9,6 +9,7 @@ export type MiniatureDefinition = {
   /** Native glTF XYZ, Y up; the base's horizontal center and lowest point. */
   baseCenter: [number, number, number];
   fxUrl?: string;
+  baseTextureUrl?: string;
 };
 
 export const MINIATURES = Object.fromEntries(

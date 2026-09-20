@@ -122,6 +122,8 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   // round-trip error in screen pixels, not fractional unscaled map units.
   await expect.poll(async () => Math.abs((await setup.snapshot()).tokens.find(t => t.id === druk.id)!.x - druk.x - 80) * view.scaleX).toBeLessThan(1.1);
   expect(Math.abs((await setup.snapshot()).tokens.find(t => t.id === druk.id)!.y - druk.y - 55) * view.scaleY).toBeLessThan(1.1);
+  const moved = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+  expect(moved.facing).toBeCloseTo(Math.atan2(moved.x - druk.x, moved.y - druk.y), 5);
   setup.socket.emit('character:update', { characterId: druk.refId, curHp: 1 });
   await expect.poll(async () => (await tokenView(page, druk.id))?.healthBars.some(b => b.fill === '#e23b3b')).toBe(true);
   const varis = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Varis')!.id)!;
@@ -134,6 +136,79 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   await afterPaint(page);
   await page.screenshot({ path: info.outputPath('desktop-miniatures-close.png') });
   expect(errors).toEqual([]);
+});
+
+test('movement heading survives reconnect and uses the same base hit region in both views', async ({ page, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  const warnings: string[] = [];
+  page.on('console', message => { if (message.text().includes('Miniature base texture unavailable')) warnings.push(message.text()); });
+  const texture = page.waitForResponse(response => response.url().endsWith('/miniatures/druk-basalt-e19b0a12af0c.png'));
+  await enter(page, setup.code, 'Druk', false);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  expect((await texture).ok()).toBe(true);
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  for (const [x, y, angle] of [[400, 360, Math.PI / 2], [400, 460, 0], [300, 460, -Math.PI / 2], [300, 360, Math.PI]]) {
+    setup.socket.emit('token:move', { tokenId: druk.id, x, y });
+    await expect.poll(async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.facing).toBeCloseTo(angle, 5);
+    await afterPaint(page);
+  }
+  await page.reload();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)!.facing).toBeCloseTo(Math.PI, 5);
+  for (const viewName of ['Flat battlefield view', 'Tilted battlefield view']) {
+    await page.getByRole('button', { name: viewName, exact: true }).click();
+    await afterPaint(page);
+    const hits = await page.evaluate(id => {
+      const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
+      const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
+      return [[0, 0], [49, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => {
+        const p = node.getAbsoluteTransform().point({ x, y });
+        return stage.getIntersection(p)?.getAttr('tokenId') ?? null;
+      });
+    }, druk.id);
+    expect(hits).toEqual([druk.id, druk.id, null, null, null]);
+    await page.screenshot({ path: info.outputPath(viewName.startsWith('Flat') ? 'facing-north-overhead.png' : 'facing-north-45.png') });
+  }
+  expect(warnings).toEqual([]);
+});
+
+test('active miniature ring stays off the HUD and held drags preview facing before placement', async ({ page, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  for (const token of setup.ready.tokens) setup.socket.emit('initiative:set', { tokenId: token.id, initiative: token.id === druk.id ? 30 : 10 });
+  setup.socket.emit('initiative:rollMissing');
+  expect((await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
+  await enter(page, setup.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  const view = (await tokenView(page, druk.id))!;
+  expect(await page.evaluate(() => (window as any).Konva.stages.flatMap((s: any) => s.find('.active-turn-ring')).length)).toBe(0);
+  await page.mouse.move(view.x, view.y);
+  await page.mouse.down();
+  for (const [name, dx, dy] of [['east', 100, 0], ['southeast', 100, 80]] as const) {
+    await page.mouse.move(view.x + dx * view.scaleX, view.y + dy * view.scaleY, { steps: 20 });
+    await afterPaint(page);
+    const pending = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+    // Cursor position changes while the authoritative start remains untouched.
+    expect([pending.x, pending.y, pending.facing]).toEqual([druk.x, druk.y, 0]);
+    await page.screenshot({ path: info.outputPath(`held-${name}.png`) });
+  }
+  await page.mouse.up();
+  await expect.poll(async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.x).toBeGreaterThan(druk.x + 95);
+  const finished = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+  expect(finished.facing).toBeCloseTo(Math.atan2(finished.x - druk.x, finished.y - druk.y), 5);
+  expect((await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
+  const contextLost = page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="miniature-layer"] canvas') as HTMLCanvasElement;
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }));
+  });
+  await contextLost;
+  await expect(layer).toHaveAttribute('data-miniature-status', 'unavailable');
+  await expect.poll(() => page.evaluate(() => (window as any).Konva.stages.flatMap((s: any) => s.find('.active-turn-ring')).length)).toBe(1);
 });
 
 test('rear flat tokens are occluded by miniature pixels and keep their hit regions', async ({ page, request }, info) => {

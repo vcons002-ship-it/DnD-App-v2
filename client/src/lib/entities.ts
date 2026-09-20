@@ -106,6 +106,7 @@ export const sameTokenFields = (a: Token, b: Token): boolean =>
   a.refId === b.refId &&
   a.x === b.x &&
   a.y === b.y &&
+  a.facing === b.facing &&
   a.widthFt === b.widthFt &&
   a.isHidden === b.isHidden &&
   a.combatRole === b.combatRole &&
