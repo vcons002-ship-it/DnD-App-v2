@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "status": "accepted-review-assets-not-runtime-integrated",
+  "description": "Selected static tabletop miniature meshes, actual generation inputs, and character-only renders. Reference illustrations are not proof of model quality.",
+  "models": [
+    {
+      "id": "druk",
+      "name": "Druk",
+      "triangles": 421725,
+      "meshNodes": 18,
+      "images": 8,
+      "animations": 0,
+      "skins": 0,
+      "acceptedSourceVersion": "druk-v7/assembled-03",
+      "acceptance": "The right-wrist correction was accepted as good enough for the current token preview.",
+      "limitations": [
+        "Detailed static review asset; runtime optimization, VTT integration, performance and printability are not certified.",
+        "The right red wrist connector retains mild texture stretch and the original cuff rim retains visible facets.",
+        "Original cape, hair, base and other source-art roughness remains outside the selected correction.",
+        "The rejected assembled-01 small-hand model and its video are not included."
+      ],
+      "path": "assets/miniatures/models/druk.glb",
+      "sha256": "8919438bd9421fe32fb25c9c853bad1ab67825a982eef59e64d5f2089cbdedb0",
+      "bytes": 48425060
+    },
+    {
+      "id": "varis",
+      "name": "Varis",
+      "triangles": 368344,
+      "meshNodes": 3,
+      "images": 3,
+      "animations": 0,
+      "skins": 0,
+      "acceptedSourceVersion": "varis-v3/candidate-06",
+      "acceptance": "Selected restrained brown beard-tone correction, combined with the preserved body and fitted detailed head.",
+      "limitations": [
+        "Detailed static review asset; runtime optimization, VTT integration, performance and printability are not certified.",
+        "The beard correction balances baked color while retaining the original facial-hair density and strand patterns.",
+        "Local cheek tessellation preserves the original planar surface; it is not new sculpted facial geometry.",
+        "Original hood rim, soft hands, weapon detail, quiver and rough base remain outside the selected face and hair work."
+      ],
+      "path": "assets/miniatures/models/varis.glb",
+      "sha256": "55fc1a81a1cb57ba91c50d92663de9d16914e8758a7ff918bbf0720cd62cc1db",
+      "bytes": 28590292
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/miniatures/models/druk.glb",
+      "sha256": "8919438bd9421fe32fb25c9c853bad1ab67825a982eef59e64d5f2089cbdedb0",
+      "bytes": 48425060,
+      "role": "Accepted Druk v7 assembled-03 static review model"
+    },
+    {
+      "path": "assets/miniatures/models/varis.glb",
+      "sha256": "55fc1a81a1cb57ba91c50d92663de9d16914e8758a7ff918bbf0720cd62cc1db",
+      "bytes": 28590292,
+      "role": "Accepted Varis v3 candidate-06 static review model"
+    },
+    {
+      "path": "assets/miniatures/references/druk/body-cutout.png",
+      "sha256": "6b169e5309b054e21e55933c846d432b9485b61fe4ba51d33df9f2abb62fc105",
+      "bytes": 1424807,
+      "role": "Actual transparent input for the original body reconstruction"
+    },
+    {
+      "path": "assets/miniatures/references/druk/head-medium-hair.png",
+      "sha256": "3837c07f8fb8fd0d1722d8d157573658bd4ae8e6ab9feb40a95ab2681af43ca2",
+      "bytes": 1787985,
+      "role": "Actual selected replacement head and medium-hair input"
+    },
+    {
+      "path": "assets/miniatures/references/druk/pauldron-dragon-paint.png",
+      "sha256": "4686e4ec05830fc9248549dd4adde9df48d139d2f3cf641fbcdcc20db9215200",
+      "bytes": 1817790,
+      "role": "Selected localized dragon-pauldron paint source"
+    },
+    {
+      "path": "assets/miniatures/references/druk/sword-alpha.png",
+      "sha256": "e2fee52777f27f1fb094d34235293cee9c6f9ef19f65664ea8d38d8b50ec35f4",
+      "bytes": 1157371,
+      "role": "Actual transparent replacement sword reconstruction input"
+    },
+    {
+      "path": "assets/miniatures/references/druk/hand-front.png",
+      "sha256": "d3526c3b821d6801b0be52c8ae9d7465b554b8030b883290802667954e78d84f",
+      "bytes": 1124440,
+      "role": "Front synthetic reference used for multi-view hand reconstruction"
+    },
+    {
+      "path": "assets/miniatures/references/druk/hand-back.png",
+      "sha256": "1ceae0ed8e2076be7ac82cb8b9aada2bc45df1ee7efbe80297655d66e88accef",
+      "bytes": 1108569,
+      "role": "Back synthetic reference used for multi-view hand reconstruction"
+    },
+    {
+      "path": "assets/miniatures/references/druk/hand-left.png",
+      "sha256": "5e7c6bb5192636752071f78a15fe71d93a0243f571652aead479497d5a7cce28",
+      "bytes": 592305,
+      "role": "Left synthetic reference used for multi-view hand reconstruction"
+    },
+    {
+      "path": "assets/miniatures/references/druk/hand-right.png",
+      "sha256": "c4090914c593caf20f2f0e129bbb45dea5d9f6f091ba1249b9720e00c52c06c0",
+      "bytes": 636804,
+      "role": "Right synthetic reference used for multi-view hand reconstruction"
+    },
+    {
+      "path": "assets/miniatures/references/varis/body-front.png",
+      "sha256": "e27c5db68d8b290c47436f89f8d5c481680b66dfee8f6d411e4880f4533da15b",
+      "bytes": 1479293,
+      "role": "Front actual multi-view body input: no bow, quiver retained"
+    },
+    {
+      "path": "assets/miniatures/references/varis/body-back.png",
+      "sha256": "6a874543e8d2492f1faed40ba35a0ce484388771ef59128a39f2e06aaa631b16",
+      "bytes": 1433836,
+      "role": "Back actual multi-view body input: no bow, quiver retained"
+    },
+    {
+      "path": "assets/miniatures/references/varis/body-left.png",
+      "sha256": "2c0e42589b7812c3f99817cc0e2cff9c7edb4024b4e4eb0a63e66e153d4bbaad",
+      "bytes": 1262874,
+      "role": "Left actual multi-view body input: no bow, quiver retained"
+    },
+    {
+      "path": "assets/miniatures/references/varis/body-right.png",
+      "sha256": "92eabdfb2a13fd4101f152587c3fabbb5f86da92e8676d4d500667e7f78b70fc",
+      "bytes": 1204867,
+      "role": "Right actual multi-view body input: no bow, quiver retained"
+    },
+    {
+      "path": "assets/miniatures/references/varis/head.png",
+      "sha256": "cc95621ac025ccffb288188bbb47a321e981a19457bdb3f03c5781b610d4d560",
+      "bytes": 1760685,
+      "role": "Actual selected separate face and hair reconstruction input"
+    },
+    {
+      "path": "assets/miniatures/previews/druk-three-quarter.png",
+      "sha256": "c63d2adfb77cdda5043c259288d99568f62d846eea5c382082d0eac053b007a2",
+      "bytes": 2197360,
+      "role": "Actual accepted Druk model full three-quarter render"
+    },
+    {
+      "path": "assets/miniatures/previews/druk-grip-front.png",
+      "sha256": "29d3aa4aed96ee30cc88c75c9772581631d166391a62050640e5529c33b8e967",
+      "bytes": 2779982,
+      "role": "Actual accepted Druk grip and wrist front render"
+    },
+    {
+      "path": "assets/miniatures/previews/druk-grip-side.png",
+      "sha256": "f1d7b5e7ab3681a76f8f32096dac56540db5b273f10df4059b1f25fb1af751a1",
+      "bytes": 2718409,
+      "role": "Actual accepted Druk grip and wrist side render"
+    },
+    {
+      "path": "assets/miniatures/previews/varis-head-front.png",
+      "sha256": "5eff05ab3faef501431b784a5ef3d10f10aa3a108a1bf18913b91fcb6a1f4dce",
+      "bytes": 1346213,
+      "role": "Actual corrected Varis head front render under normal lighting"
+    },
+    {
+      "path": "assets/miniatures/previews/varis-head-side.png",
+      "sha256": "77efd235fee6734764e1854e7ea2a9e1b53258422eea17a6277d662ca68505bd",
+      "bytes": 1286840,
+      "role": "Actual corrected Varis head side render under normal lighting"
+    },
+    {
+      "path": "assets/miniatures/previews/varis-head-albedo-front.png",
+      "sha256": "3721da250cde9b2e48ffaee03922fba82d3c4e3afda02bce7ef074e623bd6b44",
+      "bytes": 1268411,
+      "role": "Actual corrected Varis base-color front diagnostic independent of scene lighting"
+    },
+    {
+      "path": "assets/miniatures/previews/varis-head-albedo-right.png",
+      "sha256": "39287a90b6dd429b95aa7b58d7c9bbf40c49160ce7169ffbdfbef74d637cef68",
+      "bytes": 1224683,
+      "role": "Actual corrected Varis base-color right diagnostic independent of scene lighting"
+    }
+  ],
+  "provenance": {
+    "referenceArt": "Selected synthetic raster references were generated or edited with the built-in image-generation tool. All packaged files are exact copies of the actual selected inputs or paint sources.",
+    "druk": "The original body comes from the transparent body-cutout input. The medium-hair head, selected local pauldron paint, replacement sword and four-view hand reconstruction were developed separately and fitted into the preserved static figure.",
+    "varis": "The original body uses the four selected no-bow references while retaining the quiver. A separately generated detailed head was fitted into the retained body, followed by the native vertex-color beard-tone correction.",
+    "multiViewLimits": "Synthetic views are matching-view attempts rather than exact measured camera rotations; silhouette drift was evaluated on actual reconstructed meshes.",
+    "generationLimits": "Hunyuan3D-2mv was used for the selected four-view reconstructions. The installed Hunyuan3D 2.1 worker accepted some seed and quality request fields without forwarding them, so those settings are not proof of enforced output quality or reproducibility.",
+    "previewEvidence": "Every packaged preview is a render of an accepted model, with the albedo views explicitly showing color independently of scene lighting.",
+    "exclusions": [
+      "No raw map upload, map-background preview, packed map scene, campaign data, server state, rejected asset, temporary file or earlier model version is included."
+    ]
+  }
+}

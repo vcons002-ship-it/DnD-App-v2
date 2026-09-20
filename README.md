@@ -23,6 +23,10 @@ via `PUBLIC_URL`).
 > Up next is deeper AI assistance (spell resolution, rules lookup, enemy
 > dialogue). See [`ROADMAP.md`](ROADMAP.md).
 
+## Accepted 3D miniature assets (offline review)
+
+The accepted Druk and Varis models, selected reference art, previews, and validation/rendering instructions are in [assets/miniatures](assets/miniatures/README.md). Their [generation workflow](docs/token-generation/WORKFLOW.md) records how the models were reconstructed and refined. These Git LFS assets are not enabled in the live VTT and do not change campaign data or existing token behavior.
+
 ## Easiest install (one click)
 
 You don't need to know any commands. The installer checks for and installs
