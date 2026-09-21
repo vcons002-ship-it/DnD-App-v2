@@ -8,6 +8,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ### Character miniatures — September 2026
 
+- [x] DM view parity verified: all three 3D miniatures, 2D/3D and Overhead/45-degree
+  controls, reload persistence, and independence from connected players.
+
 - ☑ Vanec's staff and palm lightning have luminous cores and crimson halos;
   accepted spells/cantrips trigger a shared 2.4-second charge and fade, with
   visibility filtering and a restrained reduced-motion highlight.
