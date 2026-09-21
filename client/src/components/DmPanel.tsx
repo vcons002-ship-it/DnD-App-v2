@@ -227,7 +227,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
 
   return (
     <div className="panel">
-      <div className="panel-section" hidden={section === 'spawn'}>
+      {section !== 'spawn' && <div className="panel-section">
         <h3>Maps</h3>
         <div className="map-list">
           {snapshot.maps.map((m, i) => (
@@ -374,9 +374,9 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="panel-section" hidden={section === 'maps'}>
+      {section !== 'maps' && <div className="panel-section">
         <h3>Spawn</h3>
         {pending && (
           <p className="hint">
@@ -538,7 +538,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
             </p>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

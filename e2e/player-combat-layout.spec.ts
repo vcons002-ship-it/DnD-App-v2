@@ -224,7 +224,7 @@ test('DM opens initiative and the full combat inspector from its compact workspa
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
   await page.getByRole('button', { name: 'Initiative', exact: true }).click();
   await page.locator('.init-row').filter({ hasText: 'Druk' }).click();
-  const left = page.locator('.side.left');
+  const left = page.locator('.side.left:visible');
   const right = page.locator('.side.right');
   await expect(left).toBeVisible();
   await expect(right).toBeVisible();

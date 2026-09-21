@@ -96,6 +96,7 @@ export function DmView() {
             selectedIds={selectedIds}
             activeTurnTokenId={snapshot.activeTurnTokenId}
             onSelectToken={handleSelect}
+            onSelectTokens={setSelectedIds}
             onMoveToken={handleMove}
             onPlaceAt={
               pending && snapshot.map

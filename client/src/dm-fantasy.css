@@ -35,13 +35,13 @@
 .dm-tool span { font-size: 10px; font-weight: 600; }
 .dm-tool:hover, .dm-tool.on { border-color: #e6c686; background: linear-gradient(135deg,#524633,#23251f); color: #f5dfb5; }
 .dm-window { background: linear-gradient(135deg,#242629f7,#11161bfa 65%); border: 1px solid #92784e !important; border-radius: 6px; box-shadow: inset 0 0 0 3px #12161b, inset 0 0 0 4px #403a30, 0 16px 40px #0009; }
-.dm-fantasy .dm-window.side:is(.left, .right) { position: absolute; top: 66px; bottom: 90px; z-index: 25; max-width: calc(100% - 115px); min-height: 0; display: flex; flex-direction: column; }
-.dm-fantasy .dm-workspace.side { left: 96px; }
-.dm-fantasy .dm-inspector.side { right: 14px; width: 360px; }
+.dm-fantasy .dm-window.side:is(.left, .right) { position: absolute; --dm-column-top: 66px; --dm-column-bottom: 90px; --dm-panel-height: calc((100% - var(--dm-column-top) - var(--dm-column-bottom) - (var(--dm-panel-count) - 1) * 8px) / var(--dm-panel-count)); top: calc(var(--dm-column-top) + var(--dm-panel-index) * (var(--dm-panel-height) + 8px)); height: var(--dm-panel-height); bottom: auto; z-index: 25; max-width: calc(100% - 115px); min-height: 0; display: flex; flex-direction: column; }
+.dm-fantasy .dm-window.side.left { left: 96px; right: auto; }
+.dm-fantasy .dm-window.side.right { right: 14px; left: auto; }
 .dm-window-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 17px 12px; gap: 12px; border-bottom: 1px solid #72604488; flex-shrink: 0; }
 .dm-window-header small { font-size: 9px; letter-spacing: .16em; color: #b89c68; }
 .dm-window-header h2 { font: 500 19px 'Cinzel HUD', Georgia, serif; margin: 4px 0 0; color: #f0dfb8; overflow-wrap: anywhere; }
-.dm-window-header > .btn { font-size: 22px; min-width: 34px; min-height: 34px; padding: 0; }
+.dm-window-actions > .btn { font-size: 22px; min-width: 34px; min-height: 34px; padding: 0; }
 .dm-window-content { overflow: auto; min-height: 0; flex: 1; overscroll-behavior: contain; padding: 4px; }
 .dm-window .panel-section { padding: 13px; }
 .dm-window h3 { font: 600 14px 'Cinzel HUD', Georgia, serif; color: #ddc393; }
@@ -67,14 +67,14 @@
 .dm-turn-summary .muted { font-size: 10px; }
 .dm-next-turn { white-space: nowrap; min-height: 36px; }
 .dm-resize { position: absolute; top: 80px; bottom: 10px; right: -5px; width: 10px; background: transparent; border: 0; cursor: ew-resize; touch-action: none; }
-.dm-inspector .dm-resize { left: -5px; right: auto; }
+.dm-window.side.right .dm-resize { left: -5px; right: auto; }
 .dm-resize:hover { border-right: 2px solid #d6b678; }
 .dm-fantasy .dm-undo { top: auto !important; right: 14px !important; bottom: 104px; z-index: 27 !important; max-width: 240px; }
 .dm-fantasy .placement-banner { z-index: 28; }
 @media (max-width: 999px) {
   .dm-fantasy .topbar .code { display: none; }
   .dm-fantasy .session-title { max-width: 180px; }
-  .dm-fantasy .dm-inspector.side { left: 96px; right: auto; width: 380px; }
+  .dm-fantasy .dm-window.side.right { left: 96px; right: auto; }
 }
 @media (max-width: 600px) {
   .dm-fantasy > .topbar { padding: 7px 10px; gap: 7px; }
@@ -87,7 +87,7 @@
   .dm-tool { width: 55px; min-height: 56px; }
   .dm-tool svg { width: 23px; height: 23px; }
   .dm-tool span { font-size: 9px; }
-  .dm-fantasy .dm-window.side:is(.left, .right) { top: 93px; left: 72px; right: 8px; bottom: 90px; max-width: calc(100% - 80px); width: calc(100% - 80px) !important; }
+  .dm-fantasy .dm-window.side:is(.left, .right) { --dm-column-top: 93px; left: 72px; right: 8px; max-width: calc(100% - 80px); width: calc(100% - 80px) !important; }
   .dm-window-header { padding: 11px; }
   .dm-window-header h2 { font-size: 16px; }
   .dm-resize { display: none; }
@@ -97,3 +97,11 @@
   .dm-turn-summary strong { max-width: 140px; font-size: 13px; }
   .dm-fantasy .dm-undo { bottom: 110px; font-size: 10px; }
 }
+
+.dm-window-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.dm-window-actions .dm-pin { display: grid; place-items: center; }
+.dm-pin svg { width: 18px; height: 18px; }
+.dm-window-header > div:first-child { min-width: 0; }
+.dm-window-content { scrollbar-gutter: stable; }
+
+.dm-selection-box { position: absolute; z-index: 5; pointer-events: none; border: 1px solid #edd093; background: #d3b57224; box-shadow: 0 0 0 1px #18171699; }

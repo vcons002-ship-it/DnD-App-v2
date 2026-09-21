@@ -7,6 +7,8 @@ const ROW = (keys: string, what: string) => ({ keys, what });
 const DESKTOP = [
   ROW('Left-click a token', 'Select it (right panel shows its sheet / actions)'),
   ROW('Shift / Ctrl-click', 'Add to a multi-selection'),
+  ROW('Ctrl-drag (DM)', 'Box-select token bases; hold Shift as well to add to the selection. Esc cancels.'),
+  ROW('Pin a DM panel', 'Keep it open; additional panels stack in the same column. Unpin or close to free the space.'),
   ROW('Drag a token', 'Move it (DM: anything · player: your PC + friendly creatures)'),
   ROW('Double-click a token', 'Open its read-only details (players)'),
   ROW('Right-click a token', 'Floating action menu + sets it as your Combat-section target'),

@@ -13,7 +13,8 @@ retains its own controls and all existing server-authoritative actions.
 - Campaign-wide actions move into a native disclosure menu. Map measurement,
   fog, annotation and tile tools remain in the toolbar.
 - On narrow screens the drawers avoid the tool rail. Picking a spawn closes the
-  drawer to expose the map; the inspector and workspace open one at a time.
+  drawers to expose the map; without pins, opening a panel replaces the previous
+  panel. Pinned panels can share a column on narrow screens too.
 - A campaign with no map opens Maps immediately. Existing sidebar preferences
   are left intact for the separate data/library views, which retain their layout.
 - The same full-resolution models and Overhead/45-degree and 2D/3D preferences
@@ -33,9 +34,43 @@ server, and a PR is opened only on request.
 
 - Server/client typechecks and production build passed.
 - 609 unit tests across 65 files passed.
-- Final complete browser suite: 115 passed in 3.9 minutes.
+- Complete browser suite after pinning and box selection: 118 passed in 4.0 minutes.
 - Desktop and 430px phone viewport captures reviewed, including corrected drawer
   placement beside the tool rail. Phone behavior is browser emulation.
 - Campaign-style walkthrough: 1920x1080 H.264, 25.57 seconds, no browser errors.
 
 [DM workspace walkthrough](https://dnd.nic024i.app/uploads/dm-workspace-tour-18285d9b0028.mp4)
+
+## Pinned panels and box selection
+
+Every panel header has a Pin button, including the token inspector. The first
+pinned panel determines the column. Opening another panel divides that column's
+available height equally, with an 8px gap and an independent content scrollbar
+for each panel. Pin additional panels to retain them when opening a third tool.
+Closing a panel also removes its pin; unpinning leaves it open until replaced.
+Pins and their order persist in this browser per campaign. Panel instances stay
+mounted through column changes, preserving map, creature and chat drafts.
+
+Hold Ctrl and drag the mouse on the battlefield to select tokens whose base
+centers fall inside the rectangle. Ctrl+Shift-drag adds to the selection;
+Ctrl-click retains the existing individual toggle. Escape cancels a held box.
+The same selection feeds the existing group inspector and bulk actions.
+
+The rectangle uses screen coordinates and compares projected base centers,
+including the 45-degree perspective transform. Captured pointer events prevent
+map panning or token dragging while drawing the box. It is available in normal
+DM map interaction; placement, measurement, fog, tile and save-resolution modes
+retain their own gestures. Players retain their existing controls.
+
+Browser coverage checks two- and three-panel layouts, pin restoration, retained
+drafts, right-column and phone layouts, base selection in both views, additive
+and reverse drags, Ctrl-click, cancellation, unchanged token state and unchanged
+camera position. Preview uses the production client with a disposable campaign
+copy, Druk, Varis, Vanec and six monsters.
+
+The new recording is 22.8 seconds of 1920x1080 H.264 with no browser errors.
+Its full decode passed, a decoded frame and desktop/phone captures were reviewed,
+and the public download matches the local SHA-256. Typechecks, all 609 unit
+tests, the production build and all 118 browser tests passed for this revision.
+
+[Pinned panels and box selection demonstration](https://dnd.nic024i.app/uploads/dm-pins-selection-073cc5a86daf.mp4)
