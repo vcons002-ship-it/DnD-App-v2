@@ -12,6 +12,14 @@ player's browser and never broadcast to other players; it applies across maps
 and sessions on that browser. Switching preserves the current zoom and center
 point. Flat mode uses a true overhead camera and a square, uncompressed grid.
 
+The separate **Tokens: 2D / 3D** buttons beside the view controls choose token
+appearance. 3D is the default; 2D restores the original token art, names and
+crowns. This preference is saved per player in that browser and does not change
+anyone else's view, camera angle, token position or facing. Selecting 2D unloads
+the miniature renderer; reloading with 2D selected skips model downloads.
+Selecting 3D loads the models again, with the existing portrait fallback while
+they load or if rendering fails. The DM has the same local choice.
+
 Existing map pixels remain
 the authoritative coordinates: Konva projects the ground with a cosine Y scale,
 and an orthographic Three.js camera uses the same projection. Measurements,

@@ -429,6 +429,55 @@ test('overhead is the default; each player can persist overhead or 45 degrees wi
   } finally { await otherContext.close(); }
 });
 
+test('2D and 3D token choices persist per player without changing tilt or token state', async ({ page, browser, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  await enter(page, setup.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  const before = (await tokenView(page, druk.id))!;
+  const otherContext = await browser.newContext({ baseURL: `http://localhost:${PORT}` });
+  try {
+    const other = await otherContext.newPage();
+    await enter(other, setup.code, 'Varis', false);
+    await expect(other.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await expect(page.getByTestId('miniature-layer')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '2D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const flatToken = (await tokenView(page, druk.id))!;
+    expect(flatToken.bodyVisible).toBe(true);
+    expect(flatToken.texts).toContain('Druk');
+    expect([flatToken.x, flatToken.y, flatToken.scaleX, flatToken.scaleY]).toEqual([before.x, before.y, before.scaleX, before.scaleY]);
+    await expect(other.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3');
+    let modelRequests = 0;
+    page.on('request', req => { if (req.url().endsWith('.glb')) modelRequests++; });
+    await page.reload();
+    await expect(page.getByRole('button', { name: '2D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Tilted battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('miniature-layer')).toHaveCount(0);
+    expect(modelRequests).toBe(0);
+    const pos = (await tokenView(page, druk.id))!;
+    await page.mouse.move(pos.x, pos.y); await page.mouse.down();
+    await page.mouse.move(pos.x + 50 * pos.scaleX, pos.y, { steps: 10 }); await page.mouse.up();
+    await expect.poll(async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.x).toBeGreaterThan(druk.x + 45);
+    const moved = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+    await page.setViewportSize({ width: 430, height: 932 });
+    for (const name of ['2D tokens', '3D tokens']) {
+      const box = await page.getByRole('button', { name, exact: true }).boundingBox();
+      expect(box).toBeTruthy(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(430);
+    }
+    await page.screenshot({ path: info.outputPath('mobile-2d-token-controls.png') });
+    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    expect((await tokenView(page, druk.id))!.texts).not.toContain('Druk');
+    expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)).toEqual(moved);
+    await page.reload();
+    await expect(page.getByRole('button', { name: '3D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  } finally { await otherContext.close(); }
+});
+
 test('failed model download keeps the original usable token', async ({ page, request }) => {
   const setup = await fixture(page, request);
   await page.route('**/miniatures/*.glb', route => route.abort());
