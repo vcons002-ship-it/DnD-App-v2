@@ -876,3 +876,85 @@ for (const tilted of [false, true]) test(`DM Ctrl-drag selects bases without mov
   await expect(inspector.getByRole('heading', { name: '2 tokens selected', level: 2 })).toBeVisible();
   expect((await setup.snapshot()).tokens).toEqual(before.tokens);
 });
+
+test('players and DM size miniatures through the character panel and fit a five-foot base at either map scale', async ({ page, request, browser }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  await enter(page, setup.code, 'Druk', false);
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  const dmContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const dm = await dmContext.newPage();
+  try {
+    await dm.goto(`/dm?code=${setup.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    const dmPoint = (await tokenView(dm, druk.id))!;
+    await dm.mouse.click(dmPoint.x, dmPoint.y);
+    const dmSize = dm.getByRole('region', { name: '3D figure size', exact: true });
+    const openCharacter = async () => page.locator('.hud-actions').getByRole('button', { name: 'Character', exact: true }).click();
+    await openCharacter();
+    const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
+    const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
+    const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
+    await expect(playerInput).toHaveValue('5');
+    const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.widthFt;
+    const renderedDiameter = async (target: Page) => (await tokenView(target, druk.id))!.healthBars[0].width;
+    await playerInput.fill('7.5'); await playerInput.press('Enter');
+    await expect.poll(width).toBe(7.5);
+    await expect(dmInput).toHaveValue('7.5');
+    await expect.poll(() => renderedDiameter(page)).toBe(150);
+    await expect.poll(() => renderedDiameter(dm)).toBe(150);
+    await playerSize.getByRole('button', { name: 'Fit to map', exact: true }).click();
+    await expect.poll(width).toBe(5);
+    // Clicking Fit while the field has an uncommitted edit must win over blur.
+    await playerInput.fill('9');
+    await playerSize.getByRole('button', { name: 'Fit to map', exact: true }).click();
+    await expect(dmInput).toHaveValue('5'); await expect(playerInput).toHaveValue('5');
+    await expect.poll(() => renderedDiameter(page)).toBe(100);
+    await dmInput.fill('8'); await dmInput.press('Enter');
+    await expect(playerInput).toHaveValue('8');
+    await dmSize.getByRole('button', { name: 'Fit to map', exact: true }).click();
+    await expect(playerInput).toHaveValue('5');
+    await page.screenshot({ path: info.outputPath('player-figure-size.png') });
+    await page.getByRole('button', { name: 'Close character window' }).click();
+    // Ten feet per 100-pixel square: a five-foot base is half a square, in both cameras.
+    setup.socket.emit('map:setGrid', { mapId: setup.mapId, gridSizePx: 100, feetPerSquare: 10, widthFt: 120, locked: false });
+    await expect.poll(() => renderedDiameter(page)).toBe(50);
+    await expect.poll(() => renderedDiameter(dm)).toBe(50);
+    for (const target of [page, dm]) {
+      await target.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+      await afterPaint(target);
+      const v = (await tokenView(target, druk.id))!;
+      expect(v.miniatureReady).toBe(true);
+      // Real Konva hit testing uses the resized round base; decoration cannot enlarge it.
+      const hitAt = async (dx: number) => target.evaluate(({ id, dx }) => {
+        const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
+        const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
+        const point = node.getAbsoluteTransform().point({ x: dx, y: 0 });
+        return stage.getIntersection(point)?.findAncestor('.token', true)?.getAttr('tokenId') ?? null;
+      }, { id: druk.id, dx });
+      expect(await hitAt(20)).toBe(druk.id); expect(await hitAt(30)).not.toBe(druk.id);
+    }
+    const placed = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+    expect(placed).toMatchObject({ x: druk.x, y: druk.y, facing: druk.facing, widthFt: 5 });
+    await dmSize.scrollIntoViewIfNeeded();
+    await dm.screenshot({ path: info.outputPath('dm-figure-size.png') });
+    await openCharacter();
+    await playerSize.getByRole('button', { name: 'Larger figure', exact: true }).click();
+    await expect.poll(width).toBe(5.5);
+    await page.reload();
+    await expect(page.getByTestId('player-hud')).toBeVisible();
+    await openCharacter();
+    await expect(playerInput).toHaveValue('5.5');
+    await page.setViewportSize({ width: 430, height: 932 });
+    await playerSize.scrollIntoViewIfNeeded();
+    const button = playerSize.getByRole('button', { name: 'Fit to map', exact: true });
+    const b = (await button.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0); expect(b.x + b.width).toBeLessThanOrEqual(430);
+    await button.click(); await expect.poll(width).toBe(5);
+    await page.screenshot({ path: info.outputPath('phone-figure-size.png') });
+  } finally { await dmContext.close(); }
+});

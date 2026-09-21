@@ -123,7 +123,8 @@ export function PlayerPanel({
             conditions={mine.conditions}
             collapsibleEditor
           />
-          <CharacterSheet character={mine} editable />
+          <CharacterSheet character={mine} editable
+            miniatureToken={snapshot.tokens.find(t => t.kind === 'pc' && t.refId === mine.id) ?? null} />
         </div>
       )}
 

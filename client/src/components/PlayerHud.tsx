@@ -114,6 +114,7 @@ function CharacterWindow({
       >
         {tab === 'Character' && (
           <CharacterSheet character={character} editable abilitiesElsewhere
+            miniatureToken={snapshot.tokens.find(t => t.kind === 'pc' && t.refId === character.id) ?? null}
             resourceManagementControl={<PlayerResourceRowEditor character={character} />}
             resourceDisplayControl={(name) => resourceSigilPresentation('resources', name).kind !== 'custom' ? null : (
               <label className="custom-resource-preference" title="Checked: show beside the orb when space permits. Unchecked: keep this tracker in Additional resources.">

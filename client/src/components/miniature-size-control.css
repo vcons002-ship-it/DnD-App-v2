@@ -1,0 +1,8 @@
+.miniature-size-control { margin: 0 0 14px; padding: 12px; border: 1px solid var(--line); border-radius: 5px; }
+.miniature-size-control h4 { margin: 0 0 10px; }
+.miniature-size-control > label { display: block; margin-bottom: 6px; font-size: 12px; }
+.miniature-size-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.miniature-size-actions input { width: 72px; min-width: 0; }
+.miniature-size-actions :is(button, input) { min-height: 36px; }
+.miniature-size-actions .miniature-fit { white-space: nowrap; }
+.miniature-size-control > p { margin: 8px 0 0; font-size: 12px; line-height: 1.5; }

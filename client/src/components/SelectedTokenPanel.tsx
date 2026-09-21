@@ -7,6 +7,7 @@ import type {
   Token,
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
+import { resolveMiniature } from '../lib/miniatures';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
@@ -413,6 +414,7 @@ export function SelectedTokenPanel({
           character={character}
           editable={canEditCharacter}
           abilitiesElsewhere
+          miniatureToken={token}
         />
       ),
     });
@@ -517,7 +519,7 @@ export function SelectedTokenPanel({
         onTemp={(amt) => setTempHp(token.kind, token.refId, amt)}
       />
 
-      <div className="size-row">
+      {!resolveMiniature(d.name, token.kind) && <div className="size-row">
         <span>Size</span>
         <button
           className="btn"
@@ -549,7 +551,7 @@ export function SelectedTokenPanel({
         >
           +
         </button>
-      </div>
+      </div>}
 
       <ReorderableSections
         storageKey={`tokenPanel:${snapshot.role}:${entityKind}:${snapshot.sessionCode}`}

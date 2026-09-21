@@ -717,7 +717,14 @@ export function registerSocketHandlers(io: IOServer): void {
     });
 
     on('token:resize', ({ tokenId, widthFt }) => {
-      if (!isDm()) return; // resizing is a DM action; players may only move
+      const sid = sessionId(), token = getToken(tokenId);
+      if (!sid || !token || getMap(token.mapId)?.sessionId !== sid || !Number.isFinite(widthFt)) return;
+      if (!isDm()) {
+        const character = token.kind === 'pc' ? getCharacter(token.refId) : null;
+        // A player adjusts only their own visible placement on the active map.
+        if (token.isHidden || token.mapId !== getActiveMapId(sid) || !character ||
+          character.sessionId !== sid || character.claimedBy !== socket.id) return;
+      }
       resizeToken(tokenId, widthFt);
       afterChange();
     });

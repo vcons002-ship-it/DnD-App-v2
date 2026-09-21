@@ -866,8 +866,12 @@
   gap: 16px 24px;
   align-items: start;
 }
-.player-fantasy .character-window-content .char-sheet > :first-child {
+.player-fantasy .character-window-content .char-sheet > .statblock {
   grid-row: span 4;
+}
+.player-fantasy .character-window-content .char-sheet > .miniature-size-control {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
 }
 .player-fantasy .character-window-content .items {
   grid-column: 1 / -1;
