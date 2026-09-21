@@ -745,7 +745,7 @@ test('DM workspace keeps drafts, spawning, turns and mobile tools usable', async
   await page.setViewportSize({ width: 430, height: 932 });
   await page.getByRole('button', { name: 'Creatures', exact: true }).click();
   const box = (await drawer.boundingBox())!;
-  expect(box.x).toBeGreaterThanOrEqual(72); expect(box.x + box.width).toBeLessThanOrEqual(430);
+  expect(box.x).toBe(8); expect(box.width).toBe(414);
   await drawer.locator('.spawn-row').filter({ hasText: 'Druk' }).click();
   await expect(drawer).toBeHidden();
   const token = setup.ready.tokens[0], point = offsetPoint((await tokenView(page, token.id))!, 300, 180);
@@ -778,6 +778,11 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   await page.getByRole('button', { name: 'Maps', exact: true }).click();
   const maps = page.getByRole('complementary', { name: 'Maps', exact: true });
   const full = (await maps.boundingBox())!;
+  const menu = (await page.getByRole('navigation', { name: 'DM tools' }).boundingBox())!;
+  const viewControls = (await page.locator('.stage-controls').boundingBox())!;
+  expect(full.x).toBe(14); expect(menu.x).toBe(full.x);
+  expect(menu.y + menu.height).toBeLessThan(full.y);
+  expect(menu.x + menu.width).toBeLessThan(viewControls.x);
   await maps.getByPlaceholder('Map name (optional)').fill('Pinned draft');
   await maps.getByRole('button', { name: 'Pin Maps', exact: true }).click();
   await page.getByRole('button', { name: 'Creatures', exact: true }).click();
@@ -808,9 +813,20 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   expect((await initiative.boundingBox())!.x).toBe((await inspector.boundingBox())!.x);
   await page.setViewportSize({ width: 430, height: 932 });
   const mobile = (await initiative.boundingBox())!;
-  expect(mobile.x).toBeGreaterThanOrEqual(72); expect(mobile.x + mobile.width).toBeLessThanOrEqual(430);
+  expect(mobile.x).toBe(8); expect(mobile.width).toBe(414);
   expect(mobile.y).toBeGreaterThanOrEqual((await inspector.boundingBox())!.y + (await inspector.boundingBox())!.height);
   await page.screenshot({ path: info.outputPath('dm-mobile-pinned.png') });
+  for (const width of [320, 760, 999]) {
+    await page.setViewportSize({ width, height: 932 });
+    const menuBox = (await page.getByRole('navigation', { name: 'DM tools' }).boundingBox())!;
+    const controlsBox = (await page.locator('.stage-controls').boundingBox())!;
+    const panelBox = (await inspector.boundingBox())!;
+    expect(menuBox.y + menuBox.height).toBeLessThan(controlsBox.y);
+    expect(controlsBox.y + controlsBox.height).toBeLessThan(panelBox.y);
+    expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
+    await expect(page.getByRole('button', { name: 'Maps', exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`dm-menu-${width}.png`) });
+  }
 });
 
 for (const tilted of [false, true]) test(`DM Ctrl-drag selects bases without moving tokens or panning (${tilted ? '45 degrees' : 'overhead'})`, async ({ page, request }, info) => {

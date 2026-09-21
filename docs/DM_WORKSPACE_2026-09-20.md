@@ -4,7 +4,7 @@ The DM battlefield now fills the available workspace. The charcoal panels, gold
 borders and locally bundled Cinzel headings match the player HUD, while the DM
 retains its own controls and all existing server-authoritative actions.
 
-- A labeled tool rail opens Maps, Creatures, Initiative, and Chat & dice.
+- A compact top-left button row opens Maps, Creatures, Initiative, and Chat & dice.
 - The token inspector opens on selection or the existing inspect action. Both
   panels close explicitly and resize with pointer or keyboard; widths persist
   locally per campaign. Hidden panels stay mounted to preserve in-progress input.
@@ -12,7 +12,7 @@ retains its own controls and all existing server-authoritative actions.
   requiring an open initiative panel. Full encounter management remains inside.
 - Campaign-wide actions move into a native disclosure menu. Map measurement,
   fog, annotation and tile tools remain in the toolbar.
-- On narrow screens the drawers avoid the tool rail. Picking a spawn closes the
+- On narrow screens the drawers sit below the menu and view controls. Picking a spawn closes the
   drawers to expose the map; without pins, opening a panel replaces the previous
   panel. Pinned panels can share a column on narrow screens too.
 - A campaign with no map opens Maps immediately. Existing sidebar preferences
@@ -74,3 +74,20 @@ and the public download matches the local SHA-256. Typechecks, all 609 unit
 tests, the production build and all 118 browser tests passed for this revision.
 
 [Pinned panels and box selection demonstration](https://dnd.nic024i.app/uploads/dm-pins-selection-073cc5a86daf.mp4)
+
+## Menu placement revision
+
+The five menu buttons now form a 44px-high horizontal row at the top left.
+Left panels start at the same 14px margin, recovering the 82px previously used
+by the separate vertical menu column. Desktop view controls remain at the top
+right. Below 1000px, the controls sit below the menu; phone panels use the full
+width between 8px margins. At 320px the wrapped controls retain clearance above
+the panels. Pinning, saved widths, drafts and box selection keep their behavior.
+
+Production build, typechecks, 609 unit tests and the five focused DM browser
+tests passed for this CSS revision. Existing browser assertions cover menu,
+view-control and panel separation at desktop, tablet and phone widths, including
+320px. Reviewed campaign preview: 25 seconds, 1920x1080 H.264, no browser errors,
+successful full decode and hash-verified public download.
+
+[Top-left menu preview](https://dnd.nic024i.app/uploads/dm-top-menu-f279014c1c45.mp4)

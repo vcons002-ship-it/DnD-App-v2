@@ -17,6 +17,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   expose the map; existing 2D/3D and Overhead/45-degree choices remain independent.
 - [x] Pin DM panels to keep them open while additional panels share the same
   column vertically, with independent scrolling and locally saved pins.
+- [x] DM menu buttons form a compact top-left row, freeing the left edge for
+  windows; narrow screens place view controls below the row without overlap.
 - [x] Ctrl-drag selects token base centers in overhead and tilted views;
   Ctrl+Shift-drag adds to selection, Ctrl-click toggles, and Escape cancels.
 
