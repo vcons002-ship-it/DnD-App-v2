@@ -6,8 +6,8 @@ import { InitiativePanel } from '../components/InitiativePanel';
 import { SelectedTokenPanel } from '../components/SelectedTokenPanel';
 import { BulkActionsPanel } from '../components/BulkActionsPanel';
 import { DicePanel } from '../components/DicePanel';
-import { SidePanel } from '../components/SidePanel';
-import { ReorderableSections } from '../components/ReorderableSections';
+import { DmWorkspace } from '../components/DmWorkspace';
+import '../dm-fantasy.css';
 import { PlacementBanner } from '../components/PlacementBanner';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
@@ -68,54 +68,14 @@ export function DmView() {
   if (!snapshot) return <div className="loading">Loading…</div>;
 
   return (
-    <div className="layout">
-      <TopToolbar snapshot={snapshot} />
+    <div className="layout dm-fantasy">
+      <TopToolbar snapshot={snapshot} compactDm />
 
       <div className="body">
-        {/* Layout prefs are namespaced by session code so campaigns don't share them. */}
-        <SidePanel side="left" storageKey={`dm-left:${snapshot.sessionCode}`}>
-          <ReorderableSections
-            storageKey={`dm-left-order:${snapshot.sessionCode}`}
-            sections={[
-              {
-                id: 'maps',
-                label: 'Maps & Spawn',
-                node: (
-                  <DmPanel
-                    snapshot={snapshot}
-                    pending={pending}
-                    onPickSpawn={(kind, refId) =>
-                      setPending((cur) =>
-                        cur?.refId === refId ? null : { kind, refId },
-                      )
-                    }
-                  />
-                ),
-              },
-              {
-                id: 'initiative',
-                label: 'Initiative',
-                node: (
-                  <InitiativePanel
-                    snapshot={snapshot}
-                    selectedTokenId={primaryId}
-                    onSelectToken={(t) => handleSelect(t, false)}
-                  />
-                ),
-              },
-              {
-                id: 'dice',
-                label: 'Dice, Log & Chat',
-                node: <DicePanel snapshot={snapshot} speakAsTokenId={primaryId} />,
-              },
-            ]}
-          />
-        </SidePanel>
-
         <main className="center">
           {snapshot.undoLabel && (
             <button
-              className="btn tiny"
+              className="btn tiny dm-undo"
               style={{ position: 'absolute', top: 8, right: 8, zIndex: 6 }}
               onClick={undo}
               title="Reverse the last destructive action (Ctrl+Z)"
@@ -146,27 +106,26 @@ export function DmView() {
           />
         </main>
 
-        <SidePanel
-          side="right"
-          storageKey={`dm-right:${snapshot.sessionCode}`}
+        <DmWorkspace
+          snapshot={snapshot}
+          selectedToken={selectedToken}
+          selectionCount={selectedIds.length}
           openSignal={rightPanelNudge}
-        >
-          {selectedIds.length > 1 ? (
-            <BulkActionsPanel
-              snapshot={snapshot}
-              selectedIds={selectedIds}
-              onClearSelection={() => setSelectedIds([])}
-            />
-          ) : selectedToken ? (
-            <SelectedTokenPanel
-              snapshot={snapshot}
-              token={selectedToken}
-              selectedIds={selectedIds}
-            />
-          ) : (
-            <p className="muted pad">Select a token to edit it.</p>
+          pending={pending}
+          mapsAndCreatures={(section) => (
+            <DmPanel snapshot={snapshot} section={section} pending={pending}
+              onPickSpawn={(kind, refId) => setPending(cur => cur?.refId === refId ? null : { kind, refId })} />
           )}
-        </SidePanel>
+          initiative={<InitiativePanel snapshot={snapshot} selectedTokenId={primaryId}
+            onSelectToken={t => handleSelect(t, false)} />}
+          chat={<DicePanel snapshot={snapshot} speakAsTokenId={primaryId} compact />}
+          inspector={selectedIds.length > 1 ? (
+            <BulkActionsPanel snapshot={snapshot} selectedIds={selectedIds}
+              onClearSelection={() => setSelectedIds([])} />
+          ) : selectedToken ? (
+            <SelectedTokenPanel snapshot={snapshot} token={selectedToken} selectedIds={selectedIds} />
+          ) : <div className="dm-empty"><h3>No token selected</h3><p>Select a figure or creature on the battlefield to manage its health, actions, and sheet.</p></div>}
+        />
       </div>
       <AiStatus />
       <ConnectionStatus />

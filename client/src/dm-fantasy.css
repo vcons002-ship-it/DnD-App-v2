@@ -1,0 +1,99 @@
+/* DM presentation shares the player's palette, while retaining the DM tools. */
+@font-face {
+  font-family: 'Cinzel HUD'; src: url('/fonts/Cinzel-Variable.ttf') format('truetype');
+  font-style: normal; font-weight: 400 900; font-display: swap;
+}
+.dm-fantasy {
+  --panel: #171a1f; --panel-2: #24252a; --line: #504738; --text: #eee7d8;
+  --muted: #b9b2a5; --accent: #cfb37c;
+  color: var(--text); color-scheme: dark; scrollbar-color: #766346 #171a1f;
+}
+.dm-fantasy [hidden] { display: none !important; }
+.dm-fantasy .body { display: block; isolation: isolate; }
+.dm-fantasy .center { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dm-fantasy .btn { border-radius: 4px; color: #eee5d2; border-color: #62533c; background: linear-gradient(#303034, #1c1e22); }
+.dm-fantasy .btn:hover { border-color: #dec087; background: linear-gradient(#454039, #25252a); }
+.dm-fantasy .btn.on, .dm-fantasy .btn.primary { background: linear-gradient(#57482c, #2b2923); border-color: #c8ab72; }
+.dm-fantasy .btn.danger { color: #f0a8a1; border-color: #84544a; }
+.dm-fantasy :is(button, summary, input, select, textarea):focus-visible { outline: 2px solid #e5c68c; outline-offset: 2px; }
+.dm-fantasy > .topbar { position: relative; z-index: 45; gap: 10px; padding: 9px 16px; background: linear-gradient(100deg, #222326, #12161b); border-bottom: 1px solid #756141; font-size: 12px; }
+.dm-fantasy .topbar > strong { font-family: 'Cinzel HUD', Georgia, serif; color: #dfc490; letter-spacing: .13em; padding-right: 10px; border-right: 1px solid #67563b; }
+.dm-fantasy .session-title { max-width: 240px; }
+.dm-fantasy .active-map { color: #cec3ad; }
+.dm-fantasy .topbar .map-tool-slot { order: 5; width: 100%; border-top: 1px solid #51483c66; padding-top: 7px; }
+.dm-fantasy .map-tool-menus { flex-wrap: wrap; }
+.dm-campaign-menu { margin-left: auto; position: relative; }
+.dm-campaign-menu > summary { list-style: none; cursor: pointer; padding: 7px 12px; }
+.dm-campaign-menu > summary::-webkit-details-marker { display: none; }
+.dm-campaign-menu .topbar-actions { position: absolute; top: calc(100% + 8px); right: 0; display: grid; width: 220px; padding: 10px; gap: 7px; background: #171b21; border: 1px solid #8c744d; box-shadow: 0 12px 32px #000a; border-radius: 5px; z-index: 60; }
+.dm-campaign-menu .btn { text-align: left; min-height: 34px; }
+.dm-fantasy .stage-controls { top: 12px; right: 14px; max-width: calc(100% - 32px); padding: 7px 9px; background: #14181deb; border: 1px solid #786340; border-radius: 4px; gap: 7px; }
+.dm-fantasy .stage-controls .btn { min-height: 28px; }
+.dm-tool-rail { position: absolute; top: 66px; left: 14px; display: flex; flex-direction: column; gap: 7px; z-index: 26; }
+.dm-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 70px; min-height: 62px; padding: 7px 4px; border: 1px solid #76613f; border-radius: 5px; background: linear-gradient(140deg,#292b2ded,#11161af5); color: #d7c397; cursor: pointer; box-shadow: inset 0 0 0 2px #12161a, 0 3px 10px #0006; }
+.dm-tool svg { width: 26px; height: 26px; }
+.dm-tool span { font-size: 10px; font-weight: 600; }
+.dm-tool:hover, .dm-tool.on { border-color: #e6c686; background: linear-gradient(135deg,#524633,#23251f); color: #f5dfb5; }
+.dm-window { background: linear-gradient(135deg,#242629f7,#11161bfa 65%); border: 1px solid #92784e !important; border-radius: 6px; box-shadow: inset 0 0 0 3px #12161b, inset 0 0 0 4px #403a30, 0 16px 40px #0009; }
+.dm-fantasy .dm-window.side:is(.left, .right) { position: absolute; top: 66px; bottom: 90px; z-index: 25; max-width: calc(100% - 115px); min-height: 0; display: flex; flex-direction: column; }
+.dm-fantasy .dm-workspace.side { left: 96px; }
+.dm-fantasy .dm-inspector.side { right: 14px; width: 360px; }
+.dm-window-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 17px 12px; gap: 12px; border-bottom: 1px solid #72604488; flex-shrink: 0; }
+.dm-window-header small { font-size: 9px; letter-spacing: .16em; color: #b89c68; }
+.dm-window-header h2 { font: 500 19px 'Cinzel HUD', Georgia, serif; margin: 4px 0 0; color: #f0dfb8; overflow-wrap: anywhere; }
+.dm-window-header > .btn { font-size: 22px; min-width: 34px; min-height: 34px; padding: 0; }
+.dm-window-content { overflow: auto; min-height: 0; flex: 1; overscroll-behavior: contain; padding: 4px; }
+.dm-window .panel-section { padding: 13px; }
+.dm-window h3 { font: 600 14px 'Cinzel HUD', Georgia, serif; color: #ddc393; }
+.dm-window h4 { color: #d3bc94; font-size: 12px; letter-spacing: .03em; }
+.dm-window .panel-section > h3:first-child { margin-top: 3px; }
+.dm-window .spawn-row, .dm-window .map-row { border-radius: 4px; }
+.dm-window .spawn-row { padding: 10px; }
+.dm-window .map-row { padding: 7px 4px; border-bottom: 1px solid #51483c66; }
+.dm-window .map-thumb { width: 58px; height: 42px; object-fit: cover; }
+.dm-window .badge { background: #364c3e; color: #c4ebcf; border: 1px solid #598267; }
+.dm-window .init-header { flex-wrap: wrap; gap: 8px; }
+.dm-window .init-actions { flex-wrap: wrap; }
+.dm-window .init-row { padding: 9px 6px; border-bottom: 1px solid #51483c66; }
+.dm-window .init-row.turn { background: #76603544; box-shadow: inset 3px 0 #cfaf6e; }
+.dm-window .init-row.sel { outline-color: #d6b574; }
+.dm-window .reorder-header { background: #26282ad9; }
+.dm-window .hint { color: #cab386; }
+.dm-empty { padding: 18px; line-height: 1.6; color: var(--muted); }
+.dm-turn-bar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 24; display: flex; align-items: center; gap: 24px; max-width: calc(100% - 32px); padding: 10px 14px; background: linear-gradient(110deg,#28292cec,#11161bf7); border: 1px solid #92784e; border-radius: 5px; box-shadow: 0 8px 25px #0007; }
+.dm-turn-summary { background: none; border: 0; color: var(--text); text-align: left; display: grid; grid-template-columns: auto auto; column-gap: 18px; row-gap: 2px; padding: 0; cursor: pointer; }
+.dm-turn-summary .dm-round { grid-row: span 2; align-self: center; font-size: 10px; letter-spacing: .08em; color: #d4b980; border-right: 1px solid #766340; padding-right: 18px; }
+.dm-turn-summary strong { font: 500 15px 'Cinzel HUD', Georgia, serif; white-space: nowrap; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+.dm-turn-summary .muted { font-size: 10px; }
+.dm-next-turn { white-space: nowrap; min-height: 36px; }
+.dm-resize { position: absolute; top: 80px; bottom: 10px; right: -5px; width: 10px; background: transparent; border: 0; cursor: ew-resize; touch-action: none; }
+.dm-inspector .dm-resize { left: -5px; right: auto; }
+.dm-resize:hover { border-right: 2px solid #d6b678; }
+.dm-fantasy .dm-undo { top: auto !important; right: 14px !important; bottom: 104px; z-index: 27 !important; max-width: 240px; }
+.dm-fantasy .placement-banner { z-index: 28; }
+@media (max-width: 999px) {
+  .dm-fantasy .topbar .code { display: none; }
+  .dm-fantasy .session-title { max-width: 180px; }
+  .dm-fantasy .dm-inspector.side { left: 96px; right: auto; width: 380px; }
+}
+@media (max-width: 600px) {
+  .dm-fantasy > .topbar { padding: 7px 10px; gap: 7px; }
+  .dm-fantasy .topbar .active-map { width: 100%; order: 3; font-size: 11px; }
+  .dm-fantasy .session-title { max-width: 145px; }
+  .dm-fantasy .stage-controls { left: 8px; right: 8px; top: 8px; max-width: none; justify-content: flex-start; gap: 4px; font-size: 11px; }
+  .dm-fantasy .stage-controls .btn { min-height: 32px; }
+  .dm-fantasy .stage-controls .battlefield-view-options > .muted { display: none; }
+  .dm-tool-rail { top: 93px; left: 8px; gap: 6px; }
+  .dm-tool { width: 55px; min-height: 56px; }
+  .dm-tool svg { width: 23px; height: 23px; }
+  .dm-tool span { font-size: 9px; }
+  .dm-fantasy .dm-window.side:is(.left, .right) { top: 93px; left: 72px; right: 8px; bottom: 90px; max-width: calc(100% - 80px); width: calc(100% - 80px) !important; }
+  .dm-window-header { padding: 11px; }
+  .dm-window-header h2 { font-size: 16px; }
+  .dm-resize { display: none; }
+  .dm-turn-bar { bottom: 10px; gap: 10px; padding: 9px 10px; width: max-content; }
+  .dm-turn-summary { column-gap: 10px; }
+  .dm-turn-summary .dm-round { padding-right: 10px; font-size: 9px; }
+  .dm-turn-summary strong { max-width: 140px; font-size: 13px; }
+  .dm-fantasy .dm-undo { bottom: 110px; font-size: 10px; }
+}

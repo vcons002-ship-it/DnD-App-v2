@@ -216,12 +216,13 @@ test('compact player combat keeps keyboard-operable targets, weapons, toggles an
   expect(errors).toEqual([]);
 });
 
-test('DM retains both sidebars, the original Combat section and uncompact action layout', async ({ page, request }) => {
+test('DM opens initiative and the full combat inspector from its compact workspace', async ({ page, request }) => {
   const fixture = await combatFixture(request);
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto(`/dm?code=${fixture.code}`);
   await page.locator('input[type=password]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+  await page.getByRole('button', { name: 'Initiative', exact: true }).click();
   await page.locator('.init-row').filter({ hasText: 'Druk' }).click();
   const left = page.locator('.side.left');
   const right = page.locator('.side.right');
@@ -235,8 +236,8 @@ test('DM retains both sidebars, the original Combat section and uncompact action
   await expect(right.locator('.combat-toggles')).toHaveCSS('display', 'flex');
   await expect(right.getByText('Next roll', { exact: true })).toBeVisible();
   await expect(right.getByLabel('Attack target')).toBeVisible();
-  expect((await left.boundingBox())!.width).toBe(300);
-  expect((await right.boundingBox())!.width).toBe(300);
+  expect((await left.boundingBox())!.width).toBe(360);
+  expect((await right.boundingBox())!.width).toBe(360);
 });
 
 test('damage dock stays clickable above open panels; spells use the same dock without recasting', async ({ page, request }) => {

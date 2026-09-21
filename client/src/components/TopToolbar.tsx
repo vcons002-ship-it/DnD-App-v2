@@ -11,7 +11,7 @@ import { EditableName } from './EditableName';
  * Shared top app bar: global actions (load session, settings, copy link) plus
  * the session info readout. Role-aware — players get info + leave only.
  */
-export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
+export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSnapshot; compactDm?: boolean }) {
   const disconnect = useStore((s) => s.disconnect);
   const renameSession = useStore((s) => s.renameSession);
   const navigate = useNavigate();
@@ -59,44 +59,8 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
     navigate(isDm ? '/dm' : '/join');
   };
 
-  return (
-    <header className="topbar">
-      <strong>{isDm ? 'DM' : 'Player'}</strong>
-      <span className="session-title">
-        {isDm ? (
-          <EditableName
-            value={snapshot.sessionName}
-            onSave={renameSession}
-            title="Rename campaign"
-          />
-        ) : (
-          snapshot.sessionName
-        )}
-      </span>
-      <span className="code">Code: {snapshot.sessionCode}</span>
-      {snapshot.round > 0 && (
-        <span className="round-chip" title="Combat round">
-          Round {snapshot.round}
-        </span>
-      )}
-      {myTurn && (
-        <button
-          className="btn tiny end-turn"
-          onClick={endTurn}
-          title="End your turn and advance initiative"
-        >
-          ⏭ End turn
-        </button>
-      )}
-      <span className="active-map">
-        {isDm ? 'Active' : 'Map'}: {isDm ? activeMap : snapshot.map?.name ?? '—'}
-        {prepping && <em> · prepping: {prepping}</em>}
-      </span>
-
-      {/* The map's Measure/Scale/Fog menus are portaled in here by MapStage. */}
-      <div id="map-tool-slot" className="map-tool-slot" />
-
-      <div className="topbar-actions">
+  const actions = (
+<div className="topbar-actions">
         <button className="btn tiny" onClick={leave} title="Load or import another session">
           {isDm ? 'Load session' : 'Leave'}
         </button>
@@ -157,6 +121,51 @@ export function TopToolbar({ snapshot }: { snapshot: StateSnapshot }) {
           </>
         )}
       </div>
+  );
+
+  return (
+    <header className="topbar">
+      <strong>{isDm ? 'DM' : 'Player'}</strong>
+      <span className="session-title">
+        {isDm ? (
+          <EditableName
+            value={snapshot.sessionName}
+            onSave={renameSession}
+            title="Rename campaign"
+          />
+        ) : (
+          snapshot.sessionName
+        )}
+      </span>
+      <span className="code">Code: {snapshot.sessionCode}</span>
+      {snapshot.round > 0 && (
+        <span className="round-chip" title="Combat round">
+          Round {snapshot.round}
+        </span>
+      )}
+      {myTurn && (
+        <button
+          className="btn tiny end-turn"
+          onClick={endTurn}
+          title="End your turn and advance initiative"
+        >
+          ⏭ End turn
+        </button>
+      )}
+      <span className="active-map">
+        {isDm ? 'Active' : 'Map'}: {isDm ? activeMap : snapshot.map?.name ?? '—'}
+        {prepping && <em> · prepping: {prepping}</em>}
+      </span>
+
+      {/* The map's Measure/Scale/Fog menus are portaled in here by MapStage. */}
+      <div id="map-tool-slot" className="map-tool-slot" />
+
+      {compactDm && isDm ? (
+        <details className="dm-campaign-menu">
+          <summary className="btn" aria-label="Campaign menu">Campaign <span aria-hidden="true">&#8964;</span></summary>
+          {actions}
+        </details>
+      ) : actions}
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}

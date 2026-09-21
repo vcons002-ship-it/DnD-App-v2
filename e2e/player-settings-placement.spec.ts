@@ -93,7 +93,7 @@ for (const scale of [.70, .85, 1.15]) {
   });
 }
 
-test('DM toolbar and original top-right map controls are unchanged', async ({ page, request }) => {
+test('DM map controls remain unobscured above the full-width battlefield', async ({ page, request }) => {
   const code = await fixture(request);
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto(`/dm?code=${code}`);
@@ -103,7 +103,7 @@ test('DM toolbar and original top-right map controls are unchanged', async ({ pa
   await expect(page.locator('.player-layout-controls')).toHaveCount(0);
   const stage = (await page.locator('.stage-wrap').boundingBox())!;
   const controls = (await page.locator('.stage-controls').boundingBox())!;
-  expect(controls.y - stage.y).toBeCloseTo(8, 0);
-  expect(stage.x + stage.width - controls.x - controls.width).toBeCloseTo(8, 0);
+  expect(controls.y - stage.y).toBeCloseTo(12, 0);
+  expect(stage.x + stage.width - controls.x - controls.width).toBeCloseTo(14, 0);
   await unobscured(page.getByTitle('Zoom in', { exact: true }));
 });
