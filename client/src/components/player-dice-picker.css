@@ -42,10 +42,16 @@
 .player-fantasy .stage-wrap .stage-controls {
   left: 188px;
 }
-@media (max-width: 800px) {
+@media (max-width: 1000px) {
   .player-fantasy .stage-wrap .stage-controls {
     left: 70px;
     top: 66px;
+    max-width: calc(100% - 78px);
+    gap: 3px;
+    padding-inline: 3px;
+  }
+  .player-fantasy .stage-controls .battlefield-view-options > span {
+    display: none;
   }
 }
 .player-fantasy .player-dice-picker .dice-picker-disclosure {
@@ -114,7 +120,7 @@
   padding: 4px 6px;
   font-size: 12px;
 }
-@media (max-width: 800px) {
+@media (max-width: 1000px) {
   /* A narrow hover bridge passes down the die's own lane, to the left of the
      zoom buttons. The card opens below that row, so neither the visible menu
      nor an invisible padded rectangle steals a zoom/fit click. */

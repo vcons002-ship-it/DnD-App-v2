@@ -1600,6 +1600,8 @@ export interface ServerToClientEvents {
   error: (err: ServerError) => void;
   notice: (payload: NoticePayload) => void;
   'fx:hp': (payload: { events: HpFxEvent[] }) => void;
+  /** Accepted cast, transient and filtered to tokens visible to this viewer. */
+  'fx:spellCast': (payload: { tokenIds: string[] }) => void;
   /** Live preview of ANOTHER user dragging a token: the token's in-progress
    *  position, so watchers can draw a ghost tether + distance. Ephemeral (never
    *  persisted), throttled by the sender, fanned out only to viewers who can see

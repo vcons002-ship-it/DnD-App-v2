@@ -148,11 +148,11 @@
 .player-fantasy .player-layout-options input[type='number'] { width: 65px; min-width: 0; padding: 3px 4px; font-size: 12px; }
 .player-fantasy .player-layout-options p { font-size: 11px; line-height: 1.5; color: #b8b0a4; margin: 12px 0; }
 .player-fantasy .player-layout-options > small { display: block; margin-top: 10px; font-size: 10px; color: #aaa295; }
-/* At narrow widths the dice/zoom controls use two left-corner lanes. Reserve
-   their vertical band before the right panel, including at 115% UI scale. */
-@media (max-width: 680px) {
+/* Reserve the dice lane and wrapped zoom/view/token controls before the right
+   panel, including at 115% UI scale. */
+@media (max-width: 1000px) {
   .player-fantasy .player-combat {
-    top: 112px;
-    max-height: calc(100% - 118px);
+    top: 144px;
+    max-height: calc(100% - 150px);
   }
 }

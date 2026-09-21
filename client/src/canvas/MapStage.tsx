@@ -380,6 +380,11 @@ export function MapStage({
     catch { return false; }
   });
   const tiltDegrees = tilted ? BATTLEFIELD_TILT_DEGREES : 0;
+  const tokenPreferenceKey = `dnd.tokenView:${getPlayerId()}`;
+  const [use3dTokens, setUse3dTokens] = useState(() => {
+    try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
+    catch { return true; }
+  });
   const groundScaleY = groundYScale(tiltDegrees);
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
     null,
@@ -916,7 +921,7 @@ export function MapStage({
     return { x: -view.x / s - m, y: -view.y / (s * groundScaleY) - m, w: vw + 2 * m, h: vh + 2 * m };
   }, [view, size, groundScaleY]);
 
-  const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
+  const miniatureTokens = useMemo<MiniatureToken[]>(() => !use3dTokens ? [] : snapshot.tokens.flatMap((token) => {
     // Only role-filtered snapshot tokens are eligible; never fetch hidden PCs
     // for a player even if a stale snapshot reaches this component.
     if (token.isHidden && !isDm) return [];
@@ -925,7 +930,7 @@ export function MapStage({
       facing: token.facing ?? 0,
       activeTurn: token.id === activeTurnTokenId,
       diameter: token.widthFt * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
@@ -1509,6 +1514,21 @@ export function MapStage({
               <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
                 onClick={() => chooseTilt(false)}>Overhead</button>
+            </div>
+            <div className="battlefield-view-options" role="group" aria-label="Your token appearance">
+              <span className="muted">Tokens</span>
+              {[false, true].map(enabled => (
+                <button key={String(enabled)} className={`btn tiny ${use3dTokens === enabled ? 'on' : ''}`}
+                  aria-label={enabled ? '3D tokens' : '2D tokens'} aria-pressed={use3dTokens === enabled}
+                  title="Only changes tokens in your view"
+                  onClick={() => {
+                    if (use3dTokens === enabled) return;
+                    setUse3dTokens(enabled);
+                    handleMiniatureReady(new Set());
+                    setHover(null); setMenu(null);
+                    safeSetItem(tokenPreferenceKey, enabled ? '3d' : '2d');
+                  }}>{enabled ? '3D' : '2D'}</button>
+              ))}
             </div>
           </div>
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)

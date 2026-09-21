@@ -8,8 +8,15 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ### Character miniatures — September 2026
 
+- ☑ Vanec's staff and palm lightning have luminous cores and crimson halos;
+  accepted spells/cantrips trigger a shared 2.4-second charge and fade, with
+  visibility filtering and a restrained reduced-motion highlight.
+- ☑ Rigid lightning branches are replaced at runtime by independently flickering
+  energy filaments that curl above the palm and crawl around the staff ruby.
 - ☑ Druk has a detailed dark basalt base top; the decorated rim is preserved.
 - ☑ Ready miniatures receive input only through their circular base footprint.
+- ☑ Per-player 2D/3D token controls persist independently of the viewing angle;
+  2D restores the original portraits and skips miniature loading.
 - ☑ Active-turn rings sit on the ground beneath the 3D figures and follow held drags.
 - ☑ Miniatures face the start-to-end direction of their last move, shared by all
   viewers and retained after reconnecting. Stationary drops preserve facing.

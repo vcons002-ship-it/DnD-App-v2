@@ -10,6 +10,8 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
+import { createVanecLightning } from './vanecLightning';
+import { useStore } from '../state/socket';
 import {
   miniatureCameraTarget,
   type BattlefieldView,
@@ -30,6 +32,7 @@ type Props = {
   onReady: (tokenIds: ReadonlySet<string>) => void;
 };
 export type MiniatureLayerHandle = {
+  spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
   moveToken: (id: string, x: number, y: number, finished: boolean) => void;
 };
@@ -47,6 +50,7 @@ type Instance = {
   originalTransparent: boolean[];
   mixer: AnimationMixer | null;
   fx: FxManifest | null;
+  lightning: ReturnType<typeof createVanecLightning> | null;
 };
 type Engine = MiniatureLayerHandle & { sync: (props: Props) => void; dispose: () => void };
 
@@ -188,6 +192,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed || failed || document.hidden) return;
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
+    const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
+    host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
     if (now - lastPaint >= 1000 / 24) {
       lastPaint = now;
       const seconds = (now - started) / 1000;
@@ -203,10 +209,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         instance.turnRing.scale.setScalar(token.definition.baseDiameter * (1 + pulse * 0.06));
         instance.turnRing.material.opacity = (0.65 + pulse * 0.35) * (token.hidden ? 0.45 : 1);
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
+        instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
       try { renderer.render(scene, camera); publish(); } catch { fail(); }
     }
-    if (!failed && (animated || settling)) frame = requestAnimationFrame(draw);
+    if (!failed && (animated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
@@ -222,6 +229,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
     instance.materials.forEach((material) => material.dispose());
+    instance.lightning?.dispose();
     instance.turnRing.geometry.dispose();
     instance.turnRing.material.dispose();
     instances.delete(id);
@@ -320,6 +328,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           root, turnRing, url: definition.url, materials,
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
+          lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         instances.set(token.id, instance);
         place(current, instance);
@@ -360,6 +369,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   sync(initial);
   return {
     sync,
+    spellCast(tokenIds) {
+      if (disposed || document.hidden) return;
+      for (const id of tokenIds) instances.get(id)?.lightning?.cast(performance.now() / 1000);
+      invalidate();
+    },
     setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
     moveToken(id, x, y, finished) {
       if (disposed) return;
@@ -380,7 +394,14 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   latest.current = props;
   const [state, setState] = useState({ ids: [] as string[], status: 'loading' });
   const hasMiniatures = props.tokens.length > 0;
+  const socket = useStore(state => state.socket);
+  useEffect(() => {
+    const cast = ({ tokenIds }: { tokenIds: string[] }) => engine.current?.spellCast(tokenIds);
+    socket?.on('fx:spellCast', cast);
+    return () => { socket?.off('fx:spellCast', cast); };
+  }, [socket]);
   useImperativeHandle(ref, () => ({
+    spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
     moveToken: (id, x, y, finished) => engine.current?.moveToken(id, x, y, finished),
   }), []);

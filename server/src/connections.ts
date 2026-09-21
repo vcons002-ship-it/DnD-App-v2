@@ -37,6 +37,18 @@ export const isConnected = (socketId: string | null | undefined): boolean =>
 
 export const roomName = (sessionId: string): string => `session:${sessionId}`;
 
+/** No history replay or ability details; hidden and off-map casters stay private. */
+export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token['kind'], refId: string): void {
+  const build = createSnapshotBuilder(sessionId);
+  if (!build) return;
+  for (const [socketId, conn] of conns) {
+    if (conn.sessionId !== sessionId) continue;
+    const snapshot = build(conn.role, conn.role === 'dm' ? conn.viewMapId : null, socketId, conn.playerId);
+    const tokenIds = snapshot.tokens.filter(t => t.kind === kind && t.refId === refId).map(t => t.id);
+    if (tokenIds.length) io.to(socketId).emit('fx:spellCast', { tokenIds });
+  }
+}
+
 /**
  * Re-send a freshly role-shaped snapshot to every connected client in a session.
  * Each client is shaped individually (DM vs player, and the DM's selected map),

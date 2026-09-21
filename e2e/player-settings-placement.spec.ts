@@ -73,6 +73,7 @@ for (const scale of [.70, .85, 1.15]) {
       await insideViewport(diceMenu, page);
       for (const button of await diceMenu.getByRole('button').all()) await unobscured(button);
       for (const title of ['Zoom out', 'Zoom in', 'Fit to window']) await unobscured(page.getByTitle(title, { exact: true }));
+      for (const name of ['2D tokens', '3D tokens']) await unobscured(page.getByRole('button', { name, exact: true }));
       // A pinned dice menu cannot cover the toolbar's settings trigger.
       await unobscured(settings);
       await settings.click();
