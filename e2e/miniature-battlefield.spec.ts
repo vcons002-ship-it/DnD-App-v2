@@ -652,3 +652,53 @@ test('Vanec glows on accepted cantrip and spell casts, settles, and does not rep
   await expect(layer).toHaveAttribute('data-casting-token-ids', '');
   expect(errors).toEqual([]);
 });
+
+
+test('DM sees all three miniatures and independently persists the same view choices as players', async ({ page, browser, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const setup = await fixture(page, request);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(`/dm?code=${setup.code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+  await expect(page.getByRole('button', { name: '3D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  for (const token of setup.ready.tokens) expect((await tokenView(page, token.id))!.bodyVisible).toBe(false);
+  const playerContext = await browser.newContext({ baseURL: `http://localhost:${PORT}` });
+  try {
+    const player = await playerContext.newPage();
+    await enter(player, setup.code, 'Druk', false);
+    await expect(player.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
+    await afterPaint(page);
+    await page.screenshot({ path: info.outputPath('dm-3d-45.png') });
+    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await expect(layer).toHaveCount(0);
+    for (const token of setup.ready.tokens) expect((await tokenView(page, token.id))!.bodyVisible).toBe(true);
+    await page.reload();
+    await expect(page.getByRole('button', { name: '2D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Tilted battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(layer).toHaveCount(0);
+    await expect(player.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3');
+    await expect(player.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees', '0');
+    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+    await page.reload();
+    await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+    await afterPaint(page);
+    await page.screenshot({ path: info.outputPath('dm-3d-overhead.png') });
+    const before = setup.ready.tokens.map(t => ({ id: t.id, x: t.x, y: t.y, facing: t.facing }));
+    expect((await setup.snapshot()).tokens.map(t => ({ id: t.id, x: t.x, y: t.y, facing: t.facing }))).toEqual(before);
+    expect(errors).toEqual([]);
+  } finally {
+    await playerContext.close();
+  }
+});

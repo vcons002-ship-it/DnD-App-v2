@@ -187,3 +187,16 @@ copy the built assets first and switch `index.html` last, retaining older hashed
 assets for already-open clients. Refresh the browser to load the new bundle.
 The normal installer still tracks `claude/Main`; a development build is not a
 claim that this change has been merged into that stable branch.
+
+## DM view parity verification
+
+The DM uses the same MapStage and full-detail MiniatureLayer as players. Both
+roles default to 3D tokens and an overhead battlefield, and offer 2D/3D and
+Overhead/45-degree controls beside zoom. Preferences belong to the browser
+identity; changing the DM view does not broadcast a change to players.
+
+A dedicated browser regression signs in as DM with a separate player connected,
+loads all three actual GLBs, toggles both choices, checks persistence after
+reload, and confirms player preferences and server token positions stay unchanged.
+The check captures the DM screen in both 3D views and asserts no page errors.
+No renderer change was needed to provide this parity.
