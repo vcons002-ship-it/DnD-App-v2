@@ -10,6 +10,7 @@ import { TokenShape } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
 import { MiniatureFallback } from './MiniatureFallback';
 import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, groundPerspectiveCss, perspectiveSlope, unprojectGround } from './miniatureProjection';
+import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
@@ -40,6 +41,7 @@ type Props = {
   selectedIds: string[];
   activeTurnTokenId: string | null;
   onSelectToken: (token: Token | null, additive?: boolean) => void;
+  onSelectTokens?: (ids: string[]) => void;
   onMoveToken: (tokenId: string, x: number, y: number) => void;
   /** When set (DM placing a unit), a map click reports image-space coords. */
   onPlaceAt?: (x: number, y: number) => void;
@@ -357,6 +359,7 @@ export function MapStage({
   selectedIds,
   activeTurnTokenId,
   onSelectToken,
+  onSelectTokens,
   onMoveToken,
   onPlaceAt,
   fullChatVisible = false,
@@ -964,6 +967,12 @@ export function MapStage({
     return installPerspectiveInput(stage, size.w, size.h, tiltDegrees);
   }, [size.w, size.h, tiltDegrees, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
+  const selectionBox = useBoxSelection({
+    enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve,
+    mapId: map?.id, stageRef, tokens: snapshot.tokens, selectedIds, onSelectTokens, onSelectToken,
+    view, width: size.w, height: size.h, tilt: tiltDegrees,
+  });
+
   /**
    * Map-corner overlays that belong to the map REGARDLESS of how it's drawn —
    * the dice corner (with its adv/dis switch), the two-step damage prompt, and
@@ -1504,7 +1513,10 @@ export function MapStage({
   });
 
   return (
-    <div className="stage-wrap" ref={containerRef}>
+    <div className="stage-wrap" ref={containerRef} {...selectionBox.handlers}>
+      {selectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
+        style={{ left: Math.min(selectionBox.box.start.x, selectionBox.box.end.x), top: Math.min(selectionBox.box.start.y, selectionBox.box.end.y),
+          width: Math.abs(selectionBox.box.end.x - selectionBox.box.start.x), height: Math.abs(selectionBox.box.end.y - selectionBox.box.start.y) }} />}
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>

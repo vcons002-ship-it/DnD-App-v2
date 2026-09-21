@@ -6,7 +6,26 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Cross-cutting invariants (must always hold)
 
+### DM workspace - September 2026
+
+- [x] Full-width battlefield with charcoal/gold styling matching the player HUD.
+- [x] Maps, Creatures, Initiative and Chat & dice open from a compact tool rail;
+  drafts stay mounted, panels resize locally, and token selection opens an inspector.
+- [x] Current combatant and Next turn stay visible in a bottom encounter bar.
+- [x] Campaign menu groups settings, guide, player link, library and data window.
+- [x] Narrow layouts keep tools reachable and dismiss the placement drawer to
+  expose the map; existing 2D/3D and Overhead/45-degree choices remain independent.
+- [x] Pin DM panels to keep them open while additional panels share the same
+  column vertically, with independent scrolling and locally saved pins.
+- [x] DM menu buttons form a compact top-left row, freeing the left edge for
+  windows; narrow screens place view controls below the row without overlap.
+- [x] Ctrl-drag selects token base centers in overhead and tilted views;
+  Ctrl+Shift-drag adds to selection, Ctrl-click toggles, and Escape cancels.
+
 ### Character miniatures — September 2026
+
+- [x] DM view parity verified: all three 3D miniatures, 2D/3D and Overhead/45-degree
+  controls, reload persistence, and independence from connected players.
 
 - ☑ Vanec's staff and palm lightning have luminous cores and crimson halos;
   accepted spells/cantrips trigger a shared 2.4-second charge and fade, with

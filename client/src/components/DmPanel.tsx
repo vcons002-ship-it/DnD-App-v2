@@ -22,11 +22,12 @@ const iconText = (icon: string): string =>
 
 type Props = {
   snapshot: StateSnapshot;
+  section?: 'maps' | 'spawn';
   pending: { kind: 'pc' | 'monster'; refId: string } | null;
   onPickSpawn: (kind: 'pc' | 'monster', refId: string) => void;
 };
 
-export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
+export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
   const selectMap = useStore((s) => s.selectMap);
   const setActiveMap = useStore((s) => s.setActiveMap);
   const deleteMap = useStore((s) => s.deleteMap);
@@ -226,7 +227,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
 
   return (
     <div className="panel">
-      <div className="panel-section">
+      {section !== 'spawn' && <div className="panel-section">
         <h3>Maps</h3>
         <div className="map-list">
           {snapshot.maps.map((m, i) => (
@@ -373,9 +374,9 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="panel-section">
+      {section !== 'maps' && <div className="panel-section">
         <h3>Spawn</h3>
         {pending && (
           <p className="hint">
@@ -537,7 +538,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn }: Props) {
             </p>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

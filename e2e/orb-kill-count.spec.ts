@@ -192,12 +192,13 @@ test('large orb tallies retain readable gothic text without covering health, AC 
   expect(errors).toEqual([]);
 });
 
-test('DM keeps the existing layout rather than receiving the player orb tally', async ({ page, request }) => {
+test('DM workspace exposes its roster without receiving the player orb tally', async ({ page, request }) => {
   const f = await fixture(request);
   await page.goto(`/dm?code=${f.code}`);
   await page.locator('input[type="password"]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
-  await expect(page.getByText('Druk', { exact: false }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await expect(page.locator('.spawn-row').filter({ hasText: 'Druk' })).toBeVisible();
   await expect(page.locator('.orb-kill-count')).toHaveCount(0);
   await expect(page.locator('[data-testid="player-hud"]')).toHaveCount(0);
 });

@@ -429,6 +429,7 @@ test('each custom tracker has a browser-local per-character orb preference witho
     await dmPage.goto(`/dm?code=${setup.code}`);
     await dmPage.locator('input[type=password]').fill(DM_SECRET);
     await dmPage.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await dmPage.getByRole('button', { name: 'Initiative', exact: true }).click();
     await dmPage.locator('.init-row').filter({ hasText: setup.guardian.name }).click();
     await expect(dmPage.locator('.side.right .resources').filter({ hasText: 'Moon marks' }).first()).toBeVisible();
     await expect(dmPage.getByRole('checkbox', { name: /beside the health orb/ })).toHaveCount(0);

@@ -182,6 +182,7 @@ test('enemy damage history exposes recorded dice but never restores modifier lab
     await dm.goto(`/dm?code=${f.code}`);
     await dm.locator('input[type=password]').fill(DM_SECRET);
     await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await dm.getByRole('button', { name: 'Chat & dice', exact: true }).click();
     await expectRecordedDamage(dm.locator('.roll-log .roll-damage-breakdown'), attack!);
     // Existing hidden-DM behavior remains stronger than modifier redaction:
     // a hidden roll adds no player history entry at all.
