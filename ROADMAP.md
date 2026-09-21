@@ -24,8 +24,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ### Character miniatures — September 2026
 
-- [x] Players can size their own 3D character and DMs can size any character
-  from the character sheet. Fit to map restores a 5-foot base using map scale;
+- [x] Players can size their own 3D character in Character; DMs can size any
+  character in the inspector's DM tools. Both use a compact inline row.
+  Fit to map restores a 5-foot base using map scale;
   widths persist per placement and synchronize the figure, hit region and tools.
 
 - [x] DM view parity verified: all three 3D miniatures, 2D/3D and Overhead/45-degree

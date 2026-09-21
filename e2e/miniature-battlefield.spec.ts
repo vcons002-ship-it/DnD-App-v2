@@ -893,13 +893,16 @@ test('players and DM size miniatures through the character panel and fit a five-
     await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
     const dmPoint = (await tokenView(dm, druk.id))!;
     await dm.mouse.click(dmPoint.x, dmPoint.y);
-    const dmSize = dm.getByRole('region', { name: '3D figure size', exact: true });
+    const dmSize = dm.locator('.dm-token-actions').getByRole('region', { name: '3D figure size', exact: true });
+    await expect(dm.locator('#dm-panel-inspect .char-sheet .miniature-size-control')).toHaveCount(0);
     const openCharacter = async () => page.locator('.hud-actions').getByRole('button', { name: 'Character', exact: true }).click();
     await openCharacter();
     const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
     const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
     const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
     await expect(playerInput).toHaveValue('5');
+    expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
+    expect((await dmSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.widthFt;
     const renderedDiameter = async (target: Page) => (await tokenView(target, druk.id))!.healthBars[0].width;
     await playerInput.fill('7.5'); await playerInput.press('Enter');
@@ -952,6 +955,7 @@ test('players and DM size miniatures through the character panel and fit a five-
     await page.setViewportSize({ width: 430, height: 932 });
     await playerSize.scrollIntoViewIfNeeded();
     const button = playerSize.getByRole('button', { name: 'Fit to map', exact: true });
+    expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     const b = (await button.boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0); expect(b.x + b.width).toBeLessThanOrEqual(430);
     await button.click(); await expect.poll(width).toBe(5);

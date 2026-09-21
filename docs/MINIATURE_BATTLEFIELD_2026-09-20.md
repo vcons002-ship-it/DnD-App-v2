@@ -203,8 +203,8 @@ No renderer change was needed to provide this parity.
 
 ## Character figure sizing
 
-The player Character window and the DM inspector's Sheet info section include
-3D figure size for characters with a miniature. Enter a base width in feet, use
+The player Character window and the DM inspector's DM tools section include
+a compact 3D size row for characters with a miniature. Enter a base width in feet, use
 the half-foot smaller/larger controls, or choose **Fit to map** to restore 5 feet
 across. A character without a placement sees disabled controls and placement
 help. The control remains available when that viewer switches to 2D tokens.
@@ -228,9 +228,25 @@ browser test with the actual models: player-to-DM and DM-to-player updates,
 Fit after an uncommitted input, 5- and 10-foot grid scales, tilted base hits,
 position/facing preservation, reconnect persistence, and phone controls.
 
-Final verification: server/client typechecks and production build passed;
+Initial sizing feature verification: server/client typechecks and production build passed;
 612 unit tests in 66 files and all 119 browser tests passed (3.8 minutes).
 Desktop/phone captures and the decoded 13.8-second campaign-preview video were
 reviewed. Preview used disposable data; the live campaign was not updated.
 
 [Figure sizing and Fit to map preview](https://dnd.nic024i.app/uploads/figure-size-fit-to-map-b249da5c0d4c.mp4)
+
+The compact UI revision removes the separate card, heading and explanatory
+paragraph. The width label, stepper and Fit button share a 28px row (about 24px
+at the player's default interface scale). Help is available in tooltips; a
+placement hint only appears when the character is not on the map. The DM row
+is in DM tools with the other token controls, and no longer in Sheet info.
+
+Compact revision verification: typechecks, build and all 612 unit tests passed.
+Three focused browser tests passed, covering DM workspace/pinned panels and
+two-client sizing, map scale, persistence and phone controls. Browser checks
+assert the row stays at most 32px tall on desktop and phone. Campaign-copy
+screenshots were reviewed with all three full models loaded and no page errors.
+
+[Compact DM controls](https://dnd.nic024i.app/uploads/dm-compact-3d-size-3aef560f727b.png) ·
+[Player Character controls](https://dnd.nic024i.app/uploads/player-compact-3d-size-75fb0dea2525.png) ·
+[Phone controls](https://dnd.nic024i.app/uploads/phone-compact-3d-size-491f23a3c679.png)

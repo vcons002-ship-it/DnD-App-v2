@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
 import { resolveMiniature } from '../lib/miniatures';
+import { MiniatureSizeControl } from './MiniatureSizeControl';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
@@ -414,7 +415,6 @@ export function SelectedTokenPanel({
           character={character}
           editable={canEditCharacter}
           abilitiesElsewhere
-          miniatureToken={token}
         />
       ),
     });
@@ -442,6 +442,7 @@ export function SelectedTokenPanel({
       label: 'DM tools',
       node: (
         <div className="dm-token-actions">
+          {resolveMiniature(d.name, token.kind) && <MiniatureSizeControl token={token} />}
           <h4>Token icon</h4>
           <IconTools
             onApply={(icon) => setTokensIcon(iconTargets, icon)}
