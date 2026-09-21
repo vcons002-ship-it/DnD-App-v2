@@ -1,11 +1,14 @@
 # Vanec lightning and cast glow
 
-Vanec retains the approved full-detail GLB, staff, hands, ruby and lightning
-geometry. `vanecLightning.ts` improves the runtime materials with pale cores,
-additive crimson sheaths, soft depth-tested halos, and a smooth idle shimmer.
-Halos attach to the existing lightning branches and measured ruby position, so
-they follow rotation, zoom, movement and the source animation. There is no
-fullscreen bloom pass and no replacement model download.
+Vanec retains the approved full-detail GLB, staff, hands and ruby. The baked
+lightning branches and floating droplets are hidden at runtime. In their place,
+`vanecLightning.ts` generates tapered three-dimensional discharge filaments with
+pale cores, additive crimson sheaths and soft depth-tested halos. Independent
+discharges change shape six to eight times a second, fading between strikes.
+Palm arcs curl upward; staff arcs crawl around the ruby. Casting adds extra
+filaments. Reusable tube buffers avoid geometry allocations during animation.
+Emitters use the source palm and measured ruby positions and follow token
+rotation and movement. There is no fullscreen bloom pass or model download change.
 
 Accepted `ability:roll` spells (including level-zero cantrips and leveled
 spell-backed stances) and `summon:cast` spells emit `fx:spellCast` after the
@@ -21,8 +24,8 @@ preserves existing hidden-token, fog, map and ownership visibility rules. It
 is transient: reconnects, loaded roll history and switching back from 2D do not
 replay old casts. Only ready Vanec miniatures respond. Hidden browser tabs drop
 new cast effects. Reduced motion disables the idle animation and glow expansion
-and uses a restrained cast highlight. All added sprite materials and textures
-are disposed with the miniature.
+and uses fixed, restrained filaments with a gentle cast highlight. Added tube
+geometry, sprite materials and textures are disposed with the miniature.
 
 Validation covers actual socket guards (accepted/rejected casts, summons,
 multi-beam resolution and viewer visibility) and production-browser cantrip and

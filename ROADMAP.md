@@ -11,6 +11,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - ☑ Vanec's staff and palm lightning have luminous cores and crimson halos;
   accepted spells/cantrips trigger a shared 2.4-second charge and fade, with
   visibility filtering and a restrained reduced-motion highlight.
+- ☑ Rigid lightning branches are replaced at runtime by independently flickering
+  energy filaments that curl above the palm and crawl around the staff ruby.
 - ☑ Druk has a detailed dark basalt base top; the decorated rim is preserved.
 - ☑ Ready miniatures receive input only through their circular base footprint.
 - ☑ Per-player 2D/3D token controls persist independently of the viewing angle;
