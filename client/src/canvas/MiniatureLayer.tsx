@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  Scene, Texture, WebGLRenderer, type WebGLRenderTarget,
+  Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -14,6 +14,7 @@ import { createVanecLightning } from './vanecLightning';
 import { useStore } from '../state/socket';
 import {
   miniatureCameraTarget,
+  perspectiveDistance,
   type BattlefieldView,
 } from './miniatureProjection';
 
@@ -121,7 +122,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     renderer.domElement.remove();
     throw error;
   } finally { room?.dispose(); pmrem?.dispose(); }
-  const camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 1000000);
+  let camera: OrthographicCamera | PerspectiveCamera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 1000000);
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const assets = new Map<string, Promise<GLTF | null>>();
@@ -149,11 +150,18 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const updateCamera = () => {
     const scale = Math.max(0.0001, view.scale);
     const center = miniatureCameraTarget(props.width, props.height, view, props.tiltDegrees);
-    camera.left = -props.width / (2 * scale);
-    camera.right = -camera.left;
-    camera.top = props.height / (2 * scale);
-    camera.bottom = -camera.top;
-    const distance = Math.max(props.width, props.height) / scale + 10000;
+    const perspective = props.tiltDegrees > 0;
+    if (perspective && !(camera instanceof PerspectiveCamera)) camera = new PerspectiveCamera();
+    if (!perspective && !(camera instanceof OrthographicCamera)) camera = new OrthographicCamera();
+    const focal = perspectiveDistance(props.width, props.height);
+    if (camera instanceof PerspectiveCamera) {
+      camera.fov = 2 * Math.atan(props.height / (2 * focal)) * 180 / Math.PI;
+      camera.aspect = props.width / Math.max(1, props.height);
+    } else {
+      camera.left = -props.width / (2 * scale); camera.right = -camera.left;
+      camera.top = props.height / (2 * scale); camera.bottom = -camera.top;
+    }
+    const distance = perspective ? focal / scale : Math.max(props.width, props.height) / scale + 10000;
     const depthSpan = Math.max(props.width, props.height) / scale * 2
       + Math.max(1, ...props.tokens.map((token) => token.diameter)) * 4;
     camera.near = Math.max(0.1, distance - depthSpan);

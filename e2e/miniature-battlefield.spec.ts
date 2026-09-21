@@ -81,8 +81,13 @@ async function tokenView(page: Page, id: string) {
     const rect = stage.container().getBoundingClientRect();
     const pos = node.getAbsolutePosition();
     const scale = node.getAbsoluteScale();
+    const canvas = node.getLayer().getNativeCanvasElement();
+    const matrix = new DOMMatrix(getComputedStyle(canvas).transform);
+    const w = stage.width(), h = stage.height();
+    const projected = new DOMPoint(pos.x - w / 2, pos.y - h / 2).matrixTransform(matrix);
     return {
-      x: rect.left + pos.x, y: rect.top + pos.y, scaleX: scale.x, scaleY: scale.y,
+      projection: { matrix: Array.from(matrix.toFloat64Array()), w, h, left: rect.left, top: rect.top, x: pos.x, y: pos.y },
+      x: rect.left + w / 2 + projected.x / projected.w, y: rect.top + h / 2 + projected.y / projected.w, scaleX: scale.x, scaleY: scale.y,
       texts: node.find('Text').map((n: any) => n.text()),
       healthBars: node.find('Rect').filter((n: any) => n.height() === 6).map((n: any) => ({ width: n.width(), fill: n.fill() })),
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
@@ -91,6 +96,48 @@ async function tokenView(page: Page, id: string) {
     };
   }, id);
 }
+
+// Project an offset through the browser's actual canvas matrix, not an affine approximation.
+function offsetPoint(view: NonNullable<Awaited<ReturnType<typeof tokenView>>>, dx: number, dy: number) {
+  const p = view.projection, m = p.matrix;
+  const x = p.x + dx * view.scaleX - p.w / 2, y = p.y + dy * view.scaleY - p.h / 2;
+  const w = m[3] * x + m[7] * y + m[15];
+  return { x: p.left + p.w / 2 + (m[0] * x + m[4] * y + m[12]) / w,
+    y: p.top + p.h / 2 + (m[1] * x + m[5] * y + m[13]) / w };
+}
+
+test('perspective recedes toward the far edge and keeps wheel zoom and pan under the pointer', async ({ page, request }, info) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const f = await fixture(page, request);
+  await enter(page, f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
+  const druk = f.ready.tokens.find(t => t.refId === f.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  let v = (await tokenView(page, druk.id))!;
+  const farLeft = offsetPoint(v, -200, -300), farRight = offsetPoint(v, 700, -300);
+  const nearLeft = offsetPoint(v, -200, 300), nearRight = offsetPoint(v, 700, 300);
+  expect(nearRight.x - nearLeft.x).toBeGreaterThan((farRight.x - farLeft.x) * 1.3);
+  // A fixed, empty map point must stay under the cursor during zoom.
+  const point = offsetPoint(v, 0, -200);
+  await page.mouse.move(point.x, point.y); await page.mouse.wheel(0, -200);
+  await expect.poll(async () => (await tokenView(page, druk.id))!.scaleX).toBeGreaterThan(v.scaleX);
+  v = (await tokenView(page, druk.id))!;
+  const zoomed = offsetPoint(v, 0, -200);
+  expect(Math.hypot(zoomed.x - point.x, zoomed.y - point.y)).toBeLessThan(2);
+  const target = { x: zoomed.x + 80, y: zoomed.y + 70 };
+  await page.mouse.move(zoomed.x, zoomed.y); await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 20 }); await page.mouse.up();
+  await expect.poll(async () => {
+    const p = offsetPoint((await tokenView(page, druk.id))!, 0, -200);
+    return Math.hypot(p.x - target.x, p.y - target.y);
+  }).toBeLessThan(2);
+  expect((await f.snapshot()).tokens).toEqual(f.ready.tokens);
+  const beforeBlankPan = (await tokenView(page, druk.id))!;
+  const blank = { x: beforeBlankPan.projection.left + 1000, y: beforeBlankPan.projection.top + 90 };
+  await page.mouse.move(blank.x, blank.y); await page.mouse.down();
+  await page.mouse.move(blank.x + 70, blank.y + 30, { steps: 20 }); await page.mouse.up();
+  await expect.poll(async () => (await tokenView(page, druk.id))!.x - beforeBlankPan.x).toBeGreaterThan(20);
+  await page.screenshot({ path: info.outputPath('perspective-pan.png') });
+});
 
 test('real miniatures hide player names and retain health; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
   test.setTimeout(120_000);
@@ -116,7 +163,7 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   await page.screenshot({ path: info.outputPath('desktop-miniatures.png') });
   await page.mouse.move(view.x, view.y);
   await page.mouse.down();
-  await page.mouse.move(view.x + 80 * view.scaleX, view.y + 55 * view.scaleY, { steps: 12 });
+  await page.mouse.move(offsetPoint(view, 80, 55).x, offsetPoint(view, 80, 55).y, { steps: 12 });
   await page.mouse.up();
   // Chromium quantizes delivered mouse coordinates to CSS pixels. Bound the
   // round-trip error in screen pixels, not fractional unscaled map units.
@@ -190,7 +237,7 @@ test('active miniature ring stays off the HUD and held drags preview facing befo
   await page.mouse.move(view.x, view.y);
   await page.mouse.down();
   for (const [name, dx, dy] of [['east', 100, 0], ['southeast', 100, 80]] as const) {
-    await page.mouse.move(view.x + dx * view.scaleX, view.y + dy * view.scaleY, { steps: 20 });
+    await page.mouse.move(offsetPoint(view, dx, dy).x, offsetPoint(view, dx, dy).y, { steps: 20 });
     await afterPaint(page);
     const pending = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
     // Cursor position changes while the authoritative start remains untouched.
@@ -282,7 +329,7 @@ test('rear flat tokens are occluded by miniature pixels and keep their hit regio
   // Server movement from rear to front keeps the flat token and its hit region
   // together; switching to Flat still uses its original map position.
   setup.socket.emit('token:move', { tokenId: rear.id, x: druk.x + 100, y: druk.y + 100 });
-  await expect.poll(async () => (await tokenView(page, rear.id))?.x).toBeCloseTo(view.x + 100 * view.scaleX, 1);
+  await expect.poll(async () => (await tokenView(page, rear.id))?.x).toBeCloseTo(offsetPoint(view, 100, 100).x, 1);
   await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
   await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
   const flat = (await tokenView(page, rear.id))!;
@@ -349,10 +396,7 @@ test('rulers, grid snapping and drawn annotations use the tilted map plane', asy
   const view = (await tokenView(page, druk.id))!;
   // Use the actual token-layer transform to target known map coordinates.
   // The stored server values and displayed distance independently verify input.
-  const screen = (x: number, y: number) => ({
-    x: view.x + (x - druk.x) * view.scaleX,
-    y: view.y + (y - druk.y) * view.scaleY,
-  });
+  const screen = (x: number, y: number) => offsetPoint(view, x - druk.x, y - druk.y);
   await page.getByTitle('Measuring & AOE tools', { exact: true }).click();
   await page.locator('.measure-row').filter({ hasText: 'Line' }).click();
   await page.getByTitle('Drag to size', { exact: true }).click();
@@ -459,7 +503,7 @@ test('2D and 3D token choices persist per player without changing tilt or token 
     expect(modelRequests).toBe(0);
     const pos = (await tokenView(page, druk.id))!;
     await page.mouse.move(pos.x, pos.y); await page.mouse.down();
-    await page.mouse.move(pos.x + 50 * pos.scaleX, pos.y, { steps: 10 }); await page.mouse.up();
+    await page.mouse.move(offsetPoint(pos, 50, 0).x, offsetPoint(pos, 50, 0).y, { steps: 10 }); await page.mouse.up();
     await expect.poll(async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.x).toBeGreaterThan(druk.x + 45);
     const moved = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
     await page.setViewportSize({ width: 430, height: 932 });
