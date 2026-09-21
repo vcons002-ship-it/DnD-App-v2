@@ -563,3 +563,48 @@ test('a failed optional renderer chunk preserves the battlefield', async ({ page
   await page.mouse.click(point.x, point.y, { button: 'right' });
   await expect(page.locator('.floating-menu')).toBeVisible();
 });
+
+test('Vanec glows on accepted cantrip and spell casts, settles, and does not replay in 2D or on reload', async ({ page, request }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const f = await fixture(page, request);
+  const vanec = f.initial.characters.find(c => c.name === 'Vanec')!;
+  const token = f.ready.tokens.find(t => t.refId === vanec.id)!;
+  f.socket.emit('character:update', { characterId: vanec.id, sheetAbilities: [
+    { id: 'spark', name: 'Lightning Spark', type: 'spell', level: 0, description: 'Preview cantrip', roll: { kind: 'damage', dice: '1d6', damageType: 'lightning' } },
+    { id: 'surge', name: 'Lightning Surge', type: 'spell', level: 1, description: 'Preview spell', roll: { kind: 'damage', dice: '2d6', baseLevel: 1, damageType: 'lightning' } },
+  ], spellSlots: { L1: { max: 4, used: 0 } } });
+  await f.snapshot();
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  await enter(page, f.code, 'Vanec');
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
+  await expect(layer).toHaveAttribute('data-casting-token-ids', '');
+  const combat = page.getByRole('region', { name: 'Combat panel', exact: true });
+  for (const name of ['Lightning Spark', 'Lightning Surge']) {
+    await combat.locator('.combat-ability-row').filter({ hasText: name }).getByRole('button').click();
+    await expect(layer).toHaveAttribute('data-casting-token-ids', token.id);
+    await page.waitForTimeout(350);
+    await page.screenshot({ path: info.outputPath(`${name.replace(' ', '-')}.png`) });
+    await expect(layer).toHaveAttribute('data-casting-token-ids', '', { timeout: 5000 });
+    if (await page.locator('.roll-reveal').count()) await page.locator('.roll-reveal').click({ position: { x: 10, y: 10 } });
+    const done = page.locator('.spell-damage-dock').getByRole('button', { name: 'Done', exact: true });
+    if (await done.count()) await done.click();
+  }
+  expect((await f.snapshot()).characters.find(c => c.id === vanec.id)!.spellSlots.L1.used).toBe(1);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await combat.locator('.combat-ability-row').filter({ hasText: 'Lightning Spark' }).getByRole('button').click();
+  await expect(layer).toHaveAttribute('data-casting-token-ids', token.id);
+  await expect(layer).toHaveAttribute('data-casting-token-ids', '', { timeout: 5000 });
+  await page.reload();
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
+  await expect(layer).toHaveAttribute('data-casting-token-ids', '');
+  await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+  await expect(layer).toHaveCount(0);
+  f.socket.emit('ability:roll', { kind: 'pc', refId: vanec.id, abilityId: 'spark' });
+  await f.snapshot();
+  await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+  await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
+  await expect(layer).toHaveAttribute('data-casting-token-ids', '');
+  expect(errors).toEqual([]);
+});

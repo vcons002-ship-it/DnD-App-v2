@@ -27,6 +27,7 @@ import {
 } from './creatures/fill.js';
 import {
   broadcastSnapshots,
+  broadcastSpellCast,
   broadcastTokenDrag,
   broadcastTyping,
   broadcastSay,
@@ -487,6 +488,7 @@ export function registerSocketHandlers(io: IOServer): void {
       }
       createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       afterChange();
+      if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
     });
 
     on('annotation:remove', ({ id }) => {
@@ -1141,7 +1143,10 @@ export function registerSocketHandlers(io: IOServer): void {
         const ability = m?.sheetAbilities.find((a) => a.id === abilityId);
         if (!m || !ability || !validDamageChoice(ability)) return;
         // CR-based DC/to-hit; no spell slots for creatures.
-        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) afterChange();
+        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) {
+          afterChange();
+          if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
+        }
         return;
       }
 
@@ -1176,7 +1181,10 @@ export function registerSocketHandlers(io: IOServer): void {
           });
         }
       }
-      if (ok) afterChange();
+      if (ok) {
+        afterChange();
+        if (ability.type === 'spell' || (ability.type === 'stance' && leveled)) broadcastSpellCast(io, sid, kind, refId);
+      }
     });
 
     // Roll a death saving throw for a downed PC (owner or DM).

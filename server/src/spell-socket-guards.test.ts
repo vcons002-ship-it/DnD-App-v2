@@ -5,7 +5,7 @@ import {
   addRollLog, claimCharacter, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, getCharacter, getMonster, getRollEntry, instantiateMonster, listRollLog,
   setActiveMap, setSheetAbility, setTokenHidden,
-  setManualDamage,
+  setManualDamage, setFogLayer,
 } from './sessions.js';
 import { getSpell } from './spells/srd.js';
 import type { SheetAbility } from '../../shared/types.js';
@@ -17,7 +17,10 @@ afterEach(() => { for (const id of connected.splice(0)) dropConn(id); vi.restore
  * or using any production process/storage. Vitest owns a throwaway DATA_ROOT. */
 function harness(sessionId: string, mapId: string, role: 'player' | 'dm' = 'player') {
   let connect!: (socket: unknown) => void;
-  const io = { on: (_: string, cb: typeof connect) => { connect = cb; }, to: () => ({ emit: vi.fn() }) };
+  const routed: Array<{ socketId: string; event: string; payload: any }> = [];
+  const io = { on: (_: string, cb: typeof connect) => { connect = cb; }, to: (socketId: string) => ({
+    emit: (event: string, payload: unknown) => routed.push({ socketId, event, payload }),
+  }) };
   registerSocketHandlers(io as unknown as IOServer);
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const id = `spell-test-socket-${connected.length}-${Math.random()}`;
@@ -25,7 +28,7 @@ function harness(sessionId: string, mapId: string, role: 'player' | 'dm' = 'play
   const emit = vi.fn();
   connect({ id, on: (event: string, handler: (...args: unknown[]) => void) => handlers.set(event, handler), emit });
   setConn(id, { sessionId, role, viewMapId: mapId, playerId: null });
-  return { id, emit, send: (event: string, payload: unknown) => handlers.get(event)!(payload) };
+  return { id, emit, routed, send: (event: string, payload: unknown) => handlers.get(event)!(payload) };
 }
 
 function fixture() {
@@ -45,6 +48,56 @@ function fixture() {
 }
 
 describe('spell socket target and ownership boundaries', () => {
+  it('sends one visible cast pulse for a cantrip and a leveled spell, never for individual beam hits', () => {
+    const f = fixture(), client = harness(f.session.id, f.map.id), target = f.target();
+    claimCharacter(f.caster.id, client.id);
+    setFogLayer(f.map.id, 'map', false); setFogLayer(f.map.id, 'tokens', false);
+    const token = createToken({ mapId: f.map.id, kind: 'pc', refId: f.caster.id, x: 50, y: 50 });
+    for (const name of ['Eldritch Blast', 'Scorching Ray']) {
+      const ability = { ...getSpell(name)!, id: name };
+      setSheetAbility('pc', f.caster.id, ability);
+      client.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: name });
+      const roll = listRollLog(f.session.id).at(-1)!;
+      client.send('save:resolve', { rollId: roll.id, tokenId: target.token.id, instanceIndex: 0 });
+    }
+    const pulses = client.routed.filter(e => e.event === 'fx:spellCast' && e.socketId === client.id);
+    expect(pulses.map(e => e.payload)).toEqual([{ tokenIds: [token.id] }, { tokenIds: [token.id] }]);
+  });
+  it('does not leak hidden, fog-covered, staged or foreign casters through cast effects', () => {
+    const f = fixture(), dm = harness(f.session.id, f.map.id, 'dm');
+    const viewer = harness(f.session.id, f.map.id), foreign = fixture();
+    const outsider = harness(foreign.session.id, foreign.map.id);
+    setFogLayer(f.map.id, 'map', false); setFogLayer(f.map.id, 'tokens', false);
+    const token = createToken({ mapId: f.map.id, kind: 'pc', refId: f.caster.id, x: 50, y: 50 });
+    const stagedMap = createMap(f.session.id, { name: 'Staged caster' });
+    createToken({ mapId: stagedMap.id, kind: 'pc', refId: f.caster.id, x: 50, y: 50 });
+    const ability = { ...getSpell('Eldritch Blast')!, id: 'blast' };
+    setSheetAbility('pc', f.caster.id, ability);
+    const cast = () => dm.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: ability.id });
+    setTokenHidden(token.id, true); cast();
+    setTokenHidden(token.id, false); setFogLayer(f.map.id, 'map', true); cast();
+    expect(dm.routed.filter(e => e.event === 'fx:spellCast' && e.socketId === viewer.id)).toEqual([]);
+    setFogLayer(f.map.id, 'map', false); cast();
+    expect(dm.routed.filter(e => e.event === 'fx:spellCast' && e.socketId === viewer.id).map(e => e.payload))
+      .toEqual([{ tokenIds: [token.id] }]);
+    expect(dm.routed.filter(e => e.event === 'fx:spellCast' && e.socketId === outsider.id)).toEqual([]);
+  });
+  it('rejected casts and ordinary abilities never pulse; accepted summons do', () => {
+    const f = fixture(), client = harness(f.session.id, f.map.id);
+    claimCharacter(f.caster.id, client.id);
+    setFogLayer(f.map.id, 'map', false); setFogLayer(f.map.id, 'tokens', false);
+    const token = createToken({ mapId: f.map.id, kind: 'pc', refId: f.caster.id, x: 50, y: 50 });
+    const orb = { ...getSpell('Chromatic Orb')!, id: 'orb' };
+    setSheetAbility('pc', f.caster.id, orb);
+    client.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: 'orb' });
+    client.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: 'missing' });
+    setSheetAbility('pc', f.caster.id, { id: 'ordinary', name: 'Ordinary', type: 'ability', description: '', roll: { kind: 'damage', dice: '1d4' } });
+    client.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: 'ordinary' });
+    expect(client.routed.filter(e => e.event === 'fx:spellCast')).toEqual([]);
+    setSheetAbility('pc', f.caster.id, { id: 'summon', name: 'Mage Hand', type: 'spell', level: 0, description: '', summon: { name: 'Hand' } });
+    client.send('summon:cast', { kind: 'pc', refId: f.caster.id, abilityId: 'summon', mapId: f.map.id, x: 150, y: 150 });
+    expect(client.routed.filter(e => e.event === 'fx:spellCast').map(e => e.payload)).toEqual([{ tokenIds: [token.id] }]);
+  });
   it('the owner casts the existing Command entry, spends one slot and forces the selected save once', () => {
     const f = fixture(), target = f.target(), client = harness(f.session.id, f.map.id);
     claimCharacter(f.caster.id, client.id);
