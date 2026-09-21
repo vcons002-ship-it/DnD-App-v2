@@ -9,7 +9,8 @@ import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
 import { MiniatureFallback } from './MiniatureFallback';
-import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap } from './miniatureProjection';
+import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, groundPerspectiveCss, perspectiveSlope, unprojectGround } from './miniatureProjection';
+import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
 import { DragGhostLayer } from './DragGhostLayer';
@@ -362,6 +363,7 @@ export function MapStage({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
+  const stageRef = useRef<Konva.Stage>(null);
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
@@ -852,14 +854,16 @@ export function MapStage({
 
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
-    const s = Math.min(size.w / imgW, size.h / (imgH * groundScaleY)) || 1;
+    const k = perspectiveSlope(size.w, size.h, tiltDegrees);
+    const s = Math.min(size.w / (imgW + size.w * imgH * groundScaleY * k / 2),
+      size.h / (imgH * groundScaleY * (1 + size.h * k / 2))) || 1;
     // Centre the composite box, shifting by its (possibly negative) min corner.
     return {
       scale: s,
       x: (size.w - imgW * s) / 2 - extX0 * s,
       y: (size.h - imgH * s * groundScaleY) / 2 - extY0 * s * groundScaleY,
     };
-  }, [size, imgW, imgH, extX0, extY0, groundScaleY]);
+  }, [size, imgW, imgH, extX0, extY0, groundScaleY, tiltDegrees]);
 
   const [view, setView] = useState<View>(fit);
   const userAdjusted = useRef(false);
@@ -946,6 +950,19 @@ export function MapStage({
     if (groundTokens) groundTokens.style.zIndex = '0';
     if (foreground) foreground.style.zIndex = '2';
   }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]) {
+      const canvas = layer?.getNativeCanvasElement();
+      if (canvas) {
+        canvas.style.transformOrigin = '50% 50%';
+        canvas.style.transform = groundPerspectiveCss(size.w, size.h, tiltDegrees);
+      }
+    }
+    return installPerspectiveInput(stage, size.w, size.h, tiltDegrees);
+  }, [size.w, size.h, tiltDegrees, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   /**
    * Map-corner overlays that belong to the map REGARDLESS of how it's drawn —
@@ -1171,6 +1188,9 @@ export function MapStage({
     }
     const p = stage.getPointerPosition();
     clickStart.current = p ? { x: p.x, y: p.y } : null;
+    // Perspective exposes space outside the projected canvas. It has no raster
+    // hit pixel, so explicitly grab the ground layer when the Stage is hit.
+    if (e.target === stage && panning && (!('button' in e.evt) || e.evt.button === 0)) layerRef.current?.startDrag();
   };
 
   // Release on the stage: a near-stationary empty-space press was a click →
@@ -1366,10 +1386,11 @@ export function MapStage({
     const ox = rect?.left ?? 0;
     const oy = rect?.top ?? 0;
     const [a, b] = [touches[0], touches[1]];
+    const center = unprojectGround((a.clientX + b.clientX) / 2 - ox, (a.clientY + b.clientY) / 2 - oy, size.w, size.h, tiltDegrees);
     return {
       dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
-      cx: (a.clientX + b.clientX) / 2 - ox,
-      cy: (a.clientY + b.clientY) / 2 - oy,
+      cx: center.x,
+      cy: center.y,
     };
   };
 
@@ -1739,6 +1760,7 @@ export function MapStage({
               toolSlot,
             )}
           <Stage
+            ref={stageRef}
             key={dprKey}
             width={size.w}
             height={size.h}

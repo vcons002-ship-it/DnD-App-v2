@@ -20,9 +20,12 @@ the miniature renderer; reloading with 2D selected skips model downloads.
 Selecting 3D loads the models again, with the existing portrait fallback while
 they load or if rendering fails. The DM has the same local choice.
 
-Existing map pixels remain
-the authoritative coordinates: Konva projects the ground with a cosine Y scale,
-and an orthographic Three.js camera uses the same projection. Measurements,
+Existing map pixels remain the authoritative coordinates. The 45-degree view
+uses perspective: its far edge recedes and squares get larger toward the viewer.
+Konva's ground canvases receive a projective CSS matrix matching the Three.js
+perspective camera. Pointer registration applies the inverse before Konva hit
+testing and dragging, including touch events. Overhead stays orthographic.
+Fit-to-window accounts for the wider near edge. Measurements,
 dragging, panning, zooming, selection, object/decal placement and touch gestures
 continue to operate in map coordinates. The map artwork remains a flat plane;
 painted walls do not acquire height.

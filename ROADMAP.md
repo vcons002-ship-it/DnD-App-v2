@@ -13,6 +13,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   visibility filtering and a restrained reduced-motion highlight.
 - ☑ Rigid lightning branches are replaced at runtime by independently flickering
   energy filaments that curl above the palm and crawl around the staff ruby.
+- ☑ The 45-degree battlefield uses tabletop perspective with a receding far edge,
+  matching 3D camera and inverse pointer projection; overhead remains flat.
 - ☑ Druk has a detailed dark basalt base top; the decorated rim is preserved.
 - ☑ Ready miniatures receive input only through their circular base footprint.
 - ☑ Per-player 2D/3D token controls persist independently of the viewing angle;
