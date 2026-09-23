@@ -121,6 +121,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
       name,
       maxHp: monHp,
       creatureType: tmpl?.creatureType,
+      modelType: tmpl?.modelType, modelColor: tmpl?.modelColor, visualTags: tmpl?.visualTags,
       level: tmpl?.level,
       armorClass: tmpl?.armorClass,
       speed: tmpl?.speed,

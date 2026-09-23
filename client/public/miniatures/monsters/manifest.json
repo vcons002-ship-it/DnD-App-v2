@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "goblin",
+      "url": "/miniatures/monsters/goblin.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1564924,
+      "sha256": "d5cddb70f4d26e5fd35fc0e84399808611b89f858b612276ad4e3e737b37d30f",
+      "sourceSha256": "bc7a564bac08b7eca2fdbc51714cb8e34c30d3ecf2a722e98bbe4e12245e9df5",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1"
+    },
+    {
+      "id": "skeleton",
+      "url": "/miniatures/monsters/skeleton.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1768908,
+      "sha256": "bea0d82171b3aa86a1ace7191232b3db42a337ce8163de33411188a1f30eacf0",
+      "sourceSha256": "a16161d846f2ff517e4aa5ed43447eabc2d8c725e92d2cfe41e19ff573133358",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1"
+    },
+    {
+      "id": "wolf",
+      "url": "/miniatures/monsters/wolf.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1388464,
+      "sha256": "d3e746af646302daac083a93abb61ceae1419bd6e640e5c28b6a51c053960f0b",
+      "sourceSha256": "ad53e91d73340fdc5dc25e3069b3ee7ede54c9bb668cb1a89afd7cbe2322a539",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1"
+    }
+  ]
+}

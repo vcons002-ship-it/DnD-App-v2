@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
+  Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
 } from 'three';
@@ -21,6 +21,7 @@ import {
 export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
+  tint?: string;
   activeTurn?: boolean;
   definition: MiniatureDefinition;
 };
@@ -30,6 +31,7 @@ type Props = {
   tiltDegrees: number;
   width: number;
   height: number;
+  isVisibleAt?: (id: string, x: number, y: number) => boolean;
   onReady: (tokenIds: ReadonlySet<string>) => void;
 };
 export type MiniatureLayerHandle = {
@@ -47,6 +49,7 @@ type Instance = {
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   url: string;
   materials: Material[];
+  originalColors: Array<Color | null>;
   originalOpacity: number[];
   originalTransparent: boolean[];
   mixer: AnimationMixer | null;
@@ -211,6 +214,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const move = moves.get(token.id);
         if (move && move.until < now) moves.delete(token.id);
         const position = moves.get(token.id) ?? token;
+        instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
         const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
@@ -250,10 +254,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     const model = instance.root.children[0];
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     const position = moves.get(token.id) ?? token;
+    instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
     instance.turnRing.visible = !!token.activeTurn;
     instance.materials.forEach((material, index) => {
+      if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
+        material.color.copy(instance.originalColors[index]!);
+        if (token.tint) material.color.multiply(new Color(token.tint));
+      }
       const transparent = token.hidden || instance.originalTransparent[index];
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
       material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
@@ -334,6 +343,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const materials = [...cloned.values()];
         const instance: Instance = {
           root, turnRing, url: definition.url, materials,
+          originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,

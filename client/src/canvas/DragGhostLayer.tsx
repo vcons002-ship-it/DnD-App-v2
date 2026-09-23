@@ -16,7 +16,7 @@ export const DragGhostLayer = memo(function DragGhostLayer({
   pxPerFoot,
   gridSizePx,
 }: {
-  ghosts: Record<string, { x: number; y: number }>;
+  ghosts: Record<string, { x: number; y: number; hidden?: boolean }>;
   tokens: Token[];
   pxPerFoot: number;
   gridSizePx: number;
@@ -29,7 +29,7 @@ export const DragGhostLayer = memo(function DragGhostLayer({
     <>
       {ids.map((id) => {
         const tok = tokens.find((t) => t.id === id);
-        if (!tok) return null; // token isn't on the viewer's map
+        if (!tok || ghosts[id].hidden) return null; // token isn't on the viewer's map
         const { x, y } = ghosts[id];
         const ft = feetPerPixel > 0
           ? Math.round(Math.hypot(x - tok.x, y - tok.y) * feetPerPixel)

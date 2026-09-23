@@ -1534,6 +1534,7 @@ export function registerSocketHandlers(io: IOServer): void {
         name: p.name,
         maxHp: p.maxHp,
         creatureType: p.creatureType,
+        modelType: p.modelType, modelColor: p.modelColor, visualTags: p.visualTags,
         level: p.level,
         armorClass: p.armorClass,
         speed: p.speed,

@@ -91,7 +91,7 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
   if (!m0) return { ok: false, reason: 'not-found' };
   if (!aiAvailable()) return { ok: false, reason: 'no-key' };
 
-  const tpl = await lookupCreatureAI(m0.name);
+  const tpl = await lookupCreatureAI(m0.name, { modelType: m0.modelType, modelColor: m0.modelColor, visualTags: m0.visualTags });
   if (!tpl) return { ok: false, reason: 'lookup-failed' };
 
   // Re-read AFTER the (multi-second) LLM call so DM edits made during the wait
@@ -100,6 +100,9 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
   if (!m) return { ok: false, reason: 'not-found' };
 
   const patch: MonsterUpdatePayload = { monsterId };
+  if (!m.modelColor && tpl.modelColor) patch.modelColor = tpl.modelColor;
+  if (!m.modelType && tpl.modelType) patch.modelType = tpl.modelType;
+  if (!m.visualTags?.length && tpl.visualTags?.length) patch.visualTags = tpl.visualTags;
   if (!m.creatureType && tpl.creatureType) patch.creatureType = tpl.creatureType;
   if (m.level === 0 && (tpl.level ?? 0) > 0) patch.level = tpl.level;
   if (m.maxHp <= 1 && tpl.maxHp > 1) patch.maxHp = tpl.maxHp;

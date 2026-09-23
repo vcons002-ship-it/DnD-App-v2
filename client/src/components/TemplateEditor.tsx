@@ -1,3 +1,4 @@
+import { MonsterAppearanceControl } from './MonsterAppearanceControl';
 import type { Monster } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { StatBlock } from './StatBlock';
@@ -15,6 +16,7 @@ export function TemplateEditor({ monster }: { monster: Monster }) {
 
   return (
     <div className="template-editor">
+      <MonsterAppearanceControl monster={monster} />
       <h4>Token image</h4>
       <IconTools
         onApply={(icon) => updateMonster({ monsterId: monster.id, icon })}

@@ -1,3 +1,5 @@
+import { tokenVisibleAt } from '../../../shared/fog';
+import { monsterTint } from '../../../shared/monsterAppearance';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
@@ -928,16 +930,35 @@ export function MapStage({
     return { x: -view.x / s - m, y: -view.y / (s * groundScaleY) - m, w: vw + 2 * m, h: vh + 2 * m };
   }, [view, size, groundScaleY]);
 
+  const miniatureVisibleAt = useMemo(() => {
+    const ownerId = useStore.getState().socket?.id;
+    const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
+    const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
+    const tokens = new Map(snapshot.tokens.map(t => [t.id, { hidden: t.isHidden,
+      owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
+    return (id: string, x: number, y: number) => {
+      const token = tokens.get(id);
+      return !!token && tokenVisibleAt({ ...token, role: snapshot.role,
+        mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y });
+    };
+  }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
+  const visibleAtRef = useRef(miniatureVisibleAt);
+  visibleAtRef.current = miniatureVisibleAt;
+  // Keep TokenShape's memo stable across unrelated snapshots while reading current fog.
+  const tokenVisibleAtPosition = useCallback((id: string, x: number, y: number) => visibleAtRef.current(id, x, y), []);
+
   const miniatureTokens = useMemo<MiniatureToken[]>(() => !use3dTokens ? [] : snapshot.tokens.flatMap((token) => {
     // Only role-filtered snapshot tokens are eligible; never fetch hidden PCs
     // for a player even if a stale snapshot reaches this component.
-    if (token.isHidden && !isDm) return [];
-    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind);
+    if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
+    const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
+    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      tint: monster ? monsterTint(monster) : undefined,
       activeTurn: token.id === activeTurnTokenId,
       diameter: token.widthFt * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens, dragGhosts]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
@@ -1473,7 +1494,7 @@ export function MapStage({
   };
 
   const renderTokens = (miniatures: boolean) => snapshot.tokens.filter((token) =>
-    (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
+    !dragGhosts[token.id]?.hidden && (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
     // Players may drag only their side: PCs + friendly creatures,
@@ -1508,6 +1529,7 @@ export function MapStage({
         onDragActive={setDraggingToken}
         onDragPreview={handleTokenDragPreview}
         onVisualMove={handleTokenVisualMove}
+        isVisibleAt={tokenVisibleAtPosition}
       />
     );
   });
@@ -2104,7 +2126,7 @@ export function MapStage({
             </Layer>
           </Stage>
           {miniatureTokens.length > 0 && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view}
+            <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
               tiltDegrees={tiltDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady} />
           </Suspense></MiniatureFallback>}
           <DecalPopup snapshot={snapshot} />

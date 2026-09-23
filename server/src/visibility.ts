@@ -1,3 +1,4 @@
+import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
 import {
   getActiveMapId,
   getSessionById,
@@ -29,7 +30,7 @@ import type {
   Token,
 } from '../../shared/types.js';
 import { deriveCombatRole } from '../../shared/combatRole.js';
-import { coveredByFog } from '../../shared/fog.js';
+import { coveredByFog, tokenVisibleAt } from '../../shared/fog.js';
 import { peekUndo } from './undo.js';
 
 /** Sum a list of reveal steps' values. */
@@ -130,6 +131,9 @@ function toPlayerMonster(m: Monster): Monster | MonsterPublic {
   return {
     id: m.id,
     name: m.name,
+    modelType: resolveMonsterModelType(m),
+    visualTags: m.visualTags,
+    modelColor: m.modelColor,
     conditions: m.conditions,
     disposition: m.disposition,
     icon: m.icon,
@@ -267,26 +271,10 @@ export function createSnapshotBuilder(
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-      // Map fog is a terrain blackout — it hides ANY token in an unrevealed cell.
-      const underMapFog = (t: Token) => coveredByFog(mapFog, null, grid, t.x, t.y);
-      // Token fog is for lurking threats: it hides ONLY enemy/neutral creatures.
-      // The party — PCs and friendly creatures — stays visible to players even
-      // under token fog (so you can always see your allies).
-      const underTokenFog = (t: Token) => coveredByFog(null, tokenFog, grid, t.x, t.y);
-      const isFoe = (t: Token) =>
-        t.kind === 'monster' &&
-        (monById.get(t.refId)?.disposition ?? 'enemy') !== 'friendly';
-      // A player always sees their own claimed PC token, even under fog — they
-      // know where they are; only OTHER players are kept from seeing it.
-      const ownedBy = (t: Token) =>
-        t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId;
-      tokens = tokens.filter((t) => {
-        if (t.isHidden) return false;
-        if (ownedBy(t)) return true;
-        if (underMapFog(t)) return false;
-        if (underTokenFog(t) && isFoe(t)) return false;
-        return true;
-      });
+      tokens = tokens.filter(t => tokenVisibleAt({ role, hidden: t.isHidden,
+        owned: t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId,
+        foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
+        mapFog, tokenFog, grid, x: t.x, y: t.y }));
       // Only reveal monsters the player can actually SEE — i.e. referenced by a
       // token that survived the hidden/fog filter above. Previously EVERY session
       // monster (incl. hidden-token and staged-map creatures) was listed, leaking

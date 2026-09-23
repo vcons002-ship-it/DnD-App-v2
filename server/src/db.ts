@@ -357,6 +357,11 @@ if (addedMapRev || addedTokRev) {
     );
   }
 }
+for (const table of ['monsters', 'library_creatures']) {
+  ensureColumn(table, 'model_color', "model_color TEXT NOT NULL DEFAULT ''");
+  ensureColumn(table, 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
+  ensureColumn(table, 'visual_tags', "visual_tags TEXT NOT NULL DEFAULT '[]'");
+}
 ensureColumn('monsters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('monsters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
@@ -715,6 +720,9 @@ export function rowToCharacter(r: CharacterRow): Character {
 }
 
 type MonsterRow = {
+  model_type?: string;
+  model_color?: string;
+  visual_tags?: string;
   id: string;
   session_id: string;
   name: string;
@@ -750,6 +758,9 @@ export function rowToMonster(r: MonsterRow): Monster {
     sessionId: r.session_id,
     name: r.name,
     creatureType: r.creature_type,
+    modelType: r.model_type ?? '',
+    modelColor: r.model_color ?? '',
+    visualTags: JSON.parse(r.visual_tags ?? '[]'),
     level: r.level ?? 0,
     maxHp: r.max_hp,
     curHp: r.cur_hp,

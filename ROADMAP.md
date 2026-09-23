@@ -8,6 +8,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ### DM workspace - September 2026
 
+- [x] Monster miniatures: reduced goblin, skeleton and wolf models; automatic
+  physical-family matching, DM family/color/tag controls, and AI fill for all
+  three appearance fields. Unsupported families retain 2D art. Recoloring is
+  cosmetic, persists through templates/library/spawns, and uses isolated materials.
+- [x] Monsters share character miniature base selection, movement facing,
+  sizing, and per-view 2D/3D controls. Whole-token visibility follows existing
+  anchor-cell fog rules, including concealed live drag previews.
+
 - [x] Full-width battlefield with charcoal/gold styling matching the player HUD.
 - [x] Maps, Creatures, Initiative and Chat & dice open from a compact tool rail;
   drafts stay mounted, panels resize locally, and token selection opens an inspector.

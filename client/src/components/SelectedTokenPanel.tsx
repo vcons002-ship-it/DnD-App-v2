@@ -1,3 +1,4 @@
+import { MonsterAppearanceControl } from './MonsterAppearanceControl';
 import { useEffect, useRef, useState } from 'react';
 import type {
   Character,
@@ -442,7 +443,8 @@ export function SelectedTokenPanel({
       label: 'DM tools',
       node: (
         <div className="dm-token-actions">
-          {resolveMiniature(d.name, token.kind) && <MiniatureSizeControl token={token} />}
+          {resolveMiniature(d.name, token.kind, monsterEntity) && <MiniatureSizeControl token={token} />}
+          {monster && <MonsterAppearanceControl monster={monster} />}
           <h4>Token icon</h4>
           <IconTools
             onApply={(icon) => setTokensIcon(iconTargets, icon)}
@@ -520,7 +522,7 @@ export function SelectedTokenPanel({
         onTemp={(amt) => setTempHp(token.kind, token.refId, amt)}
       />
 
-      {!resolveMiniature(d.name, token.kind) && <div className="size-row">
+      {!resolveMiniature(d.name, token.kind, monsterEntity) && <div className="size-row">
         <span>Size</span>
         <button
           className="btn"

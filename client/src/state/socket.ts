@@ -101,7 +101,7 @@ type Store = {
   /** Live in-progress positions of tokens OTHERS are dragging (server
    *  'fx:tokenDrag'), keyed by tokenId; each auto-expires shortly after the
    *  updates stop. Drives a ghost tether + distance over the watched token. */
-  dragGhosts: Record<string, { x: number; y: number }>;
+  dragGhosts: Record<string, { x: number; y: number; hidden?: boolean }>;
   /** Emit my own in-progress drag position (throttled by the caller). */
   dragToken: (tokenId: string, x: number, y: number) => void;
   /** Character refIds whose player is currently typing in chat (server
@@ -675,7 +675,9 @@ export const useStore = create<Store>((set, get) => ({
       }
       seenRollIds = new Set(log.map((e) => e.id));
       rollSfxReady = true;
-      set({ snapshot });
+      for (const timer of dragGhostTimers.values()) clearTimeout(timer);
+      dragGhostTimers.clear();
+      set({ snapshot, dragGhosts: {} });
     });
     socket.on('fx:hp', ({ events }) => {
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
@@ -693,11 +695,14 @@ export const useStore = create<Store>((set, get) => ({
         (!get().showRollAnim || !e.rollId || current?.rollId !== e.rollId))) playHit();
     });
     // Live drag preview from another user — update the ghost and (re)arm its
-    // expiry, so it clears ~0.3 s after the updates stop (release OR disconnect).
-    socket.on('fx:tokenDrag', ({ tokenId, x, y }) => {
-      set((st) => ({ dragGhosts: { ...st.dragGhosts, [tokenId]: { x, y } } }));
+    // expiry. Visible tethers clear ~0.3 s after updates stop; concealment lasts
+    // until a visible preview or authoritative snapshot restores the token.
+    socket.on('fx:tokenDrag', ({ tokenId, x, y, hidden }) => {
+      set((st) => ({ dragGhosts: { ...st.dragGhosts, [tokenId]: { x, y, hidden } } }));
       const prev = dragGhostTimers.get(tokenId);
       if (prev) clearTimeout(prev);
+      dragGhostTimers.delete(tokenId);
+      if (hidden) return; // remains concealed until a visible preview or authoritative snapshot
       dragGhostTimers.set(
         tokenId,
         setTimeout(() => {

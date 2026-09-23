@@ -1,3 +1,4 @@
+import { normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
 import { db, newId, getMeta, setMeta } from './db.js';
 import { SRD_ITEMS } from './items/srd.js';
 import type {
@@ -16,6 +17,7 @@ import { getSrd, iconForCreature } from './creatures/srd.js';
 // ---- Cross-session creature library ----
 
 type LibCreatureRow = {
+  model_type?: string; model_color?: string; visual_tags?: string;
   id: string;
   name: string;
   creature_type: string;
@@ -37,6 +39,8 @@ function rowToTemplate(r: LibCreatureRow): CreatureTemplate {
   return {
     name: r.name,
     creatureType: r.creature_type,
+    modelColor: r.model_color ?? '',
+    modelType: r.model_type ?? '', visualTags: JSON.parse(r.visual_tags ?? '[]'),
     level: r.level ?? 0,
     maxHp: r.max_hp,
     armorClass: r.armor_class,
@@ -84,6 +88,8 @@ export function getLibraryCreature(name: string): CreatureTemplate | null {
 }
 
 export type SaveCreatureInput = {
+  modelType?: string;
+  modelColor?: string; visualTags?: string[];
   name: string;
   creatureType?: string;
   level?: number;
@@ -123,8 +129,8 @@ export function saveLibraryCreature(
     `INSERT OR REPLACE INTO library_creatures
        (id, name, creature_type, level, max_hp, armor_class, speed, stats,
         resistances, weaknesses, weapons, actions, abilities, sheet_abilities,
-        icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        icon, created_at, model_type, visual_tags, model_color)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -144,6 +150,7 @@ export function saveLibraryCreature(
     JSON.stringify(input.sheetAbilities ?? []),
     input.icon ?? iconForCreature(name, input.creatureType ?? ''),
     Date.now(),
+    normalizeModelType(input.modelType), JSON.stringify(normalizeVisualTags(input.visualTags)), normalizeModelColor(input.modelColor),
   );
   return { saved: getLibraryCreature(name)! };
 }

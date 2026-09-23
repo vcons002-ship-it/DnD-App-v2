@@ -58,6 +58,8 @@ type Props = {
   onDragPreview?: (token: Token, x: number, y: number) => void;
   /** Local WebGL position, without a React render or network throttle. */
   onVisualMove?: (token: Token, x: number, y: number, finished: boolean) => void;
+  /** Keep the whole token/HUD concealed when its live anchor enters fog. */
+  isVisibleAt?: (id: string, x: number, y: number) => boolean;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -85,6 +87,7 @@ function TokenShapeInner({
   onDragActive,
   onDragPreview,
   onVisualMove,
+  isVisibleAt,
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
@@ -152,6 +155,8 @@ function TokenShapeInner({
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
     const cx = e.target.x();
     const cy = e.target.y();
+    // Opacity preserves the ongoing drag gesture while concealing all token art.
+    e.target.opacity(isVisibleAt?.(token.id, cx, cy) === false ? 0 : token.isHidden ? 0.45 : 1);
     paintDrag(cx, cy);
     onVisualMove?.(token, cx, cy, false);
     // Broadcast the live position (throttled ~18 fps) for everyone else's ghost.
@@ -679,5 +684,6 @@ export const TokenShape = memo(
     p.onHoverEnd === n.onHoverEnd &&
     p.onDragActive === n.onDragActive &&
     p.onDragPreview === n.onDragPreview &&
-    p.onVisualMove === n.onVisualMove,
+    p.onVisualMove === n.onVisualMove &&
+    p.isVisibleAt === n.isVisibleAt,
 );

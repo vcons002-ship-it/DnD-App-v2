@@ -93,6 +93,7 @@ async function tokenView(page: Page, id: string) {
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
       bodyVisible: node.findOne('.token-body')?.isVisible(),
       miniatureReady: node.getAttr('miniatureReady'),
+      opacity: node.opacity(),
     };
   }, id);
 }
@@ -105,6 +106,146 @@ function offsetPoint(view: NonNullable<Awaited<ReturnType<typeof tokenView>>>, d
   return { x: p.left + p.w / 2 + (m[0] * x + m[4] * y + m[12]) / w,
     y: p.top + p.h / 2 + (m[1] * x + m[5] * y + m[13]) / w };
 }
+
+async function monsterFixture(page: Page, request: APIRequestContext) {
+  const f = await fixture(page, request);
+  const creatures = [
+    { name: 'Goblin', x: 250, modelType: '', modelColor: '' },
+    { name: 'Azure Bones', x: 550, modelType: 'skeleton', modelColor: 'blue' },
+    { name: 'Ashfang', x: 850, modelType: 'wolf', modelColor: '' },
+    { name: 'Elephant', x: 1050, modelType: 'elephant', modelColor: '' },
+  ];
+  for (const c of creatures) {
+    f.socket.emit('monster:create', { name: c.name, maxHp: 12, modelType: c.modelType, modelColor: c.modelColor, visualTags: c.name === 'Ashfang' ? ['fire'] : [] });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === c.name)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: c.x, y: 650 });
+  }
+  const ready = await f.snapshot();
+  return { ...f, ready, monsters: ready.tokens.filter(t => t.kind === 'monster') };
+}
+
+test('monster miniatures load, recolor independently, use base hits and face their drag in both views', async ({ page, browser, request }, info) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const f = await monsterFixture(page, request);
+  await enter(page, f.code);
+  const playerLayer = page.getByTestId('miniature-layer');
+  await expect(playerLayer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+  const [goblin, skeleton, wolf, elephant] = f.monsters;
+  for (const t of [goblin, skeleton, wolf]) expect((await tokenView(page, t.id))?.miniatureReady).toBe(true);
+  expect((await tokenView(page, elephant.id))?.bodyVisible).toBe(true);
+  expect((await tokenView(page, elephant.id))?.miniatureReady).toBe(false);
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('monster-party-45.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('monster-party-overhead.png') });
+  const context = await browser.newContext({ baseURL: `http://localhost:${PORT}`, viewport: { width: 1440, height: 1000 } });
+  try {
+    const dm = await context.newPage();
+    const errors: string[] = [];
+    dm.on('pageerror', e => errors.push(e.message));
+    await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+    const base = (await tokenView(dm, skeleton.id))!;
+    await dm.mouse.click(base.x, base.y);
+    await expect(dm.getByLabel('3D family', { exact: true })).toHaveValue('skeleton');
+    await dm.getByLabel('Monster model color').selectOption('red');
+    await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.modelColor).toBe('red');
+    await dm.getByLabel('3D family', { exact: true }).selectOption('wolf');
+    await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.modelType).toBe('wolf');
+    // Two copies of the same cached wolf must retain their separate appearance.
+    await expect(playerLayer).toHaveAttribute('data-miniature-count', '6');
+    await afterPaint(page);
+    await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+    await afterPaint(page);
+    await page.screenshot({ path: info.outputPath('independent-wolf-tints.png') });
+    await dm.getByLabel('3D family', { exact: true }).selectOption('skeleton');
+    await dm.getByLabel('Monster model color').selectOption('natural');
+    await dm.getByLabel('Monster appearance tags').fill('[poison], blue');
+    await dm.getByLabel('Monster appearance tags').press('Enter');
+    await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.visualTags).toEqual(['poison', 'blue']);
+    await dm.screenshot({ path: info.outputPath('monster-dm-controls.png') });
+    // Close the inspector before dragging across the board.
+    await dm.getByRole('button', { name: 'Close token inspector', exact: true }).click();
+    for (const viewName of ['Flat battlefield view', 'Tilted battlefield view']) {
+      await dm.getByRole('button', { name: viewName, exact: true }).click();
+      await afterPaint(dm);
+      const hits = await dm.evaluate(id => {
+        const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
+        const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
+        return [[0, 0], [49, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => stage.getIntersection(node.getAbsoluteTransform().point({ x, y }))?.getAttr('tokenId') ?? null);
+      }, goblin.id);
+      expect(hits).toEqual([goblin.id, goblin.id, null, null, null]);
+      const start = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
+      const view = (await tokenView(dm, goblin.id))!;
+      const end = offsetPoint(view, 100, -80);
+      await dm.mouse.move(view.x, view.y); await dm.mouse.down();
+      await dm.mouse.move(end.x, end.y, { steps: 15 }); await afterPaint(dm);
+      expect((await f.snapshot()).tokens.find(t => t.id === goblin.id)?.x).toBe(start.x);
+      await dm.screenshot({ path: info.outputPath(`${viewName.startsWith('Flat') ? 'flat' : 'tilted'}-monster-held-drag.png`) });
+      await dm.mouse.up();
+      await expect.poll(async () => (await f.snapshot()).tokens.find(t => t.id === goblin.id)!.x).toBeGreaterThan(start.x + 90);
+      const moved = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
+      expect(moved.facing).toBeCloseTo(Math.atan2(moved.x - start.x, moved.y - start.y), 5);
+    }
+    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await expect(playerLayer).toHaveCount(0);
+    for (const t of f.monsters) expect((await tokenView(page, t.id))?.bodyVisible).toBe(true);
+    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await expect(playerLayer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});
+
+test('monster and player miniatures disappear as whole tokens under base-cell fog and live concealment', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const f = await monsterFixture(page, request);
+  await enter(page, f.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+  const [goblin, skeleton, wolf] = f.monsters;
+  const varis = f.ready.tokens.find(t => t.refId === f.initial.characters.find(c => c.name === 'Varis')!.id)!;
+  // Fogged anchor removes the entire miniature, even when its body extends into a revealed cell.
+  f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['9,3', '2,6', '8,6', '10,6'], reveal: true });
+  f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '4');
+  expect(await tokenView(page, skeleton.id)).toBeNull();
+  expect(await tokenView(page, varis.id)).toBeNull();
+  expect((await f.snapshot()).tokens).toHaveLength(7); // DM still sees all tokens.
+  f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['5,6', '6,3'], reveal: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  // A player dragging another PC into map fog loses its whole HUD as well as the model.
+  const v = (await tokenView(page, varis.id))!, concealed = offsetPoint(v, 0, -220);
+  await page.mouse.move(v.x, v.y); await page.mouse.down();
+  await page.mouse.move(concealed.x, concealed.y, { steps: 15 });
+  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(0);
+  await page.mouse.up();
+  await expect(layer).toHaveAttribute('data-miniature-count', '5');
+  f.socket.emit('token:move', { tokenId: varis.id, x: varis.x, y: varis.y });
+  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  f.socket.emit('token:drag', { tokenId: skeleton.id, x: 10, y: 10 });
+  await expect(layer).toHaveAttribute('data-miniature-count', '5');
+  expect(await tokenView(page, skeleton.id)).toBeNull();
+  // A paused held drag must not reappear when the ordinary tether timer expires.
+  await page.waitForTimeout(500);
+  expect(await tokenView(page, skeleton.id)).toBeNull();
+  f.socket.emit('token:drag', { tokenId: skeleton.id, x: skeleton.x, y: skeleton.y });
+  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: false });
+  f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'tokens', enabled: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '3');
+  expect(await tokenView(page, goblin.id)).toBeNull();
+  expect(await tokenView(page, wolf.id)).toBeNull();
+  expect(await tokenView(page, varis.id)).not.toBeNull();
+  f.socket.emit('monster:update', { monsterId: wolf.refId, disposition: 'friendly' });
+  await expect(layer).toHaveAttribute('data-miniature-count', '4');
+  f.socket.emit('token:setHidden', { tokenId: wolf.id, hidden: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '3');
+  expect(await tokenView(page, wolf.id)).toBeNull();
+});
 
 test('perspective recedes toward the far edge and keeps wheel zoom and pan under the pointer', async ({ page, request }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
