@@ -10,7 +10,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 - [x] Monster miniatures: reduced goblin, skeleton and wolf models; automatic
   physical-family matching, DM family/color/tag controls, and AI fill for all
-  three appearance fields. Unsupported families retain 2D art. Recoloring is
+  three appearance fields in Token info. Unsupported families retain 2D art. Recoloring is
   cosmetic, persists through templates/library/spawns, and uses isolated materials.
 - [x] Monsters share character miniature base selection, movement facing,
   sizing, and per-view 2D/3D controls. Whole-token visibility follows existing

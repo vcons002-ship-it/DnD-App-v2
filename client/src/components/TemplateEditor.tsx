@@ -16,23 +16,26 @@ export function TemplateEditor({ monster }: { monster: Monster }) {
 
   return (
     <div className="template-editor">
-      <MonsterAppearanceControl monster={monster} />
       <h4>Token image</h4>
       <IconTools
         onApply={(icon) => updateMonster({ monsterId: monster.id, icon })}
       />
-      <StatBlock
-        creature={monster}
-        subtitle={monster.creatureType}
-        identity={[
-          { key: 'creatureType', label: 'Type', value: monster.creatureType },
-        ]}
-        levelLabel="CR"
-        monster
-        aiBusy={aiBusy}
-        onAiFill={() => aiFillCreature(monster.id)}
-        onSave={(patch) => updateMonster({ monsterId: monster.id, ...patch })}
-      />
+      <section aria-label="Token info">
+        <h4>Token info</h4>
+        <MonsterAppearanceControl monster={monster} />
+        <StatBlock
+          creature={monster}
+          subtitle={monster.creatureType}
+          identity={[
+            { key: 'creatureType', label: 'Type', value: monster.creatureType },
+          ]}
+          levelLabel="CR"
+          monster
+          aiBusy={aiBusy}
+          onAiFill={() => aiFillCreature(monster.id)}
+          onSave={(patch) => updateMonster({ monsterId: monster.id, ...patch })}
+        />
+      </section>
       <p className="hint">Edits apply to every {monster.name} you place next.</p>
     </div>
   );

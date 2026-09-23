@@ -7,7 +7,7 @@ Models and textures are cached by URL; instance materials are cloned for tinting
 
 ## Appearance
 
-The template editor and a placed creature's **DM tools** expose:
+The template editor and a placed creature's **Token info** expose these DM-editable fields:
 
 - **3D family**: Automatic, 2D only, Goblin, Skeleton, Wolf. AI can assign other
   physical families (for example elephant); these use the existing 2D fallback.
@@ -31,6 +31,8 @@ Creature AI creation and **AI fill** both request `modelType`, `modelColor`, and
 creature after the request, filling only empty fields so DM edits are preserved.
 Unknown/invalid colors are ignored. Clearing a field makes it eligible for fill.
 These fields survive templates, duplication, spawning and library save/load.
+They belong to the creature's stored information, rather than a map placement;
+the per-placement size control remains in DM tools.
 Enemy player snapshots include public appearance without exposing combat stats.
 
 ## Visibility and interaction

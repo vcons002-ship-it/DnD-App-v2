@@ -4,7 +4,7 @@ import { MONSTER_MODEL_TYPES, MONSTER_COLORS, monsterTint, normalizeVisualTags, 
 import { useStore } from '../state/socket';
 import './monster-appearance.css';
 
-/** Shared by template editing and per-token DM tools. Appearance never affects rules. */
+/** Creature data shared by template and placed-token info. Appearance never affects rules. */
 export function MonsterAppearanceControl({ monster }: { monster: Monster }) {
   const update = useStore(s => s.updateMonster);
   const [tags, setTags] = useState((monster.visualTags ?? []).join(', '));

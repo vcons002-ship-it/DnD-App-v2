@@ -151,10 +151,11 @@ test('monster miniatures load, recolor independently, use base hits and face the
     await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
     const base = (await tokenView(dm, skeleton.id))!;
     await dm.mouse.click(base.x, base.y);
-    await expect(dm.getByLabel('3D family', { exact: true })).toHaveValue('skeleton');
-    await dm.getByLabel('Monster model color').selectOption('red');
+    const tokenInfo = dm.getByRole('region', { name: 'Token info', exact: true });
+    await expect(tokenInfo.getByLabel('3D family', { exact: true })).toHaveValue('skeleton');
+    await tokenInfo.getByLabel('Monster model color').selectOption('red');
     await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.modelColor).toBe('red');
-    await dm.getByLabel('3D family', { exact: true }).selectOption('wolf');
+    await tokenInfo.getByLabel('3D family', { exact: true }).selectOption('wolf');
     await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.modelType).toBe('wolf');
     // Two copies of the same cached wolf must retain their separate appearance.
     await expect(playerLayer).toHaveAttribute('data-miniature-count', '6');
@@ -162,12 +163,13 @@ test('monster miniatures load, recolor independently, use base hits and face the
     await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
     await afterPaint(page);
     await page.screenshot({ path: info.outputPath('independent-wolf-tints.png') });
-    await dm.getByLabel('3D family', { exact: true }).selectOption('skeleton');
-    await dm.getByLabel('Monster model color').selectOption('natural');
-    await dm.getByLabel('Monster appearance tags').fill('[poison], blue');
-    await dm.getByLabel('Monster appearance tags').press('Enter');
+    await tokenInfo.getByLabel('3D family', { exact: true }).selectOption('skeleton');
+    await tokenInfo.getByLabel('Monster model color').selectOption('natural');
+    await tokenInfo.getByLabel('Monster appearance tags').fill('[poison], blue');
+    await tokenInfo.getByLabel('Monster appearance tags').press('Enter');
     await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.visualTags).toEqual(['poison', 'blue']);
-    await dm.screenshot({ path: info.outputPath('monster-dm-controls.png') });
+    await tokenInfo.scrollIntoViewIfNeeded();
+    await dm.screenshot({ path: info.outputPath('monster-token-info.png') });
     // Close the inspector before dragging across the board.
     await dm.getByRole('button', { name: 'Close token inspector', exact: true }).click();
     for (const viewName of ['Flat battlefield view', 'Tilted battlefield view']) {

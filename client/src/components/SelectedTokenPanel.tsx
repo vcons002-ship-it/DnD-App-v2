@@ -327,9 +327,10 @@ export function SelectedTokenPanel({
   if (monster) {
     sections.push({
       id: 'sheet',
-      label: 'Sheet info',
+      label: 'Token info',
       node: (
-        <>
+        <section aria-label="Token info">
+          {isDm && <MonsterAppearanceControl monster={monster} />}
           {isDm && (
             <div className="disposition-row">
               <h4>Disposition</h4>
@@ -404,7 +405,7 @@ export function SelectedTokenPanel({
               💾 Save to library
             </button>
           )}
-        </>
+        </section>
       ),
     });
   } else if (character) {
@@ -444,7 +445,6 @@ export function SelectedTokenPanel({
       node: (
         <div className="dm-token-actions">
           {resolveMiniature(d.name, token.kind, monsterEntity) && <MiniatureSizeControl token={token} />}
-          {monster && <MonsterAppearanceControl monster={monster} />}
           <h4>Token icon</h4>
           <IconTools
             onApply={(icon) => setTokensIcon(iconTargets, icon)}
