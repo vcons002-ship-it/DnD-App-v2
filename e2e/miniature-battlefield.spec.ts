@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
-import { MONSTER_MODEL_TYPES } from '../shared/monsterAppearance';
+import { MONSTER_MODEL_TYPES, monsterVariation } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
 const sockets: Socket[] = [];
@@ -1142,4 +1142,74 @@ test('players and DM size miniatures through the character panel and fit a five-
     await button.click(); await expect.poll(width).toBe(5);
     await page.screenshot({ path: info.outputPath('phone-figure-size.png') });
   } finally { await dmContext.close(); }
+});
+
+test('goblin variety loads the same model pool for DM and player', async ({ page, browser, request }) => {
+  test.setTimeout(120_000);
+  const f = await fixture(page, request);
+  const expected = new Set<string>();
+  // Generate until all three choices are represented, independent of random IDs.
+  for (let i = 0; i < 30 && (expected.size < 3 || i < 6); i++) {
+    f.socket.emit('monster:create', { name: `Goblin ${i + 1}`, maxHp: 12, modelType: 'goblin' });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === `Goblin ${i + 1}`)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 100 + i % 6 * 180, y: 100 + Math.floor(i / 6) * 110 });
+    const snapshot = await f.snapshot();
+    for (const token of snapshot.tokens.filter(t => t.kind === 'monster')) {
+      const variant = monsterVariation('goblin', token.refId).variant;
+      expected.add(`/miniatures/monsters/${['goblin', 'goblin-helmet', 'goblin-crest'][variant]}.glb`);
+    }
+  }
+  expect(expected.size).toBe(3);
+  const count = String((await f.snapshot()).tokens.length);
+  const observe = (p: Page) => {
+    const paths = new Set<string>();
+    p.on('response', r => { if (r.ok() && r.url().includes('/miniatures/monsters/goblin')) paths.add(new URL(r.url()).pathname); });
+    return paths;
+  };
+  const playerPaths = observe(page);
+  await enter(page, f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', count, {timeout:90_000});
+  expect([...playerPaths].sort()).toEqual([...expected].sort());
+  const context = await browser.newContext({baseURL:`http://localhost:${PORT}`});
+  try {
+    const dm = await context.newPage(), dmPaths = observe(dm);
+    await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', {name:'Rejoin as DM',exact:true}).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', count, {timeout:90_000});
+    expect([...dmPaths].sort()).toEqual([...expected].sort());
+  } finally { await context.close(); }
+});
+
+test('tilted map draws and hit-tests beyond the original raster edge after zoom and resize', async ({page,request}) => {
+  const f=await fixture(page,request);
+  await enter(page,f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  for(let i=0;i<6;i++) await page.getByTitle('Zoom in',{exact:true}).click();
+  const edge = async () => {
+    await afterPaint(page);
+    return page.evaluate(() => {
+      const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+      const layer=stage.getLayers()[0], canvas=layer.getNativeCanvasElement();
+      const w=stage.width(),h=stage.height(),k=1/Math.max(w*.85,h*1.35,1);
+      const x=w/2,y=h/2+(30-h/2)/(1+(30-h/2)*k);
+      const px=-parseFloat(canvas.style.left),py=-parseFloat(canvas.style.top),ratio=canvas.width/parseFloat(canvas.style.width);
+      const pixel=Array.from(canvas.getContext('2d').getImageData(Math.round((x+px)*ratio),Math.round((y+py)*ratio),1,1).data);
+      return {y,pixel,hit:layer.getIntersection({x,y})?.getClassName(),extra:canvas.height>h*ratio};
+    });
+  };
+  for(const viewport of [{width:1440,height:1000},{width:1100,height:850}]) {
+    await page.setViewportSize(viewport);
+    const sample=await edge();
+    expect(sample.y).toBeLessThan(0); expect(sample.extra).toBe(true);
+    expect(sample.pixel[3]).toBe(255); expect(sample.pixel[0]).toBeGreaterThan(60);
+    expect(sample.hit).toBe('Image');
+  }
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  await afterPaint(page);
+  expect(await page.evaluate(()=>{
+    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+    const canvas=stage.getLayers()[0].getNativeCanvasElement();
+    return {left:canvas.style.left,transform:canvas.style.transform,width:parseFloat(canvas.style.width),stage:stage.width()};
+  })).toMatchObject({left:'0px',transform:'none',width:1100,stage:1100});
 });

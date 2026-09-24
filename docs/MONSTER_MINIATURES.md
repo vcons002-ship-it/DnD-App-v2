@@ -183,3 +183,25 @@ parenthesized counts); DM names and stored names stay intact. Roll-log and revea
 text use the same public names while dice, totals, and DCs retain their values.
 No reveal-order numbering is assigned. Monster map labels use a compact single
 line with ellipsis; full public names remain in hover and token details.
+
+## Goblin variation pilot
+
+The goblin family has three shared meshes: the original, a skullcap/leather-panel
+variant and a hair-crest/vest variant. A hash of the public creature ID chooses
+the mesh and a subtle 0.94?1.0 linear RGB multiplier. All viewers see the same
+appearance across movement, reloads and map placements of the same creature;
+new creature copies can differ. Random selection is not guaranteed to balance
+a small group. Explicit theme colors remain recognizable under the subtle shade.
+Other families and PCs are unchanged. Bases, hit areas, stats and facing stay
+identical. No generation runs during play; only the three static cached assets
+are loaded as needed. This adds two shared downloads, not one per goblin.
+
+Monster round bases use a shared dark pewter finish at runtime: metallic shading
+and soft reflections emphasize a slightly raised, beveled metal lip. Creature colors and
+variant shades do not tint the metal. The central foot-contact plane and click
+footprints are unchanged; no extra model or texture downloads are required.
+
+The tilted ground canvases include inverse-projected viewport padding. Scene,
+hit and shape-compositing buffers cover the same area, while map coordinates
+and pointer math remain unchanged. This prevents black raster edges during
+panning; overhead mode uses the normal viewport-sized buffers.

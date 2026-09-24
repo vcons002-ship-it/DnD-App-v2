@@ -11,7 +11,8 @@ assert.equal(manifest.version, 1);
 const familySource = readFileSync(path.resolve(directory, '../../../../shared/monsterAppearance.ts'), 'utf8');
 const declaredFamilies = [...familySource.match(/MONSTER_MODEL_TYPES = \[([\s\S]*?)\] as const/)[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
 assert.deepEqual(manifest.models.map(m => m.id).sort(), declaredFamilies.sort(), 'Every selectable family must have a packaged asset');
-for (const model of manifest.models) {
+assert.deepEqual((manifest.variants ?? []).map(m => m.id).sort(), ['goblin-crest', 'goblin-helmet']);
+for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
   assert.equal(model.url, `/miniatures/monsters/${model.id}.glb`);
   const bytes = readFileSync(path.join(directory, `${model.id}.glb`));
   assert.equal(bytes.length, model.bytes);
