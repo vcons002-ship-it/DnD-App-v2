@@ -408,5 +408,41 @@
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1
     }
+  ],
+  "variants": [
+    {
+      "id": "goblin-helmet",
+      "url": "/miniatures/monsters/goblin-helmet.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1777272,
+      "sha256": "7eef9d9ad8541261b7b4fbc07c1625f2a1909f955d69a775055a1133807e12f4",
+      "sourceSha256": "df0c30dac63253007af90263446ea789458642db3acd0479ffc194037e3922fb",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "goblin-crest",
+      "url": "/miniatures/monsters/goblin-crest.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1924000,
+      "sha256": "35faec576316bbb82e819615259b8b27fad6b45d296a7a8c843ba88489a17d73",
+      "sourceSha256": "4755b0e7f957e0aa68c3b03c9633b4e55d755ad9d0a5d159c1e7ffdd9baa4d30",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    }
   ]
 }

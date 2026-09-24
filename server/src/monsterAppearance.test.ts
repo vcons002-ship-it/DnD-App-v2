@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, vi, afterEach } from 'vitest';
-import { creatureSize, defaultMonsterWidthFt, miniatureBaseWidthFt, monsterTint, normalizeVisualTags, normalizeModelType, resolveMonsterModelType } from '../../shared/monsterAppearance.js';
+import { creatureSize, defaultMonsterWidthFt, miniatureBaseWidthFt, monsterVariation, monsterTint, normalizeVisualTags, normalizeModelType, resolveMonsterModelType } from '../../shared/monsterAppearance.js';
 import { createSession, createMap, setActiveMap, createMonsterTemplate, instantiateMonster, copyMonster, createToken, updateMonster, getMonster, setFogLayer, setFogRevealed, moveToken, duplicateToken, resizeToken, resizeMiniature, createCharacter, claimCharacter } from './sessions.js';
 import { buildSnapshot } from './visibility.js';
 import { saveLibraryCreature, getLibraryCreature } from './library.js';
@@ -11,6 +11,18 @@ vi.mock('./ai/gateway.js', () => ({ aiAvailable: () => true, generateJson: vi.fn
 afterEach(() => { dropConn('appearance-player'); dropConn('appearance-dm'); vi.clearAllMocks(); });
 
 describe('monster appearance', () => {
+  it('keeps goblin variants stable across viewers and limits color differences', () => {
+    const variants = new Set<number>();
+    for (let i = 0; i < 100; i++) {
+      const a = monsterVariation('goblin', `creature-${i}`);
+      expect(monsterVariation('goblin', `creature-${i}`)).toEqual(a);
+      variants.add(a.variant);
+      for (const channel of a.shade) { expect(channel).toBeGreaterThanOrEqual(.94); expect(channel).toBeLessThanOrEqual(1); }
+    }
+    expect([...variants].sort()).toEqual([0, 1, 2]);
+    expect(monsterVariation('wolf', 'creature-1')).toEqual({variant:0,shade:[1,1,1]});
+    expect(monsterVariation('goblin', '')).toEqual({variant:0,shade:[1,1,1]});
+  });
   it('separates rule-sized space from compact miniature bases and respects dragon age', () => {
     expect(creatureSize({modelType:'goblin'})).toBe('small');
     expect(creatureSize({modelType:'wolf'})).toBe('medium');

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
-import { MONSTER_MODEL_TYPES } from '../shared/monsterAppearance';
+import { MONSTER_MODEL_TYPES, monsterVariation } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
 const sockets: Socket[] = [];
@@ -1142,4 +1142,41 @@ test('players and DM size miniatures through the character panel and fit a five-
     await button.click(); await expect.poll(width).toBe(5);
     await page.screenshot({ path: info.outputPath('phone-figure-size.png') });
   } finally { await dmContext.close(); }
+});
+
+test('goblin variety loads the same model pool for DM and player', async ({ page, browser, request }) => {
+  test.setTimeout(120_000);
+  const f = await fixture(page, request);
+  const expected = new Set<string>();
+  // Generate until all three choices are represented, independent of random IDs.
+  for (let i = 0; i < 30 && (expected.size < 3 || i < 6); i++) {
+    f.socket.emit('monster:create', { name: `Goblin ${i + 1}`, maxHp: 12, modelType: 'goblin' });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === `Goblin ${i + 1}`)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 100 + i % 6 * 180, y: 100 + Math.floor(i / 6) * 110 });
+    const snapshot = await f.snapshot();
+    for (const token of snapshot.tokens.filter(t => t.kind === 'monster')) {
+      const variant = monsterVariation('goblin', token.refId).variant;
+      expected.add(`/miniatures/monsters/${['goblin', 'goblin-helmet', 'goblin-crest'][variant]}.glb`);
+    }
+  }
+  expect(expected.size).toBe(3);
+  const count = String((await f.snapshot()).tokens.length);
+  const observe = (p: Page) => {
+    const paths = new Set<string>();
+    p.on('response', r => { if (r.ok() && r.url().includes('/miniatures/monsters/goblin')) paths.add(new URL(r.url()).pathname); });
+    return paths;
+  };
+  const playerPaths = observe(page);
+  await enter(page, f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', count, {timeout:90_000});
+  expect([...playerPaths].sort()).toEqual([...expected].sort());
+  const context = await browser.newContext({baseURL:`http://localhost:${PORT}`});
+  try {
+    const dm = await context.newPage(), dmPaths = observe(dm);
+    await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', {name:'Rejoin as DM',exact:true}).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', count, {timeout:90_000});
+    expect([...dmPaths].sort()).toEqual([...expected].sort());
+  } finally { await context.close(); }
 });

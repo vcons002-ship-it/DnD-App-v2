@@ -22,6 +22,7 @@ export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   tint?: string;
+  shade?: [number, number, number];
   activeTurn?: boolean;
   definition: MiniatureDefinition;
 };
@@ -262,6 +263,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
         material.color.copy(instance.originalColors[index]!);
         if (token.tint) material.color.multiply(new Color(token.tint));
+        if (token.shade) material.color.multiply(new Color(...token.shade));
       }
       const transparent = token.hidden || instance.originalTransparent[index];
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }

@@ -1,6 +1,6 @@
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
-import { monsterTint } from '../../../shared/monsterAppearance';
+import { monsterTint, monsterVariation, resolveMonsterModelType } from '../../../shared/monsterAppearance';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
@@ -953,10 +953,11 @@ export function MapStage({
     // for a player even if a stale snapshot reaches this component.
     if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
-    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster);
+    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
       tint: monster ? monsterTint(monster) : undefined,
+      shade: monster ? monsterVariation(resolveMonsterModelType(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
   }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens, dragGhosts]);
