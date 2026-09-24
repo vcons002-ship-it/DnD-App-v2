@@ -184,7 +184,7 @@ text use the same public names while dice, totals, and DCs retain their values.
 No reveal-order numbering is assigned. Monster map labels use a compact single
 line with ellipsis; full public names remain in hover and token details.
 
-## Goblin variation pilot
+## Shared monster variants
 
 The goblin family has three shared meshes: the original, a skullcap/leather-panel
 variant and a hair-crest/vest variant. A hash of the public creature ID chooses
@@ -192,9 +192,17 @@ the mesh and a subtle 0.94?1.0 linear RGB multiplier. All viewers see the same
 appearance across movement, reloads and map placements of the same creature;
 new creature copies can differ. Random selection is not guaranteed to balance
 a small group. Explicit theme colors remain recognizable under the subtle shade.
-Other families and PCs are unchanged. Bases, hit areas, stats and facing stay
-identical. No generation runs during play; only the three static cached assets
-are loaded as needed. This adds two shared downloads, not one per goblin.
+Skeletons and human bandits also have three meshes each. Skeleton variants add
+a battered helmet/shoulder guard or a leather vest/burgundy cloth. Bandits vary
+between the original, a bald bearded olive-tunic model, and a long-haired blue-tunic
+model. All retain a ready sword pose. Other families and PCs are unchanged.
+Bases, hit areas, stats and facing retain their existing rules. No generation runs
+during play; each family loads only its three static cached assets as needed.
+Each new family adds two shared downloads, not one per creature. The shared
+MONSTER_VARIANTS catalog drives model resolution, deterministic shade, and asset
+validation. Source art and generation/reduction/base receipts are archived under
+assets/miniatures/monster-provenance. These humanoid variants use the authorized
+one-front-view route through Hunyuan3D-2mv; they are not four-view reconstructions.
 
 Monster round bases use a shared dark pewter finish at runtime: metallic shading
 and soft reflections emphasize a slightly raised, beveled metal lip. Creature colors and

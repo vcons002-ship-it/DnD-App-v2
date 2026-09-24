@@ -11,11 +11,11 @@ vi.mock('./ai/gateway.js', () => ({ aiAvailable: () => true, generateJson: vi.fn
 afterEach(() => { dropConn('appearance-player'); dropConn('appearance-dm'); vi.clearAllMocks(); });
 
 describe('monster appearance', () => {
-  it('keeps goblin variants stable across viewers and limits color differences', () => {
+  it.each(['goblin', 'skeleton', 'human-bandit'])('keeps %s variants stable across viewers and limits color differences', (family) => {
     const variants = new Set<number>();
     for (let i = 0; i < 100; i++) {
-      const a = monsterVariation('goblin', `creature-${i}`);
-      expect(monsterVariation('goblin', `creature-${i}`)).toEqual(a);
+      const a = monsterVariation(family, `creature-${i}`);
+      expect(monsterVariation(family, `creature-${i}`)).toEqual(a);
       variants.add(a.variant);
       for (const channel of a.shade) { expect(channel).toBeGreaterThanOrEqual(.94); expect(channel).toBeLessThanOrEqual(1); }
     }

@@ -85,11 +85,21 @@ export function normalizeModelColor(value: unknown): string {
   return Object.hasOwn(MONSTER_COLORS, key) ? key : '';
 }
 
+export const MONSTER_VARIANTS = {
+  goblin: ['goblin', 'goblin-helmet', 'goblin-crest'],
+  skeleton: ['skeleton', 'skeleton-helmet', 'skeleton-vest'],
+  'human-bandit': ['human-bandit', 'human-bandit-bald', 'human-bandit-longhair'],
+} as const;
+export type MonsterVariantId = typeof MONSTER_VARIANTS[keyof typeof MONSTER_VARIANTS][number];
+export function monsterVariantIds(family: string): readonly string[] {
+  return Object.hasOwn(MONSTER_VARIANTS, family) ? MONSTER_VARIANTS[family as keyof typeof MONSTER_VARIANTS] : [family];
+}
 /** Stable across viewers, movement and reloads; never uses hidden encounter names. */
 export function monsterVariation(family: string, creatureId: string): { variant: number; shade: [number, number, number] } {
-  if (family !== 'goblin' || !creatureId) return { variant: 0, shade: [1, 1, 1] };
+  const variants = monsterVariantIds(family);
+  if (variants.length === 1 || !creatureId) return { variant: 0, shade: [1, 1, 1] };
   let hash = 2166136261;
   for (const char of creatureId) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
   const channel = (shift: number) => .94 + ((hash >>> shift) & 255) / 255 * .06;
-  return { variant: hash % 3, shade: [channel(8), channel(16), channel(24)] };
+  return { variant: hash % variants.length, shade: [channel(8), channel(16), channel(24)] };
 }

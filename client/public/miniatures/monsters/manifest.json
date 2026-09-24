@@ -448,6 +448,79 @@
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1
+    },
+    {
+      "id": "skeleton-helmet",
+      "url": "/miniatures/monsters/skeleton-helmet.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1720544,
+      "sha256": "8746919bb5ec9e7b60b717e3c21b8c1fea8020ee9dd95e5e66fc5a12abd6ea62",
+      "sourceSha256": "c6dc0ba94150cc772257d97d0057c9e2efa7a76bc31e7c60f897df47131d4451",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "skeleton-vest",
+      "url": "/miniatures/monsters/skeleton-vest.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20763,
+      "bytes": 1651236,
+      "sha256": "ae54debb0e7b61e0c7071ad2c493359f6e2b1abc955a0bc3ab600f0e6cd4f820",
+      "sourceSha256": "e9b581f49d3119ce023527d104ad5b15b55fc5d4312b77e596836ea1dbde7ce7",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-bandit-bald",
+      "url": "/miniatures/monsters/human-bandit-bald.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1542836,
+      "sha256": "498b3040e8ea9106367a94c32fed3b7be52ca0e02358eae937543d52e3d32bbb",
+      "sourceSha256": "47ada8645701efd8f649de2462c1cd3be395a1f87cfb6249e302406d66b3b4ac",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-bandit-longhair",
+      "url": "/miniatures/monsters/human-bandit-longhair.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1585468,
+      "sha256": "ec55313ffec5a3b70f6d73888b09fa72807937ab37fe69596300a6cd10a5f44d",
+      "sourceSha256": "f72431fc742784fb149c95df73394d02f670d49bdb91d2bc1cad8cdb6da91bdc",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1,
+      "cleanup": {
+        "method": "Vertex-color attenuation of saturated red reconstruction artifacts; source atlas and geometry unchanged",
+        "affectedVertices": 291,
+        "sourceSha256": "e849bbc94e1e048c38bd8281552131766e8d21c464f0384d7709c6d037751a7e"
+      }
     }
   ]
 }
