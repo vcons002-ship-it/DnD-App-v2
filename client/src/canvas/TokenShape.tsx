@@ -515,6 +515,13 @@ function TokenShapeInner({
           )}
         </Group>
       )}
+      {token.revealTag && (
+        <Group name="token-tracking-tag" x={radius * 0.75} y={-radius * 0.75}>
+          <Rect x={-17} y={-9} width={34} height={18} fill="#111b" stroke="#ffffffaa" strokeWidth={1} cornerRadius={4} />
+          <Text text={token.revealTag} x={-17} y={-6} width={34} align="center" fontSize={12}
+            fontStyle="bold" fill="#fff" stroke="#000" strokeWidth={2} fillAfterStrokeEnabled />
+        </Group>
+      )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
       {display.disposition && !miniatureReady && (
         <Circle
@@ -549,7 +556,7 @@ function TokenShapeInner({
         </Group>
       )}
       {initiativeRank !== null && (
-        <Group x={radius * 0.8} y={-radius * 0.8}>
+        <Group x={radius * 0.8} y={-radius * 0.8 - (token.revealTag ? 22 : 0)}>
           <Circle radius={11} fill="#f5c518" stroke="#000" strokeWidth={1} />
           <Text
             text={String(initiativeRank)}

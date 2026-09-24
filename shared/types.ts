@@ -106,6 +106,8 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
+  revealTag?: string;
   id: string;
   mapId: string;
   kind: TokenKind;

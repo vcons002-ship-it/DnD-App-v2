@@ -330,6 +330,7 @@ export function SelectedTokenPanel({
       label: 'Token info',
       node: (
         <section aria-label="Token info">
+          {token.revealTag && <div className="muted">Tracking tag: <strong>{token.revealTag}</strong>{token.revealTag === 'U' ? ' (unseen)' : ''}</div>}
           {isDm && <MonsterAppearanceControl monster={monster} />}
           {isDm && (
             <div className="disposition-row">

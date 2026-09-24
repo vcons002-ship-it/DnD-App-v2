@@ -657,7 +657,8 @@ describe('creature creation', () => {
 
   it('deletes a map with its tokens + orphaned instances and re-homes active', () => {
     const s = createSession('DelMap');
-    const m1 = createMap(s.id, { name: 'One' }); // becomes active
+    const m1 = createMap(s.id, { name: 'One' });
+    setActiveMap(s.id, m1.id);
     const m2 = createMap(s.id, { name: 'Two' });
     expect(getActiveMapId(s.id)).toBe(m1.id);
 
@@ -685,6 +686,7 @@ describe('creature creation', () => {
   it('clears the active map when the last one is deleted', () => {
     const s = createSession('DelLast');
     const only = createMap(s.id, { name: 'Solo' });
+    setActiveMap(s.id, only.id);
     expect(getActiveMapId(s.id)).toBe(only.id);
     deleteMap(only.id);
     expect(listMaps(s.id)).toHaveLength(0);

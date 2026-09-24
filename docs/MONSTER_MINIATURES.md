@@ -226,3 +226,24 @@ on the outer silhouette and prevent lines over interior body/weapon/base surface
 Player miniatures use the friendly green silhouette border. The outline direction
 guard accommodates orthographic projection so overhead and tilted views retain
 the same screen-space outline width.
+
+
+### Encounter tracking tags
+
+DM creature names retain creation numbers. A separate compact badge shows U
+until first revealed, then a shared tag such as G1. Players receive the stripped
+creature name and the same tag. Tags apply to 2D and 3D creatures, not objects or PCs.
+
+New maps, including the first map, start inactive. Make active begins tracking
+using the same hidden/base-cell map fog/token fog rules as player visibility.
+Player-token placement, viewer connection and camera position do not trigger it.
+Inactive maps retain assigned tags but allocate none. Reactivation resumes.
+
+On an initial complete reveal, valid unique DM number suffixes are reused per
+creature-name group. Partial reveals allocate from 1 in reveal order and never
+renumber later. Prefixes derive from the public creature name, with longer letter
+prefixes for collisions (Goblin G, Guard GU). U is reserved for unseen.
+Assignments live in SQLite per map/token; deleted tokens retain reserved numbers,
+hiding and renaming retain existing tags, and reconnects do not reset tracking.
+Existing active campaigns begin tracking from their current visibility when this
+feature is first run; historical sightings cannot be reconstructed.

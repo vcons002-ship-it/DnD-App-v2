@@ -248,9 +248,7 @@ export function createMap(
     nextOrder,
     Date.now(),
   );
-  // First map in a session becomes active by default.
-  const session = getSessionById(sessionId);
-  if (session && !session.activeMapId) setActiveMap(sessionId, id);
+  // Maps start staged, including the first map. Only Make active starts reveals.
   return getMap(id)!;
 }
 
