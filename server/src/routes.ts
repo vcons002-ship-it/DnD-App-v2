@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { generateImageWithBackup } from './ai/imageGateway.js';
 import type { Request, Response } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
@@ -34,7 +35,6 @@ import {
   refreshComfy,
   listComfyModels,
   listComfyLoras,
-  generateImage,
   frameMapPrompt,
   DEFAULT_MAP_NEGATIVE,
 } from './ai/comfy.js';
@@ -312,6 +312,7 @@ export function createApiRouter(io: IOServer): Router {
     const patch: {
       geminiApiKey?: string;
       geminiModel?: string;
+      geminiImageModel?: string;
       ollamaUrl?: string;
       ollamaModel?: string;
       aiMode?: 'gemini' | 'local';
@@ -326,6 +327,7 @@ export function createApiRouter(io: IOServer): Router {
     } = {};
     if (typeof req.body?.geminiApiKey === 'string')
       patch.geminiApiKey = req.body.geminiApiKey;
+    if (typeof req.body?.geminiImageModel === 'string') patch.geminiImageModel = req.body.geminiImageModel;
     if (typeof req.body?.geminiModel === 'string')
       patch.geminiModel = req.body.geminiModel;
     if (typeof req.body?.ollamaUrl === 'string') patch.ollamaUrl = req.body.ollamaUrl;
@@ -365,6 +367,7 @@ export function createApiRouter(io: IOServer): Router {
     const reachable = await refreshComfy();
     res.json({
       reachable,
+      available: reachable || geminiEnabled(),
       models: reachable ? await listComfyModels() : [],
       loras: reachable ? await listComfyLoras() : [],
       defaultModel: config.comfyModel,
@@ -378,7 +381,7 @@ export function createApiRouter(io: IOServer): Router {
   // override it. 503 when ComfyUI is unreachable / generation failed.
   router.post('/comfy/generate', async (req, res) => {
     // Player-usable (token art), so not DM-gated — but rate-limited so a loop
-    // can't hammer the local GPU. ComfyUI is local, so no cloud cost.
+    // can't hammer generation. Failed local requests may use the configured API.
     if (rateLimited(req, res, 'comfy', 12, 60_000)) return;
     const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt : '';
     if (!prompt.trim()) return res.status(400).json({ error: 'prompt required' });
@@ -401,7 +404,7 @@ export function createApiRouter(io: IOServer): Router {
       if (trigger) finalPrompt = `${trigger}, ${finalPrompt}`;
       if (negative === undefined) negative = DEFAULT_MAP_NEGATIVE;
     }
-    const result = await generateImage(finalPrompt, {
+    const result = await generateImageWithBackup(finalPrompt, {
       width,
       height,
       negative,

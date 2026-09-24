@@ -12,6 +12,7 @@ import { useStore } from '../state/socket';
 type PublicSettings = {
   hasKey: boolean;
   geminiModel: string;
+  geminiImageModel: string;
   ollamaUrl: string;
   ollamaModel: string;
   aiMode: 'gemini' | 'local';
@@ -41,6 +42,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [current, setCurrent] = useState<PublicSettings | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
+  const [imageModel, setImageModel] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('');
   const [ollamaModel, setOllamaModel] = useState('');
   const [aiMode, setAiMode] = useState<'gemini' | 'local'>('gemini');
@@ -113,6 +115,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       .then((s: PublicSettings) => {
         setCurrent(s);
         setModel(s.geminiModel);
+        setImageModel(s.geminiImageModel);
         setOllamaUrl(s.ollamaUrl);
         setOllamaModel(s.ollamaModel);
         setAiMode(s.aiMode);
@@ -172,6 +175,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     try {
       const body: Record<string, string | number> = {
         geminiModel: model.trim(),
+        geminiImageModel: imageModel.trim(),
         ollamaUrl: ollamaUrl.trim(),
         ollamaModel: ollamaModel.trim(),
         aiMode,
@@ -201,6 +205,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       const updated = (await res.json()) as PublicSettings;
       setCurrent(updated);
       setModel(updated.geminiModel);
+      setImageModel(updated.geminiImageModel);
       setOllamaUrl(updated.ollamaUrl);
       setOllamaModel(updated.ollamaModel);
       setAiMode(updated.aiMode);
@@ -281,11 +286,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           Default for AI features (creatures, characters, items)
           <select value={aiMode} onChange={(e) => setAiMode(e.target.value as 'gemini' | 'local')}>
             <option value="gemini">Gemini — best quality (local fallback)</option>
-            <option value="local">Local only — Ollama, no cloud calls</option>
+            <option value="local">Local first - Ollama, Gemini backup</option>
           </select>
           <span className="muted">
             The chat's <code>/ask</code> assistant has its own model dropdown
-            (defaults to local). "Local only" forces every feature onto Ollama.
+            (defaults to local). Failed local requests use Gemini when a key is configured. API connection failures retry up to three attempts and notify the DM.
           </span>
         </label>
 
@@ -314,6 +319,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               <option key={m} value={m} />
             ))}
           </datalist>
+        </label>
+
+        <label className="settings-field">
+          Image API backup model
+          <input value={imageModel} onChange={e=>setImageModel(e.target.value)} placeholder="gemini-3.1-flash-image" />
+          <span className="muted">Used when ComfyUI fails. Uses the Gemini key above; local workflows and LoRAs are not reproduced by the API.</span>
         </label>
 
         <h4>Rules assistant (local — Ollama)</h4>

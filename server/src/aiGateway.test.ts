@@ -73,7 +73,7 @@ describe('AI gateway — backend selection', () => {
     expect(JSON.parse(out!).src).toBe('local');
   });
 
-  it("aiMode 'local' is a lockdown — forces local even with prefer:'gemini'", async () => {
+  it("aiMode 'local' prefers Ollama — forces local even with prefer:'gemini'", async () => {
     config.aiMode = 'local';
     config.geminiApiKey = 'k';
     vi.stubGlobal('fetch', stub('GEMINI', 'LOCAL'));
@@ -88,7 +88,7 @@ describe('AI gateway — backend selection', () => {
     expect(ollamaReachable()).toBe(false);
     expect(aiAvailable()).toBe(true); // gemini key counts in gemini mode
     config.aiMode = 'local';
-    expect(aiAvailable()).toBe(false); // local mode needs Ollama reachable
+    expect(aiAvailable()).toBe(true); // API backup is available when local is down
   });
 
   it('sends a large context window + the requested temperature to Ollama', async () => {
