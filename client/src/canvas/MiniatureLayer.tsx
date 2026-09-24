@@ -262,8 +262,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.materials.forEach((material, index) => {
       if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
         material.color.copy(instance.originalColors[index]!);
-        if (token.tint) material.color.multiply(new Color(token.tint));
-        if (token.shade) material.color.multiply(new Color(...token.shade));
+        if (token.tint && !material.userData.pewterBase) material.color.multiply(new Color(token.tint));
+        if (token.shade && !material.userData.pewterBase) material.color.multiply(new Color(...token.shade));
       }
       const transparent = token.hidden || instance.originalTransparent[index];
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }

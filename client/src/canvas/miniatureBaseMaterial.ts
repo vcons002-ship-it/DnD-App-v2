@@ -1,10 +1,40 @@
-import { Float32BufferAttribute, Mesh, MeshStandardMaterial, NoColorSpace, SRGBColorSpace, TextureLoader } from 'three';
+import { Color, LatheGeometry, Vector2, Float32BufferAttribute, Mesh, MeshStandardMaterial, NoColorSpace, SRGBColorSpace, TextureLoader } from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 
 /** Add high-resolution basalt to Druk's existing terrain only. Geometry,
  * feet, metal rim and orb inlay remain the original approved model. */
 export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefinition, anisotropy: number) {
+  // Keep the measured footprint and central foot-contact plane, with a small
+  // raised metal lip to make the base read as a solid pewter plinth.
+  if (definition.url.startsWith('/miniatures/monsters/')) {
+    gltf.scene.traverse(node => {
+      if (!(node instanceof Mesh) || !node.name.endsWith('_round_base')) return;
+      const radius = definition.baseDiameter / 2;
+      const profile = [[0,-.0275],[.97,-.0275],[1,-.02],[1,.015],[.98,.0325],[.92,.0325],[.90,.0275],[0,.0275]];
+      const geometry = new LatheGeometry(profile.map(([r,y]) => new Vector2(r * radius, y)), 64);
+      const positions = geometry.getAttribute('position'), colors = new Float32Array(positions.count * 3);
+      const top = new Color('#454a50'), rim = new Color('#7a828b');
+      for (let i = 0; i < positions.count; i++) {
+        const color = Math.hypot(positions.getX(i), positions.getZ(i)) >= radius * .91 ? rim : top;
+        colors.set([color.r, color.g, color.b], i * 3);
+      }
+      geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+      node.geometry.dispose();
+      node.geometry = geometry;
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+        if (!(material instanceof MeshStandardMaterial)) continue;
+        material.color.set('#ffffff');
+        material.vertexColors = true;
+        material.metalness = .82;
+        material.roughness = .34;
+        material.envMapIntensity = .85;
+        material.userData.pewterBase = true;
+        material.needsUpdate = true;
+      }
+    });
+    return gltf;
+  }
   if (definition.id !== 'druk' || !definition.baseTextureUrl) return gltf;
   const color = await new TextureLoader().loadAsync(definition.baseTextureUrl);
   color.colorSpace = SRGBColorSpace;

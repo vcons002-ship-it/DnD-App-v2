@@ -195,3 +195,8 @@ a small group. Explicit theme colors remain recognizable under the subtle shade.
 Other families and PCs are unchanged. Bases, hit areas, stats and facing stay
 identical. No generation runs during play; only the three static cached assets
 are loaded as needed. This adds two shared downloads, not one per goblin.
+
+Monster round bases use a shared dark pewter finish at runtime: metallic shading
+and soft reflections emphasize a slightly raised, beveled metal lip. Creature colors and
+variant shades do not tint the metal. The central foot-contact plane and click
+footprints are unchanged; no extra model or texture downloads are required.
