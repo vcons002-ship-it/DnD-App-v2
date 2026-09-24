@@ -296,6 +296,8 @@ function TokenShapeInner({
   }, [activeTurn, turnRingR, miniatureReady]);
 
   const playerNameSize = Math.max(11, Math.min(18, radius * .4));
+  const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
+  const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
   const roleBadgeR = Math.max(11, radius * 0.36);
 
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
@@ -472,11 +474,14 @@ function TokenShapeInner({
       <Text
         name="token-label"
         text={display.name}
-        fontSize={token.kind === 'pc' ? playerNameSize : Math.max(11, gridSizePx * 0.28)}
+        fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
         fill="#fff"
         align="center"
-        width={radius * 4}
-        offsetX={radius * 2}
+        width={token.kind === 'pc' ? radius * 4 : monsterLabelWidth}
+        offsetX={token.kind === 'pc' ? radius * 2 : monsterLabelWidth / 2}
+        wrap={token.kind === 'pc' ? 'word' : 'none'}
+        ellipsis={token.kind !== 'pc'}
+        height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
         y={token.kind === 'pc' ? radius + 4 : radius + Math.max(
           hpFrac !== null ? 14 : 4, token.combatRole ? roleBadgeR - radius * .28 + 4 : 4,

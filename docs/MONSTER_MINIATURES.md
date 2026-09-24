@@ -177,3 +177,9 @@ Explicit per-token miniature widths continue to take precedence.
 Monster names sit below their bases and clear any visible health bar and
 combat-style badge, keeping labels off the model art. Player names remain
 immediately above their health bars. Labels never expand the base hit region.
+
+Player snapshots omit numeric monster-name suffixes (including inherited
+parenthesized counts); DM names and stored names stay intact. Roll-log and reveal
+text use the same public names while dice, totals, and DCs retain their values.
+No reveal-order numbering is assigned. Monster map labels use a compact single
+line with ellipsis; full public names remain in hover and token details.

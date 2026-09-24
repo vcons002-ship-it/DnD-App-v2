@@ -123,14 +123,19 @@ export function lootVisibleToPlayers(m: Monster): boolean {
  * - neutral / enemy: name + conditions + icon only (data identical — only the
  *   battlefield dot colour differs, so players can't read a neutral's HP/stats)
  */
+/** Hide numeric encounter suffixes, including inherited duplicate suffixes. */
+function playerMonsterName(m: Monster): string {
+  return m.objectKind ? m.name : m.name.replace(/(?:\s+(?:#?\d+|\(\d+\)))+$/, '').trim() || m.name;
+}
+
 function toPlayerMonster(m: Monster): Monster | MonsterPublic {
   // Friendly = full stat block, but loot stays behind the same reveal gate as
   // every other tier (a friendly NPC's pockets aren't public until the DM says).
   if (m.disposition === 'friendly')
-    return m.loot && !lootVisibleToPlayers(m) ? { ...m, loot: undefined } : m;
+    return { ...m, name: playerMonsterName(m), ...(m.loot && !lootVisibleToPlayers(m) ? { loot: undefined } : {}) };
   return {
     id: m.id,
-    name: m.name,
+    name: playerMonsterName(m),
     modelType: resolveMonsterModelType(m),
     visualTags: m.visualTags,
     modelColor: m.modelColor,
@@ -189,6 +194,18 @@ export function createSnapshotBuilder(
   const charById = new Map(characters.map((c) => [c.id, c]));
   const monById = new Map(monsters.map((m) => [m.id, m]));
   const mapById = new Map(maps.map((m) => [m.id, m]));
+  // Logs/reveal captions use the same names as tokens, never DM encounter counts.
+  const names = new Map(monsters.filter(m => playerMonsterName(m) !== m.name).map(m => [m.name, playerMonsterName(m)]));
+  const escaped = [...names.keys()].sort((a,b) => b.length-a.length).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const namePattern = escaped.length ? new RegExp(`(?<![\\p{L}\\p{N}_])(?:${escaped.join('|')})(?![\\p{L}\\p{N}_])`, 'gu') : null;
+  const playerLogNames = <T,>(value: T): T => {
+    if (!namePattern) return value;
+    if (typeof value === 'string') return value.replace(namePattern, name => names.get(name)!) as T;
+    if (Array.isArray(value)) return value.map(playerLogNames) as T;
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k,v]) => [k,playerLogNames(v)])) as T;
+    return value;
+  };
+
 
   // Lazy, shared across the connections that need them.
   let templates: Monster[] | null = null; // DM-only
@@ -372,7 +389,7 @@ export function createSnapshotBuilder(
       // Spawn templates are a DM-only tool.
       monsterTemplates:
         role === 'dm' ? (templates ??= listMonsterTemplates(sessionId)) : [],
-      rollLog: shapedRollLog,
+      rollLog: role === 'dm' ? shapedRollLog : playerLogNames(shapedRollLog),
       chat: shapedChat,
       measurements: data.measurements,
       annotations: data.annotations,

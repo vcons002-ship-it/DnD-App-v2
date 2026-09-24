@@ -514,7 +514,7 @@ test('rear flat tokens are occluded by miniature pixels and keep their hit regio
   await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
   const flat = (await tokenView(page, rear.id))!;
   expect(flat.scaleY / flat.scaleX).toBeCloseTo(1, 5);
-  expect(flat.texts).toContain('Rear goblin 1');
+  expect(flat.texts).toContain('Rear goblin');
   expect((await tokenView(page, druk.id))!.texts).toContain('Druk');
   expect(errors).toEqual([]);
 });
