@@ -6,17 +6,30 @@ import { generateImage } from './comfy.js';
 import { apiRequest } from './apiRequest.js';
 import { reportAi } from './status.js';
 
-/** Image workflows stay local first; Gemini is used only after a local failure. */
-export async function generateImageWithBackup(prompt:string, options: Parameters<typeof generateImage>[1]) {
+/** Ordinary art stays local first; miniature references explicitly prefer the API. */
+export async function generateImageWithBackup(prompt:string, options: Parameters<typeof generateImage>[1], prefer: 'local' | 'api' = 'local') {
+  if (prefer === 'api' && config.geminiApiKey) {
+    reportAi('Generating 3D reference art with the image API.');
+    const api = await generateApiImage(prompt, options);
+    if (!('error' in api)) return api;
+    reportAi('Image API failed after its retry attempts. Switching to local ComfyUI backup.');
+  } else if (prefer === 'api') {
+    reportAi('No image API key is configured. Using local ComfyUI backup.');
+  }
   let local: Awaited<ReturnType<typeof generateImage>>;
   try { local=await generateImage(prompt,options); }
   catch { local={error:'Local image generation failed.'}; }
   if(!('error' in local)) return local;
+  if (prefer === 'api') { reportAi('Image API and local backup could not complete the reference art.'); return local; }
   if(!config.geminiApiKey) {
     reportAi('Local image generation failed; no Gemini API key is configured for backup.');
     return local;
   }
   reportAi('Local image generation failed. Switching to Gemini image API backup.');
+  return generateApiImage(prompt, options);
+}
+
+async function generateApiImage(prompt:string, options: Parameters<typeof generateImage>[1]) {
   type Result={candidates?:{content?:{parts?:{inlineData?:{mimeType?:string;data?:string}}[]}}[]};
   const result=await apiRequest<Result>(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiImageModel}:generateContent`,
@@ -27,14 +40,14 @@ export async function generateImageWithBackup(prompt:string, options: Parameters
   const image=result?.data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData?.data)?.inlineData;
   const ext=image?.mimeType==='image/png'?'.png':image?.mimeType==='image/jpeg'?'.jpg':image?.mimeType==='image/webp'?'.webp':null;
   if(!image?.data || !ext || image.data.length>35_000_000) {
-    reportAi('Image generation failed. The API backup did not return a usable image.');
-    return {error:'Local image generation and API backup failed. Check the DM notices and try again.'};
+    reportAi('Image generation failed. The image API did not return a usable image.');
+    return {error:'The image API did not return a usable image. Check the DM notices and try again.'};
   }
   try {
     const filename=`${randomUUID()}${ext}`;
     await fs.mkdir(config.uploadsDir,{recursive:true});
     await fs.writeFile(path.join(config.uploadsDir,filename),Buffer.from(image.data,'base64'));
-    reportAi('Gemini image API backup completed the image.');
+    reportAi('Gemini image API completed the image.');
     return {path:`/uploads/${filename}`};
   } catch {
     reportAi('The API generated an image, but the server could not save it.');

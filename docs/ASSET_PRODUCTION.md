@@ -37,10 +37,10 @@ Optional server environment variables:
 | `ASSET_PYTHON` | `python` |
 | `ASSET_BLENDER` | Windows: `C:/Program Files/Blender Foundation/Blender 5.1/blender.exe`; other hosts: `blender` |
 
-Use the existing AI settings for ComfyUI and the Gemini image API backup. An
+Use the existing AI settings for the Gemini image API and ComfyUI backup. An
 embedded application cannot invoke Codex's interactive image-generation tool:
-automated reference art uses the app's configured local image workflow, with
-the existing API backup and connection retries. No cloud mesh-generation
+automated 3D reference art uses the image API first, with bounded connection
+retries, then the configured local image workflow as backup. No cloud mesh-generation
 provider is configured; Gemini image generation is not a GLB fallback.
 
 The worker checks Hunyuan, Python and Blender before requesting reference art.

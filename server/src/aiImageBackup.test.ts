@@ -33,3 +33,16 @@ it('fails clearly when an image model returns text only',async()=>{
   vi.mocked(generateImage).mockResolvedValue({error:'offline'});vi.stubGlobal('fetch',vi.fn(async()=>new Response('{"candidates":[]}')));
   expect(await generateImageWithBackup('x',{})).toHaveProperty('error');expect(await fs.readdir(folder)).toEqual([]);
 });
+it('uses the image API first for 3D reference art without loading a local model',async()=>{
+  const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{inlineData:{mimeType:'image/png',data:png}}]}}]}))));
+  expect(await generateImageWithBackup('imp',{width:2048,height:2048},'api')).toHaveProperty('path');
+  expect(generateImage).not.toHaveBeenCalled();
+});
+it('falls back to ComfyUI once when the preferred image API fails',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response('{"candidates":[]}')));
+  vi.mocked(generateImage).mockResolvedValue({path:'/uploads/local.png'});
+  expect(await generateImageWithBackup('imp',{},'api')).toEqual({path:'/uploads/local.png'});
+  expect(generateImage).toHaveBeenCalledTimes(1);
+  expect(messages.join(' ')).toContain('Switching to local ComfyUI backup');
+});
