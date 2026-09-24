@@ -509,11 +509,11 @@
         0,
         0
       ],
-      "triangles": 36092,
-      "bytes": 3698144,
-      "sha256": "c0e8c15a8dcf7a9ed823ad0416b677b1194138d30611a0a2e83622823a148d87",
+      "triangles": 19382,
+      "bytes": 2042640,
+      "sha256": "d0c4311ddf678c595e9e5d861e86099cf115cb3330472e479605b070ca3b574f",
       "sourceSha256": "f72431fc742784fb149c95df73394d02f670d49bdb91d2bc1cad8cdb6da91bdc",
-      "texture": "Body and separate head: two 2048x2048 JPEG95 atlases; neck: 512x512 JPEG95 skin texture",
+      "texture": "Body and separate head: two 2048x2048 JPEG85 atlases; neck: 512x512 JPEG85 skin texture",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1,
       "cleanup": {
@@ -527,7 +527,14 @@
         "sourceSha256": "ec55313ffec5a3b70f6d73888b09fa72807937ab37fe69596300a6cd10a5f44d",
         "removedBodyTriangles": 2537,
         "preservedBodyAttributes": true,
-        "neckJoinTriangles": 4096
+        "neckJoinTriangles": 4096,
+        "countsDescribe": "assembly before runtime optimization",
+        "runtimeOptimization": {
+          "triangles": 19382,
+          "simplificationError": 0.01,
+          "jpegQuality": 85,
+          "textureDimensionsPreserved": true
+        }
       }
     }
   ]
