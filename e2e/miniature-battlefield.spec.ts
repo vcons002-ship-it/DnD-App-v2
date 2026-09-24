@@ -1275,3 +1275,27 @@ test('starter library models and attacks load for DM and player', async ({ page,
     await dm.screenshot({ path: info.outputPath('starter-models-dm.png') });
   } finally { await context.close(); }
 });
+
+for (const tilted of [false, true]) test(`base overlap nudges a player drop in ${tilted ? 'tilted' : 'overhead'} view`, async ({page,request}) => {
+  const f=await fixture(page,request);
+  const druk=f.ready.tokens.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Druk')!.id)!;
+  const varis=f.ready.tokens.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Varis')!.id)!;
+  await enter(page,f.code,'Druk',tilted);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  const a=(await tokenView(page,druk.id))!,b=(await tokenView(page,varis.id))!;
+  await page.mouse.move(a.x,a.y);await page.mouse.down();
+  await page.mouse.move(b.x,b.y,{steps:20});await page.mouse.up();
+  await expect.poll(async()=>{
+    const t=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
+    return Math.hypot(t.x-varis.x,t.y-varis.y);
+  }).toBeGreaterThan(30);
+  const placed=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
+  expect(Math.hypot(placed.x-varis.x,placed.y-varis.y)).toBeLessThan(60);
+  expect((await f.snapshot()).tokens.find(t=>t.id===varis.id)).toMatchObject({x:varis.x,y:varis.y});
+  // Both the draggable hit region and the rendered miniature receive the accepted position.
+  await expect.poll(()=>page.evaluate(id=>{
+    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+    const node=stage.find('.token').find((n:any)=>n.getAttr('tokenId')===id);
+    return node.position();
+  },druk.id)).toEqual({x:placed.x,y:placed.y});
+});

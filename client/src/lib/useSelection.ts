@@ -61,7 +61,7 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
   }, []);
 
   const handleMove = useCallback(
-    (tokenId: string, x: number, y: number) => {
+    (tokenId: string, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
       const tokens = snapshot?.tokens ?? [];
       const moved = tokens.find((t) => t.id === tokenId);
       if (moved && selectedIds.length > 1 && selectedIds.includes(tokenId)) {
@@ -70,11 +70,11 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
         for (const id of selectedIds) {
           const t = tokens.find((tk) => tk.id === id);
           if (!t) continue;
-          if (id === tokenId) moveTokenSocket(id, x, y);
+          if (id === tokenId) moveTokenSocket(id, x, y, placed);
           else moveTokenSocket(id, t.x + dx, t.y + dy);
         }
       } else {
-        moveTokenSocket(tokenId, x, y);
+        moveTokenSocket(tokenId, x, y, placed);
       }
     },
     [snapshot, selectedIds, moveTokenSocket],

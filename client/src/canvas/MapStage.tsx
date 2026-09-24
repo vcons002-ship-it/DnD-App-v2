@@ -46,7 +46,7 @@ type Props = {
   activeTurnTokenId: string | null;
   onSelectToken: (token: Token | null, additive?: boolean) => void;
   onSelectTokens?: (ids: string[]) => void;
-  onMoveToken: (tokenId: string, x: number, y: number) => void;
+  onMoveToken: (tokenId: string, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => void;
   /** When set (DM placing a unit), a map click reports image-space coords. */
   onPlaceAt?: (x: number, y: number) => void;
   /** Presentation-only: avoid duplicating the compact feed beside open chat. */
@@ -746,8 +746,8 @@ export function MapStage({
     setDetailsExpanded(true); // open the player's read-only Details
     nudgeRightPanel(); // and pop the right drawer open (collapsed on phones)
   });
-  const handleTokenMove = useStableCallback((tok: Token, x: number, y: number) =>
-    onMoveToken(tok.id, x, y),
+  const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) =>
+    onMoveToken(tok.id, x, y, placed),
   );
   const handleTokenDragPreview = useStableCallback((tok: Token, x: number, y: number) =>
     dragToken(tok.id, x, y),

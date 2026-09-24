@@ -47,7 +47,7 @@ type Props = {
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
-  onMove: (token: Token, x: number, y: number) => void;
+  onMove: (token: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => void;
   /** Right-click / long-press — opens the floating action menu at screen coords. */
   onContextMenu?: (token: Token, clientX: number, clientY: number) => void;
   /** Pointer hover over the token (desktop) — drives the hover card. */
@@ -123,6 +123,7 @@ function TokenShapeInner({
   const distText = useRef<Konva.Text>(null);
   // Throttle the network preview (the local tether stays smooth either way).
   const lastDragEmit = useRef(0);
+  const dragGeneration = useRef(0);
 
   const paintDrag = (cx: number, cy: number) => {
     tether.current?.points([token.x, token.y, cx, cy]);
@@ -142,6 +143,7 @@ function TokenShapeInner({
   };
 
   const handleDragStart = () => {
+    dragGeneration.current++;
     clearLongPress();
     onDragActive?.(true);
     onVisualMove?.(token, token.x, token.y, false);
@@ -175,7 +177,15 @@ function TokenShapeInner({
     dragOverlay.current?.visible(false); // temporary — gone on release
     onDragActive?.(false);
     onVisualMove?.(token, e.target.x(), e.target.y(), true);
-    onMove(token, e.target.x(), e.target.y());
+    const node = e.target;
+    const generation = dragGeneration.current;
+    onMove(token, node.x(), node.y(), (position) => {
+      // Correct even an unchanged server position after an optimistic drag.
+      if (!node.getStage() || node.isDragging() || generation !== dragGeneration.current) return;
+      node.position(position);
+      node.getLayer()?.batchDraw();
+      onVisualMove?.(token, position.x, position.y, true);
+    });
   };
 
   // Long-press (touch) mirrors right-click to open the floating menu. We keep a

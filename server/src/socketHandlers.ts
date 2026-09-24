@@ -673,7 +673,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     // ---- Shared: anyone in the session may move/resize tokens (per spec) ----
 
-    on('token:move', ({ tokenId, x, y }) => {
+    on('token:move', ({ tokenId, x, y }, placed) => {
       if (!sessionId()) return;
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
       // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
@@ -695,8 +695,9 @@ export function registerSocketHandlers(io: IOServer): void {
           return;
         }
       }
-      moveToken(tokenId, x, y);
+      const moved = moveToken(tokenId, x, y);
       afterChange();
+      if (moved && typeof placed === 'function') placed({x:moved.x,y:moved.y});
     });
 
     // Live, throttled drag preview (no DB write / snapshot) — same sender gate

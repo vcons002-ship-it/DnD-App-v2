@@ -291,3 +291,15 @@ https://www.dndbeyond.com/attachments/39j2li89/SRD5.1-CCBY4.0License.pdf
 https://www.dndbeyond.com/spells/2173-mage-hand
 Mage Hand cannot attack, activate magic items, or carry over 10 pounds; it ends
 if more than 30 feet from its caster, after 1 minute, or when recast.
+
+### Base overlap on placement
+
+Creature token creation and completed moves limit circular base overlap to 40%
+of the smaller base area. The server chooses the closest valid position around
+all other bases on the same map; other tokens stay in place. Shared miniature
+base widths (including custom sizing) and map scale drive the calculation, so
+camera tilt and individual 2D/3D preferences do not change placement. Objects
+such as doors, traps, and pasted scenery have no miniature base and are excluded.
+Dragging through another token remains possible; correction occurs on release.
+This is a visual placement rule, not D&D occupied-square movement enforcement.
+Existing placements and resizing do not trigger a board-wide rearrangement.

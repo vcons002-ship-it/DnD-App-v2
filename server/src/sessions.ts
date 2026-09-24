@@ -1,4 +1,5 @@
-import { defaultMonsterWidthFt, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
+import { placeBase } from '../../shared/tokenPlacement.js';
+import { miniatureBaseWidthFt, defaultMonsterWidthFt, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
 import {
   db,
   newId,
@@ -486,6 +487,9 @@ export function createToken(opts: {
     shape,
     Date.now(),
   );
+  const placed = getToken(id)!;
+  const resolved = resolveBasePlacement(placed, placed.x, placed.y);
+  db.prepare('UPDATE tokens SET x = ?, y = ? WHERE id = ?').run(resolved.x, resolved.y, id);
   return getToken(id)!;
 }
 
@@ -536,6 +540,22 @@ export function setTokenShape(tokenId: string, shape: Token['shape']): Token | n
   return getToken(tokenId);
 }
 
+/** Resolve against shared base sizes, never camera-dependent projected art. Objects
+ * (doors, scenery, traps) have no miniature base and do not block placement. */
+function resolveBasePlacement(token: Token, x: number, y: number) {
+  const map = getMap(token.mapId);
+  if (!map) return {x,y};
+  const pxPerFoot = map.gridSizePx / (map.feetPerSquare || 5);
+  const radius = (t: Token) => {
+    const entity = t.kind === 'monster' ? getMonster(t.refId) : getCharacter(t.refId);
+    if (t.kind === 'monster' && (entity as Monster | null)?.objectKind) return 0;
+    return miniatureBaseWidthFt(t, entity ?? {}) * pxPerFoot / 2;
+  };
+  return placeBase({x,y,radius:radius(token)}, listTokens(token.mapId)
+    .filter(t=>t.id!==token.id).map(t=>({x:t.x,y:t.y,radius:radius(t)})),
+    {x:token.x,y:token.y,radius:radius(token)});
+}
+
 export function moveToken(tokenId: string, x: number, y: number): Token | null {
   // Never trust client coordinates: reject NaN/Infinity and clamp to a sane
   // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
@@ -543,7 +563,7 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
   const clamp = (n: number) => Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   const previous = getToken(tokenId);
   if (!previous) return null;
-  const nextX = clamp(x), nextY = clamp(y);
+  const {x: nextX, y: nextY} = resolveBasePlacement(previous, clamp(x), clamp(y));
   const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
   db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
   return getToken(tokenId);
