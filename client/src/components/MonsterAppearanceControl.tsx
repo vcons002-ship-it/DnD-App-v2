@@ -15,7 +15,7 @@ export function MonsterAppearanceControl({ monster }: { monster: Monster }) {
     <label>3D family <select aria-label="3D family" value={monster.modelType ?? ''}
       onChange={e => update({ monsterId: monster.id, modelType: e.target.value })}>
       <option value="">Automatic</option><option value="none">2D only</option>
-      {MONSTER_MODEL_TYPES.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
+      {MONSTER_MODEL_TYPES.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1).replaceAll('-', ' ')}</option>)}
       {monster.modelType && !['none', ...MONSTER_MODEL_TYPES].includes(monster.modelType) && <option value={monster.modelType}>{monster.modelType} (2D fallback)</option>}
     </select></label>
     <label>Color <select aria-label="Monster model color" value={monster.modelColor ?? ''}

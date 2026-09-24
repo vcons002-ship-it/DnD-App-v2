@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 const directory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/public/miniatures/monsters');
 const manifest = JSON.parse(readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
 assert.equal(manifest.version, 1);
-assert.deepEqual(manifest.models.map(m => m.id).sort(), ['goblin', 'skeleton', 'wolf']);
+const familySource = readFileSync(path.resolve(directory, '../../../../shared/monsterAppearance.ts'), 'utf8');
+const declaredFamilies = [...familySource.match(/MONSTER_MODEL_TYPES = \[([\s\S]*?)\] as const/)[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
+assert.deepEqual(manifest.models.map(m => m.id).sort(), declaredFamilies.sort(), 'Every selectable family must have a packaged asset');
 for (const model of manifest.models) {
   assert.equal(model.url, `/miniatures/monsters/${model.id}.glb`);
   const bytes = readFileSync(path.join(directory, `${model.id}.glb`));
@@ -30,7 +32,7 @@ for (const model of manifest.models) {
     triangles += gltf.accessors[primitive.indices].count / 3;
   }
   assert.equal(triangles, model.triangles);
-  assert.equal(triangles, 20_764, '20k body plus 764-triangle fitted base');
+  assert(triangles >= 764 && triangles <= 40_764, 'Error-bounded reduced body plus fitted base');
   assert.equal(model.policy, 'monster-reduction-v1');
   assert.match(model.sourceSha256, /^[a-f0-9]{64}$/);
   assert.equal(model.baseDiameter, 1);

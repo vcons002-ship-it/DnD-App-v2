@@ -1,6 +1,7 @@
 # Monster miniatures
 
-The battlefield uses the approved reduced goblin, skeleton and wolf models.
+The battlefield catalog contains 24 reduced creature families, including the
+goblin, skeleton and wolf, humanoid archetypes, dragons and beasts.
 Each instance uses the same renderer, base hit region, movement-facing formula,
 5-foot Fit to map setting and local 2D/3D / overhead / 45-degree controls as PCs.
 Models and textures are cached by URL; instance materials are cloned for tinting.
@@ -9,8 +10,11 @@ Models and textures are cached by URL; instance materials are cloned for tinting
 
 The template editor and a placed creature's **Token info** expose these DM-editable fields:
 
-- **3D family**: Automatic, 2D only, Goblin, Skeleton, Wolf. AI can assign other
-  physical families (for example elephant); these use the existing 2D fallback.
+- **3D family**: Automatic, 2D only, and the families listed in
+  `shared/monsterAppearance.ts`. Human guard/bandit/mage/commoner, dwarf
+  warrior/commoner, elf/tiefling commoner, royal archmage, orc, hobgoblin, wight,
+  troll, stone golem, ghost, werebear, treant, dragon, two-headed dragon, spider
+  and snake join the original three. Other families retain the 2D fallback.
 - **Color**: Automatic from tags, named palette colors, or Natural.
 - **Appearance tags**: comma/space-separated tags, also accepting `[fire]` syntax.
 
@@ -19,6 +23,9 @@ otherwise the last recognized theme wins. Natural clears tint. Recognized themes
 are fire, poison, ice/frost, lightning and undead. Tags do not grant damage,
 resistances, conditions or other combat rules. Whole-model tint preserves texture
 detail; white/natural are a neutral multiplier, not a new white texture.
+Palette colors include bronze, silver and brown. The two-headed gold/silver
+dragon uses Natural to preserve its different head colors. Varro uses the
+royal-archmage family: white robes, gold trim and a sheathed sword at his side.
 
 Keep D&D category (`undead`, `humanoid`, `beast`) separate from physical family
 (`skeleton`, `goblin`, `wolf`). Automatic matching is deliberately conservative:
@@ -34,6 +41,15 @@ These fields survive templates, duplication, spawning and library save/load.
 They belong to the creature's stored information, rather than a map placement;
 the per-placement size control remains in DM tools.
 Enemy player snapshots include public appearance without exposing combat stats.
+
+## Default sizes
+
+New humanoid and ordinary creature tokens start with a 5-foot base. Trolls,
+stone golems and werebears start at 10 feet; dragons, two-headed dragons and
+treants start at 15 feet. These are editable catalog defaults, not a new stat
+or automatic change to existing placements. Objects and unknown families retain
+5 feet. Duplicating a token preserves its current manual size, including 5 feet.
+The compact sizing control remains available; Fit to map explicitly sets 5 feet.
 
 ## Visibility and interaction
 
@@ -56,16 +72,21 @@ moves keep their previous facing. Unavailable models/WebGL retain usable 2D art.
 `client/public/miniatures/monsters/manifest.json` records exact bundled hashes,
 source derivative hashes, geometry counts and measured base dimensions.
 
-| Family | Body + base triangles | Runtime bytes | Texture |
-| --- | ---: | ---: | --- |
-| Goblin | 20,000 + 764 | 1,564,924 | 2048 x 2048 JPEG95 |
-| Skeleton | 20,000 + 764 | 1,768,908 | 2048 x 2048 JPEG95 |
-| Wolf | 20,000 + 764 | 1,388,464 | 2048 x 2048 JPEG95 |
+Current per-family sizes and triangle counts are recorded in the runtime
+manifest. The wolf retains its earlier 1,388,464-byte multi-view derivative.
+Goblin and skeleton were regenerated in raised-weapon poses during this
+expansion. Earlier accepted masters remain preserved in the art workspace.
 
-Source workspace: `DnD-token-models/geometry-test-v1/20k.glb` (goblin) and
-`DnD-token-models/model-reduction-v1/{skeleton,wolf}/model.glb`. These derive from
-the reviewed multiview models. Original masters and full generation/reduction
-receipts remain in that art workspace, outside this repository.
+The 2026-09-23 expansion uses built-in Codex image generation, not Gemini, for
+all source art. Per user direction, prompts are brief and simple humanoids use
+one front image; the guard and Herald were already generated with four views.
+Dragon, two-headed dragon, spider and snake use four distinct named views.
+Armed combatants hold their weapons ready; the Herald keeps his sheathed sword.
+The launcher-managed Hunyuan3D-2mv endpoint accepts the single named front slot
+for one-view jobs. A one-view receipt is **not** a multi-view reconstruction.
+Source images, prompts and receipts are archived under
+`assets/miniatures/monster-provenance/`. The larger original GLBs remain in
+`DnD-token-models/existing-families-v1/` in the art workspace.
 
 The approved `monster-reduction-v1` policy targets 20k triangles with a geometric
 error limit of 0.01, retains texture dimensions, and uses JPEG quality 95 / 4:4:4
@@ -75,10 +96,30 @@ reloads and validates its output, and preserves the original. The prior reductio
 tool uses glTF Transform 4.5.0, meshoptimizer 1.2.0 and Sharp 0.35.4.
 
 For this integration, Blender fitted each reduced body by its foot contact to a
-unit-diameter round base (top at 0.055). Desired body heights were 1.25, 1.75 and
-0.9 units respectively, capped to keep feet inside radius 0.465. No additional
+unit-diameter round base (top at 0.055). Family-specific desired heights are
+recorded in the workflow. Humanoid proportions use the existing PCs as a scale
+reference, allowing limited toe overhang (radius 0.6) so wide combat stances are
+not disproportionately shrunk. Other families retain the 0.465 foot-fit limit. No additional
 body simplification was applied. The original reduced JPEG bytes were restored
 after Blender export to avoid another encoding pass. Bases add 764 triangles.
+The expansion follows this same policy; a body can finish a triangle below the
+target or above it when required by the geometric error limit. The manifest
+records the measured count, rather than assuming every body is exactly 20k.
+
+## Existing campaign appearance backfill
+
+`scripts/token-assets/backfill-appearance.py` applies a reviewed ID/name JSON
+plan. It defaults to dry run; `--apply` requires a new `--backup` filename and
+uses SQLite's online backup API. It adds only missing appearance columns,
+fills empty fields, preserves current nonempty choices, skips renamed/missing
+records, and verifies that each record's other fields remain unchanged inside
+the transaction. It never changes stats, HP, equipment, rules, positions or fog.
+Plans and database backups contain campaign data and stay outside Git.
+
+The local 2026-09-23 backfill covered 334 monster records and the Cultist library
+entry. Props and Mage Hand retain `none` (2D only); FIRST 1 remains unresolved.
+Tests: `python scripts/token-assets/test-backfill-appearance.py`.
+Asset/code deployment is separate from this appearance-only database update.
 
 `node scripts/token-assets/validate-monsters.mjs` verifies exact runtime hashes,
 sizes, GLB structure, embedded images, triangle counts and base contract; it runs
@@ -93,9 +134,13 @@ Browser regression tests load the actual bundled models in a disposable campaign
 and exercise both roles, both views, DM appearance edits, base hits, dragging,
 2D fallback/toggling, map/token fog and concealed previews.
 
-Verified 2026-09-23: typecheck and production build passed; 618 tests in 67
-server test files passed; six focused browser regressions passed. The browser
-checks include held-drag HUD concealment, player sizing and WebGL-loss fallback.
+Verified for the expanded catalog on 2026-09-23: typecheck and production build
+passed; 619 tests in 67 server files and two backfill tests passed. Five browser
+checks passed: all 24 families plus the three PCs, the real-map preview in both
+views, independent tint/base hits/drag facing, whole-token fog concealment, and player/DM sizing with Fit to map.
+The 24 runtime monster assets total 40.35 MB; each is 1.38-2.60 MB. Of the 23
+new/replacement models, 17 used a single front image and six used four views.
+The existing wolf is retained. Desktop checks are not a mobile performance test.
 
 Reduced geometry lowers draw work per monster, and cached shared textures avoid
 one download per copy. This is not GPU instancing: each miniature still incurs

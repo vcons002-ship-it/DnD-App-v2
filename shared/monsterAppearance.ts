@@ -1,8 +1,21 @@
 import type { ObjectKind } from './types.js';
 
-export const MONSTER_MODEL_TYPES = ['goblin', 'skeleton', 'wolf'] as const;
+export const MONSTER_MODEL_TYPES = [
+  'goblin', 'skeleton', 'wolf', 'human-guard', 'human-bandit', 'human-mage',
+  'human-commoner', 'dwarf-warrior', 'dwarf-commoner', 'elf-commoner',
+  'tiefling-commoner', 'royal-archmage', 'orc', 'hobgoblin', 'wight', 'troll',
+  'stone-golem', 'ghost', 'werebear', 'treant', 'dragon', 'two-headed-dragon',
+  'spider', 'snake',
+] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
+/** Initial base footprint only. Existing placements and manual sizes are preserved. */
+export function defaultMonsterWidthFt(appearance: MonsterAppearance): number {
+  const family = resolveMonsterModelType(appearance);
+  if (['dragon', 'two-headed-dragon', 'treant'].includes(family)) return 15;
+  if (['troll', 'stone-golem', 'werebear'].includes(family)) return 10;
+  return 5;
+}
 export function normalizeModelType(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase().replace(/[^a-z0-9 -]/g, '').slice(0, 48) : '';
 }
@@ -11,7 +24,7 @@ export function normalizeVisualTags(value: unknown): string[] {
   const tags = text.toLowerCase().split(/[\s,;\[\]#]+/).map(t => t.replace(/[^a-z0-9-]/g, '').slice(0, 24)).filter(Boolean);
   return [...new Set(tags.reverse())].reverse().slice(-16);
 }
-export const MONSTER_COLORS: Record<string, string> = { red: '#ff7970', blue: '#80b7ff', green: '#8fe17e', purple: '#c29aff', black: '#777777', white: '#ffffff', gold: '#ffda80', orange: '#ffae73', pink: '#ffa4d0', gray: '#b8b8b8', grey: '#b8b8b8', natural: '#ffffff' };
+export const MONSTER_COLORS: Record<string, string> = { red: '#ff7970', blue: '#80b7ff', green: '#8fe17e', purple: '#c29aff', black: '#777777', white: '#ffffff', gold: '#ffda80', bronze: '#dca875', silver: '#dce3ed', brown: '#c2a084', orange: '#ffae73', pink: '#ffa4d0', gray: '#b8b8b8', grey: '#b8b8b8', natural: '#ffffff' };
 const THEMES: Record<string, string> = { fire: '#ff9b70', poison: '#a4e879', ice: '#a2d9ff', frost: '#a2d9ff', lightning: '#b8c7ff', undead: '#b4c9a3' };
 const tagColor = (palette: Record<string, string>, tag: string): string | undefined => Object.hasOwn(palette, tag) ? palette[tag] : undefined;
 export function appearanceTags(m: MonsterAppearance): string[] {

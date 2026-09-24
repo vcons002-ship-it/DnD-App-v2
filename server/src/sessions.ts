@@ -1,4 +1,4 @@
-import { normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
+import { defaultMonsterWidthFt, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
 import {
   db,
   newId,
@@ -457,8 +457,9 @@ export function createToken(opts: {
 }): Token {
   const id = newId();
   // Objects read better as non-circles: chests/doors square, traps triangular.
-  const objectKind =
-    opts.kind === 'monster' ? getMonster(opts.refId)?.objectKind : undefined;
+  const monster = opts.kind === 'monster' ? getMonster(opts.refId) : undefined;
+  const objectKind = monster?.objectKind;
+  const widthFt = monster ? defaultMonsterWidthFt(monster) : 5;
   const shape: Token['shape'] =
     opts.shape ??
     (objectKind === 'trap'
@@ -473,7 +474,7 @@ export function createToken(opts: {
     Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   db.prepare(
     `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, shape, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
   ).run(
     id,
     opts.mapId,
@@ -481,6 +482,8 @@ export function createToken(opts: {
     opts.refId,
     clampCoord(opts.x),
     clampCoord(opts.y),
+    widthFt / 5,
+    widthFt,
     opts.isHidden ? 1 : 0,
     shape,
     Date.now(),
@@ -1065,7 +1068,7 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
     y,
     isHidden: token.isHidden,
   });
-  if (token.widthFt !== 5) resizeToken(copy.id, token.widthFt);
+  if (token.widthFt !== copy.widthFt) resizeToken(copy.id, token.widthFt);
   db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(token.facing ?? 0, copy.id);
   return getToken(copy.id);
 });

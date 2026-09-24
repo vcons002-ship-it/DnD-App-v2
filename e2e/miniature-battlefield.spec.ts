@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
+import { MONSTER_MODEL_TYPES } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
 const sockets: Socket[] = [];
@@ -123,6 +124,33 @@ async function monsterFixture(page: Page, request: APIRequestContext) {
   const ready = await f.snapshot();
   return { ...f, ready, monsters: ready.tokens.filter(t => t.kind === 'monster') };
 }
+
+test('expanded monster catalog loads every family in overhead and tilted views', async ({ page, request }, info) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1600, height: 1100 });
+  const f = await fixture(page, request);
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('response', response => { if (response.url().endsWith('.glb') && !response.ok()) errors.push(`${response.status()} ${response.url()}`); });
+  for (const [index, family] of MONSTER_MODEL_TYPES.entries()) {
+    f.socket.emit('monster:create', { name: `Catalog ${family}`, maxHp: 12, modelType: family, visualTags: [] });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === `Catalog ${family}`)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 100 + (index % 6) * 190, y: 100 + Math.floor(index / 6) * 170 });
+  }
+  for (const [index, token] of f.ready.tokens.entries()) f.socket.emit('token:move', { tokenId: token.id, x: 300 + index * 300, y: 750 });
+  const snapshot = await f.snapshot();
+  await enter(page, f.code, 'Druk', false);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', String(MONSTER_MODEL_TYPES.length + 3), { timeout: 90_000 });
+  for (const token of snapshot.tokens.filter(t => t.kind === 'monster')) expect((await tokenView(page, token.id))?.miniatureReady).toBe(true);
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('all-families-overhead.png') });
+  await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+  await afterPaint(page);
+  await expect(layer).toHaveAttribute('data-miniature-count', String(MONSTER_MODEL_TYPES.length + 3));
+  await page.screenshot({ path: info.outputPath('all-families-tilted.png') });
+  expect(errors).toEqual([]);
+});
 
 test('monster miniatures load, recolor independently, use base hits and face their drag in both views', async ({ page, browser, request }, info) => {
   test.setTimeout(180_000);

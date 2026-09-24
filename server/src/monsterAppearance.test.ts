@@ -1,6 +1,6 @@
 ﻿import { describe, it, expect, vi, afterEach } from 'vitest';
 import { monsterTint, normalizeVisualTags, normalizeModelType, resolveMonsterModelType } from '../../shared/monsterAppearance.js';
-import { createSession, createMap, setActiveMap, createMonsterTemplate, instantiateMonster, copyMonster, createToken, updateMonster, getMonster, setFogLayer, setFogRevealed, moveToken, duplicateToken, createCharacter, claimCharacter } from './sessions.js';
+import { createSession, createMap, setActiveMap, createMonsterTemplate, instantiateMonster, copyMonster, createToken, updateMonster, getMonster, setFogLayer, setFogRevealed, moveToken, duplicateToken, resizeToken, createCharacter, claimCharacter } from './sessions.js';
 import { buildSnapshot } from './visibility.js';
 import { saveLibraryCreature, getLibraryCreature } from './library.js';
 import { broadcastTokenDrag, setConn, dropConn, type IOServer } from './connections.js';
@@ -11,6 +11,20 @@ vi.mock('./ai/gateway.js', () => ({ aiAvailable: () => true, generateJson: vi.fn
 afterEach(() => { dropConn('appearance-player'); dropConn('appearance-dm'); vi.clearAllMocks(); });
 
 describe('monster appearance', () => {
+  it('starts known large families at proportional footprints and preserves manual sizes when duplicating', () => {
+    const session = createSession('Family sizes');
+    const map = createMap(session.id, { name: 'Sizes' });
+    for (const [modelType, widthFt] of [['human-guard', 5], ['goblin', 5], ['troll', 10], ['stone-golem', 10], ['werebear', 10], ['dragon', 15], ['two-headed-dragon', 15], ['treant', 15], ['unknown', 5]] as const) {
+      const template = createMonsterTemplate(session.id, { name: 'Custom creature', modelType, maxHp: 10 });
+      const token = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(template.id)!.id, x: 100, y: 100 });
+      expect(token.widthFt).toBe(widthFt);
+      expect(token.size).toBe(widthFt / 5);
+      resizeToken(token.id, 5);
+      expect(duplicateToken(token.id)?.widthFt).toBe(5);
+    }
+    const prop = createMonsterTemplate(session.id, { name: 'Dragon statue', modelType: 'dragon', objectKind: 'other', maxHp: 1 });
+    expect(createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(prop.id)!.id, x: 0, y: 0 }).widthFt).toBe(5);
+  });
   it('matches physical families with safe 2D fallbacks and keeps PCs separate', () => {
     expect(resolveMonsterModelType({ name: 'Fire Skeleton 4' })).toBe('skeleton');
     expect(resolveMonsterModelType({ name: 'Ashfang', modelType: 'wolf' })).toBe('wolf');
@@ -28,6 +42,8 @@ describe('monster appearance', () => {
     expect(monsterTint({ modelColor: 'natural', visualTags: ['fire'] })).toBe('#ffffff');
     expect(monsterTint({ visualTags: ['unknown'] })).toBeUndefined();
     expect(monsterTint({ visualTags: ['constructor'] })).toBeUndefined();
+    expect(monsterTint({ visualTags: ['bronze'] })).toBe('#dca875');
+    expect(monsterTint({ visualTags: ['gold', 'silver'], modelColor: 'natural' })).toBe('#ffffff');
     expect(normalizeModelType({ bad: true })).toBe('');
     expect(normalizeVisualTags(Array(100).fill('fire'))).toEqual(['fire']);
   });
@@ -46,6 +62,8 @@ describe('monster appearance', () => {
     expect(lookup).toMatchObject({ modelType: 'skeleton', modelColor: 'blue', visualTags: ['ice'] });
     expect(vi.mocked(generateJson).mock.calls[0][0]).toContain('"modelColor":string');
     expect(vi.mocked(generateJson).mock.calls[0][0]).toContain('Existing DM appearance choices');
+    expect(vi.mocked(generateJson).mock.calls[0][0]).toContain('royal-archmage');
+    expect(vi.mocked(generateJson).mock.calls[0][0]).toContain('two-headed-dragon');
     const s = createSession('Fill appearance'), m = createMonsterTemplate(s.id, { name: 'Blue skeleton', maxHp: 1 });
     expect((await aiFillCreature(m.id)).ok).toBe(true);
     expect(getMonster(m.id)).toMatchObject({ modelType: 'skeleton', modelColor: 'blue' });
