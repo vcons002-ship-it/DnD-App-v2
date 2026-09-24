@@ -509,17 +509,25 @@
         0,
         0
       ],
-      "triangles": 20764,
-      "bytes": 1585468,
-      "sha256": "ec55313ffec5a3b70f6d73888b09fa72807937ab37fe69596300a6cd10a5f44d",
+      "triangles": 32508,
+      "bytes": 3484128,
+      "sha256": "956bdc5a3c45fa750547ef558e0b31283d5f84a75e0774d189577f9f8abd9662",
       "sourceSha256": "f72431fc742784fb149c95df73394d02f670d49bdb91d2bc1cad8cdb6da91bdc",
-      "texture": "2048x2048 JPEG95",
+      "texture": "Body and separate head: two 2048x2048 JPEG95 atlases",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1,
       "cleanup": {
         "method": "Vertex-color attenuation of saturated red reconstruction artifacts; source atlas and geometry unchanged",
         "affectedVertices": 291,
         "sourceSha256": "e849bbc94e1e048c38bd8281552131766e8d21c464f0384d7709c6d037751a7e"
+      },
+      "headRefinement": {
+        "policy": "monster-head-refinement-v1",
+        "sourceViewCount": 1,
+        "sourceSha256": "ec55313ffec5a3b70f6d73888b09fa72807937ab37fe69596300a6cd10a5f44d",
+        "removedBodyTriangles": 2537,
+        "preservedBodyAttributes": true,
+        "neckJoinTriangles": 512
       }
     }
   ]
