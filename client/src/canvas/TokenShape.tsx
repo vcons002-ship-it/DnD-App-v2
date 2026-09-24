@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import {
   Group,
   Circle,
@@ -298,7 +298,17 @@ function TokenShapeInner({
   const playerNameSize = Math.max(11, Math.min(18, radius * .4));
   const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
   const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
+  const tagWidth = token.revealTag ? (token.revealTag.length + 2) * monsterNameSize * 0.65 : 0;
+  const nameWidth = useMemo(() => {
+    const measure = new Konva.Text({ text: display.name, fontSize: monsterNameSize });
+    const width = measure.getTextWidth();
+    measure.destroy();
+    return Math.min(monsterLabelWidth, width + 2);
+  }, [display.name, monsterNameSize, monsterLabelWidth]);
   const roleBadgeR = Math.max(11, radius * 0.36);
+  const labelY = radius + Math.max(hpFrac !== null ? 14 : 4,
+    token.combatRole ? roleBadgeR - radius * .28 + 4 : 4);
+
 
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
   // the others fill/stroke a shape and clip image icons to it.
@@ -400,7 +410,7 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
-      {miniatureReady && selected && <Circle radius={radius} stroke="#ffffff" strokeWidth={4} />}
+      {miniatureReady && selected && <Circle name="token-selection-ring" radius={radius} stroke="#ffffff" strokeWidth={4} />}
       <Group name="token-body" visible={!miniatureReady}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
@@ -481,15 +491,13 @@ function TokenShapeInner({
         fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
         fill="#fff"
         align="center"
-        width={token.kind === 'pc' ? radius * 4 : monsterLabelWidth}
-        offsetX={token.kind === 'pc' ? radius * 2 : monsterLabelWidth / 2}
+        width={token.kind === 'pc' ? radius * 4 : nameWidth}
+        offsetX={token.kind === 'pc' ? radius * 2 : (nameWidth + tagWidth) / 2}
         wrap={token.kind === 'pc' ? 'word' : 'none'}
         ellipsis={token.kind !== 'pc'}
         height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
-        y={token.kind === 'pc' ? radius + 4 : radius + Math.max(
-          hpFrac !== null ? 14 : 4, token.combatRole ? roleBadgeR - radius * .28 + 4 : 4,
-        )}
+        y={token.kind === 'pc' ? radius + 4 : labelY}
       />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
@@ -516,10 +524,9 @@ function TokenShapeInner({
         </Group>
       )}
       {token.revealTag && (
-        <Group name="token-tracking-tag" x={radius * 0.75} y={-radius * 0.75}>
-          <Rect x={-17} y={-9} width={34} height={18} fill="#111b" stroke="#ffffffaa" strokeWidth={1} cornerRadius={4} />
-          <Text text={token.revealTag} x={-17} y={-6} width={34} align="center" fontSize={12}
-            fontStyle="bold" fill="#fff" stroke="#000" strokeWidth={2} fillAfterStrokeEnabled />
+        <Group name="token-tracking-tag" x={(nameWidth - tagWidth) / 2} y={labelY}>
+          <Text text={token.revealTag} x={4} width={tagWidth - 4} align="left" fontSize={monsterNameSize}
+            fontStyle="bold" fill="#fff" stroke="#000" strokeWidth={3} fillAfterStrokeEnabled />
         </Group>
       )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
@@ -556,7 +563,7 @@ function TokenShapeInner({
         </Group>
       )}
       {initiativeRank !== null && (
-        <Group x={radius * 0.8} y={-radius * 0.8 - (token.revealTag ? 22 : 0)}>
+        <Group x={radius * 0.8} y={-radius * 0.8}>
           <Circle radius={11} fill="#f5c518" stroke="#000" strokeWidth={1} />
           <Text
             text={String(initiativeRank)}

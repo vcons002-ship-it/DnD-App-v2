@@ -247,3 +247,7 @@ Assignments live in SQLite per map/token; deleted tokens retain reserved numbers
 hiding and renaming retain existing tags, and reconnects do not reset tracking.
 Existing active campaigns begin tracking from their current visibility when this
 feature is first run; historical sightings cannot be reconstructed.
+
+Tracking tags now sit inline beside the creature name for both viewers, with
+reserved tag space so name truncation never hides the tracking identifier.
+Selection remains a thick white base ring alongside the colored affinity outline.
