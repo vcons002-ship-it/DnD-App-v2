@@ -412,6 +412,91 @@
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1
+    },
+    {
+      "id": "mage-hand",
+      "url": "/miniatures/monsters/mage-hand.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1315256,
+      "sha256": "d8098dc4341801671f2ee81d046808e80060533ad41ba84772fab3683070320f",
+      "sourceSha256": "12c693b08d13f3c29a16b29fc48a50b01e6384b98cc85f13ba2214f2c9b8d01e",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 2
+    },
+    {
+      "id": "kobold",
+      "url": "/miniatures/monsters/kobold.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1828508,
+      "sha256": "6c77b2cf77172d7821629ede615e43ae4346f0c7f7dbd9d56a595c5b970f3e19",
+      "sourceSha256": "7e27b86269eb05f68159072143d1f1a4ee0caa995bb02735270f59b266d8b40a",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "zombie",
+      "url": "/miniatures/monsters/zombie.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20763,
+      "bytes": 1732672,
+      "sha256": "cc2200414a397278aac3d7f8199e4f13db4f4cc158cc77f1ce024161eff23b76",
+      "sourceSha256": "9fe98038182adfe5c2670ef02c39c56f5e4e94a8317d68fa79d1fd0092bcd6f6",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "giant-rat",
+      "url": "/miniatures/monsters/giant-rat.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1960540,
+      "sha256": "8dda1930d7173be78d7ae1fcd343e61fb0e5f8490f6cda53a2192dbd6b0c2046",
+      "sourceSha256": "46a2e636bfcdaeb8679ec49a1ff2ccf37630ff1836c9ca4b836f2f0143f9efcc",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 2
+    },
+    {
+      "id": "mimic",
+      "url": "/miniatures/monsters/mimic.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1537196,
+      "sha256": "2ea9c4a109ac7ecfdd7da1a795f01a7308207b6335279b562100b2c806b1b79f",
+      "sourceSha256": "3ef4975ad97100721df4b87a7897486d16b5533ef8c20d2c8e00c528aeb8e028",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 2
     }
   ],
   "variants": [

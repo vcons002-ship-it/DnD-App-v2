@@ -1,6 +1,6 @@
 # Monster miniatures
 
-The battlefield catalog contains 24 reduced creature families, including the
+The battlefield catalog contains 29 reduced creature families, including the
 goblin, skeleton and wolf, humanoid archetypes, dragons and beasts.
 Each instance uses the same renderer, base hit region, movement-facing formula,
 5-foot Fit to map setting and local 2D/3D / overhead / 45-degree controls as PCs.
@@ -270,3 +270,24 @@ The human-bandit (mercenary) model has 2,142 white near-ground reconstruction
 faces removed around its boots. Cleanup provenance is recorded in the manifest.
 Selection rings gently pulse in brightness and radius over 1.6 seconds; reduced
 motion keeps a steady ring. All rings remain depth-tested beneath the figure.
+
+## Common creature starter library
+
+The cross-campaign Saved library is populated once with 22 curated entries.
+Existing DM entries are preserved, and deleted entries stay deleted on restart.
+Twenty entries use existing SRD 5.1 stat blocks with explicit sizes, model families,
+appearance tags, and parsed weapon attacks. Pirate First Mate uses Bandit stats.
+Mage Hand is a utility spell marker with no attacks; its 1 HP/0 AC are storage
+placeholders, not D&D statistics. The DM manages its duration and movement limits.
+
+Five new model families: mage-hand, kobold, zombie, giant-rat, mimic.
+Mage Hand is horizontal, palm down, hovering over the base. Mage Hand and Mimic
+use front/back source views; Giant Rat uses front/left; Kobold and Zombie use
+one front view, as allowed for simple humanoids. All use the verified local
+Hunyuan3D-2mv shape workflow and the existing bounded 20k/JPEG95 reduction.
+
+Rules remain 2014/SRD 5.1 to match the existing bestiary:
+https://www.dndbeyond.com/attachments/39j2li89/SRD5.1-CCBY4.0License.pdf
+https://www.dndbeyond.com/spells/2173-mage-hand
+Mage Hand cannot attack, activate magic items, or carry over 10 pounds; it ends
+if more than 30 feet from its caster, after 1 minute, or when recast.

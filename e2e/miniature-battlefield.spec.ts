@@ -1244,3 +1244,34 @@ test('player and monster appearance switches are independent for players and DM'
   } finally {await ctx.close();}
   await page.getByRole('button',{name:'3D player tokens',exact:true}).click();await count(page,6);
 });
+
+test('starter library models and attacks load for DM and player', async ({ page, browser, request }, info) => {
+  test.setTimeout(180_000);
+  const f = await fixture(page, request);
+  const entries = await (await request.get('/api/library/creatures')).json();
+  const names = ['Mage Hand', 'Kobold', 'Zombie', 'Giant Rat', 'Mimic'];
+  for (const [index, name] of names.entries()) {
+    const entry = entries.find((c: any) => c.name === name);
+    expect(entry).toBeTruthy();
+    if (name === 'Mage Hand') expect(entry.weapons).toEqual([]);
+    if (name !== 'Mage Hand') expect(entry.weapons.length).toBeGreaterThan(0);
+    f.socket.emit('monster:create', { ...entry, source: 'manual' });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === name)!;
+    expect(template.modelType).toBe(entry.modelType);
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 140 + index * 220, y: 190 });
+  }
+  await enter(page, f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '8', { timeout: 90_000 });
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('starter-models-player.png') });
+  const context = await browser.newContext({baseURL:`http://localhost:${PORT}`});
+  try {
+    const dm = await context.newPage();
+    await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', {name:'Rejoin as DM',exact:true}).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '8', { timeout: 90_000 });
+    await afterPaint(dm);
+    await dm.screenshot({ path: info.outputPath('starter-models-dm.png') });
+  } finally { await context.close(); }
+});
