@@ -26,3 +26,7 @@ client/public/miniatures/*.json -filter diff merge -text whitespace=cr-at-eol
 assets/miniatures/runtime-provenance/** filter=lfs diff=lfs merge=lfs -text
 # Keep the archive inventory directly reviewable in Git, still byte-preserved.
 assets/miniatures/runtime-provenance/manifest.json -filter diff merge -text whitespace=cr-at-eol
+
+# Generated monster catalog and immutable source-art provenance.
+client/public/miniatures/monsters/*.glb filter=lfs diff=lfs merge=lfs -text
+assets/miniatures/monster-provenance/** filter=lfs diff=lfs merge=lfs -text

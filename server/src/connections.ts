@@ -1,11 +1,12 @@
+import { tokenVisibleAt } from '../../shared/fog.js';
 import type { Server } from 'socket.io';
 import type {
   ClientToServerEvents,
   Role,
   ServerToClientEvents,
 } from '../../shared/types.js';
-import { buildSnapshot, createSnapshotBuilder, coveredByFog } from './visibility.js';
-import { drainHpFx, getActiveMapId, getMap } from './sessions.js';
+import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
+import { drainHpFx, getActiveMapId, getMap, getCharacter, getMonster } from './sessions.js';
 import type { Token } from '../../shared/types.js';
 
 export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -107,14 +108,21 @@ export function broadcastTokenDrag(
   const grid = map?.gridSizePx ?? 50;
   const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
   const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-  const underFog = coveredByFog(mapFog, tokenFog, grid, x, y);
+  const owner = token.kind === 'pc' ? getCharacter(token.refId)?.claimedBy : null;
+  const foe = token.kind === 'monster' && getMonster(token.refId)?.disposition !== 'friendly';
   for (const [socketId, conn] of conns) {
     if (socketId === fromSocketId || conn.sessionId !== sessionId) continue;
     // Players are locked to the active map; a DM may be staging another.
     const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
     if (token.mapId !== viewMapId) continue;
-    if (conn.role !== 'dm' && (token.isHidden || underFog)) continue;
-    io.to(socketId).emit('fx:tokenDrag', { tokenId: token.id, x, y });
+    const visible = (px: number, py: number) => tokenVisibleAt({ role: conn.role,
+      hidden: token.isHidden, owned: owner === socketId, foe, mapFog, tokenFog, grid, x: px, y: py });
+    // Never reveal an unknown token merely because its preview crosses open ground.
+    if (!visible(token.x, token.y)) continue;
+    if (!visible(x, y)) {
+      // Only its already-known anchor is sent; concealed coordinates remain private.
+      io.to(socketId).emit('fx:tokenDrag', { tokenId: token.id, x: token.x, y: token.y, hidden: true });
+    } else io.to(socketId).emit('fx:tokenDrag', { tokenId: token.id, x, y });
   }
 }
 

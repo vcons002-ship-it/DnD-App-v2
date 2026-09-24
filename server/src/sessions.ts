@@ -1,3 +1,4 @@
+import { defaultMonsterWidthFt, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
 import {
   db,
   newId,
@@ -456,8 +457,9 @@ export function createToken(opts: {
 }): Token {
   const id = newId();
   // Objects read better as non-circles: chests/doors square, traps triangular.
-  const objectKind =
-    opts.kind === 'monster' ? getMonster(opts.refId)?.objectKind : undefined;
+  const monster = opts.kind === 'monster' ? getMonster(opts.refId) : undefined;
+  const objectKind = monster?.objectKind;
+  const widthFt = monster ? defaultMonsterWidthFt(monster) : 5;
   const shape: Token['shape'] =
     opts.shape ??
     (objectKind === 'trap'
@@ -472,7 +474,7 @@ export function createToken(opts: {
     Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   db.prepare(
     `INSERT INTO tokens (id, map_id, kind, ref_id, x, y, size, width_ft, initiative, is_hidden, shape, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, 5, NULL, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
   ).run(
     id,
     opts.mapId,
@@ -480,6 +482,8 @@ export function createToken(opts: {
     opts.refId,
     clampCoord(opts.x),
     clampCoord(opts.y),
+    widthFt / 5,
+    widthFt,
     opts.isHidden ? 1 : 0,
     shape,
     Date.now(),
@@ -547,8 +551,14 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
   return getToken(tokenId);
 }
 
-/** Resize a token by its real footprint WIDTH IN FEET (min 2.5ft = Tiny). The
- *  legacy square `size` is kept in sync (widthFt / 5) for back-compat. */
+/** Change only the visible 3D base; occupied space and range math stay intact. */
+export function resizeMiniature(tokenId: string, widthFt: number): Token | null {
+  if (!Number.isFinite(widthFt)) return getToken(tokenId);
+  const width = Math.min(120, Math.max(.5, Math.round(widthFt * 2) / 2));
+  db.prepare('UPDATE tokens SET miniature_width_ft = ? WHERE id = ?').run(width, tokenId);
+  return getToken(tokenId);
+}
+/** Change occupied space and keep the legacy grid size in sync. */
 export function resizeToken(tokenId: string, widthFt: number): Token | null {
   // Snap to half-foot steps; 0.5 ft minimum allows small objects, 120 ft caps
   // gargantuan set pieces. The legacy grid-square `size` stays in sync.
@@ -1064,7 +1074,8 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
     y,
     isHidden: token.isHidden,
   });
-  if (token.widthFt !== 5) resizeToken(copy.id, token.widthFt);
+  if (token.widthFt !== copy.widthFt) resizeToken(copy.id, token.widthFt);
+  if (token.miniatureWidthFt !== undefined) resizeMiniature(copy.id, token.miniatureWidthFt);
   db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(token.facing ?? 0, copy.id);
   return getToken(copy.id);
 });
@@ -2556,6 +2567,9 @@ export function monsterInSession(monsterId: string, sessionId: string): boolean 
 }
 
 export type MonsterInput = {
+  modelType?: string;
+  modelColor?: string;
+  visualTags?: string[];
   name: string;
   maxHp: number;
   creatureType?: string;
@@ -2587,6 +2601,9 @@ function toMonsterInput(m: Monster): MonsterInput {
     name: m.name,
     maxHp: m.maxHp,
     creatureType: m.creatureType,
+    modelType: m.modelType,
+    modelColor: m.modelColor,
+    visualTags: [...(m.visualTags ?? [])],
     armorClass: m.armorClass,
     speed: m.speed,
     stats: { ...m.stats },
@@ -2634,8 +2651,8 @@ function insertMonster(
        (id, session_id, name, creature_type, max_hp, cur_hp,
         resistances, weaknesses, save_proficiencies, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
-        disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities, model_type, visual_tags, model_color)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2665,6 +2682,9 @@ function insertMonster(
     opts.loot ? JSON.stringify(opts.loot) : null,
     opts.objectDc ?? null,
     JSON.stringify(sheetAbilities),
+    normalizeModelType(opts.modelType),
+    JSON.stringify(normalizeVisualTags(opts.visualTags)),
+    normalizeModelColor(opts.modelColor),
   );
   return getMonster(id)!;
 }
@@ -2734,6 +2754,9 @@ export function updateMonster(
     curHp: number;
     tempHp: number;
     creatureType: string;
+    modelType: string;
+    modelColor: string;
+    visualTags: string[];
     armorClass: number;
     speed: string;
     stats: Record<string, number>;
@@ -2785,6 +2808,9 @@ export function updateMonster(
     put('object_dc', patch.objectDc != null ? Math.max(1, Math.round(patch.objectDc)) : null);
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.level !== undefined) put('level', patch.level);
+  if (patch.modelColor !== undefined) put('model_color', normalizeModelColor(patch.modelColor));
+  if (patch.modelType !== undefined) put('model_type', normalizeModelType(patch.modelType));
+  if (patch.visualTags !== undefined) put('visual_tags', JSON.stringify(normalizeVisualTags(patch.visualTags)));
   if (patch.creatureType !== undefined) put('creature_type', patch.creatureType);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   // Clamp curHp non-negative (a negative value slips past the `curHp === 0`

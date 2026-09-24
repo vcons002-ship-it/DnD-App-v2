@@ -59,6 +59,28 @@ const spawnInstance = (
 import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
+  it('hides monster encounter numbers from players without changing DM names or roll values', () => {
+    const session = createSession('Number privacy');
+    const map = createMap(session.id, { name: 'Arena' });
+    setActiveMap(session.id, map.id);
+    const visible = spawnInstance(session.id, 'Goblin', 10);
+    const hidden = spawnInstance(session.id, 'Goblin', 10);
+    updateMonster(visible.id, {name:'Goblin 27'});
+    updateMonster(hidden.id, {name:'Goblin 28'});
+    createToken({mapId:map.id,kind:'monster',refId:visible.id,x:50,y:50});
+    createToken({mapId:map.id,kind:'monster',refId:hidden.id,x:150,y:50,isHidden:true});
+    addRollLog(session.id, {roller:'Goblin 27',label:'Attack by Goblin 27',expr:'1d20+7',total:27,detail:'Goblin 27 attacks: 27 damage, DC 17. Goblin 270 is unrelated.'});
+    const player=buildSnapshot(session.id,'player')!, dm=buildSnapshot(session.id,'dm',map.id)!;
+    expect(player.monsters.map(m=>m.name)).toEqual(['Goblin']);
+    expect(player.monsters.some(m=>m.id===hidden.id)).toBe(false);
+    expect(dm.monsters.find(m=>m.id===visible.id)?.name).toBe('Goblin 27');
+    expect(player.rollLog.at(-1)).toMatchObject({roller:'Goblin',label:'Attack by Goblin',expr:'1d20+7',total:27,detail:'Goblin attacks: 27 damage, DC 17. Goblin 270 is unrelated.'});
+    expect(dm.rollLog.at(-1)?.roller).toBe('Goblin 27');
+    updateMonster(visible.id, {name:'Werebear (2) 4',disposition:'friendly'});
+    expect(buildSnapshot(session.id,'player')!.monsters[0].name).toBe('Werebear');
+    expect(getMonster(visible.id)?.name).toBe('Werebear (2) 4');
+  });
+
   it('strips an enemy creature attack’s modifier breakdown from players', () => {
     const s = createSession('Redact');
     const map = createMap(s.id, { name: 'Arena' });

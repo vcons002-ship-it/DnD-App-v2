@@ -1,0 +1,412 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "goblin",
+      "url": "/miniatures/monsters/goblin.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1792308,
+      "sha256": "53cc93ff11c1f5d71badf9b5ed931dbfe3bcf9b4a77ed8850782c7140417fa2e",
+      "sourceSha256": "14d2b4ca6191cc82f5742c73f8bab43957154e3ffed4b51aed9816c9f36e53e8",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "skeleton",
+      "url": "/miniatures/monsters/skeleton.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1753732,
+      "sha256": "4ed995748e8eee47d514f5e0fce7a8522f2afc353826d6d59cabba35a856ead4",
+      "sourceSha256": "41addea33cd3e039460a6e8f9e27624393beed2b96549746862bef2d671aeffe",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "wolf",
+      "url": "/miniatures/monsters/wolf.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1388464,
+      "sha256": "d3e746af646302daac083a93abb61ceae1419bd6e640e5c28b6a51c053960f0b",
+      "sourceSha256": "ad53e91d73340fdc5dc25e3069b3ee7ede54c9bb668cb1a89afd7cbe2322a539",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1"
+    },
+    {
+      "id": "dwarf-warrior",
+      "url": "/miniatures/monsters/dwarf-warrior.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1688916,
+      "sha256": "0804eb778c6b35cc1a2cdb6f89b00127b806795cfc140de19791b29af7382e1f",
+      "sourceSha256": "b44ce84a61db303d0b27e257436ad35386a08feb78d7c9ffefc6577d8b8133b8",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "ghost",
+      "url": "/miniatures/monsters/ghost.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1438324,
+      "sha256": "e01841ce6d4ee97284b14b095841a0fdf904cdcc21a9d1a168ecf72314c5881f",
+      "sourceSha256": "a23c69bef71ee31f76fd14574924b41df9ae7bf97cc227cdd8e6ae801a239733",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "hobgoblin",
+      "url": "/miniatures/monsters/hobgoblin.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1603680,
+      "sha256": "96cd9ad083ded587e6e053b04d85b7c3e445621b42d0708fac6fae6aa52b6950",
+      "sourceSha256": "18894539ffea0a542f05c6d74dbc44a8688d7c1533f30146d7d4f622fa9d37b2",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-bandit",
+      "url": "/miniatures/monsters/human-bandit.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1526248,
+      "sha256": "c97a99c8e073a1d52181e19a9cff0955413981928e5598a1e4ef738746a17418",
+      "sourceSha256": "2a5378352bffacb5fe451d8da1ede1cb667cb9c9568ec2335a24d9a17fe81214",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-commoner",
+      "url": "/miniatures/monsters/human-commoner.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1446972,
+      "sha256": "033cd62e2879b7e89bb4101c61fa83913dd1b14e5eff0224b018c567b1ef4a3c",
+      "sourceSha256": "8d009827e73d4098c8aa8e3a04759e88da9630d1b5fe35fff9465e43bbf7cf68",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-guard",
+      "url": "/miniatures/monsters/human-guard.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1495872,
+      "sha256": "61969470ee5878c9098fd757acd40c0f894a9719dd2c424ac1495b99c13b53c9",
+      "sourceSha256": "c48ca79c2bbe7a41a7e5344ae888544528c6313dd955a724551accfe820055dc",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4
+    },
+    {
+      "id": "human-mage",
+      "url": "/miniatures/monsters/human-mage.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1428588,
+      "sha256": "c7b8352b3c9591bd6f79d77702637cdbfb53a324bf99416f1c4c9769b49be71c",
+      "sourceSha256": "17bf4f90add8e1e48e808a8c1cbb0166ded0baf5c0b7a419806f2bf1705df017",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "orc",
+      "url": "/miniatures/monsters/orc.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1728144,
+      "sha256": "048520a450a7bc6a071796e6e6395b116e65171a844aa8ebd3c9d9ef9b6f79ec",
+      "sourceSha256": "aa95870f7e9ca0770b6f13d98fe92fa7f1c7df0a73cd0d194d049c8920821f6c",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "royal-archmage",
+      "url": "/miniatures/monsters/royal-archmage.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1549728,
+      "sha256": "18b594e96fb82cef6192690007937cda180170e7ad8578e6c61bb7c0fbcb3ae5",
+      "sourceSha256": "f83ddf3276c779cfb6dc9f4a29f3dc57d25d5a7c15706af734489ce110c30ded",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4
+    },
+    {
+      "id": "stone-golem",
+      "url": "/miniatures/monsters/stone-golem.glb",
+      "baseDiameter": 0.96,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20763,
+      "bytes": 1900664,
+      "sha256": "7762cb9fc771aea3907ec41956d06f26f91102914084392bdc471aa2107a3046",
+      "sourceSha256": "cef90097dfb8f2deb86cd97b2f431949d744986b913857344bd2428c4231967c",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "treant",
+      "url": "/miniatures/monsters/treant.glb",
+      "baseDiameter": 0.96,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20763,
+      "bytes": 2282932,
+      "sha256": "70abbf129208972eef4a6426d6549920c8678401b133437307300e3c204ffc6a",
+      "sourceSha256": "37b299dab02b640e17bcb52a2cac468e2680b54a0971dd672afd5b308c461f2e",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "troll",
+      "url": "/miniatures/monsters/troll.glb",
+      "baseDiameter": 0.96,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1689772,
+      "sha256": "0097a1a350fc57ff55d66144ee83b5500347e9625a54f06da4fa24f7409dd88e",
+      "sourceSha256": "c46ce87781fa3adaf64be47a43f45c4d2be9ae83fd850eaddf5bbd1f44273e1a",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "wight",
+      "url": "/miniatures/monsters/wight.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1589264,
+      "sha256": "cc3bf97deaef2b324ed0adfb8c81d1c89c25dd53e659ef3a6e0363aae3518a95",
+      "sourceSha256": "2f6ef456b1158248b7c7e2273db9175a43d8020d1b5a4862711c26959aa9071b",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "dragon",
+      "url": "/miniatures/monsters/dragon.glb",
+      "baseDiameter": 0.96,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1558356,
+      "sha256": "603fdc856cb40e84af315581260d4d8efa39d1bf692738288ed6526333401c57",
+      "sourceSha256": "ae1591ca23a78aa87f504269a934797183de530534a20a8a1722905aee4ea445",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4
+    },
+    {
+      "id": "dwarf-commoner",
+      "url": "/miniatures/monsters/dwarf-commoner.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1556748,
+      "sha256": "4f74811c04bc7273560ce1cfb6ee81c9759d7ffba37d1918fff8ae9da7304c31",
+      "sourceSha256": "12251e08b59d38ad2d2957fc79328ccf192629d69f1ce2592d968d3d1c13fda7",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "spider",
+      "url": "/miniatures/monsters/spider.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20752,
+      "bytes": 2598600,
+      "sha256": "9acd369770d95e060e792e6eef850c580b88c4396e05060be7d90699a9981a5c",
+      "sourceSha256": "59dd267f8b459b72b906db766196195ca25ebf0573c529203fb89c85974dec3c",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4
+    },
+    {
+      "id": "snake",
+      "url": "/miniatures/monsters/snake.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1484964,
+      "sha256": "7d1eefaa85bb2d86281db14a703802743c145d5bf945d9b43a535b1790e3c0b4",
+      "sourceSha256": "32bd50b9961ba28211263bba4892b4b4157196702d5a7e7df02ab20748b6a279",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4
+    },
+    {
+      "id": "two-headed-dragon",
+      "url": "/miniatures/monsters/two-headed-dragon.glb",
+      "baseDiameter": 0.96,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 2096884,
+      "sha256": "0dcda1ddb7be7dfb7e73ea75205af29359769930f7b898990d771a92b9f0e523",
+      "sourceSha256": "58f499513ff10d2eb12f62cace5f89ce45300bf2618219f0d5e83809360249d5",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4
+    },
+    {
+      "id": "werebear",
+      "url": "/miniatures/monsters/werebear.glb",
+      "baseDiameter": 0.96,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1944212,
+      "sha256": "1fb205edff24fbb2287703a4470ef87236a5f4d6ffa1bfcf55ca3229aebbf832",
+      "sourceSha256": "2448a84d94fe09aa8fdd62d01ad2d7db03603ce34bcd4adb212e1df52def9872",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "elf-commoner",
+      "url": "/miniatures/monsters/elf-commoner.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1375068,
+      "sha256": "26831c10ec7ebd86f58faea274f28f5893239689bfa96e72af2e9cde6950c2a9",
+      "sourceSha256": "5abc1d33b05243586e64f092bb40d71567f2cafe44ba2875ca07319f3075b571",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "tiefling-commoner",
+      "url": "/miniatures/monsters/tiefling-commoner.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1433292,
+      "sha256": "2ba4f2e0cf78b5aaf1f88ad49744419cb9b2f1f38bc959b203595047de3dc33e",
+      "sourceSha256": "adeae69ad557361b7df3b4d6c699fd1ef8dae5134686c42df09fe5e2c12eb9b1",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    }
+  ]
+}

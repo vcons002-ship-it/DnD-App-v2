@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
+import { MONSTER_MODEL_TYPES } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
 const sockets: Socket[] = [];
@@ -89,10 +90,14 @@ async function tokenView(page: Page, id: string) {
       projection: { matrix: Array.from(matrix.toFloat64Array()), w, h, left: rect.left, top: rect.top, x: pos.x, y: pos.y },
       x: rect.left + w / 2 + projected.x / projected.w, y: rect.top + h / 2 + projected.y / projected.w, scaleX: scale.x, scaleY: scale.y,
       texts: node.find('Text').map((n: any) => n.text()),
+      roleBadges: node.find('.token-combat-role').length,
+      labelBottom: node.findOne('.token-label') ? node.findOne('.token-label').y() + node.findOne('.token-label').height() : null,
+      healthY: node.findOne('.token-health')?.y(),
       healthBars: node.find('Rect').filter((n: any) => n.height() === 6).map((n: any) => ({ width: n.width(), fill: n.fill() })),
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
       bodyVisible: node.findOne('.token-body')?.isVisible(),
       miniatureReady: node.getAttr('miniatureReady'),
+      opacity: node.opacity(),
     };
   }, id);
 }
@@ -105,6 +110,179 @@ function offsetPoint(view: NonNullable<Awaited<ReturnType<typeof tokenView>>>, d
   return { x: p.left + p.w / 2 + (m[0] * x + m[4] * y + m[12]) / w,
     y: p.top + p.h / 2 + (m[1] * x + m[5] * y + m[13]) / w };
 }
+
+async function monsterFixture(page: Page, request: APIRequestContext) {
+  const f = await fixture(page, request);
+  const creatures = [
+    { name: 'Goblin', x: 250, modelType: '', modelColor: '' },
+    { name: 'Azure Bones', x: 550, modelType: 'skeleton', modelColor: 'blue' },
+    { name: 'Ashfang', x: 850, modelType: 'wolf', modelColor: '' },
+    { name: 'Elephant', x: 1050, modelType: 'elephant', modelColor: '' },
+  ];
+  for (const c of creatures) {
+    f.socket.emit('monster:create', { name: c.name, maxHp: 12, modelType: c.modelType, modelColor: c.modelColor, visualTags: c.name === 'Ashfang' ? ['fire'] : [] });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === c.name)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: c.x, y: 650 });
+  }
+  const ready = await f.snapshot();
+  return { ...f, ready, monsters: ready.tokens.filter(t => t.kind === 'monster') };
+}
+
+test('expanded monster catalog loads every family in overhead and tilted views', async ({ page, request }, info) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1600, height: 1100 });
+  const f = await fixture(page, request);
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('response', response => { if (response.url().endsWith('.glb') && !response.ok()) errors.push(`${response.status()} ${response.url()}`); });
+  for (const [index, family] of MONSTER_MODEL_TYPES.entries()) {
+    f.socket.emit('monster:create', { name: `Catalog ${family}`, maxHp: 12, modelType: family, visualTags: [] });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === `Catalog ${family}`)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 100 + (index % 6) * 190, y: 100 + Math.floor(index / 6) * 170 });
+  }
+  for (const [index, token] of f.ready.tokens.entries()) f.socket.emit('token:move', { tokenId: token.id, x: 300 + index * 300, y: 750 });
+  const snapshot = await f.snapshot();
+  await enter(page, f.code, 'Druk', false);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', String(MONSTER_MODEL_TYPES.length + 3), { timeout: 90_000 });
+  for (const token of snapshot.tokens.filter(t => t.kind === 'monster')) expect((await tokenView(page, token.id))?.miniatureReady).toBe(true);
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('all-families-overhead.png') });
+  await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+  await afterPaint(page);
+  await expect(layer).toHaveAttribute('data-miniature-count', String(MONSTER_MODEL_TYPES.length + 3));
+  await page.screenshot({ path: info.outputPath('all-families-tilted.png') });
+  expect(errors).toEqual([]);
+});
+
+test('monster miniatures load, recolor independently, use base hits and face their drag in both views', async ({ page, browser, request }, info) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const f = await monsterFixture(page, request);
+  await enter(page, f.code);
+  const playerLayer = page.getByTestId('miniature-layer');
+  await expect(playerLayer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+  const [goblin, skeleton, wolf, elephant] = f.monsters;
+  for (const t of [goblin, skeleton, wolf]) {
+    const view = (await tokenView(page, t.id))!;
+    expect(view.miniatureReady).toBe(true);
+    expect(view.roleBadges).toBe(1);
+  }
+  expect((await tokenView(page, elephant.id))?.bodyVisible).toBe(true);
+  expect((await tokenView(page, elephant.id))?.miniatureReady).toBe(false);
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('monster-party-45.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('monster-party-overhead.png') });
+  const context = await browser.newContext({ baseURL: `http://localhost:${PORT}`, viewport: { width: 1440, height: 1000 } });
+  try {
+    const dm = await context.newPage();
+    const errors: string[] = [];
+    dm.on('pageerror', e => errors.push(e.message));
+    await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+    const base = (await tokenView(dm, skeleton.id))!;
+    await dm.mouse.click(base.x, base.y);
+    const tokenInfo = dm.getByRole('region', { name: 'Token info', exact: true });
+    await expect(tokenInfo.getByLabel('3D family', { exact: true })).toHaveValue('skeleton');
+    await tokenInfo.getByLabel('Monster model color').selectOption('red');
+    await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.modelColor).toBe('red');
+    await tokenInfo.getByLabel('3D family', { exact: true }).selectOption('wolf');
+    await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.modelType).toBe('wolf');
+    // Two copies of the same cached wolf must retain their separate appearance.
+    await expect(playerLayer).toHaveAttribute('data-miniature-count', '6');
+    await afterPaint(page);
+    await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+    await afterPaint(page);
+    await page.screenshot({ path: info.outputPath('independent-wolf-tints.png') });
+    await tokenInfo.getByLabel('3D family', { exact: true }).selectOption('skeleton');
+    await tokenInfo.getByLabel('Monster model color').selectOption('natural');
+    await tokenInfo.getByLabel('Monster appearance tags').fill('[poison], blue');
+    await tokenInfo.getByLabel('Monster appearance tags').press('Enter');
+    await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === skeleton.refId)?.visualTags).toEqual(['poison', 'blue']);
+    await tokenInfo.scrollIntoViewIfNeeded();
+    await dm.screenshot({ path: info.outputPath('monster-token-info.png') });
+    // Close the inspector before dragging across the board.
+    await dm.getByRole('button', { name: 'Close token inspector', exact: true }).click();
+    for (const viewName of ['Flat battlefield view', 'Tilted battlefield view']) {
+      await dm.getByRole('button', { name: viewName, exact: true }).click();
+      await afterPaint(dm);
+      const hits = await dm.evaluate(id => {
+        const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
+        const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
+        return [[0, 0], [29, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => stage.getIntersection(node.getAbsoluteTransform().point({ x, y }))?.getAttr('tokenId') ?? null);
+      }, goblin.id);
+      expect(hits).toEqual([goblin.id, goblin.id, null, null, null]);
+      const start = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
+      const view = (await tokenView(dm, goblin.id))!;
+      const end = offsetPoint(view, 100, -80);
+      await dm.mouse.move(view.x, view.y); await dm.mouse.down();
+      await dm.mouse.move(end.x, end.y, { steps: 15 }); await afterPaint(dm);
+      expect((await f.snapshot()).tokens.find(t => t.id === goblin.id)?.x).toBe(start.x);
+      await dm.screenshot({ path: info.outputPath(`${viewName.startsWith('Flat') ? 'flat' : 'tilted'}-monster-held-drag.png`) });
+      await dm.mouse.up();
+      await expect.poll(async () => (await f.snapshot()).tokens.find(t => t.id === goblin.id)!.x).toBeGreaterThan(start.x + 90);
+      const moved = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
+      expect(moved.facing).toBeCloseTo(Math.atan2(moved.x - start.x, moved.y - start.y), 5);
+    }
+    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await expect(playerLayer).toHaveCount(0);
+    for (const t of f.monsters) expect((await tokenView(page, t.id))?.bodyVisible).toBe(true);
+    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await expect(playerLayer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});
+
+test('monster and player miniatures disappear as whole tokens under base-cell fog and live concealment', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const f = await monsterFixture(page, request);
+  await enter(page, f.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+  const [goblin, skeleton, wolf] = f.monsters;
+  const varis = f.ready.tokens.find(t => t.refId === f.initial.characters.find(c => c.name === 'Varis')!.id)!;
+  // Fogged anchor removes the entire miniature, even when its body extends into a revealed cell.
+  f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['9,3', '2,6', '8,6', '10,6'], reveal: true });
+  f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '4');
+  expect(await tokenView(page, skeleton.id)).toBeNull();
+  expect(await tokenView(page, varis.id)).toBeNull();
+  expect((await f.snapshot()).tokens).toHaveLength(7); // DM still sees all tokens.
+  f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['5,6', '6,3'], reveal: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  // A player dragging another PC into map fog loses its whole HUD as well as the model.
+  const v = (await tokenView(page, varis.id))!, concealed = offsetPoint(v, 0, -220);
+  await page.mouse.move(v.x, v.y); await page.mouse.down();
+  await page.mouse.move(concealed.x, concealed.y, { steps: 15 });
+  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(0);
+  await page.mouse.up();
+  await expect(layer).toHaveAttribute('data-miniature-count', '5');
+  f.socket.emit('token:move', { tokenId: varis.id, x: varis.x, y: varis.y });
+  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  f.socket.emit('token:drag', { tokenId: skeleton.id, x: 10, y: 10 });
+  await expect(layer).toHaveAttribute('data-miniature-count', '5');
+  expect(await tokenView(page, skeleton.id)).toBeNull();
+  // A paused held drag must not reappear when the ordinary tether timer expires.
+  await page.waitForTimeout(500);
+  expect(await tokenView(page, skeleton.id)).toBeNull();
+  f.socket.emit('token:drag', { tokenId: skeleton.id, x: skeleton.x, y: skeleton.y });
+  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: false });
+  f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'tokens', enabled: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '3');
+  expect(await tokenView(page, goblin.id)).toBeNull();
+  expect(await tokenView(page, wolf.id)).toBeNull();
+  expect(await tokenView(page, varis.id)).not.toBeNull();
+  f.socket.emit('monster:update', { monsterId: wolf.refId, disposition: 'friendly' });
+  await expect(layer).toHaveAttribute('data-miniature-count', '4');
+  f.socket.emit('token:setHidden', { tokenId: wolf.id, hidden: true });
+  await expect(layer).toHaveAttribute('data-miniature-count', '3');
+  expect(await tokenView(page, wolf.id)).toBeNull();
+});
 
 test('perspective recedes toward the far edge and keeps wheel zoom and pan under the pointer', async ({ page, request }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -139,7 +317,7 @@ test('perspective recedes toward the far edge and keeps wheel zoom and pan under
   await page.screenshot({ path: info.outputPath('perspective-pan.png') });
 });
 
-test('real miniatures hide player names and retain health; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
+test('real miniatures label players above health without combat badges; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const setup = await fixture(page, request);
@@ -151,7 +329,9 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
   const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
   const view = (await tokenView(page, druk.id))!;
-  expect(view.texts).not.toContain('Druk');
+  expect(view.texts).toContain('Druk');
+  expect(view.roleBadges).toBe(0);
+  expect(view.labelBottom).toBeLessThan(view.healthY);
   expect(view.healthBars.length).toBeGreaterThanOrEqual(2);
   expect(view.visibleBodyImages).toBe(0);
   expect(view.bodyVisible).toBe(false);
@@ -210,7 +390,7 @@ test('movement heading survives reconnect and uses the same base hit region in b
     const hits = await page.evaluate(id => {
       const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
       const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
-      return [[0, 0], [49, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => {
+      return [[0, 0], [29, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => {
         const p = node.getAbsoluteTransform().point({ x, y });
         return stage.getIntersection(p)?.getAttr('tokenId') ?? null;
       });
@@ -334,8 +514,8 @@ test('rear flat tokens are occluded by miniature pixels and keep their hit regio
   await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
   const flat = (await tokenView(page, rear.id))!;
   expect(flat.scaleY / flat.scaleX).toBeCloseTo(1, 5);
-  expect(flat.texts).toContain('Rear goblin 1');
-  expect((await tokenView(page, druk.id))!.texts).not.toContain('Druk');
+  expect(flat.texts).toContain('Rear goblin');
+  expect((await tokenView(page, druk.id))!.texts).toContain('Druk');
   expect(errors).toEqual([]);
 });
 
@@ -352,7 +532,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     const before = (await tokenView(page, druk.id))!;
     await page.touchscreen.tap(before.x, before.y);
     await page.screenshot({ path: info.outputPath('mobile-miniatures.png') });
-    expect(before.texts).not.toContain('Druk');
+    expect(before.texts).toContain('Druk');
     expect(before.healthBars.length).toBeGreaterThanOrEqual(2);
     const cdp = await context.newCDPSession(page);
     const center = { x: 215, y: 430 };
@@ -514,7 +694,7 @@ test('2D and 3D token choices persist per player without changing tilt or token 
     await page.screenshot({ path: info.outputPath('mobile-2d-token-controls.png') });
     await page.getByRole('button', { name: '3D tokens', exact: true }).click();
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-    expect((await tokenView(page, druk.id))!.texts).not.toContain('Druk');
+    expect((await tokenView(page, druk.id))!.texts).toContain('Druk');
     expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)).toEqual(moved);
     await page.reload();
     await expect(page.getByRole('button', { name: '3D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -875,4 +1055,91 @@ for (const tilted of [false, true]) test(`DM Ctrl-drag selects bases without mov
   await page.getByRole('button', { name: 'Token inspector', exact: true }).click();
   await expect(inspector.getByRole('heading', { name: '2 tokens selected', level: 2 })).toBeVisible();
   expect((await setup.snapshot()).tokens).toEqual(before.tokens);
+});
+
+test('players and DM size miniatures through the character panel and fit a five-foot base at either map scale', async ({ page, request, browser }, info) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const setup = await fixture(page, request);
+  await enter(page, setup.code, 'Druk', false);
+  const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+  const dmContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const dm = await dmContext.newPage();
+  try {
+    await dm.goto(`/dm?code=${setup.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
+    const dmPoint = (await tokenView(dm, druk.id))!;
+    await dm.mouse.click(dmPoint.x, dmPoint.y);
+    const dmSize = dm.locator('.dm-token-actions').getByRole('region', { name: '3D figure size', exact: true });
+    await expect(dm.locator('#dm-panel-inspect .char-sheet .miniature-size-control')).toHaveCount(0);
+    const openCharacter = async () => page.locator('.hud-actions').getByRole('button', { name: 'Character', exact: true }).click();
+    await openCharacter();
+    const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
+    const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
+    const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
+    await expect(playerInput).toHaveValue('4');
+    expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
+    expect((await dmSize.boundingBox())!.height).toBeLessThanOrEqual(32);
+    const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.miniatureWidthFt;
+    expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)!.widthFt).toBe(5);
+    const renderedDiameter = async (target: Page) => (await tokenView(target, druk.id))!.healthBars[0].width;
+    await playerInput.fill('7.5'); await playerInput.press('Enter');
+    await expect.poll(width).toBe(7.5);
+    await expect(dmInput).toHaveValue('7.5');
+    await expect.poll(() => renderedDiameter(page)).toBe(150);
+    await expect.poll(() => renderedDiameter(dm)).toBe(150);
+    await playerSize.getByRole('button', { name: 'Fit to map', exact: true }).click();
+    await expect.poll(width).toBe(5);
+    // Clicking Fit while the field has an uncommitted edit must win over blur.
+    await playerInput.fill('9');
+    await playerSize.getByRole('button', { name: 'Fit to map', exact: true }).click();
+    await expect(dmInput).toHaveValue('5'); await expect(playerInput).toHaveValue('5');
+    await expect.poll(() => renderedDiameter(page)).toBe(100);
+    await dmInput.fill('8'); await dmInput.press('Enter');
+    await expect(playerInput).toHaveValue('8');
+    await dmSize.getByRole('button', { name: 'Fit to map', exact: true }).click();
+    await expect(playerInput).toHaveValue('5');
+    await page.screenshot({ path: info.outputPath('player-figure-size.png') });
+    await page.getByRole('button', { name: 'Close character window' }).click();
+    // Ten feet per 100-pixel square: a five-foot base is half a square, in both cameras.
+    setup.socket.emit('map:setGrid', { mapId: setup.mapId, gridSizePx: 100, feetPerSquare: 10, widthFt: 120, locked: false });
+    await expect.poll(() => renderedDiameter(page)).toBe(50);
+    await expect.poll(() => renderedDiameter(dm)).toBe(50);
+    for (const target of [page, dm]) {
+      await target.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+      await afterPaint(target);
+      const v = (await tokenView(target, druk.id))!;
+      expect(v.miniatureReady).toBe(true);
+      // Real Konva hit testing uses the resized round base; decoration cannot enlarge it.
+      const hitAt = async (dx: number) => target.evaluate(({ id, dx }) => {
+        const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
+        const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
+        const point = node.getAbsoluteTransform().point({ x: dx, y: 0 });
+        return stage.getIntersection(point)?.findAncestor('.token', true)?.getAttr('tokenId') ?? null;
+      }, { id: druk.id, dx });
+      expect(await hitAt(20)).toBe(druk.id); expect(await hitAt(30)).not.toBe(druk.id);
+    }
+    const placed = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
+    expect(placed).toMatchObject({ x: druk.x, y: druk.y, facing: druk.facing, widthFt: 5 });
+    await dmSize.scrollIntoViewIfNeeded();
+    await dm.screenshot({ path: info.outputPath('dm-figure-size.png') });
+    await openCharacter();
+    await playerSize.getByRole('button', { name: 'Larger figure', exact: true }).click();
+    await expect.poll(width).toBe(5.5);
+    await page.reload();
+    await expect(page.getByTestId('player-hud')).toBeVisible();
+    await openCharacter();
+    await expect(playerInput).toHaveValue('5.5');
+    await page.setViewportSize({ width: 430, height: 932 });
+    await playerSize.scrollIntoViewIfNeeded();
+    const button = playerSize.getByRole('button', { name: 'Fit to map', exact: true });
+    expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
+    const b = (await button.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0); expect(b.x + b.width).toBeLessThanOrEqual(430);
+    await button.click(); await expect.poll(width).toBe(5);
+    await page.screenshot({ path: info.outputPath('phone-figure-size.png') });
+  } finally { await dmContext.close(); }
 });

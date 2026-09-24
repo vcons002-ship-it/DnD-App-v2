@@ -134,6 +134,7 @@ import {
   importMaps,
   previewImportCharacters,
   resizeToken,
+  resizeMiniature,
   setTokenShape,
   createPastedObject,
   createSummon,
@@ -716,9 +717,17 @@ export function registerSocketHandlers(io: IOServer): void {
       broadcastTokenDrag(io, sid, socket.id, t, x, y);
     });
 
-    on('token:resize', ({ tokenId, widthFt }) => {
-      if (!isDm()) return; // resizing is a DM action; players may only move
-      resizeToken(tokenId, widthFt);
+    on('token:resize', ({ tokenId, widthFt, miniature }) => {
+      const sid = sessionId(), token = getToken(tokenId);
+      if (!sid || !token || getMap(token.mapId)?.sessionId !== sid || !Number.isFinite(widthFt)) return;
+      if (!isDm()) {
+        const character = token.kind === 'pc' ? getCharacter(token.refId) : null;
+        // A player adjusts only their own visible placement on the active map.
+        if (token.isHidden || token.mapId !== getActiveMapId(sid) || !character ||
+          character.sessionId !== sid || character.claimedBy !== socket.id) return;
+      }
+      if (miniature === true) resizeMiniature(tokenId, widthFt);
+      else resizeToken(tokenId, widthFt);
       afterChange();
     });
 
@@ -1527,6 +1536,7 @@ export function registerSocketHandlers(io: IOServer): void {
         name: p.name,
         maxHp: p.maxHp,
         creatureType: p.creatureType,
+        modelType: p.modelType, modelColor: p.modelColor, visualTags: p.visualTags,
         level: p.level,
         armorClass: p.armorClass,
         speed: p.speed,

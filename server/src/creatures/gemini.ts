@@ -1,3 +1,4 @@
+import { MONSTER_MODEL_TYPES, MONSTER_COLORS, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../../shared/monsterAppearance.js';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import type {
@@ -294,6 +295,7 @@ export async function callGemini(
  */
 export async function lookupCreatureAI(
   name: string,
+  appearance?: { modelType?: string; modelColor?: string; visualTags?: string[] },
 ): Promise<CreatureTemplate | null> {
   if (!aiAvailable() || !name.trim()) return null;
 
@@ -302,13 +304,14 @@ export async function lookupCreatureAI(
     `creature name or a short description (e.g. "goblin with a longbow", ` +
     `"orc fighter with a halberd") — honor the described gear/role. ` +
     `Respond ONLY with minified JSON of shape ` +
-    `{"name":string,"creatureType":string,"level":number,"maxHp":number,"armorClass":number,"speed":string,` +
+    `{"name":string,"creatureType":string,"modelType":string,"modelColor":string,"visualTags":string[],"level":number,"maxHp":number,"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
     `"actions":[{"name":string,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
     `"abilities":[{"name":string,"description":string}],` +
     `"sheetAbilities":[{"name":string,"type":"ability"|"spell","level":number,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}]}. ` +
+    `Prefix "creatureType" with the stat-block size (Tiny, Small, Medium, Large, Huge, or Gargantuan), for example "Large giant". "modelColor" is an optional overall color: ${Object.keys(MONSTER_COLORS).join(', ')}. Choose a color only when requested by the name/description or appearance tags, otherwise use an empty string. "modelType" is its physical creature family, independent of its flavorful name or D&D category. Available 3D families: ${MONSTER_MODEL_TYPES.join(', ')}. Use the closest matching physical family when appropriate; otherwise name the actual family (e.g. elephant) for 2D fallback rather than forcing an unrelated model. "visualTags" are only requested visual themes/colors: fire, poison, ice, lightning, undead, red, blue, green, purple, black, white, gold, bronze, silver, brown. Bracket tags such as [fire] count. Do not infer tags from resistances or grant rules from visual tags. ` +
     `"sheetAbilities" are the creature's INNATE / spell-like special abilities ` +
     `(innate spellcasting, gaze, life drain, a recharge breath usable as an ability) ` +
     `with a structured "roll" when they deal damage or force a save — creature-` +
@@ -358,7 +361,7 @@ export async function lookupCreatureAI(
       })
     : prompt;
 
-  const text = await generateJson(groundedPrompt);
+  const text = await generateJson(groundedPrompt + (appearance ? '\nExisting DM appearance choices (preserve and use as context): ' + JSON.stringify(appearance) : ''));
   if (!text) return null;
   try {
     const parsed = JSON.parse(text) as Record<string, unknown>;
@@ -369,6 +372,9 @@ export async function lookupCreatureAI(
       // the create flow always has a sensible label even if the field is missing.
       name: String(parsed.name ?? '').trim() || name.trim(),
       creatureType,
+      modelType: normalizeModelType(parsed.modelType),
+      modelColor: normalizeModelColor(parsed.modelColor),
+      visualTags: normalizeVisualTags(parsed.visualTags),
       level: Number.isFinite(Number(parsed.level)) ? Number(parsed.level) : 0,
       maxHp: Number(parsed.maxHp) > 0 ? Math.round(Number(parsed.maxHp)) : 10,
       armorClass: Number(parsed.armorClass) > 0 ? Math.round(Number(parsed.armorClass)) : 0,

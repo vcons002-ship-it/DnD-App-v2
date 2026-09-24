@@ -1,26 +1,20 @@
-import manifest from '../../public/miniatures/manifest.json';
+﻿import manifest from '../../public/miniatures/manifest.json';
+import monsters from '../../public/miniatures/monsters/manifest.json';
 import type { TokenKind } from '../../../shared/types';
+import { MONSTER_MODEL_TYPES, resolveMonsterModelType, type MonsterAppearance, type MonsterModelType } from '../../../shared/monsterAppearance';
 
-/** A glTF miniature is fitted by its base, never by its weapon or total height. */
+/** Fit by the measured round base, never by weapons or full height. */
 export type MiniatureDefinition = {
-  id: 'druk' | 'varis' | 'vanec';
+  id: 'druk' | 'varis' | 'vanec' | MonsterModelType;
   url: string;
   baseDiameter: number;
-  /** Native glTF XYZ, Y up; the base's horizontal center and lowest point. */
   baseCenter: [number, number, number];
   fxUrl?: string;
   baseTextureUrl?: string;
 };
-
-export const MINIATURES = Object.fromEntries(
-  manifest.models.map(model => [model.id, model]),
-) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
-
-/** Existing and newly placed party members use their model automatically.
- * Exact PC names keep similarly named monsters and other portraits untouched.
- */
-export function resolveMiniature(name: string, kind: TokenKind): MiniatureDefinition | null {
-  if (kind !== 'pc') return null;
-  const key = name.trim().toLowerCase();
-  return Object.hasOwn(MINIATURES, key) ? MINIATURES[key as MiniatureDefinition['id']] : null;
+export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
+export function resolveMiniature(name: string, kind: TokenKind, appearance: MonsterAppearance = {}): MiniatureDefinition | null {
+  const key = kind === 'pc' ? name.trim().toLowerCase() : resolveMonsterModelType({ ...appearance, name });
+  const allowed: readonly string[] = kind === 'pc' ? ['druk', 'varis', 'vanec'] : MONSTER_MODEL_TYPES;
+  return allowed.includes(key) ? MINIATURES[key as MiniatureDefinition['id']] ?? null : null;
 }

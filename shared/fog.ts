@@ -17,3 +17,14 @@ export function coveredByFog(
   const key = `${Math.floor(x / grid)},${Math.floor(y / grid)}`;
   return (!!mapFog && !mapFog.has(key)) || (!!tokenFog && !tokenFog.has(key));
 }
+
+/** The base/anchor cell decides whole-token visibility, independent of art size. */
+export function tokenVisibleAt(options: {
+  role: string; hidden: boolean; owned: boolean; foe: boolean;
+  mapFog: Set<string> | null; tokenFog: Set<string> | null; grid: number; x: number; y: number;
+}): boolean {
+  if (options.role === 'dm') return true;
+  if (options.hidden) return false;
+  if (options.owned) return true;
+  return !coveredByFog(options.mapFog, options.foe ? options.tokenFog : null, options.grid, options.x, options.y);
+}

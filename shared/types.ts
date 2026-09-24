@@ -118,11 +118,12 @@ export type Token = {
   /** Legacy size in grid squares (1 = Medium, 2 = Large, ...); kept for back-compat. */
   size: number;
   /**
-   * Real-world footprint width in FEET (5 = Medium). This is the source of truth
-   * for the on-screen size: it's rendered via the map's feet-per-pixel so a token
-   * keeps its real size when the DM only changes the visual grid cell.
+   * Occupied combat footprint width in FEET (5 = Medium). Used by map rules and
+   * 2D tokens. Miniatures use a smaller default base or miniatureWidthFt.
    */
   widthFt: number;
+  /** Optional visible 3D base width; does not change occupied combat space. */
+  miniatureWidthFt?: number;
   /** Initiative value, or null if not rolled this combat. */
   initiative: number | null;
   /** Hidden tokens are never sent to players. */
@@ -460,6 +461,11 @@ export type SheetAbility = {
 export type ObjectKind = 'trap' | 'door' | 'chest' | 'item' | 'other';
 
 export type Monster = {
+  /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
+  modelType?: string;
+  modelColor?: string;
+  /** Public appearance tags; do not grant combat effects. */
+  visualTags?: string[];
   id: string;
   sessionId: string;
   name: string;
@@ -516,6 +522,11 @@ export type Monster = {
 
 /** A creature template returned by SRD search or Gemini lookup. */
 export type CreatureTemplate = {
+  /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
+  modelType?: string;
+  modelColor?: string;
+  /** Public appearance tags; do not grant combat effects. */
+  visualTags?: string[];
   name: string;
   creatureType: string;
   /** Challenge rating / level chosen by the AI (or SRD), used to scale stats. */
@@ -665,8 +676,13 @@ export type MapState = {
   tokenFogRevealed: string[];
 };
 
-/** Player-facing ENEMY view: name + visible conditions + icon only. */
+/** Player-facing ENEMY view: visible identity/appearance and conditions, no combat stats. */
 export type MonsterPublic = {
+  /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
+  modelType?: string;
+  modelColor?: string;
+  /** Public appearance tags; do not grant combat effects. */
+  visualTags?: string[];
   id: string;
   name: string;
   conditions: Condition[];
@@ -1009,7 +1025,7 @@ export type JoinPayload = {
 };
 
 export type TokenMovePayload = { tokenId: string; x: number; y: number };
-export type TokenResizePayload = { tokenId: string; widthFt: number };
+export type TokenResizePayload = { tokenId: string; widthFt: number; miniature?: boolean };
 export type TokenSetShapePayload = { tokenId: string; shape: TokenShape };
 export type TokenDeletePayload = { tokenId: string };
 /** Duplicate one placed token into a second, independently-tracked copy. */
@@ -1330,6 +1346,11 @@ export type NoticePayload = {
 };
 /** Create a reusable creature *template* (one spawn button). */
 export type MonsterCreatePayload = {
+  /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
+  modelType?: string;
+  modelColor?: string;
+  /** Public appearance tags; do not grant combat effects. */
+  visualTags?: string[];
   name: string;
   maxHp: number;
   creatureType?: string;
@@ -1363,6 +1384,11 @@ export type TrapDisarmPayload = {
 };
 /** Patch fields of one creature instance/template (DM-only). */
 export type MonsterUpdatePayload = {
+  /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
+  modelType?: string;
+  modelColor?: string;
+  /** Public appearance tags; do not grant combat effects. */
+  visualTags?: string[];
   monsterId: string;
   disposition?: Disposition;
   objectKind?: ObjectKind;
@@ -1607,7 +1633,7 @@ export interface ServerToClientEvents {
    *  persisted), throttled by the sender, fanned out only to viewers who can see
    *  the token at `x,y` (not hidden, not under fog, same map). Auto-expires
    *  client-side shortly after the updates stop (covers release + disconnect). */
-  'fx:tokenDrag': (payload: { tokenId: string; x: number; y: number }) => void;
+  'fx:tokenDrag': (payload: { tokenId: string; x: number; y: number; hidden?: boolean }) => void;
   /** A player's PC (by character `refId`) started/stopped typing in chat — show
    *  a typing bubble over their token. Ephemeral; auto-expires client-side. */
   'fx:typing': (payload: { refId: string; typing: boolean }) => void;

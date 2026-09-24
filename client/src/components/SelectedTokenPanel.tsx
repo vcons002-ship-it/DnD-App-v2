@@ -1,3 +1,4 @@
+import { MonsterAppearanceControl } from './MonsterAppearanceControl';
 import { useEffect, useRef, useState } from 'react';
 import type {
   Character,
@@ -7,6 +8,8 @@ import type {
   Token,
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
+import { resolveMiniature } from '../lib/miniatures';
+import { MiniatureSizeControl } from './MiniatureSizeControl';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
@@ -324,9 +327,10 @@ export function SelectedTokenPanel({
   if (monster) {
     sections.push({
       id: 'sheet',
-      label: 'Sheet info',
+      label: 'Token info',
       node: (
-        <>
+        <section aria-label="Token info">
+          {isDm && <MonsterAppearanceControl monster={monster} />}
           {isDm && (
             <div className="disposition-row">
               <h4>Disposition</h4>
@@ -401,7 +405,7 @@ export function SelectedTokenPanel({
               💾 Save to library
             </button>
           )}
-        </>
+        </section>
       ),
     });
   } else if (character) {
@@ -440,6 +444,7 @@ export function SelectedTokenPanel({
       label: 'DM tools',
       node: (
         <div className="dm-token-actions">
+          {resolveMiniature(d.name, token.kind, monsterEntity) && <MiniatureSizeControl token={token} />}
           <h4>Token icon</h4>
           <IconTools
             onApply={(icon) => setTokensIcon(iconTargets, icon)}
@@ -517,7 +522,7 @@ export function SelectedTokenPanel({
         onTemp={(amt) => setTempHp(token.kind, token.refId, amt)}
       />
 
-      <div className="size-row">
+      {!resolveMiniature(d.name, token.kind, monsterEntity) && <div className="size-row">
         <span>Size</span>
         <button
           className="btn"
@@ -549,7 +554,7 @@ export function SelectedTokenPanel({
         >
           +
         </button>
-      </div>
+      </div>}
 
       <ReorderableSections
         storageKey={`tokenPanel:${snapshot.role}:${entityKind}:${snapshot.sessionCode}`}

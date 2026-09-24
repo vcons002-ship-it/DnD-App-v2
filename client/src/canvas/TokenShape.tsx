@@ -41,8 +41,9 @@ type Props = {
   /** When false (e.g. a measure tool is active), the token ignores all pointer
    *  events so clicks/drags fall through to the stage. */
   listening?: boolean;
-  /** Replaces the portrait and PC name; health and the hit region stay live. */
+  /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
+  miniatureDiameterFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -58,6 +59,8 @@ type Props = {
   onDragPreview?: (token: Token, x: number, y: number) => void;
   /** Local WebGL position, without a React render or network throttle. */
   onVisualMove?: (token: Token, x: number, y: number, finished: boolean) => void;
+  /** Keep the whole token/HUD concealed when its live anchor enters fog. */
+  isVisibleAt?: (id: string, x: number, y: number) => boolean;
 };
 
 const isAdditive = (e: KonvaEventObject<Event>): boolean => {
@@ -76,6 +79,7 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  miniatureDiameterFt,
   onSelect,
   onActivate,
   onMove,
@@ -85,10 +89,11 @@ function TokenShapeInner({
   onDragActive,
   onDragPreview,
   onVisualMove,
+  isVisibleAt,
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
-  const radius = (token.widthFt * pxPerFoot) / 2;
+  const radius = ((miniatureReady ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
   // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
   // pixel delta into a real-world distance for the live readout.
   const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;
@@ -152,6 +157,8 @@ function TokenShapeInner({
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
     const cx = e.target.x();
     const cy = e.target.y();
+    // Opacity preserves the ongoing drag gesture while concealing all token art.
+    e.target.opacity(isVisibleAt?.(token.id, cx, cy) === false ? 0 : token.isHidden ? 0.45 : 1);
     paintDrag(cx, cy);
     onVisualMove?.(token, cx, cy, false);
     // Broadcast the live position (throttled ~18 fps) for everyone else's ghost.
@@ -288,6 +295,9 @@ function TokenShapeInner({
     };
   }, [activeTurn, turnRingR, miniatureReady]);
 
+  const playerNameSize = Math.max(11, Math.min(18, radius * .4));
+  const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
+  const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
   const roleBadgeR = Math.max(11, radius * 0.36);
 
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
@@ -461,20 +471,25 @@ function TokenShapeInner({
           verticalAlign="middle"
         />
       )}
-      {!(token.kind === 'pc' && miniatureReady) && <Text
+      <Text
         name="token-label"
         text={display.name}
-        fontSize={Math.max(11, gridSizePx * 0.28)}
+        fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
         fill="#fff"
         align="center"
-        width={radius * 4}
-        offsetX={radius * 2}
-        // PC names sit a little higher to make room for the crown above the rim.
-        y={-radius - (token.kind === 'pc' ? 34 : 18)}
-      />}
+        width={token.kind === 'pc' ? radius * 4 : monsterLabelWidth}
+        offsetX={token.kind === 'pc' ? radius * 2 : monsterLabelWidth / 2}
+        wrap={token.kind === 'pc' ? 'word' : 'none'}
+        ellipsis={token.kind !== 'pc'}
+        height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
+        // Monster names clear the base, health bar and combat badge; PC layout stays compact.
+        y={token.kind === 'pc' ? radius + 4 : radius + Math.max(
+          hpFrac !== null ? 14 : 4, token.combatRole ? roleBadgeR - radius * .28 + 4 : 4,
+        )}
+      />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
-        <Group name="token-health" y={radius + 4} offsetX={radius}>
+        <Group name="token-health" y={radius + (token.kind === 'pc' ? playerNameSize + 8 : 4)} offsetX={radius}>
           <Rect width={radius * 2} height={6} fill="#0008" cornerRadius={3} />
           <Rect
             width={radius * 2 * hpFrac}
@@ -509,8 +524,8 @@ function TokenShapeInner({
       )}
       {/* Combat-role badge (bottom-left corner): ⚔️ melee · 🏹 ranged · ✨ caster.
           A solid dark disc behind the emoji keeps it legible over any token art. */}
-      {token.combatRole && (
-        <Group x={-radius * 0.72} y={radius * 0.72}>
+      {token.kind !== 'pc' && token.combatRole && (
+        <Group name="token-combat-role" x={-radius * 0.72} y={radius * 0.72}>
           <Circle
             radius={roleBadgeR}
             fill="#0b0d12"
@@ -671,6 +686,7 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&
@@ -679,5 +695,6 @@ export const TokenShape = memo(
     p.onHoverEnd === n.onHoverEnd &&
     p.onDragActive === n.onDragActive &&
     p.onDragPreview === n.onDragPreview &&
-    p.onVisualMove === n.onVisualMove,
+    p.onVisualMove === n.onVisualMove &&
+    p.isVisibleAt === n.isVisibleAt,
 );

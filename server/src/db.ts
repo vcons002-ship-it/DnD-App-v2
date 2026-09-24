@@ -357,6 +357,11 @@ if (addedMapRev || addedTokRev) {
     );
   }
 }
+for (const table of ['monsters', 'library_creatures']) {
+  ensureColumn(table, 'model_color', "model_color TEXT NOT NULL DEFAULT ''");
+  ensureColumn(table, 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
+  ensureColumn(table, 'visual_tags', "visual_tags TEXT NOT NULL DEFAULT '[]'");
+}
 ensureColumn('monsters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('monsters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
@@ -395,6 +400,7 @@ ensureColumn('tokens', 'combat_role_override', 'combat_role_override TEXT');
 // Real-world footprint width in feet (source of truth for token size; decoupled
 // from the visual grid). Backfill old saves from the legacy square size (5ft/sq).
 ensureColumn('tokens', 'width_ft', 'width_ft REAL');
+ensureColumn('tokens', 'miniature_width_ft', 'miniature_width_ft REAL');
 db.prepare('UPDATE tokens SET width_ft = size * 5 WHERE width_ft IS NULL').run();
 ensureColumn(
   'tokens',
@@ -595,6 +601,7 @@ type TokenRow = {
   y: number;
   size: number;
   width_ft: number | null;
+  miniature_width_ft?: number | null;
   initiative: number | null;
   is_hidden: number;
   combat_role_override: Token['combatRoleOverride'];
@@ -615,6 +622,7 @@ export function rowToToken(r: TokenRow): Token {
     facing: r.facing ?? 0,
     size: r.size,
     widthFt: r.width_ft ?? r.size * 5,
+    ...(r.miniature_width_ft == null ? {} : { miniatureWidthFt: r.miniature_width_ft }),
     initiative: r.initiative,
     isHidden: !!r.is_hidden,
     // NULL stays undefined = 'auto' (decided by visibility at roll time).
@@ -715,6 +723,9 @@ export function rowToCharacter(r: CharacterRow): Character {
 }
 
 type MonsterRow = {
+  model_type?: string;
+  model_color?: string;
+  visual_tags?: string;
   id: string;
   session_id: string;
   name: string;
@@ -750,6 +761,9 @@ export function rowToMonster(r: MonsterRow): Monster {
     sessionId: r.session_id,
     name: r.name,
     creatureType: r.creature_type,
+    modelType: r.model_type ?? '',
+    modelColor: r.model_color ?? '',
+    visualTags: JSON.parse(r.visual_tags ?? '[]'),
     level: r.level ?? 0,
     maxHp: r.max_hp,
     curHp: r.cur_hp,

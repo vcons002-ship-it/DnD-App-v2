@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { Character } from '../../../shared/types';
+import type { Character, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSkills } from './CharacterSkills';
@@ -10,6 +10,8 @@ import { CharacterItems } from './CharacterItems';
 import { DeathSaves } from './DeathSaves';
 import { SheetImportExport } from './SheetImportExport';
 import { LibraryCharacterDialog } from './LibraryCharacterDialog';
+import { MiniatureSizeControl } from './MiniatureSizeControl';
+import { resolveMiniature } from '../lib/miniatures';
 
 /**
  * A character's full sheet: the shared tagged stat block (editable + AI fill when
@@ -22,6 +24,7 @@ export function CharacterSheet({
   abilitiesElsewhere = false,
   resourceManagementControl,
   resourceDisplayControl,
+  miniatureToken,
 }: {
   character: Character;
   editable: boolean;
@@ -30,6 +33,8 @@ export function CharacterSheet({
   abilitiesElsewhere?: boolean;
   resourceManagementControl?: ReactNode;
   resourceDisplayControl?: (resourceName: string) => ReactNode;
+  /** Current map placement; null shows placement help, omitted hides the control. */
+  miniatureToken?: Token | null;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
   const aiFillCharacter = useStore((s) => s.aiFillCharacter);
@@ -41,6 +46,8 @@ export function CharacterSheet({
 
   return (
     <div className="char-sheet">
+      {editable && miniatureToken !== undefined && resolveMiniature(character.name, 'pc') &&
+        <MiniatureSizeControl token={miniatureToken} />}
       <StatBlock
         creature={character}
         subtitle={`${character.race} · ${character.className}${
