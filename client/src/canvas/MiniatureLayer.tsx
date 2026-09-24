@@ -207,7 +207,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const draw = (now: number) => {
     frame = 0;
     if (disposed || failed || document.hidden) return;
-    const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible);
+    const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
@@ -224,6 +224,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
         const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
+        const selectionPulse = reducedMotion.matches ? 0 : (Math.sin(seconds * Math.PI * 2 / 1.6) + 1) / 2;
+        instance.selectionRing.scale.setScalar(token.definition.baseDiameter * (1 + selectionPulse * .045));
+        instance.selectionRing.material.opacity = (reducedMotion.matches ? 1 : .65 + selectionPulse * .35) * (token.hidden ? .45 : 1);
         instance.turnRing.scale.setScalar(token.definition.baseDiameter * (1 + pulse * 0.06));
         instance.turnRing.material.opacity = (0.65 + pulse * 0.35) * (token.hidden ? 0.45 : 1);
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }

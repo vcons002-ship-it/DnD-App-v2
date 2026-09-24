@@ -257,3 +257,8 @@ so bases, bodies, and weapons occlude them. Monster bases use a thicker lathed
 pewter profile, beveled rim, dark side band, metallic reflections and fine
 procedural machining texture. Bodies are lifted by the exact top-height change
 to preserve foot contact; base footprints and hit areas are unchanged.
+
+The human-bandit (mercenary) model has 2,142 white near-ground reconstruction
+faces removed around its boots. Cleanup provenance is recorded in the manifest.
+Selection rings gently pulse in brightness and radius over 1.6 seconds; reduced
+motion keeps a steady ring. All rings remain depth-tested beneath the figure.

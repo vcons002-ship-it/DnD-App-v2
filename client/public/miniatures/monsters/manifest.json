@@ -111,13 +111,18 @@
         0,
         0
       ],
-      "triangles": 20764,
+      "triangles": 18622,
       "bytes": 1526248,
-      "sha256": "c97a99c8e073a1d52181e19a9cff0955413981928e5598a1e4ef738746a17418",
+      "sha256": "36fb6a34e31a6cd2c5090167fcc13cd8c642c833bed8fc465d3641a79989b6ce",
       "sourceSha256": "2a5378352bffacb5fe451d8da1ede1cb667cb9c9568ec2335a24d9a17fe81214",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
-      "sourceViewCount": 1
+      "sourceViewCount": 1,
+      "cleanup": {
+        "sourceRuntimeSha256": "c97a99c8e073a1d52181e19a9cff0955413981928e5598a1e4ef738746a17418",
+        "removedTriangles": 2142,
+        "description": "Removed near-ground white reconstruction remnants below boots; original body texture and base preserved."
+      }
     },
     {
       "id": "human-commoner",
