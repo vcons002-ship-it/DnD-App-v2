@@ -21,7 +21,7 @@ const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
 
 /** Battlefield disposition dot colours. */
-const DISPOSITION_HEX: Record<string, string> = {
+export const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
   neutral: '#f5c518',
   enemy: '#e23b3b',
@@ -472,6 +472,10 @@ function TokenShapeInner({
         />
       )}
       <Text
+        stroke="#000"
+        strokeWidth={3}
+        fillAfterStrokeEnabled
+        lineJoin="round"
         name="token-label"
         text={display.name}
         fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
@@ -512,7 +516,7 @@ function TokenShapeInner({
         </Group>
       )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
-      {display.disposition && (
+      {display.disposition && !miniatureReady && (
         <Circle
           x={-radius * 0.8}
           y={-radius * 0.8}

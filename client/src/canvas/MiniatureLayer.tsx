@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
+  BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
 } from 'three';
@@ -22,6 +22,7 @@ export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   tint?: string;
+  outline?: string;
   shade?: [number, number, number];
   activeTurn?: boolean;
   definition: MiniatureDefinition;
@@ -47,6 +48,8 @@ type FxManifest = {
 };
 type Instance = {
   root: Group;
+  outlineMaterial: MeshBasicMaterial;
+  outlineViewport: { value: Vector2 };
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   url: string;
   materials: Material[];
@@ -243,6 +246,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.remove(instance.root);
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
+    instance.outlineMaterial.dispose();
     instance.turnRing.geometry.dispose();
     instance.turnRing.material.dispose();
     instances.delete(id);
@@ -259,6 +263,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
     instance.turnRing.visible = !!token.activeTurn;
+    instance.outlineMaterial.visible = !!token.outline;
+    instance.outlineMaterial.color.set(token.outline ?? "#000000");
+    instance.outlineMaterial.opacity = token.hidden ? 0.45 : 1;
+    instance.outlineViewport.value.set(Math.max(1, props.width), Math.max(1, props.height));
     instance.materials.forEach((material, index) => {
       if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
         material.color.copy(instance.originalColors[index]!);
@@ -340,11 +348,42 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           };
           node.material = Array.isArray(node.material) ? node.material.map(copy) : copy(node.material);
         });
+        // Screen-space back-face shells share geometry and follow source transforms.
+        const outlineViewport = { value: new Vector2(props.width, props.height) };
+        const outlineMaterial = new MeshBasicMaterial({
+          side: BackSide, depthWrite: false, transparent: true, toneMapped: false,
+        });
+        outlineMaterial.onBeforeCompile = shader => {
+          shader.uniforms.outlineViewport = outlineViewport;
+          shader.vertexShader = 'uniform vec2 outlineViewport;\n' + shader.vertexShader;
+          shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+            #include <project_vertex>
+            vec3 outlineNormal = normalMatrix * normal;
+            vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
+            float outlineLength = length(outlineDirection);
+            if (outlineLength > 0.0001) {
+              gl_Position.xy += outlineDirection / outlineLength * 3.0 / outlineViewport * gl_Position.w;
+            }
+          `);
+        };
+        const outlinedMeshes: Mesh[] = [];
+        model.traverse(node => {
+          if (node instanceof Mesh && node.geometry.hasAttribute('normal') &&
+              (Array.isArray(node.material) ? node.material : [node.material]).every(m => !m.transparent)) {
+            outlinedMeshes.push(node);
+          }
+        });
+        for (const mesh of outlinedMeshes) {
+          const shell = new Mesh(mesh.geometry, outlineMaterial);
+          shell.name = 'disposition-outline';
+          shell.raycast = () => {};
+          mesh.add(shell);
+        }
         const mixer = gltf.animations.length ? new AnimationMixer(model) : null;
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          root, turnRing, url: definition.url, materials,
+          root, outlineMaterial, outlineViewport, turnRing, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,

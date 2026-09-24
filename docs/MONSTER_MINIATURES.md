@@ -214,3 +214,8 @@ other across reloads. Unknown monster families keep their 2D fallback.
 Zoom/Fit, overhead/45-degree view and both token appearance controls are
 portaled into the main toolbar for both roles. Dice controls retain their map
 position. The main toolbar wraps on narrow screens with category labels visible.
+
+Token names have black text outlines in both rendering modes. Ready 3D monsters
+replace the disposition dot with a thin screen-space outline (green friendly,
+amber neutral, red enemy). The shell shares model geometry, follows dragging and
+fog visibility, and has no pointer hit region. 2D/fallback tokens retain the dot.

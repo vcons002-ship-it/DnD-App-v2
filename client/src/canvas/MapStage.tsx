@@ -9,7 +9,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
 import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
-import { TokenShape } from './TokenShape';
+import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
 import { MiniatureFallback } from './MiniatureFallback';
 import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround } from './miniatureProjection';
@@ -963,6 +963,7 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      outline: monster ? DISPOSITION_HEX[monster.disposition] : undefined,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster ? monsterVariation(resolveMonsterModelType(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
