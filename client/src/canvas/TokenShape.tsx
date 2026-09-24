@@ -41,7 +41,7 @@ type Props = {
   /** When false (e.g. a measure tool is active), the token ignores all pointer
    *  events so clicks/drags fall through to the stage. */
   listening?: boolean;
-  /** Replaces the portrait and PC name; health and the hit region stay live. */
+  /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
   miniatureDiameterFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
@@ -295,6 +295,7 @@ function TokenShapeInner({
     };
   }, [activeTurn, turnRingR, miniatureReady]);
 
+  const playerNameSize = Math.max(11, Math.min(18, radius * .4));
   const roleBadgeR = Math.max(11, radius * 0.36);
 
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
@@ -468,20 +469,20 @@ function TokenShapeInner({
           verticalAlign="middle"
         />
       )}
-      {!(token.kind === 'pc' && miniatureReady) && <Text
+      <Text
         name="token-label"
         text={display.name}
-        fontSize={Math.max(11, gridSizePx * 0.28)}
+        fontSize={token.kind === 'pc' ? playerNameSize : Math.max(11, gridSizePx * 0.28)}
         fill="#fff"
         align="center"
         width={radius * 4}
         offsetX={radius * 2}
-        // PC names sit a little higher to make room for the crown above the rim.
-        y={-radius - (token.kind === 'pc' ? 34 : 18)}
-      />}
+        // Player names sit directly above their health bars, below the base.
+        y={token.kind === 'pc' ? radius + 4 : -radius - 18}
+      />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
-        <Group name="token-health" y={radius + 4} offsetX={radius}>
+        <Group name="token-health" y={radius + (token.kind === 'pc' ? playerNameSize + 8 : 4)} offsetX={radius}>
           <Rect width={radius * 2} height={6} fill="#0008" cornerRadius={3} />
           <Rect
             width={radius * 2 * hpFrac}
@@ -516,8 +517,8 @@ function TokenShapeInner({
       )}
       {/* Combat-role badge (bottom-left corner): ⚔️ melee · 🏹 ranged · ✨ caster.
           A solid dark disc behind the emoji keeps it legible over any token art. */}
-      {token.combatRole && (
-        <Group x={-radius * 0.72} y={radius * 0.72}>
+      {token.kind !== 'pc' && token.combatRole && (
+        <Group name="token-combat-role" x={-radius * 0.72} y={radius * 0.72}>
           <Circle
             radius={roleBadgeR}
             fill="#0b0d12"

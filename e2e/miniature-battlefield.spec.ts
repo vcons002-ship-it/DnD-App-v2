@@ -90,6 +90,9 @@ async function tokenView(page: Page, id: string) {
       projection: { matrix: Array.from(matrix.toFloat64Array()), w, h, left: rect.left, top: rect.top, x: pos.x, y: pos.y },
       x: rect.left + w / 2 + projected.x / projected.w, y: rect.top + h / 2 + projected.y / projected.w, scaleX: scale.x, scaleY: scale.y,
       texts: node.find('Text').map((n: any) => n.text()),
+      roleBadges: node.find('.token-combat-role').length,
+      labelBottom: node.findOne('.token-label') ? node.findOne('.token-label').y() + node.findOne('.token-label').height() : null,
+      healthY: node.findOne('.token-health')?.y(),
       healthBars: node.find('Rect').filter((n: any) => n.height() === 6).map((n: any) => ({ width: n.width(), fill: n.fill() })),
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
       bodyVisible: node.findOne('.token-body')?.isVisible(),
@@ -160,7 +163,11 @@ test('monster miniatures load, recolor independently, use base hits and face the
   const playerLayer = page.getByTestId('miniature-layer');
   await expect(playerLayer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
   const [goblin, skeleton, wolf, elephant] = f.monsters;
-  for (const t of [goblin, skeleton, wolf]) expect((await tokenView(page, t.id))?.miniatureReady).toBe(true);
+  for (const t of [goblin, skeleton, wolf]) {
+    const view = (await tokenView(page, t.id))!;
+    expect(view.miniatureReady).toBe(true);
+    expect(view.roleBadges).toBe(1);
+  }
   expect((await tokenView(page, elephant.id))?.bodyVisible).toBe(true);
   expect((await tokenView(page, elephant.id))?.miniatureReady).toBe(false);
   await afterPaint(page);
@@ -310,7 +317,7 @@ test('perspective recedes toward the far edge and keeps wheel zoom and pan under
   await page.screenshot({ path: info.outputPath('perspective-pan.png') });
 });
 
-test('real miniatures hide player names and retain health; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
+test('real miniatures label players above health without combat badges; tilted drag round-trips and hidden tokens disappear', async ({ page, request }, info) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const setup = await fixture(page, request);
@@ -322,7 +329,9 @@ test('real miniatures hide player names and retain health; tilted drag round-tri
   await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
   const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
   const view = (await tokenView(page, druk.id))!;
-  expect(view.texts).not.toContain('Druk');
+  expect(view.texts).toContain('Druk');
+  expect(view.roleBadges).toBe(0);
+  expect(view.labelBottom).toBeLessThan(view.healthY);
   expect(view.healthBars.length).toBeGreaterThanOrEqual(2);
   expect(view.visibleBodyImages).toBe(0);
   expect(view.bodyVisible).toBe(false);
@@ -506,7 +515,7 @@ test('rear flat tokens are occluded by miniature pixels and keep their hit regio
   const flat = (await tokenView(page, rear.id))!;
   expect(flat.scaleY / flat.scaleX).toBeCloseTo(1, 5);
   expect(flat.texts).toContain('Rear goblin 1');
-  expect((await tokenView(page, druk.id))!.texts).not.toContain('Druk');
+  expect((await tokenView(page, druk.id))!.texts).toContain('Druk');
   expect(errors).toEqual([]);
 });
 
@@ -523,7 +532,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     const before = (await tokenView(page, druk.id))!;
     await page.touchscreen.tap(before.x, before.y);
     await page.screenshot({ path: info.outputPath('mobile-miniatures.png') });
-    expect(before.texts).not.toContain('Druk');
+    expect(before.texts).toContain('Druk');
     expect(before.healthBars.length).toBeGreaterThanOrEqual(2);
     const cdp = await context.newCDPSession(page);
     const center = { x: 215, y: 430 };
@@ -685,7 +694,7 @@ test('2D and 3D token choices persist per player without changing tilt or token 
     await page.screenshot({ path: info.outputPath('mobile-2d-token-controls.png') });
     await page.getByRole('button', { name: '3D tokens', exact: true }).click();
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-    expect((await tokenView(page, druk.id))!.texts).not.toContain('Druk');
+    expect((await tokenView(page, druk.id))!.texts).toContain('Druk');
     expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)).toEqual(moved);
     await page.reload();
     await expect(page.getByRole('button', { name: '3D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -1071,7 +1080,7 @@ test('players and DM size miniatures through the character panel and fit a five-
     const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
     const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
     const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
-    await expect(playerInput).toHaveValue('3.5');
+    await expect(playerInput).toHaveValue('4');
     expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     expect((await dmSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.miniatureWidthFt;

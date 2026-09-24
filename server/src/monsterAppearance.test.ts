@@ -22,7 +22,7 @@ describe('monster appearance', () => {
       expect(defaultMonsterWidthFt({name,modelType:'dragon'})).toBe(width);
     }
     expect(defaultMonsterWidthFt({name:'Young dragon',modelType:'dragon',creatureType:'Huge dragon'})).toBe(15);
-    expect(miniatureBaseWidthFt({kind:'pc',widthFt:5})).toBe(3.5);
+    expect(miniatureBaseWidthFt({kind:'pc',widthFt:5})).toBe(4);
     for (const modelType of ['goblin','wolf']) expect(miniatureBaseWidthFt({kind:'monster',widthFt:5},{modelType})).toBe(3);
     expect(miniatureBaseWidthFt({kind:'monster',widthFt:10},{modelType:'troll'})).toBe(6.72);
     expect(miniatureBaseWidthFt({kind:'monster',widthFt:15},{modelType:'dragon'})).toBe(10.08);

@@ -43,7 +43,7 @@ export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'tr
 export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; miniatureWidthFt?: number }, appearance: MonsterAppearance = {}): number {
   if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;
   const family = token.kind === 'monster' ? resolveMonsterModelType(appearance) : '';
-  const factor = family === 'goblin' || family === 'wolf' ? .6 : .7;
+  const factor = token.kind === 'pc' ? .8 : family === 'goblin' || family === 'wolf' ? .6 : .7;
   return Math.round(token.widthFt * factor * (TIGHT_BASE_FAMILIES.includes(family) ? .96 : 1) * 100) / 100;
 }
 export function normalizeModelType(value: unknown): string {

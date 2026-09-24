@@ -52,8 +52,9 @@ The AI requests this size prefix. Unknown creatures default to Medium; custom
 and unspecified dragons use Huge until the DM specifies otherwise. The werebear
 catalog depicts its Large bear/hybrid form. Existing occupied widths are retained.
 
-Visible miniatures are smaller than occupied space: a typical Medium figure has
-a 3.5-foot base, and ordinary goblins/wolves have 3-foot bases. Larger figures
+Visible miniatures are smaller than occupied space: a typical Medium NPC has
+a 3.5-foot base, player characters use a slightly larger 4-foot base, and ordinary
+goblins/wolves have 3-foot bases. Larger figures
 scale at 70% of their combat width. The six large catalog models additionally
 use tight bases with radius 0.48 around foot contact radius 0.465, producing
 6.72/10.08/13.44-foot visible bases for Large/Huge/Gargantuan models. Tightening
@@ -167,3 +168,8 @@ Verified compact sizing: all 24 battlefield browser checks passed, including
 mobile input, fog, base hits, UI, resizing, view persistence and fallback.
 After final name/size inference refinements, the catalog and sizing browser
 checks passed again. Existing distance tests also pass with visual overrides.
+
+Player token names appear immediately above their health bars in 2D and 3D.
+Combat-style badges are omitted for PCs and retained for monster tokens.
+The player miniature default is 4 feet (about 14% larger than the earlier 3.5).
+Explicit per-token miniature widths continue to take precedence.
