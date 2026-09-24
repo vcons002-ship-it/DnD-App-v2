@@ -1,5 +1,5 @@
 """Make a separate 20k-triangle board candidate and simple measured round base."""
-import bpy, sys, json, hashlib
+import bpy, bmesh, sys, json, hashlib
 from pathlib import Path
 from mathutils import Vector, Matrix
 import math
@@ -18,12 +18,38 @@ source_hash=sha(source)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=str(source))
 meshes=[o for o in bpy.context.scene.objects if o.type=='MESH']
+removed_speck_vertices=0
+for o in meshes:
+    # UV seams duplicate vertices, so detect islands by rounded position without
+    # welding UVs. Tiny disconnected generation specks must not define the floor.
+    used={i for p in o.data.polygons for i in p.vertices}
+    keys={i:tuple(round(x,5) for x in o.data.vertices[i].co) for i in used}
+    adjacency={key:set() for key in keys.values()}
+    for p in o.data.polygons:
+        polygon_keys=[keys[i] for i in p.vertices]
+        for key in polygon_keys:adjacency[key].update(polygon_keys)
+    islands=[]
+    while adjacency:
+        stack=[next(iter(adjacency))];island=set()
+        while stack:
+            key=stack.pop()
+            if key not in adjacency:continue
+            stack.extend(adjacency.pop(key));island.add(key)
+        islands.append(island)
+    largest=max((len(island) for island in islands),default=0)
+    specks=set().union(*(island for island in islands if len(island)<largest*.002))
+    remove={i for i,key in keys.items() if key in specks}
+    if remove:
+        bm=bmesh.new();bm.from_mesh(o.data);bm.verts.ensure_lookup_table()
+        bmesh.ops.delete(bm,geom=[bm.verts[i] for i in remove],context='VERTS')
+        bm.to_mesh(o.data);bm.free();o.data.update();removed_speck_vertices+=len(remove)
 if name=='mage-hand':
     rotation=Matrix.Rotation(math.pi/2,4,'X')
     for o in meshes:
         for v in o.data.vertices:v.co=rotation@(o.matrix_world@v.co)
-        o.matrix_world.identity()
-points=[o.matrix_world@v.co for o in meshes for v in o.data.vertices]
+        o.parent=None
+        o.matrix_world=Matrix.Identity(4)
+points=[o.matrix_world@o.data.vertices[i].co for o in meshes for i in {i for p in o.data.polygons for i in p.vertices}]
 low=Vector(tuple(min(p[i] for p in points) for i in range(3)))
 high=Vector(tuple(max(p[i] for p in points) for i in range(3)))
 feet=points if name=='mage-hand' else [p for p in points if p.z<low.z+(high.z-low.z)*.035]
@@ -37,7 +63,11 @@ for o in meshes:
     for v in o.data.vertices:
         p=o.matrix_world@v.co
         v.co=((p.x-cx)*scale,(p.y-cy)*scale,(p.z-low.z)*scale+(.22 if name=='mage-hand' else .055))
-    o.matrix_world.identity()
+    # Coordinates above are already baked into world space. Detach imported
+    # glTF parents and assign identity explicitly; mutating the returned matrix
+    # in place does not reliably update Blender's object transform.
+    o.parent=None
+    o.matrix_world=Matrix.Identity(4)
     o.name=name+'_body'
     bpy.context.view_layer.objects.active=o
     o.data.validate(clean_customdata=False)
@@ -57,5 +87,6 @@ for p in base.data.polygons:p.use_smooth=abs(p.normal.z)<.9
 bpy.ops.export_scene.gltf(filepath=str(out/(name+'-board-source.glb')),export_format='GLB',export_yup=True,export_animations=False)
 assert sha(source)==source_hash
 receipt={'name':name,'source':str(source),'sourceSha256':source_hash,'bodyTriangles':body_triangles,'sourceBodyTriangles':before,'uniformScale':scale,'bodyHeight':float((high.z-low.z)*scale),'baseDiameter':base_radius*2,'baseCenter':[0,0,0],'sourcePreserved':True,'baseTop':.055,'footRadiusAfterScale':radius*scale,'footRadiusLimit':foot_limit,'targetHeight':target_height,'orientation':'horizontal palm down' if name=='mage-hand' else 'upright','note':'Standard 20k JPEG95 derivative fitted with a round base; no further simplification.'}
+receipt['removedSpeckVertices']=removed_speck_vertices
 (out/'preparation.json').write_text(json.dumps(receipt,indent=2))
 print(json.dumps(receipt))

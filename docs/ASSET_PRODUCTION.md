@@ -67,7 +67,9 @@ an interrupted running job is held for explicit retry instead of resubmitted.
    dimensions, transparent textures and data maps are preserved. No Draco or
    meshopt geometry encoding is added. The simplifier's error limit may leave
    more than 20,000 triangles.
-5. Fit the feet inside a measured round base with Blender. Preserve the reduced
+5. Remove tiny disconnected generation specks (less than 0.2% of the largest
+   geometric island, identified across UV seams without welding UVs). Fit the
+   feet inside a measured round base with Blender. Preserve the reduced
    image bytes through export. Runtime applies the same raised pewter treatment
    as existing monster bases. Combat size remains driven by creature stats and
    the existing map-scale rules, independently of normalized asset coordinates.
@@ -102,5 +104,10 @@ reduction, Blender, validation, publication and queue persistence in a temporary
 data directory. It does not call a live image/GPU service or modify a campaign.
 The original goblin raw mesh produced a 1,564,932-byte / 20,764-triangle test
 asset through this smoke, retaining its 2048×2048 texture. Both local services
-were separately confirmed reachable. New-image/mesh aesthetic quality still
-needs a real generation trial with the host's configured image model.
+were separately confirmed reachable; the subsequent live trial is recorded below.
+
+The live Imp trial used the Gemini image API and four named Hunyuan views. It
+exposed two disconnected fragments below the feet that skewed base placement;
+the cleanup above fixes this without rerunning generation. The corrected Imp is
+1,696,600 bytes / 20,754 triangles with a 2048×2048 texture. The Blender regression
+`test_base.py` covers this failure with a displaced floor fragment.
