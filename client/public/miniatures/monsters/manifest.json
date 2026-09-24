@@ -511,7 +511,7 @@
       ],
       "triangles": 32508,
       "bytes": 3484128,
-      "sha256": "956bdc5a3c45fa750547ef558e0b31283d5f84a75e0774d189577f9f8abd9662",
+      "sha256": "d232f1954d7599348765032edccc21ddf88468d726dfc29d997108d4830131e4",
       "sourceSha256": "f72431fc742784fb149c95df73394d02f670d49bdb91d2bc1cad8cdb6da91bdc",
       "texture": "Body and separate head: two 2048x2048 JPEG95 atlases",
       "policy": "monster-reduction-v1",
