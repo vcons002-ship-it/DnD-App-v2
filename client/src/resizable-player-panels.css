@@ -152,7 +152,7 @@
    panel, including at 115% UI scale. */
 @media (max-width: 1000px) {
   .player-fantasy .player-combat {
-    top: 144px;
-    max-height: calc(100% - 150px);
+    top: 190px;
+    max-height: calc(100% - 196px);
   }
 }

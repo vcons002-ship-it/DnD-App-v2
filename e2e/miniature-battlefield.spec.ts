@@ -228,10 +228,12 @@ test('monster miniatures load, recolor independently, use base hits and face the
       const moved = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
       expect(moved.facing).toBeCloseTo(Math.atan2(moved.x - start.x, moved.y - start.y), 5);
     }
-    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await page.getByRole('button', { name: '2D player tokens', exact: true }).click();
+    await page.getByRole('button', { name: '2D monster tokens', exact: true }).click();
     await expect(playerLayer).toHaveCount(0);
     for (const t of f.monsters) expect((await tokenView(page, t.id))?.bodyVisible).toBe(true);
-    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await page.getByRole('button', { name: '3D player tokens', exact: true }).click();
+    await page.getByRole('button', { name: '3D monster tokens', exact: true }).click();
     await expect(playerLayer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
     expect(errors).toEqual([]);
   } finally { await context.close(); }
@@ -666,9 +668,9 @@ test('2D and 3D token choices persist per player without changing tilt or token 
     const other = await otherContext.newPage();
     await enter(other, setup.code, 'Varis', false);
     await expect(other.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await page.getByRole('button', { name: '2D player tokens', exact: true }).click();
     await expect(page.getByTestId('miniature-layer')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '2D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '2D player tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const flatToken = (await tokenView(page, druk.id))!;
     expect(flatToken.bodyVisible).toBe(true);
     expect(flatToken.texts).toContain('Druk');
@@ -677,7 +679,7 @@ test('2D and 3D token choices persist per player without changing tilt or token 
     let modelRequests = 0;
     page.on('request', req => { if (req.url().endsWith('.glb')) modelRequests++; });
     await page.reload();
-    await expect(page.getByRole('button', { name: '2D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '2D player tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: 'Tilted battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('miniature-layer')).toHaveCount(0);
     expect(modelRequests).toBe(0);
@@ -687,17 +689,17 @@ test('2D and 3D token choices persist per player without changing tilt or token 
     await expect.poll(async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.x).toBeGreaterThan(druk.x + 45);
     const moved = (await setup.snapshot()).tokens.find(t => t.id === druk.id)!;
     await page.setViewportSize({ width: 430, height: 932 });
-    for (const name of ['2D tokens', '3D tokens']) {
+    for (const name of ['2D player tokens', '3D player tokens']) {
       const box = await page.getByRole('button', { name, exact: true }).boundingBox();
       expect(box).toBeTruthy(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(430);
     }
     await page.screenshot({ path: info.outputPath('mobile-2d-token-controls.png') });
-    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await page.getByRole('button', { name: '3D player tokens', exact: true }).click();
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
     expect((await tokenView(page, druk.id))!.texts).toContain('Druk');
     expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)).toEqual(moved);
     await page.reload();
-    await expect(page.getByRole('button', { name: '3D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '3D player tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
   } finally { await otherContext.close(); }
 });
@@ -823,11 +825,11 @@ test('Vanec glows on accepted cantrip and spell casts, settles, and does not rep
   await page.reload();
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
   await expect(layer).toHaveAttribute('data-casting-token-ids', '');
-  await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+  await page.getByRole('button', { name: '2D player tokens', exact: true }).click();
   await expect(layer).toHaveCount(0);
   f.socket.emit('ability:roll', { kind: 'pc', refId: vanec.id, abilityId: 'spark' });
   await f.snapshot();
-  await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+  await page.getByRole('button', { name: '3D player tokens', exact: true }).click();
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
   await expect(layer).toHaveAttribute('data-casting-token-ids', '');
   expect(errors).toEqual([]);
@@ -846,7 +848,7 @@ test('DM sees all three miniatures and independently persists the same view choi
   const layer = page.getByTestId('miniature-layer');
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
   await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
-  await expect(page.getByRole('button', { name: '3D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: '3D player tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
   for (const token of setup.ready.tokens) expect((await tokenView(page, token.id))!.bodyVisible).toBe(false);
   const playerContext = await browser.newContext({ baseURL: `http://localhost:${PORT}` });
   try {
@@ -857,16 +859,16 @@ test('DM sees all three miniatures and independently persists the same view choi
     await expect(layer).toHaveAttribute('data-tilt-degrees', '45');
     await afterPaint(page);
     await page.screenshot({ path: info.outputPath('dm-3d-45.png') });
-    await page.getByRole('button', { name: '2D tokens', exact: true }).click();
+    await page.getByRole('button', { name: '2D player tokens', exact: true }).click();
     await expect(layer).toHaveCount(0);
     for (const token of setup.ready.tokens) expect((await tokenView(page, token.id))!.bodyVisible).toBe(true);
     await page.reload();
-    await expect(page.getByRole('button', { name: '2D tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '2D player tokens', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: 'Tilted battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(layer).toHaveCount(0);
     await expect(player.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3');
     await expect(player.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees', '0');
-    await page.getByRole('button', { name: '3D tokens', exact: true }).click();
+    await page.getByRole('button', { name: '3D player tokens', exact: true }).click();
     await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
     await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
     await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
@@ -1212,4 +1214,33 @@ test('tilted map draws and hit-tests beyond the original raster edge after zoom 
     const canvas=stage.getLayers()[0].getNativeCanvasElement();
     return {left:canvas.style.left,transform:canvas.style.transform,width:parseFloat(canvas.style.width),stage:stage.width()};
   })).toMatchObject({left:'0px',transform:'none',width:1100,stage:1100});
+});
+
+test('player and monster appearance switches are independent for players and DM', async ({page,browser,request}) => {
+  test.setTimeout(120000);
+  const f=await monsterFixture(page,request);
+  await enter(page,f.code);
+  const count=async(p:Page,n:number)=> n ? expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count',String(n),{timeout:60000}) : expect(p.getByTestId('miniature-layer')).toHaveCount(0);
+  await count(page,6);
+  await page.getByRole('button',{name:'2D monster tokens',exact:true}).click();await count(page,3);
+  await page.reload();await count(page,3);
+  await expect(page.getByRole('button',{name:'2D monster tokens',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:'2D player tokens',exact:true}).click();await count(page,0);
+  await page.getByRole('button',{name:'3D monster tokens',exact:true}).click();await count(page,3);
+  await page.reload();await count(page,3);
+  await expect(page.getByRole('button',{name:'2D player tokens',exact:true})).toHaveAttribute('aria-pressed','true');
+  const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`});
+  try {
+    const dm=await ctx.newPage();await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await count(dm,6);
+    await dm.getByRole('button',{name:'2D player tokens',exact:true}).click();await count(dm,3);
+    await dm.reload();await count(dm,3);
+    await expect(dm.getByRole('button',{name:'3D monster tokens',exact:true})).toHaveAttribute('aria-pressed','true');
+    await dm.getByRole('button',{name:'2D monster tokens',exact:true}).click();await count(dm,0);
+    await count(page,3);
+    await dm.getByRole('button',{name:'3D player tokens',exact:true}).click();await count(dm,3);
+    await dm.getByRole('button',{name:'3D monster tokens',exact:true}).click();await count(dm,6);
+  } finally {await ctx.close();}
+  await page.getByRole('button',{name:'3D player tokens',exact:true}).click();await count(page,6);
 });

@@ -394,6 +394,11 @@ export function MapStage({
     try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
     catch { return true; }
   });
+  const monsterPreferenceKey = `dnd.monsterTokenView:${getPlayerId()}`;
+  const [use3dMonsters, setUse3dMonsters] = useState(() => {
+    try { return (localStorage.getItem(monsterPreferenceKey) ?? localStorage.getItem(tokenPreferenceKey)) !== '2d'; }
+    catch { return true; }
+  });
   const groundScaleY = groundYScale(tiltDegrees);
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
     null,
@@ -949,7 +954,8 @@ export function MapStage({
   // Keep TokenShape's memo stable across unrelated snapshots while reading current fog.
   const tokenVisibleAtPosition = useCallback((id: string, x: number, y: number) => visibleAtRef.current(id, x, y), []);
 
-  const miniatureTokens = useMemo<MiniatureToken[]>(() => !use3dTokens ? [] : snapshot.tokens.flatMap((token) => {
+  const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
+    if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
     // Only role-filtered snapshot tokens are eligible; never fetch hidden PCs
     // for a player even if a stale snapshot reaches this component.
     if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
@@ -961,7 +967,7 @@ export function MapStage({
       shade: monster ? monsterVariation(resolveMonsterModelType(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens, dragGhosts]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens, use3dMonsters, dragGhosts]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
@@ -1571,21 +1577,25 @@ export function MapStage({
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
                 onClick={() => chooseTilt(false)}>Overhead</button>
             </div>
-            <div className="battlefield-view-options" role="group" aria-label="Your token appearance">
-              <span className="muted">Tokens</span>
+            {([
+              { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },
+              { label: 'Monsters', kind: 'monster', enabled: use3dMonsters, set: setUse3dMonsters, key: monsterPreferenceKey },
+            ] as const).map(group => <div key={group.kind} className="battlefield-view-options token-appearance-options" role="group" aria-label={`${group.label} token appearance`}>
+              <span className="muted">{group.label}</span>
               {[false, true].map(enabled => (
-                <button key={String(enabled)} className={`btn tiny ${use3dTokens === enabled ? 'on' : ''}`}
-                  aria-label={enabled ? '3D tokens' : '2D tokens'} aria-pressed={use3dTokens === enabled}
-                  title="Only changes tokens in your view"
+                <button key={String(enabled)} className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
+                  aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`} aria-pressed={group.enabled === enabled}
+                  title={`Only changes ${group.kind} tokens in your view`}
                   onClick={() => {
-                    if (use3dTokens === enabled) return;
-                    setUse3dTokens(enabled);
-                    handleMiniatureReady(new Set());
+                    if (group.enabled === enabled) return;
+                    // Freeze the inherited monster setting before changing the legacy PC key.
+                    if (group.kind === 'player') safeSetItem(monsterPreferenceKey, use3dMonsters ? '3d' : '2d');
+                    group.set(enabled);
                     setHover(null); setMenu(null);
-                    safeSetItem(tokenPreferenceKey, enabled ? '3d' : '2d');
+                    safeSetItem(group.key, enabled ? '3d' : '2d');
                   }}>{enabled ? '3D' : '2D'}</button>
               ))}
-            </div>
+            </div>)}
           </div>
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
               via a portal, but keep all their state/handlers here in MapStage. */}

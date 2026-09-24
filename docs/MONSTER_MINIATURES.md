@@ -205,3 +205,8 @@ The tilted ground canvases include inverse-projected viewport padding. Scene,
 hit and shape-compositing buffers cover the same area, while map coordinates
 and pointer math remain unchanged. This prevents black raster edges during
 panning; overhead mode uses the normal viewport-sized buffers.
+
+Players and Monsters have independent 2D/3D toolbar controls for both roles.
+Each viewer stores both preferences locally. The former combined preference
+is inherited by both categories on first use, and changing one preserves the
+other across reloads. Unknown monster families keep their 2D fallback.
