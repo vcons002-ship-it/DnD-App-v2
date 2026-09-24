@@ -372,7 +372,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             vec3 outlineNormal = normalMatrix * normal;
             vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
             float outlineLength = length(outlineDirection);
-            if (outlineLength > 0.0001) {
+            // Orthographic projection and model scaling can make this very small.
+            // Only reject a truly degenerate direction, not a valid overhead edge.
+            if (outlineLength > 0.0000000001) {
               gl_Position.xy += outlineDirection / outlineLength * 3.0 / outlineViewport * gl_Position.w;
             }
           `);

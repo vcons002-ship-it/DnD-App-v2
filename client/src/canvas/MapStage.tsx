@@ -963,7 +963,7 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
-      outline: monster ? DISPOSITION_HEX[monster.disposition] : undefined,
+      outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster ? monsterVariation(resolveMonsterModelType(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,

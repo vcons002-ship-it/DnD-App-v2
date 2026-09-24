@@ -222,3 +222,7 @@ fog visibility, and has no pointer hit region. 2D/fallback tokens retain the dot
 
 The outline uses a shared stencil mask of visible miniature surfaces to keep color
 on the outer silhouette and prevent lines over interior body/weapon/base surfaces.
+
+Player miniatures use the friendly green silhouette border. The outline direction
+guard accommodates orthographic projection so overhead and tilted views retain
+the same screen-space outline width.
