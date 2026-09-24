@@ -106,6 +106,8 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
+  revealTag?: string;
   id: string;
   mapId: string;
   kind: TokenKind;
@@ -1482,7 +1484,7 @@ export interface ClientToServerEvents {
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
-  'token:move': (payload: TokenMovePayload) => void;
+  'token:move': (payload: TokenMovePayload, placed?: (p: {x:number;y:number}) => void) => void;
   /** Ephemeral, throttled live drag preview (no DB write, no snapshot) — the
    *  server fans it out as `fx:tokenDrag` to viewers who can see the token. */
   'token:drag': (payload: TokenMovePayload) => void;

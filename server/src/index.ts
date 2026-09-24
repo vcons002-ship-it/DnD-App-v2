@@ -6,7 +6,7 @@ import { Server } from 'socket.io';
 import { config } from './config.js';
 import { loadSettings } from './settings.js';
 import { refreshOllama } from './ai/ollama.js';
-import { seedLibraryItems } from './library.js';
+import { seedLibraryItems, seedLibraryCreatures } from './library.js';
 import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
 import { startBackupScheduler } from './backupScheduler.js';
@@ -29,6 +29,8 @@ loadSettings(); // apply any DM-saved API key / model overrides on top of env
 // signal is accurate without blocking boot (re-probed on each settings save).
 void refreshOllama().then((up) => up && console.log('  Local Ollama reachable for AI.'));
 const seeded = seedLibraryItems(); // one-time fill of the cross-session item library
+const seededCreatures = seedLibraryCreatures();
+if (seededCreatures) console.log(`  Seeded ${seededCreatures} creatures into the token library.`);
 if (seeded) console.log(`  Seeded ${seeded} SRD items into the item library.`);
 startBackupScheduler(); // periodic on-disk backups of every session (default: bi-weekly)
 

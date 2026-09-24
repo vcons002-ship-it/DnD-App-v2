@@ -1,6 +1,6 @@
 # Monster miniatures
 
-The battlefield catalog contains 24 reduced creature families, including the
+The battlefield catalog contains 29 reduced creature families, including the
 goblin, skeleton and wolf, humanoid archetypes, dragons and beasts.
 Each instance uses the same renderer, base hit region, movement-facing formula,
 5-foot Fit to map setting and local 2D/3D / overhead / 45-degree controls as PCs.
@@ -184,7 +184,7 @@ text use the same public names while dice, totals, and DCs retain their values.
 No reveal-order numbering is assigned. Monster map labels use a compact single
 line with ellipsis; full public names remain in hover and token details.
 
-## Goblin variation pilot
+## Shared monster variants
 
 The goblin family has three shared meshes: the original, a skullcap/leather-panel
 variant and a hair-crest/vest variant. A hash of the public creature ID chooses
@@ -192,9 +192,17 @@ the mesh and a subtle 0.94?1.0 linear RGB multiplier. All viewers see the same
 appearance across movement, reloads and map placements of the same creature;
 new creature copies can differ. Random selection is not guaranteed to balance
 a small group. Explicit theme colors remain recognizable under the subtle shade.
-Other families and PCs are unchanged. Bases, hit areas, stats and facing stay
-identical. No generation runs during play; only the three static cached assets
-are loaded as needed. This adds two shared downloads, not one per goblin.
+Skeletons and human bandits also have three meshes each. Skeleton variants add
+a battered helmet/shoulder guard or a leather vest/burgundy cloth. Bandits vary
+between the original, a bald bearded olive-tunic model, and a long-haired blue-tunic
+model. All retain a ready sword pose. Other families and PCs are unchanged.
+Bases, hit areas, stats and facing retain their existing rules. No generation runs
+during play; each family loads only its three static cached assets as needed.
+Each new family adds two shared downloads, not one per creature. The shared
+MONSTER_VARIANTS catalog drives model resolution, deterministic shade, and asset
+validation. Source art and generation/reduction/base receipts are archived under
+assets/miniatures/monster-provenance. These humanoid variants use the authorized
+one-front-view route through Hunyuan3D-2mv; they are not four-view reconstructions.
 
 Monster round bases use a shared dark pewter finish at runtime: metallic shading
 and soft reflections emphasize a slightly raised, beveled metal lip. Creature colors and
@@ -205,3 +213,95 @@ The tilted ground canvases include inverse-projected viewport padding. Scene,
 hit and shape-compositing buffers cover the same area, while map coordinates
 and pointer math remain unchanged. This prevents black raster edges during
 panning; overhead mode uses the normal viewport-sized buffers.
+
+Players and Monsters have independent 2D/3D toolbar controls for both roles.
+Each viewer stores both preferences locally. The former combined preference
+is inherited by both categories on first use, and changing one preserves the
+other across reloads. Unknown monster families keep their 2D fallback.
+
+Zoom/Fit, overhead/45-degree view and both token appearance controls are
+portaled into the main toolbar for both roles. Dice controls retain their map
+position. The main toolbar wraps on narrow screens with category labels visible.
+
+Token names have black text outlines in both rendering modes. Ready 3D monsters
+replace the disposition dot with a thin screen-space outline (green friendly,
+amber neutral, red enemy). The shell shares model geometry, follows dragging and
+fog visibility, and has no pointer hit region. 2D/fallback tokens retain the dot.
+
+The outline uses a shared stencil mask of visible miniature surfaces to keep color
+on the outer silhouette and prevent lines over interior body/weapon/base surfaces.
+
+Player miniatures use the friendly green silhouette border. The outline direction
+guard accommodates orthographic projection so overhead and tilted views retain
+the same screen-space outline width.
+
+
+### Encounter tracking tags
+
+DM creature names retain creation numbers. A separate compact badge shows U
+until first revealed, then a shared tag such as G1. Players receive the stripped
+creature name and the same tag. Tags apply to 2D and 3D creatures, not objects or PCs.
+
+New maps, including the first map, start inactive. Make active begins tracking
+using the same hidden/base-cell map fog/token fog rules as player visibility.
+Player-token placement, viewer connection and camera position do not trigger it.
+Inactive maps retain assigned tags but allocate none. Reactivation resumes.
+
+On an initial complete reveal, valid unique DM number suffixes are reused per
+creature-name group. Partial reveals allocate from 1 in reveal order and never
+renumber later. Prefixes derive from the public creature name, with longer letter
+prefixes for collisions (Goblin G, Guard GU). U is reserved for unseen.
+Assignments live in SQLite per map/token; deleted tokens retain reserved numbers,
+hiding and renaming retain existing tags, and reconnects do not reset tracking.
+Existing active campaigns begin tracking from their current visibility when this
+feature is first run; historical sightings cannot be reconstructed.
+
+Tracking tags now sit inline beside the creature name for both viewers, with
+reserved tag space so name truncation never hides the tracking identifier.
+Selection remains a thick white base ring alongside the colored affinity outline.
+
+3D selection rings now render on the ground in the miniature depth buffer,
+so bases, bodies, and weapons occlude them. Monster bases use a thicker lathed
+pewter profile, beveled rim, dark side band, metallic reflections and fine
+procedural machining texture. Bodies are lifted by the exact top-height change
+to preserve foot contact; base footprints and hit areas are unchanged.
+
+The human-bandit (mercenary) model has 2,142 white near-ground reconstruction
+faces removed around its boots. Cleanup provenance is recorded in the manifest.
+Selection rings gently pulse in brightness and radius over 1.6 seconds; reduced
+motion keeps a steady ring. All rings remain depth-tested beneath the figure.
+
+## Common creature starter library
+
+The cross-campaign Saved library is populated once with 22 curated entries.
+Existing DM entries are preserved, and deleted entries stay deleted on restart.
+Twenty entries use existing SRD 5.1 stat blocks with explicit sizes, model families,
+appearance tags, and parsed weapon attacks. Pirate First Mate uses Bandit stats.
+Mage Hand is a utility spell marker with no attacks; its 1 HP/0 AC are storage
+placeholders, not D&D statistics. The DM manages its duration and movement limits.
+
+Five new model families: mage-hand, kobold, zombie, giant-rat, mimic.
+Mage Hand is horizontal, palm down, hovering over the base. Mage Hand and Mimic
+use front/back source views; Giant Rat uses front/left; Kobold and Zombie use
+one front view, as allowed for simple humanoids. All use the verified local
+Hunyuan3D-2mv shape workflow and the existing bounded 20k/JPEG95 reduction.
+
+Rules remain 2014/SRD 5.1 to match the existing bestiary:
+https://www.dndbeyond.com/attachments/39j2li89/SRD5.1-CCBY4.0License.pdf
+https://www.dndbeyond.com/spells/2173-mage-hand
+Mage Hand cannot attack, activate magic items, or carry over 10 pounds; it ends
+if more than 30 feet from its caster, after 1 minute, or when recast.
+
+### Base overlap on placement
+
+Creature token creation and completed moves limit circular base overlap to 40%
+of the smaller base area. The server first backs the token toward its movement starting position until
+it clears the overlap limit against every other base. If that return path is
+blocked (or this is initial placement), it chooses the nearest valid position.
+Other tokens stay in place. Shared miniature
+base widths (including custom sizing) and map scale drive the calculation, so
+camera tilt and individual 2D/3D preferences do not change placement. Objects
+such as doors, traps, and pasted scenery have no miniature base and are excluded.
+Dragging through another token remains possible; correction occurs on release.
+This is a visual placement rule, not D&D occupied-square movement enforcement.
+Existing placements and resizing do not trigger a board-wide rearrangement.

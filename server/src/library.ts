@@ -13,8 +13,25 @@ import type {
 } from '../../shared/types.js';
 import { sanitizeItems, sanitizeModifiers, sanitizeWeapons } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
+import { starterCreatures } from './creatures/starterLibrary.js';
 
 // ---- Cross-session creature library ----
+
+/** Add this version's curated starters once, preserving existing DM entries. */
+export function seedLibraryCreatures(): number {
+  const marker = 'starter-creatures-3d-v1';
+  if (getMeta(marker)) return 0;
+  return db.transaction(() => {
+    let added = 0;
+    for (const creature of starterCreatures()) {
+      if (getLibraryCreature(creature.name)) continue;
+      saveLibraryCreature(creature, true);
+      added++;
+    }
+    setMeta(marker, '1');
+    return added;
+  })();
+}
 
 type LibCreatureRow = {
   model_type?: string; model_color?: string; visual_tags?: string;

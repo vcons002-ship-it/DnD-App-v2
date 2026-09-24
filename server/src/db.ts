@@ -415,6 +415,17 @@ ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
 // stay on 'auto' with no behavior change beyond the visibility rule.
 ensureColumn('tokens', 'in_combat', 'in_combat INTEGER');
 ensureColumn('tokens', 'facing', 'facing REAL NOT NULL DEFAULT 0');
+// No token FK: deleted enemies must not free a public encounter number for reuse.
+db.exec(`CREATE TABLE IF NOT EXISTS encounter_tags (
+  map_id TEXT NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
+  token_id TEXT NOT NULL,
+  family TEXT NOT NULL,
+  prefix TEXT NOT NULL,
+  number INTEGER NOT NULL,
+  PRIMARY KEY (map_id, token_id),
+  UNIQUE (map_id, prefix, number)
+)`);
+
 // Temporary HP — a flat 2024-rules buffer pool depleted by damage before real HP.
 ensureColumn('monsters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'temp_hp', 'temp_hp INTEGER NOT NULL DEFAULT 0');

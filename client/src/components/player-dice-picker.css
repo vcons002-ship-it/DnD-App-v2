@@ -46,11 +46,11 @@
   .player-fantasy .stage-wrap .stage-controls {
     left: 70px;
     top: 66px;
-    max-width: calc(100% - 78px);
+    max-width: calc(100vw / var(--player-ui-scale, .85) - 78px);
     gap: 3px;
     padding-inline: 3px;
   }
-  .player-fantasy .stage-controls .battlefield-view-options > span {
+  .player-fantasy .stage-controls .battlefield-view-options:not(.token-appearance-options) > span {
     display: none;
   }
 }
@@ -122,11 +122,11 @@
 }
 @media (max-width: 1000px) {
   /* A narrow hover bridge passes down the die's own lane, to the left of the
-     zoom buttons. The card opens below that row, so neither the visible menu
+     zoom buttons. Map view controls live in the main toolbar; the card opens in the dice lane, so neither the visible menu
      nor an invisible padded rectangle steals a zoom/fit click. */
   .player-fantasy .player-dice-picker .player-dice-menu-region {
     width: 59px;
-    padding-top: 54px;
+    padding-top: 8px;
   }
   .player-fantasy .player-dice-picker .player-dice-menu-region .dice-quick-menu {
     width: min(232px, calc((100vw - 20px) / var(--player-ui-scale, .85)));

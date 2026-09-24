@@ -32,8 +32,8 @@ async function unobscured(control: Locator) {
   await expect.poll(() => control.evaluate((element) => {
     const box = element.getBoundingClientRect();
     const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-    return top === element || !!top && element.contains(top);
-  })).toBe(true);
+    return top === element || !!top && element.contains(top) ? 'clear' : JSON.stringify({control:element.getAttribute('aria-label'),box:{x:box.x,y:box.y,width:box.width,height:box.height},cover:top?.outerHTML.slice(0,250),viewport:innerWidth});
+  })).toBe('clear');
   await control.click({ trial: true });
 }
 
@@ -73,7 +73,7 @@ for (const scale of [.70, .85, 1.15]) {
       await insideViewport(diceMenu, page);
       for (const button of await diceMenu.getByRole('button').all()) await unobscured(button);
       for (const title of ['Zoom out', 'Zoom in', 'Fit to window']) await unobscured(page.getByTitle(title, { exact: true }));
-      for (const name of ['2D tokens', '3D tokens']) await unobscured(page.getByRole('button', { name, exact: true }));
+      for (const name of ['2D player tokens', '3D player tokens', '2D monster tokens', '3D monster tokens']) await unobscured(page.getByRole('button', { name, exact: true }));
       // A pinned dice menu cannot cover the toolbar's settings trigger.
       await unobscured(settings);
       await settings.click();
@@ -99,11 +99,11 @@ test('DM map controls remain unobscured above the full-width battlefield', async
   await page.goto(`/dm?code=${code}`);
   await page.locator('input[type="password"]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
-  await expect(page.locator('.stage-controls')).toBeVisible();
+  await expect(page.locator('.topbar .map-view-controls')).toBeVisible();
+  await expect(page.locator('.stage-wrap .stage-controls')).toHaveCount(0);
   await expect(page.locator('.player-layout-controls')).toHaveCount(0);
   const stage = (await page.locator('.stage-wrap').boundingBox())!;
-  const controls = (await page.locator('.stage-controls').boundingBox())!;
-  expect(controls.y - stage.y).toBeCloseTo(12, 0);
-  expect(stage.x + stage.width - controls.x - controls.width).toBeCloseTo(14, 0);
+  const controls = (await page.locator('.map-view-controls').boundingBox())!;
+  expect(controls.y + controls.height).toBeLessThanOrEqual(stage.y + 1);
   await unobscured(page.getByTitle('Zoom in', { exact: true }));
 });

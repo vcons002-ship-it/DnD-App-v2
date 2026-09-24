@@ -1793,3 +1793,5 @@ Smaller refinements on top of the shipped Phase 2 work.
   single-token `.disposition-btns`. DM-only (disposition drives player
   visibility) and PC tokens are skipped, with the count of what will actually
   change shown when PCs are in the selection.
+
+- [x] Persistent active-map encounter tracking: DM creation names plus U/reveal badges, player-safe tags, initial complete-reveal number matching, and staged first-map creation.

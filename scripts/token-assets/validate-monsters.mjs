@@ -11,7 +11,9 @@ assert.equal(manifest.version, 1);
 const familySource = readFileSync(path.resolve(directory, '../../../../shared/monsterAppearance.ts'), 'utf8');
 const declaredFamilies = [...familySource.match(/MONSTER_MODEL_TYPES = \[([\s\S]*?)\] as const/)[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
 assert.deepEqual(manifest.models.map(m => m.id).sort(), declaredFamilies.sort(), 'Every selectable family must have a packaged asset');
-assert.deepEqual((manifest.variants ?? []).map(m => m.id).sort(), ['goblin-crest', 'goblin-helmet']);
+const variantDeclaration = familySource.match(/MONSTER_VARIANTS = \{([\s\S]*?)\} as const/)[1];
+const declaredVariants = [...variantDeclaration.matchAll(/\[([^\]]+)\]/g)].flatMap(m => [...m[1].matchAll(/'([^']+)'/g)].slice(1).map(v => v[1]));
+assert.deepEqual((manifest.variants ?? []).map(m => m.id).sort(), declaredVariants.sort(), 'Every selectable variant must have a packaged asset');
 for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
   assert.equal(model.url, `/miniatures/monsters/${model.id}.glb`);
   const bytes = readFileSync(path.join(directory, `${model.id}.glb`));
@@ -24,6 +26,15 @@ for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
   const gltf = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
   assert(gltf.buffers.every(buffer => !buffer.uri));
   assert(gltf.images.every(image => image.bufferView !== undefined && !image.uri && image.mimeType === 'image/jpeg'));
+  for (const accessor of gltf.accessors) {
+    const view = gltf.bufferViews[accessor.bufferView];
+    const components = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[accessor.type];
+    const componentBytes = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 }[accessor.componentType];
+    assert(view && components && componentBytes, 'Unsupported monster accessor');
+    const elementBytes = components * componentBytes;
+    const end = (accessor.byteOffset ?? 0) + Math.max(0, accessor.count - 1) * (view.byteStride ?? elementBytes) + elementBytes;
+    assert(end <= view.byteLength, `${model.id}: accessor extends beyond its shared buffer view`);
+  }
   assert.equal(gltf.animations?.length ?? 0, 0);
   assert.equal(gltf.skins?.length ?? 0, 0);
   let triangles = 0;

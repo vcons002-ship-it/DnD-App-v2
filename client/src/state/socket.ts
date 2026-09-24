@@ -255,7 +255,7 @@ type Store = {
     x: number,
     y: number,
   ) => void;
-  moveToken: (tokenId: string, x: number, y: number) => void;
+  moveToken: (tokenId: string, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => void;
   resizeToken: (tokenId: string, widthFt: number) => void;
   resizeMiniature: (tokenId: string, widthFt: number) => void;
   setTokenShape: (tokenId: string, shape: TokenShape) => void;
@@ -929,8 +929,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('fog:cover', { mapId, layer }),
   spawnToken: (mapId, kind, refId, x, y) =>
     get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
-  moveToken: (tokenId, x, y) =>
-    get().socket?.emit('token:move', { tokenId, x, y }),
+  moveToken: (tokenId, x, y, placed) =>
+    get().socket?.emit('token:move', { tokenId, x, y }, placed ?? (() => {})),
   resizeMiniature: (tokenId, widthFt) => get().socket?.emit('token:resize', { tokenId, widthFt, miniature: true }),
   resizeToken: (tokenId, widthFt) =>
     get().socket?.emit('token:resize', { tokenId, widthFt }),

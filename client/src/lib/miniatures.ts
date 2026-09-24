@@ -1,11 +1,11 @@
 ﻿import manifest from '../../public/miniatures/manifest.json';
 import monsters from '../../public/miniatures/monsters/manifest.json';
 import type { TokenKind } from '../../../shared/types';
-import { MONSTER_MODEL_TYPES, resolveMonsterModelType, type MonsterAppearance, type MonsterModelType, monsterVariation } from '../../../shared/monsterAppearance';
+import { MONSTER_MODEL_TYPES, resolveMonsterModelType, type MonsterAppearance, type MonsterModelType, type MonsterVariantId, monsterVariation, monsterVariantIds } from '../../../shared/monsterAppearance';
 
 /** Fit by the measured round base, never by weapons or full height. */
 export type MiniatureDefinition = {
-  id: 'druk' | 'varis' | 'vanec' | MonsterModelType | 'goblin-helmet' | 'goblin-crest';
+  id: 'druk' | 'varis' | 'vanec' | MonsterModelType | MonsterVariantId;
   url: string;
   baseDiameter: number;
   baseCenter: [number, number, number];
@@ -18,6 +18,6 @@ export function resolveMiniature(name: string, kind: TokenKind, appearance: Mons
   const allowed: readonly string[] = kind === 'pc' ? ['druk', 'varis', 'vanec'] : MONSTER_MODEL_TYPES;
   if (!allowed.includes(key)) return null;
   const variant = kind === 'monster' ? monsterVariation(key, creatureId).variant : 0;
-  const modelKey = key === 'goblin' ? ['goblin', 'goblin-helmet', 'goblin-crest'][variant] : key;
+  const modelKey = kind === 'monster' ? monsterVariantIds(key)[variant] : key;
   return MINIATURES[modelKey as MiniatureDefinition['id']] ?? MINIATURES[key as MiniatureDefinition['id']] ?? null;
 }

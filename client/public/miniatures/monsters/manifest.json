@@ -111,13 +111,18 @@
         0,
         0
       ],
-      "triangles": 20764,
+      "triangles": 18622,
       "bytes": 1526248,
-      "sha256": "c97a99c8e073a1d52181e19a9cff0955413981928e5598a1e4ef738746a17418",
+      "sha256": "36fb6a34e31a6cd2c5090167fcc13cd8c642c833bed8fc465d3641a79989b6ce",
       "sourceSha256": "2a5378352bffacb5fe451d8da1ede1cb667cb9c9568ec2335a24d9a17fe81214",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
-      "sourceViewCount": 1
+      "sourceViewCount": 1,
+      "cleanup": {
+        "sourceRuntimeSha256": "c97a99c8e073a1d52181e19a9cff0955413981928e5598a1e4ef738746a17418",
+        "removedTriangles": 2142,
+        "description": "Removed near-ground white reconstruction remnants below boots; original body texture and base preserved."
+      }
     },
     {
       "id": "human-commoner",
@@ -407,6 +412,91 @@
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1
+    },
+    {
+      "id": "mage-hand",
+      "url": "/miniatures/monsters/mage-hand.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1315256,
+      "sha256": "d8098dc4341801671f2ee81d046808e80060533ad41ba84772fab3683070320f",
+      "sourceSha256": "12c693b08d13f3c29a16b29fc48a50b01e6384b98cc85f13ba2214f2c9b8d01e",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 2
+    },
+    {
+      "id": "kobold",
+      "url": "/miniatures/monsters/kobold.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1828508,
+      "sha256": "6c77b2cf77172d7821629ede615e43ae4346f0c7f7dbd9d56a595c5b970f3e19",
+      "sourceSha256": "7e27b86269eb05f68159072143d1f1a4ee0caa995bb02735270f59b266d8b40a",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "zombie",
+      "url": "/miniatures/monsters/zombie.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20763,
+      "bytes": 1732672,
+      "sha256": "cc2200414a397278aac3d7f8199e4f13db4f4cc158cc77f1ce024161eff23b76",
+      "sourceSha256": "9fe98038182adfe5c2670ef02c39c56f5e4e94a8317d68fa79d1fd0092bcd6f6",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "giant-rat",
+      "url": "/miniatures/monsters/giant-rat.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1960540,
+      "sha256": "8dda1930d7173be78d7ae1fcd343e61fb0e5f8490f6cda53a2192dbd6b0c2046",
+      "sourceSha256": "46a2e636bfcdaeb8679ec49a1ff2ccf37630ff1836c9ca4b836f2f0143f9efcc",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 2
+    },
+    {
+      "id": "mimic",
+      "url": "/miniatures/monsters/mimic.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1537196,
+      "sha256": "2ea9c4a109ac7ecfdd7da1a795f01a7308207b6335279b562100b2c806b1b79f",
+      "sourceSha256": "3ef4975ad97100721df4b87a7897486d16b5533ef8c20d2c8e00c528aeb8e028",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 2
     }
   ],
   "variants": [
@@ -443,6 +533,94 @@
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 1
+    },
+    {
+      "id": "skeleton-helmet",
+      "url": "/miniatures/monsters/skeleton-helmet.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1720544,
+      "sha256": "8746919bb5ec9e7b60b717e3c21b8c1fea8020ee9dd95e5e66fc5a12abd6ea62",
+      "sourceSha256": "c6dc0ba94150cc772257d97d0057c9e2efa7a76bc31e7c60f897df47131d4451",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "skeleton-vest",
+      "url": "/miniatures/monsters/skeleton-vest.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20763,
+      "bytes": 1651236,
+      "sha256": "ae54debb0e7b61e0c7071ad2c493359f6e2b1abc955a0bc3ab600f0e6cd4f820",
+      "sourceSha256": "e9b581f49d3119ce023527d104ad5b15b55fc5d4312b77e596836ea1dbde7ce7",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-bandit-bald",
+      "url": "/miniatures/monsters/human-bandit-bald.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 20764,
+      "bytes": 1542836,
+      "sha256": "498b3040e8ea9106367a94c32fed3b7be52ca0e02358eae937543d52e3d32bbb",
+      "sourceSha256": "47ada8645701efd8f649de2462c1cd3be395a1f87cfb6249e302406d66b3b4ac",
+      "texture": "2048x2048 JPEG95",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1
+    },
+    {
+      "id": "human-bandit-longhair",
+      "url": "/miniatures/monsters/human-bandit-longhair.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "triangles": 19382,
+      "bytes": 2042640,
+      "sha256": "d0c4311ddf678c595e9e5d861e86099cf115cb3330472e479605b070ca3b574f",
+      "sourceSha256": "f72431fc742784fb149c95df73394d02f670d49bdb91d2bc1cad8cdb6da91bdc",
+      "texture": "Body and separate head: two 2048x2048 JPEG85 atlases; neck: 512x512 JPEG85 skin texture",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 1,
+      "cleanup": {
+        "method": "Vertex-color attenuation of saturated red reconstruction artifacts; source atlas and geometry unchanged",
+        "affectedVertices": 291,
+        "sourceSha256": "e849bbc94e1e048c38bd8281552131766e8d21c464f0384d7709c6d037751a7e"
+      },
+      "headRefinement": {
+        "policy": "monster-head-refinement-v1",
+        "sourceViewCount": 1,
+        "sourceSha256": "ec55313ffec5a3b70f6d73888b09fa72807937ab37fe69596300a6cd10a5f44d",
+        "removedBodyTriangles": 2537,
+        "preservedBodyAttributes": true,
+        "neckJoinTriangles": 4096,
+        "countsDescribe": "assembly before runtime optimization",
+        "runtimeOptimization": {
+          "triangles": 19382,
+          "simplificationError": 0.01,
+          "jpegQuality": 85,
+          "textureDimensionsPreserved": true
+        }
+      }
     }
   ]
 }

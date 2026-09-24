@@ -19,6 +19,7 @@ export type SessionBundle = {
   session: Row;
   maps: Row[];
   tokens: Row[];
+  encounterTags?: Row[];
   characters: Row[];
   monsters: Row[];
   measurements: Row[];
@@ -64,6 +65,7 @@ export function exportSession(code: string): SessionBundle | null {
       'SELECT t.* FROM tokens t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?',
       sid,
     ),
+    encounterTags: all('SELECT t.* FROM encounter_tags t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
     characters: all('SELECT * FROM characters WHERE session_id = ?', sid),
     monsters: all('SELECT * FROM monsters WHERE session_id = ?', sid),
     measurements: all('SELECT * FROM measurements WHERE session_id = ?', sid),
@@ -223,6 +225,12 @@ export const importSession = db.transaction(
       const map = newRef(t.map_id, mapIds);
       if (!ref || !map) continue; // dangling reference — skip rather than break
       insertRow('tokens', t, { id: tokIds.get(t.id as string), map_id: map, ref_id: ref });
+    }
+
+    for (const tag of data.encounterTags ?? []) {
+      const map = newRef(tag.map_id, mapIds);
+      if (!map) continue;
+      insertRow('encounter_tags', tag, { map_id: map, token_id: newRef(tag.token_id, tokIds) ?? newId() });
     }
 
     // 7. Per-map extras + the session-wide logs.

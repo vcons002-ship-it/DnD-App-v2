@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import {
   Group,
   Circle,
@@ -21,7 +21,7 @@ const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
 
 /** Battlefield disposition dot colours. */
-const DISPOSITION_HEX: Record<string, string> = {
+export const DISPOSITION_HEX: Record<string, string> = {
   friendly: '#39c46b',
   neutral: '#f5c518',
   enemy: '#e23b3b',
@@ -47,7 +47,7 @@ type Props = {
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
-  onMove: (token: Token, x: number, y: number) => void;
+  onMove: (token: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => void;
   /** Right-click / long-press — opens the floating action menu at screen coords. */
   onContextMenu?: (token: Token, clientX: number, clientY: number) => void;
   /** Pointer hover over the token (desktop) — drives the hover card. */
@@ -123,6 +123,7 @@ function TokenShapeInner({
   const distText = useRef<Konva.Text>(null);
   // Throttle the network preview (the local tether stays smooth either way).
   const lastDragEmit = useRef(0);
+  const dragGeneration = useRef(0);
 
   const paintDrag = (cx: number, cy: number) => {
     tether.current?.points([token.x, token.y, cx, cy]);
@@ -142,6 +143,7 @@ function TokenShapeInner({
   };
 
   const handleDragStart = () => {
+    dragGeneration.current++;
     clearLongPress();
     onDragActive?.(true);
     onVisualMove?.(token, token.x, token.y, false);
@@ -175,7 +177,15 @@ function TokenShapeInner({
     dragOverlay.current?.visible(false); // temporary — gone on release
     onDragActive?.(false);
     onVisualMove?.(token, e.target.x(), e.target.y(), true);
-    onMove(token, e.target.x(), e.target.y());
+    const node = e.target;
+    const generation = dragGeneration.current;
+    onMove(token, node.x(), node.y(), (position) => {
+      // Correct even an unchanged server position after an optimistic drag.
+      if (!node.getStage() || node.isDragging() || generation !== dragGeneration.current) return;
+      node.position(position);
+      node.getLayer()?.batchDraw();
+      onVisualMove?.(token, position.x, position.y, true);
+    });
   };
 
   // Long-press (touch) mirrors right-click to open the floating menu. We keep a
@@ -298,7 +308,17 @@ function TokenShapeInner({
   const playerNameSize = Math.max(11, Math.min(18, radius * .4));
   const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
   const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
+  const tagWidth = token.revealTag ? (token.revealTag.length + 2) * monsterNameSize * 0.65 : 0;
+  const nameWidth = useMemo(() => {
+    const measure = new Konva.Text({ text: display.name, fontSize: monsterNameSize });
+    const width = measure.getTextWidth();
+    measure.destroy();
+    return Math.min(monsterLabelWidth, width + 2);
+  }, [display.name, monsterNameSize, monsterLabelWidth]);
   const roleBadgeR = Math.max(11, radius * 0.36);
+  const labelY = radius + Math.max(hpFrac !== null ? 14 : 4,
+    token.combatRole ? roleBadgeR - radius * .28 + 4 : 4);
+
 
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
   // the others fill/stroke a shape and clip image icons to it.
@@ -400,7 +420,6 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
-      {miniatureReady && selected && <Circle radius={radius} stroke="#ffffff" strokeWidth={4} />}
       <Group name="token-body" visible={!miniatureReady}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
@@ -472,20 +491,22 @@ function TokenShapeInner({
         />
       )}
       <Text
+        stroke="#000"
+        strokeWidth={3}
+        fillAfterStrokeEnabled
+        lineJoin="round"
         name="token-label"
         text={display.name}
         fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
         fill="#fff"
         align="center"
-        width={token.kind === 'pc' ? radius * 4 : monsterLabelWidth}
-        offsetX={token.kind === 'pc' ? radius * 2 : monsterLabelWidth / 2}
+        width={token.kind === 'pc' ? radius * 4 : nameWidth}
+        offsetX={token.kind === 'pc' ? radius * 2 : (nameWidth + tagWidth) / 2}
         wrap={token.kind === 'pc' ? 'word' : 'none'}
         ellipsis={token.kind !== 'pc'}
         height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
-        y={token.kind === 'pc' ? radius + 4 : radius + Math.max(
-          hpFrac !== null ? 14 : 4, token.combatRole ? roleBadgeR - radius * .28 + 4 : 4,
-        )}
+        y={token.kind === 'pc' ? radius + 4 : labelY}
       />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (
@@ -511,8 +532,14 @@ function TokenShapeInner({
           )}
         </Group>
       )}
+      {token.revealTag && (
+        <Group name="token-tracking-tag" x={(nameWidth - tagWidth) / 2} y={labelY}>
+          <Text text={token.revealTag} x={4} width={tagWidth - 4} align="left" fontSize={monsterNameSize}
+            fontStyle="bold" fill="#fff" stroke="#000" strokeWidth={3} fillAfterStrokeEnabled />
+        </Group>
+      )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
-      {display.disposition && (
+      {display.disposition && !miniatureReady && (
         <Circle
           x={-radius * 0.8}
           y={-radius * 0.8}

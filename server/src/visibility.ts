@@ -1,3 +1,4 @@
+import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
 import {
   getActiveMapId,
@@ -125,7 +126,7 @@ export function lootVisibleToPlayers(m: Monster): boolean {
  */
 /** Hide numeric encounter suffixes, including inherited duplicate suffixes. */
 function playerMonsterName(m: Monster): string {
-  return m.objectKind ? m.name : m.name.replace(/(?:\s+(?:#?\d+|\(\d+\)))+$/, '').trim() || m.name;
+  return m.objectKind ? m.name : creatureBaseName(m.name);
 }
 
 function toPlayerMonster(m: Monster): Monster | MonsterPublic {
@@ -238,10 +239,13 @@ export function createSnapshotBuilder(
   const loadMapData = (mapId: string): MapData => {
     let d = mapData.get(mapId);
     if (!d) {
+      const rawTokens = listTokens(mapId);
+      const tagMap = encounterTags(mapById.get(mapId)!, rawTokens, monById, mapId === activeMapId);
       d = {
         // Each token's effective combat role is shown to DM AND players (the
         // badge works even for Enemy creatures whose stats players never get).
-        tokens: listTokens(mapId).map((t) => ({
+        tokens: rawTokens.map((t) => ({
+          ...(tagMap.has(t.id) ? { revealTag: tagMap.get(t.id) } : {}),
           ...t,
           combatRole: tokenCombatRole(t),
           // Who "Roll all" would pull in, decided server-side (it depends on fog).
@@ -255,6 +259,9 @@ export function createSnapshotBuilder(
     }
     return d;
   };
+
+  // Track active-map reveals even when only a DM staging another map is connected.
+  if (activeMapId && mapById.has(activeMapId)) loadMapData(activeMapId);
 
   // Players see the attack resolution (HIT/MISS) but not the target's AC.
   // The HP-accounting note ("Druk HP 42→38") follows the disposition tiers:

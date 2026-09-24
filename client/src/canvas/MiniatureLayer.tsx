@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
+  AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
 } from 'three';
@@ -22,8 +22,10 @@ export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   tint?: string;
+  outline?: string;
   shade?: [number, number, number];
   activeTurn?: boolean;
+  selected?: boolean;
   definition: MiniatureDefinition;
 };
 type Props = {
@@ -47,7 +49,10 @@ type FxManifest = {
 };
 type Instance = {
   root: Group;
+  outlineMaterial: MeshBasicMaterial;
+  outlineViewport: { value: Vector2 };
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
+  selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
   url: string;
   materials: Material[];
   originalColors: Array<Color | null>;
@@ -98,7 +103,7 @@ function applyFx(instance: Instance, seconds: number) {
 
 /** One renderer for all visible miniatures. Konva remains the sole input owner. */
 function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string[], status: string) => void): Engine {
-  const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+  const renderer = new WebGLRenderer({ alpha: true, antialias: true, stencil: true, powerPreference: 'low-power' });
   renderer.setClearColor(0, 0);
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
@@ -202,7 +207,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const draw = (now: number) => {
     frame = 0;
     if (disposed || failed || document.hidden) return;
-    const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible);
+    const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
@@ -219,6 +224,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
         const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
+        const selectionPulse = reducedMotion.matches ? 0 : (Math.sin(seconds * Math.PI * 2 / 1.6) + 1) / 2;
+        instance.selectionRing.scale.setScalar(token.definition.baseDiameter * (1 + selectionPulse * .045));
+        instance.selectionRing.material.opacity = (reducedMotion.matches ? 1 : .65 + selectionPulse * .35) * (token.hidden ? .45 : 1);
         instance.turnRing.scale.setScalar(token.definition.baseDiameter * (1 + pulse * 0.06));
         instance.turnRing.material.opacity = (0.65 + pulse * 0.35) * (token.hidden ? 0.45 : 1);
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
@@ -243,6 +251,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.remove(instance.root);
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
+    instance.outlineMaterial.dispose();
+    instance.selectionRing.geometry.dispose();
+    instance.selectionRing.material.dispose();
     instance.turnRing.geometry.dispose();
     instance.turnRing.material.dispose();
     instances.delete(id);
@@ -259,6 +270,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
     instance.turnRing.visible = !!token.activeTurn;
+    instance.selectionRing.visible = !!token.selected;
+    instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
+    instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
+    instance.outlineMaterial.visible = !!token.outline;
+    instance.outlineMaterial.color.set(token.outline ?? "#000000");
+    instance.outlineMaterial.opacity = token.hidden ? 0.45 : 1;
+    instance.outlineViewport.value.set(Math.max(1, props.width), Math.max(1, props.height));
     instance.materials.forEach((material, index) => {
       if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
         material.color.copy(instance.originalColors[index]!);
@@ -331,20 +349,72 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         turnRing.position.y = 0.001;
         turnRing.renderOrder = -1;
         root.add(turnRing);
+        const selectionRing = new Mesh(new RingGeometry(0.505, 0.55, 96), new MeshBasicMaterial({
+          color: '#ffffff', transparent: true, depthWrite: false, toneMapped: false,
+        }));
+        selectionRing.name = 'token-selection-ring';
+        selectionRing.rotation.x = -Math.PI / 2;
+        selectionRing.position.y = 0.002;
+        selectionRing.renderOrder = -1;
+        root.add(selectionRing);
         const cloned = new Map<Material, Material>();
         model.traverse((node) => {
           if (!(node instanceof Mesh)) return;
           const copy = (material: Material) => {
-            if (!cloned.has(material)) cloned.set(material, material.clone());
+            if (!cloned.has(material)) {
+              const copy = material.clone();
+              // Mark the complete visible figure, not individual mesh boundaries.
+              // All bodies mask outlines so overlapping tokens also stay clean.
+              copy.stencilWrite = true;
+              copy.stencilRef = 1;
+              copy.stencilFunc = AlwaysStencilFunc;
+              copy.stencilZPass = ReplaceStencilOp;
+              cloned.set(material, copy);
+            }
             return cloned.get(material)!;
           };
           node.material = Array.isArray(node.material) ? node.material.map(copy) : copy(node.material);
         });
+        // Screen-space back-face shells share geometry and follow source transforms.
+        const outlineViewport = { value: new Vector2(props.width, props.height) };
+        const outlineMaterial = new MeshBasicMaterial({
+          side: BackSide, depthWrite: false, transparent: true, toneMapped: false,
+          stencilWrite: true, stencilRef: 1, stencilFunc: NotEqualStencilFunc,
+          stencilFail: KeepStencilOp, stencilZFail: KeepStencilOp, stencilZPass: KeepStencilOp,
+        });
+        outlineMaterial.onBeforeCompile = shader => {
+          shader.uniforms.outlineViewport = outlineViewport;
+          shader.vertexShader = 'uniform vec2 outlineViewport;\n' + shader.vertexShader;
+          shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+            #include <project_vertex>
+            vec3 outlineNormal = normalMatrix * normal;
+            vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
+            float outlineLength = length(outlineDirection);
+            // Orthographic projection and model scaling can make this very small.
+            // Only reject a truly degenerate direction, not a valid overhead edge.
+            if (outlineLength > 0.0000000001) {
+              gl_Position.xy += outlineDirection / outlineLength * 3.0 / outlineViewport * gl_Position.w;
+            }
+          `);
+        };
+        const outlinedMeshes: Mesh[] = [];
+        model.traverse(node => {
+          if (node instanceof Mesh && node.geometry.hasAttribute('normal') &&
+              (Array.isArray(node.material) ? node.material : [node.material]).every(m => !m.transparent)) {
+            outlinedMeshes.push(node);
+          }
+        });
+        for (const mesh of outlinedMeshes) {
+          const shell = new Mesh(mesh.geometry, outlineMaterial);
+          shell.name = 'disposition-outline';
+          shell.raycast = () => {};
+          mesh.add(shell);
+        }
         const mixer = gltf.animations.length ? new AnimationMixer(model) : null;
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          root, turnRing, url: definition.url, materials,
+          root, outlineMaterial, outlineViewport, turnRing, selectionRing, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,

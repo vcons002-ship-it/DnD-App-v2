@@ -83,7 +83,7 @@
   .dm-fantasy .session-title { max-width: 145px; }
   .dm-fantasy .stage-controls { left: 8px; right: 8px; top: 62px; max-width: none; justify-content: flex-start; gap: 4px; font-size: 11px; }
   .dm-fantasy .stage-controls .btn { min-height: 32px; }
-  .dm-fantasy .stage-controls .battlefield-view-options > .muted { display: none; }
+  .dm-fantasy .stage-controls .battlefield-view-options:not(.token-appearance-options) > .muted { display: none; }
   .dm-tool-rail { top: 8px; left: 8px; width: calc(100% - 16px); max-width: none; gap: 4px; }
   .dm-tool span { font-size: 9px; }
   .dm-fantasy .dm-window.side:is(.left, .right) { left: 8px; right: 8px; max-width: calc(100% - 16px); width: calc(100% - 16px) !important; }
