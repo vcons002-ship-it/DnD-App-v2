@@ -71,6 +71,12 @@ sanitization rules above and commit it to `claude/Main`.
 
 ## Stack
 
+Background monster asset production is documented in
+[`docs/ASSET_PRODUCTION.md`](docs/ASSET_PRODUCTION.md): persistent family queue,
+ComfyUI/image-API references, named Hunyuan multi-view generation, reduced GLBs,
+and a dynamic catalog consumed by both battlefield roles. Production artifacts
+live outside the bundled static catalog and must be backed up with uploads.
+
 - **Client:** React + TypeScript + Vite, **Konva** (`react-konva`) for the map
   canvas, **Zustand** store, react-router.
 - **Server:** Node + Express + **Socket.IO**, **SQLite** (`better-sqlite3`).

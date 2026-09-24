@@ -22,7 +22,7 @@ export async function generateImageWithBackup(prompt:string, options: Parameters
     `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiImageModel}:generateContent`,
     {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},body:JSON.stringify({
       contents:[{parts:[{text:prompt}]}],
-      generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:(options?.width ?? 768)>(options?.height ?? 768)?'3:2':'1:1'}}
+      generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:(options?.width ?? 768)>(options?.height ?? 768)?'3:2':'1:1', ...((options?.width ?? 0) >= 2048 ? {imageSize:'2K'} : {})}}
     })}, {timeoutMs:120000,label:'Gemini image API'});
   const image=result?.data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData?.data)?.inlineData;
   const ext=image?.mimeType==='image/png'?'.png':image?.mimeType==='image/jpeg'?'.jpg':image?.mimeType==='image/webp'?'.webp':null;

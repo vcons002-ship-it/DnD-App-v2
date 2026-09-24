@@ -6,7 +6,7 @@ import type { MiniatureDefinition } from '../lib/miniatures';
  * feet, metal rim and orb inlay remain the original approved model. */
 export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefinition, anisotropy: number) {
   // Preserve the measured footprint; lift feet with the thicker beveled pewter top.
-  if (definition.url.startsWith('/miniatures/monsters/')) {
+  if (definition.url.startsWith('/miniatures/monsters/') || definition.url.startsWith('/uploads/miniatures/')) {
     gltf.scene.traverse(node => {
       if (!(node instanceof Mesh) || !node.name.endsWith('_round_base')) return;
       const radius = definition.baseDiameter / 2;

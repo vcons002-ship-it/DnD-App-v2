@@ -13,6 +13,7 @@ import { startBackupScheduler } from './backupScheduler.js';
 import { startTunnel, publicUrl } from './tunnel.js';
 import { broadcastAiStatus, type IOServer } from './connections.js';
 import { setAiReporter } from './ai/status.js';
+import { startAssetProduction } from './assets/production.js';
 
 // Last-resort crash guards. Socket handlers already run inside a per-event
 // try/catch (see socketHandlers.ts) and async routes catch internally, but a
@@ -51,6 +52,7 @@ const io: IOServer = new Server(server, {
 });
 
 setAiReporter(message => broadcastAiStatus(io,message));
+startAssetProduction();
 
 app.use('/uploads', express.static(config.uploadsDir));
 app.use('/api', createApiRouter(io));

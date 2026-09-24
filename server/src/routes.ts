@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { assetQueue } from './assets/production.js';
+import { requestCreatureAsset } from './assets/hooks.js';
+import { getMonster } from './sessions.js';
 import { generateImageWithBackup } from './ai/imageGateway.js';
 import type { Request, Response } from 'express';
 import multer from 'multer';
@@ -187,6 +190,35 @@ const backupUpload = multer({
 
 export function createApiRouter(io: IOServer): Router {
   const router = Router();
+  // Catalog is public art only. Work-in-progress names, errors and controls are DM-only.
+  router.get('/assets/catalog', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ models: assetQueue().snapshot().models });
+  });
+  router.get('/assets/jobs', (req, res) => {
+    if (!requireDm(req, res)) return;
+    res.setHeader('Cache-Control', 'no-store');
+    const { jobs, paused } = assetQueue().snapshot();
+    res.json({ jobs, paused });
+  });
+  router.post('/assets/queue', (req, res) => {
+    if (!requireDm(req, res)) return;
+    if (rateLimited(req, res, 'asset-production', 20, 60000)) return;
+    const creature = typeof req.body?.monsterId === 'string' ? getMonster(req.body.monsterId) : null;
+    if (!creature) return res.status(404).json({ error: 'Creature not found.' });
+    res.json({ job: assetQueue().enqueue(creature) ?? null });
+  });
+  router.post('/assets/jobs/:id/retry', (req, res) => {
+    if (!requireDm(req, res)) return;
+    if (rateLimited(req, res, 'asset-retry', 10, 60000)) return;
+    res.status(assetQueue().retry(req.params.id) ? 200 : 409).json({});
+  });
+  router.post('/assets/pause', (req, res) => {
+    if (!requireDm(req, res)) return;
+    if (typeof req.body?.paused !== 'boolean') return res.status(400).json({ error: 'paused must be a boolean.' });
+    assetQueue().pause(req.body.paused);
+    res.json({ paused: req.body.paused });
+  });
 
   // Create a new session; returns the shareable DM + player links. An optional
   // `code` lets the DM pick a memorable, stable link (e.g. "TAVERN").
@@ -581,6 +613,7 @@ export function createApiRouter(io: IOServer): Router {
       // 409: an entry with this name already exists; return it for the dialog.
       return res.status(409).json({ existing: result.conflict });
     }
+    requestCreatureAsset(result.saved);
     res.status(201).json(result.saved);
   });
 

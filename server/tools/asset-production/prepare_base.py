@@ -1,0 +1,61 @@
+"""Make a separate 20k-triangle board candidate and simple measured round base."""
+import bpy, sys, json, hashlib
+from pathlib import Path
+from mathutils import Vector, Matrix
+import math
+
+args=sys.argv[sys.argv.index('--')+1:]
+source_arg, out_arg, name, height_arg = args[:4]
+foot_limit=float(args[4]) if len(args)>4 else .465
+base_radius=float(args[5]) if len(args)>5 else .5
+source=Path(source_arg).resolve()
+out=Path(out_arg).resolve();out.mkdir(parents=True,exist_ok=True)
+root=Path(__file__).resolve().parent
+
+
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+source_hash=sha(source)
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.import_scene.gltf(filepath=str(source))
+meshes=[o for o in bpy.context.scene.objects if o.type=='MESH']
+if name=='mage-hand':
+    rotation=Matrix.Rotation(math.pi/2,4,'X')
+    for o in meshes:
+        for v in o.data.vertices:v.co=rotation@(o.matrix_world@v.co)
+        o.matrix_world.identity()
+points=[o.matrix_world@v.co for o in meshes for v in o.data.vertices]
+low=Vector(tuple(min(p[i] for p in points) for i in range(3)))
+high=Vector(tuple(max(p[i] for p in points) for i in range(3)))
+feet=points if name=='mage-hand' else [p for p in points if p.z<low.z+(high.z-low.z)*.035]
+cx=(min(p.x for p in feet)+max(p.x for p in feet))/2
+cy=(min(p.y for p in feet)+max(p.y for p in feet))/2
+radius=max(((p.x-cx)**2+(p.y-cy)**2)**.5 for p in feet)
+target_height=float(height_arg)
+scale=min(target_height/(high.z-low.z),foot_limit/max(radius, .000001))
+before=sum(len(o.data.polygons) for o in meshes)
+for o in meshes:
+    for v in o.data.vertices:
+        p=o.matrix_world@v.co
+        v.co=((p.x-cx)*scale,(p.y-cy)*scale,(p.z-low.z)*scale+(.22 if name=='mage-hand' else .055))
+    o.matrix_world.identity()
+    o.name=name+'_body'
+    bpy.context.view_layer.objects.active=o
+    o.data.validate(clean_customdata=False)
+    o.data.update()
+    for p in o.data.polygons:p.use_smooth=True
+body_triangles=sum(sum(len(p.vertices)-2 for p in o.data.polygons) for o in meshes)
+def material(name,color,roughness):
+    m=bpy.data.materials.new(name);m.diffuse_color=(*color,1);m.use_nodes=True
+    bs=m.node_tree.nodes.get('Principled BSDF');bs.inputs['Base Color'].default_value=(*color,1);bs.inputs['Roughness'].default_value=roughness;bs.inputs['Metallic'].default_value=.85
+    return m
+bpy.ops.mesh.primitive_cylinder_add(vertices=64,radius=base_radius,depth=.055,location=(0,0,.0275))
+base=bpy.context.object;base.name=name+'_round_base'
+base.data.materials.append(material('Dark pewter base',(.10,.11,.12),.35))
+bevel=base.modifiers.new('Soft rim','BEVEL');bevel.width=.008;bevel.segments=2
+bpy.ops.object.modifier_apply(modifier=bevel.name)
+for p in base.data.polygons:p.use_smooth=abs(p.normal.z)<.9
+bpy.ops.export_scene.gltf(filepath=str(out/(name+'-board-source.glb')),export_format='GLB',export_yup=True,export_animations=False)
+assert sha(source)==source_hash
+receipt={'name':name,'source':str(source),'sourceSha256':source_hash,'bodyTriangles':body_triangles,'sourceBodyTriangles':before,'uniformScale':scale,'bodyHeight':float((high.z-low.z)*scale),'baseDiameter':base_radius*2,'baseCenter':[0,0,0],'sourcePreserved':True,'baseTop':.055,'footRadiusAfterScale':radius*scale,'footRadiusLimit':foot_limit,'targetHeight':target_height,'orientation':'horizontal palm down' if name=='mage-hand' else 'upright','note':'Standard 20k JPEG95 derivative fitted with a round base; no further simplification.'}
+(out/'preparation.json').write_text(json.dumps(receipt,indent=2))
+print(json.dumps(receipt))

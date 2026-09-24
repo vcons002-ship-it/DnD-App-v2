@@ -12,11 +12,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@gltf-transform/core": "4.5.0",
+    "@gltf-transform/extensions": "4.5.0",
+    "@gltf-transform/functions": "4.5.0",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
+    "meshoptimizer": "1.2.0",
     "multer": "^2.0.1",
     "pdf-parse": "^2.4.5",
+    "sharp": "0.35.4",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
