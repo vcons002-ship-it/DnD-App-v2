@@ -43,7 +43,8 @@ export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'tr
 export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; miniatureWidthFt?: number }, appearance: MonsterAppearance = {}): number {
   if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;
   const family = token.kind === 'monster' ? resolveMonsterModelType(appearance) : '';
-  const factor = token.kind === 'pc' ? .8 : family === 'goblin' || family === 'wolf' ? .6 : .7;
+  // Druk's wider sculpted base needs a slightly larger default to match the other PCs.
+  const factor = token.kind === 'pc' ? (appearance.name?.trim().toLowerCase() === 'druk' ? .9 : .8) : family === 'goblin' || family === 'wolf' ? .6 : .7;
   return Math.round(token.widthFt * factor * (TIGHT_BASE_FAMILIES.includes(family) ? .96 : 1) * 100) / 100;
 }
 export function normalizeModelType(value: unknown): string {

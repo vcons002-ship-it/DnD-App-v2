@@ -8,7 +8,7 @@ import './miniature-size-control.css';
 export function MiniatureSizeControl({ token }: { token: Token | null }) {
   const resizeMiniature = useStore(s => s.resizeMiniature);
   const snapshot = useStore(s => s.snapshot);
-  const appearance = token?.kind === 'monster' ? snapshot?.monsters.find(m => m.id === token.refId) : undefined;
+  const appearance = token?.kind === 'monster' ? snapshot?.monsters.find(m => m.id === token.refId) : snapshot?.characters.find(c => c.id === token?.refId);
   const baseWidth = token ? miniatureBaseWidthFt(token, appearance) : 3.5;
   const inputId = useId();
   const [draft, setDraft] = useState(String(baseWidth));

@@ -797,7 +797,7 @@ export function MapStage({
     // grid×size — on a map whose grid isn't 5 ft/square those diverge and the
     // clickable disc mis-targets an emanation onto a neighbour.
     snapshot.tokens.find(
-      (t) => Math.hypot(p.x - t.x, p.y - t.y) <= (readyMiniatures.has(t.id) ? miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : undefined) : t.widthFt) / fpp / 2,
+      (t) => Math.hypot(p.x - t.x, p.y - t.y) <= (readyMiniatures.has(t.id) ? miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name }) : t.widthFt) / fpp / 2,
     );
 
   // DM scale control (committed on blur/Enter; synced from the live map). The
@@ -958,7 +958,7 @@ export function MapStage({
       facing: token.facing ?? 0,
       tint: monster ? monsterTint(monster) : undefined,
       activeTurn: token.id === activeTurnTokenId,
-      diameter: miniatureBaseWidthFt(token, monster) * pxPerFoot, hidden: token.isHidden, definition }] : [];
+      diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
   }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens, dragGhosts]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
@@ -1514,7 +1514,7 @@ export function MapStage({
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
-        miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : undefined)}
+        miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         draggable={
           draggableTokens && movable && !fogActive && !measureActive && !saveResolve
         }
