@@ -200,3 +200,8 @@ Monster round bases use a shared dark pewter finish at runtime: metallic shading
 and soft reflections emphasize a slightly raised, beveled metal lip. Creature colors and
 variant shades do not tint the metal. The central foot-contact plane and click
 footprints are unchanged; no extra model or texture downloads are required.
+
+The tilted ground canvases include inverse-projected viewport padding. Scene,
+hit and shape-compositing buffers cover the same area, while map coordinates
+and pointer math remain unchanged. This prevents black raster edges during
+panning; overhead mode uses the normal viewport-sized buffers.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PerspectiveCamera, Vector3 } from 'three';
-import { projectGround, unprojectGround, perspectiveDistance } from '../../client/src/canvas/miniatureProjection.js';
+import { projectGround, unprojectGround, perspectiveDistance, groundCanvasPadding } from '../../client/src/canvas/miniatureProjection.js';
 
 describe('tabletop perspective', () => {
   it('matches a real 3D camera on the ground plane, including off-center positions', () => {
@@ -25,4 +25,19 @@ describe('tabletop perspective', () => {
     expect(span(600, 45)).toBeGreaterThan(span(200, 45) * 1.4);
     expect(projectGround(111, 732, 1200, 800, 0)).toEqual({ x: 111, y: 732 });
   });
+});
+
+it('covers inverse-projected viewport edges with bounded canvas overscan', () => {
+  for (const [width,height] of [[1600,1000],[390,844],[2560,1440]]) {
+    expect(groundCanvasPadding(width,height,0)).toEqual({x:0,y:0});
+    const pad=groundCanvasPadding(width,height,45);
+    for(const x of [0,width/2,width]) for(const y of [0,height/2,height]) {
+      const p=unprojectGround(x,y,width,height,45);
+      expect(p.x+pad.x).toBeGreaterThanOrEqual(0);
+      expect(p.y+pad.y).toBeGreaterThanOrEqual(0);
+      expect(p.x+pad.x).toBeLessThan(width+2*pad.x);
+      expect(p.y+pad.y).toBeLessThan(height+2*pad.y);
+    }
+    expect(pad.x).toBeLessThan(width/2); expect(pad.y).toBeLessThan(height/2);
+  }
 });

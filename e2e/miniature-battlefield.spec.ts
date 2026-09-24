@@ -1180,3 +1180,36 @@ test('goblin variety loads the same model pool for DM and player', async ({ page
     expect([...dmPaths].sort()).toEqual([...expected].sort());
   } finally { await context.close(); }
 });
+
+test('tilted map draws and hit-tests beyond the original raster edge after zoom and resize', async ({page,request}) => {
+  const f=await fixture(page,request);
+  await enter(page,f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  for(let i=0;i<6;i++) await page.getByTitle('Zoom in',{exact:true}).click();
+  const edge = async () => {
+    await afterPaint(page);
+    return page.evaluate(() => {
+      const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+      const layer=stage.getLayers()[0], canvas=layer.getNativeCanvasElement();
+      const w=stage.width(),h=stage.height(),k=1/Math.max(w*.85,h*1.35,1);
+      const x=w/2,y=h/2+(30-h/2)/(1+(30-h/2)*k);
+      const px=-parseFloat(canvas.style.left),py=-parseFloat(canvas.style.top),ratio=canvas.width/parseFloat(canvas.style.width);
+      const pixel=Array.from(canvas.getContext('2d').getImageData(Math.round((x+px)*ratio),Math.round((y+py)*ratio),1,1).data);
+      return {y,pixel,hit:layer.getIntersection({x,y})?.getClassName(),extra:canvas.height>h*ratio};
+    });
+  };
+  for(const viewport of [{width:1440,height:1000},{width:1100,height:850}]) {
+    await page.setViewportSize(viewport);
+    const sample=await edge();
+    expect(sample.y).toBeLessThan(0); expect(sample.extra).toBe(true);
+    expect(sample.pixel[3]).toBe(255); expect(sample.pixel[0]).toBeGreaterThan(60);
+    expect(sample.hit).toBe('Image');
+  }
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  await afterPaint(page);
+  expect(await page.evaluate(()=>{
+    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+    const canvas=stage.getLayers()[0].getNativeCanvasElement();
+    return {left:canvas.style.left,transform:canvas.style.transform,width:parseFloat(canvas.style.width),stage:stage.width()};
+  })).toMatchObject({left:'0px',transform:'none',width:1100,stage:1100});
+});

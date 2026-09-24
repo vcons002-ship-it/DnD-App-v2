@@ -12,8 +12,9 @@ import { useImage } from './useImage';
 import { TokenShape } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
 import { MiniatureFallback } from './MiniatureFallback';
-import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, groundPerspectiveCss, perspectiveSlope, unprojectGround } from './miniatureProjection';
+import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround } from './miniatureProjection';
 import { useBoxSelection } from './useBoxSelection';
+import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
@@ -980,14 +981,11 @@ export function MapStage({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]) {
-      const canvas = layer?.getNativeCanvasElement();
-      if (canvas) {
-        canvas.style.transformOrigin = '50% 50%';
-        canvas.style.transform = groundPerspectiveCss(size.w, size.h, tiltDegrees);
-      }
-    }
-    return installPerspectiveInput(stage, size.w, size.h, tiltDegrees);
+    const cleanup = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]
+      .filter((layer): layer is Konva.Layer => !!layer)
+      .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees));
+    cleanup.push(installPerspectiveInput(stage, size.w, size.h, tiltDegrees));
+    return () => cleanup.forEach(fn => fn());
   }, [size.w, size.h, tiltDegrees, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({

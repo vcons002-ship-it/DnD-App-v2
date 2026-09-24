@@ -38,3 +38,13 @@ export function miniatureCameraTarget(width: number, height: number, view: Battl
   const center = screenToMap(width / 2, height / 2, view, tiltDegrees);
   return { x: center.x, z: center.y };
 }
+
+/** Source pixels needed before perspective; the far corners lie outside the viewport. */
+export function groundCanvasPadding(width: number, height: number, tilt: number) {
+  if (!tilt) return { x: 0, y: 0 };
+  const corners = [[0,0],[width,0],[0,height],[width,height]].map(([x,y]) => unprojectGround(x,y,width,height,tilt));
+  return {
+    x: Math.ceil(Math.max(0, ...corners.map(p => Math.max(-p.x, p.x-width)))) + 8,
+    y: Math.ceil(Math.max(0, ...corners.map(p => Math.max(-p.y, p.y-height)))) + 8,
+  };
+}
