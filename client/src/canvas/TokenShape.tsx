@@ -477,8 +477,10 @@ function TokenShapeInner({
         align="center"
         width={radius * 4}
         offsetX={radius * 2}
-        // Player names sit directly above their health bars, below the base.
-        y={token.kind === 'pc' ? radius + 4 : -radius - 18}
+        // Monster names clear the base, health bar and combat badge; PC layout stays compact.
+        y={token.kind === 'pc' ? radius + 4 : radius + Math.max(
+          hpFrac !== null ? 14 : 4, token.combatRole ? roleBadgeR - radius * .28 + 4 : 4,
+        )}
       />
       {/* HP bar (only when HP is visible to this viewer). */}
       {hpFrac !== null && (

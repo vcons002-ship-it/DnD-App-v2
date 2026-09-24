@@ -173,3 +173,7 @@ Player token names appear immediately above their health bars in 2D and 3D.
 Combat-style badges are omitted for PCs and retained for monster tokens.
 The player miniature default is 4 feet (about 14% larger than the earlier 3.5).
 Explicit per-token miniature widths continue to take precedence.
+
+Monster names sit below their bases and clear any visible health bar and
+combat-style badge, keeping labels off the model art. Player names remain
+immediately above their health bars. Labels never expand the base hit region.
