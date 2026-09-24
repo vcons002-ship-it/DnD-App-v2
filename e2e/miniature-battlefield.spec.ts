@@ -1291,6 +1291,7 @@ for (const tilted of [false, true]) test(`base overlap nudges a player drop in $
   }).toBeGreaterThan(30);
   const placed=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
   expect(Math.hypot(placed.x-varis.x,placed.y-varis.y)).toBeLessThan(60);
+  expect(placed.x).toBeLessThan(varis.x); // backs out to the approach side
   expect((await f.snapshot()).tokens.find(t=>t.id===varis.id)).toMatchObject({x:varis.x,y:varis.y});
   // Both the draggable hit region and the rendered miniature receive the accepted position.
   await expect.poll(()=>page.evaluate(id=>{

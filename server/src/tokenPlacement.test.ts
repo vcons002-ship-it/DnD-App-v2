@@ -10,6 +10,24 @@ describe('40 percent base overlap placement', () => {
     expect(p.x).toBeLessThan(0);
     expect(baseOverlap(20,20,Math.hypot(p.x,p.y))).toBeCloseTo(.4,5);
   });
+  it('backs out toward the start even when dropped beyond the other base center', () => {
+    const obstacle={x:0,y:0,radius:20};
+    for (const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]) {
+      const ux=Math.cos(angle),uy=Math.sin(angle);
+      const p=placeBase({x:ux*5,y:uy*5,radius:20},[obstacle],{x:-ux*100,y:-uy*100,radius:20});
+      expect(p.x*ux+p.y*uy).toBeLessThan(0);
+      expect(baseOverlap(20,20,Math.hypot(p.x,p.y))).toBeCloseTo(.4,5);
+    }
+  });
+  it('backs out past multiple collisions and falls back if the whole return path is blocked', () => {
+    const others=[{x:0,y:0,radius:20},{x:-25,y:0,radius:20}];
+    const p=placeBase({x:5,y:0,radius:20},others,{x:-100,y:0,radius:20});
+    expect(p.x).toBeLessThan(-25);
+    expect(p.y).toBe(0);
+    for(const o of others) expect(baseOverlap(20,20,Math.hypot(p.x-o.x,p.y-o.y))).toBeLessThanOrEqual(.400001);
+    const fallback=placeBase({x:5,y:0,radius:20},others,{x:-5,y:0,radius:20});
+    for(const o of others) expect(baseOverlap(20,20,Math.hypot(fallback.x-o.x,fallback.y-o.y))).toBeLessThanOrEqual(.400001);
+  });
   it('uses the smaller area for unequal bases and containment', () => {
     expect(baseOverlap(10,50,0)).toBe(1);
     const d=baseSeparation(10,50);

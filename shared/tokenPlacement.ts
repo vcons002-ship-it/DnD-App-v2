@@ -31,6 +31,28 @@ export function placeBase(moving: BaseCircle, others: BaseCircle[], previous = m
   const zones = others.filter(o=>o.radius>0).map(o=>({ ...o, radius:baseSeparation(moving.radius,o.radius)+1e-5 }));
   const valid = (p: {x:number;y:number}) => zones.every(z=>Math.hypot(p.x-z.x,p.y-z.y)>=z.radius-1e-7);
   if (moving.radius<=0 || valid(moving)) return {x:moving.x,y:moving.y};
+  // First backtrack along the move toward its committed starting position.
+  // Check all circle exits so a second nearby base cannot block the correction.
+  const backX = previous.x - moving.x, backY = previous.y - moving.y;
+  const backLength = Math.hypot(backX, backY);
+  if (backLength > 1e-9) {
+    const ux = backX / backLength, uy = backY / backLength;
+    const exits: number[] = [];
+    for (const zone of zones) {
+      const dx = moving.x - zone.x, dy = moving.y - zone.y;
+      const along = dx * ux + dy * uy;
+      const discriminant = along * along - (dx * dx + dy * dy - zone.radius * zone.radius);
+      if (discriminant < 0) continue;
+      const exit = -along + Math.sqrt(discriminant);
+      if (exit >= 0 && exit <= backLength + 1e-7) exits.push(Math.min(exit, backLength));
+    }
+    exits.push(backLength);
+    for (const distance of exits.sort((a,b)=>a-b)) {
+      const p = {x:moving.x + ux * distance,y:moving.y + uy * distance};
+      if (valid(p)) return p;
+    }
+  }
+  // Initial placement, or a blocked return path: use the closest available spot.
   let best: {x:number;y:number}|undefined, bestDistance=Infinity;
   const consider = (p: {x:number;y:number}) => {
     const distance=(p.x-moving.x)**2+(p.y-moving.y)**2;

@@ -295,8 +295,10 @@ if more than 30 feet from its caster, after 1 minute, or when recast.
 ### Base overlap on placement
 
 Creature token creation and completed moves limit circular base overlap to 40%
-of the smaller base area. The server chooses the closest valid position around
-all other bases on the same map; other tokens stay in place. Shared miniature
+of the smaller base area. The server first backs the token toward its movement starting position until
+it clears the overlap limit against every other base. If that return path is
+blocked (or this is initial placement), it chooses the nearest valid position.
+Other tokens stay in place. Shared miniature
 base widths (including custom sizing) and map scale drive the calculation, so
 camera tilt and individual 2D/3D preferences do not change placement. Objects
 such as doors, traps, and pasted scenery have no miniature base and are excluded.
