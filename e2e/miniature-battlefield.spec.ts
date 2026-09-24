@@ -206,7 +206,7 @@ test('monster miniatures load, recolor independently, use base hits and face the
       const hits = await dm.evaluate(id => {
         const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
         const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
-        return [[0, 0], [49, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => stage.getIntersection(node.getAbsoluteTransform().point({ x, y }))?.getAttr('tokenId') ?? null);
+        return [[0, 0], [29, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => stage.getIntersection(node.getAbsoluteTransform().point({ x, y }))?.getAttr('tokenId') ?? null);
       }, goblin.id);
       expect(hits).toEqual([goblin.id, goblin.id, null, null, null]);
       const start = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
@@ -381,7 +381,7 @@ test('movement heading survives reconnect and uses the same base hit region in b
     const hits = await page.evaluate(id => {
       const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
       const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
-      return [[0, 0], [49, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => {
+      return [[0, 0], [29, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => {
         const p = node.getAbsoluteTransform().point({ x, y });
         return stage.getIntersection(p)?.getAttr('tokenId') ?? null;
       });
@@ -1071,10 +1071,11 @@ test('players and DM size miniatures through the character panel and fit a five-
     const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
     const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
     const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
-    await expect(playerInput).toHaveValue('5');
+    await expect(playerInput).toHaveValue('3.5');
     expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     expect((await dmSize.boundingBox())!.height).toBeLessThanOrEqual(32);
-    const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.widthFt;
+    const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.miniatureWidthFt;
+    expect((await setup.snapshot()).tokens.find(t => t.id === druk.id)!.widthFt).toBe(5);
     const renderedDiameter = async (target: Page) => (await tokenView(target, druk.id))!.healthBars[0].width;
     await playerInput.fill('7.5'); await playerInput.press('Enter');
     await expect.poll(width).toBe(7.5);

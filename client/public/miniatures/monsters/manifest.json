@@ -207,15 +207,15 @@
     {
       "id": "stone-golem",
       "url": "/miniatures/monsters/stone-golem.glb",
-      "baseDiameter": 1,
+      "baseDiameter": 0.96,
       "baseCenter": [
         0,
         0,
         0
       ],
       "triangles": 20763,
-      "bytes": 1900600,
-      "sha256": "2775b0196345f8107b9cc8537d6a1aa3f14e637eee526ad01358549d2d84419f",
+      "bytes": 1900664,
+      "sha256": "7762cb9fc771aea3907ec41956d06f26f91102914084392bdc471aa2107a3046",
       "sourceSha256": "cef90097dfb8f2deb86cd97b2f431949d744986b913857344bd2428c4231967c",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
@@ -224,15 +224,15 @@
     {
       "id": "treant",
       "url": "/miniatures/monsters/treant.glb",
-      "baseDiameter": 1,
+      "baseDiameter": 0.96,
       "baseCenter": [
         0,
         0,
         0
       ],
       "triangles": 20763,
-      "bytes": 2282868,
-      "sha256": "2eda14b5b94cd16d88726b48100d880ec6c995682cdd12b19578359578a35c5f",
+      "bytes": 2282932,
+      "sha256": "70abbf129208972eef4a6426d6549920c8678401b133437307300e3c204ffc6a",
       "sourceSha256": "37b299dab02b640e17bcb52a2cac468e2680b54a0971dd672afd5b308c461f2e",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
@@ -241,15 +241,15 @@
     {
       "id": "troll",
       "url": "/miniatures/monsters/troll.glb",
-      "baseDiameter": 1,
+      "baseDiameter": 0.96,
       "baseCenter": [
         0,
         0,
         0
       ],
       "triangles": 20764,
-      "bytes": 1689708,
-      "sha256": "ffabbf429ad0baf6bf62697cc25f841ba8025e52d9cf25c47e2fff77769bb7b1",
+      "bytes": 1689772,
+      "sha256": "0097a1a350fc57ff55d66144ee83b5500347e9625a54f06da4fa24f7409dd88e",
       "sourceSha256": "c46ce87781fa3adaf64be47a43f45c4d2be9ae83fd850eaddf5bbd1f44273e1a",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
@@ -275,15 +275,15 @@
     {
       "id": "dragon",
       "url": "/miniatures/monsters/dragon.glb",
-      "baseDiameter": 1,
+      "baseDiameter": 0.96,
       "baseCenter": [
         0,
         0,
         0
       ],
       "triangles": 20764,
-      "bytes": 1558292,
-      "sha256": "d2b573e8a99f0fa352186edf818c2e2127845dadfb5e6a33cf27d73b7a9d0de1",
+      "bytes": 1558356,
+      "sha256": "603fdc856cb40e84af315581260d4d8efa39d1bf692738288ed6526333401c57",
       "sourceSha256": "ae1591ca23a78aa87f504269a934797183de530534a20a8a1722905aee4ea445",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
@@ -343,15 +343,15 @@
     {
       "id": "two-headed-dragon",
       "url": "/miniatures/monsters/two-headed-dragon.glb",
-      "baseDiameter": 1,
+      "baseDiameter": 0.96,
       "baseCenter": [
         0,
         0,
         0
       ],
       "triangles": 20764,
-      "bytes": 2096820,
-      "sha256": "908c364178e2135b66d77d8b69b8d53aa56363ef459e51551eab2603774cb9a2",
+      "bytes": 2096884,
+      "sha256": "0dcda1ddb7be7dfb7e73ea75205af29359769930f7b898990d771a92b9f0e523",
       "sourceSha256": "58f499513ff10d2eb12f62cace5f89ce45300bf2618219f0d5e83809360249d5",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
@@ -360,15 +360,15 @@
     {
       "id": "werebear",
       "url": "/miniatures/monsters/werebear.glb",
-      "baseDiameter": 1,
+      "baseDiameter": 0.96,
       "baseCenter": [
         0,
         0,
         0
       ],
       "triangles": 20764,
-      "bytes": 1944148,
-      "sha256": "db6ced9b1ef3aca5c2c19d26d4f06ef0e1e6509103aa4d25177a44e8bb6f9e08",
+      "bytes": 1944212,
+      "sha256": "1fb205edff24fbb2287703a4470ef87236a5f4d6ffa1bfcf55ca3229aebbf832",
       "sourceSha256": "2448a84d94fe09aa8fdd62d01ad2d7db03603ce34bcd4adb212e1df52def9872",
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",

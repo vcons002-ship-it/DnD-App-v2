@@ -35,7 +35,7 @@ for (const model of manifest.models) {
   assert(triangles >= 764 && triangles <= 40_764, 'Error-bounded reduced body plus fitted base');
   assert.equal(model.policy, 'monster-reduction-v1');
   assert.match(model.sourceSha256, /^[a-f0-9]{64}$/);
-  assert.equal(model.baseDiameter, 1);
+  assert.equal(model.baseDiameter, ['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear'].includes(model.id) ? .96 : 1);
   assert.deepEqual(model.baseCenter, [0, 0, 0]);
   console.log(`${model.id}: ${triangles.toLocaleString()} triangles, ${(bytes.length / 1e6).toFixed(2)} MB; SHA256 verified`);
 }

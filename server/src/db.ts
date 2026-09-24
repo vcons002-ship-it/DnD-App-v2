@@ -400,6 +400,7 @@ ensureColumn('tokens', 'combat_role_override', 'combat_role_override TEXT');
 // Real-world footprint width in feet (source of truth for token size; decoupled
 // from the visual grid). Backfill old saves from the legacy square size (5ft/sq).
 ensureColumn('tokens', 'width_ft', 'width_ft REAL');
+ensureColumn('tokens', 'miniature_width_ft', 'miniature_width_ft REAL');
 db.prepare('UPDATE tokens SET width_ft = size * 5 WHERE width_ft IS NULL').run();
 ensureColumn(
   'tokens',
@@ -600,6 +601,7 @@ type TokenRow = {
   y: number;
   size: number;
   width_ft: number | null;
+  miniature_width_ft?: number | null;
   initiative: number | null;
   is_hidden: number;
   combat_role_override: Token['combatRoleOverride'];
@@ -620,6 +622,7 @@ export function rowToToken(r: TokenRow): Token {
     facing: r.facing ?? 0,
     size: r.size,
     widthFt: r.width_ft ?? r.size * 5,
+    ...(r.miniature_width_ft == null ? {} : { miniatureWidthFt: r.miniature_width_ft }),
     initiative: r.initiative,
     isHidden: !!r.is_hidden,
     // NULL stays undefined = 'auto' (decided by visibility at roll time).

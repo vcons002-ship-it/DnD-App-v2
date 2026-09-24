@@ -134,6 +134,7 @@ import {
   importMaps,
   previewImportCharacters,
   resizeToken,
+  resizeMiniature,
   setTokenShape,
   createPastedObject,
   createSummon,
@@ -716,7 +717,7 @@ export function registerSocketHandlers(io: IOServer): void {
       broadcastTokenDrag(io, sid, socket.id, t, x, y);
     });
 
-    on('token:resize', ({ tokenId, widthFt }) => {
+    on('token:resize', ({ tokenId, widthFt, miniature }) => {
       const sid = sessionId(), token = getToken(tokenId);
       if (!sid || !token || getMap(token.mapId)?.sessionId !== sid || !Number.isFinite(widthFt)) return;
       if (!isDm()) {
@@ -725,7 +726,8 @@ export function registerSocketHandlers(io: IOServer): void {
         if (token.isHidden || token.mapId !== getActiveMapId(sid) || !character ||
           character.sessionId !== sid || character.claimedBy !== socket.id) return;
       }
-      resizeToken(tokenId, widthFt);
+      if (miniature === true) resizeMiniature(tokenId, widthFt);
+      else resizeToken(tokenId, widthFt);
       afterChange();
     });
 

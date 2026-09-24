@@ -9,12 +9,42 @@ export const MONSTER_MODEL_TYPES = [
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
-/** Initial base footprint only. Existing placements and manual sizes are preserved. */
+export const CREATURE_SPACE_FT = { tiny: 2.5, small: 5, medium: 5, large: 10, huge: 15, gargantuan: 20 } as const;
+export type CreatureSize = keyof typeof CREATURE_SPACE_FT;
+/** Stat-block size wins; names disambiguate age/forms before catalog fallbacks. */
+export function creatureSize(appearance: MonsterAppearance): CreatureSize {
+  if (appearance.objectKind) return 'medium';
+  const explicit = appearance.creatureType?.toLowerCase().match(/^(tiny|small|medium|large|huge|gargantuan)\b/)?.[1] as CreatureSize | undefined;
+  if (explicit) return explicit;
+  const family = resolveMonsterModelType(appearance), name = (appearance.name ?? '').toLowerCase();
+  if (family === 'dragon' || family === 'two-headed-dragon' || /\bdragon\b/.test(name)) {
+    if (/\bwyrmling\b/.test(name)) return 'medium';
+    if (/\byoung\b/.test(name)) return 'large';
+    if (/\bancient\b/.test(name)) return 'gargantuan';
+    return 'huge'; // Unspecified/custom dragon keeps the catalog adult default.
+  }
+  if (family === 'treant') return 'huge';
+  if (['troll', 'stone-golem', 'werebear'].includes(family) || /\bdire wolf\b|\bgiant spider\b|\bgiant constrictor snake\b/.test(name)) return /giant constrictor snake/.test(name) ? 'huge' : 'large';
+  if (family === 'spider') return /giant/.test(name) ? 'large' : 'tiny';
+  if (family === 'snake') {
+    if (/giant.*constrict/.test(name)) return 'huge';
+    if (/constrict|large/.test(name)) return 'large';
+    return /giant/.test(name) ? 'medium' : 'tiny';
+  }
+  if (family === 'goblin') return 'small';
+  return 'medium';
+}
+/** New placements only; existing occupied spaces and DM choices are preserved. */
 export function defaultMonsterWidthFt(appearance: MonsterAppearance): number {
-  const family = resolveMonsterModelType(appearance);
-  if (['dragon', 'two-headed-dragon', 'treant'].includes(family)) return 15;
-  if (['troll', 'stone-golem', 'werebear'].includes(family)) return 10;
-  return 5;
+  return CREATURE_SPACE_FT[creatureSize(appearance)];
+}
+export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear'];
+/** Visible base width is independent of combat space and can be overridden. */
+export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; miniatureWidthFt?: number }, appearance: MonsterAppearance = {}): number {
+  if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;
+  const family = token.kind === 'monster' ? resolveMonsterModelType(appearance) : '';
+  const factor = family === 'goblin' || family === 'wolf' ? .6 : .7;
+  return Math.round(token.widthFt * factor * (TIGHT_BASE_FAMILIES.includes(family) ? .96 : 1) * 100) / 100;
 }
 export function normalizeModelType(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase().replace(/[^a-z0-9 -]/g, '').slice(0, 48) : '';
@@ -42,7 +72,7 @@ export function resolveMonsterModelType(m: MonsterAppearance): string {
   const explicit = normalizeModelType(m.modelType);
   if (explicit) return explicit; // unknown physical families retain their 2D fallback
   const candidate = (value: string) => {
-    const words = value.toLowerCase().replace(/\[[^\]]*\]/g, '').replace(/\s+\d+$/, '').trim().split(/\s+/).filter(t => !tagColor(MONSTER_COLORS, t) && !tagColor(THEMES, t));
+    const words = value.toLowerCase().replace(/\[[^\]]*\]/g, '').replace(/\s+\d+$/, '').trim().split(/\s+/).filter(t => !Object.hasOwn(CREATURE_SPACE_FT, t) && !tagColor(MONSTER_COLORS, t) && !tagColor(THEMES, t));
     const name = words.join(' ');
     return name === 'dire wolf' ? 'wolf' : MONSTER_MODEL_TYPES.find(t => t === name) ?? '';
   };

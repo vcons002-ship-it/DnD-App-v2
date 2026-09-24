@@ -16,7 +16,7 @@ function client(sessionId: string, mapId: string, role: 'player' | 'dm' | null) 
   connections.push(id);
   connect({ id, on: (event: string, handler: (payload: unknown) => void) => handlers.set(event, handler), emit: vi.fn() });
   if (role) setConn(id, { sessionId, role, viewMapId: mapId, playerId: null });
-  return { id, resize: (tokenId: string, widthFt: unknown) => handlers.get('token:resize')!({ tokenId, widthFt }) };
+  return { id, resize: (tokenId: string, widthFt: unknown, miniature = false) => handlers.get('token:resize')!({ tokenId, widthFt, miniature }) };
 }
 function fixture() {
   const session = createSession('Figure sizing');
@@ -28,6 +28,16 @@ function fixture() {
 }
 
 describe('character figure resizing permissions', () => {
+  it('saves visible base size separately and enforces ownership for miniature overrides', () => {
+    const f = fixture(), player = client(f.session.id, f.map.id, 'player'), stranger = client(f.session.id, f.map.id, 'player');
+    claimCharacter(f.character.id, player.id);
+    player.resize(f.token.id, 3.5, true);
+    expect(getToken(f.token.id)).toMatchObject({widthFt:5, size:1, miniatureWidthFt:3.5});
+    stranger.resize(f.token.id, 12, true);
+    expect(getToken(f.token.id)?.miniatureWidthFt).toBe(3.5);
+    player.resize(f.token.id, 5, true);
+    expect(getToken(f.token.id)).toMatchObject({widthFt:5, size:1, miniatureWidthFt:5});
+  });
   it('allows the owner and DM to save widths and fit to five feet without changing position', () => {
     const f = fixture(), player = client(f.session.id, f.map.id, 'player'), dm = client(f.session.id, f.map.id, 'dm');
     claimCharacter(f.character.id, player.id);

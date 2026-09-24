@@ -42,14 +42,31 @@ They belong to the creature's stored information, rather than a map placement;
 the per-placement size control remains in DM tools.
 Enemy player snapshots include public appearance without exposing combat stats.
 
-## Default sizes
+## Rules space and miniature size
 
-New humanoid and ordinary creature tokens start with a 5-foot base. Trolls,
-stone golems and werebears start at 10 feet; dragons, two-headed dragons and
-treants start at 15 feet. These are editable catalog defaults, not a new stat
-or automatic change to existing placements. Objects and unknown families retain
-5 feet. Duplicating a token preserves its current manual size, including 5 feet.
-The compact sizing control remains available; Fit to map explicitly sets 5 feet.
+Occupied combat space follows D&D categories: Tiny 2.5 ft, Small/Medium 5 ft,
+Large 10 ft, Huge 15 ft, Gargantuan 20 ft. An explicit size at the beginning of
+creature type (e.g. `Large giant`) wins. Dragon age, named giant/dire variants,
+and known model families supply defaults when no stat-block size is supplied.
+The AI requests this size prefix. Unknown creatures default to Medium; custom
+and unspecified dragons use Huge until the DM specifies otherwise. The werebear
+catalog depicts its Large bear/hybrid form. Existing occupied widths are retained.
+
+Visible miniatures are smaller than occupied space: a typical Medium figure has
+a 3.5-foot base, and ordinary goblins/wolves have 3-foot bases. Larger figures
+scale at 70% of their combat width. The six large catalog models additionally
+use tight bases with radius 0.48 around foot contact radius 0.465, producing
+6.72/10.08/13.44-foot visible bases for Large/Huge/Gargantuan models. Tightening
+the base does not enlarge the body or change combat space.
+
+The compact 3D size control saves an independent `miniatureWidthFt` override.
+Fit to map sets the visible base to 5 feet without changing occupied space.
+Both roles share that override; copying a token preserves it. 2D fallback uses
+the combat footprint. 3D hit tests, selection rings and HUD use the visible base.
+Distance/range math continues to use occupied space. No live token widths are
+rewritten by this change.
+
+Rules reference: https://www.dndbeyond.com/sources/dnd/br-2024/playing-the-game
 
 ## Visibility and interaction
 
@@ -96,7 +113,7 @@ reloads and validates its output, and preserves the original. The prior reductio
 tool uses glTF Transform 4.5.0, meshoptimizer 1.2.0 and Sharp 0.35.4.
 
 For this integration, Blender fitted each reduced body by its foot contact to a
-unit-diameter round base (top at 0.055). Family-specific desired heights are
+round base (top at 0.055; diameter 1, or 0.96 for tight large-family bases). Family-specific desired heights are
 recorded in the workflow. Humanoid proportions use the existing PCs as a scale
 reference, allowing limited toe overhang (radius 0.6) so wide combat stances are
 not disproportionately shrunk. Other families retain the 0.465 foot-fit limit. No additional
@@ -135,7 +152,7 @@ and exercise both roles, both views, DM appearance edits, base hits, dragging,
 2D fallback/toggling, map/token fog and concealed previews.
 
 Verified for the expanded catalog on 2026-09-23: typecheck and production build
-passed; 619 tests in 67 server files and two backfill tests passed. Five browser
+passed; 621 tests in 67 server files and two backfill tests passed. Five browser
 checks passed: all 24 families plus the three PCs, the real-map preview in both
 views, independent tint/base hits/drag facing, whole-token fog concealment, and player/DM sizing with Fit to map.
 The 24 runtime monster assets total 40.35 MB; each is 1.38-2.60 MB. Of the 23
@@ -145,3 +162,8 @@ The existing wolf is retained. Desktop checks are not a mobile performance test.
 Reduced geometry lowers draw work per monster, and cached shared textures avoid
 one download per copy. This is not GPU instancing: each miniature still incurs
 draw calls. Crowded-board/mobile performance needs separate measurement.
+
+Verified compact sizing: all 24 battlefield browser checks passed, including
+mobile input, fog, base hits, UI, resizing, view persistence and fallback.
+After final name/size inference refinements, the catalog and sizing browser
+checks passed again. Existing distance tests also pass with visual overrides.

@@ -551,8 +551,14 @@ export function moveToken(tokenId: string, x: number, y: number): Token | null {
   return getToken(tokenId);
 }
 
-/** Resize a token by its real footprint WIDTH IN FEET (min 2.5ft = Tiny). The
- *  legacy square `size` is kept in sync (widthFt / 5) for back-compat. */
+/** Change only the visible 3D base; occupied space and range math stay intact. */
+export function resizeMiniature(tokenId: string, widthFt: number): Token | null {
+  if (!Number.isFinite(widthFt)) return getToken(tokenId);
+  const width = Math.min(120, Math.max(.5, Math.round(widthFt * 2) / 2));
+  db.prepare('UPDATE tokens SET miniature_width_ft = ? WHERE id = ?').run(width, tokenId);
+  return getToken(tokenId);
+}
+/** Change occupied space and keep the legacy grid size in sync. */
 export function resizeToken(tokenId: string, widthFt: number): Token | null {
   // Snap to half-foot steps; 0.5 ft minimum allows small objects, 120 ft caps
   // gargantuan set pieces. The legacy grid-square `size` stays in sync.
@@ -1069,6 +1075,7 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
     isHidden: token.isHidden,
   });
   if (token.widthFt !== copy.widthFt) resizeToken(copy.id, token.widthFt);
+  if (token.miniatureWidthFt !== undefined) resizeMiniature(copy.id, token.miniatureWidthFt);
   db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(token.facing ?? 0, copy.id);
   return getToken(copy.id);
 });

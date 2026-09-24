@@ -43,6 +43,7 @@ type Props = {
   listening?: boolean;
   /** Replaces the portrait and PC name; health and the hit region stay live. */
   miniatureReady?: boolean;
+  miniatureDiameterFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -78,6 +79,7 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  miniatureDiameterFt,
   onSelect,
   onActivate,
   onMove,
@@ -91,7 +93,7 @@ function TokenShapeInner({
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
-  const radius = (token.widthFt * pxPerFoot) / 2;
+  const radius = ((miniatureReady ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
   // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
   // pixel delta into a real-world distance for the live readout.
   const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;
@@ -676,6 +678,7 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&

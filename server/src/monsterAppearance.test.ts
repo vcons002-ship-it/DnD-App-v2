@@ -1,6 +1,6 @@
 ﻿import { describe, it, expect, vi, afterEach } from 'vitest';
-import { monsterTint, normalizeVisualTags, normalizeModelType, resolveMonsterModelType } from '../../shared/monsterAppearance.js';
-import { createSession, createMap, setActiveMap, createMonsterTemplate, instantiateMonster, copyMonster, createToken, updateMonster, getMonster, setFogLayer, setFogRevealed, moveToken, duplicateToken, resizeToken, createCharacter, claimCharacter } from './sessions.js';
+import { creatureSize, defaultMonsterWidthFt, miniatureBaseWidthFt, monsterTint, normalizeVisualTags, normalizeModelType, resolveMonsterModelType } from '../../shared/monsterAppearance.js';
+import { createSession, createMap, setActiveMap, createMonsterTemplate, instantiateMonster, copyMonster, createToken, updateMonster, getMonster, setFogLayer, setFogRevealed, moveToken, duplicateToken, resizeToken, resizeMiniature, createCharacter, claimCharacter } from './sessions.js';
 import { buildSnapshot } from './visibility.js';
 import { saveLibraryCreature, getLibraryCreature } from './library.js';
 import { broadcastTokenDrag, setConn, dropConn, type IOServer } from './connections.js';
@@ -11,6 +11,23 @@ vi.mock('./ai/gateway.js', () => ({ aiAvailable: () => true, generateJson: vi.fn
 afterEach(() => { dropConn('appearance-player'); dropConn('appearance-dm'); vi.clearAllMocks(); });
 
 describe('monster appearance', () => {
+  it('separates rule-sized space from compact miniature bases and respects dragon age', () => {
+    expect(creatureSize({modelType:'goblin'})).toBe('small');
+    expect(creatureSize({modelType:'wolf'})).toBe('medium');
+    expect(defaultMonsterWidthFt({name:'Giant Spider',modelType:'spider'})).toBe(10);
+    expect(defaultMonsterWidthFt({name:'Large Constricting Snake',modelType:'snake'})).toBe(10);
+    expect(defaultMonsterWidthFt({name:'Giant Constrictor Snake',modelType:'snake'})).toBe(15);
+    expect(defaultMonsterWidthFt({name:'Spider',modelType:'spider'})).toBe(2.5);
+    for (const [name, width] of [['Red Dragon Wyrmling',5],['Young Red Dragon',10],['Adult Red Dragon',15],['Ancient Red Dragon',20]] as const) {
+      expect(defaultMonsterWidthFt({name,modelType:'dragon'})).toBe(width);
+    }
+    expect(defaultMonsterWidthFt({name:'Young dragon',modelType:'dragon',creatureType:'Huge dragon'})).toBe(15);
+    expect(miniatureBaseWidthFt({kind:'pc',widthFt:5})).toBe(3.5);
+    for (const modelType of ['goblin','wolf']) expect(miniatureBaseWidthFt({kind:'monster',widthFt:5},{modelType})).toBe(3);
+    expect(miniatureBaseWidthFt({kind:'monster',widthFt:10},{modelType:'troll'})).toBe(6.72);
+    expect(miniatureBaseWidthFt({kind:'monster',widthFt:15},{modelType:'dragon'})).toBe(10.08);
+    expect(miniatureBaseWidthFt({kind:'pc',widthFt:5,miniatureWidthFt:5})).toBe(5);
+  });
   it('starts known large families at proportional footprints and preserves manual sizes when duplicating', () => {
     const session = createSession('Family sizes');
     const map = createMap(session.id, { name: 'Sizes' });
@@ -20,7 +37,8 @@ describe('monster appearance', () => {
       expect(token.widthFt).toBe(widthFt);
       expect(token.size).toBe(widthFt / 5);
       resizeToken(token.id, 5);
-      expect(duplicateToken(token.id)?.widthFt).toBe(5);
+      resizeMiniature(token.id, 3.5);
+      expect(duplicateToken(token.id)).toMatchObject({widthFt:5, miniatureWidthFt:3.5});
     }
     const prop = createMonsterTemplate(session.id, { name: 'Dragon statue', modelType: 'dragon', objectKind: 'other', maxHp: 1 });
     expect(createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(prop.id)!.id, x: 0, y: 0 }).widthFt).toBe(5);

@@ -257,6 +257,7 @@ type Store = {
   ) => void;
   moveToken: (tokenId: string, x: number, y: number) => void;
   resizeToken: (tokenId: string, widthFt: number) => void;
+  resizeMiniature: (tokenId: string, widthFt: number) => void;
   setTokenShape: (tokenId: string, shape: TokenShape) => void;
   deleteToken: (tokenId: string) => void;
   duplicateToken: (tokenId: string) => void;
@@ -930,6 +931,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('token:spawn', { mapId, kind, refId, x, y }),
   moveToken: (tokenId, x, y) =>
     get().socket?.emit('token:move', { tokenId, x, y }),
+  resizeMiniature: (tokenId, widthFt) => get().socket?.emit('token:resize', { tokenId, widthFt, miniature: true }),
   resizeToken: (tokenId, widthFt) =>
     get().socket?.emit('token:resize', { tokenId, widthFt }),
   setTokenShape: (tokenId, shape) =>
