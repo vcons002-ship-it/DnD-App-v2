@@ -219,3 +219,6 @@ Token names have black text outlines in both rendering modes. Ready 3D monsters
 replace the disposition dot with a thin screen-space outline (green friendly,
 amber neutral, red enemy). The shell shares model geometry, follows dragging and
 fog visibility, and has no pointer hit region. 2D/fallback tokens retain the dot.
+
+The outline uses a shared stencil mask of visible miniature surfaces to keep color
+on the outer silhouette and prevent lines over interior body/weapon/base surfaces.

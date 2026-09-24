@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
+  AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
 } from 'three';
@@ -101,7 +101,7 @@ function applyFx(instance: Instance, seconds: number) {
 
 /** One renderer for all visible miniatures. Konva remains the sole input owner. */
 function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string[], status: string) => void): Engine {
-  const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+  const renderer = new WebGLRenderer({ alpha: true, antialias: true, stencil: true, powerPreference: 'low-power' });
   renderer.setClearColor(0, 0);
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
@@ -343,7 +343,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         model.traverse((node) => {
           if (!(node instanceof Mesh)) return;
           const copy = (material: Material) => {
-            if (!cloned.has(material)) cloned.set(material, material.clone());
+            if (!cloned.has(material)) {
+              const copy = material.clone();
+              // Mark the complete visible figure, not individual mesh boundaries.
+              // All bodies mask outlines so overlapping tokens also stay clean.
+              copy.stencilWrite = true;
+              copy.stencilRef = 1;
+              copy.stencilFunc = AlwaysStencilFunc;
+              copy.stencilZPass = ReplaceStencilOp;
+              cloned.set(material, copy);
+            }
             return cloned.get(material)!;
           };
           node.material = Array.isArray(node.material) ? node.material.map(copy) : copy(node.material);
@@ -352,6 +361,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const outlineViewport = { value: new Vector2(props.width, props.height) };
         const outlineMaterial = new MeshBasicMaterial({
           side: BackSide, depthWrite: false, transparent: true, toneMapped: false,
+          stencilWrite: true, stencilRef: 1, stencilFunc: NotEqualStencilFunc,
+          stencilFail: KeepStencilOp, stencilZFail: KeepStencilOp, stencilZPass: KeepStencilOp,
         });
         outlineMaterial.onBeforeCompile = shader => {
           shader.uniforms.outlineViewport = outlineViewport;
