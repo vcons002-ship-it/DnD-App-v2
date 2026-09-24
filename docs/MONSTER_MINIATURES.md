@@ -251,3 +251,9 @@ feature is first run; historical sightings cannot be reconstructed.
 Tracking tags now sit inline beside the creature name for both viewers, with
 reserved tag space so name truncation never hides the tracking identifier.
 Selection remains a thick white base ring alongside the colored affinity outline.
+
+3D selection rings now render on the ground in the miniature depth buffer,
+so bases, bodies, and weapons occlude them. Monster bases use a thicker lathed
+pewter profile, beveled rim, dark side band, metallic reflections and fine
+procedural machining texture. Bodies are lifted by the exact top-height change
+to preserve foot contact; base footprints and hit areas are unchanged.

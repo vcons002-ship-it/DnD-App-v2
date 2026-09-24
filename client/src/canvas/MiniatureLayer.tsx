@@ -25,6 +25,7 @@ export type MiniatureToken = {
   outline?: string;
   shade?: [number, number, number];
   activeTurn?: boolean;
+  selected?: boolean;
   definition: MiniatureDefinition;
 };
 type Props = {
@@ -51,6 +52,7 @@ type Instance = {
   outlineMaterial: MeshBasicMaterial;
   outlineViewport: { value: Vector2 };
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
+  selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
   url: string;
   materials: Material[];
   originalColors: Array<Color | null>;
@@ -247,6 +249,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
     instance.outlineMaterial.dispose();
+    instance.selectionRing.geometry.dispose();
+    instance.selectionRing.material.dispose();
     instance.turnRing.geometry.dispose();
     instance.turnRing.material.dispose();
     instances.delete(id);
@@ -263,6 +267,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
     instance.turnRing.visible = !!token.activeTurn;
+    instance.selectionRing.visible = !!token.selected;
+    instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
+    instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
     instance.outlineMaterial.visible = !!token.outline;
     instance.outlineMaterial.color.set(token.outline ?? "#000000");
     instance.outlineMaterial.opacity = token.hidden ? 0.45 : 1;
@@ -339,6 +346,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         turnRing.position.y = 0.001;
         turnRing.renderOrder = -1;
         root.add(turnRing);
+        const selectionRing = new Mesh(new RingGeometry(0.505, 0.55, 96), new MeshBasicMaterial({
+          color: '#ffffff', transparent: true, depthWrite: false, toneMapped: false,
+        }));
+        selectionRing.name = 'token-selection-ring';
+        selectionRing.rotation.x = -Math.PI / 2;
+        selectionRing.position.y = 0.002;
+        selectionRing.renderOrder = -1;
+        root.add(selectionRing);
         const cloned = new Map<Material, Material>();
         model.traverse((node) => {
           if (!(node instanceof Mesh)) return;
@@ -396,7 +411,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          root, outlineMaterial, outlineViewport, turnRing, url: definition.url, materials,
+          root, outlineMaterial, outlineViewport, turnRing, selectionRing, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,

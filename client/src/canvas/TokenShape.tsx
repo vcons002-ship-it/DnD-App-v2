@@ -410,7 +410,6 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
-      {miniatureReady && selected && <Circle name="token-selection-ring" radius={radius} stroke="#ffffff" strokeWidth={4} />}
       <Group name="token-body" visible={!miniatureReady}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (

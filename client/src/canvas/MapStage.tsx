@@ -967,8 +967,9 @@ export function MapStage({
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster ? monsterVariation(resolveMonsterModelType(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
+      selected: selectedIds.includes(token.id),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, use3dTokens, use3dMonsters, dragGhosts]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, use3dTokens, use3dMonsters, dragGhosts]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
