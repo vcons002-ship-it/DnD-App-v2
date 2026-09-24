@@ -99,11 +99,11 @@ test('DM map controls remain unobscured above the full-width battlefield', async
   await page.goto(`/dm?code=${code}`);
   await page.locator('input[type="password"]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
-  await expect(page.locator('.stage-controls')).toBeVisible();
+  await expect(page.locator('.topbar .map-view-controls')).toBeVisible();
+  await expect(page.locator('.stage-wrap .stage-controls')).toHaveCount(0);
   await expect(page.locator('.player-layout-controls')).toHaveCount(0);
   const stage = (await page.locator('.stage-wrap').boundingBox())!;
-  const controls = (await page.locator('.stage-controls').boundingBox())!;
-  expect(controls.y - stage.y).toBeCloseTo(12, 0);
-  expect(stage.x + stage.width - controls.x - controls.width).toBeCloseTo(14, 0);
+  const controls = (await page.locator('.map-view-controls').boundingBox())!;
+  expect(controls.y + controls.height).toBeLessThanOrEqual(stage.y + 1);
   await unobscured(page.getByTitle('Zoom in', { exact: true }));
 });

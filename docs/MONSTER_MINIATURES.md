@@ -210,3 +210,7 @@ Players and Monsters have independent 2D/3D toolbar controls for both roles.
 Each viewer stores both preferences locally. The former combined preference
 is inherited by both categories on first use, and changing one preserves the
 other across reloads. Unknown monster families keep their 2D fallback.
+
+Zoom/Fit, overhead/45-degree view and both token appearance controls are
+portaled into the main toolbar for both roles. Dice controls retain their map
+position. The main toolbar wraps on narrow screens with category labels visible.

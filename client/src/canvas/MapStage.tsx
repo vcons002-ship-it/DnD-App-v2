@@ -1549,7 +1549,7 @@ export function MapStage({
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>
-          <div className="stage-controls">
+          {toolSlot && createPortal(<div className="map-view-controls" role="group" aria-label="Map view controls">
             <button
               className="btn tiny zoom-btn"
               onClick={() => zoomBy(1 / 1.25)}
@@ -1596,7 +1596,7 @@ export function MapStage({
                   }}>{enabled ? '3D' : '2D'}</button>
               ))}
             </div>)}
-          </div>
+          </div>, toolSlot)}
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
               via a portal, but keep all their state/handlers here in MapStage. */}
           {toolSlot &&

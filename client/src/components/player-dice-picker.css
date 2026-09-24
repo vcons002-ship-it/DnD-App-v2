@@ -122,11 +122,11 @@
 }
 @media (max-width: 1000px) {
   /* A narrow hover bridge passes down the die's own lane, to the left of the
-     zoom buttons. The card opens below the wrapped control rows, so neither the visible menu
+     zoom buttons. Map view controls live in the main toolbar; the card opens in the dice lane, so neither the visible menu
      nor an invisible padded rectangle steals a zoom/fit click. */
   .player-fantasy .player-dice-picker .player-dice-menu-region {
     width: 59px;
-    padding-top: 144px;
+    padding-top: 8px;
   }
   .player-fantasy .player-dice-picker .player-dice-menu-region .dice-quick-menu {
     width: min(232px, calc((100vw - 20px) / var(--player-ui-scale, .85)));

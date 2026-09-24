@@ -113,8 +113,10 @@ textarea:hover:not(:disabled) {
 }
 .topbar .code { color: var(--muted); }
 /* Map Measure/Scale/Fog menus portaled up from the canvas; sits before actions. */
-.map-tool-slot { display: flex; align-items: center; }
-.map-tool-menus { display: flex; align-items: center; gap: 6px; }
+.map-tool-slot { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-width: 0; max-width: 100%; }
+.map-view-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+.map-view-controls .battlefield-view-options { flex-shrink: 0; }
+.map-tool-menus { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .active-map em { color: var(--accent); font-style: italic; }
 .body { display: flex; flex: 1; min-height: 0; position: relative; }
 /* overflow:hidden so the fixed-pixel canvas can't shove the layout around for
