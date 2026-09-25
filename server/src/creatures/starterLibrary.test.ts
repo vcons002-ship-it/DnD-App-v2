@@ -8,7 +8,7 @@ import { createSession, createMonsterTemplate, instantiateMonster } from '../ses
 describe('curated 3D starter library', () => {
   it('has complete creature stats, usable attacks, real model families and sensible sizes', () => {
     const entries = starterCreatures();
-    expect(entries).toHaveLength(23);
+    expect(entries).toHaveLength(31);
     expect(new Set(entries.map(c => c.name)).size).toBe(entries.length);
     for (const c of entries) {
       expect(MONSTER_MODEL_TYPES).toContain(c.modelType);
@@ -29,6 +29,7 @@ describe('curated 3D starter library', () => {
     expect(creatureSize(entries.find(c => c.name === 'Dire Wolf')!)).toBe('large');
   });
   it('adds Imp to an already seeded library without restoring deleted older entries', () => {
+    db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v1', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-creatures-3d-v1', '1');
     db.prepare('DELETE FROM app_meta WHERE key = ?').run('starter-creature-imp-v1');
     deleteLibraryCreature('Imp'); deleteLibraryCreature('Giant Rat');
@@ -67,6 +68,17 @@ describe('curated 3D starter library', () => {
     deleteLibraryCreature('Giant Rat');
     expect(seedLibraryCreatures()).toBe(0);
     expect(getLibraryCreature('Giant Rat')).toBeNull();
+  });
+  it('adds the common batch once and repairs blank stats without replacing edited fields', () => {
+    db.prepare('DELETE FROM app_meta WHERE key IN (?,?)').run('starter-common-creatures-v1', 'library-stat-completeness-v1');
+    deleteLibraryCreature('Bugbear');
+    saveLibraryCreature({ name: 'Cultist', maxHp: 55, armorClass: 9, stats: { STR: 17 }, icon: '/custom.png' }, true);
+    seedLibraryCreatures();
+    expect(getLibraryCreature('Bugbear')?.modelType).toBe('bugbear');
+    expect(getLibraryCreature('Cultist')).toMatchObject({ maxHp: 55, armorClass: 9, stats: { STR: 17, DEX: 12 }, icon: '/custom.png' });
+    expect(getLibraryCreature('Cultist')?.weapons?.[0].name).toBe('Scimitar');
+    deleteLibraryCreature('Bugbear'); seedLibraryCreatures();
+    expect(getLibraryCreature('Bugbear')).toBeNull();
   });
 });
 

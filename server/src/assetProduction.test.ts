@@ -26,13 +26,13 @@ it('deduplicates pending and ready jobs and runs only one producer at a time', a
   let finish: (result: ProducedMiniature) => void = () => {};
   const producer = vi.fn((job: { family: string }) => new Promise<ProducedMiniature>(resolve => { finish = resolve; }));
   const queue = new AssetQueue(file(), producer);
-  queue.enqueue({ name: 'Elephant 1' }); queue.enqueue({ name: 'Elephant 2', modelColor: 'blue' }); queue.enqueue({ name: 'Owlbear' });
+  queue.enqueue({ name: 'Elephant 1' }); queue.enqueue({ name: 'Elephant 2', modelColor: 'blue' }); queue.enqueue({ name: 'Uncatalogued test beast' });
   queue.start(); expect(producer).toHaveBeenCalledTimes(1);
   expect(queue.snapshot().jobs).toHaveLength(2);
   finish(model('elephant'));
   await vi.waitFor(() => expect(producer).toHaveBeenCalledTimes(2));
   queue.enqueue({ name: 'Elephant 3' }); expect(queue.snapshot().jobs).toHaveLength(2);
-  finish(model('owlbear'));
+  finish(model('uncatalogued-test-beast'));
   await vi.waitFor(() => expect(queue.snapshot().models).toHaveLength(2));
 });
 
@@ -65,7 +65,7 @@ it('keeps failed models out of the catalog and supports a deliberate retry', asy
 
 it('pauses on uncertain worker completion and does not start the next GPU job', async () => {
   const producer = vi.fn().mockRejectedValue(new ProductionError('Worker timed out', true));
-  const queue = new AssetQueue(file(), producer); queue.enqueue({ name: 'Elephant' }); queue.enqueue({ name: 'Owlbear' }); queue.start();
+  const queue = new AssetQueue(file(), producer); queue.enqueue({ name: 'Elephant' }); queue.enqueue({ name: 'Uncatalogued test beast' }); queue.start();
   await vi.waitFor(() => expect(queue.snapshot().paused).toBe(true));
   expect(producer).toHaveBeenCalledTimes(1); expect(queue.snapshot().jobs[1].state).toBe('queued');
 });

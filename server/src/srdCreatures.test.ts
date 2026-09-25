@@ -11,7 +11,7 @@ describe('SRD creature database — completeness', () => {
   it('every creature has a FULL stat block + attacks at a real CR', () => {
     for (const c of all) {
       const where = c.name;
-      expect(c.level, `${where} CR`).toBeGreaterThan(0); // intended power level set
+      expect(c.level, `${where} CR`).toBeGreaterThanOrEqual(0); // Commoner is legitimately CR 0
       expect(c.maxHp, `${where} HP`).toBeGreaterThan(0);
       expect(c.armorClass, `${where} AC`).toBeGreaterThan(0);
       expect(c.speed, `${where} speed`).toBeTruthy();

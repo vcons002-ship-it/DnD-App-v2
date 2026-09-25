@@ -48,7 +48,12 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   const ready = await fs.access(path.join(refs, 'views.json')).then(() => true, () => false);
   if (!ready) {
     progress('Generating four reference views');
-    const prompt = `A clean 2 by 2 orthographic character turnaround sheet of one ${job.family.replaceAll('-', ' ')} D&D miniature. Exactly four equal square panels: top left front, top right back, bottom left left side, bottom right right side. Same character, proportions, colors and ready pose in every panel. Simple equipment, weapons held ready when appropriate. Full body and feet centered with generous white margin in each panel. Detailed painted miniature. Plain white background. No base, text, labels, borders or effects.`;
+    const anatomy = job.family === 'owlbear'
+      ? 'A wild owlbear: a bulky four-legged bear body with an owl head, beak, feathers and large claws. Animal anatomy, no clothing, armor or weapons.'
+      : job.family === 'brown-bear'
+      ? 'A realistic brown bear standing on all four paws, alert with its mouth open. Animal anatomy, no clothing, armor or weapons.'
+      : 'Natural anatomy for this creature. Only humanoid weapon users carry simple equipment with weapons held ready; animals have no clothing or equipment.';
+    const prompt = `A clean 2 by 2 orthographic character turnaround sheet of one ${job.family.replaceAll('-', ' ')} D&D miniature. ${anatomy} Exactly four equal square panels: top left front, top right back, bottom left left side, bottom right right side. Same creature, proportions, colors and ready pose in every panel. Full body and feet centered with generous white margin in each panel. Detailed painted miniature. Plain white background. No base, text, labels, borders or effects.`;
     const result = await generateImageWithBackup(prompt, { width: 2048, height: 2048, turnaround: true }, 'api');
     if ('error' in result) throw new ProductionError('Reference art generation failed after the image backup attempts. Check AI settings and retry.');
     const bytes = await fs.readFile(path.join(config.uploadsDir, path.basename(result.path)));

@@ -19,30 +19,30 @@ import { setMeta } from './db.js';
 
 describe('creature library', () => {
   it('saves, finds, and conflict-prompts by name', () => {
-    deleteLibraryCreature('Bandit Captain');
+    deleteLibraryCreature('Test Bandit Captain');
     const first = saveLibraryCreature(
-      { name: 'Bandit Captain', maxHp: 65, armorClass: 15, creatureType: 'humanoid' },
+      { name: 'Test Bandit Captain', maxHp: 65, armorClass: 15, creatureType: 'humanoid' },
       false,
     );
     expect('saved' in first).toBe(true);
 
     // Same name without overwrite -> conflict carrying the existing entry.
-    const again = saveLibraryCreature({ name: 'Bandit Captain', maxHp: 1 }, false);
+    const again = saveLibraryCreature({ name: 'Test Bandit Captain', maxHp: 1 }, false);
     expect('conflict' in again).toBe(true);
     if ('conflict' in again) expect(again.conflict.maxHp).toBe(65);
 
     // Overwrite replaces it.
-    const over = saveLibraryCreature({ name: 'Bandit Captain', maxHp: 70 }, true);
+    const over = saveLibraryCreature({ name: 'Test Bandit Captain', maxHp: 70 }, true);
     expect('saved' in over).toBe(true);
-    expect(getLibraryCreature('bandit captain')!.maxHp).toBe(70);
+    expect(getLibraryCreature('test bandit captain')!.maxHp).toBe(70);
 
     // Search finds it; results are tagged source 'library' (no AI needed).
     const hits = searchLibraryCreatures('bandit');
-    expect(hits.some((c) => c.name === 'Bandit Captain')).toBe(true);
+    expect(hits.some((c) => c.name === 'Test Bandit Captain')).toBe(true);
     expect(hits[0].source).toBe('library');
 
-    deleteLibraryCreature('Bandit Captain');
-    expect(getLibraryCreature('Bandit Captain')).toBeNull();
+    deleteLibraryCreature('Test Bandit Captain');
+    expect(getLibraryCreature('Test Bandit Captain')).toBeNull();
   });
 
   it('flags a name that exists only in the SRD as a conflict (shadowing)', () => {

@@ -13,7 +13,8 @@ import type {
 } from '../../shared/types.js';
 import { sanitizeItems, sanitizeModifiers, sanitizeWeapons } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
-import { starterCreatures } from './creatures/starterLibrary.js';
+import { starterCreatures, COMMON_CREATURE_BATCH } from './creatures/starterLibrary.js';
+import { missingCreatureFields } from './creatures/completeness.js';
 
 // ---- Cross-session creature library ----
 
@@ -23,8 +24,9 @@ export function seedLibraryCreatures(): number {
     let added = 0;
     const entries = starterCreatures();
     const batches = [
-      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp') },
+      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp' && !COMMON_CREATURE_BATCH.includes(c.name)) },
       { marker: 'starter-creature-imp-v1', creatures: entries.filter(c => c.name === 'Imp') },
+      { marker: 'starter-common-creatures-v1', creatures: entries.filter(c => COMMON_CREATURE_BATCH.includes(c.name)) },
     ];
     for (const { marker, creatures } of batches) {
       if (getMeta(marker)) continue;
@@ -45,6 +47,20 @@ export function seedLibraryCreatures(): number {
         added++;
       }
       setMeta(marker, '1');
+    }
+    if (!getMeta('library-stat-completeness-v1')) {
+      for (const source of entries) {
+        const existing = getLibraryCreature(source.name);
+        if (!existing) continue;
+        const patch = missingCreatureFields(existing, source);
+        // Library entries saved through an older running server omit these
+        // fields. Preserve explicit families, tints and DM-written tags.
+        if (!existing.modelType) patch.modelType = source.modelType;
+        if (!existing.modelColor && source.modelColor) patch.modelColor = source.modelColor;
+        if (!existing.visualTags?.length) patch.visualTags = source.visualTags;
+        if (Object.keys(patch).length) saveLibraryCreature({ ...existing, ...patch }, true);
+      }
+      setMeta('library-stat-completeness-v1', '1');
     }
     return added;
   })();

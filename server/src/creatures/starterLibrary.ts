@@ -4,6 +4,14 @@ import { getSrd } from './srd.js';
 
 /** SRD 5.1 stat blocks with deliberately selected physical models and sizes. */
 export const STARTER_APPEARANCES: Record<string, [string, string, string[]]> = {
+  Bugbear: ['bugbear', 'Medium', ['goblinoid']],
+  Gnoll: ['gnoll', 'Medium', ['humanoid', 'gnoll']],
+  Owlbear: ['owlbear', 'Large', ['monstrosity']],
+  'Brown Bear': ['brown-bear', 'Large', ['beast']],
+  Commoner: ['human-commoner', 'Medium', ['humanoid']],
+  'Bandit Captain': ['human-bandit', 'Medium', ['humanoid', 'pirate']],
+  Mage: ['human-mage', 'Medium', ['humanoid', 'arcane']],
+  Treant: ['treant', 'Huge', ['plant']],
   Goblin: ['goblin', 'Small', ['goblinoid']],
   Hobgoblin: ['hobgoblin', 'Medium', ['goblinoid']],
   Orc: ['orc', 'Medium', ['orc']],
@@ -27,11 +35,15 @@ export const STARTER_APPEARANCES: Record<string, [string, string, string[]]> = {
   'Young Red Dragon': ['dragon', 'Large', ['dragon', 'red', 'young']],
 };
 
+/** Separate seed batch so upgrades do not restore deliberately deleted starters. */
+export const COMMON_CREATURE_BATCH = ['Bugbear', 'Gnoll', 'Owlbear', 'Brown Bear', 'Commoner', 'Bandit Captain', 'Mage', 'Treant'];
+
 export function starterCreatures(): CreatureTemplate[] {
   const creatures = Object.entries(STARTER_APPEARANCES).map(([name, [modelType, size, visualTags]]) => {
     const source = getSrd(name);
     if (!source) throw new Error(`Missing starter SRD creature: ${name}`);
     return { ...source, creatureType: `${size} ${source.creatureType}`, modelType,
+      ...( ['bugbear', 'gnoll', 'owlbear', 'brown-bear'].includes(modelType) ? { icon: `/miniatures/monsters/${modelType}.png`, modelColor: 'natural' } : {}),
       visualTags, weapons: weaponsFromActions(source.actions).weapons };
   });
   const bandit = creatures.find(c => c.name === 'Bandit')!;

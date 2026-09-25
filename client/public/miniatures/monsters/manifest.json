@@ -514,6 +514,74 @@
       "url": "/miniatures/monsters/imp.glb",
       "sourceSha256": "939b249ac00306510294c2b928a9b85343ec189406a4b8fdb9dd1153fe68c034",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "bugbear",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1823696,
+      "triangles": 20744,
+      "sha256": "b04b968d0a7a2859cf8ab88223e4cf0388fb4262e9eac235cade1deca1501c31",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "dce1a0cbee391157607348a4b89280afbf9637e504a7e785528f454d99a65fee",
+      "url": "/miniatures/monsters/bugbear.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "gnoll",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1892316,
+      "triangles": 20764,
+      "sha256": "cc12b78a1997456b64e4a4ef82879fb775c914a9d7bb2788e5d204129db2e404",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "3bee320a7ac0890ca4b8d5c23e49a23e55af1e9f994d42c0de802863337a4e41",
+      "url": "/miniatures/monsters/gnoll.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "brown-bear",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1729616,
+      "triangles": 20744,
+      "sha256": "318048a533c253e3abedc1098190d467be5a0b0eb5f8894f8c3e0abd401b68aa",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "50d2f89978abf2872e1ee55446d50473cc92cdc2feeac25b19b1ad35cd94b961",
+      "url": "/miniatures/monsters/brown-bear.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "owlbear",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1828964,
+      "triangles": 20647,
+      "sha256": "47e5272bcb966121d2908b203d786e1e3ab58e64e7bdab1e594f7164cb2e0e1e",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "17cbde30fa3dc1591798a57471dd7b45edcd8ee7e0b1c8d09501fd29e02f82c2",
+      "url": "/miniatures/monsters/owlbear.glb",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [

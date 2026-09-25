@@ -1795,3 +1795,4 @@ Smaller refinements on top of the shipped Phase 2 work.
   change shown when PCs are in the selection.
 
 - [x] Persistent active-map encounter tracking: DM creation names plus U/reveal badges, player-safe tags, initial complete-reveal number matching, and staged first-map creation.
+- [x] Creature stat/attack completeness audit and missing-field repair; eight common library additions and four reduced multi-view families (Bugbear, Gnoll, Owlbear, Brown Bear). See `docs/TOKEN_LIBRARY_EXPANSION_2026-09-24.md`.
