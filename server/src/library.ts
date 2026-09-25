@@ -13,7 +13,7 @@ import type {
 } from '../../shared/types.js';
 import { sanitizeItems, sanitizeModifiers, sanitizeWeapons } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
-import { starterCreatures, COMMON_CREATURE_BATCH } from './creatures/starterLibrary.js';
+import { starterCreatures, COMMON_CREATURE_BATCH, COMMON_CREATURE_BATCH_2 } from './creatures/starterLibrary.js';
 import { missingCreatureFields } from './creatures/completeness.js';
 
 // ---- Cross-session creature library ----
@@ -24,19 +24,20 @@ export function seedLibraryCreatures(): number {
     let added = 0;
     const entries = starterCreatures();
     const batches = [
-      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp' && !COMMON_CREATURE_BATCH.includes(c.name)) },
+      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp' && !COMMON_CREATURE_BATCH.includes(c.name) && !COMMON_CREATURE_BATCH_2.includes(c.name)) },
       { marker: 'starter-creature-imp-v1', creatures: entries.filter(c => c.name === 'Imp') },
       { marker: 'starter-common-creatures-v1', creatures: entries.filter(c => COMMON_CREATURE_BATCH.includes(c.name)) },
+      { marker: 'starter-common-creatures-v2', creatures: entries.filter(c => COMMON_CREATURE_BATCH_2.includes(c.name)) },
     ];
     for (const { marker, creatures } of batches) {
       if (getMeta(marker)) continue;
       for (const creature of creatures) {
         const existing = getLibraryCreature(creature.name);
         if (existing) {
-          // Older running servers can save the Imp stats but omit appearance
+          // Older running servers can save creature stats but omit appearance
           // columns. Upgrade only missing appearance; preserve DM-edited stats
           // and explicit choices such as the 2D-only family.
-          if (marker === 'starter-creature-imp-v1' && !existing.modelType) {
+          if ((marker === 'starter-creature-imp-v1' || marker === 'starter-common-creatures-v2') && !existing.modelType) {
             saveLibraryCreature({ ...existing, modelType: creature.modelType,
               modelColor: existing.modelColor || creature.modelColor,
               visualTags: existing.visualTags?.length ? existing.visualTags : creature.visualTags }, true);

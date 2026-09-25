@@ -582,6 +582,57 @@
       "sourceSha256": "17cbde30fa3dc1591798a57471dd7b45edcd8ee7e0b1c8d09501fd29e02f82c2",
       "url": "/miniatures/monsters/owlbear.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "ogre",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1600080,
+      "triangles": 20720,
+      "sha256": "cf1d2a56854de25b962704553a2b9e4416031094789cd4c0f6dbf55ee263c5b2",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "ac6fa289904dab0d0388a322c1aacbd9bee5abf9605a3c2a485d7af81999442d",
+      "url": "/miniatures/monsters/ogre.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "ghoul",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1526148,
+      "triangles": 20628,
+      "sha256": "90d17dd4d6c8be02c29611ff072b929bb9c25970f0d7a057b1bb028d879b9d8b",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "55a67d67d0915da1707dc91394129e35195d555a07dbe23131cd22885eec16fd",
+      "url": "/miniatures/monsters/ghoul.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "giant-bat",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1521028,
+      "triangles": 20760,
+      "sha256": "089b831827e7ab40d9beff3cd4e39699e8e0ed190530cb361e8c1649d24a58ab",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "52d7ffb819dd184ab3b351402eb258ecd1f49af04b1dd415d854f0fb45b71f4e",
+      "url": "/miniatures/monsters/giant-bat.glb",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [

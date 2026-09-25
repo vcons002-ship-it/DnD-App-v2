@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { starterCreatures } from './starterLibrary.js';
-import { MONSTER_MODEL_TYPES, creatureSize } from '../../../shared/monsterAppearance.js';
+import { MONSTER_MODEL_TYPES, creatureSize, monsterTint, resolveMonsterModelType } from '../../../shared/monsterAppearance.js';
 import { db } from '../db.js';
 import { getLibraryCreature, saveLibraryCreature, seedLibraryCreatures, deleteLibraryCreature } from '../library.js';
 import { createSession, createMonsterTemplate, instantiateMonster } from '../sessions.js';
@@ -8,7 +8,7 @@ import { createSession, createMonsterTemplate, instantiateMonster } from '../ses
 describe('curated 3D starter library', () => {
   it('has complete creature stats, usable attacks, real model families and sensible sizes', () => {
     const entries = starterCreatures();
-    expect(entries).toHaveLength(31);
+    expect(entries).toHaveLength(38);
     expect(new Set(entries.map(c => c.name)).size).toBe(entries.length);
     for (const c of entries) {
       expect(MONSTER_MODEL_TYPES).toContain(c.modelType);
@@ -29,6 +29,7 @@ describe('curated 3D starter library', () => {
     expect(creatureSize(entries.find(c => c.name === 'Dire Wolf')!)).toBe('large');
   });
   it('adds Imp to an already seeded library without restoring deleted older entries', () => {
+    db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v2', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v1', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-creatures-3d-v1', '1');
     db.prepare('DELETE FROM app_meta WHERE key = ?').run('starter-creature-imp-v1');
@@ -79,6 +80,31 @@ describe('curated 3D starter library', () => {
     expect(getLibraryCreature('Cultist')?.weapons?.[0].name).toBe('Scimitar');
     deleteLibraryCreature('Bugbear'); seedLibraryCreatures();
     expect(getLibraryCreature('Bugbear')).toBeNull();
+  });
+  it('adds the second batch once, restores missing appearance and preserves edits and deletions', () => {
+    db.prepare('DELETE FROM app_meta WHERE key = ?').run('starter-common-creatures-v2');
+    saveLibraryCreature({ name: 'Black Bear', maxHp: 77 }, true);
+    saveLibraryCreature({ name: 'Veteran', maxHp: 80, modelType: 'none', modelColor: 'red' }, true);
+    deleteLibraryCreature('Ogre'); deleteLibraryCreature('Giant Rat');
+    seedLibraryCreatures();
+    expect(getLibraryCreature('Ogre')?.modelType).toBe('ogre');
+    expect(getLibraryCreature('Black Bear')).toMatchObject({ maxHp: 77, modelType: 'brown-bear', modelColor: '', visualTags: ['beast', 'black'] });
+    expect(getLibraryCreature('Veteran')).toMatchObject({ maxHp: 80, modelType: 'none', modelColor: 'red' });
+    expect(getLibraryCreature('Giant Rat')).toBeNull();
+    deleteLibraryCreature('Ogre'); seedLibraryCreatures();
+    expect(getLibraryCreature('Ogre')).toBeNull();
+  });
+  it('reuses the bear and spider models at their rule sizes with tag-driven black tint', () => {
+    const entries = starterCreatures();
+    const bear = entries.find(c => c.name === 'Black Bear')!;
+    expect(monsterTint(bear)).toBe('#333333');
+    expect(monsterTint({ ...bear, modelColor: 'natural' })).toBe('#ffffff');
+    expect(creatureSize(bear)).toBe('medium');
+    expect(creatureSize(entries.find(c => c.name === 'Giant Wolf Spider')!)).toBe('medium');
+    expect(creatureSize(entries.find(c => c.name === 'Giant Bat')!)).toBe('large');
+    expect(resolveMonsterModelType({ name: 'Giant Bat 2' })).toBe('giant-bat');
+    expect(resolveMonsterModelType({ name: 'Black Bear 1' })).toBe('brown-bear');
+    expect(resolveMonsterModelType({ name: 'Giant Wolf Spider' })).toBe('spider');
   });
 });
 

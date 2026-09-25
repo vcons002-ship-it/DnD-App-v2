@@ -37,7 +37,12 @@ for o in meshes:
             stack.extend(adjacency.pop(key));island.add(key)
         islands.append(island)
     largest=max((len(island) for island in islands),default=0)
-    specks=set().union(*(island for island in islands if len(island)<largest*.002))
+    main_island=max(islands,key=len,default=set())
+    main_floor=min(((o.matrix_world@Vector(key)).z for key in main_island),default=0)
+    # A slightly larger stray below the body can otherwise become the entire
+    # measured footprint, placing the real creature beside its new base.
+    specks=set().union(*(island for island in islands if len(island)<largest*.002
+        or (len(island)<largest*.01 and max((o.matrix_world@Vector(key)).z for key in island)<main_floor)))
     remove={i for i,key in keys.items() if key in specks}
     if remove:
         bm=bmesh.new();bm.from_mesh(o.data);bm.verts.ensure_lookup_table()

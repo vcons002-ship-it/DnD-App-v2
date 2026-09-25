@@ -4,6 +4,13 @@ import { getSrd } from './srd.js';
 
 /** SRD 5.1 stat blocks with deliberately selected physical models and sizes. */
 export const STARTER_APPEARANCES: Record<string, [string, string, string[]]> = {
+  Ogre: ['ogre', 'Large', ['giant']],
+  Ghoul: ['ghoul', 'Medium', ['undead']],
+  'Giant Bat': ['giant-bat', 'Large', ['beast']],
+  'Black Bear': ['brown-bear', 'Medium', ['beast', 'black']],
+  'Giant Wolf Spider': ['spider', 'Medium', ['beast']],
+  Scout: ['human-bandit', 'Medium', ['humanoid', 'scout']],
+  Veteran: ['human-guard', 'Medium', ['humanoid', 'soldier']],
   Bugbear: ['bugbear', 'Medium', ['goblinoid']],
   Gnoll: ['gnoll', 'Medium', ['humanoid', 'gnoll']],
   Owlbear: ['owlbear', 'Large', ['monstrosity']],
@@ -37,13 +44,14 @@ export const STARTER_APPEARANCES: Record<string, [string, string, string[]]> = {
 
 /** Separate seed batch so upgrades do not restore deliberately deleted starters. */
 export const COMMON_CREATURE_BATCH = ['Bugbear', 'Gnoll', 'Owlbear', 'Brown Bear', 'Commoner', 'Bandit Captain', 'Mage', 'Treant'];
+export const COMMON_CREATURE_BATCH_2 = ['Ogre', 'Ghoul', 'Giant Bat', 'Black Bear', 'Giant Wolf Spider', 'Scout', 'Veteran'];
 
 export function starterCreatures(): CreatureTemplate[] {
   const creatures = Object.entries(STARTER_APPEARANCES).map(([name, [modelType, size, visualTags]]) => {
     const source = getSrd(name);
     if (!source) throw new Error(`Missing starter SRD creature: ${name}`);
     return { ...source, creatureType: `${size} ${source.creatureType}`, modelType,
-      ...( ['bugbear', 'gnoll', 'owlbear', 'brown-bear'].includes(modelType) ? { icon: `/miniatures/monsters/${modelType}.png`, modelColor: 'natural' } : {}),
+      ...( ['bugbear', 'gnoll', 'owlbear', 'brown-bear', 'ogre', 'ghoul', 'giant-bat'].includes(modelType) ? { icon: `/miniatures/monsters/${modelType}.png`, modelColor: name === 'Black Bear' ? '' : 'natural' } : {}),
       visualTags, weapons: weaponsFromActions(source.actions).weapons };
   });
   const bandit = creatures.find(c => c.name === 'Bandit')!;

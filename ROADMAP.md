@@ -1796,3 +1796,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Persistent active-map encounter tracking: DM creation names plus U/reveal badges, player-safe tags, initial complete-reveal number matching, and staged first-map creation.
 - [x] Creature stat/attack completeness audit and missing-field repair; eight common library additions and four reduced multi-view families (Bugbear, Gnoll, Owlbear, Brown Bear). See `docs/TOKEN_LIBRARY_EXPANSION_2026-09-24.md`.
+- [x] Second common-token batch: Ogre, Ghoul, Giant Bat, Black Bear, Giant Wolf Spider, Scout and Veteran; three new model families and darker black appearance tint. See `docs/COMMON_TOKEN_BATCH_2.md`.

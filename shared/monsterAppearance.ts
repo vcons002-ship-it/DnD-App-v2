@@ -6,7 +6,7 @@ export const MONSTER_MODEL_TYPES = [
   'tiefling-commoner', 'royal-archmage', 'orc', 'hobgoblin', 'wight', 'troll',
   'stone-golem', 'ghost', 'werebear', 'treant', 'dragon', 'two-headed-dragon',
   'spider', 'snake', 'mage-hand', 'kobold', 'zombie', 'giant-rat', 'mimic', 'imp',
-  'bugbear', 'gnoll', 'owlbear', 'brown-bear',
+  'bugbear', 'gnoll', 'owlbear', 'brown-bear', 'ogre', 'ghoul', 'giant-bat',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -25,7 +25,8 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
     return 'huge'; // Unspecified/custom dragon keeps the catalog adult default.
   }
   if (family === 'treant') return 'huge';
-  if (family === 'owlbear' || family === 'brown-bear') return 'large';
+  if (/\bblack bear\b|\bgiant wolf spider\b/.test(name)) return 'medium';
+  if (['owlbear', 'brown-bear', 'ogre', 'giant-bat'].includes(family)) return 'large';
   if (['troll', 'stone-golem', 'werebear'].includes(family) || /\bdire wolf\b|\bgiant spider\b|\bgiant constrictor snake\b/.test(name)) return /giant constrictor snake/.test(name) ? 'huge' : 'large';
   if (family === 'spider') return /giant/.test(name) ? 'large' : 'tiny';
   if (family === 'snake') {
@@ -41,7 +42,7 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
 export function defaultMonsterWidthFt(appearance: MonsterAppearance): number {
   return CREATURE_SPACE_FT[creatureSize(appearance)];
 }
-export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear', 'owlbear', 'brown-bear'];
+export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear', 'owlbear', 'brown-bear', 'ogre', 'giant-bat'];
 /** Visible base width is independent of combat space and can be overridden. */
 export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; miniatureWidthFt?: number }, appearance: MonsterAppearance = {}): number {
   if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;
@@ -58,7 +59,7 @@ export function normalizeVisualTags(value: unknown): string[] {
   const tags = text.toLowerCase().split(/[\s,;\[\]#]+/).map(t => t.replace(/[^a-z0-9-]/g, '').slice(0, 24)).filter(Boolean);
   return [...new Set(tags.reverse())].reverse().slice(-16);
 }
-export const MONSTER_COLORS: Record<string, string> = { red: '#ff7970', blue: '#80b7ff', green: '#8fe17e', purple: '#c29aff', black: '#777777', white: '#ffffff', gold: '#ffda80', bronze: '#dca875', silver: '#dce3ed', brown: '#c2a084', orange: '#ffae73', pink: '#ffa4d0', gray: '#b8b8b8', grey: '#b8b8b8', natural: '#ffffff' };
+export const MONSTER_COLORS: Record<string, string> = { red: '#ff7970', blue: '#80b7ff', green: '#8fe17e', purple: '#c29aff', black: '#333333', white: '#ffffff', gold: '#ffda80', bronze: '#dca875', silver: '#dce3ed', brown: '#c2a084', orange: '#ffae73', pink: '#ffa4d0', gray: '#b8b8b8', grey: '#b8b8b8', natural: '#ffffff' };
 const THEMES: Record<string, string> = { fire: '#ff9b70', poison: '#a4e879', ice: '#a2d9ff', frost: '#a2d9ff', lightning: '#b8c7ff', undead: '#b4c9a3' };
 const tagColor = (palette: Record<string, string>, tag: string): string | undefined => Object.hasOwn(palette, tag) ? palette[tag] : undefined;
 export function appearanceTags(m: MonsterAppearance): string[] {
@@ -76,10 +77,10 @@ export function resolveMonsterModelType(m: MonsterAppearance): string {
   const explicit = normalizeModelType(m.modelType);
   if (explicit) return explicit; // unknown physical families retain their 2D fallback
   const candidate = (value: string) => {
-    if (/^(?:large\s+)?brown[ -]bear(?:\s+\d+)?$/i.test(value.trim())) return 'brown-bear';
+    if (/^(?:(?:medium|large)\s+)?(?:brown|black)[ -]bear(?:\s+\d+)?$/i.test(value.trim())) return 'brown-bear';
     const words = value.toLowerCase().replace(/\[[^\]]*\]/g, '').replace(/\s+\d+$/, '').trim().split(/\s+/).filter(t => !Object.hasOwn(CREATURE_SPACE_FT, t) && !tagColor(MONSTER_COLORS, t) && !tagColor(THEMES, t));
     const name = words.join(' ');
-    return name === 'dire wolf' ? 'wolf' : MONSTER_MODEL_TYPES.find(t => t === name) ?? '';
+    return name === 'dire wolf' ? 'wolf' : name === 'giant wolf spider' ? 'spider' : MONSTER_MODEL_TYPES.find(t => t === name || t.replaceAll('-', ' ') === name) ?? '';
   };
   return candidate(m.creatureType ?? '') || candidate(m.name ?? '');
 }
