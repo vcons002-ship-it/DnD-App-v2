@@ -17,6 +17,10 @@ export type Condition = {
   /** Combat round it was applied on (when combat is running) — shown as "T{n}"
    *  for manual duration tracking. Absent if applied outside combat. */
   round?: number;
+  /** What put it there, when the ENGINE did. `'down'` = applied because a PC hit
+   *  0 HP; healing removes exactly those (Prone excepted) and never a condition
+   *  applied independently. Absent = applied by a person or a spell. */
+  source?: 'down';
 };
 
 export type TokenKind = 'pc' | 'monster';

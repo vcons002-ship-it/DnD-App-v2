@@ -54,6 +54,7 @@ import {
   addRollLog,
   advanceTurn,
   applyDamage,
+  isDeadEntity,
   setTempHp,
   claimCharacter,
   clearOwnershipElsewhere,
@@ -811,7 +812,27 @@ export function registerSocketHandlers(io: IOServer): void {
     on('damage:apply', ({ kind, refId, amount }) => {
       const sid = sessionId();
       if (!sid || !Number.isFinite(amount) || !canEditCreature(kind, refId)) return;
-      applyDamage(kind, refId, amount);
+      // Healing a DEAD creature: ordinary heals can't, so a player gets told why.
+      // The DM's manual heal is the deliberate correction path — it revives and
+      // reconciles the death state, and the log records that it happened.
+      const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+      const reviving = !!before && amount < 0 && isDeadEntity(kind, before);
+      if (reviving && !isDm()) {
+        socket.emit('notice', {
+          message: `${before!.name} is dead — only the DM can bring them back.`,
+        });
+        return;
+      }
+      applyDamage(kind, refId, amount, undefined, false, undefined, { correction: isDm() });
+      if (reviving) {
+        addRollLog(sid, {
+          roller: 'DM',
+          label: 'Revive',
+          expr: 'correction',
+          total: -amount,
+          detail: `DM revived ${before!.name} (correction) — death state cleared, healed ${-amount}`,
+        });
+      }
       // Damage taken while concentrating prompts a CON save (DC from the amount).
       noteConcentration(sid, kind, refId, amount);
       afterChange();
@@ -989,6 +1010,11 @@ export function registerSocketHandlers(io: IOServer): void {
     on('item:use', ({ characterId, itemId }) => {
       const sid = sessionId();
       if (!sid || typeof itemId !== 'string' || !ownsCharacter(characterId)) return;
+      const drinker = getCharacter(characterId);
+      if (drinker && isDeadEntity('pc', drinker)) {
+        socket.emit('notice', { message: `${drinker.name} is dead — the item is kept.` });
+        return;
+      }
       const ok = useConsumable(
         sid,
         rollerName(sid, socket.id, isDm()),
@@ -1496,7 +1522,8 @@ export function registerSocketHandlers(io: IOServer): void {
       // Bulk damage/heal is a DM-only (Data-view multi-select) tool, like its
       // tokens:setCondition / tokens:clearConditions siblings below.
       if (!isDm() || !Array.isArray(tokenIds) || !Number.isFinite(amount)) return;
-      damageTokens(tokenIds, amount);
+      // DM-only, so a bulk heal is the same deliberate correction as a single one.
+      damageTokens(tokenIds, amount, { correction: true });
       afterChange();
     });
 

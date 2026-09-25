@@ -82,7 +82,8 @@ describe('dead creatures and initiative', () => {
   it('a PC at 0 HP is NOT dead — they keep their turn for death saves', () => {
     const { sid, mapId } = arena();
     const ch = createCharacter(sid, { name: 'Downed', maxHp: 10 });
-    applyDamage('pc', ch.id, 50);
+    // Exactly to 0: down, not dead (overkill ≥ max HP would be massive damage).
+    applyDamage('pc', ch.id, 10);
     const tok = createToken({ mapId, kind: 'pc', refId: ch.id, x: 1, y: 1 });
     rollAllInitiative(mapId);
     expect(getToken(tok.id)!.initiative).not.toBeNull();

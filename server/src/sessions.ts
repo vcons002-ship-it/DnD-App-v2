@@ -715,12 +715,17 @@ export function setDeathSaves(
   return getCharacter(characterId);
 }
 
-/** Damage (+) / heal (−) every listed token's creature (AOE). */
-export function damageTokens(tokenIds: string[], amount: number): void {
+/** Damage (+) / heal (−) every listed token's creature (AOE). `correction` is
+ *  the DM's deliberate override — see {@link applyDamage}. */
+export function damageTokens(
+  tokenIds: string[],
+  amount: number,
+  opts?: { correction?: boolean },
+): void {
   db.transaction(() => {
     for (const id of tokenIds) {
       const t = getToken(id);
-      if (t) applyDamage(t.kind, t.refId, amount);
+      if (t) applyDamage(t.kind, t.refId, amount, undefined, false, undefined, opts);
     }
   })();
 }
@@ -1140,6 +1145,110 @@ function isDeadToken(token: Token): boolean {
   const m = getMonster(token.refId);
   return !!m && (m.curHp <= 0 || marked(m.conditions));
 }
+
+const hasDeadMark = (conds: Condition[]): boolean =>
+  conds.some((c) => c.label.trim().toLowerCase() === 'dead');
+
+/**
+ * Whether a creature is DEAD — not merely down — i.e. the state ordinary healing
+ * can't undo. A PC dies at three failed death saves or when marked Dead (a PC at
+ * 0 HP with saves to go is only DOWN, and heals normally). A creature is dead at
+ * 0 HP or when marked Dead. Objects (doors, chests) are never "dead".
+ */
+export function isDeadEntity(kind: TokenKind, e: Character | Monster): boolean {
+  if (hasDeadMark(e.conditions)) return true;
+  if (kind === 'pc') return (e as Character).deathSaves.failures >= 3;
+  const m = e as Monster;
+  return !m.objectKind && m.curHp <= 0;
+}
+
+/** The conditions dropping to 0 HP imposes (5e: Unconscious, which carries
+ *  Incapacitated, and you fall Prone). */
+const DOWNED_LABELS = ['Unconscious', 'Incapacitated', 'Prone'];
+
+/** Add the downed bundle — only where each is ABSENT, tagged `source: 'down'`,
+ *  so an Unconscious someone applied independently is never replaced (and so
+ *  never swept away when the PC is healed). */
+function addDownedConditions(conds: Condition[], round: number): Condition[] {
+  const out = [...conds];
+  for (const label of DOWNED_LABELS) {
+    if (out.some((c) => c.label.toLowerCase() === label.toLowerCase())) continue;
+    out.push({
+      id: newId(),
+      label,
+      aura: 'red',
+      isConcentration: false,
+      source: 'down',
+      ...(round > 0 ? { round } : {}),
+    });
+  }
+  return out;
+}
+
+/** Healing above 0 HP ends the unconsciousness the DROP caused — and only that.
+ *  Prone stays (you wake on the floor), but loses its tag so it's an ordinary
+ *  condition from then on. Anything applied independently is untouched. */
+function clearDownedConditions(conds: Condition[]): Condition[] {
+  return conds
+    .filter((c) => !(c.source === 'down' && c.label.toLowerCase() !== 'prone'))
+    .map((c) => {
+      if (c.source !== 'down') return c;
+      const { source: _drop, ...rest } = c;
+      return rest;
+    });
+}
+
+/**
+ * End a creature's concentration — and ONLY what belonged to it: the
+ * `Concentration: <spell>` condition, the active stance with that spell's name
+ * (so e.g. Hunter's Mark stops adding damage), and that stance's own mark
+ * condition on its own marked target. Logs why. A no-op (false) when the
+ * creature isn't concentrating.
+ */
+export function endConcentration(kind: TokenKind, refId: string, reason: string): boolean {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!entity) return false;
+  const ended = entity.conditions.filter((c) => c.isConcentration);
+  if (ended.length === 0) return false;
+  db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
+    JSON.stringify(entity.conditions.filter((c) => !c.isConcentration)),
+    refId,
+  );
+  const spells = ended.map((c) => c.label.replace(/^concentration:\s*/i, '').trim());
+  const spellKeys = new Set(spells.map((n) => n.toLowerCase()));
+  for (const ab of entity.sheetAbilities) {
+    const st = ab.stance;
+    if (ab.type !== 'stance' || !st?.active || !spellKeys.has(ab.name.trim().toLowerCase()))
+      continue;
+    setSheetAbility(kind, refId, { ...ab, stance: { ...st, active: false } });
+    // Lift this stance's own mark from its own target — nothing else's.
+    const tok = st.marksTargetWith && st.targetId ? getToken(st.targetId) : null;
+    if (tok && st.marksTargetWith) {
+      const tt = tok.kind === 'pc' ? 'characters' : 'monsters';
+      const target = tok.kind === 'pc' ? getCharacter(tok.refId) : getMonster(tok.refId);
+      const mark = st.marksTargetWith.toLowerCase();
+      if (target && target.conditions.some((c) => c.label.toLowerCase() === mark)) {
+        db.prepare(`UPDATE ${tt} SET conditions = ? WHERE id = ?`).run(
+          JSON.stringify(target.conditions.filter((c) => c.label.toLowerCase() !== mark)),
+          tok.refId,
+        );
+      }
+    }
+  }
+  addRollLog(entity.sessionId, {
+    roller: 'DM',
+    label: 'Concentration',
+    expr: 'ended',
+    total: 0,
+    detail: `${entity.name} loses concentration on ${spells.join(', ')} (${reason})`,
+  });
+  return true;
+}
+
+/** Conditions under which a creature can't concentrate (5e: Incapacitated, or
+ *  any condition that includes it). */
+const INCAPACITATING = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'];
 
 /** A d20 + DEX modifier for a token (5e initiative). */
 const rollInitiative = (token: Token): number =>
@@ -2963,12 +3072,34 @@ export function applyDamage(
   crit = false,
   /** Cosmetic correlation only; never defers the authoritative HP mutation. */
   rollId?: string,
+  /** `correction`: the DM's deliberate manual heal. The ONLY way healing touches
+   *  a dead creature — and it reconciles the whole death state (saves, Dead
+   *  mark, downed conditions), not just the HP number. Callers must gate it on
+   *  the DM role; spells, abilities and potions never pass it. */
+  opts?: { correction?: boolean },
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
-  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity || !Number.isFinite(amount)) return null;
   // Clamp to a sane magnitude so a buggy/forged event can't apply absurd values.
   amount = Math.trunc(Math.max(-10000, Math.min(10000, amount)));
+  // Dead creatures can't regain hit points. Ordinary healing is refused outright
+  // (callers explain why); the DM's correction revives cleanly instead.
+  if (amount < 0 && isDeadEntity(kind, entity)) {
+    if (!opts?.correction) return entity;
+    const revived = entity.conditions.filter((c) => c.label.trim().toLowerCase() !== 'dead');
+    if (kind === 'pc') {
+      db.prepare(
+        'UPDATE characters SET conditions = ?, death_successes = 0, death_failures = 0 WHERE id = ?',
+      ).run(JSON.stringify(clearDownedConditions(revived)), refId);
+    } else {
+      db.prepare('UPDATE monsters SET conditions = ? WHERE id = ?').run(
+        JSON.stringify(revived),
+        refId,
+      );
+    }
+    entity = kind === 'pc' ? getCharacter(refId)! : getMonster(refId)!;
+  }
   // 2024 rules: damage drains the temporary-HP buffer first, then real HP;
   // healing (amount < 0) only restores real HP and never refills temp HP.
   let nextTemp = entity.tempHp;
@@ -3007,12 +3138,24 @@ export function applyDamage(
         : {}),
       ...(died ? { effect: 'death' as const } : {}),
     });
+  const droppedToZero = entity.curHp > 0 && nextCur === 0;
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {
     const ch = entity as Character;
     let ds = ch.deathSaves;
-    if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
+    // Damage that got past the temp-HP buffer.
+    const taken = amount > 0 ? amount - Math.min(entity.tempHp, amount) : 0;
+    // Massive damage (RAW): dropping to 0 with leftover damage ≥ max HP, or one
+    // hit ≥ max HP while already at 0, kills outright.
+    const massive =
+      amount > 0 &&
+      (entity.curHp > 0
+        ? droppedToZero && taken - entity.curHp >= entity.maxHp
+        : taken >= entity.maxHp);
+    if (massive) {
+      ds = { successes: 0, failures: 3 };
+    } else if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
       ds = { successes: 0, failures: 0 };
     } else if (amount > 0 && entity.curHp === 0 && ds.failures < 3) {
       // Taking damage while down adds a failure (two on a crit, per RAW); a stable
@@ -3024,9 +3167,19 @@ export function applyDamage(
         failures: Math.min(3, (wasStable ? 0 : ds.failures) + add),
       };
     }
+    // 0 HP means Unconscious. The bundle is owned by the drop, so coming back
+    // above 0 clears exactly what the drop added. Killed outright is dead, not
+    // unconscious — no downed bundle.
+    let conds = ch.conditions;
+    if (droppedToZero && !massive) {
+      conds = addDownedConditions(conds, getSessionById(entity.sessionId)?.combatRound || 0);
+    } else if (entity.curHp === 0 && nextCur > 0) {
+      conds = clearDownedConditions(conds);
+    }
     db.prepare(
-      'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ? WHERE id = ?',
-    ).run(nextCur, nextTemp, ds.successes, ds.failures, refId);
+      'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ?, conditions = ? WHERE id = ?',
+    ).run(nextCur, nextTemp, ds.successes, ds.failures, JSON.stringify(conds), refId);
+    if (droppedToZero) endConcentration('pc', refId, massive ? 'killed outright' : 'dropped to 0 HP');
     return getCharacter(refId);
   }
   db.prepare(`UPDATE ${table} SET cur_hp = ?, temp_hp = ? WHERE id = ?`).run(
@@ -3034,6 +3187,7 @@ export function applyDamage(
     nextTemp,
     refId,
   );
+  if (droppedToZero) endConcentration('monster', refId, 'dropped to 0 HP');
   return getMonster(refId);
 }
 
@@ -3070,7 +3224,11 @@ export function setCondition(
   const conditions = entity.conditions.filter(
     (c) => c.label.toLowerCase() !== condition.label.toLowerCase(),
   );
-  conditions.push(stamp(condition));
+  // A condition applied through here comes from a person or a spell, so it is
+  // never engine-owned — drop any `source` a client sent, or healing could
+  // sweep away a condition it has no business removing.
+  const { source: _ignored, ...applied } = condition;
+  conditions.push(stamp(applied));
   // Cascade the implied bundle (Unconscious → Incapacitated + Prone, etc.) so
   // applying one chip sets the conditions it always carries in 5e.
   for (const label of impliedConditions(condition.label)) {
@@ -3081,6 +3239,10 @@ export function setCondition(
     JSON.stringify(conditions),
     refId,
   );
+  // An incapacitated creature can't hold concentration (5e).
+  const incap = conditions.find((c) => INCAPACITATING.includes(c.label.toLowerCase()));
+  if (incap && conditions.some((c) => c.isConcentration))
+    endConcentration(kind, refId, incap.label.toLowerCase());
   return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
 }
 

@@ -1,4 +1,5 @@
 import {
+  isDeadEntity,
   addRollLog,
   applyDamage,
   getCharacter,
@@ -240,7 +241,21 @@ function applyDamageNoted(
   }
   const hp = (e: { curHp: number; tempHp: number }) =>
     `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
-  return { kind, refId, text: `${after.name} HP ${hp(before)}→${hp(after)}` };
+  // A PC this hit KILLED (third failure, or massive damage) — say so, so the
+  // death is visible in the log and not just implied by the pips.
+  const killed =
+    kind === 'pc' &&
+    (before as Character).deathSaves.failures < 3 &&
+    (after as Character).deathSaves.failures >= 3;
+  const massive =
+    killed && amount - before.tempHp - before.curHp >= before.maxHp && before.curHp > 0;
+  return {
+    kind,
+    refId,
+    text:
+      `${after.name} HP ${hp(before)}→${hp(after)}` +
+      (killed ? (massive ? ' — DEAD (massive damage)' : ' — DEAD') : ''),
+  };
 }
 
 /**
@@ -258,7 +273,8 @@ export function noteConcentration(
   if (damage <= 0) return;
   const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!e || !e.conditions.some((c) => c.isConcentration)) return;
-  const dc = Math.max(10, Math.floor(damage / 2));
+  // DC = half the damage, minimum 10 — and at most 30 (2024 PHB).
+  const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)));
   addRollLog(sessionId, {
     roller: 'DM',
     label: 'Concentration',
@@ -1488,8 +1504,16 @@ function resolveSheetAbilityFor(
     const target = roll.healTarget === 'self'
       ? { kind, refId: entity.id, name: kind === 'pc' ? getCharacter(entity.id)!.name : getMonster(entity.id)!.name }
       : tok ? resolve(tok) : null;
+    // Dead creatures can't regain hit points — the heal is spent, but lands on
+    // nothing, and the log says so rather than claiming +HP.
+    const targetEntity = target
+      ? target.kind === 'pc' ? getCharacter(target.refId) : getMonster(target.refId)
+      : null;
+    const targetDead = !!(target && targetEntity && isDeadEntity(target.kind, targetEntity));
     const healNote =
-      target && val > 0 ? applyDamageNoted(target.kind, target.refId, -val) : undefined;
+      target && val > 0 && !targetDead
+        ? applyDamageNoted(target.kind, target.refId, -val)
+        : undefined;
     addRollLog(sessionId, {
       roller,
       label: ability.name,
@@ -1498,7 +1522,12 @@ function resolveSheetAbilityFor(
       detail:
         `${title}: ${val} healing [${healRoll?.text ?? dice}${
           castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} ${bonusKind === 'fighterLevel' ? 'Fighter level' : 'mod'}` : ''
-        }]` + (target ? ` → ${target.name} +${val} HP` : ''),
+        }]` +
+        (target
+          ? targetDead
+            ? ` → ${target.name} is dead; healing has no effect`
+            : ` → ${target.name} +${val} HP`
+          : ''),
       description: ability.description || undefined,
       hpNote: healNote,
     });
@@ -1798,7 +1827,9 @@ export function useConsumable(
   itemId: string,
 ): boolean {
   const c = getCharacter(characterId);
-  if (!c) return false;
+  // A dead character can't drink anything (and can't regain HP) — the item is
+  // kept; the socket handler tells the player why.
+  if (!c || isDeadEntity('pc', c)) return false;
   const item = c.items.find((i) => i.id === itemId);
   if (!item || item.qty <= 0) return false;
   const effect = parseConsumable(item);
