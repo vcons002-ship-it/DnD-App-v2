@@ -111,3 +111,12 @@ exposed two disconnected fragments below the feet that skewed base placement;
 the cleanup above fixes this without rerunning generation. The corrected Imp is
 1,696,600 bytes / 20,754 triangles with a 2048×2048 texture. The Blender regression
 `test_base.py` covers this failure with a displaced floor fragment.
+
+The approved Imp is bundled as `/miniatures/monsters/imp.glb`, with its front
+reference as 2D fallback art and source views/receipts under
+`assets/miniatures/monster-provenance/imp/`. The library uses the
+[2014 Imp rules](https://www.dndbeyond.com/monsters/16933-imp): Tiny, CR 1,
+10 HP, AC 13, Sting with its poison save, Invisibility and the listed traits.
+The sculpt's equipment is cosmetic; it does not grant extra attacks or AC.
+The `starter-creature-imp-v1` migration adds this entry once, preserves existing
+stats, and fills missing appearance fields from older app versions.

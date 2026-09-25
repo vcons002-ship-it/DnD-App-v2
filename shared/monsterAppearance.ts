@@ -5,7 +5,7 @@ export const MONSTER_MODEL_TYPES = [
   'human-commoner', 'dwarf-warrior', 'dwarf-commoner', 'elf-commoner',
   'tiefling-commoner', 'royal-archmage', 'orc', 'hobgoblin', 'wight', 'troll',
   'stone-golem', 'ghost', 'werebear', 'treant', 'dragon', 'two-headed-dragon',
-  'spider', 'snake', 'mage-hand', 'kobold', 'zombie', 'giant-rat', 'mimic',
+  'spider', 'snake', 'mage-hand', 'kobold', 'zombie', 'giant-rat', 'mimic', 'imp',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -31,7 +31,7 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
     if (/constrict|large/.test(name)) return 'large';
     return /giant/.test(name) ? 'medium' : 'tiny';
   }
-  if (family === 'mage-hand') return 'tiny';
+  if (family === 'mage-hand' || family === 'imp') return 'tiny';
   if (['goblin', 'kobold', 'giant-rat'].includes(family)) return 'small';
   return 'medium';
 }

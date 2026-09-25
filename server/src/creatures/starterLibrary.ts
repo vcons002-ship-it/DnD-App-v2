@@ -8,6 +8,7 @@ export const STARTER_APPEARANCES: Record<string, [string, string, string[]]> = {
   Hobgoblin: ['hobgoblin', 'Medium', ['goblinoid']],
   Orc: ['orc', 'Medium', ['orc']],
   Kobold: ['kobold', 'Small', ['reptilian']],
+  Imp: ['imp', 'Tiny', ['fiend', 'devil', 'shapechanger']],
   Bandit: ['human-bandit', 'Medium', ['humanoid']],
   Guard: ['human-guard', 'Medium', ['humanoid']],
   Cultist: ['human-mage', 'Medium', ['cultist']],
@@ -34,6 +35,17 @@ export function starterCreatures(): CreatureTemplate[] {
       visualTags, weapons: weaponsFromActions(source.actions).weapons };
   });
   const bandit = creatures.find(c => c.name === 'Bandit')!;
+  const imp = creatures.find(c => c.name === 'Imp')!;
+  imp.icon = '/miniatures/monsters/imp.png';
+  imp.modelColor = 'natural';
+  imp.actions = [...imp.actions, { name: 'Invisibility', description: 'Become invisible, including carried equipment. Ends when the imp attacks or loses concentration.' }];
+  imp.abilities = [
+    { name: 'Shapechanger', description: 'Use an action to take rat, raven, spider, or true form. Rat speed 20 ft.; raven speed 20 ft. and fly 60 ft.; spider speed 20 ft. and climb 20 ft. Other statistics stay the same. Equipment does not transform. Death restores true form.' },
+    { name: "Devil's Sight", description: 'Darkvision 120 ft.; magical darkness does not block this darkvision.' },
+    { name: 'Magic Resistance', description: 'Advantage on saving throws against spells and other magical effects.' },
+    { name: 'Immunities', description: 'Immune to fire and poison damage and the poisoned condition.' },
+    { name: 'Skills and languages', description: 'Deception +4, Insight +3, Persuasion +4, Stealth +5; passive Perception 11. Speaks Infernal and Common.' },
+  ];
   creatures.push({ ...bandit, name: 'Pirate First Mate', visualTags: ['humanoid', 'sailor', 'pirate', 'first-mate'],
     abilities: [...bandit.abilities, { name: 'Pirate role', description: 'A first mate using the Bandit stat block. The title does not change its challenge rating.' }] });
   creatures.push({ name: 'Mage Hand', creatureType: 'Tiny spell effect', level: 0,
