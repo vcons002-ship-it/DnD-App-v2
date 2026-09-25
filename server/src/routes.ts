@@ -206,7 +206,11 @@ export function createApiRouter(io: IOServer): Router {
     if (rateLimited(req, res, 'asset-production', 20, 60000)) return;
     const creature = typeof req.body?.monsterId === 'string' ? getMonster(req.body.monsterId) : null;
     if (!creature) return res.status(404).json({ error: 'Creature not found.' });
-    res.json({ job: assetQueue().enqueue(creature) ?? null });
+    if (req.body.newModel !== undefined && typeof req.body.newModel !== 'boolean') return res.status(400).json({ error: 'Invalid new model option.' });
+    if (req.body.notes !== undefined && (typeof req.body.notes !== 'string' || req.body.notes.length > 600)) return res.status(400).json({ error: 'Appearance notes must be at most 600 characters.' });
+    const job = assetQueue().enqueue(creature, { newModel: req.body.newModel === true, notes: req.body.notes });
+    if (req.body.newModel && !job) return res.status(409).json({ error: 'Cannot queue this creature. The queue may be full.' });
+    res.json({ job: job ?? null });
   });
   router.post('/assets/jobs/:id/retry', (req, res) => {
     if (!requireDm(req, res)) return;

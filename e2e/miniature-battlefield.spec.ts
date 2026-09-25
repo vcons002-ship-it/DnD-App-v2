@@ -7,6 +7,52 @@ import { DM_SECRET, PORT } from './playwright.config';
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
+test('DM can request a separate equipped model despite an existing family and apply it when ready', async ({ page, request }, info) => {
+  test.setTimeout(120000);
+  const f = await fixture(page, request);
+  const headers = { 'x-dm-passphrase': DM_SECRET };
+  await request.post('/api/assets/pause', { headers, data: { paused: true } });
+  f.socket.emit('monster:create', { name: 'Crossbow Scout', modelType: 'goblin', maxHp: 12,
+    actions: [{ name: 'Crossbow', description: 'Ranged weapon attack.' }],
+    abilities: [{ name: 'Armor', description: 'Wears chainmail.' }] });
+  const template = (await f.snapshot()).monsterTemplates.find(m => m.name === 'Crossbow Scout')!;
+  f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 600, y: 600 });
+  const token = (await f.snapshot()).tokens.find(t => t.kind === 'monster')!;
+  expect((await request.post('/api/assets/queue', { data: { monsterId: token.refId, newModel: true } })).status()).toBe(403);
+  await page.goto(`/dm?code=${f.code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '4', { timeout: 60000 });
+  const pos = (await tokenView(page, token.id))!;
+  await page.mouse.click(pos.x, pos.y);
+  await page.getByText('New 3D model', { exact: true }).click();
+  await page.getByLabel('3D appearance notes').fill('Crossbow held ready; sword sheathed.');
+  await page.getByRole('button', { name: 'Generate new 3D model', exact: true }).click();
+  await expect(page.getByText(/3D queued: Waiting/)).toBeVisible();
+  const queued = await (await request.get('/api/assets/jobs', { headers })).json();
+  const job = queued.jobs.find((j: any) => j.sourceMonsterId === token.refId);
+  expect(job.family).toMatch(/^goblin-custom-/);
+  expect(job.artBrief).toContain('Crossbow'); expect(job.artBrief).toContain('chainmail');
+  expect(job.artBrief).toContain('sword sheathed');
+  expect((await f.snapshot()).monsters.find(m => m.id === token.refId)?.modelType).toBe('goblin');
+  await expect(page.getByRole('button', { name: 'Generate new 3D model', exact: true })).toBeDisabled();
+  await page.screenshot({ path: info.outputPath('new-model-equipment-controls.png') });
+  // Simulate completed production with a known GLB; this test spends no image/GPU jobs.
+  await page.route('**/api/assets/jobs', route => route.fulfill({ json: { ...queued, jobs: queued.jobs.map((j: any) => j.id === job.id ? { ...j, state: 'ready', stage: 'Ready' } : j) } }));
+  const glb = await (await request.get('/miniatures/monsters/goblin.glb')).body();
+  await page.route('**/uploads/miniatures/manual-test.glb', route => route.fulfill({ body: glb, contentType: 'model/gltf-binary' }));
+  await page.route('**/api/assets/catalog', route => route.fulfill({ json: { models: [{ id: job.family, url: '/uploads/miniatures/manual-test.glb', baseDiameter: 1, baseCenter: [0, 0, 0], bytes: glb.length, triangles: 20764, sha256: 'test' }] } }));
+  await page.getByRole('button', { name: 'Use this model', exact: true }).click({ timeout: 15000 });
+  await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === token.refId)?.modelType).toBe(job.family);
+  expect((await f.snapshot()).monsterTemplates.find(m => m.id === template.id)?.modelType).toBe('goblin');
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '4', { timeout: 15000 });
+  // Drain the real test job against the deliberately unavailable worker, then
+  // restore the shared test queue so later tests can submit their own jobs.
+  await request.post('/api/assets/pause', { headers, data: { paused: false } });
+  await expect.poll(async () => (await (await request.get('/api/assets/jobs', { headers })).json()).jobs.find((j: any) => j.id === job.id)?.state).toBe('failed');
+  await request.post('/api/assets/pause', { headers, data: { paused: false } });
+});
+
 test('asset production keeps missing creatures usable and loads published models without rejoining', async ({ page, request, browser }) => {
   const f = await fixture(page, request);
   f.socket.emit('monster:create', { name: 'Production Elephant', modelType: 'elephant', maxHp: 40 });

@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { MONSTER_MODEL_TYPES, type MonsterAppearance } from '../../../shared/monsterAppearance.js';
-import { productionFamily, type AssetJob, type ProducedMiniature } from '../../../shared/assetProduction.js';
+import { MONSTER_MODEL_TYPES } from '../../../shared/monsterAppearance.js';
+import { creatureArtBrief, productionFamily, type AssetCreature, type AssetJob, type ProducedMiniature } from '../../../shared/assetProduction.js';
 
 type State = { paused: boolean; jobs: AssetJob[]; models: ProducedMiniature[] };
 type Producer = (job: AssetJob, progress: (stage: string) => void) => Promise<ProducedMiniature>;
@@ -28,14 +28,21 @@ export class AssetQueue {
   private announce(message: string) { try { this.notice(message); } catch { /* notices cannot break persistence */ } }
   start() { this.started = true; this.save(); void this.drain(); }
   snapshot(): State { return structuredClone(this.state); }
-  enqueue(creature: MonsterAppearance): AssetJob | undefined {
-    const family = productionFamily(creature);
-    if (!family || MONSTER_MODEL_TYPES.includes(family as typeof MONSTER_MODEL_TYPES[number]) || this.state.models.some(m => m.id === family)) return;
+  enqueue(creature: AssetCreature, options?: { newModel: boolean; notes?: string }): AssetJob | undefined {
+    if (creature.objectKind) return;
+    const previousSubject = this.state.jobs.find(j => j.family === creature.modelType)?.subjectFamily;
+    const subjectFamily = productionFamily(options?.newModel ? { ...creature, modelType: previousSubject ?? (creature.modelType === 'none' ? '' : creature.modelType) } : creature);
+    if (!subjectFamily) return;
+    if (options?.newModel && !creature.id) return;
+    const pending = options?.newModel && this.state.jobs.find(j => j.sourceMonsterId === creature.id && ['queued', 'running'].includes(j.state));
+    if (pending) return { ...pending };
+    const family = options?.newModel ? `${subjectFamily.slice(0, 30)}-custom-${randomUUID().slice(0, 8)}` : subjectFamily;
+    if (!options?.newModel && (MONSTER_MODEL_TYPES.includes(family as typeof MONSTER_MODEL_TYPES[number]) || this.state.models.some(m => m.id === family))) return;
     const existing = this.state.jobs.find(j => j.family === family);
     if (existing) return { ...existing };
     // Bound accidental bulk imports without evicting useful completed records.
     if (this.state.jobs.filter(j => j.state !== 'ready').length >= 100) return;
-    const job: AssetJob = { id: randomUUID(), family, state: 'queued', stage: 'Waiting', attempts: 0, updatedAt: new Date().toISOString() };
+    const job: AssetJob = { id: randomUUID(), family, subjectFamily, artBrief: creatureArtBrief(creature, options?.notes), sourceMonsterId: options?.newModel ? creature.id : undefined, state: 'queued', stage: 'Waiting', attempts: 0, updatedAt: new Date().toISOString() };
     this.state.jobs.push(job); this.save(); this.announce(`3D ${family}: queued. The 2D token remains available.`);
     void this.drain(); return { ...job };
   }

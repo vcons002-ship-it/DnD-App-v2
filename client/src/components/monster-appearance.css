@@ -7,3 +7,7 @@
 .asset-production-status { grid-column: 1 / -1; display: flex; flex-direction: column; gap: .3rem; font-size: .8rem; }
 .asset-production-status > div { display: flex; gap: .4rem; flex-wrap: wrap; }
 .asset-production-status button { font-size: .75rem; padding: .2rem .4rem; }
+.asset-production-status details { border-top: 1px solid #ffffff20; padding-top: .3rem; }
+.asset-production-status summary { cursor: pointer; }
+.asset-production-status details label, .asset-production-status details small { display: block; margin: .4rem 0; }
+.asset-production-status textarea { display: block; box-sizing: border-box; width: 100%; min-height: 54px; resize: vertical; font: inherit; }

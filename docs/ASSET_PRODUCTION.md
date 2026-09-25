@@ -15,6 +15,24 @@ host, deduplicated by physical family, and runs one production job at a time.
 This does not isolate GPU memory from other software: pause production during
 play if the host GPU is also rendering the battlefield.
 
+DM Token info also provides **New 3D model**, even when a model already matches
+or the creature is set to 2D only. Optional appearance notes can specify armor,
+equipment, or pose. **Generate new 3D model** creates a separate reusable family;
+the existing model stays selected until the DM chooses **Use this model** after
+completion. Other creatures and source templates are not reassigned. Save the
+updated creature to the library to reuse that assignment. Repeated clicks while
+its job is queued/running return the same job. A failed request can be retried
+with its saved references or replaced with a fresh request and revised notes.
+
+Both automatic and manual jobs snapshot the creature's name/type, named weapons,
+attack descriptions, and armor/clothing mentioned in actions or traits. Reference
+art uses that evidence and the DM notes, with one primary weapon held ready and
+secondary weapons sheathed. AC alone does not imply worn armor; natural attacks
+remain anatomy. There is no dedicated monster armor inventory field, so explicit
+armor belongs in its traits or appearance notes. Equipment evidence is private
+job data, not part of the public model catalog. Existing jobs without a snapshot
+retain their legacy family-only prompt.
+
 Finished models appear in the 3D family selector and matching tokens load them
 within five seconds without rejoining. Generated models use the same WebGL layer,
 pewter base treatment, fog visibility, base-only input, sizing, affinity borders,
