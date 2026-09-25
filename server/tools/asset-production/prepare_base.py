@@ -39,10 +39,18 @@ for o in meshes:
     largest=max((len(island) for island in islands),default=0)
     main_island=max(islands,key=len,default=set())
     main_floor=min(((o.matrix_world@Vector(key)).z for key in main_island),default=0)
-    # A slightly larger stray below the body can otherwise become the entire
-    # measured footprint, placing the real creature beside its new base.
+    main_points=[o.matrix_world@Vector(key) for key in main_island]
+    main_low=[min((p[i] for p in main_points),default=0) for i in range(3)]
+    main_high=[max((p[i] for p in main_points),default=0) for i in range(3)]
+    margin=max((b-a for a,b in zip(main_low,main_high)),default=0)*.05
+    def detached_outlier(island):
+        points=[o.matrix_world@Vector(key) for key in island]
+        return any(max(p[i] for p in points)<main_low[i]-margin
+            or min(p[i] for p in points)>main_high[i]+margin for i in range(3))
+    # Small fragments well outside the body bounds must not determine its size.
     specks=set().union(*(island for island in islands if len(island)<largest*.002
-        or (len(island)<largest*.01 and max((o.matrix_world@Vector(key)).z for key in island)<main_floor)))
+        or (len(island)<largest*.01 and (max((o.matrix_world@Vector(key)).z for key in island)<main_floor
+            or detached_outlier(island)))))
     remove={i for i,key in keys.items() if key in specks}
     if remove:
         bm=bmesh.new();bm.from_mesh(o.data);bm.verts.ensure_lookup_table()

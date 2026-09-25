@@ -76,6 +76,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
   }, [monName]);
 
   const applyTemplate = (t: CreatureTemplate) => {
+    setObjectKind(t.objectKind ?? '');
     setTmpl(t);
     setMonName(t.name);
     setMonHp(t.maxHp);
@@ -130,9 +131,11 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
       weaknesses: tmpl?.weaknesses,
       actions: tmpl?.actions,
       abilities: tmpl?.abilities,
+      sheetAbilities: tmpl?.sheetAbilities,
       weapons: tmpl?.weapons,
       icon: tmpl?.icon,
       objectKind: objectKind || undefined,
+      objectDc: tmpl?.objectDc,
       // Objects default to 'neutral' so players see the object (name + state) when
       // it isn't hidden; creatures keep the default (enemy).
       disposition: objectKind ? 'neutral' : undefined,

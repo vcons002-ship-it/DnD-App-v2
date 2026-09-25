@@ -7,6 +7,9 @@ export const MONSTER_MODEL_TYPES = [
   'stone-golem', 'ghost', 'werebear', 'treant', 'dragon', 'two-headed-dragon',
   'spider', 'snake', 'mage-hand', 'kobold', 'zombie', 'giant-rat', 'mimic', 'imp',
   'bugbear', 'gnoll', 'owlbear', 'brown-bear', 'ogre', 'ghoul', 'giant-bat', 'goblin-crossbowman',
+  'pirate-first-mate', 'pirate-captain', 'tattered-cloak-leader',
+  'tattered-cloak-lieutenant', 'scholar', 'spectral-visitor',
+  'tattered-cloak-mage', 'young-treant', 'orc-swordsman',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -25,6 +28,7 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
     return 'huge'; // Unspecified/custom dragon keeps the catalog adult default.
   }
   if (family === 'treant') return 'huge';
+  if (family === 'young-treant') return 'large';
   if (/\bblack bear\b|\bgiant wolf spider\b/.test(name)) return 'medium';
   if (['owlbear', 'brown-bear', 'ogre', 'giant-bat'].includes(family)) return 'large';
   if (['troll', 'stone-golem', 'werebear'].includes(family) || /\bdire wolf\b|\bgiant spider\b|\bgiant constrictor snake\b/.test(name)) return /giant constrictor snake/.test(name) ? 'huge' : 'large';
@@ -42,7 +46,7 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
 export function defaultMonsterWidthFt(appearance: MonsterAppearance): number {
   return CREATURE_SPACE_FT[creatureSize(appearance)];
 }
-export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear', 'owlbear', 'brown-bear', 'ogre', 'giant-bat'];
+export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'young-treant', 'troll', 'stone-golem', 'werebear', 'owlbear', 'brown-bear', 'ogre', 'giant-bat'];
 /** Visible base width is independent of combat space and can be overridden. */
 export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; miniatureWidthFt?: number }, appearance: MonsterAppearance = {}): number {
   if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;

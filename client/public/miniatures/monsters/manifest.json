@@ -650,6 +650,159 @@
       "sourceSha256": "c0026e5bbd0f65b6a281e0528fb78df79a14ceebc142bb368c9a424dccacfa2b",
       "url": "/miniatures/monsters/goblin-crossbowman.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "pirate-first-mate",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1561548,
+      "triangles": 20764,
+      "sha256": "0a73325edeb40ffb33324e49a916ea8721ed670bb2c407ae0af4e2a5e1b11243",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "c83a2730e90df1da374d3d43751510fb60e101e05a248bba8fee8697dcc1344f",
+      "url": "/miniatures/monsters/pirate-first-mate.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "pirate-captain",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1870104,
+      "triangles": 20760,
+      "sha256": "0f007eedf15759a70e3249fa7c18457401801447346a9b22a0615be206a6a539",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "9ef74929d69d57efcb16024a1115dad7eade8f3936c4076dc54a88e906eeb3f9",
+      "url": "/miniatures/monsters/pirate-captain.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "tattered-cloak-leader",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1415956,
+      "triangles": 20764,
+      "sha256": "0d1b8bd01504601f0ac69cdd84fe35e1e491653933e55e769e97e4babb722bd1",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "cc13eb2a5f3c1b15c69d652045e0a9c4e520a1e5449b07e18d87eef0decd4c05",
+      "url": "/miniatures/monsters/tattered-cloak-leader.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "tattered-cloak-lieutenant",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1504476,
+      "triangles": 20644,
+      "sha256": "fc5d7e888fbbadfb414f362179edc6faca2239e9c10d7a38fabf541cdeff5ff2",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "756fe3abb3de721db6d8d74f623663c392e5f67db8f32c0c9d4e587c0b2d90cf",
+      "url": "/miniatures/monsters/tattered-cloak-lieutenant.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "scholar",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1570696,
+      "triangles": 20710,
+      "sha256": "41019ffed44063101f2f039c9b2c043936c05342072c7ea2cc9e14ca90cf6499",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "1698f9990dd90231866f78d05c95bacb8d195568777aba17f1f2077f01b15e82",
+      "url": "/miniatures/monsters/scholar.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "spectral-visitor",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1414436,
+      "triangles": 20706,
+      "sha256": "c9c48a5e5f47e117f86ac5a7116830f974222642badf88f1752ab27b1e33751e",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "5c6a4d165181e99e20ee6df17da40465b9c540610ed307101f740dd9ac9296ab",
+      "url": "/miniatures/monsters/spectral-visitor.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "tattered-cloak-mage",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1562508,
+      "triangles": 20698,
+      "sha256": "2f2ccf1b5f4d8bfa227d08328afbc778b8e3227920d51423651c09e0d0817585",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "eaf0fc4ee96ef1733d68bb3160364050dabc4f126a9605bdaa4cc2186c533038",
+      "url": "/miniatures/monsters/tattered-cloak-mage.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "young-treant",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1802600,
+      "triangles": 20742,
+      "sha256": "2a9a9febfa917e28df176f3dfc67acbd838af2b6b4f1a6008f3a90feaab1081c",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "e3c8a880f14c88128c28bea12948a5d08a21c5a68457673e1d21df905a2681c3",
+      "url": "/miniatures/monsters/young-treant.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "orc-swordsman",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1823716,
+      "triangles": 20764,
+      "sha256": "fec4c7bc3aa929172c61f85c0f74284a031b1145ee9fdf70f3319314214eac9b",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "b9aaf0a106c94a5a3e4465e2acaaa70a8adb9993bbaa71fd41503370eef4c03b",
+      "url": "/miniatures/monsters/orc-swordsman.glb",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [

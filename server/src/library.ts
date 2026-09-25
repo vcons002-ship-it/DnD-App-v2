@@ -3,6 +3,7 @@ import { db, newId, getMeta, setMeta } from './db.js';
 import { SRD_ITEMS } from './items/srd.js';
 import type {
   CreatureAbility,
+  ObjectKind,
   CreatureTemplate,
   InventoryItem,
   LibraryCharacter,
@@ -68,6 +69,7 @@ export function seedLibraryCreatures(): number {
 }
 
 type LibCreatureRow = {
+  object_kind?: ObjectKind; object_dc?: number;
   model_type?: string; model_color?: string; visual_tags?: string;
   id: string;
   name: string;
@@ -89,6 +91,7 @@ type LibCreatureRow = {
 function rowToTemplate(r: LibCreatureRow): CreatureTemplate {
   return {
     name: r.name,
+    ...(r.object_kind ? { objectKind: r.object_kind, objectDc: r.object_dc ?? undefined } : {}),
     creatureType: r.creature_type,
     modelColor: r.model_color ?? '',
     modelType: r.model_type ?? '', visualTags: JSON.parse(r.visual_tags ?? '[]'),
@@ -139,6 +142,8 @@ export function getLibraryCreature(name: string): CreatureTemplate | null {
 }
 
 export type SaveCreatureInput = {
+  objectKind?: ObjectKind;
+  objectDc?: number;
   modelType?: string;
   modelColor?: string; visualTags?: string[];
   name: string;
@@ -180,8 +185,8 @@ export function saveLibraryCreature(
     `INSERT OR REPLACE INTO library_creatures
        (id, name, creature_type, level, max_hp, armor_class, speed, stats,
         resistances, weaknesses, weapons, actions, abilities, sheet_abilities,
-        icon, created_at, model_type, visual_tags, model_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        icon, created_at, model_type, visual_tags, model_color, object_kind, object_dc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -202,6 +207,8 @@ export function saveLibraryCreature(
     input.icon ?? iconForCreature(name, input.creatureType ?? ''),
     Date.now(),
     normalizeModelType(input.modelType), JSON.stringify(normalizeVisualTags(input.visualTags)), normalizeModelColor(input.modelColor),
+    ['trap', 'door', 'chest', 'item', 'other'].includes(input.objectKind ?? '') ? input.objectKind : null,
+    typeof input.objectDc === 'number' && Number.isFinite(input.objectDc) ? Math.max(0, input.objectDc) : null,
   );
   return { saved: getLibraryCreature(name)! };
 }
