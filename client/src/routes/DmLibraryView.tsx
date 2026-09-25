@@ -140,6 +140,7 @@ export function DmLibraryView() {
       actions: t.actions,
       abilities: t.abilities,
       sheetAbilities: t.sheetAbilities,
+      crBaseline: t.crBaseline,
       weapons: t.weapons,
       icon: t.icon,
       // `Monster.source` has no 'library' member — a placed copy is 'manual'.

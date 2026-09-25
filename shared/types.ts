@@ -242,6 +242,10 @@ export type CreatureAbility = {
  * above it (or, for cantrips at level 0, per caster-level tier).
  */
 export type AbilityRoll = {
+  /** Original caster tier retained when CR damage is scaled independently. */
+  crCasterLevel?: number;
+  /** Explicit monster spell attack bonus, including CR scaling. */
+  attackBonus?: number;
   /** Casting-time choices for a variable-type spell; a saved fixed type wins. */
   damageTypeChoices?: string[];
   /** What the roll button does. */
@@ -463,6 +467,7 @@ export type SheetAbility = {
 export type ObjectKind = 'trap' | 'door' | 'chest' | 'item' | 'other';
 
 export type Monster = {
+  crBaseline?: import("./creatureScaling.js").CreatureBaseline;
   /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
   modelType?: string;
   modelColor?: string;
@@ -524,6 +529,7 @@ export type Monster = {
 
 /** A creature template returned by SRD search or Gemini lookup. */
 export type CreatureTemplate = {
+  crBaseline?: import("./creatureScaling.js").CreatureBaseline;
   objectKind?: ObjectKind;
   objectDc?: number;
   /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
@@ -1350,6 +1356,7 @@ export type NoticePayload = {
 };
 /** Create a reusable creature *template* (one spawn button). */
 export type MonsterCreatePayload = {
+  crBaseline?: import("./creatureScaling.js").CreatureBaseline;
   /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
   modelType?: string;
   modelColor?: string;

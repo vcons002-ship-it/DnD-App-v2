@@ -362,6 +362,7 @@ for (const table of ['monsters', 'library_creatures']) {
   ensureColumn(table, 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
   ensureColumn(table, 'visual_tags', "visual_tags TEXT NOT NULL DEFAULT '[]'");
 }
+for (const table of ['monsters', 'library_creatures']) ensureColumn(table, 'cr_baseline', 'cr_baseline TEXT');
 ensureColumn('monsters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'icon', "icon TEXT NOT NULL DEFAULT ''");
 ensureColumn('monsters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
@@ -736,6 +737,7 @@ export function rowToCharacter(r: CharacterRow): Character {
 }
 
 type MonsterRow = {
+  cr_baseline?: string;
   model_type?: string;
   model_color?: string;
   visual_tags?: string;
@@ -770,6 +772,7 @@ type MonsterRow = {
 
 export function rowToMonster(r: MonsterRow): Monster {
   return {
+    crBaseline: r.cr_baseline ? JSON.parse(r.cr_baseline) : undefined,
     id: r.id,
     sessionId: r.session_id,
     name: r.name,

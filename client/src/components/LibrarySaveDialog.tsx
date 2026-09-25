@@ -49,6 +49,7 @@ export function LibrarySaveDialog({
     actions: monster.actions,
     abilities: monster.abilities,
     sheetAbilities: monster.sheetAbilities,
+    crBaseline: monster.crBaseline,
     icon: monster.icon,
   });
 

@@ -130,7 +130,7 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
 
   const filled = Object.keys(patch).length - 1; // minus monsterId
   if (filled === 0) return { ok: false, reason: 'nothing' };
-  updateMonster(monsterId, patch);
+  updateMonster(monsterId, patch, { scaleCR: false }); // Fill missing source stats, not a DM CR adjustment.
   return { ok: true, filled, id: monsterId };
 }
 
