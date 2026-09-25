@@ -81,3 +81,5 @@ The preparation step also removes small disconnected fragments well outside the 
 Total new runtime model storage: 14.53 MB across nine files. There are now 47 bundled physical families, plus the existing appearance variants and three PC models. Ten saved presets and 22 main-campaign creature records were assigned these nine families; other campaign fields were verified unchanged.
 
 Validation passed: typechecking, 673 unit tests across 74 files, production build with GLB/hash checks, and browser loading of all 47 families plus the three PCs in overhead and tilted views. Live library search found all 41 presets; stat/attack completeness checks reported no gaps.
+
+Subsequent role-specific family upgrades and the current full library mapping are documented in [SPECIALIST_LIBRARY_MODELS.md](SPECIALIST_LIBRARY_MODELS.md) and [TOKEN_LIBRARY_FAMILIES.md](TOKEN_LIBRARY_FAMILIES.md).

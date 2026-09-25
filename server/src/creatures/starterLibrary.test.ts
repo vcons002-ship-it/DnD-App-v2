@@ -106,5 +106,41 @@ describe('curated 3D starter library', () => {
     expect(resolveMonsterModelType({ name: 'Black Bear 1' })).toBe('brown-bear');
     expect(resolveMonsterModelType({ name: 'Giant Wolf Spider' })).toBe('spider');
   });
+  it('repairs legacy imports after old seed markers while preserving custom appearances and stats', () => {
+    for (const marker of ['starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'library-stat-completeness-v1']) {
+      db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run(marker, '1');
+    }
+    db.prepare('DELETE FROM app_meta WHERE key=?').run('library-specific-families-v1');
+    saveLibraryCreature({name: 'Cultist', maxHp: 91, armorClass: 22, modelType: 'human-mage', icon: '/custom-cultist.png', visualTags: ['ice']}, true);
+    saveLibraryCreature({name: 'Commoner', maxHp: 19}, true);
+    saveLibraryCreature({name: 'Black Bear', maxHp: 88}, true);
+    saveLibraryCreature({name: 'Brown Bear', maxHp: 50, visualTags: ['fire']}, true);
+    saveLibraryCreature({name: 'Scout', maxHp: 32, modelType: 'none'}, true);
+    saveLibraryCreature({name: 'Veteran', maxHp: 99, modelType: 'dwarf-warrior', modelColor: 'red'}, true);
+    deleteLibraryCreature('Bugbear');
+    expect(seedLibraryCreatures()).toBe(0);
+    expect(getLibraryCreature('Cultist')).toMatchObject({maxHp: 91, armorClass: 22, modelType: 'cultist', icon: '/custom-cultist.png', visualTags: ['ice']});
+    expect(getLibraryCreature('Commoner')).toMatchObject({maxHp: 19, modelType: 'human-commoner'});
+    expect(getLibraryCreature('Black Bear')).toMatchObject({maxHp: 88, modelType: 'brown-bear', visualTags: ['beast', 'black']});
+    expect(getLibraryCreature('Brown Bear')).toMatchObject({modelType: 'brown-bear', modelColor: '', visualTags: ['fire']});
+    expect(getLibraryCreature('Scout')?.modelType).toBe('none');
+    expect(getLibraryCreature('Veteran')).toMatchObject({modelType: 'dwarf-warrior', modelColor: 'red'});
+    expect(getLibraryCreature('Bugbear')).toBeNull();
+    saveLibraryCreature({name: 'Cultist', modelType: 'human-mage'}, true);
+    seedLibraryCreatures();
+    expect(getLibraryCreature('Cultist')?.modelType).toBe('human-mage');
+  });
+  it('resolves role-specific imports even when their saved family is blank', () => {
+    for (const [name, family] of [['Cultist', 'cultist'], ['Scout', 'scout'], ['Veteran', 'veteran'], ['Commoner', 'human-commoner'], ['Mage', 'human-mage'], ['Bandit Captain', 'bandit-captain'], ['Sailor Marine', 'sailor-marine'], ['Elite Castle Guard', 'elite-castle-guard'], ['Pirate First Mate', 'pirate-first-mate'], ['Guard Captain', 'veteran']]) {
+      expect(resolveMonsterModelType({name: name + ' 2', creatureType: 'Medium humanoid', modelType: ''})).toBe(family);
+    }
+    expect(resolveMonsterModelType({name: 'Cultist', modelType: 'none'})).toBe('none');
+    expect(resolveMonsterModelType({name: 'Cultist', modelType: 'dwarf-warrior'})).toBe('dwarf-warrior');
+    expect(resolveMonsterModelType({name: 'Cultist', objectKind: 'other'})).toBe('none');
+    expect(resolveMonsterModelType({name: 'Cultist', creatureType: 'human-mage'})).toBe('cultist');
+    expect(resolveMonsterModelType({name: 'Archmage', creatureType: 'dragon'})).toBe('dragon');
+    expect(resolveMonsterModelType({name: 'constructor'})).toBe('');
+  });
+
 });
 

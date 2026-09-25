@@ -10,6 +10,8 @@ export const MONSTER_MODEL_TYPES = [
   'pirate-first-mate', 'pirate-captain', 'tattered-cloak-leader',
   'tattered-cloak-lieutenant', 'scholar', 'spectral-visitor',
   'tattered-cloak-mage', 'young-treant', 'orc-swordsman',
+  'cultist', 'scout', 'veteran', 'bandit-captain', 'archmage',
+  'sailor', 'sailor-marine', 'elite-castle-guard',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -76,6 +78,26 @@ export function monsterTint(m: MonsterAppearance): string | undefined {
   const tags = appearanceTags(m);
   return [...tags].reverse().map(t => tagColor(MONSTER_COLORS, t)).find(Boolean) ?? [...tags].reverse().map(t => tagColor(THEMES, t)).find(Boolean);
 }
+/** Known legacy role assignments eligible for the one-time library upgrade. */
+export const LIBRARY_FAMILY_UPGRADES: Record<string, { from: string; to: string }> = {
+  cultist: { from: 'human-mage', to: 'cultist' },
+  scout: { from: 'human-bandit', to: 'scout' },
+  veteran: { from: 'human-guard', to: 'veteran' },
+  'bandit captain': { from: 'human-bandit', to: 'bandit-captain' },
+  archmage: { from: 'human-mage', to: 'archmage' },
+  sailor: { from: 'human-commoner', to: 'sailor' },
+  'sailor marine': { from: 'human-bandit', to: 'sailor-marine' },
+  'elite castle guard': { from: 'human-guard', to: 'elite-castle-guard' },
+  'guard captain': { from: 'human-guard', to: 'veteran' },
+  'pirate first mate': { from: 'human-bandit', to: 'pirate-first-mate' },
+  'rebel mage': { from: 'human-mage', to: 'tattered-cloak-mage' },
+};
+const FAMILY_ALIASES: Record<string, string> = {
+  bandit: 'human-bandit', commoner: 'human-commoner', guard: 'human-guard', mage: 'human-mage',
+  'dire wolf': 'wolf', 'giant wolf spider': 'spider', 'constrictor snake': 'snake',
+  specter: 'ghost', ...Object.fromEntries(Object.entries(LIBRARY_FAMILY_UPGRADES).map(([name, rule]) => [name, rule.to])),
+};
+const SPECIFIC_ROLE_FAMILIES = new Set(Object.values(LIBRARY_FAMILY_UPGRADES).map(rule => rule.to));
 export function resolveMonsterModelType(m: MonsterAppearance): string {
   if (m.objectKind) return 'none';
   const explicit = normalizeModelType(m.modelType);
@@ -84,9 +106,12 @@ export function resolveMonsterModelType(m: MonsterAppearance): string {
     if (/^(?:(?:medium|large)\s+)?(?:brown|black)[ -]bear(?:\s+\d+)?$/i.test(value.trim())) return 'brown-bear';
     const words = value.toLowerCase().replace(/\[[^\]]*\]/g, '').replace(/\s+\d+$/, '').trim().split(/\s+/).filter(t => !Object.hasOwn(CREATURE_SPACE_FT, t) && !tagColor(MONSTER_COLORS, t) && !tagColor(THEMES, t));
     const name = words.join(' ');
-    return name === 'dire wolf' ? 'wolf' : name === 'giant wolf spider' ? 'spider' : MONSTER_MODEL_TYPES.find(t => t === name || t.replaceAll('-', ' ') === name) ?? '';
+    return Object.hasOwn(FAMILY_ALIASES, name) ? FAMILY_ALIASES[name] : MONSTER_MODEL_TYPES.find(t => t === name || t.replaceAll('-', ' ') === name) ?? '';
   };
-  return candidate(m.creatureType ?? '') || candidate(m.name ?? '');
+  const typed = candidate(m.creatureType ?? ''), named = candidate(m.name ?? '');
+  // A named role refines a generic humanoid type; explicit families still win.
+  return ['human-mage', 'human-bandit', 'human-commoner', 'human-guard'].includes(typed) && SPECIFIC_ROLE_FAMILIES.has(named)
+    ? named : typed || named;
 }
 
 export function normalizeModelColor(value: unknown): string {
