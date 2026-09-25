@@ -1570,6 +1570,7 @@ export function registerSocketHandlers(io: IOServer): void {
         speed: p.speed,
         stats: p.stats,
         resistances: p.resistances,
+        immunities: p.immunities,
         weaknesses: p.weaknesses,
         actions: p.actions,
         abilities: p.abilities,

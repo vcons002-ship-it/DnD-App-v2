@@ -268,6 +268,10 @@ export function sanitizeWeapons(raw: unknown): Weapon[] {
       if (tags.length) w.tags = tags;
     }
     if (e.diceOnly) w.diceOnly = true;
+    // Damage-source properties: they decide whether "nonmagical" / "non-silvered"
+    // resistances apply, so only a real `true` is kept.
+    if (e.magical === true) w.magical = true;
+    if (e.silvered === true) w.silvered = true;
     out.push(w);
   }
   return out;

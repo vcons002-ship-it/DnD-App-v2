@@ -136,6 +136,7 @@ export function DmLibraryView() {
       speed: t.speed,
       stats: t.stats,
       resistances: t.resistances,
+      immunities: t.immunities,
       weaknesses: t.weaknesses,
       actions: t.actions,
       abilities: t.abilities,

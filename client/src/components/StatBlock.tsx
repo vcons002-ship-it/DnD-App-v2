@@ -33,6 +33,8 @@ export type StatSheet = {
   speed: string;
   stats: Record<string, number>;
   resistances: string[];
+  /** Damage immunities — shown and edited beside resistances. */
+  immunities?: string[];
   weaknesses: string[];
   /** Ability codes proficient in for saving throws (adds the proficiency bonus). */
   saveProficiencies: string[];
@@ -97,8 +99,9 @@ function masteryNamesForWeapon(w: Weapon, masteries: SheetAbility[]): string[] {
   return labels;
 }
 
-type Draft = Omit<StatSheet, 'id' | 'resistances' | 'weaknesses'> & {
+type Draft = Omit<StatSheet, 'id' | 'resistances' | 'immunities' | 'weaknesses'> & {
   resistances: string;
+  immunities: string;
   weaknesses: string;
   identity: Record<string, string>;
 };
@@ -134,6 +137,7 @@ export function StatBlock({
       speed: c.speed,
       stats: { ...c.stats },
       resistances: c.resistances.join(', '),
+      immunities: (c.immunities ?? []).join(', '),
       weaknesses: c.weaknesses.join(', '),
       saveProficiencies: [...c.saveProficiencies],
       weapons: c.weapons.map((w) => ({ ...w })),
@@ -159,6 +163,7 @@ export function StatBlock({
       speed: d.speed.trim(),
       stats: d.stats,
       resistances: splitList(d.resistances),
+      immunities: splitList(d.immunities),
       weaknesses: splitList(d.weaknesses),
       saveProficiencies: d.saveProficiencies,
       weapons: d.weapons.filter((w) => w.name.trim()),
@@ -301,6 +306,14 @@ export function StatBlock({
         <input
           value={d.resistances}
           onChange={(e) => set({ resistances: e.target.value })}
+        />
+      </label>
+      <label className="sb-field">
+        Immune (comma-sep)
+        <input
+          value={d.immunities}
+          onChange={(e) => set({ immunities: e.target.value })}
+          placeholder="fire, poison"
         />
       </label>
       <label className="sb-field">
@@ -587,6 +600,11 @@ function ReadView({
       {m.resistances.length > 0 && (
         <div className="sb-line">
           <strong>Resist:</strong> {m.resistances.join(', ')}
+        </div>
+      )}
+      {(m.immunities?.length ?? 0) > 0 && (
+        <div className="sb-line">
+          <strong>Immune:</strong> {m.immunities!.join(', ')}
         </div>
       )}
       {m.weaknesses.length > 0 && (

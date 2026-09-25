@@ -59,6 +59,12 @@ export type Weapon = {
    * rolls the weapon dice + magic, without the ability mod). Added to every hit.
    */
   magicBonus?: number;
+  /** The weapon is MAGICAL even with no numeric bonus (a Flame Tongue, a
+   *  Shillelagh'd club). Beats "nonmagical" resistances/immunities. A positive
+   *  `magicBonus` counts as magical too. */
+  magical?: boolean;
+  /** Silvered — beats resistances that only apply to non-silvered attacks. */
+  silvered?: boolean;
   /**
    * A secondary damage rider of a DIFFERENT type — e.g. a flaming sword's
    * `extraDamage: "1d6"`, `extraDamageType: "fire"` on top of its slashing
@@ -190,6 +196,9 @@ export type Character = {
   /** Tagged weapons, shared shape with monsters for consistency. */
   weapons: Weapon[];
   resistances: string[];
+  /** Damage types it takes NO damage from (immunity beats resistance and
+   *  vulnerability). Same entry grammar as `resistances`. Absent = none. */
+  immunities?: string[];
   weaknesses: string[];
   /** Attacks / actions and traits / features (same tags as creatures). */
   actions: CreatureAbility[];
@@ -369,6 +378,9 @@ export type StanceSpec = {
   bonusDamage?: string;
   /** Grants advantage on the attack roll (e.g. Reckless Attack). */
   grantsAdvantage?: boolean;
+  /** While active, this creature's attacks count as MAGICAL for overcoming
+   *  resistance and immunity (e.g. a Monk's Empowered Strikes). */
+  magicalAttacks?: boolean;
   /** Savage Attacker (2024 feat): reroll the weapon's damage dice on a hit and
    *  keep the better total. Applies to the qualifying weapon attacks only (the
    *  once-per-turn limit is the player's call — the toggle IS the control). */
@@ -504,6 +516,9 @@ export type Monster = {
   /** Ability scores, e.g. { STR: 16, DEX: 12, … }. */
   stats: Record<string, number>;
   resistances: string[];
+  /** Damage types it takes NO damage from (immunity beats resistance and
+   *  vulnerability). Same entry grammar as `resistances`. Absent = none. */
+  immunities?: string[];
   weaknesses: string[];
   /** Ability codes proficient in for SAVING THROWS (adds the proficiency bonus). */
   saveProficiencies: string[];
@@ -550,6 +565,9 @@ export type CreatureTemplate = {
   speed: string;
   stats: Record<string, number>;
   resistances: string[];
+  /** Damage types it takes NO damage from (immunity beats resistance and
+   *  vulnerability). Same entry grammar as `resistances`. Absent = none. */
+  immunities?: string[];
   weaknesses: string[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
@@ -593,6 +611,9 @@ export type LibraryCharacter = {
   resources: Record<string, { max: number; used: number }>;
   weapons: Weapon[];
   resistances: string[];
+  /** Damage types it takes NO damage from (immunity beats resistance and
+   *  vulnerability). Same entry grammar as `resistances`. Absent = none. */
+  immunities?: string[];
   weaknesses: string[];
   actions: CreatureAbility[];
   abilities: CreatureAbility[];
@@ -1210,6 +1231,7 @@ export type CharacterUpdatePayload = {
   speed?: string;
   stats?: Record<string, number>;
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   weapons?: Weapon[];
   actions?: CreatureAbility[];
@@ -1374,6 +1396,7 @@ export type MonsterCreatePayload = {
   speed?: string;
   stats?: Record<string, number>;
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   actions?: CreatureAbility[];
   abilities?: CreatureAbility[];
@@ -1418,6 +1441,7 @@ export type MonsterUpdatePayload = {
   speed?: string;
   stats?: Record<string, number>;
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   saveProficiencies?: string[];
   weapons?: Weapon[];

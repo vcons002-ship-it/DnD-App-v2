@@ -36,6 +36,7 @@ export function LibraryCharacterDialog({
     resources: character.resources,
     weapons: character.weapons,
     resistances: character.resistances,
+    immunities: character.immunities,
     weaknesses: character.weaknesses,
     actions: character.actions,
     abilities: character.abilities,

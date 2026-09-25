@@ -3,6 +3,7 @@
 import type { Weapon } from './types.js';
 import { abilityMod, proficiencyBonus, signed } from './skills.js';
 import { rollDice } from './dice.js';
+import { DAMAGE_TYPES } from './damage.js';
 import type { Advantage } from './dice.js';
 
 // Single source of truth is the dice module; re-exported so combat callers can
@@ -309,20 +310,74 @@ export function rollSavingThrow(
   return { face, mod, total, pass: total >= dc, proficient, d20Detail };
 }
 
+/** Where a hit's damage came from — the properties that can overcome a
+ *  conditional resistance or immunity. Spell damage is always `magical`. */
+export type DamageSource = { magical?: boolean; silvered?: boolean };
+
 /**
- * Damage multiplier from a target's resistances/vulnerabilities for a damage
- * type: 0.5 if resistant, 2 if vulnerable, else 1. Per 5e you can't be both at
- * once — if a type is listed in both, we treat it as normal. Matched on the
- * type word, case-insensitive.
+ * One resistance / immunity / vulnerability entry, parsed. `types` are the
+ * canonical damage types it covers; the `unless…` flags are the conditions under
+ * which it does NOT apply — "nonmagical B/P/S" is beaten by a magical source,
+ * "non-silvered" by a silvered one.
+ */
+export type DamageTrait = { types: string[]; unlessMagical: boolean; unlessSilvered: boolean };
+
+const TRAIT_TYPE_WORDS = DAMAGE_TYPES.map((t) => [t, new RegExp(`\\b${t}\\b`)] as const);
+
+/**
+ * Parse a stat-block damage trait. Understands the SRD phrasings — "fire",
+ * "nonmagical bludgeoning/piercing/slashing", "nonmagical non-silvered …",
+ * "bludgeoning, piercing, and slashing from nonmagical attacks (that aren't
+ * silvered)" — by pulling canonical types from a fixed vocabulary and
+ * qualifiers from a fixed phrase set, so a partial word never matches ("poison"
+ * is not "poisoned"). An entry naming no canonical type (homebrew "sonic") keeps
+ * the old exact-match behaviour. Null for an empty entry.
+ */
+export function parseDamageTrait(entry: string): DamageTrait | null {
+  const raw = entry.trim().toLowerCase();
+  if (!raw) return null;
+  const types = TRAIT_TYPE_WORDS.filter(([, re]) => re.test(raw)).map(([t]) => t);
+  const unlessMagical = /\bnon-?magical\b/.test(raw);
+  const unlessSilvered =
+    /\bnon-?silvered\b|\baren'?t silvered\b|\bare not silvered\b|\bnot made with silvered\b/.test(raw);
+  if (types.length === 0)
+    return unlessMagical || unlessSilvered ? null : { types: [raw], unlessMagical, unlessSilvered };
+  return { types, unlessMagical, unlessSilvered };
+}
+
+/** Whether a trait entry applies to this damage type from this source. */
+export function traitApplies(entry: string, damageType: string, source: DamageSource = {}): boolean {
+  const t = parseDamageTrait(entry);
+  if (!t || !t.types.includes(damageType)) return false;
+  if (t.unlessMagical && source.magical) return false;
+  if (t.unlessSilvered && source.silvered) return false;
+  return true;
+}
+
+/** Whether a weapon attack is magical: explicitly flagged, or carrying a bonus. */
+export function weaponIsMagical(w: Pick<Weapon, 'magical' | 'magicBonus'>): boolean {
+  return !!w.magical || (w.magicBonus ?? 0) > 0;
+}
+
+/**
+ * Damage multiplier for a damage type against a target's traits: 0 if IMMUNE
+ * (immunity beats everything), 0.5 if resistant, 2 if vulnerable, 1 otherwise —
+ * and 1 if both resistant and vulnerable (5e: they cancel). Each entry is
+ * matched against the type AND the source's properties (see `parseDamageTrait`),
+ * so a +1 sword gets through "nonmagical B/P/S" resistance and a mundane one
+ * doesn't.
  */
 export function damageMultiplier(
   damageType: string | undefined,
   resistances: string[],
   weaknesses: string[],
+  immunities: string[] = [],
+  source: DamageSource = {},
 ): number {
   const dt = (damageType ?? '').trim().toLowerCase();
   if (!dt) return 1;
-  const has = (arr: string[]) => arr.some((x) => x.trim().toLowerCase() === dt);
+  const has = (arr: string[] | undefined) => (arr ?? []).some((e) => traitApplies(e, dt, source));
+  if (has(immunities)) return 0;
   const resist = has(resistances);
   const vuln = has(weaknesses);
   if (resist && vuln) return 1;

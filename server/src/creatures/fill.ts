@@ -112,6 +112,8 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
     patch.stats = tpl.stats;
   if (m.resistances.length === 0 && tpl.resistances.length > 0)
     patch.resistances = tpl.resistances;
+  if ((m.immunities ?? []).length === 0 && (tpl.immunities ?? []).length > 0)
+    patch.immunities = tpl.immunities;
   if (m.weaknesses.length === 0 && tpl.weaknesses.length > 0)
     patch.weaknesses = tpl.weaknesses;
   if (m.weapons.length === 0 && (tpl.weapons?.length ?? 0) > 0)

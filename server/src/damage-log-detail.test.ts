@@ -111,26 +111,32 @@ describe('log-only damage accounting', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(.999);
     resolveAttack(f.session.id, 'Fighter', f.attackToken.id, f.targetToken.id, 0, undefined, false, false, f.attacker.id);
     const hit = listRollLog(f.session.id).at(-1)!;
-    expect(random).toHaveBeenCalledTimes(11);
+    // 13 = the 11 it always took + the crit re-rolls RAW requires of the fire
+    // rider's d4 and the Trip Attack Superiority Die (dice only, never flats).
+    expect(random).toHaveBeenCalledTimes(13);
     expect(hit.reveal?.damageBreakdown).toBeUndefined();
     expect(getMonster(f.target.id)?.curHp).toBe(200);
-    expect(hit.pending?.amount).toBe(42);
+    // Slashing: 71 (weapon + crit + riders + flats, incl. the Trip die twice)
+    // ½-resisted → 35. Fire: (1d4+1 = 5) + its crit d4 (4) = 9, ×2 vulnerable → 18.
+    expect(hit.pending?.amount).toBe(53);
     const pending = getRollEntry(hit.id)!.pending!;
-    expect(total(pending.damageBreakdown!)).toBe(42);
+    expect(total(pending.damageBreakdown!)).toBe(53);
     expect(pending.damageBreakdown?.dice.filter((step) => step.label.includes('CRIT'))).toEqual([
       { label: 'CRIT', value: 12, faces: [6, 6] },
       { label: '1d6 (Rune edge CRIT)', value: 6, faces: [6] },
       { label: "1d4 (Hunter's Mark CRIT)", value: 4, faces: [4] },
+      { label: '1d8 (Trip Attack CRIT)', value: 8, faces: [8] },
+      { label: '1d4 (fire rider CRIT)', value: 4, faces: [4] },
     ]);
     const other = buildSnapshot(f.session.id, 'player', null, 'other')!.rollLog.at(-1)!;
     expect(other.pending).toBeUndefined();
     expect(other.reveal?.damageBreakdown).toBeUndefined();
     expect(resolveAttackDamage(f.session.id, 'Fighter', hit.id)).toBe(true);
-    expect(random).toHaveBeenCalledTimes(11); // no reroll on resolution
+    expect(random).toHaveBeenCalledTimes(13); // no reroll on resolution
     const resolved = listRollLog(f.session.id).at(-1)!;
     expect(resolved.reveal?.damageBreakdown).toEqual(pending.damageBreakdown);
     expect(getRollEntry(resolved.id)?.reveal?.damageBreakdown).toEqual(pending.damageBreakdown);
-    expect(getMonster(f.target.id)?.curHp).toBe(158);
+    expect(getMonster(f.target.id)?.curHp).toBe(147);
     expect(resolveAttackDamage(f.session.id, 'Fighter', hit.id)).toBe(false);
   });
 

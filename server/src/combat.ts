@@ -26,6 +26,9 @@ import {
 import { newId } from './db.js';
 import {
   damageMultiplier,
+  damageParts,
+  weaponIsMagical,
+  type DamageSource,
   profBonusFor,
   rollD20Detail,
   rollSavingThrow,
@@ -85,6 +88,8 @@ type Resolved = {
   conditionLabels: string[];
   resistances: string[];
   weaknesses: string[];
+  /** Damage types it takes no damage from (see `damageMultiplier`). */
+  immunities: string[];
   /** Ability codes proficient in for saving throws. */
   saveProficiencies: string[];
   /** Modifier source (a PC's character) for flat save/skill/attack bonuses from
@@ -108,6 +113,7 @@ function resolve(token: Token): Resolved | null {
       conditionLabels: ch.conditions.map((c) => c.label),
       resistances: ch.resistances,
       weaknesses: ch.weaknesses,
+      immunities: ch.immunities ?? [],
       saveProficiencies: ch.saveProficiencies,
       mod: ch,
     };
@@ -124,6 +130,7 @@ function resolve(token: Token): Resolved | null {
     conditionLabels: m.conditions.map((c) => c.label),
     resistances: m.resistances,
     weaknesses: m.weaknesses,
+    immunities: m.immunities ?? [],
     saveProficiencies: m.saveProficiencies,
   };
 }
@@ -374,7 +381,9 @@ export function resolveAttack(
   // Active class-feature stances (Rage, Reckless Attack, Hunter's Mark): a flat
   // damage bonus folds into the damage number (like flat mastery damage), dice
   // damage rolls on a hit below, and a stance can grant advantage on the attack.
-  let stanceAdvantage = false;
+  // Stances granting advantage, by name — they join the adv/dis pile as reasons.
+  const stanceAdvNames: string[] = [];
+  let stanceMagical = false;
   let stanceRerollDamage = false;
   let stanceExtraCritDie = false;
   const stanceRerollNames: string[] = [];
@@ -387,7 +396,8 @@ export function resolveAttack(
     if (st.appliesTo === 'ranged' && weapon.kind !== 'ranged') continue;
     // A marking stance (Hunter's Mark) only affects attacks on its marked target.
     if (st.targeted && st.targetId !== targetTokenId) continue;
-    if (st.grantsAdvantage) stanceAdvantage = true;
+    if (st.grantsAdvantage) stanceAdvNames.push(ab.name);
+    if (st.magicalAttacks) stanceMagical = true;
     // Savage Attacker: roll the weapon's damage dice twice, keep the better set.
     if (st.rerollDamageDice) {
       stanceRerollDamage = true;
@@ -422,12 +432,18 @@ export function resolveAttack(
   // automatic critical hit.
   const within5 = tokensWithin5ft(at, tt, getMap(at.mapId));
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
+  // Feature advantage (a maneuver, Reckless Attack) is a named REASON, not a
+  // replacement for what the player requested: a requested disadvantage now
+  // cancels it to a straight roll instead of silently erasing it.
   const adv = attackAdvantage(
     a.conditionLabels,
     t.conditionLabels,
     within5,
-    advantage ??
-      (maneuverFired?.spec.grantsAdvantage || stanceAdvantage ? 'adv' : undefined),
+    advantage,
+    [
+      ...(maneuverFired?.spec.grantsAdvantage ? [maneuverFired.ability.name] : []),
+      ...stanceAdvNames,
+    ],
   );
 
   // Flat attack-roll bonus from the attacker's feats / equipped magic items
@@ -479,7 +495,9 @@ export function resolveAttack(
       if (r.total) damageBreakdown.mods.push({ label: `${source} not applied`, value: -r.total });
       return 0;
     }
-    const critical = out.crit ? rollDice(expr) : null;
+    // Only the DICE roll again — a rider's flat part ("1d4+1") never doubles.
+    const critDice = out.crit ? damageParts(expr).dice : '';
+    const critical = critDice ? rollDice(critDice) : null;
     if (critical) appendDamageBreakdownRoll(damageBreakdown, critical, `${source} CRIT`);
     const total = r.total + (critical?.total ?? 0);
     if (total <= 0) damageBreakdown.mods.push({ label: `${source} not applied`, value: -total });
@@ -514,6 +532,16 @@ export function resolveAttack(
       }
     }
   }
+  // A damage Superiority Die is one of the attack's damage dice, so a crit rolls
+  // it a second time (RAW). It was folded in before the crit was known.
+  if (out.crit && maneuverFired?.spec.addDieTo === 'damage' && ch) {
+    const again = rollDice(ch.superiorityDie || 'd8');
+    if (again && again.total > 0) {
+      appendDamageBreakdownRoll(damageBreakdown, again, `${maneuverFired.ability.name} CRIT`);
+      extra += again.total;
+      masteryNotes.push(`+${again.total}[${maneuverFired.ability.name} CRIT]`);
+    }
+  }
 
   // Note the ability modifier omitted by Cleave / an off-hand attack.
   if (out.hit && noAbilityMod) {
@@ -533,49 +561,65 @@ export function resolveAttack(
   }
 
   let applied = (out.hit ? out.damage : 0) + extra;
-  // Apply the target's resistance/vulnerability to the weapon's damage type.
-  const mult = damageMultiplier(weapon.damageType, t.resistances, t.weaknesses);
+  // What the attack IS, for overcoming conditional traits: a magical weapon (by
+  // flag or bonus) or an active magical-attacks feature beats "nonmagical"
+  // resistance; a silvered weapon beats "non-silvered".
+  const attackSource: DamageSource = {
+    magical: weaponIsMagical(weapon) || stanceMagical,
+    silvered: !!weapon.silvered,
+  };
+  // Apply the target's immunity/resistance/vulnerability to the weapon's type.
+  const mult = damageMultiplier(
+    weapon.damageType, t.resistances, t.weaknesses, t.immunities, attackSource,
+  );
   if (mult !== 1 && applied > 0) {
     const beforeResistance = applied;
     applied = Math.floor(applied * mult);
+    const how = mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vulnerable';
     if (out.hit) damageBreakdown.mods.push({
-      label: `${weapon.damageType || 'weapon'} ${mult < 1 ? 'resisted' : 'vulnerable'}`,
+      label: `${weapon.damageType || 'weapon'} ${how}`,
       value: applied - beforeResistance,
     });
     masteryNotes.push(
-      mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
+      mult === 0
+        ? `immune (${weapon.damageType})`
+        : mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
     );
   }
   // Secondary damage rider of a different type (e.g. a flaming sword's fire),
-  // rolled ONCE on a hit — never doubled on a crit (only the weapon's own dice
-  // crit) — and resisted on its OWN type.
+  // resisted on its OWN type. RAW: a crit doubles ALL of the attack's damage
+  // dice, so it goes through `rollRiderDice` like every other rider.
+  let extraImmune = false;
   if (out.hit && weapon.extraDamage) {
-    const secondaryRoll = rollDice(weapon.extraDamage);
-    let ex = secondaryRoll?.total ?? 0;
-    const exMult = damageMultiplier(weapon.extraDamageType, t.resistances, t.weaknesses);
-    ex = Math.floor(ex * exMult);
-    if (secondaryRoll) {
-      const source = `${weapon.extraDamageType || 'extra'} rider`;
-      appendDamageBreakdownRoll(damageBreakdown, secondaryRoll, source);
-      const adjustment = Math.max(0, ex) - secondaryRoll.total;
-      if (adjustment) damageBreakdown.mods.push({
-        label: ex > 0
-          ? `${weapon.extraDamageType || 'extra'} ${exMult < 1 ? 'resisted' : 'vulnerable'}`
-          : `${source} not applied`,
-        value: adjustment,
+    const exType = weapon.extraDamageType || 'extra';
+    const rolled = rollRiderDice(weapon.extraDamage, `${exType} rider`);
+    const exMult = damageMultiplier(
+      weapon.extraDamageType, t.resistances, t.weaknesses, t.immunities, attackSource,
+    );
+    const ex = Math.floor(rolled * exMult);
+    if (rolled > 0 && ex !== rolled) {
+      damageBreakdown.mods.push({
+        label: `${exType} ${exMult === 0 ? 'immune' : exMult < 1 ? 'resisted' : 'vulnerable'}`,
+        value: ex - rolled,
       });
+    }
+    if (rolled > 0 && exMult === 0) {
+      extraImmune = true;
+      masteryNotes.push(`immune (${exType})`);
     }
     if (ex > 0) {
       applied += ex;
       if (weapon.extraDamageType?.toLowerCase() !== weapon.damageType?.toLowerCase()) {
         damageBreakdown.mixedTypes = true;
       }
-      const exType = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
+      const typeLabel = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
       const exNote = exMult < 1 ? ' (½ resisted)' : exMult > 1 ? ' (×2 vuln)' : '';
-      masteryNotes.push(`+${ex}${exType}${exNote}`);
+      masteryNotes.push(`+${ex}${typeLabel}${exNote}`);
     }
   }
-  if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  // A hit always deals at least 1 — unless the target is immune to what landed.
+  const immuneToAll = mult === 0 && (!weapon.extraDamage || extraImmune);
+  if (out.hit && !immuneToAll) applied = Math.max(1, applied);
   if (out.hit) {
     const finalAdjustment = applied - damageBreakdownTotal(damageBreakdown);
     if (finalAdjustment) damageBreakdown.mods.push({ label: 'minimum damage', value: finalAdjustment });
@@ -953,7 +997,10 @@ export function resolveForcedSave(
   if (!tok) return;
   const r = resolve(tok);
   if (!r) return;
-  const mult = damageMultiplier(apply.damageType, r.resistances, r.weaknesses);
+  // Spell damage is magical, so "nonmagical" resistances don't apply to it.
+  const mult = damageMultiplier(
+    apply.damageType, r.resistances, r.weaknesses, r.immunities, { magical: true },
+  );
   const typeTxt = apply.damageType ? ` ${apply.damageType}` : '';
 
   let dmg: number;
@@ -1011,7 +1058,7 @@ export function resolveForcedSave(
       label: 'Damage',
       total: dmg,
       expr: `dart ${dartIdx + 1}`,
-      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
@@ -1020,7 +1067,7 @@ export function resolveForcedSave(
         target: r.name,
         outcome: 'hit',
         ...(apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
-        ...(mult !== 1 ? { damageMods: [{ label: mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
+        ...(mult !== 1 ? { damageMods: [{ label: mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
         damage: dmg,
         damageType: apply.damageType,
       },
@@ -1194,14 +1241,19 @@ function resolveTargetedSpellAttack(opts: {
         revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls });
       }
     }
-    const mult = damageMultiplier(opts.damageType, t.resistances, t.weaknesses);
+    const mult = damageMultiplier(
+      opts.damageType, t.resistances, t.weaknesses, t.immunities, { magical: true },
+    );
     applied = Math.max(0, Math.floor(dmg * mult));
-    if (mult !== 1) revealMods.push({ label: mult < 1 ? 'resisted' : 'vuln', value: applied - dmg });
+    const how = mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln';
+    if (mult !== 1) revealMods.push({ label: how, value: applied - dmg });
     if (mult !== 1)
       notes.push(
-        mult < 1
-          ? `½ resisted (${opts.damageType})`
-          : `×2 vulnerable (${opts.damageType})`,
+        mult === 0
+          ? `immune (${opts.damageType})`
+          : mult < 1
+            ? `½ resisted (${opts.damageType})`
+            : `×2 vulnerable (${opts.damageType})`,
       );
   }
   const deferDamage = !!getSessionById(opts.sessionId)?.manualDamage && hit && applied > 0 && !!opts.attacker;

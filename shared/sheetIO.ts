@@ -381,6 +381,7 @@ export function exportSheetJSON(c: Character): string {
       speed: c.speed,
       stats: c.stats,
       resistances: c.resistances,
+      immunities: c.immunities ?? [],
       weaknesses: c.weaknesses,
       weapons: c.weapons,
       actions: c.actions,
@@ -426,6 +427,7 @@ export function parseSheetJSON(text: string): SheetPatch | null {
   if (int('curHp') !== undefined) patch.curHp = int('curHp');
   if (int('armorClass') !== undefined) patch.armorClass = int('armorClass');
   if (strArr('resistances')) patch.resistances = strArr('resistances');
+  if (strArr('immunities')) patch.immunities = strArr('immunities');
   if (strArr('weaknesses')) patch.weaknesses = strArr('weaknesses');
   if (strArr('proficientSkills')) patch.proficientSkills = strArr('proficientSkills');
   if (strArr('saveProficiencies')) patch.saveProficiencies = strArr('saveProficiencies');

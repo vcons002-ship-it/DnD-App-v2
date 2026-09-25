@@ -383,6 +383,10 @@ ensureColumn('characters', 'level', 'level REAL NOT NULL DEFAULT 1');
 ensureColumn('characters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'speed', "speed TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'resistances', "resistances TEXT NOT NULL DEFAULT '[]'");
+// Damage immunities (immunity beats resistance/vulnerability). Every stat-block
+// table carries it so a creature saved to / loaded from the library keeps it.
+for (const t of ['characters', 'monsters', 'library_creatures', 'library_characters'])
+  ensureColumn(t, 'immunities', "immunities TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('characters', 'weaknesses', "weaknesses TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('characters', 'actions', "actions TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('characters', 'abilities', "abilities TEXT NOT NULL DEFAULT '[]'");
@@ -674,6 +678,7 @@ type CharacterRow = {
   resources: string;
   weapons: string;
   resistances: string;
+  immunities?: string | null;
   weaknesses: string;
   actions: string;
   abilities: string;
@@ -713,6 +718,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     resources: JSON.parse(r.resources),
     weapons: JSON.parse(r.weapons),
     resistances: JSON.parse(r.resistances ?? '[]'),
+    immunities: JSON.parse(r.immunities ?? '[]'),
     weaknesses: JSON.parse(r.weaknesses ?? '[]'),
     actions: JSON.parse(r.actions ?? '[]'),
     abilities: JSON.parse(r.abilities ?? '[]'),
@@ -749,6 +755,7 @@ type MonsterRow = {
   cur_hp: number;
   temp_hp: number;
   resistances: string;
+  immunities?: string | null;
   weaknesses: string;
   save_proficiencies: string;
   abilities: string;
@@ -788,6 +795,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     speed: r.speed ?? '',
     stats: JSON.parse(r.stats ?? '{}'),
     resistances: JSON.parse(r.resistances),
+    immunities: JSON.parse(r.immunities ?? '[]'),
     weaknesses: JSON.parse(r.weaknesses),
     saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
     actions: JSON.parse(r.actions ?? '[]'),

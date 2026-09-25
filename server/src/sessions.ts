@@ -2036,6 +2036,7 @@ export type CharacterInput = {
   stats?: Record<string, number>;
   weapons?: Character['weapons'];
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   actions?: Character['actions'];
   abilities?: Character['abilities'];
@@ -2083,10 +2084,10 @@ export function createCharacter(
   db.prepare(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
-        armor_class, speed, stats, weapons, resistances, weaknesses,
+        armor_class, speed, stats, weapons, resistances, immunities, weaknesses,
         actions, abilities, proficient_skills, save_proficiencies, modifiers, items,
         sheet_abilities, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2102,6 +2103,7 @@ export function createCharacter(
     JSON.stringify(opts.stats ?? {}),
     JSON.stringify(sanitizeWeapons(opts.weapons ?? [])),
     JSON.stringify(opts.resistances ?? []),
+    JSON.stringify(opts.immunities ?? []),
     JSON.stringify(opts.weaknesses ?? []),
     JSON.stringify(opts.actions ?? []),
     JSON.stringify(opts.abilities ?? []),
@@ -2492,6 +2494,7 @@ export function updateCharacter(
     speed: string;
     stats: Record<string, number>;
     resistances: string[];
+    immunities: string[];
     weaknesses: string[];
     weapons: Character['weapons'];
     actions: Character['actions'];
@@ -2532,6 +2535,8 @@ export function updateCharacter(
   if (patch.stats !== undefined) put('stats', JSON.stringify(patch.stats));
   if (patch.resistances !== undefined)
     put('resistances', JSON.stringify(patch.resistances));
+  if (patch.immunities !== undefined)
+    put('immunities', JSON.stringify(patch.immunities));
   if (patch.weaknesses !== undefined)
     put('weaknesses', JSON.stringify(patch.weaknesses));
   // Player-editable + REST/import-writable, and weapons feed server roll math.
@@ -2708,6 +2713,7 @@ export type MonsterInput = {
   speed?: string;
   stats?: Record<string, number>;
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   saveProficiencies?: string[];
   actions?: Monster['actions'];
@@ -2739,6 +2745,7 @@ function toMonsterInput(m: Monster): MonsterInput {
     speed: m.speed,
     stats: { ...m.stats },
     resistances: [...m.resistances],
+    immunities: [...(m.immunities ?? [])],
     weaknesses: [...m.weaknesses],
     saveProficiencies: [...(m.saveProficiencies ?? [])],
     actions: m.actions,
@@ -2780,10 +2787,10 @@ function insertMonster(
   db.prepare(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
-        resistances, weaknesses, save_proficiencies, abilities, source, icon,
+        resistances, immunities, weaknesses, save_proficiencies, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
         disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities, model_type, visual_tags, model_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2792,6 +2799,7 @@ function insertMonster(
     opts.maxHp,
     opts.maxHp,
     JSON.stringify(opts.resistances ?? []),
+    JSON.stringify(opts.immunities ?? []),
     JSON.stringify(opts.weaknesses ?? []),
     // Save proficiencies drive resolveSaves — carry them through spawn/copy so a
     // tuned boss keeps the saves it should pass.
@@ -2896,6 +2904,7 @@ export function updateMonster(
     speed: string;
     stats: Record<string, number>;
     resistances: string[];
+    immunities: string[];
     weaknesses: string[];
     saveProficiencies: string[];
     weapons: Monster['weapons'];
@@ -2969,6 +2978,8 @@ export function updateMonster(
   if (patch.stats !== undefined) put('stats', JSON.stringify(patch.stats));
   if (patch.resistances !== undefined)
     put('resistances', JSON.stringify(patch.resistances));
+  if (patch.immunities !== undefined)
+    put('immunities', JSON.stringify(patch.immunities));
   if (patch.weaknesses !== undefined)
     put('weaknesses', JSON.stringify(patch.weaknesses));
   if (patch.saveProficiencies !== undefined)
