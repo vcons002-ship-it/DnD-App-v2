@@ -939,6 +939,23 @@
       "sourceSha256": "e71ce5b2e2d9ad302ffa7b94604467932aa0f47c2476762976729e2cb189520e",
       "url": "/miniatures/monsters/elite-castle-guard.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "bandit-chief",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1545932,
+      "triangles": 20760,
+      "sha256": "7cbb01424f8367a1c4c89fcf3fa5b440a7200136621f7603efb35bee3597393d",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "902e0119b8b512546d9f3531767d95da12bbfb9c42573d3117f9f97fab6f1585",
+      "url": "/miniatures/monsters/bandit-chief.glb",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [

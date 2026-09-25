@@ -1,12 +1,13 @@
 # Saved token library families
 
-Verified live on September 25, 2026: 80 creature/object presets and three player characters. These are reusable saved presets, not a count of map placements. All family fields are explicit; the five objects remain 2D.
+Verified live on September 25, 2026: 81 creature/object presets and three player characters. These are reusable saved presets, not a count of map placements. All family fields are explicit; the five objects remain 2D.
 
 | Saved preset | 3D family |
 | --- | --- |
 | Archmage | archmage |
 | Bandit | human-bandit |
 | Bandit Captain | bandit-captain |
+| Bandit Chief | bandit-chief |
 | Black Bear | brown-bear |
 | blood thirsty orc fighter | orc |
 | blood thirsty orc with sword | orc-swordsman |

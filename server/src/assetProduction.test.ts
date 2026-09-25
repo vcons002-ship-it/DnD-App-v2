@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { AssetQueue, ProductionError } from './assets/queue.js';
-import { creatureArtBrief, productionFamily, type ProducedMiniature } from '../../shared/assetProduction.js';
+import { creatureArtBrief, productionFamily, verifiedTextureViews, type ProducedMiniature } from '../../shared/assetProduction.js';
 import { setAssetProductionListener } from './assets/hooks.js';
 import { createSession, createMonsterTemplate, updateMonster, instantiateMonster } from './sessions.js';
 
@@ -12,6 +12,16 @@ const model = (id: string): ProducedMiniature => ({ id, url: `/uploads/miniature
 beforeEach(() => { directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dnd-queue-test-')); });
 afterEach(() => { setAssetProductionListener(undefined); fs.rmSync(directory, { recursive: true, force: true }); });
 const file = () => path.join(directory, 'queue.json');
+
+it('requires matching named texture references, rejecting old front-only workers and incomplete receipts', () => {
+  const views = ['front', 'back', 'left', 'right'];
+  const receipt = { multiview_texture_verified: true, texture_policy: 'named-multiview-texture-v1', texture_view_count: 4, texture_reference_views: views };
+  expect(verifiedTextureViews(receipt, views)).toBe(true);
+  expect(verifiedTextureViews({}, views)).toBe(false);
+  expect(verifiedTextureViews({ ...receipt, texture_reference_views: ['front'] }, views)).toBe(false);
+  expect(verifiedTextureViews({ ...receipt, texture_reference_views: ['front', 'back', 'right', 'left'] }, views)).toBe(false);
+  expect(verifiedTextureViews({ ...receipt, texture_policy: 'legacy' }, views)).toBe(false);
+});
 
 it('creates independent equipment-aware models even for known families and preserves them across restart', async () => {
   const creature = { id: 'archer', name: 'Grim', modelType: 'goblin', weapons: [{ name: 'Crossbow', kind: 'ranged' as const }],

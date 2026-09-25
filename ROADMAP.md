@@ -1803,3 +1803,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Repair legacy blank library family assignments and add eight role/equipment-specific models; preserve custom appearances and 2D-only choices, restore missing default tags, and keep a verified full library family list. See `docs/SPECIALIST_LIBRARY_MODELS.md` and `docs/TOKEN_LIBRARY_FAMILIES.md`.
 - [x] DM can generate a separate 3D creature model despite an existing match, using saved weapons/attacks/armor evidence and optional appearance notes, then apply it from Token info.
+- [x] Permanent named multi-view texturing for manual and app production, with worker installation, reference receipts, and rejection of front-only fallback.

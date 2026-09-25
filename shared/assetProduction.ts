@@ -2,6 +2,10 @@ import { MONSTER_MODEL_TYPES, normalizeModelType, resolveMonsterModelType, type 
 import type { Monster } from './types.js';
 
 export type AssetCreature = MonsterAppearance & Partial<Pick<Monster, 'id' | 'weapons' | 'actions' | 'abilities' | 'sheetAbilities'>>;
+export function verifiedTextureViews(receipt: { multiview_texture_verified?: boolean; texture_view_count?: number; texture_reference_views?: string[]; texture_policy?: string }, views: readonly string[]): boolean {
+  return receipt.multiview_texture_verified === true && receipt.texture_policy === 'named-multiview-texture-v1' &&
+    receipt.texture_view_count === views.length && JSON.stringify(receipt.texture_reference_views) === JSON.stringify(views);
+}
 /** Snapshot visual evidence at submission, so retries do not change equipment. */
 export function creatureArtBrief(creature: AssetCreature, notes = ''): string {
   const clean = (s: string) => s.replace(/[\r\n]+/g, ' ').slice(0, 600);

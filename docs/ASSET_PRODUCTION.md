@@ -47,6 +47,23 @@ and Blender. Start the accepted Hunyuan Gradio server with the
 `tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv` shape checkpoint and textured output.
 The server verifies the returned checkpoint before publishing.
 
+Install the versioned adapter into the Hunyuan worker directory, then restart
+that worker using its normal launch command:
+
+```powershell
+python server/tools/asset-production/install_multiview_texture.py C:/pinokio/api/Hunyuan3d-2-lowvram/app
+```
+
+This enables named front/back/left/right references for texture generation as
+well as shape generation. The installer preserves a backup of `gradio_app.py`,
+is repeatable, and checks the expected source structure. The adapter targets the
+tested Hunyuan3D-2 low-VRAM worker; unsupported implementations fail explicitly.
+Reapply the installer after replacing/updating the worker. No text-conditioning
+experiment is enabled. Both manual script runs and app jobs require matching
+texture-reference evidence in `generation_receipt.json`; an old front-only worker
+cannot silently publish a model under the new policy.
+
+
 Optional server environment variables:
 
 | Variable | Default |
@@ -78,7 +95,7 @@ an interrupted running job is held for explicit retry instead of resubmitted.
    These are separate named inputs to Hunyuan, not four creatures in one request.
    Retries reuse the saved views. Semantic art consistency still depends on the
    chosen image model; structural validation cannot guarantee good anatomy.
-3. Generate the textured model using 50 steps, guidance 5.5, octree resolution
+3. Generate the textured model using all four named references for both shape and texture, with 50 steps, guidance 5.5, octree resolution
    512, 10,000 chunks, background removal, and the verified multi-view checkpoint.
 4. Apply `monster-reduction-v1`: target 20,000 body triangles at 0.01 error limit;
    opaque color textures use JPEG quality 95 / 4:4:4 when smaller. Texture

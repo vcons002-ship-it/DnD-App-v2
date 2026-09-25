@@ -11,7 +11,7 @@ export const MONSTER_MODEL_TYPES = [
   'tattered-cloak-lieutenant', 'scholar', 'spectral-visitor',
   'tattered-cloak-mage', 'young-treant', 'orc-swordsman',
   'cultist', 'scout', 'veteran', 'bandit-captain', 'archmage',
-  'sailor', 'sailor-marine', 'elite-castle-guard',
+  'sailor', 'sailor-marine', 'elite-castle-guard', 'bandit-chief',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
