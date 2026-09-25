@@ -1,3 +1,4 @@
+import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
 import { requestCreatureAsset } from './assets/hooks.js';
 import { placeBase } from '../../shared/tokenPlacement.js';
 import { miniatureBaseWidthFt, defaultMonsterWidthFt, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
@@ -2586,6 +2587,7 @@ export function monsterInSession(monsterId: string, sessionId: string): boolean 
 }
 
 export type MonsterInput = {
+  crBaseline?: Monster["crBaseline"];
   modelType?: string;
   modelColor?: string;
   visualTags?: string[];
@@ -2617,6 +2619,7 @@ export type MonsterInput = {
  *  Deep-copies the nested structures so per-instance edits never alias the source. */
 function toMonsterInput(m: Monster): MonsterInput {
   return {
+    crBaseline: m.crBaseline ? structuredClone(m.crBaseline) : undefined,
     name: m.name,
     maxHp: m.maxHp,
     creatureType: m.creatureType,
@@ -2705,6 +2708,8 @@ function insertMonster(
     JSON.stringify(normalizeVisualTags(opts.visualTags)),
     normalizeModelColor(opts.modelColor),
   );
+  const importedBaseline = readCreatureBaseline(opts.crBaseline);
+  if (importedBaseline) db.prepare("UPDATE monsters SET cr_baseline = ? WHERE id = ?").run(JSON.stringify(importedBaseline), id);
   const creature = getMonster(id)!;
   requestCreatureAsset(creature);
   return creature;
@@ -2790,9 +2795,18 @@ export function updateMonster(
     sheetAbilities: Monster['sheetAbilities'];
     icon: string;
   }>,
+  options: { scaleCR?: boolean } = {},
 ): Monster | null {
   const m = getMonster(monsterId);
   if (!m) return null;
+
+  let baseline = m.crBaseline;
+  if (options.scaleCR !== false && !m.objectKind && patch.level !== undefined && patch.level !== m.level) {
+    if (!validCR(patch.level) || !validCR(baseline?.level ?? m.level)) return null;
+    baseline ??= creatureBaseline(m);
+    const scaled = scaleCreature(baseline, patch.level);
+    patch = {...patch, ...scaled, curHp: scaledCurrentHp(m.curHp, m.maxHp, scaled.maxHp)};
+  }
 
   // Merged ability system: a legacy `actions` patch (AI fill / pasted stat
   // block) is converted instead of stored — weapon-like entries become weapons
@@ -2829,6 +2843,7 @@ export function updateMonster(
     put('object_dc', patch.objectDc != null ? Math.max(1, Math.round(patch.objectDc)) : null);
   if (patch.name !== undefined) put('name', patch.name);
   if (patch.level !== undefined) put('level', patch.level);
+  if (baseline) put('cr_baseline', JSON.stringify(baseline));
   if (patch.modelColor !== undefined) put('model_color', normalizeModelColor(patch.modelColor));
   if (patch.modelType !== undefined) put('model_type', normalizeModelType(patch.modelType));
   if (patch.visualTags !== undefined) put('visual_tags', JSON.stringify(normalizeVisualTags(patch.visualTags)));

@@ -132,6 +132,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
       actions: tmpl?.actions,
       abilities: tmpl?.abilities,
       sheetAbilities: tmpl?.sheetAbilities,
+      crBaseline: tmpl?.crBaseline,
       weapons: tmpl?.weapons,
       icon: tmpl?.icon,
       objectKind: objectKind || undefined,

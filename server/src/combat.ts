@@ -1386,7 +1386,8 @@ function resolveSheetAbilityFor(
     kind === 'pc'
       ? proficiencyBonus(level || 1)
       : profBonusFor({ stats, level, isMonster: true });
-  const dice = effectiveDice(roll, { castLevel, casterLevel: level });
+  const casterLevel = kind === 'monster' ? roll.crCasterLevel ?? level : level;
+  const dice = effectiveDice(roll, { castLevel, casterLevel });
   const dmgType = roll.damageType ? ` ${roll.damageType}` : '';
   const upcast =
     (roll.baseLevel ?? 0) >= 1 && castLevel && castLevel > (roll.baseLevel ?? 1)
@@ -1395,7 +1396,9 @@ function resolveSheetAbilityFor(
   const title = `${ability.name}${upcast}`;
 
   if (roll.kind === 'attack') {
-    const base = spellAttackBonusDetail(stats, prof, castingAbility);
+    const base = kind === 'monster' && Number.isFinite(roll.attackBonus)
+      ? {bonus: roll.attackBonus!, detail: `${signed(roll.attackBonus!)}[CR-scaled]`, parts: [{label: 'CR-scaled', value: roll.attackBonus!}]}
+      : spellAttackBonusDetail(stats, prof, castingAbility);
     // Flat attack-roll bonus from feats / equipped items ({kind:'attack'} covers
     // every attack roll — weapon attacks fold it in via resolveAttack).
     const extra = attackExtra(entity);
@@ -1409,7 +1412,7 @@ function resolveSheetAbilityFor(
       ...base.parts,
       ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
     ];
-    const attacks = spellInstanceCount(roll, castLevel, level);
+    const attacks = spellInstanceCount(roll, castLevel, casterLevel);
     if (attacks > 0 && dice) {
       addRollLog(sessionId, {
         roller, label: ability.name, expr: title, total: 0,
@@ -1510,7 +1513,7 @@ function resolveSheetAbilityFor(
   // A split spell (e.g. Magic Missile): assign one dart per target, each dart's
   // dice rolled ON the click (not pre-rolled). Upcasting adds darts, not dice.
   // `owner` lets the CASTER (the player) assign the darts, not only the DM.
-  const instanceCount = spellInstanceCount(roll, castLevel, level);
+  const instanceCount = spellInstanceCount(roll, castLevel, casterLevel);
   if (roll.kind === 'damage' && instanceCount > 0 && dice) {
     addRollLog(sessionId, {
       roller,

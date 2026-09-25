@@ -1,3 +1,4 @@
+import { readCreatureBaseline } from "../../shared/creatureScaling.js";
 import { normalizeModelType, normalizeModelColor, normalizeVisualTags, resolveMonsterModelType, LIBRARY_FAMILY_UPGRADES } from '../../shared/monsterAppearance.js';
 import { db, newId, getMeta, setMeta } from './db.js';
 import { SRD_ITEMS } from './items/srd.js';
@@ -93,6 +94,7 @@ export function seedLibraryCreatures(): number {
 }
 
 type LibCreatureRow = {
+  cr_baseline?: string;
   object_kind?: ObjectKind; object_dc?: number;
   model_type?: string; model_color?: string; visual_tags?: string;
   id: string;
@@ -114,6 +116,7 @@ type LibCreatureRow = {
 
 function rowToTemplate(r: LibCreatureRow): CreatureTemplate {
   return {
+    crBaseline: r.cr_baseline ? JSON.parse(r.cr_baseline) : undefined,
     name: r.name,
     ...(r.object_kind ? { objectKind: r.object_kind, objectDc: r.object_dc ?? undefined } : {}),
     creatureType: r.creature_type,
@@ -166,6 +169,7 @@ export function getLibraryCreature(name: string): CreatureTemplate | null {
 }
 
 export type SaveCreatureInput = {
+  crBaseline?: CreatureTemplate["crBaseline"];
   objectKind?: ObjectKind;
   objectDc?: number;
   modelType?: string;
@@ -234,6 +238,8 @@ export function saveLibraryCreature(
     ['trap', 'door', 'chest', 'item', 'other'].includes(input.objectKind ?? '') ? input.objectKind : null,
     typeof input.objectDc === 'number' && Number.isFinite(input.objectDc) ? Math.max(0, input.objectDc) : null,
   );
+  const importedBaseline = readCreatureBaseline(input.crBaseline);
+  if (importedBaseline) db.prepare("UPDATE library_creatures SET cr_baseline = ? WHERE id = ?").run(JSON.stringify(importedBaseline), id);
   return { saved: getLibraryCreature(name)! };
 }
 

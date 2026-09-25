@@ -1547,6 +1547,7 @@ export function registerSocketHandlers(io: IOServer): void {
         actions: p.actions,
         abilities: p.abilities,
         sheetAbilities: p.sheetAbilities,
+        crBaseline: p.crBaseline,
         weapons: p.weapons,
         icon: p.icon,
         disposition: p.disposition,

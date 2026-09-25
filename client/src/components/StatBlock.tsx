@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CHALLENGE_RATINGS, crLabel, creatureBaseline, scaleCreature, scaledCurrentHp, validCR, type CreatureBaseline } from '../../../shared/creatureScaling';
 import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { signed } from '../../../shared/skills';
 import { type ModSource, effectiveAc, effectiveStats } from '../../../shared/modifiers';
@@ -19,6 +20,8 @@ const mod = (score: number) => {
 
 /** The shared, tagged stat fields edited for both creatures and characters. */
 export type StatSheet = {
+  crBaseline?: CreatureBaseline;
+  sheetAbilities?: SheetAbility[];
   id: string;
   name: string;
   level: number;
@@ -188,6 +191,17 @@ export function StatBlock({
 
   return (
     <div className="statblock editing">
+      {monster && <label className="mini">CR<select aria-label="CR" value={d.level} onChange={(e) => {
+            const level = Number(e.target.value);
+            const base = creature.crBaseline ?? creatureBaseline({...creature, sheetAbilities: creature.sheetAbilities ?? []});
+            if (!validCR(base.level)) return;
+            const scaled = scaleCreature(base, level);
+            set({...scaled, curHp: scaledCurrentHp(creature.curHp, creature.maxHp, scaled.maxHp)});
+          }}>
+            {!validCR(d.level) && <option value={d.level}>{d.level} (custom)</option>}
+            {CHALLENGE_RATINGS.map(cr => <option key={cr} value={cr}>{crLabel(cr)}</option>)}
+          </select></label>}
+      <fieldset disabled={monster && d.level !== creature.level} style={{border:0,padding:0,margin:0,minWidth:0}}>
       <label className="sb-field">
         Name
         <input value={d.name} onChange={(e) => set({ name: e.target.value })} />
@@ -203,15 +217,9 @@ export function StatBlock({
           />
         </label>
       ))}
+      {monster && <p className="muted" role="status">CR changes scale HP, AC, damage, attack bonuses and save DCs from the original CR {crLabel(creature.crBaseline?.level ?? creature.level)}. Save the CR change before further manual tuning. Special traits may need review.</p>}
       <div className="sb-meta-edit">
-        <label className="mini">
-          {levelLabel}
-          <input
-            type="number"
-            value={d.level}
-            onChange={(e) => set({ level: num(e.target.value) })}
-          />
-        </label>
+        {!monster && <label className="mini">{levelLabel}<input type="number" value={d.level} onChange={(e) => set({level:num(e.target.value)})} /></label>}
         <label className="mini">
           HP
           <input
@@ -327,6 +335,7 @@ export function StatBlock({
         </>
       )}
 
+      </fieldset>
       <div className="sb-edit-actions">
         <button className="btn tiny green" onClick={save}>
           Save
