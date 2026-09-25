@@ -42,7 +42,7 @@ describe('resource corrections survive normal play without conversions', () => {
       subclass: c.subclass,
       name: 'Edited name',
     });
-    expect(spendSpellSlot(c.id, 1)).toEqual({ hasSlot: true, spent: true });
+    expect(spendSpellSlot(c.id, 1)).toEqual({ hasSlot: true, spent: true, level: 1 });
     updateCharacter(c.id, { level: 7 });
     expect(getCharacter(c.id)?.spellSlots.L1).toEqual({
       max: 6,
@@ -133,7 +133,12 @@ describe('advisory 2024 presentation', () => {
     expect(slotReference2024('Ranger', 1)).toEqual({ L1: 2 });
     expect(slotReference2024('Fighter', 6, 'Battle Master')).toEqual({});
     expect(slotReference2024('Wizard 3 / Fighter 2', 5)).toBeNull();
-    expect(slotReference2024('Warlock', 6)).toBeNull();
+    // A single-class Warlock's Pact Magic IS inferable from one level field:
+    // two slots, all at 3rd level at Warlock 6 (the 25 Sep review found
+    // Warlocks got no slots at all). A multiclass string stays unknown.
+    expect(slotReference2024('Warlock', 6)).toEqual({ L3: 2 });
+    expect(slotReference2024('Warlock 3 / Sorcerer 2', 5)).toBeNull();
+    expect(slotReference2024('Artificer', 1)).toEqual({ L1: 2 });
     expect(slotReference2024('Custom class', 6)).toBeNull();
   });
   it('preserves existing boundary-pip semantics', () => {

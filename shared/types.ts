@@ -381,6 +381,18 @@ export type StanceSpec = {
   /** While active, this creature's attacks count as MAGICAL for overcoming
    *  resistance and immunity (e.g. a Monk's Empowered Strikes). */
   magicalAttacks?: boolean;
+  /** While active, the creature RESISTS these damage types (e.g. Rage's
+   *  bludgeoning / piercing / slashing). Same entry grammar as `resistances`. */
+  grantsResistances?: string[];
+  /** Flat bonus damage that grows with the character's level — the highest
+   *  threshold at or below their level wins, overriding `bonusDamage` (Rage:
+   *  +2 at 1, +3 at 9, +4 at 16). */
+  bonusDamageAtLevels?: { level: number; bonus: string }[];
+  /** While active, advantage on Strength checks and Strength saving throws. */
+  advOnStrChecks?: boolean;
+  /** While active, attack rolls AGAINST this creature have advantage — the
+   *  price of Reckless Attack. Lasts while the chip is on. */
+  enemiesHaveAdvantage?: boolean;
   /** Savage Attacker (2024 feat): reroll the weapon's damage dice on a hit and
    *  keep the better total. Applies to the qualifying weapon attacks only (the
    *  once-per-turn limit is the player's call — the toggle IS the control). */
@@ -407,6 +419,37 @@ export type StanceSpec = {
    * Applied/cleared client-side as the mark moves or the stance ends.
    */
   marksTargetWith?: string;
+};
+
+/** How a smite spell hits. */
+export type SmiteSpec = {
+  /** Damage at the base slot level, e.g. "2d8". */
+  dice: string;
+  /** Added per slot level above the spell's level, e.g. "1d8". */
+  scaleDice?: string;
+  damageType: string;
+  /** Extra dice against certain creature types (Divine Smite: +1d8 vs undead
+   *  and fiends), matched against the target's `creatureType`. */
+  bonusVs?: { creatureTypes: string[]; dice: string };
+  /** A once-per-Long-Rest casting without a slot (Paladin level 2+): the name
+   *  of the counter that tracks it, and the class level it starts at. */
+  freeUse?: { counter: string; className: string; minLevel: number };
+};
+
+/** A smite the attacker MAY cast on this hit — recorded on the attack's roll
+ *  entry and shaped per viewer like `pending` (DM + the attacking player). */
+export type SmiteOpportunity = {
+  /** The attacking character (the only player who may take it). */
+  owner: string;
+  /** The sheet ability with the smite spec. */
+  abilityId: string;
+  abilityName: string;
+  target: { kind: TokenKind; refId: string; name: string; tokenId: string };
+  /** The hit was a critical hit — every smite die is rolled twice. */
+  crit: boolean;
+  /** Taken (or its window closed). Stamped BEFORE any resource is spent or
+   *  damage applied, so a retry or double-click can't do either twice. */
+  used?: boolean;
 };
 
 /**
@@ -474,6 +517,10 @@ export type SheetAbility = {
    *  override the spawned token (default to the ability's name + a hand icon).
    *  Casting a leveled summon spell spends a slot like any other leveled cast. */
   summon?: { name?: string; icon?: string };
+  /** A SMITE (2024 Divine Smite): cast immediately AFTER a qualifying hit, never
+   *  armed in advance — so the player knows hit / crit before choosing. A hit that
+   *  qualifies records a `RollEntry.smite` opportunity the player can take. */
+  smite?: SmiteSpec;
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -1035,6 +1082,8 @@ export type RollEntry = {
    *  "🎲 Roll damage" button. Shaped per viewer in `visibility.ts` exactly like
    *  `apply` — the DM sees it on everything, a player only on their own attacks. */
   pending?: PendingDamage;
+  /** A smite this hit lets the attacker cast (see `SmiteOpportunity`). */
+  smite?: SmiteOpportunity;
   createdAt: number;
 };
 
@@ -1633,6 +1682,9 @@ export interface ClientToServerEvents {
   /** Roll (and apply) the damage parked on a hit — the two-step attack's second
    *  click. Allowed for the DM and for the player who made the attack. */
   'combat:damage': (payload: { rollId: string }) => void;
+  /** Cast the smite a hit made available, with a spell slot of `level` or the
+   *  free once-per-Long-Rest casting. The DM or the attacking player. */
+  'combat:smite': (payload: { rollId: string; level: number | 'free' }) => void;
   /** DM: weapon damage is a separate, clickable second roll (default on). */
   'session:setManualDamage': (payload: { manual: boolean }) => void;
   'combat:save': (payload: CombatSavePayload) => void;

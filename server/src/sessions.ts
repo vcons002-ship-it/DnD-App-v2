@@ -1437,6 +1437,8 @@ export function addRollLog(
     apply?: RollEntry['apply'];
     /** Damage rolled but not applied yet (the two-step attack's second half). */
     pending?: RollEntry['pending'];
+    /** A smite this hit makes available. */
+    smite?: RollEntry['smite'];
     /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
     hpNote?: RollEntry['hpNote'];
     /** Cosmetic attack-roll reveal payload (the brief d20 animation). */
@@ -1454,8 +1456,8 @@ export function addRollLog(
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, hp_note, reveal, hide_mods, dm_only, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, smite, hp_note, reveal, hide_mods, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1467,6 +1469,7 @@ export function addRollLog(
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.pending ? JSON.stringify(entry.pending) : '',
+    entry.smite ? JSON.stringify(entry.smite) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
     entry.reveal ? JSON.stringify(entry.reveal) : '',
     entry.hideMods ? 1 : 0,
@@ -1598,6 +1601,7 @@ type RollLogRow = {
   description: string | null;
   apply: string | null;
   pending: string | null;
+  smite: string | null;
   hp_note: string | null;
   reveal: string | null;
   hide_mods: number | null;
@@ -1628,6 +1632,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.pending ? { pending: JSON.parse(r.pending) as RollEntry['pending'] } : {}),
+    ...(r.smite ? { smite: JSON.parse(r.smite) as RollEntry['smite'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
     ...(r.reveal ? { reveal: JSON.parse(r.reveal) as RollEntry['reveal'] } : {}),
     ...(r.hide_mods ? { hideMods: true } : {}),
@@ -1648,6 +1653,15 @@ export function getRollEntry(id: string, sessionId?: string): RollEntry | null {
 
 /** Persist an updated `pending` payload on a roll entry — used to stamp the
  *  damage as applied so a double-click can't take HP off twice. */
+/** Persist a smite opportunity's state — stamping it `used` is what makes a
+ *  retried or double-clicked smite a no-op. */
+export function setRollSmite(id: string, smite: RollEntry['smite']): void {
+  db.prepare('UPDATE roll_log SET smite = ? WHERE id = ?').run(
+    smite ? JSON.stringify(smite) : '',
+    id,
+  );
+}
+
 export function setRollPending(id: string, pending: RollEntry['pending']): void {
   db.prepare('UPDATE roll_log SET pending = ? WHERE id = ?').run(
     pending ? JSON.stringify(pending) : '',
@@ -2135,6 +2149,14 @@ type Counters = Record<string, { max: number; used: number; maxOverride?: boolea
 /** Apply derived counter maxes onto existing counters, preserving used + custom. */
 function mergeCounters(existing: Counters, derived: Counters, previous: Counters): Counters {
   const out: Counters = { ...existing };
+  // A counter the OLD level derived, still untouched, that the new level no
+  // longer has, goes: a Warlock's pact slots move up a level (L3 → L4), and a
+  // level-down removes the slots it no longer grants. Customised ones stay.
+  for (const [key, prev] of Object.entries(previous)) {
+    const cur = existing[key];
+    if (key in derived || !cur || cur.maxOverride || cur.max !== prev.max) continue;
+    delete out[key];
+  }
   for (const [key, d] of Object.entries(derived)) {
     // Explicit corrections are fixed totals, never an auto-growing bonus pool.
     // Legacy nonstandard totals are preserved without migrating existing rows.
@@ -2182,19 +2204,35 @@ export function setResource(
 export function spendSpellSlot(
   characterId: string,
   level: number,
-): { hasSlot: boolean; spent: boolean } {
+): { hasSlot: boolean; spent: boolean; level?: number } {
   const c = getCharacter(characterId);
   if (!c) return { hasSlot: false, spent: false };
-  const key = `L${level}`;
+  // Pact Magic: a Warlock casts ANY spell up to their pact level with a pact
+  // slot, at the pact level — so a level-1 Hex spends the level-3 pact slot.
+  const pact = pactSlotLevel(c);
+  const spendLevel = pact !== null && level <= pact ? pact : level;
+  const key = `L${spendLevel}`;
   const slot = c.spellSlots[key];
   if (!slot) return { hasSlot: false, spent: false };
-  if (slot.used >= slot.max) return { hasSlot: true, spent: false };
+  if (slot.used >= slot.max) return { hasSlot: true, spent: false, level: spendLevel };
   const next = { ...c.spellSlots, [key]: { ...slot, used: slot.used + 1 } };
   db.prepare('UPDATE characters SET spell_slots = ? WHERE id = ?').run(
     JSON.stringify(next),
     characterId,
   );
-  return { hasSlot: true, spent: true };
+  return { hasSlot: true, spent: true, level: spendLevel };
+}
+
+/**
+ * A single-class Warlock's pact-slot level (all their slots share it), or null
+ * for anyone else. Read from the sheet's slots, so a DM's correction wins.
+ */
+export function pactSlotLevel(c: Pick<Character, 'className' | 'spellSlots'>): number | null {
+  if (c.className.trim().toLowerCase() !== 'warlock') return null;
+  const levels = Object.keys(c.spellSlots)
+    .map((k) => Number(/^L(\d)$/.exec(k)?.[1] ?? 0))
+    .filter((n) => n > 0);
+  return levels.length ? Math.max(...levels) : null;
 }
 
 /**
@@ -2582,7 +2620,21 @@ export function updateCharacter(
       patch.subclass ?? c.subclass,
     );
     const previous = deriveClassResources(c.className, c.level, c.stats, c.subclass);
-    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots, previous.spellSlots)));
+    // Spell slots come from the SAME table creation uses (2024 where the class is
+    // recognised, incl. Pact Magic and the Artificer) — a level-up used to switch
+    // silently to the 2014 table.
+    const slots = (cn: string, lvl: number, sub: string, fallback: Counters) => {
+      const ref = slotReference2024(cn, lvl, sub);
+      return ref === null
+        ? fallback
+        : Object.fromEntries(Object.entries(ref).map(([k, max]) => [k, { max, used: 0 }]));
+    };
+    const derivedSlots = slots(
+      patch.className ?? c.className, patch.level ?? c.level, patch.subclass ?? c.subclass,
+      derived.spellSlots,
+    );
+    const previousSlots = slots(c.className, c.level, c.subclass, previous.spellSlots);
+    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derivedSlots, previousSlots)));
     put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources, previous.resources)));
   }
 

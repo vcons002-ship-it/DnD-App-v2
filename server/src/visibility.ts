@@ -336,6 +336,7 @@ export function createSnapshotBuilder(
           // parked weapon damage is the attacker's own button.
           apply: undefined,
           pending: undefined,
+          smite: undefined,
           hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
       // …except the OWNER keeps their own entry's payload (both are stamped with
@@ -347,7 +348,8 @@ export function createSnapshotBuilder(
       const ownedByMe = (owner?: string) =>
         !!owner && charById.get(owner)?.claimedBy === socketId;
       const mine = rollLog.filter(
-        (e) => ownedByMe(e.apply?.owner) || ownedByMe(e.pending?.owner),
+        (e) =>
+          ownedByMe(e.apply?.owner) || ownedByMe(e.pending?.owner) || ownedByMe(e.smite?.owner),
       );
       if (mine.length) {
         const keep = new Map(
@@ -355,6 +357,7 @@ export function createSnapshotBuilder(
             e.id,
             {
               ...(ownedByMe(e.apply?.owner) ? { apply: e.apply } : {}),
+              ...(ownedByMe(e.smite?.owner) ? { smite: e.smite } : {}),
               ...(ownedByMe(e.pending?.owner) ? { pending: e.hideMods && e.pending
                 // Pending data remains the existing owner's action payload;
                 // new named log-only detail is not needed before resolution.

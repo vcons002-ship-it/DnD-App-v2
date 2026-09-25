@@ -180,15 +180,25 @@ const CURATED: SpellEntry[] = [
   },
   // ---- Class abilities (slot-fueled or fixed) ----
   {
+    // 2024: a level-1 spell cast right AFTER a hit — the choice comes with the
+    // hit / crit already known (the app offers it on the hit, never in advance).
     name: 'Divine Smite',
-    type: 'ability',
-    school: 'Paladin feature',
+    type: 'spell',
+    level: 1,
+    school: 'Evocation',
     classes: ['paladin'],
-    tags: ['paladin', 'feature', 'radiant', 'smite'],
-    meta: 'On a melee weapon hit · expend a spell slot',
+    tags: ['paladin', 'smite', 'radiant', 'bonus action'],
+    meta: 'Bonus action · right after a melee hit · 2024',
+    actionType: 'bonus',
     description:
-      'When you hit with a melee weapon, expend a spell slot to deal extra radiant damage: 2d8 for a 1st-level slot, +1d8 per slot level above 1st (max 5d8), +1d8 vs undead/fiends.',
-    roll: { kind: 'damage', dice: '2d8', scaleDice: '1d8', baseLevel: 1, damageType: 'radiant' },
+      'Immediately after you hit a target with a melee weapon or an Unarmed Strike, the target takes an extra 2d8 radiant damage, +1d8 if it is an Undead or a Fiend. On a critical hit these dice are rolled twice. Using a Higher-Level Spell Slot: +1d8 per slot level above 1. From Paladin level 2 you can also cast it once per Long Rest without a slot. The app offers it on the hit — pick a slot (or the free casting) there.',
+    smite: {
+      dice: '2d8',
+      scaleDice: '1d8',
+      damageType: 'radiant',
+      bonusVs: { creatureTypes: ['undead', 'fiend'], dice: '1d8' },
+      freeUse: { counter: 'Divine Smite (free)', className: 'paladin', minLevel: 2 },
+    },
   },
   {
     name: 'Second Wind',

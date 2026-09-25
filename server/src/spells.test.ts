@@ -255,11 +255,11 @@ describe('sheet abilities', () => {
     const c = createCharacter(s.id, { name: 'Wiz', className: 'Wizard', level: 3 });
     expect(c.spellSlots.L2.max).toBe(2); // full caster has 2nd-level slots at L3
 
-    expect(spendSpellSlot(c.id, 2)).toEqual({ hasSlot: true, spent: true });
+    expect(spendSpellSlot(c.id, 2)).toEqual({ hasSlot: true, spent: true, level: 2 });
     expect(getCharacter(c.id)!.spellSlots.L2.used).toBe(1);
 
     spendSpellSlot(c.id, 2); // now 2/2 used
-    expect(spendSpellSlot(c.id, 2)).toEqual({ hasSlot: true, spent: false }); // tapped out
+    expect(spendSpellSlot(c.id, 2)).toEqual({ hasSlot: true, spent: false, level: 2 }); // tapped out
     // A level-3 wizard has no 9th-level slot at all.
     expect(spendSpellSlot(c.id, 9)).toEqual({ hasSlot: false, spent: false });
   });

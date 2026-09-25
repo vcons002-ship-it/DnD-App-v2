@@ -463,6 +463,8 @@ ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 ensureColumn('roll_log', 'apply', "apply TEXT NOT NULL DEFAULT ''");
 // Damage rolled on a hit but not yet applied (the two-step attack's second half).
 ensureColumn('roll_log', 'pending', "pending TEXT NOT NULL DEFAULT ''");
+// A smite the hit made available (2024 Divine Smite is cast AFTER a hit).
+ensureColumn('roll_log', 'smite', "smite TEXT NOT NULL DEFAULT ''");
 // DM-only HP accounting note per roll ("Druk HP 42→38").
 ensureColumn('roll_log', 'hp_note', "hp_note TEXT NOT NULL DEFAULT ''");
 // Cosmetic attack-roll reveal payload (drives the brief d20 reveal animation).

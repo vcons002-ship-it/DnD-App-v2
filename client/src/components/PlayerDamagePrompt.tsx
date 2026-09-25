@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../state/socket';
-import { DamagePrompt } from './DamagePrompt';
+import { DamagePrompt, smiteOptionsFor } from './DamagePrompt';
 import './player-damage-prompt.css';
 
 /** Player-only action dock, outside the map's stacking context. These are the
@@ -13,7 +13,13 @@ export function PlayerDamagePrompt() {
   const clear = useStore((s) => s.clearSaveResolve);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const rolls = snapshot?.rollLog ?? [];
-  const hit = [...rolls].reverse().find((r) => r.pending && !r.pending.done);
+  // A hit with parked damage, or one that still offers a smite (auto-damage
+  // sessions have no parked damage, so the smite alone must surface it).
+  const hit = snapshot
+    ? [...rolls].reverse().find(
+        (r) => (r.pending && !r.pending.done) || smiteOptionsFor(r, snapshot).length > 0,
+      )
+    : undefined;
   // Consider only the latest cast, not every old AoE still in the history.
   // An explicitly re-opened log action always takes precedence.
   const spell = armed

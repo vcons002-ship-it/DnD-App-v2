@@ -7,6 +7,8 @@ import { spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
   resolveAttack,
   resolveAttackDamage,
+  resolveSmite,
+  castSlotLevel,
   resolveAbilityRoll,
   resolveMonsterSheetAbility,
   resolveForcedSave,
@@ -95,6 +97,7 @@ import {
   reorderSheetAbilities,
   spendResourceForAbility,
   spendSpellSlot,
+  pactSlotLevel,
   damageTokens,
   duplicateToken,
   setTokensHidden,
@@ -1189,16 +1192,22 @@ export function registerSocketHandlers(io: IOServer): void {
       const c = getCharacter(refId);
       const ability = c?.sheetAbilities.find((a) => a.id === abilityId);
       if (!c || !ability || !validDamageChoice(ability)) return;
-      const ok = resolveAbilityRoll(sid, roller, c, ability, cast, adv, tgt, selectedDamageType);
+      // Pact Magic: a Warlock's leveled spell is cast at the pact-slot level (the
+      // only slots they have), so its dice scale like it — roll at that level.
+      const pact = pactSlotLevel(c);
+      const castAt =
+        pact !== null && ability.type === 'spell' && (ability.level ?? 0) >= 1 &&
+        (ability.level ?? 0) <= pact
+          ? Math.max(cast ?? 0, pact)
+          : cast;
+      const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, tgt, selectedDamageType);
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
-      const leveled =
-        (ability.type === 'spell' || ability.type === 'stance') &&
-        (ability.level ?? 0) >= 1;
-      if (ok && leveled) {
-        const base = ability.level as number;
-        const c2 = cast ?? base;
-        const slotLevel = Math.min(9, Math.max(base, c2));
+      // Casting a leveled spell, activating a spell-backed stance, or rolling a
+      // slot-fuelled ability spends a slot at the level it was cast.
+      const slotLevel = castSlotLevel(ability, castAt);
+      const leveled = slotLevel !== null;
+      if (ok && slotLevel !== null) {
         const { hasSlot, spent } = spendSpellSlot(refId, slotLevel);
         if (hasSlot && !spent) {
           socket.emit('notice', {
@@ -1842,6 +1851,28 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!allowed) return;
       if (resolveAttackDamage(sid, rollerName(sid, socket.id, isDm()), rollId))
         afterChange();
+    });
+
+    // Cast the smite a hit made available: the DM, or the attacking player.
+    // Every refusal says why (no slot left, already taken…) instead of going
+    // quiet; the resolver stamps the opportunity used before it spends anything.
+    on('combat:smite', ({ rollId, level }) => {
+      const sid = sessionId();
+      if (!sid || typeof rollId !== 'string') return;
+      const choice =
+        level === 'free' ? 'free' : Number.isInteger(level) && level >= 1 && level <= 9 ? level : null;
+      if (choice === null) return;
+      const sm = getRollEntry(rollId, sid)?.smite;
+      if (!sm) return;
+      const caster = getCharacter(sm.owner);
+      const allowed = isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
+      if (!allowed) return;
+      const res = resolveSmite(sid, rollerName(sid, socket.id, isDm()), rollId, choice);
+      if (!res.ok) {
+        socket.emit('notice', { message: res.reason });
+        return;
+      }
+      afterChange();
     });
 
     on('session:setManualDamage', ({ manual }) => {

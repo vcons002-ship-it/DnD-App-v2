@@ -357,6 +357,8 @@ type Store = {
   /** Roll (and apply) the damage parked on a hit — the two-step attack's
    *  second click. */
   combatDamage: (rollId: string) => void;
+  /** Cast the smite a hit made available, with a slot level or the free casting. */
+  combatSmite: (rollId: string, level: number | 'free') => void;
   combatSave: (payload: CombatSavePayload) => void;
   /** DM: make weapon damage a separate, clickable second roll. */
   setManualDamage: (manual: boolean) => void;
@@ -1058,6 +1060,7 @@ export const useStore = create<Store>((set, get) => ({
   undo: () => get().socket?.emit('session:undo'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
+  combatSmite: (rollId, level) => get().socket?.emit('combat:smite', { rollId, level }),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
   setManualDamage: (manual) =>
     get().socket?.emit('session:setManualDamage', { manual }),

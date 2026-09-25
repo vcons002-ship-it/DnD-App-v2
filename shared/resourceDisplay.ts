@@ -61,13 +61,23 @@ export function slotReference2024(
     return Object.fromEntries(
       table[level - 1].map((max, i) => [`L${i + 1}`, max]),
     );
+  // Pact Magic: a few slots, ALL of one level — 1 / 2 / 3 / 4 slots at warlock
+  // levels 1 / 2 / 11 / 17, at slot level ⌈level/2⌉ up to 5th.
+  if (name === 'warlock') {
+    const count = level >= 17 ? 4 : level >= 11 ? 3 : level >= 2 ? 2 : 1;
+    return { [`L${Math.min(5, Math.ceil(level / 2))}`]: count };
+  }
+  // The Artificer is a half-caster that rounds UP — the 2024 half-caster table.
+  if (name === 'artificer')
+    return Object.fromEntries(HALF[level - 1].map((max, i) => [`L${i + 1}`, max]));
   if (
     /^(barbarian|monk)$/.test(name) ||
     (name === 'fighter' && /^(battle master|champion)$/i.test(subclass.trim()))
   )
     return {};
-  // Free-text subclass, multiclass split, Pact Magic and homebrew cannot be
-  // inferred safely from one level field. Unknown does NOT mean zero allowance.
+  // Free-text subclass, multiclass split and homebrew cannot be inferred safely
+  // from one level field (a single-class Warlock's Pact Magic can, above).
+  // Unknown does NOT mean zero allowance.
   return null;
 }
 

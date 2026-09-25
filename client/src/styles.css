@@ -643,6 +643,20 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   z-index: 6; pointer-events: none;
 }
+/* Divine Smite on a landed hit: a row of slot choices under the damage button. */
+.dp-smite {
+  pointer-events: auto;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 6px; padding: 5px 10px;
+  border: 1px solid #c9a94a; border-radius: 8px;
+  background: #1c1a12ee; box-shadow: 0 3px 12px #0009;
+}
+.dp-smite.crit { border-color: var(--gold); box-shadow: 0 0 12px rgba(245, 197, 24, 0.4); }
+.dp-smite-label { font-size: 12px; font-weight: 700; color: #f0d890; white-space: nowrap; }
+.dp-smite-btn { min-width: 34px; }
+.roll-smite { margin-left: 4px; }
+/* "⬆ Update" on a sheet entry whose rules-DB definition has since changed. */
+.rules-update { border-color: #c9a94a; color: #f0d890; }
 .damage-prompt-btn {
   pointer-events: auto;
   display: flex; align-items: center; gap: 10px;
