@@ -7,6 +7,55 @@ import { DM_SECRET, PORT } from './playwright.config';
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
+test('asset production keeps missing creatures usable and loads published models without rejoining', async ({ page, request, browser }) => {
+  const f = await fixture(page, request);
+  f.socket.emit('monster:create', { name: 'Production Elephant', modelType: 'elephant', maxHp: 40 });
+  const created = await f.snapshot();
+  const creature = created.monsterTemplates.find(m => m.name === 'Production Elephant')!;
+  expect(creature).toBeTruthy();
+  f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: creature.id, x: 600, y: 600 });
+  const ready = await f.snapshot();
+  const token = ready.tokens.find(t => t.kind === 'monster')!;
+  expect((await request.get('/api/assets/jobs')).status()).toBe(403);
+  expect((await request.post('/api/assets/pause', { data: { paused: true } })).status()).toBe(403);
+  await expect.poll(async () => {
+    const response = await request.get('/api/assets/jobs', { headers: { 'x-dm-passphrase': DM_SECRET } });
+    return (await response.json()).jobs.find((j: any) => j.family === 'elephant')?.state;
+  }).toBe('failed'); // Test server intentionally has no Hunyuan service.
+  const catalog = await (await request.get('/api/assets/catalog')).json();
+  expect(catalog).toEqual({ models: [] });
+  const glb = await (await request.get('/miniatures/monsters/goblin.glb')).body();
+  // Simulated publication only: use a known valid fixture to exercise the real
+  // catalog refresh, GLTF loader and renderer without spending GPU/API work.
+  let published = false;
+  const installCatalog = async (p: Page) => {
+    await p.route('**/api/assets/catalog', route => route.fulfill({ json: { models: published ? [{
+      id: 'elephant', url: '/uploads/miniatures/elephant-test.glb', baseDiameter: 1, baseCenter: [0, 0, 0], bytes: glb.length, triangles: 20000, sha256: 'fixture',
+    }] : [] } }));
+    await p.route('**/uploads/miniatures/elephant-test.glb', route => route.fulfill({ body: glb, contentType: 'model/gltf-binary' }));
+  };
+  await installCatalog(page);
+  await enter(page, f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
+  expect((await tokenView(page, token.id))?.miniatureReady).not.toBe(true);
+  const context = await browser.newContext({ baseURL: `http://localhost:${PORT}` });
+  try {
+    const dm = await context.newPage(); await installCatalog(dm);
+    await dm.goto(`/dm?code=${f.code}`);
+    await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60000 });
+    const position = await tokenView(dm, token.id);
+    await dm.mouse.click(position!.x, position!.y);
+    await expect(dm.getByText(/^3D failed: Needs attention/)).toBeVisible();
+    await expect(dm.getByRole('button', { name: 'Retry 3D', exact: true })).toBeVisible();
+    published = true;
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '4', { timeout: 60000 });
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '4', { timeout: 60000 });
+    await expect.poll(async () => (await tokenView(page, token.id))?.miniatureReady).toBe(true);
+  } finally { await context.close(); }
+});
+
 // Only the E2E server's disposable database is modified. The actual bundled
 // GLBs, production map component, Socket.IO path and browser WebGL are used.
 async function fixture(page: Page, request: APIRequestContext) {

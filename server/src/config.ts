@@ -142,9 +142,11 @@ export const config = {
    *  `LoraLoaderModelOnly`). Point this at a drop-in DoRA loader that exposes the
    *  same model/lora_name/strength_model interface; skipped if not installed. */
   comfyMapLoraNode: process.env.COMFY_MAP_LORA_NODE || '',
+  /** Image-capable Gemini model used when local ComfyUI generation fails. */
+  geminiImageModel: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
   /** Default AI backend for generation features: 'gemini' (best quality, local
-   *  fallback) or 'local' (Ollama only — no cloud calls). The chat picks its own
-   *  per-question backend; 'local' here is a global lockdown that wins. */
+   *  fallback) or 'local' (Ollama first — Gemini backup). The chat picks its own
+   *  per-question backend; 'local' here is the default preference. */
   aiMode: (process.env.AI_MODE === 'local' ? 'local' : 'gemini') as 'gemini' | 'local',
   /** Absolute paths to local storage (created on boot). */
   dataDir,

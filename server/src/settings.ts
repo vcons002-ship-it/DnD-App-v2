@@ -8,6 +8,7 @@ import { refreshComfy } from './ai/comfy.js';
 export type RuntimeSettings = {
   geminiApiKey?: string;
   geminiModel?: string;
+  geminiImageModel?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   aiMode?: 'gemini' | 'local';
@@ -27,6 +28,7 @@ export function loadSettings(): void {
     const raw = fs.readFileSync(config.settingsPath, 'utf8');
     const s = JSON.parse(raw) as RuntimeSettings;
     if (typeof s.geminiApiKey === 'string') config.geminiApiKey = s.geminiApiKey;
+    if (typeof s.geminiImageModel === 'string' && s.geminiImageModel.trim()) config.geminiImageModel = s.geminiImageModel.trim();
     if (typeof s.geminiModel === 'string') config.geminiModel = s.geminiModel;
     if (typeof s.ollamaUrl === 'string' && s.ollamaUrl.trim())
       config.ollamaUrl = s.ollamaUrl.trim().replace(/\/$/, '');
@@ -53,6 +55,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
   if (typeof patch.geminiApiKey === 'string') {
     config.geminiApiKey = patch.geminiApiKey.trim();
   }
+  if (typeof patch.geminiImageModel === 'string' && patch.geminiImageModel.trim()) config.geminiImageModel = patch.geminiImageModel.trim();
   if (typeof patch.geminiModel === 'string') {
     config.geminiModel = patch.geminiModel.trim();
     clearResolvedModel(); // re-discover/use the new model on the next call
@@ -104,6 +107,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
         {
           geminiApiKey: config.geminiApiKey,
           geminiModel: config.geminiModel,
+          geminiImageModel: config.geminiImageModel,
           ollamaUrl: config.ollamaUrl,
           ollamaModel: config.ollamaModel,
           aiMode: config.aiMode,
@@ -130,6 +134,7 @@ export function updateSettings(patch: RuntimeSettings): PublicSettings {
 export type PublicSettings = {
   hasKey: boolean;
   geminiModel: string;
+  geminiImageModel: string;
   ollamaUrl: string;
   ollamaModel: string;
   aiMode: 'gemini' | 'local';
@@ -148,6 +153,7 @@ export function publicSettings(): PublicSettings {
   return {
     hasKey: !!config.geminiApiKey,
     geminiModel: config.geminiModel,
+    geminiImageModel: config.geminiImageModel,
     ollamaUrl: config.ollamaUrl,
     ollamaModel: config.ollamaModel,
     aiMode: config.aiMode,

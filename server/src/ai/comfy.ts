@@ -332,6 +332,8 @@ export type ComfyImageOpts = {
   negative?: string;
   width?: number;
   height?: number;
+  /** Internal miniature turnaround canvas; ordinary image requests retain the 1536 cap. */
+  turnaround?: boolean;
   steps?: number;
   cfg?: number;
   /** Splice this model-only LoRA into the graph (map generation); skipped if the
@@ -358,8 +360,8 @@ export async function generateImage(
   const clientId = randomUUID();
   const cleanPrompt = prompt.trim().slice(0, 2000);
   const negative = (opts.negative ?? DEFAULT_NEGATIVE).slice(0, 2000);
-  const width = clampDim(opts.width, 768);
-  const height = clampDim(opts.height, 768);
+  const width = clampDim(opts.width, 768, opts.turnaround ? 2048 : 1536);
+  const height = clampDim(opts.height, 768, opts.turnaround ? 2048 : 1536);
   const seed = Math.floor(Math.random() * 2 ** 31);
 
   let graph: Record<string, unknown> | null;
@@ -511,11 +513,11 @@ async function saveFromView(base: string, img: ComfyImageRef): Promise<string | 
   return `/uploads/${filename}`;
 }
 
-const clampDim = (v: number | undefined, fallback: number): number => {
+const clampDim = (v: number | undefined, fallback: number, maximum = 1536): number => {
   const n = Math.round(v ?? fallback);
   if (!Number.isFinite(n)) return fallback;
   // Snap to a multiple of 8 (latent grid), bounded to sane SD sizes.
-  return Math.min(1536, Math.max(256, Math.round(n / 8) * 8));
+  return Math.min(maximum, Math.max(256, Math.round(n / 8) * 8));
 };
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));

@@ -1,3 +1,4 @@
+import { requestCreatureAsset } from './assets/hooks.js';
 import { placeBase } from '../../shared/tokenPlacement.js';
 import { miniatureBaseWidthFt, defaultMonsterWidthFt, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
 import {
@@ -2704,7 +2705,9 @@ function insertMonster(
     JSON.stringify(normalizeVisualTags(opts.visualTags)),
     normalizeModelColor(opts.modelColor),
   );
-  return getMonster(id)!;
+  const creature = getMonster(id)!;
+  requestCreatureAsset(creature);
+  return creature;
 }
 
 /** Pick a unique template name (append " (2)", " (3)", … on collision). */
@@ -2869,7 +2872,9 @@ export function updateMonster(
       );
     }
   }
-  return getMonster(monsterId);
+  const creature = getMonster(monsterId);
+  if (creature && ['name', 'creatureType', 'modelType', 'objectKind'].some(key => key in patch)) requestCreatureAsset(creature);
+  return creature;
 }
 
 /** Delete a monster (template or instance) and any tokens referencing it. */

@@ -71,6 +71,12 @@ sanitization rules above and commit it to `claude/Main`.
 
 ## Stack
 
+Background monster asset production is documented in
+[`docs/ASSET_PRODUCTION.md`](docs/ASSET_PRODUCTION.md): persistent family queue,
+ComfyUI/image-API references, named Hunyuan multi-view generation, reduced GLBs,
+and a dynamic catalog consumed by both battlefield roles. Production artifacts
+live outside the bundled static catalog and must be backed up with uploads.
+
 - **Client:** React + TypeScript + Vite, **Konva** (`react-konva`) for the map
   canvas, **Zustand** store, react-router.
 - **Server:** Node + Express + **Socket.IO**, **SQLite** (`better-sqlite3`).
@@ -79,7 +85,7 @@ sanitization rules above and commit it to `claude/Main`.
   one app-wide gateway (`server/src/ai/`, `generateText`/`generateJson`) routing
   ALL features (creature/character/item/spell gen + the DM **rules-assistant**,
   `/ask` in chat). Backend = `config.aiMode`: **`gemini`** (default, best
-  quality, local fallback) or **`local`** (Ollama-only lockdown); a per-call
+  quality, local fallback) or **`local`** (Ollama first, Gemini backup); a per-call
   `prefer` overrides it (the chat's model dropdown, default local) unless locked.
   **Fail-safe** (works without either). Assistant grounded on an SRD digest + app
   data + an optional uploaded rulebook PDF (wins on conflict); it also **suggests
@@ -519,3 +525,16 @@ sanitization rules above and commit it to `claude/Main`.
   with `afterChange()`.
 - Match the surrounding code's style/comment density.
 - Tests are **server-only** (Vitest). Keep `ROADMAP.md` ticked as features land.
+
+## AI reliability
+
+All text/JSON generation uses the shared gateway: local failures (including
+empty or malformed JSON output) fall back to Gemini when a key is configured.
+The local setting means local first, not cloud-disabled. API connection failures,
+timeouts, HTTP 408/429 and temporary 5xx errors get three total attempts with
+1s/2s backoff. Cancellation stops retries and fallback. Operational notices appear
+as DM-only toasts and DM-only chat history; they contain no prompts or secrets.
+Image generation tries ComfyUI first, then the configurable Gemini image API
+model. Its fallback supports token art, decals, and maps but does not reproduce
+local LoRAs or custom workflow internals. The external 3D asset pipeline remains
+outside the in-game generation gateway.

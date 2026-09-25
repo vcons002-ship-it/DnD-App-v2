@@ -1,3 +1,4 @@
+import { apiRequest } from '../ai/apiRequest.js';
 import { MONSTER_MODEL_TYPES, MONSTER_COLORS, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../../shared/monsterAppearance.js';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
@@ -29,7 +30,7 @@ const FALLBACK_MODELS = [
 let resolvedModel: string | null = null;
 
 /** Transient HTTP statuses worth retrying (rate limit + server overload). */
-const TRANSIENT_STATUS = new Set([429, 500, 502, 503, 504]);
+
 
 /** Reset the cached model (call when the configured model changes). */
 export const clearResolvedModel = (): void => {
@@ -168,34 +169,14 @@ function parseStats(v: unknown): Record<string, number> {
  * fast one (prefer "flash"). This adapts to whatever the user's key/project has
  * access to, so we never call a retired model.
  */
-async function discoverModel(): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${config.geminiApiKey}`,
-      { signal: AbortSignal.timeout(15000) },
-    );
-    if (!res.ok) {
-      console.warn(`  [gemini] ListModels HTTP ${res.status}`);
-      return null;
-    }
-    const data = (await res.json()) as {
-      models?: { name: string; supportedGenerationMethods?: string[] }[];
-    };
-    const usable = (data.models ?? [])
-      .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
-      .map((m) => m.name.replace(/^models\//, ''))
-      .filter((n) => !/embedding|aqa|vision/i.test(n));
-    const pick =
-      usable.find((n) => /flash/i.test(n) && !/lite|thinking/i.test(n)) ||
-      usable.find((n) => /flash/i.test(n)) ||
-      usable.find((n) => /gemini/i.test(n)) ||
-      usable[0];
-    if (pick) console.log(`  [gemini] using model: ${pick}`);
-    return pick ?? null;
-  } catch (err) {
-    console.warn('  [gemini] ListModels error:', (err as Error).message);
-    return null;
-  }
+async function discoverModel(signal?: AbortSignal): Promise<string | null> {
+  const result = await apiRequest<{models?: {name:string;supportedGenerationMethods?:string[]}[]}>(
+    'https://generativelanguage.googleapis.com/v1beta/models',
+    {headers:{'x-goog-api-key':config.geminiApiKey}},
+    {signal,timeoutMs:15000,label:'Gemini model discovery'});
+  return result?.data?.models?.filter(m=>m.supportedGenerationMethods?.includes('generateContent'))
+    .map(m=>m.name.replace(/^models\//,''))
+    .find(n=>/flash/i.test(n) && !/image|lite|thinking|tts/i.test(n)) ?? null;
 }
 
 /** Plain-text Gemini call (no JSON mime) for prose answers like the rules
@@ -212,6 +193,7 @@ export async function callGemini(
   prompt: string,
   opts: { json?: boolean; signal?: AbortSignal } = {},
 ): Promise<string | null> {
+  if (!geminiEnabled() || opts.signal?.aborted) return null;
   const json = opts.json !== false; // default: structured JSON (existing callers)
   let models: string[];
   if (resolvedModel) {
@@ -220,71 +202,26 @@ export async function callGemini(
     // An explicit override wins — don't auto-discover around it.
     models = [config.geminiModel];
   } else {
-    const discovered = await discoverModel();
+    const discovered = await discoverModel(opts.signal);
     // Try the discovered model first, then the static candidates as a backup.
     models = (discovered ? [discovered, ...FALLBACK_MODELS] : FALLBACK_MODELS).filter(
       (m, i, a) => a.indexOf(m) === i,
     );
   }
+  if (!geminiEnabled() || opts.signal?.aborted) return null;
   for (const model of models) {
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
-      `?key=${config.geminiApiKey}`;
-    // Transient timeouts/network blips are common; retry up to 3 times with
-    // exponential backoff (1s/2s/4s) before giving up on this model. Each try
-    // keeps its own 20s budget.
-    let res: Response | null = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: json ? { responseMimeType: 'application/json' } : {},
-          }),
-          signal: opts.signal
-            ? AbortSignal.any([AbortSignal.timeout(20000), opts.signal])
-            : AbortSignal.timeout(20000),
-        });
-        // Rate limits (429) and server overload (500/502/503/504) are transient
-        // and common with Gemini — back off and retry before giving up.
-        if (TRANSIENT_STATUS.has(res.status) && attempt < 2) {
-          console.warn(
-            `  [gemini] HTTP ${res.status} on ${model} (attempt ${attempt + 1}/3), retrying…`,
-          );
-          res = null;
-          await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
-          continue;
-        }
-        break;
-      } catch (err) {
-        console.warn(
-          `  [gemini] request error on ${model} (attempt ${attempt + 1}/3):`,
-          (err as Error).message,
-        );
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
-      }
-    }
-    if (!res) continue; // retries exhausted → try the next model, else give up
-    if (res.status === 404) {
-      console.warn(`  [gemini] model ${model} unavailable, trying next…`);
-      resolvedModel = null;
-      continue;
-    }
-    if (!res.ok) {
-      console.warn(
-        `  [gemini] HTTP ${res.status} on ${model}: ${(await res.text()).slice(0, 300)}`,
-      );
-      return null;
-    }
-    resolvedModel = model; // cache the working model
-    const data = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    const result = await apiRequest<{candidates?: {content?: {parts?: {text?:string}[]}}[]}>(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:'application/json'}:{}})},
+      {signal:opts.signal});
+    if(!result || opts.signal?.aborted) return null;
+    if(result.status===404 && !config.geminiModel) {resolvedModel=null;continue;}
+    if(result.status!==200) return null;
+    const text=result.data?.candidates?.[0]?.content?.parts?.map(p=>p.text ?? '').join('').trim();
+    if(text) {resolvedModel=model;return text;}
+    return null;
   }
-  console.warn('  [gemini] no usable model found');
   return null;
 }
 

@@ -12,7 +12,7 @@ function fetchStatus(): Promise<ComfyStatus> {
   if (!inflight) {
     inflight = fetch('/api/comfy/status')
       .then((r) => r.json())
-      .then((d) => (cache = { reachable: !!d.reachable, models: Array.isArray(d.models) ? d.models : [] }))
+      .then((d) => (cache = { reachable: !!(d.available ?? d.reachable), models: Array.isArray(d.models) ? d.models : [] }))
       .catch(() => (cache = { reachable: false, models: [] }))
       .finally(() => {
         inflight = null;

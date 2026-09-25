@@ -1,6 +1,7 @@
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
-import { monsterTint, monsterVariation, resolveMonsterModelType } from '../../../shared/monsterAppearance';
+import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance';
+import { productionFamily } from '../../../shared/assetProduction';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
@@ -16,7 +17,7 @@ import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, 
 import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
-import { resolveMiniature } from '../lib/miniatures';
+import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
@@ -368,6 +369,7 @@ export function MapStage({
   onPlaceAt,
   fullChatVisible = false,
 }: Props) {
+  const miniatureCatalogRevision = useMiniatureCatalog();
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -965,11 +967,11 @@ export function MapStage({
       facing: token.facing ?? 0,
       outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
-      shade: monster ? monsterVariation(resolveMonsterModelType(monster), token.refId).shade : undefined,
+      shade: monster ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
       selected: selectedIds.includes(token.id),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, use3dTokens, use3dMonsters, dragGhosts]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, use3dTokens, use3dMonsters, dragGhosts, miniatureCatalogRevision]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);

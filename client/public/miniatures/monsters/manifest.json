@@ -497,6 +497,23 @@
       "texture": "2048x2048 JPEG95",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 2
+    },
+    {
+      "id": "imp",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1696600,
+      "triangles": 20754,
+      "sha256": "86660a51deffb42da2d6d0c9826d3e8d07e886179aa212e236c6fa214cd4e81e",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/imp.glb",
+      "sourceSha256": "939b249ac00306510294c2b928a9b85343ec189406a4b8fdb9dd1153fe68c034",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [

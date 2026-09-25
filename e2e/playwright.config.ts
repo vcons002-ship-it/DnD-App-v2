@@ -42,6 +42,7 @@ export default defineConfig({
       DATA_ROOT,
       OLLAMA_URL: 'http://127.0.0.1:1',
       COMFY_URL: 'http://127.0.0.1:1',
+      HUNYUAN_URL: 'http://127.0.0.1:1',
       GEMINI_API_KEY: '',
       AI_MODE: 'local',
     },

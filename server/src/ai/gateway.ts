@@ -1,25 +1,13 @@
+import { reportAi } from './status.js';
 import { config } from '../config.js';
 import { ollamaChat, ollamaReachable, ollamaConfigured, refreshOllama } from './ollama.js';
 import { callGemini, callGeminiText, geminiEnabled } from '../creatures/gemini.js';
 
 export { refreshOllama, ollamaReachable, ollamaConfigured, listOllamaModels } from './ollama.js';
 
-/**
- * App-wide AI gateway: the single chokepoint every AI feature routes through —
- * the rules assistant (generateText) and creature/character/item/spell
- * generation (generateJson). Backend selection:
- *   - default per `config.aiMode`: 'gemini' = Gemini first (best quality) with a
- *     local fallback; 'local' = Ollama only (a global lockdown, no cloud calls).
- *   - a per-call `prefer` (used by the chat's backend dropdown) overrides the
- *     default UNLESS the global mode is 'local', which always wins.
- * Fail-safe: returns null when no backend produces output; callers degrade.
- */
-
-/** Resolve the effective backend for a call: global 'local' lockdown wins, else
- *  the caller's choice, else the configured default. */
+/** Local mode prefers Ollama, with Gemini as the configured API backup. */
 function effectivePrefer(prefer?: 'gemini' | 'local'): 'gemini' | 'local' {
-  if (config.aiMode === 'local') return 'local';
-  return prefer ?? config.aiMode; // config.aiMode is 'gemini' here
+  return config.aiMode === 'local' ? 'local' : prefer ?? config.aiMode;
 }
 
 export type GenOpts = {
@@ -51,57 +39,43 @@ export function extractJson(text: string): string {
   return t;
 }
 
-/** Prose generation (rules assistant). `prefer='local'` = Ollama only;
- *  `prefer='gemini'` (default) = Gemini first with a local fallback. */
-export async function generateText(
-  system: string,
-  user: string,
-  opts: GenOpts = {},
-): Promise<string | null> {
-  const prefer = effectivePrefer(opts.prefer);
-  const chat = {
-    model: opts.ollamaModel,
-    signal: opts.signal,
-    timeoutMs: opts.timeoutMs,
-    temperature: opts.temperature,
+/** Shared bounded fallback: each backend is used at most once per operation. */
+async function generate(system: string, user: string, json: boolean, opts: GenOpts): Promise<string|null> {
+  const local=()=>ollamaChat(system,user,{json,model:opts.ollamaModel,signal:opts.signal,timeoutMs:opts.timeoutMs,temperature:opts.temperature});
+  const api=()=>json ? callGemini(user,{signal:opts.signal}) : callGeminiText(`${system}\n\n${user}`,opts.signal);
+  const accept=(text:string|null) => {
+    if(!text?.trim()) return null;
+    if(!json) return text;
+    try {const cleaned=extractJson(text);JSON.parse(cleaned);return cleaned;} catch{return null;}
   };
-  if (prefer === 'local') {
-    return ollamaChat(system, user, chat);
+  const order=effectivePrefer(opts.prefer)==='local' ? ['local','api'] : ['api','local'];
+  let failed=false;
+  for(const backend of order) {
+    if(opts.signal?.aborted) return null;
+    if(backend==='api' && !geminiEnabled()) {
+      if(failed) reportAi('Local model failed; API backup is unavailable. Configure a Gemini API key in Settings.');
+      continue;
+    }
+    if(failed) reportAi(backend==='api' ? 'Local model failed or returned unusable output. Switching to Gemini API backup.' : 'Gemini API failed. Trying the local model.');
+    let output:string|null=null;
+    try {output=accept(await (backend==='local'?local():api()));} catch { /* try backup */ }
+    if(opts.signal?.aborted) return null;
+    if(output) {
+      if(failed) reportAi(`${backend==='api'?'Gemini API backup':'Local backup'} completed the request.`);
+      return output;
+    }
+    failed=true;
   }
-  // Gemini-first (quality). Its v1beta API has no system role, so fold it in.
-  if (geminiEnabled()) {
-    const text = await callGeminiText(`${system}\n\n${user}`, opts.signal);
-    if (text) return text;
-  }
-  if (opts.signal?.aborted) return null; // a Stop between backends ends it
-  return ollamaChat(system, user, chat);
+  reportAi('Generation failed. No usable result was returned; you can try again.');
+  return null;
 }
-
-/**
- * Structured-JSON generation (creatures, characters, items, spells). A drop-in
- * for the old `callGemini(prompt)`: returns a JSON string (cleaned of fences) or
- * null. Same backend selection as generateText.
- */
-export async function generateJson(prompt: string, opts: GenOpts = {}): Promise<string | null> {
-  const prefer = effectivePrefer(opts.prefer);
-  const chat = { json: true, model: opts.ollamaModel, signal: opts.signal, timeoutMs: opts.timeoutMs };
-  if (prefer === 'local') {
-    const l = await ollamaChat(JSON_SYSTEM, prompt, chat);
-    return l ? extractJson(l) : null;
-  }
-  if (geminiEnabled()) {
-    const g = await callGemini(prompt, { signal: opts.signal });
-    if (g) return extractJson(g);
-  }
-  if (opts.signal?.aborted) return null;
-  const l = await ollamaChat(JSON_SYSTEM, prompt, chat);
-  return l ? extractJson(l) : null;
+export function generateText(system:string,user:string,opts:GenOpts={}):Promise<string|null> {
+  return generate(system,user,false,opts);
 }
-
-/** Is SOME AI backend usable right now? In 'local' mode that means Ollama is
- *  reachable; otherwise a Gemini key OR a reachable Ollama. Gates UI affordances. */
+export function generateJson(prompt:string,opts:GenOpts={}):Promise<string|null> {
+  return generate(JSON_SYSTEM,prompt,true,opts);
+}
 export function aiAvailable(): boolean {
-  if (config.aiMode === 'local') return ollamaReachable();
   return geminiEnabled() || ollamaReachable();
 }
 

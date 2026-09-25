@@ -8,7 +8,7 @@ import type {
   Token,
 } from '../../../shared/types';
 import { resolveToken } from '../lib/entities';
-import { resolveMiniature } from '../lib/miniatures';
+import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { MiniatureSizeControl } from './MiniatureSizeControl';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
@@ -43,6 +43,7 @@ export function SelectedTokenPanel({
   compactPlayerConsole = false,
 }: Props) {
   const applyDamage = useStore((s) => s.applyDamage);
+  useMiniatureCatalog();
   const setTempHp = useStore((s) => s.setTempHp);
   const resizeToken = useStore((s) => s.resizeToken);
   const updateMonster = useStore((s) => s.updateMonster);

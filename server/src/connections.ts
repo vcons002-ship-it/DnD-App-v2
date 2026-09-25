@@ -6,7 +6,7 @@ import type {
   ServerToClientEvents,
 } from '../../shared/types.js';
 import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
-import { drainHpFx, getActiveMapId, getMap, getCharacter, getMonster } from './sessions.js';
+import { addChatMessage, drainHpFx, getActiveMapId, getMap, getCharacter, getMonster } from './sessions.js';
 import type { Token } from '../../shared/types.js';
 
 export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -22,6 +22,19 @@ export type Conn = {
 };
 
 const conns = new Map<string, Conn>();
+
+/** Backend health is app-wide; operational notices go only to authenticated DMs. */
+export function broadcastAiStatus(io: IOServer, message: string): void {
+  const sessions = new Set<string>();
+  for (const [id, conn] of conns) if(conn.role === 'dm') {
+    io.to(id).emit('notice',{message});
+    sessions.add(conn.sessionId);
+  }
+  for (const sessionId of sessions) {
+    addChatMessage(sessionId, 'AI status', 'dm', message, true);
+    broadcastSnapshots(io, sessionId);
+  }
+}
 
 export const setConn = (socketId: string, conn: Conn): void => {
   conns.set(socketId, conn);
