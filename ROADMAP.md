@@ -1793,6 +1793,48 @@ Smaller refinements on top of the shipped Phase 2 work.
   single-token `.disposition-btns`. DM-only (disposition drives player
   visibility) and PC tokens are skipped, with the count of what will actually
   change shown when PCs are in the selection.
+- ☑ **Trust fixes (25 Sep review §6).** Every rules bug the review verified,
+  each with a regression test that fails on the old code.
+  **Rules policy:** new additions use 2024 definitions; a saved sheet entry is
+  **never silently converted** — an outdated DB-sourced entry gets an explicit
+  "⬆ Update" button (`shared/rulesUpdate.ts`; keeps id/prep, switches stances
+  OFF). Where the engine ignored an entry's own text, the engine is fixed (the
+  legacy Divine Smite ability now spends the slot it says it does).
+  **HP & death:** ordinary healing never revives the dead (PC: 3 failures or a
+  Dead mark; monster: 0 HP or Dead) — the DM's manual heal is the deliberate
+  correction path (`applyDamage(..., {correction})`) and reconciles death saves
+  and conditions. Dropping to 0 adds Unconscious/Incapacitated/Prone tagged
+  `Condition.source: 'down'` (only where absent); healing removes only those
+  tags, and Prone stays. **Massive damage** kills. Concentration DC is capped at
+  30, and `endConcentration` (at 0 HP or on becoming incapacitated) removes only
+  its own condition, stance and mark.
+  **Damage math:** `immunities` on every creature/character/library row
+  (`ensureColumn`), parsed strictly by `parseDamageTrait` (type + "nonmagical" /
+  "non-silvered" source properties — never a substring); weapons carry explicit
+  `magical`/`silvered`, stances `magicalAttacks`; spell damage is magical;
+  immunity wins. SRD immunities filled in (Young Red Dragon fire moved from
+  resistance). Crits double `extraDamage` and a damage Superiority Die (dice
+  only). Feature advantage is a named reason, so a requested DIS cancels it
+  instead of erasing it.
+  **Class features:** Rage (B/P/S resistance, +2/+3/+4, STR-check adv), Reckless
+  Attack (`enemiesHaveAdvantage`). **Divine Smite, 2024 timing:** chosen AFTER a
+  qualifying melee hit (`RollEntry.smite` → `combat:smite` → `resolveSmite`),
+  never pre-armed; the choice offers slot levels plus the Paladin-2
+  once-per-long-rest free casting (`Divine Smite (free)` counter); `smite.used`
+  is stamped before spending, so a retry can't double-spend or double-damage.
+  Warlock Pact Magic + Artificer slots in `slotReference2024` (create and
+  level-up share it; `spendSpellSlot` falls back to a pact slot and reports the
+  level spent). Channel Divinity / Wild Shape scale by level.
+  **Correctness:** SRD/library creatures no longer arrive with every attack
+  twice — insert drops an action only when `isCleanAttackDuplicate` proves it's
+  a bare attack line identical to a stored weapon (riders/saves/"plus" damage
+  are kept). The DM's big `DamagePrompt` + hotkey ignore player-owned hits (the
+  log button stays as the DM override; e2e `damage-prompt-ownership`).
+  **Startup migrations** (`server/src/trustMigrations.ts`, idempotent, each
+  tested twice): remove only UNTOUCHED duplicate attack abilities; restore SRD
+  immunities only where every defining field still matches the SRD block
+  exactly (edited / CR-scaled / reskinned creatures are left alone). No
+  class-feature migration, by policy.
 
 - [x] Persistent active-map encounter tracking: DM creation names plus U/reveal badges, player-safe tags, initial complete-reveal number matching, and staged first-map creation.
 - [x] Creature stat/attack completeness audit and missing-field repair; eight common library additions and four reduced multi-view families (Bugbear, Gnoll, Owlbear, Brown Bear). See `docs/TOKEN_LIBRARY_EXPANSION_2026-09-24.md`.

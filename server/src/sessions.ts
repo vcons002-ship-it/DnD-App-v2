@@ -26,7 +26,7 @@ import {
   sanitizeWeapons,
 } from '../../shared/modifiers.js';
 import { coveredByFog } from '../../shared/fog.js';
-import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
+import { weaponsFromActions, actionsToSheetAbilities, isCleanAttackDuplicate } from '../../shared/monsterAttacks.js';
 import { isDamageType } from '../../shared/damage.js';
 import type {
   Character,
@@ -2831,6 +2831,12 @@ function insertMonster(
     const split = weaponsFromActions(actions);
     weapons = split.weapons;
     actions = split.actions;
+  } else if (actions.length) {
+    // Library / SRD copies carry BOTH the parsed weapons and the raw attack lines
+    // they came from, which used to land every attack twice (a weapon AND a
+    // roll-less "ability"). Drop only lines that are demonstrably the same attack
+    // and nothing more — a line with a rider (a save, "plus 1d6 fire") stays.
+    actions = actions.filter((a) => !isCleanAttackDuplicate(a, weapons));
   }
   const sheetAbilities = [
     ...(opts.sheetAbilities ?? []),

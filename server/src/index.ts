@@ -7,6 +7,7 @@ import { config } from './config.js';
 import { loadSettings } from './settings.js';
 import { refreshOllama } from './ai/ollama.js';
 import { seedLibraryItems, seedLibraryCreatures } from './library.js';
+import { migrateDuplicateAttackAbilities, migrateSrdImmunities } from './trustMigrations.js';
 import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
 import { startBackupScheduler } from './backupScheduler.js';
@@ -32,6 +33,9 @@ loadSettings(); // apply any DM-saved API key / model overrides on top of env
 void refreshOllama().then((up) => up && console.log('  Local Ollama reachable for AI.'));
 const seeded = seedLibraryItems(); // one-time fill of the cross-session item library
 const seededCreatures = seedLibraryCreatures();
+// Trust-fix data repairs (idempotent; touch only unedited app-produced data).
+migrateDuplicateAttackAbilities();
+migrateSrdImmunities();
 if (seededCreatures) console.log(`  Seeded ${seededCreatures} creatures into the token library.`);
 if (seeded) console.log(`  Seeded ${seeded} SRD items into the item library.`);
 startBackupScheduler(); // periodic on-disk backups of every session (default: bi-weekly)
