@@ -6,7 +6,7 @@ export const MONSTER_MODEL_TYPES = [
   'tiefling-commoner', 'royal-archmage', 'orc', 'hobgoblin', 'wight', 'troll',
   'stone-golem', 'ghost', 'werebear', 'treant', 'dragon', 'two-headed-dragon',
   'spider', 'snake', 'mage-hand', 'kobold', 'zombie', 'giant-rat', 'mimic', 'imp',
-  'bugbear', 'gnoll', 'owlbear', 'brown-bear', 'ogre', 'ghoul', 'giant-bat',
+  'bugbear', 'gnoll', 'owlbear', 'brown-bear', 'ogre', 'ghoul', 'giant-bat', 'goblin-crossbowman',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -35,7 +35,7 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
     return /giant/.test(name) ? 'medium' : 'tiny';
   }
   if (family === 'mage-hand' || family === 'imp') return 'tiny';
-  if (['goblin', 'kobold', 'giant-rat'].includes(family)) return 'small';
+  if (['goblin', 'goblin-crossbowman', 'kobold', 'giant-rat'].includes(family)) return 'small';
   return 'medium';
 }
 /** New placements only; existing occupied spaces and DM choices are preserved. */
@@ -48,7 +48,7 @@ export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; min
   if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;
   const family = token.kind === 'monster' ? resolveMonsterModelType(appearance) : '';
   // Druk's wider sculpted base needs a slightly larger default to match the other PCs.
-  const factor = token.kind === 'pc' ? (appearance.name?.trim().toLowerCase() === 'druk' ? .9 : .8) : family === 'goblin' || family === 'wolf' ? .6 : .7;
+  const factor = token.kind === 'pc' ? (appearance.name?.trim().toLowerCase() === 'druk' ? .9 : .8) : ['goblin', 'goblin-crossbowman', 'wolf'].includes(family) ? .6 : .7;
   return Math.round(token.widthFt * factor * (TIGHT_BASE_FAMILIES.includes(family) ? .96 : 1) * 100) / 100;
 }
 export function normalizeModelType(value: unknown): string {

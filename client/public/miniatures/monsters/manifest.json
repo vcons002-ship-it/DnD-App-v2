@@ -633,6 +633,23 @@
       "sourceSha256": "52d7ffb819dd184ab3b351402eb258ecd1f49af04b1dd415d854f0fb45b71f4e",
       "url": "/miniatures/monsters/giant-bat.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "goblin-crossbowman",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1666640,
+      "triangles": 20678,
+      "sha256": "5f913e3dd6d65fee3e680a044e083f2878fdb3f5912b825579bd71737a08ebc4",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "c0026e5bbd0f65b6a281e0528fb78df79a14ceebc142bb368c9a424dccacfa2b",
+      "url": "/miniatures/monsters/goblin-crossbowman.glb",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [
