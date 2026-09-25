@@ -3,6 +3,7 @@ import { db, newId, getMeta, setMeta } from './db.js';
 import { SRD_ITEMS } from './items/srd.js';
 import type {
   CreatureAbility,
+  ObjectKind,
   CreatureTemplate,
   InventoryItem,
   LibraryCharacter,
@@ -13,7 +14,8 @@ import type {
 } from '../../shared/types.js';
 import { sanitizeItems, sanitizeModifiers, sanitizeWeapons } from '../../shared/modifiers.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
-import { starterCreatures } from './creatures/starterLibrary.js';
+import { starterCreatures, COMMON_CREATURE_BATCH, COMMON_CREATURE_BATCH_2 } from './creatures/starterLibrary.js';
+import { missingCreatureFields } from './creatures/completeness.js';
 
 // ---- Cross-session creature library ----
 
@@ -23,18 +25,20 @@ export function seedLibraryCreatures(): number {
     let added = 0;
     const entries = starterCreatures();
     const batches = [
-      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp') },
+      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp' && !COMMON_CREATURE_BATCH.includes(c.name) && !COMMON_CREATURE_BATCH_2.includes(c.name)) },
       { marker: 'starter-creature-imp-v1', creatures: entries.filter(c => c.name === 'Imp') },
+      { marker: 'starter-common-creatures-v1', creatures: entries.filter(c => COMMON_CREATURE_BATCH.includes(c.name)) },
+      { marker: 'starter-common-creatures-v2', creatures: entries.filter(c => COMMON_CREATURE_BATCH_2.includes(c.name)) },
     ];
     for (const { marker, creatures } of batches) {
       if (getMeta(marker)) continue;
       for (const creature of creatures) {
         const existing = getLibraryCreature(creature.name);
         if (existing) {
-          // Older running servers can save the Imp stats but omit appearance
+          // Older running servers can save creature stats but omit appearance
           // columns. Upgrade only missing appearance; preserve DM-edited stats
           // and explicit choices such as the 2D-only family.
-          if (marker === 'starter-creature-imp-v1' && !existing.modelType) {
+          if ((marker === 'starter-creature-imp-v1' || marker === 'starter-common-creatures-v2') && !existing.modelType) {
             saveLibraryCreature({ ...existing, modelType: creature.modelType,
               modelColor: existing.modelColor || creature.modelColor,
               visualTags: existing.visualTags?.length ? existing.visualTags : creature.visualTags }, true);
@@ -46,11 +50,26 @@ export function seedLibraryCreatures(): number {
       }
       setMeta(marker, '1');
     }
+    if (!getMeta('library-stat-completeness-v1')) {
+      for (const source of entries) {
+        const existing = getLibraryCreature(source.name);
+        if (!existing) continue;
+        const patch = missingCreatureFields(existing, source);
+        // Library entries saved through an older running server omit these
+        // fields. Preserve explicit families, tints and DM-written tags.
+        if (!existing.modelType) patch.modelType = source.modelType;
+        if (!existing.modelColor && source.modelColor) patch.modelColor = source.modelColor;
+        if (!existing.visualTags?.length) patch.visualTags = source.visualTags;
+        if (Object.keys(patch).length) saveLibraryCreature({ ...existing, ...patch }, true);
+      }
+      setMeta('library-stat-completeness-v1', '1');
+    }
     return added;
   })();
 }
 
 type LibCreatureRow = {
+  object_kind?: ObjectKind; object_dc?: number;
   model_type?: string; model_color?: string; visual_tags?: string;
   id: string;
   name: string;
@@ -72,6 +91,7 @@ type LibCreatureRow = {
 function rowToTemplate(r: LibCreatureRow): CreatureTemplate {
   return {
     name: r.name,
+    ...(r.object_kind ? { objectKind: r.object_kind, objectDc: r.object_dc ?? undefined } : {}),
     creatureType: r.creature_type,
     modelColor: r.model_color ?? '',
     modelType: r.model_type ?? '', visualTags: JSON.parse(r.visual_tags ?? '[]'),
@@ -122,6 +142,8 @@ export function getLibraryCreature(name: string): CreatureTemplate | null {
 }
 
 export type SaveCreatureInput = {
+  objectKind?: ObjectKind;
+  objectDc?: number;
   modelType?: string;
   modelColor?: string; visualTags?: string[];
   name: string;
@@ -163,8 +185,8 @@ export function saveLibraryCreature(
     `INSERT OR REPLACE INTO library_creatures
        (id, name, creature_type, level, max_hp, armor_class, speed, stats,
         resistances, weaknesses, weapons, actions, abilities, sheet_abilities,
-        icon, created_at, model_type, visual_tags, model_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        icon, created_at, model_type, visual_tags, model_color, object_kind, object_dc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -185,6 +207,8 @@ export function saveLibraryCreature(
     input.icon ?? iconForCreature(name, input.creatureType ?? ''),
     Date.now(),
     normalizeModelType(input.modelType), JSON.stringify(normalizeVisualTags(input.visualTags)), normalizeModelColor(input.modelColor),
+    ['trap', 'door', 'chest', 'item', 'other'].includes(input.objectKind ?? '') ? input.objectKind : null,
+    typeof input.objectDc === 'number' && Number.isFinite(input.objectDc) ? Math.max(0, input.objectDc) : null,
   );
   return { saved: getLibraryCreature(name)! };
 }

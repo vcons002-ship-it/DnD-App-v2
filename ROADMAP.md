@@ -1795,3 +1795,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   change shown when PCs are in the selection.
 
 - [x] Persistent active-map encounter tracking: DM creation names plus U/reveal badges, player-safe tags, initial complete-reveal number matching, and staged first-map creation.
+- [x] Creature stat/attack completeness audit and missing-field repair; eight common library additions and four reduced multi-view families (Bugbear, Gnoll, Owlbear, Brown Bear). See `docs/TOKEN_LIBRARY_EXPANSION_2026-09-24.md`.
+- [x] Second common-token batch: Ogre, Ghoul, Giant Bat, Black Bear, Giant Wolf Spider, Scout and Veteran; three new model families and darker black appearance tint. See `docs/COMMON_TOKEN_BATCH_2.md`.
+- [x] Promote 18 campaign presets to the shared library using higher-HP variants; add a dedicated readied Goblin Crossbowman 3D family. See `docs/CAMPAIGN_LIBRARY_IMPORT.md`.
+
+- [x] Save every main-campaign creature/object type to the shared library (41 presets covering 262 records), preserve reusable object metadata, save Varis, and add nine reduced multi-view model families. See `docs/MAIN_CAMPAIGN_LIBRARY.md`.

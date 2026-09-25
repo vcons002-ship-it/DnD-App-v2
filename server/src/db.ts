@@ -480,6 +480,8 @@ ensureColumn('monsters', 'object_dc', 'object_dc INTEGER');
 // Rich rollable spells/abilities/masteries on a creature (same shape as PCs).
 ensureColumn('monsters', 'sheet_abilities', "sheet_abilities TEXT NOT NULL DEFAULT '[]'");
 // Library creatures carry the merged rollable abilities too (round-trip safe).
+ensureColumn('library_creatures', 'object_kind', 'object_kind TEXT');
+ensureColumn('library_creatures', 'object_dc', 'object_dc REAL');
 ensureColumn('library_creatures', 'sheet_abilities', "sheet_abilities TEXT NOT NULL DEFAULT '[]'");
 // Coins a character is carrying, in gold pieces (single purse).
 ensureColumn('characters', 'gold', 'gold INTEGER NOT NULL DEFAULT 0');

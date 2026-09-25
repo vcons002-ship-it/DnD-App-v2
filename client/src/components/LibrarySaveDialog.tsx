@@ -36,6 +36,7 @@ export function LibrarySaveDialog({
   const body = () => ({
     name: name.trim(),
     creatureType: monster.creatureType,
+    objectKind: monster.objectKind, objectDc: monster.objectDc,
     modelType: monster.modelType, modelColor: monster.modelColor, visualTags: monster.visualTags,
     level: monster.level,
     maxHp: monster.maxHp,

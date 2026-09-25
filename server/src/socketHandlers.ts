@@ -1551,6 +1551,7 @@ export function registerSocketHandlers(io: IOServer): void {
         icon: p.icon,
         disposition: p.disposition,
         objectKind: p.objectKind,
+        objectDc: p.objectDc,
         source: p.source,
       });
       afterChange();

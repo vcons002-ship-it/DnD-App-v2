@@ -600,7 +600,7 @@ export function createApiRouter(io: IOServer): Router {
   // ---- Cross-session library (DM-curated creatures + items) ----
   router.get('/library/creatures', (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
-    res.json(searchLibraryCreatures(q, 50));
+    res.json(searchLibraryCreatures(q, 1000));
   });
 
   router.post('/library/creatures', (req, res) => {

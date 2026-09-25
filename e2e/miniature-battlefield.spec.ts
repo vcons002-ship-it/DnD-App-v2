@@ -177,6 +177,31 @@ async function monsterFixture(page: Page, request: APIRequestContext) {
   return { ...f, ready, monsters: ready.tokens.filter(t => t.kind === 'monster') };
 }
 
+test('bear black tag preview uses the same model with independent colors', async ({ page, request }, info) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  const f = await fixture(page, request);
+  for (const [index, tags] of [[], ['black']].entries()) {
+    f.socket.emit('monster:create', { name: index ? 'Bear [black]' : 'Bear natural', maxHp: 34,
+      creatureType: 'Large beast', modelType: 'brown-bear', modelColor: '', visualTags: tags });
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === (index ? 'Bear [black]' : 'Bear natural'))!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 400 + index * 400, y: 350 });
+  }
+  for (const token of f.ready.tokens) f.socket.emit('token:move', { tokenId: token.id, x: token.x, y: 1000 });
+  const snapshot = await f.snapshot();
+  await enter(page, f.code);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '5', { timeout: 60000 });
+  const bears = snapshot.tokens.filter(t => t.kind === 'monster');
+  for (const bear of bears) expect((await tokenView(page, bear.id))?.miniatureReady).toBe(true);
+  const left = (await tokenView(page, bears[0].id))!, right = (await tokenView(page, bears[1].id))!;
+  await page.mouse.move((left.x + right.x) / 2, (left.y + right.y) / 2);
+  await page.mouse.wheel(0, -280);
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('bear-natural-and-black-tilted.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('bear-natural-and-black-overhead.png') });
+});
+
 test('expanded monster catalog loads every family in overhead and tilted views', async ({ page, request }, info) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1600, height: 1100 });

@@ -120,7 +120,7 @@ describe('editing & deleting saved sessions', () => {
 });
 
 describe('token footprint width (feet)', () => {
-  it('defaults a new token to 5ft and resizes in feet (clamped)', () => {
+  it('defaults an ogre to its Large footprint and resizes in feet (clamped)', () => {
     const s = createSession('Sized');
     const map = createMap(s.id, { name: 'Yard' });
     const tmpl = createMonsterTemplate(s.id, { name: 'Ogre', maxHp: 59 });
@@ -131,10 +131,10 @@ describe('token footprint width (feet)', () => {
       x: 0,
       y: 0,
     });
-    expect(tok.widthFt).toBe(5); // Medium default
+    expect(tok.widthFt).toBe(10); // Large creature default
 
-    resizeToken(tok.id, 10); // Large
-    expect(getToken(tok.id)!.widthFt).toBe(10);
+    resizeToken(tok.id, 15); // Explicit DM override
+    expect(getToken(tok.id)!.widthFt).toBe(15);
 
     resizeToken(tok.id, 7.5); // snaps to half-foot steps
     expect(getToken(tok.id)!.widthFt).toBe(7.5);

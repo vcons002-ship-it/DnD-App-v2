@@ -524,6 +524,8 @@ export type Monster = {
 
 /** A creature template returned by SRD search or Gemini lookup. */
 export type CreatureTemplate = {
+  objectKind?: ObjectKind;
+  objectDc?: number;
   /** Physical model family; empty = infer, "none" = 2D. Cosmetic only. */
   modelType?: string;
   modelColor?: string;
@@ -1369,6 +1371,7 @@ export type MonsterCreatePayload = {
   icon?: string;
   disposition?: Disposition;
   objectKind?: ObjectKind;
+  objectDc?: number;
   source?: 'srd' | 'gemini' | 'manual';
 };
 /** Roll a character's check to disarm a trap object; on success the server flips

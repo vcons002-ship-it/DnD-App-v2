@@ -128,6 +128,8 @@ export function DmLibraryView() {
       name: t.name,
       maxHp: t.maxHp,
       creatureType: t.creatureType,
+      objectKind: t.objectKind, objectDc: t.objectDc,
+      disposition: t.objectKind ? 'neutral' : undefined,
       modelType: t.modelType, modelColor: t.modelColor, visualTags: t.visualTags,
       level: t.level,
       armorClass: t.armorClass,

@@ -11,6 +11,18 @@ vi.mock('./ai/gateway.js', () => ({ aiAvailable: () => true, generateJson: vi.fn
 afterEach(() => { dropConn('appearance-player'); dropConn('appearance-dm'); vi.clearAllMocks(); });
 
 describe('monster appearance', () => {
+  it('keeps the crossbow specialist distinct when saved and spawned with goblin-sized proportions', () => {
+    expect(resolveMonsterModelType({ name: 'Goblin Crossbowman 6' })).toBe('goblin-crossbowman');
+    expect(creatureSize({ modelType: 'goblin-crossbowman' })).toBe('small');
+    expect(miniatureBaseWidthFt({ kind: 'monster', widthFt: 5 }, { modelType: 'goblin-crossbowman' })).toBe(3);
+    saveLibraryCreature({ name: 'Crossbow library test', maxHp: 7, modelType: 'goblin-crossbowman',
+      visualTags: ['goblinoid', 'ranged'], weapons: [{ name: 'Light Crossbow', kind: 'ranged', damage: '1d8+2', attackBonus: 4 }] }, true);
+    const saved = getLibraryCreature('Crossbow library test')!;
+    const session = createSession('Ranged family');
+    const template = createMonsterTemplate(session.id, { ...saved, source: 'manual' });
+    expect(instantiateMonster(template.id)).toMatchObject({ modelType: 'goblin-crossbowman', maxHp: 7,
+      weapons: [{ name: 'Light Crossbow', kind: 'ranged', damage: '1d8+2', attackBonus: 4 }] });
+  });
   it.each(['goblin', 'skeleton', 'human-bandit'])('keeps %s variants stable across viewers and limits color differences', (family) => {
     const variants = new Set<number>();
     for (let i = 0; i < 100; i++) {
