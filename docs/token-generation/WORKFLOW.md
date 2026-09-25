@@ -217,3 +217,10 @@ Everything else must remain unchanged: same camera direction, exact body and wea
 These are accepted high-detail **review assets**, not runtime-optimized or print-certified tokens. Neither new animations nor new gameplay automation are included. Vanec has no accepted 3D deliverable in this package.
 
 A future runtime phase should separately agree on model/texture budgets, LODs, scale/orientation, loading and caching, browser lighting, click/selection behavior, and a non-destructive opt-in token mapping. Keep the current campaign records and ordinary token behavior unchanged until that integration is implemented and verified. A future printable edition would require a different gate for watertight solids, minimum thickness, supports, and physical scale.
+## Current generation default: named multi-view textures
+
+New generation uses `server/tools/asset-production/generate_multiview_mesh.py`
+and the worker adapter documented in [ASSET_PRODUCTION.md](../ASSET_PRODUCTION.md).
+Every supplied named reference guides shape and texture. Generation receipts
+record and verify both sets of views; four-view app jobs require all four.
+Historical accepted assets above are preserved, not silently regenerated.

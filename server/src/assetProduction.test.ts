@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { AssetQueue, ProductionError } from './assets/queue.js';
-import { productionFamily, type ProducedMiniature } from '../../shared/assetProduction.js';
+import { creatureArtBrief, productionFamily, verifiedTextureViews, type ProducedMiniature } from '../../shared/assetProduction.js';
 import { setAssetProductionListener } from './assets/hooks.js';
 import { createSession, createMonsterTemplate, updateMonster, instantiateMonster } from './sessions.js';
 
@@ -12,6 +12,48 @@ const model = (id: string): ProducedMiniature => ({ id, url: `/uploads/miniature
 beforeEach(() => { directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dnd-queue-test-')); });
 afterEach(() => { setAssetProductionListener(undefined); fs.rmSync(directory, { recursive: true, force: true }); });
 const file = () => path.join(directory, 'queue.json');
+
+it('requires matching named texture references, rejecting old front-only workers and incomplete receipts', () => {
+  const views = ['front', 'back', 'left', 'right'];
+  const receipt = { multiview_texture_verified: true, texture_policy: 'named-multiview-texture-v1', texture_view_count: 4, texture_reference_views: views };
+  expect(verifiedTextureViews(receipt, views)).toBe(true);
+  expect(verifiedTextureViews({}, views)).toBe(false);
+  expect(verifiedTextureViews({ ...receipt, texture_reference_views: ['front'] }, views)).toBe(false);
+  expect(verifiedTextureViews({ ...receipt, texture_reference_views: ['front', 'back', 'right', 'left'] }, views)).toBe(false);
+  expect(verifiedTextureViews({ ...receipt, texture_policy: 'legacy' }, views)).toBe(false);
+});
+
+it('creates independent equipment-aware models even for known families and preserves them across restart', async () => {
+  const creature = { id: 'archer', name: 'Grim', modelType: 'goblin', weapons: [{ name: 'Crossbow', kind: 'ranged' as const }],
+    actions: [{ name: 'Crossbow', description: 'Ranged weapon attack.' }], abilities: [{ name: 'Armor', description: 'Wears chainmail.' }] };
+  const producer = vi.fn(async (job: { family: string }) => model(job.family));
+  const queue = new AssetQueue(file(), producer); queue.pause(true);
+  expect(queue.enqueue(creature)).toBeUndefined();
+  const job = queue.enqueue(creature, { newModel: true, notes: 'Sword sheathed.' })!;
+  expect(job.family).toMatch(/^goblin-custom-/);
+  expect(job.subjectFamily).toBe('goblin');
+  expect(job.artBrief).toContain('Crossbow (ranged)');
+  expect(job.artBrief).toContain('Wears chainmail');
+  expect(job.artBrief).toContain('Sword sheathed');
+  expect(queue.enqueue(creature, { newModel: true })?.id).toBe(job.id);
+  creature.weapons[0].name = 'Axe';
+  const resumed = new AssetQueue(file(), producer);
+  expect(resumed.snapshot().jobs[0].artBrief).toBe(job.artBrief);
+  resumed.start(); resumed.pause(false);
+  await vi.waitFor(() => expect(resumed.snapshot().jobs[0].state).toBe('ready'));
+  const next = resumed.enqueue({ ...creature, modelType: job.family }, { newModel: true })!;
+  expect(next.family).not.toBe(job.family);
+  expect(next.subjectFamily).toBe('goblin');
+  expect(resumed.snapshot().models[0].id).toBe(job.family);
+  expect(creature.modelType).toBe('goblin');
+});
+
+it('allows deliberate generation for 2D creatures but excludes objects and avoids inventing armor', () => {
+  const queue = new AssetQueue(file(), vi.fn());
+  expect(queue.enqueue({ id: 'c', name: 'Cultist', modelType: 'none' }, { newModel: true })).toBeTruthy();
+  expect(queue.enqueue({ id: 'o', name: 'Chest', objectKind: 'chest' }, { newModel: true })).toBeUndefined();
+  expect(creatureArtBrief({ name: 'Wolf', actions: [{ name: 'Bite', description: 'Natural attack' }] })).toContain('do not infer worn armor from AC');
+});
 
 it('reuses known physical families and excludes objects, 2D-only tokens and cosmetic changes', () => {
   expect(productionFamily({ name: 'Fire Skeleton 17', visualTags: ['red'] })).toBe('skeleton');

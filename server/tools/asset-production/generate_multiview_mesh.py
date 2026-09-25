@@ -52,11 +52,18 @@ def main():
             artifacts.append({'path': str(path), 'sha256': sha256_file(path), 'bytes': path.stat().st_size, 'result_index': index})
     stats = result[3] if len(result) > 3 else {}
     actual_model = stats.get('model', {}).get('shapegen', '')
+    texture_views = stats.get('texture_reference_views', [])
+    texture_verified = (stats.get('texture_policy') == 'named-multiview-texture-v1'
+                        and texture_views == list(views))
     receipt = {'endpoint': 'generation_all', 'event_id': event_id, 'inputs': inputs, 'view_count': len(views), 'settings': settings, 'mesh_stats': stats, 'returned_seed': result[4] if len(result) > 4 else None, 'artifacts': artifacts, 'elapsed_seconds': round(time.monotonic() - started, 3), 'actual_multiview_model_verified': 'Hunyuan3D-2mv/' in actual_model}
+    receipt.update(texture_view_count=len(texture_views), texture_reference_views=texture_views,
+                   multiview_texture_verified=texture_verified, texture_policy=stats.get('texture_policy'))
     (out / 'generation_receipt.json').write_text(json.dumps(receipt, indent=2), encoding='utf-8')
     print(json.dumps(receipt, indent=2), flush=True)
     if not receipt['actual_multiview_model_verified']:
         raise RuntimeError('Returned model did not verify the requested multi-view checkpoint')
+    if not texture_verified:
+        raise RuntimeError('Texture references were not verified. Install the multi-view texture adapter and restart Hunyuan.')
 
 
 if __name__ == '__main__':

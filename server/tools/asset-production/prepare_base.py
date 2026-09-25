@@ -45,11 +45,14 @@ for o in meshes:
     margin=max((b-a for a,b in zip(main_low,main_high)),default=0)*.05
     def detached_outlier(island):
         points=[o.matrix_world@Vector(key) for key in island]
-        return any(max(p[i] for p in points)<main_low[i]-margin
+        outside_axes=sum(max(p[i] for p in points)<main_low[i]
+            or min(p[i] for p in points)>main_high[i] for i in range(3))
+        return outside_axes>=2 or any(max(p[i] for p in points)<main_low[i]-margin
             or min(p[i] for p in points)>main_high[i]+margin for i in range(3))
     # Small fragments well outside the body bounds must not determine its size.
     specks=set().union(*(island for island in islands if len(island)<largest*.002
         or (len(island)<largest*.01 and (max((o.matrix_world@Vector(key)).z for key in island)<main_floor
+            or min((o.matrix_world@Vector(key)).z for key in island)>main_high[2]
             or detached_outlier(island)))))
     remove={i for i,key in keys.items() if key in specks}
     if remove:

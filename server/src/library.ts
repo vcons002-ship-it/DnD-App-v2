@@ -1,4 +1,4 @@
-import { normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../shared/monsterAppearance.js';
+import { normalizeModelType, normalizeModelColor, normalizeVisualTags, resolveMonsterModelType, LIBRARY_FAMILY_UPGRADES } from '../../shared/monsterAppearance.js';
 import { db, newId, getMeta, setMeta } from './db.js';
 import { SRD_ITEMS } from './items/srd.js';
 import type {
@@ -63,6 +63,30 @@ export function seedLibraryCreatures(): number {
         if (Object.keys(patch).length) saveLibraryCreature({ ...existing, ...patch }, true);
       }
       setMeta('library-stat-completeness-v1', '1');
+    }
+    // Repair old REST imports even if earlier seed markers have already run.
+    // Update only appearance columns: preserve every DM stat, icon and ability.
+    if (!getMeta('library-specific-families-v1')) {
+      const rows = db.prepare('SELECT * FROM library_creatures').all() as LibCreatureRow[];
+      for (const row of rows) {
+        if (row.object_kind) continue;
+        const name = row.name.trim().toLowerCase();
+        const rule = Object.hasOwn(LIBRARY_FAMILY_UPGRADES, name) ? LIBRARY_FAMILY_UPGRADES[name] : undefined;
+        const current = normalizeModelType(row.model_type);
+        const source = entries.find(entry => entry.name.toLowerCase() === name);
+        const family = current === ''
+          ? source?.modelType || resolveMonsterModelType({name: row.name, creatureType: row.creature_type, objectKind: row.object_kind})
+          : rule && current === rule.from ? rule.to : '';
+        if (!family) continue;
+        db.prepare('UPDATE library_creatures SET model_type=? WHERE id=?').run(family, row.id);
+        if (source && !JSON.parse(row.visual_tags || '[]').length) {
+          db.prepare('UPDATE library_creatures SET visual_tags=? WHERE id=?').run(JSON.stringify(source.visualTags ?? []), row.id);
+          if (!current && !row.model_color && source.modelColor) {
+            db.prepare('UPDATE library_creatures SET model_color=? WHERE id=?').run(source.modelColor, row.id);
+          }
+        }
+      }
+      setMeta('library-specific-families-v1', '1');
     }
     return added;
   })();

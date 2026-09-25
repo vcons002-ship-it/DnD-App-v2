@@ -803,6 +803,159 @@
       "sourceSha256": "b9aaf0a106c94a5a3e4465e2acaaa70a8adb9993bbaa71fd41503370eef4c03b",
       "url": "/miniatures/monsters/orc-swordsman.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "cultist",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1626632,
+      "triangles": 20764,
+      "sha256": "0743e2837e5eec5c9c9d72564bc1eec74004cf3c85ea94a6c12daea2bc977aa8",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "3d67113c87df758ba88e01dc0835648171ea20999df0a65714713bc61970a6ee",
+      "url": "/miniatures/monsters/cultist.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "scout",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1581148,
+      "triangles": 20708,
+      "sha256": "756a88b5a8586986190a4b52328209840175a32233d60350cc85128eecd19087",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "2fe77c68e13d9f57e87d046ae1b3ddb0f01b74ba5e9357379895d86a97d6ab93",
+      "url": "/miniatures/monsters/scout.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "veteran",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1633752,
+      "triangles": 20736,
+      "sha256": "8df3e6f6ce1da1f0d44ff2b4caa0e141813bc52d37526fb0ea76e9be06a1e9a6",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "581bc490ed1614c967923047108164e6120917b9bb21f6f4b9c6cc17ce347b96",
+      "url": "/miniatures/monsters/veteran.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "bandit-captain",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1430280,
+      "triangles": 20606,
+      "sha256": "1fe93bf746596cf8978a30e8a233c276e98597a20099cb7667afc0c17472f12f",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "dd4aacb25d0bf071d45f9108a9d67e6d714127c82781fb95195b9fc075121536",
+      "url": "/miniatures/monsters/bandit-captain.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "archmage",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1748236,
+      "triangles": 20742,
+      "sha256": "f69caa6764f40d4cb9eae1c6be521b978e6f4dfc90c27f49c6074fb8ca14b344",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "23134b52e2b9956d9223c6c68c7729ebc6c5738c3ab1656f3dff38e6982a452a",
+      "url": "/miniatures/monsters/archmage.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "sailor",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1422088,
+      "triangles": 20698,
+      "sha256": "b4d46e6b665d6f71860b997b36917b3d74dde3879a6630d1f8b921c60b12adca",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "c765ca65197f9dca3db76e60092262e66b9e6c00d6c0250644336f17d00aea61",
+      "url": "/miniatures/monsters/sailor.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "sailor-marine",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1590588,
+      "triangles": 20752,
+      "sha256": "27b5629ba1ae5f0f335ccec5c59455adbc6411430e53bfbe6ac8c5104bbbfcc8",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "080f85efaa57d932f4aa2f68ef869e296466f5b3810fed0673a613e88218290b",
+      "url": "/miniatures/monsters/sailor-marine.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "elite-castle-guard",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1636512,
+      "triangles": 20764,
+      "sha256": "01b18492580f22346aed150134e5b9b20d5007b367a33e882441d68f5f909470",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "e71ce5b2e2d9ad302ffa7b94604467932aa0f47c2476762976729e2cb189520e",
+      "url": "/miniatures/monsters/elite-castle-guard.glb",
+      "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "bandit-chief",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1545932,
+      "triangles": 20760,
+      "sha256": "7cbb01424f8367a1c4c89fcf3fa5b440a7200136621f7603efb35bee3597393d",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "sourceSha256": "902e0119b8b512546d9f3531767d95da12bbfb9c42573d3117f9f97fab6f1585",
+      "url": "/miniatures/monsters/bandit-chief.glb",
+      "texture": "2048x2048 JPEG95"
     }
   ],
   "variants": [
