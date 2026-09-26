@@ -269,6 +269,9 @@ test('settled dice flash and fill their own result boxes, including percentile a
  });
  await expect(tray.locator('.tray-flying-number')).toHaveCount(8);
  await expect(tray.locator('.tray-flying-number[data-phase="flying"]').first()).toBeAttached();
+ const moving=tray.locator('.tray-flying-number[data-phase="flying"]').first();
+ expect(await moving.evaluate(el=>el.getAnimations().some(a=>a.playState==='running'))).toBe(true);
+ await expect(moving).toHaveCSS('filter','none');
  await expect(tray).toHaveAttribute('data-status','settled',{timeout:15000});
  expect(await page.evaluate(()=>(window as any).__redundantCanvasResizes)).toBe(0);
  for(const flight of await tray.locator('.tray-flying-number').all()){
@@ -283,7 +286,7 @@ test('settled dice flash and fill their own result boxes, including percentile a
      const sides=Number(await result.getAttribute('data-sides')),value=Number(await result.getAttribute('data-value'));
      const strength=(value-1)/(sides-1);
      await expect(result).toHaveAttribute('data-strength',strength===1?'max':strength>=.75?'high':'normal');
-     await expect(result.locator('.tray-max-label')).toHaveCount(strength===1?1:0);
+     await expect(result.locator('.tray-max-label:visible')).toHaveCount(strength===1?1:0);
    }
  }
 });
