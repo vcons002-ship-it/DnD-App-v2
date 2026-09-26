@@ -6,6 +6,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Physics dice tray - September 2026
 
+- [x] Stronger initial toss; green kept/red discarded rings and matching result
+  cards for advantage/disadvantage. Only bonus critical dice become polished gold.
+
 - [x] Overhead dice tray for player and DM roll reveals, with Cannon rigid-body
   gravity, convex die collision shapes, floor/wall contacts, friction and sleeping.
   Simulation runs at 120 Hz in a worker; playback interpolates recorded positions

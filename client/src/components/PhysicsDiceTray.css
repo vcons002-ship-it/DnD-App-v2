@@ -14,3 +14,8 @@
 .tray-result-group{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
 .dice-tray-results .rr-candidate{min-width:0;flex:1;text-align:center;}
 .dice-tray-results .tray-die-result{display:inline-block;margin:2px;}
+
+.dice-tray-results .rr-candidate[data-result="kept"]{border:2px solid #39ef87;background:#123625;box-shadow:0 0 12px #39ef8738;border-radius:8px;padding:6px;}
+.dice-tray-results .rr-candidate[data-result="discarded"]{border:2px solid #ff5365;background:#35191e;border-radius:8px;padding:6px;}
+.dice-tray-results [data-result="kept"] .rr-candidate-label{color:#70ffae;}
+.dice-tray-results [data-result="discarded"] .rr-candidate-label{color:#ff8793;}

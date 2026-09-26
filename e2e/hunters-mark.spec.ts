@@ -200,6 +200,8 @@ test('physics tray supports DM, mobile, compared rolls, reduced motion and summa
  await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:15000});
  await expect(page.locator('.tray-die-result')).toHaveCount(6);
  await expect(page.locator('.rr-candidate[data-result="kept"]')).toHaveCount(1);
+ await expect(page.locator('.rr-candidate[data-result="kept"]')).toHaveCSS('border-top-color','rgb(57, 239, 135)');
+ await expect(page.locator('.rr-candidate[data-result="discarded"]')).toHaveCSS('border-top-color','rgb(255, 83, 101)');
  const bounds=await page.locator('.dice-tray-canvas').boundingBox();expect(bounds!.width).toBeGreaterThan(200);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(391);
  await page.locator('.roll-reveal').screenshot({path:testInfo.outputPath('phone-tray.png')});
  await f.dismissReveal();

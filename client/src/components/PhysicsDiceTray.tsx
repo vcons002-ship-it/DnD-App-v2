@@ -25,7 +25,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
         if(dead)return;if(!event.data.toss){fallback();return;}
         try{
           const module=await import('../lib/diceTrayRenderer');if(dead)return;
-          const toss=event.data.toss;renderer=module.createTrayRenderer(expanded,toss,theme);
+          const toss=event.data.toss;renderer=module.createTrayRenderer(expanded,toss,theme,comparison?.kept);
           const node=canvas.current!,ctx=node.getContext('2d');if(!ctx){fallback();return;}
           let elapsed=0,previous=performance.now();setStatus('rolling');
           const draw=(now:number)=>{
@@ -45,7 +45,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
       worker.postMessage({dice:expanded,seed:seed[0]});
     }catch{fallback();}
     return()=>{dead=true;clearTimeout(timeout);worker?.terminate();cancelAnimationFrame(raf);renderer?.dispose();};
-  },[key,theme,rollKey]);
+  },[key,theme,rollKey,comparison?.kept]);
   const expanded=physicalDice(dice),landed=status==='settled'||status==='fallback';
   return <div className="physics-dice-tray" data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':'forest-resin'} role="group" aria-label={label}>
     <canvas ref={canvas} className="dice-tray-canvas" aria-label="Overhead physics dice tray"/>
@@ -53,7 +53,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
     {status==='fallback'&&<div className="dice-tray-status">Roll result · 3D tray unavailable</div>}
     <div className={`dice-tray-results${comparison?' rr-comparison':''}`} data-mode={comparison?.mode} aria-live="polite">
       {(comparison?comparison.sets.map((_,i)=>i):[0]).map(set=><div key={set} className={comparison?'rr-candidate':'tray-result-group'} data-candidate={set} data-result={landed?(set===comparison?.kept?'kept':'discarded'):'rolling'}>
-        {comparison&&<div className="rr-candidate-label">{landed?(set===comparison.kept?'Kept':'Discarded'):`Roll ${set+1}`}</div>}
+        {comparison&&<div className="rr-candidate-label">{landed?(set===comparison.kept?(comparison.mode==='adv'?'Kept - higher':'Kept - lower'):'Discarded'):`Roll ${set+1}`}</div>}
         {expanded.filter(d=>d.set===set).map((d,i)=><span key={i} className={`tray-die-result${d.crit?' critical':''}`} data-sides={d.sides} data-value={d.value} data-critical={!!d.crit} data-theme={theme.id} data-set={d.set} data-orientation={landed?'settled':'rolling'} aria-label={`d${d.sides}: ${landed?d.value:'rolling'}`}>
           {d.negative?'-':''}{d.tens?'d100 tens':d.ones?'d100 ones':`d${d.sides}`} <strong>{landed?(d.tens?String(d.value).padStart(2,'0'):d.value):'?'}</strong>
         </span>)}

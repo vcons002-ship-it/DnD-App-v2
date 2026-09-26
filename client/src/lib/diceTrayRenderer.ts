@@ -3,7 +3,7 @@ import {createMaterialDie,getDiceStage} from './materialDice';
 import {trayFaceValues,type Toss,type TrayDie} from './diceTrayTypes';
 import type {DiceTheme} from '../../../shared/diceThemes';
 
-export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme){
+export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number){
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const camera=new THREE.OrthographicCamera(-7.6,7.6,5.1,-5.1,.1,60);camera.position.set(0,0,25);camera.lookAt(0,0,0);
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.65));
@@ -26,6 +26,12 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme){
   const texture=new THREE.CanvasTexture(canvas);textures.push(texture);
   const shadows=dice.map(()=>{const g=new THREE.PlaneGeometry(2,2),m=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false});const mesh=new THREE.Mesh(g,m);scene.add(mesh);geometry.push(g);materials.push(m);return mesh;});
   const handles=dice.map((d,i)=>{const h=createMaterialDie(d.sides,theme,!!d.crit,!!d.tens,!!d.ones);h.setFaceValues(trayFaceValues(d,toss.topFaces[i]));h.object.scale.setScalar(toss.radius);scene.add(h.object);return h;});
+  // Rings identify the result without tinting the player's material or hiding numerals.
+  const rings=dice.map(d=>{
+    const g=new THREE.RingGeometry(toss.radius*1.12,toss.radius*1.23,64);
+    const m=new THREE.MeshBasicMaterial({color:d.set===keptSet?0x39ef87:0xff5365,transparent:true,opacity:.95,depthTest:false,depthWrite:false});
+    const mesh=new THREE.Mesh(g,m);mesh.renderOrder=10;mesh.visible=false;scene.add(mesh);geometry.push(g);materials.push(m);return mesh;
+  });
   const a=new THREE.Quaternion(),b=new THREE.Quaternion();
   return {
     draw(ctx:CanvasRenderingContext2D,width:number,height:number,dpr:number,elapsed:number,now:number){
@@ -34,6 +40,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme){
         const x=(i*dice.length+k)*7,y=(j*dice.length+k)*7,f=toss.frames;
         h.object.position.set(THREE.MathUtils.lerp(f[x],f[y],t),THREE.MathUtils.lerp(f[x+1],f[y+1],t),THREE.MathUtils.lerp(f[x+2],f[y+2],t));
         a.fromArray(f,x+3);b.fromArray(f,y+3);h.object.quaternion.slerpQuaternions(a,b,t);h.updatePose(camera,now);
+        const ring=rings[k];ring.visible=keptSet!==undefined&&elapsed>=toss.duration;ring.position.set(h.object.position.x,h.object.position.y,.015);
         const shadow=shadows[k];shadow.position.set(h.object.position.x,h.object.position.y,.006);
         shadow.scale.setScalar(toss.radius*(1.1+h.object.position.z*.15));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.85-h.object.position.z*.12);
       });

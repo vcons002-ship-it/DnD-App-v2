@@ -170,7 +170,14 @@ void main(){
      color=mix(color,inlay,1.-cut);
    }
  }
- gl_FragColor=vec4(color,(style==1||metalEdge)?1.:.96);
+ // Only bonus critical dice become solid polished gold; ordinary dice keep their class material.
+ if(critical>.5){
+   vec3 gold=vec3(.95,.58,.12);
+   vec3 environment=studioLight(rotation*reflect(incoming,n));
+   color=gold*(vec3(.22)+environment*.85)+gold*pow(max(0.,dot(rotation*n,halfLight)),90.)*.8;
+   if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
+ }
+ gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:.96);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;

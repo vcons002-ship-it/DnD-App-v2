@@ -167,7 +167,7 @@ test('compact player combat keeps keyboard-operable targets, weapons, toggles an
   await expect(reveal.locator('.rr-comparison')).toHaveAttribute('data-mode', 'adv');
   await expect(reveal.locator('.rr-candidate')).toHaveCount(2);
   await expect(reveal.locator('.rr-candidate .tray-die-result[data-sides="20"]')).toHaveCount(2);
-  await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Kept$/ })).toHaveCount(1, {timeout:15000});
+  await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Kept - higher$/ })).toHaveCount(1, {timeout:15000});
   await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Discarded$/ })).toHaveCount(1);
   const rolled = (await fixture.snapshot()).rollLog.find((roll) => roll.detail.includes('Test longsword') && /d20\[\d+,\d+\]/.test(roll.detail))!;
   expect(rolled).toBeTruthy();
