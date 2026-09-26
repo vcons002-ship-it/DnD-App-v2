@@ -1139,7 +1139,10 @@ for (const tilted of [false, true]) test(`DM Ctrl-drag selects bases without mov
   await page.locator('input[type=password]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-  if (tilted) await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+  if (tilted) {
+    await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
+  }
   await page.getByTitle('Zoom in', { exact: true }).click();
   const named = (name: string) => setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === name)!.id)!;
   const first = (await tokenView(page, named('Druk').id))!, second = (await tokenView(page, named('Varis').id))!;
@@ -1419,4 +1422,26 @@ for (const tilted of [false, true]) test(`base overlap nudges a player drop in $
     const node=stage.find('.token').find((n:any)=>n.getAttr('tokenId')===id);
     return node.position();
   },druk.id)).toEqual({x:placed.x,y:placed.y});
+});
+
+
+test('animated view rotation keeps player base dragging aligned in both projections',async({page,request},info)=>{
+ test.setTimeout(120000);await page.setViewportSize({width:1440,height:1000});
+ const f=await fixture(page,request);await enter(page,f.code,'Druk',false);
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3');
+ const token=f.ready.tokens[0];
+ for(const tilted of [false,true]){
+  if(tilted){await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(layer).toHaveAttribute('data-tilt-degrees','45');}
+  await page.getByRole('button',{name:'Rotate battlefield right',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText(tilted?'90\u00b0':'45\u00b0');
+  await page.waitForTimeout(100);
+  const before=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
+  const v=(await tokenView(page,token.id))!;const end=offsetPoint(v,55,40);
+  await page.mouse.move(v.x,v.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:15});await page.mouse.up();
+  await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===token.id)!.x-before.x-55)).toBeLessThan(2);
+  await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===token.id)!.y-before.y-40)).toBeLessThan(2);
+  await page.screenshot({path:info.outputPath(tilted?'rotated-45.png':'rotated-overhead.png')});
+ }
+ await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('0\u00b0');
 });

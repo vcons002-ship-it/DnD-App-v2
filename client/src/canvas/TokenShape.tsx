@@ -43,6 +43,7 @@ type Props = {
   listening?: boolean;
   /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
+  viewRotation?: number;
   miniatureDiameterFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
@@ -79,6 +80,7 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  viewRotation = 0,
   miniatureDiameterFt,
   onSelect,
   onActivate,
@@ -477,6 +479,7 @@ function TokenShapeInner({
         </>
       )}
       </Group>
+      <Group name="token-upright-hud" rotation={-viewRotation}>
       {/* Death marker when downed (visible HP at 0, or a manual "Dead" mark). */}
       {isDead && (
         <Text
@@ -604,6 +607,7 @@ function TokenShapeInner({
           );
         })()}
       </Group>
+      </Group>
       {/* One hit-only node follows the actual body silhouette, without padding
           from labels, shadows, selected outlines or decorative rings. The empty
           scene function paints nothing; Konva uses hitFunc on its separate hit
@@ -713,6 +717,7 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&

@@ -32,6 +32,7 @@ type Props = {
   tokens: MiniatureToken[];
   view: BattlefieldView;
   tiltDegrees: number;
+  rotationDegrees?: number;
   width: number;
   height: number;
   isVisibleAt?: (id: string, x: number, y: number) => boolean;
@@ -171,7 +172,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     const perspective = props.tiltDegrees > 0;
     if (perspective && !(camera instanceof PerspectiveCamera)) camera = new PerspectiveCamera();
     if (!perspective && !(camera instanceof OrthographicCamera)) camera = new OrthographicCamera();
-    const focal = perspectiveDistance(props.width, props.height);
+    const focal = perspectiveDistance(props.width, props.height, props.tiltDegrees);
     if (camera instanceof PerspectiveCamera) {
       camera.fov = 2 * Math.atan(props.height / (2 * focal)) * 180 / Math.PI;
       camera.aspect = props.width / Math.max(1, props.height);
@@ -185,10 +186,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     camera.near = Math.max(0.1, distance - depthSpan);
     camera.far = distance + depthSpan;
     const tilt = props.tiltDegrees * Math.PI / 180;
-    camera.position.set(center.x, distance * Math.cos(tilt), center.z + distance * Math.sin(tilt));
+    const yaw=(props.rotationDegrees ?? 0)*Math.PI/180;
+    camera.position.set(center.x+distance*Math.sin(tilt)*Math.sin(yaw), distance * Math.cos(tilt), center.z + distance * Math.sin(tilt)*Math.cos(yaw));
     // At exactly overhead the default Y-up is parallel to the viewing axis.
     // An explicit screen-up keeps flat mode oriented identically to the map.
-    camera.up.set(0, Math.sin(tilt), -Math.cos(tilt));
+    camera.up.set(-Math.cos(tilt)*Math.sin(yaw), Math.sin(tilt), -Math.cos(tilt)*Math.cos(yaw));
     camera.lookAt(center.x, 0, center.z);
     camera.updateProjectionMatrix();
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
