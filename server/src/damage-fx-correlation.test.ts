@@ -183,3 +183,21 @@ describe('exact attack damage-to-reveal correlation', () => {
     expect(dm.events).toHaveLength(1);
   });
 });
+
+
+describe('damage floaters on overkill',()=>{
+  it('shows the full 13 damage on a creature with 6 HP and keeps HP at zero',()=>{
+    const session=createSession('Overkill floater');
+    const target=instantiateMonster(createMonsterTemplate(session.id,{name:'Goblin',maxHp:6}).id)!;
+    applyDamage('monster',target.id,13,'piercing',false,'combined-roll');
+    expect(getMonster(target.id)!.curHp).toBe(0);
+    expect(drainHpFx(session.id)).toEqual([{kind:'monster',refId:target.id,delta:-13,damageType:'piercing',effect:'death',rollId:'combined-roll'}]);
+  });
+  it('healing still displays only actual HP restored',()=>{
+    const session=createSession('Overheal floater');
+    const target=createCharacter(session.id,{name:'Ranger',maxHp:20});
+    applyDamage('pc',target.id,5); drainHpFx(session.id);
+    applyDamage('pc',target.id,-13);
+    expect(drainHpFx(session.id)).toEqual([{kind:'pc',refId:target.id,delta:5}]);
+  });
+});

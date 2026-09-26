@@ -1,3 +1,7 @@
+import { consumeHitAdvantage } from './hitEffectTurns.js';
+import { hitOptions, turnKey } from './hitFeatures.js';
+import { castMark, markedDamage, hexDisadvantage } from './marks.js';
+import { markSpell, hitFeature } from '../../shared/hitFeatures.js';
 import type { OrbChain } from '../../shared/types.js';
 import { offerRiposte, listRipostes, removeRiposte, RIPOSTE_SPENT } from './reactions.js';
 import { isOnHitManeuver } from '../../shared/maneuvers.js';
@@ -127,9 +131,9 @@ function strFeatureAdv(kind: TokenKind, refId: string, ability: string): string[
 /** Advantage attackers get against a creature because of ITS own active stance
  *  (Reckless Attack's price), as named reasons. */
 function targetGivesAdvantage(kind: TokenKind, refId: string): string[] {
-  return activeStances(kind, refId)
-    .filter((ab) => ab.stance!.enemiesHaveAdvantage)
-    .map((ab) => `target ${ab.name}`);
+  const e=kind==='pc'?getCharacter(refId):getMonster(refId);
+  return [...activeStances(kind, refId).filter(ab=>ab.stance!.enemiesHaveAdvantage).map(ab=>`target ${ab.name}`),
+    ...(e?.conditions.some(c=>c.combatEffect?.nextAttackAdvantage)?['Stunning Strike']:[])];
 }
 
 /** A stance's flat bonus at this level: the highest `bonusDamageAtLevels`
@@ -210,26 +214,9 @@ function rollFaces(expr: string): { total: number; text: string } {
  *  ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot and
  *  correct. Carries the target so visibility can hide ENEMY changes from
  *  players. Undefined when nothing was found/changed. */
-/**
- * The reveal's damage count-up should land on the number that actually hit HP.
- * The weapon's own dice+mods sum to `rolledTotal`, but riders (elemental extra,
- * stance/mastery dice) and resist/vulnerability can change the `applied` total —
- * so append one catch-all step for the difference, labelled by its sign.
- */
-function reconcileDamageSteps(
-  modSteps: { label: string; value: number; faces?: number[] }[],
-  rolledTotal: number,
-  applied: number,
-): { label: string; value: number; faces?: number[] }[] {
-  const diff = applied - rolledTotal;
-  if (diff === 0) return modSteps;
-  return [...modSteps, { label: diff > 0 ? 'bonus' : 'resisted', value: diff }];
-}
-
 type DamageBreakdown = NonNullable<RollReveal['damageBreakdown']>;
 
-/** Preserve an existing roll's faces for the log without rolling again or
- * changing the animation's steps. Expressions can mix dice and flat bonuses. */
+/** Itemize already-rolled faces for the log and animation without rolling again. */
 function appendDamageBreakdownRoll(detail: DamageBreakdown, rolled: DiceResult, source: string): void {
   const terms = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
   let faceIndex = 0;
@@ -436,6 +423,7 @@ export function resolveAttack(
   const onHitStances: SheetAbility[] = [];
   for (const ab of ch?.sheetAbilities ?? []) {
     const st = ab.stance;
+    if (hitFeature(ab) || (markSpell(ab) && ab.mark)) continue;
     if (ab.type !== 'stance' || !st?.active) continue;
     if (st.appliesTo === 'melee' && weapon.kind !== 'melee') continue;
     if (st.appliesTo === 'ranged' && weapon.kind !== 'ranged') continue;
@@ -514,7 +502,7 @@ export function resolveAttack(
   });
 
   // The existing reveal keeps its aggregate steps (and animation timing). The
-  // separate log-only ledger names each source and retains every rider face.
+  // itemized ledger names each source and retains every rider face for animation.
   const damageBreakdown: DamageBreakdown = {
     dice: [...out.damageDiceSteps, ...(out.hit ? featureBreakdown.dice : [])],
     mods: out.hit
@@ -666,6 +654,13 @@ export function resolveAttack(
       masteryNotes.push(`+${ex}${typeLabel}${exNote}`);
     }
   }
+  if (out.hit) {
+    const mark=markedDamage(at.kind,at.refId,tt,out.crit);
+    applied+=mark.amount;
+    out.damageDiceSteps.push(...mark.dice);
+    damageBreakdown.dice.push(...mark.dice); damageBreakdown.mods.push(...mark.mods);
+    if(mark.dice.length) damageBreakdown.mixedTypes=true;
+  }
   // A hit always deals at least 1 — unless the target is immune to what landed.
   const immuneToAll = mult === 0 && (!weapon.extraDamage || extraImmune);
   if (out.hit && !immuneToAll) applied = Math.max(1, applied);
@@ -689,16 +684,18 @@ export function resolveAttack(
   // The player chooses Smite after seeing the hit, but before ANY of this hit's
   // damage lands. Both modes use the same pending hit so death, temporary HP,
   // kill credit and concentration are evaluated once for the combined damage.
-  const canSmite = !!(smiteAbility && ch && smiteChoices(ch, smiteAbility).length);
+  const canSmite = !!(smiteAbility && ch && smiteChoices(ch, smiteAbility).length && (!getSessionById(sessionId)?.activeTurnTokenId || (getSessionById(sessionId)?.activeTurnTokenId===at.id && !ch.sheetAbilities.some(ab=>ab.hitUsedTurn===`bonus:${turnKey(sessionId)}`))));
   const maneuverOptions = out.hit && ch && !maneuverFired &&
     ch.resources['Superiority Dice']?.used < ch.resources['Superiority Dice']?.max
     ? ch.sheetAbilities.filter(ab => isOnHitManeuver(ab) &&
       (!ab.maneuver?.appliesToTags?.length || ab.maneuver.appliesToTags.some(tag => wtags.includes(tag.trim().toLowerCase())))) : [];
-  const deferDamage = canSmite || maneuverOptions.length > 0 ||
+  const featureOptions = out.hit && ch ? hitOptions(sessionId,ch,at,tt,weapon,adv.state) : [];
+  const deferDamage = featureOptions.length > 0 || canSmite || maneuverOptions.length > 0 ||
     (!!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0);
-  const damageSteps = out.hit && (applied > 0 || canSmite || maneuverOptions.length > 0)
-    ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
+  const damageSteps = out.hit && (applied > 0 || featureOptions.length > 0 || canSmite || maneuverOptions.length > 0)
+    ? damageBreakdown.mods
     : [];
+  consumeHitAdvantage(tt);
   const attackRollId = newId();
   let hpNote: RollEntry['hpNote'];
   if (applied > 0 && !deferDamage) {
@@ -709,6 +706,7 @@ export function resolveAttack(
   // swing closes any earlier smite window they left open.
   if (ch) {
     for (const e of listRollLog(sessionId)) {
+      if (e.pending?.hitOptions && e.pending.attacker.refId === ch.id) setRollPending(e.id,{...e.pending,hitOptions:undefined});
       if (e.pending?.maneuver && e.pending.attacker.kind === 'pc' && e.pending.attacker.refId === ch.id)
         setRollPending(e.id, {...e.pending, maneuver: undefined});
       if (e.smite && !e.smite.used && e.smite.owner === ch.id)
@@ -750,7 +748,7 @@ export function resolveAttack(
       // plays when the damage is actually rolled.
       ...(out.hit && applied > 0 && !deferDamage
         ? {
-            damageDice: out.damageDiceSteps,
+            damageDice: damageBreakdown.dice,
             // Reconcile the rolled weapon total with what actually hit HP (riders,
             // mastery dice, resist/vuln) so the count-up lands on the real number.
             damageMods: damageSteps,
@@ -769,6 +767,7 @@ export function resolveAttack(
             attacker: { kind: at.kind, refId: at.refId },
             weapon: weapon.name,
             amount: applied,
+            ...(featureOptions.length ? {hitOptions:{abilityIds:featureOptions.map(ab=>ab.id),attackerTokenId:at.id,targetTokenId:tt.id,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:mult,rawDamage:weaponRawDamage}} : {}),
             ...(maneuverOptions.length ? { maneuver: { abilityIds: maneuverOptions.map(ab => ab.id),
               rawDamage: weaponRawDamage, multiplier: mult,
               minimumAdjustment: damageBreakdown.mods.filter(m => m.label === 'minimum damage').reduce((sum, m) => sum + m.value, 0),
@@ -776,7 +775,7 @@ export function resolveAttack(
             } } : {}),
             ...(fxType ? { damageType: fxType } : {}),
             crit: out.crit,
-            dice: out.damageDiceSteps,
+            dice: damageBreakdown.dice,
             mods: damageSteps,
             damageBreakdown,
             ...(ownerCharacterId ? { owner: ownerCharacterId } : {}),
@@ -859,6 +858,7 @@ export function resolveAttack(
  * only such entry, so the rule touches nothing else.
  */
 export function castSlotLevel(ability: SheetAbility, castLevel?: number): number | null {
+  if (markSpell(ability)) return Math.min(9, Math.max(1, castLevel ?? 1));
   const slotFuelled =
     ability.type !== 'spell' && ability.type !== 'stance' && (ability.roll?.baseLevel ?? 0) >= 1;
   const base = slotFuelled
@@ -953,7 +953,7 @@ export function resolveManeuver(sessionId: string, roller: string, rollId: strin
   const rolled = dice.reduce((sum, d) => sum + d!.total, 0);
   const amount = Math.max(0, Math.floor((opportunity.rawDamage + rolled) * opportunity.multiplier)
     - Math.floor(opportunity.rawDamage * opportunity.multiplier) - opportunity.minimumAdjustment);
-  const steps = dice.map(d => ({label: ability.name, value: d!.total, faces: d!.rolls}));
+  const steps = dice.map((d,i) => ({label: `${ability.name}${i>0?' CRIT':''}`, value: d!.total, faces: d!.rolls, diceExpression:d!.expr,critical:i>0}));
   const mods = amount === rolled ? [] : [{label: 'maneuver damage adjustment', value: amount - rolled}];
   setRollPending(rollId, {...p, maneuver: undefined, amount: p.amount + amount,
     weapon: `${p.weapon} + ${ability.name}`, dice: [...p.dice, ...steps], mods: [...p.mods, ...mods],
@@ -1014,6 +1014,8 @@ export function resolveSmite(
     };
   }
 
+  if(getSessionById(sessionId)?.activeTurnTokenId && ch.sheetAbilities.some(ab=>ab.hitUsedTurn===`bonus:${turnKey(sessionId)}`)) return {ok:false,reason:'A bonus-action hit spell was already used this turn.'};
+  setSheetAbility('pc',ch.id,{...ability,hitUsedTurn:`bonus:${turnKey(sessionId)}`});
   // Claim the opportunity FIRST: nothing below can run twice for this hit.
   setRollSmite(rollId, { ...sm, used: true });
 
@@ -1033,7 +1035,7 @@ export function resolveSmite(
   // Roll: every term, twice on a crit (RAW: all of the attack's damage dice).
   const targetMonster = sm.target.kind === 'monster' ? getMonster(sm.target.refId) : null;
   const terms = smiteDiceTerms(spec, spellLevel, castLevel, targetMonster?.creatureType);
-  const steps: { label: string; value: number; faces?: number[] }[] = [];
+  const steps: NonNullable<RollReveal['damageDice']> = [];
   const faces: string[] = [];
   let rolled = 0;
   for (const term of terms) {
@@ -1041,7 +1043,7 @@ export function resolveSmite(
       const r = rollDice(term);
       if (!r) continue;
       rolled += r.total;
-      steps.push({ label: i ? 'CRIT' : term, value: r.total, faces: r.rolls });
+      steps.push({ label: `${ability.name}${i?' CRIT':''}`, value: r.total, faces: r.rolls, diceExpression:r.expr,critical:i>0 });
       faces.push(`${term}[${r.rolls.join(',')}]`);
     }
   }
@@ -1120,7 +1122,7 @@ export function resolveAttackDamage(
     label: 'Damage',
     expr: p.weapon,
     total: p.amount,
-    detail: `${p.weapon} → ${p.target.name}: ${p.amount}${p.damageType ? ` ${p.damageType}` : ''} damage${p.crit ? ' — CRIT' : ''}`,
+    detail: `${p.weapon} → ${p.target.name}: ${p.amount}${p.damageBreakdown?.mixedTypes ? ' mixed-type' : p.damageType ? ` ${p.damageType}` : ''} damage${p.crit ? ' — CRIT' : ''}`,
     hpNote,
     reveal: {
       kind: 'damage',
@@ -1282,7 +1284,7 @@ export function resolveCheck(
     isMonster: kind !== 'pc',
   };
   const adv = checkAdvantage(
-    ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab),
+    ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab), hexDisadvantage(sessionId,kind,refId,ab),
   );
   // dc 0 → unused; `proficient: false` makes it a plain ability check.
   const out = rollSavingThrow(c, ab, 0, adv.state, false);
@@ -1571,7 +1573,7 @@ function resolveTargetedSpellAttack(opts: {
       if (second) {
         dmg += second.total;
         dmgFaces += ` + [${second.rolls.join(',')}] crit`;
-        revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls });
+        revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls, diceExpression:second.expr });
       }
     }
     const mult = damageMultiplier(
@@ -1589,7 +1591,13 @@ function resolveTargetedSpellAttack(opts: {
             : `×2 vulnerable (${opts.damageType})`,
       );
   }
+  const spellDamageFaces = revealDice.flatMap(d => d.faces ?? []);
+  if (hit && opts.attacker) {
+    const mark=markedDamage(opts.attacker.kind,opts.attacker.refId,tt!,crit);
+    applied+=mark.amount; revealDice.push(...mark.dice); revealMods.push(...mark.mods);
+  }
   const deferDamage = !!getSessionById(opts.sessionId)?.manualDamage && hit && applied > 0 && !!opts.attacker;
+  consumeHitAdvantage(tt!);
   const attackRollId = newId();
   if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId);
@@ -1632,9 +1640,9 @@ function resolveTargetedSpellAttack(opts: {
       ...(opts.attacker.kind === 'pc' ? {owner: opts.attacker.refId} : {}),
       orb: {...opts.orb, initial: false, origin: {mapId: tt!.mapId, x: tt!.x, y: tt!.y, widthFt: tt!.widthFt},
         visited: [...opts.orb.visited, `${tt!.kind}:${tt!.refId}`],
-        matches: revealDice.flatMap(d => d.faces ?? []).filter((v, i, faces) => faces.indexOf(v) !== i || faces.lastIndexOf(v) !== i),
+        matches: spellDamageFaces.filter((v, i, faces) => faces.indexOf(v) !== i || faces.lastIndexOf(v) !== i),
         available: hit && opts.orb.leapsUsed < opts.orb.slotLevel &&
-          new Set(revealDice.flatMap(d => d.faces ?? [])).size < revealDice.flatMap(d => d.faces ?? []).length,
+          new Set(spellDamageFaces).size < spellDamageFaces.length,
       },
     }} : {}),
     hideMods: opts.attacker ? hidesMods(opts.attacker.kind, opts.attacker.refId) : false,
@@ -1765,6 +1773,8 @@ function resolveSheetAbilityFor(
 ): boolean {
   // Validate before concentration, rolls, HP changes or the caller's slot spend.
   if (targetTokenId && !spellTarget(sessionId, targetTokenId)) return false;
+  if (hitFeature(ability)) return false; // Offered only on a qualifying hit.
+  if (markSpell(ability)) return castMark(sessionId,kind,entity.id,ability,targetTokenId,castLevel ?? 1,false,damageTypeChoice);
   ability = effectiveSheetAbility(ability, castLevel);
   const damageTypes = spellDamageTypeChoices(ability, castLevel);
   if (damageTypes.length) {
@@ -2200,7 +2210,7 @@ export function resolveSkillRoll(
   const adv = checkAdvantage(
     character.conditions.map((x) => x.label),
     advantage,
-    strFeatureAdv('pc', character.id, skill.ability),
+    strFeatureAdv('pc', character.id, skill.ability), hexDisadvantage(sessionId,'pc',character.id,skill.ability),
   );
   const { face, detail: d20detail } = rollD20Detail(adv.state);
   const total = face + bonus;

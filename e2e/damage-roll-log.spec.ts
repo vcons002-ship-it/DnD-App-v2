@@ -85,15 +85,17 @@ async function expectRecordedDamage(node: Locator, entry: RollEntry, includeLabe
   await expect(node).toBeVisible();
   await expect(node).toContainText('Damage:');
   const reveal = entry.reveal!;
-  for (const step of reveal.damageDice ?? []) {
-    await expect(node).toContainText(step.label);
-    if (step.faces?.length) await expect(node).toContainText(`[${step.faces.join(', ')}]`);
+  // Normal and critical faces are grouped into a single equation per source.
+  const dice = reveal.damageBreakdown?.dice ?? reveal.damageDice ?? [];
+  for (const step of dice) for (const face of step.faces ?? []) {
+    await expect(node).toContainText(String(face));
   }
   if (includeLabels) for (const step of reveal.damageMods ?? []) {
     if (step.label) await expect(node).toContainText(step.label);
-    await expect(node).toContainText(`${step.value >= 0 ? '+' : '−'}${Math.abs(step.value)}`);
+    await expect(node).toContainText(`${step.value >= 0 ? '+' : '\u2212'} ${Math.abs(step.value)}`);
   }
-  await expect(node).toContainText(`→ ${reveal.damage}`);
+  await expect(node).toContainText(`= ${reveal.damage}`);
+  await expect(node).not.toContainText(' \u00b7 ');
   if (reveal.damageType) await expect(node).toContainText(reveal.damageType);
 }
 

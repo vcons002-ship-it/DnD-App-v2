@@ -1,3 +1,4 @@
+import { markSpell, hitFeature } from './hitFeatures.js';
 import type { AbilityRoll, SheetAbility } from './types.js';
 import { cantripExtraSteps } from './spellMath.js';
 import { isDamageType } from './damage.js';
@@ -38,6 +39,8 @@ const PROFILES: Record<string, Profile> = {
 
 export function effectiveSheetAbility(ability: SheetAbility, castLevel?: number): SheetAbility {
   if (ability.source === 'custom' || ability.executionProfile === 'manual') return ability;
+  if (hitFeature(ability)) return {...ability,roll:undefined,stance:undefined};
+  if (markSpell(ability)) return {...ability,type:'spell',level:1,roll:{kind:'damage',dice:'0',baseLevel:1,targetMode:'single'}};
   const name = ability.name.trim().toLowerCase();
   const savedRoll = ability.roll;
   if (ability.type === 'ability' && name === 'second wind' && savedRoll?.kind === 'heal' &&

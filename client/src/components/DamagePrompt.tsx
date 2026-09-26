@@ -1,3 +1,5 @@
+import { confirmConcentration } from '../lib/spellcasting';
+import { hitFeature, hitSpell } from '../../../shared/hitFeatures';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { useEffect, useState } from 'react';
 import type { RollEntry, StateSnapshot } from '../../../shared/types';
@@ -47,6 +49,8 @@ export function maneuverOptionsFor(r: RollEntry, snapshot: StateSnapshot) {
  * a text field has focus.
  */
 export function DamagePrompt() {
+  const combatHitFeature = useStore(s=>s.combatHitFeature);
+  const [featurePicker,setFeaturePicker] = useState<string>();
   const [maneuverPicker, setManeuverPicker] = useState<string>();
   const combatManeuver = useStore(s => s.combatManeuver);
   const [smitePicker, setSmitePicker] = useState<string>();
@@ -108,6 +112,17 @@ export function DamagePrompt() {
           </span>
         </button>
       )}
+      {!!p?.hitOptions && snapshot && <div className="dp-smite">
+        {snapshot.characters.find(c=>c.id===p.attacker.refId)?.sheetAbilities.filter(a=>p.hitOptions!.abilityIds.includes(a.id)).map(a=> {
+          const spell=hitSpell(hitFeature(a)??'');
+          const ch=snapshot.characters.find(c=>c.id===p.attacker.refId)!;
+          const levels=Object.entries(ch.spellSlots).filter(([k,v])=>/^L[1-9]$/.test(k)&&v.used<v.max&&Number(k.slice(1))>=(a.level??1));
+          return <span key={a.id}>
+            <button className="btn tiny" onClick={()=>spell?setFeaturePicker(featurePicker===a.id?undefined:a.id):combatHitFeature(rollId,a.id)}>{a.name}</button>
+            {spell&&featurePicker===a.id&&levels.map(([k])=><button className="btn tiny" key={k} onClick={()=>{if(hitFeature(a)!=='ensnaring strike'||confirmConcentration(ch,{...a,tags:['concentration']})) combatHitFeature(rollId,a.id,Number(k.slice(1)));}}>{k}</button>)}
+          </span>;
+        })}
+      </div>}
       {maneuvers.length > 0 && (
         <div className="dp-smite dp-maneuvers">
           <button className="btn tiny dp-maneuver-toggle" aria-expanded={maneuverPicker === rollId}

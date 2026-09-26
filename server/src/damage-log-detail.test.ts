@@ -1,3 +1,4 @@
+import { flattenDamageDice } from '../../shared/diceVisuals.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RollReveal, SheetAbility } from '../../shared/types.js';
 import { resolveAttack, resolveAttackDamage } from './combat.js';
@@ -52,7 +53,7 @@ function fixture(manual = true) {
 const total = (value: NonNullable<RollReveal['damageBreakdown']>) =>
   [...value.dice, ...value.mods].reduce((sum, step) => sum + step.value, 0);
 
-describe('log-only damage accounting', () => {
+describe('itemized damage accounting', () => {
   it('preserves the original RNG order across maneuver, attack, weapon and each rider', () => {
     const f = fixture(false);
     const sequence = [.125, .5, .1, .7, .3, .9, .2];
@@ -71,7 +72,7 @@ describe('log-only damage accounting', () => {
     expect(getMonster(f.target.id)?.curHp).toBe(184);
   });
 
-  it('retains every existing rider roll without adding RNG calls or changing animation steps', () => {
+  it('retains every existing rider roll as animated dice without adding RNG calls', () => {
     const f = fixture(false);
     const random = vi.spyOn(Math, 'random').mockReturnValue(.5);
     resolveAttack(f.session.id, 'Fighter', f.attackToken.id, f.targetToken.id, 0);
@@ -80,11 +81,6 @@ describe('log-only damage accounting', () => {
     expect(random).toHaveBeenCalledTimes(7); // maneuver, d20, 2 weapon, mastery, stance, secondary
     expect(reveal.damage).toBe(23);
     expect(getMonster(f.target.id)?.curHp).toBe(177);
-    expect(reveal.damageDice).toEqual([{ label: '2d6', value: 8, faces: [4, 4] }]);
-    expect(reveal.damageMods).toEqual([
-      { label: 'STR', value: 3 }, { label: 'MAGIC', value: 1 },
-      { label: 'Great Weapon Master+Feinting Attack+Rage', value: 10 }, { label: 'bonus', value: 1 },
-    ]);
     const detail = reveal.damageBreakdown!;
     expect(detail.dice).toEqual([
       { label: '2d6', value: 8, faces: [4, 4] },
@@ -99,6 +95,9 @@ describe('log-only damage accounting', () => {
       { label: 'Rune edge', value: 2 }, { label: 'slashing resisted', value: -16 },
       { label: 'fire rider', value: 1 }, { label: 'fire vulnerable', value: 4 },
     ]);
+    expect(reveal.damageDice).toEqual(detail.dice);
+    expect(flattenDamageDice(reveal.damageDice).map(d=>d.sides)).toEqual([6,6,8,6,4,4]);
+    expect(reveal.damageMods).toEqual(detail.mods);
     expect(detail.mixedTypes).toBe(true);
     expect(total(detail)).toBe(23);
     expect(getCharacter(f.attacker.id)?.resources['Superiority Dice'].used).toBe(1);
@@ -122,7 +121,7 @@ describe('log-only damage accounting', () => {
     const pending = getRollEntry(hit.id)!.pending!;
     expect(total(pending.damageBreakdown!)).toBe(53);
     expect(pending.damageBreakdown?.dice.filter((step) => step.label.includes('CRIT'))).toEqual([
-      { label: 'CRIT', value: 12, faces: [6, 6] },
+      { label: 'CRIT', value: 12, faces: [6, 6], diceExpression: '2d6' },
       { label: '1d6 (Rune edge CRIT)', value: 6, faces: [6] },
       { label: "1d4 (Hunter's Mark CRIT)", value: 4, faces: [4] },
       { label: '1d8 (Feinting Attack CRIT)', value: 8, faces: [8] },

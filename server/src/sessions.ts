@@ -1,3 +1,5 @@
+import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
+import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
 import { checkReveal } from '../../shared/rollReveal.js';
 import { clearRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
@@ -1115,6 +1117,9 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
 // ---- Initiative turn order (operates on the active map) ----
 
 export function setActiveTurn(sessionId: string, tokenId: string | null): void {
+  const previous=getSessionById(sessionId)?.activeTurnTokenId;
+  const previousToken=previous?getToken(previous):null;
+  if(previousToken && tokenId) processHitEffects(sessionId,previousToken,'end');
   clearRipostes(sessionId);
   const token = tokenId ? getToken(tokenId) : null;
   if (token?.kind === 'pc') {
@@ -1125,6 +1130,7 @@ export function setActiveTurn(sessionId: string, tokenId: string | null): void {
   db.prepare(
     'UPDATE sessions SET active_turn_token_id = ? WHERE id = ?',
   ).run(tokenId, sessionId);
+  if(token) { expireOnCasterTurn(sessionId,token); processHitEffects(sessionId,token,'start'); }
 }
 
 /** A token's initiative bonus = its creature's effective DEX modifier (incl.
@@ -1232,10 +1238,12 @@ export function endConcentration(kind: TokenKind, refId: string, reason: string)
   const spells = ended.map((c) => c.label.replace(/^concentration:\s*/i, '').trim());
   const spellKeys = new Set(spells.map((n) => n.toLowerCase()));
   for (const ab of entity.sheetAbilities) {
+    if (ab.mark?.active && markSpell(ab) && spells.some(n => abilityKey({name:n}) === abilityKey(ab)))
+      setSheetAbility(kind,refId,{...ab,mark:{...ab.mark,active:false}});
     const st = ab.stance;
     if (ab.type !== 'stance' || !st?.active || !spellKeys.has(ab.name.trim().toLowerCase()))
       continue;
-    setSheetAbility(kind, refId, { ...ab, stance: { ...st, active: false } });
+    setSheetAbility(kind, refId, { ...ab, ...(ab.mark ? {mark:{...ab.mark,active:false}} : {}), stance: { ...st, active: false } });
     // Lift this stance's own mark from its own target — nothing else's.
     const tok = st.marksTargetWith && st.targetId ? getToken(st.targetId) : null;
     if (tok && st.marksTargetWith) {
@@ -1249,6 +1257,12 @@ export function endConcentration(kind: TokenKind, refId: string, reason: string)
         );
       }
     }
+  }
+  const activeMap=getSessionById(entity.sessionId)?.activeMapId;
+  if(activeMap) for(const tok of listTokens(activeMap)) {
+    const subject=tok.kind==='pc'?getCharacter(tok.refId):getMonster(tok.refId);
+    for(const c of subject?.conditions??[]) if(c.combatEffect?.concentration && c.combatEffect.casterKind===kind && c.combatEffect.casterId===refId && spells.some(n=>abilityKey({name:n})===abilityKey({name:c.combatEffect!.spell})))
+      clearCondition(tok.kind,tok.refId,c.id);
   }
   addRollLog(entity.sessionId, {
     roller: 'DM',
@@ -3258,13 +3272,11 @@ export function applyDamage(
   } else {
     nextCur = Math.min(entity.maxHp, Math.max(0, entity.curHp - amount));
   }
-  // Float a ±X over the token when the effective pool (HP + temp) changed.
-  // Damage absorbed by temp HP still reads as the full hit. Damage to a
-  // creature ALREADY at 0 HP changes nothing numerically but must still read
-  // as a hit (death-save failures, attacking a downed body) — float the
-  // attempted amount.
+  // Damage floaters show the complete hit after defenses, including overkill
+  // and temporary-HP absorption. HP still stops at zero. Healing shows only
+  // the HP actually restored, so overhealing does not inflate its floater.
   const delta = nextCur + nextTemp - (entity.curHp + entity.tempHp);
-  const fxDelta = delta !== 0 ? delta : amount > 0 ? -amount : 0;
+  const fxDelta = amount > 0 ? -amount : delta;
   // A creature (not an object, not a PC — PCs go DOWN, not dead) dropping from
   // above 0 to 0 gets a one-shot death puff on top of the damage floater.
   const died =
@@ -3380,7 +3392,7 @@ export function setCondition(
   // applying one chip sets the conditions it always carries in 5e.
   for (const label of impliedConditions(condition.label)) {
     if (!conditions.some((c) => c.label.toLowerCase() === label.toLowerCase()))
-      conditions.push(stamp({ id: newId(), label, aura: 'red', isConcentration: false }));
+      conditions.push(stamp({ id: newId(), label, aura: 'red', isConcentration: false, ...(condition.combatEffect ? {combatEffect:{...condition.combatEffect,phase:undefined,dice:undefined,save:undefined}} : {}) }));
   }
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),
@@ -3409,7 +3421,8 @@ export function setConcentration(
   const label = `Concentration: ${spellName}`;
   if (entity.conditions.some((c) => c.isConcentration && c.label === label))
     return { changed: false };
-  const conditions = entity.conditions.filter((c) => !c.isConcentration);
+  if (entity.conditions.some(c => c.isConcentration)) endConcentration(kind, refId, 'replaced by another spell');
+  const conditions = (kind === 'pc' ? getCharacter(refId) : getMonster(refId))!.conditions.filter((c) => !c.isConcentration);
   conditions.push({ id: newId(), label, aura: 'blue', isConcentration: true });
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),
@@ -3426,6 +3439,10 @@ export function clearCondition(
   const table = kind === 'pc' ? 'characters' : 'monsters';
   const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity) return null;
+  if (entity.conditions.some(c => c.id === conditionId && c.isConcentration)) {
+    endConcentration(kind, refId, 'ended');
+    return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  }
   const conditions = entity.conditions.filter((c) => c.id !== conditionId);
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),

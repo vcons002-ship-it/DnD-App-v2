@@ -25,7 +25,7 @@ export function ChromaticOrbPrompt() {
     if (!orb?.initial) playHeal();
   }, [ready, entry?.id, orb?.initial]);
   useEffect(() => {
-    if (targeting && (!ready || targeting.rollId !== entry?.id)) setTargeting(null);
+    if (targeting && !targeting.mark && (!ready || targeting.rollId !== entry?.id)) setTargeting(null);
   }, [ready, entry?.id, targeting, setTargeting]);
   useEffect(() => {
     const cancel = (e: KeyboardEvent) => { if (e.key === 'Escape') setTargeting(null); };

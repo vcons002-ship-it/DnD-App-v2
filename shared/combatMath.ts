@@ -114,7 +114,7 @@ export function damageParts(expr: string): { dice: string; flat: number } {
 
 /** One labelled term in an attack's reveal breakdown (mirrors `RollReveal`'s
  *  `RevealStep`, kept local so `shared/combatMath` needn't import the big types). */
-export type AttackStep = { label: string; value: number; faces?: number[] };
+export type AttackStep = { label: string; value: number; faces?: number[]; diceExpression?: string };
 export type AttackOutcome = {
   face: number;
   bonus: number;
@@ -219,7 +219,7 @@ export function rollWeaponAttack(
         const r2 = rollDice(dice)!;
         total += r2.total;
         p.push(`+[${r2.rolls.join(',')}][CRIT]`);
-        steps.push({ label: 'CRIT', value: r2.total, faces: r2.rolls });
+        steps.push({ label: 'CRIT', value: r2.total, faces: r2.rolls, diceExpression: dice });
       }
       return { total, parts: p, steps };
     };

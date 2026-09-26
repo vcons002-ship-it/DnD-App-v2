@@ -252,6 +252,7 @@ const MeshDie = memo(function MeshDie({
       className={`three-die${big ? ' big' : ''}`}
       role="img"
       aria-label={`${tens ? 'Percentile tens' : `d${sides}`}: ${rolling ? 'rolling' : value}`}
+      data-critical={!!crit}
       data-sides={sides}
       data-value={value}
     />

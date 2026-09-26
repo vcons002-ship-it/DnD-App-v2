@@ -1,3 +1,4 @@
+import { hitFeature, markSpell } from '../../../shared/hitFeatures';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { applyRulesUpdate, isOutdated } from '../../../shared/rulesUpdate';
 import { classFeatureUses } from '../../../shared/classFeatureUses';
@@ -82,7 +83,7 @@ const isManeuver = (a: SheetAbility): boolean =>
   a.type === 'maneuver' && !!a.maneuver;
 
 /** A stance gets an on/off toggle (a persistent attack modifier while active). */
-const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
+const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance && !hitFeature(a) && !markSpell(a);
 
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
@@ -429,7 +430,7 @@ export function CharacterSpells({
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
     const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
-    const displayRoll = effectiveSheetAbility(a, lvl).roll;
+    const displayRoll = hitFeature(a) ? undefined : effectiveSheetAbility(a, lvl).roll;
     const damageTypes = spellDamageTypeChoices(a, lvl);
     const gi = groupIds.indexOf(a.id);
     // Leveled spells carry a prepared state — show prepared ones bright/bold and

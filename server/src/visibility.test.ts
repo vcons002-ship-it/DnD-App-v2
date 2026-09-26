@@ -74,7 +74,7 @@ describe('creature roll redaction + player AOE visibility', () => {
     expect(player.monsters.map(m=>m.name)).toEqual(['Goblin']);
     expect(player.monsters.some(m=>m.id===hidden.id)).toBe(false);
     expect(dm.monsters.find(m=>m.id===visible.id)?.name).toBe('Goblin 27');
-    expect(player.rollLog.at(-1)).toMatchObject({roller:'Goblin',label:'Attack by Goblin',expr:'1d20+7',total:27,detail:'Goblin attacks: 27 damage, DC 17. Goblin 270 is unrelated.'});
+    expect(player.rollLog.at(-1)).toMatchObject({roller:'Goblin G1',label:'Attack by Goblin G1',expr:'1d20+7',total:27,detail:'Goblin G1 attacks: 27 damage, DC 17. Goblin 270 is unrelated.'});
     expect(dm.rollLog.at(-1)?.roller).toBe('Goblin 27');
     updateMonster(visible.id, {name:'Werebear (2) 4',disposition:'friendly'});
     expect(buildSnapshot(session.id,'player')!.monsters[0].name).toBe('Werebear');

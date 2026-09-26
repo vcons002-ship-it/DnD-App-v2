@@ -4,6 +4,18 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Combat spell and damage workflow - September 2026
+
+- [x] Chromatic Orb matching-dice leaps with map target selection and confirmation;
+  distance-sorted combat targets and expanded token context actions.
+- [x] Target-linked Hunter's Mark and Hex damage, critical dice, concentration
+  cleanup and no-slot mark transfer; conservative compatibility for saved marks.
+- [x] Optional Sneak Attack, Stunning Strike, hit-trigger smites, Ensnaring Strike,
+  Colossus Slayer and Divine Strike beside the ordinary Roll damage button.
+- [x] Mixed damage reveals use the correct die shapes and reserve gold for extra
+  critical dice. Reveal tags remain in target names, overkill floaters show the
+  full hit, and roll history presents damage as one readable equation.
+
 ## Cross-cutting invariants (must always hold)
 
 ### DM workspace - September 2026
