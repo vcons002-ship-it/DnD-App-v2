@@ -1,4 +1,4 @@
-import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World } from 'cannon-es';
+import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
 
 import {type TrayDie,type Toss} from './diceTrayTypes.js';
@@ -7,11 +7,14 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
   if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Roll requires result summary');
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
-  const world=new World({gravity:new Vec3(0,0,-24),allowSleep:true});
+  const world=new World({gravity:new Vec3(0,0,-30),allowSleep:true});
   (world.solver as GSSolver).iterations=30;
   world.defaultContactMaterial.friction=.55;
-  world.defaultContactMaterial.restitution=.17;
-  const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>world.addBody(new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z)}));
+  world.defaultContactMaterial.restitution=.12;
+  const dieMaterial=new Material('die'),wallMaterial=new Material('wall');
+  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:.25,restitution:.52}));
+  const walls=new Set<Body>();let wallHits=0;
+  const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);};
   box(0,0,-.2,7.2,4.7,.2);
   box(-7.2,0,3,.2,4.7,3);box(7.2,0,3,.2,4.7,3);
   box(0,-4.7,3,7.4,.2,3);box(0,4.7,3,7.4,.2,3);
@@ -28,11 +31,12 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
       const n=b.vsub(a).cross(c.vsub(a));
       return n.dot(a)<0?[...ids].reverse():[...ids];
     });
-    const body=new Body({mass:1,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.15,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
-    body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,2.3+random()*.45);
+    const body=new Body({mass:2,material:dieMaterial,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.15,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
+    body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,2.1+random()*.35);
     body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
-    body.velocity.set(2.6+random()*4.55,1.3+random()*3.9,random()*.6);
+    body.velocity.set(24+random()*3,1.5+random()*3,random()*.4-.2);
     body.angularVelocity.set((random()-.5)*25,(random()-.5)*25,(random()-.5)*18);
+    body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     world.addBody(body);return body;
   });
   const frames:number[]=[];const step=1/120;
@@ -53,5 +57,5 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
       if(z>best){best=z;top=index;}
     });return top;
   });
-  return {frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
+  return {wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
 }

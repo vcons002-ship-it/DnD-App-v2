@@ -3,7 +3,11 @@ import {createMaterialDie,getDiceStage} from './materialDice';
 import {trayFaceValues,type Toss,type TrayDie} from './diceTrayTypes';
 import type {DiceTheme} from '../../../shared/diceThemes';
 
-export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number){
+export async function loadTrayTexture(themeId:string){
+  if(!['fighter','ranger','sorcerer'].includes(themeId))return undefined;
+  try{const t=await new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);t.colorSpace=THREE.SRGBColorSpace;return t;}catch{return undefined;}
+}
+export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture){
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const camera=new THREE.OrthographicCamera(-7.6,7.6,5.1,-5.1,.1,60);camera.position.set(0,0,25);camera.lookAt(0,0,0);
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.65));
@@ -18,9 +22,15 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const feltCtx=felt.getContext('2d')!;feltCtx.fillStyle='#1b3029';feltCtx.fillRect(0,0,128,128);
   for(let k=0;k<6000;k++){feltCtx.fillStyle=k%2?'#ffffff08':'#00000012';feltCtx.fillRect((k*73)%128,Math.floor(k*41.7)%128,1,1);}
   const feltMap=new THREE.CanvasTexture(felt);feltMap.colorSpace=THREE.SRGBColorSpace;feltMap.wrapS=feltMap.wrapT=THREE.RepeatWrapping;feltMap.repeat.set(10,7);textures.push(feltMap);
-  const feltMaterial=new THREE.MeshBasicMaterial({map:feltMap});materials.push(feltMaterial);floor.material=feltMaterial;
-  box(-7.2,0,.18,.35,9.75,.7,0x160904);box(7.2,0,.18,.35,9.75,.7,0x160904);
-  box(0,-4.7,.18,14.4,.35,.7,0x160904);box(0,4.7,.18,14.4,.35,.7,0x160904);
+  if(trayArt){trayArt.anisotropy=stage.renderer.capabilities.getMaxAnisotropy();textures.push(trayArt);}
+  const feltMaterial=new THREE.MeshBasicMaterial({map:trayArt??feltMap});materials.push(feltMaterial);floor.material=feltMaterial;
+  const trim=theme.id==='fighter'?0xa27632:theme.id==='ranger'?0x784825:theme.id==='sorcerer'?0x9a9daa:0x49413a;
+  const rim=theme.id==='fighter'?0x111116:theme.id==='ranger'?0x241207:theme.id==='sorcerer'?0x22080e:0x160904;
+  for(const [x,y,w,h] of [[-7.25,0,.14,9.7],[7.25,0,.14,9.7],[0,-4.75,14.6,.14],[0,4.75,14.6,.14]]){
+    box(x,y,.24,w,h,.8,rim);
+    const lip=box(x,y,.66,w>.5?w:w*.6,h>.5?h:h*.6,.045,trim);
+    const metal=lip.material as THREE.MeshStandardMaterial;metal.metalness=.8;metal.roughness=.25;metal.envMapIntensity=1.2;
+  }
   const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
   const c=canvas.getContext('2d')!,gradient=c.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'#000a');gradient.addColorStop(1,'#0000');c.fillStyle=gradient;c.fillRect(0,0,64,64);
   const texture=new THREE.CanvasTexture(canvas);textures.push(texture);

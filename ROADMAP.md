@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Physics dice tray - September 2026
 
+- [x] Character tray art: Druk obsidian/gold, Varis walnut/bronze/forest leather,
+  Vanec crimson glass/silver/velvet. WebP textures have preserved source art and
+  generation prompts; raised 3D rims match each palette. Stronger lateral throws
+  use springier wall contacts and absorbent floors, with regression-tested wall hits.
+
 - [x] Weightier toss: lower release, stronger downward acceleration, reduced
   rebound, more floor friction, and tighter contact shadows.
 

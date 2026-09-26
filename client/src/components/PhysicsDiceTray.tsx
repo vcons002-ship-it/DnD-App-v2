@@ -25,7 +25,8 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
         if(dead)return;if(!event.data.toss){fallback();return;}
         try{
           const module=await import('../lib/diceTrayRenderer');if(dead)return;
-          const toss=event.data.toss;renderer=module.createTrayRenderer(expanded,toss,theme,comparison?.kept);
+          const art=await module.loadTrayTexture(theme.id);if(dead){art?.dispose();return;}
+          const toss=event.data.toss;renderer=module.createTrayRenderer(expanded,toss,theme,comparison?.kept,art);
           const node=canvas.current!,ctx=node.getContext('2d');if(!ctx){fallback();return;}
           let elapsed=0,previous=performance.now();setStatus('rolling');
           const draw=(now:number)=>{
@@ -34,7 +35,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
             if(node.width!==Math.round(width*dpr)){node.width=Math.round(width*dpr);node.height=Math.round(height*dpr);}
             try{renderer!.draw(ctx,width,height,dpr,Math.min(elapsed,toss.duration),now);}catch{fallback();return;}
-            node.dataset.elapsed=elapsed.toFixed(3);node.dataset.duration=toss.duration.toFixed(3);
+            node.dataset.wallHits=String(toss.wallHits);node.dataset.elapsed=elapsed.toFixed(3);node.dataset.duration=toss.duration.toFixed(3);
             if(elapsed>=toss.duration){setStatus('settled');complete();return;}
             raf=requestAnimationFrame(draw);
           };raf=requestAnimationFrame(draw);
