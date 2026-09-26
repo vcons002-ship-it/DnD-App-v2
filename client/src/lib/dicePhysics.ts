@@ -82,10 +82,12 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   capture();
   let released=0;
   let ticks=0;
+  const settleTimes=bodies.map(()=>0);
   for(;ticks<5760;ticks++){
     while(released<bodies.length && releases[released]<=ticks*step)world.addBody(bodies[released++]);
     for(let i=0;i<released;i++)if(bodies[i].position.dot(direction)>-extent+radius)bodies[i].collisionFilterMask=3;
     world.step(step);
+    bodies.forEach((body,i)=>{if(i>=released||body.sleepState!==Body.SLEEPING)settleTimes[i]=(ticks+1)*step;});
     capture();
     // Keep a fully stationary final frame after the last body enters sleep.
     if(ticks>480&&released===bodies.length&&bodies.every(b=>b.sleepState===Body.SLEEPING)){capture();ticks+=2;break;}
@@ -106,5 +108,5 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
       if(z>best){best=z;top=index;}
     });return top;
   });
-  return {wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
+  return {settleTimes,wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
 }

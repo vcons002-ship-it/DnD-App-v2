@@ -248,3 +248,23 @@ test('dice calculation shows readable values and sequential labeled bonuses and 
  await expect(page.locator('.tray-die-result strong')).toHaveCSS('font-size','30px');
  await page.locator('.roll-reveal').screenshot({path:testInfo.outputPath('readable-calculation.png')});
 });
+
+
+test('settled dice flash and fill their own result boxes, including percentile and comparison dice',async({page,request})=>{
+ test.setTimeout(60000);
+ const f=await fixture(request,page,'Sorcerer',false);
+ f.socket.emit('dice:roll',{expr:'1d100+1d8+1d6',advantage:'adv',label:'Flying results'});
+ const tray=page.locator('.physics-dice-tray');
+ await expect(tray).toHaveAttribute('data-status','rolling',{timeout:15000});
+ await expect(tray.locator('.tray-flying-number')).toHaveCount(8);
+ await expect(tray.locator('.tray-flying-number[data-phase="flying"]').first()).toBeAttached();
+ await expect(tray).toHaveAttribute('data-status','settled',{timeout:15000});
+ for(const flight of await tray.locator('.tray-flying-number').all()){
+   const id=await flight.getAttribute('data-die-id');
+   const result=tray.locator(`.tray-die-result[data-die-id="${id}"]`);
+   await expect(result).toHaveAttribute('data-filled','true');
+   await expect(result.locator('strong')).toHaveText((await flight.textContent())!);
+   expect(await result.getAttribute('data-set')).toBe(await flight.getAttribute('data-set'));
+   await expect(flight).toHaveCSS('opacity','0');
+ }
+});

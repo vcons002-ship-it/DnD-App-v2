@@ -1,6 +1,6 @@
 export type DiceEntrySide = 'bottom' | 'top' | 'left' | 'right';
 export type TrayDie = {sides:number;value:number;crit?:boolean;index:number;set:number;tens?:boolean;ones?:boolean;negative?:boolean};
-export type Toss = {wallHits:number;frames:Float32Array;frameCount:number;step:number;radius:number;topFaces:number[];duration:number};
+export type Toss = {settleTimes:number[];wallHits:number;frames:Float32Array;frameCount:number;step:number;radius:number;topFaces:number[];duration:number};
 export function physicalDice(dice:TrayDie[]):TrayDie[] {
   return dice.flatMap(d=>d.sides===100 ? [{...d,sides:10,value:Math.floor((d.value%100)/10)*10,tens:true},{...d,sides:10,value:d.value%10,ones:true}] : [d]);
 }

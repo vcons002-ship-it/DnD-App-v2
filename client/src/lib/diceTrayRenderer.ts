@@ -45,6 +45,11 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   });
   const a=new THREE.Quaternion(),b=new THREE.Quaternion();
   return {
+    numberPosition(index:number){
+      const point=handles[index].object.position.clone();point.z+=toss.radius*.65;
+      point.project(camera);
+      return {x:(point.x+1)/2,y:(1-point.y)/2};
+    },
     draw(ctx:CanvasRenderingContext2D,width:number,height:number,dpr:number,elapsed:number,now:number){
       const frame=Math.min(toss.frameCount-1,elapsed/toss.step),i=Math.floor(frame),j=Math.min(i+1,toss.frameCount-1),t=frame-i;
       handles.forEach((h,k)=>{

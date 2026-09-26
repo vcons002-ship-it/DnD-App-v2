@@ -18,6 +18,12 @@ describe('physics dice tray',()=>{
    const dice=physicalDice([4,6,8,10,12,20,100].map((sides,index)=>({sides,value:sides===100?100:sides-1,index,set:0})));
    const toss=simulateToss(dice,seed);expect(toss.duration).toBeGreaterThan(1);expect(toss.duration).toBeLessThanOrEqual(12);
    dice.forEach((d,i)=>{
+    expect(toss.settleTimes[i]).toBeGreaterThan(0);
+    expect(toss.settleTimes[i]).toBeLessThanOrEqual(toss.duration);
+    const settledFrame=Math.min(toss.frameCount-1,Math.ceil(toss.settleTimes[i]/toss.step)+2);
+    const settledOffset=(settledFrame*dice.length+i)*7;
+    const finalOffset=((toss.frameCount-1)*dice.length+i)*7;
+    for(let k=0;k<7;k++)expect(toss.frames[settledOffset+k]).toBeCloseTo(toss.frames[finalOffset+k],3);
     const labels=trayFaceValues(d,toss.topFaces[i]);expect(labels[toss.topFaces[i]]).toBe(d.value);expect(new Set(labels).size).toBe(d.sides);
     const last=((toss.frameCount-1)*dice.length+i)*7;
     expect(Math.abs(toss.frames[last])).toBeLessThan(7.01);expect(Math.abs(toss.frames[last+1])).toBeLessThan(4.51);expect(toss.frames[last+2]).toBeGreaterThan(0);

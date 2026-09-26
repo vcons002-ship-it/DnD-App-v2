@@ -35,3 +35,12 @@
 .rr-equals{font-size:25px;color:#d8cfb9;}
 @media(max-width:600px){.physics-dice-tray .tray-die-result{min-width:38px;padding:5px 7px;font-size:12px;}.physics-dice-tray .tray-die-result strong{font-size:25px;}.rr-equation strong{font-size:23px;}.rr-equation small{font-size:12px;}.rr-equation .rr-adjustment{max-width:125px;padding:7px;}.rr-equation .rr-equation-total strong{font-size:34px;}}
 @media(prefers-reduced-motion:reduce){.rr-equation .rr-adjustment{animation:none;}}
+
+.tray-number-flights{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:visible;}
+.tray-flying-number{position:absolute;left:0;top:0;opacity:0;font-size:32px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:#fff3d1;text-shadow:0 2px 3px #000,0 0 9px #e9c67b;will-change:transform,opacity;}
+.tray-flying-number[data-tone="critical"]{color:#ffe275;text-shadow:0 2px 3px #000,0 0 14px #ffc321;}
+.tray-flying-number[data-tone="kept"]{color:#79ffb0;}
+.tray-flying-number[data-tone="discarded"]{color:#ff909c;}
+.tray-die-result[data-filled="true"] strong{animation:tray-result-arrive .4s ease-out;}
+@keyframes tray-result-arrive{0%{transform:scale(1.45);color:#fff8ce;text-shadow:0 0 22px #ffd575;}100%{transform:scale(1);text-shadow:none;}}
+@media(prefers-reduced-motion:reduce){.tray-number-flights{display:none;}.tray-die-result[data-filled="true"] strong{animation:none;}}
