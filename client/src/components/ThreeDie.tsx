@@ -146,7 +146,7 @@ const MeshDie = memo(function MeshDie({
         ];
       };
       if (materialDie) {
-        canvas.dataset.material = theme.id === 'sorcerer' ? 'volumetric-glass' : 'physical-metal';
+        canvas.dataset.material = theme.id === 'sorcerer' ? 'volumetric-glass' : theme.id === 'fighter' ? 'obsidian-gold' : theme.id === 'ranger' ? 'forest-resin' : 'physical-metal';
         materialDie.draw(ctx,size,dpr,angles,state.current.value,now,rolling);
       } else {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

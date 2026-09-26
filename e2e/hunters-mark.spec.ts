@@ -86,7 +86,7 @@ async function fixture(request: APIRequestContext, page: Page, className = 'Rang
 }
 
 
-for (const className of ['Ranger', 'Sorcerer']) test(`Hunter mark cast, automatic hit damage, and no-slot transfer through player UI (${className})`, async ({page,request}, testInfo) => {
+for (const className of ['Fighter', 'Ranger', 'Sorcerer']) test(`Hunter mark cast, automatic hit damage, and no-slot transfer through player UI (${className})`, async ({page,request}, testInfo) => {
   test.setTimeout(150000);
   const f = await fixture(request,page,className);
   f.socket.emit('session:setManualDamage',{manual:true});
@@ -135,7 +135,7 @@ for (const className of ['Ranger', 'Sorcerer']) test(`Hunter mark cast, automati
         const expected=roll.pending.dice.flatMap(d=>(d.faces??[]).map(value=>({sides:d.label.includes("Hunter's Mark")?6:8,value})));
         expect(actual).toEqual(expected);
         await expect(mesh.first()).toHaveAttribute('data-theme', className.toLowerCase());
-        await expect(mesh.first()).toHaveAttribute('data-material', className === 'Sorcerer' ? 'volumetric-glass' : 'physical-metal');
+        await expect(mesh.first()).toHaveAttribute('data-material', className === 'Sorcerer' ? 'volumetric-glass' : className === 'Fighter' ? 'obsidian-gold' : 'forest-resin');
         await page.locator('.roll-reveal').screenshot({path: testInfo.outputPath('ranger-dice.png')});
         await expect.poll(async()=>Number((await page.locator('.rr-dmg-num').innerText()).match(/^\d+/)?.[0])).toBe(roll.pending.amount);
         await expect.poll(async()=>page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>node.text())))).toContain(`\u2212${roll.pending.amount}`);
@@ -160,12 +160,12 @@ for (const className of ['Ranger', 'Sorcerer']) test(`Hunter mark cast, automati
 });
 
 
-test('sorcerer glass covers all dice and never flashes the fallback while loading', async ({page,request}) => {
+for (const [className, material] of [['Sorcerer','volumetric-glass'],['Fighter','obsidian-gold'],['Ranger','forest-resin']]) test(`${className} material covers all dice without a loading flash`, async ({page,request}) => {
   test.setTimeout(90000);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route('**/materialDice-*.js', async route => { await gate; await route.continue(); });
-  const f = await fixture(request,page,'Sorcerer',false);
+  const f = await fixture(request,page,className,false);
   const picker = page.locator('.player-dice-picker');
   for (const sides of [4,6,8,10,12,20,100]) {
     await picker.getByRole('button',{name:'More dice',exact:true}).click();
@@ -182,8 +182,8 @@ test('sorcerer glass covers all dice and never flashes the fallback while loadin
       release();
     }
     for (const die of await dice.all()) {
-      await expect(die).toHaveAttribute('data-theme','sorcerer');
-      await expect(die).toHaveAttribute('data-material','volumetric-glass');
+      await expect(die).toHaveAttribute('data-theme',className.toLowerCase());
+      await expect(die).toHaveAttribute('data-material',material);
       await expect(die).toHaveAttribute('data-orientation','face-forward');
     }
     await f.dismissReveal();

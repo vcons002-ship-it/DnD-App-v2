@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Class dice - September 2026
 
+- [x] Fighter obsidian with gold-filled geometric carvings, and ranger green
+  resin with embedded natural veining and bronze leaf inlays, across all shapes.
+  Critical extras brighten the inlays while retaining the character material.
+
 - [x] Shared offscreen WebGL material renderer: actual chamfer geometry,
   material grain and recessed numeral shading. Sorcerer dice use tinted glass
   with ray-marched interior clouds/energy and view-dependent studio reflections.
