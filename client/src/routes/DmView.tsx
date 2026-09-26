@@ -1,3 +1,4 @@
+import { CombatMoments } from '../components/CombatMoments';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
@@ -131,6 +132,7 @@ export function DmView() {
       <AiStatus />
       <ConnectionStatus />
       <RollRevealOverlay />
+      <CombatMoments />
       <Toast />
     </div>
   );

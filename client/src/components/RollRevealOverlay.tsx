@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
-import { playHit, playMiss, playSkill } from '../lib/sfx';
+import { playHit, playMiss, playSkill, playCritical } from '../lib/sfx';
 import { ThreeDie } from './ThreeDie';
 import type { RollComparison } from '../../../shared/types';
 
@@ -169,7 +169,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     media.addEventListener('change', changed);
     return () => media.removeEventListener('change', changed);
   }, []);
-  const staticReveal = player && reducedMotion;
+  const staticReveal = reducedMotion;
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
@@ -299,7 +299,8 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
           at(outcomeAt, () => {
             setStage((p) => ({ ...p, phase: 'outcome' }));
             if (isCheck) reveal.outcome === 'fail' ? playMiss() : playSkill();
-            else if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
+            else if (reveal.outcome === 'crit') playCritical();
+            else if (reveal.outcome === 'hit') playHit();
             else playMiss();
           });
           const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
@@ -371,7 +372,8 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
       // Attacks thunk/whiff on hit/miss; a check ticks (fail whiffs) — a plain
       // check with no pass/fail (outcome 'none') still gets the neutral tick.
       if (isCheck) reveal.outcome === 'fail' ? playMiss() : playSkill();
-      else if (reveal.outcome === 'hit' || reveal.outcome === 'crit') playHit();
+      else if (reveal.outcome === 'crit') playCritical();
+            else if (reveal.outcome === 'hit') playHit();
       else playMiss();
     });
     const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
@@ -476,6 +478,10 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
         )}
 
         {showOutcome && <div className="roll-reveal-outcome">{outcomeLabel}</div>}
+        {showOutcome && reveal.outcome === 'crit' && <div className="critical-flourish" aria-label="Critical hit celebration">
+          <span aria-hidden="true">✦</span><strong>DEVASTATING STRIKE</strong><span aria-hidden="true">✦</span>
+          <small>Double the damage dice</small>
+        </div>}
 
         {showDamage && (
           <div className="roll-reveal-damage">

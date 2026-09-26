@@ -1,3 +1,4 @@
+import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
 import {
@@ -373,6 +374,9 @@ export function createSnapshotBuilder(
 
     return {
       role,
+      ripostes: listRipostes(sessionId).filter(o =>
+        (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
+        tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId)),
       sessionCode: session.code,
       sessionName: session.name,
       map,

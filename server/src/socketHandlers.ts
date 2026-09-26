@@ -1,3 +1,4 @@
+import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
 import { newId } from './db.js';
@@ -9,6 +10,7 @@ import {
   resolveAttackDamage,
   resolveSmite,
   resolveManeuver,
+  resolveRiposte,
   castSlotLevel,
   resolveAbilityRoll,
   resolveMonsterSheetAbility,
@@ -1695,6 +1697,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
       // Roll-all resets combat: re-roll everyone, start at the top, round 1.
+      io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
       rollAllInitiative(activeMapId);
       setActiveTurn(sid, firstInInitiative(activeMapId));
       setCombatRound(sid, 1);
@@ -1706,6 +1709,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
+      if (!getSessionById(sid)?.activeTurnTokenId) io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
       // Only roll latecomers; if combat hasn't started, highlight the top and
       // open round 1. Mid-fight, the round counter is left alone.
       rollMissingInitiative(activeMapId);
@@ -1857,6 +1861,17 @@ export function registerSocketHandlers(io: IOServer): void {
     // Cast the smite a hit made available: the DM, or the attacking player.
     // Every refusal says why (no slot left, already taken…) instead of going
     // quiet; the resolver stamps the opportunity used before it spends anything.
+    on('combat:riposte', ({opportunityId, weaponIndex, pass}) => {
+      const sid = sessionId();
+      if (!sid || typeof opportunityId !== 'string') return;
+      const offer = listRipostes(sid).find(o => o.id === opportunityId);
+      const ch = offer ? getCharacter(offer.owner) : null;
+      if (!ch || (!isDm() && ch.claimedBy !== socket.id)) return;
+      const result = resolveRiposte(sid, isDm() ? 'DM' : ch.name, opportunityId, weaponIndex, !!pass);
+      if (!result.ok) socket.emit('notice', {message: result.reason});
+      afterChange();
+    });
+
     on('combat:maneuver', ({rollId, abilityId}) => {
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string' || typeof abilityId !== 'string') return;

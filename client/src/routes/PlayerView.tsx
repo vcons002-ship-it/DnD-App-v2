@@ -1,3 +1,4 @@
+import { CombatMoments } from '../components/CombatMoments';
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { getPlayerId, useStore } from '../state/socket';
@@ -241,6 +242,7 @@ export function PlayerView() {
       <AiStatus />
       <ConnectionStatus />
       <RollRevealOverlay />
+      <CombatMoments />
       <Toast />
       {/* Red screen-edge flash when YOUR claimed PC takes damage (one-shot CSS
           animation; bigger hits flash harder). Keyed so rapid hits restart it. */}

@@ -52,11 +52,12 @@ function blip(opts: {
   to?: number;
   dur: number;
   gain?: number;
+  delay?: number;
 }): void {
   if (isSfxMuted()) return;
   const ac = audio();
   if (!ac || ac.state !== 'running') return;
-  const now = ac.currentTime;
+  const now = ac.currentTime + (opts.delay ?? 0);
   const osc = ac.createOscillator();
   const g = ac.createGain();
   const peak = opts.gain ?? 0.08;
@@ -91,4 +92,21 @@ export function playHeal(): void {
 /** A skill/save check resolved — a short neutral tick. */
 export function playSkill(): void {
   blip({ type: 'triangle', from: 520, dur: 0.1, gain: 0.05 });
+}
+
+/** Layered, short cues share the existing per-user mute and gesture gate. */
+export function playCritical(): void {
+  blip({type: 'triangle', from: 220, to: 880, dur: .42, gain: .10});
+  blip({type: 'sine', from: 660, to: 1320, dur: .6, gain: .07});
+}
+export function playInitiative(): void {
+  blip({type: 'triangle', from: 220, dur: .2, gain: .08});
+  blip({type: 'triangle', from: 330, dur: .24, gain: .08, delay: .15});
+  blip({type: 'triangle', from: 440, dur: .6, gain: .09, delay: .3});
+  blip({type: 'sine', from: 660, dur: .65, gain: .045, delay: .3});
+}
+export function playYourTurn(): void {
+  blip({type: 'sine', from: 660, dur: .25, gain: .08});
+  blip({type: 'sine', from: 880, dur: .55, gain: .08, delay: .18});
+  blip({type: 'triangle', from: 440, dur: .5, gain: .04, delay: .18});
 }

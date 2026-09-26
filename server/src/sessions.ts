@@ -1,3 +1,4 @@
+import { clearRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
 import { requestCreatureAsset } from './assets/hooks.js';
 import { placeBase } from '../../shared/tokenPlacement.js';
@@ -1108,6 +1109,13 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
 // ---- Initiative turn order (operates on the active map) ----
 
 export function setActiveTurn(sessionId: string, tokenId: string | null): void {
+  clearRipostes(sessionId);
+  const token = tokenId ? getToken(tokenId) : null;
+  if (token?.kind === 'pc') {
+    const ch = getCharacter(token.refId);
+    for (const condition of ch?.conditions ?? [])
+      if (condition.label === RIPOSTE_SPENT) clearCondition('pc', token.refId, condition.id);
+  }
   db.prepare(
     'UPDATE sessions SET active_turn_token_id = ? WHERE id = ?',
   ).run(tokenId, sessionId);
@@ -1411,6 +1419,8 @@ export function advanceTurn(sessionId: string): void {
 }
 
 export function clearInitiative(sessionId: string): void {
+  for (const ch of listCharacters(sessionId)) for (const condition of ch.conditions)
+    if (condition.label === RIPOSTE_SPENT) clearCondition('pc', ch.id, condition.id);
   const session = getSessionById(sessionId);
   if (session?.activeMapId) {
     db.prepare(

@@ -783,7 +783,13 @@ export type MonsterPublic = {
 };
 
 /** Snapshot the server sends after join / on major changes, already role-shaped. */
+export type RiposteOpportunity = {
+  id: string; owner: string; defenderTokenId: string; attackerTokenId: string;
+  abilityId: string; expiresAt: number; weaponIndices: number[];
+};
+
 export type StateSnapshot = {
+  ripostes?: RiposteOpportunity[];
   role: Role;
   sessionCode: string;
   /** The campaign/session name (DM-editable). */
@@ -1685,6 +1691,7 @@ export interface ClientToServerEvents {
   'combat:damage': (payload: { rollId: string }) => void;
   /** Cast the smite a hit made available, with a spell slot of `level` or the
    *  free once-per-Long-Rest casting. The DM or the attacking player. */
+  'combat:riposte': (payload: { opportunityId: string; weaponIndex?: number; pass?: boolean }) => void;
   'combat:maneuver': (payload: { rollId: string; abilityId: string }) => void;
   'combat:smite': (payload: { rollId: string; level: number | 'free' }) => void;
   /** DM: weapon damage is a separate, clickable second roll (default on). */
@@ -1716,6 +1723,7 @@ export type HpFxEvent = {
 };
 
 export interface ServerToClientEvents {
+  'fx:initiative': (payload: { mapId: string }) => void;
   'state:snapshot': (snapshot: StateSnapshot) => void;
   error: (err: ServerError) => void;
   notice: (payload: NoticePayload) => void;

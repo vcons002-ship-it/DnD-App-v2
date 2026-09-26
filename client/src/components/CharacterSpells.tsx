@@ -487,14 +487,15 @@ export function CharacterSpells({
             <button
               className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
               title={
+                a.name.trim().toLowerCase() === 'riposte' ? 'Offered after an enemy melee attack misses you' :
                 isOnHitManeuver(a) ? 'Choose this maneuver after a hit, beside Roll damage' : a.maneuver!.active
                   ? 'Armed — spends a Superiority Die on your next attack'
                   : 'Off — click to arm for your next attack'
               }
-              disabled={isOnHitManeuver(a)}
+              disabled={isOnHitManeuver(a) || a.name.trim().toLowerCase() === 'riposte'}
               onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
             >
-              {isOnHitManeuver(a) ? 'On hit' : a.maneuver!.active ? 'Armed' : 'Off'}
+              {a.name.trim().toLowerCase() === 'riposte' ? 'On enemy miss' : isOnHitManeuver(a) ? 'On hit' : a.maneuver!.active ? 'Armed' : 'Off'}
             </button>
           )}
 

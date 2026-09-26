@@ -1743,3 +1743,31 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 
 /* Known on-hit maneuvers stay compact even with several choices. */
 .dp-maneuvers { flex-wrap: wrap; max-width: min(440px, calc(100vw - 32px)); }
+
+.combat-moment { position: fixed; z-index: 100; top: 20%; left: 50%; transform: translateX(-50%);
+  width: min(680px, calc(100vw - 32px)); box-sizing: border-box; text-align: center; display: grid; gap: 7px;
+  padding: 32px 26px; border: 1px solid #d6b66d; border-radius: 12px;
+  color: #ffe6aa; background: linear-gradient(135deg,#302719f5,#13131df5);
+  box-shadow: 0 12px 60px #000b, 0 0 24px #d6b66d33; animation: combat-spotlight 5.4s ease-in-out both; pointer-events: none; }
+.combat-moment strong { font-family: Cinzel, Georgia, serif; font-size: clamp(38px,7vw,76px); line-height: 1.15; color: #fff0be; text-shadow: 0 0 22px #ecb94b66, 0 3px 3px #000; }
+.combat-moment-kicker { text-transform: uppercase; letter-spacing: .22em; font-size: 10px; }
+.combat-moment button { position:absolute; right:8px; top:4px; background:none; border:0; color:#ffe6aa; font-size:24px; cursor:pointer; pointer-events:auto; }
+.riposte-prompt { position:fixed; z-index:101; bottom:100px; left:50%; transform:translateX(-50%); display:grid; gap:8px;
+  max-width:calc(100vw - 40px); padding:16px; background:#171a24f5; border:1px solid #b4c8ff; border-radius:10px; box-shadow:0 8px 32px #0009; }
+.riposte-prompt strong { color:#e0eaff; font-size:22px; font-family:Cinzel,Georgia,serif; }
+.riposte-prompt div { display:flex; flex-wrap:wrap; gap:8px; }
+.critical-flourish { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; color:#ffe8a1; text-shadow:0 0 14px #f5b82f; animation:critical-impact .65s ease-out; }
+.critical-flourish small { width:100%; font-size:12px; letter-spacing:.08em; }
+.critical-flourish > span { font-size:32px; }
+.roll-reveal-crit { background:radial-gradient(ellipse at top,#62461d,#18151fee 75%); box-shadow:0 0 40px #f7ba4555,0 12px 48px #0009; }
+.roll-reveal-crit .roll-reveal-outcome { font-size:clamp(24px,5vw,36px); text-shadow:0 0 18px #ffc84a88; }
+@keyframes critical-impact { from {transform:scale(.75);opacity:.15} 65% {transform:scale(1.08);opacity:1} to {transform:scale(1)} }
+@keyframes combat-spotlight { 0% {opacity:0;scale:.9;translate:0 12px} 12% {opacity:1;scale:1;translate:0 0} 78% {opacity:1;scale:1;translate:0 0} 100% {opacity:0;scale:1.025;translate:0 -6px} }
+.combat-moment.no-motion { animation:none; }
+@media (prefers-reduced-motion:reduce) { .combat-moment, .critical-flourish { animation:none; } }
+
+.combat-moment::before, .combat-moment::after { content:''; position:absolute; left:12%; right:12%; height:1px;
+  background:linear-gradient(90deg,transparent,#f3d187,transparent); pointer-events:none; }
+.combat-moment::before { top:10px; } .combat-moment::after { bottom:10px; }
+.combat-moment-initiative { border-color:#ffce62; box-shadow:0 12px 70px #000c,0 0 44px #efad3744; }
+.combat-moment-initiative .combat-moment-kicker { color:#ffd474; }

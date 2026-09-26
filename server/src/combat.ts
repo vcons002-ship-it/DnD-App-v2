@@ -1,3 +1,4 @@
+import { offerRiposte, listRipostes, removeRiposte, RIPOSTE_SPENT } from './reactions.js';
 import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {
   isDeadEntity,
@@ -21,6 +22,7 @@ import {
   setSheetAbility,
   setTokensCondition,
   setConcentration,
+  setCondition,
   setDeathSaves,
   setItem,
   removeItem,
@@ -47,7 +49,7 @@ import {
   checkAdvantage,
   autoCritFromConditions,
 } from '../../shared/conditionEffects.js';
-import { tokensWithin5ft } from '../../shared/distance.js';
+import { tokensWithin5ft, tokenDistanceFt } from '../../shared/distance.js';
 import { rollDice, type DiceResult } from '../../shared/dice.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
@@ -347,6 +349,7 @@ export function resolveAttack(
   /** The attacking PLAYER's claimed character — allowed to roll the deferred
    *  damage alongside the DM (they may be attacking with a companion/summon). */
   ownerCharacterId?: string,
+  riposteAbilityId?: string,
 ): boolean {
   const at = getToken(attackerTokenId);
   const tt = getToken(targetTokenId);
@@ -401,7 +404,8 @@ export function resolveAttack(
     const man = ch.sheetAbilities.find(
       (ab) =>
         ab.type === 'maneuver' && !isOnHitManeuver(ab) &&
-        ab.maneuver?.active &&
+        (riposteAbilityId ? ab.id === riposteAbilityId : ab.name.trim().toLowerCase() !== 'riposte' && ab.maneuver?.active) &&
+        !!ab.maneuver &&
         ((ab.maneuver.appliesToTags ?? []).length === 0 ||
           (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
     );
@@ -841,6 +845,7 @@ export function resolveAttack(
       mastery: { ...ab.mastery!, active: false },
     });
   }
+  if (!out.hit && weapon.kind === 'melee') createRiposteOpportunity(sessionId, tt, at);
   return true;
 }
 
@@ -860,6 +865,51 @@ export function castSlotLevel(ability: SheetAbility, castLevel?: number): number
     : (ability.type === 'spell' || ability.type === 'stance') ? ability.level ?? 0 : 0;
   if (base < 1) return null;
   return Math.min(9, Math.max(base, castLevel ?? base));
+}
+
+function createRiposteOpportunity(sessionId: string, tt: Token, at: Token): void {
+  if (tt.kind !== 'pc') return;
+  const defender = getCharacter(tt.refId);
+  const riposte = defender?.sheetAbilities.find(ab => ab.type === 'maneuver' && ab.maneuver?.addDieTo === 'damage' && ab.name.trim().toLowerCase() === 'riposte');
+  const indices = riposteWeapons(sessionId, tt.id, at.id);
+  if (defender && riposte && indices.length) offerRiposte(sessionId, {
+    id: newId(), owner: defender.id, defenderTokenId: tt.id, attackerTokenId: at.id,
+    abilityId: riposte.id, expiresAt: Date.now() + 30000, weaponIndices: indices,
+  });
+}
+
+/** A reaction attack must still be possible when its button is clicked. */
+function riposteWeapons(sessionId: string, defenderId: string, attackerId: string): number[] {
+  const defender = getToken(defenderId), attacker = getToken(attackerId);
+  if (!defender || !attacker || defender.kind !== 'pc' || defender.mapId !== attacker.mapId) return [];
+  const map = getMap(defender.mapId);
+  const ch = getCharacter(defender.refId);
+  const foe = resolve(attacker);
+  const pool = ch?.resources['Superiority Dice'];
+  if (map?.sessionId !== sessionId || getSessionById(sessionId)?.activeMapId !== map.id || !ch || !foe || ch.curHp <= 0 || isDeadEntity(attacker.kind, (attacker.kind === 'pc' ? getCharacter(attacker.refId) : getMonster(attacker.refId))!) ||
+      !pool || pool.used >= pool.max || ch.conditions.some(c =>
+        ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious', RIPOSTE_SPENT.toLowerCase()].includes(c.label.toLowerCase()))) return [];
+  const tags = ch.sheetAbilities.find(a => a.name.trim().toLowerCase() === 'riposte')?.maneuver?.appliesToTags;
+  return ch.weapons.flatMap((weapon, index) => {
+    if (tags?.length && !tags.some(t => weapon.tags?.some(w => w.trim().toLowerCase() === t.trim().toLowerCase()))) return [];
+    const reach = Number(/(\d+)/.exec(weapon.range ?? '')?.[1]) || (weapon.tags?.some(t => t.toLowerCase() === 'reach') ? 10 : 5);
+    return weapon.kind === 'melee' && tokenDistanceFt(defender, attacker, map) <= reach + 1e-6 ? [index] : [];
+  });
+}
+
+export function resolveRiposte(sessionId: string, roller: string, id: string, weaponIndex?: number, pass = false): {ok: true} | {ok: false; reason: string} {
+  const offer = listRipostes(sessionId).find(o => o.id === id);
+  if (!offer) return {ok: false, reason: 'That Riposte opportunity has expired.'};
+  if (pass) { removeRiposte(id); return {ok: true}; }
+  const ch = getCharacter(offer.owner);
+  const ability = ch?.sheetAbilities.find(a => a.id === offer.abilityId && a.type === 'maneuver' && a.name.trim().toLowerCase() === 'riposte' && a.maneuver);
+  if (!ch || !ability || !Number.isInteger(weaponIndex) || !riposteWeapons(sessionId, offer.defenderTokenId, offer.attackerTokenId).includes(weaponIndex!))
+    return {ok: false, reason: 'Riposte is no longer available: check your weapon reach, reaction and Superiority Dice.'};
+  removeRiposte(id);
+  setCondition('pc', ch.id, {id: newId(), label: RIPOSTE_SPENT, aura: 'blue', isConcentration: false});
+  resolveAttack(sessionId, roller, offer.defenderTokenId, offer.attackerTokenId, weaponIndex!, undefined, false, false,
+    roller === 'DM' ? undefined : ch.id, ability.id);
+  return {ok: true};
 }
 
 /** Resolve a known on-hit maneuver as part of the pending weapon damage. */
@@ -1567,6 +1617,8 @@ function resolveTargetedSpellAttack(opts: {
       },
     } : {}),
   }, attackRollId);
+  if (!hit && attackerToken && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
+    createRiposteOpportunity(opts.sessionId, tt!, attackerToken);
   return true;
 }
 

@@ -1863,3 +1863,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   reaction, check and secondary-target maneuvers retain their existing flow.
   Verified with 791 server tests and five real-browser cases covering both damage
   modes, Smite, Pact usage, and DM/player prompt ownership.
+
+- [x] Combat announcements: large gold **Roll initiative!** (4.6s) and **Your
+  Turn** (5.4s) banners, distinct fanfare/chime, fade-in/hold/fade-out, queued so
+  combat start does not hide the first turn. Reconnects do not replay old turns;
+  a changed turn dismisses stale personal announcements. Respects mute, disabled
+  roll animation and reduced motion. Crit reveals add a gold flourish and a
+  distinct layered sound.
+- [x] Riposte reaction prompt: a 30s weapon choice after a melee miss, visible only
+  to the defender and DM when both tokens are visible. Server validates knowledge,
+  dice, melee reach and incapacitation; spends one die and persists a reaction
+  marker until the fighter's next turn (or combat end). A miss still spends the
+  die, a crit doubles it, and expired/repeated requests cannot spend again.
+  Other reaction abilities retain their existing manual flow. Verified: 800
+  server tests, typecheck/build, six browser cases; announcement fade and size
+  verified in a real browser, with reduced-motion critical-hit coverage.

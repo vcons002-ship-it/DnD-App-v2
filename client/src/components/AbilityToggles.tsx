@@ -15,7 +15,7 @@ import { useStore } from '../state/socket';
  *  masteries, maneuvers (arm for the next attack), and stances. */
 export const hasToggle = (a: SheetAbility): boolean =>
   (a.type === 'mastery' && !!a.mastery?.effect) ||
-  (a.type === 'maneuver' && !!a.maneuver && !isOnHitManeuver(a)) ||
+  (a.type === 'maneuver' && !!a.maneuver && !isOnHitManeuver(a) && a.name.trim().toLowerCase() !== 'riposte') ||
   (a.type === 'stance' && !!a.stance);
 
 /**
