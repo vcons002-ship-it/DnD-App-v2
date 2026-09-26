@@ -113,7 +113,7 @@ const MeshDie = memo(function MeshDie({
       // loads. Fallback is reserved for an actual import/WebGL failure.
       if (materialPending) return;
       // GPU dice target 60 fps (with RAF timing tolerance); settled clouds stay at 10 fps.
-      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' && !wasRolling && now - settledAt >= 220 ? 100 : materialDie ? 15 : 32)) {
+      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' && !wasRolling && now - settledAt >= 360 ? 100 : materialDie ? 15 : 32)) {
         frame = requestAnimationFrame(draw);
         return;
       }
@@ -125,12 +125,12 @@ const MeshDie = memo(function MeshDie({
         landingAngles = lastAngles.map((a) => Math.atan2(Math.sin(a), Math.cos(a))) as V3;
       }
       wasRolling = rolling;
-      if (rolling) { phase = now * 0.011; reportedSettled = false; }
+      if (rolling) { phase = now * 0.0065; reportedSettled = false; }
       const ease = rolling
         ? 1
         : reduced.matches
           ? 0
-          : Math.pow(Math.max(0, 1 - (now - settledAt) / 220), 3);
+          : (1 + Math.cos(Math.PI * Math.min(1, Math.max(0, (now - settledAt) / 360)))) / 2;
       // Exactly zero final tilt: the engraved authoritative result is the
       // front face, upright and parallel to the screen on every polyhedron.
       const angles: V3 = rolling

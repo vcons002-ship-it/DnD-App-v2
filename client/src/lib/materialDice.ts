@@ -24,21 +24,13 @@ function makeStage() {
   for (const [x,y,z,power] of [[-3,4,5,12],[4,1,2,8],[-2,-3,1,4]]) {
     const light=new THREE.PointLight(0xffffff,power);light.position.set(x,y,z);scene.add(light);
   }
-  // Studio softboxes provide sharp, moving reflections in the glass shader.
-  const cube = new THREE.CubeTexture(Array.from({length:6},(_,i)=>{
-    const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
-    const c=canvas.getContext('2d')!;c.fillStyle=i===3?'#16101a':'#657081';c.fillRect(0,0,256,256);
-    const g=c.createLinearGradient(0,0,256,256);g.addColorStop(0,'#cbd4e2');g.addColorStop(.5,'#3c4351');g.addColorStop(1,'#11121b');c.fillStyle=g;c.fillRect(0,0,256,256);
-    c.fillStyle='#f8f9ff';c.fillRect(i%2?30:156,24,28,170);c.fillStyle='#abbdd2';c.fillRect(24,212,186,9);
-    return canvas;
-  }));cube.needsUpdate=true;cube.colorSpace=THREE.SRGBColorSpace;
-  return {renderer,scene,camera,cube};
+  return {renderer,scene,camera};
 }
 const vertex = `varying vec3 pos; varying vec3 nor; varying vec2 tex;
 void main(){pos=position;nor=normal;tex=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const fragment = `precision highp float;
 varying vec3 pos; varying vec3 nor; varying vec2 tex;
-uniform vec3 eye; uniform mat3 rotation; uniform samplerCube studio;
+uniform vec3 eye; uniform mat3 rotation;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
 uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
 uniform int style; uniform float critical;
@@ -56,12 +48,20 @@ float softbox(vec3 r,vec3 direction,float width,float height){
  vec2 edge=1.-smoothstep(vec2(width,height)*.65,vec2(width,height)*1.2,abs(q));
  return edge.x*edge.y*smoothstep(.1,.4,facing);
 }
-vec3 obsidianStudio(vec3 r){
+vec3 studioLight(vec3 r){
  r=normalize(r);
  float key=softbox(r,vec3(-.65,.65,1.),.22,.65);
  float fill=softbox(r,vec3(.85,.2,-.7),.3,.8);
  float rim=softbox(r,vec3(.2,-.8,.5),.6,.12);
  return vec3(.1+.12*(r.y*.5+.5))+vec3(.96,.98,1.)*(key*1.35+fill*.8+rim*.45);
+}
+// The same darker bronze is used on numeral borders and the die frame.
+vec3 bronzeSurface(vec3 n,vec3 incoming){
+ float nv=max(.001,dot(n,-incoming));
+ vec3 f0=vec3(.38,.16,.065);
+ vec3 f=f0+(1.-f0)*pow(1.-nv,5.);
+ vec3 environment=studioLight(rotation*reflect(incoming,n));
+ return pow(environment+vec3(.16),vec3(1.5))*f*1.15+vec3(.012,.005,.002);
 }
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
@@ -74,7 +74,7 @@ void main(){
  }
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
- vec3 beyond=textureCube(studio,rotation*ray).rgb;
+ vec3 beyond=studioLight(rotation*ray);
  vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*2.4);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
  if(style!=1){for(int j=0;j<20;j++){
@@ -96,7 +96,7 @@ void main(){
  }
  through=through*exp(-smoke*1.9)+energy;
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
- vec3 reflected=textureCube(studio,rotation*reflect(incoming,n)).rgb;
+ vec3 reflected=studioLight(rotation*reflect(incoming,n));
  vec3 color=mix(through,reflected,fresnel*.88+.07);
  if(style==1){
    // Subtle volcanic flow bands beneath a smooth polish; no granular bump layer.
@@ -104,11 +104,11 @@ void main(){
    float band=1.-smoothstep(.015,.085,abs(flow-.51));
    float cloud=smoothstep(.53,.72,fbm(pos*3.8));
    vec3 stone=vec3(.0008,.0007,.00075)+vec3(.003,.0026,.0024)*band+vec3(.004)*cloud;
-   vec3 polished=pow(obsidianStudio(rotation*reflect(incoming,n))*1.4,vec3(1.5));
+   vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5));
    color=stone+polished*(.045+fresnel*.9);
  }
  color+=energy*.35;
- vec3 halfLight=normalize(normalize(vec3(-.6,.9,1.2))-rotation*incoming);
+ vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
  if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
  if(engraved || metalEdge){
@@ -125,18 +125,21 @@ void main(){
      float grain=fbm(vec3(woodUV.x*75.+warp*16.,woodUV.y*9.,2.));
      // Low-contrast mahogany fibers live beneath a smooth clear lacquer coat.
      vec3 wood=mix(vec3(.027,.006,.003),vec3(.075,.025,.009),grain);
-     float light=.65+.65*max(0.,dot(rotation*tn,normalize(vec3(-.6,.9,1.2))));
+     float light=.65+.65*max(0.,dot(rotation*tn,normalize(vec3(-.65,.65,1.))));
      wood*=light;
      float coat=.045+.955*pow(1.-max(0.,dot(view,tn)),5.);
-     vec3 reflection=obsidianStudio(rotation*reflect(incoming,tn));
+     vec3 reflection=studioLight(rotation*reflect(incoming,tn));
      wood+=reflection*coat*.85;
      // The recess wall occludes the floor; the lip catches a narrow highlight.
      wood*=mix(1.,.36,smoothstep(.35,.9,rim));
      wood+=reflection*.06*smoothstep(.15,.65,rim)*(1.-smoothstep(.7,1.,rim));
      vec3 pocket=mix(vec3(.008,.002,.001),wood,floorMask);
+     float border=max(max(texture2D(etching,tex+vec2(.007,0)).r,texture2D(etching,tex-vec2(.007,0)).r),max(texture2D(etching,tex+vec2(0,.007)).r,texture2D(etching,tex-vec2(0,.007)).r));
+     pocket=mix(pocket,bronzeSurface(n,incoming),smoothstep(.18,.8,border));
      color=mix(color,pocket,1.-cut);
 
    }
+   else if(style==2){color=bronzeSurface(n,incoming);}
    else {
      vec3 f0=style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
@@ -146,12 +149,12 @@ void main(){
      float waviness=(fbm(vec3(tex*9.,4.))-.5)*.16;
      vec3 mn=normalize(n+tangent*(brushing+waviness)+bitangent*sin(tex.y*18.+tex.x*7.)*.035);
      vec3 worldN=rotation*mn,view=normalize(-rotation*incoming);
-     vec3 r=(style!=2?obsidianStudio(rotation*reflect(incoming,mn)):textureCube(studio,rotation*reflect(incoming,mn)).rgb)+vec3(.28,.28,.28);
+     vec3 r=studioLight(rotation*reflect(incoming,mn))+vec3(.28,.28,.28);
      float nv=max(.001,dot(worldN,view));
      vec3 fresnelMetal=f0+(1.-f0)*pow(1.-nv,5.);
      // Conductors are lit by colored reflections, not a yellow/brown diffuse fill.
      vec3 inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
-     vec3 l=normalize(vec3(-.6,.9,1.2)),h=normalize(l+view);
+     vec3 l=normalize(vec3(-.65,.65,1.)),h=normalize(l+view);
      float nl=max(.001,dot(worldN,l)),nh=max(0.,dot(worldN,h)),vh=max(0.,dot(view,h));
      float rough=style==0?.2:style==1?.23:.3,aa=pow(rough,4.);
      float denominator=nh*nh*(aa-1.)+1.;
@@ -188,7 +191,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=['sorcerer','fighter','ranger'].includes(theme.id);
   const style=theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},studio:{value:s.cube},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});

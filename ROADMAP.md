@@ -7,7 +7,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 ## Class dice - September 2026
 
 - [x] Varis green resin dice use dark lacquered wooden numeral inlays with recessed
-  shading and bronze edges. Vanec retains his original bloodglass and glass edges, with reflective silver numerals.
+  shading, bronze numeral borders and darker brown-bronze edges. Vanec retains his original bloodglass and glass edges, with reflective silver numerals.
 
 - [x] Fighter polished black obsidian with inset gold numerals, and ranger green
   resin with embedded natural veining and lacquered wood numerals, across all shapes.
@@ -15,7 +15,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   Fighter obsidian uses smooth polished faces with subtle volcanic flow bands,
   metallic gold edges and gold numerals. Carved chips and granular bump texture removed.
   Critical extras brighten the inlays while retaining the character material.
-  Active material dice target 60 fps; continuous soft studio reflections reduce flashing.
+  Active material dice target 60 fps with a slower tumble and 360 ms landing. All hero
+  materials share one continuous studio light field for reflection and refraction.
 
 - [x] Shared offscreen WebGL material renderer: actual chamfer geometry,
   material grain and recessed numeral shading. Sorcerer dice use tinted glass
