@@ -160,6 +160,8 @@ type Store = {
   setCombatTarget: (id: string) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
+  orbTarget: { rollId: string; targetId?: string } | null;
+  setOrbTarget: (target: { rollId: string; targetId?: string } | null) => void;
   saveResolve: {
     rollId: string;
     dc: number;
@@ -546,9 +548,12 @@ export const useStore = create<Store>((set, get) => ({
   combatTarget: null,
   setCombatTarget: (id) =>
     set((s) => ({ combatTarget: { id, n: (s.combatTarget?.n ?? 0) + 1 } })),
+  orbTarget: null,
+  setOrbTarget: (orbTarget) => set({ orbTarget, ...(orbTarget ? {saveResolve: null} : {}) }),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
     set((s) => ({
+      orbTarget: null,
       saveResolve:
         s.saveResolve?.rollId === saveResolve.rollId
           ? null
@@ -623,6 +628,7 @@ export const useStore = create<Store>((set, get) => ({
       manualAdvantage: {},
       weaponAttackOptions: {},
       combatTarget: null,
+      orbTarget: null,
       saveResolve: null,
     });
 

@@ -7,3 +7,7 @@
 .orb-end { display:block; margin:12px auto 0; }
 @keyframes orb-arrive { from { opacity:0; transform:translate(-50%,12px); } to { opacity:1; transform:translate(-50%,0); } }
 @media(prefers-reduced-motion:reduce) { .orb-prompt { animation:none; } }
+
+.orb-prompt.orb-picking { left:auto; right:12px; bottom:100px; transform:none; width:min(320px,90vw); animation:none; }
+.orb-picking .orb-matches { display:none; }
+.orb-picking>strong { font-size:16px; }
