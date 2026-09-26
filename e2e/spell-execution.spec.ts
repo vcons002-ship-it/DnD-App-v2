@@ -305,6 +305,10 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   const prompt=page.getByRole('region',{name:'Chromatic Orb',exact:true});
   await expect(prompt).toContainText('Matching dice');
   await expect(prompt).toContainText('Leap 1 of 7');
+  await expect(prompt.locator('.orb-targets')).not.toContainText('Vanec');
+  await prompt.getByLabel('Include allies').check();
+  await expect(prompt.locator('.orb-targets')).toContainText('Vanec');
+  await prompt.getByLabel('Include allies').uncheck();
   await expect(prompt.locator('.orb-matches span')).not.toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('orb-matching-dice.png'),animations:'disabled'});
   const used=(await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used;
