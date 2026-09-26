@@ -12,8 +12,8 @@ import type { RollComparison } from '../../../shared/types';
 const STEP_MS = 550; // each to-hit / modifier chip flying in
 const OUTCOME_MS = 340; // beat before the HIT/MISS stamp
 const DMG_GAP_MS = 300; // beat before the damage dice start rolling
-const HOLD_MS = 2600; // linger on the final numbers after damage concludes
-const DART_HOLD_MS = 2600; // linger for a damage-only burst (Fireball cast / MM dart)
+const HOLD_MS = 6500; // linger on the final numbers after damage concludes
+const DART_HOLD_MS = 6500; // linger for a damage-only burst (Fireball cast / MM dart)
 
 type Stage = {
   phase: 'rolling' | 'landing' | 'tohit' | 'outcome' | 'damage';

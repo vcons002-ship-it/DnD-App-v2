@@ -55,7 +55,7 @@ vec3 studioLight(vec3 r){
  float rim=softbox(r,vec3(.2,-.8,.5),.6,.12);
  return vec3(.1+.12*(r.y*.5+.5))+vec3(.96,.98,1.)*(key*1.35+fill*.8+rim*.45);
 }
-// The same darker bronze is used on numeral borders and the die frame.
+// Keep the frame dark; numeral rims use a brighter copper-bronze for legibility.
 vec3 bronzeSurface(vec3 n,vec3 incoming){
  float nv=max(.001,dot(n,-incoming));
  vec3 f0=vec3(.38,.16,.065);
@@ -134,8 +134,9 @@ void main(){
      wood*=mix(1.,.36,smoothstep(.35,.9,rim));
      wood+=reflection*.06*smoothstep(.15,.65,rim)*(1.-smoothstep(.7,1.,rim));
      vec3 pocket=mix(vec3(.008,.002,.001),wood,floorMask);
-     float border=max(max(texture2D(etching,tex+vec2(.007,0)).r,texture2D(etching,tex-vec2(.007,0)).r),max(texture2D(etching,tex+vec2(0,.007)).r,texture2D(etching,tex-vec2(0,.007)).r));
-     pocket=mix(pocket,bronzeSurface(n,incoming),smoothstep(.18,.8,border));
+     float border=max(max(texture2D(etching,tex+vec2(.010,0)).r,texture2D(etching,tex-vec2(.010,0)).r),max(texture2D(etching,tex+vec2(0,.010)).r,texture2D(etching,tex-vec2(0,.010)).r));
+     vec3 brightBronze=bronzeSurface(n,incoming)*2.1+vec3(.22,.105,.035);
+     pocket=mix(pocket,brightBronze,smoothstep(.18,.8,border));
      color=mix(color,pocket,1.-cut);
 
    }

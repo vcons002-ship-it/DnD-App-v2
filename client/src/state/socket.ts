@@ -680,10 +680,10 @@ export const useStore = create<Store>((set, get) => ({
               rollId: fresh.id,
               reveal: snapshot.role === 'player' ? withRollComparison(fresh.reveal, fresh.detail) : fresh.reveal,
             } });
-            // The overlay self-dismisses. A fixed 5s cutoff truncated large
-            // dice pools/modifier sequences; budget the fallback from content.
-            const count = (fresh.reveal.damageDice ?? []).reduce((sum, step) => sum + (step.faces?.length ?? 1), 0);
-            const safetyMs = 6000 + count * 150 + ((fresh.reveal.toHit?.length ?? 0) + (fresh.reveal.damageMods?.length ?? 0)) * 300;
+            // The overlay owns normal dismissal after physics and modifiers settle.
+            // Allow worker startup, up to two physical tosses, and the reading hold;
+            // this is only a recovery timeout for a broken reveal, not its pacing.
+            const safetyMs = 90000 + ((fresh.reveal.toHit?.length ?? 0) + (fresh.reveal.damageMods?.length ?? 0)) * 550;
             setTimeout(
               () => { if (get().rollFx?.id === fxId) get().dismissRollFx(); },
               safetyMs,

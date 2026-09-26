@@ -150,6 +150,9 @@ test('attack and manual damage totals wait for the actual 3D dice landing', asyn
   await testInfo.attach('timing', { path, contentType: 'application/json' });
   console.log(`REVEAL_TIMING ${JSON.stringify(summary)}`);
   if (process.env.DND_TIMING_BASELINE === '1') return;
+  const outcomeAt = attack!.samples.find((sample: any) => sample.outcome)?.time;
+  const lastAttackVisible = attack!.samples.findLast((sample: any) => sample.visible)?.time;
+  expect(lastAttackVisible - outcomeAt).toBeGreaterThanOrEqual(6200);
   expect(summary.attackFirstTotal).toBeGreaterThanOrEqual(summary.attackLanded);
   expect(summary.damageFirstTotal).toBeGreaterThanOrEqual(summary.damageFirstLanded);
   expect(summary.damageFloater).toBeGreaterThanOrEqual(summary.damageFinalTotal - 20);

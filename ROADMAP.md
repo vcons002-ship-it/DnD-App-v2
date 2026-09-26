@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Physics dice tray - September 2026
 
+- [x] Dice scale smoothly with the full physical pool, with prominent one/two-die
+  rolls and room for up to 40 dice. Final results hold for 6.5 seconds; the legacy
+  short safety timer no longer cuts off physics or notifications. Varis numeral
+  rims use wider, brighter bronze while retaining lacquered wood and dark frames.
+
 - [x] Larger die result cards and a readable animated equation with labeled
   bonuses/penalties, a prominent total, and longer reading time. Existing
   hit/miss/fumble/critical-hit notifications and sounds remain in sequence.

@@ -15,8 +15,11 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
   box(0,0,-.2,7.2,4.7,.2);
   box(-7.2,0,3,.2,4.7,3);box(7.2,0,3,.2,4.7,3);
   box(0,-4.7,3,7.4,.2,3);box(0,4.7,3,7.4,.2,3);
-  const radius=dice.length>20?.36:dice.length>12?.48:dice.length>6?.62:.85;
-  const cols=Math.min(6,dice.length),spacing=radius*2.25;
+  // Size the complete physical pool, including compared sets and critical dice.
+  // A gentle curve keeps small rolls prominent; grid bounds leave tossing room.
+  const cols=Math.max(1,Math.ceil(Math.sqrt(dice.length*1.5))),rows=Math.max(1,Math.ceil(dice.length/cols));
+  const radius=Math.min(1.5,1.8/Math.pow(Math.max(1,dice.length),.25),5.6/cols,3.2/rows);
+  const spacing=radius*2.25;
   const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
   const bodies=meshes.map((mesh,i)=>{
     const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));
@@ -26,7 +29,7 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
       return n.dot(a)<0?[...ids].reverse():[...ids];
     });
     const body=new Body({mass:1,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.2,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
-    body.position.set(-5.2+(i%cols)*spacing,-2.6+Math.floor(i/cols)*spacing,2.6+random()*.65);
+    body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,2.6+random()*.65);
     body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
     body.velocity.set(2.6+random()*4.55,1.3+random()*3.9,random()*1.5);
     body.angularVelocity.set((random()-.5)*25,(random()-.5)*25,(random()-.5)*18);

@@ -17,6 +17,14 @@ describe('physics dice tray',()=>{
   const dice=Array.from({length:14},(_,index)=>({sides:index%2?8:6,value:3,index,set:0}));
   const a=simulateToss(dice,17),b=simulateToss(dice,17);expect(a.frames).toEqual(b.frames);expect(a.topFaces).toEqual(b.topFaces);
  });
+ it('scales dice down gradually with the full physical pool and settles large pools',()=>{
+  let previous=Infinity;
+  for(const count of [1,2,4,8,14,20,40]){
+   const dice=Array.from({length:count},(_,index)=>({sides:6,value:3,index,set:0}));
+   const toss=simulateToss(dice,42);expect(toss.radius).toBeLessThanOrEqual(previous);previous=toss.radius;
+   expect(toss.duration).toBeLessThanOrEqual(12);
+  }
+ });
  it('splits percentile 100 without losing logical roll identity',()=>{
   const dice=physicalDice([{sides:100,value:100,index:2,set:1}]);expect(dice.map(x=>x.value)).toEqual([0,0]);expect(dice.every(x=>x.index===2&&x.set===1)).toBe(true);
  });
