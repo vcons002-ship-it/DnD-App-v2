@@ -55,9 +55,20 @@ float margin(vec3 p){
  return 1.-smoothstep(.018,.115,second);
 }
 float fractureHeight(vec3 p){
- float radius=length((p-vec3(.27,.83,.91))*vec3(1.,.83,1.14));
- float arc=radius*23.+noise(p*2.)*.8;
- return margin(p)*(.006*sin(arc)+.012*noise(p*3.));
+ // Overlapping angular flake scars with sharp lips and shallow floors.
+ // No periodic waves: most of each face remains an unbroken glass plane.
+ float depth=0.;
+ for(int i=0;i<28;i++){
+   float seed=float(i)+1.;
+   vec3 center=vec3(hash(vec3(seed,2,3)),hash(vec3(4,seed,6)),hash(vec3(7,8,seed)))*2.-1.;
+   float radius=.16+hash(vec3(seed,19,2))*.24;
+   vec3 q=(p-center)/radius;
+   float d=max(abs(q.x+.32*q.y),max(abs(q.y-.27*q.z),abs(q.z+.41*q.x)));
+   // Unequal planar flakes meet along sharp irregular ridges.
+   float scar=max(0.,1.-d)*.045;
+   depth=max(depth,scar);
+ }
+ return -depth;
 }
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
@@ -65,10 +76,10 @@ void main(){
  if(style==1){
    vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
    vec3 tu=normalize(axis-n*dot(axis,n)),tv=cross(n,tu);
-   // Broad shell-like fracture ridges are confined to the margins.
+   // Separate flake scars have crisp lips, rather than wavy polished normals.
    float a=(fractureHeight(pos+tu*.003)-fractureHeight(pos-tu*.003))/.006;
    float b=(fractureHeight(pos+tv*.003)-fractureHeight(pos-tv*.003))/.006;
-   n=normalize(n-tu*a-tv*b);
+   n=normalize(n-(tu*a+tv*b)*margin(pos));
  }
  if(engraved){
  vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);vec3 tangent=normalize(axis-n*dot(axis,n));vec3 bitangent=cross(n,tangent);
@@ -105,17 +116,14 @@ void main(){
  if(style==1){
    // Smooth, jet-black fracture planes; pale accents are reflected light,
    // never a white speckle/albedo layer painted over the whole surface.
-   vec3 wr=rotation*reflect(incoming,n);
-   float window=smoothstep(.86,.97,dot(wr,normalize(vec3(-.65,.7,.55))));
-   float fillWindow=smoothstep(.92,.99,dot(wr,normalize(vec3(.75,-.4,.65))));
-   vec3 reflectedStone=reflected+vec3(window*2.2+fillWindow*1.4);
+   vec3 reflectedStone=reflected*1.4;
    vec3 polished=pow(reflectedStone,vec3(1.5));
    color=vec3(.0006,.0005,.00055)+polished*(.045+fresnel*.9);
 
  }
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.6,.9,1.2))-rotation*incoming);
- color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
+ if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
  if(engraved){
    if(style==0)color=mix(color,vec3(.86,.75,.64), (1.-cut)*.75);
@@ -161,8 +169,8 @@ function carveObsidian(geometry: THREE.BufferGeometry, planes: THREE.Vector4[]) 
   const cut=(p:THREE.Vector3)=>{
     const distances=planes.filter(v=>v.lengthSq()>0).map(v=>Math.abs(v.w-v.x*p.x-v.y*p.y-v.z*p.z)).sort((a,b)=>a-b);
     const t=THREE.MathUtils.smoothstep(distances[1],.012,.09);
-    const scallop=.5+.5*Math.sin(p.x*6.+p.y*9.+p.z*5.+Math.sin(p.y*4.));
-    return p.clone().multiplyScalar(1-(1-t)*(.004+.017*scallop));
+    const chip=Math.max(0,1-Math.abs(p.x*3.7+p.y*5.1-p.z*2.3));
+    return p.clone().multiplyScalar(1-(1-t)*(.001+.004*chip));
   };
   const steps=10;
   for(let i=0;i<positions.count;i+=3){
