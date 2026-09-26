@@ -1,4 +1,7 @@
+import { offerRiposte, listRipostes, removeRiposte, RIPOSTE_SPENT } from './reactions.js';
+import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {
+  isDeadEntity,
   addRollLog,
   applyDamage,
   getCharacter,
@@ -6,6 +9,8 @@ import {
   getRollEntry,
   setRollApply,
   setRollPending,
+  setRollSmite,
+  spendSpellSlot,
   getSessionById,
   getToken,
   getMap,
@@ -17,6 +22,7 @@ import {
   setSheetAbility,
   setTokensCondition,
   setConcentration,
+  setCondition,
   setDeathSaves,
   setItem,
   removeItem,
@@ -25,6 +31,9 @@ import {
 import { newId } from './db.js';
 import {
   damageMultiplier,
+  damageParts,
+  weaponIsMagical,
+  type DamageSource,
   profBonusFor,
   rollD20Detail,
   rollSavingThrow,
@@ -40,10 +49,11 @@ import {
   checkAdvantage,
   autoCritFromConditions,
 } from '../../shared/conditionEffects.js';
-import { tokensWithin5ft } from '../../shared/distance.js';
+import { tokensWithin5ft, tokenDistanceFt } from '../../shared/distance.js';
 import { rollDice, type DiceResult } from '../../shared/dice.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
+import { smiteChoices, smiteDiceTerms, type SmiteChoice } from '../../shared/smite.js';
 import { criticalDiceExpression, effectiveSheetAbility, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
   effectiveDice,
@@ -66,6 +76,7 @@ import type {
   ManeuverSpec,
   Monster,
   RollEntry,
+  SmiteOpportunity,
   RollReveal,
   SheetAbility,
   Token,
@@ -84,12 +95,49 @@ type Resolved = {
   conditionLabels: string[];
   resistances: string[];
   weaknesses: string[];
+  /** Damage types it takes no damage from (see `damageMultiplier`). */
+  immunities: string[];
   /** Ability codes proficient in for saving throws. */
   saveProficiencies: string[];
   /** Modifier source (a PC's character) for flat save/skill/attack bonuses from
    *  feats + equipped magic items; undefined for monsters (no modifiers). */
   mod?: ModSource;
 };
+
+/** A creature's stances that are currently switched ON. */
+function activeStances(kind: TokenKind, refId: string): SheetAbility[] {
+  const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  return (e?.sheetAbilities ?? []).filter((ab) => ab.type === 'stance' && !!ab.stance?.active);
+}
+
+/** Resistances an active stance grants on top of the stat block (Rage). */
+function stanceResistances(kind: TokenKind, refId: string): string[] {
+  return activeStances(kind, refId).flatMap((ab) => ab.stance!.grantsResistances ?? []);
+}
+
+/** Named advantage on a Strength check or save from an active stance (Rage). */
+function strFeatureAdv(kind: TokenKind, refId: string, ability: string): string[] {
+  if (ability.trim().toUpperCase() !== 'STR') return [];
+  return activeStances(kind, refId)
+    .filter((ab) => ab.stance!.advOnStrChecks)
+    .map((ab) => ab.name);
+}
+
+/** Advantage attackers get against a creature because of ITS own active stance
+ *  (Reckless Attack's price), as named reasons. */
+function targetGivesAdvantage(kind: TokenKind, refId: string): string[] {
+  return activeStances(kind, refId)
+    .filter((ab) => ab.stance!.enemiesHaveAdvantage)
+    .map((ab) => `target ${ab.name}`);
+}
+
+/** A stance's flat bonus at this level: the highest `bonusDamageAtLevels`
+ *  threshold at or below it, else its plain `bonusDamage`. */
+function stanceBonusAt(st: NonNullable<SheetAbility['stance']>, level: number): string | undefined {
+  const steps = (st.bonusDamageAtLevels ?? []).filter((x) => level >= x.level);
+  if (steps.length === 0) return st.bonusDamage;
+  return steps.reduce((best, x) => (x.level > best.level ? x : best)).bonus;
+}
 
 function resolve(token: Token): Resolved | null {
   if (token.kind === 'pc') {
@@ -105,8 +153,9 @@ function resolve(token: Token): Resolved | null {
       kind: 'pc',
       refId: ch.id,
       conditionLabels: ch.conditions.map((c) => c.label),
-      resistances: ch.resistances,
+      resistances: [...ch.resistances, ...stanceResistances('pc', ch.id)],
       weaknesses: ch.weaknesses,
+      immunities: ch.immunities ?? [],
       saveProficiencies: ch.saveProficiencies,
       mod: ch,
     };
@@ -121,8 +170,9 @@ function resolve(token: Token): Resolved | null {
     kind: 'monster',
     refId: m.id,
     conditionLabels: m.conditions.map((c) => c.label),
-    resistances: m.resistances,
+    resistances: [...m.resistances, ...stanceResistances('monster', m.id)],
     weaknesses: m.weaknesses,
+    immunities: m.immunities ?? [],
     saveProficiencies: m.saveProficiencies,
   };
 }
@@ -240,7 +290,21 @@ function applyDamageNoted(
   }
   const hp = (e: { curHp: number; tempHp: number }) =>
     `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
-  return { kind, refId, text: `${after.name} HP ${hp(before)}→${hp(after)}` };
+  // A PC this hit KILLED (third failure, or massive damage) — say so, so the
+  // death is visible in the log and not just implied by the pips.
+  const killed =
+    kind === 'pc' &&
+    (before as Character).deathSaves.failures < 3 &&
+    (after as Character).deathSaves.failures >= 3;
+  const massive =
+    killed && amount - before.tempHp - before.curHp >= before.maxHp && before.curHp > 0;
+  return {
+    kind,
+    refId,
+    text:
+      `${after.name} HP ${hp(before)}→${hp(after)}` +
+      (killed ? (massive ? ' — DEAD (massive damage)' : ' — DEAD') : ''),
+  };
 }
 
 /**
@@ -258,7 +322,8 @@ export function noteConcentration(
   if (damage <= 0) return;
   const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!e || !e.conditions.some((c) => c.isConcentration)) return;
-  const dc = Math.max(10, Math.floor(damage / 2));
+  // DC = half the damage, minimum 10 — and at most 30 (2024 PHB).
+  const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)));
   addRollLog(sessionId, {
     roller: 'DM',
     label: 'Concentration',
@@ -284,6 +349,7 @@ export function resolveAttack(
   /** The attacking PLAYER's claimed character — allowed to roll the deferred
    *  damage alongside the DM (they may be attacking with a companion/summon). */
   ownerCharacterId?: string,
+  riposteAbilityId?: string,
 ): boolean {
   const at = getToken(attackerTokenId);
   const tt = getToken(targetTokenId);
@@ -337,8 +403,9 @@ export function resolveAttack(
     const hasDie = !!pool && pool.used < pool.max;
     const man = ch.sheetAbilities.find(
       (ab) =>
-        ab.type === 'maneuver' &&
-        ab.maneuver?.active &&
+        ab.type === 'maneuver' && !isOnHitManeuver(ab) &&
+        (riposteAbilityId ? ab.id === riposteAbilityId : ab.name.trim().toLowerCase() !== 'riposte' && ab.maneuver?.active) &&
+        !!ab.maneuver &&
         ((ab.maneuver.appliesToTags ?? []).length === 0 ||
           (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
     );
@@ -358,7 +425,9 @@ export function resolveAttack(
   // Active class-feature stances (Rage, Reckless Attack, Hunter's Mark): a flat
   // damage bonus folds into the damage number (like flat mastery damage), dice
   // damage rolls on a hit below, and a stance can grant advantage on the attack.
-  let stanceAdvantage = false;
+  // Stances granting advantage, by name — they join the adv/dis pile as reasons.
+  const stanceAdvNames: string[] = [];
+  let stanceMagical = false;
   let stanceRerollDamage = false;
   let stanceExtraCritDie = false;
   const stanceRerollNames: string[] = [];
@@ -371,7 +440,8 @@ export function resolveAttack(
     if (st.appliesTo === 'ranged' && weapon.kind !== 'ranged') continue;
     // A marking stance (Hunter's Mark) only affects attacks on its marked target.
     if (st.targeted && st.targetId !== targetTokenId) continue;
-    if (st.grantsAdvantage) stanceAdvantage = true;
+    if (st.grantsAdvantage) stanceAdvNames.push(ab.name);
+    if (st.magicalAttacks) stanceMagical = true;
     // Savage Attacker: roll the weapon's damage dice twice, keep the better set.
     if (st.rerollDamageDice) {
       stanceRerollDamage = true;
@@ -384,11 +454,13 @@ export function resolveAttack(
       stanceRerollNames.push(ab.name);
     }
     if (st.onHitSave) onHitStances.push(ab);
-    if (st.bonusDamage) {
-      if (/d\d/i.test(st.bonusDamage)) {
-        stanceDice.push({ label: ab.name, dice: st.bonusDamage });
+    // Level-scaled bonus (Rage +2/+3/+4) where defined, else the plain bonus.
+    const stanceBonus = stanceBonusAt(st, a.c.level);
+    if (stanceBonus) {
+      if (/d\d/i.test(stanceBonus)) {
+        stanceDice.push({ label: ab.name, dice: stanceBonus });
       } else {
-        const flat = parseInt(st.bonusDamage.trim(), 10);
+        const flat = parseInt(stanceBonus.trim(), 10);
         if (Number.isFinite(flat) && flat !== 0) {
           flatBonus += flat;
           flatLabels.push(ab.name);
@@ -406,12 +478,19 @@ export function resolveAttack(
   // automatic critical hit.
   const within5 = tokensWithin5ft(at, tt, getMap(at.mapId));
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
+  // Feature advantage (a maneuver, Reckless Attack) is a named REASON, not a
+  // replacement for what the player requested: a requested disadvantage now
+  // cancels it to a straight roll instead of silently erasing it.
   const adv = attackAdvantage(
     a.conditionLabels,
     t.conditionLabels,
     within5,
-    advantage ??
-      (maneuverFired?.spec.grantsAdvantage || stanceAdvantage ? 'adv' : undefined),
+    advantage,
+    [
+      ...(maneuverFired?.spec.grantsAdvantage ? [maneuverFired.ability.name] : []),
+      ...stanceAdvNames,
+      ...targetGivesAdvantage(t.kind, t.refId),
+    ],
   );
 
   // Flat attack-roll bonus from the attacker's feats / equipped magic items
@@ -463,7 +542,9 @@ export function resolveAttack(
       if (r.total) damageBreakdown.mods.push({ label: `${source} not applied`, value: -r.total });
       return 0;
     }
-    const critical = out.crit ? rollDice(expr) : null;
+    // Only the DICE roll again — a rider's flat part ("1d4+1") never doubles.
+    const critDice = out.crit ? damageParts(expr).dice : '';
+    const critical = critDice ? rollDice(critDice) : null;
     if (critical) appendDamageBreakdownRoll(damageBreakdown, critical, `${source} CRIT`);
     const total = r.total + (critical?.total ?? 0);
     if (total <= 0) damageBreakdown.mods.push({ label: `${source} not applied`, value: -total });
@@ -498,6 +579,16 @@ export function resolveAttack(
       }
     }
   }
+  // A damage Superiority Die is one of the attack's damage dice, so a crit rolls
+  // it a second time (RAW). It was folded in before the crit was known.
+  if (out.crit && maneuverFired?.spec.addDieTo === 'damage' && ch) {
+    const again = rollDice(ch.superiorityDie || 'd8');
+    if (again && again.total > 0) {
+      appendDamageBreakdownRoll(damageBreakdown, again, `${maneuverFired.ability.name} CRIT`);
+      extra += again.total;
+      masteryNotes.push(`+${again.total}[${maneuverFired.ability.name} CRIT]`);
+    }
+  }
 
   // Note the ability modifier omitted by Cleave / an off-hand attack.
   if (out.hit && noAbilityMod) {
@@ -517,49 +608,66 @@ export function resolveAttack(
   }
 
   let applied = (out.hit ? out.damage : 0) + extra;
-  // Apply the target's resistance/vulnerability to the weapon's damage type.
-  const mult = damageMultiplier(weapon.damageType, t.resistances, t.weaknesses);
+  // What the attack IS, for overcoming conditional traits: a magical weapon (by
+  // flag or bonus) or an active magical-attacks feature beats "nonmagical"
+  // resistance; a silvered weapon beats "non-silvered".
+  const attackSource: DamageSource = {
+    magical: weaponIsMagical(weapon) || stanceMagical,
+    silvered: !!weapon.silvered,
+  };
+  // Apply the target's immunity/resistance/vulnerability to the weapon's type.
+  const mult = damageMultiplier(
+    weapon.damageType, t.resistances, t.weaknesses, t.immunities, attackSource,
+  );
+  const weaponRawDamage = applied;
   if (mult !== 1 && applied > 0) {
     const beforeResistance = applied;
     applied = Math.floor(applied * mult);
+    const how = mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vulnerable';
     if (out.hit) damageBreakdown.mods.push({
-      label: `${weapon.damageType || 'weapon'} ${mult < 1 ? 'resisted' : 'vulnerable'}`,
+      label: `${weapon.damageType || 'weapon'} ${how}`,
       value: applied - beforeResistance,
     });
     masteryNotes.push(
-      mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
+      mult === 0
+        ? `immune (${weapon.damageType})`
+        : mult < 1 ? `½ resisted (${weapon.damageType})` : `×2 vulnerable (${weapon.damageType})`,
     );
   }
   // Secondary damage rider of a different type (e.g. a flaming sword's fire),
-  // rolled ONCE on a hit — never doubled on a crit (only the weapon's own dice
-  // crit) — and resisted on its OWN type.
+  // resisted on its OWN type. RAW: a crit doubles ALL of the attack's damage
+  // dice, so it goes through `rollRiderDice` like every other rider.
+  let extraImmune = false;
   if (out.hit && weapon.extraDamage) {
-    const secondaryRoll = rollDice(weapon.extraDamage);
-    let ex = secondaryRoll?.total ?? 0;
-    const exMult = damageMultiplier(weapon.extraDamageType, t.resistances, t.weaknesses);
-    ex = Math.floor(ex * exMult);
-    if (secondaryRoll) {
-      const source = `${weapon.extraDamageType || 'extra'} rider`;
-      appendDamageBreakdownRoll(damageBreakdown, secondaryRoll, source);
-      const adjustment = Math.max(0, ex) - secondaryRoll.total;
-      if (adjustment) damageBreakdown.mods.push({
-        label: ex > 0
-          ? `${weapon.extraDamageType || 'extra'} ${exMult < 1 ? 'resisted' : 'vulnerable'}`
-          : `${source} not applied`,
-        value: adjustment,
+    const exType = weapon.extraDamageType || 'extra';
+    const rolled = rollRiderDice(weapon.extraDamage, `${exType} rider`);
+    const exMult = damageMultiplier(
+      weapon.extraDamageType, t.resistances, t.weaknesses, t.immunities, attackSource,
+    );
+    const ex = Math.floor(rolled * exMult);
+    if (rolled > 0 && ex !== rolled) {
+      damageBreakdown.mods.push({
+        label: `${exType} ${exMult === 0 ? 'immune' : exMult < 1 ? 'resisted' : 'vulnerable'}`,
+        value: ex - rolled,
       });
+    }
+    if (rolled > 0 && exMult === 0) {
+      extraImmune = true;
+      masteryNotes.push(`immune (${exType})`);
     }
     if (ex > 0) {
       applied += ex;
       if (weapon.extraDamageType?.toLowerCase() !== weapon.damageType?.toLowerCase()) {
         damageBreakdown.mixedTypes = true;
       }
-      const exType = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
+      const typeLabel = weapon.extraDamageType ? ` ${weapon.extraDamageType}` : '';
       const exNote = exMult < 1 ? ' (½ resisted)' : exMult > 1 ? ' (×2 vuln)' : '';
-      masteryNotes.push(`+${ex}${exType}${exNote}`);
+      masteryNotes.push(`+${ex}${typeLabel}${exNote}`);
     }
   }
-  if (out.hit) applied = Math.max(1, applied); // a hit always deals at least 1
+  // A hit always deals at least 1 — unless the target is immune to what landed.
+  const immuneToAll = mult === 0 && (!weapon.extraDamage || extraImmune);
+  if (out.hit && !immuneToAll) applied = Math.max(1, applied);
   if (out.hit) {
     const finalAdjustment = applied - damageBreakdownTotal(damageBreakdown);
     if (finalAdjustment) damageBreakdown.mods.push({ label: 'minimum damage', value: finalAdjustment });
@@ -574,9 +682,20 @@ export function resolveAttack(
   // on the roll entry and a second click ("Roll damage") plays the dice reveal
   // and takes the HP off. A MISS is unaffected: Graze damage is a flat ability
   // modifier, not a roll, so it still lands with the attack.
-  const deferDamage =
-    !!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0;
-  const damageSteps = out.hit && applied > 0
+  const smiteAbility = out.hit && ch && weapon.kind === 'melee'
+    ? ch.sheetAbilities.find((ab) => !!ab.smite)
+    : undefined;
+  // The player chooses Smite after seeing the hit, but before ANY of this hit's
+  // damage lands. Both modes use the same pending hit so death, temporary HP,
+  // kill credit and concentration are evaluated once for the combined damage.
+  const canSmite = !!(smiteAbility && ch && smiteChoices(ch, smiteAbility).length);
+  const maneuverOptions = out.hit && ch && !maneuverFired &&
+    ch.resources['Superiority Dice']?.used < ch.resources['Superiority Dice']?.max
+    ? ch.sheetAbilities.filter(ab => isOnHitManeuver(ab) &&
+      (!ab.maneuver?.appliesToTags?.length || ab.maneuver.appliesToTags.some(tag => wtags.includes(tag.trim().toLowerCase())))) : [];
+  const deferDamage = canSmite || maneuverOptions.length > 0 ||
+    (!!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0);
+  const damageSteps = out.hit && (applied > 0 || canSmite || maneuverOptions.length > 0)
     ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
     : [];
   const attackRollId = newId();
@@ -585,6 +704,29 @@ export function resolveAttack(
     hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
+  // RAW the smite comes IMMEDIATELY after its hit, so this character's new
+  // swing closes any earlier smite window they left open.
+  if (ch) {
+    for (const e of listRollLog(sessionId)) {
+      if (e.pending?.maneuver && e.pending.attacker.kind === 'pc' && e.pending.attacker.refId === ch.id)
+        setRollPending(e.id, {...e.pending, maneuver: undefined});
+      if (e.smite && !e.smite.used && e.smite.owner === ch.id)
+        setRollSmite(e.id, { ...e.smite, used: true });
+    }
+  }
+  // 2024 Divine Smite is cast right AFTER a qualifying hit — a melee weapon or
+  // an unarmed strike — so the player chooses with hit and crit already known.
+  // Record the chance on this hit; it's offered only while a way to cast remains.
+  const smiteOpp: SmiteOpportunity | undefined =
+    smiteAbility && ch && canSmite
+      ? {
+          owner: ch.id,
+          abilityId: smiteAbility.id,
+          abilityName: smiteAbility.name,
+          target: { kind: t.kind, refId: t.refId, name: t.name, tokenId: targetTokenId },
+          crit: out.crit,
+        }
+      : undefined;
   addRollLog(sessionId, {
     roller,
     label: 'Attack',
@@ -618,6 +760,7 @@ export function resolveAttack(
         : {}),
     },
     hideMods: hidesMods(at.kind, at.refId),
+    ...(smiteOpp ? { smite: smiteOpp } : {}),
     ...(deferDamage
       ? {
           pending: {
@@ -625,6 +768,11 @@ export function resolveAttack(
             attacker: { kind: at.kind, refId: at.refId },
             weapon: weapon.name,
             amount: applied,
+            ...(maneuverOptions.length ? { maneuver: { abilityIds: maneuverOptions.map(ab => ab.id),
+              rawDamage: weaponRawDamage, multiplier: mult,
+              minimumAdjustment: damageBreakdown.mods.filter(m => m.label === 'minimum damage').reduce((sum, m) => sum + m.value, 0),
+              dc: 8 + profBonusFor(a.c) + Math.max(abilityMod(effectiveStats(a.c).scores.STR ?? 10), abilityMod(effectiveStats(a.c).scores.DEX ?? 10)),
+            } } : {}),
             ...(fxType ? { damageType: fxType } : {}),
             crit: out.crit,
             dice: out.damageDiceSteps,
@@ -697,7 +845,216 @@ export function resolveAttack(
       mastery: { ...ab.mastery!, active: false },
     });
   }
+  if (!out.hit && weapon.kind === 'melee') createRiposteOpportunity(sessionId, tt, at);
   return true;
+}
+
+/**
+ * The spell-slot level a roll of this ability spends, or null if it spends none.
+ * A leveled spell, or a spell-backed stance (Hunter's Mark), spends at the level
+ * it's cast (never below its own). So does a non-spell ability whose roll
+ * declares a spell level — slot-fuelled by its own text: the legacy "Divine
+ * Smite" ability ("expend a spell slot"), which used to roll for free. It is the
+ * only such entry, so the rule touches nothing else.
+ */
+export function castSlotLevel(ability: SheetAbility, castLevel?: number): number | null {
+  const slotFuelled =
+    ability.type !== 'spell' && ability.type !== 'stance' && (ability.roll?.baseLevel ?? 0) >= 1;
+  const base = slotFuelled
+    ? ability.roll!.baseLevel!
+    : (ability.type === 'spell' || ability.type === 'stance') ? ability.level ?? 0 : 0;
+  if (base < 1) return null;
+  return Math.min(9, Math.max(base, castLevel ?? base));
+}
+
+function createRiposteOpportunity(sessionId: string, tt: Token, at: Token): void {
+  if (tt.kind !== 'pc') return;
+  const defender = getCharacter(tt.refId);
+  const riposte = defender?.sheetAbilities.find(ab => ab.type === 'maneuver' && ab.maneuver?.addDieTo === 'damage' && ab.name.trim().toLowerCase() === 'riposte');
+  const indices = riposteWeapons(sessionId, tt.id, at.id);
+  if (defender && riposte && indices.length) offerRiposte(sessionId, {
+    id: newId(), owner: defender.id, defenderTokenId: tt.id, attackerTokenId: at.id,
+    abilityId: riposte.id, expiresAt: Date.now() + 30000, weaponIndices: indices,
+  });
+}
+
+/** A reaction attack must still be possible when its button is clicked. */
+function riposteWeapons(sessionId: string, defenderId: string, attackerId: string): number[] {
+  const defender = getToken(defenderId), attacker = getToken(attackerId);
+  if (!defender || !attacker || defender.kind !== 'pc' || defender.mapId !== attacker.mapId) return [];
+  const map = getMap(defender.mapId);
+  const ch = getCharacter(defender.refId);
+  const foe = resolve(attacker);
+  const pool = ch?.resources['Superiority Dice'];
+  if (map?.sessionId !== sessionId || getSessionById(sessionId)?.activeMapId !== map.id || !ch || !foe || ch.curHp <= 0 || isDeadEntity(attacker.kind, (attacker.kind === 'pc' ? getCharacter(attacker.refId) : getMonster(attacker.refId))!) ||
+      !pool || pool.used >= pool.max || ch.conditions.some(c =>
+        ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious', RIPOSTE_SPENT.toLowerCase()].includes(c.label.toLowerCase()))) return [];
+  const tags = ch.sheetAbilities.find(a => a.name.trim().toLowerCase() === 'riposte')?.maneuver?.appliesToTags;
+  return ch.weapons.flatMap((weapon, index) => {
+    if (tags?.length && !tags.some(t => weapon.tags?.some(w => w.trim().toLowerCase() === t.trim().toLowerCase()))) return [];
+    const reach = Number(/(\d+)/.exec(weapon.range ?? '')?.[1]) || (weapon.tags?.some(t => t.toLowerCase() === 'reach') ? 10 : 5);
+    return weapon.kind === 'melee' && tokenDistanceFt(defender, attacker, map) <= reach + 1e-6 ? [index] : [];
+  });
+}
+
+export function resolveRiposte(sessionId: string, roller: string, id: string, weaponIndex?: number, pass = false): {ok: true} | {ok: false; reason: string} {
+  const offer = listRipostes(sessionId).find(o => o.id === id);
+  if (!offer) return {ok: false, reason: 'That Riposte opportunity has expired.'};
+  if (pass) { removeRiposte(id); return {ok: true}; }
+  const ch = getCharacter(offer.owner);
+  const ability = ch?.sheetAbilities.find(a => a.id === offer.abilityId && a.type === 'maneuver' && a.name.trim().toLowerCase() === 'riposte' && a.maneuver);
+  if (!ch || !ability || !Number.isInteger(weaponIndex) || !riposteWeapons(sessionId, offer.defenderTokenId, offer.attackerTokenId).includes(weaponIndex!))
+    return {ok: false, reason: 'Riposte is no longer available: check your weapon reach, reaction and Superiority Dice.'};
+  removeRiposte(id);
+  setCondition('pc', ch.id, {id: newId(), label: RIPOSTE_SPENT, aura: 'blue', isConcentration: false});
+  resolveAttack(sessionId, roller, offer.defenderTokenId, offer.attackerTokenId, weaponIndex!, undefined, false, false,
+    roller === 'DM' ? undefined : ch.id, ability.id);
+  return {ok: true};
+}
+
+/** Resolve a known on-hit maneuver as part of the pending weapon damage. */
+export function resolveManeuver(sessionId: string, roller: string, rollId: string, abilityId: string): { ok: true } | { ok: false; reason: string } {
+  const p = getRollEntry(rollId, sessionId)?.pending;
+  const opportunity = p?.maneuver;
+  const ch = p?.attacker.kind === 'pc' ? getCharacter(p.attacker.refId) : null;
+  const ability = ch?.sheetAbilities.find(a => a.id === abilityId);
+  const pool = ch?.resources['Superiority Dice'];
+  const target = p?.target.kind === 'pc' ? getCharacter(p.target.refId) : p ? getMonster(p.target.refId) : null;
+  if (!p || p.done || !opportunity || !ch || ch.sessionId !== sessionId || target?.sessionId !== sessionId ||
+      !opportunity.abilityIds.includes(abilityId) || !ability || !isOnHitManeuver(ability))
+    return { ok: false, reason: 'That hit no longer offers this maneuver.' };
+  if (!pool || pool.used >= pool.max) return { ok: false, reason: 'No Superiority Dice left.' };
+  const dice = Array.from({length: p.crit ? 2 : 1}, () => rollDice(ch.superiorityDie || 'd8'));
+  if (dice.some(d => !d)) return { ok: false, reason: 'Invalid Superiority Die.' };
+  const rolled = dice.reduce((sum, d) => sum + d!.total, 0);
+  const amount = Math.max(0, Math.floor((opportunity.rawDamage + rolled) * opportunity.multiplier)
+    - Math.floor(opportunity.rawDamage * opportunity.multiplier) - opportunity.minimumAdjustment);
+  const steps = dice.map(d => ({label: ability.name, value: d!.total, faces: d!.rolls}));
+  const mods = amount === rolled ? [] : [{label: 'maneuver damage adjustment', value: amount - rolled}];
+  setRollPending(rollId, {...p, maneuver: undefined, amount: p.amount + amount,
+    weapon: `${p.weapon} + ${ability.name}`, dice: [...p.dice, ...steps], mods: [...p.mods, ...mods],
+    damageBreakdown: {...p.damageBreakdown, dice: [...(p.damageBreakdown?.dice ?? p.dice), ...steps],
+      mods: [...(p.damageBreakdown?.mods ?? p.mods), ...mods]}});
+  setResource(ch.id, 'resources', 'Superiority Dice', {used: pool.used + 1});
+  setSheetAbility('pc', ch.id, {...ability, maneuver: {...ability.maneuver!, active: false}});
+  resolveAttackDamage(sessionId, roller, rollId);
+  const spec = ability.maneuver!;
+  addRollLog(sessionId, {roller, label: ability.name, expr: ch.superiorityDie || 'd8', total: rolled,
+    detail: `${ch.name}: ${ability.name} against ${p.target.name}. ${spec.save ? `DC ${opportunity.dc} ${spec.save.ability} save. ` : ''}${spec.note ?? ''}`,
+    ...(spec.save ? {apply: {amount: 0, dc: opportunity.dc, save: spec.save.ability, onFail: spec.save.onFail, owner: ch.id, targetMode: 'single'}} : {}),
+  });
+  return {ok: true};
+}
+
+/**
+ * Cast the smite a hit made available (2024 Divine Smite: a bonus action right
+ * after the hit). The choice is validated against what the character can
+ * actually cast right now; then the opportunity is stamped USED before anything
+ * is spent or rolled — so a retried or double-clicked request can neither spend
+ * a second resource nor deal damage twice. Every smite die is rolled twice on a
+ * crit; the dice deal their own type (radiant) against the target's traits.
+ * Returns a reason on refusal so the caller can say why.
+ */
+export function resolveSmite(
+  sessionId: string,
+  roller: string,
+  rollId: string,
+  choice: SmiteChoice,
+): { ok: true } | { ok: false; reason: string } {
+  const entry = getRollEntry(rollId, sessionId);
+  const sm = entry?.smite;
+  if (!entry || !sm) return { ok: false, reason: 'That hit has no smite to take.' };
+  if (sm.used) return { ok: false, reason: 'That smite was already taken.' };
+  const ch = getCharacter(sm.owner);
+  if (!ch || ch.sessionId !== sessionId) return { ok: false, reason: 'That character is gone.' };
+  const ability = ch.sheetAbilities.find((a) => a.id === sm.abilityId);
+  const spec = ability?.smite;
+  if (!ability || !spec) return { ok: false, reason: `${sm.abilityName} is no longer on the sheet.` };
+  const pending = entry.pending;
+  // Older saved opportunities may have already applied their weapon damage.
+  // Never turn those into a second hit or attempt to undo intervening changes.
+  if (!pending || pending.done)
+    return { ok: false, reason: 'That hit has already resolved; Smite must be chosen before its damage.' };
+  const target = sm.target.kind === 'pc' ? getCharacter(sm.target.refId) : getMonster(sm.target.refId);
+  if (!target || target.sessionId !== sessionId)
+    return { ok: false, reason: 'That target is no longer available.' };
+  const tok = getToken(sm.target.tokenId);
+  const r = tok && tok.kind === sm.target.kind && tok.refId === sm.target.refId ? resolve(tok) : null;
+  if (!r) return { ok: false, reason: 'That target is no longer on the map.' };
+  if (!smiteChoices(ch, ability).includes(choice)) {
+    return {
+      ok: false,
+      reason: choice === 'free'
+        ? `No free ${ability.name} left — it returns on a Long Rest.`
+        : `No level-${choice} spell slot left.`,
+    };
+  }
+
+  // Claim the opportunity FIRST: nothing below can run twice for this hit.
+  setRollSmite(rollId, { ...sm, used: true });
+
+  // Spend exactly one resource.
+  const spellLevel = Math.max(1, ability.level ?? 1);
+  let castLevel: number;
+  if (choice === 'free') {
+    castLevel = spellLevel;
+    const key = spec.freeUse!.counter;
+    const cur = ch.resources[key];
+    setResource(ch.id, 'resources', key, { max: Math.max(1, cur?.max ?? 1), used: (cur?.used ?? 0) + 1 });
+  } else {
+    castLevel = choice;
+    spendSpellSlot(ch.id, choice);
+  }
+
+  // Roll: every term, twice on a crit (RAW: all of the attack's damage dice).
+  const targetMonster = sm.target.kind === 'monster' ? getMonster(sm.target.refId) : null;
+  const terms = smiteDiceTerms(spec, spellLevel, castLevel, targetMonster?.creatureType);
+  const steps: { label: string; value: number; faces?: number[] }[] = [];
+  const faces: string[] = [];
+  let rolled = 0;
+  for (const term of terms) {
+    for (let i = 0; i < (sm.crit ? 2 : 1); i++) {
+      const r = rollDice(term);
+      if (!r) continue;
+      rolled += r.total;
+      steps.push({ label: i ? 'CRIT' : term, value: r.total, faces: r.rolls });
+      faces.push(`${term}[${r.rolls.join(',')}]`);
+    }
+  }
+
+  // Its own damage type against the target's traits (a spell: magical).
+  const mult = damageMultiplier(spec.damageType, r.resistances, r.weaknesses, r.immunities, { magical: true });
+  const amount = Math.floor(rolled * mult);
+  const adjustment = amount !== rolled
+    ? [{ label: `${spec.damageType} ${mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vulnerable'}`, value: amount - rolled }]
+    : [];
+  const smiteSteps = steps.map(step => ({ ...step, label: `${ability.name} ${step.label}` }));
+  setRollPending(rollId, {
+    ...pending,
+    amount: pending.amount + amount,
+    weapon: `${pending.weapon} + ${ability.name}`,
+    dice: [...pending.dice, ...smiteSteps],
+    mods: [...pending.mods, ...adjustment],
+    damageBreakdown: {
+      dice: [...(pending.damageBreakdown?.dice ?? pending.dice), ...smiteSteps],
+      mods: [...(pending.damageBreakdown?.mods ?? pending.mods), ...adjustment],
+      mixedTypes: true,
+    },
+  });
+
+  const how = mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : mult > 1 ? ' (×2 vulnerable)' : '';
+  const via = choice === 'free' ? 'free casting' : `level-${castLevel} slot`;
+  addRollLog(sessionId, {
+    roller,
+    label: ability.name,
+    expr: choice === 'free' ? 'free' : `L${castLevel}`,
+    total: amount,
+    detail:
+      `${ch.name} smites ${sm.target.name} (${via}): ${faces.join(' + ')} = ${amount} ` +
+      `${spec.damageType}${how}${sm.crit ? ' — CRIT' : ''}`,
+  });
+  resolveAttackDamage(sessionId, roller, rollId);
+  return { ok: true };
 }
 
 /**
@@ -720,6 +1077,8 @@ export function resolveAttackDamage(
   if (target?.sessionId !== sessionId || attacker?.sessionId !== sessionId) return false;
   // Claim it FIRST — two clicks racing in must not both apply.
   setRollPending(rollId, { ...p, done: true });
+  if (entry.smite && !entry.smite.used)
+    setRollSmite(rollId, { ...entry.smite, used: true });
 
   const damageRollId = newId();
   const hpNote = applyDamageNoted(
@@ -789,7 +1148,10 @@ export function resolveSaves(
     );
     // The creature's own armed adv/dis (if any) plus conditions (e.g. restrained
     // → DEX-save disadvantage) fold into the request (any adv + any dis cancel).
-    const adv = saveAdvantage(r.conditionLabels, ability, advantageByToken?.[id] ?? advantage);
+    const adv = saveAdvantage(
+      r.conditionLabels, ability, advantageByToken?.[id] ?? advantage,
+      strFeatureAdv(r.kind, r.refId, ability),
+    );
     const out = rollSavingThrow(r.c, ability, dc, adv.state, proficient);
     const sb = saveBonus(r, ability);
     const total = out.total + sb.add;
@@ -843,7 +1205,9 @@ export function resolveSave(
     isMonster: kind !== 'pc',
   };
   const proficient = ent.saveProficiencies.some((s) => s.trim().toUpperCase() === ab);
-  const adv = saveAdvantage(ent.conditions.map((x) => x.label), ab, advantage);
+  const adv = saveAdvantage(
+    ent.conditions.map((x) => x.label), ab, advantage, strFeatureAdv(kind, refId, ab),
+  );
   const out = rollSavingThrow(c, ab, 0, adv.state, proficient); // dc 0 → pass unused
   const e = saveExtra(ent, ab);
   const total = out.total + e.total;
@@ -893,7 +1257,9 @@ export function resolveCheck(
     level: ent.level,
     isMonster: kind !== 'pc',
   };
-  const adv = checkAdvantage(ent.conditions.map((x) => x.label), advantage);
+  const adv = checkAdvantage(
+    ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab),
+  );
   // dc 0 → unused; `proficient: false` makes it a plain ability check.
   const out = rollSavingThrow(c, ab, 0, adv.state, false);
   addRollLog(sessionId, {
@@ -937,7 +1303,10 @@ export function resolveForcedSave(
   if (!tok) return;
   const r = resolve(tok);
   if (!r) return;
-  const mult = damageMultiplier(apply.damageType, r.resistances, r.weaknesses);
+  // Spell damage is magical, so "nonmagical" resistances don't apply to it.
+  const mult = damageMultiplier(
+    apply.damageType, r.resistances, r.weaknesses, r.immunities, { magical: true },
+  );
   const typeTxt = apply.damageType ? ` ${apply.damageType}` : '';
 
   let dmg: number;
@@ -995,7 +1364,7 @@ export function resolveForcedSave(
       label: 'Damage',
       total: dmg,
       expr: `dart ${dartIdx + 1}`,
-      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
@@ -1004,7 +1373,7 @@ export function resolveForcedSave(
         target: r.name,
         outcome: 'hit',
         ...(apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
-        ...(mult !== 1 ? { damageMods: [{ label: mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
+        ...(mult !== 1 ? { damageMods: [{ label: mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
         damage: dmg,
         damageType: apply.damageType,
       },
@@ -1035,7 +1404,9 @@ export function resolveForcedSave(
         (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
       );
       // The clicked creature's own armed adv/dis toggle folds in with its conditions.
-      const adv = saveAdvantage(r.conditionLabels, ability, advantage);
+      const adv = saveAdvantage(
+        r.conditionLabels, ability, advantage, strFeatureAdv(r.kind, r.refId, ability),
+      );
       const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
       const sb = saveBonus(r, ability);
       const total = out.total + sb.add;
@@ -1151,7 +1522,7 @@ function resolveTargetedSpellAttack(opts: {
     ? getCharacter(opts.attacker.refId) : getMonster(opts.attacker.refId));
   const within5 = !!attackerToken && tokensWithin5ft(attackerToken, tt!, getMap(tt!.mapId));
   const adv = attackAdvantage(attacker?.conditions.map((condition) => condition.label) ?? [],
-    t.conditionLabels, within5, opts.advantage);
+    t.conditionLabels, within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId));
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   const { face, detail: d20detail } = rollD20Detail(adv.state);
   const fumble = face === 1;
@@ -1178,14 +1549,19 @@ function resolveTargetedSpellAttack(opts: {
         revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls });
       }
     }
-    const mult = damageMultiplier(opts.damageType, t.resistances, t.weaknesses);
+    const mult = damageMultiplier(
+      opts.damageType, t.resistances, t.weaknesses, t.immunities, { magical: true },
+    );
     applied = Math.max(0, Math.floor(dmg * mult));
-    if (mult !== 1) revealMods.push({ label: mult < 1 ? 'resisted' : 'vuln', value: applied - dmg });
+    const how = mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln';
+    if (mult !== 1) revealMods.push({ label: how, value: applied - dmg });
     if (mult !== 1)
       notes.push(
-        mult < 1
-          ? `½ resisted (${opts.damageType})`
-          : `×2 vulnerable (${opts.damageType})`,
+        mult === 0
+          ? `immune (${opts.damageType})`
+          : mult < 1
+            ? `½ resisted (${opts.damageType})`
+            : `×2 vulnerable (${opts.damageType})`,
       );
   }
   const deferDamage = !!getSessionById(opts.sessionId)?.manualDamage && hit && applied > 0 && !!opts.attacker;
@@ -1241,6 +1617,8 @@ function resolveTargetedSpellAttack(opts: {
       },
     } : {}),
   }, attackRollId);
+  if (!hit && attackerToken && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
+    createRiposteOpportunity(opts.sessionId, tt!, attackerToken);
   return true;
 }
 
@@ -1488,8 +1866,16 @@ function resolveSheetAbilityFor(
     const target = roll.healTarget === 'self'
       ? { kind, refId: entity.id, name: kind === 'pc' ? getCharacter(entity.id)!.name : getMonster(entity.id)!.name }
       : tok ? resolve(tok) : null;
+    // Dead creatures can't regain hit points — the heal is spent, but lands on
+    // nothing, and the log says so rather than claiming +HP.
+    const targetEntity = target
+      ? target.kind === 'pc' ? getCharacter(target.refId) : getMonster(target.refId)
+      : null;
+    const targetDead = !!(target && targetEntity && isDeadEntity(target.kind, targetEntity));
     const healNote =
-      target && val > 0 ? applyDamageNoted(target.kind, target.refId, -val) : undefined;
+      target && val > 0 && !targetDead
+        ? applyDamageNoted(target.kind, target.refId, -val)
+        : undefined;
     addRollLog(sessionId, {
       roller,
       label: ability.name,
@@ -1498,7 +1884,12 @@ function resolveSheetAbilityFor(
       detail:
         `${title}: ${val} healing [${healRoll?.text ?? dice}${
           castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} ${bonusKind === 'fighterLevel' ? 'Fighter level' : 'mod'}` : ''
-        }]` + (target ? ` → ${target.name} +${val} HP` : ''),
+        }]` +
+        (target
+          ? targetDead
+            ? ` → ${target.name} is dead; healing has no effect`
+            : ` → ${target.name} +${val} HP`
+          : ''),
       description: ability.description || undefined,
       hpNote: healNote,
     });
@@ -1756,6 +2147,7 @@ export function resolveSkillRoll(
   const adv = checkAdvantage(
     character.conditions.map((x) => x.label),
     advantage,
+    strFeatureAdv('pc', character.id, skill.ability),
   );
   const { face, detail: d20detail } = rollD20Detail(adv.state);
   const total = face + bonus;
@@ -1798,7 +2190,9 @@ export function useConsumable(
   itemId: string,
 ): boolean {
   const c = getCharacter(characterId);
-  if (!c) return false;
+  // A dead character can't drink anything (and can't regain HP) — the item is
+  // kept; the socket handler tells the player why.
+  if (!c || isDeadEntity('pc', c)) return false;
   const item = c.items.find((i) => i.id === itemId);
   if (!item || item.qty <= 0) return false;
   const effect = parseConsumable(item);

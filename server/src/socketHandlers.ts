@@ -1,3 +1,4 @@
+import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
 import { newId } from './db.js';
@@ -7,6 +8,10 @@ import { spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
   resolveAttack,
   resolveAttackDamage,
+  resolveSmite,
+  resolveManeuver,
+  resolveRiposte,
+  castSlotLevel,
   resolveAbilityRoll,
   resolveMonsterSheetAbility,
   resolveForcedSave,
@@ -54,6 +59,7 @@ import {
   addRollLog,
   advanceTurn,
   applyDamage,
+  isDeadEntity,
   setTempHp,
   claimCharacter,
   clearOwnershipElsewhere,
@@ -94,6 +100,7 @@ import {
   reorderSheetAbilities,
   spendResourceForAbility,
   spendSpellSlot,
+  pactSlotLevel,
   damageTokens,
   duplicateToken,
   setTokensHidden,
@@ -140,6 +147,7 @@ import {
   createSummon,
   updateMapGrid,
   rollAllInitiative,
+  startCombat, finishInitiative, rollPlayerInitiative, setInitiativePending,
   rollMissingInitiative,
   setCombatRound,
   setHideDmRolls,
@@ -265,7 +273,7 @@ export function registerSocketHandlers(io: IOServer): void {
     /** Run a mutation, persist, and re-shape snapshots for everyone. */
     const afterChange = () => {
       const sid = sessionId();
-      if (sid) broadcastSnapshots(io, sid);
+      if (sid) { finishInitiative(sid); broadcastSnapshots(io, sid); }
     };
 
     on('join', (payload, ack) => {
@@ -811,7 +819,27 @@ export function registerSocketHandlers(io: IOServer): void {
     on('damage:apply', ({ kind, refId, amount }) => {
       const sid = sessionId();
       if (!sid || !Number.isFinite(amount) || !canEditCreature(kind, refId)) return;
-      applyDamage(kind, refId, amount);
+      // Healing a DEAD creature: ordinary heals can't, so a player gets told why.
+      // The DM's manual heal is the deliberate correction path — it revives and
+      // reconciles the death state, and the log records that it happened.
+      const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+      const reviving = !!before && amount < 0 && isDeadEntity(kind, before);
+      if (reviving && !isDm()) {
+        socket.emit('notice', {
+          message: `${before!.name} is dead — only the DM can bring them back.`,
+        });
+        return;
+      }
+      applyDamage(kind, refId, amount, undefined, false, undefined, { correction: isDm() });
+      if (reviving) {
+        addRollLog(sid, {
+          roller: 'DM',
+          label: 'Revive',
+          expr: 'correction',
+          total: -amount,
+          detail: `DM revived ${before!.name} (correction) — death state cleared, healed ${-amount}`,
+        });
+      }
       // Damage taken while concentrating prompts a CON save (DC from the amount).
       noteConcentration(sid, kind, refId, amount);
       afterChange();
@@ -989,6 +1017,11 @@ export function registerSocketHandlers(io: IOServer): void {
     on('item:use', ({ characterId, itemId }) => {
       const sid = sessionId();
       if (!sid || typeof itemId !== 'string' || !ownsCharacter(characterId)) return;
+      const drinker = getCharacter(characterId);
+      if (drinker && isDeadEntity('pc', drinker)) {
+        socket.emit('notice', { message: `${drinker.name} is dead — the item is kept.` });
+        return;
+      }
       const ok = useConsumable(
         sid,
         rollerName(sid, socket.id, isDm()),
@@ -1163,16 +1196,22 @@ export function registerSocketHandlers(io: IOServer): void {
       const c = getCharacter(refId);
       const ability = c?.sheetAbilities.find((a) => a.id === abilityId);
       if (!c || !ability || !validDamageChoice(ability)) return;
-      const ok = resolveAbilityRoll(sid, roller, c, ability, cast, adv, tgt, selectedDamageType);
+      // Pact Magic: a Warlock's leveled spell is cast at the pact-slot level (the
+      // only slots they have), so its dice scale like it — roll at that level.
+      const pact = pactSlotLevel(c);
+      const castAt =
+        pact !== null && ability.type === 'spell' && (ability.level ?? 0) >= 1 &&
+        (ability.level ?? 0) <= pact
+          ? Math.max(cast ?? 0, pact)
+          : cast;
+      const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, tgt, selectedDamageType);
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
-      const leveled =
-        (ability.type === 'spell' || ability.type === 'stance') &&
-        (ability.level ?? 0) >= 1;
-      if (ok && leveled) {
-        const base = ability.level as number;
-        const c2 = cast ?? base;
-        const slotLevel = Math.min(9, Math.max(base, c2));
+      // Casting a leveled spell, activating a spell-backed stance, or rolling a
+      // slot-fuelled ability spends a slot at the level it was cast.
+      const slotLevel = castSlotLevel(ability, castAt);
+      const leveled = slotLevel !== null;
+      if (ok && slotLevel !== null) {
         const { hasSlot, spent } = spendSpellSlot(refId, slotLevel);
         if (hasSlot && !spent) {
           socket.emit('notice', {
@@ -1496,7 +1535,8 @@ export function registerSocketHandlers(io: IOServer): void {
       // Bulk damage/heal is a DM-only (Data-view multi-select) tool, like its
       // tokens:setCondition / tokens:clearConditions siblings below.
       if (!isDm() || !Array.isArray(tokenIds) || !Number.isFinite(amount)) return;
-      damageTokens(tokenIds, amount);
+      // DM-only, so a bulk heal is the same deliberate correction as a single one.
+      damageTokens(tokenIds, amount, { correction: true });
       afterChange();
     });
 
@@ -1543,6 +1583,7 @@ export function registerSocketHandlers(io: IOServer): void {
         speed: p.speed,
         stats: p.stats,
         resistances: p.resistances,
+        immunities: p.immunities,
         weaknesses: p.weaknesses,
         actions: p.actions,
         abilities: p.abilities,
@@ -1651,12 +1692,33 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    on('initiative:start', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const before = getSessionById(sid);
+      if (!before?.activeMapId || before.initiativePending) return;
+      startCombat(sid, isConnected);
+      if (!getSessionById(sid)?.initiativePending) io.to(roomName(sid)).emit('fx:initiative', {mapId: before.activeMapId});
+      afterChange();
+    });
+    on('initiative:rollMine', ({tokenId}) => {
+      const sid = sessionId();
+      if (!sid || typeof tokenId !== 'string') return;
+      if (!rollPlayerInitiative(sid, tokenId, socket.id)) {
+        socket.emit('notice', {message: 'No initiative roll is waiting for your character.'});
+        return;
+      }
+      afterChange();
+    });
+
     on('initiative:rollAll', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
       // Roll-all resets combat: re-roll everyone, start at the top, round 1.
+      io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
+      setInitiativePending(sid, false);
       rollAllInitiative(activeMapId);
       setActiveTurn(sid, firstInInitiative(activeMapId));
       setCombatRound(sid, 1);
@@ -1668,6 +1730,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
+      if (!getSessionById(sid)?.activeTurnTokenId && !getSessionById(sid)?.initiativePending) io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
       // Only roll latecomers; if combat hasn't started, highlight the top and
       // open round 1. Mid-fight, the round counter is left alone.
       rollMissingInitiative(activeMapId);
@@ -1814,6 +1877,50 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!allowed) return;
       if (resolveAttackDamage(sid, rollerName(sid, socket.id, isDm()), rollId))
         afterChange();
+    });
+
+    // Cast the smite a hit made available: the DM, or the attacking player.
+    // Every refusal says why (no slot left, already taken…) instead of going
+    // quiet; the resolver stamps the opportunity used before it spends anything.
+    on('combat:riposte', ({opportunityId, weaponIndex, pass}) => {
+      const sid = sessionId();
+      if (!sid || typeof opportunityId !== 'string') return;
+      const offer = listRipostes(sid).find(o => o.id === opportunityId);
+      const ch = offer ? getCharacter(offer.owner) : null;
+      if (!ch || (!isDm() && ch.claimedBy !== socket.id)) return;
+      const result = resolveRiposte(sid, isDm() ? 'DM' : ch.name, opportunityId, weaponIndex, !!pass);
+      if (!result.ok) socket.emit('notice', {message: result.reason});
+      afterChange();
+    });
+
+    on('combat:maneuver', ({rollId, abilityId}) => {
+      const sid = sessionId();
+      if (!sid || typeof rollId !== 'string' || typeof abilityId !== 'string') return;
+      const pending = getRollEntry(rollId, sid)?.pending;
+      const ch = pending?.attacker.kind === 'pc' ? getCharacter(pending.attacker.refId) : null;
+      if (!ch || ch.sessionId !== sid || (!isDm() && ch.claimedBy !== socket.id)) return;
+      const result = resolveManeuver(sid, rollerName(sid, socket.id, isDm()), rollId, abilityId);
+      if (!result.ok) socket.emit('notice', {message: result.reason});
+      else afterChange();
+    });
+
+    on('combat:smite', ({ rollId, level }) => {
+      const sid = sessionId();
+      if (!sid || typeof rollId !== 'string') return;
+      const choice =
+        level === 'free' ? 'free' : Number.isInteger(level) && level >= 1 && level <= 9 ? level : null;
+      if (choice === null) return;
+      const sm = getRollEntry(rollId, sid)?.smite;
+      if (!sm) return;
+      const caster = getCharacter(sm.owner);
+      const allowed = isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
+      if (!allowed) return;
+      const res = resolveSmite(sid, rollerName(sid, socket.id, isDm()), rollId, choice);
+      if (!res.ok) {
+        socket.emit('notice', { message: res.reason });
+        return;
+      }
+      afterChange();
     });
 
     on('session:setManualDamage', ({ manual }) => {

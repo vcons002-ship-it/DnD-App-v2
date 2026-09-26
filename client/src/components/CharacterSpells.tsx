@@ -1,3 +1,6 @@
+import { isOnHitManeuver } from '../../../shared/maneuvers';
+import { applyRulesUpdate, isOutdated } from '../../../shared/rulesUpdate';
+import { classFeatureUses } from '../../../shared/classFeatureUses';
 import { useEffect, useMemo, useState } from 'react';
 import type {
   Character,
@@ -149,6 +152,41 @@ export function CharacterSpells({
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  // The CURRENT rules-DB definition of each entry on the sheet (local DB only,
+  // no AI), so an entry whose definition has since changed can offer an
+  // explicit "Update to current rules" — never a silent conversion.
+  const [current, setCurrent] = useState<Record<string, Partial<SheetAbility>>>({});
+  const nameKey = character.sheetAbilities.map((a) => a.name.trim().toLowerCase()).sort().join('|');
+  useEffect(() => {
+    if (!editable || !nameKey) return;
+    let live = true;
+    fetch('/api/spells/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names: nameKey.split('|') }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { resolved?: Record<string, Partial<SheetAbility>> } | null) => {
+        if (live && d?.resolved) setCurrent(d.resolved);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [editable, nameKey]);
+  const rulesUpdateFor = (a: SheetAbility): Partial<SheetAbility> | null => {
+    const hit = current[a.name.trim().toLowerCase()];
+    return hit && isOutdated(a, hit) ? hit : null;
+  };
+  const updateToCurrentRules = (a: SheetAbility, hit: Partial<SheetAbility>) => {
+    const ok = window.confirm(
+      `Update "${a.name}" to the current rules version?\n\n` +
+        'This replaces its rules text and mechanics (dice, toggles, counters) ' +
+        'with the current definition. If it is a toggle, it comes back switched ' +
+        'OFF. Only this entry changes.',
+    );
+    if (ok) setSheetAbility(kind, character.id, applyRulesUpdate(a, hit));
+  };
   // Collapsible spell GROUPS (Cantrips / Level N / Other) — default open
   // (undefined → open), so an existing sheet shows everything until collapsed.
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
@@ -210,7 +248,11 @@ export function CharacterSpells({
         characterId: character.id,
         group: 'resources',
         key: e.useCounter.name,
-        max: e.useCounter.max,
+        // A level-scaled feature (Channel Divinity, Wild Shape) starts at the
+        // character's real count, not the entry's generic default.
+        max:
+          classFeatureUses(e.useCounter.name, character.className, character.level) ||
+          e.useCounter.max,
         used: 0,
       });
     }
@@ -445,13 +487,15 @@ export function CharacterSpells({
             <button
               className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
               title={
-                a.maneuver!.active
+                a.name.trim().toLowerCase() === 'riposte' ? 'Offered after an enemy melee attack misses you' :
+                isOnHitManeuver(a) ? 'Choose this maneuver after a hit, beside Roll damage' : a.maneuver!.active
                   ? 'Armed — spends a Superiority Die on your next attack'
                   : 'Off — click to arm for your next attack'
               }
+              disabled={isOnHitManeuver(a) || a.name.trim().toLowerCase() === 'riposte'}
               onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
             >
-              {a.maneuver!.active ? 'Armed' : 'Off'}
+              {a.name.trim().toLowerCase() === 'riposte' ? 'On enemy miss' : isOnHitManeuver(a) ? 'On hit' : a.maneuver!.active ? 'Armed' : 'Off'}
             </button>
           )}
 
@@ -586,6 +630,18 @@ export function CharacterSpells({
               </button>
             </span>
           )}
+          {editable && (() => {
+            const hit = rulesUpdateFor(a);
+            return hit ? (
+              <button
+                className="btn tiny rules-update"
+                title="The rules DB has a newer definition of this — click to review and update"
+                onClick={() => updateToCurrentRules(a, hit)}
+              >
+                ⬆ Update
+              </button>
+            ) : null;
+          })()}
           {editable && (
             <button
               className="res-x"

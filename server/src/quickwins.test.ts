@@ -39,8 +39,10 @@ describe('applyDamage clamping', () => {
     applyDamage('pc', ch.id, 1e9);
     expect(getCharacter(ch.id)!.curHp).toBe(0);
 
-    // Healing is clamped the same way: back up, but never past max.
-    applyDamage('pc', ch.id, -1e9);
+    // Healing is clamped the same way: back up, but never past max. (The
+    // mega-hit above is now a massive-damage DEATH, which ordinary healing
+    // can't undo — so heal through the DM's correction path, which clamps too.)
+    applyDamage('pc', ch.id, -1e9, undefined, false, undefined, { correction: true });
     expect(getCharacter(ch.id)!.curHp).toBe(30);
 
     // Fractional amounts truncate to whole HP.

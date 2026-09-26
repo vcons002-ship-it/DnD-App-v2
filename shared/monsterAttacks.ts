@@ -53,6 +53,35 @@ export function weaponsFromActions(
   return { weapons, actions: rest };
 }
 
+/** An attack line and NOTHING else: "+4 to hit, reach 5 ft., 1d6+2 piercing." —
+ *  no save, no rider, no "plus" damage, no two-handed or second range. */
+const BARE_ATTACK_LINE =
+  /^\s*[+-]?\d+\s+to\s+hit\s*,\s*(?:(?:reach|range)\s+[\d/]+(?:\s*ft\.?)?\s*,\s*)?\d+d\d+(?:\s*[+-]\s*\d+)?\s+[a-z]+\s*\.?\s*$/i;
+
+const normDice = (d?: string) => (d ?? '').replace(/\s+/g, '').toLowerCase();
+
+/**
+ * Whether an action is DEMONSTRABLY a duplicate of a weapon the creature already
+ * has: its text is a bare attack line (nothing more), and it parses to a weapon
+ * identical to a stored one — name, to-hit, dice, type, melee/ranged and range.
+ * Anything carrying extra mechanics or prose (a save, "plus 1d6 fire", a
+ * two-handed alternative) is NOT a duplicate, so it's kept.
+ */
+export function isCleanAttackDuplicate(action: CreatureAbility, weapons: Weapon[]): boolean {
+  if (!BARE_ATTACK_LINE.test(action.description ?? '')) return false;
+  const parsed = weaponsFromActions([action]).weapons[0];
+  if (!parsed) return false;
+  return weapons.some(
+    (w) =>
+      w.name.trim().toLowerCase() === parsed.name.trim().toLowerCase() &&
+      w.kind === parsed.kind &&
+      (w.attackBonus ?? null) === (parsed.attackBonus ?? null) &&
+      normDice(w.damage) === normDice(parsed.damage) &&
+      (w.damageType ?? '').toLowerCase() === (parsed.damageType ?? '').toLowerCase() &&
+      (w.range ?? '').replace(/\s+/g, '') === (parsed.range ?? '').replace(/\s+/g, ''),
+  );
+}
+
 const ABILITY_CODES: Record<string, string> = {
   str: 'STR', strength: 'STR',
   dex: 'DEX', dexterity: 'DEX',

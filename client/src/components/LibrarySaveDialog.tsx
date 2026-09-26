@@ -44,6 +44,7 @@ export function LibrarySaveDialog({
     speed: monster.speed,
     stats: monster.stats,
     resistances: monster.resistances,
+    immunities: monster.immunities,
     weaknesses: monster.weaknesses,
     weapons: monster.weapons,
     actions: monster.actions,

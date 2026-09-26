@@ -895,7 +895,10 @@ describe('secondary weapon damage (flaming sword)', () => {
     expect(checked).toBe(true);
   });
 
-  it('does NOT double the rider on a crit (10 slashing + 6 fire = 16)', () => {
+  // RAW (2024 PHB): a crit rolls ALL of the attack's damage dice twice — a
+  // rider's included — but flat modifiers never double. (This used to assert the
+  // rider rolled once: audit M3 / the 25 Sep review.)
+  it("doubles the rider's DICE on a crit, never the flat (10 slashing + 2×6 fire = 22)", () => {
     const { s, map, atk } = flameSword('6d1'); // always 6 fire
     const dt = createMonsterTemplate(s.id, { name: 'Dummy', maxHp: 9999, armorClass: 1 });
     const ref = instantiateMonster(dt.id)!.id;
@@ -907,8 +910,8 @@ describe('secondary weapon damage (flaming sword)', () => {
       const last = listRollLog(s.id).at(-1)!;
       if (/CRIT/.test(last.detail)) {
         checked = true;
-        // The flat 10 slashing has no dice to crit; the fire rider rolls ONCE.
-        expect(before - getMonster(ref)!.curHp).toBe(16);
+        // The flat 10 slashing has no dice to crit; the 6d1 fire rider rolls twice.
+        expect(before - getMonster(ref)!.curHp).toBe(22);
       }
     }
     expect(checked).toBe(true);

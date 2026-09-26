@@ -463,7 +463,9 @@ describe('dead combatants keep their slot but lose their turn', () => {
     setActiveTurn(s.id, a.tok.id);
     setCombatRound(s.id, 1);
 
-    applyDamage('pc', pc.id, 999); // down to 0 — dying, NOT dead
+    // Exactly to 0 — dying, NOT dead. (Overkill ≥ max HP is now a RAW
+    // massive-damage death, so this must not overshoot.)
+    applyDamage('pc', pc.id, 10);
     advanceTurn(s.id);
     expect(getSessionById(s.id)!.activeTurnTokenId).toBe(pcTok.id); // death-save turn
 

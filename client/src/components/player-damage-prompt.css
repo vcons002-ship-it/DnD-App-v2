@@ -37,3 +37,11 @@
 .player-fantasy .spell-prompt.targeting .damage-prompt-btn { border-color: #78bda8; }
 /* A deliberately opened settings dialog must remain operable above prompts. */
 .player-fantasy .player-layout-controls:has(.player-layout-options) { z-index: 55; }
+/* Divine Smite choices in the player dock: stacked under the damage button. */
+.player-fantasy .player-damage-dock .damage-prompt { flex-wrap: wrap; }
+.player-fantasy .player-damage-dock .dp-smite {
+  flex-basis: 100%; margin-top: 0;
+  border-color: #b69a68; border-radius: 4px 12px 4px 12px;
+  background: linear-gradient(160deg, #3d3322f5, #181820f5 65%);
+}
+.player-fantasy .player-damage-dock .dp-smite-label { font: 600 11px var(--hud-display-font); color: #f3dcaf; }

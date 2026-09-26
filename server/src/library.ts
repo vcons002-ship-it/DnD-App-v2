@@ -106,6 +106,7 @@ type LibCreatureRow = {
   speed: string;
   stats: string;
   resistances: string;
+  immunities?: string | null;
   weaknesses: string;
   weapons: string;
   actions: string;
@@ -128,6 +129,7 @@ function rowToTemplate(r: LibCreatureRow): CreatureTemplate {
     speed: r.speed,
     stats: JSON.parse(r.stats ?? '{}'),
     resistances: JSON.parse(r.resistances ?? '[]'),
+    immunities: JSON.parse(r.immunities ?? '[]'),
     weaknesses: JSON.parse(r.weaknesses ?? '[]'),
     weapons: JSON.parse(r.weapons ?? '[]') as Weapon[],
     actions: JSON.parse(r.actions ?? '[]') as CreatureAbility[],
@@ -182,6 +184,7 @@ export type SaveCreatureInput = {
   speed?: string;
   stats?: Record<string, number>;
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   weapons?: Weapon[];
   actions?: CreatureAbility[];
@@ -212,9 +215,9 @@ export function saveLibraryCreature(
   db.prepare(
     `INSERT OR REPLACE INTO library_creatures
        (id, name, creature_type, level, max_hp, armor_class, speed, stats,
-        resistances, weaknesses, weapons, actions, abilities, sheet_abilities,
+        resistances, immunities, weaknesses, weapons, actions, abilities, sheet_abilities,
         icon, created_at, model_type, visual_tags, model_color, object_kind, object_dc)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -225,6 +228,7 @@ export function saveLibraryCreature(
     input.speed ?? '',
     JSON.stringify(input.stats ?? {}),
     JSON.stringify(input.resistances ?? []),
+    JSON.stringify(input.immunities ?? []),
     JSON.stringify(input.weaknesses ?? []),
     // A library creature is later instantiated as a live monster whose weapons
     // drive resolveAttack — clamp them like the character-update path does.
@@ -267,6 +271,7 @@ type LibCharacterRow = {
   resources: string;
   weapons: string;
   resistances: string;
+  immunities?: string | null;
   weaknesses: string;
   actions: string;
   abilities: string;
@@ -294,6 +299,7 @@ function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
     resources: JSON.parse(r.resources ?? '{}'),
     weapons: JSON.parse(r.weapons ?? '[]') as Weapon[],
     resistances: JSON.parse(r.resistances ?? '[]'),
+    immunities: JSON.parse(r.immunities ?? '[]'),
     weaknesses: JSON.parse(r.weaknesses ?? '[]'),
     actions: JSON.parse(r.actions ?? '[]') as CreatureAbility[],
     abilities: JSON.parse(r.abilities ?? '[]') as CreatureAbility[],
@@ -359,10 +365,10 @@ export function saveLibraryCharacter(
   db.prepare(
     `INSERT OR REPLACE INTO library_characters
        (id, name, race, class_name, subclass, level, max_hp, cur_hp, armor_class, speed,
-        stats, spell_slots, resources, weapons, resistances, weaknesses, actions,
+        stats, spell_slots, resources, weapons, resistances, immunities, weaknesses, actions,
         abilities, proficient_skills, save_proficiencies, modifiers, items,
         sheet_abilities, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -379,6 +385,7 @@ export function saveLibraryCharacter(
     JSON.stringify(input.resources ?? {}),
     JSON.stringify(input.weapons ?? []),
     JSON.stringify(input.resistances ?? []),
+    JSON.stringify(input.immunities ?? []),
     JSON.stringify(input.weaknesses ?? []),
     JSON.stringify(input.actions ?? []),
     JSON.stringify(input.abilities ?? []),

@@ -128,6 +128,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
       speed: tmpl?.speed,
       stats: tmpl?.stats,
       resistances: tmpl?.resistances,
+      immunities: tmpl?.immunities,
       weaknesses: tmpl?.weaknesses,
       actions: tmpl?.actions,
       abilities: tmpl?.abilities,

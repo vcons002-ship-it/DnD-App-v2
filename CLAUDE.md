@@ -153,7 +153,9 @@ live outside the bundled static catalog and must be backed up with uploads.
   draws pasted art unclipped).
 - **`Monster` & `Character` share one tagged stat-block shape:** `level` (PC
   level / monster **CR**), `armorClass`, `speed`, `stats`, `resistances`,
-  `weaknesses`, `weapons: Weapon[]` (name, melee/ranged, damage, to-hit),
+  `weaknesses`, `immunities` (parsed strictly by `parseDamageTrait` — type +
+  "nonmagical"/"non-silvered" source properties, never a substring; weapons carry
+  explicit `magical`/`silvered`), `weapons: Weapon[]` (name, melee/ranged, damage, to-hit),
   `sheetAbilities: SheetAbility[]` (the ONE rollable system), `abilities`
   (traits, free text), `icon`. `actions` is only a *transport* shape (SRD/AI/
   paste) — converted into weapons/sheetAbilities at insert; stored creatures
@@ -190,8 +192,12 @@ live outside the bundled static catalog and must be backed up with uploads.
 - `shared/dice.ts` — `rollDice("2d6+3", 'adv'|'dis')` parser/roller.
 - `shared/skills.ts` — the 18 5e skills, `abilityMod`, `proficiencyBonus(level)`,
   `skillBonus`.
-- `shared/combatMath.ts` — `rollWeaponAttack` (to-hit vs AC, crit doubles dice,
-  nat-20 hit / nat-1 miss), `rollSavingThrow`, `profBonusForCR`.
+- `shared/combatMath.ts` — `rollWeaponAttack` (to-hit vs AC, crit doubles dice
+  incl. riders — never flats, nat-20 hit / nat-1 miss), `rollSavingThrow`,
+  `profBonusForCR`, `damageMultiplier` (immunity 0 > resist/vuln, by `DamageSource`).
+- `shared/smite.ts` — Divine Smite choices after a hit (slot levels + the
+  Paladin-2 free casting); `shared/rulesUpdate.ts` — outdated-entry detection for
+  the explicit "⬆ Update" button.
 - `shared/spellMath.ts` — `effectiveDice` (upcast: +scaleDice per slot above
   base; cantrips scale by caster level at 5/11/17), `spellAttackBonus`,
   `spellSaveDC` (8 + prof + best of INT/WIS/CHA).
@@ -511,6 +517,24 @@ live outside the bundled static catalog and must be backed up with uploads.
   (The old Roll20 `<iframe>` embed was removed — most sites block framing, and
   Roll20 has no per-character export API anyway.)
 - **AI is key-gated and fails safe** — every AI path no-ops cleanly without a key.
+- **Rules edition policy:** new additions use 2024 definitions; saved sheet
+  entries are NEVER silently converted (the explicit "⬆ Update" button is the
+  path, and it switches stances off). If the engine ignores what an entry's own
+  text says, fix the engine, not the saved entry. Data migrations touch only
+  provably-untouched app-produced data and must be idempotent (test twice).
+- **Dead stays dead:** ordinary healing refuses a dead creature (PC: 3 failed
+  saves or a Dead mark; monster: 0 HP or Dead); the DM's manual heal is the
+  correction path (`applyDamage(..., {correction:true})`). Conditions added at
+  0 HP are tagged `source:'down'` and healing removes only those (Prone stays).
+- **Divine Smite is chosen after the hit** (`RollEntry.smite` → `combat:smite`),
+  never pre-armed; `smite.used` is stamped before any spend, like `pending.done`.
+  A qualifying hit offers **Roll damage** (weapon only) and **Smite** (choose a
+  resource, then resolve the combined hit). This choice holds damage even in
+  automatic mode; HP/death/concentration process the whole attack once.
+  Warlock Pact Magic slot-level changes transfer spent uses to the new standard
+  pool without resetting them; explicit custom pools remain authoritative.
+- **The big `DamagePrompt` belongs to the roller** — the DM's map ignores a
+  player's hit (the log button remains the DM's override).
 
 ## Gotchas for edits
 

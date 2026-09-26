@@ -20,7 +20,19 @@ const FEATURES: FeatureEntry[] = [
     meta: 'Bonus action · toggle · resistance to b/p/s',
     description:
       'While raging you add bonus damage to Strength melee attacks, have advantage on Strength checks/saves, and resist bludgeoning, piercing, and slashing damage. Toggle on to spend a use; lasts up to 1 minute.',
-    stance: { active: false, appliesTo: 'melee', bonusDamage: '2' },
+    stance: {
+      active: false,
+      appliesTo: 'melee',
+      bonusDamage: '2',
+      // Rage Damage grows with Barbarian level: +2, +3 at 9th, +4 at 16th.
+      bonusDamageAtLevels: [
+        { level: 1, bonus: '2' },
+        { level: 9, bonus: '3' },
+        { level: 16, bonus: '4' },
+      ],
+      grantsResistances: ['bludgeoning', 'piercing', 'slashing'],
+      advOnStrChecks: true,
+    },
     useCounter: { name: 'Rage', max: 2 },
   },
   {
@@ -32,7 +44,8 @@ const FEATURES: FeatureEntry[] = [
     meta: 'Toggle · advantage on Strength melee attacks',
     description:
       'When active, you attack recklessly: your Strength melee attacks gain advantage this turn, but attack rolls against you also have advantage until your next turn.',
-    stance: { active: false, appliesTo: 'melee', grantsAdvantage: true },
+    // The price: attacks against you have advantage while it's on.
+    stance: { active: false, appliesTo: 'melee', grantsAdvantage: true, enemiesHaveAdvantage: true },
   },
   {
     name: 'Action Surge',

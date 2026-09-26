@@ -1,36 +1,79 @@
-import { useEffect } from 'react';
+import { isOnHitManeuver } from '../../../shared/maneuvers';
+import { useEffect, useState } from 'react';
+import type { RollEntry, StateSnapshot } from '../../../shared/types';
+import { smiteChoices, type SmiteChoice } from '../../../shared/smite';
 import { useStore } from '../state/socket';
 
+/** What a hit still offers: its parked damage, and/or a smite to cast on it. */
+const openDamage = (r: RollEntry) => !!r.pending && !r.pending.done;
+const openSmite = (r: RollEntry) => openDamage(r) && !!r.smite && !r.smite.used;
+
 /**
- * The second half of a two-step attack, as a big button pinned over the map.
- *
- * When an attack hits, the server parks the damage on its roll entry instead of
- * applying it (`RollEntry.pending`) and only ships that payload to the DM and to
- * the player who made the attack — so the prompt appears for exactly the people
- * who should click it. Clicking rolls the damage reveal and takes the HP off.
+ * Whether this hit's follow-up belongs to the viewer. A player only ever
+ * RECEIVES their own payloads (visibility gate), so presence implies ownership.
+ * The DM receives everyone's — the big prompt shows the DM only their OWN hits
+ * (rolled as "DM"), so the second click stays with the player who earned it.
+ * The roll-log buttons remain the DM's deliberate override.
+ */
+function isMine(r: RollEntry, snapshot: StateSnapshot): boolean {
+  return snapshot.role !== 'dm' || r.roller === 'DM';
+}
+
+/** The ways the smite on this hit can be cast right now (shared rule). */
+export function smiteOptionsFor(r: RollEntry, snapshot: StateSnapshot): SmiteChoice[] {
+  const sm = r.smite;
+  if (!sm || sm.used || !r.pending || r.pending.done) return [];
+  const ch = snapshot.characters.find((c) => c.id === sm.owner);
+  const ability = ch?.sheetAbilities.find((a) => a.id === sm.abilityId);
+  return ch && ability ? smiteChoices(ch, ability) : [];
+}
+
+export function maneuverOptionsFor(r: RollEntry, snapshot: StateSnapshot) {
+  if (!r.pending || r.pending.done || !r.pending.maneuver) return [];
+  const ch = snapshot.characters.find(c => c.id === r.pending!.attacker.refId);
+  const pool = ch?.resources['Superiority Dice'];
+  return pool && pool.used < pool.max ? ch!.sheetAbilities.filter(a =>
+    isOnHitManeuver(a) && r.pending!.maneuver!.abilityIds.includes(a.id)) : [];
+}
+
+/**
+ * The follow-up to a landed hit, as a big prompt pinned over the map: roll the
+ * parked damage (two-step attacks), and — for a Paladin — cast Divine Smite with
+ * a chosen slot or the free casting. Smite is offered only here, AFTER the hit,
+ * so the player picks it knowing whether it hit or crit.
  *
  * Driven off the snapshot rather than a transient event, so it survives a
- * refresh, a reconnect, or a server restart: a landed hit can never be stranded.
- * Enter/Space fires it too, unless a text field has focus.
+ * refresh, a reconnect, or a server restart. Enter/Space rolls the damage unless
+ * a text field has focus.
  */
 export function DamagePrompt() {
+  const [maneuverPicker, setManeuverPicker] = useState<string>();
+  const combatManeuver = useStore(s => s.combatManeuver);
+  const [smitePicker, setSmitePicker] = useState<string>();
   const snapshot = useStore((s) => s.snapshot);
   const combatDamage = useStore((s) => s.combatDamage);
+  const combatSmite = useStore((s) => s.combatSmite);
   // The attack's own reveal is still playing — let the d20 land and the HIT stamp
-  // drop before offering the damage. Cleared when the animation ends OR the
+  // drop before offering the follow-up. Cleared when the animation ends OR the
   // viewer skips it (click / tap / Esc), so it never gates on the full runtime.
   const rollFx = useStore((s) => s.rollFx);
-  // The newest un-rolled hit. (The log is oldest-first and small.)
-  const entry = [...(snapshot?.rollLog ?? [])]
-    .reverse()
-    .find((r) => r.pending && !r.pending.done);
+  // The newest hit with something still to do. (The log is oldest-first and small.)
+  const entry = snapshot
+    ? [...snapshot.rollLog]
+        .reverse()
+        .find((r) => (openDamage(r) || openSmite(r)) && isMine(r, snapshot))
+    : undefined;
   const rollId = entry?.id;
+  const damageReady = !!entry && openDamage(entry);
+  const smiteOptions = entry && snapshot ? smiteOptionsFor(entry, snapshot) : [];
 
-  // Armed = there's damage waiting AND its reveal has finished (or been skipped).
-  const armed = !!entry?.pending && !!rollId && rollFx?.rollId !== rollId;
+  const maneuvers = entry && snapshot ? maneuverOptionsFor(entry, snapshot) : [];
+
+  // Armed = there's a follow-up AND its reveal has finished (or been skipped).
+  const armed = !!entry && !!rollId && rollFx?.rollId !== rollId;
 
   useEffect(() => {
-    if (!armed || !rollId) return;
+    if (!armed || !rollId || !damageReady) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
       const el = document.activeElement;
@@ -43,25 +86,61 @@ export function DamagePrompt() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [armed, rollId, combatDamage]);
+  }, [armed, rollId, damageReady, combatDamage]);
 
-  if (!armed || !entry?.pending || !rollId) return null;
+  if (!armed || !entry || !rollId || (!damageReady && smiteOptions.length === 0)) return null;
   const p = entry.pending;
+  const crit = !!(p?.crit ?? entry.smite?.crit);
   return (
     <div className="damage-prompt">
-      <button
-        className={`damage-prompt-btn${p.crit ? ' crit' : ''}`}
-        onClick={() => combatDamage(rollId)}
-        title="Roll the damage for this hit and apply it (Enter / Space)"
-      >
-        <span className="dp-dice">🎲</span>
-        <span className="dp-text">
-          <strong>{p.crit ? 'CRIT — roll damage' : 'Roll damage'}</strong>
-          <span className="dp-sub">
-            {p.weapon} → {p.target.name}
+      {damageReady && p && (
+        <button
+          className={`damage-prompt-btn${p.crit ? ' crit' : ''}`}
+          onClick={() => combatDamage(rollId)}
+          title={smiteOptions.length ? 'Apply this hit without Smite (Enter / Space)' : 'Roll the damage for this hit and apply it (Enter / Space)'}
+        >
+          <span className="dp-dice">🎲</span>
+          <span className="dp-text">
+            <strong>{p.crit ? 'CRIT — roll damage' : 'Roll damage'}</strong>
+            <span className="dp-sub">
+              {p.weapon} → {p.target.name}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      )}
+      {maneuvers.length > 0 && (
+        <div className="dp-smite dp-maneuvers">
+          <button className="btn tiny dp-maneuver-toggle" aria-expanded={maneuverPicker === rollId}
+            onClick={() => setManeuverPicker(maneuverPicker === rollId ? undefined : rollId)}>Maneuver</button>
+          {maneuverPicker === rollId && maneuvers.map(a => <button key={a.id} className="btn tiny dp-maneuver-btn"
+            title={`${a.description ?? a.name} (spends one Superiority Die)`}
+            onClick={() => combatManeuver(rollId, a.id)}>{a.name}</button>)}
+        </div>
+      )}
+      {smiteOptions.length > 0 && entry.smite && (
+        <div className={`dp-smite${crit ? ' crit' : ''}`}>
+          <button className="btn tiny dp-smite-toggle"
+            title="Add Smite to this hit (bonus action); choose a free use or spell slot"
+            aria-expanded={smitePicker === rollId}
+            onClick={() => setSmitePicker(smitePicker === rollId ? undefined : rollId)}>
+            ✦ Smite{crit ? ' — CRIT' : ''}
+          </button>
+          {smitePicker === rollId && smiteOptions.map((opt) => (
+            <button
+              key={String(opt)}
+              className="btn tiny dp-smite-btn"
+              onClick={() => combatSmite(rollId, opt)}
+              title={
+                opt === 'free'
+                  ? 'Cast it without a slot (once per Long Rest)'
+                  : `Spend a level-${opt} spell slot`
+              }
+            >
+              {opt === 'free' ? 'Free' : `L${opt}`}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { smiteOptionsFor, maneuverOptionsFor } from './DamagePrompt';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
 import { RollDamageBreakdown } from './RollDamageBreakdown';
@@ -48,6 +49,8 @@ export function DicePanel({
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const combatDamage = useStore((s) => s.combatDamage);
+  const combatManeuver = useStore(s => s.combatManeuver);
+  const combatSmite = useStore((s) => s.combatSmite);
   const isDm = snapshot.role === 'dm';
   // A player's dice toggle is keyed to THEIR character (so it's the same switch
   // shown above their skill list); the DM's generic roller gets its own key.
@@ -342,6 +345,22 @@ export function DicePanel({
                     🎲 Roll damage
                   </button>
                 )}
+                {/* A smite this hit made available — the same choice as the map
+                    prompt, and the DM's override for a player who dropped off. */}
+                {maneuverOptionsFor(r, snapshot).map(a => <button key={a.id} className="btn tiny"
+                  onClick={() => combatManeuver(r.id, a.id)} title="Spend a Superiority Die and resolve this hit">{a.name}</button>)}
+                {smiteOptionsFor(r, snapshot).map((opt) => (
+                  <button
+                    key={`smite-${String(opt)}`}
+                    className="btn tiny roll-smite"
+                    onClick={() => combatSmite(r.id, opt)}
+                    title={`${r.smite!.abilityName} on ${r.smite!.target.name} — ${
+                      opt === 'free' ? 'free casting (once per Long Rest)' : `level-${opt} slot`
+                    }`}
+                  >
+                    ✦ {opt === 'free' ? 'Free' : `L${opt}`}
+                  </button>
+                ))}
                 {/* The apply payload only reaches a player on their OWN entries
                     (visibility strips it otherwise), so its presence is the gate —
                     the DM sees it on everything, a player only on what they cast. */}

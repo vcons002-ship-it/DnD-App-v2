@@ -341,6 +341,8 @@ type Store = {
     role: CombatRole | null,
   ) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
+  startCombat: () => void;
+  rollMyInitiative: (tokenId: string) => void;
   rollAllInitiative: () => void;
   rollMissingInitiative: () => void;
   nextTurn: () => void;
@@ -357,6 +359,11 @@ type Store = {
   /** Roll (and apply) the damage parked on a hit — the two-step attack's
    *  second click. */
   combatDamage: (rollId: string) => void;
+  /** Cast the smite a hit made available, with a slot level or the free casting. */
+  initiativeFx: {id: number; mapId: string} | null;
+  combatRiposte: (opportunityId: string, weaponIndex?: number, pass?: boolean) => void;
+  combatManeuver: (rollId: string, abilityId: string) => void;
+  combatSmite: (rollId: string, level: number | 'free') => void;
   combatSave: (payload: CombatSavePayload) => void;
   /** DM: make weapon damage a separate, clickable second roll. */
   setManualDamage: (manual: boolean) => void;
@@ -629,6 +636,7 @@ export const useStore = create<Store>((set, get) => ({
       reconnectionDelayMax: 5000,
     });
 
+    socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('state:snapshot', (snapshot) => {
       // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
       // log is oldest-first, so a new entry is the first one not yet seen.
@@ -1045,6 +1053,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('tokens:setCombatRole', { tokenIds, role }),
   setInitiative: (tokenId, initiative) =>
     get().socket?.emit('initiative:set', { tokenId, initiative }),
+  startCombat: () => get().socket?.emit('initiative:start'),
+  rollMyInitiative: tokenId => get().socket?.emit('initiative:rollMine', {tokenId}),
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
   rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
@@ -1058,6 +1068,10 @@ export const useStore = create<Store>((set, get) => ({
   undo: () => get().socket?.emit('session:undo'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
+  initiativeFx: null,
+  combatRiposte: (opportunityId, weaponIndex, pass) => get().socket?.emit('combat:riposte', {opportunityId, weaponIndex, pass}),
+  combatManeuver: (rollId, abilityId) => get().socket?.emit('combat:maneuver', {rollId, abilityId}),
+  combatSmite: (rollId, level) => get().socket?.emit('combat:smite', { rollId, level }),
   combatSave: (payload) => get().socket?.emit('combat:save', payload),
   setManualDamage: (manual) =>
     get().socket?.emit('session:setManualDamage', { manual }),

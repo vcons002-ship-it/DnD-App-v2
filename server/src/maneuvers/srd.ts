@@ -1,13 +1,10 @@
 import type { ManeuverSpec, SheetAbility } from '../../../shared/types.js';
 
 /**
- * Battle Master combat maneuvers (2024 rules), modeled on the mastery list: each
- * is a toggleable sheet entry that, when active, spends one Superiority Die on
- * the next attack and applies the die per `addDieTo` (and an optional forced
- * save whose failure applies `onFail`). Inherently positional/reaction maneuvers
- * (`addDieTo: 'none'`, plus Rally's `'heal'`) still roll + spend + log their
- * effect text, but their movement/reaction resolution is left to the table —
- * consistent with how the weapon masteries handle Push/Slow/etc.
+ * Battle Master maneuvers. The seven weapon-damage maneuvers with on-hit timing
+ * are offered by the hit prompt (shared/maneuvers.ts), without pre-arming.
+ * Other timings retain the existing toggle/manual flow. Positional and ally
+ * effects remain table-directed; save riders use the existing save prompt.
  */
 export type ManeuverEntry = Omit<SheetAbility, 'id' | 'source'>;
 

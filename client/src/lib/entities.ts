@@ -148,6 +148,7 @@ export function templateToStatSheet(t: CreatureTemplate): StatSheet {
     speed: t.speed,
     stats: t.stats,
     resistances: t.resistances,
+    immunities: t.immunities,
     weaknesses: t.weaknesses,
     saveProficiencies: [],
     weapons: t.weapons ?? [],

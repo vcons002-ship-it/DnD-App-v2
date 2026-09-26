@@ -1,3 +1,5 @@
+import { checkReveal } from '../../shared/rollReveal.js';
+import { clearRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
 import { requestCreatureAsset } from './assets/hooks.js';
 import { placeBase } from '../../shared/tokenPlacement.js';
@@ -26,7 +28,7 @@ import {
   sanitizeWeapons,
 } from '../../shared/modifiers.js';
 import { coveredByFog } from '../../shared/fog.js';
-import { weaponsFromActions, actionsToSheetAbilities } from '../../shared/monsterAttacks.js';
+import { weaponsFromActions, actionsToSheetAbilities, isCleanAttackDuplicate } from '../../shared/monsterAttacks.js';
 import { isDamageType } from '../../shared/damage.js';
 import type {
   Character,
@@ -61,6 +63,7 @@ export type Session = {
   hideDmRolls: boolean;
   /** Weapon damage is a SECOND click (roll + apply) instead of auto-applying. */
   manualDamage: boolean;
+  initiativePending: boolean;
 };
 
 type SessionRow = {
@@ -72,6 +75,7 @@ type SessionRow = {
   combat_round: number | null;
   hide_dm_rolls: number | null;
   manual_damage: number | null;
+  initiative_pending: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -82,6 +86,7 @@ const rowToSession = (r: SessionRow): Session => ({
   activeTurnTokenId: r.active_turn_token_id,
   combatRound: r.combat_round ?? 0,
   hideDmRolls: !!r.hide_dm_rolls,
+  initiativePending: !!r.initiative_pending,
   // Default ON for a session that predates the column (NULL) — the two-step
   // damage roll is the intended behavior; the DM can switch it off in Settings.
   manualDamage: r.manual_damage === null ? true : !!r.manual_damage,
@@ -117,7 +122,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true, initiativePending: false };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -373,6 +378,7 @@ export function deleteSession(sessionId: string): void {
 }
 
 export function setActiveMap(sessionId: string, mapId: string): void {
+  if (getSessionById(sessionId)?.activeMapId !== mapId) setInitiativePending(sessionId, false);
   db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
     mapId,
     sessionId,
@@ -418,6 +424,7 @@ export const deleteMap = db.transaction((mapId: string): void => {
   // Promote a replacement active map and clear the stale turn marker.
   const session = getSessionById(sessionId);
   if (session?.activeMapId === mapId) {
+    setInitiativePending(sessionId, false);
     const next = listMaps(sessionId)[0]?.id ?? null;
     db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
       next,
@@ -715,12 +722,17 @@ export function setDeathSaves(
   return getCharacter(characterId);
 }
 
-/** Damage (+) / heal (−) every listed token's creature (AOE). */
-export function damageTokens(tokenIds: string[], amount: number): void {
+/** Damage (+) / heal (−) every listed token's creature (AOE). `correction` is
+ *  the DM's deliberate override — see {@link applyDamage}. */
+export function damageTokens(
+  tokenIds: string[],
+  amount: number,
+  opts?: { correction?: boolean },
+): void {
   db.transaction(() => {
     for (const id of tokenIds) {
       const t = getToken(id);
-      if (t) applyDamage(t.kind, t.refId, amount);
+      if (t) applyDamage(t.kind, t.refId, amount, undefined, false, undefined, opts);
     }
   })();
 }
@@ -1103,6 +1115,13 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
 // ---- Initiative turn order (operates on the active map) ----
 
 export function setActiveTurn(sessionId: string, tokenId: string | null): void {
+  clearRipostes(sessionId);
+  const token = tokenId ? getToken(tokenId) : null;
+  if (token?.kind === 'pc') {
+    const ch = getCharacter(token.refId);
+    for (const condition of ch?.conditions ?? [])
+      if (condition.label === RIPOSTE_SPENT) clearCondition('pc', token.refId, condition.id);
+  }
   db.prepare(
     'UPDATE sessions SET active_turn_token_id = ? WHERE id = ?',
   ).run(tokenId, sessionId);
@@ -1140,6 +1159,110 @@ function isDeadToken(token: Token): boolean {
   const m = getMonster(token.refId);
   return !!m && (m.curHp <= 0 || marked(m.conditions));
 }
+
+const hasDeadMark = (conds: Condition[]): boolean =>
+  conds.some((c) => c.label.trim().toLowerCase() === 'dead');
+
+/**
+ * Whether a creature is DEAD — not merely down — i.e. the state ordinary healing
+ * can't undo. A PC dies at three failed death saves or when marked Dead (a PC at
+ * 0 HP with saves to go is only DOWN, and heals normally). A creature is dead at
+ * 0 HP or when marked Dead. Objects (doors, chests) are never "dead".
+ */
+export function isDeadEntity(kind: TokenKind, e: Character | Monster): boolean {
+  if (hasDeadMark(e.conditions)) return true;
+  if (kind === 'pc') return (e as Character).deathSaves.failures >= 3;
+  const m = e as Monster;
+  return !m.objectKind && m.curHp <= 0;
+}
+
+/** The conditions dropping to 0 HP imposes (5e: Unconscious, which carries
+ *  Incapacitated, and you fall Prone). */
+const DOWNED_LABELS = ['Unconscious', 'Incapacitated', 'Prone'];
+
+/** Add the downed bundle — only where each is ABSENT, tagged `source: 'down'`,
+ *  so an Unconscious someone applied independently is never replaced (and so
+ *  never swept away when the PC is healed). */
+function addDownedConditions(conds: Condition[], round: number): Condition[] {
+  const out = [...conds];
+  for (const label of DOWNED_LABELS) {
+    if (out.some((c) => c.label.toLowerCase() === label.toLowerCase())) continue;
+    out.push({
+      id: newId(),
+      label,
+      aura: 'red',
+      isConcentration: false,
+      source: 'down',
+      ...(round > 0 ? { round } : {}),
+    });
+  }
+  return out;
+}
+
+/** Healing above 0 HP ends the unconsciousness the DROP caused — and only that.
+ *  Prone stays (you wake on the floor), but loses its tag so it's an ordinary
+ *  condition from then on. Anything applied independently is untouched. */
+function clearDownedConditions(conds: Condition[]): Condition[] {
+  return conds
+    .filter((c) => !(c.source === 'down' && c.label.toLowerCase() !== 'prone'))
+    .map((c) => {
+      if (c.source !== 'down') return c;
+      const { source: _drop, ...rest } = c;
+      return rest;
+    });
+}
+
+/**
+ * End a creature's concentration — and ONLY what belonged to it: the
+ * `Concentration: <spell>` condition, the active stance with that spell's name
+ * (so e.g. Hunter's Mark stops adding damage), and that stance's own mark
+ * condition on its own marked target. Logs why. A no-op (false) when the
+ * creature isn't concentrating.
+ */
+export function endConcentration(kind: TokenKind, refId: string, reason: string): boolean {
+  const table = kind === 'pc' ? 'characters' : 'monsters';
+  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  if (!entity) return false;
+  const ended = entity.conditions.filter((c) => c.isConcentration);
+  if (ended.length === 0) return false;
+  db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
+    JSON.stringify(entity.conditions.filter((c) => !c.isConcentration)),
+    refId,
+  );
+  const spells = ended.map((c) => c.label.replace(/^concentration:\s*/i, '').trim());
+  const spellKeys = new Set(spells.map((n) => n.toLowerCase()));
+  for (const ab of entity.sheetAbilities) {
+    const st = ab.stance;
+    if (ab.type !== 'stance' || !st?.active || !spellKeys.has(ab.name.trim().toLowerCase()))
+      continue;
+    setSheetAbility(kind, refId, { ...ab, stance: { ...st, active: false } });
+    // Lift this stance's own mark from its own target — nothing else's.
+    const tok = st.marksTargetWith && st.targetId ? getToken(st.targetId) : null;
+    if (tok && st.marksTargetWith) {
+      const tt = tok.kind === 'pc' ? 'characters' : 'monsters';
+      const target = tok.kind === 'pc' ? getCharacter(tok.refId) : getMonster(tok.refId);
+      const mark = st.marksTargetWith.toLowerCase();
+      if (target && target.conditions.some((c) => c.label.toLowerCase() === mark)) {
+        db.prepare(`UPDATE ${tt} SET conditions = ? WHERE id = ?`).run(
+          JSON.stringify(target.conditions.filter((c) => c.label.toLowerCase() !== mark)),
+          tok.refId,
+        );
+      }
+    }
+  }
+  addRollLog(entity.sessionId, {
+    roller: 'DM',
+    label: 'Concentration',
+    expr: 'ended',
+    total: 0,
+    detail: `${entity.name} loses concentration on ${spells.join(', ')} (${reason})`,
+  });
+  return true;
+}
+
+/** Conditions under which a creature can't concentrate (5e: Incapacitated, or
+ *  any condition that includes it). */
+const INCAPACITATING = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'];
 
 /** A d20 + DEX modifier for a token (5e initiative). */
 const rollInitiative = (token: Token): number =>
@@ -1181,6 +1304,51 @@ function concealedByFog(token: Token, map?: MapState | null): boolean {
   if (token.kind === 'pc') return false;
   if (getMonster(token.refId)?.disposition === 'friendly') return false;
   return coveredByFog(null, new Set(m.tokenFogRevealed), grid, token.x, token.y);
+}
+
+export function setInitiativePending(sessionId: string, pending: boolean): void {
+  db.prepare('UPDATE sessions SET initiative_pending = ? WHERE id = ?').run(pending ? 1 : 0, sessionId);
+}
+
+/** Roll NPCs now; claimed players roll their own d20 from a persistent prompt. */
+export function startCombat(sessionId: string, connected: (id: string) => boolean = () => true): void {
+  const session = getSessionById(sessionId);
+  if (!session?.activeMapId || session.initiativePending) return;
+  clearInitiative(sessionId);
+  const map = getMap(session.activeMapId);
+  for (const token of listTokens(session.activeMapId)) {
+    if (!rollsInitiative(token, map)) continue;
+    const ch = token.kind === 'pc' ? getCharacter(token.refId) : null;
+    if (!ch?.claimedBy || !connected(ch.claimedBy)) setTokenInitiative(token.id, rollInitiative(token));
+  }
+  setInitiativePending(sessionId, true);
+  finishInitiative(sessionId);
+}
+
+export function finishInitiative(sessionId: string): void {
+  const session = getSessionById(sessionId);
+  if (!session?.initiativePending || !session.activeMapId) return;
+  const map = getMap(session.activeMapId);
+  if (listTokens(session.activeMapId).some(t => rollsInitiative(t, map) && t.initiative === null)) return;
+  setInitiativePending(sessionId, false);
+  const first = firstInInitiative(session.activeMapId);
+  setActiveTurn(sessionId, first);
+  setCombatRound(sessionId, first ? 1 : 0);
+}
+
+export function rollPlayerInitiative(sessionId: string, tokenId: string, socketId: string): boolean {
+  const session = getSessionById(sessionId), token = getToken(tokenId);
+  if (!session?.initiativePending || !token || token.kind !== 'pc' || token.mapId !== session.activeMapId ||
+      token.initiative !== null || !rollsInitiative(token)) return false;
+  const ch = getCharacter(token.refId);
+  if (!ch || ch.sessionId !== sessionId || ch.claimedBy !== socketId) return false;
+  const face = Math.floor(Math.random() * 20) + 1, bonus = initiativeBonus(token), total = face + bonus;
+  setTokenInitiative(token.id, total);
+  addRollLog(sessionId, {roller: ch.name, label: 'Initiative', expr: '1d20', total,
+    detail: `${ch.name} rolls initiative: ${face} + ${bonus} = ${total}`,
+    reveal: checkReveal({who: ch.name, title: 'Initiative', face, total, steps: [{label:'Initiative bonus',value:bonus}]})});
+  finishInitiative(sessionId);
+  return true;
 }
 
 export function rollAllInitiative(mapId: string): void {
@@ -1274,6 +1442,7 @@ export function firstInInitiative(mapId: string): string | null {
  *  combatant left the marker clears (combat is effectively over). */
 export function advanceTurn(sessionId: string): void {
   const session = getSessionById(sessionId);
+  if (session?.initiativePending) return;
   if (!session?.activeMapId) return;
   const order = initiativeOrder(session.activeMapId);
   if (order.length === 0) {
@@ -1302,6 +1471,9 @@ export function advanceTurn(sessionId: string): void {
 }
 
 export function clearInitiative(sessionId: string): void {
+  setInitiativePending(sessionId, false);
+  for (const ch of listCharacters(sessionId)) for (const condition of ch.conditions)
+    if (condition.label === RIPOSTE_SPENT) clearCondition('pc', ch.id, condition.id);
   const session = getSessionById(sessionId);
   if (session?.activeMapId) {
     db.prepare(
@@ -1328,6 +1500,8 @@ export function addRollLog(
     apply?: RollEntry['apply'];
     /** Damage rolled but not applied yet (the two-step attack's second half). */
     pending?: RollEntry['pending'];
+    /** A smite this hit makes available. */
+    smite?: RollEntry['smite'];
     /** HP accounting note ("Druk HP 42→38") + its target for visibility. */
     hpNote?: RollEntry['hpNote'];
     /** Cosmetic attack-roll reveal payload (the brief d20 animation). */
@@ -1345,8 +1519,8 @@ export function addRollLog(
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, hp_note, reveal, hide_mods, dm_only, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, smite, hp_note, reveal, hide_mods, dm_only, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1358,6 +1532,7 @@ export function addRollLog(
     entry.description ?? '',
     entry.apply ? JSON.stringify(entry.apply) : '',
     entry.pending ? JSON.stringify(entry.pending) : '',
+    entry.smite ? JSON.stringify(entry.smite) : '',
     entry.hpNote ? JSON.stringify(entry.hpNote) : '',
     entry.reveal ? JSON.stringify(entry.reveal) : '',
     entry.hideMods ? 1 : 0,
@@ -1489,6 +1664,7 @@ type RollLogRow = {
   description: string | null;
   apply: string | null;
   pending: string | null;
+  smite: string | null;
   hp_note: string | null;
   reveal: string | null;
   hide_mods: number | null;
@@ -1519,6 +1695,7 @@ function rowToRollEntry(r: RollLogRow): RollEntry {
     ...(r.description ? { description: r.description } : {}),
     ...(r.apply ? { apply: JSON.parse(r.apply) as RollEntry['apply'] } : {}),
     ...(r.pending ? { pending: JSON.parse(r.pending) as RollEntry['pending'] } : {}),
+    ...(r.smite ? { smite: JSON.parse(r.smite) as RollEntry['smite'] } : {}),
     ...(r.hp_note ? { hpNote: parseHpNote(r.hp_note) } : {}),
     ...(r.reveal ? { reveal: JSON.parse(r.reveal) as RollEntry['reveal'] } : {}),
     ...(r.hide_mods ? { hideMods: true } : {}),
@@ -1539,6 +1716,15 @@ export function getRollEntry(id: string, sessionId?: string): RollEntry | null {
 
 /** Persist an updated `pending` payload on a roll entry — used to stamp the
  *  damage as applied so a double-click can't take HP off twice. */
+/** Persist a smite opportunity's state — stamping it `used` is what makes a
+ *  retried or double-clicked smite a no-op. */
+export function setRollSmite(id: string, smite: RollEntry['smite']): void {
+  db.prepare('UPDATE roll_log SET smite = ? WHERE id = ?').run(
+    smite ? JSON.stringify(smite) : '',
+    id,
+  );
+}
+
 export function setRollPending(id: string, pending: RollEntry['pending']): void {
   db.prepare('UPDATE roll_log SET pending = ? WHERE id = ?').run(
     pending ? JSON.stringify(pending) : '',
@@ -1927,6 +2113,7 @@ export type CharacterInput = {
   stats?: Record<string, number>;
   weapons?: Character['weapons'];
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   actions?: Character['actions'];
   abilities?: Character['abilities'];
@@ -1974,10 +2161,10 @@ export function createCharacter(
   db.prepare(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
-        armor_class, speed, stats, weapons, resistances, weaknesses,
+        armor_class, speed, stats, weapons, resistances, immunities, weaknesses,
         actions, abilities, proficient_skills, save_proficiencies, modifiers, items,
         sheet_abilities, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1993,6 +2180,7 @@ export function createCharacter(
     JSON.stringify(opts.stats ?? {}),
     JSON.stringify(sanitizeWeapons(opts.weapons ?? [])),
     JSON.stringify(opts.resistances ?? []),
+    JSON.stringify(opts.immunities ?? []),
     JSON.stringify(opts.weaknesses ?? []),
     JSON.stringify(opts.actions ?? []),
     JSON.stringify(opts.abilities ?? []),
@@ -2024,6 +2212,14 @@ type Counters = Record<string, { max: number; used: number; maxOverride?: boolea
 /** Apply derived counter maxes onto existing counters, preserving used + custom. */
 function mergeCounters(existing: Counters, derived: Counters, previous: Counters): Counters {
   const out: Counters = { ...existing };
+  // A counter the OLD level derived, still untouched, that the new level no
+  // longer has, goes: a Warlock's pact slots move up a level (L3 → L4), and a
+  // level-down removes the slots it no longer grants. Customised ones stay.
+  for (const [key, prev] of Object.entries(previous)) {
+    const cur = existing[key];
+    if (key in derived || !cur || cur.maxOverride || cur.max !== prev.max) continue;
+    delete out[key];
+  }
   for (const [key, d] of Object.entries(derived)) {
     // Explicit corrections are fixed totals, never an auto-growing bonus pool.
     // Legacy nonstandard totals are preserved without migrating existing rows.
@@ -2071,19 +2267,35 @@ export function setResource(
 export function spendSpellSlot(
   characterId: string,
   level: number,
-): { hasSlot: boolean; spent: boolean } {
+): { hasSlot: boolean; spent: boolean; level?: number } {
   const c = getCharacter(characterId);
   if (!c) return { hasSlot: false, spent: false };
-  const key = `L${level}`;
+  // Pact Magic: a Warlock casts ANY spell up to their pact level with a pact
+  // slot, at the pact level — so a level-1 Hex spends the level-3 pact slot.
+  const pact = pactSlotLevel(c);
+  const spendLevel = pact !== null && level <= pact ? pact : level;
+  const key = `L${spendLevel}`;
   const slot = c.spellSlots[key];
   if (!slot) return { hasSlot: false, spent: false };
-  if (slot.used >= slot.max) return { hasSlot: true, spent: false };
+  if (slot.used >= slot.max) return { hasSlot: true, spent: false, level: spendLevel };
   const next = { ...c.spellSlots, [key]: { ...slot, used: slot.used + 1 } };
   db.prepare('UPDATE characters SET spell_slots = ? WHERE id = ?').run(
     JSON.stringify(next),
     characterId,
   );
-  return { hasSlot: true, spent: true };
+  return { hasSlot: true, spent: true, level: spendLevel };
+}
+
+/**
+ * A single-class Warlock's pact-slot level (all their slots share it), or null
+ * for anyone else. Read from the sheet's slots, so a DM's correction wins.
+ */
+export function pactSlotLevel(c: Pick<Character, 'className' | 'spellSlots'>): number | null {
+  if (c.className.trim().toLowerCase() !== 'warlock') return null;
+  const levels = Object.keys(c.spellSlots)
+    .map((k) => Number(/^L(\d)$/.exec(k)?.[1] ?? 0))
+    .filter((n) => n > 0);
+  return levels.length ? Math.max(...levels) : null;
 }
 
 /**
@@ -2383,6 +2595,7 @@ export function updateCharacter(
     speed: string;
     stats: Record<string, number>;
     resistances: string[];
+    immunities: string[];
     weaknesses: string[];
     weapons: Character['weapons'];
     actions: Character['actions'];
@@ -2423,6 +2636,8 @@ export function updateCharacter(
   if (patch.stats !== undefined) put('stats', JSON.stringify(patch.stats));
   if (patch.resistances !== undefined)
     put('resistances', JSON.stringify(patch.resistances));
+  if (patch.immunities !== undefined)
+    put('immunities', JSON.stringify(patch.immunities));
   if (patch.weaknesses !== undefined)
     put('weaknesses', JSON.stringify(patch.weaknesses));
   // Player-editable + REST/import-writable, and weapons feed server roll math.
@@ -2468,7 +2683,36 @@ export function updateCharacter(
       patch.subclass ?? c.subclass,
     );
     const previous = deriveClassResources(c.className, c.level, c.stats, c.subclass);
-    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derived.spellSlots, previous.spellSlots)));
+    // Spell slots come from the SAME table creation uses (2024 where the class is
+    // recognised, incl. Pact Magic and the Artificer) — a level-up used to switch
+    // silently to the 2014 table.
+    const slots = (cn: string, lvl: number, sub: string, fallback: Counters) => {
+      const ref = slotReference2024(cn, lvl, sub);
+      return ref === null
+        ? fallback
+        : Object.fromEntries(Object.entries(ref).map(([k, max]) => [k, { max, used: 0 }]));
+    };
+    const derivedSlots = slots(
+      patch.className ?? c.className, patch.level ?? c.level, patch.subclass ?? c.subclass,
+      derived.spellSlots,
+    );
+    const previousSlots = slots(c.className, c.level, c.subclass, previous.spellSlots);
+    const mergedSlots = mergeCounters(c.spellSlots, derivedSlots, previousSlots);
+    // Pact Magic upgrades one pool, rather than granting a fresh pool. Transfer
+    // usage only between the standard keys of an unchanged single-class Warlock;
+    // explicitly customized counters and pre-existing destination keys win.
+    if (c.className.trim().toLowerCase() === 'warlock' &&
+        (patch.className ?? c.className).trim().toLowerCase() === 'warlock') {
+      const oldKey = Object.keys(previousSlots)[0];
+      const newKey = Object.keys(derivedSlots)[0];
+      const oldPool = c.spellSlots[oldKey];
+      if (oldKey && newKey && oldKey !== newKey && oldPool &&
+          !oldPool.maxOverride && oldPool.max === previousSlots[oldKey].max &&
+          !c.spellSlots[newKey] && mergedSlots[newKey] && !mergedSlots[oldKey]) {
+        mergedSlots[newKey] = { ...mergedSlots[newKey], used: Math.min(oldPool.used, mergedSlots[newKey].max) };
+      }
+    }
+    put('spell_slots', JSON.stringify(mergedSlots));
     put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources, previous.resources)));
   }
 
@@ -2599,6 +2843,7 @@ export type MonsterInput = {
   speed?: string;
   stats?: Record<string, number>;
   resistances?: string[];
+  immunities?: string[];
   weaknesses?: string[];
   saveProficiencies?: string[];
   actions?: Monster['actions'];
@@ -2630,6 +2875,7 @@ function toMonsterInput(m: Monster): MonsterInput {
     speed: m.speed,
     stats: { ...m.stats },
     resistances: [...m.resistances],
+    immunities: [...(m.immunities ?? [])],
     weaknesses: [...m.weaknesses],
     saveProficiencies: [...(m.saveProficiencies ?? [])],
     actions: m.actions,
@@ -2663,6 +2909,12 @@ function insertMonster(
     const split = weaponsFromActions(actions);
     weapons = split.weapons;
     actions = split.actions;
+  } else if (actions.length) {
+    // Library / SRD copies carry BOTH the parsed weapons and the raw attack lines
+    // they came from, which used to land every attack twice (a weapon AND a
+    // roll-less "ability"). Drop only lines that are demonstrably the same attack
+    // and nothing more — a line with a rider (a save, "plus 1d6 fire") stays.
+    actions = actions.filter((a) => !isCleanAttackDuplicate(a, weapons));
   }
   const sheetAbilities = [
     ...(opts.sheetAbilities ?? []),
@@ -2671,10 +2923,10 @@ function insertMonster(
   db.prepare(
     `INSERT INTO monsters
        (id, session_id, name, creature_type, max_hp, cur_hp,
-        resistances, weaknesses, save_proficiencies, abilities, source, icon,
+        resistances, immunities, weaknesses, save_proficiencies, abilities, source, icon,
         armor_class, speed, stats, actions, is_template, template_id,
         disposition, weapons, level, object_kind, loot, object_dc, sheet_abilities, model_type, visual_tags, model_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2683,6 +2935,7 @@ function insertMonster(
     opts.maxHp,
     opts.maxHp,
     JSON.stringify(opts.resistances ?? []),
+    JSON.stringify(opts.immunities ?? []),
     JSON.stringify(opts.weaknesses ?? []),
     // Save proficiencies drive resolveSaves — carry them through spawn/copy so a
     // tuned boss keeps the saves it should pass.
@@ -2787,6 +3040,7 @@ export function updateMonster(
     speed: string;
     stats: Record<string, number>;
     resistances: string[];
+    immunities: string[];
     weaknesses: string[];
     saveProficiencies: string[];
     weapons: Monster['weapons'];
@@ -2860,6 +3114,8 @@ export function updateMonster(
   if (patch.stats !== undefined) put('stats', JSON.stringify(patch.stats));
   if (patch.resistances !== undefined)
     put('resistances', JSON.stringify(patch.resistances));
+  if (patch.immunities !== undefined)
+    put('immunities', JSON.stringify(patch.immunities));
   if (patch.weaknesses !== undefined)
     put('weaknesses', JSON.stringify(patch.weaknesses));
   if (patch.saveProficiencies !== undefined)
@@ -2963,12 +3219,34 @@ export function applyDamage(
   crit = false,
   /** Cosmetic correlation only; never defers the authoritative HP mutation. */
   rollId?: string,
+  /** `correction`: the DM's deliberate manual heal. The ONLY way healing touches
+   *  a dead creature — and it reconciles the whole death state (saves, Dead
+   *  mark, downed conditions), not just the HP number. Callers must gate it on
+   *  the DM role; spells, abilities and potions never pass it. */
+  opts?: { correction?: boolean },
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
-  const entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+  let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity || !Number.isFinite(amount)) return null;
   // Clamp to a sane magnitude so a buggy/forged event can't apply absurd values.
   amount = Math.trunc(Math.max(-10000, Math.min(10000, amount)));
+  // Dead creatures can't regain hit points. Ordinary healing is refused outright
+  // (callers explain why); the DM's correction revives cleanly instead.
+  if (amount < 0 && isDeadEntity(kind, entity)) {
+    if (!opts?.correction) return entity;
+    const revived = entity.conditions.filter((c) => c.label.trim().toLowerCase() !== 'dead');
+    if (kind === 'pc') {
+      db.prepare(
+        'UPDATE characters SET conditions = ?, death_successes = 0, death_failures = 0 WHERE id = ?',
+      ).run(JSON.stringify(clearDownedConditions(revived)), refId);
+    } else {
+      db.prepare('UPDATE monsters SET conditions = ? WHERE id = ?').run(
+        JSON.stringify(revived),
+        refId,
+      );
+    }
+    entity = kind === 'pc' ? getCharacter(refId)! : getMonster(refId)!;
+  }
   // 2024 rules: damage drains the temporary-HP buffer first, then real HP;
   // healing (amount < 0) only restores real HP and never refills temp HP.
   let nextTemp = entity.tempHp;
@@ -3007,12 +3285,24 @@ export function applyDamage(
         : {}),
       ...(died ? { effect: 'death' as const } : {}),
     });
+  const droppedToZero = entity.curHp > 0 && nextCur === 0;
   // PCs track death saves at 0 HP: healing above 0 resets them; taking damage
   // while already down adds a failure (5e auto-fail).
   if (kind === 'pc') {
     const ch = entity as Character;
     let ds = ch.deathSaves;
-    if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
+    // Damage that got past the temp-HP buffer.
+    const taken = amount > 0 ? amount - Math.min(entity.tempHp, amount) : 0;
+    // Massive damage (RAW): dropping to 0 with leftover damage ≥ max HP, or one
+    // hit ≥ max HP while already at 0, kills outright.
+    const massive =
+      amount > 0 &&
+      (entity.curHp > 0
+        ? droppedToZero && taken - entity.curHp >= entity.maxHp
+        : taken >= entity.maxHp);
+    if (massive) {
+      ds = { successes: 0, failures: 3 };
+    } else if (amount < 0 && nextCur > 0 && (ds.successes || ds.failures)) {
       ds = { successes: 0, failures: 0 };
     } else if (amount > 0 && entity.curHp === 0 && ds.failures < 3) {
       // Taking damage while down adds a failure (two on a crit, per RAW); a stable
@@ -3024,9 +3314,19 @@ export function applyDamage(
         failures: Math.min(3, (wasStable ? 0 : ds.failures) + add),
       };
     }
+    // 0 HP means Unconscious. The bundle is owned by the drop, so coming back
+    // above 0 clears exactly what the drop added. Killed outright is dead, not
+    // unconscious — no downed bundle.
+    let conds = ch.conditions;
+    if (droppedToZero && !massive) {
+      conds = addDownedConditions(conds, getSessionById(entity.sessionId)?.combatRound || 0);
+    } else if (entity.curHp === 0 && nextCur > 0) {
+      conds = clearDownedConditions(conds);
+    }
     db.prepare(
-      'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ? WHERE id = ?',
-    ).run(nextCur, nextTemp, ds.successes, ds.failures, refId);
+      'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ?, conditions = ? WHERE id = ?',
+    ).run(nextCur, nextTemp, ds.successes, ds.failures, JSON.stringify(conds), refId);
+    if (droppedToZero) endConcentration('pc', refId, massive ? 'killed outright' : 'dropped to 0 HP');
     return getCharacter(refId);
   }
   db.prepare(`UPDATE ${table} SET cur_hp = ?, temp_hp = ? WHERE id = ?`).run(
@@ -3034,6 +3334,7 @@ export function applyDamage(
     nextTemp,
     refId,
   );
+  if (droppedToZero) endConcentration('monster', refId, 'dropped to 0 HP');
   return getMonster(refId);
 }
 
@@ -3070,7 +3371,11 @@ export function setCondition(
   const conditions = entity.conditions.filter(
     (c) => c.label.toLowerCase() !== condition.label.toLowerCase(),
   );
-  conditions.push(stamp(condition));
+  // A condition applied through here comes from a person or a spell, so it is
+  // never engine-owned — drop any `source` a client sent, or healing could
+  // sweep away a condition it has no business removing.
+  const { source: _ignored, ...applied } = condition;
+  conditions.push(stamp(applied));
   // Cascade the implied bundle (Unconscious → Incapacitated + Prone, etc.) so
   // applying one chip sets the conditions it always carries in 5e.
   for (const label of impliedConditions(condition.label)) {
@@ -3081,6 +3386,10 @@ export function setCondition(
     JSON.stringify(conditions),
     refId,
   );
+  // An incapacitated creature can't hold concentration (5e).
+  const incap = conditions.find((c) => INCAPACITATING.includes(c.label.toLowerCase()));
+  if (incap && conditions.some((c) => c.isConcentration))
+    endConcentration(kind, refId, incap.label.toLowerCase());
   return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
 }
 

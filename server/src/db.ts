@@ -293,6 +293,7 @@ ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAUL
 // Weapon damage is a separate, clickable second roll (default ON) instead of
 // auto-applying with the to-hit. Old saves adopt it; the DM can switch it off.
 ensureColumn('sessions', 'manual_damage', 'manual_damage INTEGER NOT NULL DEFAULT 1');
+ensureColumn('sessions', 'initiative_pending', 'initiative_pending INTEGER NOT NULL DEFAULT 0');
 // Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).
 ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
 // Per-message flag: rules-assistant Q&A is DM-only (filtered from player snapshots).
@@ -383,6 +384,10 @@ ensureColumn('characters', 'level', 'level REAL NOT NULL DEFAULT 1');
 ensureColumn('characters', 'armor_class', 'armor_class INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'speed', "speed TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'resistances', "resistances TEXT NOT NULL DEFAULT '[]'");
+// Damage immunities (immunity beats resistance/vulnerability). Every stat-block
+// table carries it so a creature saved to / loaded from the library keeps it.
+for (const t of ['characters', 'monsters', 'library_creatures', 'library_characters'])
+  ensureColumn(t, 'immunities', "immunities TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('characters', 'weaknesses', "weaknesses TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('characters', 'actions', "actions TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('characters', 'abilities', "abilities TEXT NOT NULL DEFAULT '[]'");
@@ -459,6 +464,8 @@ ensureColumn('roll_log', 'description', "description TEXT NOT NULL DEFAULT ''");
 ensureColumn('roll_log', 'apply', "apply TEXT NOT NULL DEFAULT ''");
 // Damage rolled on a hit but not yet applied (the two-step attack's second half).
 ensureColumn('roll_log', 'pending', "pending TEXT NOT NULL DEFAULT ''");
+// A smite the hit made available (2024 Divine Smite is cast AFTER a hit).
+ensureColumn('roll_log', 'smite', "smite TEXT NOT NULL DEFAULT ''");
 // DM-only HP accounting note per roll ("Druk HP 42→38").
 ensureColumn('roll_log', 'hp_note', "hp_note TEXT NOT NULL DEFAULT ''");
 // Cosmetic attack-roll reveal payload (drives the brief d20 reveal animation).
@@ -674,6 +681,7 @@ type CharacterRow = {
   resources: string;
   weapons: string;
   resistances: string;
+  immunities?: string | null;
   weaknesses: string;
   actions: string;
   abilities: string;
@@ -713,6 +721,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     resources: JSON.parse(r.resources),
     weapons: JSON.parse(r.weapons),
     resistances: JSON.parse(r.resistances ?? '[]'),
+    immunities: JSON.parse(r.immunities ?? '[]'),
     weaknesses: JSON.parse(r.weaknesses ?? '[]'),
     actions: JSON.parse(r.actions ?? '[]'),
     abilities: JSON.parse(r.abilities ?? '[]'),
@@ -749,6 +758,7 @@ type MonsterRow = {
   cur_hp: number;
   temp_hp: number;
   resistances: string;
+  immunities?: string | null;
   weaknesses: string;
   save_proficiencies: string;
   abilities: string;
@@ -788,6 +798,7 @@ export function rowToMonster(r: MonsterRow): Monster {
     speed: r.speed ?? '',
     stats: JSON.parse(r.stats ?? '{}'),
     resistances: JSON.parse(r.resistances),
+    immunities: JSON.parse(r.immunities ?? '[]'),
     weaknesses: JSON.parse(r.weaknesses),
     saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
     actions: JSON.parse(r.actions ?? '[]'),

@@ -48,10 +48,14 @@ export function attackAdvantage(
   targetLabels: string[],
   within5ft: boolean,
   manual?: Advantage,
+  /** Named advantage sources from features (Reckless Attack, a maneuver, a
+   *  target's Reckless Attack…). They join the pile rather than REPLACING the
+   *  requested adv/dis, so a requested dis cancels them to a straight roll. */
+  featureAdv: string[] = [],
 ): AdvResult {
   const a = norm(attackerLabels);
   const t = norm(targetLabels);
-  const adv: string[] = [];
+  const adv: string[] = [...featureAdv];
   const dis: string[] = [];
 
   // Advantage for the attacker.
@@ -102,11 +106,13 @@ export function saveAdvantage(
   labels: string[],
   ability: string,
   manual?: Advantage,
+  /** Named advantage sources from features (e.g. Rage on STR saves). */
+  featureAdv: string[] = [],
 ): AdvResult {
   const s = norm(labels);
   const dis: string[] = [];
   if (s.has('restrained') && ability.toUpperCase() === 'DEX') dis.push('restrained (DEX)');
-  return resolve([], dis, manual);
+  return resolve([...featureAdv], dis, manual);
 }
 
 /** Conditions that make a creature AUTOMATICALLY FAIL Strength & Dexterity saves
@@ -126,9 +132,14 @@ export function saveAutoFail(labels: string[], ability: string): string | null {
  * ability checks (Blinded/Deafened auto-fail only sense-specific checks we can't
  * detect, so those stay with the DM).
  */
-export function checkAdvantage(labels: string[], manual?: Advantage): AdvResult {
+export function checkAdvantage(
+  labels: string[],
+  manual?: Advantage,
+  /** Named advantage sources from features (e.g. Rage on STR checks). */
+  featureAdv: string[] = [],
+): AdvResult {
   const s = norm(labels);
   const dis: string[] = [];
   for (const c of ['poisoned', 'frightened']) if (s.has(c)) dis.push(c);
-  return resolve([], dis, manual);
+  return resolve([...featureAdv], dis, manual);
 }

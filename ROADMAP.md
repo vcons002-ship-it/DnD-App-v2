@@ -1793,6 +1793,53 @@ Smaller refinements on top of the shipped Phase 2 work.
   single-token `.disposition-btns`. DM-only (disposition drives player
   visibility) and PC tokens are skipped, with the count of what will actually
   change shown when PCs are in the selection.
+- ☑ **Trust fixes (25 Sep review §6).** Every rules bug the review verified,
+  each with a regression test that fails on the old code.
+  **Rules policy:** new additions use 2024 definitions; a saved sheet entry is
+  **never silently converted** — an outdated DB-sourced entry gets an explicit
+  "⬆ Update" button (`shared/rulesUpdate.ts`; keeps id/prep, switches stances
+  OFF). Where the engine ignored an entry's own text, the engine is fixed (the
+  legacy Divine Smite ability now spends the slot it says it does).
+  **HP & death:** ordinary healing never revives the dead (PC: 3 failures or a
+  Dead mark; monster: 0 HP or Dead) — the DM's manual heal is the deliberate
+  correction path (`applyDamage(..., {correction})`) and reconciles death saves
+  and conditions. Dropping to 0 adds Unconscious/Incapacitated/Prone tagged
+  `Condition.source: 'down'` (only where absent); healing removes only those
+  tags, and Prone stays. **Massive damage** kills. Concentration DC is capped at
+  30, and `endConcentration` (at 0 HP or on becoming incapacitated) removes only
+  its own condition, stance and mark.
+  **Damage math:** `immunities` on every creature/character/library row
+  (`ensureColumn`), parsed strictly by `parseDamageTrait` (type + "nonmagical" /
+  "non-silvered" source properties — never a substring); weapons carry explicit
+  `magical`/`silvered`, stances `magicalAttacks`; spell damage is magical;
+  immunity wins. SRD immunities filled in (Young Red Dragon fire moved from
+  resistance). Crits double `extraDamage` and a damage Superiority Die (dice
+  only). Feature advantage is a named reason, so a requested DIS cancels it
+  instead of erasing it.
+  **Class features:** Rage (B/P/S resistance, +2/+3/+4, STR-check adv), Reckless
+  Attack (`enemiesHaveAdvantage`). **Divine Smite, 2024 timing:** chosen AFTER a
+  qualifying melee hit (`RollEntry.smite` → `combat:smite` → `resolveSmite`),
+  never pre-armed; the choice offers slot levels plus the Paladin-2
+  once-per-long-rest free casting (`Divine Smite (free)` counter); `smite.used`
+  is stamped before spending, so a retry can't double-spend or double-damage.
+  Follow-up: qualifying hits offer **Roll damage** or **Smite**; choosing Smite
+  resolves weapon and radiant damage as one hit in either damage mode, with
+  one concentration check and combined massive-damage accounting. Per-type
+  immunity/resistance still applies separately. Resolving weapon-only damage
+  closes the Smite choice. Spent Pact Magic uses transfer when slot levels change.
+  Warlock Pact Magic + Artificer slots in `slotReference2024` (create and
+  level-up share it; `spendSpellSlot` falls back to a pact slot and reports the
+  level spent). Channel Divinity / Wild Shape scale by level.
+  **Correctness:** SRD/library creatures no longer arrive with every attack
+  twice — insert drops an action only when `isCleanAttackDuplicate` proves it's
+  a bare attack line identical to a stored weapon (riders/saves/"plus" damage
+  are kept). The DM's big `DamagePrompt` + hotkey ignore player-owned hits (the
+  log button stays as the DM override; e2e `damage-prompt-ownership`).
+  **Startup migrations** (`server/src/trustMigrations.ts`, idempotent, each
+  tested twice): remove only UNTOUCHED duplicate attack abilities; restore SRD
+  immunities only where every defining field still matches the SRD block
+  exactly (edited / CR-scaled / reskinned creatures are left alone). No
+  class-feature migration, by policy.
 
 - [x] Persistent active-map encounter tracking: DM creation names plus U/reveal badges, player-safe tags, initial complete-reveal number matching, and staged first-map creation.
 - [x] Creature stat/attack completeness audit and missing-field repair; eight common library additions and four reduced multi-view families (Bugbear, Gnoll, Owlbear, Brown Bear). See `docs/TOKEN_LIBRARY_EXPANSION_2026-09-24.md`.
@@ -1805,3 +1852,38 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM can generate a separate 3D creature model despite an existing match, using saved weapons/attacks/armor evidence and optional appearance notes, then apply it from Token info.
 - [x] Permanent named multi-view texturing for manual and app production, with worker installation, reference receipts, and rejection of front-only fallback.
 - [x] Creature CR changes scale HP, attacks and save DCs from a durable original baseline using 2014 DMG benchmarks; preview/cancel, copy/library persistence and combat-roll regression coverage. See docs/CREATURE_CR_SCALING.md.
+
+- [x] Fighter on-hit maneuver choices beside **Roll damage**: Disarming,
+  Distracting, Goading, Maneuvering, Menacing, Pushing and Trip. Existing saved
+  maneuvers are recognized by name; only known, weapon-compatible entries with
+  an available Superiority Die appear. Normal damage costs no die. Choosing a
+  maneuver resolves one combined hit, doubles critical dice and rounds resistance
+  once. Save riders retain the existing click-to-target save flow; movement,
+  disarming and ally effects remain table-directed log reminders. Pre-attack,
+  reaction, check and secondary-target maneuvers retain their existing flow.
+  Verified with 791 server tests and five real-browser cases covering both damage
+  modes, Smite, Pact usage, and DM/player prompt ownership.
+
+- [x] Combat announcements: large gold **Roll initiative!** (4.6s) and **Your
+  Turn** (5.4s) banners, distinct fanfare/chime, fade-in/hold/fade-out, queued so
+  combat start does not hide the first turn. Reconnects do not replay old turns;
+  a changed turn dismisses stale personal announcements. Respects mute, disabled
+  roll animation and reduced motion. Crit reveals add a gold flourish and a
+  distinct layered sound.
+- [x] Riposte reaction prompt: a 30s weapon choice after a melee miss, visible only
+  to the defender and DM when both tokens are visible. Server validates knowledge,
+  dice, melee reach and incapacitation; spends one die and persists a reaction
+  marker until the fighter's next turn (or combat end). A miss still spends the
+  die, a crit doubles it, and expired/repeated requests cannot spend again.
+  Other reaction abilities retain their existing manual flow. Verified: 800
+  server tests, typecheck/build, six browser cases; announcement fade and size
+  verified in a real browser, with reduced-motion critical-hit coverage.
+
+- [x] Player initiative collection: **Start combat** rolls DM-controlled creatures
+  and asks connected, claimed PCs to roll through a persistent button. The request
+  survives refresh/restart; the server guards ownership and duplicate rolls and
+  begins round 1 only when all participants have results. **Roll remaining** is
+  the DM fallback; **Roll all** keeps its explicit auto-roll-everyone behavior.
+  New persisted session flag defaults off for existing saves. Verified: 803 server
+  tests, typecheck/build, and browser coverage for a persistent/reconnected prompt
+  plus the announcements, Riposte and critical-hit flow.

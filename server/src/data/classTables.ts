@@ -1,3 +1,4 @@
+import { classFeatureUses } from '../../../shared/classFeatureUses.js';
 import { abilityMod } from '../../../shared/skills.js';
 
 type Counter = { max: number; used: number };
@@ -126,8 +127,17 @@ export function deriveClassResources(
     add('Second Wind', lvl >= 10 ? 4 : lvl >= 4 ? 3 : 2);
     add('Action Surge', lvl >= 17 ? 2 : lvl >= 2 ? 1 : 0);
   }
-  if (/paladin/.test(cn)) add('Lay on Hands', lvl * 5);
+  if (/paladin/.test(cn)) {
+    add('Lay on Hands', lvl * 5);
+    // 2024 Paladin's Smite (level 2): Divine Smite once per Long Rest with no slot.
+    add('Divine Smite (free)', lvl >= 2 ? 1 : 0);
+  }
   if (/bard/.test(cn)) add('Bardic Inspiration', Math.max(1, abilityMod(stats.CHA)));
+  // Level-scaled feature counters (shared with the client's add-ability path).
+  for (const feature of ['Channel Divinity', 'Wild Shape']) {
+    const uses = classFeatureUses(feature, className, lvl);
+    if (uses) add(feature, uses);
+  }
   // Subclass resources. The counter name must stay 'Superiority Dice' — the
   // sheet's `superiorityDie` size setting points at it.
   if (/battle\s*master/.test(sub))
