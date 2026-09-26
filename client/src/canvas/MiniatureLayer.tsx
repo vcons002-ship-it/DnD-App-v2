@@ -41,6 +41,7 @@ type Props = {
 export type MiniatureLayerHandle = {
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
+  setProjection: (tilt:number, rotation:number, view:BattlefieldView) => void;
   moveToken: (id: string, x: number, y: number, finished: boolean) => void;
 };
 type FxManifest = {
@@ -512,6 +513,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       for (const id of tokenIds) instances.get(id)?.lightning?.cast(performance.now() / 1000);
       invalidate();
     },
+    setProjection(tilt, rotation, nextView) {
+      if(disposed || failed)return;
+      props={...props,tiltDegrees:tilt,rotationDegrees:rotation};view=nextView;
+      updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
+      host.dataset.tiltDegrees=String(tilt);
+    },
     setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
     moveToken(id, x, y, finished) {
       if (disposed) return;
@@ -541,6 +548,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   useImperativeHandle(ref, () => ({
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
+    setProjection: (tilt,rotation,view) => engine.current?.setProjection(tilt,rotation,view),
     moveToken: (id, x, y, finished) => engine.current?.moveToken(id, x, y, finished),
   }), []);
   useEffect(() => {

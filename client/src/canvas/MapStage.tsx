@@ -396,7 +396,11 @@ export function MapStage({
     try { const saved=Number(localStorage.getItem(rotationKey));return Number.isFinite(saved)?saved%360:0; } catch { return 0; }
   });
   const viewAnimation=useRef(0);
-  useEffect(()=>()=>cancelAnimationFrame(viewAnimation.current),[]);
+  const projectionState=useRef({tilt:tiltDegrees,rotation:rotationDegrees});
+  const projectionCanvases=useRef<ReturnType<typeof installPerspectiveCanvas>[]>([]);
+  const rotationLabel=useRef<HTMLButtonElement>(null);
+  const rotationGesture=useRef<{x:number;start:number;angle:number;pointerId:number;frame:number;view:View}|null>(null);
+  useEffect(()=>()=>{cancelAnimationFrame(viewAnimation.current);if(rotationGesture.current)cancelAnimationFrame(rotationGesture.current.frame);},[]);
   const tokenPreferenceKey = `dnd.tokenView:${getPlayerId()}`;
   const [use3dTokens, setUse3dTokens] = useState(() => {
     try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
@@ -1008,12 +1012,13 @@ export function MapStage({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const cleanup = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]
+    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]
       .filter((layer): layer is Konva.Layer => !!layer)
       .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees, rotationDegrees));
-    cleanup.push(installPerspectiveInput(stage, size.w, size.h, tiltDegrees, rotationDegrees));
-    return () => cleanup.forEach(fn => fn());
-  }, [size.w, size.h, tiltDegrees, rotationDegrees, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
+    projectionCanvases.current=canvases;
+    const input=installPerspectiveInput(stage,size.w,size.h,tiltDegrees,rotationDegrees,()=>projectionState.current);
+    return () => {input();canvases.forEach(dispose=>dispose());projectionCanvases.current=[];};
+  }, [size.w, size.h, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
     enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
@@ -1507,32 +1512,66 @@ export function MapStage({
     setView(fit);
   };
 
+  const paintProjection = (tilt:number,rotation:number,nextView:View) => {
+    const previous=projectionState.current;
+    projectionState.current={tilt,rotation};
+    for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
+    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current]){
+      if(!layer)continue;
+      if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
+      const labels=layer.find('.token-upright-hud');
+      for(const label of labels)label.rotation(-rotation);
+      if(previous.tilt!==tilt || labels.length)layer.draw();
+    }
+    miniatureRef.current?.setProjection(tilt,rotation,nextView);
+    if(rotationLabel.current)rotationLabel.current.textContent=`${((Math.round(rotation)%360)+360)%360}\u00b0`;
+  };
+  const commitProjection=(tilt:number,rotation:number,nextView:View)=>{
+    setTiltDegrees(tilt);setRotationDegrees(rotation);setView(nextView);
+    safeSetItem(rotationKey,String(rotation%360));
+  };
   const animateView = (nextTilt: number, nextRotation: number) => {
-    cancelAnimationFrame(viewAnimation.current);
-    userAdjusted.current = true;
-    const startTilt=tiltDegrees,startRotation=rotationDegrees,startView=view;
-    const centerY=(size.h/2-view.y)/groundYScale(startTilt);
-    const started=performance.now();
+    cancelAnimationFrame(viewAnimation.current);userAdjusted.current=true;
+    const {tilt:startTilt,rotation:startRotation}=projectionState.current,startView=view;
+    const targetRotation=startRotation+((nextRotation-startRotation+180)%360+360)%360-180;
+    const centerY=(size.h/2-view.y)/groundYScale(startTilt),started=performance.now();
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const tick=(now:number)=>{
       const t=reduced?1:Math.min(1,(now-started)/450),ease=t*t*(3-2*t);
-      const angle=startTilt+(nextTilt-startTilt)*ease;
-      setTiltDegrees(angle);setRotationDegrees(startRotation+(nextRotation-startRotation)*ease);
-      setView({...startView,y:size.h/2-centerY*groundYScale(angle)});
-      if(t<1)viewAnimation.current=requestAnimationFrame(tick);
+      const angle=startTilt+(nextTilt-startTilt)*ease,rotation=startRotation+(targetRotation-startRotation)*ease;
+      const nextView={...startView,y:size.h/2-centerY*groundYScale(angle)};
+      paintProjection(angle,rotation,nextView);
+      if(t<1)viewAnimation.current=requestAnimationFrame(tick);else commitProjection(angle,rotation,nextView);
     };
     viewAnimation.current=requestAnimationFrame(tick);
   };
   const chooseTilt = (next: boolean) => {
     if(next===tilted)return;
-    setTilted(next);
-    safeSetItem(viewPreferenceKey,next?'tilted':'flat');
-    animateView(next?BATTLEFIELD_TILT_DEGREES:0,rotationDegrees);
+    setTilted(next);safeSetItem(viewPreferenceKey,next?'tilted':'flat');
+    animateView(next?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation);
   };
-  const rotateView = (amount: number) => {
-    const next=amount===0?0:Math.round(rotationDegrees/45)*45+amount;
-    safeSetItem(rotationKey,String(next%360));
-    animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,next);
+  const rotateStart=(event:React.PointerEvent<HTMLDivElement>)=>{
+    if(event.button!==2 || !(event.target instanceof HTMLCanvasElement) || !event.target.closest('.konvajs-content'))return false;
+    const stage=stageRef.current;stage?.setPointersPositions(event.nativeEvent);
+    const point=stage?.getPointerPosition();
+    if(point && stage?.getIntersection(point)?.findAncestor('.token',true))return false;
+    event.preventDefault();event.stopPropagation();cancelAnimationFrame(viewAnimation.current);
+    userAdjusted.current=true;setMenu(null);setHover(null);
+    rotationGesture.current={x:event.clientX,start:projectionState.current.rotation,angle:projectionState.current.rotation,pointerId:event.pointerId,frame:0,view};
+    event.currentTarget.setPointerCapture(event.pointerId);return true;
+  };
+  const rotateMove=(event:React.PointerEvent<HTMLDivElement>)=>{
+    const gesture=rotationGesture.current;if(!gesture || gesture.pointerId!==event.pointerId)return false;
+    event.preventDefault();event.stopPropagation();gesture.angle=gesture.start+(event.clientX-gesture.x)*.35;
+    if(!gesture.frame)gesture.frame=requestAnimationFrame(()=>{gesture.frame=0;paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);});
+    return true;
+  };
+  const rotateEnd=(event:React.PointerEvent<HTMLDivElement>)=>{
+    const gesture=rotationGesture.current;if(!gesture || gesture.pointerId!==event.pointerId)return false;
+    event.preventDefault();event.stopPropagation();cancelAnimationFrame(gesture.frame);
+    paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);
+    commitProjection(projectionState.current.tilt,gesture.angle,gesture.view);rotationGesture.current=null;
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
   const renderTokens = (miniatures: boolean) => snapshot.tokens.filter((token) =>
@@ -1579,7 +1618,13 @@ export function MapStage({
   });
 
   return (
-    <div className="stage-wrap" ref={containerRef} {...selectionBox.handlers}>
+    <div className="stage-wrap" ref={containerRef} {...selectionBox.handlers}
+      onPointerDownCapture={e=>{if(!rotateStart(e))selectionBox.handlers.onPointerDownCapture(e);}}
+      onPointerMoveCapture={e=>{if(!rotateMove(e))selectionBox.handlers.onPointerMoveCapture(e);}}
+      onPointerUpCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onPointerUpCapture(e);}}
+      onPointerCancelCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onPointerCancelCapture();}}
+      onLostPointerCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onLostPointerCapture();}}
+      onContextMenuCapture={e=>{if((e.target as HTMLElement).closest?.('.konvajs-content'))e.preventDefault();}}>
       {selectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
         style={{ left: Math.min(selectionBox.box.start.x, selectionBox.box.end.x), top: Math.min(selectionBox.box.start.y, selectionBox.box.end.y),
           width: Math.abs(selectionBox.box.end.x - selectionBox.box.start.x), height: Math.abs(selectionBox.box.end.y - selectionBox.box.start.y) }} />}
@@ -1613,9 +1658,8 @@ export function MapStage({
               <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
                 onClick={() => chooseTilt(false)}>Overhead</button>
-              <button className="btn tiny" aria-label="Rotate battlefield left" title="Rotate your view left" onClick={()=>rotateView(-45)}>↶</button>
-              <button className="btn tiny" aria-label="Reset battlefield rotation" title="Reset your view rotation" onClick={()=>rotateView(0)}>{((Math.round(rotationDegrees)%360)+360)%360}°</button>
-              <button className="btn tiny" aria-label="Rotate battlefield right" title="Rotate your view right" onClick={()=>rotateView(45)}>↷</button>
+              <button ref={rotationLabel} className="btn tiny" aria-label="Reset battlefield rotation" title="Hold right mouse button and drag empty space to rotate freely. Click to reset."
+                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>{((Math.round(rotationDegrees)%360)+360)%360}°</button>
             </div>
             {([
               { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },

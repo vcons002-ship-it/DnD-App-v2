@@ -1432,9 +1432,17 @@ test('animated view rotation keeps player base dragging aligned in both projecti
  const token=f.ready.tokens[0];
  for(const tilted of [false,true]){
   if(tilted){await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(layer).toHaveAttribute('data-tilt-degrees','45');}
-  await page.getByRole('button',{name:'Rotate battlefield right',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText(tilted?'90\u00b0':'45\u00b0');
+  await page.evaluate(()=>{
+    const descriptors=['width','height'].map(key=>({key,d:Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,key)!}));
+    (window as any).__orbitResizes=0;
+    for(const {key,d} of descriptors)Object.defineProperty(HTMLCanvasElement.prototype,key,{...d,set(value){(window as any).__orbitResizes++;d.set!.call(this,value);}});
+    (window as any).__restoreOrbitCanvas=()=>descriptors.forEach(({key,d})=>Object.defineProperty(HTMLCanvasElement.prototype,key,d));
+  });
+  await page.mouse.move(250,160);await page.mouse.down({button:'right'});
+  await page.mouse.move(356,160,{steps:20});await page.mouse.up({button:'right'});
+  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText(tilted?'74\u00b0':'37\u00b0');
   await page.waitForTimeout(100);
+  expect(await page.evaluate(()=>{const n=(window as any).__orbitResizes;(window as any).__restoreOrbitCanvas();return n;})).toBe(0);
   const before=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
   const v=(await tokenView(page,token.id))!;const end=offsetPoint(v,55,40);
   await page.mouse.move(v.x,v.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:15});await page.mouse.up();
@@ -1444,4 +1452,6 @@ test('animated view rotation keeps player base dragging aligned in both projecti
  }
  await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();
  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('0\u00b0');
+ const target=(await tokenView(page,token.id))!;await page.mouse.click(target.x,target.y,{button:'right'});
+ await expect(page.getByRole('dialog',{name:'Token actions'})).toBeVisible();
 });
