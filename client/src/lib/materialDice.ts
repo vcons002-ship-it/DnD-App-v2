@@ -112,22 +112,32 @@ void main(){
  if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
  if(engraved || metalEdge){
-   if(style==0 && !metalEdge){
-     // Warm wooden inlays: lengthwise fibers, uneven pores and a restrained satin sheen.
-     float warp=fbm(vec3(tex*vec2(5.,2.),6.));
-     float fiber=noise(vec3(tex.x*110.+warp*24.,tex.y*8.,2.));
-     float fine=noise(vec3(tex.x*350.+warp*20.,tex.y*13.,7.));
-     float grain=smoothstep(.32,.72,fiber);
-     vec3 wood=mix(vec3(.28,.13,.045),vec3(.50,.28,.11),grain);
-     wood*=.85+.25*fine;
-     vec3 worldN=rotation*n;
-     float light=.6+.65*max(0.,dot(worldN,normalize(vec3(-.6,.9,1.2))));
+   if(style==2 && !metalEdge){
+     // A recessed pocket reveals a lacquered wooden floor below the glass face.
+     vec3 axis=abs(nor.x)>.95?vec3(0,1,0):vec3(1,0,0);
+     vec3 tn=normalize(nor),tu=normalize(axis-tn*dot(axis,tn)),tv=cross(tn,tu);
+     vec3 view=normalize(-incoming);
+     vec2 offset=vec2(dot(view,tu),dot(view,tv))*.008/max(.35,dot(view,tn));
+     vec2 woodUV=tex-offset;
+     float floorMask=1.-texture2D(etching,woodUV).r;
+     float rim=max(max(texture2D(etching,woodUV+vec2(.004,0)).r,texture2D(etching,woodUV-vec2(.004,0)).r),max(texture2D(etching,woodUV+vec2(0,.004)).r,texture2D(etching,woodUV-vec2(0,.004)).r));
+     float warp=fbm(vec3(woodUV*vec2(4.,3.),6.));
+     float grain=fbm(vec3(woodUV.x*75.+warp*16.,woodUV.y*9.,2.));
+     // Low-contrast mahogany fibers live beneath a smooth clear lacquer coat.
+     vec3 wood=mix(vec3(.027,.006,.003),vec3(.075,.025,.009),grain);
+     float light=.65+.65*max(0.,dot(rotation*tn,normalize(vec3(-.6,.9,1.2))));
      wood*=light;
-     wood+=vec3(.13,.08,.035)*pow(max(0.,dot(worldN,halfLight)),28.);
-     float wall=max(max(texture2D(etching,tex+vec2(.006,0)).r,texture2D(etching,tex-vec2(.006,0)).r),max(texture2D(etching,tex+vec2(0,.006)).r,texture2D(etching,tex-vec2(0,.006)).r));
-     wood*=mix(1.,.5,smoothstep(.4,.9,wall));
-     color=mix(color,wood,1.-cut);
+     float coat=.045+.955*pow(1.-max(0.,dot(view,tn)),5.);
+     vec3 reflection=obsidianStudio(rotation*reflect(incoming,tn));
+     wood+=reflection*coat*.85;
+     // The recess wall occludes the floor; the lip catches a narrow highlight.
+     wood*=mix(1.,.36,smoothstep(.35,.9,rim));
+     wood+=reflection*.06*smoothstep(.15,.65,rim)*(1.-smoothstep(.7,1.,rim));
+     vec3 pocket=mix(vec3(.008,.002,.001),wood,floorMask);
+     color=mix(color,pocket,1.-cut);
+
    }
+   else if(style==0)color=mix(color,vec3(.86,.75,.64),(1.-cut)*.75);
    else {
      vec3 f0=style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
@@ -182,7 +192,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},studio:{value:s.cube},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===0||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   // The convex hull of inset face corners adds actual chamfer geometry.
