@@ -147,6 +147,7 @@ import {
   createSummon,
   updateMapGrid,
   rollAllInitiative,
+  startCombat, finishInitiative, rollPlayerInitiative, setInitiativePending,
   rollMissingInitiative,
   setCombatRound,
   setHideDmRolls,
@@ -272,7 +273,7 @@ export function registerSocketHandlers(io: IOServer): void {
     /** Run a mutation, persist, and re-shape snapshots for everyone. */
     const afterChange = () => {
       const sid = sessionId();
-      if (sid) broadcastSnapshots(io, sid);
+      if (sid) { finishInitiative(sid); broadcastSnapshots(io, sid); }
     };
 
     on('join', (payload, ack) => {
@@ -1691,6 +1692,25 @@ export function registerSocketHandlers(io: IOServer): void {
       afterChange();
     });
 
+    on('initiative:start', () => {
+      const sid = sessionId();
+      if (!sid || !isDm()) return;
+      const before = getSessionById(sid);
+      if (!before?.activeMapId || before.initiativePending) return;
+      startCombat(sid, isConnected);
+      if (!getSessionById(sid)?.initiativePending) io.to(roomName(sid)).emit('fx:initiative', {mapId: before.activeMapId});
+      afterChange();
+    });
+    on('initiative:rollMine', ({tokenId}) => {
+      const sid = sessionId();
+      if (!sid || typeof tokenId !== 'string') return;
+      if (!rollPlayerInitiative(sid, tokenId, socket.id)) {
+        socket.emit('notice', {message: 'No initiative roll is waiting for your character.'});
+        return;
+      }
+      afterChange();
+    });
+
     on('initiative:rollAll', () => {
       const sid = sessionId();
       if (!sid || !isDm()) return;
@@ -1698,6 +1718,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!activeMapId) return;
       // Roll-all resets combat: re-roll everyone, start at the top, round 1.
       io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
+      setInitiativePending(sid, false);
       rollAllInitiative(activeMapId);
       setActiveTurn(sid, firstInInitiative(activeMapId));
       setCombatRound(sid, 1);
@@ -1709,7 +1730,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
-      if (!getSessionById(sid)?.activeTurnTokenId) io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
+      if (!getSessionById(sid)?.activeTurnTokenId && !getSessionById(sid)?.initiativePending) io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
       // Only roll latecomers; if combat hasn't started, highlight the top and
       // open round 1. Mid-fight, the round counter is left alone.
       rollMissingInitiative(activeMapId);

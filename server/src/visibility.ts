@@ -374,6 +374,7 @@ export function createSnapshotBuilder(
 
     return {
       role,
+      initiativePending: session.initiativePending,
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
         tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId)),

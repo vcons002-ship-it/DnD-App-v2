@@ -9,10 +9,20 @@ export function CombatMoments() {
   const initiative = useStore(s => s.initiativeFx);
   const animate = useStore(s => s.showRollAnim);
   const riposte = useStore(s => s.combatRiposte);
+  const rollMyInitiative = useStore(s => s.rollMyInitiative);
+  const rollRemaining = useStore(s => s.rollMissingInitiative);
+  const rollFx = useStore(s => s.rollFx);
+  const pendingSeen = useRef(snapshot?.initiativePending);
   const [queue, setQueue] = useState<{id: string; title: string; detail: string; kind: 'initiative' | 'turn'}[]>([]);
   const lastTurn = useRef<string>();
   const lastInitiative = useRef(initiative?.id);
+  const presented = useRef<string>();
   const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (snapshot?.initiativePending && !pendingSeen.current) playInitiative();
+    pendingSeen.current = snapshot?.initiativePending;
+  }, [snapshot?.initiativePending]);
 
   useEffect(() => {
     if (!initiative || initiative.id === lastInitiative.current) return;
@@ -43,9 +53,10 @@ export function CombatMoments() {
       detail: `${name} · Round ${snapshot.round}`, kind: 'turn'}]);
   }, [snapshot, socket?.id]);
 
-  const banner = queue[0];
+  const banner = rollFx && presented.current !== queue[0]?.id ? undefined : queue[0];
   useEffect(() => {
     if (!banner) return;
+    presented.current = banner.id;
     banner.kind === 'initiative' ? playInitiative() : playYourTurn();
     const timer = window.setTimeout(() => setQueue(q => q.slice(1)), banner.kind === 'initiative' ? 4600 : 5400);
     return () => clearTimeout(timer);
@@ -58,7 +69,21 @@ export function CombatMoments() {
   }, [snapshot?.ripostes]);
   const offer = snapshot?.ripostes?.find(o => o.expiresAt > now);
   const fighter = snapshot?.characters.find(c => c.id === offer?.owner);
+  const waiting = snapshot?.initiativePending ? snapshot.tokens.filter(t =>
+    t.kind === 'pc' && t.inCombatEffective && t.initiative === null) : [];
+  const mine = waiting.find(t => snapshot?.characters.find(c => c.id === t.refId)?.claimedBy === socket?.id);
+  const dmWaiting = snapshot?.initiativePending && snapshot.role === 'dm';
   return <>
+    {(mine || dmWaiting) && <div className={`combat-moment combat-moment-initiative initiative-persistent ${animate ? '' : 'no-motion'}`}
+      role="region" aria-label="Initiative roll request">
+      <span className="combat-moment-kicker">Combat is starting</span>
+      <strong>Roll initiative!</strong>
+      <span>{mine ? 'Roll to find your place in the turn order.' : `Waiting for ${waiting.length} player roll${waiting.length === 1 ? '' : 's'}.`}</span>
+      <button className="btn initiative-roll-button" onClick={() => mine ? rollMyInitiative(mine.id) : rollRemaining()}>
+        {mine ? 'Roll initiative' : 'Roll remaining'}
+      </button>
+    </div>}
+    {snapshot?.initiativePending && !mine && !dmWaiting && <div className="initiative-waiting" role="status">Waiting for initiative rolls…</div>}
     {banner && <div className={`combat-moment combat-moment-${banner.kind} ${animate ? '' : 'no-motion'}`}
       style={{animationDuration: banner.kind === 'initiative' ? '4600ms' : '5400ms'}}
       role="status" aria-live="polite" key={banner.id}>

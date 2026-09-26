@@ -18,6 +18,7 @@ type Props = {
  *  exceptions. Unticked creatures drop out of the order into a collapsed
  *  "Not in combat" group rather than cluttering the tracker. */
 export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Props) {
+  const startCombat = useStore(s => s.startCombat);
   const setInitiative = useStore((s) => s.setInitiative);
   const rollAllInitiative = useStore((s) => s.rollAllInitiative);
   const rollMissingInitiative = useStore((s) => s.rollMissingInitiative);
@@ -159,6 +160,7 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
           )}
         </h3>
         <div className="init-actions">
+          {!snapshot.round && <button className="btn tiny" onClick={startCombat} disabled={snapshot.initiativePending}>Start combat</button>}
           <button
             className="btn tiny"
             onClick={rollAllInitiative}
@@ -171,9 +173,9 @@ export function InitiativePanel({ snapshot, selectedTokenId, onSelectToken }: Pr
             onClick={rollMissingInitiative}
             title="Roll only for ticked combatants who haven't rolled"
           >
-            Add rolls
+            {snapshot.initiativePending ? 'Roll remaining' : 'Add rolls'}
           </button>
-          <button className="btn tiny" onClick={nextTurn}>
+          <button className="btn tiny" onClick={nextTurn} disabled={snapshot.initiativePending}>
             Next ▸
           </button>
           <button

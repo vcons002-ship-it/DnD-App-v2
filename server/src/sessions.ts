@@ -1,3 +1,4 @@
+import { checkReveal } from '../../shared/rollReveal.js';
 import { clearRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
 import { requestCreatureAsset } from './assets/hooks.js';
@@ -62,6 +63,7 @@ export type Session = {
   hideDmRolls: boolean;
   /** Weapon damage is a SECOND click (roll + apply) instead of auto-applying. */
   manualDamage: boolean;
+  initiativePending: boolean;
 };
 
 type SessionRow = {
@@ -73,6 +75,7 @@ type SessionRow = {
   combat_round: number | null;
   hide_dm_rolls: number | null;
   manual_damage: number | null;
+  initiative_pending: number | null;
 };
 
 const rowToSession = (r: SessionRow): Session => ({
@@ -83,6 +86,7 @@ const rowToSession = (r: SessionRow): Session => ({
   activeTurnTokenId: r.active_turn_token_id,
   combatRound: r.combat_round ?? 0,
   hideDmRolls: !!r.hide_dm_rolls,
+  initiativePending: !!r.initiative_pending,
   // Default ON for a session that predates the column (NULL) — the two-step
   // damage roll is the intended behavior; the DM can switch it off in Settings.
   manualDamage: r.manual_damage === null ? true : !!r.manual_damage,
@@ -118,7 +122,7 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
      VALUES (?, ?, ?, NULL, ?, ?)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true, initiativePending: false };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */
@@ -374,6 +378,7 @@ export function deleteSession(sessionId: string): void {
 }
 
 export function setActiveMap(sessionId: string, mapId: string): void {
+  if (getSessionById(sessionId)?.activeMapId !== mapId) setInitiativePending(sessionId, false);
   db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
     mapId,
     sessionId,
@@ -419,6 +424,7 @@ export const deleteMap = db.transaction((mapId: string): void => {
   // Promote a replacement active map and clear the stale turn marker.
   const session = getSessionById(sessionId);
   if (session?.activeMapId === mapId) {
+    setInitiativePending(sessionId, false);
     const next = listMaps(sessionId)[0]?.id ?? null;
     db.prepare('UPDATE sessions SET active_map_id = ? WHERE id = ?').run(
       next,
@@ -1300,6 +1306,51 @@ function concealedByFog(token: Token, map?: MapState | null): boolean {
   return coveredByFog(null, new Set(m.tokenFogRevealed), grid, token.x, token.y);
 }
 
+export function setInitiativePending(sessionId: string, pending: boolean): void {
+  db.prepare('UPDATE sessions SET initiative_pending = ? WHERE id = ?').run(pending ? 1 : 0, sessionId);
+}
+
+/** Roll NPCs now; claimed players roll their own d20 from a persistent prompt. */
+export function startCombat(sessionId: string, connected: (id: string) => boolean = () => true): void {
+  const session = getSessionById(sessionId);
+  if (!session?.activeMapId || session.initiativePending) return;
+  clearInitiative(sessionId);
+  const map = getMap(session.activeMapId);
+  for (const token of listTokens(session.activeMapId)) {
+    if (!rollsInitiative(token, map)) continue;
+    const ch = token.kind === 'pc' ? getCharacter(token.refId) : null;
+    if (!ch?.claimedBy || !connected(ch.claimedBy)) setTokenInitiative(token.id, rollInitiative(token));
+  }
+  setInitiativePending(sessionId, true);
+  finishInitiative(sessionId);
+}
+
+export function finishInitiative(sessionId: string): void {
+  const session = getSessionById(sessionId);
+  if (!session?.initiativePending || !session.activeMapId) return;
+  const map = getMap(session.activeMapId);
+  if (listTokens(session.activeMapId).some(t => rollsInitiative(t, map) && t.initiative === null)) return;
+  setInitiativePending(sessionId, false);
+  const first = firstInInitiative(session.activeMapId);
+  setActiveTurn(sessionId, first);
+  setCombatRound(sessionId, first ? 1 : 0);
+}
+
+export function rollPlayerInitiative(sessionId: string, tokenId: string, socketId: string): boolean {
+  const session = getSessionById(sessionId), token = getToken(tokenId);
+  if (!session?.initiativePending || !token || token.kind !== 'pc' || token.mapId !== session.activeMapId ||
+      token.initiative !== null || !rollsInitiative(token)) return false;
+  const ch = getCharacter(token.refId);
+  if (!ch || ch.sessionId !== sessionId || ch.claimedBy !== socketId) return false;
+  const face = Math.floor(Math.random() * 20) + 1, bonus = initiativeBonus(token), total = face + bonus;
+  setTokenInitiative(token.id, total);
+  addRollLog(sessionId, {roller: ch.name, label: 'Initiative', expr: '1d20', total,
+    detail: `${ch.name} rolls initiative: ${face} + ${bonus} = ${total}`,
+    reveal: checkReveal({who: ch.name, title: 'Initiative', face, total, steps: [{label:'Initiative bonus',value:bonus}]})});
+  finishInitiative(sessionId);
+  return true;
+}
+
 export function rollAllInitiative(mapId: string): void {
   const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
   const map = getMap(mapId); // loaded once; fog sets are rebuilt per token
@@ -1391,6 +1442,7 @@ export function firstInInitiative(mapId: string): string | null {
  *  combatant left the marker clears (combat is effectively over). */
 export function advanceTurn(sessionId: string): void {
   const session = getSessionById(sessionId);
+  if (session?.initiativePending) return;
   if (!session?.activeMapId) return;
   const order = initiativeOrder(session.activeMapId);
   if (order.length === 0) {
@@ -1419,6 +1471,7 @@ export function advanceTurn(sessionId: string): void {
 }
 
 export function clearInitiative(sessionId: string): void {
+  setInitiativePending(sessionId, false);
   for (const ch of listCharacters(sessionId)) for (const condition of ch.conditions)
     if (condition.label === RIPOSTE_SPENT) clearCondition('pc', ch.id, condition.id);
   const session = getSessionById(sessionId);

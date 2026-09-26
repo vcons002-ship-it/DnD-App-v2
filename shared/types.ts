@@ -789,6 +789,7 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
   role: Role;
   sessionCode: string;
@@ -1672,6 +1673,8 @@ export interface ClientToServerEvents {
   'creature:setNotes': (payload: CreatureNotesPayload) => void;
   'ai:fillCreature': (payload: AiFillCreaturePayload) => void;
   'initiative:set': (payload: InitiativeSetPayload) => void;
+  'initiative:start': () => void;
+  'initiative:rollMine': (payload: {tokenId: string}) => void;
   'initiative:rollAll': () => void;
   'initiative:rollMissing': () => void;
   'initiative:next': () => void;

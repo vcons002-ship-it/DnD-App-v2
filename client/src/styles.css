@@ -1771,3 +1771,8 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .combat-moment::before { top:10px; } .combat-moment::after { bottom:10px; }
 .combat-moment-initiative { border-color:#ffce62; box-shadow:0 12px 70px #000c,0 0 44px #efad3744; }
 .combat-moment-initiative .combat-moment-kicker { color:#ffd474; }
+.initiative-persistent { animation: initiative-arrival .65s ease-out both; }
+.combat-moment .initiative-roll-button { position:static; justify-self:center; padding:10px 24px; margin-top:10px; background:#58401c; border:1px solid #e4c17a; border-radius:6px; font-size:20px; color:#fff0bf; }
+.initiative-waiting { position:fixed; z-index:80; top:85px; left:50%; transform:translateX(-50%); padding:8px 16px; border:1px solid #b39b65; border-radius:6px; background:#201b16ee; color:#ffe6aa; pointer-events:none; }
+@keyframes initiative-arrival { from {opacity:0;scale:.9} to {opacity:1;scale:1} }
+@media (prefers-reduced-motion:reduce) { .initiative-persistent {animation:none;} }

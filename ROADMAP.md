@@ -1878,3 +1878,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   Other reaction abilities retain their existing manual flow. Verified: 800
   server tests, typecheck/build, six browser cases; announcement fade and size
   verified in a real browser, with reduced-motion critical-hit coverage.
+
+- [x] Player initiative collection: **Start combat** rolls DM-controlled creatures
+  and asks connected, claimed PCs to roll through a persistent button. The request
+  survives refresh/restart; the server guards ownership and duplicate rolls and
+  begins round 1 only when all participants have results. **Roll remaining** is
+  the DM fallback; **Roll all** keeps its explicit auto-roll-everyone behavior.
+  New persisted session flag defaults off for existing saves. Verified: 803 server
+  tests, typecheck/build, and browser coverage for a persistent/reconnected prompt
+  plus the announcements, Riposte and critical-hit flow.

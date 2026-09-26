@@ -341,6 +341,8 @@ type Store = {
     role: CombatRole | null,
   ) => void;
   setInitiative: (tokenId: string, initiative: number | null) => void;
+  startCombat: () => void;
+  rollMyInitiative: (tokenId: string) => void;
   rollAllInitiative: () => void;
   rollMissingInitiative: () => void;
   nextTurn: () => void;
@@ -1051,6 +1053,8 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('tokens:setCombatRole', { tokenIds, role }),
   setInitiative: (tokenId, initiative) =>
     get().socket?.emit('initiative:set', { tokenId, initiative }),
+  startCombat: () => get().socket?.emit('initiative:start'),
+  rollMyInitiative: tokenId => get().socket?.emit('initiative:rollMine', {tokenId}),
   rollAllInitiative: () => get().socket?.emit('initiative:rollAll'),
   rollMissingInitiative: () => get().socket?.emit('initiative:rollMissing'),
   nextTurn: () => get().socket?.emit('initiative:next'),
