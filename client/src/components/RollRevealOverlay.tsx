@@ -1,3 +1,4 @@
+import { hasNaturalTwenty } from '../../../shared/rollReveal';
 import {diceEntrySide} from '../lib/diceEntrySide';
 import type {DiceEntrySide} from '../lib/diceTrayTypes';
 import { PhysicsDiceTray } from './PhysicsDiceTray';
@@ -192,6 +193,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
   const isCheck = reveal?.kind === 'check';
   const isDice = reveal?.kind === 'dice';
   const isBurst = reveal?.kind === 'damage' || isDice;
+  const naturalTwenty = hasNaturalTwenty(reveal);
 
   const [stage, setStage] = useState<Stage>({
     phase: 'rolling',
@@ -263,7 +265,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
 
         });
       };
-      if (isBurst) startDamage(0, isDice ? playSkill : playHit);
+      if (isBurst) startDamage(0, isDice ? naturalTwenty ? playCritical : playSkill : playHit);
       else {
         // Also reset when reduced-motion changes during the same visible roll.
         setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceLocked: 0, diceStopping: 0, modsShown: 0 });
@@ -277,7 +279,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
           const outcomeAt = toHit.length * STEP_MS + OUTCOME_MS;
           at(outcomeAt, () => {
             setStage((p) => ({ ...p, phase: 'outcome' }));
-            if (isCheck) reveal.outcome === 'fail' ? playMiss() : playSkill();
+            if (isCheck) naturalTwenty ? playCritical() : reveal.outcome === 'fail' ? playMiss() : playSkill();
             else if (reveal.outcome === 'crit') playCritical();
             else if (reveal.outcome === 'hit') playHit();
             else playMiss();
@@ -322,6 +324,8 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
 
   if (!rollFx || !reveal) return null;
 
+  const mapImpact = !!rollFx.impactReady && ((!isCheck && !isDice) || !!rollFx.hasMapImpact);
+  const showNaturalTwenty = naturalTwenty && (staticReveal || (isCheck ? stage.phase === 'outcome' || stage.phase === 'damage' : !!rollFx.impactReady));
   const outcomeLabel =
     reveal.outcome === 'crit'
       ? 'CRITICAL HIT!'
@@ -355,7 +359,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
     : faces.map((d,index)=>({...d,index,set:0}));
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
-    <div className="roll-reveal-backdrop">
+    <div className={`roll-reveal-backdrop${mapImpact ? ' is-impact' : ''}`}>
       <div
         key={rollFx.id}
         className={`roll-reveal ${colourClass}`}
@@ -370,6 +374,11 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
           {reveal.attacker}
           {reveal.target ? <span className="rr-arrow"> → {reveal.target}</span> : ''}
         </div>
+        {mapImpact && <div className="roll-impact-summary" role="status">
+          <strong>{reveal.damage !== undefined ? reveal.damage : reveal.attackTotal}</strong>
+          <span>{reveal.damage !== undefined ? `${reveal.damageType ?? ''} damage` : isCheck ? 'Check total' : 'Attack total'}</span>
+        </div>}
+        {showNaturalTwenty && <div className="natural-twenty" role="status" aria-label="Natural 20 celebration">Nat 20!</div>}
         {/* Sub-headline for a check/dice roll: the check name or the expression. */}
         {reveal.title && <div className="rr-title">{reveal.title}</div>}
 

@@ -58,3 +58,20 @@
 /* Stable landing slots and prepainted glow: no animated blur or layout shifts. */
 .physics-dice-tray .tray-die-result strong{min-width:3ch;}
 .tray-flying-number{text-shadow:0 2px 3px #000,0 0 var(--arrival-glow,12px) currentColor;backface-visibility:hidden;}
+
+/* Clear the battlefield exactly when the held impact and HP floaters start. */
+.roll-reveal-backdrop.is-impact{align-items:flex-start;padding-top:92px;}
+.roll-reveal-backdrop.is-impact .roll-reveal{width:min(460px,calc(100vw - 28px));min-width:0;max-height:180px;padding:10px 18px;gap:3px;overflow:hidden;animation:none;}
+.roll-reveal-backdrop.is-impact .roll-reveal-tohit,
+.roll-reveal-backdrop.is-impact .roll-reveal-damage,
+.roll-reveal-backdrop.is-impact .critical-flourish,
+.roll-reveal-backdrop.is-impact .rr-title,
+.roll-reveal-backdrop.is-impact .rr-comparison-title{display:none;}
+.roll-impact-summary{display:flex;align-items:baseline;justify-content:center;gap:9px;}
+.roll-impact-summary strong{font-size:32px;color:#ffe4a1;}
+.roll-impact-summary span{font-size:16px;}
+.roll-reveal-backdrop.is-impact .roll-reveal-outcome{font-size:23px;}
+.natural-twenty{font-size:clamp(28px,5vw,46px);font-weight:900;color:#ffe69b;text-shadow:0 0 18px #d99d36;animation:natural-twenty-pop .5s ease-out;}
+@keyframes natural-twenty-pop{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
+@media(prefers-reduced-motion:reduce){.natural-twenty{animation:none;}}
+@media(max-width:600px){.roll-reveal-backdrop.is-impact{padding-top:70px;}}

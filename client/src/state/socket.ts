@@ -92,7 +92,7 @@ type Store = {
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean; hasMapImpact?: boolean } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -463,7 +463,7 @@ export const useStore = create<Store>((set, get) => ({
     const waiting = heldHpFx.get(rollId);
     heldHpFx.delete(rollId);
     // A late fx packet for a completed reveal must display immediately too.
-    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true } } : {});
+    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true, hasMapImpact: !!waiting?.length } } : {});
     if (waiting) get().presentHpFx(waiting);
   },
   hurtFx: null,
@@ -706,6 +706,9 @@ export const useStore = create<Store>((set, get) => ({
           current?.rollId === event.rollId && !current.impactReady) {
           heldHpFx.set(event.rollId, [...(heldHpFx.get(event.rollId) ?? []), event]);
         } else immediate.push(event);
+      }
+      if (current?.impactReady && immediate.some(e => e.rollId === current.rollId)) {
+        set(st => st.rollFx?.rollId === current.rollId ? {rollFx: {...st.rollFx, hasMapImpact: true}} : {});
       }
       get().presentHpFx(immediate);
       if (immediate.some((e) => e.delta > 0)) playHeal();

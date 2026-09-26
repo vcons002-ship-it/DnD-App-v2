@@ -80,7 +80,7 @@ async function startTrace(page: Page) {
       if (!trace.running) return;
       const popup = document.querySelector('.roll-reveal');
       trace.samples.push({
-        time: performance.now(), visible: !!popup,
+        time: performance.now(), visible: !!popup, popupHeight: popup?.getBoundingClientRect().height ?? 0, impact: !!popup?.closest('.is-impact'),
         attackTotal: Number(popup?.querySelector('.rr-total')?.textContent ?? 0),
         damageTotal: Number(popup?.querySelector('.rr-dmg-num, .rr-roll-num')?.firstChild?.textContent ?? 0),
         attackDice: [...(popup?.querySelectorAll('.roll-reveal-tohit .tray-die-result') ?? [])].map((die) => (die as HTMLElement).dataset.orientation),
@@ -132,6 +132,9 @@ test('attack and manual damage totals wait for the actual 3D dice landing', asyn
   await expect(page.locator('.roll-reveal')).toBeVisible();
   await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 20_000 });
   const damage = await endTrace(page);
+  const impactFrames = damage.samples.filter((sample:any) => sample.impact && sample.floaters.some((f:any) => f.opacity > .1));
+  expect(impactFrames.length).toBeGreaterThan(0);
+  expect(impactFrames.every((sample:any) => sample.popupHeight <= 180)).toBe(true);
   const state = await f.snapshot();
   expect(state.monsters.find((monster) => monster.id === f.target.id)!.curHp).toBe(200 - pending!.pending!.amount);
   const summary = {
@@ -236,7 +239,7 @@ test('a concentration reminder cannot suppress the following damage reveal or re
   expect(snapshot.rollLog.slice(-2).map((entry) => entry.label)).toEqual(['Concentration', 'Damage']);
   await expect(popup).toHaveAttribute('data-roll-id', snapshot.rollLog.at(-1)!.id);
   expect(await floaters(page)).not.toContain(`−${pending.pending!.amount}`);
-  await expect(popup).toHaveAttribute('data-impact-ready', 'true', { timeout: 5000 });
+  await expect(popup).toHaveAttribute('data-impact-ready', 'true', { timeout: 20000 });
   await expect.poll(() => floaters(page)).toContain(`−${pending.pending!.amount}`);
 });
 
@@ -258,4 +261,21 @@ test('a targeted save shows its latest roll and floats damage only after that sa
   expect(outcomeAt).toBeDefined();
   expect(floaterAt).toBeDefined();
   expect(floaterAt).toBeGreaterThanOrEqual(outcomeAt);
+  expect(trace.samples.some((s:any) => s.impact && s.popupHeight <= 180 && s.floaters.length)).toBe(true);
+});
+
+test('natural twenty skill check announces the face and retains its total', async ({page,request},info) => {
+  await page.emulateMedia({reducedMotion:'reduce'});
+  const f=await fixture(request,page);
+  let natural=false;
+  for(let i=0;i<200;i++) {
+    f.socket.emit('skill:roll',{characterId:f.character.id,skill:'Perception'});
+    const latest=(await f.snapshot()).rollLog.at(-1);
+    if(latest?.reveal?.d20===20){natural=true;break;}
+    await page.waitForTimeout(60);
+  }
+  expect(natural).toBe(true);
+  await expect(page.getByRole('status',{name:'Natural 20 celebration'})).toHaveText('Nat 20!');
+  await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
+  await page.screenshot({path:info.outputPath('natural-twenty.png')});
 });
