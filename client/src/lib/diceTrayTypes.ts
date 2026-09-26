@@ -1,3 +1,4 @@
+export type DiceEntrySide = 'bottom' | 'top' | 'left' | 'right';
 export type TrayDie = {sides:number;value:number;crit?:boolean;index:number;set:number;tens?:boolean;ones?:boolean;negative?:boolean};
 export type Toss = {wallHits:number;frames:Float32Array;frameCount:number;step:number;radius:number;topFaces:number[];duration:number};
 export function physicalDice(dice:TrayDie[]):TrayDie[] {

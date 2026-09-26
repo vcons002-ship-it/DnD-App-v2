@@ -170,6 +170,7 @@ for (const [className, material] of [['Sorcerer','volumetric-glass'],['Fighter',
   for (const sides of [4,6,8,10,12,20,100]) {
     await picker.getByRole('button',{name:'More dice',exact:true}).click();
     await picker.getByRole('group',{name:'Choose a die'}).getByRole('button',{name:`d${sides}`,exact:true}).click();
+    await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-entry-side','bottom');
     const dice = page.locator('.roll-reveal .tray-die-result');
     await expect(dice).toHaveCount(sides===100?2:1);
     if (sides===4) {
@@ -219,6 +220,8 @@ test('physics tray supports DM, mobile, compared rolls, reduced motion and summa
  await expect(dm.getByRole('button',{name:'Rejoin as DM',exact:true})).toHaveCount(0);
  f.socket.emit('dice:roll',{expr:'1d20',label:'DM physics toss'});
  await expect(dm.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:15000});
+ await expect(dm.locator('.physics-dice-tray')).toHaveAttribute('data-entry-side','bottom');
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-entry-side',/^(left|top|right)$/);
  await dm.locator('.roll-reveal').screenshot({path:testInfo.outputPath('dm-tray.png')});
  await dm.close();
 });

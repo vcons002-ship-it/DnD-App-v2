@@ -1,9 +1,9 @@
 import {useContext,useEffect,useRef,useState} from 'react';
 import {DiceThemeContext} from './ThreeDie';
-import {physicalDice,type TrayDie,type Toss} from '../lib/diceTrayTypes';
+import {physicalDice,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
 import './PhysicsDiceTray.css';
 import type {RollComparison} from '../../../shared/types';
-export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rollKey}:{dice:TrayDie[];onSettled:(index:number,set:number)=>void;label?:string;comparison?:RollComparison;rollKey?:string}){
+export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rollKey,entrySide='bottom'}:{dice:TrayDie[];onSettled:(index:number,set:number)=>void;label?:string;comparison?:RollComparison;rollKey?:string;entrySide?:DiceEntrySide}){
   const theme=useContext(DiceThemeContext),canvas=useRef<HTMLCanvasElement>(null),callback=useRef(onSettled);callback.current=onSettled;
   const key=JSON.stringify(dice),[status,setStatus]=useState<'loading'|'rolling'|'settled'|'fallback'>('loading');
   useEffect(()=>{
@@ -43,12 +43,12 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
       };
       const seed=new Uint32Array(1);crypto.getRandomValues(seed);
       if(rollKey){seed[0]=2166136261;for(const char of rollKey)seed[0]=Math.imul(seed[0]^char.charCodeAt(0),16777619)>>>0;}
-      worker.postMessage({dice:expanded,seed:seed[0]});
+      worker.postMessage({dice:expanded,seed:seed[0],entrySide});
     }catch{fallback();}
     return()=>{dead=true;clearTimeout(timeout);worker?.terminate();cancelAnimationFrame(raf);renderer?.dispose();};
-  },[key,theme,rollKey,comparison?.kept]);
+  },[key,theme,rollKey,comparison?.kept,entrySide]);
   const expanded=physicalDice(dice),landed=status==='settled'||status==='fallback';
-  return <div className="physics-dice-tray" data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':'forest-resin'} role="group" aria-label={label}>
+  return <div className="physics-dice-tray" data-entry-side={entrySide} data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':'forest-resin'} role="group" aria-label={label}>
     <canvas ref={canvas} className="dice-tray-canvas" aria-label="Overhead physics dice tray"/>
     {status==='loading'&&<div className="dice-tray-status">Preparing toss…</div>}
     {status==='fallback'&&<div className="dice-tray-status">Roll result · 3D tray unavailable</div>}

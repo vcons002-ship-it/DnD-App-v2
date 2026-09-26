@@ -1,3 +1,5 @@
+import {diceEntrySide} from '../lib/diceEntrySide';
+import type {DiceEntrySide} from '../lib/diceTrayTypes';
 import { PhysicsDiceTray } from './PhysicsDiceTray';
 import type { TrayDie } from '../lib/diceTrayTypes';
 import { diceThemeForClass } from '../../../shared/diceThemes';
@@ -157,13 +159,24 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     const matches = direct.length ? direct : s.snapshot?.characters.filter(c => c.name === roller) ?? [];
     return matches.length === 1 ? matches[0].className : '';
   });
+  const entrySide = useStore(s => {
+    const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;
+    const name = s.rollFx?.reveal.attacker || roller || 'Unknown';
+    const matches = s.snapshot?.characters.filter(c => c.name === name) ?? [];
+    const character = matches.length === 1 ? matches[0] : undefined;
+    const own = s.snapshot?.role === 'player'
+      ? !!character?.claimedBy && character.claimedBy === s.socket?.id
+      : name === 'DM' || !!character && !character.claimedBy;
+    return diceEntrySide(own, character?.id ?? name);
+  });
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
-  return rollFx ? <DiceThemeContext.Provider value={diceThemeForClass(characterClass)}><RollSequence key={rollFx.id} rollFx={rollFx} player={player} staticReveal={staticReveal} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
+  return rollFx ? <DiceThemeContext.Provider value={diceThemeForClass(characterClass)}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
 });
 
-function RollSequence({ rollFx, player, staticReveal, dismiss }: {
+function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
   rollFx: NonNullable<ReturnType<typeof useStore.getState>['rollFx']>;
+  entrySide: DiceEntrySide;
   player: boolean;
   staticReveal: boolean;
   dismiss: () => void;
@@ -362,7 +375,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
 
         {!isBurst && (staticReveal || stage.phase !== 'damage') && (
           <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>
-            {!staticReveal ? <PhysicsDiceTray key="attack-tray" rollKey={rollFx.rollId+':attack'} comparison={comparison?.kind==='d20'?comparison:undefined} dice={attackTray} onSettled={(_,set)=>landings.current.d20?.(set)} /> : comparison?.kind === 'd20'
+            {!staticReveal ? <PhysicsDiceTray entrySide={entrySide} key="attack-tray" rollKey={rollFx.rollId+':attack'} comparison={comparison?.kind==='d20'?comparison:undefined} dice={attackTray} onSettled={(_,set)=>landings.current.d20?.(set)} /> : comparison?.kind === 'd20'
               ? <ComparedDice comparison={comparison} stopping={stage.phase === 'rolling' ? 0 : 1}
                 locked={stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : 1} tick={stage.dieFace}
                 onSettled={(_, set) => landings.current.d20?.(set)} />
@@ -392,7 +405,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
         {showDamage && (
           <div className="roll-reveal-damage">
             {/* Every damage die, each tumbling until it settles on its face. */}
-            {!staticReveal ? <PhysicsDiceTray key="damage-tray" rollKey={rollFx.rollId+':damage'} comparison={comparison?.kind==='dice'?comparison:undefined} dice={damageTray} onSettled={(index,set)=>landings.current.damage?.(index,set)} /> : comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={0}
+            {!staticReveal ? <PhysicsDiceTray entrySide={entrySide} key="damage-tray" rollKey={rollFx.rollId+':damage'} comparison={comparison?.kind==='dice'?comparison:undefined} dice={damageTray} onSettled={(index,set)=>landings.current.damage?.(index,set)} /> : comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={0}
               onSettled={(index, set) => landings.current.damage?.(index, set)} /> : <div className="rr-dice-row">
               {faces.map((f, i) => {
                 const locked = i < stage.diceStopping;

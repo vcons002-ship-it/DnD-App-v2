@@ -1,7 +1,7 @@
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
 
-import {type TrayDie,type Toss} from './diceTrayTypes.js';
+import {type TrayDie,type Toss,type DiceEntrySide} from './diceTrayTypes.js';
 export {physicalDice,trayFaceValues} from './diceTrayTypes.js';
 // Solver masses use grams and lengths use a uniform scale for stable contacts;
 // gravity and velocity are converted from SI by the same metresPerUnit factor.
@@ -16,7 +16,7 @@ export function diceMassKg(vertices:Vec3[],faces:number[][]){
   }
   return Math.abs(volume)*ACRYLIC_DENSITY;
 }
-export function simulateToss(dice:TrayDie[],seed:number):Toss {
+export function simulateToss(dice:TrayDie[],seed:number,entrySide:DiceEntrySide='left'):Toss {
   if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Roll requires result summary');
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
@@ -45,9 +45,14 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
   const walls=new Set<Body>();let wallHits=0;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);return b;};
   box(0,0,-.2,7.2,4.7,.2);
-  box(-7.2,0,3,.2,4.7,3);box(7.2,0,3,.2,4.7,3);
-  box(0,-4.7,3,7.4,.2,3);box(0,4.7,3,7.4,.2,3);
-  const spacing=radius*2.25;
+  const edgeWalls={left:box(-7.2,0,3,.2,4.7,3),right:box(7.2,0,3,.2,4.7,3),
+    bottom:box(0,-4.7,3,7.4,.2,3),top:box(0,4.7,3,7.4,.2,3)};
+  edgeWalls[entrySide].collisionFilterGroup=2;
+  const direction=new Vec3(entrySide==='left'?1:entrySide==='right'?-1:0,entrySide==='bottom'?1:entrySide==='top'?-1:0,0);
+  const cross=new Vec3(-direction.y,direction.x,0);
+  const extent=direction.x?7:4.5;
+  const lanes=Math.min(3,dice.length);
+  const releases=dice.map((_,i)=>i*.045);
   const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
   const bodies=meshes.map((mesh,i)=>{
     const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));
@@ -57,20 +62,28 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
       return n.dot(a)<0?[...ids].reverse():[...ids];
     });
     const body=new Body({mass:diceMassKg(vertices.map(v=>v.scale(metresPerUnit)),faces)*1000,material:dieMaterial,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:0,angularDamping:0,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.5});
-    body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,(.04+random()*.01)/metresPerUnit);
+    // Feed a short handful from the roller's edge, not a grid over the floor.
+    body.position.copy(direction.scale(-extent-2-radius).vadd(cross.scale(((i%lanes)-(lanes-1)/2)*radius*2.2)));
+    body.position.z=(.045+random()*.005)/metresPerUnit;
+    body.collisionFilterMask=1; // Cross the entry wall before enabling containment.
     body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
     // Vary speed and fan across the tray so the pool does not travel as one block.
-    body.velocity.set((1.2+random()*.3)/metresPerUnit,(random()-.5)*.3/metresPerUnit,(random()*.04-.02)/metresPerUnit);
-    body.angularVelocity.set((random()-.5)*25,(random()-.5)*25,(random()-.5)*18);
+    body.velocity.copy(direction.scale((1.6+random()*.3)/metresPerUnit).vadd(cross.scale((random()-.5)*.3/metresPerUnit)));
+    body.velocity.z=(random()*.04-.02)/metresPerUnit;
+    body.angularVelocity.copy(direction.scale((random()-.5)*18).vadd(cross.scale(18+random()*12)));
+    body.angularVelocity.z=(random()-.5)*18;
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
-    world.addBody(body);return body;
+    return body;
   });
   const frames:number[]=[];const step=1/480;
   const capture=()=>bodies.forEach(b=>frames.push(b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w));
   capture();
+  let released=0;
   let ticks=0;
   const motionWindow:number[][]=[];
   for(;ticks<5760;ticks++){
+    while(released<bodies.length && releases[released]<=ticks*step)world.addBody(bodies[released++]);
+    for(let i=0;i<released;i++)if(bodies[i].position.dot(direction)>-extent+radius)bodies[i].collisionFilterMask=3;
     // A lined tray has a finite contact patch. Coulomb rolling/spin resistance
     // supplies the contact torque missing from ideal point-contact polyhedra.
     // Coefficient .01 is an explicit surface estimate, not a measured constant.
@@ -91,10 +104,10 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
     // sub-millimetre solver jitter. This never slows a moving die.
     motionWindow.push(bodies.map(b=>(b.velocity.length()+b.angularVelocity.length()*radius)*metresPerUnit));
     if(motionWindow.length>60)motionWindow.shift();
-    if(motionWindow.length===60 && bodies.every((_,i)=>motionWindow.reduce((sum,frame)=>sum+frame[i],0)/60<.005))bodies.forEach(b=>b.sleep());
+    if(released===bodies.length && motionWindow.length===60 && bodies.every((_,i)=>motionWindow.reduce((sum,frame)=>sum+frame[i],0)/60<.005))bodies.forEach(b=>b.sleep());
     capture();
     // Keep a fully stationary final frame after the last body enters sleep.
-    if(ticks>480&&bodies.every(b=>b.sleepState===Body.SLEEPING)){capture();ticks+=2;break;}
+    if(ticks>480&&released===bodies.length&&bodies.every(b=>b.sleepState===Body.SLEEPING)){capture();ticks+=2;break;}
   }
   if(!bodies.every(b=>b.sleepState===Body.SLEEPING))throw new Error('Dice did not settle within the tray simulation limit');
   const topFaces=bodies.map((body,i)=>{

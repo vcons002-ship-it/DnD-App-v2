@@ -1,3 +1,4 @@
+import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
 import {Vec3} from 'cannon-es';
 import {dieMesh,faceForwardMesh} from '../../shared/diceGeometry.js';
@@ -47,9 +48,40 @@ describe('physics dice tray',()=>{
    expect(simulateToss([{sides,value:1,index:0,set:0}],seed).duration).toBeLessThanOrEqual(12);
   }
  },15000);
+ it('rolls a handful in from outside the tray in sequence',()=>{
+  const dice=[6,8,20].map((sides,index)=>({sides,index,value:1,set:0}));
+  const t=simulateToss(dice,42);
+  for(let i=0;i<dice.length;i++)expect(t.frames[i*7]).toBeLessThan(-7.4-t.radius);
+  const early=Math.floor(.025/t.step)*dice.length*7;
+  expect(t.frames[early]).toBeGreaterThan(t.frames[0]);
+  expect(t.frames[early+7]).toBe(t.frames[7]);
+  for(let i=0;i<dice.length;i++)expect(t.frames[((t.frameCount-1)*dice.length+i)*7]).toBeGreaterThan(-7);
+ });
  it('settles six-die character tray throws',()=>{
   const dice=[20,8,6,6,8,6].map((sides,index)=>({sides,index,value:3,set:0}));
   for(const seed of [1,17,42,719,2026])expect(simulateToss(dice,seed).duration).toBeLessThanOrEqual(12);
+ });
+ it('assigns the local roller the bottom and other rollers stable other edges',()=>{
+  expect(diceEntrySide(true,'Druk')).toBe('bottom');
+  for(const id of ['Druk','Varis','Vanec','DM']){
+   expect(['left','top','right']).toContain(diceEntrySide(false,id));
+   expect(diceEntrySide(false,id)).toBe(diceEntrySide(false,id));
+  }
+ });
+ it('enters from each seat and settles inside the tray',()=>{
+  for(const side of ['bottom','top','left','right'] as const)for(const seed of [1,17,42,719,2026]){
+   const dice=[20,8,6,6,8,6].map((sides,index)=>({sides,index,value:3,set:0}));
+   const t=simulateToss(dice,seed,side);
+   if(side==='bottom')expect(t.frames[1]).toBeLessThan(-4.7-t.radius);
+   if(side==='top')expect(t.frames[1]).toBeGreaterThan(4.7+t.radius);
+   if(side==='left')expect(t.frames[0]).toBeLessThan(-7.2-t.radius);
+   if(side==='right')expect(t.frames[0]).toBeGreaterThan(7.2+t.radius);
+   for(let i=0;i<dice.length;i++){
+    const last=((t.frameCount-1)*dice.length+i)*7;
+    expect(Math.abs(t.frames[last])).toBeLessThan(7.01);
+    expect(Math.abs(t.frames[last+1])).toBeLessThan(4.51);
+   }
+  }
  });
  it('splits percentile 100 without losing logical roll identity',()=>{
   const dice=physicalDice([{sides:100,value:100,index:2,set:1}]);expect(dice.map(x=>x.value)).toEqual([0,0]);expect(dice.every(x=>x.index===2&&x.set===1)).toBe(true);
