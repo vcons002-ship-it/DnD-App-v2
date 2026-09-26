@@ -9,11 +9,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Fighter polished black obsidian with inset gold numerals, and ranger green
   resin with embedded natural veining and inset bronze numerals, across all shapes.
   Decorative symbols and leafwork removed; numerals use metallic reflections and cut edges.
-  Fighter obsidian uses sharp, unbeveled edges with shallow shell chips cut into the
-  mesh and broad smooth faces, based on knapped obsidian references. Gold remains on numerals only.
+  Fighter obsidian uses smooth polished faces with subtle volcanic flow bands,
+  metallic gold edges and gold numerals. Carved chips and granular bump texture removed.
   Critical extras brighten the inlays while retaining the character material.
-  Active material dice target 60 fps; continuous soft studio reflections reduce
-  flashing on the obsidian chips without rounding their geometry.
+  Active material dice target 60 fps; continuous soft studio reflections reduce flashing.
 
 - [x] Shared offscreen WebGL material renderer: actual chamfer geometry,
   material grain and recessed numeral shading. Sorcerer dice use tinted glass
