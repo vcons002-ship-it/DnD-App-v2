@@ -112,7 +112,8 @@ const MeshDie = memo(function MeshDie({
       // Do not paint the legacy die or report a landing while the GPU renderer
       // loads. Fallback is reserved for an actual import/WebGL failure.
       if (materialPending) return;
-      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' ? 100 : 32)) {
+      // GPU dice target 60 fps (with RAF timing tolerance); settled clouds stay at 10 fps.
+      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' && !wasRolling && now - settledAt >= 220 ? 100 : materialDie ? 15 : 32)) {
         frame = requestAnimationFrame(draw);
         return;
       }

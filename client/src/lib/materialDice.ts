@@ -46,6 +46,23 @@ float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
+// Continuous studio lighting avoids cube-face seams and hard reflection flashes.
+float softbox(vec3 r,vec3 direction,float width,float height){
+ vec3 center=normalize(direction);
+ vec3 right=normalize(cross(vec3(0,1,0),center));
+ vec3 up=cross(center,right);
+ float facing=dot(r,center);
+ vec2 q=vec2(dot(r,right),dot(r,up))/max(.05,facing);
+ vec2 edge=1.-smoothstep(vec2(width,height)*.65,vec2(width,height)*1.2,abs(q));
+ return edge.x*edge.y*smoothstep(.1,.4,facing);
+}
+vec3 obsidianStudio(vec3 r){
+ r=normalize(r);
+ float key=softbox(r,vec3(-.65,.65,1.),.22,.65);
+ float fill=softbox(r,vec3(.85,.2,-.7),.3,.8);
+ float rim=softbox(r,vec3(.2,-.8,.5),.6,.12);
+ return vec3(.1+.12*(r.y*.5+.5))+vec3(.96,.98,1.)*(key*1.35+fill*.8+rim*.45);
+}
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
  float cut=engraved?texture2D(etching,tex).r:1.;
@@ -84,7 +101,7 @@ void main(){
  if(style==1){
    // Smooth, jet-black fracture planes; pale accents are reflected light,
    // never a white speckle/albedo layer painted over the whole surface.
-   vec3 reflectedStone=reflected*1.4;
+   vec3 reflectedStone=obsidianStudio(rotation*reflect(incoming,n))*1.4;
    vec3 polished=pow(reflectedStone,vec3(1.5));
    color=vec3(.0006,.0005,.00055)+polished*(.045+fresnel*.9);
 
@@ -104,7 +121,7 @@ void main(){
      float waviness=(fbm(vec3(tex*9.,4.))-.5)*.16;
      vec3 mn=normalize(n+tangent*(brushing+waviness)+bitangent*sin(tex.y*18.+tex.x*7.)*.035);
      vec3 worldN=rotation*mn,view=normalize(-rotation*incoming);
-     vec3 r=textureCube(studio,rotation*reflect(incoming,mn)).rgb+vec3(.28,.28,.28);
+     vec3 r=(style==1?obsidianStudio(rotation*reflect(incoming,mn)):textureCube(studio,rotation*reflect(incoming,mn)).rgb)+vec3(.28,.28,.28);
      float nv=max(.001,dot(worldN,view));
      vec3 fresnelMetal=f0+(1.-f0)*pow(1.-nv,5.);
      // Conductors are lit by colored reflections, not a yellow/brown diffuse fill.

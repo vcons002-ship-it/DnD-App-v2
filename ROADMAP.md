@@ -12,6 +12,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   Fighter obsidian uses sharp, unbeveled edges with shallow shell chips cut into the
   mesh and broad smooth faces, based on knapped obsidian references. Gold remains on numerals only.
   Critical extras brighten the inlays while retaining the character material.
+  Active material dice target 60 fps; continuous soft studio reflections reduce
+  flashing on the obsidian chips without rounding their geometry.
 
 - [x] Shared offscreen WebGL material renderer: actual chamfer geometry,
   material grain and recessed numeral shading. Sorcerer dice use tinted glass
