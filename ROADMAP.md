@@ -9,6 +9,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Fighter polished black obsidian with inset gold numerals, and ranger green
   resin with embedded natural veining and inset bronze numerals, across all shapes.
   Decorative symbols and leafwork removed; numerals use metallic reflections and cut edges.
+  Fighter obsidian adds fine polished stone grain and metallic gold on the actual bevels.
   Critical extras brighten the inlays while retaining the character material.
 
 - [x] Shared offscreen WebGL material renderer: actual chamfer geometry,

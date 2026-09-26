@@ -40,7 +40,7 @@ const fragment = `precision highp float;
 varying vec3 pos; varying vec3 nor; varying vec2 tex;
 uniform vec3 eye; uniform mat3 rotation; uniform samplerCube studio;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
-uniform sampler2D etching; uniform bool engraved;
+uniform sampler2D etching; uniform bool engraved; uniform bool goldEdge;
 uniform int style; uniform float critical;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -48,7 +48,15 @@ return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash
 float fbm(vec3 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
- float cut=engraved?texture2D(etching,tex).r:1.;
+ float cut=goldEdge?0.:(engraved?texture2D(etching,tex).r:1.);
+ if(style==1 && !goldEdge){
+   vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
+   vec3 tu=normalize(axis-n*dot(axis,n)),tv=cross(n,tu);
+   // Object-space stone grain bends reflections without crawling as it rolls.
+   float a=fbm((pos+tu*.006)*42.)-fbm((pos-tu*.006)*42.);
+   float b=fbm((pos+tv*.006)*42.)-fbm((pos-tv*.006)*42.);
+   n=normalize(n-tu*a*.028-tv*b*.028);
+ }
  if(engraved){
  vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);vec3 tangent=normalize(axis-n*dot(axis,n));vec3 bitangent=cross(n,tangent);
  float dx=texture2D(etching,tex+vec2(.004,0)).r-texture2D(etching,tex-vec2(.004,0)).r;
@@ -84,17 +92,21 @@ void main(){
  if(style==1){
    float flow=fbm(pos*4.+vec3(fbm(pos*2.)*3.));
    float band=pow(max(0.,1.-abs(flow-.52)*13.),3.);
-   vec3 stone=vec3(.0004,.0003,.00035)+flow*.00065+band*.00012;
+   float mottling=fbm(pos*17.+vec3(flow*2.));
+   float flecks=smoothstep(.76,.9,noise(pos*210.));
+   float arcs=pow(max(0.,1.-abs(sin(length(pos*vec3(7.,5.,6.)+vec3(1.7,-2.,.5))+flow*.5))),18.);
+   vec3 stone=vec3(.0007,.0006,.00065)+vec3(.009,.008,.0075)*pow(mottling,2.5);
+   stone+=band*.0015+flecks*.012+arcs*.0012;
    // Obsidian is a black dielectric: dark body, white reflected light.
    // High-contrast reflections prevent it from reading as gray painted metal.
    vec3 polished=pow(reflected,vec3(2.2))*1.7;
-   color=stone+polished*(.04+fresnel*.9);
+   color=stone+polished*(.04+fresnel*.9)*(1.-mottling*.14);
  }
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.6,.9,1.2))-rotation*incoming);
  color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
- if(engraved){
+ if(engraved || goldEdge){
    if(style==0)color=mix(color,vec3(.86,.75,.64), (1.-cut)*.75);
    else {
      vec3 f0=style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
@@ -120,7 +132,7 @@ void main(){
      vec3 f=f0+(1.-f0)*pow(1.-vh,5.);
      inlay+=f*distribution*geometry/(4.*nv)*.6;
      // A dark cut wall around the metal catches a narrow, beveled rim.
-     float wall=max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
+     float wall=goldEdge?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
      inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
      inlay+=f0*critical*.38;
      color=mix(color,inlay,1.-cut);
@@ -150,7 +162,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},studio:{value:s.cube},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},goldEdge:{value:style===1&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   // The convex hull of inset face corners adds actual chamfer geometry.
