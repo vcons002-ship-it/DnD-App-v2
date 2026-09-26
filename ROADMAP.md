@@ -1852,3 +1852,14 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM can generate a separate 3D creature model despite an existing match, using saved weapons/attacks/armor evidence and optional appearance notes, then apply it from Token info.
 - [x] Permanent named multi-view texturing for manual and app production, with worker installation, reference receipts, and rejection of front-only fallback.
 - [x] Creature CR changes scale HP, attacks and save DCs from a durable original baseline using 2014 DMG benchmarks; preview/cancel, copy/library persistence and combat-roll regression coverage. See docs/CREATURE_CR_SCALING.md.
+
+- [x] Fighter on-hit maneuver choices beside **Roll damage**: Disarming,
+  Distracting, Goading, Maneuvering, Menacing, Pushing and Trip. Existing saved
+  maneuvers are recognized by name; only known, weapon-compatible entries with
+  an available Superiority Die appear. Normal damage costs no die. Choosing a
+  maneuver resolves one combined hit, doubles critical dice and rounds resistance
+  once. Save riders retain the existing click-to-target save flow; movement,
+  disarming and ally effects remain table-directed log reminders. Pre-attack,
+  reaction, check and secondary-target maneuvers retain their existing flow.
+  Verified with 791 server tests and five real-browser cases covering both damage
+  modes, Smite, Pact usage, and DM/player prompt ownership.

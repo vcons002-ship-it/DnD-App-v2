@@ -983,6 +983,7 @@ export type RollReveal = {
  * refresh, reconnect, or server restart can't strand a hit.
  */
 export type PendingDamage = {
+  maneuver?: { abilityIds: string[]; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };
   /** Multi-ray cast whose next attack waits until this hit's damage is applied. */
   sourceRollId?: string;
   /** Who takes it (and their name, so the button can read "→ Goblin"). */
@@ -1684,6 +1685,7 @@ export interface ClientToServerEvents {
   'combat:damage': (payload: { rollId: string }) => void;
   /** Cast the smite a hit made available, with a spell slot of `level` or the
    *  free once-per-Long-Rest casting. The DM or the attacking player. */
+  'combat:maneuver': (payload: { rollId: string; abilityId: string }) => void;
   'combat:smite': (payload: { rollId: string; level: number | 'free' }) => void;
   /** DM: weapon damage is a separate, clickable second roll (default on). */
   'session:setManualDamage': (payload: { manual: boolean }) => void;

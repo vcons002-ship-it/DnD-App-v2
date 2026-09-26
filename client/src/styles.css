@@ -1740,3 +1740,6 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
   cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 0;
 }
 .init-out-group > summary:hover { color: var(--text); }
+
+/* Known on-hit maneuvers stay compact even with several choices. */
+.dp-maneuvers { flex-wrap: wrap; max-width: min(440px, calc(100vw - 32px)); }

@@ -1,3 +1,4 @@
+import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {
   isDeadEntity,
   addRollLog,
@@ -399,7 +400,7 @@ export function resolveAttack(
     const hasDie = !!pool && pool.used < pool.max;
     const man = ch.sheetAbilities.find(
       (ab) =>
-        ab.type === 'maneuver' &&
+        ab.type === 'maneuver' && !isOnHitManeuver(ab) &&
         ab.maneuver?.active &&
         ((ab.maneuver.appliesToTags ?? []).length === 0 ||
           (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
@@ -614,6 +615,7 @@ export function resolveAttack(
   const mult = damageMultiplier(
     weapon.damageType, t.resistances, t.weaknesses, t.immunities, attackSource,
   );
+  const weaponRawDamage = applied;
   if (mult !== 1 && applied > 0) {
     const beforeResistance = applied;
     applied = Math.floor(applied * mult);
@@ -683,9 +685,13 @@ export function resolveAttack(
   // damage lands. Both modes use the same pending hit so death, temporary HP,
   // kill credit and concentration are evaluated once for the combined damage.
   const canSmite = !!(smiteAbility && ch && smiteChoices(ch, smiteAbility).length);
-  const deferDamage = canSmite ||
+  const maneuverOptions = out.hit && ch && !maneuverFired &&
+    ch.resources['Superiority Dice']?.used < ch.resources['Superiority Dice']?.max
+    ? ch.sheetAbilities.filter(ab => isOnHitManeuver(ab) &&
+      (!ab.maneuver?.appliesToTags?.length || ab.maneuver.appliesToTags.some(tag => wtags.includes(tag.trim().toLowerCase())))) : [];
+  const deferDamage = canSmite || maneuverOptions.length > 0 ||
     (!!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0);
-  const damageSteps = out.hit && (applied > 0 || canSmite)
+  const damageSteps = out.hit && (applied > 0 || canSmite || maneuverOptions.length > 0)
     ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
     : [];
   const attackRollId = newId();
@@ -698,6 +704,8 @@ export function resolveAttack(
   // swing closes any earlier smite window they left open.
   if (ch) {
     for (const e of listRollLog(sessionId)) {
+      if (e.pending?.maneuver && e.pending.attacker.kind === 'pc' && e.pending.attacker.refId === ch.id)
+        setRollPending(e.id, {...e.pending, maneuver: undefined});
       if (e.smite && !e.smite.used && e.smite.owner === ch.id)
         setRollSmite(e.id, { ...e.smite, used: true });
     }
@@ -756,6 +764,11 @@ export function resolveAttack(
             attacker: { kind: at.kind, refId: at.refId },
             weapon: weapon.name,
             amount: applied,
+            ...(maneuverOptions.length ? { maneuver: { abilityIds: maneuverOptions.map(ab => ab.id),
+              rawDamage: weaponRawDamage, multiplier: mult,
+              minimumAdjustment: damageBreakdown.mods.filter(m => m.label === 'minimum damage').reduce((sum, m) => sum + m.value, 0),
+              dc: 8 + profBonusFor(a.c) + Math.max(abilityMod(effectiveStats(a.c).scores.STR ?? 10), abilityMod(effectiveStats(a.c).scores.DEX ?? 10)),
+            } } : {}),
             ...(fxType ? { damageType: fxType } : {}),
             crit: out.crit,
             dice: out.damageDiceSteps,
@@ -847,6 +860,40 @@ export function castSlotLevel(ability: SheetAbility, castLevel?: number): number
     : (ability.type === 'spell' || ability.type === 'stance') ? ability.level ?? 0 : 0;
   if (base < 1) return null;
   return Math.min(9, Math.max(base, castLevel ?? base));
+}
+
+/** Resolve a known on-hit maneuver as part of the pending weapon damage. */
+export function resolveManeuver(sessionId: string, roller: string, rollId: string, abilityId: string): { ok: true } | { ok: false; reason: string } {
+  const p = getRollEntry(rollId, sessionId)?.pending;
+  const opportunity = p?.maneuver;
+  const ch = p?.attacker.kind === 'pc' ? getCharacter(p.attacker.refId) : null;
+  const ability = ch?.sheetAbilities.find(a => a.id === abilityId);
+  const pool = ch?.resources['Superiority Dice'];
+  const target = p?.target.kind === 'pc' ? getCharacter(p.target.refId) : p ? getMonster(p.target.refId) : null;
+  if (!p || p.done || !opportunity || !ch || ch.sessionId !== sessionId || target?.sessionId !== sessionId ||
+      !opportunity.abilityIds.includes(abilityId) || !ability || !isOnHitManeuver(ability))
+    return { ok: false, reason: 'That hit no longer offers this maneuver.' };
+  if (!pool || pool.used >= pool.max) return { ok: false, reason: 'No Superiority Dice left.' };
+  const dice = Array.from({length: p.crit ? 2 : 1}, () => rollDice(ch.superiorityDie || 'd8'));
+  if (dice.some(d => !d)) return { ok: false, reason: 'Invalid Superiority Die.' };
+  const rolled = dice.reduce((sum, d) => sum + d!.total, 0);
+  const amount = Math.max(0, Math.floor((opportunity.rawDamage + rolled) * opportunity.multiplier)
+    - Math.floor(opportunity.rawDamage * opportunity.multiplier) - opportunity.minimumAdjustment);
+  const steps = dice.map(d => ({label: ability.name, value: d!.total, faces: d!.rolls}));
+  const mods = amount === rolled ? [] : [{label: 'maneuver damage adjustment', value: amount - rolled}];
+  setRollPending(rollId, {...p, maneuver: undefined, amount: p.amount + amount,
+    weapon: `${p.weapon} + ${ability.name}`, dice: [...p.dice, ...steps], mods: [...p.mods, ...mods],
+    damageBreakdown: {...p.damageBreakdown, dice: [...(p.damageBreakdown?.dice ?? p.dice), ...steps],
+      mods: [...(p.damageBreakdown?.mods ?? p.mods), ...mods]}});
+  setResource(ch.id, 'resources', 'Superiority Dice', {used: pool.used + 1});
+  setSheetAbility('pc', ch.id, {...ability, maneuver: {...ability.maneuver!, active: false}});
+  resolveAttackDamage(sessionId, roller, rollId);
+  const spec = ability.maneuver!;
+  addRollLog(sessionId, {roller, label: ability.name, expr: ch.superiorityDie || 'd8', total: rolled,
+    detail: `${ch.name}: ${ability.name} against ${p.target.name}. ${spec.save ? `DC ${opportunity.dc} ${spec.save.ability} save. ` : ''}${spec.note ?? ''}`,
+    ...(spec.save ? {apply: {amount: 0, dc: opportunity.dc, save: spec.save.ability, onFail: spec.save.onFail, owner: ch.id, targetMode: 'single'}} : {}),
+  });
+  return {ok: true};
 }
 
 /**

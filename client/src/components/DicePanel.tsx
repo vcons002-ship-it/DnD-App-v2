@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
-import { smiteOptionsFor } from './DamagePrompt';
+import { smiteOptionsFor, maneuverOptionsFor } from './DamagePrompt';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
 import { RollDamageBreakdown } from './RollDamageBreakdown';
@@ -49,6 +49,7 @@ export function DicePanel({
   const saveResolve = useStore((s) => s.saveResolve);
   const armSaveResolve = useStore((s) => s.armSaveResolve);
   const combatDamage = useStore((s) => s.combatDamage);
+  const combatManeuver = useStore(s => s.combatManeuver);
   const combatSmite = useStore((s) => s.combatSmite);
   const isDm = snapshot.role === 'dm';
   // A player's dice toggle is keyed to THEIR character (so it's the same switch
@@ -346,6 +347,8 @@ export function DicePanel({
                 )}
                 {/* A smite this hit made available — the same choice as the map
                     prompt, and the DM's override for a player who dropped off. */}
+                {maneuverOptionsFor(r, snapshot).map(a => <button key={a.id} className="btn tiny"
+                  onClick={() => combatManeuver(r.id, a.id)} title="Spend a Superiority Die and resolve this hit">{a.name}</button>)}
                 {smiteOptionsFor(r, snapshot).map((opt) => (
                   <button
                     key={`smite-${String(opt)}`}

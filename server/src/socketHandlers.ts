@@ -8,6 +8,7 @@ import {
   resolveAttack,
   resolveAttackDamage,
   resolveSmite,
+  resolveManeuver,
   castSlotLevel,
   resolveAbilityRoll,
   resolveMonsterSheetAbility,
@@ -1856,6 +1857,17 @@ export function registerSocketHandlers(io: IOServer): void {
     // Cast the smite a hit made available: the DM, or the attacking player.
     // Every refusal says why (no slot left, already taken…) instead of going
     // quiet; the resolver stamps the opportunity used before it spends anything.
+    on('combat:maneuver', ({rollId, abilityId}) => {
+      const sid = sessionId();
+      if (!sid || typeof rollId !== 'string' || typeof abilityId !== 'string') return;
+      const pending = getRollEntry(rollId, sid)?.pending;
+      const ch = pending?.attacker.kind === 'pc' ? getCharacter(pending.attacker.refId) : null;
+      if (!ch || ch.sessionId !== sid || (!isDm() && ch.claimedBy !== socket.id)) return;
+      const result = resolveManeuver(sid, rollerName(sid, socket.id, isDm()), rollId, abilityId);
+      if (!result.ok) socket.emit('notice', {message: result.reason});
+      else afterChange();
+    });
+
     on('combat:smite', ({ rollId, level }) => {
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string') return;

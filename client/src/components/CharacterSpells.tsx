@@ -1,3 +1,4 @@
+import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { applyRulesUpdate, isOutdated } from '../../../shared/rulesUpdate';
 import { classFeatureUses } from '../../../shared/classFeatureUses';
 import { useEffect, useMemo, useState } from 'react';
@@ -486,13 +487,14 @@ export function CharacterSpells({
             <button
               className={`btn tiny ${a.maneuver!.active ? 'on' : ''}`}
               title={
-                a.maneuver!.active
+                isOnHitManeuver(a) ? 'Choose this maneuver after a hit, beside Roll damage' : a.maneuver!.active
                   ? 'Armed — spends a Superiority Die on your next attack'
                   : 'Off — click to arm for your next attack'
               }
+              disabled={isOnHitManeuver(a)}
               onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
             >
-              {a.maneuver!.active ? 'Armed' : 'Off'}
+              {isOnHitManeuver(a) ? 'On hit' : a.maneuver!.active ? 'Armed' : 'Off'}
             </button>
           )}
 

@@ -1,3 +1,4 @@
+import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { useEffect, useState } from 'react';
 import type { RollEntry, StateSnapshot } from '../../../shared/types';
 import { smiteChoices, type SmiteChoice } from '../../../shared/smite';
@@ -27,6 +28,14 @@ export function smiteOptionsFor(r: RollEntry, snapshot: StateSnapshot): SmiteCho
   return ch && ability ? smiteChoices(ch, ability) : [];
 }
 
+export function maneuverOptionsFor(r: RollEntry, snapshot: StateSnapshot) {
+  if (!r.pending || r.pending.done || !r.pending.maneuver) return [];
+  const ch = snapshot.characters.find(c => c.id === r.pending!.attacker.refId);
+  const pool = ch?.resources['Superiority Dice'];
+  return pool && pool.used < pool.max ? ch!.sheetAbilities.filter(a =>
+    isOnHitManeuver(a) && r.pending!.maneuver!.abilityIds.includes(a.id)) : [];
+}
+
 /**
  * The follow-up to a landed hit, as a big prompt pinned over the map: roll the
  * parked damage (two-step attacks), and — for a Paladin — cast Divine Smite with
@@ -38,6 +47,8 @@ export function smiteOptionsFor(r: RollEntry, snapshot: StateSnapshot): SmiteCho
  * a text field has focus.
  */
 export function DamagePrompt() {
+  const [maneuverPicker, setManeuverPicker] = useState<string>();
+  const combatManeuver = useStore(s => s.combatManeuver);
   const [smitePicker, setSmitePicker] = useState<string>();
   const snapshot = useStore((s) => s.snapshot);
   const combatDamage = useStore((s) => s.combatDamage);
@@ -55,6 +66,8 @@ export function DamagePrompt() {
   const rollId = entry?.id;
   const damageReady = !!entry && openDamage(entry);
   const smiteOptions = entry && snapshot ? smiteOptionsFor(entry, snapshot) : [];
+
+  const maneuvers = entry && snapshot ? maneuverOptionsFor(entry, snapshot) : [];
 
   // Armed = there's a follow-up AND its reveal has finished (or been skipped).
   const armed = !!entry && !!rollId && rollFx?.rollId !== rollId;
@@ -94,6 +107,15 @@ export function DamagePrompt() {
             </span>
           </span>
         </button>
+      )}
+      {maneuvers.length > 0 && (
+        <div className="dp-smite dp-maneuvers">
+          <button className="btn tiny dp-maneuver-toggle" aria-expanded={maneuverPicker === rollId}
+            onClick={() => setManeuverPicker(maneuverPicker === rollId ? undefined : rollId)}>Maneuver</button>
+          {maneuverPicker === rollId && maneuvers.map(a => <button key={a.id} className="btn tiny dp-maneuver-btn"
+            title={`${a.description ?? a.name} (spends one Superiority Die)`}
+            onClick={() => combatManeuver(rollId, a.id)}>{a.name}</button>)}
+        </div>
       )}
       {smiteOptions.length > 0 && entry.smite && (
         <div className={`dp-smite${crit ? ' crit' : ''}`}>

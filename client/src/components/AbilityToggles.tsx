@@ -1,3 +1,4 @@
+import { isOnHitManeuver } from '../../../shared/maneuvers';
 import type {
   Character,
   Monster,
@@ -14,7 +15,7 @@ import { useStore } from '../state/socket';
  *  masteries, maneuvers (arm for the next attack), and stances. */
 export const hasToggle = (a: SheetAbility): boolean =>
   (a.type === 'mastery' && !!a.mastery?.effect) ||
-  (a.type === 'maneuver' && !!a.maneuver) ||
+  (a.type === 'maneuver' && !!a.maneuver && !isOnHitManeuver(a)) ||
   (a.type === 'stance' && !!a.stance);
 
 /**
