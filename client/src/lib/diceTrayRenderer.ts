@@ -42,7 +42,8 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         a.fromArray(f,x+3);b.fromArray(f,y+3);h.object.quaternion.slerpQuaternions(a,b,t);h.updatePose(camera,now);
         const ring=rings[k];ring.visible=keptSet!==undefined&&elapsed>=toss.duration;ring.position.set(h.object.position.x,h.object.position.y,.015);
         const shadow=shadows[k];shadow.position.set(h.object.position.x,h.object.position.y,.006);
-        shadow.scale.setScalar(toss.radius*(1.1+h.object.position.z*.15));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.85-h.object.position.z*.12);
+        const clearance=Math.max(0,h.object.position.z-toss.radius*.65);
+        shadow.scale.setScalar(toss.radius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       stage.renderer.setSize(rw,rh,false);stage.renderer.render(scene,camera);

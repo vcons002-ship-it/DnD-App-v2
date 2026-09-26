@@ -6,6 +6,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Physics dice tray - September 2026
 
+- [x] Weightier toss: lower release, stronger downward acceleration, reduced
+  rebound, more floor friction, and tighter contact shadows.
+
 - [x] Dice scale smoothly with the full physical pool, with prominent one/two-die
   rolls and room for up to 40 dice. Final results hold for 6.5 seconds; the legacy
   short safety timer no longer cuts off physics or notifications. Varis numeral

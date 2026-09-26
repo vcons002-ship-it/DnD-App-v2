@@ -7,10 +7,10 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
   if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Roll requires result summary');
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
-  const world=new World({gravity:new Vec3(0,0,-18),allowSleep:true});
+  const world=new World({gravity:new Vec3(0,0,-24),allowSleep:true});
   (world.solver as GSSolver).iterations=30;
-  world.defaultContactMaterial.friction=.45;
-  world.defaultContactMaterial.restitution=.26;
+  world.defaultContactMaterial.friction=.55;
+  world.defaultContactMaterial.restitution=.17;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>world.addBody(new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z)}));
   box(0,0,-.2,7.2,4.7,.2);
   box(-7.2,0,3,.2,4.7,3);box(7.2,0,3,.2,4.7,3);
@@ -28,10 +28,10 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
       const n=b.vsub(a).cross(c.vsub(a));
       return n.dot(a)<0?[...ids].reverse():[...ids];
     });
-    const body=new Body({mass:1,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.2,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
-    body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,2.6+random()*.65);
+    const body=new Body({mass:1,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.15,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
+    body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,2.3+random()*.45);
     body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
-    body.velocity.set(2.6+random()*4.55,1.3+random()*3.9,random()*1.5);
+    body.velocity.set(2.6+random()*4.55,1.3+random()*3.9,random()*.6);
     body.angularVelocity.set((random()-.5)*25,(random()-.5)*25,(random()-.5)*18);
     world.addBody(body);return body;
   });
