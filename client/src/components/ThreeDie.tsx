@@ -33,8 +33,8 @@ function rotate(v: V3, x: number, y: number, z: number): V3 {
   ];
 }
 
-/** Projected, lit 3D meshes on Canvas2D keep many dice lightweight and avoid
- * creating a WebGL context per die. Orientation is cosmetic; value is supplied
+/** Shared WebGL material rendering with a lightweight Canvas2D fallback.
+ * All dice reuse one offscreen context. Orientation is cosmetic; value is supplied
  * by the existing server-result reveal. No roll/spend/damage calls live here. */
 const MeshDie = memo(function MeshDie({
   sides,
@@ -67,6 +67,13 @@ const MeshDie = memo(function MeshDie({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    let materialDie: import('../lib/materialDice').MaterialDieHandle | undefined;
+    let destroyed = false;
+    void import('../lib/materialDice').then(({createMaterialDie}) => {
+      if (destroyed) return;
+      try { materialDie = createMaterialDie(sides,theme,!!crit,!!tens,!!percentileOnes); repaint.current?.(); }
+      catch { canvas.dataset.material = 'fallback'; }
+    }).catch(() => { if (!destroyed) canvas.dataset.material = 'fallback'; });
     const mesh = faceForwardMesh(dieMesh(sides)),
       reduced = matchMedia('(prefers-reduced-motion: reduce)');
     const oriented = mesh.vertices;
@@ -87,13 +94,13 @@ const MeshDie = memo(function MeshDie({
     let landingAngles: V3 = [0, 0, 0];
     let stopped = false;
     let reportedSettled = false;
-    const size = big ? 116 : 68;
+    const size = Math.max(big ? 116 : 68, canvas.getBoundingClientRect().width);
     const dpr = Math.min(Math.max(devicePixelRatio, 2), 3);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     const draw = (now: number) => {
       if (stopped || document.hidden) return;
-      if (now - prev < 32) {
+      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' ? 100 : 32)) {
         frame = requestAnimationFrame(draw);
         return;
       }
@@ -126,6 +133,10 @@ const MeshDie = memo(function MeshDie({
           size / 2 - v[1] * size * 0.35 * f,
         ];
       };
+      if (materialDie) {
+        canvas.dataset.material = theme.id === 'sorcerer' ? 'volumetric-glass' : 'physical-metal';
+        materialDie.draw(ctx,size,dpr,angles,state.current.value,now,rolling);
+      } else {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
       ctx.fillStyle = '#0005';
@@ -268,12 +279,14 @@ const MeshDie = memo(function MeshDie({
         ctx.fillText(label, 0, 0);
         ctx.restore();
       }
+      }
       if (rolling || ease > 0) frame = requestAnimationFrame(draw);
       else if (!reportedSettled) {
         reportedSettled = true;
         // Report only after the authoritative face has actually been painted.
         settledCallback.current?.();
       }
+      if (!rolling && ease === 0 && materialDie && theme.id === 'sorcerer' && !reduced.matches) frame = requestAnimationFrame(draw);
     };
     const restart = () => {
       cancelAnimationFrame(frame);
@@ -285,6 +298,8 @@ const MeshDie = memo(function MeshDie({
     reduced.addEventListener('change', restart);
     restart();
     return () => {
+      destroyed = true;
+      materialDie?.dispose();
       stopped = true;
       cancelAnimationFrame(frame);
       repaint.current = undefined;

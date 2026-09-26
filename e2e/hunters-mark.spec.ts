@@ -7,7 +7,7 @@ import { DM_SECRET, PORT } from './playwright.config';
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
 
-async function fixture(request: APIRequestContext, page: Page, spawnEnemies = true) {
+async function fixture(request: APIRequestContext, page: Page, className = 'Ranger', spawnEnemies = true) {
   const response = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Spell workflow regression' },
   });
@@ -25,7 +25,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
   const abilities: SheetAbility[] = [
     {id:'hm',name:"Hunter's Mark",type:'spell',level:1,tags:['concentration'],description:'Choose a target. Extra Force damage on each hit.',roll:{kind:'damage',dice:'1d6',baseLevel:1}},
   ];
-  socket.emit('character:update', { characterId, className: 'Ranger', level: 6,
+  socket.emit('character:update', { characterId, className, level: 6,
     stats: { STR: 10, DEX: 18, CON: 10, INT: 20, WIS: 10, CHA: 16 },
     sheetAbilities: abilities, weapons: [{name:'Longbow',kind:'ranged',damage:'1d8',damageType:'piercing',attackBonus:50,range:'150/600'}],
     spellSlots: { L1: { max: 8, used: 0 }, L2: { max: 4, used: 0 }, L3: { max: 8, used: 0 } },
@@ -86,9 +86,9 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
 }
 
 
-test('Hunter mark cast, automatic hit damage, and no-slot transfer through player UI', async ({page,request}, testInfo) => {
+for (const className of ['Ranger', 'Sorcerer']) test(`Hunter mark cast, automatic hit damage, and no-slot transfer through player UI (${className})`, async ({page,request}, testInfo) => {
   test.setTimeout(150000);
-  const f = await fixture(request,page);
+  const f = await fixture(request,page,className);
   f.socket.emit('session:setManualDamage',{manual:true});
   await f.snapshot();
   const targets=f.ready.tokens.filter(t=>t.kind==='monster');
@@ -134,7 +134,8 @@ test('Hunter mark cast, automatic hit damage, and no-slot transfer through playe
         const actual=await mesh.evaluateAll(nodes=>nodes.map(n=>({sides:Number(n.getAttribute('data-sides')),value:Number(n.getAttribute('data-value'))})));
         const expected=roll.pending.dice.flatMap(d=>(d.faces??[]).map(value=>({sides:d.label.includes("Hunter's Mark")?6:8,value})));
         expect(actual).toEqual(expected);
-        await expect(mesh.first()).toHaveAttribute('data-theme', 'ranger');
+        await expect(mesh.first()).toHaveAttribute('data-theme', className.toLowerCase());
+        await expect(mesh.first()).toHaveAttribute('data-material', className === 'Sorcerer' ? 'volumetric-glass' : 'physical-metal');
         await page.locator('.roll-reveal').screenshot({path: testInfo.outputPath('ranger-dice.png')});
         await expect.poll(async()=>Number((await page.locator('.rr-dmg-num').innerText()).match(/^\d+/)?.[0])).toBe(roll.pending.amount);
         await expect.poll(async()=>page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>node.text())))).toContain(`\u2212${roll.pending.amount}`);

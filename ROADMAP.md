@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Class dice - September 2026
 
+- [x] Shared offscreen WebGL material renderer: actual chamfer geometry,
+  material grain and recessed numeral shading. Sorcerer dice use tinted glass
+  with ray-marched interior clouds/energy and view-dependent studio reflections.
+  Canvas rendering remains the fallback; reduced-motion disables interior animation.
+
 - [x] Player dice follow the rolling character's class with thirteen palettes,
   face-local engraved motifs, polished facet lighting, metal edges and sharper
   high-DPI numerals. Extra critical dice retain gold; all values remain server-owned.
