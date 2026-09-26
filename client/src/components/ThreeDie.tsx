@@ -251,7 +251,7 @@ const MeshDie = memo(function MeshDie({
         ctx.strokeStyle = crit ? '#ffe5a1' : theme.metal;
         ctx.globalAlpha = .48;
         ctx.lineWidth = .55;
-        for (let j = 0; j < 6; j++) {
+        for (let j = 0; j < (['fighter','ranger'].includes(theme.id) ? 0 : 6); j++) {
           ctx.save(); ctx.rotate(j * Math.PI / 3);
           ctx.beginPath();
           if (theme.motif === 'leaf') {

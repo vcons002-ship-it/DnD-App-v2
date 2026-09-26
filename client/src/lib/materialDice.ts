@@ -84,8 +84,11 @@ void main(){
  if(style==1){
    float flow=fbm(pos*4.+vec3(fbm(pos*2.)*3.));
    float band=pow(max(0.,1.-abs(flow-.52)*13.),3.);
-   vec3 stone=vec3(.003,.004,.006)+vec3(.009,.011,.016)*flow+band*.007;
-   color=stone+reflected*(.028+fresnel*.52);
+   vec3 stone=vec3(.0004,.0003,.00035)+flow*.00065+band*.00012;
+   // Obsidian is a black dielectric: dark body, white reflected light.
+   // High-contrast reflections prevent it from reading as gray painted metal.
+   vec3 polished=pow(reflected,vec3(2.2))*1.7;
+   color=stone+polished*(.04+fresnel*.9);
  }
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.6,.9,1.2))-rotation*incoming);
@@ -94,14 +97,36 @@ void main(){
  if(engraved){
    if(style==0)color=mix(color,vec3(.86,.75,.64), (1.-cut)*.75);
    else {
-     vec3 metal=style==1?vec3(.83,.46,.09):vec3(.49,.24,.075);
-     float light=max(0.,dot(rotation*n,normalize(vec3(-.6,.9,1.2))));
-     vec3 inlay=metal*(.3+light*.65)+reflected*metal*.8;
-     inlay+=metal*critical*(.65+.12*sin(time*2.));
+     vec3 f0=style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
+     vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
+     vec3 tangent=normalize(axis-n*dot(axis,n));
+     float brushing=(noise(vec3(tex*vec2(900.,70.),3.))-.5)*.025;
+     vec3 bitangent=normalize(cross(n,tangent));
+     float waviness=(fbm(vec3(tex*9.,4.))-.5)*.16;
+     vec3 mn=normalize(n+tangent*(brushing+waviness)+bitangent*sin(tex.y*18.+tex.x*7.)*.035);
+     vec3 worldN=rotation*mn,view=normalize(-rotation*incoming);
+     vec3 r=textureCube(studio,rotation*reflect(incoming,mn)).rgb+vec3(.28,.28,.28);
+     float nv=max(.001,dot(worldN,view));
+     vec3 fresnelMetal=f0+(1.-f0)*pow(1.-nv,5.);
+     // Conductors are lit by colored reflections, not a yellow/brown diffuse fill.
+     vec3 inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
+     vec3 l=normalize(vec3(-.6,.9,1.2)),h=normalize(l+view);
+     float nl=max(.001,dot(worldN,l)),nh=max(0.,dot(worldN,h)),vh=max(0.,dot(view,h));
+     float rough=style==1?.23:.3,aa=pow(rough,4.);
+     float denominator=nh*nh*(aa-1.)+1.;
+     float distribution=aa/(3.14159*denominator*denominator);
+     float k=pow(rough+1.,2.)/8.;
+     float geometry=(nv/(nv*(1.-k)+k))*(nl/(nl*(1.-k)+k));
+     vec3 f=f0+(1.-f0)*pow(1.-vh,5.);
+     inlay+=f*distribution*geometry/(4.*nv)*.6;
+     // A dark cut wall around the metal catches a narrow, beveled rim.
+     float wall=max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
+     inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
+     inlay+=f0*critical*.38;
      color=mix(color,inlay,1.-cut);
    }
  }
- gl_FragColor=vec4(color,.96);
+ gl_FragColor=vec4(color,style==1?1.:.96);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
@@ -158,29 +183,6 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         let n=id===0?value:((Math.max(1,value)+id-1)%sides)+1;
         if(tens)n=((Math.floor(value/10)+id)%10)*10;if(ones)n=(value+id)%10;
         c.fillStyle='#151515';c.font=`bold ${tens?94:112}px Georgia`;c.textAlign='center';c.textBaseline='middle';c.fillText(tens?String(n).padStart(2,'0'):String(n),128,134);
-        if(style===1 && theme.id==='fighter') {
-          // Gold-filled geometric cuts surround the numeral inside each face.
-          c.strokeStyle='#151515';c.lineWidth=2.3;c.lineJoin='round';
-          for(const y of [27,229]) {
-            const sign=y<128?1:-1;
-            c.beginPath();c.moveTo(67,y+sign*12);c.lineTo(99,y+sign*12);c.lineTo(112,y);
-            c.lineTo(128,y+sign*8);c.lineTo(144,y);c.lineTo(157,y+sign*12);c.lineTo(189,y+sign*12);c.stroke();
-          }
-          for(const x of [26,230]) {c.beginPath();c.moveTo(x,113);c.lineTo(x+5,128);c.lineTo(x,143);c.lineTo(x-5,128);c.closePath();c.fill();}
-        }
-        if(style===2 && theme.id==='ranger') {
-          c.strokeStyle='#151515';c.lineWidth=1.8;
-          for(const side of [-1,1]) {
-            c.save();c.translate(128,128);c.scale(side,1);
-            c.beginPath();c.moveTo(64,75);c.bezierCurveTo(112,42,109,-48,61,-82);c.stroke();
-            for(let k=0;k<5;k++){
-              const y=-58+k*27,x=91-Math.pow(y/62,2)*12;
-              c.beginPath();c.moveTo(x,y);c.bezierCurveTo(x+14,y-21,x+25,y-19,x+13,y-3);c.quadraticCurveTo(x+6,y+1,x,y);c.fill();
-              c.beginPath();c.moveTo(x-2,y-4);c.quadraticCurveTo(x-30,y-24,x-22,y-10);c.quadraticCurveTo(x-12,y+3,x-2,y-4);c.fill();
-            }
-            c.restore();
-          }
-        }
         texture.needsUpdate=true;
       });}
       root.rotation.set(angles[0]+.10,angles[1]-.14,angles[2],'ZYX');root.updateMatrixWorld(true);
