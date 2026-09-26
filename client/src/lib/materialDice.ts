@@ -46,41 +46,9 @@ float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
-float margin(vec3 p){
- float first=10.,second=10.;
- for(int j=0;j<20;j++){if(j>=count)break;
-   float d=abs(planes[j].w-dot(planes[j].xyz,p));
-   if(d<first){second=first;first=d;}else second=min(second,d);
- }
- return 1.-smoothstep(.018,.115,second);
-}
-float fractureHeight(vec3 p){
- // Overlapping angular flake scars with sharp lips and shallow floors.
- // No periodic waves: most of each face remains an unbroken glass plane.
- float depth=0.;
- for(int i=0;i<28;i++){
-   float seed=float(i)+1.;
-   vec3 center=vec3(hash(vec3(seed,2,3)),hash(vec3(4,seed,6)),hash(vec3(7,8,seed)))*2.-1.;
-   float radius=.16+hash(vec3(seed,19,2))*.24;
-   vec3 q=(p-center)/radius;
-   float d=max(abs(q.x+.32*q.y),max(abs(q.y-.27*q.z),abs(q.z+.41*q.x)));
-   // Unequal planar flakes meet along sharp irregular ridges.
-   float scar=max(0.,1.-d)*.045;
-   depth=max(depth,scar);
- }
- return -depth;
-}
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
  float cut=engraved?texture2D(etching,tex).r:1.;
- if(style==1){
-   vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
-   vec3 tu=normalize(axis-n*dot(axis,n)),tv=cross(n,tu);
-   // Separate flake scars have crisp lips, rather than wavy polished normals.
-   float a=(fractureHeight(pos+tu*.003)-fractureHeight(pos-tu*.003))/.006;
-   float b=(fractureHeight(pos+tv*.003)-fractureHeight(pos-tv*.003))/.006;
-   n=normalize(n-(tu*a+tv*b)*margin(pos));
- }
  if(engraved){
  vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);vec3 tangent=normalize(axis-n*dot(axis,n));vec3 bitangent=cross(n,tangent);
  float dx=texture2D(etching,tex+vec2(.004,0)).r-texture2D(etching,tex-vec2(.004,0)).r;
@@ -162,23 +130,34 @@ void main(){
  #include <colorspace_fragment>
 }`;
 
-/** Shared object-space cuts keep neighboring faces watertight. */
-function carveObsidian(geometry: THREE.BufferGeometry, planes: THREE.Vector4[]) {
+type ObsidianChip = {center: THREE.Vector3; axis: THREE.Vector3; width: number; depth: number};
+/** Actual shallow shell cuts shared by adjacent faces; normals stay sharp at die edges. */
+function carveObsidian(geometry: THREE.BufferGeometry, chips: ObsidianChip[]) {
   const positions=geometry.getAttribute('position'), uv=geometry.getAttribute('uv');
-  const out:number[]=[], tex:number[]=[];
+  const out:number[]=[], tex:number[]=[], normals:number[]=[];
   const cut=(p:THREE.Vector3)=>{
-    const distances=planes.filter(v=>v.lengthSq()>0).map(v=>Math.abs(v.w-v.x*p.x-v.y*p.y-v.z*p.z)).sort((a,b)=>a-b);
-    const t=THREE.MathUtils.smoothstep(distances[1],.012,.09);
-    const chip=Math.max(0,1-Math.abs(p.x*3.7+p.y*5.1-p.z*2.3));
-    return p.clone().multiplyScalar(1-(1-t)*(.001+.004*chip));
+    let depth=0;
+    for(const chip of chips){
+      const delta=p.clone().sub(chip.center),along=delta.dot(chip.axis);
+      const across=delta.lengthSq()-along*along;
+      const shell=1-along*along/(chip.width*chip.width)-across/(chip.width*chip.width*1.7);
+      if(shell>0)depth=Math.max(depth,chip.depth*shell);
+    }
+    return p.clone().multiplyScalar(1-depth);
   };
-  const steps=10;
+  const steps=32;
   for(let i=0;i<positions.count;i+=3){
     const p=[0,1,2].map(j=>new THREE.Vector3().fromBufferAttribute(positions,i+j));
-    const u=[0,1,2].map(j=>uv?new THREE.Vector2(uv.getX(i+j),uv.getY(i+j)):new THREE.Vector2());
+    const u=[0,1,2].map(j=>new THREE.Vector2(uv.getX(i+j),uv.getY(i+j)));
+    const tangent=p[1].clone().sub(p[0]).normalize();
+    const faceNormal=p[1].clone().sub(p[0]).cross(p[2].clone().sub(p[0])).normalize();
+    const bitangent=faceNormal.clone().cross(tangent);
     const emit=(x:number,y:number)=>{
       const a=1-(x+y)/steps,b=x/steps,c=y/steps;
       const v=p[0].clone().multiplyScalar(a).addScaledVector(p[1],b).addScaledVector(p[2],c);
+      const du=cut(v.clone().addScaledVector(tangent,.0002)).sub(cut(v.clone().addScaledVector(tangent,-.0002)));
+      const dv=cut(v.clone().addScaledVector(bitangent,.0002)).sub(cut(v.clone().addScaledVector(bitangent,-.0002)));
+      normals.push(...du.cross(dv).normalize().toArray());
       out.push(...cut(v).toArray());tex.push(u[0].x*a+u[1].x*b+u[2].x*c,u[0].y*a+u[1].y*b+u[2].y*c);
     };
     for(let x=0;x<steps;x++)for(let y=0;y<steps-x;y++){
@@ -187,17 +166,8 @@ function carveObsidian(geometry: THREE.BufferGeometry, planes: THREE.Vector4[]) 
     }
   }
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(out,3));
-  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(tex,2));geometry.computeVertexNormals();
-  // Smooth only within this original facet, preserving the carved silhouette.
-  const normal=geometry.getAttribute('normal');
-  const groups=new Map<string,THREE.Vector3>();
-  const key=(i:number)=>out.slice(i*3,i*3+3).map(n=>Math.round(n*100000)).join(',');
-  for(let i=0;i<out.length/3;i++){
-    const k=key(i),sum=groups.get(k)??new THREE.Vector3();
-    sum.add(new THREE.Vector3(normal.getX(i),normal.getY(i),normal.getZ(i)));groups.set(k,sum);
-  }
-  for(let i=0;i<out.length/3;i++){const n=groups.get(key(i))!.clone().normalize();normal.setXYZ(i,n.x,n.y,n.z);}
-
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(tex,2));
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
 }
 
 export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens:boolean,ones:boolean) {
@@ -208,7 +178,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const points=ids.map(i=>vertices[i]);const c=points.reduce((a,p)=>a.add(p),new THREE.Vector3()).multiplyScalar(1/points.length);
     const n=new THREE.Vector3().subVectors(points[1],points[0]).cross(new THREE.Vector3().subVectors(points[2],points[0])).normalize();if(n.dot(c)<0)n.negate();
     const u=new THREE.Vector3(Math.abs(n.x)>.95?0:1,Math.abs(n.x)>.95?1:0,0);u.addScaledVector(n,-u.dot(n)).normalize();const v=new THREE.Vector3().crossVectors(n,u);
-    const inset=points.map(p=>p.clone().lerp(c,.055));
+    const inset=points.map(p=>p.clone().lerp(c,theme.id==='fighter'?0:.055));
     const radius=Math.min(...points.map((p,i)=>new THREE.Vector3().subVectors(points[(i+1)%points.length],p).cross(new THREE.Vector3().subVectors(c,p)).length()/p.distanceTo(points[(i+1)%points.length])));
     return {c,n,u,v,inset,radius};
   });
@@ -222,6 +192,22 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
+  const chips:ObsidianChip[]=[];
+  if(style===1){
+    const seen=new Set<string>();
+    for(const ids of source.faces)for(let j=0;j<ids.length;j++){
+      const a=ids[j],b=ids[(j+1)%ids.length],key=[Math.min(a,b),Math.max(a,b)].join(':');
+      if(seen.has(key))continue;seen.add(key);
+      const start=vertices[Math.min(a,b)],end=vertices[Math.max(a,b)];
+      const axis=end.clone().sub(start).normalize(),length=start.distanceTo(end);
+      for(let k=0;k<3;k++){
+        const random=(Math.sin((a+b*17+k*73)*12.9898)*43758.5453)%1;
+        const t=(k+.5+random*.32)/3;
+        chips.push({center:start.clone().lerp(end,t),axis,width:length*(.075+Math.abs(random)*.045),depth:.006+Math.abs(random)*.009});
+      }
+    }
+  }
+  if(style!==1){
   // The convex hull of inset face corners adds actual chamfer geometry.
   const hull=new ConvexGeometry(faces.flatMap(f=>f.inset));
   const hp=hull.getAttribute('position'),edgePoints:number[]=[];
@@ -229,8 +215,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     if(faces.some(f=>tri.every(p=>Math.abs(f.n.dot(p)-f.n.dot(f.c))<.00001)))continue;
     tri.forEach(p=>edgePoints.push(...p.toArray()));
   }
-  hull.dispose();const edgeGeo=new THREE.BufferGeometry();edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(edgePoints,3));edgeGeo.computeVertexNormals();if(style===1)carveObsidian(edgeGeo,planes);geometries.push(edgeGeo);
+  hull.dispose();const edgeGeo=new THREE.BufferGeometry();edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(edgePoints,3));edgeGeo.computeVertexNormals();geometries.push(edgeGeo);
   root.add(new THREE.Mesh(edgeGeo,makeMaterial()));
+  }
   const labels=faces.map(f=>{
     const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
     const texture=new THREE.CanvasTexture(canvas);texture.anisotropy=4;textures.push(texture);
@@ -238,7 +225,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     for(let j=1;j<f.inset.length-1;j++)for(const p of [f.inset[0],f.inset[j],f.inset[j+1]]){
       positions.push(...p.toArray());const delta=p.clone().sub(f.c);uv.push(.5+delta.dot(f.u)/(f.radius*2),.5+delta.dot(f.v)/(f.radius*2));
     }
-    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();if(style===1)carveObsidian(geo,planes);geometries.push(geo);
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();if(style===1)carveObsidian(geo,chips);geometries.push(geo);
     const material=makeMaterial(texture);root.add(new THREE.Mesh(geo,material));
     return {canvas,texture};
   });
