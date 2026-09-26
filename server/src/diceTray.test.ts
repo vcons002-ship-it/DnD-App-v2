@@ -31,6 +31,11 @@ describe('physics dice tray',()=>{
    expect(toss.wallHits).toBeGreaterThan(0);
   }
  });
+ it('settles varied energetic throws without falling back to the summary',()=>{
+  for(const sides of [4,6,8,10,12,20])for(let seed=10;seed<110;seed++){
+   expect(simulateToss([{sides,value:1,index:0,set:0}],seed).duration).toBeLessThanOrEqual(12);
+  }
+ });
  it('splits percentile 100 without losing logical roll identity',()=>{
   const dice=physicalDice([{sides:100,value:100,index:2,set:1}]);expect(dice.map(x=>x.value)).toEqual([0,0]);expect(dice.every(x=>x.index===2&&x.set===1)).toBe(true);
  });

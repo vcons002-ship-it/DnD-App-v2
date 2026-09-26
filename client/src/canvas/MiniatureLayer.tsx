@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
+  Scene, Texture, DepthTexture, Matrix4, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -111,6 +111,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.setAttribute('aria-hidden', 'true');
   host.appendChild(renderer.domElement);
   const scene = new Scene();
+  // Shared screen mask measures local silhouette thickness for every model,
+  // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
+  const outlineMask = new WebGLRenderTarget(1, 1);
+  outlineMask.depthTexture = new DepthTexture(1, 1);
+  const outlineProjectionInverse = {value: new Matrix4()};
+  const maskMaterial = new MeshBasicMaterial({color: 0xffffff, toneMapped: false});
+  const outlineResolution = {value: new Vector2(1, 1)};
+
   scene.add(new HemisphereLight(0xe5edff, 0x726856, 2));
   const key = new DirectionalLight(0xffeddb, 3);
   key.position.set(-3, 8, 5);
@@ -125,6 +133,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     environment = pmrem.fromScene(room, 0.04, 0.1, 100);
     scene.environment = environment.texture;
   } catch (error) {
+    outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -182,6 +191,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     camera.up.set(0, Math.sin(tilt), -Math.cos(tilt));
     camera.lookAt(center.x, 0, center.z);
     camera.updateProjectionMatrix();
+    outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
     const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
@@ -232,7 +242,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
-      try { renderer.render(scene, camera); publish(); } catch { fail(); }
+      try {
+        if (props.tokens.some(token => token.outline)) {
+          const originalLayers = camera.layers.mask;
+          camera.layers.set(1); scene.overrideMaterial = maskMaterial;
+          renderer.setRenderTarget(outlineMask); renderer.clear(); renderer.render(scene, camera);
+          scene.overrideMaterial = null; camera.layers.mask = originalLayers;
+          renderer.setRenderTarget(null);
+        }
+        renderer.render(scene, camera); publish();
+      } catch { fail(); }
     }
     if (!failed && (animated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
   };
@@ -299,6 +318,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       renderedWidth = next.width; renderedHeight = next.height; renderedPixelRatio = pixelRatio;
       renderer.setPixelRatio(pixelRatio);
       renderer.setSize(Math.max(1, next.width), Math.max(1, next.height), false);
+      renderer.getDrawingBufferSize(outlineResolution.value);
+      outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
     updateCamera();
     for (const [id, url] of loading) {
@@ -384,16 +405,39 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         });
         outlineMaterial.onBeforeCompile = shader => {
           shader.uniforms.outlineViewport = outlineViewport;
-          shader.vertexShader = 'uniform vec2 outlineViewport;\n' + shader.vertexShader;
+          shader.uniforms.outlineMask = {value: outlineMask.texture};
+          shader.uniforms.outlineResolution = outlineResolution;
+          shader.uniforms.outlineDepth = {value: outlineMask.depthTexture};
+          shader.uniforms.outlineProjectionInverse = outlineProjectionInverse;
+          shader.fragmentShader = 'uniform sampler2D outlineDepth; uniform mat4 outlineProjectionInverse; uniform sampler2D outlineMask; uniform vec2 outlineResolution; uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
+            // Require coverage a few CSS pixels inside the edge. Thin blades fade
+            // out instead of acquiring a thicker colored silhouette than the blade.
+            vec2 maskUV = gl_FragCoord.xy / outlineResolution;
+            vec2 inward = outlineInward / max(length(outlineInward), 0.00001) / outlineViewport;
+            float nearCoverage = texture2D(outlineMask, maskUV + inward * 1.5).a;
+            float deepCoverage = texture2D(outlineMask, maskUV + inward * 3.5).a;
+            // Reject a base or another surface behind a thin weapon: coverage must
+            // also be close to the outline surface in view-space depth.
+            vec4 here = outlineProjectionInverse * vec4(maskUV * 2.0 - 1.0, gl_FragCoord.z * 2.0 - 1.0, 1.0);
+            vec2 deepUV = maskUV + inward * 3.5;
+            vec4 behind = outlineProjectionInverse * vec4(deepUV * 2.0 - 1.0, texture2D(outlineDepth, deepUV).r * 2.0 - 1.0, 1.0);
+            float tolerance = 10.0 * abs(outlineProjectionInverse[1][1] / here.w) / outlineViewport.y;
+            deepCoverage *= 1.0 - smoothstep(tolerance, tolerance * 2.0, max(0.0, here.z / here.w - behind.z / behind.w));
+            diffuseColor.a *= smoothstep(0.25, 0.85, nearCoverage * deepCoverage);
+            #include <opaque_fragment>
+          `);
+          shader.vertexShader = 'uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.vertexShader;
           shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
             #include <project_vertex>
             vec3 outlineNormal = normalMatrix * normal;
             vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
             float outlineLength = length(outlineDirection);
+            outlineInward = -outlineDirection;
             // Orthographic projection and model scaling can make this very small.
             // Only reject a truly degenerate direction, not a valid overhead edge.
             if (outlineLength > 0.0000000001) {
-              gl_Position.xy += outlineDirection / outlineLength * 3.0 / outlineViewport * gl_Position.w;
+              gl_Position.xy += outlineDirection / outlineLength * 2.0 / outlineViewport * gl_Position.w;
             }
           `);
         };
@@ -401,6 +445,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         model.traverse(node => {
           if (node instanceof Mesh && node.geometry.hasAttribute('normal') &&
               (Array.isArray(node.material) ? node.material : [node.material]).every(m => !m.transparent)) {
+            node.layers.enable(1);
             outlinedMeshes.push(node);
           }
         });
@@ -447,6 +492,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     [...instances.keys()].forEach(removeInstance);
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
+    outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;
     renderer.dispose();

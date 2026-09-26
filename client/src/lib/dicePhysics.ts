@@ -12,7 +12,9 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
   world.defaultContactMaterial.friction=.55;
   world.defaultContactMaterial.restitution=.12;
   const dieMaterial=new Material('die'),wallMaterial=new Material('wall');
-  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:.25,restitution:.52}));
+  // Hard dice rebound against each other; the padded floor still absorbs energy.
+  world.addContactMaterial(new ContactMaterial(dieMaterial,dieMaterial,{friction:.3,restitution:.4}));
+  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:.2,restitution:.7}));
   const walls=new Set<Body>();let wallHits=0;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);};
   box(0,0,-.2,7.2,4.7,.2);
@@ -31,10 +33,11 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
       const n=b.vsub(a).cross(c.vsub(a));
       return n.dot(a)<0?[...ids].reverse():[...ids];
     });
-    const body=new Body({mass:2,material:dieMaterial,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.15,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
+    const body=new Body({mass:2,material:dieMaterial,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.25,angularDamping:.35,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.4});
     body.position.set(((i%cols)-(cols-1)/2)*spacing-1, (Math.floor(i/cols)-(rows-1)/2)*spacing-.4,2.1+random()*.35);
     body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
-    body.velocity.set(24+random()*3,1.5+random()*3,random()*.4-.2);
+    // Vary speed and fan across the tray so the pool does not travel as one block.
+    body.velocity.set(24+random()*6,(random()-.5)*10,random()*.8-.4);
     body.angularVelocity.set((random()-.5)*25,(random()-.5)*25,(random()-.5)*18);
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     world.addBody(body);return body;
@@ -45,7 +48,8 @@ export function simulateToss(dice:TrayDie[],seed:number):Toss {
   let ticks=0;
   for(;ticks<1440;ticks++){
     world.step(step);capture();
-    if(ticks>120&&bodies.every(b=>b.sleepState===Body.SLEEPING)){ticks++;break;}
+    // Keep a fully stationary final frame after the last body enters sleep.
+    if(ticks>120&&bodies.every(b=>b.sleepState===Body.SLEEPING)){capture();ticks+=2;break;}
   }
   if(!bodies.every(b=>b.sleepState===Body.SLEEPING))throw new Error('Dice did not settle within the tray simulation limit');
   const topFaces=bodies.map((body,i)=>{
