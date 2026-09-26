@@ -69,11 +69,20 @@ const MeshDie = memo(function MeshDie({
     if (!ctx) return;
     let materialDie: import('../lib/materialDice').MaterialDieHandle | undefined;
     let destroyed = false;
+    let materialPending = true;
+    canvas.dataset.material = 'loading';
     void import('../lib/materialDice').then(({createMaterialDie}) => {
       if (destroyed) return;
-      try { materialDie = createMaterialDie(sides,theme,!!crit,!!tens,!!percentileOnes); repaint.current?.(); }
+      try { materialDie = createMaterialDie(sides,theme,!!crit,!!tens,!!percentileOnes); }
       catch { canvas.dataset.material = 'fallback'; }
-    }).catch(() => { if (!destroyed) canvas.dataset.material = 'fallback'; });
+      materialPending = false;
+      repaint.current?.();
+    }).catch(() => {
+      if (destroyed) return;
+      materialPending = false;
+      canvas.dataset.material = 'fallback';
+      repaint.current?.();
+    });
     const mesh = faceForwardMesh(dieMesh(sides)),
       reduced = matchMedia('(prefers-reduced-motion: reduce)');
     const oriented = mesh.vertices;
@@ -100,6 +109,9 @@ const MeshDie = memo(function MeshDie({
     canvas.height = size * dpr;
     const draw = (now: number) => {
       if (stopped || document.hidden) return;
+      // Do not paint the legacy die or report a landing while the GPU renderer
+      // loads. Fallback is reserved for an actual import/WebGL failure.
+      if (materialPending) return;
       if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' ? 100 : 32)) {
         frame = requestAnimationFrame(draw);
         return;

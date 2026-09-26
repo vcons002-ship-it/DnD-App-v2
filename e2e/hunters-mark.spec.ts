@@ -158,3 +158,34 @@ for (const className of ['Ranger', 'Sorcerer']) test(`Hunter mark cast, automati
   const final=await f.snapshot();
   expect(final.characters.find(c=>c.id===f.characterId)!.spellSlots.L1.used).toBe(1);
 });
+
+
+test('sorcerer glass covers all dice and never flashes the fallback while loading', async ({page,request}) => {
+  test.setTimeout(90000);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/materialDice-*.js', async route => { await gate; await route.continue(); });
+  const f = await fixture(request,page,'Sorcerer',false);
+  const picker = page.locator('.player-dice-picker');
+  for (const sides of [4,6,8,10,12,20,100]) {
+    await picker.getByRole('button',{name:'More dice',exact:true}).click();
+    await picker.getByRole('group',{name:'Choose a die'}).getByRole('button',{name:`d${sides}`,exact:true}).click();
+    const dice = page.locator('.roll-reveal .three-die');
+    await expect(dice).toHaveCount(sides===100?2:1);
+    if (sides===4) {
+      await expect(dice.first()).toHaveAttribute('data-material','loading');
+      // No painted legacy face exists, even with the module download held open.
+      expect(await dice.first().evaluate((node: HTMLCanvasElement) => {
+        const pixels=node.getContext('2d')!.getImageData(0,0,node.width,node.height).data;
+        return pixels.some((v,i)=>i%4===3 && v!==0);
+      })).toBe(false);
+      release();
+    }
+    for (const die of await dice.all()) {
+      await expect(die).toHaveAttribute('data-theme','sorcerer');
+      await expect(die).toHaveAttribute('data-material','volumetric-glass');
+      await expect(die).toHaveAttribute('data-orientation','face-forward');
+    }
+    await f.dismissReveal();
+  }
+});
