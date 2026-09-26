@@ -44,14 +44,17 @@ const fromDb = (entry: Omit<SheetAbility, 'id'> | null, id: string): SheetAbilit
   return { ...(entry as SheetAbility), id };
 };
 
-/** Swing until a plain HIT (not a crit) lands; returns the log entry. */
+/** One controlled hit. Retrying random crits changes HP before assertions. */
 function hitOnce(sid: string, atk: string, tgt: string, crit = false) {
-  for (let i = 0; i < 400; i++) {
+  const random = vi.spyOn(Math, 'random').mockReturnValue(crit ? 0.999 : 0.5);
+  try {
     resolveAttack(sid, 'X', atk, tgt, 0);
     const e = listRollLog(sid).filter((x) => x.label === 'Attack').at(-1)!;
-    if (crit ? /— CRIT/.test(e.detail) : /— HIT/.test(e.detail)) return e;
+    expect(e.detail).toMatch(crit ? /— CRIT/ : /— HIT/);
+    return e;
+  } finally {
+    random.mockRestore();
   }
-  throw new Error('never landed');
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +148,7 @@ describe('Divine Smite (2024): chosen after a qualifying hit', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.999); // every die rolls max
     const before = getMonster(f.t.id)!.curHp;
     expect(resolveSmite(f.sid, 'Aria', hit.id, 1)).toEqual({ ok: true });
-    expect(before - getMonster(f.t.id)!.curHp).toBe(16);
+    expect(before - getMonster(f.t.id)!.curHp).toBe(hit.pending!.amount + 16);
     expect(slotsUsed(f.p.id)).toBe(1);
   });
 
@@ -169,7 +172,7 @@ describe('Divine Smite (2024): chosen after a qualifying hit', () => {
     const before = getMonster(f.t.id)!.curHp;
     resolveSmite(f.sid, 'Aria', crit.id, 2);
     // L2: 3d8 + 1d8 undead = 4d8, doubled on the crit = 8d8 → 64 at max.
-    expect(before - getMonster(f.t.id)!.curHp).toBe(64);
+    expect(before - getMonster(f.t.id)!.curHp).toBe(crit.pending!.amount + 64);
   });
 
   it("the free casting (Paladin 2+) spends its counter, not a slot, and isn't offered twice", () => {
@@ -208,8 +211,8 @@ describe('Divine Smite (2024): chosen after a qualifying hit', () => {
     const hit = hitOnce(f.sid, f.pTok, f.tTok);
     const before = getMonster(f.t.id)!.curHp;
     resolveSmite(f.sid, 'Aria', hit.id, 1);
-    expect(getMonster(f.t.id)!.curHp).toBe(before);
-    expect(listRollLog(f.sid).at(-1)!.detail).toMatch(/immune/);
+    expect(getMonster(f.t.id)!.curHp).toBe(before - hit.pending!.amount);
+    expect(listRollLog(f.sid).filter(e => e.label === 'Divine Smite').at(-1)!.detail).toMatch(/immune/);
   });
 });
 

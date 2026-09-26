@@ -676,9 +676,16 @@ export function resolveAttack(
   // on the roll entry and a second click ("Roll damage") plays the dice reveal
   // and takes the HP off. A MISS is unaffected: Graze damage is a flat ability
   // modifier, not a roll, so it still lands with the attack.
-  const deferDamage =
-    !!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0;
-  const damageSteps = out.hit && applied > 0
+  const smiteAbility = out.hit && ch && weapon.kind === 'melee'
+    ? ch.sheetAbilities.find((ab) => !!ab.smite)
+    : undefined;
+  // The player chooses Smite after seeing the hit, but before ANY of this hit's
+  // damage lands. Both modes use the same pending hit so death, temporary HP,
+  // kill credit and concentration are evaluated once for the combined damage.
+  const canSmite = !!(smiteAbility && ch && smiteChoices(ch, smiteAbility).length);
+  const deferDamage = canSmite ||
+    (!!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0);
+  const damageSteps = out.hit && (applied > 0 || canSmite)
     ? reconcileDamageSteps(out.damageModSteps, out.damage, applied)
     : [];
   const attackRollId = newId();
@@ -698,12 +705,8 @@ export function resolveAttack(
   // 2024 Divine Smite is cast right AFTER a qualifying hit — a melee weapon or
   // an unarmed strike — so the player chooses with hit and crit already known.
   // Record the chance on this hit; it's offered only while a way to cast remains.
-  const smiteAbility =
-    out.hit && ch && weapon.kind === 'melee'
-      ? ch.sheetAbilities.find((ab) => !!ab.smite)
-      : undefined;
   const smiteOpp: SmiteOpportunity | undefined =
-    smiteAbility && ch && smiteChoices(ch, smiteAbility).length > 0
+    smiteAbility && ch && canSmite
       ? {
           owner: ch.id,
           abilityId: smiteAbility.id,
@@ -870,6 +873,17 @@ export function resolveSmite(
   const ability = ch.sheetAbilities.find((a) => a.id === sm.abilityId);
   const spec = ability?.smite;
   if (!ability || !spec) return { ok: false, reason: `${sm.abilityName} is no longer on the sheet.` };
+  const pending = entry.pending;
+  // Older saved opportunities may have already applied their weapon damage.
+  // Never turn those into a second hit or attempt to undo intervening changes.
+  if (!pending || pending.done)
+    return { ok: false, reason: 'That hit has already resolved; Smite must be chosen before its damage.' };
+  const target = sm.target.kind === 'pc' ? getCharacter(sm.target.refId) : getMonster(sm.target.refId);
+  if (!target || target.sessionId !== sessionId)
+    return { ok: false, reason: 'That target is no longer available.' };
+  const tok = getToken(sm.target.tokenId);
+  const r = tok && tok.kind === sm.target.kind && tok.refId === sm.target.refId ? resolve(tok) : null;
+  if (!r) return { ok: false, reason: 'That target is no longer on the map.' };
   if (!smiteChoices(ch, ability).includes(choice)) {
     return {
       ok: false,
@@ -912,18 +926,24 @@ export function resolveSmite(
   }
 
   // Its own damage type against the target's traits (a spell: magical).
-  const tok = getToken(sm.target.tokenId);
-  const r = tok ? resolve(tok) : null;
-  const mult = r
-    ? damageMultiplier(spec.damageType, r.resistances, r.weaknesses, r.immunities, { magical: true })
-    : 1;
+  const mult = damageMultiplier(spec.damageType, r.resistances, r.weaknesses, r.immunities, { magical: true });
   const amount = Math.floor(rolled * mult);
-  const hpNote =
-    amount > 0
-      ? applyDamageNoted(sm.target.kind, sm.target.refId, amount, spec.damageType,
-          { kind: 'pc', refId: ch.id }, sm.crit)
-      : undefined;
-  if (amount > 0) noteConcentration(sessionId, sm.target.kind, sm.target.refId, amount);
+  const adjustment = amount !== rolled
+    ? [{ label: `${spec.damageType} ${mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vulnerable'}`, value: amount - rolled }]
+    : [];
+  const smiteSteps = steps.map(step => ({ ...step, label: `${ability.name} ${step.label}` }));
+  setRollPending(rollId, {
+    ...pending,
+    amount: pending.amount + amount,
+    weapon: `${pending.weapon} + ${ability.name}`,
+    dice: [...pending.dice, ...smiteSteps],
+    mods: [...pending.mods, ...adjustment],
+    damageBreakdown: {
+      dice: [...(pending.damageBreakdown?.dice ?? pending.dice), ...smiteSteps],
+      mods: [...(pending.damageBreakdown?.mods ?? pending.mods), ...adjustment],
+      mixedTypes: true,
+    },
+  });
 
   const how = mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : mult > 1 ? ' (×2 vulnerable)' : '';
   const via = choice === 'free' ? 'free casting' : `level-${castLevel} slot`;
@@ -935,18 +955,8 @@ export function resolveSmite(
     detail:
       `${ch.name} smites ${sm.target.name} (${via}): ${faces.join(' + ')} = ${amount} ` +
       `${spec.damageType}${how}${sm.crit ? ' — CRIT' : ''}`,
-    hpNote,
-    reveal: {
-      kind: 'damage',
-      attacker: ch.name,
-      target: sm.target.name,
-      outcome: sm.crit ? 'crit' : 'hit',
-      damageDice: steps,
-      ...(amount !== rolled ? { damageMods: [{ label: how.trim().replace(/[()]/g, ''), value: amount - rolled }] } : {}),
-      damage: amount,
-      damageType: spec.damageType,
-    },
   });
+  resolveAttackDamage(sessionId, roller, rollId);
   return { ok: true };
 }
 
@@ -970,6 +980,8 @@ export function resolveAttackDamage(
   if (target?.sessionId !== sessionId || attacker?.sessionId !== sessionId) return false;
   // Claim it FIRST — two clicks racing in must not both apply.
   setRollPending(rollId, { ...p, done: true });
+  if (entry.smite && !entry.smite.used)
+    setRollSmite(rollId, { ...entry.smite, used: true });
 
   const damageRollId = newId();
   const hpNote = applyDamageNoted(

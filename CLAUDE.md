@@ -528,6 +528,11 @@ live outside the bundled static catalog and must be backed up with uploads.
   0 HP are tagged `source:'down'` and healing removes only those (Prone stays).
 - **Divine Smite is chosen after the hit** (`RollEntry.smite` → `combat:smite`),
   never pre-armed; `smite.used` is stamped before any spend, like `pending.done`.
+  A qualifying hit offers **Roll damage** (weapon only) and **Smite** (choose a
+  resource, then resolve the combined hit). This choice holds damage even in
+  automatic mode; HP/death/concentration process the whole attack once.
+  Warlock Pact Magic slot-level changes transfer spent uses to the new standard
+  pool without resetting them; explicit custom pools remain authoritative.
 - **The big `DamagePrompt` belongs to the roller** — the DM's map ignores a
   player's hit (the log button remains the DM's override).
 

@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { RollEntry, StateSnapshot } from '../../../shared/types';
 import { smiteChoices, type SmiteChoice } from '../../../shared/smite';
 import { useStore } from '../state/socket';
 
 /** What a hit still offers: its parked damage, and/or a smite to cast on it. */
 const openDamage = (r: RollEntry) => !!r.pending && !r.pending.done;
-const openSmite = (r: RollEntry) => !!r.smite && !r.smite.used;
+const openSmite = (r: RollEntry) => openDamage(r) && !!r.smite && !r.smite.used;
 
 /**
  * Whether this hit's follow-up belongs to the viewer. A player only ever
@@ -21,7 +21,7 @@ function isMine(r: RollEntry, snapshot: StateSnapshot): boolean {
 /** The ways the smite on this hit can be cast right now (shared rule). */
 export function smiteOptionsFor(r: RollEntry, snapshot: StateSnapshot): SmiteChoice[] {
   const sm = r.smite;
-  if (!sm || sm.used) return [];
+  if (!sm || sm.used || !r.pending || r.pending.done) return [];
   const ch = snapshot.characters.find((c) => c.id === sm.owner);
   const ability = ch?.sheetAbilities.find((a) => a.id === sm.abilityId);
   return ch && ability ? smiteChoices(ch, ability) : [];
@@ -38,6 +38,7 @@ export function smiteOptionsFor(r: RollEntry, snapshot: StateSnapshot): SmiteCho
  * a text field has focus.
  */
 export function DamagePrompt() {
+  const [smitePicker, setSmitePicker] = useState<string>();
   const snapshot = useStore((s) => s.snapshot);
   const combatDamage = useStore((s) => s.combatDamage);
   const combatSmite = useStore((s) => s.combatSmite);
@@ -83,7 +84,7 @@ export function DamagePrompt() {
         <button
           className={`damage-prompt-btn${p.crit ? ' crit' : ''}`}
           onClick={() => combatDamage(rollId)}
-          title="Roll the damage for this hit and apply it (Enter / Space)"
+          title={smiteOptions.length ? 'Apply this hit without Smite (Enter / Space)' : 'Roll the damage for this hit and apply it (Enter / Space)'}
         >
           <span className="dp-dice">🎲</span>
           <span className="dp-text">
@@ -96,11 +97,13 @@ export function DamagePrompt() {
       )}
       {smiteOptions.length > 0 && entry.smite && (
         <div className={`dp-smite${crit ? ' crit' : ''}`}>
-          <span className="dp-smite-label" title="Cast it now, right after the hit (bonus action)">
-            ✦ {entry.smite.abilityName}
-            {crit ? ' — crit doubles it' : ''}
-          </span>
-          {smiteOptions.map((opt) => (
+          <button className="btn tiny dp-smite-toggle"
+            title="Add Smite to this hit (bonus action); choose a free use or spell slot"
+            aria-expanded={smitePicker === rollId}
+            onClick={() => setSmitePicker(smitePicker === rollId ? undefined : rollId)}>
+            ✦ Smite{crit ? ' — CRIT' : ''}
+          </button>
+          {smitePicker === rollId && smiteOptions.map((opt) => (
             <button
               key={String(opt)}
               className="btn tiny dp-smite-btn"

@@ -2634,7 +2634,22 @@ export function updateCharacter(
       derived.spellSlots,
     );
     const previousSlots = slots(c.className, c.level, c.subclass, previous.spellSlots);
-    put('spell_slots', JSON.stringify(mergeCounters(c.spellSlots, derivedSlots, previousSlots)));
+    const mergedSlots = mergeCounters(c.spellSlots, derivedSlots, previousSlots);
+    // Pact Magic upgrades one pool, rather than granting a fresh pool. Transfer
+    // usage only between the standard keys of an unchanged single-class Warlock;
+    // explicitly customized counters and pre-existing destination keys win.
+    if (c.className.trim().toLowerCase() === 'warlock' &&
+        (patch.className ?? c.className).trim().toLowerCase() === 'warlock') {
+      const oldKey = Object.keys(previousSlots)[0];
+      const newKey = Object.keys(derivedSlots)[0];
+      const oldPool = c.spellSlots[oldKey];
+      if (oldKey && newKey && oldKey !== newKey && oldPool &&
+          !oldPool.maxOverride && oldPool.max === previousSlots[oldKey].max &&
+          !c.spellSlots[newKey] && mergedSlots[newKey] && !mergedSlots[oldKey]) {
+        mergedSlots[newKey] = { ...mergedSlots[newKey], used: Math.min(oldPool.used, mergedSlots[newKey].max) };
+      }
+    }
+    put('spell_slots', JSON.stringify(mergedSlots));
     put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources, previous.resources)));
   }
 

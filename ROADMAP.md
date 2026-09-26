@@ -1822,6 +1822,11 @@ Smaller refinements on top of the shipped Phase 2 work.
   never pre-armed; the choice offers slot levels plus the Paladin-2
   once-per-long-rest free casting (`Divine Smite (free)` counter); `smite.used`
   is stamped before spending, so a retry can't double-spend or double-damage.
+  Follow-up: qualifying hits offer **Roll damage** or **Smite**; choosing Smite
+  resolves weapon and radiant damage as one hit in either damage mode, with
+  one concentration check and combined massive-damage accounting. Per-type
+  immunity/resistance still applies separately. Resolving weapon-only damage
+  closes the Smite choice. Spent Pact Magic uses transfer when slot levels change.
   Warlock Pact Magic + Artificer slots in `slotReference2024` (create and
   level-up share it; `spendSpellSlot` falls back to a pact slot and reports the
   level spent). Channel Divinity / Wild Shape scale by level.
