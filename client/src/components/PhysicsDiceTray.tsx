@@ -46,16 +46,20 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             node.dataset.playbackRate=String(ROLL_PLAYBACK_RATE);node.dataset.simulationElapsed=(elapsed*ROLL_PLAYBACK_RATE).toFixed(3);
             node.dataset.wallHits=String(toss.wallHits);node.dataset.elapsed=elapsed.toFixed(3);node.dataset.duration=toss.duration.toFixed(3);
             const bounds=root.current!.getBoundingClientRect(),canvasBounds=node.getBoundingClientRect();
+            // Read layout once before any flight style writes; avoid repeated
+            // synchronous layout flushes when several numbers fly together.
+            const targets=boxes.current.map(box=>box?.querySelector('strong')?.getBoundingClientRect());
+            let arrivalsChanged=false;
             expanded.forEach((die,i)=>{
               const flight=flights.current[i],box=boxes.current[i];if(!flight||!box)return;
               const age=elapsed-toss.settleTimes[i]/ROLL_PLAYBACK_RATE;
               if(age<0){flight.style.opacity='0';return;}
               if(age>=.85){
                 flight.style.opacity='0';
-                if(!delivered.has(i)){delivered.add(i);setArrived([...delivered]);}
+                if(!delivered.has(i)){delivered.add(i);arrivalsChanged=true;}
                 return;
               }
-              const source=renderer!.numberPosition(i),target=box.querySelector('strong')!.getBoundingClientRect();
+              const source=renderer!.numberPosition(i),target=targets[i]!;
               const sx=canvasBounds.left-bounds.left+source.x*canvasBounds.width,sy=canvasBounds.top-bounds.top+source.y*canvasBounds.height;
               const tx=target.left-bounds.left+target.width/2,ty=target.top-bounds.top+target.height/2;
               const progress=Math.max(0,(age-.22)/.63),p=progress*progress;
@@ -66,6 +70,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
               flight.style.filter=`brightness(${1+flash*(.4+strength*2.6)}) drop-shadow(0 0 ${3+strength*7+flash*(3+strength*30)}px currentColor)`;
               flight.dataset.phase=age<.22?'flash':'flying';
             });
+            if(arrivalsChanged)setArrived([...delivered]);
             if(elapsed>=finishAt){setStatus('settled');complete();return;}
             raf=requestAnimationFrame(draw);
           };raf=requestAnimationFrame(draw);

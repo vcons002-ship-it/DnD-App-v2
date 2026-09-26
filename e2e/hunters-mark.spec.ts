@@ -259,9 +259,18 @@ test('settled dice flash and fill their own result boxes, including percentile a
  await expect(tray.locator('.dice-tray-canvas')).toHaveAttribute('data-playback-rate','0.6');
  const times=await tray.locator('.dice-tray-canvas').evaluate(el=>({screen:Number((el as HTMLElement).dataset.elapsed),physics:Number((el as HTMLElement).dataset.simulationElapsed)}));
  expect(times.physics).toBeCloseTo(times.screen*.6,2);
+ await page.evaluate(()=>{
+   const descriptor=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,'width')!;
+   (window as any).__redundantCanvasResizes=0;
+   Object.defineProperty(HTMLCanvasElement.prototype,'width',{...descriptor,set(value:number){
+     if(this.width===value)(window as any).__redundantCanvasResizes++;
+     descriptor.set!.call(this,value);
+   }});
+ });
  await expect(tray.locator('.tray-flying-number')).toHaveCount(8);
  await expect(tray.locator('.tray-flying-number[data-phase="flying"]').first()).toBeAttached();
  await expect(tray).toHaveAttribute('data-status','settled',{timeout:15000});
+ expect(await page.evaluate(()=>(window as any).__redundantCanvasResizes)).toBe(0);
  for(const flight of await tray.locator('.tray-flying-number').all()){
    const id=await flight.getAttribute('data-die-id');
    const result=tray.locator(`.tray-die-result[data-die-id="${id}"]`);

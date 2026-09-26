@@ -43,10 +43,10 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     const m=new THREE.MeshBasicMaterial({color:d.set===keptSet?0x39ef87:0xff5365,transparent:true,opacity:.95,depthTest:false,depthWrite:false});
     const mesh=new THREE.Mesh(g,m);mesh.renderOrder=10;mesh.visible=false;scene.add(mesh);geometry.push(g);materials.push(m);return mesh;
   });
-  const a=new THREE.Quaternion(),b=new THREE.Quaternion();
+  const a=new THREE.Quaternion(),b=new THREE.Quaternion(),projectedNumber=new THREE.Vector3();
   return {
     numberPosition(index:number){
-      const point=handles[index].object.position.clone();point.z+=toss.radius*.65;
+      const point=projectedNumber.copy(handles[index].object.position);point.z+=toss.radius*.65;
       point.project(camera);
       return {x:(point.x+1)/2,y:(1-point.y)/2};
     },
@@ -62,7 +62,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         shadow.scale.setScalar(toss.radius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
-      stage.renderer.setSize(rw,rh,false);
+      if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);
       const previousShadows=stage.renderer.shadowMap.enabled;stage.renderer.shadowMap.enabled=true;
       stage.renderer.render(scene,camera);stage.renderer.shadowMap.enabled=previousShadows;
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ctx.drawImage(stage.renderer.domElement,0,0,width,height);

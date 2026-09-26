@@ -228,6 +228,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     return {canvas,texture};
   });
   let lastValue=-1;
+  const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
     setFaceValues(values: number[]) {
@@ -239,8 +240,8 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     },
     updatePose(camera: THREE.Camera, now: number) {
       root.updateMatrixWorld(true);
-      uniforms.eye.value.copy(camera.position).applyMatrix4(root.matrixWorld.clone().invert());
-      uniforms.rotation.value.setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(root.quaternion));
+      uniforms.eye.value.copy(camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
+      uniforms.rotation.value.setFromMatrix4(poseRotation.makeRotationFromQuaternion(root.quaternion));
       uniforms.time.value=now/1000;
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean){
@@ -254,7 +255,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         texture.needsUpdate=true;
       });}
       root.rotation.set(angles[0]+.10,angles[1]-.14,angles[2],'ZYX');root.updateMatrixWorld(true);
-      uniforms.eye.value.copy(s.camera.position).applyMatrix4(root.matrixWorld.clone().invert());
+      uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
