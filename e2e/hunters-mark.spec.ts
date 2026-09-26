@@ -222,3 +222,26 @@ test('physics tray supports DM, mobile, compared rolls, reduced motion and summa
  await dm.locator('.roll-reveal').screenshot({path:testInfo.outputPath('dm-tray.png')});
  await dm.close();
 });
+
+
+test('dice calculation shows readable values and sequential labeled bonuses and penalties',async({page,request},testInfo)=>{
+ const f=await fixture(request,page,'Ranger',false);
+ await page.setViewportSize({width:900,height:1000});
+ f.socket.emit('dice:roll',{expr:'1d8+3-2',label:'Readable roll calculation'});
+ const equation=page.locator('.rr-equation');
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','rolling',{timeout:15000});
+ await expect(equation.locator('.rr-adjustment')).toHaveCount(0);
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:15000});
+ const snapshot=await f.snapshot();
+ const roll=snapshot.rollLog.find(r=>r.expr==='1d8+3-2')!;
+ const mods=roll.reveal?.damageMods??[];
+ expect(mods.length).toBeGreaterThan(0);
+ await expect(equation.locator('.rr-adjustment')).toHaveCount(mods.length);
+ for(let i=0;i<mods.length;i++){
+  await expect(equation.locator('.rr-adjustment').nth(i).locator('small')).toHaveText(mods[i].label);
+  await expect(equation.locator('.rr-adjustment').nth(i).locator('strong')).toHaveText(`${mods[i].value<0?'-':'+'}${Math.abs(mods[i].value)}`);
+ }
+ await expect(page.locator('.rr-roll-num')).toHaveText(String(roll.total));
+ await expect(page.locator('.tray-die-result strong')).toHaveCSS('font-size','30px');
+ await page.locator('.roll-reveal').screenshot({path:testInfo.outputPath('readable-calculation.png')});
+});

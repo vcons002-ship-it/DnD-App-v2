@@ -55,7 +55,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
       {(comparison?comparison.sets.map((_,i)=>i):[0]).map(set=><div key={set} className={comparison?'rr-candidate':'tray-result-group'} data-candidate={set} data-result={landed?(set===comparison?.kept?'kept':'discarded'):'rolling'}>
         {comparison&&<div className="rr-candidate-label">{landed?(set===comparison.kept?(comparison.mode==='adv'?'Kept - higher':'Kept - lower'):'Discarded'):`Roll ${set+1}`}</div>}
         {expanded.filter(d=>d.set===set).map((d,i)=><span key={i} className={`tray-die-result${d.crit?' critical':''}`} data-sides={d.sides} data-value={d.value} data-critical={!!d.crit} data-theme={theme.id} data-set={d.set} data-orientation={landed?'settled':'rolling'} aria-label={`d${d.sides}: ${landed?d.value:'rolling'}`}>
-          {d.negative?'-':''}{d.tens?'d100 tens':d.ones?'d100 ones':`d${d.sides}`} <strong>{landed?(d.tens?String(d.value).padStart(2,'0'):d.value):'?'}</strong>
+          {d.negative?'-':''}{d.tens?'d100 tens':d.ones?'d100 ones':`d${d.sides}`} <strong>{landed?(d.tens?String(d.value).padStart(2,'0'):d.value):'?'}</strong>{d.crit&&<small className="tray-critical-label">Critical die</small>}
         </span>)}
         {comparison?.kind==='dice'&&<div className="rr-candidate-total">{landed?`Set total ${comparison.sets[set].total}`:'Rolling?'}</div>}
       </div>)}

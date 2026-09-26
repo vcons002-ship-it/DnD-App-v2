@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Physics dice tray - September 2026
 
+- [x] Larger die result cards and a readable animated equation with labeled
+  bonuses/penalties, a prominent total, and longer reading time. Existing
+  hit/miss/fumble/critical-hit notifications and sounds remain in sequence.
+
 - [x] Stronger initial toss; green kept/red discarded rings and matching result
   cards for advantage/disadvantage. Only bonus critical dice become polished gold.
 

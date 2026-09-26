@@ -119,7 +119,7 @@ test('attack and manual damage totals wait for the actual 3D dice landing', asyn
     await startTrace(page);
     await page.locator('.compact-player-combat').getByRole('button', { name: /Timing greatsword/ }).click();
     await expect(page.locator('.roll-reveal')).toBeVisible();
-    await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 12_000 });
+    await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 20_000 });
     attack = await endTrace(page);
     pending = (await f.snapshot()).rollLog.findLast((entry) => entry.pending && !entry.pending.done);
     if (pending) break;
@@ -130,7 +130,7 @@ test('attack and manual damage totals wait for the actual 3D dice landing', asyn
   await startTrace(page);
   await page.locator('.damage-prompt-btn').click();
   await expect(page.locator('.roll-reveal')).toBeVisible();
-  await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 12_000 });
+  await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 20_000 });
   const damage = await endTrace(page);
   const state = await f.snapshot();
   expect(state.monsters.find((monster) => monster.id === f.target.id)!.curHp).toBe(200 - pending!.pending!.amount);

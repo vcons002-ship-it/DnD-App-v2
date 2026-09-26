@@ -9,11 +9,11 @@ import { ThreeDie, DiceThemeContext } from './ThreeDie';
 import type { RollComparison } from '../../../shared/types';
 
 // Pacing (ms). Tweak to taste.
-const STEP_MS = 300; // each to-hit / modifier chip flying in
+const STEP_MS = 550; // each to-hit / modifier chip flying in
 const OUTCOME_MS = 340; // beat before the HIT/MISS stamp
 const DMG_GAP_MS = 300; // beat before the damage dice start rolling
-const HOLD_MS = 1600; // linger on the final numbers after damage concludes
-const DART_HOLD_MS = 1200; // linger for a damage-only burst (Fireball cast / MM dart)
+const HOLD_MS = 2600; // linger on the final numbers after damage concludes
+const DART_HOLD_MS = 2600; // linger for a damage-only burst (Fireball cast / MM dart)
 
 type Stage = {
   phase: 'rolling' | 'landing' | 'tohit' | 'outcome' | 'damage';
@@ -367,18 +367,17 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
                 locked={stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : 1} tick={stage.dieFace}
                 onSettled={(_, set) => landings.current.d20?.(set)} />
               : <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} onSettled={() => landings.current.d20?.(0)} />}
-            <div className="rr-buildup">
-              <div className="rr-total" key={toHitShownNum}>
-                {toHitShownNum}
-              </div>
-              <div className="rr-chips">
+            <div className="rr-buildup rr-equation" aria-label="Roll calculation">
+              {stage.phase !== 'rolling' && stage.phase !== 'landing' && <>
+                <span className="rr-equation-base"><strong>{reveal.d20}</strong><small>{comparison?'Kept d20':'d20 roll'}</small></span>
                 {toHit.slice(0, stage.toHitShown).map((s, i) => (
-                  <span className="rr-chip" key={i}>
-                    {s.value >= 0 ? '+' : ''}
-                    {s.value} {s.label}
+                  <span className={`rr-chip rr-adjustment ${s.value<0?'negative':'positive'}`} key={i}>
+                    <strong>{s.value >= 0 ? '+' : '-'}{Math.abs(s.value)}</strong><small>{s.label}</small>
                   </span>
                 ))}
-              </div>
+                <span className="rr-equals">=</span>
+              </>}
+              <span className="rr-equation-total"><strong className="rr-total">{toHitShownNum}</strong><small>{stage.phase==='rolling'||stage.phase==='landing'?'Rolling...':stage.toHitShown<toHit.length?'Adding modifiers...':'Total'}</small></span>
             </div>
           </div>
         )}
@@ -392,10 +391,6 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
 
         {showDamage && (
           <div className="roll-reveal-damage">
-            <div className={isDice ? 'rr-roll-num' : 'rr-dmg-num'} key={dmgShownNum}>
-              {dmgShownNum}
-              {!isDice && <span className="rr-dmg-type"> {reveal.damageBreakdown?.mixedTypes ? 'mixed' : reveal.damageType ?? ''} dmg</span>}
-            </div>
             {/* Every damage die, each tumbling until it settles on its face. */}
             {!staticReveal ? <PhysicsDiceTray key="damage-tray" rollKey={rollFx.rollId+':damage'} comparison={comparison?.kind==='dice'?comparison:undefined} dice={damageTray} onSettled={(index,set)=>landings.current.damage?.(index,set)} /> : comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={0}
               onSettled={(index, set) => landings.current.damage?.(index, set)} /> : <div className="rr-dice-row">
@@ -414,13 +409,19 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
                 );
               })}
             </div>}
-            <div className="rr-chips">
-              {mods.slice(0, stage.modsShown).map((m, i) => (
-                <span className="rr-chip" key={`m${i}`}>
-                  {m.value >= 0 ? '+' : ''}
-                  {m.value} {m.label}
-                </span>
-              ))}
+            <div className="rr-equation" aria-label="Damage or dice calculation">
+              {(stage.diceLocked>0 || staticReveal || !faces.length) && <>
+                <span className="rr-equation-base"><strong>{faces.slice(0,positiveDiceLocked).reduce((sum,die)=>sum+die.value,0)}</strong><small>Dice subtotal</small></span>
+                {mods.slice(0, stage.modsShown).map((m, i) => (
+                  <span className={`rr-chip rr-adjustment ${m.value<0?'negative':'positive'}`} key={`m${i}`}>
+                    <strong>{m.value >= 0 ? '+' : '-'}{Math.abs(m.value)}</strong><small>{m.label}</small>
+                  </span>
+                ))}
+                <span className="rr-equals">=</span>
+              </>}
+              <span className="rr-equation-total"><strong className={isDice ? 'rr-roll-num' : 'rr-dmg-num'}>{dmgShownNum}</strong>
+                <small>{stage.diceLocked<faces.length?'Rolling...':stage.modsShown<mods.length?'Applying modifiers...':isDice?'Total':`${reveal.damageBreakdown?.mixedTypes?'Mixed':reveal.damageType??''} damage`}</small>
+              </span>
             </div>
           </div>
         )}
