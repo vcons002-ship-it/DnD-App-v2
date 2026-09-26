@@ -137,9 +137,8 @@ void main(){
      color=mix(color,pocket,1.-cut);
 
    }
-   else if(style==0)color=mix(color,vec3(.86,.75,.64),(1.-cut)*.75);
    else {
-     vec3 f0=style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
+     vec3 f0=style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
      vec3 tangent=normalize(axis-n*dot(axis,n));
      float brushing=(noise(vec3(tex*vec2(900.,70.),3.))-.5)*.025;
@@ -147,14 +146,14 @@ void main(){
      float waviness=(fbm(vec3(tex*9.,4.))-.5)*.16;
      vec3 mn=normalize(n+tangent*(brushing+waviness)+bitangent*sin(tex.y*18.+tex.x*7.)*.035);
      vec3 worldN=rotation*mn,view=normalize(-rotation*incoming);
-     vec3 r=(style==1?obsidianStudio(rotation*reflect(incoming,mn)):textureCube(studio,rotation*reflect(incoming,mn)).rgb)+vec3(.28,.28,.28);
+     vec3 r=(style!=2?obsidianStudio(rotation*reflect(incoming,mn)):textureCube(studio,rotation*reflect(incoming,mn)).rgb)+vec3(.28,.28,.28);
      float nv=max(.001,dot(worldN,view));
      vec3 fresnelMetal=f0+(1.-f0)*pow(1.-nv,5.);
      // Conductors are lit by colored reflections, not a yellow/brown diffuse fill.
      vec3 inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
      vec3 l=normalize(vec3(-.6,.9,1.2)),h=normalize(l+view);
      float nl=max(.001,dot(worldN,l)),nh=max(0.,dot(worldN,h)),vh=max(0.,dot(view,h));
-     float rough=style==1?.23:.3,aa=pow(rough,4.);
+     float rough=style==0?.2:style==1?.23:.3,aa=pow(rough,4.);
      float denominator=nh*nh*(aa-1.)+1.;
      float distribution=aa/(3.14159*denominator*denominator);
      float k=pow(rough+1.,2.)/8.;

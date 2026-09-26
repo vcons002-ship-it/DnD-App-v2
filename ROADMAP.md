@@ -7,7 +7,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 ## Class dice - September 2026
 
 - [x] Varis green resin dice use dark lacquered wooden numeral inlays with recessed
-  shading and bronze edges. Vanec retains his original bloodglass and pale numerals.
+  shading and bronze edges. Vanec retains his original bloodglass and glass edges, with reflective silver numerals.
 
 - [x] Fighter polished black obsidian with inset gold numerals, and ranger green
   resin with embedded natural veining and lacquered wood numerals, across all shapes.
