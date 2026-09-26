@@ -1,6 +1,5 @@
 import type { RevealStep, RollEntry } from './types.js';
 
-const signed = (value: number) => value < 0 ? `−${Math.abs(value)}` : `+${value}`;
 function modifierLabel(label: string): string {
   switch (label) {
     case '': return 'Modifier';
@@ -12,12 +11,26 @@ function modifierLabel(label: string): string {
   }
 }
 
-function diceText(step: RevealStep): string {
-  // Some older spell steps contain an entire expression (1d4+1), with its
-  // flat term already included in value. Keep that formula intact: never add
-  // the difference between faces and value a second time or infer its source.
-  const faces = step.faces?.length ? ` [${step.faces.join(', ')}]` : '';
-  return `${step.label || 'Dice'}${faces} = ${step.value}`;
+/** Group normal and critical dice by their original source, retaining all faces. */
+function diceTerms(steps: RevealStep[]): string[] {
+  const groups: {source:string;sides:number;faces:number[];value:number;plain?:RevealStep}[]=[];
+  const first=steps[0];
+  for(const step of steps) {
+    const label=(step.label==='CRIT'?first?.label??'Dice':step.label).replace(/\bCRIT\b/gi,'').replace(/\s+\)/g,')').trim();
+    const expr=step.diceExpression ?? (step.label==='CRIT'?first?.diceExpression:undefined);
+    const term=expr ? /^(\d*)d(\d+)$/.exec(expr) : /^(\d*)d(\d+)(?=\s|$)/.exec(label);
+    if(!term||!step.faces?.length||step.faces.reduce((n,v)=>n+v,0)!==step.value) {
+      groups.push({source:label,sides:0,faces:[],value:step.value,plain:step}); continue;
+    }
+    const source=label.replace(/^\d*d\d+\s*/, '').trim();
+    const sides=Number(term[2]);
+    const group=groups.find(g=>!g.plain&&g.source===source&&g.sides===sides);
+    if(group) {group.faces.push(...step.faces);group.value+=step.value;}
+    else groups.push({source,sides,faces:[...step.faces],value:step.value});
+  }
+  return groups.map(g=>g.plain
+    ? `${g.value} (${g.source}${g.plain.faces?.length?`; rolls ${g.plain.faces.join(', ')}`:''})`
+    : `${g.faces.length}d${g.sides}${g.source?` ${g.source}`:''} [${g.faces.join(' + ')}]`);
 }
 
 /** A visible, read-only account of damage already resolved by the server.
@@ -32,14 +45,15 @@ export function damageRollBreakdown(entry: RollEntry): string | null {
   const dice = reveal.damageBreakdown?.dice ?? reveal.damageDice ?? [];
   const mods = reveal.damageBreakdown?.mods ?? reveal.damageMods ?? [];
   if (!dice.length && !mods.length) return null;
-  const parts = [
-    ...dice.map(diceText),
-    ...mods.map(step => `${modifierLabel(step.label)}${step.faces?.length ? ` [${step.faces.join(', ')}]` : ''} ${signed(step.value)}`),
-  ];
+  const parts = diceTerms(dice);
+  for (const step of mods) {
+    const term=`${Math.abs(step.value)} ${modifierLabel(step.label)}${step.faces?.length?` [${step.faces.join(' + ')}]`:''}`;
+    parts.push(`${step.value<0?'− ':parts.length?'+ ':''}${term}`);
+  }
   const itemized = [...dice, ...mods].reduce((total, step) => total + step.value, 0);
   // Preserve the final recorded damage even if a legacy record omitted a
   // clamp/adjustment. No invented die faces or guessed resistance/bonus label.
-  if (itemized !== reveal.damage) parts.push(`Unitemized ${signed(reveal.damage - itemized)}`);
+  if (itemized !== reveal.damage) parts.push(`${reveal.damage-itemized<0?'−':'+'} ${Math.abs(reveal.damage-itemized)} Unitemized`);
   const type = !reveal.damageBreakdown?.mixedTypes && reveal.damageType ? ` ${reveal.damageType}` : '';
-  return `Damage: ${parts.join(' · ')} → ${reveal.damage}${type}`;
+  return `Damage: ${parts.map((part,i)=>i>0&&!/^[+−]/.test(part)?`+ ${part}`:part).join(' ')} = ${reveal.damage}${type}`;
 }

@@ -33,6 +33,7 @@ export function WeaponButtons({
             onClick={() => onAttack(i)}
           >
             {w.kind === 'ranged' ? '🏹' : '⚔️'} {w.name}
+            {menu && w.range && <span className="muted"> ({w.range})</span>}
             {dmg ? menu ? ` (${dmg})` : <span className="muted"> {dmg}</span> : null}
           </button>
         );

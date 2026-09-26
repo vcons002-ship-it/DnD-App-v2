@@ -572,6 +572,8 @@ export function MapStage({
   const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
   const showDiceButton = useStore((s) => s.showDiceButton);
+  const orbTarget = useStore(s => s.orbTarget);
+  const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
   const hpFx = useStore((s) => s.hpFx);
   const dragGhosts = useStore((s) => s.dragGhosts);
@@ -731,6 +733,11 @@ export function MapStage({
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
   const [scaleFt, setScaleFt] = useState('');
   const scaleDrawRef = useRef(false);
+  useEffect(() => {
+    if (!orbTarget) return;
+    setTool(null); setRemoveMode(false); setScaleMode(false); setMatchMode(false);
+    setAnnotate(null); setTilesMode(false); setFogBrush('off'); setMenu(null);
+  }, [orbTarget?.rollId]);
   const measureActive = !!tool || removeMode || scaleMode || matchMode || !!annotate;
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
@@ -739,11 +746,12 @@ export function MapStage({
   // Identity-stable token handlers so the memoized TokenShape only re-renders
   // when its own token/display actually changes (not on every snapshot).
   const handleTokenSelect = useStableCallback((tok: Token, additive: boolean) => {
-    if (saveResolve) resolveSaveAt(tok.id);
+    if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
+    else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
-    if (saveResolve) return;
+    if (saveResolve || orbTarget) return;
     onSelectToken(tok, false);
     setDetailsExpanded(true); // open the player's read-only Details
     nudgeRightPanel(); // and pop the right drawer open (collapsed on phones)
@@ -969,9 +977,9 @@ export function MapStage({
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
-      selected: selectedIds.includes(token.id),
+      selected: orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, use3dTokens, use3dMonsters, dragGhosts, miniatureCatalogRevision]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, dragGhosts, miniatureCatalogRevision]);
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
@@ -999,7 +1007,7 @@ export function MapStage({
   }, [size.w, size.h, tiltDegrees, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
-    enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve,
+    enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
     mapId: map?.id, stageRef, tokens: snapshot.tokens, selectedIds, onSelectTokens, onSelectToken,
     view, width: size.w, height: size.h, tilt: tiltDegrees,
   });
@@ -1525,10 +1533,10 @@ export function MapStage({
         miniatureReady={miniatures}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         draggable={
-          draggableTokens && movable && !fogActive && !measureActive && !saveResolve
+          draggableTokens && movable && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
         listening={!measureActive}
-        selected={selectedIds.includes(t.id)}
+        selected={orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id)}
         activeTurn={t.id === activeTurnTokenId}
         initiativeRank={initiativeRank.get(t.id) ?? null}
         onSelect={handleTokenSelect}
@@ -1825,7 +1833,7 @@ export function MapStage({
             }}
             onWheel={handleWheel}
             style={{
-              cursor: onPlaceAt || fogActive || measureActive ? 'crosshair' : 'default',
+              cursor: orbTarget || onPlaceAt || fogActive || measureActive ? 'crosshair' : 'default',
             }}
           >
             <Layer

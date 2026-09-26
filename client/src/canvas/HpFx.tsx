@@ -408,6 +408,7 @@ function FloaterText({
       listening={false}
     >
       <Text
+        name="hp-floater-number"
         text={text}
         fontSize={fontSize}
         fontStyle="bold"

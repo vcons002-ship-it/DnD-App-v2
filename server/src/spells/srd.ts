@@ -105,7 +105,7 @@ const CURATED: SpellEntry[] = [
     school: 'Evocation',
     meta: '1 action · 90 ft · V,S,M',
     description:
-      'You hurl a 4-inch sphere of energy (choose acid, cold, fire, lightning, poison, or thunder). On a hit the target takes damage. +1d8 per slot level above 1st.',
+      'Make a ranged spell attack dealing 3d8 of a chosen elemental damage type. Matching damage dice let the orb leap to a different creature within 30 feet of its last target, making a fresh attack and damage roll. Each creature can be targeted once per casting. The maximum number of leaps equals the slot level. Each higher slot adds 1d8 damage.',
     roll: { kind: 'attack', dice: '3d8', scaleDice: '1d8', baseLevel: 1 },
   },
   {

@@ -6,8 +6,7 @@ import type {
   Token,
   TokenKind,
 } from '../../../shared/types';
-import { resolveToken } from '../lib/entities';
-import { healTargets, validTargets } from '../lib/targets';
+import { healTargets, validTargets, targetLabel } from '../lib/targets';
 import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
 import { AbilityButtons } from './AbilityButtons';
@@ -139,7 +138,7 @@ export function CombatSection({
           <select aria-label="Attack target" value={effectiveTargetId} onChange={(e) => setTargetId(e.target.value)}>
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
-                {resolveToken(snapshot, t).name}
+                {targetLabel(snapshot, t, attacker)}
               </option>
             ))}
           </select>
@@ -226,7 +225,7 @@ export function CombatSection({
           >
             {healList.map((t, i) => (
               <option key={t.id} value={t.id}>
-                {resolveToken(snapshot, t).name}
+                {targetLabel(snapshot, t, attacker)}
                 {i === 0 && t.refId === caster.id ? ' (you)' : ''}
               </option>
             ))}

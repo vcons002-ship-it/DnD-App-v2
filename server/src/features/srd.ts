@@ -131,9 +131,9 @@ const FEATURES: FeatureEntry[] = [
     school: 'Divination',
     classes: ['ranger'],
     tags: ['ranger', 'spell', 'feature', 'stance', 'damage', 'concentration'],
-    meta: '1 bonus action · L1 spell slot · Concentration · +1d6 vs the marked target',
+    meta: '1 bonus action · L1 spell slot · Concentration · +1d6 Force on attack hits',
     description:
-      'Mark a creature; your weapon attacks against the marked target deal an extra 1d6 damage. Pick the target, then toggle on — this spends a 1st-level spell slot and starts concentration. Move the mark to a new target by re-selecting it.',
+      'Mark a visible creature within 90 feet. Each attack-roll hit against it automatically adds 1d6 Force damage (2d6 on a critical hit). After it reaches 0 HP, move the mark as a bonus action without another spell slot. Requires concentration; higher spell slots extend its duration.',
     stance: {
       active: false,
       appliesTo: 'all',

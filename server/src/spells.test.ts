@@ -44,10 +44,10 @@ describe('concentration spells auto-set concentration', () => {
     const s = createSession('Conc2');
     const c = createCharacter(s.id, { name: 'Druid', className: 'Druid', level: 5, stats: { WIS: 16 } });
     resolveAbilityRoll(s.id, 'Druid', c, conc('b', 'Bless'));
-    resolveAbilityRoll(s.id, 'Druid', c, conc('h', 'Hex'));
+    resolveAbilityRoll(s.id, 'Druid', c, conc('h', 'Faerie Fire'));
     const conds = concConds(c.id);
     expect(conds).toHaveLength(1);
-    expect(conds[0].label).toContain('Hex');
+    expect(conds[0].label).toContain('Faerie Fire');
   });
 
   it('sets concentration even for a concentration spell with a damage roll', () => {
@@ -72,7 +72,12 @@ describe('concentration spells auto-set concentration', () => {
       tags: ['concentration'],
       stance: { active: true, appliesTo: 'all', bonusDamage: '1d6', targeted: true },
     };
-    expect(resolveAbilityRoll(s.id, 'Ranger', c, hm)).toBe(true);
+    const map=createMap(s.id,{name:'Mark test'});
+    setActiveMap(s.id,map.id);
+    createToken({mapId:map.id,kind:'pc',refId:c.id,x:100,y:100});
+    const target=createCharacter(s.id,{name:'Target'});
+    const token=createToken({mapId:map.id,kind:'pc',refId:target.id,x:150,y:100});
+    expect(resolveAbilityRoll(s.id, 'Ranger', c, hm,1,undefined,token.id)).toBe(true);
     expect(concConds(c.id).some((x) => x.label.includes("Hunter's Mark"))).toBe(true);
   });
 

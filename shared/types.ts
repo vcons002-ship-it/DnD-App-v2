@@ -21,6 +21,8 @@ export type Condition = {
    *  0 HP; healing removes exactly those (Prone excepted) and never a condition
    *  applied independently. Absent = applied by a person or a spell. */
   source?: 'down';
+  combatEffect?: { casterKind: 'pc' | 'monster'; casterId: string; spell: string; dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string; expiresAt?: number; expiresRound?: number; lastTick?: string; untilCasterTurn?: boolean; concentration?: boolean; nextAttackAdvantage?: boolean; slow?: boolean };
+
 };
 
 export type TokenKind = 'pc' | 'monster';
@@ -458,6 +460,9 @@ export type SmiteOpportunity = {
  * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
  */
 export type SheetAbility = {
+  mark?: { kind: 'pc' | 'monster'; refId: string; tokenId: string; active: boolean; expiresAt: number; hexAbility?: string };
+  hitUsedTurn?: string;
+
   id: string;
   name: string;
   /**
@@ -928,6 +933,10 @@ export type RevealStep = {
   value: number;
   /** For a dice step: the individual die faces rolled (e.g. [4, 6]). */
   faces?: number[];
+  /** Original dice expression, independent of the display label; preserves mixed die sizes. */
+  diceExpression?: string;
+  /** Only dice added by a critical hit receive the gold treatment. */
+  critical?: boolean;
 };
 /** Client-only presentation of both candidates already recorded by the server.
  * Optional so older persisted roll reveals remain fully compatible. */
@@ -970,9 +979,9 @@ export type RollReveal = {
   /** Flat damage modifiers added after the dice (ability mod, magic, mastery…).
    *  Reused by 'dice' reveals for the expression's flat terms. */
   damageMods?: RevealStep[];
-  /** Optional log-only accounting of the damage dice, feature riders and
-   *  adjustments. Unlike animation steps, these retain each already-rolled
-   *  rider's faces. Never used to roll, animate or apply damage. */
+  /** Optional itemized accounting of the damage dice, feature riders and
+   *  adjustments. Retains every recorded rider face; new attacks reuse these
+   *  steps for animation. Never reroll or apply damage from this ledger. */
   damageBreakdown?: { dice: RevealStep[]; mods: RevealStep[]; mixedTypes?: boolean };
   /** Damage applied on a hit — or, for a 'dice' reveal, the roll's total (the
    *  final number the count-up lands on). */
@@ -990,6 +999,8 @@ export type RollReveal = {
  * refresh, reconnect, or server restart can't strand a hit.
  */
 export type PendingDamage = {
+  hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
+
   maneuver?: { abilityIds: string[]; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };
   /** Multi-ray cast whose next attack waits until this hit's damage is applied. */
   sourceRollId?: string;
@@ -1013,6 +1024,13 @@ export type PendingDamage = {
   owner?: string;
   /** Already applied — the guard against a double-click applying twice. */
   done?: boolean;
+};
+
+/** Persistent continuation of one Chromatic Orb casting. Visited entries identify creatures, not token copies. */
+export type OrbChain = {
+  slotLevel: number; leapsUsed: number; visited: string[];
+  origin: { mapId: string; x: number; y: number; widthFt: number };
+  matches: number[]; available: boolean; initial?: boolean;
 };
 
 export type RollEntry = {
@@ -1049,6 +1067,7 @@ export type RollEntry = {
   apply?: {
     amount: number;
     dc: number;
+    orb?: OrbChain;
     save?: string;
     saveDamage?: 'none' | 'half';
     targetMode?: 'single' | 'multiple';
@@ -1691,6 +1710,10 @@ export interface ClientToServerEvents {
   'combat:attack': (payload: CombatAttackPayload) => void;
   /** Roll (and apply) the damage parked on a hit — the two-step attack's second
    *  click. Allowed for the DM and for the player who made the attack. */
+  /** Continue or end a matching-dice Chromatic Orb cast without spending another slot. */
+  'combat:hitFeature': (payload: {rollId: string; abilityId: string; level?: number}) => void;
+  'combat:moveMark': (payload: {kind: TokenKind; refId: string; abilityId: string; targetTokenId: string}) => void;
+  'combat:orbLeap': (payload: {rollId: string; targetTokenId?: string; end?: boolean}) => void;
   'combat:damage': (payload: { rollId: string }) => void;
   /** Cast the smite a hit made available, with a spell slot of `level` or the
    *  free once-per-Long-Rest casting. The DM or the attacking player. */
@@ -1715,6 +1738,8 @@ export type JoinAck =
 export type HpFxEvent = {
   kind: TokenKind;
   refId: string;
+  /** Negative: full damage taken after defenses (including overkill/temp HP).
+   * Positive: actual HP restored. Not an authoritative HP subtraction. */
   delta: number;
   /** Matching visible roll reveal, when this damage belongs to an attack.
    *  Presentation only: HP is already authoritative. Omitted for hidden rolls. */

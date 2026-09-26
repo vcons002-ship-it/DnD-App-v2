@@ -1,3 +1,6 @@
+import { resolveHitFeature } from './hitFeatures.js';
+import { castMark } from './marks.js';
+import { markSpell } from '../../shared/hitFeatures.js';
 import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
@@ -10,6 +13,7 @@ import {
   resolveAttackDamage,
   resolveSmite,
   resolveManeuver,
+  resolveOrbLeap,
   resolveRiposte,
   castSlotLevel,
   resolveAbilityRoll,
@@ -1204,7 +1208,17 @@ export function registerSocketHandlers(io: IOServer): void {
         (ability.level ?? 0) <= pact
           ? Math.max(cast ?? 0, pact)
           : cast;
+      if (markSpell(ability)) {
+        const needed=castAt??1;
+        if (!c.spellSlots[`L${needed}`] || c.spellSlots[`L${needed}`].used>=c.spellSlots[`L${needed}`].max) {
+          socket.emit('notice',{message:'No spell slot available for this mark.'}); return;
+        }
+        if(!tgt || (!isDm()&&!buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===tgt))) {
+          socket.emit('notice',{message:'Choose a visible creature for the mark.'}); return;
+        }
+      }
       const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, tgt, selectedDamageType);
+      if(!ok && markSpell(ability)) socket.emit('notice',{message:'Choose a creature within 90 feet of your token.'});
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
       // Casting a leveled spell, activating a spell-backed stance, or rolling a
@@ -1879,9 +1893,39 @@ export function registerSocketHandlers(io: IOServer): void {
         afterChange();
     });
 
-    // Cast the smite a hit made available: the DM, or the attacking player.
-    // Every refusal says why (no slot left, already taken…) instead of going
-    // quiet; the resolver stamps the opportunity used before it spends anything.
+    // The caster or DM continues the stored cast; players can only choose visible targets.
+    on('combat:hitFeature', ({rollId,abilityId,level}) => {
+      const sid=sessionId(); if(!sid||typeof rollId!=='string'||typeof abilityId!=='string') return;
+      const pending=getRollEntry(rollId,sid)?.pending;
+      const ch=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId):null;
+      if(!ch||(!isDm()&&ch.claimedBy!==socket.id)) return;
+      const result=resolveHitFeature(sid,rollerName(sid,socket.id,isDm()),rollId,abilityId,level);
+      if(!result.ok) socket.emit('notice',{message:result.reason!});
+      afterChange();
+    });
+    on('combat:moveMark', ({kind,refId,abilityId,targetTokenId}) => {
+      const sid=sessionId(); if(!sid||!canEditCreature(kind,refId)) return;
+      const ch=kind==='pc'?getCharacter(refId):getMonster(refId);
+      const ab=ch?.sheetAbilities.find(a=>a.id===abilityId);
+      if(!ab||(!isDm()&&!buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===targetTokenId))) return;
+      if(!castMark(sid,kind,refId,ab,targetTokenId,1,true)) socket.emit('notice',{message:'The mark can move only after its target reaches 0 HP, to a visible creature within 90 feet.'});
+      afterChange();
+    });
+    on('combat:orbLeap', ({rollId,targetTokenId,end}) => {
+      const sid=sessionId();
+      if (!sid || typeof rollId !== 'string') return;
+      const apply=getRollEntry(rollId,sid)?.apply;
+      const owner=apply?.owner ? getCharacter(apply.owner) : null;
+      if (!isDm() && (!owner || owner.claimedBy !== socket.id)) return;
+      if (!end && (typeof targetTokenId !== 'string' || (!isDm() &&
+        !buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===targetTokenId)))) {
+        socket.emit('notice',{message:'Choose a visible creature for the orb.'}); return;
+      }
+      const result=resolveOrbLeap(sid,rollId,targetTokenId,!!end);
+      if (!result.ok) socket.emit('notice',{message:result.reason});
+      afterChange();
+    });
+
     on('combat:riposte', ({opportunityId, weaponIndex, pass}) => {
       const sid = sessionId();
       if (!sid || typeof opportunityId !== 'string') return;

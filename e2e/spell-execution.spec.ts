@@ -80,7 +80,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
   };
   // Konva exposes this read-only scene geometry; still click through the real
   // browser hit-test, never call an app event handler or forge a client store.
-  const clickToken = async (id: string) => {
+  const clickToken = async (id: string, button: 'left' | 'right' = 'left') => {
     const point = await page.evaluate((tokenId) => {
       const stages = (window as unknown as { Konva: { stages: any[] } }).Konva.stages;
       const stage = stages.find((candidate) => candidate.find('.token-hit-region').length);
@@ -88,7 +88,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
       const position = shape.getAbsolutePosition(), bounds = stage.container().getBoundingClientRect();
       return { x: bounds.left + position.x, y: bounds.top + position.y };
     }, id);
-    await page.mouse.click(point.x, point.y);
+    await page.mouse.click(point.x, point.y, {button});
   };
   return { socket, snapshot, ready, characterId, abilities, combat, row, dismissReveal, clickToken };
 }
@@ -273,4 +273,74 @@ test('editing a profile-only spell preserves upcasting and explicit custom save 
   await entry.getByTitle('Saving throw ability').selectOption('CON');
   await expect.poll(async () => (await f.snapshot()).characters.find((character) => character.id === f.characterId)!.sheetAbilities.find((ability) => ability.id === 'command')!.roll)
     .toMatchObject({ kind: 'save', dc: 18, save: 'CON', targetMode: 'single', saveDamage: 'none' });
+});
+
+
+test('Orb matching dice offers a free leap, sorted targets and right-click casting controls work', async ({page,request},testInfo) => {
+  const f=await fixture(request,page);
+  f.socket.emit('character:update',{characterId:f.characterId,spellSlots:{L7:{max:4,used:0}}});
+  await f.snapshot();
+  const targets=f.ready.tokens.filter(t=>t.kind==='monster');
+  const options=await f.combat.getByLabel('Attack target').locator('option').allTextContents();
+  expect(options.every(label=>/ ft/.test(label))).toBe(true);
+  expect(options.map(label=>Number(label.match(/\u00b7 ([0-9.]+) ft/)![1]))).toEqual(
+    options.map(label=>Number(label.match(/\u00b7 ([0-9.]+) ft/)![1])).sort((a,b)=>a-b));
+  await f.combat.getByLabel('Attack target').selectOption(targets[0].id);
+  const row=f.row('Chromatic Orb');
+  await row.getByTitle('Cast at level (upcast)').selectOption('7');
+  // Nine d8 guarantee matching faces. Only a natural 1 can miss this AC-1 target.
+  let cast: any;
+  for(let i=0;i<4;i++) {
+    await row.getByRole('button').click();
+    await expect(page.locator('.roll-reveal')).toBeVisible();
+    cast=(await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)!;
+    await f.dismissReveal(cast.id);
+    if(cast.pending) break;
+  }
+  expect(cast.pending).toBeTruthy();
+  await expect(page.getByRole('region',{name:'Chromatic Orb',exact:true})).toHaveCount(0);
+  await page.locator('.player-damage-dock .damage-prompt-btn').click();
+  await expect(page.locator('.roll-reveal')).toBeVisible();
+  await f.dismissReveal();
+  const prompt=page.getByRole('region',{name:'Chromatic Orb',exact:true});
+  await expect(prompt).toContainText('Matching dice');
+  await expect(prompt).toContainText('Leap 1 of 7');
+  await expect(prompt.locator('.orb-matches span')).not.toHaveCount(0);
+  await prompt.getByRole('button',{name:'Choose target',exact:true}).click();
+  await f.clickToken(targets[0].id);
+  await expect(prompt.getByRole('button',{name:'Confirm target'})).toHaveCount(0);
+  await expect(prompt.getByRole('alert')).toBeVisible();
+  await f.clickToken(f.ready.tokens.find(t=>t.refId===f.characterId)!.id);
+  await expect(prompt.getByRole('button',{name:'Confirm target'})).toHaveCount(0);
+  await prompt.getByLabel('Include allies').check();
+  await expect(prompt.getByRole('button',{name:'Confirm target'})).toBeVisible();
+  await prompt.getByLabel('Include allies').uncheck();
+  await prompt.getByRole('button',{name:'Choose another'}).click();
+  await f.clickToken(targets[1].id);
+  await expect(prompt.getByRole('button',{name:'Confirm target'})).toBeVisible();
+  // Selection alone must neither roll an attack nor consume the leap.
+  expect((await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)!.id).toBe(cast.id);
+  await prompt.getByRole('button',{name:'Cancel targeting'}).click();
+  await expect(prompt.getByRole('button',{name:'Choose target',exact:true})).toBeVisible();
+  await prompt.getByRole('button',{name:'Choose target',exact:true}).click();
+  await f.clickToken(targets[1].id);
+  await page.screenshot({path:testInfo.outputPath('orb-confirm-target.png'),animations:'disabled'});
+  const used=(await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used;
+  await prompt.getByRole('button',{name:'Confirm target'}).click();
+  await expect.poll(async()=> (await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)?.apply?.orb?.leapsUsed).toBe(1);
+  expect((await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used).toBe(used);
+  await expect(page.locator('.roll-reveal')).toBeVisible(); await f.dismissReveal();
+  const next=(await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)!;
+  if(next.pending) { await page.locator('.player-damage-dock .damage-prompt-btn').click(); await expect(page.locator('.roll-reveal')).toBeVisible(); await f.dismissReveal(); }
+  if(next.apply?.orb?.available) await prompt.getByRole('button',{name:'End spell'}).click();
+  await expect(prompt).toHaveCount(0);
+  await f.clickToken(targets[1].id,'right');
+  const menu=page.getByRole('dialog',{name:'Token actions'});
+  await expect(menu).toBeVisible(); await expect(menu.getByLabel('Act as')).toHaveValue(f.ready.tokens.find(t=>t.refId===f.characterId)!.id);
+  await expect(menu.getByRole('button',{name:'Adv',exact:true})).toBeVisible();
+  await expect(menu.getByTitle('Cast at level (upcast)').first()).toBeVisible();
+  await menu.getByRole('button',{name:'Adv',exact:true}).click();
+  await expect(menu.getByRole('button',{name:'Adv',exact:true})).toHaveClass(/on/);
+  await page.screenshot({path:testInfo.outputPath('expanded-token-menu.png')});
+  await menu.getByLabel('Close token actions').click();
 });

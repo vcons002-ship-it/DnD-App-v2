@@ -1,3 +1,4 @@
+import { addRollLog } from './sessions.js';
 import { exportSession, importSession } from './backup.js';
 import { getSessionByCode } from './sessions.js';
 import { describe, it, expect } from 'vitest';
@@ -88,4 +89,16 @@ it('preserves assigned and retired tags through backup/restore',()=>{
  const snap=buildSnapshot(session.id,'dm')!;
  expect(snap.tokens.map(t=>t.revealTag)).toEqual(['G2']);
  expect(db.prepare('SELECT number FROM encounter_tags WHERE map_id=? ORDER BY number').all(snap.map!.id)).toEqual([{number:1},{number:2}]);
+});
+
+it('keeps reveal-order tags in attack and damage captions without exposing DM numbers',()=>{
+ const f=setup(); const hidden=f.spawn(25,true), shown=f.spawn(75);
+ setActiveMap(f.s.id,f.map.id);
+ addRollLog(f.s.id,{roller:'Hero',label:'Attack',expr:'Sword',total:15,detail:'Hero hits Goblin 2',reveal:{kind:'attack',attacker:'Hero',target:'Goblin 2',outcome:'hit'}});
+ expect(f.player().rollLog.at(-1)!.reveal!.target).toBe('Goblin G1');
+ expect(f.dm().rollLog.at(-1)!.reveal!.target).toBe('Goblin 2 G1');
+ addRollLog(f.s.id,{roller:'Hero',label:'Damage',expr:'Sword',total:13,detail:'Goblin 1',reveal:{kind:'damage',attacker:'Hero',target:'Goblin 1',damage:13,outcome:'hit'}});
+ expect(f.player().rollLog.at(-1)!.reveal!.target).toBe('Goblin');
+ setTokenHidden(hidden.id,false);
+ expect(f.player().rollLog.at(-1)!.reveal!.target).toBe('Goblin G2');
 });

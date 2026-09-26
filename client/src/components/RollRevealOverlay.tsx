@@ -1,3 +1,4 @@
+import { flattenDamageDice } from '../../../shared/diceVisuals';
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { playHit, playMiss, playSkill, playCritical } from '../lib/sfx';
@@ -46,30 +47,6 @@ function useTween(target: number, ms = 260): number {
     return () => cancelAnimationFrame(raf);
   }, [target, ms]);
   return val;
-}
-
-// Die silhouettes we can draw (clip-path polygons in CSS); anything else (d100…)
-// falls back to a d10.
-const DIE_SIDES = [4, 6, 8, 10, 12, 20, 100];
-/** Parse the die size from a dice label ("2d6" → 6, "8d6" → 6); a crit step's
- *  label ("CRIT") has none, so callers pass the weapon's base size as fallback. */
-function dieSides(label: string, fallback: number): number {
-  const m = /d(\d+)/i.exec(label);
-  const n = m ? Number(m[1]) : fallback;
-  return DIE_SIDES.includes(n) ? n : 10;
-}
-
-/** Flatten the damage dice steps into one die per rolled face (with its size). */
-function flattenDice(
-  steps: { label: string; value: number; faces?: number[] }[] | undefined,
-  baseSides: number,
-): { value: number; sides: number; crit: boolean }[] {
-  if (!steps) return [];
-  return steps.flatMap((d) => {
-    const sides = dieSides(d.label, baseSides);
-    const crit = (d.label || '').toUpperCase() === 'CRIT';
-    return (d.faces ?? [d.value]).map((f) => ({ value: f, sides, crit }));
-  });
 }
 
 /** One die drawn in its real polygon shape (d4 triangle, d6 square, d8 diamond,
@@ -209,8 +186,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
   const dice = reveal?.damageDice ?? [];
   const mods = reveal?.damageMods ?? [];
   const toHit = reveal?.toHit ?? [];
-  const baseSides = dieSides(dice[0]?.label ?? '', 6);
-  const faces = flattenDice(dice, baseSides);
+  const faces = flattenDamageDice(dice);
 
   // Drive the timeline. Re-runs per roll (keyed on the FX id); all timers/intervals
   // clear on unmount or replacement so a rapid follow-up roll leaves nothing stale.
@@ -229,7 +205,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
       intervals.length = 0;
     };
 
-    const allFaces = flattenDice(reveal.damageDice, dieSides(reveal.damageDice?.[0]?.label ?? '', 6));
+    const allFaces = flattenDamageDice(reveal.damageDice);
     const visualDiceCount = comparison?.kind === 'dice'
       ? Math.max(...comparison.sets.map((set) => set.dice.length))
       : allFaces.length;
@@ -487,7 +463,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
           <div className="roll-reveal-damage">
             <div className={isDice ? 'rr-roll-num' : 'rr-dmg-num'} key={dmgShownNum}>
               {dmgShownNum}
-              {!isDice && <span className="rr-dmg-type"> {reveal.damageType ?? ''} dmg</span>}
+              {!isDice && <span className="rr-dmg-type"> {reveal.damageBreakdown?.mixedTypes ? 'mixed' : reveal.damageType ?? ''} dmg</span>}
             </div>
             {/* Every damage die, each tumbling until it settles on its face. */}
             {comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={rollTick}

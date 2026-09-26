@@ -1,3 +1,5 @@
+import { MarkTransferPrompt } from '../components/MarkTransferPrompt';
+import { ChromaticOrbPrompt } from '../components/ChromaticOrbPrompt';
 import { CombatMoments } from '../components/CombatMoments';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
@@ -133,6 +135,8 @@ export function DmView() {
       <ConnectionStatus />
       <RollRevealOverlay />
       <CombatMoments />
+      <ChromaticOrbPrompt />
+      <MarkTransferPrompt />
       <Toast />
     </div>
   );

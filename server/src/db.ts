@@ -1,3 +1,4 @@
+import { markSpell, abilityKey } from '../../shared/hitFeatures.js';
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import { randomUUID, randomInt } from 'node:crypto';
@@ -557,6 +558,33 @@ export function migrateLegacyMonsterActions(): void {
   }
 }
 migrateLegacyMonsterActions();
+
+/** Preserve an already-running standard mark without charging or recasting.
+ * Old saves have no cast timestamp: retain their manual duration tracking rather
+ * than inventing a fresh duration. New casts record their actual expiration. */
+export function migrateActiveMarks(): void {
+  for (const table of ['characters','monsters'] as const) {
+    const rows=db.prepare(`SELECT id, session_id, conditions, sheet_abilities FROM ${table}`).all() as {id:string;session_id:string;conditions:string;sheet_abilities:string}[];
+    for(const row of rows) {
+      try {
+        const abilities=JSON.parse(row.sheet_abilities) as SheetAbility[];
+        const conditions=JSON.parse(row.conditions) as Condition[];
+        let changed=false;
+        const upgraded=abilities.map(a=>{
+          if (!markSpell(a)||a.mark||!a.stance?.active||!a.stance.targeted||a.stance.bonusDamage!=='1d6'||!a.stance.targetId||
+              !conditions.some(c=>c.isConcentration&&abilityKey({name:c.label.replace(/^Concentration:\s*/i,'')})===abilityKey(a))) return a;
+          const target=db.prepare('SELECT t.id,t.kind,t.ref_id FROM tokens t JOIN maps m ON t.map_id=m.id WHERE t.id=? AND m.session_id=?').get(a.stance.targetId,row.session_id) as {id:string;kind:TokenKind;ref_id:string}|undefined;
+          if(!target) return a;
+          changed=true;
+          return {...a,mark:{kind:target.kind,refId:target.ref_id,tokenId:target.id,active:true,expiresAt:Number.MAX_SAFE_INTEGER}};
+        });
+        if(changed) db.prepare(`UPDATE ${table} SET sheet_abilities=? WHERE id=?`).run(JSON.stringify(upgraded),row.id);
+      } catch { /* Keep malformed legacy entries untouched. */ }
+    }
+  }
+}
+migrateActiveMarks();
+
 
 export const newId = (): string => randomUUID();
 

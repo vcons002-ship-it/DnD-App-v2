@@ -137,9 +137,10 @@ export function checkAdvantage(
   manual?: Advantage,
   /** Named advantage sources from features (e.g. Rage on STR checks). */
   featureAdv: string[] = [],
+  featureDis: string[] = [],
 ): AdvResult {
   const s = norm(labels);
-  const dis: string[] = [];
+  const dis: string[] = [...featureDis];
   for (const c of ['poisoned', 'frightened']) if (s.has(c)) dis.push(c);
   return resolve([...featureAdv], dis, manual);
 }

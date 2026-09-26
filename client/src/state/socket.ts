@@ -160,6 +160,8 @@ type Store = {
   setCombatTarget: (id: string) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
+  orbTarget: { rollId: string; targetId?: string; mark?: {kind: TokenKind; refId: string; abilityId: string} } | null;
+  setOrbTarget: (target: { rollId: string; targetId?: string; mark?: {kind: TokenKind; refId: string; abilityId: string} } | null) => void;
   saveResolve: {
     rollId: string;
     dc: number;
@@ -361,6 +363,9 @@ type Store = {
   combatDamage: (rollId: string) => void;
   /** Cast the smite a hit made available, with a slot level or the free casting. */
   initiativeFx: {id: number; mapId: string} | null;
+  combatHitFeature: (rollId:string,abilityId:string,level?:number) => void;
+  combatMoveMark: (kind:TokenKind,refId:string,abilityId:string,targetTokenId:string) => void;
+  combatOrbLeap: (rollId: string, targetTokenId?: string, end?: boolean) => void;
   combatRiposte: (opportunityId: string, weaponIndex?: number, pass?: boolean) => void;
   combatManeuver: (rollId: string, abilityId: string) => void;
   combatSmite: (rollId: string, level: number | 'free') => void;
@@ -545,9 +550,12 @@ export const useStore = create<Store>((set, get) => ({
   combatTarget: null,
   setCombatTarget: (id) =>
     set((s) => ({ combatTarget: { id, n: (s.combatTarget?.n ?? 0) + 1 } })),
+  orbTarget: null,
+  setOrbTarget: (orbTarget) => set({ orbTarget, ...(orbTarget ? {saveResolve: null} : {}) }),
   saveResolve: null,
   armSaveResolve: (saveResolve) =>
     set((s) => ({
+      orbTarget: null,
       saveResolve:
         s.saveResolve?.rollId === saveResolve.rollId
           ? null
@@ -622,6 +630,7 @@ export const useStore = create<Store>((set, get) => ({
       manualAdvantage: {},
       weaponAttackOptions: {},
       combatTarget: null,
+      orbTarget: null,
       saveResolve: null,
     });
 
@@ -1069,6 +1078,9 @@ export const useStore = create<Store>((set, get) => ({
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
   initiativeFx: null,
+  combatHitFeature: (rollId,abilityId,level) => get().socket?.emit('combat:hitFeature',{rollId,abilityId,level}),
+  combatMoveMark: (kind,refId,abilityId,targetTokenId) => get().socket?.emit('combat:moveMark',{kind,refId,abilityId,targetTokenId}),
+  combatOrbLeap: (rollId, targetTokenId, end) => get().socket?.emit('combat:orbLeap', {rollId,targetTokenId,end}),
   combatRiposte: (opportunityId, weaponIndex, pass) => get().socket?.emit('combat:riposte', {opportunityId, weaponIndex, pass}),
   combatManeuver: (rollId, abilityId) => get().socket?.emit('combat:maneuver', {rollId, abilityId}),
   combatSmite: (rollId, level) => get().socket?.emit('combat:smite', { rollId, level }),

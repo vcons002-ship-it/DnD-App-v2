@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { AdvantageToggle } from './AdvantageToggle';
+import { targetLabel } from '../lib/targets';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { effectiveSheetAbility } from '../../../shared/spellExecution';
 import type {
   Character,
@@ -32,12 +34,24 @@ type Props = {
  * Right-click / long-press action menu anchored at a token. Quick combat actions
  * (damage/heal where HP is visible) for everyone; DM gets the editing actions.
  */
-export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props) {
+export function FloatingMenu({ snapshot, token, attacker: defaultAttacker, x, y, onClose }: Props) {
+  const [chosenAttacker, setChosenAttacker] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({left:x,top:y});
+  const socketId = useStore(s => s.socket?.id);
+  const actors = snapshot.tokens.filter(t => t.mapId === token.mapId && (snapshot.role === 'dm' ||
+    t.kind === 'pc' && snapshot.characters.some(c => c.id === t.refId && c.claimedBy === socketId) ||
+    t.kind === 'monster' && snapshot.monsters.some(m => m.id === t.refId && m.disposition === 'friendly')) && !resolveToken(snapshot,t).objectKind);
+  const attacker = actors.find(t => t.id === chosenAttacker) ?? defaultAttacker ?? actors.find(t => t.id === snapshot.activeTurnTokenId) ?? actors[0] ?? null;
+  useLayoutEffect(() => {
+    const rect = menuRef.current?.getBoundingClientRect();
+    if (rect) setPosition({left:Math.max(8,Math.min(x,window.innerWidth-rect.width-8)),top:Math.max(8,Math.min(y,window.innerHeight-rect.height-8))});
+  }, [x,y,attacker?.id,token.id]);
   const applyDamage = useStore((s) => s.applyDamage);
   const setTempHp = useStore((s) => s.setTempHp);
   const combatAttack = useStore((s) => s.combatAttack);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
-  const { offhand, twoHanded } = useWeaponAttackOptions(attacker);
+  const { offhand, twoHanded, toggleOption } = useWeaponAttackOptions(attacker);
   const mySocketId = useStore((s) => s.socket?.id);
   const isDm = snapshot.role === 'dm';
   const d = resolveToken(snapshot, token);
@@ -127,18 +141,29 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
   return (
     <div
       className="floating-menu"
-      style={{ left: x, top: y }}
+      ref={menuRef}
+      role="dialog" aria-label="Token actions"
+      style={position}
+      onWheel={(e) => e.stopPropagation()}
       // Stop the menu's own pointerdown from triggering the outside-click close.
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="floating-menu-title">
-        {d.name}
+        {targetLabel(snapshot,token,attacker ?? undefined)}
         {canSeeHp && (
           <span className="fm-hp">
             {d.curHp}/{d.maxHp}
           </span>
         )}
       </div>
+
+      <button className="btn tiny" aria-label="Close token actions" onClick={onClose}>Close</button>
+      {!!d.conditions.length && <p className="floating-menu-note">{d.conditions.map(c => c.label).join(', ')}</p>}
+      {!targetObjectKind && actors.length > 0 && <label className="floating-menu-note">
+        Act as <select aria-label="Act as" value={attacker?.id ?? ''} onChange={e => setChosenAttacker(e.target.value)}>
+          {actors.map(t => <option key={t.id} value={t.id}>{targetLabel(snapshot,t)}</option>)}
+        </select>
+      </label>}
 
       {/* Non-combat object: interact (toggle state, reveal/hide). */}
       {targetObjectKind && (
@@ -164,6 +189,10 @@ export function FloatingMenu({ snapshot, token, attacker, x, y, onClose }: Props
               {' '}→ {targetingSelf ? 'self' : d.name}
             </span>
           </div>
+          {attacker && <div className="dice-row"><AdvantageToggle entityId={attacker.refId} />
+            {canAttackAsSelected && <button className={`btn tiny ${offhand ? 'on' : ''}`} onClick={() => toggleOption('offhand')}>Off hand</button>}
+            {aWeapons.some(w => w.versatileDamage) && <button className={`btn tiny ${twoHanded ? 'on' : ''}`} onClick={() => toggleOption('twoHanded')}>Two hands</button>}
+          </div>}
           {canAttackAsSelected && (
             <WeaponButtons
               weapons={aWeapons}

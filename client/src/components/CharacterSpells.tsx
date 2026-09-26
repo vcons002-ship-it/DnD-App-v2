@@ -1,3 +1,4 @@
+import { hitFeature, markSpell } from '../../../shared/hitFeatures';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { applyRulesUpdate, isOutdated } from '../../../shared/rulesUpdate';
 import { classFeatureUses } from '../../../shared/classFeatureUses';
@@ -10,8 +11,7 @@ import type {
   Token,
   TokenKind,
 } from '../../../shared/types';
-import { resolveToken } from '../lib/entities';
-import { healTargets, validTargets } from '../lib/targets';
+import { healTargets, validTargets, targetLabel } from '../lib/targets';
 import { useStore } from '../state/socket';
 import {
   ACTION_ICON,
@@ -83,7 +83,7 @@ const isManeuver = (a: SheetAbility): boolean =>
   a.type === 'maneuver' && !!a.maneuver;
 
 /** A stance gets an on/off toggle (a persistent attack modifier while active). */
-const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance;
+const isStance = (a: SheetAbility): boolean => a.type === 'stance' && !!a.stance && !hitFeature(a) && !markSpell(a);
 
 /**
  * A character's spells, abilities & weapon masteries. Each entry is collapsible
@@ -430,7 +430,7 @@ export function CharacterSpells({
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
     const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
-    const displayRoll = effectiveSheetAbility(a, lvl).roll;
+    const displayRoll = hitFeature(a) ? undefined : effectiveSheetAbility(a, lvl).roll;
     const damageTypes = spellDamageTypeChoices(a, lvl);
     const gi = groupIds.indexOf(a.id);
     // Leveled spells carry a prepared state — show prepared ones bright/bold and
@@ -513,7 +513,7 @@ export function CharacterSpells({
                 <option value="">— mark —</option>
                 {targets.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {resolveToken(snapshot!, t).name}
+                    {targetLabel(snapshot!, t, attackerToken ?? undefined)}
                   </option>
                 ))}
               </select>
@@ -1016,7 +1016,7 @@ export function CharacterSpells({
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
-                {resolveToken(snapshot!, t).name}
+                {targetLabel(snapshot!, t, attackerToken ?? undefined)}
               </option>
             ))}
           </select>
@@ -1028,7 +1028,7 @@ export function CharacterSpells({
           <select value={healTargetId} onChange={(e) => setHealTargetId(e.target.value)}>
             {healList.map((t, i) => (
               <option key={t.id} value={t.id}>
-                {resolveToken(snapshot!, t).name}
+                {targetLabel(snapshot!, t, attackerToken ?? undefined)}
                 {i === 0 && t.refId === character.id ? ' (you)' : ''}
               </option>
             ))}

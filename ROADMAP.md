@@ -4,6 +4,18 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Combat spell and damage workflow - September 2026
+
+- [x] Chromatic Orb matching-dice leaps with map target selection and confirmation;
+  distance-sorted combat targets and expanded token context actions.
+- [x] Target-linked Hunter's Mark and Hex damage, critical dice, concentration
+  cleanup and no-slot mark transfer; conservative compatibility for saved marks.
+- [x] Optional Sneak Attack, Stunning Strike, hit-trigger smites, Ensnaring Strike,
+  Colossus Slayer and Divine Strike beside the ordinary Roll damage button.
+- [x] Mixed damage reveals use the correct die shapes and reserve gold for extra
+  critical dice. Reveal tags remain in target names, overkill floaters show the
+  full hit, and roll history presents damage as one readable equation.
+
 ## Cross-cutting invariants (must always hold)
 
 ### DM workspace - September 2026
@@ -1887,3 +1899,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   New persisted session flag defaults off for existing saves. Verified: 803 server
   tests, typecheck/build, and browser coverage for a persistent/reconnected prompt
   plus the announcements, Riposte and critical-hit flow.
+
+
+### Chromatic Orb and target selection (2026-09-25)
+- [x] 2024 Chromatic Orb matching-dice leaps: fresh attack and damage per target, 30-foot leap range, one target per creature per cast, maximum leaps equal to slot level; no extra slot charge. Server validates continuation and waits for pending damage.
+- [x] Persistent caster prompt with matching dice, leap counter, Choose target map selection, named confirmation and End spell; critical dice and immunities handled.
+- [x] Shared attack/spell target lists sorted by grid distance with public encounter tags and distance labels.
+- [x] Right-click token actions: choose controlled attacker, visible conditions/distance, advantage, off-hand/two-handed intent, weapon ranges, spell level and damage type; menu stays inside the viewport and scrolls without dismissing.

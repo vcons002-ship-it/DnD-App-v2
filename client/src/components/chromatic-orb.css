@@ -1,0 +1,13 @@
+.orb-prompt { position:fixed; z-index:110; bottom:110px; left:50%; transform:translateX(-50%); width:min(420px,90vw); padding:18px; border:1px solid #9e8dea; border-radius:16px; color:#faf5ff; background:linear-gradient(140deg,#201a35,#11151f); box-shadow:0 0 32px #9b69e955; animation:orb-arrive .45s ease-out; }
+.orb-prompt>strong { display:block; font-size:20px; color:#e5d7ff; text-align:center; }
+.orb-prompt p { font-size:13px; text-align:center; margin:10px 0; }
+.orb-matches { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:12px; }
+.orb-matches span { display:grid; place-items:center; width:32px; height:36px; background:#604a96; border:1px solid #ddc6ff; border-radius:8px; font-size:21px; font-weight:bold; box-shadow:0 0 12px #c69dff66; }
+.orb-targets { display:flex; flex-direction:column; gap:6px; max-height: min(30vh,240px); overflow:auto; }
+.orb-end { display:block; margin:12px auto 0; }
+@keyframes orb-arrive { from { opacity:0; transform:translate(-50%,12px); } to { opacity:1; transform:translate(-50%,0); } }
+@media(prefers-reduced-motion:reduce) { .orb-prompt { animation:none; } }
+
+.orb-prompt.orb-picking { left:auto; right:12px; bottom:100px; transform:none; width:min(320px,90vw); animation:none; }
+.orb-picking .orb-matches { display:none; }
+.orb-picking>strong { font-size:16px; }

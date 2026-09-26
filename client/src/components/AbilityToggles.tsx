@@ -1,3 +1,4 @@
+import { hitFeature, markSpell } from '../../../shared/hitFeatures';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
 import type {
   Character,
@@ -13,10 +14,10 @@ import { useStore } from '../state/socket';
 
 /** Entries with a play-time damage/attack-altering toggle: effect-bearing
  *  masteries, maneuvers (arm for the next attack), and stances. */
-export const hasToggle = (a: SheetAbility): boolean =>
+export const hasToggle = (a: SheetAbility): boolean => !hitFeature(a) && !markSpell(a) && (
   (a.type === 'mastery' && !!a.mastery?.effect) ||
   (a.type === 'maneuver' && !!a.maneuver && !isOnHitManeuver(a) && a.name.trim().toLowerCase() !== 'riposte') ||
-  (a.type === 'stance' && !!a.stance);
+  (a.type === 'stance' && !!a.stance));
 
 /**
  * The ONE implementation of the toggle actions (used by the Combat section's

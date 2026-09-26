@@ -28,6 +28,7 @@ import type {
   MonsterPublic,
   Role,
   RollEntry,
+  RollReveal,
   StateSnapshot,
   Token,
 } from '../../shared/types.js';
@@ -73,8 +74,14 @@ function redactCreatureMods(e: RollEntry): RollEntry {
       const diff = total - base;
       return diff !== 0 ? [{ label: '', value: diff }] : [];
     };
+    const anonymousDice = (step: NonNullable<RollReveal['damageDice']>[number]) => {
+      const expression = step.diceExpression ?? step.label.match(/\d*d\d+/gi)?.join('+');
+      return {...step, critical:step.critical ?? /\bCRIT\b/i.test(step.label), ...(expression ? {diceExpression:expression} : {}),
+        label: expression ?? (step.label === 'CRIT' ? 'CRIT' : 'dice')};
+    };
     reveal = {
       ...reveal,
+      ...(reveal.damageDice ? {damageDice:reveal.damageDice.map(anonymousDice)} : {}),
       ...(reveal.toHit ? { toHit: anon(reveal.attackTotal ?? reveal.d20 ?? 0, reveal.d20 ?? 0) } : {}),
       ...(reveal.damageMods
         ? { damageMods: anon(reveal.damage ?? 0, sumSteps(reveal.damageDice)) }
@@ -83,10 +90,7 @@ function redactCreatureMods(e: RollEntry): RollEntry {
         damageBreakdown: {
           // Retain visible die faces but never disclose the creature feature,
           // rider or item name carried only by this richer log-only payload.
-          dice: reveal.damageBreakdown.dice.map((step) => ({
-            ...step,
-            label: /^(\d+d\d+)(?=\s|$)/i.exec(step.label)?.[1] ?? (step.label === 'CRIT' ? 'CRIT' : 'dice'),
-          })),
+          dice: reveal.damageBreakdown.dice.map(anonymousDice),
           mods: anon(reveal.damage ?? 0, sumSteps(reveal.damageBreakdown.dice)),
           ...(reveal.damageBreakdown.mixedTypes ? { mixedTypes: true } : {}),
         },
@@ -197,7 +201,7 @@ export function createSnapshotBuilder(
   const monById = new Map(monsters.map((m) => [m.id, m]));
   const mapById = new Map(maps.map((m) => [m.id, m]));
   // Logs/reveal captions use the same names as tokens, never DM encounter counts.
-  const names = new Map(monsters.filter(m => playerMonsterName(m) !== m.name).map(m => [m.name, playerMonsterName(m)]));
+  const names = new Map(monsters.map(m => [m.name, playerMonsterName(m)]));
   const escaped = [...names.keys()].sort((a,b) => b.length-a.length).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const namePattern = escaped.length ? new RegExp(`(?<![\\p{L}\\p{N}_])(?:${escaped.join('|')})(?![\\p{L}\\p{N}_])`, 'gu') : null;
   const playerLogNames = <T,>(value: T): T => {
@@ -242,6 +246,11 @@ export function createSnapshotBuilder(
     if (!d) {
       const rawTokens = listTokens(mapId);
       const tagMap = encounterTags(mapById.get(mapId)!, rawTokens, monById, mapId === activeMapId);
+      if (mapId === activeMapId) for (const token of rawTokens) {
+        const monster=token.kind==='monster'?monById.get(token.refId):undefined;
+        const tag=tagMap.get(token.id);
+        if(monster && tag && tag!=='U') names.set(monster.name, `${playerMonsterName(monster)} ${tag}`);
+      }
       d = {
         // Each token's effective combat role is shown to DM AND players (the
         // badge works even for Enemy creatures whose stats players never get).
@@ -372,6 +381,17 @@ export function createSnapshotBuilder(
       }
     }
 
+    if (role==='dm') {
+      const labels=new Map(data.tokens.filter(t=>t.kind==='monster'&&t.revealTag).map(t=>{
+        const name=monById.get(t.refId)?.name??'';
+        return [name,`${name} ${t.revealTag}`];
+      }));
+      const caption=(name:string|undefined)=>name ? labels.get(name)??name : name;
+      shapedRollLog=shapedRollLog.map(e=>({...e,
+        ...(e.reveal ? {reveal:{...e.reveal,target:caption(e.reveal.target),attacker:caption(e.reveal.attacker)!}} : {}),
+        ...(e.pending ? {pending:{...e.pending,target:{...e.pending.target,name:caption(e.pending.target.name)!}}} : {}),
+      }));
+    }
     return {
       role,
       initiativePending: session.initiativePending,

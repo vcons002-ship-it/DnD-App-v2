@@ -1,3 +1,4 @@
+import { hitFeature, markSpell, abilityKey } from '../../../shared/hitFeatures';
 import { useState } from 'react';
 import type {
   Character,
@@ -16,7 +17,7 @@ import { effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } fro
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
-  return ability.type === 'spell' && ability.roll?.kind === 'damage' && (name === 'ensnaring strike' || name === "hunter's mark")
+  return !markSpell(ability) && ability.type === 'spell' && ability.roll?.kind === 'damage' && (name === 'ensnaring strike' || name === "hunter's mark")
     ? 'Legacy damage-only action: this button casts and spends a spell slot, but does not implement the spell’s on-hit/ongoing effects. Resolve follow-up damage manually without recasting.'
     : undefined;
 };
@@ -50,6 +51,7 @@ export function AbilityButtons({
 }) {
   const rollAbility = useStore((s) => s.rollAbility);
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
+  const [hexAbility,setHexAbility] = useState('STR');
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
   // Per-cast choice only: never persists a change to the authored spell.
   const [castDamageTypes, setCastDamageTypes] = useState<Record<string, string>>({});
@@ -68,7 +70,7 @@ export function AbilityButtons({
       refId: caster.id,
       abilityId: a.id,
       castLevel: level,
-      damageType: damageChoice(a.id, spellDamageTypeChoices(a, level)),
+      damageType: markSpell(a)==='necrotic'?hexAbility:damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.
       advantage: execution.roll?.kind === 'attack' ? consumeAdvantage(caster.id) : undefined,
@@ -80,7 +82,7 @@ export function AbilityButtons({
 
   return (
     <>
-      {abilities.map((a) => {
+      {abilities.filter(a=>!hitFeature(a)).map((a) => {
         const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
         const execution = effectiveSheetAbility(a, level);
         const damageTypes = spellDamageTypeChoices(a, level);
@@ -118,16 +120,11 @@ export function AbilityButtons({
             ))}
           </select>
         );
-        if (menu) return damageTypes.length ? (
-          <div key={a.id} className="combat-ability-row" style={{ flexWrap: 'wrap' }}>
-            {btn}
-            {damageTypeSelect}
-          </div>
-        ) : btn;
         return (
           <div key={a.id} className="combat-ability-row" style={damageTypes.length ? { flexWrap: 'wrap' } : undefined}>
             {btn}
             {damageTypeSelect}
+            {abilityKey(a)==='hex'&&<select aria-label="Hex ability checks" value={hexAbility} onChange={e=>setHexAbility(e.target.value)}>{['STR','DEX','CON','INT','WIS','CHA'].map(k=><option key={k}>{k}</option>)}</select>}
             {upcastable(a) && (
               <select
                 className="spell-level"
