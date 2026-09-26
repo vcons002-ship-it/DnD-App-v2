@@ -1,9 +1,21 @@
+import {dieResultStrength,dieResultTier} from '../../client/src/lib/diceTrayTypes.js';
 import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
 import {Vec3,Quaternion} from 'cannon-es';
 import {dieMesh,faceForwardMesh} from '../../shared/diceGeometry.js';
 import {physicalDice,simulateToss,trayFaceValues,diceMassKg,STANDARD_GRAVITY,REFERENCE_D6_EDGE} from '../../client/src/lib/dicePhysics.js';
 describe('physics dice tray',()=>{
+ it('emphasizes relative die strength without treating a max as a critical',()=>{
+  const die=(sides:number,value:number)=>({sides,value,index:0,set:0});
+  expect(dieResultStrength(die(6,6))).toBe(1);
+  expect(dieResultStrength(die(6,4))).toBeCloseTo(.6);
+  expect(dieResultStrength(die(20,6))).toBeCloseTo(5/19);
+  expect(dieResultTier(die(6,6))).toBe('max');
+  expect(dieResultTier(die(6,5))).toBe('high');
+  expect(dieResultTier(die(20,6))).toBe('normal');
+  for(const value of [1,60,100])for(const d of physicalDice([die(100,value)]))
+    expect(dieResultStrength(d)).toBeCloseTo((value-1)/99);
+ });
  it('uses a 16 mm acrylic d6 mass and Earth gravity in free flight',()=>{
   const mesh=faceForwardMesh(dieMesh(6)),radius=REFERENCE_D6_EDGE*Math.sqrt(3)/2;
   const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));

@@ -42,5 +42,15 @@
 .tray-flying-number[data-tone="kept"]{color:#79ffb0;}
 .tray-flying-number[data-tone="discarded"]{color:#ff909c;}
 .tray-die-result[data-filled="true"] strong{animation:tray-result-arrive .4s ease-out;}
-@keyframes tray-result-arrive{0%{transform:scale(1.45);color:#fff8ce;text-shadow:0 0 22px #ffd575;}100%{transform:scale(1);text-shadow:none;}}
+@keyframes tray-result-arrive{0%{transform:scale(var(--arrival-scale,1.45));color:#fff8ce;text-shadow:0 0 var(--arrival-glow,22px) currentColor;}100%{transform:scale(1);text-shadow:none;}}
 @media(prefers-reduced-motion:reduce){.tray-number-flights{display:none;}.tray-die-result[data-filled="true"] strong{animation:none;}}
+
+.tray-flying-number[data-strength="max"]::before,.tray-flying-number[data-strength="high"]::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 14px currentColor;pointer-events:none;}
+.tray-flying-number[data-phase="flash"][data-strength="max"]::before,.tray-flying-number[data-phase="flash"][data-strength="high"]::before{animation:tray-strength-burst .22s ease-out;}
+.tray-flying-number[data-strength="max"]::after{content:'\2726';position:absolute;left:50%;top:50%;font-size:2.8em;transform:translate(-50%,-50%);opacity:0;pointer-events:none;}
+.tray-flying-number[data-phase="flash"][data-strength="max"]::after{animation:tray-strength-star .22s ease-out;}
+@keyframes tray-strength-burst{0%{transform:translate(-50%,-50%) scale(.5);opacity:.9;}100%{transform:translate(-50%,-50%) scale(1.7);opacity:0;}}
+@keyframes tray-strength-star{0%{transform:translate(-50%,-50%) scale(.4) rotate(-20deg);opacity:.8;}100%{transform:translate(-50%,-50%) scale(1.1) rotate(15deg);opacity:0;}}
+.tray-die-result[data-filled="true"][data-strength="high"]{box-shadow:0 0 9px #fff2c52b;}
+.tray-die-result[data-filled="true"][data-strength="max"]{box-shadow:0 0 15px #fff2c555,inset 0 0 9px #fff2c522;border-color:#fff0bf;}
+.tray-max-label{display:block;color:#fff0bf;font-size:9px;font-weight:800;letter-spacing:.12em;}

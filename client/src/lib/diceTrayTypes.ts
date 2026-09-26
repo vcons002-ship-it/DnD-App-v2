@@ -1,8 +1,8 @@
 export type DiceEntrySide = 'bottom' | 'top' | 'left' | 'right';
-export type TrayDie = {sides:number;value:number;crit?:boolean;index:number;set:number;tens?:boolean;ones?:boolean;negative?:boolean};
+export type TrayDie = {sides:number;value:number;crit?:boolean;index:number;set:number;tens?:boolean;ones?:boolean;negative?:boolean;percentileValue?:number};
 export type Toss = {settleTimes:number[];wallHits:number;frames:Float32Array;frameCount:number;step:number;radius:number;topFaces:number[];duration:number};
 export function physicalDice(dice:TrayDie[]):TrayDie[] {
-  return dice.flatMap(d=>d.sides===100 ? [{...d,sides:10,value:Math.floor((d.value%100)/10)*10,tens:true},{...d,sides:10,value:d.value%10,ones:true}] : [d]);
+  return dice.flatMap(d=>d.sides===100 ? [{...d,sides:10,percentileValue:d.value,value:Math.floor((d.value%100)/10)*10,tens:true},{...d,sides:10,percentileValue:d.value,value:d.value%10,ones:true}] : [d]);
 }
 /** Assign once before playback: no face changes or corrective rotation during the toss. */
 export function trayFaceValues(die:TrayDie,top:number):number[]{
@@ -11,4 +11,15 @@ export function trayFaceValues(die:TrayDie,top:number):number[]{
     const v=((i-top+offset)%die.sides+die.sides)%die.sides;
     return die.tens?v*10:die.ones?v:v+1;
   });
+}
+
+/** Relative face strength; percentile halves share their full d100 result. */
+export function dieResultStrength(die:TrayDie):number {
+  const sides=die.percentileValue===undefined?die.sides:100;
+  const value=die.percentileValue??die.value;
+  return Math.max(0,Math.min(1,(value-1)/Math.max(1,sides-1)));
+}
+export function dieResultTier(die:TrayDie):'max'|'high'|'normal' {
+  const strength=dieResultStrength(die);
+  return strength===1?'max':strength>=.75?'high':'normal';
 }

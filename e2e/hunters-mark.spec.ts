@@ -256,6 +256,9 @@ test('settled dice flash and fill their own result boxes, including percentile a
  f.socket.emit('dice:roll',{expr:'1d100+1d8+1d6',advantage:'adv',label:'Flying results'});
  const tray=page.locator('.physics-dice-tray');
  await expect(tray).toHaveAttribute('data-status','rolling',{timeout:15000});
+ await expect(tray.locator('.dice-tray-canvas')).toHaveAttribute('data-playback-rate','0.6');
+ const times=await tray.locator('.dice-tray-canvas').evaluate(el=>({screen:Number((el as HTMLElement).dataset.elapsed),physics:Number((el as HTMLElement).dataset.simulationElapsed)}));
+ expect(times.physics).toBeCloseTo(times.screen*.6,2);
  await expect(tray.locator('.tray-flying-number')).toHaveCount(8);
  await expect(tray.locator('.tray-flying-number[data-phase="flying"]').first()).toBeAttached();
  await expect(tray).toHaveAttribute('data-status','settled',{timeout:15000});
@@ -266,5 +269,12 @@ test('settled dice flash and fill their own result boxes, including percentile a
    await expect(result.locator('strong')).toHaveText((await flight.textContent())!);
    expect(await result.getAttribute('data-set')).toBe(await flight.getAttribute('data-set'));
    await expect(flight).toHaveCSS('opacity','0');
+   expect(await flight.getAttribute('data-strength')).toBe(await result.getAttribute('data-strength'));
+   if(!(await result.textContent())!.includes('d100')){
+     const sides=Number(await result.getAttribute('data-sides')),value=Number(await result.getAttribute('data-value'));
+     const strength=(value-1)/(sides-1);
+     await expect(result).toHaveAttribute('data-strength',strength===1?'max':strength>=.75?'high':'normal');
+     await expect(result.locator('.tray-max-label')).toHaveCount(strength===1?1:0);
+   }
  }
 });

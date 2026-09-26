@@ -38,11 +38,11 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   (world.solver as GSSolver).tolerance=1e-10;
   // Ordinary rigid-body contacts: one consistent surface profile. These are
   // conventional coefficients, not measurements of a particular tray.
-  world.defaultContactMaterial.friction=.3;
-  world.defaultContactMaterial.restitution=.3;
+  world.defaultContactMaterial.friction=.12;
+  world.defaultContactMaterial.restitution=.7;
   const dieMaterial=new Material('die'),wallMaterial=new Material('wall');
-  world.addContactMaterial(new ContactMaterial(dieMaterial,dieMaterial,{friction:.3,restitution:.3}));
-  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:.3,restitution:.3}));
+  world.addContactMaterial(new ContactMaterial(dieMaterial,dieMaterial,{friction:.18,restitution:.6}));
+  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:.18,restitution:.6}));
   const walls=new Set<Body>();let wallHits=0;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);return b;};
   box(0,0,-.2,7.2,4.7,.2);
@@ -72,7 +72,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
     // Vary speed and fan across the tray so the pool does not travel as one block.
     body.velocity.copy(direction.scale((.9+random()*.25)/metresPerUnit).vadd(cross.scale((random()-.5)*.3/metresPerUnit)));
     body.velocity.z=(random()*.04-.02)/metresPerUnit;
-    body.angularVelocity.copy(direction.scale((random()-.5)*18).vadd(cross.scale(12+random()*10)));
+    body.angularVelocity.copy(direction.scale((random()-.5)*18).vadd(cross.scale(18+random()*14)));
     body.angularVelocity.z=(random()-.5)*18;
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     return body;
