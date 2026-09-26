@@ -1,3 +1,4 @@
+import type { OrbChain } from '../../shared/types.js';
 import { offerRiposte, listRipostes, removeRiposte, RIPOSTE_SPENT } from './reactions.js';
 import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {
@@ -912,6 +913,29 @@ export function resolveRiposte(sessionId: string, roller: string, id: string, we
   return {ok: true};
 }
 
+/** A leap continues the existing cast: never spends another slot or action. */
+export function resolveOrbLeap(sessionId: string, rollId: string, targetTokenId?: string, end = false): {ok: true} | {ok: false; reason: string} {
+  const entry = getRollEntry(rollId, sessionId), apply = entry?.apply, orb = apply?.orb;
+  if (!entry || !apply || !orb?.available || !apply.attack) return {ok:false,reason:'That orb has no leap available.'};
+  if (entry.pending && !entry.pending.done) return {ok:false,reason:"Roll this hit's damage before choosing its leap."};
+  if (end) { setRollApply(rollId,{...apply,orb:{...orb,available:false}}); return {ok:true}; }
+  const target = targetTokenId ? spellTarget(sessionId,targetTokenId) : null;
+  const map = getMap(orb.origin.mapId);
+  if (!target || target.mapId !== orb.origin.mapId || map?.sessionId !== sessionId ||
+      getSessionById(sessionId)?.activeMapId !== target.mapId || orb.visited.includes(`${target.kind}:${target.refId}`) ||
+      tokenDistanceFt(orb.origin,target,map) > (orb.initial ? 90 : 30) + 1e-6 ||
+      (target.kind === 'monster' && getMonster(target.refId)?.objectKind))
+    return {ok:false,reason:'Choose a new creature within range of the orb.'};
+  const caster = apply.attack.attacker.kind === 'pc' ? getCharacter(apply.attack.attacker.refId) : getMonster(apply.attack.attacker.refId);
+  if (caster?.sessionId !== sessionId) return {ok:false,reason:'The caster is no longer available.'};
+  setRollApply(rollId,{...apply,orb:{...orb,available:false}});
+  resolveTargetedSpellAttack({sessionId,roller:entry.roller,title: `Chromatic Orb${orb.initial ? '' : ` - leap ${orb.leapsUsed + 1}`}`,
+    description:entry.description, attackBonus:apply.attack.bonus, attackBonusDetail:apply.attack.bonusDetail,
+    toHitSteps:apply.attack.toHitSteps,dice:apply.dice,damageType:apply.damageType,targetTokenId:target.id,
+    attacker:apply.attack.attacker, advantage:orb.initial ? apply.attack.advantage : undefined, orb:{...orb,initial:false,leapsUsed:orb.leapsUsed + (orb.initial ? 0 : 1)}});
+  return {ok:true};
+}
+
 /** Resolve a known on-hit maneuver as part of the pending weapon damage. */
 export function resolveManeuver(sessionId: string, roller: string, rollId: string, abilityId: string): { ok: true } | { ok: false; reason: string } {
   const p = getRollEntry(rollId, sessionId)?.pending;
@@ -1298,7 +1322,7 @@ export function resolveForcedSave(
 ): void {
   const src = getRollEntry(rollId, sessionId);
   const apply = src?.apply;
-  if (!apply) return;
+  if (!apply || apply.orb) return;
   const tok = spellTarget(sessionId, tokenId);
   if (!tok) return;
   const r = resolve(tok);
@@ -1512,6 +1536,7 @@ function resolveTargetedSpellAttack(opts: {
   /** The casting creature — credits a PC's kill count on a killing blow. */
   attacker?: { kind: TokenKind; refId: string };
   sourceRollId?: string;
+  orb?: OrbChain;
 }): boolean {
   const tt = spellTarget(opts.sessionId, opts.targetTokenId);
   const t = tt && resolve(tt);
@@ -1601,6 +1626,17 @@ function resolveTargetedSpellAttack(opts: {
         ? { damageDice: revealDice, damageMods: revealMods, damage: applied, damageType: opts.damageType }
         : {}),
     },
+    ...(opts.orb && opts.attacker ? {apply: {
+      amount: 0, dc: 0, dice: opts.dice, damageType: opts.damageType,
+      attack: {attacker: opts.attacker, bonus: opts.attackBonus, bonusDetail: opts.attackBonusDetail, toHitSteps: opts.toHitSteps},
+      ...(opts.attacker.kind === 'pc' ? {owner: opts.attacker.refId} : {}),
+      orb: {...opts.orb, initial: false, origin: {mapId: tt!.mapId, x: tt!.x, y: tt!.y, widthFt: tt!.widthFt},
+        visited: [...opts.orb.visited, `${tt!.kind}:${tt!.refId}`],
+        matches: revealDice.flatMap(d => d.faces ?? []).filter((v, i, faces) => faces.indexOf(v) !== i || faces.lastIndexOf(v) !== i),
+        available: hit && opts.orb.leapsUsed < opts.orb.slotLevel &&
+          new Set(revealDice.flatMap(d => d.faces ?? [])).size < revealDice.flatMap(d => d.faces ?? []).length,
+      },
+    }} : {}),
     hideMods: opts.attacker ? hidesMods(opts.attacker.kind, opts.attacker.refId) : false,
     ...(deferDamage && opts.attacker ? {
       pending: {
@@ -1790,6 +1826,23 @@ function resolveSheetAbilityFor(
       ...base.parts,
       ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
     ];
+    const orbSpell = ability.name.trim().toLowerCase() === 'chromatic orb' && ability.level === 1 &&
+      ability.source !== 'custom' && ability.executionProfile !== 'manual' && roll.dice?.replace(/\s/g,'') === '3d8';
+    if (orbSpell && dice) {
+      const mapId = getSessionById(sessionId)?.activeMapId;
+      const casterToken = mapId ? listTokens(mapId).find(t => t.kind === kind && t.refId === entity.id) : undefined;
+      const origin = casterToken ?? (targetTokenId ? getToken(targetTokenId) : null);
+      if (!origin) return false;
+      const orb: OrbChain = {slotLevel: Math.max(1,Math.min(9,castLevel ?? 1)),leapsUsed:0,visited:[],matches:[],available:true,
+        origin:{mapId:origin.mapId,x:origin.x,y:origin.y,widthFt:origin.widthFt}};
+      if (targetTokenId) return resolveTargetedSpellAttack({sessionId,roller,title,description:ability.description,
+        attackBonus:bonus,attackBonusDetail:bonusDetail,toHitSteps,dice,damageType:roll.damageType,targetTokenId,
+        advantage,attacker:{kind,refId:entity.id},orb});
+      addRollLog(sessionId,{roller,label:ability.name,expr:title,total:0,detail:'Choose the first target for Chromatic Orb.',
+        apply:{amount:0,dc:0,dice,damageType:roll.damageType,attack:{attacker:{kind,refId:entity.id},bonus,bonusDetail,toHitSteps,advantage},
+          ...(kind === 'pc' ? {owner:entity.id}:{}),orb:{...orb,initial:true}}});
+      return true;
+    }
     const attacks = spellInstanceCount(roll, castLevel, casterLevel);
     if (attacks > 0 && dice) {
       addRollLog(sessionId, {

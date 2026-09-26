@@ -361,6 +361,7 @@ type Store = {
   combatDamage: (rollId: string) => void;
   /** Cast the smite a hit made available, with a slot level or the free casting. */
   initiativeFx: {id: number; mapId: string} | null;
+  combatOrbLeap: (rollId: string, targetTokenId?: string, end?: boolean) => void;
   combatRiposte: (opportunityId: string, weaponIndex?: number, pass?: boolean) => void;
   combatManeuver: (rollId: string, abilityId: string) => void;
   combatSmite: (rollId: string, level: number | 'free') => void;
@@ -1069,6 +1070,7 @@ export const useStore = create<Store>((set, get) => ({
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
   initiativeFx: null,
+  combatOrbLeap: (rollId, targetTokenId, end) => get().socket?.emit('combat:orbLeap', {rollId,targetTokenId,end}),
   combatRiposte: (opportunityId, weaponIndex, pass) => get().socket?.emit('combat:riposte', {opportunityId, weaponIndex, pass}),
   combatManeuver: (rollId, abilityId) => get().socket?.emit('combat:maneuver', {rollId, abilityId}),
   combatSmite: (rollId, level) => get().socket?.emit('combat:smite', { rollId, level }),

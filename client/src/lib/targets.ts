@@ -1,3 +1,5 @@
+import { tokenDistanceFt } from '../../../shared/distance';
+import { resolveToken } from './entities';
 import type { StateSnapshot, Token } from '../../../shared/types';
 
 /**
@@ -9,9 +11,9 @@ import type { StateSnapshot, Token } from '../../../shared/types';
 export function validTargets(snapshot: StateSnapshot, attacker: Token): Token[] {
   return snapshot.tokens.filter(
     (t) =>
-      t.id !== attacker.id &&
+      t.mapId === attacker.mapId && t.id !== attacker.id &&
       (snapshot.role !== 'player' || !isFriendly(snapshot, t)),
-  );
+  ).sort((a, b) => tokenDistanceFt(attacker, a, snapshot.map) - tokenDistanceFt(attacker, b, snapshot.map) || targetLabel(snapshot, a).localeCompare(targetLabel(snapshot, b)));
 }
 
 const isFriendly = (snapshot: StateSnapshot, t: Token): boolean => {
@@ -33,4 +35,10 @@ export function healTargets(snapshot: StateSnapshot, caster: Token): Token[] {
         (snapshot.role !== 'player' || isFriendly(snapshot, t)),
     ),
   ];
+}
+
+/** Uses only the viewer's snapshot: never derives hidden monster numbers. */
+export function targetLabel(snapshot: StateSnapshot, token: Token, origin?: Token): string {
+  const name = `${resolveToken(snapshot, token).name}${token.revealTag ? ` ${token.revealTag}` : ''}`;
+  return origin ? `${name} · ${Math.round(tokenDistanceFt(origin, token, snapshot.map) * 10) / 10} ft` : name;
 }

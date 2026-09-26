@@ -23,8 +23,8 @@ export function PlayerDamagePrompt() {
   // Consider only the latest cast, not every old AoE still in the history.
   // An explicitly re-opened log action always takes precedence.
   const spell = armed
-    ? rolls.find((r) => r.id === armed.rollId && r.apply)
-    : [...rolls].reverse().find((r) => r.apply);
+    ? rolls.find((r) => r.id === armed.rollId && r.apply && !r.apply.orb)
+    : [...rolls].reverse().find((r) => r.apply && !r.apply.orb);
   const apply = spell?.apply;
   const attacks = apply?.attacks ?? 0;
   const remainingAttacks = Math.max(0, attacks - (apply?.consumedAttacks ?? 0));

@@ -10,8 +10,7 @@ import type {
   Token,
   TokenKind,
 } from '../../../shared/types';
-import { resolveToken } from '../lib/entities';
-import { healTargets, validTargets } from '../lib/targets';
+import { healTargets, validTargets, targetLabel } from '../lib/targets';
 import { useStore } from '../state/socket';
 import {
   ACTION_ICON,
@@ -513,7 +512,7 @@ export function CharacterSpells({
                 <option value="">— mark —</option>
                 {targets.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {resolveToken(snapshot!, t).name}
+                    {targetLabel(snapshot!, t, attackerToken ?? undefined)}
                   </option>
                 ))}
               </select>
@@ -1016,7 +1015,7 @@ export function CharacterSpells({
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
-                {resolveToken(snapshot!, t).name}
+                {targetLabel(snapshot!, t, attackerToken ?? undefined)}
               </option>
             ))}
           </select>
@@ -1028,7 +1027,7 @@ export function CharacterSpells({
           <select value={healTargetId} onChange={(e) => setHealTargetId(e.target.value)}>
             {healList.map((t, i) => (
               <option key={t.id} value={t.id}>
-                {resolveToken(snapshot!, t).name}
+                {targetLabel(snapshot!, t, attackerToken ?? undefined)}
                 {i === 0 && t.refId === character.id ? ' (you)' : ''}
               </option>
             ))}

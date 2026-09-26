@@ -1887,3 +1887,10 @@ Smaller refinements on top of the shipped Phase 2 work.
   New persisted session flag defaults off for existing saves. Verified: 803 server
   tests, typecheck/build, and browser coverage for a persistent/reconnected prompt
   plus the announcements, Riposte and critical-hit flow.
+
+
+### Chromatic Orb and target selection (2026-09-25)
+- [x] 2024 Chromatic Orb matching-dice leaps: fresh attack and damage per target, 30-foot leap range, one target per creature per cast, maximum leaps equal to slot level; no extra slot charge. Server validates continuation and waits for pending damage.
+- [x] Persistent caster prompt with matching dice, leap counter, nearby visible targets and End spell; critical dice and immunities handled.
+- [x] Shared attack/spell target lists sorted by grid distance with public encounter tags and distance labels.
+- [x] Right-click token actions: choose controlled attacker, visible conditions/distance, advantage, off-hand/two-handed intent, weapon ranges, spell level and damage type; menu stays inside the viewport and scrolls without dismissing.

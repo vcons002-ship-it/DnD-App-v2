@@ -1015,6 +1015,13 @@ export type PendingDamage = {
   done?: boolean;
 };
 
+/** Persistent continuation of one Chromatic Orb casting. Visited entries identify creatures, not token copies. */
+export type OrbChain = {
+  slotLevel: number; leapsUsed: number; visited: string[];
+  origin: { mapId: string; x: number; y: number; widthFt: number };
+  matches: number[]; available: boolean; initial?: boolean;
+};
+
 export type RollEntry = {
   id: string;
   /** Who rolled — a character name, "DM", or "Player". */
@@ -1049,6 +1056,7 @@ export type RollEntry = {
   apply?: {
     amount: number;
     dc: number;
+    orb?: OrbChain;
     save?: string;
     saveDamage?: 'none' | 'half';
     targetMode?: 'single' | 'multiple';
@@ -1691,6 +1699,8 @@ export interface ClientToServerEvents {
   'combat:attack': (payload: CombatAttackPayload) => void;
   /** Roll (and apply) the damage parked on a hit — the two-step attack's second
    *  click. Allowed for the DM and for the player who made the attack. */
+  /** Continue or end a matching-dice Chromatic Orb cast without spending another slot. */
+  'combat:orbLeap': (payload: {rollId: string; targetTokenId?: string; end?: boolean}) => void;
   'combat:damage': (payload: { rollId: string }) => void;
   /** Cast the smite a hit made available, with a spell slot of `level` or the
    *  free once-per-Long-Rest casting. The DM or the attacking player. */

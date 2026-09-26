@@ -10,6 +10,7 @@ import {
   resolveAttackDamage,
   resolveSmite,
   resolveManeuver,
+  resolveOrbLeap,
   resolveRiposte,
   castSlotLevel,
   resolveAbilityRoll,
@@ -1879,9 +1880,22 @@ export function registerSocketHandlers(io: IOServer): void {
         afterChange();
     });
 
-    // Cast the smite a hit made available: the DM, or the attacking player.
-    // Every refusal says why (no slot left, already taken…) instead of going
-    // quiet; the resolver stamps the opportunity used before it spends anything.
+    // The caster or DM continues the stored cast; players can only choose visible targets.
+    on('combat:orbLeap', ({rollId,targetTokenId,end}) => {
+      const sid=sessionId();
+      if (!sid || typeof rollId !== 'string') return;
+      const apply=getRollEntry(rollId,sid)?.apply;
+      const owner=apply?.owner ? getCharacter(apply.owner) : null;
+      if (!isDm() && (!owner || owner.claimedBy !== socket.id)) return;
+      if (!end && (typeof targetTokenId !== 'string' || (!isDm() &&
+        !buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===targetTokenId)))) {
+        socket.emit('notice',{message:'Choose a visible creature for the orb.'}); return;
+      }
+      const result=resolveOrbLeap(sid,rollId,targetTokenId,!!end);
+      if (!result.ok) socket.emit('notice',{message:result.reason});
+      afterChange();
+    });
+
     on('combat:riposte', ({opportunityId, weaponIndex, pass}) => {
       const sid = sessionId();
       if (!sid || typeof opportunityId !== 'string') return;

@@ -118,12 +118,6 @@ export function AbilityButtons({
             ))}
           </select>
         );
-        if (menu) return damageTypes.length ? (
-          <div key={a.id} className="combat-ability-row" style={{ flexWrap: 'wrap' }}>
-            {btn}
-            {damageTypeSelect}
-          </div>
-        ) : btn;
         return (
           <div key={a.id} className="combat-ability-row" style={damageTypes.length ? { flexWrap: 'wrap' } : undefined}>
             {btn}

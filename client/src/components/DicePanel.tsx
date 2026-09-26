@@ -364,7 +364,7 @@ export function DicePanel({
                 {/* The apply payload only reaches a player on their OWN entries
                     (visibility strips it otherwise), so its presence is the gate —
                     the DM sees it on everything, a player only on what they cast. */}
-                {r.apply && (() => {
+                {r.apply && !r.apply.orb && (() => {
                   // Darts (Magic Missile): roll-on-click, capped at the dart count.
                   // New entries use `darts`; legacy entries used a pre-rolled `split`.
                   const dartCount = r.apply.darts ?? r.apply.split?.length;
