@@ -1,10 +1,19 @@
-import {dieResultStrength,dieResultTier} from '../../client/src/lib/diceTrayTypes.js';
+import {dieResultStrength,dieResultTier,diceRevealTimes} from '../../client/src/lib/diceTrayTypes.js';
 import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
 import {Vec3,Quaternion} from 'cannon-es';
 import {dieMesh,faceForwardMesh} from '../../shared/diceGeometry.js';
 import {physicalDice,simulateToss,trayFaceValues,diceMassKg,STANDARD_GRAVITY,REFERENCE_D6_EDGE} from '../../client/src/lib/dicePhysics.js';
 describe('physics dice tray',()=>{
+ it('removes pauses caused by uneven settle times without revealing a moving die',()=>{
+  const settled=[1.778,2.01,2.16,2.486].map(t=>t*.6);
+  const starts=diceRevealTimes(settled,.6);
+  expect(starts[0]).toBeCloseTo(2.486);
+  starts.forEach((start,i)=>{
+    expect(start).toBeGreaterThanOrEqual(settled[i]/.6);
+    if(i)expect(start-starts[i-1]).toBeCloseTo(.16);
+  });
+ });
  it('emphasizes relative die strength without treating a max as a critical',()=>{
   const die=(sides:number,value:number)=>({sides,value,index:0,set:0});
   expect(dieResultStrength(die(6,6))).toBe(1);

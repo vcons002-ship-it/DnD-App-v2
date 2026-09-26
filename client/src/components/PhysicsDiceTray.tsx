@@ -1,6 +1,6 @@
 import {useContext,useEffect,useRef,useState,type CSSProperties} from 'react';
 import {DiceThemeContext} from './ThreeDie';
-import {physicalDice,dieResultStrength,dieResultTier,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
+import {physicalDice,diceRevealTimes,dieResultStrength,dieResultTier,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
 import './PhysicsDiceTray.css';
 import type {RollComparison} from '../../../shared/types';
 // Presentation pacing only; the precomputed gravity/contact simulation is unchanged.
@@ -37,7 +37,8 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
           const node=canvas.current!,ctx=node.getContext('2d');if(!ctx){fallback();return;}
           const delivered=new Set<number>(),launched=new Set<number>();
           let finalTrayDrawn=false;
-          const finishAt=Math.max(toss.duration/ROLL_PLAYBACK_RATE,...toss.settleTimes.map(t=>t/ROLL_PLAYBACK_RATE+.85));
+          const revealTimes=diceRevealTimes(toss.settleTimes,ROLL_PLAYBACK_RATE);
+          const finishAt=Math.max(toss.duration/ROLL_PLAYBACK_RATE,...revealTimes.map(t=>t+.85));
           let elapsed=0,previous=performance.now();setStatus('rolling');
           const draw=(now:number)=>{
             if(dead)return;
@@ -52,7 +53,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             }catch{fallback();return;}
             node.dataset.playbackRate=String(ROLL_PLAYBACK_RATE);node.dataset.simulationElapsed=(elapsed*ROLL_PLAYBACK_RATE).toFixed(3);
             node.dataset.wallHits=String(toss.wallHits);node.dataset.elapsed=elapsed.toFixed(3);node.dataset.duration=toss.duration.toFixed(3);
-            const starting=expanded.map((_,i)=>i).filter(i=>!launched.has(i)&&elapsed>=toss.settleTimes[i]/ROLL_PLAYBACK_RATE);
+            const starting=expanded.map((_,i)=>i).filter(i=>!launched.has(i)&&elapsed>=revealTimes[i]);
             // Only measure when a flight starts. Its destination never follows
             // a pulsing number's transformed bounds or another result's arrival.
             if(starting.length){
@@ -87,7 +88,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             }
             expanded.forEach((_,i)=>{
               const flight=flights.current[i];
-              if(flight?.dataset.phase==='flash'&&elapsed-toss.settleTimes[i]/ROLL_PLAYBACK_RATE>=.22)flight.dataset.phase='flying';
+              if(flight?.dataset.phase==='flash'&&elapsed-revealTimes[i]>=.22)flight.dataset.phase='flying';
             });
             if(elapsed>=finishAt&&delivered.size===expanded.length){setStatus('settled');complete();return;}
             raf=requestAnimationFrame(draw);

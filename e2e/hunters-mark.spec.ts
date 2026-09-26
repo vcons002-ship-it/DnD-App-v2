@@ -253,6 +253,14 @@ test('dice calculation shows readable values and sequential labeled bonuses and 
 test('settled dice flash and fill their own result boxes, including percentile and comparison dice',async({page,request})=>{
  test.setTimeout(60000);
  const f=await fixture(request,page,'Sorcerer',false);
+ await page.evaluate(()=>{
+   const original=Element.prototype.animate;
+   (window as any).__flightStarts=[];
+   Element.prototype.animate=function(...args){
+     if(this.classList.contains('tray-flying-number'))(window as any).__flightStarts.push({id:Number((this as HTMLElement).dataset.dieId),time:performance.now()});
+     return original.apply(this,args);
+   };
+ });
  f.socket.emit('dice:roll',{expr:'1d100+1d8+1d6',advantage:'adv',label:'Flying results'});
  const tray=page.locator('.physics-dice-tray');
  await expect(tray).toHaveAttribute('data-status','rolling',{timeout:15000});
@@ -274,6 +282,9 @@ test('settled dice flash and fill their own result boxes, including percentile a
  await expect(moving).toHaveCSS('filter','none');
  await expect(tray).toHaveAttribute('data-status','settled',{timeout:15000});
  expect(await page.evaluate(()=>(window as any).__redundantCanvasResizes)).toBe(0);
+ const starts=await page.evaluate(()=>(window as any).__flightStarts as {id:number;time:number}[]);
+ expect(starts.map(s=>s.id)).toEqual([0,1,2,3,4,5,6,7]);
+ for(let i=1;i<starts.length;i++)expect(Math.abs(starts[i].time-starts[i-1].time-160)).toBeLessThan(70);
  for(const flight of await tray.locator('.tray-flying-number').all()){
    const id=await flight.getAttribute('data-die-id');
    const result=tray.locator(`.tray-die-result[data-die-id="${id}"]`);

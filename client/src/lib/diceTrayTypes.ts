@@ -23,3 +23,9 @@ export function dieResultTier(die:TrayDie):'max'|'high'|'normal' {
   const strength=dieResultStrength(die);
   return strength===1?'max':strength>=.75?'high':'normal';
 }
+
+/** Reveal in result-box order after every die stops, with an even cadence. */
+export function diceRevealTimes(settleTimes:number[],playbackRate:number):number[] {
+  const start=Math.max(0,...settleTimes)/playbackRate;
+  return settleTimes.map((_,i)=>start+i*.16);
+}
