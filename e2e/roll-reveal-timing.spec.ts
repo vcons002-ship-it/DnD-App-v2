@@ -83,8 +83,8 @@ async function startTrace(page: Page) {
         time: performance.now(), visible: !!popup,
         attackTotal: Number(popup?.querySelector('.rr-total')?.textContent ?? 0),
         damageTotal: Number(popup?.querySelector('.rr-dmg-num, .rr-roll-num')?.firstChild?.textContent ?? 0),
-        attackDice: [...(popup?.querySelectorAll('.roll-reveal-tohit canvas') ?? [])].map((die) => (die as HTMLElement).dataset.orientation),
-        damageDice: [...(popup?.querySelectorAll('.roll-reveal-damage canvas') ?? [])].map((die) => ({
+        attackDice: [...(popup?.querySelectorAll('.roll-reveal-tohit .tray-die-result') ?? [])].map((die) => (die as HTMLElement).dataset.orientation),
+        damageDice: [...(popup?.querySelectorAll('.roll-reveal-damage .tray-die-result') ?? [])].map((die) => ({
           orientation: (die as HTMLElement).dataset.orientation, value: Number((die as HTMLElement).dataset.value),
         })),
         outcome: popup?.querySelector('.roll-reveal-outcome')?.textContent,
@@ -136,10 +136,10 @@ test('attack and manual damage totals wait for the actual 3D dice landing', asyn
   expect(state.monsters.find((monster) => monster.id === f.target.id)!.curHp).toBe(200 - pending!.pending!.amount);
   const summary = {
     attackFirstTotal: attack!.samples.find((sample: any) => sample.attackTotal > 0)?.time,
-    attackLanded: attack!.samples.find((sample: any) => sample.attackDice.length && sample.attackDice.every((orientation: string) => orientation === 'face-forward'))?.time,
+    attackLanded: attack!.samples.find((sample: any) => sample.attackDice.length && sample.attackDice.every((orientation: string) => orientation === 'settled'))?.time,
     damageFirstTotal: damage.samples.find((sample: any) => sample.damageTotal > 0)?.time,
-    damageFirstLanded: damage.samples.find((sample: any) => sample.damageDice.some((die: any) => die.orientation === 'face-forward'))?.time,
-    damageAllLanded: damage.samples.find((sample: any) => sample.damageDice.length && sample.damageDice.every((die: any) => die.orientation === 'face-forward'))?.time,
+    damageFirstLanded: damage.samples.find((sample: any) => sample.damageDice.some((die: any) => die.orientation === 'settled'))?.time,
+    damageAllLanded: damage.samples.find((sample: any) => sample.damageDice.length && sample.damageDice.every((die: any) => die.orientation === 'settled'))?.time,
     damageFinalTotal: damage.samples.find((sample: any) => sample.damageTotal === pending!.pending!.amount)?.time,
     damageFloater: damage.samples.find((sample: any) => sample.floaters.some((floater: any) => floater.opacity > .1))?.time,
     damageSounds: damage.sounds,
@@ -153,7 +153,7 @@ test('attack and manual damage totals wait for the actual 3D dice landing', asyn
   expect(summary.attackFirstTotal).toBeGreaterThanOrEqual(summary.attackLanded);
   expect(summary.damageFirstTotal).toBeGreaterThanOrEqual(summary.damageFirstLanded);
   expect(summary.damageFloater).toBeGreaterThanOrEqual(summary.damageFinalTotal - 20);
-  expect(damage.samples.filter((sample: any) => sample.damageTotal > 0 && !sample.damageDice.some((die: any) => die.orientation === 'face-forward'))).toHaveLength(0);
+  expect(damage.samples.filter((sample: any) => sample.damageTotal > 0 && !sample.damageDice.some((die: any) => die.orientation === 'settled'))).toHaveLength(0);
   expect(damage.sounds.filter((sound: any) => sound.time < summary.damageAllLanded)).toHaveLength(0);
   expect(summary.damageFinalTotal).toBeDefined();
 });
@@ -248,7 +248,7 @@ test('a targeted save shows its latest roll and floats damage only after that sa
   expect(last.reveal?.kind).toBe('check');
   await expect(popup).toHaveAttribute('data-roll-id', last.id);
   expect(await floaters(page)).toEqual([]);
-  await expect(popup).toHaveCount(0, { timeout: 6000 });
+  await expect(popup).toHaveCount(0, { timeout: 20000 });
   const trace = await endTrace(page);
   const outcomeAt = trace.samples.find((sample: any) => sample.outcome)?.time;
   const floaterAt = trace.samples.find((sample: any) => sample.floaters.some((floater: any) => floater.opacity > .1))?.time;

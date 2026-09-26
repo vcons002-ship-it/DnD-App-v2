@@ -1,0 +1,16 @@
+.physics-dice-tray{position:relative;width:100%;min-width:0;margin:10px 0;}
+.dice-tray-canvas{display:block;width:100%;aspect-ratio:15.2/10.2;border-radius:14px;background:#111d1c;}
+.dice-tray-status{position:absolute;inset:0 0 40px;display:grid;place-content:center;color:#e6dac1;}
+.dice-tray-results{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding-top:8px;}
+.tray-die-result{font-size:12px;padding:3px 7px;border:1px solid #72664a;border-radius:5px;color:#cbc2ad;background:#171c20;}
+.tray-die-result strong{font-size:16px;color:#fff;margin-left:3px;}
+.tray-die-result.critical{border-color:#d6a536;color:#e4c26c;}
+.roll-reveal:has(.physics-dice-tray){width:min(760px,calc(100vw - 28px));max-height:90vh;overflow:auto;}
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-tohit{display:block;}
+.roll-reveal:has(.physics-dice-tray) .rr-buildup{display:flex;align-items:center;justify-content:center;gap:12px;}
+@media(max-width:600px){.roll-reveal:has(.physics-dice-tray){padding:12px;}.tray-die-result{font-size:10px;}.tray-die-result strong{font-size:13px;}}
+
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-tohit,.roll-reveal:has(.physics-dice-tray) .roll-reveal-damage{width:100%;}
+.tray-result-group{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+.dice-tray-results .rr-candidate{min-width:0;flex:1;text-align:center;}
+.dice-tray-results .tray-die-result{display:inline-block;margin:2px;}

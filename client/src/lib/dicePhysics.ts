@@ -1,0 +1,54 @@
+import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World } from 'cannon-es';
+import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
+
+import {type TrayDie,type Toss} from './diceTrayTypes.js';
+export {physicalDice,trayFaceValues} from './diceTrayTypes.js';
+export function simulateToss(dice:TrayDie[],seed:number):Toss {
+  if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Roll requires result summary');
+  let state=seed>>>0;
+  const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+  const world=new World({gravity:new Vec3(0,0,-18),allowSleep:true});
+  (world.solver as GSSolver).iterations=18;
+  world.defaultContactMaterial.friction=.45;
+  world.defaultContactMaterial.restitution=.26;
+  const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>world.addBody(new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z)}));
+  box(0,0,-.2,7.2,4.7,.2);
+  box(-7.2,0,3,.2,4.7,3);box(7.2,0,3,.2,4.7,3);
+  box(0,-4.7,3,7.4,.2,3);box(0,4.7,3,7.4,.2,3);
+  const radius=dice.length>20?.36:dice.length>12?.48:dice.length>6?.62:.85;
+  const cols=Math.min(6,dice.length),spacing=radius*2.25;
+  const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
+  const bodies=meshes.map((mesh,i)=>{
+    const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));
+    const faces=mesh.faces.map(ids=>{
+      const a=vertices[ids[0]],b=vertices[ids[1]],c=vertices[ids[2]];
+      const n=b.vsub(a).cross(c.vsub(a));
+      return n.dot(a)<0?[...ids].reverse():[...ids];
+    });
+    const body=new Body({mass:1,shape:new ConvexPolyhedron({vertices,faces}),linearDamping:.2,angularDamping:.24,allowSleep:true,sleepSpeedLimit:.12,sleepTimeLimit:.4});
+    body.position.set(-5.2+(i%cols)*spacing,-2.6+Math.floor(i/cols)*spacing,2.6+random()*.65);
+    body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
+    body.velocity.set(2+random()*3.5,1+random()*3,random()*1.5);
+    body.angularVelocity.set((random()-.5)*22,(random()-.5)*22,(random()-.5)*16);
+    world.addBody(body);return body;
+  });
+  const frames:number[]=[];const step=1/120;
+  const capture=()=>bodies.forEach(b=>frames.push(b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w));
+  capture();
+  let ticks=0;
+  for(;ticks<1440;ticks++){
+    world.step(step);capture();
+    if(ticks>120&&bodies.every(b=>b.sleepState===Body.SLEEPING)){ticks++;break;}
+  }
+  if(!bodies.every(b=>b.sleepState===Body.SLEEPING))throw new Error('Dice did not settle within the tray simulation limit');
+  const topFaces=bodies.map((body,i)=>{
+    let best=-Infinity,top=0;
+    meshes[i].faces.forEach((face,index)=>{
+      const [a,b,c]=face.map(j=>new Vec3(...meshes[i].vertices[j]));
+      const normal=b.vsub(a).cross(c.vsub(a));if(normal.dot(a)<0)normal.negate(normal);normal.normalize();
+      const z=body.quaternion.vmult(normal).z;
+      if(z>best){best=z;top=index;}
+    });return top;
+  });
+  return {frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
+}

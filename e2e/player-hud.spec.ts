@@ -169,16 +169,16 @@ test('laptop HUD edits resources and keeps chat, character windows and every 3D 
       .locator('.dice-quick')
       .getByRole('button', { name: `d${sides}`, exact: true })
       .click();
-    const dice = page.locator('.roll-reveal .three-die');
+    const dice = page.locator('.roll-reveal .tray-die-result');
     await expect(dice).toHaveCount(sides === 100 ? 2 : 1);
     await expect(dice.first()).toHaveAttribute(
       'data-sides',
       String(sides === 100 ? 10 : sides),
     );
     await expect(
-      page.locator('.roll-reveal canvas[aria-label*="rolling"]'),
-    ).toHaveCount(0);
-    await expect(page.locator('.roll-reveal canvas[data-orientation="face-forward"]')).toHaveCount(sides === 100 ? 2 : 1);
+      page.locator('.roll-reveal .tray-die-result[aria-label*="rolling"]'),
+    ).toHaveCount(0, {timeout:15000});
+    await expect(page.locator('.roll-reveal .tray-die-result[data-orientation="settled"]')).toHaveCount(sides === 100 ? 2 : 1);
     await page.locator('.roll-reveal').click();
   }
   for (const [expr, mode, dicePerSet] of [
@@ -191,10 +191,10 @@ test('laptop HUD edits resources and keeps chat, character windows and every 3D 
     await page.locator('.chat-input input').press('Enter');
     const comparison = page.locator(`.rr-comparison[data-mode="${mode}"]`);
     await expect(comparison.locator('.rr-candidate')).toHaveCount(2);
-    await expect(comparison.locator('.three-die')).toHaveCount(dicePerSet * 2);
-    await expect(comparison.locator('[data-result="kept"]')).toHaveCount(1);
+    await expect(comparison.locator('.tray-die-result')).toHaveCount(dicePerSet * 2);
+    await expect(comparison.locator('[data-result="kept"]')).toHaveCount(1, {timeout:15000});
     await expect(comparison.locator('[data-result="discarded"]')).toHaveCount(1);
-    await expect(comparison.locator('canvas[data-orientation="face-forward"]')).toHaveCount(dicePerSet * 2);
+    await expect(comparison.locator('.tray-die-result[data-orientation="settled"]')).toHaveCount(dicePerSet * 2);
     await page.locator('.roll-reveal').click();
   }
   expect(errors).toEqual([]);

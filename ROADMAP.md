@@ -4,6 +4,20 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Physics dice tray - September 2026
+
+- [x] Overhead dice tray for player and DM roll reveals, with Cannon rigid-body
+  gravity, convex die collision shapes, floor/wall contacts, friction and sleeping.
+  Simulation runs at 120 Hz in a worker; playback interpolates recorded positions
+  and quaternions. Dice remain where they physically settle; no face-forward snap.
+- [x] Server rolls remain authoritative. Face labels are assigned before playback
+  to match the pre-simulated resting faces, never changed during a visible toss.
+  Mixed/critical dice, advantage/disadvantage and two-d10 percentile rolls retain
+  their values and logical identities. Totals and damage feedback wait for settling.
+- [x] Reduced motion keeps static results; unsupported/custom dice and tosses over
+  40 physical dice use an explicit result summary. Worker/WebGL failures preserve
+  the roll result. The tray adapts to phone width and releases resources on skip.
+
 ## Class dice - September 2026
 
 - [x] Varis green resin dice use dark lacquered wooden numeral inlays with recessed

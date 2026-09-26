@@ -175,6 +175,8 @@ void main(){
  #include <colorspace_fragment>
 }`;
 
+export function getDiceStage() { return stage ??= makeStage(); }
+
 export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens:boolean,ones:boolean) {
   const s=stage??=makeStage();
   const source=faceForwardMesh(dieMesh(sides));
@@ -219,6 +221,20 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   });
   let lastValue=-1;
   return {
+    object: root,
+    setFaceValues(values: number[]) {
+      labels.forEach(({canvas,texture},id)=>{
+        const c=canvas.getContext('2d')!;c.fillStyle='#fff';c.fillRect(0,0,256,256);
+        c.fillStyle='#151515';c.font=`bold ${tens?94:112}px Georgia`;c.textAlign='center';c.textBaseline='middle';
+        c.fillText(tens?String(values[id]).padStart(2,'0'):String(values[id]),128,134);texture.needsUpdate=true;
+      });
+    },
+    updatePose(camera: THREE.Camera, now: number) {
+      root.updateMatrixWorld(true);
+      uniforms.eye.value.copy(camera.position).applyMatrix4(root.matrixWorld.clone().invert());
+      uniforms.rotation.value.setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(root.quaternion));
+      uniforms.time.value=now/1000;
+    },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean){
       if(lastValue!==value && (!rolling || lastValue===-1)){lastValue=value;labels.forEach(({canvas,texture},id)=>{
         const c=canvas.getContext('2d')!;c.fillStyle='#fff';c.fillRect(0,0,256,256);

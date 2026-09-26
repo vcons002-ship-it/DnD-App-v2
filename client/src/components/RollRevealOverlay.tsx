@@ -1,3 +1,5 @@
+import { PhysicsDiceTray } from './PhysicsDiceTray';
+import type { TrayDie } from '../lib/diceTrayTypes';
 import { diceThemeForClass } from '../../../shared/diceThemes';
 import { flattenDamageDice } from '../../../shared/diceVisuals';
 import { memo, useEffect, useRef, useState } from 'react';
@@ -7,13 +9,11 @@ import { ThreeDie, DiceThemeContext } from './ThreeDie';
 import type { RollComparison } from '../../../shared/types';
 
 // Pacing (ms). Tweak to taste.
-const ROLL_MS = 420; // d20 shuffle before it locks
 const STEP_MS = 300; // each to-hit / modifier chip flying in
 const OUTCOME_MS = 340; // beat before the HIT/MISS stamp
 const DMG_GAP_MS = 300; // beat before the damage dice start rolling
 const HOLD_MS = 1600; // linger on the final numbers after damage concludes
 const DART_HOLD_MS = 1200; // linger for a damage-only burst (Fireball cast / MM dart)
-const CYCLE_MS = 70; // how fast tumbling dice flip numbers
 
 type Stage = {
   phase: 'rolling' | 'landing' | 'tohit' | 'outcome' | 'damage';
@@ -132,7 +132,7 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  *   2. each bonus (ability mod, proficiency, …) flies in and the to-hit total
  *      counts UP;
  *   3. a HIT / MISS / CRIT / FUMBLE stamp lands;
- *   4. on a hit, EACH damage die tumbles and lands one by one (proper shapes),
+ *   4. on a hit, the damage dice collide and settle together in the overhead tray,
  *      and the damage total climbs as they settle.
  * A Fireball cast / Magic Missile dart is a damage-only burst (no to-hit/stamp).
  * Non-blocking (the map stays interactive); click / tap / Esc skips it. Mechanics
@@ -171,7 +171,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
   const releaseImpact = useStore((s) => s.releaseRollImpact);
   const landings = useRef<{ d20?: (set: number) => void; damage?: (index: number, set: number) => void }>({});
   const reveal = rollFx?.reveal;
-  const comparison = player ? reveal?.comparison : undefined;
+  const comparison = reveal?.comparison;
   // A 'check' is a single-d20 skill/save/check → total (no damage phase). A 'dice'
   // roll (`/roll`, dice-panel buttons) and a spell-damage 'damage' burst are both
   // dice-only bursts (no to-hit); 'dice' just labels itself with the expression
@@ -188,30 +188,23 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
     diceStopping: 0,
     modsShown: 0,
   });
-  // Bumped by an interval while dice are tumbling, to flicker their numbers.
-  const [rollTick, setRollTick] = useState(0);
 
   const dice = reveal?.damageDice ?? [];
   const mods = reveal?.damageMods ?? [];
   const toHit = reveal?.toHit ?? [];
   const faces = flattenDamageDice(dice);
 
-  // Drive the timeline. Re-runs per roll (keyed on the FX id); all timers/intervals
+  // Drive the timeline. Re-runs per roll (keyed on the FX id); all timers
   // clear on unmount or replacement so a rapid follow-up roll leaves nothing stale.
   useEffect(() => {
     if (!rollFx || !reveal) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const intervals: ReturnType<typeof setInterval>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
     const cleanup = () => {
       timers.forEach(clearTimeout);
-      intervals.forEach(clearInterval);
       landings.current = {};
     };
-    const stopCycles = () => {
-      intervals.forEach(clearInterval);
-      intervals.length = 0;
-    };
+
 
     const allFaces = flattenDamageDice(reveal.damageDice);
     const visualDiceCount = comparison?.kind === 'dice'
@@ -224,14 +217,8 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
       at(HOLD_MS, dismiss);
       return cleanup;
     }
-    // Each die lands in quick succession; total dice-rolling time is bounded so a
-    // 14d6 Fireball doesn't drag (faster per-die when there are many).
-    const perDie = visualDiceCount
-      ? Math.max(55, Math.min(150, Math.round(700 / visualDiceCount)))
-      : 0;
-
-    if (player) {
-      // One presentation clock: the mesh reports its painted, face-forward
+    if (!staticReveal) {
+      // One presentation clock: the tray reports its physically settled
       // landing. Only then may totals count it, labels resolve, and damage FX
       // play. Server HP/data already changed; this gates cosmetic feedback only.
       const startDamage = (delay: number, sound?: () => void) => {
@@ -240,7 +227,6 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
         const complete = () => {
           if (finished) return;
           finished = true;
-          stopCycles();
           localMods.forEach((_, i) => at(STEP_MS * (i + 1), () => setStage((p) => ({ ...p, modsShown: i + 1 }))));
           const end = localMods.length * STEP_MS + 260;
           at(end, () => { sound?.(); releaseImpact(rollFx.rollId); });
@@ -261,10 +247,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
         at(delay, () => {
           setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, diceStopping: 0, modsShown: 0 }));
           if (!visualDiceCount) { complete(); return; }
-          intervals.push(setInterval(() => setRollTick((x) => x + 1), CYCLE_MS));
-          for (let i = 0; i < visualDiceCount; i++) {
-            at(ROLL_MS + perDie * (i + 1), () => setStage((p) => ({ ...p, diceStopping: i + 1 })));
-          }
+
         });
       };
       if (isBurst) startDamage(0, isDice ? playSkill : playHit);
@@ -276,7 +259,6 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
           landed.add(set);
           if (landed.size < (comparison?.kind === 'd20' ? comparison.sets.length : 1)) return;
           landings.current.d20 = undefined;
-          stopCycles();
           setStage((p) => ({ ...p, phase: 'tohit', dieFace: reveal.d20 ?? p.dieFace }));
           toHit.forEach((_, i) => at(STEP_MS * (i + 1), () => setStage((p) => ({ ...p, toHitShown: i + 1 }))));
           const outcomeAt = toHit.length * STEP_MS + OUTCOME_MS;
@@ -294,77 +276,11 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
             at(outcomeAt + HOLD_MS, dismiss);
           }
         };
-        intervals.push(setInterval(() => setStage((p) => ({ ...p, dieFace: 1 + Math.floor(Math.random() * 20) })), CYCLE_MS));
-        at(ROLL_MS, () => {
-          stopCycles();
-          setStage((p) => ({ ...p, phase: 'landing', dieFace: reveal.d20 ?? p.dieFace }));
-        });
+
       }
       return cleanup;
     }
 
-    // Roll the damage dice one by one (all visible + tumbling, settling in order),
-    // then reveal the flat modifiers; `start` is when the damage phase begins.
-    const scheduleDamage = (start: number, onImpact?: () => void) => {
-      let t = start;
-      at(start, () => {
-        setStage((p) => ({ ...p, phase: 'damage', diceLocked: 0, diceStopping: 0, modsShown: 0 }));
-        intervals.push(setInterval(() => setRollTick((x) => x + 1), CYCLE_MS));
-        onImpact?.();
-      });
-      // Player dice get a readable tumble before settling; the established DM
-      // timeline is unchanged. Both compared sets land in the same sequence.
-      if (player && visualDiceCount) t += ROLL_MS;
-      for (let i = 0; i < visualDiceCount; i++) {
-        t += perDie;
-        at(t, () => setStage((p) => ({ ...p, diceLocked: i + 1, diceStopping: i + 1 })));
-      }
-      at(t, stopCycles); // all dice settled → stop flickering
-      localMods.forEach((_, i) => {
-        t += STEP_MS;
-        at(t, () => setStage((p) => ({ ...p, modsShown: i + 1 })));
-      });
-      at(t + 260, () => releaseImpact(rollFx.rollId));
-      return t;
-    };
-
-    if (isBurst) {
-      setStage({ phase: 'damage', dieFace: 0, toHitShown: 0, diceLocked: 0, diceStopping: 0, modsShown: 0 });
-      // A spell-damage burst "thunks" (playHit); a plain `/roll` gets a neutral tick.
-      const end = scheduleDamage(0, isDice ? playSkill : playHit);
-      at(end + DART_HOLD_MS, dismiss);
-      return cleanup;
-    }
-
-    setStage({ phase: 'rolling', dieFace: 1, toHitShown: 0, diceLocked: 0, diceStopping: 0, modsShown: 0 });
-    // Tumble the d20 while "rolling".
-    intervals.push(
-      setInterval(() => setStage((p) => ({ ...p, dieFace: 1 + Math.floor(Math.random() * 20) })), CYCLE_MS),
-    );
-    let t = ROLL_MS;
-    at(t, () => {
-      stopCycles();
-      setStage((p) => ({ ...p, phase: 'tohit', dieFace: reveal.d20 ?? p.dieFace }));
-    });
-    toHit.forEach((_, i) => {
-      t += STEP_MS;
-      at(t, () => setStage((p) => ({ ...p, toHitShown: i + 1 })));
-    });
-    t += OUTCOME_MS;
-    at(t, () => {
-      setStage((p) => ({ ...p, phase: 'outcome' }));
-      // Attacks thunk/whiff on hit/miss; a check ticks (fail whiffs) — a plain
-      // check with no pass/fail (outcome 'none') still gets the neutral tick.
-      if (isCheck) reveal.outcome === 'fail' ? playMiss() : playSkill();
-      else if (reveal.outcome === 'crit') playCritical();
-            else if (reveal.outcome === 'hit') playHit();
-      else playMiss();
-    });
-    const hasDamage = (reveal.damage ?? 0) > 0 && allFaces.length + localMods.length > 0;
-    const end = hasDamage ? scheduleDamage(t + DMG_GAP_MS) : t;
-    if (!hasDamage) at(t, () => releaseImpact(rollFx.rollId));
-    at(end + HOLD_MS, dismiss);
-    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rollFx?.id, staticReveal]);
 
@@ -418,6 +334,12 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
   const showDamage =
     (isBurst || stage.phase === 'damage') && (isDice || (reveal.damage ?? 0) > 0);
 
+  const attackTray:TrayDie[]=comparison?.kind==='d20'
+    ? comparison.sets.flatMap((set,group)=>set.dice.map((d,index)=>({...d,index,set:group})))
+    : [{sides:20,value:reveal.d20??1,index:0,set:0}];
+  const damageTray:TrayDie[]=comparison?.kind==='dice'
+    ? comparison.sets.flatMap((set,group)=>set.dice.map((d,index)=>({...d,index,set:group})))
+    : faces.map((d,index)=>({...d,index,set:0}));
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
     <div className="roll-reveal-backdrop">
@@ -438,9 +360,9 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
         {/* Sub-headline for a check/dice roll: the check name or the expression. */}
         {reveal.title && <div className="rr-title">{reveal.title}</div>}
 
-        {!isBurst && (
+        {!isBurst && (staticReveal || stage.phase !== 'damage') && (
           <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>
-            {comparison?.kind === 'd20'
+            {!staticReveal ? <PhysicsDiceTray key="attack-tray" rollKey={rollFx.rollId+':attack'} comparison={comparison?.kind==='d20'?comparison:undefined} dice={attackTray} onSettled={(_,set)=>landings.current.d20?.(set)} /> : comparison?.kind === 'd20'
               ? <ComparedDice comparison={comparison} stopping={stage.phase === 'rolling' ? 0 : 1}
                 locked={stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : 1} tick={stage.dieFace}
                 onSettled={(_, set) => landings.current.d20?.(set)} />
@@ -461,6 +383,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
           </div>
         )}
 
+        {!staticReveal && comparison && ((comparison.kind==='d20' && stage.phase!=='rolling' && stage.phase!=='landing') || (comparison.kind==='dice' && stage.diceLocked>0)) && <div className="rr-comparison-title">{comparison.mode==='adv'?'Advantage':'Disadvantage'} / Kept roll {comparison.kept+1}</div>}
         {showOutcome && <div className="roll-reveal-outcome">{outcomeLabel}</div>}
         {showOutcome && reveal.outcome === 'crit' && <div className="critical-flourish" aria-label="Critical hit celebration">
           <span aria-hidden="true">✦</span><strong>DEVASTATING STRIKE</strong><span aria-hidden="true">✦</span>
@@ -474,7 +397,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
               {!isDice && <span className="rr-dmg-type"> {reveal.damageBreakdown?.mixedTypes ? 'mixed' : reveal.damageType ?? ''} dmg</span>}
             </div>
             {/* Every damage die, each tumbling until it settles on its face. */}
-            {comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={rollTick}
+            {!staticReveal ? <PhysicsDiceTray key="damage-tray" rollKey={rollFx.rollId+':damage'} comparison={comparison?.kind==='dice'?comparison:undefined} dice={damageTray} onSettled={(index,set)=>landings.current.damage?.(index,set)} /> : comparison?.kind === 'dice' ? <ComparedDice comparison={comparison} locked={stage.diceLocked} stopping={stage.diceStopping} tick={0}
               onSettled={(index, set) => landings.current.damage?.(index, set)} /> : <div className="rr-dice-row">
               {faces.map((f, i) => {
                 const locked = i < stage.diceStopping;
@@ -483,7 +406,7 @@ function RollSequence({ rollFx, player, staticReveal, dismiss }: {
                     key={i}
                     sides={f.sides}
                     big={player && faces.length <= 3}
-                    value={locked ? f.value : flicker(rollTick, i, f.sides)}
+                    value={locked ? f.value : flicker(0, i, f.sides)}
                     rolling={!locked}
                     crit={f.crit}
                     onSettled={() => landings.current.damage?.(i, 0)}
