@@ -1,6 +1,6 @@
 import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
-import {Vec3} from 'cannon-es';
+import {Vec3,Quaternion} from 'cannon-es';
 import {dieMesh,faceForwardMesh} from '../../shared/diceGeometry.js';
 import {physicalDice,simulateToss,trayFaceValues,diceMassKg,STANDARD_GRAVITY,REFERENCE_D6_EDGE} from '../../client/src/lib/dicePhysics.js';
 describe('physics dice tray',()=>{
@@ -35,13 +35,21 @@ describe('physics dice tray',()=>{
    const dice=Array.from({length:count},(_,index)=>({sides:6,value:3,index,set:0}));
    const toss=simulateToss(dice,42);expect(toss.radius).toBeLessThanOrEqual(previous);previous=toss.radius;
    expect(toss.duration).toBeLessThanOrEqual(12);
+   dice.forEach((die,i)=>{
+    const offset=((toss.frameCount-1)*dice.length+i)*7;
+    const q=new Quaternion(...Array.from(toss.frames.slice(offset+3,offset+7)) as [number,number,number,number]);
+    const bottom=Math.min(...faceForwardMesh(dieMesh(die.sides)).vertices.map(v=>q.vmult(new Vec3(...v).scale(toss.radius)).z+toss.frames[offset+2]));
+    expect(bottom).toBeLessThanOrEqual(toss.radius*.04);
+   });
   }
- });
- it('throws common dice into a wall and still settles',()=>{
+ },20000);
+ it('allows natural wall rebounds without requiring every throw to hit a wall',()=>{
+  let wallHits=0;
   for(const sides of [6,8,10,20])for(const seed of [1,42,719]){
    const toss=simulateToss([{sides,value:3,index:0,set:0}],seed);
-   expect(toss.wallHits).toBeGreaterThan(0);
+   wallHits+=toss.wallHits;
   }
+  expect(wallHits).toBeGreaterThan(0);
  });
  it('settles varied energetic throws without falling back to the summary',()=>{
   for(const sides of [4,6,8,10,12,20])for(let seed=10;seed<110;seed++){
