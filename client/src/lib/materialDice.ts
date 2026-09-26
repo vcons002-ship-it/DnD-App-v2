@@ -40,7 +40,7 @@ const fragment = `precision highp float;
 varying vec3 pos; varying vec3 nor; varying vec2 tex;
 uniform vec3 eye; uniform mat3 rotation; uniform samplerCube studio;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
-uniform sampler2D etching; uniform bool engraved; uniform bool goldEdge;
+uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
 uniform int style; uniform float critical;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -65,7 +65,7 @@ vec3 obsidianStudio(vec3 r){
 }
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
- float cut=goldEdge?0.:(engraved?texture2D(etching,tex).r:1.);
+ float cut=metalEdge?0.:(engraved?texture2D(etching,tex).r:1.);
  if(engraved){
  vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);vec3 tangent=normalize(axis-n*dot(axis,n));vec3 bitangent=cross(n,tangent);
  float dx=texture2D(etching,tex+vec2(.004,0)).r-texture2D(etching,tex-vec2(.004,0)).r;
@@ -111,8 +111,23 @@ void main(){
  vec3 halfLight=normalize(normalize(vec3(-.6,.9,1.2))-rotation*incoming);
  if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
- if(engraved || goldEdge){
-   if(style==0)color=mix(color,vec3(.86,.75,.64), (1.-cut)*.75);
+ if(engraved || metalEdge){
+   if(style==0 && !metalEdge){
+     // Warm wooden inlays: lengthwise fibers, uneven pores and a restrained satin sheen.
+     float warp=fbm(vec3(tex*vec2(5.,2.),6.));
+     float fiber=noise(vec3(tex.x*110.+warp*24.,tex.y*8.,2.));
+     float fine=noise(vec3(tex.x*350.+warp*20.,tex.y*13.,7.));
+     float grain=smoothstep(.32,.72,fiber);
+     vec3 wood=mix(vec3(.28,.13,.045),vec3(.50,.28,.11),grain);
+     wood*=.85+.25*fine;
+     vec3 worldN=rotation*n;
+     float light=.6+.65*max(0.,dot(worldN,normalize(vec3(-.6,.9,1.2))));
+     wood*=light;
+     wood+=vec3(.13,.08,.035)*pow(max(0.,dot(worldN,halfLight)),28.);
+     float wall=max(max(texture2D(etching,tex+vec2(.006,0)).r,texture2D(etching,tex-vec2(.006,0)).r),max(texture2D(etching,tex+vec2(0,.006)).r,texture2D(etching,tex-vec2(0,.006)).r));
+     wood*=mix(1.,.5,smoothstep(.4,.9,wall));
+     color=mix(color,wood,1.-cut);
+   }
    else {
      vec3 f0=style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
@@ -137,13 +152,13 @@ void main(){
      vec3 f=f0+(1.-f0)*pow(1.-vh,5.);
      inlay+=f*distribution*geometry/(4.*nv)*.6;
      // A dark cut wall around the metal catches a narrow, beveled rim.
-     float wall=goldEdge?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
+     float wall=metalEdge?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
      inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
      inlay+=f0*critical*.38;
      color=mix(color,inlay,1.-cut);
    }
  }
- gl_FragColor=vec4(color,style==1?1.:.96);
+ gl_FragColor=vec4(color,(style==1||metalEdge)?1.:.96);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
@@ -167,7 +182,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},studio:{value:s.cube},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},goldEdge:{value:style===1&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===0||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   // The convex hull of inset face corners adds actual chamfer geometry.

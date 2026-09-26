@@ -6,6 +6,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Class dice - September 2026
 
+- [x] Vanec bloodglass dice use warm wood-grain numeral inlays and bronze edges;
+  red glass, internal clouds and energy remain across all die shapes.
+
 - [x] Fighter polished black obsidian with inset gold numerals, and ranger green
   resin with embedded natural veining and inset bronze numerals, across all shapes.
   Decorative symbols and leafwork removed; numerals use metallic reflections and cut edges.
