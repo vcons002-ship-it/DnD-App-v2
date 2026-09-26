@@ -4,6 +4,13 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Class dice - September 2026
+
+- [x] Player dice follow the rolling character's class with thirteen palettes,
+  face-local engraved motifs, polished facet lighting, metal edges and sharper
+  high-DPI numerals. Extra critical dice retain gold; all values remain server-owned.
+  Multiclass sheets use the first listed class; unrecognized classes use neutral dice.
+
 ## Combat spell and damage workflow - September 2026
 
 - [x] Chromatic Orb matching-dice leaps with map target selection and confirmation;

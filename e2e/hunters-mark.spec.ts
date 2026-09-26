@@ -86,7 +86,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
 }
 
 
-test('Hunter mark cast, automatic hit damage, and no-slot transfer through player UI', async ({page,request}) => {
+test('Hunter mark cast, automatic hit damage, and no-slot transfer through player UI', async ({page,request}, testInfo) => {
   test.setTimeout(150000);
   const f = await fixture(request,page);
   f.socket.emit('session:setManualDamage',{manual:true});
@@ -134,6 +134,8 @@ test('Hunter mark cast, automatic hit damage, and no-slot transfer through playe
         const actual=await mesh.evaluateAll(nodes=>nodes.map(n=>({sides:Number(n.getAttribute('data-sides')),value:Number(n.getAttribute('data-value'))})));
         const expected=roll.pending.dice.flatMap(d=>(d.faces??[]).map(value=>({sides:d.label.includes("Hunter's Mark")?6:8,value})));
         expect(actual).toEqual(expected);
+        await expect(mesh.first()).toHaveAttribute('data-theme', 'ranger');
+        await page.locator('.roll-reveal').screenshot({path: testInfo.outputPath('ranger-dice.png')});
         await expect.poll(async()=>Number((await page.locator('.rr-dmg-num').innerText()).match(/^\d+/)?.[0])).toBe(roll.pending.amount);
         await expect.poll(async()=>page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>node.text())))).toContain(`\u2212${roll.pending.amount}`);
         await f.dismissReveal();

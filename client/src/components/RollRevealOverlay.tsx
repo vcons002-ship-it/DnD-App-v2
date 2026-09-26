@@ -1,8 +1,9 @@
+import { diceThemeForClass } from '../../../shared/diceThemes';
 import { flattenDamageDice } from '../../../shared/diceVisuals';
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { playHit, playMiss, playSkill, playCritical } from '../lib/sfx';
-import { ThreeDie } from './ThreeDie';
+import { ThreeDie, DiceThemeContext } from './ThreeDie';
 import type { RollComparison } from '../../../shared/types';
 
 // Pacing (ms). Tweak to taste.
@@ -149,9 +150,16 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const staticReveal = reducedMotion;
   const rollFx = useStore((s) => s.rollFx);
   const dismiss = useStore((s) => s.dismissRollFx);
+  const characterClass = useStore(s => {
+    const name = s.rollFx?.reveal.attacker;
+    const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;
+    const direct = s.snapshot?.characters.filter(c => c.name === name) ?? [];
+    const matches = direct.length ? direct : s.snapshot?.characters.filter(c => c.name === roller) ?? [];
+    return matches.length === 1 ? matches[0].className : '';
+  });
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
-  return rollFx ? <RollSequence key={rollFx.id} rollFx={rollFx} player={player} staticReveal={staticReveal} dismiss={dismiss} /> : null;
+  return rollFx ? <DiceThemeContext.Provider value={diceThemeForClass(characterClass)}><RollSequence key={rollFx.id} rollFx={rollFx} player={player} staticReveal={staticReveal} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
 });
 
 function RollSequence({ rollFx, player, staticReveal, dismiss }: {
