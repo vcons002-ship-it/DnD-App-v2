@@ -1,0 +1,31 @@
+{
+  "source": "C:\\Users\\vcons\\.codex\\generated_images\\01a0bc77-1b83-7a53-9c53-86e904a628b4\\exec-5045605c-7734-435a-8cba-51e5533306f5.png",
+  "sourceDimensions": [
+    1254,
+    1254
+  ],
+  "viewDimensions": [
+    619,
+    619
+  ],
+  "upscaled": false,
+  "layout": {
+    "front": [
+      0,
+      0
+    ],
+    "back": [
+      1,
+      0
+    ],
+    "left": [
+      1,
+      1
+    ],
+    "right": [
+      0,
+      1
+    ]
+  },
+  "note": "Named side inputs verified visually: left faces image-right, right faces image-left."
+}

@@ -45,3 +45,11 @@ assets/miniatures/monster-provenance/shadow/** -filter -diff -merge -text
 assets/miniatures/monster-provenance/mummy/** -filter -diff -merge -text
 assets/miniatures/monster-provenance/quasit/** -filter -diff -merge -text
 assets/miniatures/monster-provenance/dretch/** -filter -diff -merge -text
+client/public/miniatures/monsters/cultist-fanatic.glb -filter -diff -merge -text
+client/public/miniatures/monsters/vrock.glb -filter -diff -merge -text
+client/public/miniatures/monsters/hezrou.glb -filter -diff -merge -text
+client/public/miniatures/monsters/glabrezu.glb -filter -diff -merge -text
+assets/miniatures/monster-provenance/cultist-fanatic/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/vrock/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/hezrou/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/glabrezu/** -filter -diff -merge -text

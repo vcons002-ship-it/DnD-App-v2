@@ -8,7 +8,7 @@ import { createSession, createMonsterTemplate, instantiateMonster } from '../ses
 describe('curated 3D starter library', () => {
   it('has complete creature stats, usable attacks, real model families and sensible sizes', () => {
     const entries = starterCreatures();
-    expect(entries).toHaveLength(42);
+    expect(entries).toHaveLength(47);
     expect(new Set(entries.map(c => c.name)).size).toBe(entries.length);
     for (const c of entries) {
       expect(MONSTER_MODEL_TYPES).toContain(c.modelType);
@@ -29,6 +29,7 @@ describe('curated 3D starter library', () => {
     expect(creatureSize(entries.find(c => c.name === 'Dire Wolf')!)).toBe('large');
   });
   it('adds Imp to an already seeded library without restoring deleted older entries', () => {
+    db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-cultists-demons-v1', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-undead-fiends-v1', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v2', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v1', '1');
@@ -108,7 +109,7 @@ describe('curated 3D starter library', () => {
     expect(resolveMonsterModelType({ name: 'Giant Wolf Spider' })).toBe('spider');
   });
   it('repairs legacy imports after old seed markers while preserving custom appearances and stats', () => {
-    for (const marker of ['starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'starter-undead-fiends-v1', 'library-stat-completeness-v1']) {
+    for (const marker of ['starter-cultists-demons-v1', 'starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'starter-undead-fiends-v1', 'library-stat-completeness-v1']) {
       db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run(marker, '1');
     }
     db.prepare('DELETE FROM app_meta WHERE key=?').run('library-specific-families-v1');
@@ -144,7 +145,7 @@ describe('curated 3D starter library', () => {
   });
 
   it('adds undead and demons once without changing custom copies or restoring deleted entries', () => {
-    for (const marker of ['starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'library-stat-completeness-v1', 'library-specific-families-v1']) {
+    for (const marker of ['starter-cultists-demons-v1', 'starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'library-stat-completeness-v1', 'library-specific-families-v1']) {
       db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run(marker, '1');
     }
     db.prepare('DELETE FROM app_meta WHERE key=?').run('starter-undead-fiends-v1');

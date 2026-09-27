@@ -18,6 +18,7 @@ import { getSrd, iconForCreature } from './creatures/srd.js';
 import { starterCreatures, COMMON_CREATURE_BATCH, COMMON_CREATURE_BATCH_2 } from './creatures/starterLibrary.js';
 import { missingCreatureFields } from './creatures/completeness.js';
 import { UNDEAD_FIEND_BATCH } from './creatures/undeadFiendLibrary.js';
+import { CULTIST_DEMON_BATCH } from './creatures/cultistDemonLibrary.js';
 
 // ---- Cross-session creature library ----
 
@@ -27,11 +28,12 @@ export function seedLibraryCreatures(): number {
     let added = 0;
     const entries = starterCreatures();
     const batches = [
-      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp' && !COMMON_CREATURE_BATCH.includes(c.name) && !COMMON_CREATURE_BATCH_2.includes(c.name) && !UNDEAD_FIEND_BATCH.includes(c.name)) },
+      { marker: 'starter-creatures-3d-v1', creatures: entries.filter(c => c.name !== 'Imp' && !COMMON_CREATURE_BATCH.includes(c.name) && !COMMON_CREATURE_BATCH_2.includes(c.name) && !UNDEAD_FIEND_BATCH.includes(c.name) && !CULTIST_DEMON_BATCH.includes(c.name)) },
       { marker: 'starter-creature-imp-v1', creatures: entries.filter(c => c.name === 'Imp') },
       { marker: 'starter-common-creatures-v1', creatures: entries.filter(c => COMMON_CREATURE_BATCH.includes(c.name)) },
       { marker: 'starter-common-creatures-v2', creatures: entries.filter(c => COMMON_CREATURE_BATCH_2.includes(c.name)) },
       { marker: 'starter-undead-fiends-v1', creatures: entries.filter(c => UNDEAD_FIEND_BATCH.includes(c.name)) },
+      { marker: 'starter-cultists-demons-v1', creatures: entries.filter(c => CULTIST_DEMON_BATCH.includes(c.name)) },
     ];
     for (const { marker, creatures } of batches) {
       if (getMeta(marker)) continue;

@@ -1032,6 +1032,82 @@
       "texture": "2048x2048 JPEG95",
       "textureViewCount": 4,
       "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "cultist-fanatic",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1519432,
+      "triangles": 20763,
+      "sha256": "f0b4a305b5eddf214661e532dce7a37f93574188908181af98f7890fb23501be",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/cultist-fanatic.glb",
+      "sourceSha256": "c5f79766eaf2b6065cce651eece4585e7e1e1f65f80f707415819c169a5c5dc9",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "vrock",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 2018276,
+      "triangles": 20571,
+      "sha256": "3f91e12c8b9f3090e2441c88692cb4bc29a5ffecdc45f64b2a5e0e5fa0b2f38c",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/vrock.glb",
+      "sourceSha256": "3ec99b8b2195b08eddf0da973d69a65f00eddbe5eae0a4cd2ce58b853250d8f4",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "hezrou",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1761200,
+      "triangles": 20498,
+      "sha256": "800fc9508ba373142990af830557b2e0e13c5eb7866b2521319d4a127c549d65",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/hezrou.glb",
+      "sourceSha256": "f652948963ad8cfa4409549f5d99859431b0b626c5875088cc33127eceaf96d4",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "glabrezu",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1718764,
+      "triangles": 20698,
+      "sha256": "43aec780c93a807ca6c4f993d4cae6e7b87c9144395f67d6341be1246d6fc47f",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/glabrezu.glb",
+      "sourceSha256": "bfaa1011e489a7bd3ebd5e13d1544b1c7e999cc867dfd84a2ba2c0792ec56196",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
     }
   ],
   "variants": [

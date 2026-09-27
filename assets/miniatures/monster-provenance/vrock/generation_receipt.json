@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "a287a095aa3a49ddb5dfcb73379fa410",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\vrock\\front.png",
+      "sha256": "5de99b3e9c6163e234ffb1d79a1dc6edc22d1f0e1367b7dca9c8e00b86b5ef01"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\vrock\\back.png",
+      "sha256": "6c1b4e0397be8d3b944bb5a131d18b72c5959f71fb210056390aa27e42f6b468"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\vrock\\left.png",
+      "sha256": "e68b83d5c3e6df1c6a2fca447c3b0cc14ba290cf1d9f95cc117392c08719cf06"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\vrock\\right.png",
+      "sha256": "5e6dd92f425485e2fc3f554362c8019b076ed894af15946bc13e5a4256f07c8d"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 927202,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 927202,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 2981226,
+    "number_of_vertices": 1489823,
+    "time": {
+      "remove background": 1.0205211639404297,
+      "shape generation": 66.74364519119263,
+      "export to trimesh": 0.7607040405273438,
+      "face reduction": 37.720911741256714,
+      "texture generation": 60.688262939453125,
+      "total": 167.12435340881348
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 927202,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\vrock\\generation-01\\00_white_mesh.glb",
+      "sha256": "bc816a126978a435c0b50b8790af6cd257c4fa1d1642b4209be206044787ac86",
+      "bytes": 53653380,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\vrock\\generation-01\\01_textured_mesh.glb",
+      "sha256": "3ec99b8b2195b08eddf0da973d69a65f00eddbe5eae0a4cd2ce58b853250d8f4",
+      "bytes": 5574808,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 168.703,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

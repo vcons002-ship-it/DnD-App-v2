@@ -1,0 +1,18 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Painted high quality fantasy tabletop miniature reference sheet, 2048x2048, four equal square panels in a 2x2 grid: front, back, left profile, right profile. Exactly the same creature and pose in all four views, full body entirely visible at equal scale. Plain white background, soft even studio light, no base, no text. Simple clean silhouette and readable materials for multi-view 3D reconstruction. A large vulture demon, hunched sinewy gray-purple torso, bare vulture head with hooked ivory beak, dark ragged feather wings lifted partially open behind its shoulders. Two separate muscular arms with claws raised ready to rake, two bird legs with talons planted firmly. Wings fit within each panel. No weapons, no armor, no effects.",
+  "requestedSheetDimensions": [
+    2048,
+    2048
+  ],
+  "actualSheetDimensions": [
+    1254,
+    1254
+  ],
+  "extractedViewDimensions": [
+    619,
+    619
+  ],
+  "upscaled": false,
+  "texturePolicy": "named-multiview-texture-v1"
+}

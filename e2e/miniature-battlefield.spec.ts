@@ -7,6 +7,50 @@ import { DM_SECRET, PORT } from './playwright.config';
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
+test('cultist and demon library entries load the real equipped models in both map views', async ({ page, request }, info) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const f = await fixture(page, request);
+  const errors: string[] = [], loaded: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const creatures = [
+    ['Cultist Swordsman', 'cultist'], ['Cultist Fanatic', 'cultist-fanatic'],
+    ['Vrock', 'vrock'], ['Hezrou', 'hezrou'], ['Glabrezu', 'glabrezu'],
+  ];
+  page.on('response', response => {
+    for (const [, family] of creatures) if (response.url().endsWith(`/miniatures/monsters/${family}.glb`) && response.ok()) loaded.push(family);
+  });
+  for (const [index, [name, family]] of creatures.entries()) {
+    const library = await (await request.get(`/api/library/creatures?q=${encodeURIComponent(name)}`)).json();
+    const entry = library.find((c: any) => c.name === name);
+    expect(entry.modelType).toBe(family);
+    expect(entry.weapons.length).toBeGreaterThan(0);
+    f.socket.emit('monster:create', entry);
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === name)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 160 + index * 220, y: 590 });
+  }
+  const ready = await f.snapshot();
+  expect(ready.tokens.filter(t => t.kind === 'monster')).toHaveLength(5);
+  await enter(page, f.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '8', { timeout: 60000 });
+  expect(new Set(loaded)).toEqual(new Set(creatures.map(([, family]) => family)));
+  for (const token of ready.tokens.filter(t => t.kind === 'monster')) {
+    expect((await tokenView(page, token.id))?.miniatureReady).toBe(true);
+    const monster = ready.monsters.find(m => m.id === token.refId)!;
+    expect(token.widthFt).toBe(monster.creatureType.startsWith('Large') ? 10 : 5);
+  }
+  await page.getByTitle('Zoom out', { exact: true }).click();
+  await page.getByTitle('Zoom out', { exact: true }).click();
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('cultists-demons-45.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('cultists-demons-overhead.png') });
+  expect(errors).toEqual([]);
+});
+
 test('undead and demon library entries spawn their distinct real 3D models in both map views', async ({ page, request }, info) => {
   test.setTimeout(120000);
   await page.setViewportSize({ width: 1600, height: 1000 });
