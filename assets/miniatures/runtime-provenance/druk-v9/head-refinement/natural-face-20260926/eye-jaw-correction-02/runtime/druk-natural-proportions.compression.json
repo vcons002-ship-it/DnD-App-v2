@@ -1,0 +1,179 @@
+{
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\fit-01\\druk-natural-face.glb",
+  "source_sha256": "186dde63b81d2a6523ae8c990a53ff5862e7b7f559ace17e72953ed9d8305582",
+  "source_bytes": 50356428,
+  "output": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\runtime\\druk-natural-proportions.glb",
+  "sha256": "c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813",
+  "bytes": 35745748,
+  "triangles": 880404,
+  "mesh_node_count": 29,
+  "node_count": 29,
+  "material_count": 24,
+  "animation_count": 0,
+  "accessors_checked": 122,
+  "cyclically_rotated_index_accessors": 36,
+  "historical_unreferenced_index_accessors_checked": [],
+  "images": [
+    {
+      "name": "",
+      "mimeType": "image/png",
+      "bytes": 2951652,
+      "sha256": "f5139df3438e7eb6f674d914192e4ba456b8669e59da5066e9cabee0ea142db8",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "Image_0",
+      "mimeType": "image/png",
+      "bytes": 2622552,
+      "sha256": "3464ae554a018388053d44fe988fe77e403239dd7368166fa753099a5d0d9f43",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "Image_0",
+      "mimeType": "image/jpeg",
+      "bytes": 1003217,
+      "sha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+      "detected_mime_type": "image/jpeg",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "Image_1",
+      "mimeType": "image/png",
+      "bytes": 3244670,
+      "sha256": "92440024215241427bd6f5d65b6760d72cf2755d88501ff902dba06a458b6da2",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "",
+      "mimeType": "image/png",
+      "bytes": 2594268,
+      "sha256": "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "name": "",
+      "mimeType": "image/png",
+      "bytes": 2783404,
+      "sha256": "c15e3cb4fa586931fe24322d7f0e12282ae0366891bde55f8786f55a5c50b5b8",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    }
+  ],
+  "original_raw_embedded_images": [
+    {
+      "mimeType": "image/png",
+      "bytes": 2951652,
+      "sha256": "f5139df3438e7eb6f674d914192e4ba456b8669e59da5066e9cabee0ea142db8",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "mimeType": "image/png",
+      "bytes": 2622552,
+      "sha256": "3464ae554a018388053d44fe988fe77e403239dd7368166fa753099a5d0d9f43",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "mimeType": "image/jpeg",
+      "bytes": 1003217,
+      "sha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+      "detected_mime_type": "image/jpeg",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "mimeType": "image/png",
+      "bytes": 3244670,
+      "sha256": "92440024215241427bd6f5d65b6760d72cf2755d88501ff902dba06a458b6da2",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "mimeType": "image/png",
+      "bytes": 2594268,
+      "sha256": "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "mimeType": "image/png",
+      "bytes": 2783404,
+      "sha256": "c15e3cb4fa586931fe24322d7f0e12282ae0366891bde55f8786f55a5c50b5b8",
+      "detected_mime_type": "image/png",
+      "size": [
+        2048,
+        2048
+      ]
+    }
+  ],
+  "all_vertex_and_animation_accessor_bytes_exact": true,
+  "all_triangle_order_winding_and_vertex_references_exact_up_to_cyclic_rotation": true,
+  "original_embedded_image_bytes_exact": true,
+  "all_canonical_semantic_tables_exact": [
+    "nodes",
+    "meshes",
+    "materials",
+    "textures",
+    "samplers",
+    "skins",
+    "animations",
+    "scenes",
+    "scene",
+    "cameras"
+  ],
+  "all_node_names_transforms_hierarchy_and_animation_values_exact": true,
+  "no_geometry_simplification": true,
+  "no_quantization": true,
+  "no_meshopt_filters": true,
+  "no_texture_resize": true,
+  "no_image_reencoding": true,
+  "source_unchanged": true,
+  "extension": "EXT_meshopt_compression",
+  "encoder": "meshoptimizer 1.2.0",
+  "gltf_transform": "4.5.0",
+  "app_decoder": {
+    "path": "C:/Users/vcons/DnD-App-v2-miniatures/node_modules/three/examples/jsm/libs/meshopt_decoder.module.js",
+    "sha256": "d428e73a000057c6c94bfcedc3412d0c2dc14ca8800e88553aab05113ad2bf19",
+    "decoded_all_accessors_successfully": true,
+    "note": "Decoded with the exact Three.js MeshoptDecoder module bundled in the application checkout, under Node. Browser rendering is verified separately by the app task."
+  },
+  "script": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\runtime-full-v1\\compress_full.mjs",
+  "script_sha256": "b1dfcf572706ee41cda3e3d1db37592a97727842c369391ade70d6cc868f8820"
+}

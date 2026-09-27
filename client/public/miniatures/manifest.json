@@ -6,19 +6,19 @@
       "id": "druk",
       "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
       "baseTextureSha256": "e19b0a12af0c4f383b3731a90016184ad6799f0e6441df9e520d44595cf9013b",
-      "url": "/miniatures/druk-6327e0b13869.glb",
-      "sha256": "6327e0b138691afa94772a21c84f62604588fd7ec82d12fae49ca8f642fd448e",
-      "bytes": 35501804,
-      "triangles": 916637,
+      "url": "/miniatures/druk-c652013a617c.glb",
+      "sha256": "c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813",
+      "bytes": 35745748,
+      "triangles": 880404,
       "baseCenter": [
         0.03537392616271973,
         -1.1119999885559082,
         0.0656827986240387
       ],
       "baseDiameter": 1.3600000143051147,
-      "sourceVersion": "druk-v9/final-07/druk.glb",
-      "sourceSha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
-      "sourceTriangles": 916637,
+      "sourceVersion": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/fit-01/druk-natural-face.glb",
+      "sourceSha256": "186dde63b81d2a6523ae8c990a53ff5862e7b7f559ace17e72953ed9d8305582",
+      "sourceTriangles": 880404,
       "compression": "EXT_meshopt_compression",
       "originalTextures": true,
       "sourceImageHashes": [
@@ -26,8 +26,8 @@
         "3464ae554a018388053d44fe988fe77e403239dd7368166fa753099a5d0d9f43",
         "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
         "92440024215241427bd6f5d65b6760d72cf2755d88501ff902dba06a458b6da2",
-        "0f3bc4450daea7e30a02eb1036ed71ee2dad114a4b2e2e56df8d2e069c27584f",
-        "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c"
+        "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c",
+        "c15e3cb4fa586931fe24322d7f0e12282ae0366891bde55f8786f55a5c50b5b8"
       ]
     },
     {

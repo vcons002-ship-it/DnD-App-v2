@@ -5,11 +5,11 @@
   "models": [
     {
       "id": "druk",
-      "source": "druk-v9/final-07/druk.glb",
-      "sourceSha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
-      "runtimeSha256": "6327e0b138691afa94772a21c84f62604588fd7ec82d12fae49ca8f642fd448e",
-      "runtimeFile": "druk-6327e0b13869.glb",
-      "triangles": 916637,
+      "source": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/fit-01/druk-natural-face.glb",
+      "sourceSha256": "186dde63b81d2a6523ae8c990a53ff5862e7b7f559ace17e72953ed9d8305582",
+      "runtimeSha256": "c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813",
+      "runtimeFile": "druk-c652013a617c.glb",
+      "triangles": 880404,
       "originalImageBytesExact": true
     },
     {
@@ -1459,6 +1459,108 @@
       "sha256": "6449a9ed961072224fda29a325317749ba07584d141afdb40aff23a7594dbf41",
       "bytes": 280153,
       "role": "material/detail identity and matching enhanced landmarks"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/reference-provenance.json",
+      "sha256": "50207b777fbeae735e5c5c1b5f24879dd95fea7261a69a15fd01e048c53201da",
+      "bytes": 1710,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/source/druk-natural-face-four-views.png",
+      "sha256": "d1dbe8e9b01ced54597263b079076929184b23e816998101321ec91d5c2ee7f7",
+      "bytes": 2166171,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/generation/generation_receipt.json",
+      "sha256": "6c92803001048bde17de9d25c418ef5e8abeeceec3a84eb27c930c23e225acb1",
+      "bytes": 3225,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/generation/01_textured_mesh.glb",
+      "sha256": "b3f3e873abab58291e89e1abd17965721014f77b038de6e93a138036977e3182",
+      "bytes": 4730620,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/build_head.py",
+      "sha256": "94f84e600b3bf5df8dac63e9ab2248b353492fccc5b519d52306938316676bee",
+      "bytes": 3565,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/assemble.py",
+      "sha256": "06b36dd3089ee65537d366c9022b9e00daff8e5f603e9a7d0f85269b4e75ac94",
+      "bytes": 7547,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/head-left-eye/receipt.json",
+      "sha256": "f4d17baef141c8e732dd465c18332a5668f26d924e0fb91107bb248bbc9d109e",
+      "bytes": 1137,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/head-left-eye/head-raw.glb",
+      "sha256": "f78638d9f511305e1c159c2fc008cd1add7f9599b3f6497831aab229370fd37a",
+      "bytes": 10911488,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/fit-01/assembly.json",
+      "sha256": "2d109e658e28e29dcb2bdeeebbb6366504dfdbd7d73160b5036540c9781bceed",
+      "bytes": 36728,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/validation.json",
+      "sha256": "667303a2abc486ec1f031b6589715c812995a6674e73ee8c9c5ba10a8c6c09b1",
+      "bytes": 696,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/runtime/druk-natural-proportions.compression.json",
+      "sha256": "949c9cb633eedbf74ae11c5cb11612ff940fb43fe06ca00f18a10b1e956a53cd",
+      "bytes": 5383,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/fit-01/review/front.png",
+      "sha256": "baaa35e3b54a63585be5e4ab80c1aeb791c00f4f9bf70fa142da5ee9c5ea87ac",
+      "bytes": 1465639,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/eye-jaw-correction-02/fit-01/review/profile.png",
+      "sha256": "c2405ccf9dfd8b3ef30297a22e8c097f940a38c58c4c94b85d8e3cd69a81d9b9",
+      "bytes": 1616937,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/views/front.png",
+      "sha256": "38c52a80aa5dd9d932d1b0d19a2804c6fad160bbd67a9111618f845c1607c2b7",
+      "bytes": 698410,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/views/back.png",
+      "sha256": "524e9a8736b70a5d79d8a2ebecdd03b70181c48e63b9752651332b910d58223f",
+      "bytes": 628896,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/views/left.png",
+      "sha256": "f15421e7f50aee67f269afb3b5bee7edd5e4247ea6f46edd955afd86e5cc2956",
+      "bytes": 709198,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
+    },
+    {
+      "path": "druk-v9/head-refinement/natural-face-20260926/views/right.png",
+      "sha256": "9ec09bd9df28a71d01bfc6d3219bad5c253de589d94a0ad9bb76a2ac1c42d0a5",
+      "bytes": 692796,
+      "role": "Approved Druk natural face: selected source art, reconstruction, fitting or validation evidence"
     }
   ],
   "varisHandSources": [
