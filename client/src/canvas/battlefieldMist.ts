@@ -43,20 +43,24 @@ const densityField = /* glsl */`
     if (edge < .001) return 0.0;
     vec4 flow = texture2D(mistFlow, world.xz / mistMapSize);
     vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5;
-    float along = dot(bent, vec2(.94,.342)) - mistTime * 10.0;
-    float across = dot(bent, vec2(-.342,.94));
-    float curl = mistNoiseAt(vec3(along / 105.0, across / 74.0, mistTime * .055));
-    across += (curl - .5) * 35.0;
-    float strands = .68 * mistNoiseAt(vec3(along / 155.0, y * 2.7 + 3.0, across / 15.0))
-                  + .32 * mistNoiseAt(vec3(along / 63.0 + 7.0, y * 4.0, across / 8.0 + 13.0));
-    float wisps = smoothstep(.39,.65,strands) * (1.0 - smoothstep(.10,.43,y));
-    float bank = mistNoiseAt(vec3(along / 86.0 + 21.0, y * 1.5 + 17.0, across / 48.0));
-    float billow = smoothstep(.53,.75,bank) * (1.0 - smoothstep(.28,.93,y));
-    float clearing = mix(flow.b,1.0,smoothstep(.35,.95,y));
+    // World-space domain warping and differently oriented octaves prevent long
+    // parallel strips showing through when looking along the wind direction.
+    vec2 drift = bent - vec2(9.4,3.42) * mistTime;
+    vec3 warpPoint = vec3(drift / 115.0, y * .8 + mistTime * .025);
+    vec2 warp = vec2(mistNoiseAt(warpPoint),mistNoiseAt(warpPoint + vec3(19.1,7.7,11.3))) - .5;
+    vec2 p = drift + warp * 95.0;
+    vec2 a = vec2(dot(p,vec2(.94,.342)),dot(p,vec2(-.342,.94)));
+    vec2 b = vec2(dot(p,vec2(.64,-.768)),dot(p,vec2(.768,.64)));
+    float strands = .64 * mistNoiseAt(vec3(a.x / 88.0, y * 2.7 + 3.0, a.y / 27.0))
+                  + .36 * mistNoiseAt(vec3(b.x / 53.0 + 7.0, y * 4.0, b.y / 24.0 + 13.0));
+    float bank = mistNoiseAt(vec3(p.x / 83.0 + 21.0, y * 1.5 + 17.0, p.y / 69.0));
+    float wisps = smoothstep(.36,.64,strands) * smoothstep(.20,.53,bank) * (1.0 - smoothstep(.13,.5,y));
+    float billow = smoothstep(.51,.75,bank) * (1.0 - smoothstep(.28,.93,y));
+    float clearing = mix(flow.b,1.0,smoothstep(.5,.98,y));
     float rim = flow.a * (1.0 - smoothstep(.3,.8,y)) * (.3 + .7*strands);
     // Mist displaced into the trailing rim must not be erased by the clearing
     // field that created it. Keep it wispy, with the same noise and light as fog.
-    return edge * smoothstep(0.0,.025,y) * (clearing * (wisps * 1.4 + billow * .8) + rim * 1.05);
+    return edge * smoothstep(0.0,.025,y) * (clearing * (wisps * 1.5 + billow * .8) + rim * 1.35);
   }
   float mistGroundShade(vec3 world) {
     if (mistShadowStrength <= 0.0 || mistStrength <= 0.0) return 1.0;

@@ -189,7 +189,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let failed = false;
   let frame = 0;
   let lastPaint = 0;
-  let started = performance.now();
+  const started = performance.now();
   let lastIds = '';
   let lastStatus = '';
   let hasRendered = false;
@@ -252,7 +252,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     publish();
     dispose();
   };
-  const draw = (now: number) => {
+  const draw = (_frameTime: number) => {
+    // RAF's frame-start timestamp can precede an immediate camera redraw in the
+    // same frame. One live clock keeps movement, fog history and FX monotonic.
+    const now = performance.now();
     frame = 0;
     if (disposed || failed || document.hidden) return;
     const atmosphereAnimated = !!props.environmentPreview?.enabled && props.environmentPreview.mist && props.environmentPreview.mistQuality!=='off' && !reducedMotion.matches;
@@ -325,6 +328,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistSteps=String(mistState.steps);
           host.dataset.mistResolution=`${mistState.bufferWidth}x${mistState.bufferHeight}`;
           host.dataset.mistWakes=String(mistState.wakes);
+          host.dataset.mistTime=String(mistState.time);
+          host.dataset.mistOldestWakeAge=String(mistState.oldestWakeAge);
           host.dataset.mistObstacles=String(mistState.obstacles);
           host.dataset.mistInteraction=String(mistState.enabled);
           if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}
@@ -617,7 +622,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     invalidate();
   };
   const contextLost = (event: Event) => { event.preventDefault(); fail(); };
-  const visibility = () => { started = performance.now(); invalidate(); };
+  const visibility = () => { invalidate(); };
   const dispose = () => {
     if (disposed) return;
     disposed = true;

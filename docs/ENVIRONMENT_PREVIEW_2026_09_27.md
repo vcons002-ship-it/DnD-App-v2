@@ -233,3 +233,45 @@ the focused recording compares interaction off/on and a close overhead view.
 
 Preview: https://dnd.nic024i.app/uploads/previews/environment-curling-trail-20260927/index.html
 This updates the separate environment preview, not the live campaign renderer.
+
+## Stronger wake and camera continuity
+
+The cleared corridor is slightly wider and affects more of the low mist volume.
+Its edge curls are fuller, with stronger inward rotation and displaced density;
+they still stay along the travelled path and fade over six seconds. History and
+texture bounds are unchanged.
+
+Camera orbit reproduced a real history reset: twenty retained wake segments
+dropped to zero. `setProjection` drew immediately using `performance.now()`,
+while animation callbacks supplied the earlier start-of-frame timestamp. The
+mist interpreted that small backwards step as a restart. Rendering now reads
+one live monotonic clock; stale positive mist ticks are ignored. Tab visibility
+no longer restarts the effect clock. Reduced motion still explicitly clears
+wakes and freezes the field at time zero.
+
+The former 10:1 wind-stretched noise exposed long parallel strips from some
+angles. Two spatial warp fields, differently oriented shorter wisps, and a
+broad irregular density envelope break up that alignment. These remain
+world-space shapes viewed through the depth-clipped volume, not camera-facing
+cards. The density function uses five noise samples instead of four; resolution
+and ray sample budgets remain unchanged. Previous GPU measurements above do
+not measure this revision.
+
+Validation: typecheck, production build, all 901 server tests, the full
+desktop/phone environment verifier, and a focused orbit regression pass. The
+orbit regression fails on the prior build and passes on this build. It checks
+that existing wakes survive rotation, their age keeps increasing, and mist time
+does not go backwards. The recording also exercises a right-button drag during
+movement, the opposite camera angle, and overhead. Its actual encoded start
+marker determines trimming, avoiding wall-clock/encoder timing differences.
+
+```sh
+node scripts/environment-preview/build.mjs
+node scripts/environment-preview/check-orbit.mjs EVIDENCE_DIRECTORY
+node scripts/environment-preview/record-orbit.mjs EVIDENCE_DIRECTORY
+```
+
+Preview: https://dnd.nic024i.app/uploads/previews/environment-mist-orbit-20260927/index.html
+
+The 27-second H.264 recording and interactive lab are separate static previews.
+No campaign data or running app service was changed.

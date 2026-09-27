@@ -16,6 +16,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   See [implementation and verification](docs/TOKEN_MOVEMENT_PREVIEW_2026_09_27.md).
 - [x] Refine the mist into a retained movement trail with delayed inward curls
   along its edges, replacing the circular disturbance around the moving base.
+- [x] Strengthen the cleared path and curled edges, preserve wake history during
+  camera rotation, and break up parallel mist strips with irregular curved patches.
+  Verify simultaneous movement/orbit and record multiple angles in the static lab.
 
 ## Undead and demon library expansion - September 2026
 

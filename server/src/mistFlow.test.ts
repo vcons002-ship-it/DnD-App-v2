@@ -15,6 +15,18 @@ function walk(flow:ReturnType<typeof field>){
 }
 
 describe('mist movement history',()=>{
+  it('preserves the trail when a camera redraw is followed by an older animation timestamp',()=>{
+    const flow=field();walk(flow);
+    const before=flow.state, pixels=(flow.texture.image.data as Uint8Array).slice();
+    flow.tick(2.995);
+    expect(flow.state).toEqual(before);
+    expect(flow.texture.image.data).toEqual(pixels);
+    flow.tick(3.1);
+    expect(flow.state.wakes).toBe(before.wakes);
+    expect(flow.state.oldestWakeAge).toBeGreaterThan(before.oldestWakeAge);
+    flow.tick(0);expect(flow.state.wakes).toBe(0);
+    flow.dispose();
+  });
   it('leaves a narrow path behind the token without a forward or sideways halo',()=>{
     const flow=field();walk(flow);
     expect(pixel(flow,300,350)[2]).toBeLessThan(100);

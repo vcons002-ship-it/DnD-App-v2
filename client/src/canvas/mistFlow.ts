@@ -82,7 +82,10 @@ export function createMistFlow() {
       }
     },
     tick(seconds:number){
-      if(seconds<time||seconds===0){wakes.length=0;lastUpload=-1;}
+      // Zero explicitly freezes reduced-motion previews. A stale render clock
+      // must never erase world-space history during camera interaction.
+      if(seconds===0){wakes.length=0;lastUpload=-1;}
+      else if(seconds<time)return;
       time=seconds;
       if(!enabled)wakes.length=0;
       for(let i=wakes.length-1;i>=0;i--)if(seconds-wakes[i].born>lifetime)wakes.splice(i,1);
@@ -94,15 +97,15 @@ export function createMistFlow() {
         // These coordinates stay on the travelled path. Only ambient wind
         // carries them a little; the figure's new position never drags them.
         const wx=wake.x+age*3,wy=wake.y+age;
-        const halfWidth=wake.radius*(.86-.43*smooth(.7,5.8,age));
+        const halfWidth=wake.radius*(1.02-.46*smooth(.7,5.8,age));
         const extent=wake.length*.5+halfWidth*1.3;
         visit(wx,wy,extent,(i,x,y)=>{
           const px=x-wx,py=y-wy;
           const along=px*wake.dx+py*wake.dy,across=px*nx+py*ny;
           const end=Math.max(0,Math.abs(along)-wake.length*.5);
           const d=Math.hypot(across,end)/halfWidth;
-          const clearing=(1-smooth(.28,1,d))*fade;
-          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.94)));
+          const clearing=(1-smooth(.38,1,d))*fade;
+          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.98)));
         });
         if(!wake.curl)continue;
         // Counter-rotating edge ribbons grow after passage, curl inward, then
@@ -110,15 +113,15 @@ export function createMistFlow() {
         const roll=smooth(.25,2.5,age),strength=smooth(.12,.7,age)*fade;
         for(const side of [-1,1]){
           const variation=Math.sin(wake.ordinal*2.399+side*1.7);
-          const r=wake.radius*(.68+variation*.08);
-          const cx=wx+wake.dx*side*r*.22+nx*side*wake.radius*.86;
-          const cy=wy+wake.dy*side*r*.22+ny*side*wake.radius*.86;
+          const r=wake.radius*(.77+variation*.10);
+          const cx=wx+wake.dx*side*r*.22+nx*side*wake.radius*.96;
+          const cy=wy+wake.dy*side*r*.22+ny*side*wake.radius*.96;
           // Pull the existing surrounding wisps into the rolled edge as well as
           // adding a little displaced density. Opposite sides turn inward.
           visit(cx,cy,r*1.8,(i,x,y)=>{
             const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)/r;
             if(d>=1.8)return;
-            const angle=side*roll*1.8*Math.exp(-d*d*.9)*fade;
+            const angle=side*roll*2.15*Math.exp(-d*d*.9)*fade;
             const c=Math.cos(angle),s=Math.sin(angle);
             data[i]=clamp(data[i]+(dx*c-dy*s-dx)*2);
             data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy)*2);
@@ -130,16 +133,16 @@ export function createMistFlow() {
             const radius=r*(1-.76*t*roll);
             const along=-Math.cos(a)*radius,across=-side*Math.sin(a)*radius;
             const x=cx+wake.dx*along+nx*across,y=cy+wake.dy*along+ny*across;
-            const width=wake.radius*(.20+age*.018)*(1-.3*t);
+            const width=wake.radius*(.24+age*.018)*(1-.3*t);
             // Broken, soft strands instead of an opaque spiral symbol.
-            const density=(.58+.14*Math.sin(k*.7+wake.ordinal))*strength*(.8+.2*t);
+            const density=(.70+.17*Math.sin(k*.7+wake.ordinal))*strength*(.8+.2*t);
             ribbon(x,y,width,density);
           }
         }
       }
       texture.needsUpdate=true;
     },
-    get state(){return {wakes:wakes.length,obstacles,enabled};},
+    get state(){return {wakes:wakes.length,obstacles,enabled,time,oldestWakeAge:wakes.length?time-wakes[0].born:0};},
     dispose(){texture.dispose();previous.clear();wakes.length=0;},
   };
 }
