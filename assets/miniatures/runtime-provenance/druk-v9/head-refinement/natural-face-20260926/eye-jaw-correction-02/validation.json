@@ -1,0 +1,19 @@
+{
+  "source_art_unchanged": true,
+  "head_texture_atlas_bytes_preserved": true,
+  "eye_reference": "Anatomical left (positive source X, right side of front view), original first-generation textured export",
+  "chin_retraction_fraction_of_last_preview": 0.2,
+  "cheek_depth_fraction_of_last_preview": 0.24,
+  "lateral_cheek_widening_removed": true,
+  "lower_face_length_factor": 1.1,
+  "prior_preview_preserved": true,
+  "assembly_sha256": "186dde63b81d2a6523ae8c990a53ff5862e7b7f559ace17e72953ed9d8305582",
+  "preserved_body_equipment_base_components": 27,
+  "rendered_views": [
+    "front",
+    "three-quarter",
+    "profile",
+    "full-body"
+  ],
+  "live_app_changed": false
+}

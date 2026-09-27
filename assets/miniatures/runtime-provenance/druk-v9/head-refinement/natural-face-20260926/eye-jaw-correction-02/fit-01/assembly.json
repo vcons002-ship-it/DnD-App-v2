@@ -1,0 +1,1135 @@
+{
+  "status": "candidate_for_visual_review",
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+  "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+  "new_head_source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\head-left-eye\\head-raw.glb",
+  "new_head_sha256": "f78638d9f511305e1c159c2fc008cd1add7f9599b3f6497831aab229370fd37a",
+  "source_files_unchanged": true,
+  "preserved_component_count": 27,
+  "collar_finish": "Original front closure geometry retained, material changed to dark inner collar lining instead of stretched green skin visible behind the new neck.",
+  "removed_nodes": [
+    "DrukV9_New_Refined_Head",
+    "DrukV9_Refined_Eyes_Forward"
+  ],
+  "geometry_source": "four-view Hunyuan3D-2mv original textured export, one native subdivision with continuous UVs and matched eye UVs",
+  "head_transform": [
+    [
+      0.18584804413942307,
+      0.0,
+      0.039503221255374275,
+      0.048
+    ],
+    [
+      0.0,
+      0.19,
+      0.0,
+      0.773
+    ],
+    [
+      -0.039503221255374275,
+      0.0,
+      0.18584804413942307,
+      -0.078
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "skin_linear_gain": [
+    0.14,
+    0.2,
+    0.13
+  ],
+  "original_head_texture_bytes_preserved": true,
+  "native_face_refinement": "Anatomical left eye retained; reduced chin retraction and cheek pad; restored lower-face length and nose depth; texture atlas preserved",
+  "attachment_blend": "Neck base only below source Y -0.70; original cheek, chin and nose refinements remain intact",
+  "neck_tuck_vertices": 6257,
+  "neck_tuck_max_world_displacement": 0.03990582376718521,
+  "native_vertex_color_used_for_skin_match": true,
+  "bytes": 50356428,
+  "triangles": 880404,
+  "sha256": "186dde63b81d2a6523ae8c990a53ff5862e7b7f559ace17e72953ed9d8305582",
+  "output": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\fit-01\\druk-natural-face.glb",
+  "comparisons": [
+    {
+      "node": "DrukV9_Dense_Body_REVIEW_CANDIDATE",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Lowered_Right_Hand",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Lowered_Left_Hand",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV7_Approved_BoneSword",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Pinned_Rear_Neck_Repair",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Lowered_Right_Short_Wrist_Transition",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Lowered_Left_Short_Wrist_Transition",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Rim_0",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Brass_1",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Rim_2",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Rim_3",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Brass_4",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Rim_5",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Underside",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Earthy_Stone_Moss_Top",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Low_Stone_1",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Low_Stone_2",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Low_Stone_3",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Low_Stone_4",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Subtle_Brass_Orb_And_Angular_Accents",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Base_Matte_Olive_Orb_Inset",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Left_Hip_Handaxe",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Right_Hip_Handaxe",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        },
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Left_Axe_Carry_Loop",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Left_Axe_Belt_Hanger",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Right_Axe_Carry_Loop",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Right_Axe_Belt_Hanger",
+      "role": "unchanged_body_equipment_base_or_collar",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\final-07\\druk.glb",
+      "source_sha256": "25864639e1aee7decc62c90f343093f461d33b83a3f37774e35da4e36e0ed758",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "DrukV9_Recessed_Front_Neck_Closure",
+      "role": "original_collar_geometry_with_dark_inner_lining",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\fit-01\\collar-lining.glb",
+      "source_sha256": "bc4f4ea4e0aa2cc324134d5137db0c25a8afbc54b21106a0924d82634bd54eae",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "NORMAL",
+            "POSITION"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    },
+    {
+      "node": "Druk_Natural_Multiview_Head",
+      "role": "new_multiview_head",
+      "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\fit-01\\fitted-head.glb",
+      "source_sha256": "f33d419163efcb794db7c1847d3a851700420c47d3f65b52ffb8af6bd624ab15",
+      "node_and_world_transform_exact": true,
+      "primitives": [
+        {
+          "attributes_byte_exact": [
+            "COLOR_0",
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "indices_byte_exact": true,
+          "buffer_view_payloads_byte_exact": true,
+          "material_and_referenced_texture_payloads_exact": true
+        }
+      ]
+    }
+  ],
+  "bounds": {
+    "space": "glTF world XYZ; only referenced vertices counted",
+    "min": [
+      -0.6446260809898376,
+      -1.1119999885559082,
+      -0.6143171787261963
+    ],
+    "max": [
+      0.7153739333152771,
+      1.2777502362090731,
+      0.7456827759742737
+    ],
+    "size": [
+      1.3600000143051147,
+      2.389750224764981,
+      1.35999995470047
+    ],
+    "nodes": [
+      {
+        "node": "DrukV9_Dense_Body_REVIEW_CANDIDATE",
+        "min": [
+          -0.47865334153175354,
+          -0.9967947006225586,
+          -0.46671605110168457
+        ],
+        "max": [
+          0.5430986881256104,
+          0.6679579019546509,
+          0.46880266070365906
+        ]
+      },
+      {
+        "node": "DrukV9_Lowered_Right_Hand",
+        "min": [
+          -0.19722655415534973,
+          0.2075614482164383,
+          0.10768022388219833
+        ],
+        "max": [
+          -0.09083840250968933,
+          0.3568353056907654,
+          0.22178758680820465
+        ]
+      },
+      {
+        "node": "DrukV9_Lowered_Left_Hand",
+        "min": [
+          -0.14358793199062347,
+          0.12302517145872116,
+          0.12528564035892487
+        ],
+        "max": [
+          -0.029838284477591515,
+          0.2607957124710083,
+          0.21369563043117523
+        ]
+      },
+      {
+        "node": "DrukV7_Approved_BoneSword",
+        "min": [
+          -0.6298706564106993,
+          -0.017856162587733038,
+          0.048524929492947566
+        ],
+        "max": [
+          0.026080581112092938,
+          1.2777502362090731,
+          0.3321204607739852
+        ]
+      },
+      {
+        "node": "DrukV9_Pinned_Rear_Neck_Repair",
+        "min": [
+          -0.1806902289390564,
+          0.5521866083145142,
+          -0.31723976135253906
+        ],
+        "max": [
+          0.27045127749443054,
+          0.6680662631988525,
+          -0.1415444165468216
+        ]
+      },
+      {
+        "node": "DrukV9_Lowered_Right_Short_Wrist_Transition",
+        "min": [
+          -0.22643187642097473,
+          0.19034318625926971,
+          0.0664595365524292
+        ],
+        "max": [
+          -0.13633397221565247,
+          0.34535032510757446,
+          0.14877896010875702
+        ]
+      },
+      {
+        "node": "DrukV9_Lowered_Left_Short_Wrist_Transition",
+        "min": [
+          -0.08315093070268631,
+          0.13824687898159027,
+          0.08313120156526566
+        ],
+        "max": [
+          -0.009364576078951359,
+          0.2589232623577118,
+          0.1867174506187439
+        ]
+      },
+      {
+        "node": "Druk_Base_Rim_0",
+        "min": [
+          -0.6446260809898376,
+          -1.1119999885559082,
+          -0.6143171787261963
+        ],
+        "max": [
+          0.7153739333152771,
+          -1.1019999980926514,
+          0.7456827759742737
+        ]
+      },
+      {
+        "node": "Druk_Base_Brass_1",
+        "min": [
+          -0.6446260809898376,
+          -1.1019999980926514,
+          -0.6143171787261963
+        ],
+        "max": [
+          0.7153739333152771,
+          -1.093999981880188,
+          0.7456827759742737
+        ]
+      },
+      {
+        "node": "Druk_Base_Rim_2",
+        "min": [
+          -0.6446260809898376,
+          -1.093999981880188,
+          -0.6143171787261963
+        ],
+        "max": [
+          0.7153739333152771,
+          -1.090000033378601,
+          0.7456827759742737
+        ]
+      },
+      {
+        "node": "Druk_Base_Rim_3",
+        "min": [
+          -0.6386260390281677,
+          -1.090000033378601,
+          -0.6083171963691711
+        ],
+        "max": [
+          0.709373950958252,
+          -1.0149999856948853,
+          0.7396827936172485
+        ]
+      },
+      {
+        "node": "Druk_Base_Brass_4",
+        "min": [
+          -0.6296260356903076,
+          -1.0149999856948853,
+          -0.599317193031311
+        ],
+        "max": [
+          0.7003739476203918,
+          -1.0069999694824219,
+          0.7306827902793884
+        ]
+      },
+      {
+        "node": "Druk_Base_Rim_5",
+        "min": [
+          -0.6286260485649109,
+          -1.0069999694824219,
+          -0.5983172059059143
+        ],
+        "max": [
+          0.6993739604949951,
+          -0.9919999837875366,
+          0.7296828031539917
+        ]
+      },
+      {
+        "node": "Druk_Base_Underside",
+        "min": [
+          -0.6256260871887207,
+          -1.1119999885559082,
+          -0.5953171849250793
+        ],
+        "max": [
+          0.6963739395141602,
+          -1.1119999885559082,
+          0.7266827821731567
+        ]
+      },
+      {
+        "node": "Druk_Base_Earthy_Stone_Moss_Top",
+        "min": [
+          -0.6246260404586792,
+          -0.9944114685058594,
+          -0.5943171977996826
+        ],
+        "max": [
+          0.6953739523887634,
+          -0.9895885586738586,
+          0.72568279504776
+        ]
+      },
+      {
+        "node": "Druk_Base_Low_Stone_1",
+        "min": [
+          -0.08489017933607101,
+          -0.9956613779067993,
+          -0.006304694805294275
+        ],
+        "max": [
+          0.0564444437623024,
+          -0.9689000248908997,
+          0.14618699252605438
+        ]
+      },
+      {
+        "node": "Druk_Base_Low_Stone_2",
+        "min": [
+          0.04887650907039642,
+          -0.9949834942817688,
+          0.0737905502319336
+        ],
+        "max": [
+          0.15958866477012634,
+          -0.9732999801635742,
+          0.18342427909374237
+        ]
+      },
+      {
+        "node": "Druk_Base_Low_Stone_3",
+        "min": [
+          0.010583351366221905,
+          -0.9951062202453613,
+          -0.09011740982532501
+        ],
+        "max": [
+          0.11383416503667831,
+          -0.9754999876022339,
+          -0.00012945504568051547
+        ]
+      },
+      {
+        "node": "Druk_Base_Low_Stone_4",
+        "min": [
+          -0.0892408937215805,
+          -0.9947933554649353,
+          0.1783207505941391
+        ],
+        "max": [
+          -0.016336675733327866,
+          -0.9799000024795532,
+          0.251329630613327
+        ]
+      },
+      {
+        "node": "Druk_Base_Subtle_Brass_Orb_And_Angular_Accents",
+        "min": [
+          -0.18740308284759521,
+          -1.0810999870300293,
+          0.6966147422790527
+        ],
+        "max": [
+          0.25815096497535706,
+          -1.0228999853134155,
+          0.7408127784729004
+        ]
+      },
+      {
+        "node": "Druk_Base_Matte_Olive_Orb_Inset",
+        "min": [
+          0.013863514177501202,
+          -1.0735000371932983,
+          0.733542799949646
+        ],
+        "max": [
+          0.056884367018938065,
+          -1.030500054359436,
+          0.7387027740478516
+        ]
+      },
+      {
+        "node": "DrukV9_Left_Hip_Handaxe",
+        "min": [
+          0.2972168551458716,
+          -0.3463572487390366,
+          -0.14424104934498433
+        ],
+        "max": [
+          0.4356743825262004,
+          0.09078691887684429,
+          0.008175923596346626
+        ]
+      },
+      {
+        "node": "DrukV9_Right_Hip_Handaxe",
+        "min": [
+          -0.38998728949080275,
+          -0.34212686773486123,
+          -0.22434964126011514
+        ],
+        "max": [
+          -0.23376686019664628,
+          0.08992911024562547,
+          -0.07190904493961757
+        ]
+      },
+      {
+        "node": "DrukV9_Left_Axe_Carry_Loop",
+        "min": [
+          0.3108927309513092,
+          -0.014684158377349377,
+          -0.06380466371774673
+        ],
+        "max": [
+          0.35123878717422485,
+          0.016801830381155014,
+          -0.01941389963030815
+        ]
+      },
+      {
+        "node": "DrukV9_Left_Axe_Belt_Hanger",
+        "min": [
+          0.2763729691505432,
+          0.011567621491849422,
+          -0.05474476143717766
+        ],
+        "max": [
+          0.3207734227180481,
+          0.05660722404718399,
+          -0.026503052562475204
+        ]
+      },
+      {
+        "node": "DrukV9_Right_Axe_Carry_Loop",
+        "min": [
+          -0.2906419336795807,
+          -0.014987220056355,
+          -0.14363102614879608
+        ],
+        "max": [
+          -0.24971505999565125,
+          0.017708219587802887,
+          -0.09933938086032867
+        ]
+      },
+      {
+        "node": "DrukV9_Right_Axe_Belt_Hanger",
+        "min": [
+          -0.25502169132232666,
+          0.0051650009118020535,
+          -0.1347631961107254
+        ],
+        "max": [
+          -0.16175886988639832,
+          0.041941557079553604,
+          -0.10650113970041275
+        ]
+      },
+      {
+        "node": "DrukV9_Recessed_Front_Neck_Closure",
+        "min": [
+          -0.1201692670583725,
+          0.5849999785423279,
+          -0.17575661838054657
+        ],
+        "max": [
+          0.2502167820930481,
+          0.6679579019546509,
+          0.06378327310085297
+        ]
+      },
+      {
+        "node": "Druk_Natural_Multiview_Head",
+        "min": [
+          -0.12165886414420672,
+          0.5509357242584229,
+          -0.2537124154834135
+        ],
+        "max": [
+          0.20238972655800885,
+          0.9616367219686508,
+          0.08553361096702548
+        ]
+      }
+    ]
+  },
+  "script_sha256": "06b36dd3089ee65537d366c9022b9e00daff8e5f603e9a7d0f85269b4e75ac94"
+}

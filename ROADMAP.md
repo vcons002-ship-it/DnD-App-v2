@@ -36,6 +36,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Battlefield and resource HUD refinements - September 2026
 
+- [x] Approved natural Druk face: matched anatomical-left eye, restored facial
+  length and chin depth, softened jaw and corrected nose. Full-detail runtime
+  model retains equipment, sizing and the basalt base; see
+  [asset provenance](docs/token-generation/DRUK_NATURAL_FACE.md).
 - [x] Smooth overhead/45-degree transitions and continuous right-drag rotation.
   Reuse projection buffers and avoid resizing rendering canvases every frame.
 - [x] Thin silhouette affinity borders preserve narrow weapon detail. Selection,

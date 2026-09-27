@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "15f0bab47f4d43cd82a3ec3744032cb8",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\views\\front.png",
+      "sha256": "38c52a80aa5dd9d932d1b0d19a2804c6fad160bbd67a9111618f845c1607c2b7"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\views\\back.png",
+      "sha256": "524e9a8736b70a5d79d8a2ebecdd03b70181c48e63b9752651332b910d58223f"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\views\\left.png",
+      "sha256": "f15421e7f50aee67f269afb3b5bee7edd5e4247ea6f46edd955afd86e5cc2956"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\views\\right.png",
+      "sha256": "9ec09bd9df28a71d01bfc6d3219bad5c253de589d94a0ad9bb76a2ac1c42d0a5"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 92626,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 92626,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 3879796,
+    "number_of_vertices": 1938974,
+    "time": {
+      "remove background": 1.0198032855987549,
+      "shape generation": 68.16044902801514,
+      "export to trimesh": 0.975092887878418,
+      "face reduction": 48.202735900878906,
+      "texture generation": 61.21134901046753,
+      "total": 179.84659218788147
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 92626,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\generation\\00_white_mesh.glb",
+      "sha256": "448d6f70bb7a298103fe7cb206ac4502652e8e755637f8c96b392d57c9a88fe4",
+      "bytes": 69826032,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\generation\\01_textured_mesh.glb",
+      "sha256": "b3f3e873abab58291e89e1abd17965721014f77b038de6e93a138036977e3182",
+      "bytes": 4730620,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 181.406,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

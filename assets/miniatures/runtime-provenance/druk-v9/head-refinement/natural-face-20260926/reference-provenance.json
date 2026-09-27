@@ -1,0 +1,46 @@
+{
+  "generator": "OpenAI built-in imagegen",
+  "original_generated_image": "C:/Users/vcons/.codex/generated_images/01a0bc77-1b83-7a53-9c53-86e904a628b4/exec-b759cc25-7b8a-48df-8d15-90fe21ec4d24.png",
+  "reference_images": [
+    "../eye-refinement-01/candidate-05/inspection/head-front.png",
+    "../source/druk-head-reference.png"
+  ],
+  "actual_sheet_size": [
+    1254,
+    1254
+  ],
+  "actual_view_size": [
+    619,
+    619
+  ],
+  "view_extraction": "Four equal panels, 4px panel-edge trim, no resizing or semantic painting. Front, back, left, right in row-major order.",
+  "requested_refinement": "Natural eyelids, subdued dark blue irises, small black pupils, steady straight gaze, realistic facial anatomy. Preserve clean-shaven olive-green identity, pointed ears, swept-back black hair and cheek scars.",
+  "source_character": "../../final-07/druk.glb",
+  "files": [
+    {
+      "path": "source\\druk-natural-face-four-views.png",
+      "sha256": "d1dbe8e9b01ced54597263b079076929184b23e816998101321ec91d5c2ee7f7",
+      "bytes": 2166171
+    },
+    {
+      "path": "views\\back.png",
+      "sha256": "524e9a8736b70a5d79d8a2ebecdd03b70181c48e63b9752651332b910d58223f",
+      "bytes": 628896
+    },
+    {
+      "path": "views\\front.png",
+      "sha256": "38c52a80aa5dd9d932d1b0d19a2804c6fad160bbd67a9111618f845c1607c2b7",
+      "bytes": 698410
+    },
+    {
+      "path": "views\\left.png",
+      "sha256": "f15421e7f50aee67f269afb3b5bee7edd5e4247ea6f46edd955afd86e5cc2956",
+      "bytes": 709198
+    },
+    {
+      "path": "views\\right.png",
+      "sha256": "9ec09bd9df28a71d01bfc6d3219bad5c253de589d94a0ad9bb76a2ac1c42d0a5",
+      "bytes": 692796
+    }
+  ]
+}

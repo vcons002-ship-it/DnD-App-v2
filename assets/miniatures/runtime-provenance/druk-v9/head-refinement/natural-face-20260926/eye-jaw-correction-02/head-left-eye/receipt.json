@@ -1,0 +1,11 @@
+{
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\generation\\01_textured_mesh.glb",
+  "sha256": "b3f3e873abab58291e89e1abd17965721014f77b038de6e93a138036977e3182",
+  "source_unchanged": true,
+  "original_atlas_bytes_preserved": true,
+  "method": "Keep original anatomical left eye (positive X, image-right in front view); mirror it to the other side. Same welded and subdivided native head. Chin retraction reduced from .075 to .015; removed chin lift and lateral cheek widening; cheek pad .025 to .006. Nose lift .040 to .018 and retraction .040 to .015. Lower face length increased 10% below eye line with smooth fade into neck. No new image generation.",
+  "symmetry_scope": "Head, ears and hair as in previous preview",
+  "new_geometry_triangles": 238548,
+  "output": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\druk-v9\\head-refinement\\natural-face-20260926\\eye-jaw-correction-02\\head-left-eye\\head-raw.glb",
+  "output_sha256": "f78638d9f511305e1c159c2fc008cd1add7f9599b3f6497831aab229370fd37a"
+}
