@@ -1326,18 +1326,27 @@ test('tilted map draws and hit-tests beyond the original raster edge after zoom 
   };
   for(const viewport of [{width:1440,height:1000},{width:1100,height:850}]) {
     await page.setViewportSize(viewport);
+    await expect.poll(async () => {
+      const sample=await edge();return {alpha:sample.pixel[3],hit:sample.hit};
+    }).toEqual({alpha:255,hit:'Image'});
     const sample=await edge();
     expect(sample.y).toBeLessThan(0); expect(sample.extra).toBe(true);
     expect(sample.pixel[3]).toBe(255); expect(sample.pixel[0]).toBeGreaterThan(60);
     expect(sample.hit).toBe('Image');
   }
+  const rasterBefore=await page.evaluate(()=>{
+    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+    const canvas=stage.getLayers()[0].getNativeCanvasElement();
+    return {left:canvas.style.left,width:parseFloat(canvas.style.width)};
+  });
   await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
-  await afterPaint(page);
+  // The matrix reaches overhead while the allocated orbit raster stays intact;
+  // reallocating it at every angle caused the earlier camera stutter.
   await expect.poll(()=>page.evaluate(()=>{
     const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
     const canvas=stage.getLayers()[0].getNativeCanvasElement();
-    return {left:canvas.style.left,transform:canvas.style.transform,width:parseFloat(canvas.style.width),stage:stage.width()};
-  })).toMatchObject({left:'0px',transform:'none',width:1100,stage:1100});
+    return {left:canvas.style.left,identity:new DOMMatrix(canvas.style.transform).isIdentity,width:parseFloat(canvas.style.width),stage:stage.width()};
+  })).toMatchObject({...rasterBefore,identity:true,stage:1100});
 });
 
 test('player and monster appearance switches are independent for players and DM', async ({page,browser,request}) => {
