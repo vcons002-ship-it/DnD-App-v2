@@ -62,6 +62,19 @@ affinity border, fog visibility, base-only clicking and facing behavior.
 
 ## Verification
 
+### Cultist Fanatic hand refinement
+
+The raised left casting hand was replaced using a separate four-view reference
+sheet and verified named multi-view shape and texture generation (seed 927221).
+The malformed original hand and detached fingertip were removed, and the new
+wrist fits the measured sleeve opening. The body, sword and base outside that
+cut retain their original coordinates and body texture. Source art, scripts and
+receipts are archived in `monster-provenance/cultist-fanatic/hand-fix-01`.
+The full model is 2,709,168 bytes (2.71 MB), with 38,584 triangles and two
+2048-square JPEG95 atlases. Four views are used for both the hand shape and texture.
+
+### Library and app validation
+
 Server tests cover fresh additions, preserving edits, restart idempotence,
 deletions, family selection, combat size, typed damage riders and the absence of
 duplicate or unintended damage buttons. The browser scenario retrieves all five

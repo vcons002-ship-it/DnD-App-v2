@@ -1041,16 +1041,20 @@
         0,
         0
       ],
-      "bytes": 1519432,
-      "triangles": 20763,
-      "sha256": "f0b4a305b5eddf214661e532dce7a37f93574188908181af98f7890fb23501be",
+      "bytes": 2709168,
+      "triangles": 38584,
+      "sha256": "58bcfd1bcf2cee7e659d91b847b813f88ed875359fa352f137d5d366950a2708",
       "policy": "monster-reduction-v1",
       "sourceViewCount": 4,
       "url": "/miniatures/monsters/cultist-fanatic.glb",
       "sourceSha256": "c5f79766eaf2b6065cce651eece4585e7e1e1f65f80f707415819c169a5c5dc9",
-      "texture": "2048x2048 JPEG95",
+      "texture": "Two 2048x2048 JPEG95 atlases",
       "textureViewCount": 4,
-      "texturePolicy": "named-multiview-texture-v1"
+      "texturePolicy": "named-multiview-texture-v1",
+      "handSourceViewCount": 4,
+      "handTextureViewCount": 4,
+      "handSourceSha256": "7ccbc65c79bc9980dd9d28f8d29ad593e2b3c688c21fb0cbb3d854fa4a66c0d7",
+      "handRevision": "hand-fix-01"
     },
     {
       "id": "vrock",
