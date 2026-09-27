@@ -506,7 +506,7 @@ try {
     assert(Number(moving.dataset.mistWakes)>0&&Number(moving.dataset.mistWakes)<=48,'Movement must create bounded wakes');
     await desktopPage.waitForTimeout(2300);
     await snapshot(desktopPage,'The wake lingers briefly after Druk stops','16-lingering-wake.png');
-    await desktopPage.waitForTimeout(3900);
+    await desktopPage.waitForTimeout(6500);
     await layerHas(desktopPage,'data-mist-wakes','0');
     await snapshot(desktopPage,'The wake dissipates and the mist returns','17-refilled-wake.png');
     await setCheckbox(desktopPage,'React to movement & scenery',false);

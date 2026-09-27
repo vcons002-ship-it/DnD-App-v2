@@ -208,3 +208,28 @@ warnings remain recorded with evidence. The 55.16-second, 20.4 MB video was
 visually inspected and its public playback verified. The published phone-width
 test also loads all seven models, selects quality levels, confirms Auto chooses
 Low, and moves Druk to produce a wake.
+
+## Path-following trail refinement
+
+The first movement response looked like a circular distortion following the
+base. The revised field records short segments of the travelled path. It clears
+a narrow corridor and lets that corridor close from its edges over six seconds.
+Spaced sections of the two edges curl inward in opposite directions after the
+figure passes, pulling surrounding wisps into the wake and gathering a little
+mist along the curl. No circular expansion or rotation is attached to the token.
+Only ambient wind moves the old trail slightly after its creation.
+
+The field is now 320 by 224 RGBA bytes (280 KiB per uploaded field) so a curled
+strand has enough resolution. Uploads remain capped at 15 Hz and history at 48
+segments; the volume still uses the existing High/Low resolution and sample
+limits. This remains a bounded visual approximation, not a fluid simulation.
+The previous GPU timings above do not measure this revision.
+
+Regression tests cover a retained trail after a turn, no disturbance ahead of
+movement, edge curls, complete expiry, hiding a source, disabling interaction,
+and skipping teleport streaks. Typecheck, production build and all 900 tests pass.
+The environment browser verifier checks the actual rendered effect and expiry;
+the focused recording compares interaction off/on and a close overhead view.
+
+Preview: https://dnd.nic024i.app/uploads/previews/environment-curling-trail-20260927/index.html
+This updates the separate environment preview, not the live campaign renderer.

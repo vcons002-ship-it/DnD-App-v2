@@ -14,6 +14,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Make the standalone mist wake visible beyond a moving figure's base and
   preserve its displaced rim. Record reaction off/on and overhead comparisons.
   See [implementation and verification](docs/TOKEN_MOVEMENT_PREVIEW_2026_09_27.md).
+- [x] Refine the mist into a retained movement trail with delayed inward curls
+  along its edges, replacing the circular disturbance around the moving base.
 
 ## Undead and demon library expansion - September 2026
 

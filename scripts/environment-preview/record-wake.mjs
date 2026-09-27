@@ -41,17 +41,19 @@ try{
   await caption('Reaction off: mist drifts past Druk');await page.waitForTimeout(1000);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.waitForTimeout(4700);
   await reaction.check();
-  await caption('Reaction on: watch the mist behind his base');await page.waitForTimeout(1000);
+  await caption('Reaction on: a trail remains where Druk walked');await page.waitForTimeout(1000);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.waitForTimeout(2200);
   const wakes=Number(await page.getByTestId('miniature-layer').getAttribute('data-mist-wakes'));
   assert(wakes>0&&wakes<=48);await page.screenshot({path:path.join(out,'wake-closeup.png')});
-  await page.waitForTimeout(2500);await caption('The disturbed mist curls back into his path');await page.waitForTimeout(3800);
+  await page.waitForTimeout(2500);
+  await page.screenshot({path:path.join(out,'lingering-trail.png')});
+  await caption('The disturbed mist curls back into his path');await page.waitForTimeout(6500);
   await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').getAttribute('data-mist-wakes')==='0');
   await page.getByRole('button',{name:'Overhead view',exact:true}).click();await page.waitForTimeout(750);
   await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(750);
   await caption('Overhead: parting mist and a fading wake');
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.waitForTimeout(2200);
-  await page.screenshot({path:path.join(out,'wake-overhead.png')});await page.waitForTimeout(6000);
+  await page.screenshot({path:path.join(out,'wake-overhead.png')});await page.waitForTimeout(8000);
   assert.deepEqual(errors,[]);ended=Date.now();
 }finally{await context.close();await browser.close();await new Promise(resolve=>server.close(resolve));}
 const source=await page.video().path();
