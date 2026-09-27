@@ -8,6 +8,7 @@ export function createMistFlow() {
   // Soft displacement needs several texels across a base. This field remains
   // only 280 KiB, uploaded at 15 Hz independently of the 3D scene.
   const width=320,height=224,base=new Uint8Array(width*height*4),data=new Uint8Array(base.length);
+  const pushX=new Float32Array(width*height),pushY=new Float32Array(width*height),pushWeight=new Float32Array(width*height);
   const texture=new DataTexture(data,width,height,RGBAFormat);
   texture.minFilter=texture.magFilter=LinearFilter;texture.generateMipmaps=false;
   let mapWidth=1216,mapHeight=832,enabled=true,obstacleKey='',time=0,lastUpload=-1;
@@ -84,48 +85,65 @@ export function createMistFlow() {
       if(!enabled)wakes.length=0;
       for(let i=wakes.length-1;i>=0;i--)if(seconds-wakes[i].born>lifetime)wakes.splice(i,1);
       if(lastUpload>=0&&seconds-lastUpload<1/15)return;
-      lastUpload=seconds;data.set(base);
+      lastUpload=seconds;data.set(base);pushX.fill(0);pushY.fill(0);pushWeight.fill(0);
       for(const wake of wakes){
         const age=Math.max(0,seconds-wake.born),fade=1-smooth(2.8,lifetime,age);
         const nx=-wake.dy,ny=wake.dx;
         // These coordinates stay on the travelled path. Only ambient wind
         // carries them a little; the figure's new position never drags them.
         const wx=wake.x+age*3,wy=wake.y+age;
-        const halfWidth=wake.radius*(1.02-.46*smooth(.7,5.8,age));
-        const extent=wake.length*.5+halfWidth*1.3;
+        // A bank travels outward first, carrying nearby noisy density with it.
+        // It then recedes as air rolls back into the trail. Opacity reduction is
+        // deliberately small; displacement and compression do the visible work.
+        const opening=smooth(0,.6,age),returning=smooth(.9,5.5,age);
+        const spread=wake.radius*(.25+.95*opening)*(1-returning*.6);
+        const halfWidth=spread*.7;
+        const extent=wake.length*.5+wake.radius*2.5;
         visit(wx,wy,extent,(i,x,y)=>{
           const px=x-wx,py=y-wy;
           const along=px*wake.dx+py*wake.dy,across=px*nx+py*ny;
           const end=Math.max(0,Math.abs(along)-wake.length*.5);
           const d=Math.hypot(across,end)/halfWidth;
           const clearing=(1-smooth(.38,1,d))*fade;
-          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.98)));
+          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.28)));
+          const bank=Math.exp(-Math.pow((Math.abs(across)-spread)/(wake.radius*.8),2)
+            -Math.pow(end/(wake.radius*.5),2))*opening*fade;
+          const shift=Math.sign(across)*Math.min(Math.abs(across)*.85,spread*.9)*bank;
+          const p=i/4,weight=Math.abs(shift);
+          // Overlapping path samples must not multiply the same outward push.
+          if(weight>pushWeight[p]){pushWeight[p]=weight;pushX[p]=-nx*shift;pushY[p]=-ny*shift;}
+          data[i+3]=Math.max(data[i+3],clamp(bank*.75*255));
         });
         if(!wake.curl)continue;
         // Move existing patches outward, then gently fold them back in. There
         // is no spiral ribbon: the mist's own density supplies all visible form.
-        const roll=smooth(.3,2.2,age),strength=smooth(.05,.35,age)*fade;
+        const strength=smooth(.05,.35,age)*fade;
         for(const side of [-1,1]){
           const variation=Math.sin(wake.ordinal*2.399+side*1.7);
-          const r=wake.radius*(.98+variation*.16);
-          const cx=wx-wake.dx*r*.25+nx*side*wake.radius*(.83+variation*.12);
-          const cy=wy-wake.dy*r*.25+ny*side*wake.radius*(.83+variation*.12);
+          const roll=smooth(.2+variation*.1,3.0+variation*.3,age);
+          const r=wake.radius*(.98+variation*.16+roll*.08);
+          // As the cleared gap closes, broad eddies travel inward with it.
+          // Unequal sides roll existing patches into the gap instead of leaving
+          // all the rotation outside an empty, straight-sided corridor.
+          const inward=.98-roll*.38+variation*.12;
+          const cx=wx-wake.dx*r*.25+nx*side*wake.radius*inward;
+          const cy=wy-wake.dy*r*.25+ny*side*wake.radius*inward;
           visit(cx,cy,r*1.8,(i,x,y)=>{
             const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)/r;
             if(d>=1.8)return;
             const along=(x-wx)*wake.dx+(y-wy)*wake.dy;
             const behind=1-smooth(0,wake.radius*.75,along);
             const influence=(1-smooth(.15,1.8,d))*strength*behind;
-            const angle=side*roll*.65*influence;
+            const angle=side*roll*(1.3+variation*.15)*influence;
             const c=Math.cos(angle),s=Math.sin(angle);
-            // This is an inverse sampling offset: sampling inward first makes
-            // the existing mist spread outward. That push relaxes after passage.
-            const push=side*wake.radius*.42*(1-roll)*influence;
-            data[i]=clamp(data[i]+(dx*c-dy*s-dx-nx*push)*2);
-            data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy-ny*push)*2);
-            data[i+3]=Math.max(data[i+3],clamp(influence*.34*255));
+            data[i]=clamp(data[i]+(dx*c-dy*s-dx)*2);
+            data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy)*2);
+            data[i+3]=Math.max(data[i+3],clamp(influence*.42*255));
           });
         }
+      }
+      for(let p=0;p<pushWeight.length;p++)if(pushWeight[p]>0){
+        const i=p*4;data[i]=clamp(data[i]+pushX[p]*2);data[i+1]=clamp(data[i+1]+pushY[p]*2);
       }
       texture.needsUpdate=true;
     },

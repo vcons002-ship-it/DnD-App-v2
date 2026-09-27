@@ -21,6 +21,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   Verify simultaneous movement/orbit and record multiple angles in the static lab.
 - [x] Replace the visible spiral strands with broad displacement of existing
   mist: part around the figure, gently fold inward, and refill the old trail.
+- [x] Make sideways displacement and gathering the main movement reaction;
+  reduce the erasing effect and carry broad return eddies into the closing gap.
 
 ## Undead and demon library expansion - September 2026
 

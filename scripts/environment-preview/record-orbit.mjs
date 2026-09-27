@@ -31,6 +31,7 @@ try{
   await page.goto('http://127.0.0.1:4198/environment-test.html');
   await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]')?.dataset.miniatureCount==='7');
   await page.getByRole('button',{name:'Close-up',exact:true}).click();await page.waitForTimeout(800);
+  await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);
   box=await page.getByTestId('environment-stage').boundingBox();
   await page.evaluate(()=>{
     const marker=document.createElement('div');marker.style.cssText='position:fixed;left:0;top:0;width:8px;height:8px;background:#ff00ff;z-index:9999';document.body.append(marker);
@@ -41,7 +42,7 @@ try{
     phases.push({text,at:Date.now()});await page.locator('#record-caption').evaluate((e,t)=>e.textContent=t,text);
     await page.mouse.move(1410,945);
   };
-  await caption('Mist parts, then drifts back into the cleared path');
+  await caption('Mist pushes aside, gathers, then rolls back in');
   await page.waitForTimeout(600);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);
   await page.waitForTimeout(3000);await page.screenshot({path:path.join(out,'stronger-wake.png')});await page.waitForTimeout(6000);
@@ -57,7 +58,7 @@ try{
     }
   }
   await page.mouse.up({button:'right'});await page.mouse.move(1410,945);await page.waitForTimeout(1600);
-  await caption('Soft displacement of the existing mist');
+  await caption('Broad, uneven eddies pull existing mist back in');
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);await page.waitForTimeout(5400);
   await caption('Overhead: the mist gradually folds back into the trail');
   await page.getByRole('button',{name:'Overhead view',exact:true}).click();await page.waitForTimeout(800);

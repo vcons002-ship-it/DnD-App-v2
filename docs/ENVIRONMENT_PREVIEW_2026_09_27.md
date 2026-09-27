@@ -298,3 +298,29 @@ expiry, hidden sources, teleports, and stale camera timestamps.
 Preview: https://dnd.nic024i.app/uploads/previews/environment-soft-wake-20260927/index.html
 
 This is a separate static environment preview, not a campaign deployment.
+
+## Displacement-led wake and inward rolling return
+
+The next revision restores a little more visible swirl while addressing the
+eraser-like opening. Each path segment now moves nearby noisy density outward
+into a soft bank over about 0.6 seconds. The bank gathers density and then
+recedes. Maximum direct density reduction falls from 98% to 28%, so the main
+effect comes from moving and compressing existing mist. Overlapping segments
+choose the strongest lateral push rather than adding it repeatedly.
+
+Broad return eddies gradually migrate toward the trail's center as it narrows.
+Their sides have unequal timing, positions and radii, and rotation is now
+1.15–1.45 radians before spatial weighting. They still deform the existing
+volume: no spiral strands or independent bright density are added. Retained
+history, six-second expiry, visibility cleanup and the monotonic camera clock
+remain unchanged. This is a bounded visual approximation, not a mass-conserving
+fluid solver.
+
+The field keeps its 320-by-224 texture and 15 Hz upload cap. Three fixed CPU
+scratch arrays combine the lateral push; GPU volume resolution and sample
+counts do not change. Existing tests now require most center-path density to
+remain, as well as checking historical wakes, expiry, visibility and stale
+timestamps. The closer recording shows displacement, the return after stopping,
+movement during orbit and overhead.
+
+Preview: https://dnd.nic024i.app/uploads/previews/environment-displaced-mist-20260927/index.html

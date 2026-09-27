@@ -27,9 +27,10 @@ describe('mist movement history',()=>{
     flow.tick(0);expect(flow.state.wakes).toBe(0);
     flow.dispose();
   });
-  it('leaves a narrow path behind the token without a forward or sideways halo',()=>{
+  it('parts mist along a narrow path without erasing it or creating a halo ahead',()=>{
     const flow=field();walk(flow);
-    expect(pixel(flow,300,350)[2]).toBeLessThan(100);
+    expect(pixel(flow,300,350)[2]).toBeLessThan(245);
+    expect(pixel(flow,300,350)[2]).toBeGreaterThan(175); // preserve most density: displacement creates the gap
     expect(pixel(flow,440,350)[2]).toBe(255);
     expect(pixel(flow,300,410)[2]).toBe(255);
     // Edge roll-up behind the walker does not disturb the mist ahead of it.
@@ -40,7 +41,7 @@ describe('mist movement history',()=>{
     const flow=field();walk(flow);
     for(let i=1;i<=8;i++){flow.setTokens([token(400,350-i*10)]);flow.tick(3+i*.1);}
     flow.tick(4.5);
-    expect(pixel(flow,310,355)[2]).toBeLessThan(210);
+    expect(pixel(flow,310,355)[2]).toBeLessThan(250);
     const {data,width,height}=flow.texture.image;
     let curls=0;
     for(let y=Math.floor(280/700*height);y<Math.ceil(420/700*height);y++)for(let x=Math.floor(240/1000*width);x<Math.ceil(365/1000*width);x++)if((data as Uint8Array)[(y*width+x)*4+3]>15)curls++;
