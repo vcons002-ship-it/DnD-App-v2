@@ -20,7 +20,22 @@ const TERM = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
 const MAX_TERMS = 100;
 const MAX_TOTAL_DICE = 1000;
 
-const d = (sides: number) => 1 + Math.floor(Math.random() * sides);
+export type PhysicalDiceInfo={expr:string;advantage?:Advantage;critical?:boolean;criticalFrom?:number;criticalDice?:boolean[]};
+type DiceSource = (sides:number[],info:PhysicalDiceInfo) => number[];
+let physicalSource:DiceSource|undefined;
+export function withDiceSource<T>(source:DiceSource,run:()=>T):T {
+  const previous=physicalSource;physicalSource=source;try{return run();}finally{physicalSource=previous;}
+}
+export function usingPhysicalDice(){return !!physicalSource;}
+let faces:number[]|undefined;
+const d = (sides: number) => {
+  if (faces) {
+    const face = faces.shift();
+    if (face === undefined) throw new Error('Missing authoritative die face');
+    return face;
+  }
+  return 1 + Math.floor(Math.random() * sides);
+};
 
 type Once = { total: number; rolls: number[]; detail: string };
 
@@ -62,6 +77,13 @@ function rollOnce(expr: string): Once | null {
   return { total, rolls, detail: parts.join(' ') };
 }
 
+/** Validate without consuming randomness or requesting a live throw. */
+export function isValidDiceExpression(expr:string):boolean {
+  const previous=faces;
+  faces=Array(MAX_TOTAL_DICE).fill(1);
+  try { return rollOnce(expr)!==null; } finally { faces=previous; }
+}
+
 /** Parse a chat "/roll 2d6+3 [adv|dis]" (or "/r …") command. Returns null when
  *  the text isn't a roll command at all; the expression itself may still fail
  *  `rollDice` validation (callers surface that as an invalid-dice notice). */
@@ -77,7 +99,20 @@ export function parseRollCommand(
 
 /** Roll a dice expression. With advantage/disadvantage the whole expression is
  *  rolled twice and the higher/lower total is kept. Returns null if invalid. */
-export function rollDice(expr: string, advantage?: Advantage): DiceResult | null {
+export function rollDice(expr: string, advantage?: Advantage,style?:{critical?:boolean;criticalFrom?:number}): DiceResult | null {
+  const originalFaces=faces;
+  if(physicalSource){
+    const plan:number[]=[];
+    if (!isValidDiceExpression(expr)) return null;
+    for(const m of expr.replace(/\s+/g,'').matchAll(/(\d*)d(\d+)/gi))
+      for(let i=0;i<Number(m[1]||1);i++)plan.push(Number(m[2]));
+    const requested=advantage?[...plan,...plan]:plan;
+    const supplied=physicalSource(requested,{expr,advantage,...style});
+    if (supplied.length!==requested.length || supplied.some((v,i)=>!Number.isInteger(v)||v<1||v>requested[i]))
+      throw new Error('Invalid authoritative die faces');
+    faces=supplied.slice();
+  }
+  try {
   const a = rollOnce(expr);
   if (!a) return null;
   if (advantage) {
@@ -94,4 +129,18 @@ export function rollDice(expr: string, advantage?: Advantage): DiceResult | null
     };
   }
   return { expr, total: a.total, rolls: a.rolls, detail: `${a.detail} = ${a.total}` };
+  } finally {faces=originalFaces;}
+}
+
+/** Roll independent damage terms in one physical throw, retaining their breakdowns. */
+export function rollDicePool(terms:{expr:string;critical?:boolean}[]):(DiceResult|null)[] {
+  if(!physicalSource)return terms.map(t=>rollDice(t.expr,undefined,{critical:t.critical}));
+  const plans=terms.map(t=>isValidDiceExpression(t.expr)
+    ? [...t.expr.replace(/\s+/g,'').matchAll(/(\d*)d(\d+)/gi)].flatMap(m=>Array(Number(m[1]||1)).fill(Number(m[2]))) : []);
+  const sides=plans.flat();
+  const supplied=physicalSource(sides,{expr:terms.map(t=>t.expr).join('+'),criticalDice:plans.flatMap((p,i)=>p.map(()=>!!terms[i].critical))});
+  if(supplied.length!==sides.length||supplied.some((v,i)=>!Number.isInteger(v)||v<1||v>sides[i]))throw new Error('Invalid authoritative die faces');
+  let offset=0;
+  return withDiceSource(requested=>{const values=supplied.slice(offset,offset+requested.length);offset+=requested.length;return values;},
+    ()=>terms.map(t=>rollDice(t.expr,undefined,{critical:t.critical})));
 }

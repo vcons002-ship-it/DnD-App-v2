@@ -4,6 +4,52 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Live physics dice and class trays - September 2026
+
+- [x] Live server-authoritative rigid-body rolls with fixed face labels. The
+  resting face supplies the result; clients interpolate streamed positions.
+  Unreadable, stacked and overdue dice reroll individually in the live world.
+  See [the physics reference](docs/DICE_PHYSICS.md) and
+  [rules integration](docs/LIVE_DICE_PHYSICS.md).
+- [x] Rollback-safe rules continuations keep HP, resource use and log entries
+  atomic while dice move. Manual attack and damage remain separate clicks.
+  Private DM rolls and hidden actors respect existing visibility rules.
+- [x] Simultaneous normal and critical damage dice; only extra critical dice
+  are gold. Correct shapes for mixed pools, green/red advantage results and
+  paired percentile dice. Pools over forty physical bodies use successive batches.
+- [x] Rounded d6s, diagonal hand/cup release, sustained bounce and readable
+  cadence. Dice enter from the viewer's side for their character, or another
+  edge for other rollers. Raised 3D tray walls match character-specific art.
+- [x] Settled faces flash, then travel from their actual projected face centers
+  to the correct result boxes. Non-d20 high/low emphasis is relative to die size;
+  natural twenties on checks and saves receive a Nat 20 celebration.
+- [x] Damage windows retain targets and reveal tags. Roll logs wait for results;
+  compact result summaries expose map impacts and floating damage. Bonuses and
+  penalties remain labeled in one readable equation, with hit/miss/crit feedback.
+- [x] Druk uses polished obsidian with natural flow bands, gold numbers and edges.
+  Varis uses forest resin, dark lacquered wood inlays and bright bronze numeral
+  rims. Vanec uses crimson glass, internal clouds/energy and silver numerals.
+  Every die shape shares its character material and consistent studio lighting.
+- [x] Other classes retain class palettes; unknown classes use neutral dice.
+  Dice scale with pool size. Reduced motion and unavailable graphics retain
+  results; readiness is bounded and server rolls survive client disconnects.
+
+## Battlefield and resource HUD refinements - September 2026
+
+- [x] Smooth overhead/45-degree transitions and continuous right-drag rotation.
+  Reuse projection buffers and avoid resizing rendering canvases every frame.
+- [x] Thin silhouette affinity borders preserve narrow weapon detail. Selection,
+  active-turn and condition rings, plus combat-role badges, render behind 3D
+  bodies and intervening miniatures.
+- [x] Only name/tag pixels covered by a figure fade; uncovered letters remain
+  clear. Hover and selection restore the full label. Fog rules and 2D fallback
+  labels are preserved.
+- [x] Characters face their chosen target before attack or targeted-spell rolls,
+  including misses. Magic Missile darts and subsequent Orb bounces do not spin
+  the caster; a later manual damage click does not retarget their facing.
+- [x] Remove ornamental branch artwork below the resource crystals while keeping
+  all crystal positions, counters and controls intact.
+
 ## Combat spell and damage workflow - September 2026
 
 - [x] Chromatic Orb matching-dice leaps with map target selection and confirmation;

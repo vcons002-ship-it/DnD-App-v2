@@ -8,7 +8,7 @@ type Gesture = { start: Point; end: Point; pointerId: number; additive: boolean;
 
 /** Capture before Konva's pan/token handlers. Rectangle and base centres share
  * screen coordinates, including the tilted camera's perspective projection. */
-export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds, onSelectTokens, onSelectToken, view, width, height, tilt }: {
+export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds, onSelectTokens, onSelectToken, view, width, height, tilt, rotation = 0 }: {
   enabled: boolean;
   mapId?: string;
   stageRef: RefObject<Konva.Stage | null>;
@@ -20,6 +20,7 @@ export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds,
   width: number;
   height: number;
   tilt: number;
+  rotation?: number;
 }) {
   const gesture = useRef<Gesture | null>(null);
   const [box, setBox] = useState<{ start: Point; end: Point } | null>(null);
@@ -73,7 +74,7 @@ export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds,
         const top = Math.min(current.start.y, end.y), bottom = Math.max(current.start.y, end.y);
         const ids = tokens.filter(token => {
           const ground = mapToScreen(token.x, token.y, view, tilt);
-          const p = projectGround(ground.x, ground.y, width, height, tilt);
+          const p = projectGround(ground.x, ground.y, width, height, tilt, rotation);
           return p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
         }).map(token => token.id);
         onSelectTokens?.(current.additive ? [...new Set([...selectedIds, ...ids])] : ids);

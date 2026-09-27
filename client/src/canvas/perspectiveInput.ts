@@ -5,14 +5,15 @@ import { unprojectGround } from './miniatureProjection';
  * Canvas elements are projected; the Stage event surface stays viewport-sized.
  * Native events remain untouched, so screen-space menus retain normal coordinates.
  */
-export function installPerspectiveInput(stage: Konva.Stage, width: number, height: number, tilt: number) {
+export function installPerspectiveInput(stage: Konva.Stage, width: number, height: number, tilt: number, rotation = 0, current?: () => {tilt:number;rotation:number}) {
   const original = stage.setPointersPositions;
   stage.setPointersPositions = function (event) {
     const content = stage.getContent();
     const rect = content.getBoundingClientRect();
     const sx = rect.width / content.clientWidth || 1, sy = rect.height / content.clientHeight || 1;
     const point = (p: { clientX: number; clientY: number; identifier?: number }) => {
-      const v = unprojectGround((p.clientX - rect.left) / sx, (p.clientY - rect.top) / sy, width, height, tilt);
+      const projection=current?.() ?? {tilt,rotation};
+      const v = unprojectGround((p.clientX - rect.left) / sx, (p.clientY - rect.top) / sy, width, height, projection.tilt, projection.rotation);
       return { clientX: rect.left + v.x * sx, clientY: rect.top + v.y * sy, identifier: p.identifier };
     };
     const adjusted = new Proxy(event, { get(target, key) {

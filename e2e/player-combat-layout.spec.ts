@@ -166,17 +166,17 @@ test('compact player combat keeps keyboard-operable targets, weapons, toggles an
   const reveal = page.locator('.roll-reveal');
   await expect(reveal.locator('.rr-comparison')).toHaveAttribute('data-mode', 'adv');
   await expect(reveal.locator('.rr-candidate')).toHaveCount(2);
-  await expect(reveal.locator('.rr-candidate .three-die[data-sides="20"]')).toHaveCount(2);
-  await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Kept$/ })).toHaveCount(1);
+  await expect(reveal.locator('.rr-candidate .tray-die-result[data-sides="20"]')).toHaveCount(2);
+  await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Kept - higher$/ })).toHaveCount(1, {timeout:15000});
   await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Discarded$/ })).toHaveCount(1);
   const rolled = (await fixture.snapshot()).rollLog.find((roll) => roll.detail.includes('Test longsword') && /d20\[\d+,\d+\]/.test(roll.detail))!;
   expect(rolled).toBeTruthy();
   const recorded = /d20\[(\d+),(\d+)\]/.exec(rolled.detail)!;
   const values = [Number(recorded[1]), Number(recorded[2])];
   for (let index = 0; index < 2; index++) {
-    await expect(reveal.locator(`.rr-candidate[data-candidate="${index}"] .three-die`)).toHaveAttribute('data-value', String(values[index]));
+    await expect(reveal.locator(`.rr-candidate[data-candidate="${index}"] .tray-die-result`)).toHaveAttribute('data-value', String(values[index]));
   }
-  await expect(reveal.locator('.rr-candidate[data-result="kept"] .three-die')).toHaveAttribute('data-value', String(Math.max(...values)));
+  await expect(reveal.locator('.rr-candidate[data-result="kept"] .tray-die-result')).toHaveAttribute('data-value', String(Math.max(...values)));
   await expect(advantage).not.toHaveClass(/\bon\b/);
   await page.keyboard.press('Escape');
   await expect(reveal).toHaveCount(0);

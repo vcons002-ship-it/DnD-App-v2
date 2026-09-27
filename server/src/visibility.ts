@@ -195,7 +195,7 @@ export function createSnapshotBuilder(
   const maps = listMaps(sessionId);
   const characters = listCharacters(sessionId);
   const monsters = listMonsters(sessionId);
-  const rollLog = listRollLog(sessionId);
+  const rollLog = listRollLog(sessionId).map(e=>e.pending?.live?{...e,pending:{...e.pending,live:undefined}}:e);
   const chat = listChat(sessionId);
   const charById = new Map(characters.map((c) => [c.id, c]));
   const monById = new Map(monsters.map((m) => [m.id, m]));

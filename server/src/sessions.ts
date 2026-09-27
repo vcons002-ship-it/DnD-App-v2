@@ -1,3 +1,5 @@
+import {rollDice} from '../../shared/dice.js';
+import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
 import { checkReveal } from '../../shared/rollReveal.js';
@@ -565,6 +567,17 @@ function resolveBasePlacement(token: Token, x: number, y: number) {
   return placeBase({x,y,radius:radius(token)}, listTokens(token.mapId)
     .filter(t=>t.id!==token.id).map(t=>({x:t.x,y:t.y,radius:radius(t)})),
     {x:token.x,y:token.y,radius:radius(token)});
+}
+
+/** Turn in place; never run movement, collision or reveal bookkeeping. */
+export function faceTokenToward(sessionId:string,attackerTokenId:string,targetTokenId:string):boolean {
+ const a=getToken(attackerTokenId),t=getToken(targetTokenId);
+ if(!a||!t||a.mapId!==t.mapId||getMap(a.mapId)?.sessionId!==sessionId)return false;
+ const facing=facingAfterMove(a.x,a.y,t.x,t.y,a.facing);
+ if(facing===(a.facing??0))return false;
+ db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(facing,a.id);
+ noteRollFacing({sessionId,attackerTokenId,targetTokenId});
+ return true;
 }
 
 export function moveToken(tokenId: string, x: number, y: number): Token | null {
@@ -1280,7 +1293,7 @@ const INCAPACITATING = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'u
 
 /** A d20 + DEX modifier for a token (5e initiative). */
 const rollInitiative = (token: Token): number =>
-  Math.floor(Math.random() * 20) + 1 + initiativeBonus(token);
+  rollDice('1d20')!.total + initiativeBonus(token);
 
 /** Roll initiative (d20 + DEX) for every COMBATANT on a map (resets the round).
  *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
@@ -1356,7 +1369,7 @@ export function rollPlayerInitiative(sessionId: string, tokenId: string, socketI
       token.initiative !== null || !rollsInitiative(token)) return false;
   const ch = getCharacter(token.refId);
   if (!ch || ch.sessionId !== sessionId || ch.claimedBy !== socketId) return false;
-  const face = Math.floor(Math.random() * 20) + 1, bonus = initiativeBonus(token), total = face + bonus;
+  const face = rollDice('1d20')!.total, bonus = initiativeBonus(token), total = face + bonus;
   setTokenInitiative(token.id, total);
   addRollLog(sessionId, {roller: ch.name, label: 'Initiative', expr: '1d20', total,
     detail: `${ch.name} rolls initiative: ${face} + ${bonus} = ${total}`,
@@ -1527,13 +1540,14 @@ export function addRollLog(
    *  Never supplied by a client; ordinary log callers keep automatic IDs. */
   id = newId(),
 ): RollEntry {
+  if(entry.reveal && isLiveCommand())entry.reveal={...entry.reveal,physical:true};
   const createdAt = Date.now();
   // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
   // is on, so player snapshots can drop it (damage still applied separately).
   const dmOnly =
     entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
-    `INSERT INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, smite, hp_note, reveal, hide_mods, dm_only, created_at)
+    `INSERT OR REPLACE INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, smite, hp_note, reveal, hide_mods, dm_only, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
@@ -3202,6 +3216,7 @@ export function setEntityIcon(
 // broadcastSnapshots drains it into per-viewer 'fx:hp' events (floating ±X over
 // the token). Never persisted; capped so an undrained queue can't grow forever.
 const hpFxQueue: (HpFxEvent & { sessionId: string })[] = [];
+export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQueue.splice(0,hpFxQueue.length,...saved);};}
 export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {

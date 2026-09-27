@@ -1,3 +1,4 @@
+import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
 import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance';
@@ -12,6 +13,7 @@ import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../share
 import { useImage } from './useImage';
 import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
+import { createMiniatureNameReader } from './miniatureNameLabels';
 import { MiniatureFallback } from './MiniatureFallback';
 import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround } from './miniatureProjection';
 import { useBoxSelection } from './useBoxSelection';
@@ -390,7 +392,17 @@ export function MapStage({
     try { return localStorage.getItem(viewPreferenceKey) === 'tilted'; }
     catch { return false; }
   });
-  const tiltDegrees = tilted ? BATTLEFIELD_TILT_DEGREES : 0;
+  const [tiltDegrees, setTiltDegrees] = useState(() => tilted ? BATTLEFIELD_TILT_DEGREES : 0);
+  const rotationKey = `dnd.battlefieldRotation:${getPlayerId()}`;
+  const [rotationDegrees, setRotationDegrees] = useState(() => {
+    try { const saved=Number(localStorage.getItem(rotationKey));return Number.isFinite(saved)?saved%360:0; } catch { return 0; }
+  });
+  const viewAnimation=useRef(0);
+  const projectionState=useRef({tilt:tiltDegrees,rotation:rotationDegrees});
+  const projectionCanvases=useRef<ReturnType<typeof installPerspectiveCanvas>[]>([]);
+  const rotationLabel=useRef<HTMLButtonElement>(null);
+  const rotationGesture=useRef<{x:number;start:number;angle:number;pointerId:number;frame:number;view:View}|null>(null);
+  useEffect(()=>()=>{cancelAnimationFrame(viewAnimation.current);if(rotationGesture.current)cancelAnimationFrame(rotationGesture.current.frame);},[]);
   const tokenPreferenceKey = `dnd.tokenView:${getPlayerId()}`;
   const [use3dTokens, setUse3dTokens] = useState(() => {
     try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
@@ -877,15 +889,18 @@ export function MapStage({
   // Fit-to-window transform (the default / reset view).
   const fit = useMemo<View>(() => {
     const k = perspectiveSlope(size.w, size.h, tiltDegrees);
-    const s = Math.min(size.w / (imgW + size.w * imgH * groundScaleY * k / 2),
-      size.h / (imgH * groundScaleY * (1 + size.h * k / 2))) || 1;
+    const yaw=rotationDegrees*Math.PI/180;
+    const boundsW=Math.abs(Math.cos(yaw))*imgW+Math.abs(Math.sin(yaw))*imgH;
+    const boundsH=Math.abs(Math.sin(yaw))*imgW+Math.abs(Math.cos(yaw))*imgH;
+    const s = Math.min(size.w / (boundsW + size.w * boundsH * groundScaleY * k / 2),
+      size.h / (boundsH * groundScaleY * (1 + size.h * k / 2))) || 1;
     // Centre the composite box, shifting by its (possibly negative) min corner.
     return {
       scale: s,
       x: (size.w - imgW * s) / 2 - extX0 * s,
       y: (size.h - imgH * s * groundScaleY) / 2 - extY0 * s * groundScaleY,
     };
-  }, [size, imgW, imgH, extX0, extY0, groundScaleY, tiltDegrees]);
+  }, [size, imgW, imgH, extX0, extY0, groundScaleY, tiltDegrees, rotationDegrees]);
 
   const [view, setView] = useState<View>(fit);
   const userAdjusted = useRef(false);
@@ -973,6 +988,8 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      combatRole: token.kind==='monster'?token.combatRole:undefined,
+      conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
       outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
@@ -983,6 +1000,22 @@ export function MapStage({
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
+
+  const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
+  const miniatureNameLabels = useStableCallback(() => readMiniatureNames(tokenLayerRef.current,
+    id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id));
+  const handleRenderedNames = useCallback((ids: ReadonlySet<string>) => {
+    const layer=tokenLayerRef.current;
+    if(!layer)return;
+    let changed=false;
+    for(const node of layer.find<Konva.Group>('.token')) {
+      const opacity=ids.has(node.getAttr('tokenId'))?0:1;
+      for(const label of node.find('.token-label, .token-tracking-tag')) {
+        if(label.opacity()!==opacity){label.opacity(opacity);changed=true;}
+      }
+    }
+    if(changed)layer.batchDraw();
+  },[]);
 
   // Flat tokens belong to the ground plane, beneath miniature geometry.
   // Only ready miniature HUDs and shared tools belong above WebGL. Konva
@@ -999,17 +1032,18 @@ export function MapStage({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const cleanup = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]
+    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]
       .filter((layer): layer is Konva.Layer => !!layer)
-      .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees));
-    cleanup.push(installPerspectiveInput(stage, size.w, size.h, tiltDegrees));
-    return () => cleanup.forEach(fn => fn());
-  }, [size.w, size.h, tiltDegrees, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
+      .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees, rotationDegrees));
+    projectionCanvases.current=canvases;
+    const input=installPerspectiveInput(stage,size.w,size.h,tiltDegrees,rotationDegrees,()=>projectionState.current);
+    return () => {input();canvases.forEach(dispose=>dispose());projectionCanvases.current=[];};
+  }, [size.w, size.h, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
     enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
     mapId: map?.id, stageRef, tokens: snapshot.tokens, selectedIds, onSelectTokens, onSelectToken,
-    view, width: size.w, height: size.h, tilt: tiltDegrees,
+    view, width: size.w, height: size.h, tilt: tiltDegrees, rotation: rotationDegrees,
   });
 
   /**
@@ -1434,7 +1468,7 @@ export function MapStage({
     const ox = rect?.left ?? 0;
     const oy = rect?.top ?? 0;
     const [a, b] = [touches[0], touches[1]];
-    const center = unprojectGround((a.clientX + b.clientX) / 2 - ox, (a.clientY + b.clientY) / 2 - oy, size.w, size.h, tiltDegrees);
+    const center = unprojectGround((a.clientX + b.clientX) / 2 - ox, (a.clientY + b.clientY) / 2 - oy, size.w, size.h, tiltDegrees, rotationDegrees);
     return {
       dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
       cx: center.x,
@@ -1498,17 +1532,66 @@ export function MapStage({
     setView(fit);
   };
 
+  const paintProjection = (tilt:number,rotation:number,nextView:View) => {
+    const previous=projectionState.current;
+    projectionState.current={tilt,rotation};
+    for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
+    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current]){
+      if(!layer)continue;
+      if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
+      const labels=layer.find('.token-upright-hud');
+      for(const label of labels)label.rotation(-rotation);
+      if(previous.tilt!==tilt || labels.length)layer.draw();
+    }
+    miniatureRef.current?.setProjection(tilt,rotation,nextView);
+    if(rotationLabel.current)rotationLabel.current.textContent=`${((Math.round(rotation)%360)+360)%360}\u00b0`;
+  };
+  const commitProjection=(tilt:number,rotation:number,nextView:View)=>{
+    setTiltDegrees(tilt);setRotationDegrees(rotation);setView(nextView);
+    safeSetItem(rotationKey,String(rotation%360));
+  };
+  const animateView = (nextTilt: number, nextRotation: number) => {
+    cancelAnimationFrame(viewAnimation.current);userAdjusted.current=true;
+    const {tilt:startTilt,rotation:startRotation}=projectionState.current,startView=view;
+    const targetRotation=startRotation+((nextRotation-startRotation+180)%360+360)%360-180;
+    const centerY=(size.h/2-view.y)/groundYScale(startTilt),started=performance.now();
+    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const tick=(now:number)=>{
+      const t=reduced?1:Math.min(1,(now-started)/450),ease=t*t*(3-2*t);
+      const angle=startTilt+(nextTilt-startTilt)*ease,rotation=startRotation+(targetRotation-startRotation)*ease;
+      const nextView={...startView,y:size.h/2-centerY*groundYScale(angle)};
+      paintProjection(angle,rotation,nextView);
+      if(t<1)viewAnimation.current=requestAnimationFrame(tick);else commitProjection(angle,rotation,nextView);
+    };
+    viewAnimation.current=requestAnimationFrame(tick);
+  };
   const chooseTilt = (next: boolean) => {
-    if (next === tilted) return;
-    const nextGroundScaleY = groundYScale(next ? BATTLEFIELD_TILT_DEGREES : 0);
-    // Keep the same map point under the viewport center and retain zoom.
-    userAdjusted.current = true;
-    setView((current) => ({
-      ...current,
-      y: size.h / 2 - (size.h / 2 - current.y) * nextGroundScaleY / groundScaleY,
-    }));
-    setTilted(next);
-    safeSetItem(viewPreferenceKey, next ? 'tilted' : 'flat');
+    if(next===tilted)return;
+    setTilted(next);safeSetItem(viewPreferenceKey,next?'tilted':'flat');
+    animateView(next?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation);
+  };
+  const rotateStart=(event:React.PointerEvent<HTMLDivElement>)=>{
+    if(event.button!==2 || !(event.target instanceof HTMLCanvasElement) || !event.target.closest('.konvajs-content'))return false;
+    const stage=stageRef.current;stage?.setPointersPositions(event.nativeEvent);
+    const point=stage?.getPointerPosition();
+    if(point && stage?.getIntersection(point)?.findAncestor('.token',true))return false;
+    event.preventDefault();event.stopPropagation();cancelAnimationFrame(viewAnimation.current);
+    userAdjusted.current=true;setMenu(null);setHover(null);
+    rotationGesture.current={x:event.clientX,start:projectionState.current.rotation,angle:projectionState.current.rotation,pointerId:event.pointerId,frame:0,view};
+    event.currentTarget.setPointerCapture(event.pointerId);return true;
+  };
+  const rotateMove=(event:React.PointerEvent<HTMLDivElement>)=>{
+    const gesture=rotationGesture.current;if(!gesture || gesture.pointerId!==event.pointerId)return false;
+    event.preventDefault();event.stopPropagation();gesture.angle=gesture.start+(event.clientX-gesture.x)*.35;
+    if(!gesture.frame)gesture.frame=requestAnimationFrame(()=>{gesture.frame=0;paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);});
+    return true;
+  };
+  const rotateEnd=(event:React.PointerEvent<HTMLDivElement>)=>{
+    const gesture=rotationGesture.current;if(!gesture || gesture.pointerId!==event.pointerId)return false;
+    event.preventDefault();event.stopPropagation();cancelAnimationFrame(gesture.frame);
+    paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);
+    commitProjection(projectionState.current.tilt,gesture.angle,gesture.view);rotationGesture.current=null;
+    if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
   const renderTokens = (miniatures: boolean) => snapshot.tokens.filter((token) =>
@@ -1531,6 +1614,7 @@ export function MapStage({
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
+        viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         draggable={
           draggableTokens && movable && !fogActive && !measureActive && !saveResolve && !orbTarget
@@ -1554,7 +1638,13 @@ export function MapStage({
   });
 
   return (
-    <div className="stage-wrap" ref={containerRef} {...selectionBox.handlers}>
+    <div className="stage-wrap" ref={containerRef} {...selectionBox.handlers}
+      onPointerDownCapture={e=>{if(!rotateStart(e))selectionBox.handlers.onPointerDownCapture(e);}}
+      onPointerMoveCapture={e=>{if(!rotateMove(e))selectionBox.handlers.onPointerMoveCapture(e);}}
+      onPointerUpCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onPointerUpCapture(e);}}
+      onPointerCancelCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onPointerCancelCapture();}}
+      onLostPointerCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onLostPointerCapture();}}
+      onContextMenuCapture={e=>{if((e.target as HTMLElement).closest?.('.konvajs-content'))e.preventDefault();}}>
       {selectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
         style={{ left: Math.min(selectionBox.box.start.x, selectionBox.box.end.x), top: Math.min(selectionBox.box.start.y, selectionBox.box.end.y),
           width: Math.abs(selectionBox.box.end.x - selectionBox.box.start.x), height: Math.abs(selectionBox.box.end.y - selectionBox.box.start.y) }} />}
@@ -1588,6 +1678,8 @@ export function MapStage({
               <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
                 onClick={() => chooseTilt(false)}>Overhead</button>
+              <button ref={rotationLabel} className="btn tiny" aria-label="Reset battlefield rotation" title="Hold right mouse button and drag empty space to rotate freely. Click to reset."
+                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>{((Math.round(rotationDegrees)%360)+360)%360}°</button>
             </div>
             {([
               { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },
@@ -2150,7 +2242,8 @@ export function MapStage({
           </Stage>
           {miniatureTokens.length > 0 && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
-              tiltDegrees={tiltDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady} />
+              tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} />
           </Suspense></MiniatureFallback>}
           <DecalPopup snapshot={snapshot} />
           {hover && !menu && (

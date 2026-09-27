@@ -1,3 +1,4 @@
+import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { withRollComparison } from '../../../shared/dicePresentation';
@@ -68,6 +69,7 @@ let rollSfxReady = false;
 const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
+  liveDice: LiveDiceFrame | null;
   socket: TypedSocket | null;
   status: Status;
   error: string | null;
@@ -92,7 +94,7 @@ type Store = {
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean; hasMapImpact?: boolean } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -431,6 +433,7 @@ export function getPlayerId(): string {
 }
 
 export const useStore = create<Store>((set, get) => ({
+  liveDice: null,
   socket: null,
   status: 'idle',
   error: null,
@@ -463,7 +466,7 @@ export const useStore = create<Store>((set, get) => ({
     const waiting = heldHpFx.get(rollId);
     heldHpFx.delete(rollId);
     // A late fx packet for a completed reveal must display immediately too.
-    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true } } : {});
+    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true, hasMapImpact: !!waiting?.length } } : {});
     if (waiting) get().presentHpFx(waiting);
   },
   hurtFx: null,
@@ -645,6 +648,14 @@ export const useStore = create<Store>((set, get) => ({
       reconnectionDelayMax: 5000,
     });
 
+    socket.on('dice:frame',frame=>{
+      if(!get().showRollAnim){socket.emit('dice:ready',{id:frame.id});return;}
+      const previous=get().liveDice;
+      if(previous?.id===frame.id && previous.seq>=frame.seq)return;
+      if(previous?.id!==frame.id)get().dismissRollFx();
+      set({liveDice:frame});
+    });
+    socket.on('dice:finished',({id})=>{if(get().liveDice?.id===id)set({liveDice:null});});
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('state:snapshot', (snapshot) => {
       // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
@@ -680,10 +691,10 @@ export const useStore = create<Store>((set, get) => ({
               rollId: fresh.id,
               reveal: snapshot.role === 'player' ? withRollComparison(fresh.reveal, fresh.detail) : fresh.reveal,
             } });
-            // The overlay self-dismisses. A fixed 5s cutoff truncated large
-            // dice pools/modifier sequences; budget the fallback from content.
-            const count = (fresh.reveal.damageDice ?? []).reduce((sum, step) => sum + (step.faces?.length ?? 1), 0);
-            const safetyMs = 6000 + count * 150 + ((fresh.reveal.toHit?.length ?? 0) + (fresh.reveal.damageMods?.length ?? 0)) * 300;
+            // The overlay owns normal dismissal after physics and modifiers settle.
+            // Allow worker startup, up to two physical tosses, and the reading hold;
+            // this is only a recovery timeout for a broken reveal, not its pacing.
+            const safetyMs = 90000 + ((fresh.reveal.toHit?.length ?? 0) + (fresh.reveal.damageMods?.length ?? 0)) * 550;
             setTimeout(
               () => { if (get().rollFx?.id === fxId) get().dismissRollFx(); },
               safetyMs,
@@ -706,6 +717,9 @@ export const useStore = create<Store>((set, get) => ({
           current?.rollId === event.rollId && !current.impactReady) {
           heldHpFx.set(event.rollId, [...(heldHpFx.get(event.rollId) ?? []), event]);
         } else immediate.push(event);
+      }
+      if (current?.impactReady && immediate.some(e => e.rollId === current.rollId)) {
+        set(st => st.rollFx?.rollId === current.rollId ? {rollFx: {...st.rollFx, hasMapImpact: true}} : {});
       }
       get().presentHpFx(immediate);
       if (immediate.some((e) => e.delta > 0)) playHeal();
@@ -867,6 +881,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
+      set({liveDice:null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -885,7 +900,7 @@ export const useStore = create<Store>((set, get) => ({
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     heldHpFx.clear();
-    set({ socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
+    set({ liveDice:null, socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {

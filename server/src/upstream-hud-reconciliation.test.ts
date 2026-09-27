@@ -22,7 +22,7 @@ afterEach(() => {
 function harness(sessionId: string, mapId: string, role: 'player' | 'dm' = 'player') {
   let connect!: (socket: unknown) => void;
   const io = { on: (_: string, cb: typeof connect) => { connect = cb; }, to: () => ({ emit: vi.fn() }) };
-  registerSocketHandlers(io as unknown as IOServer);
+  registerSocketHandlers(io as unknown as IOServer,{livePhysics:false});
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const id = `reconciliation-socket-${++nextSocket}`;
   connected.push(id);

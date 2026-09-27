@@ -40,7 +40,7 @@ export function markedDamage(kind:TokenKind,id:string,target:Token,crit:boolean)
     const type=markSpell(ab), mark=ab.mark;
     if (!type || !mark?.active || mark.expiresAt<=Date.now() || mark.kind!==target.kind || mark.refId!==target.refId ||
         !caster.conditions.some(c=>c.isConcentration && abilityKey({name:c.label.replace(/^Concentration:\s*/i,'')})===abilityKey(ab))) continue;
-    const roll=rollDice(crit?'2d6':'1d6')!;
+    const roll=rollDice(crit?'2d6':'1d6',undefined,{criticalFrom:crit?1:undefined})!;
     const value=Math.floor(roll.total*damageMultiplier(type,victim.resistances,victim.weaknesses,victim.immunities,{magical:true}));
     roll.rolls.forEach((face,i)=>dice.push({label:`${ab.name} (${type})${i>0?' CRIT':''}`,value:face,faces:[face],diceExpression:'1d6',critical:i>0}));
     if (value!==roll.total) mods.push({label:`${ab.name} ${type} adjustment`,value:value-roll.total});

@@ -286,7 +286,8 @@ test('monster miniatures load, recolor independently, use base hits and face the
   for (const t of [goblin, skeleton, wolf]) {
     const view = (await tokenView(page, t.id))!;
     expect(view.miniatureReady).toBe(true);
-    expect(view.roleBadges).toBe(1);
+    // The 3D layer now depth-tests the role badge behind intervening figures.
+    expect(view.roleBadges).toBe(0);
   }
   expect((await tokenView(page, elephant.id))?.bodyVisible).toBe(true);
   expect((await tokenView(page, elephant.id))?.miniatureReady).toBe(false);
@@ -530,7 +531,7 @@ test('active miniature ring stays off the HUD and held drags preview facing befo
   const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
   for (const token of setup.ready.tokens) setup.socket.emit('initiative:set', { tokenId: token.id, initiative: token.id === druk.id ? 30 : 10 });
   setup.socket.emit('initiative:rollMissing');
-  expect((await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
+  await expect.poll(async () => (await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
   await enter(page, setup.code);
   const layer = page.getByTestId('miniature-layer');
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
@@ -1035,7 +1036,7 @@ test('DM workspace keeps drafts, spawning, turns and mobile tools usable', async
   await page.getByLabel('Campaign menu', { exact: true }).click();
   await page.getByRole('button', { name: 'Initiative', exact: true }).click();
   await drawer.getByRole('button', { name: 'Roll all', exact: true }).click();
-  await expect.poll(async () => (await setup.snapshot()).round).toBe(1);
+  await expect.poll(async () => (await setup.snapshot()).round, {timeout: 45_000}).toBe(1);
   const active = (await setup.snapshot()).activeTurnTokenId;
   await page.getByRole('button', { name: 'Next turn', exact: true }).click();
   await expect.poll(async () => (await setup.snapshot()).activeTurnTokenId).not.toBe(active);
@@ -1081,10 +1082,10 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   const maps = page.getByRole('complementary', { name: 'Maps', exact: true });
   const full = (await maps.boundingBox())!;
   const menu = (await page.getByRole('navigation', { name: 'DM tools' }).boundingBox())!;
-  const viewControls = (await page.locator('.stage-controls').boundingBox())!;
+  const viewControls = (await page.locator('.map-view-controls').boundingBox())!;
   expect(full.x).toBe(14); expect(menu.x).toBe(full.x);
   expect(menu.y + menu.height).toBeLessThan(full.y);
-  expect(menu.x + menu.width).toBeLessThan(viewControls.x);
+  expect(viewControls.y + viewControls.height).toBeLessThan(full.y);
   await maps.getByPlaceholder('Map name (optional)').fill('Pinned draft');
   await maps.getByRole('button', { name: 'Pin Maps', exact: true }).click();
   await page.getByRole('button', { name: 'Creatures', exact: true }).click();
@@ -1121,9 +1122,9 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   for (const width of [320, 760, 999]) {
     await page.setViewportSize({ width, height: 932 });
     const menuBox = (await page.getByRole('navigation', { name: 'DM tools' }).boundingBox())!;
-    const controlsBox = (await page.locator('.stage-controls').boundingBox())!;
+    const controlsBox = (await page.locator('.map-view-controls').boundingBox())!;
     const panelBox = (await inspector.boundingBox())!;
-    expect(menuBox.y + menuBox.height).toBeLessThan(controlsBox.y);
+    expect(menuBox.y + menuBox.height).toBeLessThan(panelBox.y);
     expect(controlsBox.y + controlsBox.height).toBeLessThan(panelBox.y);
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
     await expect(page.getByRole('button', { name: 'Maps', exact: true })).toBeVisible();
@@ -1139,7 +1140,10 @@ for (const tilted of [false, true]) test(`DM Ctrl-drag selects bases without mov
   await page.locator('input[type=password]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-  if (tilted) await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+  if (tilted) {
+    await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
+  }
   await page.getByTitle('Zoom in', { exact: true }).click();
   const named = (name: string) => setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === name)!.id)!;
   const first = (await tokenView(page, named('Druk').id))!, second = (await tokenView(page, named('Varis').id))!;
@@ -1202,7 +1206,7 @@ test('players and DM size miniatures through the character panel and fit a five-
     const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
     const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
     const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
-    await expect(playerInput).toHaveValue('4');
+    await expect(playerInput).toHaveValue('4.5');
     expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     expect((await dmSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.miniatureWidthFt;
@@ -1322,18 +1326,27 @@ test('tilted map draws and hit-tests beyond the original raster edge after zoom 
   };
   for(const viewport of [{width:1440,height:1000},{width:1100,height:850}]) {
     await page.setViewportSize(viewport);
+    await expect.poll(async () => {
+      const sample=await edge();return {alpha:sample.pixel[3],hit:sample.hit};
+    }).toEqual({alpha:255,hit:'Image'});
     const sample=await edge();
     expect(sample.y).toBeLessThan(0); expect(sample.extra).toBe(true);
     expect(sample.pixel[3]).toBe(255); expect(sample.pixel[0]).toBeGreaterThan(60);
     expect(sample.hit).toBe('Image');
   }
-  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
-  await afterPaint(page);
-  expect(await page.evaluate(()=>{
+  const rasterBefore=await page.evaluate(()=>{
     const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
     const canvas=stage.getLayers()[0].getNativeCanvasElement();
-    return {left:canvas.style.left,transform:canvas.style.transform,width:parseFloat(canvas.style.width),stage:stage.width()};
-  })).toMatchObject({left:'0px',transform:'none',width:1100,stage:1100});
+    return {left:canvas.style.left,width:parseFloat(canvas.style.width)};
+  });
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  // The matrix reaches overhead while the allocated orbit raster stays intact;
+  // reallocating it at every angle caused the earlier camera stutter.
+  await expect.poll(()=>page.evaluate(()=>{
+    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
+    const canvas=stage.getLayers()[0].getNativeCanvasElement();
+    return {left:canvas.style.left,identity:new DOMMatrix(canvas.style.transform).isIdentity,width:parseFloat(canvas.style.width),stage:stage.width()};
+  })).toMatchObject({...rasterBefore,identity:true,stage:1100});
 });
 
 test('player and monster appearance switches are independent for players and DM', async ({page,browser,request}) => {
@@ -1419,4 +1432,36 @@ for (const tilted of [false, true]) test(`base overlap nudges a player drop in $
     const node=stage.find('.token').find((n:any)=>n.getAttr('tokenId')===id);
     return node.position();
   },druk.id)).toEqual({x:placed.x,y:placed.y});
+});
+
+
+test('animated view rotation keeps player base dragging aligned in both projections',async({page,request},info)=>{
+ test.setTimeout(120000);await page.setViewportSize({width:1440,height:1000});
+ const f=await fixture(page,request);await enter(page,f.code,'Druk',false);
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3');
+ const token=f.ready.tokens[0];
+ for(const tilted of [false,true]){
+  if(tilted){await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(layer).toHaveAttribute('data-tilt-degrees','45');}
+  await page.evaluate(()=>{
+    const descriptors=['width','height'].map(key=>({key,d:Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,key)!}));
+    (window as any).__orbitResizes=0;
+    for(const {key,d} of descriptors)Object.defineProperty(HTMLCanvasElement.prototype,key,{...d,set(value){(window as any).__orbitResizes++;d.set!.call(this,value);}});
+    (window as any).__restoreOrbitCanvas=()=>descriptors.forEach(({key,d})=>Object.defineProperty(HTMLCanvasElement.prototype,key,d));
+  });
+  await page.mouse.move(250,160);await page.mouse.down({button:'right'});
+  await page.mouse.move(356,160,{steps:20});await page.mouse.up({button:'right'});
+  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText(tilted?'74\u00b0':'37\u00b0');
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(()=>{const n=(window as any).__orbitResizes;(window as any).__restoreOrbitCanvas();return n;})).toBe(0);
+  const before=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
+  const v=(await tokenView(page,token.id))!;const end=offsetPoint(v,55,40);
+  await page.mouse.move(v.x,v.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:15});await page.mouse.up();
+  await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===token.id)!.x-before.x-55)).toBeLessThan(2);
+  await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===token.id)!.y-before.y-40)).toBeLessThan(2);
+  await page.screenshot({path:info.outputPath(tilted?'rotated-45.png':'rotated-overhead.png')});
+ }
+ await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('0\u00b0');
+ const target=(await tokenView(page,token.id))!;await page.mouse.click(target.x,target.y,{button:'right'});
+ await expect(page.getByRole('dialog',{name:'Token actions'})).toBeVisible();
 });

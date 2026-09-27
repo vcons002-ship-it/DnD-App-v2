@@ -7,7 +7,7 @@ import { DM_SECRET, PORT } from './playwright.config';
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
 
-async function fixture(request: APIRequestContext, page: Page, spawnEnemies = true) {
+async function fixture(request: APIRequestContext, page: Page, className = 'Ranger', spawnEnemies = true) {
   const response = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Spell workflow regression' },
   });
@@ -25,7 +25,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
   const abilities: SheetAbility[] = [
     {id:'hm',name:"Hunter's Mark",type:'spell',level:1,tags:['concentration'],description:'Choose a target. Extra Force damage on each hit.',roll:{kind:'damage',dice:'1d6',baseLevel:1}},
   ];
-  socket.emit('character:update', { characterId, className: 'Ranger', level: 6,
+  socket.emit('character:update', { characterId, className, level: 6,
     stats: { STR: 10, DEX: 18, CON: 10, INT: 20, WIS: 10, CHA: 16 },
     sheetAbilities: abilities, weapons: [{name:'Longbow',kind:'ranged',damage:'1d8',damageType:'piercing',attackBonus:50,range:'150/600'}],
     spellSlots: { L1: { max: 8, used: 0 }, L2: { max: 4, used: 0 }, L3: { max: 8, used: 0 } },
@@ -82,13 +82,13 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
     }, id);
     await page.mouse.click(point.x, point.y, {button});
   };
-  return { socket, snapshot, ready, characterId, abilities, combat, row, dismissReveal, clickToken };
+  return { code, socket, snapshot, ready, characterId, abilities, combat, row, dismissReveal, clickToken };
 }
 
 
-test('Hunter mark cast, automatic hit damage, and no-slot transfer through player UI', async ({page,request}) => {
+for (const className of ['Fighter', 'Ranger', 'Sorcerer']) test(`Hunter mark cast, automatic hit damage, and no-slot transfer through player UI (${className})`, async ({page,request}, testInfo) => {
   test.setTimeout(150000);
-  const f = await fixture(request,page);
+  const f = await fixture(request,page,className);
   f.socket.emit('session:setManualDamage',{manual:true});
   await f.snapshot();
   const targets=f.ready.tokens.filter(t=>t.kind==='monster');
@@ -120,7 +120,7 @@ test('Hunter mark cast, automatic hit damage, and no-slot transfer through playe
         await expect(page.locator('.player-damage-dock .damage-prompt-btn')).toBeVisible({timeout:20000});
         await page.locator('.player-damage-dock .damage-prompt-btn').click();
         await expect.poll(async()=> (await f.snapshot()).rollLog.some(r=>r.reveal?.damageDice?.some(d=>d.label.includes("Hunter's Mark")))).toBe(true);
-        const mesh=page.locator('.roll-reveal .three-die');
+        const mesh=page.locator('.roll-reveal .tray-die-result');
         expect(roll.pending.crit).toBe(true);
         await expect(page.locator('.rr-arrow')).toContainText(`Goblin G${targets.findIndex(t=>t.id===target)+1}`);
         for(const sides of [6,8]) {
@@ -128,12 +128,15 @@ test('Hunter mark cast, automatic hit damage, and no-slot transfer through playe
           await expect(mesh.locator(`xpath=self::*[@data-sides="${sides}" and @data-critical="false"]`)).toHaveCount(1);
         }
 
-        await expect(page.locator('.roll-reveal .three-die[data-sides="8"]')).toHaveCount(roll.pending.crit?2:1);
-        await expect(page.locator('.roll-reveal .three-die[data-sides="6"]')).toHaveCount(roll.pending.crit?2:1);
-        await expect.poll(async()=>mesh.evaluateAll(nodes=>nodes.every(n=>!n.getAttribute('aria-label')?.includes('rolling')))).toBe(true);
+        await expect(page.locator('.roll-reveal .tray-die-result[data-sides="8"]')).toHaveCount(roll.pending.crit?2:1);
+        await expect(page.locator('.roll-reveal .tray-die-result[data-sides="6"]')).toHaveCount(roll.pending.crit?2:1);
+        await expect.poll(async()=>mesh.evaluateAll(nodes=>nodes.every(n=>!n.getAttribute('aria-label')?.includes('rolling'))),{timeout:15000}).toBe(true);
         const actual=await mesh.evaluateAll(nodes=>nodes.map(n=>({sides:Number(n.getAttribute('data-sides')),value:Number(n.getAttribute('data-value'))})));
         const expected=roll.pending.dice.flatMap(d=>(d.faces??[]).map(value=>({sides:d.label.includes("Hunter's Mark")?6:8,value})));
         expect(actual).toEqual(expected);
+        await expect(mesh.first()).toHaveAttribute('data-theme', className.toLowerCase());
+        await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-material', className === 'Sorcerer' ? 'volumetric-glass' : className === 'Fighter' ? 'obsidian-gold' : 'forest-resin');
+        await page.locator('.roll-reveal').screenshot({path: testInfo.outputPath('ranger-dice.png')});
         await expect.poll(async()=>Number((await page.locator('.rr-dmg-num').innerText()).match(/^\d+/)?.[0])).toBe(roll.pending.amount);
         await expect.poll(async()=>page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>node.text())))).toContain(`\u2212${roll.pending.amount}`);
         await f.dismissReveal();
@@ -154,4 +157,147 @@ test('Hunter mark cast, automatic hit damage, and no-slot transfer through playe
   await attack(targets[1].id);
   const final=await f.snapshot();
   expect(final.characters.find(c=>c.id===f.characterId)!.spellSlots.L1.used).toBe(1);
+});
+
+
+for (const [className, material] of [['Sorcerer','volumetric-glass'],['Fighter','obsidian-gold'],['Ranger','forest-resin']]) test(`${className} material covers all dice without a loading flash`, async ({page,request}) => {
+  test.setTimeout(90000);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/materialDice-*.js', async route => { await gate; await route.continue(); });
+  const f = await fixture(request,page,className,false);
+  const picker = page.locator('.player-dice-picker');
+  for (const sides of [4,6,8,10,12,20,100]) {
+    await picker.getByRole('button',{name:'More dice',exact:true}).click();
+    await picker.getByRole('group',{name:'Choose a die'}).getByRole('button',{name:`d${sides}`,exact:true}).click();
+    await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-entry-side','bottom');
+    const dice = page.locator('.roll-reveal .tray-die-result');
+    await expect(dice).toHaveCount(sides===100?2:1);
+    if (sides===4) {
+      await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-material','loading');
+      // No painted legacy face exists, even with the module download held open.
+      expect(await page.locator('.dice-tray-canvas').evaluate((node: HTMLCanvasElement) => {
+        const pixels=node.getContext('2d')!.getImageData(0,0,node.width,node.height).data;
+        return pixels.some((v,i)=>i%4===3 && v!==0);
+      })).toBe(false);
+      release();
+    }
+    for (const die of await dice.all()) {
+      await expect(die).toHaveAttribute('data-theme',className.toLowerCase());
+      await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-material',material);
+      await expect(die).toHaveAttribute('data-orientation','settled',{timeout:15000});
+      await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled');
+    }
+    await f.dismissReveal();
+  }
+});
+
+
+test('physics tray supports DM, mobile, compared rolls, reduced motion and summary fallback',async({page,request},testInfo)=>{
+ test.setTimeout(120000);
+ const f=await fixture(request,page,'Ranger',false);
+ await page.setViewportSize({width:390,height:844});
+ f.socket.emit('dice:roll',{expr:'2d6+1d8',advantage:'adv',label:'Tray comparison'});
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:15000});
+ await expect(page.locator('.tray-die-result')).toHaveCount(6);
+ await expect(page.locator('.rr-candidate[data-result="kept"]')).toHaveCount(1);
+ await expect(page.locator('.rr-candidate[data-result="kept"]')).toHaveCSS('border-top-color','rgb(57, 239, 135)');
+ await expect(page.locator('.rr-candidate[data-result="discarded"]')).toHaveCSS('border-top-color','rgb(255, 83, 101)');
+ const bounds=await page.locator('.dice-tray-canvas').boundingBox();expect(bounds!.width).toBeGreaterThan(200);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(391);
+ await page.locator('.roll-reveal').screenshot({path:testInfo.outputPath('phone-tray.png')});
+ await f.dismissReveal();
+ await page.emulateMedia({reducedMotion:'reduce'});
+ f.socket.emit('dice:roll',{expr:'1d20',label:'Reduced motion'});
+ await expect(page.locator('.roll-reveal')).toBeVisible();
+ await expect(page.locator('.physics-dice-tray')).toHaveCount(0);
+ await f.dismissReveal();await page.emulateMedia({reducedMotion:'no-preference'});
+ f.socket.emit('dice:roll',{expr:'1d3',label:'Custom die'});
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','fallback');
+ await expect(page.locator('.tray-die-result')).toHaveAttribute('data-orientation','settled');
+ await f.dismissReveal();
+ const dm=await page.context().newPage();await dm.goto(`/dm?code=${f.code}`);
+ await dm.getByPlaceholder(/DM secret/).fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ await expect(dm.getByRole('button',{name:'Rejoin as DM',exact:true})).toHaveCount(0);
+ f.socket.emit('dice:roll',{expr:'1d20',label:'DM physics toss'});
+ await expect(dm.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:15000});
+ await expect(dm.locator('.physics-dice-tray')).toHaveAttribute('data-entry-side','bottom');
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-entry-side',/^(left|top|right)$/);
+ await dm.locator('.roll-reveal').screenshot({path:testInfo.outputPath('dm-tray.png')});
+ await dm.close();
+});
+
+
+test('dice calculation shows readable values and sequential labeled bonuses and penalties',async({page,request},testInfo)=>{
+ const f=await fixture(request,page,'Ranger',false);
+ await page.setViewportSize({width:900,height:1000});
+ f.socket.emit('dice:roll',{expr:'1d8+3-2',label:'Readable roll calculation'});
+ const equation=page.locator('.rr-equation');
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','rolling',{timeout:15000});
+ await expect(equation.locator('.rr-adjustment')).toHaveCount(0);
+ await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:15000});
+ const snapshot=await f.snapshot();
+ const roll=snapshot.rollLog.find(r=>r.expr==='1d8+3-2')!;
+ const mods=roll.reveal?.damageMods??[];
+ expect(mods.length).toBeGreaterThan(0);
+ await expect(equation.locator('.rr-adjustment')).toHaveCount(mods.length);
+ for(let i=0;i<mods.length;i++){
+  await expect(equation.locator('.rr-adjustment').nth(i).locator('small')).toHaveText(mods[i].label);
+  await expect(equation.locator('.rr-adjustment').nth(i).locator('strong')).toHaveText(`${mods[i].value<0?'-':'+'}${Math.abs(mods[i].value)}`);
+ }
+ await expect(page.locator('.rr-roll-num')).toHaveText(String(roll.total));
+ await expect(page.locator('.tray-die-result strong')).toHaveCSS('font-size','30px');
+ await page.locator('.roll-reveal').screenshot({path:testInfo.outputPath('readable-calculation.png')});
+});
+
+
+test('settled dice flash and fill their own result boxes, including percentile and comparison dice',async({page,request})=>{
+ test.setTimeout(60000);
+ const f=await fixture(request,page,'Sorcerer',false);
+ await page.evaluate(()=>{
+   const original=Element.prototype.animate;
+   (window as any).__flightStarts=[];
+   Element.prototype.animate=function(...args){
+     if(this.classList.contains('tray-flying-number'))(window as any).__flightStarts.push({id:Number((this as HTMLElement).dataset.dieId),time:performance.now()});
+     return original.apply(this,args);
+   };
+ });
+ f.socket.emit('dice:roll',{expr:'1d100+1d8+1d6',advantage:'adv',label:'Flying results'});
+ const tray=page.locator('.physics-dice-tray');
+ await expect(tray).toHaveAttribute('data-status','rolling',{timeout:15000});
+ await expect(tray.locator('.dice-tray-canvas')).toHaveAttribute('data-playback-rate','0.6');
+ const times=await tray.locator('.dice-tray-canvas').evaluate(el=>({screen:Number((el as HTMLElement).dataset.elapsed),physics:Number((el as HTMLElement).dataset.simulationElapsed)}));
+ expect(times.physics).toBeCloseTo(times.screen*.6,2);
+ await page.evaluate(()=>{
+   const descriptor=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,'width')!;
+   (window as any).__redundantCanvasResizes=0;
+   Object.defineProperty(HTMLCanvasElement.prototype,'width',{...descriptor,set(value:number){
+     if(this.width===value)(window as any).__redundantCanvasResizes++;
+     descriptor.set!.call(this,value);
+   }});
+ });
+ await expect(tray.locator('.tray-flying-number')).toHaveCount(8);
+ await expect(tray.locator('.tray-flying-number[data-phase="flying"]').first()).toBeAttached();
+ const moving=tray.locator('.tray-flying-number[data-phase="flying"]').first();
+ expect(await moving.evaluate(el=>el.getAnimations().some(a=>a.playState==='running'))).toBe(true);
+ await expect(moving).toHaveCSS('filter','none');
+ await expect(tray).toHaveAttribute('data-status','settled',{timeout:15000});
+ expect(await page.evaluate(()=>(window as any).__redundantCanvasResizes)).toBe(0);
+ const starts=await page.evaluate(()=>(window as any).__flightStarts as {id:number;time:number}[]);
+ expect(starts.map(s=>s.id)).toEqual([0,1,2,3,4,5,6,7]);
+ for(let i=1;i<starts.length;i++)expect(Math.abs(starts[i].time-starts[i-1].time-160)).toBeLessThan(70);
+ for(const flight of await tray.locator('.tray-flying-number').all()){
+   const id=await flight.getAttribute('data-die-id');
+   const result=tray.locator(`.tray-die-result[data-die-id="${id}"]`);
+   await expect(result).toHaveAttribute('data-filled','true');
+   await expect(result.locator('strong')).toHaveText((await flight.textContent())!);
+   expect(await result.getAttribute('data-set')).toBe(await flight.getAttribute('data-set'));
+   await expect(flight).toHaveCSS('opacity','0');
+   expect(await flight.getAttribute('data-strength')).toBe(await result.getAttribute('data-strength'));
+   if(!(await result.textContent())!.includes('d100')){
+     const sides=Number(await result.getAttribute('data-sides')),value=Number(await result.getAttribute('data-value'));
+     const strength=(value-1)/(sides-1);
+     await expect(result).toHaveAttribute('data-strength',strength===1?'max':strength>=.75?'high':'normal');
+     await expect(result.locator('.tray-max-label:visible')).toHaveCount(strength===1?1:0);
+   }
+ }
 });

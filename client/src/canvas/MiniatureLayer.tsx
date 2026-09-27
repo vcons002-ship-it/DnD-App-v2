@@ -1,14 +1,18 @@
+import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
+import type {CombatRole} from '../../../shared/types';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  Scene, Texture, WebGLRenderer, PerspectiveCamera, type WebGLRenderTarget,
+  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
+import { createMiniatureNameLayer } from './miniatureNameLayer';
+import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createVanecLightning } from './vanecLightning';
 import { useStore } from '../state/socket';
@@ -26,20 +30,26 @@ export type MiniatureToken = {
   shade?: [number, number, number];
   activeTurn?: boolean;
   selected?: boolean;
+  conditionColors?: string[];
+  combatRole?: CombatRole | null;
   definition: MiniatureDefinition;
 };
 type Props = {
   tokens: MiniatureToken[];
   view: BattlefieldView;
   tiltDegrees: number;
+  rotationDegrees?: number;
   width: number;
   height: number;
   isVisibleAt?: (id: string, x: number, y: number) => boolean;
   onReady: (tokenIds: ReadonlySet<string>) => void;
+  nameLabels?: () => MiniatureNameLabel[];
+  onRenderedNames?: (ids: ReadonlySet<string>) => void;
 };
 export type MiniatureLayerHandle = {
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
+  setProjection: (tilt:number, rotation:number, view:BattlefieldView) => void;
   moveToken: (id: string, x: number, y: number, finished: boolean) => void;
 };
 type FxManifest = {
@@ -53,6 +63,11 @@ type Instance = {
   outlineViewport: { value: Vector2 };
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
+  conditionRings: Mesh<RingGeometry, MeshBasicMaterial>[];
+  combatBadge: Group;
+  badgeMesh: Mesh<PlaneGeometry,MeshBasicMaterial>;
+  badgeTexture: CanvasTexture;
+  badgeRole?: CombatRole | null;
   url: string;
   materials: Material[];
   originalColors: Array<Color | null>;
@@ -111,6 +126,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.setAttribute('aria-hidden', 'true');
   host.appendChild(renderer.domElement);
   const scene = new Scene();
+  // Shared screen mask measures local silhouette thickness for every model,
+  // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
+  const outlineMask = new WebGLRenderTarget(1, 1);
+  outlineMask.depthTexture = new DepthTexture(1, 1);
+  const outlineProjectionInverse = {value: new Matrix4()};
+  const maskMaterial = new MeshBasicMaterial({color: 0xffffff, toneMapped: false});
+  const outlineResolution = {value: new Vector2(1, 1)};
+
+  const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
+
   scene.add(new HemisphereLight(0xe5edff, 0x726856, 2));
   const key = new DirectionalLight(0xffeddb, 3);
   key.position.set(-3, 8, 5);
@@ -125,6 +150,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     environment = pmrem.fromScene(room, 0.04, 0.1, 100);
     scene.environment = environment.texture;
   } catch (error) {
+    outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -162,7 +188,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     const perspective = props.tiltDegrees > 0;
     if (perspective && !(camera instanceof PerspectiveCamera)) camera = new PerspectiveCamera();
     if (!perspective && !(camera instanceof OrthographicCamera)) camera = new OrthographicCamera();
-    const focal = perspectiveDistance(props.width, props.height);
+    const focal = perspectiveDistance(props.width, props.height, props.tiltDegrees);
     if (camera instanceof PerspectiveCamera) {
       camera.fov = 2 * Math.atan(props.height / (2 * focal)) * 180 / Math.PI;
       camera.aspect = props.width / Math.max(1, props.height);
@@ -176,12 +202,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     camera.near = Math.max(0.1, distance - depthSpan);
     camera.far = distance + depthSpan;
     const tilt = props.tiltDegrees * Math.PI / 180;
-    camera.position.set(center.x, distance * Math.cos(tilt), center.z + distance * Math.sin(tilt));
+    const yaw=(props.rotationDegrees ?? 0)*Math.PI/180;
+    camera.position.set(center.x+distance*Math.sin(tilt)*Math.sin(yaw), distance * Math.cos(tilt), center.z + distance * Math.sin(tilt)*Math.cos(yaw));
     // At exactly overhead the default Y-up is parallel to the viewing axis.
     // An explicit screen-up keeps flat mode oriented identically to the map.
-    camera.up.set(0, Math.sin(tilt), -Math.cos(tilt));
+    camera.up.set(-Math.cos(tilt)*Math.sin(yaw), Math.sin(tilt), -Math.cos(tilt)*Math.cos(yaw));
     camera.lookAt(center.x, 0, center.z);
     camera.updateProjectionMatrix();
+    outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
     const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
@@ -223,6 +251,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
+        instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
         const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
         const selectionPulse = reducedMotion.matches ? 0 : (Math.sin(seconds * Math.PI * 2 / 1.6) + 1) / 2;
         instance.selectionRing.scale.setScalar(token.definition.baseDiameter * (1 + selectionPulse * .045));
@@ -232,7 +261,21 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
-      try { renderer.render(scene, camera); publish(); } catch { fail(); }
+      try {
+        const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
+        const renderedNames=names.sync(props.nameLabels?.()??[],visible);
+        if (renderedNames.size || props.tokens.some(token => token.outline)) {
+          const originalLayers = camera.layers.mask;
+          camera.layers.set(1); scene.overrideMaterial = maskMaterial;
+          renderer.setRenderTarget(outlineMask); renderer.clear(); renderer.render(scene, camera);
+          scene.overrideMaterial = null; camera.layers.mask = originalLayers;
+          renderer.setRenderTarget(null);
+        }
+        renderer.render(scene, camera);
+        props.onRenderedNames?.(renderedNames);
+        host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
+        publish();
+      } catch { fail(); }
     }
     if (!failed && (animated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
   };
@@ -252,6 +295,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
     instance.outlineMaterial.dispose();
+    instance.badgeMesh.geometry.dispose();instance.badgeMesh.material.dispose();instance.badgeTexture.dispose();
+    instance.conditionRings.forEach(ring=>{ring.geometry.dispose();ring.material.dispose();});
     instance.selectionRing.geometry.dispose();
     instance.selectionRing.material.dispose();
     instance.turnRing.geometry.dispose();
@@ -269,6 +314,24 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
+        instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
+    instance.combatBadge.visible=!!token.combatRole;
+    instance.combatBadge.scale.setScalar(token.definition.baseDiameter);
+    instance.badgeMesh.material.opacity=token.hidden ? .45 : 1;
+    if(token.combatRole&&instance.badgeRole!==token.combatRole){
+      const c=(instance.badgeTexture.image as HTMLCanvasElement).getContext('2d')!;
+      c.clearRect(0,0,128,128);c.beginPath();c.arc(64,64,59,0,Math.PI*2);
+      c.fillStyle='#0b0d12';c.fill();c.strokeStyle='#fff';c.lineWidth=6;c.stroke();
+      c.font='76px "Segoe UI Emoji",sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';
+      c.fillText(COMBAT_ROLE_ICON[token.combatRole],64,66);
+      instance.badgeTexture.needsUpdate=true;instance.badgeRole=token.combatRole;
+    }
+    instance.conditionRings.forEach((ring,i)=>{
+      const color=token.conditionColors?.[i];ring.visible=!!color;
+      if(color)ring.material.color.set(color);
+      ring.scale.setScalar(token.definition.baseDiameter);
+      ring.material.opacity=token.hidden ? .45 : 1;
+    });
     instance.turnRing.visible = !!token.activeTurn;
     instance.selectionRing.visible = !!token.selected;
     instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
@@ -299,6 +362,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       renderedWidth = next.width; renderedHeight = next.height; renderedPixelRatio = pixelRatio;
       renderer.setPixelRatio(pixelRatio);
       renderer.setSize(Math.max(1, next.width), Math.max(1, next.height), false);
+      renderer.getDrawingBufferSize(outlineResolution.value);
+      outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
     updateCamera();
     for (const [id, url] of loading) {
@@ -357,6 +422,20 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         selectionRing.position.y = 0.002;
         selectionRing.renderOrder = -1;
         root.add(selectionRing);
+        // Condition markers share the miniatures' depth buffer, so every
+        // foreground body/base occludes them, including neighboring figures.
+        const conditionRings=Array.from({length:3},(_,i)=>{
+          const radius=.57+i*.075;
+          const ring=new Mesh(new RingGeometry(radius-.025,radius+.025,96),new MeshBasicMaterial({transparent:true,depthTest:true,depthWrite:false,toneMapped:false}));
+          ring.name='token-condition-ring';ring.rotation.x=-Math.PI/2;
+          ring.position.y=.003;ring.renderOrder=-1;root.add(ring);return ring;
+        });
+        const badgeCanvas=document.createElement('canvas');badgeCanvas.width=badgeCanvas.height=128;
+        const badgeTexture=new CanvasTexture(badgeCanvas);
+        const badgeMesh=new Mesh(new PlaneGeometry(.44,.44),new MeshBasicMaterial({map:badgeTexture,transparent:true,depthTest:true,depthWrite:false,toneMapped:false}));
+        badgeMesh.rotation.x=-Math.PI/2;badgeMesh.position.set(-.5,.004,.5);badgeMesh.renderOrder=-1;
+        badgeMesh.name='token-combat-role-ground';
+        const combatBadge=new Group();combatBadge.add(badgeMesh);root.add(combatBadge);
         const cloned = new Map<Material, Material>();
         model.traverse((node) => {
           if (!(node instanceof Mesh)) return;
@@ -384,16 +463,39 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         });
         outlineMaterial.onBeforeCompile = shader => {
           shader.uniforms.outlineViewport = outlineViewport;
-          shader.vertexShader = 'uniform vec2 outlineViewport;\n' + shader.vertexShader;
+          shader.uniforms.outlineMask = {value: outlineMask.texture};
+          shader.uniforms.outlineResolution = outlineResolution;
+          shader.uniforms.outlineDepth = {value: outlineMask.depthTexture};
+          shader.uniforms.outlineProjectionInverse = outlineProjectionInverse;
+          shader.fragmentShader = 'uniform sampler2D outlineDepth; uniform mat4 outlineProjectionInverse; uniform sampler2D outlineMask; uniform vec2 outlineResolution; uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
+            // Require coverage a few CSS pixels inside the edge. Thin blades fade
+            // out instead of acquiring a thicker colored silhouette than the blade.
+            vec2 maskUV = gl_FragCoord.xy / outlineResolution;
+            vec2 inward = outlineInward / max(length(outlineInward), 0.00001) / outlineViewport;
+            float nearCoverage = texture2D(outlineMask, maskUV + inward * 1.5).a;
+            float deepCoverage = texture2D(outlineMask, maskUV + inward * 3.5).a;
+            // Reject a base or another surface behind a thin weapon: coverage must
+            // also be close to the outline surface in view-space depth.
+            vec4 here = outlineProjectionInverse * vec4(maskUV * 2.0 - 1.0, gl_FragCoord.z * 2.0 - 1.0, 1.0);
+            vec2 deepUV = maskUV + inward * 3.5;
+            vec4 behind = outlineProjectionInverse * vec4(deepUV * 2.0 - 1.0, texture2D(outlineDepth, deepUV).r * 2.0 - 1.0, 1.0);
+            float tolerance = 10.0 * abs(outlineProjectionInverse[1][1] / here.w) / outlineViewport.y;
+            deepCoverage *= 1.0 - smoothstep(tolerance, tolerance * 2.0, max(0.0, here.z / here.w - behind.z / behind.w));
+            diffuseColor.a *= smoothstep(0.25, 0.85, nearCoverage * deepCoverage);
+            #include <opaque_fragment>
+          `);
+          shader.vertexShader = 'uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.vertexShader;
           shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
             #include <project_vertex>
             vec3 outlineNormal = normalMatrix * normal;
             vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
             float outlineLength = length(outlineDirection);
+            outlineInward = -outlineDirection;
             // Orthographic projection and model scaling can make this very small.
             // Only reject a truly degenerate direction, not a valid overhead edge.
             if (outlineLength > 0.0000000001) {
-              gl_Position.xy += outlineDirection / outlineLength * 3.0 / outlineViewport * gl_Position.w;
+              gl_Position.xy += outlineDirection / outlineLength * 2.0 / outlineViewport * gl_Position.w;
             }
           `);
         };
@@ -401,6 +503,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         model.traverse(node => {
           if (node instanceof Mesh && node.geometry.hasAttribute('normal') &&
               (Array.isArray(node.material) ? node.material : [node.material]).every(m => !m.transparent)) {
+            node.layers.enable(1);
             outlinedMeshes.push(node);
           }
         });
@@ -414,7 +517,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          root, outlineMaterial, outlineViewport, turnRing, selectionRing, url: definition.url, materials,
+          root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
@@ -447,6 +550,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     [...instances.keys()].forEach(removeInstance);
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
+    names.dispose();props.onRenderedNames?.(new Set());
+    outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;
     renderer.dispose();
@@ -463,6 +568,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (disposed || document.hidden) return;
       for (const id of tokenIds) instances.get(id)?.lightning?.cast(performance.now() / 1000);
       invalidate();
+    },
+    setProjection(tilt, rotation, nextView) {
+      if(disposed || failed)return;
+      props={...props,tiltDegrees:tilt,rotationDegrees:rotation};view=nextView;
+      updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
+      host.dataset.tiltDegrees=String(tilt);
     },
     setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
     moveToken(id, x, y, finished) {
@@ -493,6 +604,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   useImperativeHandle(ref, () => ({
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
+    setProjection: (tilt,rotation,view) => engine.current?.setProjection(tilt,rotation,view),
     moveToken: (id, x, y, finished) => engine.current?.moveToken(id, x, y, finished),
   }), []);
   useEffect(() => {

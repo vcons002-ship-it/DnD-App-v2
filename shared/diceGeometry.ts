@@ -1,4 +1,4 @@
-/** Small convex polyhedra for presentation, never for random-number generation. */
+/** Shared numbered faces and convex surfaces for rendering and live dice physics. */
 export type V3 = [number, number, number];
 export type DieMesh = { vertices: V3[]; faces: number[][] };
 export const add = (a: V3, b: V3): V3 => [
@@ -149,4 +149,68 @@ export function faceForwardMesh(mesh: DieMesh): DieMesh {
   }
   const v = normal(cross(n, u));
   return { ...mesh, vertices: mesh.vertices.map((p) => [dot(p, u), dot(p, v), dot(p, n)]) };
+}
+
+// About a 1 mm edge radius on a 16 mm d6; the flat faces retain 88% of their width.
+export const D6_EDGE_ROUNDING = .12;
+export type RoundedDieMesh = DieMesh & { normals: V3[] };
+const roundedD6Cache = new Map<number, RoundedDieMesh>();
+
+/** A cube with cylindrical edges and spherical corners. The first six faces
+ * keep the numbered cube's original ordering. The remaining faces only form
+ * the rounded surface; they must never be interpreted as additional results.
+ * Two arc segments keep collisions inexpensive; rendering uses finer arcs. */
+export function roundedD6Mesh(segments = 2): RoundedDieMesh {
+  if (!Number.isInteger(segments) || segments < 1 || segments > 8)
+    throw new Error('Rounded d6 segments must be an integer from 1 to 8');
+  const cached = roundedD6Cache.get(segments);
+  if (cached) return cached;
+  const base = faceForwardMesh(dieMesh(6));
+  const half = 1 / Math.sqrt(3), radius = half * D6_EDGE_ROUNDING, core = half - radius;
+  const vertices: V3[] = [], normals: V3[] = [], faces: number[][] = [];
+  const ids = new Map<string, number>();
+  const corners = [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => [x, y, z] as V3)));
+  const key = (corner: V3, direction: V3) => `${corner.join(',')}:${direction.join(',')}`;
+  const vertexId = (corner: V3, direction: V3) => ids.get(key(corner, direction))!;
+  for (const corner of corners) for (let i = 0; i <= segments; i++) for (let j = 0; j <= segments - i; j++) {
+    const direction: V3 = [i, j, segments - i - j];
+    const n = normal(direction.map((v, axis) => v * corner[axis]) as V3);
+    ids.set(key(corner, direction), vertices.length);
+    vertices.push(corner.map((sign, axis) => sign * core + radius * n[axis]) as V3);
+    normals.push(n);
+  }
+  const face = (indices: number[]) => {
+    const points = indices.map(i => vertices[i]);
+    const n = cross(add(points[1], scale(points[0], -1)), add(points[2], scale(points[0], -1)));
+    faces.push(dot(n, center(points)) < 0 ? indices.reverse() : indices);
+  };
+  for (const numbered of base.faces) {
+    const c = center(numbered.map(i => base.vertices[i]));
+    const axis = c.findIndex(v => Math.abs(v) > half * .9);
+    const direction: V3 = [0, 0, 0]; direction[axis] = segments;
+    face(numbered.map(i => vertexId(base.vertices[i].map(Math.sign) as V3, direction)));
+  }
+  for (let axis = 0; axis < 3; axis++) for (const a of [-1, 1]) for (const b of [-1, 1]) {
+    const u = (axis + 1) % 3, v = (axis + 2) % 3;
+    const low: V3 = [0, 0, 0]; low[axis] = -1; low[u] = a; low[v] = b;
+    const high = [...low] as V3; high[axis] = 1;
+    for (let j = 0; j < segments; j++) {
+      const start: V3 = [0, 0, 0]; start[u] = j; start[v] = segments - j;
+      const end = [...start] as V3; end[u]++; end[v]--;
+      face([vertexId(low, start), vertexId(high, start), vertexId(high, end), vertexId(low, end)]);
+    }
+  }
+  for (const corner of corners) for (let i = 0; i < segments; i++) for (let j = 0; j < segments - i; j++) {
+    const at = (x: number, y: number) => vertexId(corner, [x, y, segments - x - y]);
+    face([at(i, j), at(i + 1, j), at(i, j + 1)]);
+    if (i + j < segments - 1) face([at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)]);
+  }
+  const mesh = { vertices, normals, faces };
+  roundedD6Cache.set(segments, mesh);
+  return mesh;
+}
+
+/** Collision surface in the same local coordinates as the numbered faces. */
+export function dieCollisionMesh(sides: number): DieMesh {
+  return sides === 6 ? roundedD6Mesh() : faceForwardMesh(dieMesh(sides));
 }

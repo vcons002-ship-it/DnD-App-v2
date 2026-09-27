@@ -1,3 +1,6 @@
+import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
+import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
+import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
 import { castMark } from './marks.js';
 import { markSpell } from '../../shared/hitFeatures.js';
@@ -5,7 +8,7 @@ import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
 import { newId } from './db.js';
-import { parseRollCommand, rollDice } from '../../shared/dice.js';
+import { parseRollCommand, rollDice, isValidDiceExpression } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
 import { spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
@@ -207,7 +210,7 @@ const claimHolderPlayerId = (claimedBy: string | null): string | null =>
     ? getConn(claimedBy)?.playerId ?? pendingReleases.get(claimedBy)?.playerId
     : null) ?? null;
 
-export function registerSocketHandlers(io: IOServer): void {
+export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boolean}={}): void {
   /** Cancel every pending release for a player (they're back) so their claims
    *  aren't freed, then hand back the one character they last held if no live
    *  player holds it now. Called on (re)join. */
@@ -247,6 +250,8 @@ export function registerSocketHandlers(io: IOServer): void {
   };
 
   io.on('connection', (socket) => {
+    let activeCommandConnection:ReturnType<typeof getConn>;
+    const commandConnection=()=>activeCommandConnection??getConn(socket.id);
     // Crash boundary: every domain handler below registers through `on` instead
     // of `socket.on`, so a throw inside a handler (a malformed payload, an
     // invalid dice expression, a better-sqlite3 bind error) is caught and turned
@@ -256,28 +261,88 @@ export function registerSocketHandlers(io: IOServer): void {
       event: string,
       handler: (...args: unknown[]) => void,
     ) => void;
+    const trayReady=new Map<string,()=>void>();
+    rawOn('dice:ready',(...args)=>{const id=(args[0] as {id?:unknown})?.id;if(typeof id==='string')trayReady.get(id)?.();});
+    const prepareTray=(id:string)=>new Promise<void>(resolve=>{
+      const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
+      const timer=setTimeout(finish,2500);trayReady.set(id,finish);
+    });
+    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
-        invokeSafely(() => handler(...args), (err) => {
-          console.error(`[socket:${event}]`, err);
-          try {
-            socket.emit('error', {
-              code: 'HANDLER_ERROR',
-              message: 'Something went wrong handling that action.',
+        const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
+        const sid=sessionId();
+        const isRoll=liveEvents.has(event)||(event==='chat:send'&&!!parseRollCommand(String((args[0] as any)?.text??'')));
+        if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
+          enqueueRoll(sid,async()=>{
+            if(!socket.connected||commandConnection()?.sessionId!==sid)return;
+            if(!isRoll){await handler(...args);return;}
+            const commandConn=commandConnection();
+            const roller=rollerName(sid,socket.id,isDm());
+            const character=listCharacters(sid).find(c=>c.name===roller);
+            const payload=args[0] as any;
+            const abilityOwner=payload?.refId && (payload.kind==='pc'?getCharacter(payload.refId):getMonster(payload.refId));
+            const ability=abilityOwner?.sheetAbilities.find((a:import('../../shared/types.js').SheetAbility)=>a.id===payload?.abilityId);
+            const sourceEntry=payload?.rollId?getRollEntry(payload.rollId,sid):undefined;
+            const pending=sourceEntry?.pending;
+            const requestedToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
+            const actor=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId)
+              :requestedToken?.kind==='pc'?getCharacter(requestedToken.refId)
+              :payload?.characterId?getCharacter(payload.characterId)
+              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id):character;
+            const meta={ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
+            const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
+            const targetId=payload?.targetTokenId??(event==='save:resolve'?payload?.tokenId:undefined)??pending?.hitOptions?.targetTokenId??riposte?.attackerTokenId;
+            const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id})):[];
+            const targetLabels=new Map<string,string|undefined>();
+            const privateRoll=isDm()&&!!getSessionById(sid)?.hideDmRolls;
+            const sourceToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
+            const sources=[sourceToken,abilityOwner&&{kind:payload.kind,refId:abilityOwner.id},pending?.attacker,
+              payload?.tokenId?getToken(payload.tokenId):undefined].filter(Boolean);
+            const audienceCache=new Map<string,boolean>();
+            const audience=()=>[...io.sockets.sockets.keys()].filter(id=>{
+              const conn=getConn(id);
+              if(conn?.sessionId!==sid)return false;
+              if(conn.role==='dm')return true;
+              if(privateRoll||(isDm()&&event.startsWith('initiative:')))return false;
+              // Use the same fog/map shaping as ordinary tokens. Cache while map
+              // mutations are queued; newly joined viewers get a fresh decision.
+              if(!audienceCache.has(id)) {
+                const view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
+                audienceCache.set(id,!!view&&sources.every(source=>view.tokens.some(t=>t.kind===source!.kind&&t.refId===source!.refId)));
+              }
+              return audienceCache.get(id)!;
             });
-          } catch {
-            /* socket already gone — nothing to report to */
-          }
-        });
+            let lastId='';
+            try{
+              await runLiveCommand(()=>{
+                const emit=socket.emit;
+                // Notices from an aborted pass are not emitted twice.
+                (socket as any).emit=(...values:any[])=>{afterRollCommit(()=>emit.apply(socket,values as any));return socket;};
+                activeCommandConnection=commandConn;
+                try{handler(...args);}finally{socket.emit=emit;activeCommandConnection=undefined;}
+              },frame=>{lastId=frame.id;for(const id of audience()){
+                if(!targetLabels.has(id)){
+                  const conn=getConn(id)!;
+                  const view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
+                  targetLabels.set(id,(view?liveRollTarget(view,targetRefs):undefined)??(ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
+                }
+                io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(id)});
+              }},meta);
+            }finally{if(lastId)for(const id of audience())io.to(id).emit('dice:finished',{id:lastId});}
+          },failed);
+          return;
+        }
+        invokeSafely(()=>handler(...args),failed);
       })) as typeof socket.on;
 
-    const isDm = () => getConn(socket.id)?.role === 'dm';
-    const sessionId = () => getConn(socket.id)?.sessionId;
+    const isDm = () => commandConnection()?.role === 'dm';
+    const sessionId = () => commandConnection()?.sessionId;
 
     /** Run a mutation, persist, and re-shape snapshots for everyone. */
     const afterChange = () => {
       const sid = sessionId();
-      if (sid) { finishInitiative(sid); broadcastSnapshots(io, sid); }
+      if (sid) afterRollCommit(() => { finishInitiative(sid); broadcastSnapshots(io, sid); });
     };
 
     on('join', (payload, ack) => {
@@ -344,7 +409,7 @@ export function registerSocketHandlers(io: IOServer): void {
     // ---- DM-only: map prep & promotion ----
 
     on('map:select', ({ mapId }) => {
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!conn || conn.role !== 'dm') return;
       if (!getMap(mapId)) return;
       setConn(socket.id, { ...conn, viewMapId: mapId });
@@ -402,7 +467,7 @@ export function registerSocketHandlers(io: IOServer): void {
     const MEASURE_KINDS = ['cone', 'circle', 'line', 'square', 'emanation', 'ruler'];
     on('measure:add', ({ kind, origin, target, tokenId }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || !MEASURE_KINDS.includes(kind)) return;
       const mapId =
         conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
@@ -420,7 +485,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('measure:remove', ({ id }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || !id) return;
       // The DM may remove any; a player only their own.
       removeMeasurement(
@@ -432,7 +497,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('measure:clear', ({ mapId, mineOnly }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || !getMap(mapId)) return;
       // Players may only clear their own; the DM may clear everyone's.
       const onlyMine = mineOnly || conn.role !== 'dm';
@@ -442,7 +507,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('annotation:add', ({ kind, points, x, y, text, color, url, width, height }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || (kind !== 'freehand' && kind !== 'text' && kind !== 'image')) return;
       // Image decals are a DM tool (scenery/set-dressing); strokes/text are shared.
       if (kind === 'image' && conn.role !== 'dm') return;
@@ -506,7 +571,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('annotation:remove', ({ id }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || !id) return;
       removeAnnotation(id, conn.role === 'dm' ? undefined : rollerName(sid, socket.id, false));
       afterChange();
@@ -514,7 +579,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('annotation:clear', ({ mapId, mineOnly, kind }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || !getMap(mapId)) return;
       const onlyMine = mineOnly || conn.role !== 'dm';
       const k =
@@ -622,7 +687,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('map:delete', ({ mapId }) => {
       const sid = sessionId();
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!sid || !conn || conn.role !== 'dm' || !getMap(mapId)) return;
       deleteMap(mapId);
       // If this DM was prepping the deleted map, drop the stale view so their
@@ -876,7 +941,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid) return;
       const c = getCharacter(characterId);
       if (!c || c.sessionId !== sid) return;
-      const pid = getConn(socket.id)?.playerId ?? null;
+      const pid = commandConnection()?.playerId ?? null;
       if (!isDm()) {
         // A character is "taken" only while another player is actively holding
         // it — live, or within their brief disconnect grace. Once that lapses,
@@ -918,7 +983,7 @@ export function registerSocketHandlers(io: IOServer): void {
         stats: p.stats,
       });
       // A player's new character is theirs from the start.
-      const pid = getConn(socket.id)?.playerId;
+      const pid = commandConnection()?.playerId;
       if (created && !isDm() && pid) {
         setCharacterOwner(created.id, pid);
         clearOwnershipElsewhere(sid, pid, created.id);
@@ -932,7 +997,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const created = createCharacterFromLibrary(sid, name);
       // A player loading their own sheet claims (and thereby owns) it.
       if (created && claim && !isDm()) {
-        const pid = getConn(socket.id)?.playerId ?? null;
+        const pid = commandConnection()?.playerId ?? null;
         claimCharacter(created.id, socket.id, pid);
         if (pid) clearOwnershipElsewhere(sid, pid, created.id);
       }
@@ -970,7 +1035,7 @@ export function registerSocketHandlers(io: IOServer): void {
       releaseClaims(socket.id);
       // An explicit "change character" gives it up for good — drop the
       // last-holder record so they don't get auto-reclaimed back onto it.
-      const pid = getConn(socket.id)?.playerId;
+      const pid = commandConnection()?.playerId;
       if (pid) clearOwnershipElsewhere(sid, pid);
       afterChange();
     });
@@ -990,7 +1055,7 @@ export function registerSocketHandlers(io: IOServer): void {
     // current, role-shaped map. Reuse visibility shaping so hidden/fog/staged
     // tokens cannot be attacked by replaying an old or guessed token id.
     const canTargetSpellToken = (tokenId: string): boolean => {
-      const conn = getConn(socket.id);
+      const conn = commandConnection();
       if (!conn) return false;
       const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, socket.id, conn.playerId);
       return !!snapshot?.tokens.some((token) => token.id === tokenId);
@@ -1142,7 +1207,7 @@ export function registerSocketHandlers(io: IOServer): void {
       // (e.g. "lol") stored here would make every later ability:roll throw. The
       // roll is resolved server-side, so a bad expression is a client bug/abuse.
       for (const expr of [ability.roll?.dice, ability.roll?.scaleDice]) {
-        if (expr && rollDice(expr) === null) {
+        if (expr && !isValidDiceExpression(expr)) {
           socket.emit('notice', { message: `Invalid dice: "${expr}"` });
           return;
         }
@@ -1712,7 +1777,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const before = getSessionById(sid);
       if (!before?.activeMapId || before.initiativePending) return;
       startCombat(sid, isConnected);
-      if (!getSessionById(sid)?.initiativePending) io.to(roomName(sid)).emit('fx:initiative', {mapId: before.activeMapId});
+      if (!getSessionById(sid)?.initiativePending) afterRollCommit(()=>io.to(roomName(sid)).emit('fx:initiative', {mapId: before.activeMapId!}));
       afterChange();
     });
     on('initiative:rollMine', ({tokenId}) => {
@@ -1731,7 +1796,7 @@ export function registerSocketHandlers(io: IOServer): void {
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
       // Roll-all resets combat: re-roll everyone, start at the top, round 1.
-      io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
+      afterRollCommit(()=>io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId}));
       setInitiativePending(sid, false);
       rollAllInitiative(activeMapId);
       setActiveTurn(sid, firstInInitiative(activeMapId));
@@ -1744,7 +1809,7 @@ export function registerSocketHandlers(io: IOServer): void {
       if (!sid || !isDm()) return;
       const activeMapId = getSessionById(sid)?.activeMapId;
       if (!activeMapId) return;
-      if (!getSessionById(sid)?.activeTurnTokenId && !getSessionById(sid)?.initiativePending) io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId});
+      if (!getSessionById(sid)?.activeTurnTokenId && !getSessionById(sid)?.initiativePending) afterRollCommit(()=>io.to(roomName(sid)).emit('fx:initiative', {mapId: activeMapId}));
       // Only roll latecomers; if combat hasn't started, highlight the top and
       // open round 1. Mid-fight, the round counter is left alone.
       rollMissingInitiative(activeMapId);
@@ -1984,7 +2049,7 @@ export function registerSocketHandlers(io: IOServer): void {
 
     on('disconnect', () => {
       const sid = sessionId();
-      const playerId = getConn(socket.id)?.playerId ?? null;
+      const playerId = commandConnection()?.playerId ?? null;
       assistantInFlight.get(socket.id)?.abort(); // stop any in-flight LLM call
       assistantInFlight.delete(socket.id);
       if (sid) broadcastCursorHide(io, sid, socket.id); // clear my laser pointer

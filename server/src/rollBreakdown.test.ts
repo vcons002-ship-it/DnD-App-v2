@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RollEntry, RollReveal } from '../../shared/types.js';
-import { damageRollBreakdown } from '../../shared/rollBreakdown.js';
+import { damageRollBreakdown, rollLogDetail } from '../../shared/rollBreakdown.js';
 
 const entry = (reveal?: Partial<RollReveal>): RollEntry => ({
   id: 'display-only', roller: 'Fighter', label: 'Damage', expr: 'Greatsword',
@@ -94,4 +94,12 @@ it('combines normal and crit weapon/mark dice into one equation',()=>{
  {label:"Hunter's Mark (force)",value:4,faces:[4],diceExpression:'1d6',critical:false},
  {label:"Hunter's Mark (force) CRIT",value:3,faces:[3],diceExpression:'1d6',critical:true}]}}));
  expect(text).toBe("Damage: 2d8 [5 + 3] + 2d6 Hunter's Mark (force) [4 + 3] + 4 DEX = 19");
+});
+
+it('shows an upcast pool once and keeps its saving throw context', () => {
+ const r=entry({attacker:'Fireball (L9)',damage:42,damageType:'fire',damageDice:[{label:'8d6+1d6+1d6+1d6+1d6+1d6+1d6',value:42,faces:Array(14).fill(3)}]});
+ r.detail='Fireball (L9): 42 fire damage [old equation] \u2014 DC 18 DEX save for half';
+ expect(rollLogDetail(r)).toBe('Fireball (L9) \u2014 DC 18 DEX save for half');
+ expect(damageRollBreakdown(r)).toBe(`Damage: 14d6 [${Array(14).fill(3).join(' + ')}] = 42 fire`);
+ expect(rollLogDetail(entry())).toBe('Existing detail remains unchanged');
 });

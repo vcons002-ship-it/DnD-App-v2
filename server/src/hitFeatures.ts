@@ -1,7 +1,8 @@
+import {materializeLiveDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
-import { rollDice } from '../../shared/dice.js';
+import { rollDicePool } from '../../shared/dice.js';
 import { abilityMod, proficiencyBonus } from '../../shared/skills.js';
 import { damageMultiplier, rollSavingThrow, weaponIsMagical } from '../../shared/combatMath.js';
 import { saveAdvantage, saveAutoFail } from '../../shared/conditionEffects.js';
@@ -72,6 +73,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
   if(spell && (!level||!hitLevels(ch,ab).includes(level)||(getSessionById(sid)?.activeTurnTokenId && ch.sheetAbilities.some(a=>a.hitUsedTurn===`bonus:${turn}`)))) return {ok:false,reason:'No available spell slot or bonus-action spell for this hit.'};
   const pool=['Focus Points','Focus','Ki'].find(k=>ch.resources[k]?.used<ch.resources[k]?.max);
   if(key==='stunning strike'&&!pool) return {ok:false,reason:'No Focus/Ki points remaining.'};
+  if(p.live){materializeLiveDamage(sid,rollId);return resolveHitFeature(sid,roller,rollId,abilityId,level);}
   // Claim first. All subsequent damage remains part of the original attack.
   setSheetAbility('pc',ch.id,{...ab,hitUsedTurn:spell?`bonus:${turn}`:turn,stance:ab.stance?{...ab.stance,active:false}:undefined});
   if(spell) spendSpellSlot(ch.id,level!);
@@ -80,7 +82,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
   const expr=key==='sneak attack'?`${Math.ceil(ch.level/2)}d6`:key==='colossus slayer'?'1d8':key==='divine strike'?(ch.level>=14?'2d8':'1d8'):
     key==='searing smite'?`${n}d6`:key==='thunderous smite'?`${n+1}d6`:key==='wrathful smite'?`${n}d6`:undefined;
   const type=key==='searing smite'?'fire':key==='thunderous smite'?'thunder':key==='wrathful smite'?'necrotic':key==='divine strike'?(ab.roll?.damageType||'radiant'):w.damageType;
-  const rolls=expr?Array.from({length:p.crit?2:1},()=>rollDice(expr)!):[];
+  const rolls=expr?rollDicePool(Array.from({length:p.crit?2:1},(_,i)=>({expr,critical:i>0}))).filter((r):r is NonNullable<typeof r>=>r!==null):[];
   const raw=rolls.reduce((sum,r)=>sum+r.total,0);
   const sameType=type===w.damageType;
   const multiplier=sameType?offer.multiplier:damageMultiplier(type,victim.resistances,victim.weaknesses,victim.immunities,{magical:spell||key==='divine strike'||weaponIsMagical(w)});

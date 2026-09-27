@@ -43,6 +43,7 @@ type Props = {
   listening?: boolean;
   /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
+  viewRotation?: number;
   miniatureDiameterFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
@@ -79,6 +80,7 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  viewRotation = 0,
   miniatureDiameterFt,
   onSelect,
   onActivate,
@@ -400,7 +402,7 @@ function TokenShapeInner({
           status/turn rings must not steal clicks from nearby token bodies. */}
       <Group name="token-art" listening={false}>
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
-      {auras.map((a, i) => (
+      {!miniatureReady && auras.map((a, i) => (
         <Circle
           key={a}
           radius={radius + 5 + i * 5}
@@ -477,6 +479,7 @@ function TokenShapeInner({
         </>
       )}
       </Group>
+      <Group name="token-upright-hud" rotation={-viewRotation}>
       {/* Death marker when downed (visible HP at 0, or a manual "Dead" mark). */}
       {isDead && (
         <Text
@@ -551,7 +554,7 @@ function TokenShapeInner({
       )}
       {/* Combat-role badge (bottom-left corner): ⚔️ melee · 🏹 ranged · ✨ caster.
           A solid dark disc behind the emoji keeps it legible over any token art. */}
-      {token.kind !== 'pc' && token.combatRole && (
+      {token.kind !== 'pc' && token.combatRole && !miniatureReady && (
         <Group name="token-combat-role" x={-radius * 0.72} y={radius * 0.72}>
           <Circle
             radius={roleBadgeR}
@@ -603,6 +606,7 @@ function TokenShapeInner({
             />
           );
         })()}
+      </Group>
       </Group>
       {/* One hit-only node follows the actual body silhouette, without padding
           from labels, shadows, selected outlines or decorative rings. The empty
@@ -713,6 +717,7 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&

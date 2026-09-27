@@ -1,0 +1,103 @@
+.physics-dice-tray{position:relative;width:100%;min-width:0;margin:10px 0;}
+.dice-tray-canvas{display:block;width:100%;aspect-ratio:15.2/10.2;border-radius:14px;background:#111d1c;}
+.dice-tray-status{position:absolute;inset:0 0 40px;display:grid;place-content:center;color:#e6dac1;}
+.dice-tray-results{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding-top:8px;}
+.tray-die-result{font-size:12px;padding:3px 7px;border:1px solid #72664a;border-radius:5px;color:#cbc2ad;background:#171c20;}
+.tray-die-result strong{font-size:16px;color:#fff;margin-left:3px;}
+.tray-die-result.critical{border-color:#d6a536;color:#e4c26c;}
+.roll-reveal:has(.physics-dice-tray){width:min(760px,calc(100vw - 28px));max-height:90vh;overflow:auto;}
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-tohit{display:block;}
+.roll-reveal:has(.physics-dice-tray) .rr-buildup{display:flex;align-items:center;justify-content:center;gap:12px;}
+@media(max-width:600px){.roll-reveal:has(.physics-dice-tray){padding:12px;}.tray-die-result{font-size:10px;}.tray-die-result strong{font-size:13px;}}
+
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-tohit,.roll-reveal:has(.physics-dice-tray) .roll-reveal-damage{width:100%;}
+.tray-result-group{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+.dice-tray-results .rr-candidate{min-width:0;flex:1;text-align:center;}
+.dice-tray-results .tray-die-result{display:inline-block;margin:2px;}
+
+.dice-tray-results .rr-candidate[data-result="kept"]{border:2px solid #39ef87;background:#123625;box-shadow:0 0 12px #39ef8738;border-radius:8px;padding:6px;}
+.dice-tray-results .rr-candidate[data-result="discarded"]{border:2px solid #ff5365;background:#35191e;border-radius:8px;padding:6px;}
+.dice-tray-results [data-result="kept"] .rr-candidate-label{color:#70ffae;}
+.dice-tray-results [data-result="discarded"] .rr-candidate-label{color:#ff8793;}
+
+.physics-dice-tray .tray-die-result{min-width:48px;padding:6px 10px;font-size:13px;border-radius:8px;}
+.physics-dice-tray .tray-die-result strong{display:block;font-size:30px;line-height:1.15;margin:2px 0;font-variant-numeric:tabular-nums;}
+.tray-critical-label{display:block;font-size:10px;color:#f9d872;}
+.roll-reveal .rr-equation,.roll-reveal:has(.physics-dice-tray) .rr-buildup.rr-equation{display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:wrap;gap:9px;width:100%;padding:10px 0;}
+.rr-equation-base,.rr-equation-total,.rr-equation .rr-adjustment{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:180px;text-align:center;}
+.rr-equation strong{font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums;}
+.rr-equation small{font-size:13px;line-height:1.3;color:#e3ddcd;white-space:normal;}
+.rr-equation .rr-adjustment{padding:8px 12px;border-radius:9px;animation:rr-chip-in .4s ease-out;}
+.rr-equation .rr-adjustment.positive{border-color:#529c71;background:#143226;color:#8df4ad;}
+.rr-equation .rr-adjustment.negative{border-color:#c66572;background:#391c23;color:#ffadba;}
+.rr-equation .rr-equation-total{border-left:1px solid #887b59;padding:6px 14px;}
+.rr-equation .rr-equation-total strong{font-size:42px;color:#fff2c9;}
+.rr-equals{font-size:25px;color:#d8cfb9;}
+@media(max-width:600px){.physics-dice-tray .tray-die-result{min-width:38px;padding:5px 7px;font-size:12px;}.physics-dice-tray .tray-die-result strong{font-size:25px;}.rr-equation strong{font-size:23px;}.rr-equation small{font-size:12px;}.rr-equation .rr-adjustment{max-width:125px;padding:7px;}.rr-equation .rr-equation-total strong{font-size:34px;}}
+@media(prefers-reduced-motion:reduce){.rr-equation .rr-adjustment{animation:none;}}
+
+.tray-number-flights{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:visible;}
+.tray-flying-number{position:absolute;left:0;top:0;opacity:0;font-size:32px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:#fff3d1;text-shadow:0 2px 3px #000,0 0 9px #e9c67b;will-change:transform,opacity;}
+.tray-flying-number[data-tone="critical"]{color:#ffe275;text-shadow:0 2px 3px #000,0 0 14px #ffc321;}
+.tray-flying-number[data-tone="kept"]{color:#79ffb0;}
+.tray-flying-number[data-tone="discarded"]{color:#ff909c;}
+.tray-die-result[data-filled="true"] strong{animation:tray-result-arrive .4s ease-out;}
+@keyframes tray-result-arrive{0%{transform:scale(var(--arrival-scale,1.45));opacity:.65;}100%{transform:scale(1);opacity:1;}}
+@media(prefers-reduced-motion:reduce){.tray-number-flights{display:none;}.tray-die-result[data-filled="true"] strong{animation:none;}}
+
+.tray-flying-number[data-strength="max"]::before,.tray-flying-number[data-strength="high"]::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 14px currentColor;pointer-events:none;}
+.tray-flying-number[data-phase="flash"][data-strength="max"]::before,.tray-flying-number[data-phase="flash"][data-strength="high"]::before{animation:tray-strength-burst .32s ease-out;}
+.tray-flying-number[data-strength="max"]::after{content:'\2726';position:absolute;left:50%;top:50%;font-size:2.8em;transform:translate(-50%,-50%);opacity:0;pointer-events:none;}
+.tray-flying-number[data-phase="flash"][data-strength="max"]::after{animation:tray-strength-star .32s ease-out;}
+@keyframes tray-strength-burst{0%{transform:translate(-50%,-50%) scale(.5);opacity:.9;}100%{transform:translate(-50%,-50%) scale(1.7);opacity:0;}}
+@keyframes tray-strength-star{0%{transform:translate(-50%,-50%) scale(.4) rotate(-20deg);opacity:.8;}100%{transform:translate(-50%,-50%) scale(1.1) rotate(15deg);opacity:0;}}
+.tray-die-result[data-filled="true"][data-strength="high"]{box-shadow:0 0 9px #fff2c52b;}
+.tray-die-result[data-filled="true"][data-strength="max"]{box-shadow:0 0 15px #fff2c555,inset 0 0 9px #fff2c522;border-color:#fff0bf;}
+.tray-max-label{display:block;color:#fff0bf;font-size:9px;font-weight:800;letter-spacing:.12em;}
+
+/* Stable landing slots and prepainted glow: no animated blur or layout shifts. */
+.physics-dice-tray .tray-die-result strong{min-width:3ch;}
+.tray-flying-number{text-shadow:0 2px 3px #000,0 0 var(--arrival-glow,12px) currentColor;backface-visibility:hidden;}
+
+/* Clear the battlefield exactly when the held impact and HP floaters start. */
+.roll-reveal-backdrop.is-impact{align-items:flex-start;padding-top:92px;}
+.roll-reveal-backdrop.is-impact .roll-reveal{width:min(460px,calc(100vw - 28px));min-width:0;max-height:180px;padding:10px 18px;gap:3px;overflow:hidden;animation:none;}
+.roll-reveal-backdrop.is-impact .roll-reveal-tohit,
+.roll-reveal-backdrop.is-impact .roll-reveal-damage,
+.roll-reveal-backdrop.is-impact .critical-flourish,
+.roll-reveal-backdrop.is-impact .rr-title,
+.roll-reveal-backdrop.is-impact .rr-comparison-title{display:none;}
+.roll-impact-summary{display:flex;align-items:baseline;justify-content:center;gap:9px;}
+.roll-impact-summary strong{font-size:32px;color:#ffe4a1;}
+.roll-impact-summary span{font-size:16px;}
+.roll-reveal-backdrop.is-impact .roll-reveal-outcome{font-size:23px;}
+.natural-twenty{font-size:clamp(28px,5vw,46px);font-weight:900;color:#ffe69b;text-shadow:0 0 18px #d99d36;animation:natural-twenty-pop .5s ease-out;}
+@keyframes natural-twenty-pop{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
+@media(prefers-reduced-motion:reduce){.natural-twenty{animation:none;}}
+@media(max-width:600px){.roll-reveal-backdrop.is-impact{padding-top:70px;}}
+
+/* A bright, prepainted core for every settled die; only opacity/transform animate. */
+.tray-number-flash{position:absolute;inset:-.55em;pointer-events:none;border-radius:50%;background:radial-gradient(circle,#fff 0%,#fff9 18%,#fff2 42%,transparent 68%);opacity:0;mix-blend-mode:screen;}
+.tray-flying-number[data-phase="flash"] .tray-number-flash{animation:tray-number-flash .32s ease-out;}
+@keyframes tray-number-flash{0%{opacity:1;transform:scale(.6);}25%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.5);}}
+
+/* Keep live-result layers rasterized during the toss so first use cannot eat
+   the flash while the browser uploads text, glow and burst textures. */
+[data-live-dice] .tray-flying-number{opacity:.001;transform:translate3d(120px,120px,0);}
+[data-live-dice] .tray-number-flash{opacity:.001;will-change:transform,opacity;}
+[data-live-dice] .tray-flying-number::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);opacity:.001;box-shadow:0 0 14px currentColor;pointer-events:none;will-change:transform,opacity;}
+[data-live-dice] .tray-flying-number::after{content:'\2726';position:absolute;left:50%;top:50%;font-size:2.8em;transform:translate(-50%,-50%);opacity:.001;pointer-events:none;will-change:transform,opacity;}
+
+/* Low results contract in cool blue; critical numerals retain their gold. */
+.tray-flying-number[data-strength="low"]::before,.tray-flying-number[data-strength="min"]::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid #88c8ff;border-radius:50%;transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 14px #659ee9;pointer-events:none;}
+.tray-flying-number[data-phase="flash"][data-strength="low"]::before,.tray-flying-number[data-phase="flash"][data-strength="min"]::before{animation:tray-low-contract .32s ease-out;}
+.tray-flying-number[data-strength="min"]::before{border-width:3px;box-shadow:0 0 20px #88c8ff;}
+.tray-flying-number[data-strength="low"] .tray-number-flash,.tray-flying-number[data-strength="min"] .tray-number-flash{background:radial-gradient(circle,#eff8ff 0%,#88c8ff99 22%,#659ee922 45%,transparent 68%);}
+.tray-die-result[data-filled="true"][data-strength="low"]{box-shadow:0 0 9px #659ee944;}
+.tray-die-result[data-filled="true"][data-strength="min"]{box-shadow:0 0 16px #659ee977,inset 0 0 8px #659ee922;}
+.tray-die-result[data-strength="low"] .tray-max-label,.tray-die-result[data-strength="min"] .tray-max-label{color:#a5d7ff;}
+@keyframes tray-low-contract{0%{transform:translate(-50%,-50%) scale(1.6);opacity:.9;}100%{transform:translate(-50%,-50%) scale(.45);opacity:0;}}
+
+/* The destination is the centered numeral, not a left-aligned glyph in a wide box. */
+.physics-dice-tray .tray-die-result{text-align:center;}
+.physics-dice-tray .tray-max-label{min-height:1.2em;}

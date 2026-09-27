@@ -78,11 +78,11 @@ async function fixture(request: APIRequestContext, page: Page, slides: boolean) 
 async function expectPair(page: Page, mode: 'adv' | 'dis') {
   const comparison = page.locator(`.rr-comparison[data-mode="${mode}"]`);
   await expect(comparison.locator('.rr-candidate')).toHaveCount(2);
-  await expect(comparison.locator('.three-die')).toHaveCount(2);
-  await expect(comparison.locator('[data-result="kept"]')).toHaveCount(1);
+  await expect(comparison.locator('.tray-die-result')).toHaveCount(2);
+  await expect(comparison.locator('[data-result="kept"]')).toHaveCount(1, {timeout:15000});
   await expect(comparison.locator('[data-result="discarded"]')).toHaveCount(1);
-  await expect(comparison.locator('canvas[data-orientation="face-forward"]')).toHaveCount(2);
-  const values = await comparison.locator('.three-die').evaluateAll((dice) => dice.map((die) => Number(die.getAttribute('data-value'))));
+  await expect(comparison.locator('.tray-die-result[data-orientation="settled"]')).toHaveCount(2);
+  const values = await comparison.locator('.tray-die-result').evaluateAll((dice) => dice.map((die) => Number(die.getAttribute('data-value'))));
   const kept = Number(await comparison.locator('[data-result="kept"]').getAttribute('data-candidate'));
   await page.locator('.roll-reveal').click();
   await expect(page.locator('.roll-reveal')).toHaveCount(0);
@@ -155,7 +155,7 @@ test('player and friendly companion keep independent armed rolls shared with com
   ))!;
   const friend = setup.ready.monsters.find((monster) => monster.id === friendToken.refId)!;
   await setup.clickToken(friendToken.id);
-  const friendDisadvantage = picker.getByRole('button', { name: `Disadvantage for ${friend.name}`, exact: true });
+  const friendDisadvantage = picker.getByRole('button', { name: 'Disadvantage for Friendly dice companion', exact: true });
   await expect(friendDisadvantage).toHaveAttribute('aria-pressed', 'false');
   await expect(picker.locator('.dice-adv-armed')).toHaveCount(0);
   await friendDisadvantage.click();

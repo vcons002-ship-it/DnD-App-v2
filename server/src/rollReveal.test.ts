@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
+import { checkReveal, diceReveal, hasNaturalTwenty } from '../../shared/rollReveal.js';
 import { rollDice } from '../../shared/dice.js';
 import {
   createSession,
@@ -177,5 +177,20 @@ describe('every d20 roll animates (server reveals)', () => {
     expect(r.target).toBe(chest.name); // the numbered instance ("Chest 1")
     expect(['pass', 'fail']).toContain(r.outcome);
     expect(checkReaches(r)).toBe(true);
+  });
+});
+
+describe('natural twenty celebrations', () => {
+  it('celebrates the natural face for checks and saves without changing a failed DC', () => {
+    const r = checkReveal({who:'Varis',title:'DEX save',face:20,total:25,steps:[],outcome:'fail'});
+    expect(hasNaturalTwenty(r)).toBe(true);expect(r.outcome).toBe('fail');
+    expect(hasNaturalTwenty({...r,d20:17,attackTotal:20})).toBe(false);
+    expect(hasNaturalTwenty({...r,kind:'attack',outcome:'crit'})).toBe(false);
+  });
+  it('recognizes ordinary d20 rolls but not a d100 or a discarded twenty', () => {
+    const r: RollReveal = {kind:'dice',attacker:'Varis',outcome:'none',damageDice:[{label:'1d20',value:20,faces:[20]}]};
+    expect(hasNaturalTwenty(r)).toBe(true);
+    expect(hasNaturalTwenty({...r,damageDice:[{label:'1d100',value:20,faces:[20]}]})).toBe(false);
+    expect(hasNaturalTwenty({...r,comparison:{kind:'dice',mode:'dis',kept:1,sets:[{dice:[{sides:20,value:20}],total:20},{dice:[{sides:20,value:8}],total:8}]}})).toBe(false);
   });
 });

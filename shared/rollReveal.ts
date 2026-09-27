@@ -90,3 +90,13 @@ export function diceReveal(who: string, result: DiceResult, title?: string): Rol
     damage: result.total,
   };
 }
+
+/** Celebrate a kept natural d20, never a modifier total or a discarded die. */
+export function hasNaturalTwenty(reveal: RollReveal): boolean {
+  if (reveal.kind === 'check') return reveal.d20 === 20;
+  if (reveal.kind !== 'dice') return false;
+  if (reveal.comparison?.kind === 'dice') {
+    return reveal.comparison.sets[reveal.comparison.kept].dice.some(d => d.sides === 20 && d.value === 20 && !d.negative);
+  }
+  return (reveal.damageDice ?? []).some(d => /^\d+d20$/i.test(d.label.trim()) && d.faces?.includes(20));
+}

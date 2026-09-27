@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { createContext, memo, useContext, useEffect, useRef } from 'react';
 import {
   add,
   center,
@@ -12,6 +12,8 @@ import {
   type V3,
 } from '../../../shared/diceGeometry';
 import './three-die.css';
+import { DICE_THEMES } from '../../../shared/diceThemes';
+export const DiceThemeContext = createContext(DICE_THEMES.neutral);
 
 function rotate(v: V3, x: number, y: number, z: number): V3 {
   const a: V3 = [
@@ -31,8 +33,8 @@ function rotate(v: V3, x: number, y: number, z: number): V3 {
   ];
 }
 
-/** Projected, lit 3D meshes on Canvas2D keep many dice lightweight and avoid
- * creating a WebGL context per die. Orientation is cosmetic; value is supplied
+/** Shared WebGL material rendering with a lightweight Canvas2D fallback.
+ * All dice reuse one offscreen context. Orientation is cosmetic; value is supplied
  * by the existing server-result reveal. No roll/spend/damage calls live here. */
 const MeshDie = memo(function MeshDie({
   sides,
@@ -53,6 +55,7 @@ const MeshDie = memo(function MeshDie({
   percentileOnes?: boolean;
   onSettled?: () => void;
 }) {
+  const theme = useContext(DiceThemeContext);
   const ref = useRef<HTMLCanvasElement>(null);
   const state = useRef({ value, rolling });
   state.current = { value, rolling };
@@ -64,6 +67,22 @@ const MeshDie = memo(function MeshDie({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    let materialDie: import('../lib/materialDice').MaterialDieHandle | undefined;
+    let destroyed = false;
+    let materialPending = true;
+    canvas.dataset.material = 'loading';
+    void import('../lib/materialDice').then(({createMaterialDie}) => {
+      if (destroyed) return;
+      try { materialDie = createMaterialDie(sides,theme,!!crit,!!tens,!!percentileOnes); }
+      catch { canvas.dataset.material = 'fallback'; }
+      materialPending = false;
+      repaint.current?.();
+    }).catch(() => {
+      if (destroyed) return;
+      materialPending = false;
+      canvas.dataset.material = 'fallback';
+      repaint.current?.();
+    });
     const mesh = faceForwardMesh(dieMesh(sides)),
       reduced = matchMedia('(prefers-reduced-motion: reduce)');
     const oriented = mesh.vertices;
@@ -84,13 +103,17 @@ const MeshDie = memo(function MeshDie({
     let landingAngles: V3 = [0, 0, 0];
     let stopped = false;
     let reportedSettled = false;
-    const size = big ? 116 : 68;
-    const dpr = Math.min(devicePixelRatio, 2);
+    const size = Math.max(big ? 116 : 68, canvas.getBoundingClientRect().width);
+    const dpr = Math.min(Math.max(devicePixelRatio, 2), 3);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     const draw = (now: number) => {
       if (stopped || document.hidden) return;
-      if (now - prev < 32) {
+      // Do not paint the legacy die or report a landing while the GPU renderer
+      // loads. Fallback is reserved for an actual import/WebGL failure.
+      if (materialPending) return;
+      // GPU dice target 60 fps (with RAF timing tolerance); settled clouds stay at 10 fps.
+      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' && !wasRolling && now - settledAt >= 360 ? 100 : materialDie ? 15 : 32)) {
         frame = requestAnimationFrame(draw);
         return;
       }
@@ -102,12 +125,12 @@ const MeshDie = memo(function MeshDie({
         landingAngles = lastAngles.map((a) => Math.atan2(Math.sin(a), Math.cos(a))) as V3;
       }
       wasRolling = rolling;
-      if (rolling) { phase = now * 0.011; reportedSettled = false; }
+      if (rolling) { phase = now * 0.0065; reportedSettled = false; }
       const ease = rolling
         ? 1
         : reduced.matches
           ? 0
-          : Math.pow(Math.max(0, 1 - (now - settledAt) / 220), 3);
+          : (1 + Math.cos(Math.PI * Math.min(1, Math.max(0, (now - settledAt) / 360)))) / 2;
       // Exactly zero final tilt: the engraved authoritative result is the
       // front face, upright and parallel to the screen on every polyhedron.
       const angles: V3 = rolling
@@ -123,6 +146,10 @@ const MeshDie = memo(function MeshDie({
           size / 2 - v[1] * size * 0.35 * f,
         ];
       };
+      if (materialDie) {
+        canvas.dataset.material = theme.id === 'sorcerer' ? 'volumetric-glass' : theme.id === 'fighter' ? 'obsidian-gold' : theme.id === 'ranger' ? 'forest-resin' : 'physical-metal';
+        materialDie.draw(ctx,size,dpr,angles,state.current.value,now,rolling);
+      } else {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
       ctx.fillStyle = '#0005';
@@ -159,14 +186,16 @@ const MeshDie = memo(function MeshDie({
         points.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p)));
         ctx.closePath();
         const grad = ctx.createLinearGradient(0, 0, size, size);
-        const hue = crit ? 32 : tens ? 198 : 228;
-        grad.addColorStop(0, `hsl(${hue} 32% ${15 + light * 42}%)`);
-        grad.addColorStop(0.45, `hsl(${hue} 27% ${12 + light * 22}%)`);
-        grad.addColorStop(1, `hsl(${hue} 30% ${6 + light * 13}%)`);
+        const hue = crit ? 38 : theme.hue;
+        const saturation = crit ? 65 : theme.saturation;
+        grad.addColorStop(0, `hsl(${hue} ${saturation}% ${15 + light * 42}%)`);
+        grad.addColorStop(0.45, `hsl(${hue} ${saturation}% ${12 + light * 22}%)`);
+        grad.addColorStop(1, `hsl(${hue} ${saturation}% ${6 + light * 13}%)`);
         ctx.fillStyle = grad;
         ctx.fill();
-        ctx.strokeStyle = `rgba(226,195,134,${0.28 + light * 0.55})`;
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = crit ? '#f6d680' : theme.metal;
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1.6;
         ctx.stroke();
         const inset = project(face.c);
         ctx.beginPath();
@@ -202,6 +231,13 @@ const MeshDie = memo(function MeshDie({
         points.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p)));
         ctx.closePath();
         ctx.clip();
+        // A broad polished reflection, clipped to the physical facet.
+        const sheen = ctx.createRadialGradient(c[0] - size * .12, c[1] - size * .18, 0, c[0], c[1], size * .48);
+        sheen.addColorStop(0, `rgba(255,255,255,${.08 + Math.pow(light, 8) * .32})`);
+        sheen.addColorStop(.35, 'rgba(255,255,255,.025)');
+        sheen.addColorStop(1, 'rgba(0,0,0,.12)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(0, 0, size, size);
         ctx.translate(...c);
         ctx.transform(
           (pu[0] - c[0]) / basis,
@@ -211,14 +247,51 @@ const MeshDie = memo(function MeshDie({
           0,
           0,
         );
+        // Engraving is in the face's local plane, so it tumbles with the die.
+        const radius = size * (sides >= 12 ? .095 : .13);
+        ctx.strokeStyle = crit ? '#ffe5a1' : theme.metal;
+        ctx.globalAlpha = .48;
+        ctx.lineWidth = .55;
+        for (let j = 0; j < (['fighter','ranger'].includes(theme.id) ? 0 : 6); j++) {
+          ctx.save(); ctx.rotate(j * Math.PI / 3);
+          ctx.beginPath();
+          if (theme.motif === 'leaf') {
+            ctx.moveTo(radius, 0);
+            ctx.quadraticCurveTo(radius * 1.7, -radius * .5, radius * 1.8, 0);
+            ctx.quadraticCurveTo(radius * 1.3, radius * .35, radius, 0);
+          } else if (theme.motif === 'arcane') {
+            ctx.moveTo(radius, -.5); ctx.lineTo(radius * 1.35, -radius * .3);
+            ctx.lineTo(radius * 1.3, radius * .2); ctx.lineTo(radius * 1.9, 0);
+          } else if (theme.motif === 'sun') {
+            ctx.moveTo(radius * 1.35, 0); ctx.lineTo(radius * 1.9, 0);
+            ctx.arc(radius * 1.2, 0, 1, 0, Math.PI * 2);
+          } else {
+            ctx.moveTo(radius * 1.3, -radius * .25);
+            ctx.lineTo(radius * 1.6, 0); ctx.lineTo(radius * 1.3, radius * .25);
+          }
+          ctx.stroke(); ctx.restore();
+        }
+        // Fine machining/stone grain stays attached to each facet.
+        ctx.globalAlpha = .09;
+        for (let j = 0; j < 24; j++) {
+          const x = Math.sin(j * 17 + face.id) * size * .3;
+          const y = Math.cos(j * 29 + face.id) * size * .3;
+          ctx.fillStyle = j % 2 ? '#fff' : '#000';
+          ctx.fillRect(x, y, .6, .6);
+        }
+        ctx.globalAlpha = 1;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = `bold ${size * (tens ? 0.15 : sides === 10 ? 0.17 : sides >= 12 ? 0.17 : 0.19)}px Georgia`;
-        ctx.fillStyle = face.id === 0 ? '#fff0ce' : '#8b8170';
+        ctx.fillStyle = face.id === 0 ? theme.ink : '#ddd2bd';
         ctx.shadowColor = '#000';
         ctx.shadowBlur = 2;
+        ctx.strokeStyle = '#090b13';
+        ctx.lineWidth = 2.2;
+        ctx.strokeText(label, 0, .6);
         ctx.fillText(label, 0, 0);
         ctx.restore();
+      }
       }
       if (rolling || ease > 0) frame = requestAnimationFrame(draw);
       else if (!reportedSettled) {
@@ -226,6 +299,7 @@ const MeshDie = memo(function MeshDie({
         // Report only after the authoritative face has actually been painted.
         settledCallback.current?.();
       }
+      if (!rolling && ease === 0 && materialDie && theme.id === 'sorcerer' && !reduced.matches) frame = requestAnimationFrame(draw);
     };
     const restart = () => {
       cancelAnimationFrame(frame);
@@ -237,13 +311,15 @@ const MeshDie = memo(function MeshDie({
     reduced.addEventListener('change', restart);
     restart();
     return () => {
+      destroyed = true;
+      materialDie?.dispose();
       stopped = true;
       cancelAnimationFrame(frame);
       repaint.current = undefined;
       document.removeEventListener('visibilitychange', restart);
       reduced.removeEventListener('change', restart);
     };
-  }, [sides, big, crit, tens, percentileOnes]);
+  }, [sides, big, crit, tens, percentileOnes, theme]);
   // Start landing on the prop update, not on a separate 100ms polling clock.
   useEffect(() => { repaint.current?.(); }, [value, rolling]);
   return (
@@ -252,6 +328,7 @@ const MeshDie = memo(function MeshDie({
       className={`three-die${big ? ' big' : ''}`}
       role="img"
       aria-label={`${tens ? 'Percentile tens' : `d${sides}`}: ${rolling ? 'rolling' : value}`}
+      data-theme={theme.id}
       data-critical={!!crit}
       data-sides={sides}
       data-value={value}

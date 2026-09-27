@@ -16,3 +16,5 @@ export function clearRipostes(sessionId: string): void {
   for (const [id, offer] of offers) if (offer.sessionId === sessionId) offers.delete(id);
 }
 export const RIPOSTE_SPENT = 'Reaction spent (Riposte)';
+
+export function checkpointReactions(){const saved=new Map(offers);return ()=>{offers.clear();for(const [id,value] of saved)offers.set(id,value);};}

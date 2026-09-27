@@ -1,3 +1,4 @@
+import {isLiveCommand,afterRollCommit} from './liveRollContext.js';
 import { tokenVisibleAt } from '../../shared/fog.js';
 import type { Server } from 'socket.io';
 import type {
@@ -53,6 +54,7 @@ export const roomName = (sessionId: string): string => `session:${sessionId}`;
 
 /** No history replay or ability details; hidden and off-map casters stay private. */
 export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token['kind'], refId: string): void {
+  if(isLiveCommand()){afterRollCommit(()=>broadcastSpellCast(io, sessionId, kind, refId));return;}
   const build = createSnapshotBuilder(sessionId);
   if (!build) return;
   for (const [socketId, conn] of conns) {
@@ -69,6 +71,7 @@ export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token[
  * so staging edits reach DMs only and players always see the active map.
  */
 export function broadcastSnapshots(io: IOServer, sessionId: string): void {
+  if(isLiveCommand()){afterRollCommit(()=>broadcastSnapshots(io, sessionId));return;}
   // Transient HP-change FX queued by this change-cycle's applyDamage calls.
   // Each viewer only receives floaters for tokens THEIR snapshot contains, so
   // hidden/fog-covered/other-map creatures never pop a number for players.
