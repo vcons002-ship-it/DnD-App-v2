@@ -41,10 +41,10 @@ try{
     phases.push({text,at:Date.now()});await page.locator('#record-caption').evaluate((e,t)=>e.textContent=t,text);
     await page.mouse.move(1410,945);
   };
-  await caption('Stronger clearing and curls along the travelled path');
+  await caption('Mist parts, then drifts back into the cleared path');
   await page.waitForTimeout(600);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);
-  await page.waitForTimeout(3000);await page.screenshot({path:path.join(out,'stronger-wake.png')});await page.waitForTimeout(2400);
+  await page.waitForTimeout(3000);await page.screenshot({path:path.join(out,'stronger-wake.png')});await page.waitForTimeout(6000);
   await caption('The trail persists while moving and rotating the camera');
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();
   await page.mouse.move(box.x+80,box.y+box.height-90);await page.mouse.down({button:'right'});
@@ -57,9 +57,9 @@ try{
     }
   }
   await page.mouse.up({button:'right'});await page.mouse.move(1410,945);await page.waitForTimeout(1600);
-  await caption('Irregular wisps from the opposite side of the map');
+  await caption('Soft displacement of the existing mist');
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);await page.waitForTimeout(5400);
-  await caption('Overhead: a lingering trail, with no parallel strip pattern');
+  await caption('Overhead: the mist gradually folds back into the trail');
   await page.getByRole('button',{name:'Overhead view',exact:true}).click();await page.waitForTimeout(800);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);
   await page.waitForTimeout(2500);await page.screenshot({path:path.join(out,'overhead-wake.png')});await page.waitForTimeout(6000);

@@ -2,11 +2,11 @@ import {DataTexture, LinearFilter, RGBAFormat} from 'three';
 type FlowSettings={mapWidth:number;mapHeight:number;mistInteraction?:boolean;scenery:boolean;props?:readonly {x:number;y:number;size:number}[]};
 type ContactToken={id:string;x:number;y:number;diameter:number;visible:boolean};
 
-/** Small map-space field: RG rolls old wake edges, B clears a path, A gathers wisps.
+/** Small map-space field: RG displaces existing mist, B clears a path, A compresses it.
  * This is a bounded visual approximation, not a fluid solver or game visibility. */
 export function createMistFlow() {
-  // Curled strands need more than a single texel across their width. This field
-  // is still only 280 KiB, uploaded at 15 Hz independently of the 3D scene.
+  // Soft displacement needs several texels across a base. This field remains
+  // only 280 KiB, uploaded at 15 Hz independently of the 3D scene.
   const width=320,height=224,base=new Uint8Array(width*height*4),data=new Uint8Array(base.length);
   const texture=new DataTexture(data,width,height,RGBAFormat);
   texture.minFilter=texture.magFilter=LinearFilter;texture.generateMipmaps=false;
@@ -20,12 +20,6 @@ export function createMistFlow() {
     const x0=Math.max(0,Math.floor((wx-r)/mapWidth*width)),x1=Math.min(width-1,Math.ceil((wx+r)/mapWidth*width));
     const y0=Math.max(0,Math.floor((wy-r)/mapHeight*height)),y1=Math.min(height-1,Math.ceil((wy+r)/mapHeight*height));
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)paint((y*width+x)*4,(x+.5)/width*mapWidth,(y+.5)/height*mapHeight);
-  }
-  function ribbon(x:number,y:number,r:number,density:number){
-    visit(x,y,r,(i,wx,wy)=>{
-      const d=Math.hypot(wx-x,wy-y)/r;
-      if(d<1)data[i+3]=Math.max(data[i+3],clamp(density*(1-smooth(.1,1,d))*255));
-    });
   }
   const clamp=(v:number)=>Math.max(0,Math.min(255,Math.round(v)));
   const smooth=(a:number,b:number,x:number)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
@@ -70,7 +64,7 @@ export function createMistFlow() {
           const count=Math.min(8,Math.ceil(distance/9)),length=distance/count;
           for(let j=1;j<=count;j++){
             travel+=length;
-            // Roll up only spaced edge sections, not a ring at every footstep.
+            // Broad disturbances overlap along the path, independent of FPS.
             const curl=travel>=token.diameter*.65;
             if(curl){travel%=token.diameter*.65;ordinal++;}
             wakes.push({id:token.id,x:from.x+(token.x-from.x)*(j-.5)/count,y:from.y+(token.y-from.y)*(j-.5)/count,
@@ -108,36 +102,29 @@ export function createMistFlow() {
           data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.98)));
         });
         if(!wake.curl)continue;
-        // Counter-rotating edge ribbons grow after passage, curl inward, then
-        // diffuse. Their eddies are anchored to old path points, never the base.
-        const roll=smooth(.25,2.5,age),strength=smooth(.12,.7,age)*fade;
+        // Move existing patches outward, then gently fold them back in. There
+        // is no spiral ribbon: the mist's own density supplies all visible form.
+        const roll=smooth(.3,2.2,age),strength=smooth(.05,.35,age)*fade;
         for(const side of [-1,1]){
           const variation=Math.sin(wake.ordinal*2.399+side*1.7);
-          const r=wake.radius*(.77+variation*.10);
-          const cx=wx+wake.dx*side*r*.22+nx*side*wake.radius*.96;
-          const cy=wy+wake.dy*side*r*.22+ny*side*wake.radius*.96;
-          // Pull the existing surrounding wisps into the rolled edge as well as
-          // adding a little displaced density. Opposite sides turn inward.
+          const r=wake.radius*(.98+variation*.16);
+          const cx=wx-wake.dx*r*.25+nx*side*wake.radius*(.83+variation*.12);
+          const cy=wy-wake.dy*r*.25+ny*side*wake.radius*(.83+variation*.12);
           visit(cx,cy,r*1.8,(i,x,y)=>{
             const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)/r;
             if(d>=1.8)return;
-            const angle=side*roll*2.15*Math.exp(-d*d*.9)*fade;
+            const along=(x-wx)*wake.dx+(y-wy)*wake.dy;
+            const behind=1-smooth(0,wake.radius*.75,along);
+            const influence=(1-smooth(.15,1.8,d))*strength*behind;
+            const angle=side*roll*.65*influence;
             const c=Math.cos(angle),s=Math.sin(angle);
-            data[i]=clamp(data[i]+(dx*c-dy*s-dx)*2);
-            data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy)*2);
+            // This is an inverse sampling offset: sampling inward first makes
+            // the existing mist spread outward. That push relaxes after passage.
+            const push=side*wake.radius*.42*(1-roll)*influence;
+            data[i]=clamp(data[i]+(dx*c-dy*s-dx-nx*push)*2);
+            data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy-ny*push)*2);
+            data[i+3]=Math.max(data[i+3],clamp(influence*.34*255));
           });
-          const angle=roll*(Math.PI*1.65+variation*.22);
-          const steps=18;
-          for(let k=0;k<=steps;k++){
-            const t=k/steps,a=t*angle;
-            const radius=r*(1-.76*t*roll);
-            const along=-Math.cos(a)*radius,across=-side*Math.sin(a)*radius;
-            const x=cx+wake.dx*along+nx*across,y=cy+wake.dy*along+ny*across;
-            const width=wake.radius*(.24+age*.018)*(1-.3*t);
-            // Broken, soft strands instead of an opaque spiral symbol.
-            const density=(.70+.17*Math.sin(k*.7+wake.ordinal))*strength*(.8+.2*t);
-            ribbon(x,y,width,density);
-          }
         }
       }
       texture.needsUpdate=true;

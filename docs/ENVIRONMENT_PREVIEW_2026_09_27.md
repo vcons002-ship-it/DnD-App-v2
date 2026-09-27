@@ -275,3 +275,26 @@ Preview: https://dnd.nic024i.app/uploads/previews/environment-mist-orbit-2026092
 
 The 27-second H.264 recording and interactive lab are separate static previews.
 No campaign data or running app service was changed.
+
+## Soft parting and return
+
+The strengthened curls still read as drawn lines. Remove the spiral density
+ribbons completely. The field now spreads existing mist outward with a broad
+sampling offset, then relaxes that push into a gentle partial turn. The paired
+disturbances vary in position and size, stay behind the passing figure, and fade
+with the retained trail. Local rotation is reduced from 2.15 to 0.65 radians
+before its spatial weighting. This is a small fold, not a completed spiral.
+
+Compression multiplies the existing noisy density instead of adding an
+independent bright strand. Clear portions of the mist therefore stay clear,
+while existing banks softly gather and return. The stronger cleared corridor,
+six-second lifetime, camera clock fix, privacy cleanup and High/Low budgets
+remain. No new texture or rendering pass is introduced.
+
+The focused recording holds on the trail after Druk stops, then shows movement
+during orbit and from overhead. The existing history tests cover persistence,
+expiry, hidden sources, teleports, and stale camera timestamps.
+
+Preview: https://dnd.nic024i.app/uploads/previews/environment-soft-wake-20260927/index.html
+
+This is a separate static environment preview, not a campaign deployment.

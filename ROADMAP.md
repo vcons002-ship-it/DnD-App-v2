@@ -19,6 +19,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Strengthen the cleared path and curled edges, preserve wake history during
   camera rotation, and break up parallel mist strips with irregular curved patches.
   Verify simultaneous movement/orbit and record multiple angles in the static lab.
+- [x] Replace the visible spiral strands with broad displacement of existing
+  mist: part around the figure, gently fold inward, and refill the old trail.
 
 ## Undead and demon library expansion - September 2026
 

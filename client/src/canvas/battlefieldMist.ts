@@ -57,10 +57,11 @@ const densityField = /* glsl */`
     float wisps = smoothstep(.36,.64,strands) * smoothstep(.20,.53,bank) * (1.0 - smoothstep(.13,.5,y));
     float billow = smoothstep(.51,.75,bank) * (1.0 - smoothstep(.28,.93,y));
     float clearing = mix(flow.b,1.0,smoothstep(.5,.98,y));
-    float rim = flow.a * (1.0 - smoothstep(.3,.8,y)) * (.3 + .7*strands);
-    // Mist displaced into the trailing rim must not be erased by the clearing
-    // field that created it. Keep it wispy, with the same noise and light as fog.
-    return edge * smoothstep(0.0,.025,y) * (clearing * (wisps * 1.5 + billow * .8) + rim * 1.35);
+    float ambient = wisps * 1.5 + billow * .8;
+    float compressed = flow.a * (1.0 - smoothstep(.3,.8,y));
+    // Compress the existing noisy volume only. Adding density independently of
+    // that volume made the wake look like bright lines drawn on top of the fog.
+    return edge * smoothstep(0.0,.025,y) * ambient * (clearing + compressed * .9);
   }
   float mistGroundShade(vec3 world) {
     if (mistShadowStrength <= 0.0 || mistStrength <= 0.0) return 1.0;
