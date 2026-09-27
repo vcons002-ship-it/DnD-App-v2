@@ -76,3 +76,18 @@ node scripts/environment-preview/verify-published.mjs PREVIEW_PAGE_URL EVIDENCE_
 
 The publication script requires a passing preview receipt. Publish only to the
 intended static preview directory; this does not rebuild or restart the live app.
+
+## Maximum-mist comparison
+
+The follow-up preset sets mist to the current slider maximum (0.50, displayed
+as 50%) and increases ground-shadow strength from 0.65 to 0.80. Shadow direction,
+light position, art and geometry are unchanged. Opaque miniature and scenery
+meshes both cast and receive directional shadows; contact shadows remain flat
+under each base. Painted map shadows cannot shade moving figures.
+
+The separate comparison preserves the original preview URL:
+https://dnd.nic024i.app/uploads/previews/environment-courtyard-max-mist-20260927/index.html
+
+Verified typecheck, preview build, 896 server tests, desktop/phone preview controls,
+and public video playback plus all seven loaded models. The 30.24-second video
+is 11.3 MB; first, mist, and rotated frames were visually inspected.

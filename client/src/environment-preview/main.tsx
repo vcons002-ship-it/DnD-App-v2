@@ -25,7 +25,7 @@ const originalTokens:MiniatureToken[]=[
 type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const initialSettings:EnvironmentPreviewSettings={
   enabled:true,mapUrl:new URL('./courtyard.png',location.href).href,mapWidth,mapHeight,
-  shadows:true,mist:true,scenery:true,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.65,mistOpacity:.26,
+  shadows:true,mist:true,scenery:true,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:.5,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
 };
