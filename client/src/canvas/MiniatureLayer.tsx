@@ -297,6 +297,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
           host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
           host.dataset.groundReady=String(battlefield.ready);
+          const mistState=battlefield.mistState;
+          host.dataset.mistVisible=String(mistState.visible);
+          host.dataset.mistCoverage=mistState.coverage;
+          host.dataset.mistHeight=String(mistState.height);
+          host.dataset.mistLayers=String(mistState.layers);
         }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);

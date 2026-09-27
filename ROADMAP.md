@@ -1971,4 +1971,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 ### Environmental depth proof (2026-09-27)
 
 - [x] Isolated courtyard study with map-aligned contact/cast shadows, painted-shadow direction matching, localized drifting mist, and decorative raised stone in the miniature depth buffer. Uses the unchanged courtyard artwork and seven existing miniatures, with overhead/45-degree comparison, orbit and moving-token inspection. See [preview instructions and boundaries](docs/ENVIRONMENT_PREVIEW_2026_09_27.md).
+- [x] Whole-map mist comparison with a dedicated on/off toggle, patch/full-map coverage, independent density and 0.5-to-10-foot height controls; recorded low/high mist and verified rendered heights in desktop and phone-width browsers.
 - [ ] Shared per-map environment settings, fog-aware scenery/effect clipping, and quality/performance controls before campaign integration.

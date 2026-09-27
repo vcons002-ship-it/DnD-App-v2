@@ -25,6 +25,8 @@ It does not start the game server, connect to multiplayer, or write campaign dat
 - Two decorative stone pillars and a rock cluster sharing the miniature depth
   buffer. These are simple procedural scenery prototypes, not final generated art.
 - Two localized, low, animated mist patches with depth testing.
+- Optional whole-map mist with a dedicated on/off switch, patch/full-map
+  coverage toggle, density control, and a 0.5-to-10-foot height slider.
 - Original/effects comparison, overhead and 45-degree views, smooth orbit,
   pan/zoom, close-up and a scripted Druk movement to inspect a moving shadow.
 - Original ground image preserved byte-for-byte; selected GLBs copied without
@@ -91,3 +93,26 @@ https://dnd.nic024i.app/uploads/previews/environment-courtyard-max-mist-20260927
 Verified typecheck, preview build, 896 server tests, desktop/phone preview controls,
 and public video playback plus all seven loaded models. The 30.24-second video
 is 11.3 MB; first, mist, and rotated frames were visually inspected.
+
+## Whole-map mist and height controls
+
+The next preview starts with whole-map mist at 2 feet, maximum density and the
+previously darkened shadows. `Drifting mist` switches the effect on/off;
+`Whole-map mist` switches between the full rectangular map and the two original
+patches. Height is the top of the mist, converted with the map's 64 pixels per
+5 feet. Density and height are independent. The original map edges fade softly.
+
+Height adjustments reposition the existing layers without rebuilding shaders or
+refreshing the static shadow map. The full-map view fits the projected map
+corners, including the perspective enlargement at the near edge.
+
+Preview:
+https://dnd.nic024i.app/uploads/previews/environment-whole-map-mist-20260927/index.html
+
+The recording compares the full map with mist off/on and close views at 0.5,
+6 and 10 feet, followed by overhead and rotation. Browser checks verify actual
+rendered layer heights, coverage, on/off state and seven loaded miniatures;
+the public phone-width check also changes height and switches mist off/on.
+This remains a cosmetic preview without new campaign visibility mechanics.
+Typecheck, production build and all 896 server tests pass. The inspected and
+publicly verified comparison video is 43.28 seconds and 16.0 MB.

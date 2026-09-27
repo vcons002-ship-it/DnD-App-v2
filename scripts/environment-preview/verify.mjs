@@ -219,6 +219,17 @@ async function exerciseRange(page, name) {
   receipt.controls.push({ name, before, changed: after, restored: await slider.inputValue() });
 }
 
+async function setMistHeight(page, feet) {
+  const slider=page.getByRole('slider',{name:'Mist height',exact:true});
+  await slider.evaluate((input,value)=>{
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,String(value));
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  },feet);
+  await page.waitForFunction(expected=>Math.abs(Number(document.querySelector('[data-testid="miniature-layer"]')?.dataset.mistHeight)-expected)<.001,feet*64/5);
+  check('Mist height updates the rendered layer positions',{feet,mapPixels:feet*64/5});
+}
+
 async function exerciseShadowCalibration(page) {
   const direction = page.getByRole('slider', { name: 'Shadow direction', exact: true });
   const before = await direction.inputValue();
@@ -402,8 +413,13 @@ try {
   await setCheckbox(desktopPage, 'Show effects', true);
   await setCheckbox(desktopPage, 'Token shadows', true);
   await setCheckbox(desktopPage, 'Drifting mist', true);
-  for (const name of ['Shadow direction', 'Shadow length', 'Mist strength']) await exerciseRange(desktopPage, name);
-  check('All three range controls respond and restore');
+  for (const name of ['Shadow direction', 'Shadow length', 'Mist strength', 'Mist height']) await exerciseRange(desktopPage, name);
+  await setCheckbox(desktopPage,'Whole-map mist',false);
+  await layerHas(desktopPage,'data-mist-coverage','patches');
+  await setCheckbox(desktopPage,'Whole-map mist',true);
+  await layerHas(desktopPage,'data-mist-coverage','map');
+  await layerHas(desktopPage,'data-mist-layers','4');
+  check('All four range controls respond and coverage switches the rendered mist');
   await exerciseShadowCalibration(desktopPage);
   await desktopPage.getByRole('button', { name: 'Close-up', exact: true }).click();
   await twoFrames(desktopPage);
@@ -451,6 +467,29 @@ try {
   await desktopPage.waitForTimeout(2200);
   await snapshot(desktopPage, 'Shadows, raised scenery, and drifting mist at 45 degrees', '03-scenic-45.png');
   await desktopPage.waitForTimeout(1800);
+
+  await desktopPage.getByRole('button',{name:'Reset view',exact:true}).click();
+  await desktopPage.waitForTimeout(750);
+  await setCheckbox(desktopPage,'Drifting mist',false);
+  await layerHas(desktopPage,'data-mist-visible','false');
+  await desktopPage.mouse.move(1530,950);
+  await desktopPage.waitForTimeout(1400);
+  await snapshot(desktopPage,'Whole map with mist switched off','08-whole-map-clear.png');
+  await setMistHeight(desktopPage,2);
+  await setCheckbox(desktopPage,'Drifting mist',true);
+  await layerHas(desktopPage,'data-mist-visible','true');
+  await desktopPage.mouse.move(1530,950);
+  await desktopPage.waitForTimeout(2200);
+  await snapshot(desktopPage,'Whole map with two-foot mist','09-whole-map-mist.png');
+  await desktopPage.getByRole('button',{name:'Close-up',exact:true}).click();
+  await desktopPage.waitForTimeout(750);
+  for(const [feet,file] of [[.5,'10-mist-half-foot.png'],[6,'11-mist-six-feet.png'],[10,'12-mist-ten-feet.png']]){
+    await setMistHeight(desktopPage,feet);
+    await desktopPage.mouse.move(1530,950);
+    await desktopPage.waitForTimeout(1900);
+    await snapshot(desktopPage,`Mist reaching ${feet} feet above the ground`,file);
+  }
+  await setMistHeight(desktopPage,2);
 
   await desktopPage.getByRole('button', { name: 'Overhead view', exact: true }).click();
   await desktopPage.mouse.move(1530, 950);

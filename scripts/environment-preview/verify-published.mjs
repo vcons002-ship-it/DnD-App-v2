@@ -35,6 +35,24 @@ try{
   await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]')?.dataset.miniatureCount==='7',null,{timeout:120000});
   report.interactive=await page.getByTestId('miniature-layer').evaluate(e=>({...e.dataset}));
   assert.equal(report.interactive.groundReady,'true');
+  const height=page.getByRole('slider',{name:'Mist height',exact:true});
+  if(await height.count()){
+    const initial=await height.inputValue();
+    await height.evaluate(input=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'6');
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    await page.waitForFunction(()=>Math.abs(Number(document.querySelector('[data-testid="miniature-layer"]').dataset.mistHeight)-76.8)<.001);
+    await page.getByRole('checkbox',{name:'Drifting mist',exact:true}).uncheck();
+    await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistVisible==='false');
+    await page.getByRole('checkbox',{name:'Drifting mist',exact:true}).check();
+    await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistVisible==='true');
+    await height.evaluate((input,value)=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+    },initial);
+    report.mistControls={heightSixFeetRendered:true,offOnToggle:true,restoredFeet:Number(initial)};
+  }
   await page.screenshot({path:path.join(output,'published-phone-interactive.png'),fullPage:true});
   assert.equal(errors.length,0);
   report.status='passed';

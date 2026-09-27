@@ -3,11 +3,12 @@ import {createRoot} from 'react-dom/client';
 import {MiniatureLayer,type MiniatureLayerHandle,type MiniatureToken} from '../canvas/MiniatureLayer';
 import type {EnvironmentPreviewSettings} from '../canvas/battlefieldEnvironment';
 import {MINIATURES} from '../lib/miniatures';
-import {groundYScale,unprojectGround,screenToMap,type BattlefieldView} from '../canvas/miniatureProjection';
+import {groundYScale,projectGround,unprojectGround,screenToMap,type BattlefieldView} from '../canvas/miniatureProjection';
 import {facingAfterMove} from '../../../shared/tokenFacing';
 import './preview.css';
 
 const mapWidth=1216,mapHeight=832;
+const pixelsPerFoot=64/5;
 const asset=(url:string)=>new URL('.'+url,location.href).href;
 const miniature=(id:string)=>{
   const source=MINIATURES[id];
@@ -26,6 +27,7 @@ type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const initialSettings:EnvironmentPreviewSettings={
   enabled:true,mapUrl:new URL('./courtyard.png',location.href).href,mapWidth,mapHeight,
   shadows:true,mist:true,scenery:true,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:.5,
+  mistCoverage:'map',mistHeight:2*pixelsPerFoot,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
 };
@@ -45,7 +47,21 @@ function Preview(){
   const pointer=useRef<{id:number;x:number;y:number;camera:Camera;kind:'pan'|'rotate'|'shadow'}|null>(null);
   const onReady=useCallback((ids:ReadonlySet<string>)=>setReady(ids.size),[]);
   const fitted=useCallback((tilt=45,rotation=0,close=false):Camera=>{
-    const scale=Math.min(size.width/(mapWidth*1.12),size.height/(mapHeight*groundYScale(tilt)*1.35))*(close?2.05:1);
+    let scale=Math.min(size.width/(mapWidth*1.12),size.height/(mapHeight*groundYScale(tilt)*1.35))*(close?2.05:1);
+    if(!close){
+      // Perspective enlarges the near corners: fit their projected positions.
+      let low=0,high=scale;
+      const padding=Math.min(size.width,size.height)*.045;
+      for(let i=0;i<24;i++){
+        const candidate=(low+high)/2;
+        const fits=[[0,0],[mapWidth,0],[0,mapHeight],[mapWidth,mapHeight]].every(([x,y])=>{
+          const p=projectGround(size.width/2+(x-608)*candidate,size.height/2+(y-425)*candidate*groundYScale(tilt),size.width,size.height,tilt,rotation);
+          return p.x>=padding&&p.x<=size.width-padding&&p.y>=padding&&p.y<=size.height-padding;
+        });
+        if(fits)low=candidate;else high=candidate;
+      }
+      scale=low;
+    }
     return {tilt,rotation,view:{x:size.width/2-608*scale,y:size.height/2-425*scale*groundYScale(tilt),scale}};
   },[size]);
   useEffect(()=>{
@@ -136,14 +152,17 @@ function Preview(){
         <h2>Environment</h2>
         <label className="switch master"><input type="checkbox" checked={settings.enabled} onChange={e=>change('enabled',e.target.checked)}/>Show effects</label>
         <p className="help">Switch off to compare with the original lighting.</p>
+        <label className="switch"><input type="checkbox" checked={settings.mist} onChange={e=>change('mist',e.target.checked)}/>Drifting mist</label>
+        <label className="switch"><input type="checkbox" checked={settings.mistCoverage==='map'} onChange={e=>change('mistCoverage',e.target.checked?'map':'patches')}/>Whole-map mist</label>
+        <label className="range">Mist strength <output>{Math.round((settings.mistOpacity??.5)*100)}%</output><input aria-label="Mist strength" type="range" min="0" max=".5" step=".01" value={settings.mistOpacity} onChange={e=>change('mistOpacity',+e.target.value)}/></label>
+        <label className="range">Mist height <output>{((settings.mistHeight??25.6)/pixelsPerFoot).toFixed(1)} ft</output><input aria-label="Mist height" type="range" min=".5" max="10" step=".5" value={(settings.mistHeight??25.6)/pixelsPerFoot} onChange={e=>change('mistHeight',+e.target.value*pixelsPerFoot)}/></label>
+        <p className="help">Height sets how far the mist reaches above the ground. Switch whole-map coverage off to compare the original patches.</p>
         <label className="switch"><input type="checkbox" checked={settings.shadows} onChange={e=>change('shadows',e.target.checked)}/>Token shadows</label>
         <label className="range">Shadow direction <output>{Math.round(settings.shadowDirectionDegrees)}°</output><input aria-label="Shadow direction" type="range" min="0" max="359" value={settings.shadowDirectionDegrees} onChange={e=>change('shadowDirectionDegrees',+e.target.value)}/></label>
         <button className={calibrating?'active':''} onClick={()=>{stop();setCamera({...current.current});setCalibrating(v=>!v);}}>Match a painted shadow</button>
         <label className="range">Shadow length <output>{settings.shadowLength.toFixed(2)}×</output><input aria-label="Shadow length" type="range" min=".25" max="2" step=".05" value={settings.shadowLength} onChange={e=>change('shadowLength',+e.target.value)}/></label>
         <label className="switch"><input type="checkbox" checked={settings.scenery} onChange={e=>change('scenery',e.target.checked)}/>Raised scenery</label>
         <p className="help">Two stone pillars and a small rock cluster share depth with the figures.</p>
-        <label className="switch"><input type="checkbox" checked={settings.mist} onChange={e=>change('mist',e.target.checked)}/>Drifting mist</label>
-        <label className="range">Mist strength <output>{Math.round((settings.mistOpacity??.18)*100)}%</output><input aria-label="Mist strength" type="range" min="0" max=".5" step=".01" value={settings.mistOpacity} onChange={e=>change('mistOpacity',+e.target.value)}/></label>
         <p className="help">The original map image is preserved. Scenery is decorative in this first test.</p>
         <div className="legend"><span className="ally">●</span> Druk · Varis · Vanec<br/><span className="enemy">●</span> Fanatic · goblins · wolf</div>
         <p className="diagnostics">{ready}/7 miniatures loaded</p>
