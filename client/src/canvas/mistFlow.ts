@@ -52,7 +52,9 @@ export function createMistFlow() {
         if(from&&enabled&&distance<token.diameter*3){
           const count=Math.min(8,Math.ceil(distance/7));
           for(let j=1;j<=count;j++)wakes.push({id:token.id,x:from.x+(token.x-from.x)*j/count,y:from.y+(token.y-from.y)*j/count,
-            radius:token.diameter*.64,born:time,dx:(token.x-from.x)/distance,dy:(token.y-from.y)/distance});
+            // Extend past the opaque base: a base-sized disturbance is mostly
+            // hidden by the figure itself, especially from overhead.
+            radius:token.diameter*.95,born:time,dx:(token.x-from.x)/distance,dy:(token.y-from.y)/distance});
           if(wakes.length>48)wakes.splice(0,wakes.length-48);
         }
         previous.set(token.id,{x:token.x,y:token.y});
@@ -75,11 +77,11 @@ export function createMistFlow() {
           if(d>=1)continue;
           const i=(y*width+x)*4,core=(1-smooth(.12,.82,d))*fade;
           const curl=Math.exp(-Math.pow((d-.65)/.22,2))*fade;
-          data[i+2]=Math.min(data[i+2],clamp(255*(1-core*.87)));
-          data[i+3]=Math.max(data[i+3],clamp(curl*.6*255));
+          data[i+2]=Math.min(data[i+2],clamp(255*(1-core*.95)));
+          data[i+3]=Math.max(data[i+3],clamp(curl*.9*255));
           // Soft sideways displacement makes the trailing rim turn as it fades.
-          data[i]=clamp(base[i]-wake.dy*curl*15);
-          data[i+1]=clamp(base[i+1]+wake.dx*curl*15);
+          data[i]=clamp(base[i]-wake.dy*curl*35);
+          data[i+1]=clamp(base[i+1]+wake.dx*curl*35);
         }
       }
       texture.needsUpdate=true;

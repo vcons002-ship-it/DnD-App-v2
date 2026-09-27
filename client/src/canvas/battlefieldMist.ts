@@ -52,9 +52,11 @@ const densityField = /* glsl */`
     float wisps = smoothstep(.39,.65,strands) * (1.0 - smoothstep(.10,.43,y));
     float bank = mistNoiseAt(vec3(along / 86.0 + 21.0, y * 1.5 + 17.0, across / 48.0));
     float billow = smoothstep(.53,.75,bank) * (1.0 - smoothstep(.28,.93,y));
-    float clearing = mix(flow.b,1.0,smoothstep(.2,.85,y));
-    float rim = flow.a * (1.0 - smoothstep(.2,.7,y)) * (.3 + .7*strands);
-    return edge * clearing * smoothstep(0.0,.025,y) * (wisps * 1.4 + billow * .8 + rim * .7);
+    float clearing = mix(flow.b,1.0,smoothstep(.35,.95,y));
+    float rim = flow.a * (1.0 - smoothstep(.3,.8,y)) * (.3 + .7*strands);
+    // Mist displaced into the trailing rim must not be erased by the clearing
+    // field that created it. Keep it wispy, with the same noise and light as fog.
+    return edge * smoothstep(0.0,.025,y) * (clearing * (wisps * 1.4 + billow * .8) + rim * 1.05);
   }
   float mistGroundShade(vec3 world) {
     if (mistShadowStrength <= 0.0 || mistStrength <= 0.0) return 1.0;

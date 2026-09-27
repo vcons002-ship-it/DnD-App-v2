@@ -54,7 +54,8 @@ export type MiniatureLayerHandle = {
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
   setProjection: (tilt:number, rotation:number, view:BattlefieldView) => void;
-  moveToken: (id: string, x: number, y: number, finished: boolean) => void;
+  moveToken: (id: string, x: number, y: number, finished: boolean, facing?: number) => void;
+  previewMove: (id: string, point: {x:number;y:number;facing:number} | null) => void;
 };
 type FxManifest = {
   duration_seconds: number;
@@ -171,6 +172,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const instances = new Map<string, Instance>();
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
+  // One local planning figure; geometry is shared with the loaded model. It has
+  // no effects, shadows, labels, hit region or network representation.
+  let preview: {id:string;root:Group} | null = null;
+  const previewMaterial = new MeshStandardMaterial({color: '#83aab6', transparent:true, opacity:.3,
+    roughness:.9, metalness:0, depthWrite:false});
+  const clearPreview = () => {
+    if(preview)scene.remove(preview.root);
+    preview=null;delete host.dataset.previewTokenId;
+  };
   const abort = new AbortController();
   let props = initial;
   let view = initial.view;
@@ -334,6 +344,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (!frame) frame = requestAnimationFrame(draw);
   };
   const removeInstance = (id: string) => {
+    if(preview?.id===id)clearPreview();
     const instance = instances.get(id);
     if (!instance) return;
     instance.mixer?.stopAllAction();
@@ -618,6 +629,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     [...instances.keys()].forEach(removeInstance);
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
+    clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
     battlefield?.dispose();battlefield=null;
     timing?.dispose();
@@ -646,11 +658,39 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.tiltDegrees=String(tilt);
     },
     setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
-    moveToken(id, x, y, finished) {
+    previewMove(id, point) {
+      if(disposed)return;
+      if(!point){if(preview?.id===id)clearPreview();invalidate();return;}
+      const instance=instances.get(id);
+      if(!instance)return;
+      if(preview?.id!==id){
+        clearPreview();
+        const root=new Group();
+        root.add(instance.root.children[0].clone(true));
+        root.traverse(node=>{
+          node.layers.set(0);
+          if(node instanceof Mesh){
+            if(node.name==='disposition-outline')node.visible=false;
+            node.material=previewMaterial;
+            node.castShadow=false;node.receiveShadow=false;
+          }
+        });
+        preview={id,root};scene.add(root);host.dataset.previewTokenId=id;
+      }
+      preview!.root.scale.copy(instance.root.scale);
+      preview!.root.position.set(point.x,0,point.y);
+      preview!.root.rotation.y=point.facing;
+      preview!.root.visible=props.isVisibleAt?.(id,point.x,point.y)??true;
+      invalidate();
+    },
+    moveToken(id, x, y, finished, facing) {
       if (disposed) return;
       const token = props.tokens.find((item) => item.id === id);
       if (!token) return;
-      moves.set(id, { x, y, facing: facingAfterMove(token.x, token.y, x, y, token.facing),
+      if(finished && facing!==undefined && x===token.x && y===token.y){
+        moves.delete(id);invalidate();return;
+      }
+      moves.set(id, { x, y, facing: facing ?? facingAfterMove(token.x, token.y, x, y, token.facing),
         fromX: token.x, fromY: token.y, until: finished ? performance.now() + 1500 : Infinity });
       invalidate();
     },
@@ -675,7 +715,8 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
     setProjection: (tilt,rotation,view) => engine.current?.setProjection(tilt,rotation,view),
-    moveToken: (id, x, y, finished) => engine.current?.moveToken(id, x, y, finished),
+    moveToken: (id, x, y, finished, facing) => engine.current?.moveToken(id, x, y, finished, facing),
+    previewMove: (id,point) => engine.current?.previewMove(id,point),
   }), []);
   useEffect(() => {
     if (!hasMiniatures) {

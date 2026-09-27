@@ -131,6 +131,8 @@ describe('monster appearance', () => {
     const s=createSession('Drag conceal'),map=createMap(s.id,{name:'Fog'});setActiveMap(s.id,map.id);
     const pc=createCharacter(s.id,{name:'Druk'}),t=createToken({mapId:map.id,kind:'pc',refId:pc.id,x:25,y:25});
     setConn('appearance-player',{sessionId:s.id,role:'player',viewMapId:null,playerId:null});
+    // Legacy player previews retain the fog gate; new clients plan locally.
+    setConn('appearance-dm',{sessionId:s.id,role:'player',viewMapId:null,playerId:null});
     const sent: unknown[]=[];const io={to:()=>({emit:(_e:string,p:unknown)=>sent.push(p)})} as unknown as IOServer;
     setFogLayer(map.id,'map',true);setFogRevealed(map.id,'map',['0,0']);
     broadcastTokenDrag(io,s.id,'appearance-dm',t,777,888);

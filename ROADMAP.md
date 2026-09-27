@@ -4,6 +4,17 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Movement previews and mist feedback - September 2026
+
+- [x] Private translucent destination figures with grid distance and expected
+  facing. Release animates the accepted position for all viewers; Escape cancels.
+  Preserve base selection, fog and collision rules across 2D/3D and both views.
+- [x] Keep DM planning out of player drag events and suppress shared pointers
+  while planning. Test with connected DM/player clients and real miniatures.
+- [x] Make the standalone mist wake visible beyond a moving figure's base and
+  preserve its displaced rim. Record reaction off/on and overhead comparisons.
+  See [implementation and verification](docs/TOKEN_MOVEMENT_PREVIEW_2026_09_27.md).
+
 ## Undead and demon library expansion - September 2026
 
 - [x] Add Shadow, Mummy, Quasit and Dretch templates using SRD 5.2.1, with

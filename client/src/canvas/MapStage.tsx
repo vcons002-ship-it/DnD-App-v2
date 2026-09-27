@@ -384,7 +384,7 @@ export function MapStage({
   }, []);
   const handleMiniatureUnavailable = useCallback(() => setReadyMiniatures(new Set()), []);
   const handleTokenVisualMove = useCallback((token: Token, x: number, y: number, finished: boolean) => {
-    miniatureRef.current?.moveToken(token.id, x, y, finished);
+    miniatureRef.current?.moveToken(token.id, x, y, finished, token.facing);
   }, []);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
@@ -589,7 +589,6 @@ export function MapStage({
   const saveResolve = useStore((s) => s.saveResolve);
   const hpFx = useStore((s) => s.hpFx);
   const dragGhosts = useStore((s) => s.dragGhosts);
-  const dragToken = useStore((s) => s.dragToken);
   const typingChars = useStore((s) => s.typingChars);
   const sayBubbles = useStore((s) => s.sayBubbles);
   const cursors = useStore((s) => s.cursors);
@@ -753,6 +752,13 @@ export function MapStage({
   const measureActive = !!tool || removeMode || scaleMode || matchMode || !!annotate;
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
+  const privateDrag = useRef(false);
+  const handleDragActive = useStableCallback((active: boolean) => {
+    privateDrag.current=active;
+    setDraggingToken(active);
+    // A shared DM pointer must not disclose the otherwise private destination.
+    if(active){hideCursor();setHover(null);}
+  });
   const gridHot = draggingToken || measureActive;
 
   // Identity-stable token handlers so the memoized TokenShape only re-renders
@@ -771,8 +777,8 @@ export function MapStage({
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) =>
     onMoveToken(tok.id, x, y, placed),
   );
-  const handleTokenDragPreview = useStableCallback((tok: Token, x: number, y: number) =>
-    dragToken(tok.id, x, y),
+  const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) =>
+    miniatureRef.current?.previewMove(tok.id, point),
   );
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
     setHover(null);
@@ -781,9 +787,9 @@ export function MapStage({
     setCombatTarget(tok.id);
     setMenu({ token: tok, x: cx, y: cy });
   });
-  const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) =>
-    setHover({ token: tok, x: cx, y: cy }),
-  );
+  const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) => {
+    if(!privateDrag.current)setHover({ token: tok, x: cx, y: cy });
+  });
   const handleTokenHoverEnd = useStableCallback(() => setHover(null));
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
@@ -1300,7 +1306,7 @@ export function MapStage({
     // Live "laser pointer": broadcast my cursor (throttled ~20/s) so others see
     // what I'm pointing at — independent of any active tool.
     const cursorStage = e.target.getStage();
-    if (cursorStage && map) {
+    if (cursorStage && map && !privateDrag.current) {
       const now = Date.now();
       if (now - cursorThrottle.current > 45) {
         cursorThrottle.current = now;
@@ -1629,7 +1635,7 @@ export function MapStage({
         onContextMenu={handleTokenMenu}
         onHover={handleTokenHover}
         onHoverEnd={handleTokenHoverEnd}
-        onDragActive={setDraggingToken}
+        onDragActive={handleDragActive}
         onDragPreview={handleTokenDragPreview}
         onVisualMove={handleTokenVisualMove}
         isVisibleAt={tokenVisibleAtPosition}

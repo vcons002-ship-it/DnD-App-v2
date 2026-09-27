@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   Group,
   Circle,
@@ -16,6 +16,8 @@ import { COMBAT_ROLE_ICON } from '../../../shared/combatRole';
 import { presentAuras, AURA_HEX } from '../lib/conditions';
 import { sameTokenDisplay, sameTokenFields, type TokenDisplay } from '../lib/entities';
 import { useImage } from './useImage';
+import { facingAfterMove } from '../../../shared/tokenFacing';
+import { moveDistanceFt, tokenMoveDuration, tokenMoveProgress } from './tokenMotion';
 
 const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
@@ -56,8 +58,8 @@ type Props = {
   onHoverEnd?: (token: Token) => void;
   /** Signals drag start/stop so the map can brighten the grid while a token moves. */
   onDragActive?: (active: boolean) => void;
-  /** Throttled live drag position, broadcast so others see a ghost tether. */
-  onDragPreview?: (token: Token, x: number, y: number) => void;
+  /** Private to this browser. A null point removes the planning figure. */
+  onDragPreview?: (token: Token, point: {x:number;y:number;facing:number} | null) => void;
   /** Local WebGL position, without a React render or network throttle. */
   onVisualMove?: (token: Token, x: number, y: number, finished: boolean) => void;
   /** Keep the whole token/HUD concealed when its live anchor enters fog. */
@@ -96,9 +98,6 @@ function TokenShapeInner({
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
   const radius = ((miniatureReady ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
-  // Feet per map-pixel (the inverse of the token-sizing scale) — turns a drag's
-  // pixel delta into a real-world distance for the live readout.
-  const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;
   const auras = presentAuras(display.conditions);
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
@@ -115,79 +114,117 @@ function TokenShapeInner({
     display.dead === true ||
     display.conditions.some((c) => c.label.toLowerCase() === 'dead');
 
-  // Live "distance from the previous spot" readout while dragging: a dashed
-  // tether from the start position to the token + a "N ft" pill, updated
-  // imperatively (refs + batchDraw) so the drag never triggers a React render —
-  // a mid-drag re-render would re-apply token.x/y and snap the node back. The
-  // origin is the committed token.x/token.y (frozen during the drag).
+  // The drag handle follows the pointer, but its art stays at the committed
+  // origin. Only the private shadow travels until a server snapshot commits.
+  const tokenNode = useRef<Konva.Group>(null);
+  const tokenArt = useRef<Konva.Group>(null);
   const dragOverlay = useRef<Konva.Group>(null);
+  const previewBase = useRef<Konva.Group>(null);
+  const previewArrow = useRef<Konva.Line>(null);
   const tether = useRef<Konva.Line>(null);
   const distText = useRef<Konva.Text>(null);
-  // Throttle the network preview (the local tether stays smooth either way).
-  const lastDragEmit = useRef(0);
-  const dragGeneration = useRef(0);
+  const motion = useRef(0);
+  const pose = useRef({x:token.x,y:token.y});
+  const committed = useRef({x:token.x,y:token.y});
+  const dragging = useRef(false);
+  const cancelled = useRef(false);
+  const latest = useRef({token,onVisualMove,onDragPreview,onDragActive,isVisibleAt});
+  latest.current = {token,onVisualMove,onDragPreview,onDragActive,isVisibleAt};
+
+  const clearPreview = () => {
+    dragOverlay.current?.visible(false);
+    tokenArt.current?.position({x:0,y:0});
+    onDragPreview?.(token,null);
+    onDragActive?.(false);
+    dragging.current=false;
+  };
+  const cancelDrag = () => {
+    if(!dragging.current)return;
+    cancelled.current=true;
+    tokenNode.current?.stopDrag();
+    clearPreview();
+    tokenNode.current?.position(committed.current);
+    tokenNode.current?.getLayer()?.batchDraw();
+  };
+
+  // Every viewer animates authoritative moves, including collision corrections.
+  // Layout effects restore the previous painted pose before React's new x/y can
+  // appear. The same frame drives the base, HUD, name depth mask and 3D model.
+  useLayoutEffect(() => {
+    const node=tokenNode.current;
+    if(!node)return;
+    const destination={x:token.x,y:token.y};
+    if(destination.x===committed.current.x && destination.y===committed.current.y)return;
+    if(dragging.current)cancelDrag();
+    committed.current=destination;
+    cancelAnimationFrame(motion.current);
+    const from={...pose.current};
+    const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0
+      : tokenMoveDuration(Math.hypot(destination.x-from.x,destination.y-from.y),pxPerFoot);
+    const start=performance.now();
+    const paint=(now:number)=>{
+      const t=duration ? tokenMoveProgress(now-start,duration) : 1;
+      const p={x:from.x+(destination.x-from.x)*t,y:from.y+(destination.y-from.y)*t};
+      pose.current=p;node.position(p);
+      const live=latest.current;
+      node.opacity(live.isVisibleAt?.(token.id,p.x,p.y)===false ? 0 : live.token.isHidden ? .45 : 1);
+      live.onVisualMove?.(live.token,p.x,p.y,t===1);
+      node.getLayer()?.batchDraw();
+      motion.current=t<1 ? requestAnimationFrame(paint) : 0;
+    };
+    paint(start);
+  },[token.x,token.y,pxPerFoot]);
+
+  useEffect(()=>{
+    const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')cancelDrag();};
+    window.addEventListener('keydown',escape);
+    return ()=>{
+      window.removeEventListener('keydown',escape);
+      cancelAnimationFrame(motion.current);
+      const live=latest.current;
+      if(motion.current)live.onVisualMove?.(live.token,live.token.x,live.token.y,true);
+      if(dragging.current){latest.current.onDragPreview?.(latest.current.token,null);latest.current.onDragActive?.(false);}
+    };
+  },[]);
 
   const paintDrag = (cx: number, cy: number) => {
-    tether.current?.points([token.x, token.y, cx, cy]);
+    const origin=committed.current;
+    tokenArt.current?.position({x:origin.x-cx,y:origin.y-cy});
+    tether.current?.points([origin.x,origin.y,cx,cy]);
+    const facing=facingAfterMove(origin.x,origin.y,cx,cy,token.facing);
+    const visible=isVisibleAt?.(token.id,cx,cy)!==false;
+    previewBase.current?.position({x:cx,y:cy});
+    previewBase.current?.visible(visible);
+    // Models face +map Y; Konva's positive rotation runs clockwise.
+    previewArrow.current?.rotation(-facing*180/Math.PI);
+    onDragPreview?.(token,visible ? {x:cx,y:cy,facing} : null);
     if (distText.current) {
-      const ft = feetPerPixel > 0
-        ? Math.round(Math.hypot(cx - token.x, cy - token.y) * feetPerPixel)
-        : 0;
-      distText.current.text(`${ft} ft`);
-      // Ride the MIDDLE of the tether (lifted just clear of the dashes), so the
-      // number reads as part of the line rather than crowding the token.
-      distText.current.position({
-        x: (token.x + cx) / 2,
-        y: (token.y + cy) / 2 - distText.current.fontSize() * 0.9,
-      });
+      distText.current.text(`${moveDistanceFt(cx-origin.x,cy-origin.y,pxPerFoot)} ft`);
+      distText.current.position({x:(origin.x+cx)/2,y:(origin.y+cy)/2-distText.current.fontSize()*1.1});
     }
     dragOverlay.current?.getLayer()?.batchDraw();
   };
 
   const handleDragStart = () => {
-    dragGeneration.current++;
-    clearLongPress();
+    clearLongPress();cancelled.current=false;dragging.current=true;
+    cancelAnimationFrame(motion.current);motion.current=0;
+    pose.current={...committed.current};
+    onVisualMove?.(token,token.x,token.y,true);
     onDragActive?.(true);
-    onVisualMove?.(token, token.x, token.y, false);
-    lastDragEmit.current = 0; // let the first move broadcast immediately
-    const ov = dragOverlay.current;
-    if (ov) {
-      ov.visible(true);
-      ov.moveToTop(); // keep the tether + label above other tokens
-    }
-    paintDrag(token.x, token.y);
+    dragOverlay.current?.visible(true);
+    dragOverlay.current?.moveToTop();
+    paintDrag(tokenNode.current!.x(),tokenNode.current!.y());
   };
-
-  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
-    const cx = e.target.x();
-    const cy = e.target.y();
-    // Opacity preserves the ongoing drag gesture while concealing all token art.
-    e.target.opacity(isVisibleAt?.(token.id, cx, cy) === false ? 0 : token.isHidden ? 0.45 : 1);
-    paintDrag(cx, cy);
-    onVisualMove?.(token, cx, cy, false);
-    // Broadcast the live position (throttled ~18 fps) for everyone else's ghost.
-    if (onDragPreview) {
-      const now = performance.now();
-      if (now - lastDragEmit.current >= 55) {
-        lastDragEmit.current = now;
-        onDragPreview(token, cx, cy);
-      }
-    }
-  };
-
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => paintDrag(e.target.x(),e.target.y());
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    dragOverlay.current?.visible(false); // temporary — gone on release
-    onDragActive?.(false);
-    onVisualMove?.(token, e.target.x(), e.target.y(), true);
-    const node = e.target;
-    const generation = dragGeneration.current;
-    onMove(token, node.x(), node.y(), (position) => {
-      // Correct even an unchanged server position after an optimistic drag.
-      if (!node.getStage() || node.isDragging() || generation !== dragGeneration.current) return;
-      node.position(position);
-      node.getLayer()?.batchDraw();
-      onVisualMove?.(token, position.x, position.y, true);
-    });
+    if(cancelled.current)return;
+    const {x,y}=e.target.position();
+    clearPreview();
+    // No optimistic teleport: wait for the accepted position. A rejected move
+    // simply leaves the token here, so no stale acknowledgement can move it.
+    e.target.position(committed.current);
+    e.target.getLayer()?.batchDraw();
+    onMove(token,x,y);
   };
 
   // Long-press (touch) mirrors right-click to open the floating menu. We keep a
@@ -363,6 +400,7 @@ function TokenShapeInner({
   return (
     <>
     <Group
+      ref={tokenNode}
       name="token"
       tokenId={token.id}
       miniatureReady={miniatureReady}
@@ -400,7 +438,7 @@ function TokenShapeInner({
     >
       {/* The entire painted token is decoration. Names, badges, HP bars and
           status/turn rings must not steal clicks from nearby token bodies. */}
-      <Group name="token-art" listening={false}>
+      <Group ref={tokenArt} name="token-art" listening={false}>
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
       {!miniatureReady && auras.map((a, i) => (
         <Circle
@@ -659,7 +697,13 @@ function TokenShapeInner({
         dashed tether from the previous spot to the token + a "N ft" pill that
         rides above it, all cleared on release. */}
     {draggable && (
-      <Group ref={dragOverlay} visible={false} listening={false}>
+      <Group ref={dragOverlay} name="token-move-preview" tokenId={token.id} visible={false} listening={false}>
+        <Group ref={previewBase}>
+          <Circle radius={radius} fill="#7fb6c8" opacity={.18} stroke="#b8e3ef" strokeWidth={2}/>
+          {!miniatureReady && (iconImg ? <KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2} opacity={.32}/>
+            : <Text text={hasEmojiIcon ? display.icon : display.name.slice(0,1)} x={-radius} y={-radius*.5} width={radius*2} align="center" fontSize={radius} fill="#b8e3ef" opacity={.45}/>)}
+          <Line ref={previewArrow} points={[-radius*.22,radius*1.05,0,radius*1.4,radius*.22,radius*1.05]} stroke="#b8e3ef" strokeWidth={3} lineCap="round" lineJoin="round"/>
+        </Group>
         <Line
           ref={tether}
           points={[token.x, token.y, token.x, token.y]}

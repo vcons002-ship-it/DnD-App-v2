@@ -1,8 +1,22 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
 import type { StateSnapshot } from '../shared/types';
 import { MONSTER_MODEL_TYPES, monsterVariation, monsterVariantIds } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
+
+// Optional capture runs the same regression against real sockets and models.
+const movementDemo=process.env.DND_MOVEMENT_DEMO==='1';
+test.use({video:movementDemo ? {mode:'on',size:{width:1600,height:1000}} : 'off'});
+test.beforeAll(()=>{
+  if(!movementDemo)return;
+  const require=createRequire(process.cwd()+'/package.json');
+  const encoder=require('playwright-core/lib/server/registry/index').registry.findExecutable('ffmpeg');
+  const executable=execFileSync('where.exe',['ffmpeg'],{encoding:'utf8'}).trim().split(/\r?\n/)[0];
+  encoder.executablePath=()=>executable;encoder.executablePathOrDie=()=>executable;
+});
 
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
@@ -186,7 +200,7 @@ test('asset production keeps missing creatures usable and loads published models
 
 // Only the E2E server's disposable database is modified. The actual bundled
 // GLBs, production map component, Socket.IO path and browser WebGL are used.
-async function fixture(page: Page, request: APIRequestContext) {
+async function fixture(page: Page, request: APIRequestContext, mapArt?: Buffer) {
   const created = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: '3D battlefield regression' },
   });
@@ -213,7 +227,7 @@ async function fixture(page: Page, request: APIRequestContext) {
   });
   const uploaded = await request.post(`/api/sessions/${code}/maps`, {
     headers: { 'x-dm-passphrase': DM_SECRET },
-    multipart: { name: 'Miniature test board', image: { name: 'board.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') } },
+    multipart: { name: 'Miniature test board', image: { name: 'board.png', mimeType: 'image/png', buffer: mapArt ?? Buffer.from(png, 'base64') } },
   });
   expect(uploaded.ok()).toBeTruthy();
   const map = await uploaded.json();
@@ -459,23 +473,21 @@ test('monster and player miniatures disappear as whole tokens under base-cell fo
   expect((await f.snapshot()).tokens).toHaveLength(7); // DM still sees all tokens.
   f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['5,6', '6,3'], reveal: true });
   await expect(layer).toHaveAttribute('data-miniature-count', '6');
-  // A player dragging another PC into map fog loses its whole HUD as well as the model.
+  // Planning into fog conceals only the preview; the real token stays at its visible origin.
   const v = (await tokenView(page, varis.id))!, concealed = offsetPoint(v, 0, -220);
   await page.mouse.move(v.x, v.y); await page.mouse.down();
   await page.mouse.move(concealed.x, concealed.y, { steps: 15 });
-  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(0);
+  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(1);
+  await expect(layer).not.toHaveAttribute('data-preview-token-id',varis.id);
   await page.mouse.up();
   await expect(layer).toHaveAttribute('data-miniature-count', '5');
   f.socket.emit('token:move', { tokenId: varis.id, x: varis.x, y: varis.y });
   await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  // A legacy DM drag must neither move nor conceal a player's visible token.
   f.socket.emit('token:drag', { tokenId: skeleton.id, x: 10, y: 10 });
-  await expect(layer).toHaveAttribute('data-miniature-count', '5');
-  expect(await tokenView(page, skeleton.id)).toBeNull();
-  // A paused held drag must not reappear when the ordinary tether timer expires.
   await page.waitForTimeout(500);
-  expect(await tokenView(page, skeleton.id)).toBeNull();
-  f.socket.emit('token:drag', { tokenId: skeleton.id, x: skeleton.x, y: skeleton.y });
   await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  expect(await tokenView(page, skeleton.id)).not.toBeNull();
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: false });
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'tokens', enabled: true });
   await expect(layer).toHaveAttribute('data-miniature-count', '3');
@@ -1546,4 +1558,132 @@ test('animated view rotation keeps player base dragging aligned in both projecti
  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('0\u00b0');
  const target=(await tokenView(page,token.id))!;await page.mouse.click(target.x,target.y,{button:'right'});
  await expect(page.getByRole('dialog',{name:'Token actions'})).toBeVisible();
+});
+
+
+test('private movement shadows keep the figure at its origin and animate committed moves for both roles',async({page,request,browser},info)=>{
+  test.setTimeout(120000);
+  await page.setViewportSize({width:1600,height:1000});
+  const f=await fixture(page,request,movementDemo?readFileSync('assets/environment-preview/courtyard.png'):undefined);
+  f.socket.emit('monster:create',{name:'Goblin',maxHp:12,modelType:'goblin'});
+  const monster=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin')!;
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:monster.id,x:750,y:650});
+  const ready=await f.snapshot();
+  const goblin=ready.tokens.find(t=>t.kind==='monster')!;
+  const druk=ready.tokens.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Druk')!.id)!;
+  await enter(page,f.code);
+  const playerLayer=page.getByTestId('miniature-layer');
+  await expect(playerLayer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},...(movementDemo?{recordVideo:{dir:info.outputPath('dm-recording'),size:{width:1600,height:1000}}}:{})});
+  const phases:{name:string;at:number}[]=[];
+  const phase=async(p:Page,name:string)=>{
+    if(!movementDemo)return;
+    phases.push({name,at:Date.now()});
+    await p.evaluate(text=>{
+      let title=document.getElementById('movement-demo-caption');
+      if(!title){title=document.createElement('div');title.id='movement-demo-caption';title.style.cssText='position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 22px;background:#121c24ef;border:1px solid #b9d8e0;border-radius:8px;color:#e2f1f5;font:20px Georgia;text-align:center;pointer-events:none';document.body.append(title);}
+      title.textContent=text;
+    },name);
+    await p.waitForTimeout(1100);
+  };
+  const hold=async(p:Page,ms=2000)=>{if(movementDemo)await p.waitForTimeout(ms);};
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const inspect=(p:Page,id:string)=>p.evaluate(id=>{
+    const stages=(window as any).Konva.stages;
+    const node=stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);
+    const preview=stages.flatMap((s:any)=>s.find('.token-move-preview')).find((n:any)=>n.getAttr('tokenId')===id);
+    const art=node?.findOne('.token-art');
+    return {x:node?.x(),y:node?.y(),artX:node?.x()+art?.x(),artY:node?.y()+art?.y(),preview:preview?.visible()??false,
+      distance:preview?.findOne('Text')?.text(),facing:preview?.findOne('Group')?.findOne('Line')?.rotation()};
+  },id);
+  const track=(p:Page,id:string)=>p.evaluate(id=>{
+    const samples:any[]=[];(window as any).__moveSamples=samples;
+    const start=performance.now();const tick=()=>{
+      const node=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);
+      if(node)samples.push({time:performance.now()-start,x:node.x(),y:node.y()});
+      if(performance.now()-start<1100)requestAnimationFrame(tick);
+    };tick();
+  },id);
+  const assertAnimation=async(p:Page,from:{x:number;y:number},to:{x:number;y:number})=>{
+    await p.waitForTimeout(550);
+    const samples=await p.evaluate(()=>(window as any).__moveSamples as {time:number;x:number;y:number}[]);
+    const distance=Math.hypot(to.x-from.x,to.y-from.y);
+    const middle=samples.filter(v=>{const d=Math.hypot(v.x-from.x,v.y-from.y);return d>distance*.08&&d<distance*.92;});
+    expect(middle.length).toBeGreaterThan(2);
+    expect(Math.hypot(samples.at(-1)!.x-to.x,samples.at(-1)!.y-to.y)).toBeLessThan(.01);
+  };
+  try{
+    const dm=await context.newPage();dm.on('pageerror',e=>errors.push(e.message));
+    await dm.goto(`/dm?code=${f.code}`);await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+    await phase(page,'Player view: hold a drag to plan your move');
+    // A player plans in perspective: the body/name stay at the committed origin.
+    const v=(await tokenView(page,druk.id))!,end=offsetPoint(v,180,180);
+    await page.mouse.move(v.x,v.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:24});
+    await afterPaint(page);
+    const held=await inspect(page,druk.id);
+    expect(held.artX).toBeCloseTo(druk.x);expect(held.artY).toBeCloseTo(druk.y);
+    expect(held.preview).toBe(true);expect(held.distance).toBe('9 ft');expect(held.facing).toBeCloseTo(-45,0);
+    await expect(playerLayer).toHaveAttribute('data-preview-token-id',druk.id);
+    expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)).toMatchObject({x:druk.x,y:druk.y});
+    expect((await inspect(dm,druk.id)).preview).toBe(false);
+    await phase(page,'Shadow preview - 9 ft - facing the move');
+    await page.screenshot({path:info.outputPath('player-private-shadow.png')});
+    await hold(page);
+    await phase(page,'Release: Druk moves smoothly into place');
+    await track(page,druk.id);await track(dm,druk.id);await page.mouse.up();
+    await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(druk.x+175);
+    const placed=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
+    expect(placed.facing).toBeCloseTo(Math.PI/4);
+    await Promise.all([assertAnimation(page,druk,placed),assertAnimation(dm,druk,placed)]);
+    await expect(playerLayer).not.toHaveAttribute('data-preview-token-id',druk.id);
+    await hold(page);
+    // DM planning stays private, including forged/legacy drag events.
+    const observer=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(observer);
+    await observer.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',name:'Observer'});
+    const leaked:unknown[]=[];observer.on('fx:tokenDrag',event=>leaked.push(event));
+    await phase(dm,'DM view: privately plan a creature move');
+    const g=(await tokenView(dm,goblin.id))!,ge=offsetPoint(g,200,-150);
+    await dm.mouse.move(g.x,g.y);await dm.mouse.down();await dm.mouse.move(ge.x,ge.y,{steps:24});
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-preview-token-id',goblin.id);
+    f.socket.emit('token:drag',{tokenId:goblin.id,x:950,y:500});
+    await page.waitForTimeout(250);
+    expect(leaked).toEqual([]);expect(await inspect(page,goblin.id)).toMatchObject({x:goblin.x,y:goblin.y,preview:false});
+    expect((await f.snapshot()).tokens.find(t=>t.id===goblin.id)).toMatchObject({x:goblin.x,y:goblin.y});
+    await hold(dm);
+    await dm.screenshot({path:info.outputPath('dm-private-shadow.png')});
+    await phase(page,'Player view: no destination or preview is revealed');
+    await hold(page);
+    await page.screenshot({path:info.outputPath('player-sees-no-dm-plan.png')});
+    await phase(page,'Only the released creature move becomes visible');
+    await phase(dm,'Release: the creature moves for everyone');
+    await track(page,goblin.id);await track(dm,goblin.id);await dm.mouse.up();
+    await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===goblin.id)!.x).toBeGreaterThan(940);
+    const moved=(await f.snapshot()).tokens.find(t=>t.id===goblin.id)!;
+    await Promise.all([assertAnimation(page,goblin,moved),assertAnimation(dm,goblin,moved)]);
+    await hold(page);
+    // Escape removes the preview without submitting a move.
+    const c=(await tokenView(page,druk.id))!,ce=offsetPoint(c,-180,0);
+    await page.mouse.move(c.x,c.y);await page.mouse.down();await page.mouse.move(ce.x,ce.y,{steps:16});
+    await page.keyboard.press('Escape');await page.mouse.up();await afterPaint(page);
+    expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)).toMatchObject({x:placed.x,y:placed.y});
+    expect(await inspect(page,druk.id)).toMatchObject({x:placed.x,y:placed.y,preview:false});
+    await phase(page,'Escape cancels a planned move');
+    // The same interaction works with 2D fallback art and overhead projection.
+    await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
+    await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+    await expect(playerLayer).toHaveAttribute('data-tilt-degrees','0');
+    await phase(page,'Overhead and 2D tokens use the same movement');
+    const b=(await tokenView(page,druk.id))!,be=offsetPoint(b,-160,30);
+    await page.mouse.move(b.x,b.y);await page.mouse.down();await page.mouse.move(be.x,be.y,{steps:18});
+    expect(await inspect(page,druk.id)).toMatchObject({artX:placed.x,artY:placed.y,preview:true});
+    await hold(page);
+    await track(page,druk.id);await page.mouse.up();
+    await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeLessThan(placed.x-155);
+    await assertAnimation(page,placed,(await f.snapshot()).tokens.find(t=>t.id===druk.id)!);
+    await hold(page);
+    if(movementDemo)writeFileSync(info.outputPath('movement-phases.json'),JSON.stringify(phases,null,2));
+    expect(errors).toEqual([]);
+  }finally{await context.close();}
 });

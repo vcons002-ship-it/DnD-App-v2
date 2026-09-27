@@ -50,12 +50,12 @@ describe('broadcastTokenDrag — visibility-gated live drag preview', () => {
     return { s, map, token };
   };
 
-  it('fans a visible token to everyone else in the session (never the sender or another session)', () => {
+  it('keeps DM planning private from players, even on an open active map', () => {
     const { s, token } = setup();
     const { io, saw } = fakeIo();
     broadcastTokenDrag(io, s.id, 'dm-drag', token, 250, 80);
     expect(saw('dm-watch')).toBe(true);
-    expect(saw('pl-watch')).toBe(true);
+    expect(saw('pl-watch')).toBe(false);
     expect(saw('dm-drag')).toBe(false); // never echoes to the dragger
     expect(saw('foreign')).toBe(false); // never crosses sessions
   });
@@ -64,7 +64,8 @@ describe('broadcastTokenDrag — visibility-gated live drag preview', () => {
     const { s, token } = setup();
     const { io, sent } = fakeIo();
     broadcastTokenDrag(io, s.id, 'dm-drag', token, 250, 80);
-    expect(sent['pl-watch'][0].payload).toEqual({ tokenId: token.id, x: 250, y: 80 });
+    expect(sent['dm-watch'][0].payload).toEqual({ tokenId: token.id, x: 250, y: 80 });
+    expect(sent['pl-watch']).toBeUndefined();
   });
 
   it('hides an individually-hidden token from players but still shows the DM', () => {
@@ -92,6 +93,13 @@ describe('broadcastTokenDrag — visibility-gated live drag preview', () => {
     const { io, saw } = fakeIo();
     broadcastTokenDrag(io, s.id, 'dm-drag', token, 250, 80);
     expect(saw('dm-watch')).toBe(false); // viewing another map → no ghost
-    expect(saw('pl-watch')).toBe(true); // player is locked to the active map
+    expect(saw('pl-watch')).toBe(false); // DM plans remain private
+  });
+
+  it('ignores an unjoined or foreign sender', () => {
+    const {s,token}=setup();const {io,sent}=fakeIo();
+    broadcastTokenDrag(io,s.id,'missing',token,250,80);
+    broadcastTokenDrag(io,s.id,'foreign',token,250,80);
+    expect(sent).toEqual({});
   });
 });
