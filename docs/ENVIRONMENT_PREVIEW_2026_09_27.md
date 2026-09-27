@@ -116,3 +116,40 @@ the public phone-width check also changes height and switches mist off/on.
 This remains a cosmetic preview without new campaign visibility mechanics.
 Typecheck, production build and all 896 server tests pass. The inspected and
 publicly verified comparison video is 43.28 seconds and 16.0 MB.
+
+## Billowing mist and ground shading
+
+The latest preview replaces the flat transparent sheets with one bounded density
+volume. A 64-cubed noise texture defines connected banks, smaller billows and
+irregular tops. A 32-step ray march shades the interiors and clips at the existing
+opaque miniature/scenery depth, so mist behind a figure cannot wash over it.
+Mist in front can partially veil its legs or body, depending on height.
+
+`Mist shadows` switches a soft ground-darkening effect on/off. Six samples toward
+the map's light source use the same moving density field as the visible mist.
+The effect is capped at 16% darkening and is an approximation of diffuse light
+attenuation, not another solid silhouette shadow. It affects the map surface;
+mist shadows do not shade the miniature materials. Existing token/scenery
+shadows retain their casting and receiving behavior.
+
+Height and density adjust uniforms and the volume bounds without recreating
+geometry or refreshing static shadow maps. Reduced motion freezes the mist.
+The shader costs more than the former transparent sheets; phone-width browser
+verification does not establish performance on physical mobile hardware.
+Quality controls remain a prerequisite for campaign integration.
+
+Preview:
+https://dnd.nic024i.app/uploads/previews/environment-billowing-mist-20260927/index.html
+
+The dedicated verifier compares mist shadows off/on with the scene frozen,
+then exercises coverage, density, 0.5/2/6/10-foot heights, overhead view and
+rotation using all seven original miniatures. The landing page includes those
+frozen shadow comparisons beside the recording and interactive test. Original
+map bytes, models, saved campaign state and fog-of-war rules are unchanged.
+
+Typecheck, production build and all 896 server tests pass. The dedicated browser
+capture reports no JavaScript, shader or HTTP errors; one completed model
+transport warning is retained with delivery/render evidence. The 43.72-second,
+15.0 MB H.264 video was visually inspected and played successfully through the
+public URL at phone width. The published interactive test loaded all seven
+models and passed height, mist on/off and mist-shadow toggle checks.

@@ -280,7 +280,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       try {
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const renderedNames=names.sync(props.nameLabels?.()??[],visible);
-        if (renderedNames.size || props.tokens.some(token => token.outline)) {
+        if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -302,6 +302,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistCoverage=mistState.coverage;
           host.dataset.mistHeight=String(mistState.height);
           host.dataset.mistLayers=String(mistState.layers);
+          host.dataset.mistShadows=String(mistState.shadows);
+          host.dataset.mistForm='volume';
         }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
@@ -409,7 +411,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
     if(next.environmentPreview){
-      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,invalidate);
+      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,{texture:outlineMask.depthTexture!,resolution:outlineResolution.value},invalidate);
       else if(lastEnvironment!==next.environmentPreview)battlefield.update(next.environmentPreview);
       lastEnvironment=next.environmentPreview;
       ambient.intensity=next.environmentPreview.enabled ? 1.35 : 2;

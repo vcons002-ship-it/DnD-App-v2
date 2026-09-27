@@ -1,10 +1,11 @@
 import {
-  BoxGeometry, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, Group,
+  BoxGeometry, BufferGeometry, CanvasTexture, CylinderGeometry, Group,
   IcosahedronGeometry, Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFShadowMap,
-  PlaneGeometry, RepeatWrapping, ShaderMaterial, ShadowMaterial, SRGBColorSpace,
+  PlaneGeometry, RepeatWrapping, ShadowMaterial, SRGBColorSpace,
   Texture, TextureLoader, Vector2,
   type DirectionalLight, type Scene, type WebGLRenderer,
 } from 'three';
+import {createBattlefieldMist} from './battlefieldMist';
 
 export type EnvironmentSceneryProp = {
   id?: string;
@@ -44,6 +45,7 @@ export type EnvironmentPreviewSettings = {
   mistCoverage?: 'patches' | 'map';
   /** Top of the mist above the ground, in map pixels. */
   mistHeight?: number;
+  mistShadows?: boolean;
   props?: EnvironmentSceneryProp[];
   mistPatches?: EnvironmentMistPatch[];
 };
@@ -121,73 +123,23 @@ function contactTexture() {
   return texture;
 }
 
-const mistVertex = /* glsl */`
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const mistFragment = /* glsl */`
-  uniform float uTime;
-  uniform float uSeed;
-  uniform float uOpacity;
-  uniform vec3 uColor;
-  uniform vec2 uNoiseScale;
-  uniform float uWholeMap;
-  varying vec2 vUv;
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-  }
-  float noise(vec2 p) {
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-  }
-  float fbm(vec2 p) {
-    float value = 0.0, gain = 0.5;
-    for (int i = 0; i < 4; i++) {
-      value += gain * noise(p);
-      p = mat2(1.6, -1.2, 1.2, 1.6) * p + 7.13;
-      gain *= 0.5;
-    }
-    return value;
-  }
-  void main() {
-    vec2 edge = (vUv - 0.5) * 2.0;
-    float envelope = 1.0 - smoothstep(0.32, 1.0, dot(edge, edge));
-    float mapEdge = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
-    envelope = mix(envelope, smoothstep(0.0, 0.025, mapEdge), uWholeMap);
-    vec2 p = vUv * uNoiseScale + vec2(uSeed, -uSeed * 0.37);
-    p += vec2(uTime * 0.019, uTime * 0.007);
-    p.y += (noise(p * 0.65 + uTime * 0.012) - 0.5) * 1.9;
-    float density = smoothstep(0.37, 0.77, fbm(p));
-    float threads = smoothstep(0.27, 0.71, fbm(p * vec2(0.64, 2.8) + 19.0));
-    float alpha = envelope * density * mix(0.45, 1.0, threads) * uOpacity;
-    if (alpha < 0.002) discard;
-    gl_FragColor = vec4(uColor, alpha);
-    #include <colorspace_fragment>
-  }
-`;
-
 /** A disposable environment in the same depth buffer and map coordinates as the miniatures. */
 export function createBattlefieldEnvironment(
   scene: Scene,
   renderer: WebGLRenderer,
   keyLight: DirectionalLight,
   initial: EnvironmentPreviewSettings,
+  depthBuffer: {texture: Texture; resolution: Vector2},
   requestRender: () => void = () => {},
 ) {
   const environment = new Group();
   environment.name = 'battlefield-environment-preview';
-  const scenery = new Group(), mist = new Group(), contacts = new Group();
+  const scenery = new Group(), contacts = new Group();
   scenery.name = 'raised-courtyard-stone';
-  mist.name = 'localized-low-mist';
   contacts.name = 'miniature-contact-shadows';
   scene.add(environment);
-  environment.add(scenery, mist, contacts);
+  environment.add(scenery, contacts);
+  const mist = createBattlefieldMist(environment, depthBuffer.texture, depthBuffer.resolution);
   const geometries = new Set<BufferGeometry>();
   const materials = new Set<Material>();
   const textures = new Set<Texture>();
@@ -210,8 +162,9 @@ export function createBattlefieldEnvironment(
       'gl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask() ) );',
       'vec4 artwork = texture2D(groundArtwork, groundUv);\n gl_FragColor = vec4(artwork.rgb * (1.0 - shadowStrength * (1.0 - getShadowMask())), 1.0);',
     );
+    mist.extendGroundShader(shader);
   };
-  shadowedGroundMaterial.customProgramCacheKey = () => 'battlefield-shadowed-artwork-v1';
+  shadowedGroundMaterial.customProgramCacheKey = () => 'battlefield-shadowed-artwork-v2-mist';
   const ground = new Mesh<PlaneGeometry, MeshBasicMaterial | ShadowMaterial>(plane, groundMaterial);
   ground.name = 'unchanged-map-artwork';
   ground.rotation.x = -Math.PI / 2;
@@ -230,7 +183,6 @@ export function createBattlefieldEnvironment(
     map: contactMap, transparent: true, depthWrite: false, toneMapped: false,
   }));
   const contactMeshes = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
-  const mistMaterials: ShaderMaterial[] = [];
   const loader = new TextureLoader();
   const original = {
     position: keyLight.position.clone(), targetPosition: keyLight.target.position.clone(),
@@ -249,7 +201,7 @@ export function createBattlefieldEnvironment(
   let disposed = false, lightModified = false;
   let mapUrl = '', mapVersion = 0;
   let mapTexture: Texture | null = null;
-  let propKey = '', mistKey = '';
+  let propKey = '';
   let lightingKey = '';
 
   function releaseShadowMap() {
@@ -363,48 +315,6 @@ export function createBattlefieldEnvironment(
     });
   }
 
-  function updateMist() {
-    const wholeMap = settings.mistCoverage === 'map';
-    const definitions = wholeMap ? [{x: settings.mapWidth / 2, y: settings.mapHeight / 2,
-      width: settings.mapWidth, depth: settings.mapHeight}] : settings.mistPatches ?? [];
-    const nextKey = JSON.stringify([wholeMap, definitions]);
-    if (nextKey === mistKey) {
-      mist.children.forEach(sheet => {
-        sheet.position.y = Math.max(0.5, settings.mistHeight ?? sheet.userData.defaultHeight) * sheet.userData.heightFraction;
-      });
-      return;
-    }
-    mistKey = nextKey;
-    mist.clear();
-    mistMaterials.forEach((entry) => { materials.delete(entry); entry.dispose(); });
-    mistMaterials.length = 0;
-    definitions.forEach((patch, index) => {
-      const layerCount = wholeMap ? 4 : 3;
-      for (let layer = 0; layer < layerCount; layer++) {
-        const entry = material(new ShaderMaterial({
-          uniforms: {
-            uTime: { value: 0 }, uSeed: { value: index * 11.7 + layer * 3.83 },
-            uOpacity: { value: 0 }, uColor: { value: new Color(0xa8b8b9) },
-            uNoiseScale: { value: wholeMap ? new Vector2(patch.width / 70, patch.depth / 45) : new Vector2(3.6, 8.0) },
-            uWholeMap: { value: wholeMap ? 1 : 0 },
-          },
-          vertexShader: mistVertex, fragmentShader: mistFragment,
-          transparent: true, depthWrite: false, depthTest: true, side: DoubleSide,
-          toneMapped: false,
-        }));
-        mistMaterials.push(entry);
-        const sheet = new Mesh(plane, entry);
-        sheet.rotation.set(-Math.PI / 2, 0, -(patch.rotation ?? 0) * Math.PI / 180);
-        sheet.userData.heightFraction = 0.15 + layer / (layerCount - 1) * 0.85;
-        sheet.userData.defaultHeight = patch.height ?? 18;
-        sheet.position.set(patch.x, Math.max(0.5, settings.mistHeight ?? patch.height ?? 18) * sheet.userData.heightFraction, patch.y);
-        sheet.scale.set(patch.width * (wholeMap ? 1 : 1 - layer * 0.06), patch.depth * (wholeMap ? 1 : 1 - layer * 0.04), 1);
-        sheet.renderOrder = 2;
-        mist.add(sheet);
-      }
-    });
-  }
-
   function updateLighting() {
     renderer.getDrawingBufferSize(drawingSize);
     const nextKey = JSON.stringify([settings.enabled, settings.shadows, settings.scenery,
@@ -464,15 +374,12 @@ export function createBattlefieldEnvironment(
     ground.position.x = width / 2; ground.position.z = height / 2;
     ground.scale.set(width, height, 1);
     scenery.visible = settings.enabled && settings.scenery;
-    mist.visible = settings.enabled && settings.mist;
+    mist.update(settings);
     contacts.visible = settings.enabled && settings.shadows;
-    ground.material = settings.enabled && settings.shadows ? shadowedGroundMaterial : groundMaterial;
-    floorUniforms.shadowStrength.value = clamp(settings.shadowOpacity, 0, 1);
+    ground.material = settings.enabled && (settings.shadows || (settings.mist && settings.mistShadows !== false)) ? shadowedGroundMaterial : groundMaterial;
+    floorUniforms.shadowStrength.value = settings.shadows ? clamp(settings.shadowOpacity, 0, 1) : 0;
     contactMaterial.opacity = clamp(settings.shadowOpacity * 0.85, 0, 0.75);
-    updateMap(); updateProps(); updateMist(); updateLighting();
-    mistMaterials.forEach((entry) => {
-      entry.uniforms.uOpacity.value = clamp(settings.mistOpacity ?? 0.28, 0, 0.7) * (settings.mistCoverage === 'map' ? 0.75 : 1);
-    });
+    updateMap(); updateProps(); updateLighting();
     requestRender();
   }
 
@@ -500,9 +407,8 @@ export function createBattlefieldEnvironment(
   }
 
   function tick(timeSeconds: number) {
-    if (disposed || !settings.enabled || !settings.mist || mistMaterials.length === 0) return false;
-    mistMaterials.forEach((entry) => { entry.uniforms.uTime.value = timeSeconds; });
-    return true;
+    if (disposed) return false;
+    return mist.tick(timeSeconds);
   }
 
   function dispose() {
@@ -514,12 +420,11 @@ export function createBattlefieldEnvironment(
     geometries.forEach((entry) => entry.dispose());
     materials.forEach((entry) => entry.dispose());
     textures.forEach((entry) => entry.dispose());
-    contactMeshes.clear(); mistMaterials.length = 0;
+    contactMeshes.clear(); mist.dispose();
   }
 
   update(initial);
   return { update, tick, setTokens, dispose, get ready() { return groundMaterial.map !== null; },
-    get mistState() { return {visible: mist.visible, coverage: settings.mistCoverage ?? 'patches',
-      height: Math.max(0, ...mist.children.map(sheet => sheet.position.y)), layers: mist.children.length}; },
+    get mistState() { return mist.state; },
   };
 }

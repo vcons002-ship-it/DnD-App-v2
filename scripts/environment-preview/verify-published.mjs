@@ -53,6 +53,14 @@ try{
     },initial);
     report.mistControls={heightSixFeetRendered:true,offOnToggle:true,restoredFeet:Number(initial)};
   }
+  const mistShadows=page.getByRole('checkbox',{name:'Mist shadows',exact:true});
+  if(await mistShadows.count()){
+    await mistShadows.uncheck();
+    await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistShadows==='false');
+    await mistShadows.check();
+    await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistShadows==='true');
+    report.mistShadowsToggle=true;
+  }
   await page.screenshot({path:path.join(output,'published-phone-interactive.png'),fullPage:true});
   assert.equal(errors.length,0);
   report.status='passed';
