@@ -342,6 +342,13 @@ is **not** affiliated with, endorsed, or sponsored by Wizards of the Coast.
 > licensed under the Creative Commons Attribution 4.0 International License,
 > available at <https://creativecommons.org/licenses/by/4.0/legalcode>.
 
+The new undead and fiend library entries also use SRD 5.2.1:
+
+> This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1")
+> by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd.
+> The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0
+> International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
+
 The optional Google Gemini AI integration is provided by Google and subject to
 Google's terms; it is entirely optional, and the app runs fully offline (SRD
 search and all core features) without an API key.

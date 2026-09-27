@@ -956,6 +956,82 @@
       "sourceSha256": "902e0119b8b512546d9f3531767d95da12bbfb9c42573d3117f9f97fab6f1585",
       "url": "/miniatures/monsters/bandit-chief.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "shadow",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1392644,
+      "triangles": 20712,
+      "sha256": "ad9ae69dddcb425fc7c641945d1bf5937cb0cb6ce716a68e457494aaeca97d34",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/shadow.glb",
+      "sourceSha256": "cb5a6044ad7287537bdee88ec712da8e704158679ffb839bce7f571d68645441",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "mummy",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1704600,
+      "triangles": 20756,
+      "sha256": "5b001d74e227821f771d23d545205b50809a53d86340d94c0acaebe9bdc03a05",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/mummy.glb",
+      "sourceSha256": "30f16d9ae3c85ede42540c5e87e9f08ef117c5c3e28c51795f0ce05be9e93a83",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "quasit",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1726960,
+      "triangles": 20762,
+      "sha256": "f348ecc118b56f56c0951dca3f1f40edd5978d22563d71d1067f950c651467bd",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/quasit.glb",
+      "sourceSha256": "fb43b2dfbba7b05ba6eca1828cf0ad9e49187b4573f2b76227d6e6845aecf72f",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "dretch",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1582700,
+      "triangles": 20442,
+      "sha256": "82c83362d635e56d710acc3c432ebe21e6e320b2a57fa71f2861df988648f900",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/dretch.glb",
+      "sourceSha256": "a8cba89d5c8a0f996452974486574191d3fb52ff6d5d172cec5f36c3197a11a2",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
     }
   ],
   "variants": [

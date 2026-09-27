@@ -4,6 +4,17 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Undead and demon library expansion - September 2026
+
+- [x] Add Shadow, Mummy, Quasit and Dretch templates using SRD 5.2.1, with
+  complete stats, rollable attacks and named special actions. Seed missing
+  entries once without replacing saved custom versions or restoring deletions.
+- [x] Give each creature a distinct four-view Hunyuan model and texture,
+  reduced geometry, 2048-square texture, fitted pewter base and 2D fallback.
+  Use the shared fog, click, facing, tint and D&D creature-size behavior.
+- [x] Record prompts, original views, generation, reduction and base receipts.
+  See `docs/token-generation/UNDEAD_FIENDS_2026_09_27.md` for provenance and limits.
+
 ## Live physics dice and class trays - September 2026
 
 - [x] Live server-authoritative rigid-body rolls with fixed face labels. The

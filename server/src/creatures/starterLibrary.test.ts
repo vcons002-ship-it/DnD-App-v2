@@ -8,7 +8,7 @@ import { createSession, createMonsterTemplate, instantiateMonster } from '../ses
 describe('curated 3D starter library', () => {
   it('has complete creature stats, usable attacks, real model families and sensible sizes', () => {
     const entries = starterCreatures();
-    expect(entries).toHaveLength(38);
+    expect(entries).toHaveLength(42);
     expect(new Set(entries.map(c => c.name)).size).toBe(entries.length);
     for (const c of entries) {
       expect(MONSTER_MODEL_TYPES).toContain(c.modelType);
@@ -29,6 +29,7 @@ describe('curated 3D starter library', () => {
     expect(creatureSize(entries.find(c => c.name === 'Dire Wolf')!)).toBe('large');
   });
   it('adds Imp to an already seeded library without restoring deleted older entries', () => {
+    db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-undead-fiends-v1', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v2', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-common-creatures-v1', '1');
     db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run('starter-creatures-3d-v1', '1');
@@ -107,7 +108,7 @@ describe('curated 3D starter library', () => {
     expect(resolveMonsterModelType({ name: 'Giant Wolf Spider' })).toBe('spider');
   });
   it('repairs legacy imports after old seed markers while preserving custom appearances and stats', () => {
-    for (const marker of ['starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'library-stat-completeness-v1']) {
+    for (const marker of ['starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'starter-undead-fiends-v1', 'library-stat-completeness-v1']) {
       db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run(marker, '1');
     }
     db.prepare('DELETE FROM app_meta WHERE key=?').run('library-specific-families-v1');
@@ -140,6 +141,45 @@ describe('curated 3D starter library', () => {
     expect(resolveMonsterModelType({name: 'Cultist', creatureType: 'human-mage'})).toBe('cultist');
     expect(resolveMonsterModelType({name: 'Archmage', creatureType: 'dragon'})).toBe('dragon');
     expect(resolveMonsterModelType({name: 'constructor'})).toBe('');
+  });
+
+  it('adds undead and demons once without changing custom copies or restoring deleted entries', () => {
+    for (const marker of ['starter-creatures-3d-v1', 'starter-creature-imp-v1', 'starter-common-creatures-v1', 'starter-common-creatures-v2', 'library-stat-completeness-v1', 'library-specific-families-v1']) {
+      db.prepare('INSERT OR REPLACE INTO app_meta (key,value) VALUES (?,?)').run(marker, '1');
+    }
+    db.prepare('DELETE FROM app_meta WHERE key=?').run('starter-undead-fiends-v1');
+    for (const name of ['Shadow', 'Mummy', 'Dretch', 'Giant Rat']) deleteLibraryCreature(name);
+    saveLibraryCreature({ name: 'Quasit', maxHp: 7, armorClass: 13, modelType: 'none', modelColor: 'red' }, true);
+    expect(seedLibraryCreatures()).toBe(3);
+    expect(getLibraryCreature('Quasit')).toMatchObject({ maxHp: 7, modelType: 'none', modelColor: 'red' });
+    expect(getLibraryCreature('Shadow')).toMatchObject({ maxHp: 27, level: 0.5, modelType: 'shadow', immunities: ['necrotic', 'poison'] });
+    expect(getLibraryCreature('Dretch')).toMatchObject({ maxHp: 18, level: 0.25, modelType: 'dretch' });
+    expect(getLibraryCreature('Giant Rat')).toBeNull();
+    deleteLibraryCreature('Shadow');
+    expect(seedLibraryCreatures()).toBe(0);
+    expect(getLibraryCreature('Shadow')).toBeNull();
+  });
+
+  it('spawns the new families at rule sizes and keeps the mummy damage rider on its attack', () => {
+    const entries = starterCreatures();
+    const session = createSession('Undead and fiend library test');
+    for (const [name, size] of [['Shadow', 'medium'], ['Mummy', 'medium'], ['Quasit', 'tiny'], ['Dretch', 'small']]) {
+      const entry = entries.find(c => c.name === name)!;
+      expect(creatureSize(entry)).toBe(size);
+      expect(creatureSize({ name: name + ' 3' })).toBe(size);
+      expect(resolveMonsterModelType({ name: name + ' 3' })).toBe(name.toLowerCase());
+      const template = createMonsterTemplate(session.id, { ...entry, source: 'srd' });
+      const spawned = instantiateMonster(template.id)!;
+      expect(spawned.modelType).toBe(name.toLowerCase());
+      expect(spawned.weapons).toEqual(entry.weapons);
+      expect(spawned.sheetAbilities.some(a => a.name === entry.weapons![0].name)).toBe(false);
+      expect(monsterTint(spawned)).toBe('#ffffff');
+      if (name === 'Mummy') {
+        expect(spawned.weapons[0]).toMatchObject({ damage: '1d10+3', damageType: 'bludgeoning', extraDamage: '3d6', extraDamageType: 'necrotic', attackBonus: 5 });
+        expect(spawned.sheetAbilities.find(a => a.name === 'Multiattack')?.description).toContain('two Rotting Fist');
+      }
+    }
+    expect(entries.find(c => c.name === 'Quasit')).toMatchObject({ maxHp: 25, armorClass: 13, level: 1 });
   });
 
 });

@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "id": "monster-reduction-v1",
+    "targetTriangles": 20000,
+    "errorLimit": 0.01,
+    "colorEncoding": "jpeg",
+    "quality": 95,
+    "chromaSubsampling": "4:4:4",
+    "resize": false,
+    "geometryCompression": false
+  },
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\generation-01\\01_textured_mesh.glb",
+  "sourceSha256": "fb43b2dfbba7b05ba6eca1828cf0ad9e49187b4573f2b76227d6e6845aecf72f",
+  "sourceBytes": 5172300,
+  "originalTriangles": 40000,
+  "triangles": 20000,
+  "bytes": 1693244,
+  "reductionPercent": 67.26322912437406,
+  "sha256": "dbaed54ec51b1a719cffa359c22ecdac2baca87a3a5b1099df13f3e6db1e1e8e",
+  "textures": [
+    {
+      "index": 0,
+      "action": "jpeg95",
+      "width": 2048,
+      "height": 2048,
+      "beforeBytes": 3862620,
+      "afterBytes": 1085890,
+      "sha256": "e1c361eb941ff92c53b42ae6008c7cf98b3e70dc03d3068ee63da54ef99e674d"
+    }
+  ],
+  "simplifyMs": 30.808599999999956,
+  "totalMs": 612.0335,
+  "peakRssMiB": 160.06640625,
+  "versions": {
+    "gltfTransform": "4.5.0",
+    "meshoptimizer": "1.2.0",
+    "sharp": "0.35.4"
+  },
+  "validation": "export reloaded; finite positions; indices in range; textures unchanged on export; source preserved",
+  "targetReached": true
+}

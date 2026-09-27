@@ -12,6 +12,7 @@ export const MONSTER_MODEL_TYPES = [
   'tattered-cloak-mage', 'young-treant', 'orc-swordsman',
   'cultist', 'scout', 'veteran', 'bandit-captain', 'archmage',
   'sailor', 'sailor-marine', 'elite-castle-guard', 'bandit-chief',
+  'shadow', 'mummy', 'quasit', 'dretch',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -40,8 +41,8 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
     if (/constrict|large/.test(name)) return 'large';
     return /giant/.test(name) ? 'medium' : 'tiny';
   }
-  if (family === 'mage-hand' || family === 'imp') return 'tiny';
-  if (['goblin', 'goblin-crossbowman', 'kobold', 'giant-rat'].includes(family)) return 'small';
+  if (family === 'mage-hand' || family === 'imp' || family === 'quasit') return 'tiny';
+  if (['goblin', 'goblin-crossbowman', 'kobold', 'giant-rat', 'dretch'].includes(family)) return 'small';
   return 'medium';
 }
 /** New placements only; existing occupied spaces and DM choices are preserved. */

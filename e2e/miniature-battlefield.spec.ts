@@ -7,6 +7,44 @@ import { DM_SECRET, PORT } from './playwright.config';
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
+test('undead and demon library entries spawn their distinct real 3D models in both map views', async ({ page, request }, info) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const f = await fixture(page, request);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const names = ['Shadow', 'Mummy', 'Quasit', 'Dretch'];
+  const loaded: string[] = [];
+  page.on('response', response => {
+    for (const name of names) if (response.url().endsWith(`/miniatures/monsters/${name.toLowerCase()}.glb`) && response.ok()) loaded.push(name);
+  });
+  for (const [index, name] of names.entries()) {
+    const library = await (await request.get(`/api/library/creatures?q=${name}`)).json();
+    const entry = library.find((c: any) => c.name === name);
+    expect(entry.modelType).toBe(name.toLowerCase());
+    expect(entry.weapons.length).toBeGreaterThan(0);
+    f.socket.emit('monster:create', entry);
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === name)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 210 + index * 250, y: 565 });
+  }
+  const ready = await f.snapshot();
+  expect(ready.tokens.filter(t => t.kind === 'monster')).toHaveLength(4);
+  await enter(page, f.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '7', { timeout: 60000 });
+  expect(new Set(loaded)).toEqual(new Set(names));
+  for (const token of ready.tokens.filter(t => t.kind === 'monster')) {
+    expect((await tokenView(page, token.id))?.miniatureReady).toBe(true);
+  }
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('undead-fiends-45.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('undead-fiends-overhead.png') });
+  expect(errors).toEqual([]);
+});
+
 test('DM can request a separate equipped model despite an existing family and apply it when ready', async ({ page, request }, info) => {
   test.setTimeout(120000);
   const f = await fixture(page, request);

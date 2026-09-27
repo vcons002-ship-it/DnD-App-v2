@@ -1,6 +1,7 @@
 import type { CreatureTemplate } from '../../../shared/types.js';
 import { weaponsFromActions } from '../../../shared/monsterAttacks.js';
 import { getSrd } from './srd.js';
+import { undeadFiendCreatures } from './undeadFiendLibrary.js';
 
 /** SRD 5.1 stat blocks with deliberately selected physical models and sizes. */
 export const STARTER_APPEARANCES: Record<string, [string, string, string[]]> = {
@@ -77,5 +78,5 @@ export function starterCreatures(): CreatureTemplate[] {
       { name: 'Mage Hand limits (2014)', description: 'Lasts 1 minute. Disappears more than 30 feet from the caster or if cast again. Cannot attack, activate magic items, or carry more than 10 pounds.' },
       { name: 'Utility marker', description: 'This is a spell effect, not a creature. Its 1 HP and 0 AC are display placeholders, not rules statistics. The DM manages its duration, movement and dismissal.' },
     ] });
-  return creatures;
+  return [...creatures, ...undeadFiendCreatures()];
 }

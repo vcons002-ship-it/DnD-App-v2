@@ -1,0 +1,18 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Create a high-resolution 2048x2048 four-view reference sheet for one D&D Quasit demon tabletop miniature. Same full-body creature and alert crouching combat-ready pose in every panel. A tiny lean green demon with short curved horns, pointed ears, clawed hands and feet, a long curled tail and a mischievous snarling face. Unarmed, no clothing, no wings. Simple clean design and distinct silhouette. Painted realistic miniature style. White background, no base, no text or labels. Four equal square panels: top left FRONT, top right BACK, bottom left LEFT SIDE, bottom right RIGHT SIDE. Orthographic views, complete creature with margins, same scale and pose across all four views.",
+  "requestedSheetDimensions": [
+    2048,
+    2048
+  ],
+  "actualSheetDimensions": [
+    1254,
+    1254
+  ],
+  "extractedViewDimensions": [
+    619,
+    619
+  ],
+  "upscaled": false,
+  "texturePolicy": "named-multiview-texture-v1"
+}

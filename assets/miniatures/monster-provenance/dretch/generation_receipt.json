@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "17bad5732a864002bae036755e20a7f0",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\dretch\\front.png",
+      "sha256": "9904b6c99d73a296569bd1865d9d9be70decc8ade3b7f37aa948e5fd4f5141ed"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\dretch\\back.png",
+      "sha256": "9458bbe9497f11b6a011e5418631e4fb50fb67cc9adbb6dac088929bc2c6660d"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\dretch\\left.png",
+      "sha256": "408f5da30320ba3b42b6aea6e3c6513ae98e59f31265bb9444b7d7cdc3b7b012"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\dretch\\right.png",
+      "sha256": "639b9f655546207559b42a3c79fb23509cb6fc9bfcef46f1db2c0a31f1d81b1d"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 927104,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 927104,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 2083436,
+    "number_of_vertices": 1041763,
+    "time": {
+      "remove background": 1.0038950443267822,
+      "shape generation": 66.55862808227539,
+      "export to trimesh": 0.49776363372802734,
+      "face reduction": 24.141672134399414,
+      "texture generation": 53.32563591003418,
+      "total": 145.67707085609436
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 927104,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\dretch\\generation-01\\00_white_mesh.glb",
+      "sha256": "a1b48c6b6dc0ae92012b1e219ef8e0affef9169753ccc3882b6cc6e725531615",
+      "bytes": 37503176,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\dretch\\generation-01\\01_textured_mesh.glb",
+      "sha256": "a8cba89d5c8a0f996452974486574191d3fb52ff6d5d172cec5f36c3197a11a2",
+      "bytes": 4903960,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 147.281,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

@@ -1,0 +1,52 @@
+{
+  "source": "C:\\Users\\vcons\\.codex\\generated_images\\01a0bc77-1b83-7a53-9c53-86e904a628b4\\exec-87503a9e-f8cb-47bf-9a36-08a0d7890090.png",
+  "width": 1254,
+  "height": 1254,
+  "notes": "Side panels assigned by actual direction: left view faces image-right, consistent with the accepted Hunyuan camera convention. No mirroring or upscaling.",
+  "views": [
+    {
+      "name": "front",
+      "file": "front.png",
+      "panel": [
+        0,
+        0
+      ],
+      "width": 619,
+      "height": 619,
+      "sha256": "f935c4935b0e2a9873d5bf74d9defeabc37b7d84069a305c7ae06b8cd9890cb5"
+    },
+    {
+      "name": "back",
+      "file": "back.png",
+      "panel": [
+        1,
+        0
+      ],
+      "width": 619,
+      "height": 619,
+      "sha256": "c26676d4579d72e8e7eb968c05795e4154a7aa6403fee57dd3e7588ab1771236"
+    },
+    {
+      "name": "left",
+      "file": "left.png",
+      "panel": [
+        1,
+        1
+      ],
+      "width": 619,
+      "height": 619,
+      "sha256": "5f99e995b8777e2cd09e9db15083c2dd6b0a0ade9f60cf6f57498ddf0b68d23d"
+    },
+    {
+      "name": "right",
+      "file": "right.png",
+      "panel": [
+        0,
+        1
+      ],
+      "width": 619,
+      "height": 619,
+      "sha256": "2f66ab03d2f9548b34f2e6d019cb83a3a11c7aff84b7c4c1bf4a60f5e463da99"
+    }
+  ]
+}
