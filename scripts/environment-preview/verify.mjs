@@ -420,6 +420,22 @@ try {
   await layerHas(desktopPage,'data-mist-coverage','map');
   await layerHas(desktopPage,'data-mist-layers','1');
   await layerHas(desktopPage,'data-mist-form','volume');
+  const wispy=await desktopPage.getByRole('combobox',{name:'Atmosphere quality'}).count()>0;
+  if(wispy){
+    for(const [quality,scale,steps] of [['high','0.5','24'],['low','0.25','12']]){
+      await desktopPage.getByRole('combobox',{name:'Atmosphere quality'}).selectOption(quality);
+      await layerHas(desktopPage,'data-mist-quality',quality);
+      await layerHas(desktopPage,'data-mist-scale',scale);
+      await layerHas(desktopPage,'data-mist-steps',steps);
+    }
+    await desktopPage.getByRole('combobox',{name:'Atmosphere quality'}).selectOption('off');
+    await layerHas(desktopPage,'data-mist-visible','false');
+    await layerHas(desktopPage,'data-mist-shadows','false');
+    await desktopPage.getByRole('combobox',{name:'Atmosphere quality'}).selectOption('auto');
+    await layerHas(desktopPage,'data-mist-visible','true');
+    await layerHas(desktopPage,'data-mist-obstacles','4');
+    check('High/Low change mist buffer scale and sample count; Off also disables mist ground shadows');
+  }
   await desktopPage.emulateMedia({reducedMotion:'reduce'});
   await setMistHeight(desktopPage,6);
   await setCheckbox(desktopPage,'Mist shadows',false);
@@ -466,10 +482,10 @@ try {
   check('Shadow comparison changes scene pixels and exposes enabled renderer state');
   await desktopPage.waitForTimeout(2000);
   const moveDrukButton = desktopPage.getByRole('button', { name: 'Move Druk', exact: true });
-  if (await moveDrukButton.count()) {
+  if (!wispy && await moveDrukButton.count()) {
     await moveDrukButton.click();
     await desktopPage.mouse.move(1530, 950);
-    await desktopPage.waitForTimeout(2000); // Show the complete 1.7-second token movement in the footage.
+    await desktopPage.waitForTimeout(4500);
     const moved = await snapshot(desktopPage, 'Druk moves with token shadows enabled', '02b-moving-druk-shadows.png');
     assert.notEqual(moved.stageSha256, shadows.stageSha256, 'The shadow-only scene did not change after Move Druk');
     check('Move Druk changes the shadow-only scene with all seven models retained');
@@ -482,6 +498,32 @@ try {
   await desktopPage.waitForTimeout(2200);
   await snapshot(desktopPage, 'Shadows, raised scenery, and drifting mist at 45 degrees', '03-scenic-45.png');
   await desktopPage.waitForTimeout(1800);
+  if(wispy){
+    await moveDrukButton.click();
+    await desktopPage.mouse.move(1530,950);
+    await desktopPage.waitForTimeout(2100);
+    const moving=await snapshot(desktopPage,'Druk parts the wisps and leaves a trailing wake','15-moving-wake.png');
+    assert(Number(moving.dataset.mistWakes)>0&&Number(moving.dataset.mistWakes)<=48,'Movement must create bounded wakes');
+    await desktopPage.waitForTimeout(2300);
+    await snapshot(desktopPage,'The wake lingers briefly after Druk stops','16-lingering-wake.png');
+    await desktopPage.waitForTimeout(3900);
+    await layerHas(desktopPage,'data-mist-wakes','0');
+    await snapshot(desktopPage,'The wake dissipates and the mist returns','17-refilled-wake.png');
+    await setCheckbox(desktopPage,'React to movement & scenery',false);
+    await layerHas(desktopPage,'data-mist-obstacles','0');
+    await layerHas(desktopPage,'data-mist-interaction','false');
+    await setCheckbox(desktopPage,'React to movement & scenery',true);
+    await layerHas(desktopPage,'data-mist-obstacles','4');
+    check('Moving token creates bounded wakes, which expire after movement; interaction toggle removes scenery deflection');
+    for(const quality of ['high','low']){
+      await desktopPage.getByRole('combobox',{name:'Atmosphere quality'}).selectOption(quality);
+      await layerHas(desktopPage,'data-mist-quality',quality);
+      await desktopPage.mouse.move(1530,950);
+      await desktopPage.waitForTimeout(1700);
+      await snapshot(desktopPage,`${quality} atmosphere quality with full-detail figures`,quality==='high'?'18-quality-high.png':'19-quality-low.png');
+    }
+    await desktopPage.getByRole('combobox',{name:'Atmosphere quality'}).selectOption('auto');
+  }
 
   await desktopPage.getByRole('button',{name:'Reset view',exact:true}).click();
   await desktopPage.waitForTimeout(750);

@@ -61,6 +61,18 @@ try{
     await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistShadows==='true');
     report.mistShadowsToggle=true;
   }
+  const quality=page.getByRole('combobox',{name:'Atmosphere quality'});
+  if(await quality.count()){
+    for(const value of ['high','low','off']){
+      await quality.selectOption(value);
+      await page.waitForFunction(q=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistQuality===q,value);
+    }
+    await quality.selectOption('auto');
+    await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]').dataset.mistQuality==='low');
+    await page.getByRole('button',{name:'Move Druk',exact:true}).click();
+    await page.waitForFunction(()=>Number(document.querySelector('[data-testid="miniature-layer"]').dataset.mistWakes)>0);
+    report.wispyControls={qualityModes:true,phoneAutoChoosesLow:true,movementCreatesWake:true};
+  }
   await page.screenshot({path:path.join(output,'published-phone-interactive.png'),fullPage:true});
   assert.equal(errors.length,0);
   report.status='passed';

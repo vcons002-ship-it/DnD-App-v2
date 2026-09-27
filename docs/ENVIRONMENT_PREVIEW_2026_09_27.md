@@ -119,7 +119,7 @@ publicly verified comparison video is 43.28 seconds and 16.0 MB.
 
 ## Billowing mist and ground shading
 
-The latest preview replaces the flat transparent sheets with one bounded density
+This revision replaces the flat transparent sheets with one bounded density
 volume. A 64-cubed noise texture defines connected banks, smaller billows and
 irregular tops. A 32-step ray march shades the interiors and clips at the existing
 opaque miniature/scenery depth, so mist behind a figure cannot wash over it.
@@ -153,3 +153,58 @@ transport warning is retained with delivery/render evidence. The 43.72-second,
 15.0 MB H.264 video was visually inspected and played successfully through the
 public URL at phone width. The published interactive test loaded all seven
 models and passed height, mist on/off and mist-shadow toggle checks.
+
+## Wisps, movement and quality settings
+
+The next revision combines narrow, wind-stretched wisps with sparse low billows.
+Drift is about four times faster than the preceding volume. A 160-by-112 RGBA
+map-space field bends the density around the four raised scenery pieces and
+records token wakes. A moving token parts the mist and adds a softly curled rim;
+the wake expands, drifts and fades over 3.6 seconds. The field updates at most
+15 times per second, has at most 48 wake stamps and drops stamps immediately
+when their source token is no longer visible. Teleports do not draw a long wake.
+Reduced motion freezes the density and clears wakes. These are visual
+approximations; there is no fluid solver or collision detection for painted walls.
+
+Mist renders separately from the original scene. High uses half width/height
+and 24 depth samples; Low uses quarter width/height and 12 samples. A depth-aware
+four-sample composite keeps fog from bleeding across miniature silhouettes.
+The map and models retain full resolution. Ground shading uses three samples.
+Auto chooses Low below 600 CSS pixels of canvas width or above two million
+drawing-buffer pixels, otherwise High; it is a resolution budget, not an FPS
+adaptive controller. Off disables visible mist and its ground shading.
+
+This standalone test still runs locally and does not add server synchronization.
+Campaign integration will need shared wind/time settings and visibility-filtered
+movement events, with quality kept local to each viewer.
+
+Preview:
+https://dnd.nic024i.app/uploads/previews/environment-wispy-mist-20260927/index.html
+
+The browser recording demonstrates the moving-token wake and recovery, High/Low,
+height controls, overhead and orbit. Run the separate performance capture without
+recording or another GPU test:
+
+```sh
+node scripts/environment-preview/benchmark.mjs PREVIEW_URL EVIDENCE_DIRECTORY
+```
+
+It uses asynchronous WebGL GPU timer queries around the complete depth, scene
+and mist render passes. Each mode starts from the same camera angle, warms up,
+and measures while orbiting. CPU work and browser composition are outside that
+measurement. A phone viewport is still the host PC's GPU, not phone hardware.
+
+On the RTX 5090 through Chrome/ANGLE D3D11 at a 1600-by-1000 viewport,
+the observed median complete-scene GPU times were 3.505 ms Off, 3.712 ms High,
+and 3.519 ms Low; a repeated Off sample was 3.521 ms. This small measured
+increment applies to this high-end GPU and test scene only. The accompanying
+phone-viewport sample uses the same GPU and cannot predict real phone speed.
+
+Typecheck, production build and all 896 server tests pass. The desktop/phone
+browser capture checks buffer scale, sample counts, Off disabling mist shadows,
+bounded wakes, wake expiry and scenery interaction toggles. No page, shader or
+HTTP errors were reported; two fully delivered and rendered GLB transport
+warnings remain recorded with evidence. The 55.16-second, 20.4 MB video was
+visually inspected and its public playback verified. The published phone-width
+test also loads all seven models, selects quality levels, confirms Auto chooses
+Low, and moves Druk to produce a wake.

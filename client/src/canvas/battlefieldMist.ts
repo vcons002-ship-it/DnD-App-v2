@@ -1,13 +1,15 @@
 import {
-  BackSide, BoxGeometry, Data3DTexture, Group, LinearFilter, Matrix4, Mesh,
-  RedFormat, RepeatWrapping, ShaderMaterial, Vector2, Vector3, Vector4,
-  type Texture,
+  BackSide, BoxGeometry, Data3DTexture, LinearFilter, Matrix4, Mesh, NoBlending,
+  OrthographicCamera, PlaneGeometry, RedFormat, RepeatWrapping, Scene, ShaderMaterial,
+  Vector2, Vector3, Vector4, WebGLRenderTarget, type Camera, type Texture, type WebGLRenderer,
 } from 'three';
-import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
+import type {EnvironmentContactToken, EnvironmentPreviewSettings} from './battlefieldEnvironment';
+import {createMistFlow} from './mistFlow';
 
 // Shared by the volume and its ground shading, so both move and reshape together.
 const densityField = /* glsl */`
   uniform highp sampler3D mistNoise;
+  uniform sampler2D mistFlow;
   uniform float mistTime, mistHeight, mistStrength, mistWholeMap, mistShadowStrength;
   uniform vec2 mistMapSize;
   uniform vec3 mistToLight;
@@ -39,28 +41,31 @@ const densityField = /* glsl */`
     if (y <= 0.0 || y >= 1.0) return 0.0;
     float edge = mistEnvelope(world.xz);
     if (edge < .001) return 0.0;
-    vec2 advected = world.xz + vec2(mistTime * 2.1, mistTime * .75);
-    vec3 p = vec3(advected.x / 78.0, y * 2.1, advected.y / 78.0);
-    float banks = mistNoiseAt(vec3(p.x * .7, 17.3, p.z * .7));
-    banks = .12 + .88 * smoothstep(.32, .69, banks);
-    float shape = .62 * mistNoiseAt(p + vec3(4.7, 8.1, 2.3))
-                + .26 * mistNoiseAt(p * 2.03 + 13.7)
-                + .12 * mistNoiseAt(p * 4.07 + 27.1);
-    float roof = mix(.17, .98, banks) * (.8 + .2 * shape);
-    float vertical = (1.0 - smoothstep(roof * .5, roof, y)) * smoothstep(0.0, .055, y);
-    float billow = smoothstep(.29, .67, shape);
-    return edge * banks * vertical * billow * 1.6;
+    vec4 flow = texture2D(mistFlow, world.xz / mistMapSize);
+    vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5;
+    float along = dot(bent, vec2(.94,.342)) - mistTime * 10.0;
+    float across = dot(bent, vec2(-.342,.94));
+    float curl = mistNoiseAt(vec3(along / 105.0, across / 74.0, mistTime * .055));
+    across += (curl - .5) * 35.0;
+    float strands = .68 * mistNoiseAt(vec3(along / 155.0, y * 2.7 + 3.0, across / 15.0))
+                  + .32 * mistNoiseAt(vec3(along / 63.0 + 7.0, y * 4.0, across / 8.0 + 13.0));
+    float wisps = smoothstep(.39,.65,strands) * (1.0 - smoothstep(.10,.43,y));
+    float bank = mistNoiseAt(vec3(along / 86.0 + 21.0, y * 1.5 + 17.0, across / 48.0));
+    float billow = smoothstep(.53,.75,bank) * (1.0 - smoothstep(.28,.93,y));
+    float clearing = mix(flow.b,1.0,smoothstep(.2,.85,y));
+    float rim = flow.a * (1.0 - smoothstep(.2,.7,y)) * (.3 + .7*strands);
+    return edge * clearing * smoothstep(0.0,.025,y) * (wisps * 1.4 + billow * .8 + rim * .7);
   }
   float mistGroundShade(vec3 world) {
     if (mistShadowStrength <= 0.0 || mistStrength <= 0.0) return 1.0;
     float opticalDepth = 0.0;
     float pathLength = mistHeight / max(.15, mistToLight.y);
-    for (int i = 0; i < 6; i++) {
-      vec3 samplePoint = vec3(world.x, 0.0, world.z) + mistToLight * pathLength * (float(i) + .5) / 6.0;
+    for (int i = 0; i < 3; i++) {
+      vec3 samplePoint = vec3(world.x, 0.0, world.z) + mistToLight * pathLength * (float(i) + .5) / 3.0;
       opticalDepth += mistDensity(samplePoint);
     }
     // A restrained, diffuse loss of light, not an opaque mesh shadow.
-    return 1.0 - mistShadowStrength * (1.0 - exp(-opticalDepth * pathLength / 6.0 * mistStrength * .065));
+    return 1.0 - mistShadowStrength * (1.0 - exp(-opticalDepth * pathLength / 3.0 * mistStrength * .065));
   }
 `;
 
@@ -71,6 +76,7 @@ const fragmentShader = /* glsl */`
   ${densityField}
   uniform sampler2D mistSceneDepth;
   uniform vec2 mistResolution;
+  uniform float mistSteps;
   uniform mat4 mistProjectionInverse, mistCameraWorld;
   vec3 reconstructWorld(vec2 ndc, float depth) {
     vec4 p = mistProjectionInverse * vec4(ndc, depth, 1.0);
@@ -94,21 +100,21 @@ const fragmentShader = /* glsl */`
       exitPoint = min(exitPoint, dot(surface - origin, direction));
     }
     if (exitPoint <= entry) discard;
-    float stepLength = (exitPoint - entry) / 32.0;
+    float stepLength = (exitPoint - entry) / mistSteps;
     float jitter = .25 + .5 * fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
     float transmittance = 1.0;
     vec3 light = vec3(0.0);
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 24; i++) {
+      if (float(i) >= mistSteps) break;
       vec3 p = origin + direction * (entry + (float(i) + jitter) * stepLength);
       float density = mistDensity(p);
       if (density > .005) {
         float sunStep = max(1.5, mistHeight * .12);
         float sunward = mistDensity(p + mistToLight * sunStep);
-        float farther = mistDensity(p + mistToLight * sunStep * 3.0);
-        float sunlight = exp(-(sunward + farther * .7) * mistHeight * mistStrength * .075);
+        float sunlight = exp(-sunward * mistHeight * mistStrength * .055);
         float illumination = clamp(.22 + .78 * sunlight + (density - sunward) * .18, .3, 1.0);
-        vec3 color = mix(vec3(.23, .28, .31), vec3(.84, .87, .86), illumination);
-        float alpha = 1.0 - exp(-density * mistStrength * stepLength * .095);
+        vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination);
+        float alpha = 1.0 - exp(-density * mistStrength * stepLength * .12);
         light += transmittance * alpha * color;
         transmittance *= 1.0 - alpha;
         if (transmittance < .035) break;
@@ -117,12 +123,42 @@ const fragmentShader = /* glsl */`
     float alpha = 1.0 - transmittance;
     if (alpha < .002) discard;
     gl_FragColor = vec4(light / max(alpha, .001), alpha);
+  }
+`;
+
+// Four neighboring fog samples, weighted by the actual opaque surface depth.
+// This keeps a low-resolution wisp from leaking across a sharp miniature edge.
+const compositeFragment=/* glsl */`
+  uniform sampler2D mistColor, mistSceneDepth;
+  uniform vec2 lowResolution;
+  uniform mat4 mistProjectionInverse;
+  varying vec2 vUv;
+  float viewDepth(vec2 uv) {
+    float d=texture2D(mistSceneDepth,uv).r;
+    vec4 p=mistProjectionInverse*vec4(uv*2.0-1.0,d*2.0-1.0,1.0);
+    return p.z/p.w;
+  }
+  void main(){
+    vec2 p=vUv*lowResolution-.5, f=fract(p), base=floor(p);
+    float center=viewDepth(vUv), total=0.0;
+    vec4 color=vec4(0.0);
+    for(int y=0;y<2;y++)for(int x=0;x<2;x++){
+      vec2 uv=(base+vec2(float(x),float(y))+.5)/lowResolution;
+      float bilinear=(x==0?1.0-f.x:f.x)*(y==0?1.0-f.y:f.y);
+      float weight=bilinear*exp(-abs(viewDepth(uv)-center)*.3);
+      vec4 sampleColor=texture2D(mistColor,uv);
+      color+=vec4(sampleColor.rgb*sampleColor.a,sampleColor.a)*weight;total+=weight;
+    }
+    if(total<.00001)discard;
+    color/=total;
+    gl_FragColor=vec4(color.rgb/max(color.a,.00001),color.a);
     #include <colorspace_fragment>
   }
 `;
 
 /** One bounded density volume, clipped against the scene's opaque depth. */
-export function createBattlefieldMist(parent: Group, depth: Texture, resolution: Vector2) {
+export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
+  const flow=createMistFlow();
   const data = new Uint8Array(64 * 64 * 64);
   let seed = 572919;
   for (let i = 0; i < data.length; i++) {
@@ -135,16 +171,17 @@ export function createBattlefieldMist(parent: Group, depth: Texture, resolution:
   noise.wrapS = noise.wrapT = noise.wrapR = RepeatWrapping;
   noise.needsUpdate = true;
   const common = {
-    mistNoise:{value:noise}, mistTime:{value:0}, mistHeight:{value:25.6}, mistStrength:{value:0},
+    mistNoise:{value:noise}, mistFlow:{value:flow.texture}, mistTime:{value:0}, mistHeight:{value:25.6}, mistStrength:{value:0},
     mistWholeMap:{value:1}, mistMapSize:{value:new Vector2(1216,832)},
     mistToLight:{value:new Vector3(-.5,1,-.7).normalize()}, mistShadowStrength:{value:0},
     mistPatchCount:{value:0}, mistPatches:{value:Array.from({length:8},()=>new Vector4())},
     mistPatchRotation:{value:Array.from({length:8},()=>new Vector2(1,0))},
   };
+  const lowResolution=new Vector2(1,1);
   const material = new ShaderMaterial({uniforms:{...common,
-    mistSceneDepth:{value:depth}, mistResolution:{value:resolution},
+    mistSceneDepth:{value:depth}, mistResolution:{value:lowResolution},mistSteps:{value:24},
     mistProjectionInverse:{value:new Matrix4()}, mistCameraWorld:{value:new Matrix4()},
-  }, vertexShader, fragmentShader, side:BackSide, transparent:true, depthWrite:false, depthTest:false, toneMapped:false});
+  }, vertexShader, fragmentShader, side:BackSide, blending:NoBlending, depthWrite:false, depthTest:false, toneMapped:false});
   const geometry = new BoxGeometry(1,1,1);
   const volume = new Mesh(geometry, material);
   volume.name = 'billowing-mist-volume'; volume.renderOrder=3;
@@ -152,12 +189,22 @@ export function createBattlefieldMist(parent: Group, depth: Texture, resolution:
     material.uniforms.mistProjectionInverse.value.copy(camera.projectionMatrixInverse);
     material.uniforms.mistCameraWorld.value.copy(camera.matrixWorld);
   };
-  parent.add(volume);
+  const volumeScene=new Scene();volumeScene.add(volume);
+  const target=new WebGLRenderTarget(1,1,{depthBuffer:false,stencilBuffer:false,minFilter:LinearFilter,magFilter:LinearFilter});
+  const composite=new ShaderMaterial({uniforms:{mistColor:{value:target.texture},mistSceneDepth:{value:depth},lowResolution:{value:lowResolution},
+    mistProjectionInverse:material.uniforms.mistProjectionInverse},
+    vertexShader:'varying vec2 vUv; void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:compositeFragment,
+    transparent:true,depthTest:false,depthWrite:false,toneMapped:false});
+  const quadGeometry=new PlaneGeometry(2,2),quad=new Mesh(quadGeometry,composite),compositeScene=new Scene();
+  const quadCamera=new OrthographicCamera(-1,1,1,-1,0,1);compositeScene.add(quad);
   let coverage:'patches'|'map'='map';
+  let quality:EnvironmentPreviewSettings['mistQuality']='auto',resolvedQuality='high',scale=.5;
   return {
     update(settings:EnvironmentPreviewSettings) {
       const height=Math.max(.5,settings.mistHeight??25.6);
-      const visible=settings.enabled&&settings.mist;
+      quality=settings.mistQuality??'auto';
+      const visible=settings.enabled&&settings.mist&&quality!=='off';
+      flow.update(settings);
       coverage=settings.mistCoverage??'patches';
       volume.visible=visible;
       volume.position.set(settings.mapWidth/2,height/2,settings.mapHeight/2);
@@ -177,6 +224,22 @@ export function createBattlefieldMist(parent: Group, depth: Texture, resolution:
         common.mistPatchRotation.value[index].set(Math.cos(a),Math.sin(a));
       });
     },
+    setTokens(tokens:readonly EnvironmentContactToken[]){flow.setTokens(tokens);},
+    render(renderer:WebGLRenderer,camera:Camera){
+      if(!volume.visible)return;
+      // Auto caps fog pixel work; main scene and miniatures keep full resolution.
+      resolvedQuality=quality==='auto'?(resolution.x*resolution.y>2_000_000||renderer.domElement.clientWidth<600?'low':'high'):quality??'high';
+      scale=resolvedQuality==='low'?.25:.5;
+      const width=Math.max(1,Math.ceil(resolution.x*scale)),height=Math.max(1,Math.ceil(resolution.y*scale));
+      if(target.width!==width||target.height!==height){target.setSize(width,height);lowResolution.set(width,height);}
+      material.uniforms.mistSteps.value=resolvedQuality==='low'?12:24;
+      const previous=renderer.getRenderTarget(),autoClear=renderer.autoClear,shadowUpdate=renderer.shadowMap.needsUpdate;
+      try{
+        renderer.shadowMap.needsUpdate=false;
+        renderer.setRenderTarget(target);renderer.autoClear=true;renderer.render(volumeScene,camera);
+        renderer.setRenderTarget(previous);renderer.autoClear=false;renderer.render(compositeScene,quadCamera);
+      }finally{renderer.setRenderTarget(previous);renderer.autoClear=autoClear;renderer.shadowMap.needsUpdate=shadowUpdate;}
+    },
     extendGroundShader(shader:{uniforms:Record<string,{value:unknown}>;vertexShader:string;fragmentShader:string}) {
       Object.assign(shader.uniforms,common);
       shader.vertexShader='varying vec3 mistGroundWorld;\n'+shader.vertexShader;
@@ -185,8 +248,9 @@ export function createBattlefieldMist(parent: Group, depth: Texture, resolution:
       shader.fragmentShader=shader.fragmentShader.replace('#include <tonemapping_fragment>',
         'gl_FragColor.rgb *= mistGroundShade(mistGroundWorld);\n#include <tonemapping_fragment>');
     },
-    tick(seconds:number){common.mistTime.value=seconds;return volume.visible;},
-    get state(){return {visible:volume.visible,coverage,height:common.mistHeight.value,layers:1,shadows:common.mistShadowStrength.value>0};},
-    dispose(){volume.removeFromParent();geometry.dispose();material.dispose();noise.dispose();},
+    tick(seconds:number){common.mistTime.value=seconds;flow.tick(seconds);return volume.visible;},
+    get state(){return {visible:volume.visible,coverage,height:common.mistHeight.value,layers:1,shadows:common.mistShadowStrength.value>0,
+      quality:volume.visible?resolvedQuality:'off',scale,steps:material.uniforms.mistSteps.value,bufferWidth:target.width,bufferHeight:target.height,...flow.state};},
+    dispose(){geometry.dispose();material.dispose();noise.dispose();target.dispose();quadGeometry.dispose();composite.dispose();flow.dispose();},
   };
 }

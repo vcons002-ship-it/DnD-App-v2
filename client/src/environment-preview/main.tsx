@@ -27,7 +27,7 @@ type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const initialSettings:EnvironmentPreviewSettings={
   enabled:true,mapUrl:new URL('./courtyard.png',location.href).href,mapWidth,mapHeight,
   shadows:true,mist:true,scenery:true,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:.5,
-  mistCoverage:'map',mistHeight:2*pixelsPerFoot,mistShadows:true,
+  mistCoverage:'map',mistHeight:2*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
 };
@@ -120,8 +120,9 @@ function Preview(){
   const change=<K extends keyof EnvironmentPreviewSettings>(key:K,value:EnvironmentPreviewSettings[K])=>{stop();setCamera({...current.current});setSettings(s=>({...s,[key]:value}));if(key==='shadowDirectionDegrees')setNotice('Shadow direction stays fixed to the map while the camera rotates.');};
   const moveDruk=()=>{
     cancelAnimationFrame(movingFrame.current);const token=tokens.find(t=>t.id==='druk')!;
-    const destination=token.x>500?{x:470,y:460}:{x:548,y:418},start=performance.now();
-    const tick=(now:number)=>{const t=Math.min(1,(now-start)/1700),e=t*t*(3-2*t);
+    const destination=token.x>600?{x:470,y:460}:{x:690,y:420},start=performance.now();
+    setNotice('Watch the mist part behind Druk, then drift back into his path.');
+    const tick=(now:number)=>{const t=Math.min(1,(now-start)/4200),e=t*t*(3-2*t);
       layer.current?.moveToken(token.id,token.x+(destination.x-token.x)*e,token.y+(destination.y-token.y)*e,t===1);
       if(t<1)movingFrame.current=requestAnimationFrame(tick);
       else setTokens(list=>list.map(item=>item.id===token.id?{...item,...destination,facing:facingAfterMove(token.x,token.y,destination.x,destination.y,token.facing)}:item));
@@ -153,6 +154,9 @@ function Preview(){
         <label className="switch master"><input type="checkbox" checked={settings.enabled} onChange={e=>change('enabled',e.target.checked)}/>Show effects</label>
         <p className="help">Switch off to compare with the original lighting.</p>
         <label className="switch"><input type="checkbox" checked={settings.mist} onChange={e=>change('mist',e.target.checked)}/>Drifting mist</label>
+        <label className="quality">Atmosphere quality <select aria-label="Atmosphere quality" value={settings.mistQuality} onChange={e=>change('mistQuality',e.target.value as EnvironmentPreviewSettings['mistQuality'])}><option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option><option value="off">Off</option></select></label>
+        <label className="switch"><input type="checkbox" checked={settings.mistInteraction!==false} onChange={e=>change('mistInteraction',e.target.checked)}/>React to movement & scenery</label>
+        <p className="help">Move Druk to leave a fading wake. Auto lowers mist detail on small screens or large drawing buffers; figures stay sharp.</p>
         <label className="switch"><input type="checkbox" checked={settings.mistCoverage==='map'} onChange={e=>change('mistCoverage',e.target.checked?'map':'patches')}/>Whole-map mist</label>
         <label className="switch"><input type="checkbox" checked={settings.mistShadows!==false} onChange={e=>change('mistShadows',e.target.checked)}/>Mist shadows</label>
         <label className="range">Mist strength <output>{Math.round((settings.mistOpacity??.5)*100)}%</output><input aria-label="Mist strength" type="range" min="0" max=".5" step=".01" value={settings.mistOpacity} onChange={e=>change('mistOpacity',+e.target.value)}/></label>

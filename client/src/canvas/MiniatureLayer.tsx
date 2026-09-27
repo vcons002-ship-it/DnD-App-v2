@@ -15,6 +15,7 @@ import { createMiniatureNameLayer } from './miniatureNameLayer';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
+import {createPreviewGpuTiming} from './previewGpuTiming';
 import { createVanecLightning } from './vanecLightning';
 import { useStore } from '../state/socket';
 import {
@@ -188,6 +189,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let battlefield: ReturnType<typeof createBattlefieldEnvironment> | null = null;
   let lastEnvironment: EnvironmentPreviewSettings | undefined;
   let paintCount = 0, paintEpoch = performance.now();
+  const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const updateCamera = () => {
@@ -243,7 +245,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const draw = (now: number) => {
     frame = 0;
     if (disposed || failed || document.hidden) return;
-    const atmosphereAnimated = !!props.environmentPreview?.enabled && props.environmentPreview.mist && !reducedMotion.matches;
+    const atmosphereAnimated = !!props.environmentPreview?.enabled && props.environmentPreview.mist && props.environmentPreview.mistQuality!=='off' && !reducedMotion.matches;
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
@@ -278,6 +280,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }));
       battlefield?.tick(reducedMotion.matches ? 0 : seconds);
       try {
+        timing?.begin();
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const renderedNames=names.sync(props.nameLabels?.()??[],visible);
         if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
@@ -291,6 +294,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           renderer.setRenderTarget(null);
         }
         renderer.render(scene, camera);
+        battlefield?.renderMist(renderer,camera);
+        timing?.end();
         if (battlefield) {
           paintCount++;
           if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
@@ -304,6 +309,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistLayers=String(mistState.layers);
           host.dataset.mistShadows=String(mistState.shadows);
           host.dataset.mistForm='volume';
+          host.dataset.mistStyle='wisps';
+          host.dataset.mistQuality=mistState.quality;
+          host.dataset.mistScale=String(mistState.scale);
+          host.dataset.mistSteps=String(mistState.steps);
+          host.dataset.mistResolution=`${mistState.bufferWidth}x${mistState.bufferHeight}`;
+          host.dataset.mistWakes=String(mistState.wakes);
+          host.dataset.mistObstacles=String(mistState.obstacles);
+          host.dataset.mistInteraction=String(mistState.enabled);
+          if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}
         }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
@@ -606,6 +620,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     names.dispose();props.onRenderedNames?.(new Set());
     battlefield?.dispose();battlefield=null;
+    timing?.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;

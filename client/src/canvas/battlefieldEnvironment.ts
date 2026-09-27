@@ -46,6 +46,8 @@ export type EnvironmentPreviewSettings = {
   /** Top of the mist above the ground, in map pixels. */
   mistHeight?: number;
   mistShadows?: boolean;
+  mistInteraction?: boolean;
+  mistQuality?: 'auto' | 'high' | 'low' | 'off';
   props?: EnvironmentSceneryProp[];
   mistPatches?: EnvironmentMistPatch[];
 };
@@ -139,7 +141,7 @@ export function createBattlefieldEnvironment(
   contacts.name = 'miniature-contact-shadows';
   scene.add(environment);
   environment.add(scenery, contacts);
-  const mist = createBattlefieldMist(environment, depthBuffer.texture, depthBuffer.resolution);
+  const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution);
   const geometries = new Set<BufferGeometry>();
   const materials = new Set<Material>();
   const textures = new Set<Texture>();
@@ -385,6 +387,7 @@ export function createBattlefieldEnvironment(
 
   function setTokens(tokens: readonly EnvironmentContactToken[]) {
     if (disposed) return;
+    mist.setTokens(tokens);
     const ids = new Set<string>();
     for (const token of tokens) {
       if (!token.visible) continue;
@@ -425,6 +428,7 @@ export function createBattlefieldEnvironment(
 
   update(initial);
   return { update, tick, setTokens, dispose, get ready() { return groundMaterial.map !== null; },
+    renderMist: mist.render,
     get mistState() { return mist.state; },
   };
 }
