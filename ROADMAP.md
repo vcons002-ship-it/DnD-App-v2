@@ -4,63 +4,51 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
-## Physics dice tray - September 2026
+## Live physics dice and class trays - September 2026
 
-- [x] Character tray art: Druk obsidian/gold, Varis walnut/bronze/forest leather,
-  Vanec crimson glass/silver/velvet. WebP textures have preserved source art and
-  generation prompts; raised 3D rims match each palette. Stronger lateral throws
-  use springier wall contacts and absorbent floors, with regression-tested wall hits.
+- [x] Live server-authoritative rigid-body rolls with fixed face labels. The
+  resting face supplies the result; clients interpolate streamed positions.
+  Unreadable, stacked and overdue dice reroll individually in the live world.
+  See [the physics reference](docs/DICE_PHYSICS.md) and
+  [rules integration](docs/LIVE_DICE_PHYSICS.md).
+- [x] Rollback-safe rules continuations keep HP, resource use and log entries
+  atomic while dice move. Manual attack and damage remain separate clicks.
+  Private DM rolls and hidden actors respect existing visibility rules.
+- [x] Simultaneous normal and critical damage dice; only extra critical dice
+  are gold. Correct shapes for mixed pools, green/red advantage results and
+  paired percentile dice. Pools over forty physical bodies use successive batches.
+- [x] Rounded d6s, diagonal hand/cup release, sustained bounce and readable
+  cadence. Dice enter from the viewer's side for their character, or another
+  edge for other rollers. Raised 3D tray walls match character-specific art.
+- [x] Settled faces flash, then travel from their actual projected face centers
+  to the correct result boxes. Non-d20 high/low emphasis is relative to die size;
+  natural twenties on checks and saves receive a Nat 20 celebration.
+- [x] Damage windows retain targets and reveal tags. Roll logs wait for results;
+  compact result summaries expose map impacts and floating damage. Bonuses and
+  penalties remain labeled in one readable equation, with hit/miss/crit feedback.
+- [x] Druk uses polished obsidian with natural flow bands, gold numbers and edges.
+  Varis uses forest resin, dark lacquered wood inlays and bright bronze numeral
+  rims. Vanec uses crimson glass, internal clouds/energy and silver numerals.
+  Every die shape shares its character material and consistent studio lighting.
+- [x] Other classes retain class palettes; unknown classes use neutral dice.
+  Dice scale with pool size. Reduced motion and unavailable graphics retain
+  results; readiness is bounded and server rolls survive client disconnects.
 
-- [x] Weightier toss: lower release, stronger downward acceleration, reduced
-  rebound, more floor friction, and tighter contact shadows.
+## Battlefield and resource HUD refinements - September 2026
 
-- [x] Dice scale smoothly with the full physical pool, with prominent one/two-die
-  rolls and room for up to 40 dice. Final results hold for 6.5 seconds; the legacy
-  short safety timer no longer cuts off physics or notifications. Varis numeral
-  rims use wider, brighter bronze while retaining lacquered wood and dark frames.
-
-- [x] Larger die result cards and a readable animated equation with labeled
-  bonuses/penalties, a prominent total, and longer reading time. Existing
-  hit/miss/fumble/critical-hit notifications and sounds remain in sequence.
-
-- [x] Stronger initial toss; green kept/red discarded rings and matching result
-  cards for advantage/disadvantage. Only bonus critical dice become polished gold.
-
-- [x] Overhead dice tray for player and DM roll reveals, with Cannon rigid-body
-  gravity, convex die collision shapes, floor/wall contacts, friction and sleeping.
-  Simulation runs at 120 Hz in a worker; playback interpolates recorded positions
-  and quaternions. Dice remain where they physically settle; no face-forward snap.
-- [x] Server rolls remain authoritative. Face labels are assigned before playback
-  to match the pre-simulated resting faces, never changed during a visible toss.
-  Mixed/critical dice, advantage/disadvantage and two-d10 percentile rolls retain
-  their values and logical identities. Totals and damage feedback wait for settling.
-- [x] Reduced motion keeps static results; unsupported/custom dice and tosses over
-  40 physical dice use an explicit result summary. Worker/WebGL failures preserve
-  the roll result. The tray adapts to phone width and releases resources on skip.
-
-## Class dice - September 2026
-
-- [x] Varis green resin dice use dark lacquered wooden numeral inlays with recessed
-  shading, bronze numeral borders and darker brown-bronze edges. Vanec retains his original bloodglass and glass edges, with reflective silver numerals.
-
-- [x] Fighter polished black obsidian with inset gold numerals, and ranger green
-  resin with embedded natural veining and lacquered wood numerals, across all shapes.
-  Decorative symbols and leafwork removed; numerals use metallic reflections and cut edges.
-  Fighter obsidian uses smooth polished faces with subtle volcanic flow bands,
-  metallic gold edges and gold numerals. Carved chips and granular bump texture removed.
-  Critical extras brighten the inlays while retaining the character material.
-  Active material dice target 60 fps with a slower tumble and 360 ms landing. All hero
-  materials share one continuous studio light field for reflection and refraction.
-
-- [x] Shared offscreen WebGL material renderer: actual chamfer geometry,
-  material grain and recessed numeral shading. Sorcerer dice use tinted glass
-  with ray-marched interior clouds/energy and view-dependent studio reflections.
-  Canvas rendering remains the fallback; reduced-motion disables interior animation.
-
-- [x] Player dice follow the rolling character's class with thirteen palettes,
-  face-local engraved motifs, polished facet lighting, metal edges and sharper
-  high-DPI numerals. Extra critical dice retain gold; all values remain server-owned.
-  Multiclass sheets use the first listed class; unrecognized classes use neutral dice.
+- [x] Smooth overhead/45-degree transitions and continuous right-drag rotation.
+  Reuse projection buffers and avoid resizing rendering canvases every frame.
+- [x] Thin silhouette affinity borders preserve narrow weapon detail. Selection,
+  active-turn and condition rings, plus combat-role badges, render behind 3D
+  bodies and intervening miniatures.
+- [x] Only name/tag pixels covered by a figure fade; uncovered letters remain
+  clear. Hover and selection restore the full label. Fog rules and 2D fallback
+  labels are preserved.
+- [x] Characters face their chosen target before attack or targeted-spell rolls,
+  including misses. Magic Missile darts and subsequent Orb bounces do not spin
+  the caster; a later manual damage click does not retarget their facing.
+- [x] Remove ornamental branch artwork below the resource crystals while keeping
+  all crystal positions, counters and controls intact.
 
 ## Combat spell and damage workflow - September 2026
 

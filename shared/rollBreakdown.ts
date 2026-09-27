@@ -18,11 +18,17 @@ function diceTerms(steps: RevealStep[]): string[] {
   for(const step of steps) {
     const label=(step.label==='CRIT'?first?.label??'Dice':step.label).replace(/\bCRIT\b/gi,'').replace(/\s+\)/g,')').trim();
     const expr=step.diceExpression ?? (step.label==='CRIT'?first?.diceExpression:undefined);
-    const term=expr ? /^(\d*)d(\d+)$/.exec(expr) : /^(\d*)d(\d+)(?=\s|$)/.exec(label);
+    let term=expr ? /^(\d*)d(\d+)$/.exec(expr) : /^(\d*)d(\d+)(?=\s|$)/.exec(label);
+    // Upcasting can record 8d6+1d6+1d6; show the actual pool as 10d6.
+    const expression=expr ?? label;
+    const sameDice=/^\d*d\d+(?:\+\d*d\d+)+$/.test(expression)
+      ? expression.split('+').map(t=>/^(\d*)d(\d+)$/.exec(t)!) : [];
+    if(!term && sameDice.length && sameDice.every(t=>t[2]===sameDice[0][2]))
+      term=/^(\d*)d(\d+)$/.exec(`${sameDice.reduce((n,t)=>n+Number(t[1]||1),0)}d${sameDice[0][2]}`);
     if(!term||!step.faces?.length||step.faces.reduce((n,v)=>n+v,0)!==step.value) {
       groups.push({source:label,sides:0,faces:[],value:step.value,plain:step}); continue;
     }
-    const source=label.replace(/^\d*d\d+\s*/, '').trim();
+    const source=sameDice.length && term ? '' : label.replace(/^\d*d\d+\s*/, '').trim();
     const sides=Number(term[2]);
     const group=groups.find(g=>!g.plain&&g.source===source&&g.sides===sides);
     if(group) {group.faces.push(...step.faces);group.value+=step.value;}
@@ -56,4 +62,13 @@ export function damageRollBreakdown(entry: RollEntry): string | null {
   if (itemized !== reveal.damage) parts.push(`${reveal.damage-itemized<0?'−':'+'} ${Math.abs(reveal.damage-itemized)} Unitemized`);
   const type = !reveal.damageBreakdown?.mixedTypes && reveal.damageType ? ` ${reveal.damageType}` : '';
   return `Damage: ${parts.map((part,i)=>i>0&&!/^[+−]/.test(part)?`+ ${part}`:part).join(' ')} = ${reveal.damage}${type}`;
+}
+
+/** Damage-only entries already have a full equation; retain context, not a second total. */
+export function rollLogDetail(entry: RollEntry): string {
+  if (entry.reveal?.kind !== 'damage' || !damageRollBreakdown(entry)) return entry.detail;
+  const r = entry.reveal;
+  const save = entry.detail.match(/DC \d+ [A-Z]+ save[^\u2014]*/)?.[0]?.trim();
+  return [r.attacker + (r.target ? ` \u2192 ${r.target}` : ''),
+    r.outcome === 'crit' ? 'CRIT' : '', save ?? ''].filter(Boolean).join(' \u2014 ');
 }

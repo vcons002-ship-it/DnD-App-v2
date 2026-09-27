@@ -1,3 +1,4 @@
+import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { withRollComparison } from '../../../shared/dicePresentation';
@@ -68,6 +69,7 @@ let rollSfxReady = false;
 const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
+  liveDice: LiveDiceFrame | null;
   socket: TypedSocket | null;
   status: Status;
   error: string | null;
@@ -431,6 +433,7 @@ export function getPlayerId(): string {
 }
 
 export const useStore = create<Store>((set, get) => ({
+  liveDice: null,
   socket: null,
   status: 'idle',
   error: null,
@@ -645,6 +648,14 @@ export const useStore = create<Store>((set, get) => ({
       reconnectionDelayMax: 5000,
     });
 
+    socket.on('dice:frame',frame=>{
+      if(!get().showRollAnim){socket.emit('dice:ready',{id:frame.id});return;}
+      const previous=get().liveDice;
+      if(previous?.id===frame.id && previous.seq>=frame.seq)return;
+      if(previous?.id!==frame.id)get().dismissRollFx();
+      set({liveDice:frame});
+    });
+    socket.on('dice:finished',({id})=>{if(get().liveDice?.id===id)set({liveDice:null});});
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('state:snapshot', (snapshot) => {
       // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
@@ -870,6 +881,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
+      set({liveDice:null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -888,7 +900,7 @@ export const useStore = create<Store>((set, get) => ({
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     heldHpFx.clear();
-    set({ socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
+    set({ liveDice:null, socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {

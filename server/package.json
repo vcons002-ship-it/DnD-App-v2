@@ -16,6 +16,7 @@
     "@gltf-transform/extensions": "4.5.0",
     "@gltf-transform/functions": "4.5.0",
     "better-sqlite3": "^12.11.1",
+    "cannon-es": "^0.20.0",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "meshoptimizer": "1.2.0",

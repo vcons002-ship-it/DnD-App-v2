@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { dieMesh, faceForwardMesh, type V3 } from '../../../shared/diceGeometry';
+import { dieMesh, faceForwardMesh, roundedD6Mesh, D6_EDGE_ROUNDING, type V3 } from '../../../shared/diceGeometry';
 import type { DiceTheme } from '../../../shared/diceThemes';
 
 // One offscreen WebGL context shared by all visible dice. Each result is copied
@@ -193,7 +193,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const points=ids.map(i=>vertices[i]);const c=points.reduce((a,p)=>a.add(p),new THREE.Vector3()).multiplyScalar(1/points.length);
     const n=new THREE.Vector3().subVectors(points[1],points[0]).cross(new THREE.Vector3().subVectors(points[2],points[0])).normalize();if(n.dot(c)<0)n.negate();
     const u=new THREE.Vector3(Math.abs(n.x)>.95?0:1,Math.abs(n.x)>.95?1:0,0);u.addScaledVector(n,-u.dot(n)).normalize();const v=new THREE.Vector3().crossVectors(n,u);
-    const inset=points.map(p=>p.clone().lerp(c,.055));
+    const inset=points.map(p=>p.clone().lerp(c,sides===6?D6_EDGE_ROUNDING:.055));
     const radius=Math.min(...points.map((p,i)=>new THREE.Vector3().subVectors(points[(i+1)%points.length],p).cross(new THREE.Vector3().subVectors(c,p)).length()/p.distanceTo(points[(i+1)%points.length])));
     return {c,n,u,v,inset,radius};
   });
@@ -207,21 +207,33 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
-  // The convex hull of inset face corners adds actual chamfer geometry.
-  const hull=new ConvexGeometry(faces.flatMap(f=>f.inset));
-  const hp=hull.getAttribute('position'),edgePoints:number[]=[];
-  for(let i=0;i<hp.count;i+=3){const tri=[0,1,2].map(j=>new THREE.Vector3().fromBufferAttribute(hp,i+j));
-    if(faces.some(f=>tri.every(p=>Math.abs(f.n.dot(p)-f.n.dot(f.c))<.00001)))continue;
-    tri.forEach(p=>edgePoints.push(...p.toArray()));
+  const edgeGeo=new THREE.BufferGeometry();
+  if(sides===6){
+    // Smooth analytic normals across the same rounded profile used by physics.
+    const rounded=roundedD6Mesh(5),positions:number[]=[],normals:number[]=[];
+    for(const face of rounded.faces.slice(6))for(let j=1;j<face.length-1;j++)for(const i of [face[0],face[j],face[j+1]]){
+      positions.push(...rounded.vertices[i]);normals.push(...rounded.normals[i]);
+    }
+    edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    edgeGeo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  }else{
+    // Other polyhedra retain their existing chamfer geometry.
+    const hull=new ConvexGeometry(faces.flatMap(f=>f.inset));
+    const hp=hull.getAttribute('position'),edgePoints:number[]=[];
+    for(let i=0;i<hp.count;i+=3){const tri=[0,1,2].map(j=>new THREE.Vector3().fromBufferAttribute(hp,i+j));
+      if(faces.some(f=>tri.every(p=>Math.abs(f.n.dot(p)-f.n.dot(f.c))<.00001)))continue;
+      tri.forEach(p=>edgePoints.push(...p.toArray()));
+    }
+    hull.dispose();edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(edgePoints,3));edgeGeo.computeVertexNormals();
   }
-  hull.dispose();const edgeGeo=new THREE.BufferGeometry();edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(edgePoints,3));edgeGeo.computeVertexNormals();geometries.push(edgeGeo);
+  geometries.push(edgeGeo);
   root.add(new THREE.Mesh(edgeGeo,makeMaterial()));
   const labels=faces.map(f=>{
     const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
     const texture=new THREE.CanvasTexture(canvas);texture.anisotropy=4;textures.push(texture);
     const positions:number[]=[],uv:number[]=[];
     for(let j=1;j<f.inset.length-1;j++)for(const p of [f.inset[0],f.inset[j],f.inset[j+1]]){
-      positions.push(...p.toArray());const delta=p.clone().sub(f.c);uv.push(.5+delta.dot(f.u)/(f.radius*2),.5+delta.dot(f.v)/(f.radius*2));
+      positions.push(...p.toArray());const delta=p.clone().sub(f.c);uv.push(.5+delta.dot(f.u)/(f.radius*2*(sides===4?2.2:1)),.5+delta.dot(f.v)/(f.radius*2*(sides===4?2.2:1)));
     }
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();geometries.push(geo);
     const material=makeMaterial(texture);root.add(new THREE.Mesh(geo,material));
@@ -231,11 +243,31 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
-    setFaceValues(values: number[]) {
+    resultPosition(target:THREE.Vector3) {
+      // Match the numbered surface instead of estimating a height above the body.
+      if(sides===4){
+        const vertex=vertices.reduce((best,p)=>p.clone().applyQuaternion(root.quaternion).z>best.clone().applyQuaternion(root.quaternion).z?p:best);
+        return root.localToWorld(target.copy(vertex));
+      }
+      const face=faces.reduce((best,f)=>f.n.clone().applyQuaternion(root.quaternion).z>best.n.clone().applyQuaternion(root.quaternion).z?f:best);
+      return root.localToWorld(target.copy(face.c));
+    },
+    setFaceValues(values: number[],fixed=false) {
       labels.forEach(({canvas,texture},id)=>{
         const c=canvas.getContext('2d')!;c.fillStyle='#fff';c.fillRect(0,0,256,256);
         c.fillStyle='#151515';c.font=`bold ${tens?94:112}px Georgia`;c.textAlign='center';c.textBaseline='middle';
-        c.fillText(tens?String(values[id]).padStart(2,'0'):String(values[id]),128,134);texture.needsUpdate=true;
+        if(fixed&&sides===4){
+          // Conventional tetrahedral numbering: the three faces meeting at a
+          // vertex repeat its result. The opposite resting face determines it.
+          const f=faces[id];c.font='bold 52px Georgia';
+          for(const vertex of source.faces[id]){
+            const opposite=source.faces.findIndex(face=>!face.includes(vertex));
+            const delta=vertices[vertex].clone().sub(f.c).multiplyScalar(.57);
+            const x=128+delta.dot(f.u)/(f.radius*4.4)*256,y=128-delta.dot(f.v)/(f.radius*4.4)*256;
+            c.fillText(String(values[opposite]),x,y);
+          }
+        }else c.fillText(tens?String(values[id]).padStart(2,'0'):String(values[id]),128,134);
+        texture.needsUpdate=true;
       });
     },
     updatePose(camera: THREE.Camera, now: number) {

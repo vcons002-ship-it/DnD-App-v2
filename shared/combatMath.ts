@@ -2,7 +2,7 @@
 // framework-free so the server resolves authoritatively and it's unit-tested.
 import type { Weapon } from './types.js';
 import { abilityMod, proficiencyBonus, signed } from './skills.js';
-import { rollDice } from './dice.js';
+import { rollDice, rollDicePool } from './dice.js';
 import { DAMAGE_TYPES } from './damage.js';
 import type { Advantage } from './dice.js';
 
@@ -17,7 +17,6 @@ export type Combatant = {
   isMonster: boolean;
 };
 
-const d20 = () => 1 + Math.floor(Math.random() * 20);
 
 /**
  * Roll a d20 honoring advantage/disadvantage, returning the chosen face plus a
@@ -25,9 +24,11 @@ const d20 = () => 1 + Math.floor(Math.random() * 20);
  * straight roll). Shared by every server-side d20 roll so the log is uniform.
  */
 export function rollD20Detail(advantage?: Advantage): { face: number; detail: string } {
-  const a = d20();
+  const rolled=rollDice('1d20',advantage)!;
+  const pool=advantage?[...rolled.detail.matchAll(/1d20\[(\d+)\]/g)].map(m=>Number(m[1])):rolled.rolls;
+  const a=pool[0];
   if (!advantage) return { face: a, detail: `d20[${a}]` };
-  const b = d20();
+  const b = pool[1];
   const face = advantage === 'adv' ? Math.max(a, b) : Math.min(a, b);
   return { face, detail: `d20[${a},${b}]→${advantage} ${face}` };
 }
@@ -143,6 +144,8 @@ export function rollWeaponAttack(
   targetAC: number,
   advantage?: Advantage,
   opts?: {
+    attackOnly?: boolean;
+    fixedAttack?: AttackOutcome;
     twoHanded?: boolean;
     noAbilityMod?: boolean;
     bonusDamage?: number;
@@ -164,7 +167,7 @@ export function rollWeaponAttack(
     extraCritDie?: boolean;
   },
 ): AttackOutcome {
-  const { face, detail: d20detail } = rollD20Detail(advantage);
+  const {face,detail:d20detail}=opts?.fixedAttack?{face:opts.fixedAttack.face,detail:opts.fixedAttack.detailToHit.match(/d20\[[^\]]+\](?:\u2192(?:adv|dis) \d+)?/)?.[0]??`d20[${opts.fixedAttack.face}]`}:rollD20Detail(advantage);
   const { bonus, detail: bonusDetail, parts: bonusParts } = weaponAttackBonusDetail(attacker, weapon);
   const toHitExtra = opts?.attackRollBonus ?? 0;
   // Structured to-hit breakdown for the reveal animation (d20 + these).
@@ -172,11 +175,11 @@ export function rollWeaponAttack(
     ...bonusParts,
     ...(toHitExtra ? [{ label: opts?.attackRollBonusLabel || 'maneuver', value: toHitExtra }] : []),
   ];
-  const attackTotal = face + bonus + toHitExtra;
+  const attackTotal = opts?.fixedAttack?.attackTotal ?? face + bonus + toHitExtra;
   const natCrit = face === 20;
   const fumble = face === 1;
-  const hit = natCrit || (!fumble && attackTotal >= targetAC);
-  const crit = hit && (natCrit || !!opts?.forceCrit); // auto-crit only on a hit
+  const hit = opts?.fixedAttack?.hit ?? (natCrit || (!fumble && attackTotal >= targetAC));
+  const crit = opts?.fixedAttack?.crit ?? (hit && (natCrit || !!opts?.forceCrit)); // auto-crit only on a hit
 
   // Versatile weapons use their two-handed dice when wielded 2H.
   const expr =
@@ -186,7 +189,7 @@ export function rollWeaponAttack(
   let dmgText = '';
   const damageDiceSteps: AttackStep[] = [];
   const damageModSteps: AttackStep[] = [];
-  if (hit) {
+  if (hit && !opts?.attackOnly) {
     const { dice, flat } = damageParts(expr);
     const magic = weapon.magicBonus ?? 0;
     // PCs add their ability modifier to damage at roll time (weapons store dice
@@ -209,14 +212,13 @@ export function rollWeaponAttack(
       const p: string[] = [];
       const steps: AttackStep[] = [];
       let total = 0;
-      const r1 = dice ? rollDice(dice) : null;
+      const [r1,r2]=dice?rollDicePool([{expr:dice},...(crit?[{expr:dice,critical:true}]:[])]):[];
       if (r1) {
         total += r1.total;
         p.push(`${dice}[${r1.rolls.join(',')}]`);
         steps.push({ label: dice, value: r1.total, faces: r1.rolls });
       }
-      if (crit && dice) {
-        const r2 = rollDice(dice)!;
+      if (crit && dice && r2) {
         total += r2.total;
         p.push(`+[${r2.rolls.join(',')}][CRIT]`);
         steps.push({ label: 'CRIT', value: r2.total, faces: r2.rolls, diceExpression: dice });

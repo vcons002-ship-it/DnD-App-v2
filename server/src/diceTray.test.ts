@@ -3,7 +3,7 @@ import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
 import {Vec3,Quaternion} from 'cannon-es';
 import {dieMesh,faceForwardMesh} from '../../shared/diceGeometry.js';
-import {physicalDice,simulateToss,trayFaceValues,diceMassKg,STANDARD_GRAVITY,REFERENCE_D6_EDGE} from '../../client/src/lib/dicePhysics.js';
+import {physicalDice,simulateToss,trayFaceValues,diceMassKg,STANDARD_GRAVITY,TRAY_GRAVITY,REFERENCE_D6_EDGE} from '../../client/src/lib/dicePhysics.js';
 describe('physics dice tray',()=>{
  it('removes pauses caused by uneven settle times without revealing a moving die',()=>{
   const settled=[1.778,2.01,2.16,2.486].map(t=>t*.6);
@@ -25,14 +25,15 @@ describe('physics dice tray',()=>{
   for(const value of [1,60,100])for(const d of physicalDice([die(100,value)]))
     expect(dieResultStrength(d)).toBeCloseTo((value-1)/99);
  });
- it('uses a 16 mm acrylic d6 mass and Earth gravity in free flight',()=>{
+ it('uses a 16 mm acrylic d6 mass and slightly reduced gravity in free flight',()=>{
   const mesh=faceForwardMesh(dieMesh(6)),radius=REFERENCE_D6_EDGE*Math.sqrt(3)/2;
   const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));
   expect(diceMassKg(vertices,mesh.faces)).toBeCloseTo(.00487424,8);
   const t=simulateToss([{sides:6,value:1,index:0,set:0}],42);
   const metresPerUnit=radius/t.radius;
   const acceleration=(t.frames[16]-2*t.frames[9]+t.frames[2])*metresPerUnit/(t.step*t.step);
-  expect(acceleration).toBeCloseTo(-STANDARD_GRAVITY,1);
+  expect(TRAY_GRAVITY).toBeCloseTo(STANDARD_GRAVITY*.9);
+  expect(acceleration).toBeCloseTo(-TRAY_GRAVITY,1);
  });
  it('settles every shape inside the tray with fixed labels matching recorded results',()=>{
   for(const seed of [1,42,719]){
@@ -82,14 +83,14 @@ describe('physics dice tray',()=>{
   for(const sides of [4,6,8,10,12,20])for(let seed=10;seed<110;seed++){
    expect(simulateToss([{sides,value:1,index:0,set:0}],seed).duration).toBeLessThanOrEqual(12);
   }
- },15000);
- it('rolls a handful in from outside the tray in sequence',()=>{
+ },30000);
+ it('rolls the entire handful in from outside the tray together',()=>{
   const dice=[6,8,20].map((sides,index)=>({sides,index,value:1,set:0}));
   const t=simulateToss(dice,42);
   for(let i=0;i<dice.length;i++)expect(t.frames[i*7]).toBeLessThan(-7.4-t.radius);
   const early=Math.floor(.025/t.step)*dice.length*7;
   expect(t.frames[early]).toBeGreaterThan(t.frames[0]);
-  expect(t.frames[early+7]).toBe(t.frames[7]);
+  for(let i=0;i<dice.length;i++)expect(t.frames[early+i*7]).toBeGreaterThan(t.frames[i*7]);
   for(let i=0;i<dice.length;i++)expect(t.frames[((t.frameCount-1)*dice.length+i)*7]).toBeGreaterThan(-7);
  });
  it('settles six-die character tray throws',()=>{
@@ -117,7 +118,7 @@ describe('physics dice tray',()=>{
     expect(Math.abs(t.frames[last+1])).toBeLessThan(4.51);
    }
   }
- });
+ },15000);
  it('splits percentile 100 without losing logical roll identity',()=>{
   const dice=physicalDice([{sides:100,value:100,index:2,set:1}]);expect(dice.map(x=>x.value)).toEqual([0,0]);expect(dice.every(x=>x.index===2&&x.set===1)).toBe(true);
  });

@@ -1,6 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
-import { writeFileSync } from 'node:fs';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
 
@@ -72,104 +71,16 @@ async function fixture(request: APIRequestContext, page: Page) {
   return { snapshot, character, target, socket };
 }
 
-async function startTrace(page: Page) {
-  await page.evaluate(() => {
-    const trace = (window as any).__revealTiming;
-    trace.samples = []; trace.sounds = []; trace.running = true;
-    const sample = () => {
-      if (!trace.running) return;
-      const popup = document.querySelector('.roll-reveal');
-      trace.samples.push({
-        time: performance.now(), visible: !!popup, popupHeight: popup?.getBoundingClientRect().height ?? 0, impact: !!popup?.closest('.is-impact'),
-        attackTotal: Number(popup?.querySelector('.rr-total')?.textContent ?? 0),
-        damageTotal: Number(popup?.querySelector('.rr-dmg-num, .rr-roll-num')?.firstChild?.textContent ?? 0),
-        attackDice: [...(popup?.querySelectorAll('.roll-reveal-tohit .tray-die-result') ?? [])].map((die) => (die as HTMLElement).dataset.orientation),
-        damageDice: [...(popup?.querySelectorAll('.roll-reveal-damage .tray-die-result') ?? [])].map((die) => ({
-          orientation: (die as HTMLElement).dataset.orientation, value: Number((die as HTMLElement).dataset.value),
-        })),
-        outcome: popup?.querySelector('.roll-reveal-outcome')?.textContent,
-        prompt: !!document.querySelector('.damage-prompt-btn'),
-        floaters: ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('Text')
-          .filter((node: any) => /^[+−]\d+$/.test(node.text()) && node.fill() === '#e23b3b')
-          .map((node: any) => ({ text: node.text(), opacity: node.getAbsoluteOpacity() }))),
-      });
-      requestAnimationFrame(sample);
-    };
-    requestAnimationFrame(sample);
-  });
-}
-
-async function endTrace(page: Page) {
-  return page.evaluate(() => {
-    const trace = (window as any).__revealTiming; trace.running = false;
-    const origin = trace.samples.find((sample: any) => sample.visible)?.time ?? trace.samples[0].time;
-    return {
-      samples: trace.samples.map((sample: any) => ({ ...sample, time: Math.round(sample.time - origin) })),
-      sounds: trace.sounds.map((sound: any) => ({ ...sound, time: Math.round(sound.time - origin) })),
-    };
-  });
-}
-
-test('attack and manual damage totals wait for the actual 3D dice landing', async ({ page, request }, testInfo) => {
-  const f = await fixture(request, page);
-  let attack: Awaited<ReturnType<typeof endTrace>> | undefined;
-  let pending;
-  // A natural 1 remains a valid miss. No random result is forged by this test.
-  for (let attempt = 0; attempt < 5; attempt++) {
-    await startTrace(page);
-    await page.locator('.compact-player-combat').getByRole('button', { name: /Timing greatsword/ }).click();
-    await expect(page.locator('.roll-reveal')).toBeVisible();
-    await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 20_000 });
-    attack = await endTrace(page);
-    pending = (await f.snapshot()).rollLog.findLast((entry) => entry.pending && !entry.pending.done);
-    if (pending) break;
-  }
-  expect(pending).toBeTruthy();
-  expect((await f.snapshot()).monsters.find((monster) => monster.id === f.target.id)!.curHp).toBe(200);
-  await expect(page.locator('.damage-prompt-btn')).toBeVisible();
-  await startTrace(page);
-  await page.locator('.damage-prompt-btn').click();
-  await expect(page.locator('.roll-reveal')).toBeVisible();
-  await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 20_000 });
-  const damage = await endTrace(page);
-  const impactFrames = damage.samples.filter((sample:any) => sample.impact && sample.floaters.some((f:any) => f.opacity > .1));
-  expect(impactFrames.length).toBeGreaterThan(0);
-  expect(impactFrames.every((sample:any) => sample.popupHeight <= 180)).toBe(true);
-  const state = await f.snapshot();
-  expect(state.monsters.find((monster) => monster.id === f.target.id)!.curHp).toBe(200 - pending!.pending!.amount);
-  const summary = {
-    attackFirstTotal: attack!.samples.find((sample: any) => sample.attackTotal > 0)?.time,
-    attackLanded: attack!.samples.find((sample: any) => sample.attackDice.length && sample.attackDice.every((orientation: string) => orientation === 'settled'))?.time,
-    damageFirstTotal: damage.samples.find((sample: any) => sample.damageTotal > 0)?.time,
-    damageFirstLanded: damage.samples.find((sample: any) => sample.damageDice.some((die: any) => die.orientation === 'settled'))?.time,
-    damageAllLanded: damage.samples.find((sample: any) => sample.damageDice.length && sample.damageDice.every((die: any) => die.orientation === 'settled'))?.time,
-    damageFinalTotal: damage.samples.find((sample: any) => sample.damageTotal === pending!.pending!.amount)?.time,
-    damageFloater: damage.samples.find((sample: any) => sample.floaters.some((floater: any) => floater.opacity > .1))?.time,
-    damageSounds: damage.sounds,
-  };
-  const receipt = { summary, attack, damage, authoritativeDamage: pending!.pending!.amount };
-  const path = testInfo.outputPath('timing.json');
-  writeFileSync(path, JSON.stringify(receipt, null, 2));
-  await testInfo.attach('timing', { path, contentType: 'application/json' });
-  console.log(`REVEAL_TIMING ${JSON.stringify(summary)}`);
-  if (process.env.DND_TIMING_BASELINE === '1') return;
-  const outcomeAt = attack!.samples.find((sample: any) => sample.outcome)?.time;
-  const lastAttackVisible = attack!.samples.findLast((sample: any) => sample.visible)?.time;
-  expect(lastAttackVisible - outcomeAt).toBeGreaterThanOrEqual(6200);
-  expect(summary.attackFirstTotal).toBeGreaterThanOrEqual(summary.attackLanded);
-  expect(summary.damageFirstTotal).toBeGreaterThanOrEqual(summary.damageFirstLanded);
-  expect(summary.damageFloater).toBeGreaterThanOrEqual(summary.damageFinalTotal - 20);
-  expect(damage.samples.filter((sample: any) => sample.damageTotal > 0 && !sample.damageDice.some((die: any) => die.orientation === 'settled'))).toHaveLength(0);
-  expect(damage.sounds.filter((sound: any) => sound.time < summary.damageAllLanded)).toHaveLength(0);
-  expect(summary.damageFinalTotal).toBeDefined();
-});
-
+// Physics is live: no damage exists until the server has read the resting faces.
+// Await the physical phase explicitly instead of the old prerecorded timeline.
+test.beforeEach(() => test.setTimeout(120_000));
 async function armManualDamage(page: Page, f: Awaited<ReturnType<typeof fixture>>) {
   for (let attempt = 0; attempt < 5; attempt++) {
     await page.locator('.compact-player-combat').getByRole('button', { name: /Timing greatsword/ }).click();
-    await expect(page.locator('.roll-reveal')).toBeVisible();
+    await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+    await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0, {timeout: 30_000});
+    const pending = (await f.snapshot()).rollLog.findLast(entry => entry.pending && !entry.pending.done);
     await page.keyboard.press('Escape');
-    const pending = (await f.snapshot()).rollLog.findLast((entry) => entry.pending && !entry.pending.done);
     if (pending) {
       await expect(page.locator('.damage-prompt-btn')).toBeVisible();
       return pending;
@@ -177,105 +88,132 @@ async function armManualDamage(page: Page, f: Awaited<ReturnType<typeof fixture>
   }
   throw new Error('Five consecutive misses');
 }
-
 async function floaters(page: Page) {
   return page.evaluate(() => ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('Text')
-    .filter((node: any) => /^[+−]\d+$/.test(node.text()) && node.fill() === '#e23b3b')
+    .filter((node: any) => /^[+\u2212]\d+$/.test(node.text()) && node.fill() === '#e23b3b')
     .map((node: any) => node.text())));
 }
+async function resolveDamage(page: Page, f: Awaited<ReturnType<typeof fixture>>, id: string) {
+  await expect.poll(async () => (await f.snapshot()).rollLog.find(r => r.id === id)?.pending?.done,
+    {timeout: 30_000}).toBe(true);
+  return (await f.snapshot()).rollLog.findLast(r => r.label === 'Damage')!;
+}
 
-test('skip releases its correlated floater while unrelated direct damage stays immediate', async ({ page, request }) => {
-  const f = await fixture(request, page);
-  const pending = await armManualDamage(page, f);
-  const amount = pending.pending!.amount;
+test('live damage stays out of HP and history until the dice settle, then exposes map impact', async ({page,request}) => {
+  const f=await fixture(request,page), pending=await armManualDamage(page,f);
+  const oldCount=(await f.snapshot()).rollLog.length;
   await page.locator('.damage-prompt-btn').click();
-  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-reveal-kind', 'damage');
-  // Server HP changes now, even though this roll's cosmetic number is held.
-  expect((await f.snapshot()).monsters.find((monster) => monster.id === f.target.id)!.curHp).toBe(200 - amount);
-  expect(await floaters(page)).not.toContain(`−${amount}`);
-  f.socket.emit('damage:apply', { kind: 'monster', refId: f.target.id, amount: 1 });
-  await expect.poll(() => floaters(page)).toContain('−1');
-  expect(await floaters(page)).not.toContain(`−${amount}`);
+  const live=page.locator('[data-live-dice="true"]');
+  await expect(live).toBeVisible();
+  await expect(live.locator('.roll-reveal-title')).toContainText('Timing target');
+  expect((await f.snapshot()).rollLog.length).toBe(oldCount);
+  expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200);
+  expect(await floaters(page)).toEqual([]);
+  // Record presentation state independently of server snapshots so a premature
+  // floater or summary during rolling cannot slip between assertions.
+  await page.evaluate(()=>{
+    const samples:any[]=[];(window as any).__liveTiming=samples;
+    const sample=()=>{
+      const live=document.querySelector('[data-live-dice="true"]');
+      const popup=document.querySelector('.roll-reveal');
+      const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('Text').filter((n:any)=>/^[+\u2212]\d+$/.test(n.text())&&n.fill()==='#e23b3b'));
+      samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
+      if(live||!fx.length)requestAnimationFrame(sample);
+    };sample();
+  });
+  const result=await resolveDamage(page,f,pending.id);
+  await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
+  await expect(live).toHaveCount(0);
+  expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200-result.total);
+  const samples=await page.evaluate(()=>(window as any).__liveTiming);
+  expect(samples.some((s:any)=>s.live&&!s.settled)).toBe(true);
+  expect(samples.filter((s:any)=>s.live&&s.fx)).toHaveLength(0);
+  expect(samples.some((s:any)=>s.fx&&s.impact&&s.height<=180)).toBe(true);
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
+  await page.waitForTimeout(3000);
+  await expect(page.locator('.roll-reveal')).toBeVisible();
+});
+
+test('queued direct damage applies once after live damage and reload does not replay floaters', async ({page,request}) => {
+  const f=await fixture(request,page), pending=await armManualDamage(page,f);
+  await page.locator('.damage-prompt-btn').click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  f.socket.emit('damage:apply',{kind:'monster',refId:f.target.id,amount:1});
+  const result=await resolveDamage(page,f,pending.id);
+  await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(199-result.total);
+  await expect.poll(()=>floaters(page)).toContain('\u22121');
+  await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
   await page.keyboard.press('Escape');
   await expect(page.locator('.roll-reveal')).toHaveCount(0);
-  await expect.poll(() => floaters(page)).toContain(`−${amount}`);
-  expect((await floaters(page)).filter((value: string) => value === `−${amount}`)).toHaveLength(1);
-  await expect.poll(() => floaters(page), { timeout: 4000 }).toEqual([]);
-  // Refresh seeds history silently; resolved damage must not replay its FX.
   await page.reload();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
   expect(await floaters(page)).toEqual([]);
   await expect(page.locator('.roll-reveal')).toHaveCount(0);
 });
 
-test('animations off never holds manual damage floating feedback', async ({ page, request }) => {
-  await page.addInitScript(() => localStorage.setItem('dnd.rollAnimOff', '1'));
-  const f = await fixture(request, page);
+test('animations off still waits for authoritative physics and immediately presents committed damage',async({page,request})=>{
+  await page.addInitScript(()=>localStorage.setItem('dnd.rollAnimOff','1'));
+  const f=await fixture(request,page);
   let pending;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const oldCount = (await f.snapshot()).rollLog.length;
-    await page.locator('.compact-player-combat').getByRole('button', { name: /Timing greatsword/ }).click();
-    await expect.poll(async () => (await f.snapshot()).rollLog.length).toBeGreaterThan(oldCount);
-    pending = (await f.snapshot()).rollLog.findLast((entry) => entry.pending && !entry.pending.done);
-    if (pending) break;
+  for(let attempt=0;attempt<5;attempt++){
+    const count=(await f.snapshot()).rollLog.length;
+    await page.locator('.compact-player-combat').getByRole('button',{name:/Timing greatsword/}).click();
+    await expect.poll(async()=>(await f.snapshot()).rollLog.length,{timeout:30_000}).toBeGreaterThan(count);
+    pending=(await f.snapshot()).rollLog.findLast(r=>r.pending&&!r.pending.done);if(pending)break;
   }
   expect(pending).toBeTruthy();
-  await expect(page.locator('.roll-reveal')).toHaveCount(0);
   await page.locator('.damage-prompt-btn').click();
-  await expect.poll(() => floaters(page)).toContain(`−${pending!.pending!.amount}`);
+  const result=await resolveDamage(page,f,pending!.id);
+  await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
   await expect(page.locator('.roll-reveal')).toHaveCount(0);
 });
 
-test('a concentration reminder cannot suppress the following damage reveal or release its floater early', async ({ page, request }) => {
-  const f = await fixture(request, page);
-  f.socket.emit('condition:set', { kind: 'monster', refId: f.target.id,
-    condition: { label: 'Concentrating', aura: 'blue', isConcentration: true } });
-  await f.snapshot();
-  const pending = await armManualDamage(page, f);
+test('a concentration reminder cannot suppress the completed damage reveal',async({page,request})=>{
+  const f=await fixture(request,page);
+  f.socket.emit('condition:set',{kind:'monster',refId:f.target.id,condition:{label:'Concentrating',aura:'blue',isConcentration:true}});
+  await f.snapshot();const pending=await armManualDamage(page,f);
   await page.locator('.damage-prompt-btn').click();
-  const popup = page.locator('.roll-reveal');
-  await expect(popup).toHaveAttribute('data-reveal-kind', 'damage');
-  const snapshot = await f.snapshot();
-  expect(snapshot.rollLog.slice(-2).map((entry) => entry.label)).toEqual(['Concentration', 'Damage']);
-  await expect(popup).toHaveAttribute('data-roll-id', snapshot.rollLog.at(-1)!.id);
-  expect(await floaters(page)).not.toContain(`−${pending.pending!.amount}`);
-  await expect(popup).toHaveAttribute('data-impact-ready', 'true', { timeout: 20000 });
-  await expect.poll(() => floaters(page)).toContain(`−${pending.pending!.amount}`);
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  const result=await resolveDamage(page,f,pending.id);
+  expect((await f.snapshot()).rollLog.slice(-2).map(r=>r.label)).toEqual(['Concentration','Damage']);
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-roll-id',result.id);
+  await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
 });
 
-test('a targeted save shows its latest roll and floats damage only after that save resolves', async ({ page, request }) => {
-  const f = await fixture(request, page);
-  await startTrace(page);
-  await page.locator('.compact-player-combat').getByRole('button', { name: /Timing flame/ }).click();
-  const popup = page.locator('.roll-reveal');
-  await expect(popup).toHaveAttribute('data-reveal-kind', 'check');
-  const snapshot = await f.snapshot();
-  const last = snapshot.rollLog.at(-1)!;
-  expect(last.reveal?.kind).toBe('check');
-  await expect(popup).toHaveAttribute('data-roll-id', last.id);
-  expect(await floaters(page)).toEqual([]);
-  await expect(popup).toHaveCount(0, { timeout: 20000 });
-  const trace = await endTrace(page);
-  const outcomeAt = trace.samples.find((sample: any) => sample.outcome)?.time;
-  const floaterAt = trace.samples.find((sample: any) => sample.floaters.some((floater: any) => floater.opacity > .1))?.time;
-  expect(outcomeAt).toBeDefined();
-  expect(floaterAt).toBeDefined();
-  expect(floaterAt).toBeGreaterThanOrEqual(outcomeAt);
-  expect(trace.samples.some((s:any) => s.impact && s.popupHeight <= 180 && s.floaters.length)).toBe(true);
+test('a targeted save commits its result and compact map impact after live dice',async({page,request})=>{
+  const f=await fixture(request,page);
+  await page.locator('.compact-player-combat').getByRole('button',{name:/Timing flame/}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect.poll(async()=>(await f.snapshot()).rollLog.at(-1)?.reveal?.kind,{timeout:45_000}).toBe('check');
+  const last=(await f.snapshot()).rollLog.at(-1)!;
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-roll-id',last.id);
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
+  await expect.poll(()=>floaters(page)).not.toEqual([]);
+  expect((await page.locator('.roll-reveal').boundingBox())!.height).toBeLessThanOrEqual(180);
 });
 
-test('natural twenty skill check announces the face and retains its total', async ({page,request},info) => {
+test('natural twenty check rendering announces the face and retains the total',async({page,request})=>{
+  // Deterministic presentation fixture: alter only the received skill-check
+  // reveal. Server randomness and authoritative outcomes are tested separately.
+  await page.routeWebSocket(/socket\.io/,ws=>{
+    const upstream=ws.connectToServer();
+    upstream.onMessage(message=>{
+      if(typeof message==='string'&&message.startsWith('42')){
+        const packet=JSON.parse(message.slice(2));
+        if(packet[0]==='state:snapshot'){
+          for(const row of packet[1].rollLog??[])if(row.reveal?.kind==='check'){
+            const delta=20-(row.reveal.d20??0);row.reveal.d20=20;
+            row.total+=delta;row.reveal.attackTotal+=delta;
+          }
+          message='42'+JSON.stringify(packet);
+        }
+      }
+      ws.send(message);
+    });
+  });
   await page.emulateMedia({reducedMotion:'reduce'});
   const f=await fixture(request,page);
-  let natural=false;
-  for(let i=0;i<200;i++) {
-    f.socket.emit('skill:roll',{characterId:f.character.id,skill:'Perception'});
-    const latest=(await f.snapshot()).rollLog.at(-1);
-    if(latest?.reveal?.d20===20){natural=true;break;}
-    await page.waitForTimeout(60);
-  }
-  expect(natural).toBe(true);
-  await expect(page.getByRole('status',{name:'Natural 20 celebration'})).toHaveText('Nat 20!');
+  f.socket.emit('skill:roll',{characterId:f.character.id,skill:'Perception'});
+  await expect(page.getByRole('status',{name:'Natural 20 celebration'})).toHaveText('Nat 20!',{timeout:30_000});
   await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
-  await page.screenshot({path:info.outputPath('natural-twenty.png')});
 });

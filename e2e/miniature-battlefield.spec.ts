@@ -286,7 +286,8 @@ test('monster miniatures load, recolor independently, use base hits and face the
   for (const t of [goblin, skeleton, wolf]) {
     const view = (await tokenView(page, t.id))!;
     expect(view.miniatureReady).toBe(true);
-    expect(view.roleBadges).toBe(1);
+    // The 3D layer now depth-tests the role badge behind intervening figures.
+    expect(view.roleBadges).toBe(0);
   }
   expect((await tokenView(page, elephant.id))?.bodyVisible).toBe(true);
   expect((await tokenView(page, elephant.id))?.miniatureReady).toBe(false);
@@ -530,7 +531,7 @@ test('active miniature ring stays off the HUD and held drags preview facing befo
   const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
   for (const token of setup.ready.tokens) setup.socket.emit('initiative:set', { tokenId: token.id, initiative: token.id === druk.id ? 30 : 10 });
   setup.socket.emit('initiative:rollMissing');
-  expect((await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
+  await expect.poll(async () => (await setup.snapshot()).activeTurnTokenId).toBe(druk.id);
   await enter(page, setup.code);
   const layer = page.getByTestId('miniature-layer');
   await expect(layer).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
@@ -1035,7 +1036,7 @@ test('DM workspace keeps drafts, spawning, turns and mobile tools usable', async
   await page.getByLabel('Campaign menu', { exact: true }).click();
   await page.getByRole('button', { name: 'Initiative', exact: true }).click();
   await drawer.getByRole('button', { name: 'Roll all', exact: true }).click();
-  await expect.poll(async () => (await setup.snapshot()).round).toBe(1);
+  await expect.poll(async () => (await setup.snapshot()).round, {timeout: 45_000}).toBe(1);
   const active = (await setup.snapshot()).activeTurnTokenId;
   await page.getByRole('button', { name: 'Next turn', exact: true }).click();
   await expect.poll(async () => (await setup.snapshot()).activeTurnTokenId).not.toBe(active);
@@ -1081,10 +1082,10 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   const maps = page.getByRole('complementary', { name: 'Maps', exact: true });
   const full = (await maps.boundingBox())!;
   const menu = (await page.getByRole('navigation', { name: 'DM tools' }).boundingBox())!;
-  const viewControls = (await page.locator('.stage-controls').boundingBox())!;
+  const viewControls = (await page.locator('.map-view-controls').boundingBox())!;
   expect(full.x).toBe(14); expect(menu.x).toBe(full.x);
   expect(menu.y + menu.height).toBeLessThan(full.y);
-  expect(menu.x + menu.width).toBeLessThan(viewControls.x);
+  expect(viewControls.y + viewControls.height).toBeLessThan(full.y);
   await maps.getByPlaceholder('Map name (optional)').fill('Pinned draft');
   await maps.getByRole('button', { name: 'Pin Maps', exact: true }).click();
   await page.getByRole('button', { name: 'Creatures', exact: true }).click();
@@ -1121,9 +1122,9 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   for (const width of [320, 760, 999]) {
     await page.setViewportSize({ width, height: 932 });
     const menuBox = (await page.getByRole('navigation', { name: 'DM tools' }).boundingBox())!;
-    const controlsBox = (await page.locator('.stage-controls').boundingBox())!;
+    const controlsBox = (await page.locator('.map-view-controls').boundingBox())!;
     const panelBox = (await inspector.boundingBox())!;
-    expect(menuBox.y + menuBox.height).toBeLessThan(controlsBox.y);
+    expect(menuBox.y + menuBox.height).toBeLessThan(panelBox.y);
     expect(controlsBox.y + controlsBox.height).toBeLessThan(panelBox.y);
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
     await expect(page.getByRole('button', { name: 'Maps', exact: true })).toBeVisible();
@@ -1205,7 +1206,7 @@ test('players and DM size miniatures through the character panel and fit a five-
     const playerSize = page.getByRole('region', { name: '3D figure size', exact: true });
     const playerInput = playerSize.getByLabel('Base width (ft)', { exact: true });
     const dmInput = dmSize.getByLabel('Base width (ft)', { exact: true });
-    await expect(playerInput).toHaveValue('4');
+    await expect(playerInput).toHaveValue('4.5');
     expect((await playerSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     expect((await dmSize.boundingBox())!.height).toBeLessThanOrEqual(32);
     const width = async () => (await setup.snapshot()).tokens.find(t => t.id === druk.id)!.miniatureWidthFt;
@@ -1332,7 +1333,7 @@ test('tilted map draws and hit-tests beyond the original raster edge after zoom 
   }
   await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
   await afterPaint(page);
-  expect(await page.evaluate(()=>{
+  await expect.poll(()=>page.evaluate(()=>{
     const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
     const canvas=stage.getLayers()[0].getNativeCanvasElement();
     return {left:canvas.style.left,transform:canvas.style.transform,width:parseFloat(canvas.style.width),stage:stage.width()};

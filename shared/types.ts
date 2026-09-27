@@ -951,6 +951,8 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Faces already rolled by authoritative live physics; do not replay a cosmetic throw. */
+  physical?: boolean;
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
    *  AoE/save spell's single damage roll, or one Magic Missile dart); 'check' = a
    *  single d20 + modifier chips → total (a skill/ability check, saving throw,
@@ -992,13 +994,15 @@ export type RollReveal = {
 };
 
 /**
- * Damage rolled on a hit but NOT yet applied — the second half of a two-step
- * attack. Everything is already computed (mastery/stance riders, resistance,
- * crit) at hit time so the numbers can't drift; clicking "Roll damage" just
- * plays the dice reveal and takes the HP off. Persisted on the roll entry so a
- * refresh, reconnect, or server restart can't strand a hit.
+ * Unresolved damage after a hit: the second half of a two-step attack.
+ * New live hits persist the known hit/critical context and a server-only
+ * continuation; damage faces are rolled when "Roll damage" is clicked.
+ * Legacy entries can retain already-computed amounts. Both forms survive
+ * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  /** Server-only continuation. Removed from every outgoing snapshot. */
+  live?: {kind: 'weapon' | 'spell'; args: unknown[]; fixed: unknown};
   hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
 
   maneuver?: { abilityIds: string[]; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };
@@ -1568,6 +1572,7 @@ export type ServerError = { code: string; message: string };
 
 // Client -> Server event names.
 export interface ClientToServerEvents {
+  'dice:ready': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
@@ -1751,6 +1756,8 @@ export type HpFxEvent = {
 };
 
 export interface ServerToClientEvents {
+  'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;
+  'dice:finished': (payload:{id:string})=>void;
   'fx:initiative': (payload: { mapId: string }) => void;
   'state:snapshot': (snapshot: StateSnapshot) => void;
   error: (err: ServerError) => void;

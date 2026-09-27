@@ -1,3 +1,4 @@
+import {LiveDiceOverlay} from './LiveDiceOverlay';
 import { hasNaturalTwenty } from '../../../shared/rollReveal';
 import {diceEntrySide} from '../lib/diceEntrySide';
 import type {DiceEntrySide} from '../lib/diceTrayTypes';
@@ -142,6 +143,8 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  * already applied server-side — this is purely cosmetic.
  */
 export const RollRevealOverlay = memo(function RollRevealOverlay() {
+  // Warming is optional; disabled WebGL must retain the ordinary result fallback.
+  useEffect(()=>{void import('../lib/diceTrayRenderer').then(async m=>{m.warmTrayGraphics();for(const theme of ['fighter','ranger','sorcerer']){const t=await m.loadTrayTexture(theme);t?.dispose();}}).catch(()=>{});},[]);
   const player = useStore(s => s.snapshot?.role === 'player');
   const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {
@@ -150,8 +153,9 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     media.addEventListener('change', changed);
     return () => media.removeEventListener('change', changed);
   }, []);
-  const staticReveal = reducedMotion;
+  const liveDice = useStore(s=>s.liveDice);
   const rollFx = useStore((s) => s.rollFx);
+  const staticReveal = reducedMotion || !!rollFx?.reveal.physical;
   const dismiss = useStore((s) => s.dismissRollFx);
   const characterClass = useStore(s => {
     const name = s.rollFx?.reveal.attacker;
@@ -172,6 +176,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   });
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
+  if(liveDice)return <LiveDiceOverlay />;
   return rollFx ? <DiceThemeContext.Provider value={diceThemeForClass(characterClass)}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
 });
 
@@ -227,6 +232,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
       : allFaces.length;
     const localMods = reveal.damageMods ?? [];
     if (staticReveal) {
+      if(reveal.physical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
       setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
       at(0, () => releaseImpact(rollFx.rollId));
       at(HOLD_MS, dismiss);
@@ -372,7 +378,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
       >
         <div className="roll-reveal-who">
           {reveal.attacker}
-          {reveal.target ? <span className="rr-arrow"> → {reveal.target}</span> : ''}
+          {reveal.target ? <span className="rr-arrow"> &rarr; {reveal.target}</span> : reveal.kind==='damage' ? <span className="rr-arrow"> &middot; Targets not selected</span> : ''}
         </div>
         {mapImpact && <div className="roll-impact-summary" role="status">
           <strong>{reveal.damage !== undefined ? reveal.damage : reveal.attackTotal}</strong>

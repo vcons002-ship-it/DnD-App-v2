@@ -6,7 +6,7 @@ import { TemporaryHpShield } from './TemporaryHpShield';
 import { ArmorClassBadge } from './ArmorClassBadge';
 import { OrbKillCount } from './OrbKillCount';
 import { JeweledResources } from './JeweledResources';
-import { ResourceBranchArt, type GuardianArt } from './ResourceBranchArt';
+import type { GuardianArt } from './ResourceBranchArt';
 import { PlayerResourceRowEditor } from './PlayerResourceRowEditor';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterItems } from './CharacterItems';
@@ -212,7 +212,6 @@ export function PlayerHud({
   const [windowTab, setWindowTab] = useState<WindowTab | null>(null);
   const [vitals, setVitals] = useState(false);
   const [checks, setChecks] = useState(false);
-  const [resourceRingCount, setResourceRingCount] = useState(0);
   // PlayerView keys this HUD by character id. This local display preference
   // follows that character on this browser, without writing campaign data.
   const resourceDisplayKey = `dnd:player-custom-resource-overflow:v1:${character.id}`;
@@ -317,8 +316,7 @@ export function PlayerHud({
             <OrbKillCount name={character.name} value={character.killCount ?? 0} />
         </div>
         <div className="hud-attached-panel hud-resource-wing">
-          <ResourceBranchArt guardian={art} extended={resourceLayout === 'concentric' && resourceRingCount > 5} />
-          <JeweledResources character={character} layout={resourceLayout} overflowCustomResources={overflowCustomResources} onRingCountChange={setResourceRingCount} />
+          <JeweledResources character={character} layout={resourceLayout} overflowCustomResources={overflowCustomResources} />
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />
             {!isPlaced && (

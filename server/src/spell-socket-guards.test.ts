@@ -21,7 +21,7 @@ function harness(sessionId: string, mapId: string, role: 'player' | 'dm' = 'play
   const io = { on: (_: string, cb: typeof connect) => { connect = cb; }, to: (socketId: string) => ({
     emit: (event: string, payload: unknown) => routed.push({ socketId, event, payload }),
   }) };
-  registerSocketHandlers(io as unknown as IOServer);
+  registerSocketHandlers(io as unknown as IOServer,{livePhysics:false});
   const handlers = new Map<string, (...args: unknown[]) => void>();
   const id = `spell-test-socket-${connected.length}-${Math.random()}`;
   connected.push(id);

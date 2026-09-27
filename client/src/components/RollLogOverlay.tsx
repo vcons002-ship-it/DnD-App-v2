@@ -1,3 +1,5 @@
+import { useStore } from '../state/socket';
+import { rollLogDetail } from '../../../shared/rollBreakdown';
 import { useEffect, useState } from 'react';
 import type { RollEntry, ChatMessage } from '../../../shared/types';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
@@ -25,6 +27,7 @@ export function RollLogOverlay({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [hovered, setHovered] = useState(false);
+  const rollingId = useStore(s => s.showRollAnim && s.rollFx && !s.rollFx.impactReady ? s.rollFx.rollId : null);
   const feed = mergeFeed(rollLog, chat);
 
   // Re-evaluate ages on a slow tick so lines age out on their own.
@@ -68,6 +71,9 @@ export function RollLogOverlay({
         }
         const entry = item.roll;
         const color = rollerColor(entry.roller);
+        if (entry.id === rollingId) return <div key={item.id} className="roll-entry is-rolling" style={{borderLeftColor: color}}>
+          <span className="roll-meta"><strong style={{color}}>{entry.roller}</strong> &middot; {entry.label ?? 'Roll'} &middot; <span className="roll-pending">Rolling...</span></span>
+        </div>;
         return (
           <div
             key={item.id}
@@ -79,7 +85,7 @@ export function RollLogOverlay({
             <span className="roll-meta">
               <strong style={{ color }}>{entry.roller}</strong>
               {entry.label ? ` · ${entry.label}` : ''}{' '}
-              <span className="muted">{renderRollDetail(entry.detail)}</span>
+              <span className="muted">{renderRollDetail(rollLogDetail(entry))}</span>
               <RollDamageBreakdown entry={entry} />
               {entry.hpNote && (
                 <span className="roll-hp-note">{entry.hpNote.text}</span>

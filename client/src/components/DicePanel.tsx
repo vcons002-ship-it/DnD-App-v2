@@ -1,3 +1,4 @@
+import { rollLogDetail } from '../../../shared/rollBreakdown';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
@@ -122,6 +123,7 @@ export function DicePanel({
   // read history isn't interrupted by new entries.
   const stickRef = useRef(true);
 
+  const rollingId = useStore(s => s.showRollAnim && s.rollFx && !s.rollFx.impactReady ? s.rollFx.rollId : null);
   const feed = mergeFeed(snapshot.rollLog, snapshot.chat);
 
   const onLogScroll = () => {
@@ -302,6 +304,9 @@ export function DicePanel({
           }
           const r = item.roll;
           const color = rollerColor(r.roller);
+          if (r.id === rollingId) return <div key={item.id} className="roll-entry is-rolling" style={{borderLeftColor: color}}>
+            <span className="roll-meta"><strong style={{color}}>{r.roller}</strong> &middot; {r.label ?? 'Roll'} &middot; <span className="roll-pending">Rolling...</span></span>
+          </div>;
           return (
             <div
               key={item.id}
@@ -312,7 +317,7 @@ export function DicePanel({
               <span className="roll-meta">
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}
-                <span className="muted">{renderRollDetail(r.detail)}</span>
+                <span className="muted">{renderRollDetail(rollLogDetail(r))}</span>
                 <RollDamageBreakdown entry={r} />
                 {r.hpNote && <span className="roll-hp-note">{r.hpNote.text}</span>}
                 {r.description && (

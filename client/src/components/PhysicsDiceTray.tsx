@@ -1,12 +1,13 @@
+import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useContext,useEffect,useRef,useState,type CSSProperties} from 'react';
 import {DiceThemeContext} from './ThreeDie';
-import {physicalDice,diceRevealTimes,dieResultStrength,dieResultTier,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
+import {physicalDice,diceRevealTimes,dieResultEmphasis,dieResultTier,dieResultLabel,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
 import './PhysicsDiceTray.css';
 import type {RollComparison} from '../../../shared/types';
 // Presentation pacing only; the precomputed gravity/contact simulation is unchanged.
 const ROLL_PLAYBACK_RATE=.6;
 export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rollKey,entrySide='bottom'}:{dice:TrayDie[];onSettled:(index:number,set:number)=>void;label?:string;comparison?:RollComparison;rollKey?:string;entrySide?:DiceEntrySide}){
-  const resultStyle=(d:TrayDie)=>({'--roll-strength':dieResultStrength(d),'--arrival-scale':1.12+dieResultStrength(d)*.5,'--arrival-glow':`${5+Math.pow(dieResultStrength(d),3)*28}px`} as CSSProperties);
+  const resultStyle=(d:TrayDie)=>({'--roll-strength':dieResultEmphasis(d),'--arrival-scale':1.12+dieResultEmphasis(d)*.5,'--arrival-glow':`${5+Math.pow(dieResultEmphasis(d),3)*28}px`} as CSSProperties);
   const theme=useContext(DiceThemeContext),canvas=useRef<HTMLCanvasElement>(null),callback=useRef(onSettled);callback.current=onSettled;
   const root=useRef<HTMLDivElement>(null), flights=useRef<(HTMLSpanElement|null)[]>([]), boxes=useRef<(HTMLSpanElement|null)[]>([]);
   const [arrived,setArrived]=useState<number[]>([]);
@@ -63,22 +64,12 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
                 const flight=flights.current[i],target=targets[j];if(!flight||!target)return;
                 launched.add(i);
                 const source=renderer!.numberPosition(i);
-                const sx=canvasBounds.left-bounds.left+source.x*canvasBounds.width,sy=canvasBounds.top-bounds.top+source.y*canvasBounds.height;
-                const tx=target.left-bounds.left+target.width/2,ty=target.top-bounds.top+target.height/2;
-                const strength=Math.pow(dieResultStrength(expanded[i]),2);
-                const pose=(x:number,y:number,scale:number)=>`translate3d(${x}px,${y}px,0) translate(-50%,-50%) scale(${scale})`;
-                const frames:Keyframe[]=[
-                  {offset:0,transform:pose(sx,sy,1),opacity:0},
-                  {offset:.11/.85,transform:pose(sx,sy,1.18+strength*.9),opacity:1},
-                  {offset:.22/.85,transform:pose(sx,sy,1),opacity:1},
-                ];
-                for(let n=1;n<=24;n++){
-                  const progress=n/24,p=progress*progress;
-                  frames.push({offset:(.22+progress*.63)/.85,transform:pose(sx+(tx-sx)*p,sy+(ty-sy)*p-Math.sin(p*Math.PI)*Math.min(65,Math.abs(ty-sy)*.2),1-p*.25),opacity:1});
-                }
+                const {x:sx,y:sy}=diceFlightPoint(bounds,root.current!.clientWidth,canvasBounds.left+source.x*canvasBounds.width,canvasBounds.top+source.y*canvasBounds.height);
+                const {x:tx,y:ty}=diceFlightPoint(bounds,root.current!.clientWidth,target.left+target.width/2,target.top+target.height/2);
+                const frames=diceFlightKeyframes(sx,sy,tx,ty,dieResultEmphasis(expanded[i]));
                 flight.dataset.phase='flash';
                 // Transform/opacity run on the compositor, independently of WebGL.
-                const animation=flight.animate(frames,{duration:850,easing:'linear'});
+                const animation=flight.animate(frames,{duration:DIE_REVEAL_MS,easing:'linear'});
                 flightAnimations.push(animation);
                 animation.finished.then(()=>{
                   if(dead)return;
@@ -88,7 +79,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             }
             expanded.forEach((_,i)=>{
               const flight=flights.current[i];
-              if(flight?.dataset.phase==='flash'&&elapsed-revealTimes[i]>=.22)flight.dataset.phase='flying';
+              if(flight?.dataset.phase==='flash'&&elapsed-revealTimes[i]>=DIE_FLASH_MS/1000)flight.dataset.phase='flying';
             });
             if(elapsed>=finishAt&&delivered.size===expanded.length){setStatus('settled');complete();return;}
             raf=requestAnimationFrame(draw);
@@ -113,7 +104,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
       {(comparison?comparison.sets.map((_,i)=>i):[0]).map(set=><div key={set} className={comparison?'rr-candidate':'tray-result-group'} data-candidate={set} data-result={landed?(set===comparison?.kept?'kept':'discarded'):'rolling'}>
         {comparison&&<div className="rr-candidate-label">{landed?(set===comparison.kept?(comparison.mode==='adv'?'Kept - higher':'Kept - lower'):'Discarded'):`Roll ${set+1}`}</div>}
         {expanded.map((d,i)=>({d,i})).filter(({d})=>d.set===set).map(({d,i})=>{const filled=landed||arrived.includes(i);return <span key={i} ref={el=>{boxes.current[i]=el;}} data-die-id={i} data-filled={filled} data-strength={dieResultTier(d)} style={resultStyle(d)} className={`tray-die-result${d.crit?' critical':''}`} data-sides={d.sides} data-value={d.value} data-critical={!!d.crit} data-theme={theme.id} data-set={d.set} data-orientation={filled?'settled':'rolling'} aria-label={`d${d.sides}: ${filled?d.value:'rolling'}`}>
-          {d.negative?'-':''}{d.tens?'d100 tens':d.ones?'d100 ones':`d${d.sides}`} <strong>{filled?(d.tens?String(d.value).padStart(2,'0'):d.value):'?'}</strong><small className="tray-max-label" style={{visibility:filled&&dieResultTier(d)==='max'?'visible':'hidden'}} aria-hidden={!(filled&&dieResultTier(d)==='max')}>MAX</small>{d.crit&&<small className="tray-critical-label">Critical die</small>}
+          {d.negative?'-':''}{d.tens?'d100 tens':d.ones?'d100 ones':`d${d.sides}`} <strong>{filled?(d.tens?String(d.value).padStart(2,'0'):d.value):'?'}</strong><small className="tray-max-label" style={{visibility:filled&&!!dieResultLabel(d)?'visible':'hidden'}} aria-hidden={!(filled&&!!dieResultLabel(d))}>{dieResultLabel(d)}</small>{d.crit&&<small className="tray-critical-label">Critical die</small>}
         </span>;})}
         {comparison?.kind==='dice'&&<div className="rr-candidate-total">{landed?`Set total ${comparison.sets[set].total}`:'Rolling?'}</div>}
       </div>)}

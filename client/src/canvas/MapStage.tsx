@@ -1,3 +1,4 @@
+import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
 import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance';
@@ -12,6 +13,7 @@ import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../share
 import { useImage } from './useImage';
 import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
+import { createMiniatureNameReader } from './miniatureNameLabels';
 import { MiniatureFallback } from './MiniatureFallback';
 import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround } from './miniatureProjection';
 import { useBoxSelection } from './useBoxSelection';
@@ -986,6 +988,8 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      combatRole: token.kind==='monster'?token.combatRole:undefined,
+      conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
       outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
@@ -996,6 +1000,22 @@ export function MapStage({
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
+
+  const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
+  const miniatureNameLabels = useStableCallback(() => readMiniatureNames(tokenLayerRef.current,
+    id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id));
+  const handleRenderedNames = useCallback((ids: ReadonlySet<string>) => {
+    const layer=tokenLayerRef.current;
+    if(!layer)return;
+    let changed=false;
+    for(const node of layer.find<Konva.Group>('.token')) {
+      const opacity=ids.has(node.getAttr('tokenId'))?0:1;
+      for(const label of node.find('.token-label, .token-tracking-tag')) {
+        if(label.opacity()!==opacity){label.opacity(opacity);changed=true;}
+      }
+    }
+    if(changed)layer.batchDraw();
+  },[]);
 
   // Flat tokens belong to the ground plane, beneath miniature geometry.
   // Only ready miniature HUDs and shared tools belong above WebGL. Konva
@@ -2222,7 +2242,8 @@ export function MapStage({
           </Stage>
           {miniatureTokens.length > 0 && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
-              tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady} />
+              tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} />
           </Suspense></MiniatureFallback>}
           <DecalPopup snapshot={snapshot} />
           {hover && !menu && (

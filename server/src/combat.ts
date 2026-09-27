@@ -1,3 +1,6 @@
+import {isValidDiceExpression} from '../../shared/dice.js';
+import {isLiveCommand} from './liveRollContext.js';
+import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
 import { hitOptions, turnKey } from './hitFeatures.js';
 import { castMark, markedDamage, hexDisadvantage } from './marks.js';
@@ -6,6 +9,7 @@ import type { OrbChain } from '../../shared/types.js';
 import { offerRiposte, listRipostes, removeRiposte, RIPOSTE_SPENT } from './reactions.js';
 import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {
+  faceTokenToward,
   isDeadEntity,
   addRollLog,
   applyDamage,
@@ -55,7 +59,7 @@ import {
   autoCritFromConditions,
 } from '../../shared/conditionEffects.js';
 import { tokensWithin5ft, tokenDistanceFt } from '../../shared/distance.js';
-import { rollDice, type DiceResult } from '../../shared/dice.js';
+import { rollDice, rollDicePool, type DiceResult } from '../../shared/dice.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
 import { smiteChoices, smiteDiceTerms, type SmiteChoice } from '../../shared/smite.js';
@@ -321,6 +325,19 @@ export function noteConcentration(
   });
 }
 
+type LiveWeaponState = {
+  at:Token; tt:Token; a:Resolved; t:Resolved; ch:Character|null;
+  maneuverRoll?:DiceResult;
+};
+function closePreviousHitOptions(sessionId:string,characterId:string) {
+  for(const e of listRollLog(sessionId)) {
+    if(e.pending?.attacker.refId===characterId && (e.pending.hitOptions||e.pending.maneuver))
+      setRollPending(e.id,{...e.pending,hitOptions:undefined,maneuver:undefined});
+    if(e.smite&&!e.smite.used&&e.smite.owner===characterId)
+      setRollSmite(e.id,{...e.smite,used:true});
+  }
+}
+
 /**
  * Resolve a weapon attack authoritatively: roll to-hit vs the target's AC, roll
  * damage on a hit (auto-applied — the DM can heal back if needed), and log it.
@@ -338,18 +355,21 @@ export function resolveAttack(
    *  damage alongside the DM (they may be attacking with a companion/summon). */
   ownerCharacterId?: string,
   riposteAbilityId?: string,
+  liveResume?: {id:string;fixed:AttackOutcome;state?:LiveWeaponState},
 ): boolean {
-  const at = getToken(attackerTokenId);
-  const tt = getToken(targetTokenId);
+  const at = liveResume?.state?.at ?? getToken(attackerTokenId);
+  const tt = liveResume?.state?.tt ?? getToken(targetTokenId);
   if (!at || !tt) return false;
-  const a = resolve(at);
-  const t = resolve(tt);
+  const a = liveResume?.state?.a ?? resolve(at);
+  const t = liveResume?.state?.t ?? resolve(tt);
   if (!a || !t) return false;
   const weapon = a.weapons[weaponIndex];
   if (!weapon) return false;
+  if(!liveResume)faceTokenToward(sessionId,at.id,tt.id);
 
   // Only PCs carry masteries (and add their ability mod to damage).
-  const ch = at.kind === 'pc' ? getCharacter(at.refId) : null;
+  const ch = liveResume?.state ? liveResume.state.ch : at.kind === 'pc' ? getCharacter(at.refId) : null;
+  let maneuverRoll:DiceResult|undefined;
   const wtags = (weapon.tags ?? []).map((t) => t.trim().toLowerCase());
   const triggers = (m: NonNullable<SheetAbility['mastery']>) =>
     (m.appliesToTags ?? []).some((t) => wtags.includes(t.trim().toLowerCase()));
@@ -398,7 +418,8 @@ export function resolveAttack(
           (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
     );
     if (man?.maneuver && hasDie) {
-      const rolled = rollDice(ch.superiorityDie || 'd8');
+      const rolled = liveResume?.state?.maneuverRoll ?? rollDice(ch.superiorityDie || 'd8');
+      maneuverRoll=rolled??undefined;
       const die = rolled?.total ?? 0;
       maneuverFired = { ability: man, spec: man.maneuver, die };
       if (man.maneuver.addDieTo === 'attack') maneuverToHit = die;
@@ -489,7 +510,16 @@ export function resolveAttack(
     ...(maneuverToHit ? ['maneuver'] : []),
     ...atkExtra.parts.map((p) => p.source),
   ].join('+');
+  const session=getSessionById(sessionId);
+  const offeredSmite=ch&&weapon.kind==='melee'&&(!session?.activeTurnTokenId||(session.activeTurnTokenId===at.id&&!ch.sheetAbilities.some(ab=>ab.hitUsedTurn===`bonus:${turnKey(sessionId)}`)))
+    ?ch.sheetAbilities.find(ab=>ab.smite&&smiteChoices(ch,ab).length):undefined;
+  const offeredManeuvers=ch&&!maneuverFired&&ch.resources['Superiority Dice']?.used<ch.resources['Superiority Dice']?.max
+    ?ch.sheetAbilities.filter(ab=>isOnHitManeuver(ab)&&(!ab.maneuver?.appliesToTags?.length||ab.maneuver.appliesToTags.some(tag=>wtags.includes(tag.toLowerCase())))):[];
+  const offeredFeatures=ch?hitOptions(sessionId,ch,at,tt,weapon,adv.state):[];
+  const waitForDamage=isLiveCommand()&&!liveResume&&!!(session?.manualDamage||offeredSmite||offeredManeuvers.length||offeredFeatures.length);
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
+    attackOnly:waitForDamage,
+    fixedAttack:liveResume?.fixed,
     twoHanded,
     noAbilityMod,
     bonusDamage: flatBonus || undefined,
@@ -500,6 +530,28 @@ export function resolveAttack(
     rerollDamageDice: stanceRerollDamage, // Savage Attacker (feat)
     extraCritDie: stanceExtraCritDie, // Savage Attacks (racial)
   });
+
+  if(waitForDamage && out.hit){
+    const id=newId(),smite=offeredSmite,maneuvers=offeredManeuvers,features=offeredFeatures;
+    if(ch)closePreviousHitOptions(sessionId,ch.id);
+    consumeHitAdvantage(tt);
+    addRollLog(sessionId,{roller,label:'Attack',expr:weapon.name,total:out.attackTotal,
+      detail:`${a.name} \u2192 ${t.name}: ${out.detailToHit} \u2014 roll damage`,hideMods:hidesMods(at.kind,at.refId),
+      reveal:{kind:'attack',d20:out.face,toHit:out.toHitSteps,attackTotal:out.attackTotal,outcome:out.crit?'crit':'hit',attacker:a.name,target:t.name},
+      pending:{target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
+        live:{kind:'weapon',args:[sessionId,roller,attackerTokenId,targetTokenId,weaponIndex,advantage,offhand,twoHanded,ownerCharacterId,riposteAbilityId],fixed:{out,state:{at,tt,a,t,ch,maneuverRoll}}},
+        ...(features.length?{hitOptions:{abilityIds:features.map(ab=>ab.id),attackerTokenId,targetTokenId,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:1,rawDamage:0}}:{}),
+        ...(maneuvers.length?{maneuver:{abilityIds:maneuvers.map(ab=>ab.id),rawDamage:0,multiplier:1,minimumAdjustment:0,dc:0}}:{})},
+      ...(smite&&ch?{smite:{owner:ch.id,abilityId:smite.id,abilityName:smite.name,target:{kind:t.kind,refId:t.refId,name:t.name,tokenId:tt.id},crit:out.crit}}:{})
+    },id);
+    if(maneuverFired&&ch) {
+      const pool=ch.resources['Superiority Dice'];
+      if(pool)setResource(ch.id,'resources','Superiority Dice',{used:pool.used+1});
+      setSheetAbility('pc',ch.id,{...maneuverFired.ability,maneuver:{...maneuverFired.spec,active:false}});
+    }
+    setLastAttackRole(a.kind,a.refId,weapon.kind==='ranged'?'ranged':'melee');
+    return true;
+  }
 
   // The existing reveal keeps its aggregate steps (and animation timing). The
   // itemized ledger names each source and retains every rider face for animation.
@@ -524,7 +576,8 @@ export function resolveAttack(
   // doubles ALL of the attack's damage dice, riders (Hunter's Mark, a dice-adding
   // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.
   const rollRiderDice = (expr: string, source: string): number => {
-    const r = rollDice(expr);
+    const critDice=out.crit?damageParts(expr).dice:'';
+    const [r,critical]=rollDicePool([{expr},...(critDice?[{expr:critDice,critical:true}]:[])]);
     if (!r) return 0;
     appendDamageBreakdownRoll(damageBreakdown, r, source);
     if (r.total <= 0) {
@@ -532,8 +585,6 @@ export function resolveAttack(
       return 0;
     }
     // Only the DICE roll again — a rider's flat part ("1d4+1") never doubles.
-    const critDice = out.crit ? damageParts(expr).dice : '';
-    const critical = critDice ? rollDice(critDice) : null;
     if (critical) appendDamageBreakdownRoll(damageBreakdown, critical, `${source} CRIT`);
     const total = r.total + (critical?.total ?? 0);
     if (total <= 0) damageBreakdown.mods.push({ label: `${source} not applied`, value: -total });
@@ -571,7 +622,7 @@ export function resolveAttack(
   // A damage Superiority Die is one of the attack's damage dice, so a crit rolls
   // it a second time (RAW). It was folded in before the crit was known.
   if (out.crit && maneuverFired?.spec.addDieTo === 'damage' && ch) {
-    const again = rollDice(ch.superiorityDie || 'd8');
+    const again = rollDice(ch.superiorityDie || 'd8',undefined,{critical:true});
     if (again && again.total > 0) {
       appendDamageBreakdownRoll(damageBreakdown, again, `${maneuverFired.ability.name} CRIT`);
       extra += again.total;
@@ -690,13 +741,13 @@ export function resolveAttack(
     ? ch.sheetAbilities.filter(ab => isOnHitManeuver(ab) &&
       (!ab.maneuver?.appliesToTags?.length || ab.maneuver.appliesToTags.some(tag => wtags.includes(tag.trim().toLowerCase())))) : [];
   const featureOptions = out.hit && ch ? hitOptions(sessionId,ch,at,tt,weapon,adv.state) : [];
-  const deferDamage = featureOptions.length > 0 || canSmite || maneuverOptions.length > 0 ||
+  const deferDamage = !!liveResume || featureOptions.length > 0 || canSmite || maneuverOptions.length > 0 ||
     (!!getSessionById(sessionId)?.manualDamage && out.hit && applied > 0);
   const damageSteps = out.hit && (applied > 0 || featureOptions.length > 0 || canSmite || maneuverOptions.length > 0)
     ? damageBreakdown.mods
     : [];
-  consumeHitAdvantage(tt);
-  const attackRollId = newId();
+  if(!liveResume)consumeHitAdvantage(tt);
+  const attackRollId = liveResume?.id ?? newId();
   let hpNote: RollEntry['hpNote'];
   if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId);
@@ -704,15 +755,7 @@ export function resolveAttack(
   }
   // RAW the smite comes IMMEDIATELY after its hit, so this character's new
   // swing closes any earlier smite window they left open.
-  if (ch) {
-    for (const e of listRollLog(sessionId)) {
-      if (e.pending?.hitOptions && e.pending.attacker.refId === ch.id) setRollPending(e.id,{...e.pending,hitOptions:undefined});
-      if (e.pending?.maneuver && e.pending.attacker.kind === 'pc' && e.pending.attacker.refId === ch.id)
-        setRollPending(e.id, {...e.pending, maneuver: undefined});
-      if (e.smite && !e.smite.used && e.smite.owner === ch.id)
-        setRollSmite(e.id, { ...e.smite, used: true });
-    }
-  }
+  if(ch&&!liveResume)closePreviousHitOptions(sessionId,ch.id);
   // 2024 Divine Smite is cast right AFTER a qualifying hit — a melee weapon or
   // an unarmed strike — so the player chooses with hit and crit already known.
   // Record the chance on this hit; it's offered only while a way to cast remains.
@@ -813,9 +856,11 @@ export function resolveAttack(
         },
       });
     }
-    const pool = ch.resources['Superiority Dice'];
-    if (pool) setResource(ch.id, 'resources', 'Superiority Dice', { used: pool.used + 1 });
-    setSheetAbility('pc', ch.id, { ...ability, maneuver: { ...spec, active: false } });
+    if(!liveResume) {
+      const pool = getCharacter(ch.id)?.resources['Superiority Dice'];
+      if (pool) setResource(ch.id, 'resources', 'Superiority Dice', { used: pool.used + 1 });
+      setSheetAbility('pc', ch.id, { ...ability, maneuver: { ...spec, active: false } });
+    }
   }
 
   // Stance on-hit save riders (e.g. Ensnaring Strike): on a hit, log a click-to-
@@ -948,7 +993,8 @@ export function resolveManeuver(sessionId: string, roller: string, rollId: strin
       !opportunity.abilityIds.includes(abilityId) || !ability || !isOnHitManeuver(ability))
     return { ok: false, reason: 'That hit no longer offers this maneuver.' };
   if (!pool || pool.used >= pool.max) return { ok: false, reason: 'No Superiority Dice left.' };
-  const dice = Array.from({length: p.crit ? 2 : 1}, () => rollDice(ch.superiorityDie || 'd8'));
+  if(p.live){materializeLiveDamage(sessionId,rollId);return resolveManeuver(sessionId,roller,rollId,abilityId);}
+  const dice = rollDicePool(Array.from({length:p.crit?2:1},(_,i)=>({expr:ch.superiorityDie||'d8',critical:i>0})));
   if (dice.some(d => !d)) return { ok: false, reason: 'Invalid Superiority Die.' };
   const rolled = dice.reduce((sum, d) => sum + d!.total, 0);
   const amount = Math.max(0, Math.floor((opportunity.rawDamage + rolled) * opportunity.multiplier)
@@ -1015,6 +1061,7 @@ export function resolveSmite(
   }
 
   if(getSessionById(sessionId)?.activeTurnTokenId && ch.sheetAbilities.some(ab=>ab.hitUsedTurn===`bonus:${turnKey(sessionId)}`)) return {ok:false,reason:'A bonus-action hit spell was already used this turn.'};
+  if(pending.live){materializeLiveDamage(sessionId,rollId);return resolveSmite(sessionId,roller,rollId,choice);}
   setSheetAbility('pc',ch.id,{...ability,hitUsedTurn:`bonus:${turnKey(sessionId)}`});
   // Claim the opportunity FIRST: nothing below can run twice for this hit.
   setRollSmite(rollId, { ...sm, used: true });
@@ -1038,9 +1085,11 @@ export function resolveSmite(
   const steps: NonNullable<RollReveal['damageDice']> = [];
   const faces: string[] = [];
   let rolled = 0;
+  const smiteRolls=rollDicePool(terms.flatMap(expr=>Array.from({length:sm.crit?2:1},(_,i)=>({expr,critical:i>0}))));
+  let smiteIndex=0;
   for (const term of terms) {
     for (let i = 0; i < (sm.crit ? 2 : 1); i++) {
-      const r = rollDice(term);
+      const r = smiteRolls[smiteIndex++];
       if (!r) continue;
       rolled += r.total;
       steps.push({ label: `${ability.name}${i?' CRIT':''}`, value: r.total, faces: r.rolls, diceExpression:r.expr,critical:i>0 });
@@ -1095,6 +1144,7 @@ export function resolveAttackDamage(
   roller: string,
   rollId: string,
 ): boolean {
+  materializeLiveDamage(sessionId,rollId);
   const entry = getRollEntry(rollId, sessionId);
   const p = entry?.pending;
   if (!entry || !p || p.done) return false;
@@ -1539,6 +1589,7 @@ function resolveTargetedSpellAttack(opts: {
   attacker?: { kind: TokenKind; refId: string };
   sourceRollId?: string;
   orb?: OrbChain;
+  liveResume?: {id:string;fixed:{face:number;detail:string;hit:boolean;crit:boolean}};
 }): boolean {
   const tt = spellTarget(opts.sessionId, opts.targetTokenId);
   const t = tt && resolve(tt);
@@ -1547,15 +1598,26 @@ function resolveTargetedSpellAttack(opts: {
     token.kind === opts.attacker!.kind && token.refId === opts.attacker!.refId);
   const attacker = opts.attacker && (opts.attacker.kind === 'pc'
     ? getCharacter(opts.attacker.refId) : getMonster(opts.attacker.refId));
+  // An orb leap originates at the previous victim; it does not turn its caster.
+  if(attackerToken&&!opts.liveResume&&(!opts.orb||opts.orb.visited.length===0))faceTokenToward(opts.sessionId,attackerToken.id,tt!.id);
   const within5 = !!attackerToken && tokensWithin5ft(attackerToken, tt!, getMap(tt!.mapId));
   const adv = attackAdvantage(attacker?.conditions.map((condition) => condition.label) ?? [],
     t.conditionLabels, within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId));
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
-  const { face, detail: d20detail } = rollD20Detail(adv.state);
+  const { face, detail: d20detail } = opts.liveResume?.fixed ?? rollD20Detail(adv.state);
   const fumble = face === 1;
   const attackTotal = face + opts.attackBonus;
-  const hit = face === 20 || (!fumble && attackTotal >= t.ac);
-  const crit = hit && (face === 20 || !!autoCrit);
+  const hit = opts.liveResume?.fixed.hit ?? (face === 20 || (!fumble && attackTotal >= t.ac));
+  const crit = opts.liveResume?.fixed.crit ?? (hit && (face === 20 || !!autoCrit));
+  if(isLiveCommand()&&!opts.liveResume&&hit&&opts.attacker&&getSessionById(opts.sessionId)?.manualDamage){
+    addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,
+      detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage`,
+      hideMods:hidesMods(opts.attacker.kind,opts.attacker.refId),
+      reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
+      pending:{target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
+        live:{kind:'spell',args:[opts],fixed:{face,detail:d20detail,hit,crit}}}
+    });return true;
+  }
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
   let hpNote: RollEntry['hpNote'];
@@ -1563,13 +1625,12 @@ function resolveTargetedSpellAttack(opts: {
   let dmgFaces = '';
   const revealDice: NonNullable<RollReveal['damageDice']> = [];
   const revealMods: NonNullable<RollReveal['damageMods']> = [];
-  const first = hit && opts.dice ? rollDice(opts.dice) : null;
+  const [first,second]=hit&&opts.dice?rollDicePool([{expr:opts.dice},...(crit?[{expr:criticalDiceExpression(opts.dice),critical:true}]:[])]):[];
   if (hit && opts.dice && first) {
     let dmg = first.total;
     dmgFaces = `${opts.dice}[${first.rolls.join(',')}]`;
     revealDice.push({ label: opts.dice, value: first.total, faces: first.rolls });
     if (crit) {
-      const second = rollDice(criticalDiceExpression(opts.dice));
       if (second) {
         dmg += second.total;
         dmgFaces += ` + [${second.rolls.join(',')}] crit`;
@@ -1596,9 +1657,9 @@ function resolveTargetedSpellAttack(opts: {
     const mark=markedDamage(opts.attacker.kind,opts.attacker.refId,tt!,crit);
     applied+=mark.amount; revealDice.push(...mark.dice); revealMods.push(...mark.mods);
   }
-  const deferDamage = !!getSessionById(opts.sessionId)?.manualDamage && hit && applied > 0 && !!opts.attacker;
+  const deferDamage = (!!opts.liveResume || !!getSessionById(opts.sessionId)?.manualDamage) && hit && applied > 0 && !!opts.attacker;
   consumeHitAdvantage(tt!);
-  const attackRollId = newId();
+  const attackRollId = opts.liveResume?.id ?? newId();
   if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
@@ -1819,8 +1880,15 @@ function resolveSheetAbilityFor(
       : '';
   const title = `${ability.name}${upcast}`;
 
+  // Auto-hit split projectiles (Magic Missile) and self-heals have no single aim.
+  // Targeted attack spells turn in resolveTargetedSpellAttack, including each ray.
+  if(targetTokenId&&roll.kind!=='attack'&&roll.healTarget!=='self'&&spellInstanceCount(roll,castLevel,casterLevel)===0&&dice&&isValidDiceExpression(dice)){
+    const target=getToken(targetTokenId);
+    const caster=target&&listTokens(target.mapId).find(t=>t.kind===kind&&t.refId===entity.id);
+    if(caster)faceTokenToward(sessionId,caster.id,targetTokenId);
+  }
   if (roll.kind === 'attack') {
-    const base = kind === 'monster' && Number.isFinite(roll.attackBonus)
+    const base = kind === 'monster'  && Number.isFinite(roll.attackBonus)
       ? {bonus: roll.attackBonus!, detail: `${signed(roll.attackBonus!)}[CR-scaled]`, parts: [{label: 'CR-scaled', value: roll.attackBonus!}]}
       : spellAttackBonusDetail(stats, prof, castingAbility);
     // Flat attack-roll bonus from feats / equipped items ({kind:'attack'} covers
@@ -1893,14 +1961,11 @@ function resolveSheetAbilityFor(
     let dmgVal = 0;
     let dmgFaces = '';
     if (dice) {
-      const first = rollFaces(dice);
-      dmgVal = first.total;
-      dmgFaces = first.text;
-      if (crit) {
-        const second = rollFaces(criticalDiceExpression(dice));
-        dmgVal += second.total;
-        dmgFaces += ` + ${second.text} crit`;
-      }
+      const [first,second]=rollDicePool([{expr:dice},...(crit?[{expr:criticalDiceExpression(dice),critical:true}]:[])]);
+      dmgVal=first?.total??0;
+      dmgFaces=first?.detail.replace(/ = -?\d+$/, '')??dice;
+      if(second){dmgVal+=second.total;dmgFaces+=` + ${second.detail.replace(/ = -?\d+$/, '')} crit`;}
+
     }
     addRollLog(sessionId, {
       roller,
@@ -2294,4 +2359,26 @@ export function useConsumable(
     reveal: diceReveal(c.name, result, item.name),
   });
   return true;
+}
+
+export function materializeLiveDamage(sid:string,rollId:string):void {
+  const e=getRollEntry(rollId,sid), live=e?.pending?.live;
+  if(!live||e?.pending?.done)return;
+  if(live.kind==='weapon') {
+    const args=live.args as Parameters<typeof resolveAttack>;
+    const saved=live.fixed as {out:AttackOutcome;state:LiveWeaponState};
+    if(!getToken(args[2])||!getToken(args[3]))throw new Error('The attacker or target is no longer on the map');
+    if(!resolveAttack(...args.slice(0,10) as [string,string,string,string,number,Advantage?,boolean?,boolean?,string?,string?],{id:rollId,fixed:saved.out,state:saved.state}))
+      throw new Error('The pending attack could not be completed');
+  } else {
+    const opts=live.args[0] as Parameters<typeof resolveTargetedSpellAttack>[0];
+    if(!resolveTargetedSpellAttack({...opts,liveResume:{id:rollId,fixed:live.fixed as {face:number;detail:string;hit:boolean;crit:boolean}}}))
+      throw new Error('The pending spell could not be completed');
+  }
+  // Preserve closed/expired feature offers instead of reopening them during damage.
+  const current=getRollEntry(rollId,sid)!;
+  if(current.pending)setRollPending(rollId,{...current.pending,
+    hitOptions:e.pending?.hitOptions?current.pending.hitOptions:undefined,
+    maneuver:e.pending?.maneuver?current.pending.maneuver:undefined});
+  if(e.smite?.used&&current.smite)setRollSmite(rollId,{...current.smite,used:true});
 }

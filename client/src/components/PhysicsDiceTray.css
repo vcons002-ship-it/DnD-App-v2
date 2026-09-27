@@ -46,9 +46,9 @@
 @media(prefers-reduced-motion:reduce){.tray-number-flights{display:none;}.tray-die-result[data-filled="true"] strong{animation:none;}}
 
 .tray-flying-number[data-strength="max"]::before,.tray-flying-number[data-strength="high"]::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 14px currentColor;pointer-events:none;}
-.tray-flying-number[data-phase="flash"][data-strength="max"]::before,.tray-flying-number[data-phase="flash"][data-strength="high"]::before{animation:tray-strength-burst .22s ease-out;}
+.tray-flying-number[data-phase="flash"][data-strength="max"]::before,.tray-flying-number[data-phase="flash"][data-strength="high"]::before{animation:tray-strength-burst .32s ease-out;}
 .tray-flying-number[data-strength="max"]::after{content:'\2726';position:absolute;left:50%;top:50%;font-size:2.8em;transform:translate(-50%,-50%);opacity:0;pointer-events:none;}
-.tray-flying-number[data-phase="flash"][data-strength="max"]::after{animation:tray-strength-star .22s ease-out;}
+.tray-flying-number[data-phase="flash"][data-strength="max"]::after{animation:tray-strength-star .32s ease-out;}
 @keyframes tray-strength-burst{0%{transform:translate(-50%,-50%) scale(.5);opacity:.9;}100%{transform:translate(-50%,-50%) scale(1.7);opacity:0;}}
 @keyframes tray-strength-star{0%{transform:translate(-50%,-50%) scale(.4) rotate(-20deg);opacity:.8;}100%{transform:translate(-50%,-50%) scale(1.1) rotate(15deg);opacity:0;}}
 .tray-die-result[data-filled="true"][data-strength="high"]{box-shadow:0 0 9px #fff2c52b;}
@@ -75,3 +75,29 @@
 @keyframes natural-twenty-pop{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
 @media(prefers-reduced-motion:reduce){.natural-twenty{animation:none;}}
 @media(max-width:600px){.roll-reveal-backdrop.is-impact{padding-top:70px;}}
+
+/* A bright, prepainted core for every settled die; only opacity/transform animate. */
+.tray-number-flash{position:absolute;inset:-.55em;pointer-events:none;border-radius:50%;background:radial-gradient(circle,#fff 0%,#fff9 18%,#fff2 42%,transparent 68%);opacity:0;mix-blend-mode:screen;}
+.tray-flying-number[data-phase="flash"] .tray-number-flash{animation:tray-number-flash .32s ease-out;}
+@keyframes tray-number-flash{0%{opacity:1;transform:scale(.6);}25%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(1.5);}}
+
+/* Keep live-result layers rasterized during the toss so first use cannot eat
+   the flash while the browser uploads text, glow and burst textures. */
+[data-live-dice] .tray-flying-number{opacity:.001;transform:translate3d(120px,120px,0);}
+[data-live-dice] .tray-number-flash{opacity:.001;will-change:transform,opacity;}
+[data-live-dice] .tray-flying-number::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);opacity:.001;box-shadow:0 0 14px currentColor;pointer-events:none;will-change:transform,opacity;}
+[data-live-dice] .tray-flying-number::after{content:'\2726';position:absolute;left:50%;top:50%;font-size:2.8em;transform:translate(-50%,-50%);opacity:.001;pointer-events:none;will-change:transform,opacity;}
+
+/* Low results contract in cool blue; critical numerals retain their gold. */
+.tray-flying-number[data-strength="low"]::before,.tray-flying-number[data-strength="min"]::before{content:'';position:absolute;left:50%;top:50%;width:1.8em;height:1.8em;border:2px solid #88c8ff;border-radius:50%;transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 14px #659ee9;pointer-events:none;}
+.tray-flying-number[data-phase="flash"][data-strength="low"]::before,.tray-flying-number[data-phase="flash"][data-strength="min"]::before{animation:tray-low-contract .32s ease-out;}
+.tray-flying-number[data-strength="min"]::before{border-width:3px;box-shadow:0 0 20px #88c8ff;}
+.tray-flying-number[data-strength="low"] .tray-number-flash,.tray-flying-number[data-strength="min"] .tray-number-flash{background:radial-gradient(circle,#eff8ff 0%,#88c8ff99 22%,#659ee922 45%,transparent 68%);}
+.tray-die-result[data-filled="true"][data-strength="low"]{box-shadow:0 0 9px #659ee944;}
+.tray-die-result[data-filled="true"][data-strength="min"]{box-shadow:0 0 16px #659ee977,inset 0 0 8px #659ee922;}
+.tray-die-result[data-strength="low"] .tray-max-label,.tray-die-result[data-strength="min"] .tray-max-label{color:#a5d7ff;}
+@keyframes tray-low-contract{0%{transform:translate(-50%,-50%) scale(1.6);opacity:.9;}100%{transform:translate(-50%,-50%) scale(.45);opacity:0;}}
+
+/* The destination is the centered numeral, not a left-aligned glyph in a wide box. */
+.physics-dice-tray .tray-die-result{text-align:center;}
+.physics-dice-tray .tray-max-label{min-height:1.2em;}

@@ -1,9 +1,9 @@
-import {diceCollider} from '../../../shared/diceCollider.js';
-import {handTumble} from '../../../shared/diceLaunch.js';
+import {diceCollider} from './diceCollider.js';
+import {handTumble} from './diceLaunch.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
-import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
+import { dieMesh, faceForwardMesh } from './diceGeometry.js';
 
-import {type TrayDie,type Toss,type DiceEntrySide} from './diceTrayTypes.js';
+import {type TrayDie,type DiceEntrySide} from './diceTrayTypes.js';
 export {physicalDice,trayFaceValues} from './diceTrayTypes.js';
 // Solver masses use grams and lengths use a uniform scale for stable contacts;
 // gravity and velocity are converted from SI by the same metresPerUnit factor.
@@ -20,17 +20,9 @@ export function diceMassKg(vertices:Vec3[],faces:number[][]){
   }
   return Math.abs(volume)*ACRYLIC_DENSITY;
 }
-export function simulateToss(dice:TrayDie[],seed:number,entrySide:DiceEntrySide='left'):Toss {
-  // Pick a readable physical trajectory before playback. Server results are
-  // untouched; no visible teleport or forced final orientation is involved.
-  let failure:unknown;
-  for(let attempt=0;attempt<8;attempt++)try {
-    return simulateCandidate(dice,(seed+Math.imul(attempt,2654435761))>>>0,entrySide);
-  } catch(error) { failure=error; }
-  throw failure;
-}
-function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):Toss {
-  if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Roll requires result summary');
+
+export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySide='bottom') {
+  if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Unsupported physical dice pool');
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
   // The responsive tray accommodates the pool; each physical d6 remains 16 mm.
@@ -59,7 +51,6 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   const extent=direction.x?7:4.5;
   const crossExtent=direction.x?4.5:7;
   const lanes=Math.min(dice.length,Math.max(1,Math.floor((crossExtent*2-radius*2)/(radius*2.2))+1));
-  const releases=dice.map(()=>0);
   const throwAngle=Math.PI/6; // A shared diagonal heading, relative to the roller's edge.
   const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
   const bodies=dice.map((die,i)=>{
@@ -86,36 +77,53 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     return body;
   });
-  const frames:number[]=[];const step=1/480;
-  const capture=()=>bodies.forEach(b=>frames.push(b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w));
-  capture();
-  let released=0;
-  let ticks=0;
-  const settleTimes=bodies.map(()=>0);
-  for(;ticks<5760;ticks++){
-    while(released<bodies.length && releases[released]<=ticks*step)world.addBody(bodies[released++]);
-    for(let i=0;i<released;i++)if(bodies[i].position.dot(direction)>-extent+radius)bodies[i].collisionFilterMask=3;
-    world.step(step);
-    bodies.forEach((body,i)=>{if(i>=released||body.sleepState!==Body.SLEEPING)settleTimes[i]=(ticks+1)*step;});
-    capture();
-    // Keep a fully stationary final frame after the last body enters sleep.
-    if(ticks>480&&released===bodies.length&&bodies.every(b=>b.sleepState===Body.SLEEPING)){capture();ticks+=2;break;}
+
+  bodies.forEach(body=>world.addBody(body));
+  const launch=bodies.map(b=>({position:b.position.clone(),velocity:b.velocity.clone(),spin:b.angularVelocity.clone()}));
+  const age=bodies.map(()=>0),rerolls=bodies.map(()=>0),values:(number|null)[]=bodies.map(()=>null);
+  const step=1/480;
+  let elapsed=0;
+  function readable(i:number):number|null {
+    const b=bodies[i],shape=b.shapes[0] as ConvexPolyhedron;
+    const bottom=Math.min(...shape.vertices.map(v=>b.quaternion.vmult(v).z+b.position.z));
+    if(Math.abs(bottom)>radius*.08 || Math.abs(b.position.x)>7 || Math.abs(b.position.y)>4.5)return null;
+    let highest=-Infinity,second=-Infinity,face=0;
+    meshes[i].faces.forEach((ids,j)=>{
+      const [a,c,d]=ids.map(k=>new Vec3(...meshes[i].vertices[k]));
+      const normal=c.vsub(a).cross(d.vsub(a));if(normal.dot(a)<0)normal.negate(normal);normal.normalize();
+      const up=b.quaternion.vmult(normal).z*(dice[i].sides===4?-1:1);
+      if(up>highest){second=highest;highest=up;face=j;}else second=Math.max(second,up);
+    });
+    return highest>(dice[i].sides===10?.65:.96) && highest-second>.025 ? face+1 : null;
   }
-  if(!bodies.every(b=>b.sleepState===Body.SLEEPING))throw new Error('Dice did not settle within the tray simulation limit');
-  for(const body of bodies){
-    const shape=body.shapes[0] as ConvexPolyhedron;
-    const bottom=Math.min(...shape.vertices.map(v=>body.quaternion.vmult(v).z+body.position.z));
-    if(bottom>radius*.04 || Math.abs(body.position.x)>7 || Math.abs(body.position.y)>4.5)
-      throw new Error('Unreadable stacked or escaped dice pose');
+  function reroll(i:number) {
+    const b=bodies[i],initial=launch[i];
+    b.position.copy(initial.position);b.position.z+=(random()*.3);
+    b.previousPosition.copy(b.position);b.interpolatedPosition.copy(b.position);
+    b.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
+    b.velocity.copy(initial.velocity.scale(.9+random()*.2));b.angularVelocity.copy(initial.spin.scale(.8+random()*.4));
+    b.force.setZero();b.torque.setZero();b.collisionFilterMask=1;b.aabbNeedsUpdate=true;b.wakeUp();
+    age[i]=0;values[i]=null;rerolls[i]++;
   }
-  const topFaces=bodies.map((body,i)=>{
-    let best=-Infinity,top=0;
-    meshes[i].faces.forEach((face,index)=>{
-      const [a,b,c]=face.map(j=>new Vec3(...meshes[i].vertices[j]));
-      const normal=b.vsub(a).cross(c.vsub(a));if(normal.dot(a)<0)normal.negate(normal);normal.normalize();
-      const z=body.quaternion.vmult(normal).z;
-      if(z>best){best=z;top=index;}
-    });return top;
-  });
-  return {settleTimes,wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
+  function advance(seconds:number) {
+    const steps=Math.max(1,Math.round(seconds/step));
+    for(let n=0;n<steps;n++){
+      for(const b of bodies)if(b.position.dot(direction)>-extent+radius)b.collisionFilterMask=3;
+      world.step(step);elapsed+=step;
+      bodies.forEach((b,i)=>{
+        age[i]+=step;
+        if(b.sleepState===Body.SLEEPING){
+          values[i]=readable(i);
+          if(values[i]===null)reroll(i);
+        }else {
+          values[i]=null;
+          if(age[i]>=10||b.position.z< -2)reroll(i);
+        }
+      });
+      if(values.every(v=>v!==null))break;
+    }
+    return snapshot();
+  }
+  function snapshot(){return {elapsed,radius,poses:bodies.flatMap(b=>[b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]),values:[...values],rerolls:[...rerolls],done:values.every(v=>v!==null)};}
+  return {advance,snapshot,reroll,bodies};
 }
