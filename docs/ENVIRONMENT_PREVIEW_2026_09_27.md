@@ -1,0 +1,78 @@
+# Courtyard environment proof
+
+An isolated interactive lighting study uses the production `MiniatureLayer`
+renderer and the existing courtyard image, all three party miniatures, a Cultist
+Fanatic, two goblins and a wolf. It is a separate static entry point, not a
+campaign migration or a saved DM environment editor.
+
+## Try it locally
+
+```sh
+node scripts/environment-preview/build.mjs
+node scripts/environment-preview/verify.mjs --output .preview-data/environment
+```
+
+The build packages the selected real models into `client/environment-dist`.
+Serve that directory and open `environment-test.html` for interactive inspection.
+The verification runner starts its own static server, uses installed Chrome and
+ffmpeg when available, captures desktop/phone evidence and writes a receipt.
+It does not start the game server, connect to multiplayer, or write campaign data.
+
+## Included
+
+- Contact and directional ground shadows with adjustable map-space direction and
+  length. Drag from an object toward the end of its painted shadow to set direction.
+- Two decorative stone pillars and a rock cluster sharing the miniature depth
+  buffer. These are simple procedural scenery prototypes, not final generated art.
+- Two localized, low, animated mist patches with depth testing.
+- Original/effects comparison, overhead and 45-degree views, smooth orbit,
+  pan/zoom, close-up and a scripted Druk movement to inspect a moving shadow.
+- Original ground image preserved byte-for-byte; selected GLBs copied without
+  reduction or texture edits. Asset hashes are written in the build receipt.
+
+## Boundaries
+
+Normal battlefields do not pass `environmentPreview` and retain their existing
+lighting, visibility, interactions and frame scheduling. This proof adds no
+environment columns, socket events, fog mechanics or elevation rules.
+
+The artwork's shadows are baked pixels. The initial 55-degree setting is a
+visual approximation, not automatic recovery of the map's physical lighting.
+Painted walls do not acquire occlusion or height. Only the added meshes have
+real depth; walking surfaces remain flat.
+
+The full party assets make the interactive download substantial. The published
+comparison video is the quickest phone preview. Desktop capture timings and a
+phone-sized browser viewport are not measurements of real phone GPU performance.
+
+Before a shared in-game environment editor, scenery placements and effects need
+server-shaped map visibility, clipping at concealed map regions, saved settings,
+lower quality options and crowded-board measurements.
+
+## Verified first test
+
+- Typecheck and production build pass; 896 server tests across 96 files pass.
+- Three existing browser cases pass for real monster model loading in both
+  views, whole-token fog concealment, and dragging during map rotation.
+- The dedicated preview runner loads all seven real models on desktop and a
+  390 x 844 viewport, exercises every environment control, verifies shadow
+  direction stays in map coordinates during orbit, and records the comparison.
+- Two Chrome transport-abort notifications followed complete HTTP delivery of
+  models that subsequently parsed and rendered. The receipt preserves them as
+  completed-asset transport warnings with delivery and renderer evidence;
+  no JavaScript, shader, or HTTP errors were observed.
+- The published 29.68-second H.264 video is 10.8 MB and supports range seeking.
+  Verification through the public URL confirms video playback and all seven interactive
+  models at phone width without horizontal overflow.
+
+Preview: https://dnd.nic024i.app/uploads/previews/environment-courtyard-20260927/index.html
+
+To publish and check a future recording:
+
+```sh
+node scripts/environment-preview/publish.mjs EVIDENCE_DIRECTORY PREVIEW_DESTINATION
+node scripts/environment-preview/verify-published.mjs PREVIEW_PAGE_URL EVIDENCE_DIRECTORY
+```
+
+The publication script requires a passing preview receipt. Publish only to the
+intended static preview directory; this does not rebuild or restart the live app.

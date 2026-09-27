@@ -4,6 +4,7 @@ node_modules/
 /.token-preview/
 /preview-evidence/
 dist/
+client/environment-dist/
 build/
 
 # Local game state & uploads (never commit)

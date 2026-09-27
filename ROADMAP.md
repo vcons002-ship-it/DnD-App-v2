@@ -1967,3 +1967,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Persistent caster prompt with matching dice, leap counter, Choose target map selection, named confirmation and End spell; critical dice and immunities handled.
 - [x] Shared attack/spell target lists sorted by grid distance with public encounter tags and distance labels.
 - [x] Right-click token actions: choose controlled attacker, visible conditions/distance, advantage, off-hand/two-handed intent, weapon ranges, spell level and damage type; menu stays inside the viewport and scrolls without dismissing.
+
+### Environmental depth proof (2026-09-27)
+
+- [x] Isolated courtyard study with map-aligned contact/cast shadows, painted-shadow direction matching, localized drifting mist, and decorative raised stone in the miniature depth buffer. Uses the unchanged courtyard artwork and seven existing miniatures, with overhead/45-degree comparison, orbit and moving-token inspection. See [preview instructions and boundaries](docs/ENVIRONMENT_PREVIEW_2026_09_27.md).
+- [ ] Shared per-map environment settings, fog-aware scenery/effect clipping, and quality/performance controls before campaign integration.

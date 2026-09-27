@@ -14,6 +14,7 @@ import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
+import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
 import { createVanecLightning } from './vanecLightning';
 import { useStore } from '../state/socket';
 import {
@@ -45,6 +46,8 @@ type Props = {
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
+  /** Isolated environment proof; ordinary battlefields retain their renderer. */
+  environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
   spellCast: (tokenIds: string[]) => void;
@@ -74,6 +77,7 @@ type Instance = {
   originalOpacity: number[];
   originalTransparent: boolean[];
   mixer: AnimationMixer | null;
+  shadowAnimated: boolean;
   fx: FxManifest | null;
   lightning: ReturnType<typeof createVanecLightning> | null;
 };
@@ -136,7 +140,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
 
-  scene.add(new HemisphereLight(0xe5edff, 0x726856, 2));
+  const ambient = new HemisphereLight(0xe5edff, 0x726856, 2);
+  scene.add(ambient);
   const key = new DirectionalLight(0xffeddb, 3);
   key.position.set(-3, 8, 5);
   scene.add(key);
@@ -180,6 +185,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let renderedWidth = 0;
   let renderedHeight = 0;
   let renderedPixelRatio = 0;
+  let battlefield: ReturnType<typeof createBattlefieldEnvironment> | null = null;
+  let lastEnvironment: EnvironmentPreviewSettings | undefined;
+  let paintCount = 0, paintEpoch = performance.now();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const updateCamera = () => {
@@ -235,11 +243,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const draw = (now: number) => {
     frame = 0;
     if (disposed || failed || document.hidden) return;
+    const atmosphereAnimated = !!props.environmentPreview?.enabled && props.environmentPreview.mist && !reducedMotion.matches;
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
-    if (now - lastPaint >= 1000 / 24) {
+    if (now - lastPaint >= (props.environmentPreview ? 1000 / 60 - 1 : 1000 / 24)) {
       lastPaint = now;
       const seconds = (now - started) / 1000;
       for (const token of props.tokens) {
@@ -248,7 +257,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const move = moves.get(token.id);
         if (move && move.until < now) moves.delete(token.id);
         const position = moves.get(token.id) ?? token;
+        const wasVisible = instance.root.visible;
         instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
+        if (battlefield && (wasVisible !== instance.root.visible || instance.root.position.x !== position.x || instance.root.position.z !== position.y || instance.root.rotation.y !== (position.facing ?? 0) || (animated && instance.shadowAnimated))) renderer.shadowMap.needsUpdate = true;
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
         instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
@@ -261,23 +272,38 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
+      battlefield?.setTokens(props.tokens.map(token => {
+        const instance=instances.get(token.id);
+        return {id:token.id,x:instance?.root.position.x ?? token.x,y:instance?.root.position.z ?? token.y,diameter:token.diameter,visible:!!instance?.root.visible && !token.hidden};
+      }));
+      battlefield?.tick(reducedMotion.matches ? 0 : seconds);
       try {
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const renderedNames=names.sync(props.nameLabels?.()??[],visible);
         if (renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
+          const shadowUpdate = renderer.shadowMap.needsUpdate;
+          renderer.shadowMap.needsUpdate = false;
           renderer.setRenderTarget(outlineMask); renderer.clear(); renderer.render(scene, camera);
+          renderer.shadowMap.needsUpdate = shadowUpdate;
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
         }
         renderer.render(scene, camera);
+        if (battlefield) {
+          paintCount++;
+          if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
+          host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
+          host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
+          host.dataset.groundReady=String(battlefield.ready);
+        }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
         publish();
       } catch { fail(); }
     }
-    if (!failed && (animated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
+    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
@@ -292,6 +318,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
+    if (battlefield) renderer.shadowMap.needsUpdate = true;
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
     instance.outlineMaterial.dispose();
@@ -307,11 +334,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const place = (token: MiniatureToken, instance: Instance) => {
     const factor = token.diameter / token.definition.baseDiameter;
+    const visible=props.isVisibleAt?.(token.id, (moves.get(token.id) ?? token).x, (moves.get(token.id) ?? token).y) ?? true;
+    if(battlefield && (instance.root.visible!==visible || instance.root.scale.x!==factor))renderer.shadowMap.needsUpdate=true;
     instance.root.scale.setScalar(factor);
     const model = instance.root.children[0];
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     const position = moves.get(token.id) ?? token;
-    instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
+    if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
+    instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
         instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
@@ -350,6 +380,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
       material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
     });
+    if (battlefield) {
+      const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden;
+      model.traverse(node=>{if(node instanceof Mesh && node.name !== 'disposition-outline'){
+        const opaque=(Array.isArray(node.material)?node.material:[node.material]).every(material=>!material.transparent);
+        if(node.castShadow !== (casts && opaque))renderer.shadowMap.needsUpdate=true;
+        node.castShadow=casts && opaque;node.receiveShadow=casts && opaque;
+      }});
+    }
   };
   const sync = (next: Props) => {
     if (disposed || failed) return;
@@ -365,6 +403,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       renderer.getDrawingBufferSize(outlineResolution.value);
       outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
+    if(next.environmentPreview){
+      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,invalidate);
+      else if(lastEnvironment!==next.environmentPreview)battlefield.update(next.environmentPreview);
+      lastEnvironment=next.environmentPreview;
+      ambient.intensity=next.environmentPreview.enabled ? 1.35 : 2;
+    } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;}
     updateCamera();
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
@@ -521,11 +565,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
+          // Emissive/material flicker does not change the ground silhouette.
+          shadowAnimated: gltf.animations.some(clip => clip.tracks.some(track => /\.(position|quaternion|scale|morphTargetInfluences)(\[|$)/.test(track.name))),
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         instances.set(token.id, instance);
         place(current, instance);
         scene.add(root);
+        if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();
         const fx = definition.fxUrl ? await manifests.get(definition.fxUrl) : null;
         if (!disposed && instances.get(token.id) === instance && fx && Array.isArray(fx.keyframes) && fx.material_channels) {
@@ -551,6 +598,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     names.dispose();props.onRenderedNames?.(new Set());
+    battlefield?.dispose();battlefield=null;
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;
