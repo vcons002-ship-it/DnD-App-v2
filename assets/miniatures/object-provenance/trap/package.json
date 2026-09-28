@@ -1,0 +1,14 @@
+{
+  "id": "object-trap",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "bytes": 1473240,
+  "triangles": 20000,
+  "sha256": "f2481c4f4bffc2d7765b0330eaafafa2a7f7447a3fc845f938290c39c00a6978",
+  "policy": "monster-reduction-v1",
+  "sourceViewCount": 4
+}

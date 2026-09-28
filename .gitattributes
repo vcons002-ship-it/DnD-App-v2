@@ -53,3 +53,7 @@ assets/miniatures/monster-provenance/cultist-fanatic/** -filter -diff -merge -te
 assets/miniatures/monster-provenance/vrock/** -filter -diff -merge -text
 assets/miniatures/monster-provenance/hezrou/** -filter -diff -merge -text
 assets/miniatures/monster-provenance/glabrezu/** -filter -diff -merge -text
+
+# Small static object models and source art; preserve binary bytes in regular Git.
+client/public/miniatures/objects/*.glb -filter -diff -merge -text
+assets/miniatures/object-provenance/** -filter -diff -merge -text

@@ -4,6 +4,14 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## 3D chest and trap objects - September 2026
+
+- [x] Generate multiview textured chest and jaw-trap props, reduced to 20k
+  triangles each; ground them without miniature pedestals.
+- [x] Resolve existing object tokens by kind through the common 3D renderer,
+  retaining fog, hidden state, selection and interactions, with a 2D fallback.
+  See [object token notes](docs/OBJECT_TOKENS_2026_09_28.md).
+
 ## Daylight figure colors - September 2026
 
 - [x] Rebalance daylight fill, directional light and reflections to stop figure

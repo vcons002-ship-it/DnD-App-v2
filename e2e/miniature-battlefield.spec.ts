@@ -1956,3 +1956,62 @@ test('private movement shadows keep the figure at its origin and animate committ
     expect(errors).toEqual([]);
   }finally{await context.close();}
 });
+
+
+test('chests and traps use 3D objects while retaining hidden state and interactions',async({page,request,browser},info)=>{
+  test.setTimeout(150000);
+  await page.setViewportSize({width:1440,height:960});
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+  for(const [i,kind] of (['chest','trap'] as const).entries()){
+    f.socket.emit('monster:create',{name:kind==='chest'?'Treasure chest':'Jaw trap',objectKind:kind,maxHp:10,modelType:'none'});
+    const template=(await f.snapshot()).monsterTemplates.find(m=>m.objectKind===kind)!;
+    f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:450+i*300,y:520});
+  }
+  const ready=await f.snapshot(),objects=ready.tokens.filter(t=>t.kind==='monster');
+  const chest=objects.find(t=>ready.monsters.find(m=>m.id===t.refId)?.objectKind==='chest')!;
+  const trap=objects.find(t=>t.id!==chest.id)!;
+  f.socket.emit('token:setHidden',{tokenId:trap.id,hidden:true});
+  await page.goto(`/dm?code=${f.code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  const layer=page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count','5',{timeout:60000});
+  for(const t of objects)expect((await tokenView(page,t.id))?.miniatureReady).toBe(true);
+  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960}});
+  try{
+    const player=await context.newPage();await enter(player,f.code);
+    const playerLayer=player.getByTestId('miniature-layer');
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+    expect(await tokenView(player,trap.id)).toBeNull();
+    f.socket.emit('token:setHidden',{tokenId:trap.id,hidden:false});
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','5');
+    await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees','45');
+    await afterPaint(page);
+    await page.screenshot({path:info.outputPath('objects-45.png')});
+    if(movementDemo)await page.waitForTimeout(2000);
+    for(let i=0;i<3;i++)await page.getByTitle('Zoom in',{exact:true}).click();
+    await afterPaint(page);
+    await page.screenshot({path:info.outputPath('objects-close.png')});
+    if(movementDemo)await page.waitForTimeout(2500);
+    const base=(await tokenView(page,chest.id))!;
+    await page.mouse.click(base.x,base.y);
+    await expect(page.getByRole('region',{name:'Token info',exact:true})).toBeVisible();
+    f.socket.emit('object:interact',{monsterId:chest.refId,action:'open'});
+    await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===chest.refId)?.conditions.some(c=>c.label==='Open')).toBe(true);
+    await page.getByRole('button',{name:'Close token inspector',exact:true}).click();
+    await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees','0');
+    await afterPaint(page);await page.screenshot({path:info.outputPath('objects-overhead.png')});
+    if(movementDemo)await page.waitForTimeout(2500);
+    await player.getByRole('button',{name:'2D monster tokens',exact:true}).click();
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','3');
+    for(const t of objects)expect((await tokenView(player,t.id))?.bodyVisible).toBe(true);
+    await player.getByRole('button',{name:'3D monster tokens',exact:true}).click();
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','5');
+    f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'tokens',enabled:true});
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','3');
+    expect(errors).toEqual([]);
+  }finally{await context.close();}
+});

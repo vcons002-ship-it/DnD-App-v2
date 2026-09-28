@@ -1,5 +1,6 @@
 /** Verify the actual self-contained files shipped by the VTT client. */
 import './validate-monsters.mjs';
+import './validate-objects.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';

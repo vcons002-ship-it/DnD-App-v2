@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "object-chest",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1631096,
+      "triangles": 20000,
+      "sha256": "3b63be8a1c6cc9bf6824a2a791a7c2bd75265d789846ac82ac8385d51e5dc009",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/objects/chest.glb",
+      "multiviewTexture": true,
+      "texture": "2048x2048 JPEG95",
+      "pedestal": false
+    },
+    {
+      "id": "object-trap",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1473240,
+      "triangles": 20000,
+      "sha256": "f2481c4f4bffc2d7765b0330eaafafa2a7f7447a3fc845f938290c39c00a6978",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/objects/trap.glb",
+      "multiviewTexture": true,
+      "texture": "2048x2048 JPEG95",
+      "pedestal": false
+    }
+  ]
+}

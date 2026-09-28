@@ -1,0 +1,11 @@
+{
+  "generator": "built-in imagegen",
+  "requestedSize": "2048x2048",
+  "actualSize": [
+    1536,
+    1024
+  ],
+  "layout": "front upper left, back upper right, left lower left, right lower right",
+  "reference": "Low iron jaw trap, armed open around a round pressure plate",
+  "upscaled": false
+}

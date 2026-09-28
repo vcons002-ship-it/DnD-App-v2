@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "id": "monster-reduction-v1",
+    "targetTriangles": 20000,
+    "errorLimit": 0.01,
+    "colorEncoding": "jpeg",
+    "quality": 95,
+    "chromaSubsampling": "4:4:4",
+    "resize": false,
+    "geometryCompression": false
+  },
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\generation\\01_textured_mesh.glb",
+  "sourceSha256": "bd6fcc49d8e2b7dc14839726c7e0b6364afd2a902a7ee27847da4fdb52eb6581",
+  "sourceBytes": 5053360,
+  "originalTriangles": 40000,
+  "triangles": 20000,
+  "bytes": 1631652,
+  "reductionPercent": 67.71154241930122,
+  "sha256": "9f0776e2560540b0b3beb1fb4d3e4f9d82b1af3ee5da2c77723d79f04447c7e7",
+  "textures": [
+    {
+      "index": 0,
+      "action": "jpeg95",
+      "width": 2048,
+      "height": 2048,
+      "beforeBytes": 3801036,
+      "afterBytes": 1076334,
+      "sha256": "064e7caac603178a19806e2270721b52ccf77646dc409f7e1448a925b156f31a"
+    }
+  ],
+  "simplifyMs": 30.53839999999991,
+  "totalMs": 600.4419000000001,
+  "peakRssMiB": 158.19140625,
+  "versions": {
+    "gltfTransform": "4.5.0",
+    "meshoptimizer": "1.2.0",
+    "sharp": "0.35.4"
+  },
+  "validation": "export reloaded; finite positions; indices in range; textures unchanged on export; source preserved",
+  "targetReached": true
+}

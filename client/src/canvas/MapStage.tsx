@@ -1017,11 +1017,11 @@ export function MapStage({
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
       carriedLantern:token.carriedLantern,
-      combatRole: token.kind==='monster'?token.combatRole:undefined,
+      combatRole: token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
-      outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      outline: monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
-      shade: monster ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
+      shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
       selected: orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
@@ -1729,7 +1729,7 @@ export function MapStage({
               {[false, true].map(enabled => (
                 <button key={String(enabled)} className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
                   aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`} aria-pressed={group.enabled === enabled}
-                  title={`Only changes ${group.kind} tokens in your view`}
+                  title={group.kind === 'monster' ? 'Changes monsters, chests and traps in your view' : 'Only changes player tokens in your view'}
                   onClick={() => {
                     if (group.enabled === enabled) return;
                     // Freeze the inherited monster setting before changing the legacy PC key.
