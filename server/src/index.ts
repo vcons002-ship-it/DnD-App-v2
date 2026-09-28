@@ -72,7 +72,7 @@ if (fs.existsSync(config.clientDist)) {
   app.use(
     express.static(config.clientDist, {
       setHeaders: (res, filePath) => {
-        if (filePath.endsWith('index.html')) {
+        if (filePath.endsWith('index.html') || filePath.endsWith('asset-cache-sw.js')) {
           res.setHeader('Cache-Control', 'no-cache');
         } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
