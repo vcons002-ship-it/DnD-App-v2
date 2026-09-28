@@ -2100,3 +2100,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Mist wakes coalesce adjacent movement samples and retain bounded longer history, avoiding half-second truncation when the party moves together. Interactive darkvision preview starts at 22% mist for clearer movement comparison.
 
 - [x] Whole-body mist interaction test: measure torso, limbs and head rather than only shins; store body height along each wake so displacement and compression reach the figure height and taper above it. Strength, curl timing and lifetime unchanged.
+
+- [x] Stronger whole-body mist response: faster lateral separation, deeper returning curls and denser displaced edges, retaining the existing modest clearing amount. The interactive movement test now sets six-foot mist directly.

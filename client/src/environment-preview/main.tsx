@@ -220,7 +220,7 @@ function Preview(){
       <button onClick={()=>setTokens(list=>list.map(t=>({...t,carriedLantern:['druk','varis','vanec'].includes(t.id)})))}>Lanterns on</button>
       <button aria-pressed={!!settings.lights?.length} onClick={()=>change('lights',settings.lights?.length?[]:sceneLights)}>Placed lights</button>
       <button onClick={moveParty} disabled={ready<7||walking}>{walking?'Party moving...':'Move party'}</button>
-      <button onClick={()=>{setSettings(s=>({...s,enabled:true,mist:true,mistOpacity:.5,mistHeight:3*pixelsPerFoot,mistInteraction:true,mistQuality:'auto',mistCoverage:'map'}));transition(fitted(current.current.tilt,current.current.rotation,true));}}>Mist movement test</button>
+      <button onClick={()=>{setSettings(s=>({...s,enabled:true,mist:true,mistOpacity:.5,mistHeight:6*pixelsPerFoot,mistInteraction:true,mistQuality:'auto',mistCoverage:'map'}));transition(fitted(current.current.tilt,current.current.rotation,true));}}>Mist movement test</button>
       <p>Darkvision: 60 ft. The enemy by the hall lantern is beyond it. Toggle Placed lights to compare. Changes stay in this preview.</p>
     </section>}
     <nav className="camera-bar" aria-label="Camera controls">

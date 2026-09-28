@@ -125,8 +125,8 @@ export function createMistFlow() {
         // A bank travels outward first, carrying nearby noisy density with it.
         // It then recedes as air rolls back into the trail. Opacity reduction is
         // deliberately small; displacement and compression do the visible work.
-        const opening=smooth(0,.6,age),returning=smooth(.9,5.5,age);
-        const spread=wake.radius*(.35+.55*opening)*(1-returning*.45);
+        const opening=smooth(0,.35,age),returning=smooth(.7,5.5,age);
+        const spread=wake.radius*(.4+.85*opening)*(1-returning*.55);
         const halfWidth=spread*.7;
         const extent=wake.length*.5+Math.max(wake.front,wake.radius*1.9);
         visit(wx,wy,extent,(i,x,y)=>{
@@ -139,7 +139,7 @@ export function createMistFlow() {
           data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.28)));
           const bank=Math.exp(-Math.pow((Math.abs(across)-spread)/(wake.radius*.45),2)
             -Math.pow(end/(wake.radius*.5),2))*opening*fade*touched;
-          const shift=Math.sign(across)*Math.min(Math.abs(across)*.85,spread*.9)*bank;
+          const shift=Math.sign(across)*Math.min(Math.abs(across)*1.6,spread*1.65)*bank;
           const p=i/4,weight=Math.abs(shift);
           // Overlapping path samples must not multiply the same outward push.
           if(weight>pushWeight[p]){pushWeight[p]=weight;pushX[p]=-nx*shift;pushY[p]=-ny*shift;}
@@ -152,12 +152,12 @@ export function createMistFlow() {
         const strength=smooth(.05,.35,age)*fade;
         for(const side of [-1,1]){
           const variation=Math.sin(wake.ordinal*2.399+side*1.7);
-          const roll=smooth(.2+variation*.1,3.0+variation*.3,age);
-          const r=wake.radius*(.65+variation*.1+roll*.08);
+          const roll=smooth(.1+variation*.06,2.1+variation*.3,age);
+          const r=wake.radius*(.8+variation*.1+roll*.12);
           // As the cleared gap closes, broad eddies travel inward with it.
           // Unequal sides roll existing patches into the gap instead of leaving
           // all the rotation outside an empty, straight-sided corridor.
-          const inward=.98-roll*.38+variation*.12;
+          const inward=1.1-roll*.6+variation*.12;
           const cx=wx-wake.dx*r*.25+nx*side*wake.radius*inward;
           const cy=wy-wake.dy*r*.25+ny*side*wake.radius*inward;
           visit(cx,cy,r*1.8,(i,x,y)=>{
@@ -167,7 +167,7 @@ export function createMistFlow() {
             const along=(x-wx)*wake.dx+(y-wy)*wake.dy;
             const behind=1-smooth(0,wake.radius*.75,along);
             const influence=(1-smooth(.15,1.8,d))*strength*behind*touched;
-            const angle=side*roll*(1.3+variation*.15)*influence;
+            const angle=side*roll*(2.6+variation*.3)*influence;
             const c=Math.cos(angle),s=Math.sin(angle);
             data[i]=clamp(data[i]+(dx*c-dy*s-dx)*2);
             data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy)*2);

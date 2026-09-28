@@ -73,7 +73,7 @@ const densityField = /* glsl */`
     float compressed = flow.a * bodyContact;
     // Compress the existing noisy volume only. Adding density independently of
     // that volume made the wake look like bright lines drawn on top of the fog.
-    return edge * smoothstep(0.0,.025,y) * ambient * (clearing + compressed * .9);
+    return edge * smoothstep(0.0,.025,y) * ambient * (clearing + compressed * 1.35);
   }
   float mistGroundShade(vec3 world) {
     if (mistShadowStrength <= 0.0 || mistStrength <= 0.0) return 1.0;
