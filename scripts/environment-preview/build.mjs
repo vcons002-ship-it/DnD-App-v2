@@ -32,3 +32,7 @@ if(hash(dungeon)!==dungeonSource.sha256)throw Error('Dungeon source changed');
 await copyFile(dungeonPath,path.join(out,'dungeon.png'));
 await writeFile(path.join(out,'asset-receipt.json'),JSON.stringify({dungeon:dungeonSource,map:{width:1216,height:832,bytes:map.length,sha256:hash(map)},assets},null,2)+'\n');
 console.log('Environment preview packaged: '+out);
+
+if(process.argv.includes('--vision')){
+  await writeFile(path.join(out,'index.html'),`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=./environment-test.html?vision=1"><title>Interactive dungeon preview</title></head><body style="background:#111714;color:#e7e5d9;font:18px system-ui;padding:24px"><a style="color:#e1c884" href="./environment-test.html?vision=1">Open interactive dungeon preview</a></body></html>`);
+}

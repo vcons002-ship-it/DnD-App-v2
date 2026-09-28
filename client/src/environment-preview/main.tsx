@@ -7,11 +7,14 @@ import {groundYScale,projectGround,unprojectGround,screenToMap,type BattlefieldV
 import {facingAfterMove} from '../../../shared/tokenFacing';
 import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
+import {PlayerVisionOverlay,type PlayerVisionHandle} from '../canvas/PlayerVisionOverlay';
+import {visionContains,visionLit,type PlayerVision,type VisionLight} from '../../../shared/playerVision';
 import './preview.css';
 
 const varietyStudy=new URLSearchParams(location.search).has('variety');
 const stormStudy=new URLSearchParams(location.search).has('storm');
-const dungeonStudy=new URLSearchParams(location.search).has('dungeon');
+const visionStudy=new URLSearchParams(location.search).has('vision');
+const dungeonStudy=visionStudy||new URLSearchParams(location.search).has('dungeon');
 const mapWidth=dungeonStudy?1402:1216,mapHeight=dungeonStudy?1122:832;
 const pixelsPerFoot=dungeonStudy?5:64/5;
 const torchStudy=dungeonStudy||new URLSearchParams(location.search).has('torches');
@@ -61,7 +64,28 @@ function Preview(){
   const [size,setSize]=useState({width:1000,height:680});
   const [settings,setSettings]=useState(initialSettings);
   const [tokens,setTokens]=useState(originalTokens);
+  const tokenSnapshot=useRef(tokens);tokenSnapshot.current=tokens;
   const [ready,setReady]=useState(0);
+  const [viewer,setViewer]=useState('druk');
+  const [touchRotate,setTouchRotate]=useState(false);
+  const [walking,setWalking]=useState(false);
+  const visionLayer=useRef<PlayerVisionHandle>(null);
+  const livePositions=useRef(new Map<string,{x:number;y:number}>());
+  const visionState=useRef<PlayerVision|undefined>(undefined);
+  const lastLights=useRef(0);
+  const [,refreshVision]=useState(0);
+  const personalVision=visionStudy&&viewer!=='dm'&&settings.enabled&&(settings.lighting==='dungeon'||settings.lighting==='night');
+  const vision:PlayerVision|undefined=personalVision?{rangeFt:60,radius:60*pixelsPerFoot,heavy:!!settings.heavyDarkness,
+    origins:tokens.filter(t=>t.id===viewer).map(t=>({...t,...livePositions.current.get(t.id)})),
+    lights:[...(settings.lights??[]).map(l=>({id:l.id,x:l.x,y:l.y,radius:l.radiusFt*pixelsPerFoot,height:l.heightFt*pixelsPerFoot,strength:l.intensity})),
+      ...tokens.filter(t=>t.carriedLantern).map(t=>({...t,...livePositions.current.get(t.id),radius:20*pixelsPerFoot,height:2.8*pixelsPerFoot,strength:.85}))]}:undefined;
+  if(vision)vision.lights=vision.lights.filter(l=>visionContains(vision,l.x,l.y));
+  visionState.current=vision;
+  const visibleAt=useCallback((_id:string,x:number,y:number)=>visionContains(visionState.current,x,y),[]);
+  const onVisionLights=useCallback((lights:VisionLight[])=>{
+    const now=performance.now();if(now-lastLights.current<100)return;lastLights.current=now;
+    visionLayer.current?.lights(lights.filter(l=>visionContains(visionState.current,l.x,l.y)));
+  },[]);
   const [camera,setCamera]=useState<Camera>({tilt:45,rotation:0,view:{x:0,y:0,scale:1}});
   const current=useRef(camera);
   const animation=useRef(0),orbitFrame=useRef(0),movingFrame=useRef(0);
@@ -86,15 +110,16 @@ function Preview(){
       }
       scale=low;
     }
-    const center=close&&dungeonStudy?{x:620,y:535}:{x:mapWidth/2,y:mapHeight/2+9};
+    const party=tokenSnapshot.current.slice(0,3).map(t=>livePositions.current.get(t.id)??t);
+    const center=close&&dungeonStudy?{x:party.reduce((n,t)=>n+t.x,0)/3,y:party.reduce((n,t)=>n+t.y,0)/3}:{x:mapWidth/2,y:mapHeight/2+9};
     return {tilt,rotation,view:{x:size.width/2-center.x*scale,y:size.height/2-center.y*scale*groundYScale(tilt),scale}};
   },[size]);
   useEffect(()=>{
     const observer=new ResizeObserver(entries=>{const box=entries[0].contentRect;setSize({width:Math.round(box.width),height:Math.round(box.height)});});
     observer.observe(stage.current!);return()=>observer.disconnect();
   },[]);
-  useEffect(()=>{const next=fitted(45,0,size.width<600);setCamera(next);current.current=next;},[fitted,size.width]);
-  const apply=useCallback((next:Camera)=>{current.current=next;layer.current?.setProjection(next.tilt,next.rotation,next.view);if(stage.current)stage.current.dataset.viewRotation=String(next.rotation);},[]);
+  useEffect(()=>{const next=fitted(45,0,visionStudy||size.width<600);setCamera(next);current.current=next;},[fitted,size.width]);
+  const apply=useCallback((next:Camera)=>{current.current=next;layer.current?.setProjection(next.tilt,next.rotation,next.view);visionLayer.current?.camera({tilt:next.tilt,rotation:next.rotation,view:next.view});if(stage.current)stage.current.dataset.viewRotation=String(next.rotation);},[]);
   const stop=useCallback(()=>{cancelAnimationFrame(animation.current);cancelAnimationFrame(orbitFrame.current);setOrbit(false);},[]);
   const transition=useCallback((next:Camera)=>{
     stop();const from=current.current,start=performance.now();
@@ -116,7 +141,7 @@ function Preview(){
   const ground=(x:number,y:number,c:Camera)=>{const p=unprojectGround(x,y,size.width,size.height,c.tilt,c.rotation);return screenToMap(p.x,p.y,c.view,c.tilt);};
   const down=(event:React.PointerEvent<HTMLDivElement>)=>{
     if(event.button!==0&&event.button!==2)return;stop();const p=local(event);
-    pointer.current={id:event.pointerId,x:p.x,y:p.y,camera:current.current,kind:calibrating?'shadow':event.button===2?'rotate':'pan'};
+    pointer.current={id:event.pointerId,x:p.x,y:p.y,camera:current.current,kind:calibrating?'shadow':event.button===2||touchRotate?'rotate':'pan'};
     if(calibrating)setGuide({x1:p.x,y1:p.y,x2:p.x,y2:p.y});
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -155,19 +180,20 @@ function Preview(){
   };
   const moveParty=()=>{
     if(dungeonStudy){
-      stop();cancelAnimationFrame(movingFrame.current);
+      stop();cancelAnimationFrame(movingFrame.current);setWalking(true);
       const party=tokens.filter(t=>['druk','varis','vanec'].includes(t.id));
       const returning=party[0].x>850,start=performance.now(),travel=550;
       // Follow the L-shaped corridor, keeping every base on its floor.
       const point=(distance:number)=>distance<=380?{x:520+distance,y:530}:{x:900,y:530+distance-380};
-      const cameraStart=current.current;
+      const cameraStart=current.current;let lastVisionRefresh=0;
       const tick=(now:number)=>{
         const t=Math.min(1,(now-start)/8500),e=t*t*(3-2*t),distance=travel*(returning?1-e:e);
-        party.forEach((token,i)=>{const p=point(distance-i*55),heading=distance-i*55<380?(returning?-Math.PI/2:Math.PI/2):(returning?Math.PI:0);layer.current?.moveToken(token.id,p.x,p.y,t===1,heading);});
+        party.forEach((token,i)=>{const p=point(distance-i*55),heading=distance-i*55<380?(returning?-Math.PI/2:Math.PI/2):(returning?Math.PI:0);layer.current?.moveToken(token.id,p.x,p.y,t===1,heading);livePositions.current.set(token.id,p);visionLayer.current?.move(token.id,p.x,p.y);if(visionState.current){const o=visionState.current.origins.find(o=>o.id===token.id);if(o){o.x=p.x;o.y=p.y;}}});
+        if(visionStudy&&now-lastVisionRefresh>100){lastVisionRefresh=now;refreshVision(v=>v+1);}
         const center=point(distance-55),scale=cameraStart.view.scale;
         apply({...cameraStart,view:{scale,x:size.width/2-center.x*scale,y:size.height*.57-center.y*scale*groundYScale(cameraStart.tilt)}});
         if(t<1)movingFrame.current=requestAnimationFrame(tick);
-        else{setCamera({...current.current});setTokens(list=>list.map(token=>{const i=party.findIndex(p=>p.id===token.id);if(i<0)return token;const p=point(distance-i*55);return {...token,...p,facing:returning?-Math.PI/2:0};}));}
+        else{setWalking(false);setCamera({...current.current});setTokens(list=>list.map(token=>{const i=party.findIndex(p=>p.id===token.id);if(i<0)return token;const p=point(distance-i*55);return {...token,...p,facing:returning?-Math.PI/2:0};}));}
       };
       setNotice('Hip lanterns follow the party through the dungeon. Light floor mist curls behind them.');
       movingFrame.current=requestAnimationFrame(tick);return;
@@ -181,9 +207,22 @@ function Preview(){
       else setTokens(list=>list.map(token=>{const i=party.findIndex(p=>p.id===token.id);return i<0?token:{...token,...destinations[i],facing:facingAfterMove(token.x,token.y,destinations[i].x,destinations[i].y,token.facing)};}));
     };movingFrame.current=requestAnimationFrame(tick);
   };
-  const settingsProps=useMemo(()=>settings,[settings]);
+  const settingsProps=useMemo(()=>({...settings,...(personalVision?{
+    darkvisionTerrain:[{url:settings.mapUrl,x:0,y:0,w:mapWidth,h:mapHeight}],darkvisionGrid:{size:5*pixelsPerFoot,x:0,y:0},
+  }:{})}),[settings,personalVision]);
+  const renderedTokens=tokens.map(t=>({...t,outline:visionLit(vision,(livePositions.current.get(t.id)??t).x,(livePositions.current.get(t.id)??t).y)?t.outline:undefined}));
   return <div className="environment-app">
     <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>{dungeonStudy?'The castle basement':varietyStudy?'Six new atmospheres':stormStudy?'Storm over the courtyard':'The ruined courtyard'}</h1><p className="subtitle">{varietyStudy?'Leaves, fireflies, ash, sand & snow':stormStudy?'Rain, wet stone & cloud lightning':dungeonStudy?'Hip lanterns, light floor mist & dungeon darkness':atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
+    {visionStudy&&<section className="vision-controls" aria-label="Darkvision controls">
+      <label>View as <select aria-label="View as" value={viewer} onChange={e=>setViewer(e.target.value)}><option value="druk">Druk</option><option value="varis">Varis</option><option value="vanec">Vanec</option><option value="dm">DM - full map</option></select></label>
+      <button aria-pressed={!settings.heavyDarkness} onClick={()=>setSettings(s=>({...s,enabled:true,lighting:'dungeon',heavyDarkness:false}))}>Regular darkness</button>
+      <button aria-pressed={!!settings.heavyDarkness} onClick={()=>setSettings(s=>({...s,enabled:true,lighting:'dungeon',heavyDarkness:true}))}>Heavy darkness</button>
+      <button onClick={()=>setTokens(list=>list.map(t=>({...t,carriedLantern:false})))}>Lanterns off</button>
+      <button onClick={()=>setTokens(list=>list.map(t=>({...t,carriedLantern:['druk','varis','vanec'].includes(t.id)})))}>Lanterns on</button>
+      <button aria-pressed={!!settings.lights?.length} onClick={()=>change('lights',settings.lights?.length?[]:sceneLights)}>Placed lights</button>
+      <button onClick={moveParty} disabled={ready<7||walking}>{walking?'Party moving...':'Move party'}</button>
+      <p>Player view: 60 ft. Compare the same lit area in both darkness levels. Changes stay in this preview.</p>
+    </section>}
     <nav className="camera-bar" aria-label="Camera controls">
       <button aria-label="45° view" onClick={()=>transition(fitted(45,current.current.rotation,true))}>45° view</button>
       <button aria-label="Overhead view" onClick={()=>transition(fitted(0,current.current.rotation,true))}>Overhead</button>
@@ -192,8 +231,8 @@ function Preview(){
       <button aria-label="Reset view" onClick={()=>transition(fitted())}>Full map</button>
       <button aria-label="Zoom in" onClick={()=>zoom(1.2)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.2)}>−</button>
       {dungeonStudy&&<button onClick={()=>{const party=tokens.slice(0,3),x=party.reduce((n,t)=>n+t.x,0)/3,y=party.reduce((n,t)=>n+t.y,0)/3,scale=3;transition({tilt:45,rotation:0,view:{scale,x:size.width/2-x*scale,y:size.height*.57-y*scale*groundYScale(45)}});}}>Party view</button>}
-      {dungeonStudy&&<button aria-pressed={!!settings.heavyDarkness} onClick={()=>change('heavyDarkness',!settings.heavyDarkness)}>Heavy darkness</button>}
-      {(torchStudy||stormStudy||varietyStudy)&&<>
+      {dungeonStudy&&!visionStudy&&<button aria-pressed={!!settings.heavyDarkness} onClick={()=>change('heavyDarkness',!settings.heavyDarkness)}>Heavy darkness</button>}
+      {!visionStudy&&(torchStudy||stormStudy||varietyStudy)&&<>
         <button onClick={()=>transition(fitted(45,dungeonStudy?0:180,true))}>Front view</button>
         <button onClick={()=>{const t=tokens.find(t=>t.id==='druk')!,scale=dungeonStudy?6:2.6;transition({tilt:45,rotation:180,view:{scale,x:size.width/2-t.x*scale,y:size.height*.62-t.y*scale*groundYScale(45)}});}}>Lantern close-up</button>
         <button onClick={moveParty} disabled={ready<7}>Move party</button>
@@ -201,6 +240,7 @@ function Preview(){
         <button onClick={()=>change('lights',sceneLights)}>{dungeonStudy?'Three lanterns':'Three torches'}</button>
         {!dungeonStudy&&<button onClick={()=>change('lights',manyLights)}>Twelve torches</button>}
       </>}
+      {visionStudy&&<button aria-pressed={touchRotate} onClick={()=>setTouchRotate(v=>!v)}>{touchRotate?'Drag: rotate':'Drag: pan'}</button>}
       {!dungeonStudy&&<button onClick={moveDruk} disabled={ready<7}>Move Druk</button>}
       {atmosphereStudy&&!torchStudy&&!stormStudy&&!varietyStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
         setSettings(s=>({...s,enabled:true,scenery:false,lighting:preset==='Rain'?'dusk':preset==='Snow'?'day':preset.toLowerCase() as 'day'|'dusk'|'night'|'dungeon',
@@ -211,8 +251,9 @@ function Preview(){
       <div className={'stage'+(calibrating?' calibrating':'')} ref={stage} data-testid="environment-stage" onContextMenu={e=>e.preventDefault()}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={()=>{pointer.current=null;setGuide(null);setCamera({...current.current});}}
         onWheel={e=>{e.preventDefault();zoom(e.deltaY<0?1.07:1/1.07);}}>
-        <MiniatureLayer ref={layer} tokens={tokens} view={current.current.view} tiltDegrees={current.current.tilt} rotationDegrees={current.current.rotation} width={size.width} height={size.height} onReady={onReady} environmentPreview={settingsProps}/>
-        {ready<7&&<div className="loading">Loading original miniatures · {ready}/7<span>The full party models are included.</span></div>}
+        <MiniatureLayer ref={layer} tokens={renderedTokens} isVisibleAt={visibleAt} onVisionLights={onVisionLights} view={current.current.view} tiltDegrees={current.current.tilt} rotationDegrees={current.current.rotation} width={size.width} height={size.height} onReady={onReady} environmentPreview={settingsProps}/>
+        {vision&&<PlayerVisionOverlay ref={visionLayer} vision={vision} view={current.current.view} tilt={current.current.tilt} rotation={current.current.rotation} width={size.width} height={size.height}/>}
+        {ready<7&&<div className="loading">Loading original miniatures · {ready}/7<span>First load downloads the full models. Keep this page open while they load.</span></div>}
         {guide&&<svg className="shadow-guide" aria-hidden="true"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#ffe3a0"/></marker></defs><line x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} stroke="#ffe3a0" strokeWidth="3" markerEnd="url(#arrow)"/></svg>}
         <div className="stage-note">{calibrating?'Drag from an object toward the tip of its painted shadow.':notice}</div>
       </div>
@@ -269,7 +310,7 @@ function Preview(){
         <label className="range">Shadow length <output>{settings.shadowLength.toFixed(2)}×</output><input aria-label="Shadow length" type="range" min=".25" max="2" step=".05" value={settings.shadowLength} onChange={e=>change('shadowLength',+e.target.value)}/></label>
         {!atmosphereStudy&&<label className="switch"><input type="checkbox" checked={settings.scenery} onChange={e=>change('scenery',e.target.checked)}/>Raised scenery</label>}
         <p className="help">Light and weather stay in map coordinates while you rotate.</p>
-        <p className="help">The original map image is preserved. These effects do not change combat or vision rules.</p>
+        <p className="help">The original map image is preserved. This isolated preview does not change your campaign. Player views use the current personal darkness rules.</p>
         <div className="legend"><span className="ally">●</span> Druk · Varis · Vanec<br/><span className="enemy">●</span> Fanatic · goblins · wolf</div>
         <p className="diagnostics">{ready}/7 miniatures loaded</p>
       </aside>

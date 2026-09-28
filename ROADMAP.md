@@ -2092,3 +2092,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Saved rain/snow, shared wind, Day/Dusk/Night/Dungeon light presets, and DM-placed local lights with position/height/color/radius/intensity and flickering brightness/reach. Actual miniature illumination, corrected unspecified atlas metalness, fog-private sources, bounded weather particles and local quality controls. See [weather/lighting notes](docs/WEATHER_LIGHTING_2026_09_27.md).
 - [ ] Deferred at user request: editable raised scenery with server-shaped visibility and fog clipping; painted-wall depth/collision remains a separate step.
 - [ ] Crowded-board and physical-phone performance measurements before recommending High atmosphere quality broadly.
+
+- [x] Interactive dungeon darkness preview: personal Druk/Varis/Vanec and DM views, regular/heavy comparisons, lantern toggles, animated party movement, camera controls and touch rotation. Uses production vision/lighting and original models; isolated from campaign data. Package with `node scripts/environment-preview/build.mjs --vision`.
