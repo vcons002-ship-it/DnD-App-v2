@@ -39,10 +39,30 @@ describe('saved map environment',()=>{
     client(a.id,map.id,'dm')({mapId:map.id,settings:{enabled:true,mistHeightFt:3}});
     expect(getMap(map.id)!.environment!.mistHeightFt).toBe(3);
   });
+  it('bounds weather and local lights while preserving invalid partial fields',()=>{
+    const light={id:'torch',x:75,y:25,radiusFt:500,heightFt:-1,color:'warm',intensity:8,flicker:true};
+    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,lights:[light,light,{id:'broken',x:NaN,y:0}]});
+    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0});
+    expect(result.lights).toEqual([{...light,radiusFt:60,heightFt:.5,intensity:2}]);
+    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad'},result)).toEqual(result);
+    expect(sanitizeMapEnvironment({lights:Array.from({length:20},(_,i)=>({...light,id:String(i)}))}).lights).toHaveLength(8);
+  });
+  it('only shares revealed light sources with players, including the map list',()=>{
+    const session=createSession('Hidden torches'),map=createMap(session.id,{name:'Dungeon'});
+    setActiveMap(session.id,map.id);
+    const lights=[{id:'visible',x:25,y:25,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true},{id:'hidden',x:75,y:25,radiusFt:15,heightFt:6,color:'cool',intensity:1,flicker:false}];
+    updateMapEnvironment(session.id,map.id,{enabled:true,lighting:'dungeon',weather:'rain',lights});
+    db.prepare('UPDATE maps SET map_fog_enabled = 1, map_fog_revealed = ?, grid_size_px = 50 WHERE id = ?').run(JSON.stringify(['0,0']),map.id);
+    const player=buildSnapshot(session.id,'player',map.id,'viewer')!;
+    expect(player.map!.environment!.lights.map(l=>l.id)).toEqual(['visible']);
+    expect(player.maps[0].environment!.lights.map(l=>l.id)).toEqual(['visible']);
+    expect(buildSnapshot(session.id,'dm',map.id)!.map!.environment!.lights).toHaveLength(2);
+    expect(getMap(map.id)!.environment!.lights).toHaveLength(2);
+  });
   it('shares active-map settings, keeps staged maps separate, and round-trips saves',()=>{
     const session=createSession('Environment saves'),active=createMap(session.id,{name:'Active'}),staged=createMap(session.id,{name:'Prep'});
     setActiveMap(session.id,active.id);
-    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120});
+    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',weather:'snow',windStrength:.6,lights:[{id:'lamp',x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
     updateMapEnvironment(session.id,staged.id,{mist:false,shadowDirectionDegrees:270});
     expect(buildSnapshot(session.id,'player',staged.id,'viewer')!.map!.environment).toEqual(getMap(active.id)!.environment);
     expect(buildSnapshot(session.id,'dm',staged.id)!.map!.environment).toEqual(getMap(staged.id)!.environment);

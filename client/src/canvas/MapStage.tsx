@@ -35,6 +35,8 @@ import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
+import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
+import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import { ScaleMenu } from '../components/ScaleMenu';
 import { TilesMenu } from '../components/TilesMenu';
@@ -431,6 +433,13 @@ export function MapStage({
     if (hover && !ids.has(hover.token.id)) setHover(null);
   }, [snapshot.tokens, menu, hover]);
   const map = snapshot.map;
+  const {placement:lightPlacement,place:placeLight}=useEnvironmentEditor();
+  const placingLight=snapshot.role==='dm'&&lightPlacement?.mapId===map?.id&&!!lightPlacement;
+  useEffect(()=>{
+    if(lightPlacement&&(lightPlacement.mapId!==map?.id||snapshot.role!=='dm'))placeLight(null);
+    const cancel=(event:KeyboardEvent)=>{if(lightPlacement&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();placeLight(null);}};
+    window.addEventListener('keydown',cancel,true);return()=>window.removeEventListener('keydown',cancel,true);
+  },[map?.id,snapshot.role,lightPlacement,placeLight]);
 
   // DM: paste an image from the clipboard → upload → choose Object or Decal.
   // Falls back to <img>/image-URL pastes (e.g. copying art out of a web page
@@ -1233,6 +1242,16 @@ export function MapStage({
       setPinching(true);
       return;
     }
+    if(placingLight&&map&&lightPlacement&&(!('button' in e.evt)||e.evt.button===0)){
+      const pos=pointerToImage(stage);
+      if(pos){
+        const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
+        const lights=lightPlacement.lightId?settings.lights.map(light=>light.id===lightPlacement.lightId?{...light,x:pos.x,y:pos.y}:light):
+          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:'warm' as const,intensity:1,flicker:true}].slice(0,8);
+        useStore.getState().setMapEnvironment(map.id,{lights});placeLight(null);
+      }
+      return;
+    }
     if (scaleMode || matchMode) {
       // scaleMode → drag a reference line for a known distance; matchMode → drag
       // a BOX across one printed grid square (a live square preview shows the
@@ -1528,7 +1547,7 @@ export function MapStage({
   };
 
   // Pan by dragging empty canvas (disabled while placing or painting fog).
-  const panning = !onPlaceAt && !fogActive && !measureActive && !pinching;
+  const panning = !placingLight && !onPlaceAt && !fogActive && !measureActive && !pinching;
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
@@ -1665,6 +1684,7 @@ export function MapStage({
       {selectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
         style={{ left: Math.min(selectionBox.box.start.x, selectionBox.box.end.x), top: Math.min(selectionBox.box.start.y, selectionBox.box.end.y),
           width: Math.abs(selectionBox.box.end.x - selectionBox.box.start.x), height: Math.abs(selectionBox.box.end.y - selectionBox.box.start.y) }} />}
+      {placingLight&&<div className="environment-placement-hint" role="status">Click map to {lightPlacement?.lightId?'move':'place'} light · <button onClick={()=>placeLight(null)}>Cancel</button></div>}
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>
@@ -2091,6 +2111,7 @@ export function MapStage({
                   />
                 ))}
               <FootprintLayer
+                isVisibleAt={tokenVisibleAtPosition}
                 tokens={snapshot.tokens}
                 gridSizePx={grid}
                 pxPerFoot={pxPerFoot}

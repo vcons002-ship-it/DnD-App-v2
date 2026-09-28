@@ -5,6 +5,7 @@ import type { Token } from '../../../shared/types';
 /** A single move: a fading line of footprints from a token's old spot to its new one. */
 type Trail = {
   id: string;
+  tokenId: string;
   from: { x: number; y: number };
   to: { x: number; y: number };
   start: number;
@@ -54,10 +55,12 @@ export function FootprintLayer({
   tokens,
   gridSizePx,
   pxPerFoot,
+  isVisibleAt,
 }: {
   tokens: Token[];
   gridSizePx: number;
   pxPerFoot: number;
+  isVisibleAt?: (id:string,x:number,y:number)=>boolean;
 }) {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -75,6 +78,7 @@ export function FootprintLayer({
       if (prev && moved > gridSizePx * MOVE_EPS) {
         fresh.push({
           id: `${t.id}-${t0}`,
+          tokenId: t.id,
           from: prev,
           to: { x: t.x, y: t.y },
           start: t0,
@@ -143,11 +147,13 @@ export function FootprintLayer({
           if (op <= 0) continue;
           const f = n === 1 ? 0 : i / (n - 1);
           const side = i % 2 === 0 ? 1 : -1;
+          const x=tr.from.x+dx*f+perpX*spread*side,y=tr.from.y+dy*f+perpY*spread*side;
+          if(isVisibleAt&&!isVisibleAt(tr.tokenId,x,y))continue;
           marks.push(
             <Ellipse
               key={`${tr.id}-${i}`}
-              x={tr.from.x + dx * f + perpX * spread * side}
-              y={tr.from.y + dy * f + perpY * spread * side}
+              x={x}
+              y={y}
               radiusX={rx}
               radiusY={ry}
               rotation={angle}

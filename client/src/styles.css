@@ -1780,6 +1780,9 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 /* Saved map atmosphere stays inside the existing Maps panel. */
 .map-environment-controls { margin: 10px 0; padding: 9px; border: 1px solid #555043; border-radius: 6px; }
 .map-environment-controls summary { cursor: pointer; font-weight: 600; }
+.environment-light-list details { margin: 7px 0; padding: 5px; background: #ffffff06; }
+.map-environment-controls select { max-width: 100%; margin: 4px; }
+.environment-placement-hint { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); z-index: 30; background: #181b20ed; border: 1px solid #b8a66c; border-radius: 6px; padding: 8px 14px; color: #f3e6c9; white-space: nowrap; }
 .map-environment-controls summary span { float: right; }
 .map-environment-controls fieldset { border: 1px solid #42434b; margin: 8px 0; padding: 8px; min-width: 0; }
 .map-environment-controls p { margin: 6px 0; font-size: 12px; }

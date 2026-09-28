@@ -9,6 +9,12 @@ import './preview.css';
 
 const mapWidth=1216,mapHeight=832;
 const pixelsPerFoot=64/5;
+const atmosphereStudy=new URLSearchParams(location.search).has('atmosphere');
+const testLights:NonNullable<EnvironmentPreviewSettings['lights']>=[
+  {id:'brazier-west',x:480,y:520,radiusFt:17,heightFt:5,color:'warm',intensity:1,flicker:true},
+  {id:'lantern-east',x:750,y:485,radiusFt:16,heightFt:6,color:'warm',intensity:1,flicker:true},
+  {id:'arcane-north',x:610,y:285,radiusFt:12,heightFt:4,color:'cool',intensity:.9,flicker:false},
+];
 const asset=(url:string)=>new URL('.'+url,location.href).href;
 const miniature=(id:string)=>{
   const source=MINIATURES[id];
@@ -26,7 +32,8 @@ const originalTokens:MiniatureToken[]=[
 type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const initialSettings:EnvironmentPreviewSettings={
   enabled:true,mapUrl:new URL('./courtyard.png',location.href).href,mapWidth,mapHeight,
-  shadows:true,mist:true,scenery:true,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:.5,
+  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:atmosphereStudy?.22:.5,
+  pixelsPerFoot,lighting:'day',lightLevel:1,weather:'none',weatherIntensity:.75,windDirectionDegrees:20,windStrength:.4,lights:[],
   mistCoverage:'map',mistHeight:2*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
@@ -130,7 +137,7 @@ function Preview(){
   };
   const settingsProps=useMemo(()=>settings,[settings]);
   return <div className="environment-app">
-    <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>The ruined courtyard</h1><p className="subtitle">Matched shadows, drifting mist & raised stone</p></div><span className="study-badge">Interactive test</span></header>
+    <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>The ruined courtyard</h1><p className="subtitle">{atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
     <nav className="camera-bar" aria-label="Camera controls">
       <button aria-label="45° view" onClick={()=>transition(fitted(45,current.current.rotation,true))}>45° view</button>
       <button aria-label="Overhead view" onClick={()=>transition(fitted(0,current.current.rotation,true))}>Overhead</button>
@@ -139,6 +146,10 @@ function Preview(){
       <button aria-label="Reset view" onClick={()=>transition(fitted())}>Full map</button>
       <button aria-label="Zoom in" onClick={()=>zoom(1.2)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.2)}>−</button>
       <button onClick={moveDruk} disabled={ready<7}>Move Druk</button>
+      {atmosphereStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
+        setSettings(s=>({...s,enabled:true,scenery:false,lighting:preset==='Rain'?'dusk':preset==='Snow'?'day':preset.toLowerCase() as 'day'|'dusk'|'night'|'dungeon',
+          weather:preset==='Rain'?'rain':preset==='Snow'?'snow':'none',lights:preset==='Night'||preset==='Dungeon'?testLights:[],mistOpacity:.22}));
+      }}>{preset}</button>)}
     </nav>
     <div className="workspace">
       <div className={'stage'+(calibrating?' calibrating':'')} ref={stage} data-testid="environment-stage" onContextMenu={e=>e.preventDefault()}
@@ -153,9 +164,18 @@ function Preview(){
         <h2>Environment</h2>
         <label className="switch master"><input type="checkbox" checked={settings.enabled} onChange={e=>change('enabled',e.target.checked)}/>Show effects</label>
         <p className="help">Switch off to compare with the original lighting.</p>
+        {atmosphereStudy&&<>
+          <label className="quality">Lighting <select aria-label="Lighting preset" value={settings.lighting} onChange={e=>change('lighting',e.target.value as EnvironmentPreviewSettings['lighting'])}>{['day','dusk','night','dungeon'].map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="quality">Weather <select aria-label="Weather" value={settings.weather} onChange={e=>change('weather',e.target.value as EnvironmentPreviewSettings['weather'])}>{['none','rain','snow'].map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="range">Weather strength <input aria-label="Weather strength" type="range" min="0" max="1" step=".05" value={settings.weatherIntensity} onChange={e=>change('weatherIntensity',+e.target.value)}/></label>
+          <label className="range">Wind direction <input aria-label="Wind direction" type="range" min="0" max="359" value={settings.windDirectionDegrees} onChange={e=>change('windDirectionDegrees',+e.target.value)}/></label>
+          <label className="range">Wind strength <input aria-label="Wind strength" type="range" min="0" max="1" step=".05" value={settings.windStrength} onChange={e=>change('windStrength',+e.target.value)}/></label>
+          <label className="switch"><input type="checkbox" checked={!!settings.lights?.length} onChange={e=>change('lights',e.target.checked?testLights:[])}/>Three local lights</label>
+          <p className="help">Warm pools illuminate the original map and the figures. Lighting is visual; fog still controls visibility.</p>
+        </>}
         <label className="switch"><input type="checkbox" checked={settings.mist} onChange={e=>change('mist',e.target.checked)}/>Drifting mist</label>
         <label className="quality">Atmosphere quality <select aria-label="Atmosphere quality" value={settings.mistQuality} onChange={e=>change('mistQuality',e.target.value as EnvironmentPreviewSettings['mistQuality'])}><option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option><option value="off">Off</option></select></label>
-        <label className="switch"><input type="checkbox" checked={settings.mistInteraction!==false} onChange={e=>change('mistInteraction',e.target.checked)}/>React to movement & scenery</label>
+        <label className="switch"><input type="checkbox" checked={settings.mistInteraction!==false} onChange={e=>change('mistInteraction',e.target.checked)}/>React to movement</label>
         <p className="help">Move Druk to leave a fading wake. Auto lowers mist detail on small screens or large drawing buffers; figures stay sharp.</p>
         <label className="switch"><input type="checkbox" checked={settings.mistCoverage==='map'} onChange={e=>change('mistCoverage',e.target.checked?'map':'patches')}/>Whole-map mist</label>
         <label className="switch"><input type="checkbox" checked={settings.mistShadows!==false} onChange={e=>change('mistShadows',e.target.checked)}/>Mist shadows</label>
@@ -166,9 +186,9 @@ function Preview(){
         <label className="range">Shadow direction <output>{Math.round(settings.shadowDirectionDegrees)}°</output><input aria-label="Shadow direction" type="range" min="0" max="359" value={settings.shadowDirectionDegrees} onChange={e=>change('shadowDirectionDegrees',+e.target.value)}/></label>
         <button className={calibrating?'active':''} onClick={()=>{stop();setCamera({...current.current});setCalibrating(v=>!v);}}>Match a painted shadow</button>
         <label className="range">Shadow length <output>{settings.shadowLength.toFixed(2)}×</output><input aria-label="Shadow length" type="range" min=".25" max="2" step=".05" value={settings.shadowLength} onChange={e=>change('shadowLength',+e.target.value)}/></label>
-        <label className="switch"><input type="checkbox" checked={settings.scenery} onChange={e=>change('scenery',e.target.checked)}/>Raised scenery</label>
-        <p className="help">Two stone pillars and a small rock cluster share depth with the figures.</p>
-        <p className="help">The original map image is preserved. Scenery is decorative in this first test.</p>
+        {!atmosphereStudy&&<label className="switch"><input type="checkbox" checked={settings.scenery} onChange={e=>change('scenery',e.target.checked)}/>Raised scenery</label>}
+        <p className="help">Light and weather stay in map coordinates while you rotate.</p>
+        <p className="help">The original map image is preserved. These effects do not change combat or vision rules.</p>
         <div className="legend"><span className="ally">●</span> Druk · Varis · Vanec<br/><span className="enemy">●</span> Fanatic · goblins · wolf</div>
         <p className="diagnostics">{ready}/7 miniatures loaded</p>
       </aside>

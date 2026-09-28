@@ -14,6 +14,8 @@ const densityField = /* glsl */`
   uniform sampler2D mistFlow;
   uniform float mistTime, mistHeight, mistStrength, mistWholeMap, mistShadowStrength;
   uniform float mistWorldScale;
+  uniform vec2 mistWind;
+  uniform vec3 mistTint;
   uniform vec2 mistMapSize;
   uniform vec2 mistOrigin;
   uniform vec3 mistToLight;
@@ -50,7 +52,7 @@ const densityField = /* glsl */`
     vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5;
     // World-space domain warping and differently oriented octaves prevent long
     // parallel strips showing through when looking along the wind direction.
-    vec2 drift = bent / mistWorldScale - vec2(9.4,3.42) * mistTime;
+    vec2 drift = bent / mistWorldScale - mistWind * mistTime;
     vec3 warpPoint = vec3(drift / 115.0, y * .8 + mistTime * .025);
     vec2 warp = vec2(mistNoiseAt(warpPoint),mistNoiseAt(warpPoint + vec3(19.1,7.7,11.3))) - .5;
     vec2 p = drift + warp * 95.0;
@@ -125,7 +127,7 @@ const fragmentShader = /* glsl */`
         float sunward = mistDensity(p + mistToLight * sunStep);
         float sunlight = exp(-sunward * mistHeight / mistWorldScale * mistStrength * .055);
         float illumination = clamp(.22 + .78 * sunlight + (density - sunward) * .18, .3, 1.0);
-        vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination);
+        vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination) * mistTint;
         float alpha = 1.0 - exp(-density * mistStrength * stepLength / mistWorldScale * .12);
         light += transmittance * alpha * color;
         transmittance *= 1.0 - alpha;
@@ -194,7 +196,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
   noise.wrapS = noise.wrapT = noise.wrapR = RepeatWrapping;
   noise.needsUpdate = true;
   const common = {
-    ...visibility, mistOrigin:{value:new Vector2()}, mistWorldScale:{value:1},
+    ...visibility, mistOrigin:{value:new Vector2()}, mistWorldScale:{value:1},mistWind:{value:new Vector2(9.4,3.42)},mistTint:{value:new Vector3(1,1,1)},
     mistNoise:{value:noise}, mistFlow:{value:flow.texture}, mistTime:{value:0}, mistHeight:{value:25.6}, mistStrength:{value:0},
     mistWholeMap:{value:1}, mistMapSize:{value:new Vector2(1216,832)},
     mistToLight:{value:new Vector3(-.5,1,-.7).normalize()}, mistShadowStrength:{value:0},
@@ -237,6 +239,10 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
       volume.scale.set(settings.mapWidth,height,settings.mapHeight);
       common.mistHeight.value=height;
       common.mistWorldScale.value=Math.max(.001,(settings.pixelsPerFoot??12.8)/12.8);
+      const wind=(settings.windDirectionDegrees??20)*Math.PI/180,windSpeed=(settings.windStrength??.4)*25;
+      common.mistWind.value.set(Math.cos(wind)*windSpeed,Math.sin(wind)*windSpeed);
+      const tint=settings.lighting==='night'?[.25,.35,.55]:settings.lighting==='dungeon'?[.25,.23,.3]:settings.lighting==='dusk'?[.8,.61,.6]:[1,1,1];
+      common.mistTint.value.fromArray(tint).multiplyScalar(settings.lightLevel??1);
       common.mistStrength.value=visible?Math.max(0,Math.min(.7,settings.mistOpacity??.28)):0;
       common.mistMapSize.value.set(settings.mapWidth,settings.mapHeight);
       common.mistOrigin.value.set(ox,oy);

@@ -287,7 +287,7 @@ export function createSnapshotBuilder(
     // Fall back to the active map if the requested one is gone (e.g. the DM
     // was viewing a map that just got deleted).
     const wantId = role === 'dm' ? dmViewMapId ?? activeMapId : activeMapId;
-    const map: MapState | null =
+    let map: MapState | null =
       (wantId ? mapById.get(wantId) : null) ??
       (role === 'dm' && activeMapId ? mapById.get(activeMapId) : null) ??
       null;
@@ -305,6 +305,10 @@ export function createSnapshotBuilder(
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
+      // A concealed torch must not leak its position or light nearby visible figures.
+      // Clone the viewer's map; never mutate the shared map used by DM snapshots.
+      if(map?.environment && mapFog)map={...map,environment:{...map.environment,
+        lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
       tokens = tokens.filter(t => tokenVisibleAt({ role, hidden: t.isHidden,
         owned: t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId,
         foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',

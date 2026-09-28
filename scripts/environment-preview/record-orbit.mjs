@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 // A separate static lab: no app server, save file or campaign connection.
 const out=path.resolve(process.argv[2]);await mkdir(out,{recursive:true});
+const weatherStudy=process.argv.includes('--weather');
 const root=path.resolve('client/environment-dist');
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.json':'application/json','.glb':'model/gltf-binary'};
 const server=createServer(async(req,res)=>{
@@ -28,20 +29,41 @@ page.on('pageerror',e=>errors.push(e.message));
 page.on('console',m=>{if(m.type()==='error'&&/shader|WebGLProgram/i.test(m.text()))errors.push(m.text());});
 let box;
 try{
-  await page.goto('http://127.0.0.1:4198/environment-test.html');
+  await page.goto('http://127.0.0.1:4198/environment-test.html'+(weatherStudy?'?atmosphere=1':''));
   await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]')?.dataset.miniatureCount==='7');
   await page.getByRole('button',{name:'Close-up',exact:true}).click();await page.waitForTimeout(800);
-  await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);
+  if(!weatherStudy){await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);}
   box=await page.getByTestId('environment-stage').boundingBox();
   await page.evaluate(()=>{
-    const marker=document.createElement('div');marker.style.cssText='position:fixed;left:0;top:0;width:8px;height:8px;background:#ff00ff;z-index:9999';document.body.append(marker);
+    const marker=document.createElement('div');marker.id='record-start-marker';marker.style.cssText='position:fixed;left:0;top:0;width:8px;height:8px;background:#ff00ff;z-index:9999';document.body.append(marker);
     const caption=document.createElement('div');caption.id='record-caption';caption.style.cssText='position:absolute;left:0;right:0;top:0;padding:16px;text-align:center;background:#101815ed;color:#ece7d3;font:22px Georgia;z-index:9;pointer-events:none';
     document.querySelector('[data-testid="environment-stage"]').append(caption);
   });
   const caption=async text=>{
     phases.push({text,at:Date.now()});await page.locator('#record-caption').evaluate((e,t)=>e.textContent=t,text);
+    if(weatherStudy&&text.startsWith('Torches off'))await page.locator('#record-start-marker').evaluate(e=>e.style.background='#00ffff');
     await page.mouse.move(1410,945);
   };
+  if(weatherStudy){
+    for(const [preset,title] of [['Day','Day · original courtyard with shadows and light mist'],['Dusk','Dusk · warm fading daylight'],['Rain','Rain · wind-driven streaks and ground splashes'],['Snow','Snow · drifting flakes anchored to the map'],['Night','Night · warm light on the map and figures'],['Dungeon','Dungeon · local pools of light in the dark']]){
+      await page.getByRole('button',{name:preset,exact:true}).click();await caption(title);await page.waitForTimeout(4300);
+      phases.push({text:preset,data:await page.getByTestId('miniature-layer').evaluate(e=>({...e.dataset}))});
+      await page.screenshot({path:path.join(out,`${preset.toLowerCase()}.png`)});
+    }
+    await caption('Torches off · compare the figures');
+    await page.getByLabel('Three local lights',{exact:true}).uncheck();await page.waitForTimeout(2000);
+    await page.screenshot({path:path.join(out,'torches-off.png')});
+    await caption('Torches on · warm light catches faces, armor and robes');
+    await page.getByLabel('Three local lights',{exact:true}).check();await page.waitForTimeout(3000);
+    await page.screenshot({path:path.join(out,'torches-on.png')});
+    await caption('Brightness and reach flicker together as Druk moves');
+    await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.waitForTimeout(5000);
+    await caption('Dungeon lighting stays on the map as the camera rotates');
+    await page.getByRole('button',{name:'Rotate view',exact:true}).click();await page.waitForTimeout(5000);
+    await page.getByRole('button',{name:'Rotate view',exact:true}).click();
+    await page.getByRole('button',{name:'Overhead view',exact:true}).click();await caption('Overhead · same lights and original map image');await page.waitForTimeout(2300);
+    await page.screenshot({path:path.join(out,'overhead.png')});
+  }else{
   await caption('Lower-body contact: a narrow leading edge');
   await page.waitForTimeout(600);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);
@@ -64,6 +86,7 @@ try{
   await page.getByRole('button',{name:'Overhead view',exact:true}).click();await page.waitForTimeout(800);
   await page.getByRole('button',{name:'Move Druk',exact:true}).click();await page.mouse.move(1410,945);
   await page.waitForTimeout(2500);await page.screenshot({path:path.join(out,'overhead-wake.png')});await page.waitForTimeout(6000);
+  }
   assert.deepEqual(errors,[]);
 }finally{await context.close();await browser.close();await new Promise(resolve=>server.close(resolve));}
 const source=await page.video().path();
@@ -72,9 +95,15 @@ const source=await page.video().path();
 const pixels=execFileSync(ffmpeg,['-v','error','-i',source,'-vf','fps=25,crop=2:2:2:2,format=rgb24','-f','rawvideo','pipe:1']);
 let frame=0;for(;frame<pixels.length/12;frame++)if(pixels[frame*12]>210&&pixels[frame*12+1]<40&&pixels[frame*12+2]>210)break;
 assert(frame<pixels.length/12,'Recording start marker missing');
-const start=frame/25,video=path.join(out,'mist-orbit.mp4');
+const start=frame/25,video=path.join(out,weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
 const crop=`crop=${Math.floor(box.width/2)*2}:${Math.floor(box.height/2)*2}:${Math.floor(box.x/2)*2}:${Math.floor(box.y/2)*2}`;
 execFileSync(ffmpeg,['-y','-v','error','-ss',String(start),'-i',source,'-vf',crop,'-c:v','libx264','-preset','fast','-crf','19','-pix_fmt','yuv420p','-an','-movflags','+faststart',video],{windowsHide:true});
 execFileSync(ffmpeg,['-y','-v','error','-ss','3','-i',video,'-frames:v','1',path.join(out,'poster.png')],{windowsHide:true});
+if(weatherStudy){
+  let torchFrame=frame;for(;torchFrame<pixels.length/12;torchFrame++)if(pixels[torchFrame*12]<40&&pixels[torchFrame*12+1]>210&&pixels[torchFrame*12+2]>210)break;
+  assert(torchFrame<pixels.length/12,'Torch comparison marker missing');
+  const torchStart=torchFrame/25-start;
+  execFileSync(ffmpeg,['-y','-v','error','-ss',String(torchStart),'-i',video,'-t','17','-c:v','libx264','-preset','fast','-crf','19','-pix_fmt','yuv420p','-an','-movflags','+faststart',path.join(out,'torch-lighting.mp4')],{windowsHide:true});
+}
 await writeFile(path.join(out,'recording.json'),JSON.stringify({status:'passed',video,bytes:(await stat(video)).size,source,start,box,phases,errors},null,2));
 console.log(video);

@@ -237,7 +237,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const publish = () => {
     const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
     const key = ids.join('|');
-    const status = failed ? 'unavailable' : ids.length ? 'ready' : 'loading';
+    const status = failed ? 'unavailable' : ids.length || (!props.tokens.length && battlefield?.ready) ? 'ready' : 'loading';
     if (key !== lastIds || status !== lastStatus || !hasRendered) {
       lastIds = key;
       lastStatus = status;
@@ -261,7 +261,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     const now = performance.now();
     frame = 0;
     if (disposed || failed || document.hidden) return;
-    const atmosphereAnimated = !!props.environmentPreview?.enabled && props.environmentPreview.mist && props.environmentPreview.mistQuality!=='off' && !reducedMotion.matches;
+    const environment=props.environmentPreview;
+    const atmosphereAnimated = !!environment?.enabled && environment.mistQuality!=='off' && !reducedMotion.matches &&
+      (environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
@@ -323,6 +325,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           const environment=props.environmentPreview!;
           host.dataset.environmentBounds=JSON.stringify([environment.mapX??0,environment.mapY??0,environment.mapWidth,environment.mapHeight]);
           const mistState=battlefield.mistState;
+          for(const [name,value] of Object.entries(battlefield.atmosphereState))host.dataset[name]=String(value);
           host.dataset.mistVisible=String(mistState.visible);
           host.dataset.mistCoverage=mistState.coverage;
           host.dataset.mistHeight=String(mistState.height);
@@ -451,12 +454,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
     if(next.environmentPreview){
-      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,{texture:outlineMask.depthTexture!,resolution:outlineResolution.value},invalidate);
+      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,{texture:outlineMask.depthTexture!,resolution:outlineResolution.value},invalidate,ambient);
       else if(lastEnvironment!==next.environmentPreview)battlefield.update(next.environmentPreview);
       lastEnvironment=next.environmentPreview;
-      ambient.intensity=next.environmentPreview.enabled ? 1.35 : 2;
     } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;
       host.dataset.environment='off';host.dataset.mistVisible='false';host.dataset.shadows='false';host.dataset.mistWakes='0';
+      host.dataset.weather='none';host.dataset.weatherCount='0';host.dataset.lighting='off';host.dataset.lightCount='0';
     }
     updateCamera();
     for (const [id, url] of loading) {
@@ -535,6 +538,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           const copy = (material: Material) => {
             if (!cloned.has(material)) {
               const copy = material.clone();
+              // Generated color-only atlases omit metallicFactor; glTF defaults
+              // that omission to 1 (solid metal), even for skin and cloth. Give
+              // those atlases a diffuse response to local light. Preserve every
+              // explicitly authored metal factor and metallic/roughness map.
+              const sourceIndex=gltf.parser.associations.get(material)?.materials;
+              const pbr=sourceIndex===undefined?undefined:gltf.parser.json.materials?.[sourceIndex]?.pbrMetallicRoughness;
+              if(copy instanceof MeshStandardMaterial && pbr && pbr.metallicFactor===undefined && !pbr.metallicRoughnessTexture)copy.metalness=0;
               // Mark the complete visible figure, not individual mesh boundaries.
               // All bodies mask outlines so overlapping tokens also stay clean.
               copy.stencilWrite = true;
@@ -723,7 +733,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   const latest = useRef(props);
   latest.current = props;
   const [state, setState] = useState({ ids: [] as string[], status: 'loading' });
-  const hasMiniatures = props.tokens.length > 0;
+  const needsScene = props.tokens.length > 0 || !!props.environmentPreview;
   const socket = useStore(state => state.socket);
   useEffect(() => {
     const cast = ({ tokenIds }: { tokenIds: string[] }) => engine.current?.spellCast(tokenIds);
@@ -738,7 +748,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     previewMove: (id,point) => engine.current?.previewMove(id,point),
   }), []);
   useEffect(() => {
-    if (!hasMiniatures) {
+    if (!needsScene) {
       setState({ ids: [], status: 'idle' });
       latest.current.onReady(new Set());
       return;
@@ -751,7 +761,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
       latest.current.onReady(new Set());
     }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [hasMiniatures]);
+  }, [needsScene]);
   useEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}
