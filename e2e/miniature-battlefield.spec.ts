@@ -2020,6 +2020,7 @@ test('chests and traps use 3D objects while retaining hidden state and interacti
 test('personal darkvision dungeon demo with and without lanterns',async({page,request,browser},info)=>{
  test.setTimeout(180000);await page.setViewportSize({width:1440,height:960});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL/i.test(m.text()))errors.push(m.text());});
  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:10,widthFt:280,locked:false});
  const pcs=f.ready.tokens;

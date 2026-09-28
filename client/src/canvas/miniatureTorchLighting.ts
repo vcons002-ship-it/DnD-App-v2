@@ -23,11 +23,14 @@ export function createMiniatureTorchLighting(){
           directLight.direction=torchDelta/max(.001,torchDistance);
           directLight.color=torchColors[torchIndex]*lightIrradiance(torchDistance,torchPositions[torchIndex].w,1.);
           directLight.visible=true;
+          // A little local reflected light keeps surfaces facing away from a hip
+          // lantern readable. This vanishes with the source; it is not ambient lift.
+          reflectedLight.indirectDiffuse+=material.diffuseColor*directLight.color*.16;
           RE_Direct(directLight,geometryPosition,geometryNormal,geometryViewDir,geometryClearcoatNormal,material,reflectedLight);
         }
         #endif`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v2';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v3';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera){
     const chosen:{light:TorchLight;score:number}[]=[];
     for(const light of lights){

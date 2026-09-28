@@ -12,6 +12,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Personal darkvision - September 2026
 
+- [x] Preserve actual map darkness inside Darkvision; remove the ambient boost
+  so torch and lantern glow contrasts against very dark grayscale surroundings.
+
 
 - [x] Night/dungeon maps enforce a personal 60-foot horizon: regular darkness
   keeps color, heavy darkness uses grayscale, and lantern pools restore color.

@@ -704,7 +704,7 @@ export function MapStage({
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
-    return {...settings,...(snapshot.playerVision?{personalDarkvision:true}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+    return {...settings,carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
   },[map?.environment,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);

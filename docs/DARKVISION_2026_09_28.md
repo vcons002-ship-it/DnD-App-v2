@@ -49,3 +49,12 @@ Ground illumination, miniature surface lighting, and Darkvision color reveal
 share the same falloff definition in shared/lightFalloff.ts. This is an artistic
 light profile calibrated to readable map distances. The 60-foot personal horizon
 and manual fog still cap visibility, regardless of the spill.
+
+## Darkvision preserves ambient darkness
+
+Darkvision no longer raises map brightness or adds a brighter miniature fill rig.
+The actual map lighting preset, ambient light slider and heavy-darkness multiplier
+apply unchanged. The vision overlay only desaturates unlit areas and enforces
+range. Torches/lanterns retain their normal illumination and stand out against the
+same dark environment seen by the DM. This supersedes the earlier dim ambient
+floor described in the natural-light refinement.
