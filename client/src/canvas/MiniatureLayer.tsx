@@ -372,7 +372,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistTime=String(mistState.time);
           host.dataset.mistOldestWakeAge=String(mistState.oldestWakeAge);
           host.dataset.mistBodies=JSON.stringify([...instances].flatMap(([id,instance])=>instance.mistBody?[{id,source:instance.mistBody.source,
-            width:instance.mistBody.radiusX*2*instance.root.scale.x,depth:instance.mistBody.radiusZ*2*instance.root.scale.x}]:[]));
+            height:instance.mistBody.height*instance.root.scale.x,width:instance.mistBody.radiusX*2*instance.root.scale.x,depth:instance.mistBody.radiusZ*2*instance.root.scale.x}]:[]));
           host.dataset.mistObstacles=String(mistState.obstacles);
           host.dataset.mistInteraction=String(mistState.enabled);
           if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}

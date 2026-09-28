@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {BoxGeometry,CylinderGeometry,Group,Mesh,MeshBasicMaterial} from 'three';
 import {measureMistBody,mistBodyInMap} from '../../client/src/canvas/miniatureMistBody.js';
 
-describe('lower-body mist footprint',()=>{
+describe('whole-body mist envelope',()=>{
   it('measures the legs independently of a wide base and long weapon',()=>{
     const model=new Group(),material=new MeshBasicMaterial();
     for(const x of [-.25,.25]){
@@ -20,4 +20,18 @@ describe('lower-body mist footprint',()=>{
     expect(turned.radiusX).toBeCloseTo(4);expect(turned.radiusY).toBeCloseTo(2);
     model.traverse(node=>{if(node instanceof Mesh)node.geometry.dispose();});material.dispose();
   });
+  it('includes the torso and head while excluding the decorative base and weapon',()=>{
+    const model=new Group(),material=new MeshBasicMaterial();
+    for(const [name,w,h,d,y] of [['legs',.8,1,.4,.5],['torso',1.4,1,.8,1.5],['head',.6,.6,.6,2.3]] as const){
+      const mesh=new Mesh(new BoxGeometry(w,h,d,2,4,2),material);mesh.name=name;mesh.position.y=y;model.add(mesh);
+    }
+    const sword=new Mesh(new BoxGeometry(10,12,10),material);sword.name='sword';model.add(sword);
+    const base=new Mesh(new CylinderGeometry(4,4,.2),material);base.name='base';model.add(base);
+    const body=measureMistBody(model,{baseDiameter:4,baseCenter:[0,0,0]});
+    expect(body.radiusX*2).toBeCloseTo(1.4);expect(body.radiusZ*2).toBeCloseTo(.8);
+    expect(body.height).toBeCloseTo(2.6);
+    expect(mistBodyInMap(body,0,0,0,10).height).toBeCloseTo(26);
+    model.traverse(node=>{if(node instanceof Mesh)node.geometry.dispose();});material.dispose();
+  });
+
 });

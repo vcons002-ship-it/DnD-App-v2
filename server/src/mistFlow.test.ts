@@ -79,6 +79,17 @@ describe('mist movement history',()=>{
     expect(flow.state.oldestWakeAge).toBeGreaterThan(3);
     flow.tick(13);expect(flow.state.wakes).toBe(0);flow.dispose();
   });
+  it('retains body height along the travelled wake and clears it with hidden history',()=>{
+    const flow=field();
+    const at=(x:number,visible=true)=>({...token(x,350,visible),body:{x,y:350,radiusX:14,radiusY:10,facing:0,height:80}});
+    flow.setTokens([at(200)]);
+    for(let i=1;i<=15;i++){flow.tick(1+i*.1);flow.setTokens([at(200+i*10)]);}
+    flow.tick(2.7);
+    const values=flow.heightTexture.image.data as Uint8Array;
+    expect(Math.abs(Math.max(...values)*flow.heightScale/255-80)).toBeLessThanOrEqual(flow.heightScale/255/2);
+    flow.setTokens([at(350,false)]);flow.tick(2.9);
+    expect(Math.max(...values)).toBe(0);flow.dispose();
+  });
   it('clears hidden or disabled history and does not draw a trail across a teleport',()=>{
     const flow=field();walk(flow);expect(flow.state.wakes).toBeGreaterThan(0);
     flow.setTokens([token(400,350,false)]);flow.tick(3.2);

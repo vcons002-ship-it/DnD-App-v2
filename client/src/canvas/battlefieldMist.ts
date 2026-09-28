@@ -12,7 +12,8 @@ import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighti
 const densityField = /* glsl */`
   ${environmentVisibilityGlsl}
   uniform highp sampler3D mistNoise;
-  uniform sampler2D mistFlow;
+  uniform sampler2D mistFlow, mistBodyHeight;
+  uniform float mistBodyHeightScale;
   uniform float mistTime, mistHeight, mistStrength, mistWholeMap, mistShadowStrength;
   uniform float mistWorldScale;
   uniform vec2 mistWind;
@@ -50,7 +51,10 @@ const densityField = /* glsl */`
     float edge = mistEnvelope(world.xz) * environmentVisible(world.xz);
     if (edge < .001) return 0.0;
     vec4 flow = texture2D(mistFlow, (world.xz - mistOrigin) / mistMapSize);
-    vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5;
+    float bodyHeight = texture2D(mistBodyHeight, (world.xz - mistOrigin) / mistMapSize).r * mistBodyHeightScale;
+    // Whole-body contact, tapered above the figure rather than halfway up the mist.
+    float bodyContact = bodyHeight > .001 ? 1.0 - smoothstep(bodyHeight*.9,bodyHeight*1.1,world.y) : 1.0;
+    vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5 * bodyContact;
     // World-space domain warping and differently oriented octaves prevent long
     // parallel strips showing through when looking along the wind direction.
     vec2 drift = bent / mistWorldScale - mistWind * mistTime;
@@ -64,9 +68,9 @@ const densityField = /* glsl */`
     float bank = mistNoiseAt(vec3(p.x / 83.0 + 21.0, y * 1.5 + 17.0, p.y / 69.0));
     float wisps = smoothstep(.36,.64,strands) * smoothstep(.20,.53,bank) * (1.0 - smoothstep(.13,.5,y));
     float billow = smoothstep(.51,.75,bank) * (1.0 - smoothstep(.28,.93,y));
-    float clearing = mix(flow.b,1.0,smoothstep(.5,.98,y));
+    float clearing = mix(1.0,flow.b,bodyContact);
     float ambient = wisps * 1.5 + billow * .8;
-    float compressed = flow.a * (1.0 - smoothstep(.3,.8,y));
+    float compressed = flow.a * bodyContact;
     // Compress the existing noisy volume only. Adding density independently of
     // that volume made the wake look like bright lines drawn on top of the fog.
     return edge * smoothstep(0.0,.025,y) * ambient * (clearing + compressed * .9);
@@ -202,7 +206,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
   noise.needsUpdate = true;
   const common = {
     ...visibility, mistOrigin:{value:new Vector2()}, mistWorldScale:{value:1},mistWind:{value:new Vector2(9.4,3.42)},mistTint:{value:new Vector3(1,1,1)},
-    mistNoise:{value:noise}, mistFlow:{value:flow.texture}, mistTime:{value:0}, mistHeight:{value:25.6}, mistStrength:{value:0},
+    mistNoise:{value:noise}, mistFlow:{value:flow.texture},mistBodyHeight:{value:flow.heightTexture},mistBodyHeightScale:{value:1216}, mistTime:{value:0}, mistHeight:{value:25.6}, mistStrength:{value:0},
     mistWholeMap:{value:1}, mistMapSize:{value:new Vector2(1216,832)},
     mistToLight:{value:new Vector3(-.5,1,-.7).normalize()}, mistShadowStrength:{value:0},
     mistPatchCount:{value:0}, mistPatches:{value:Array.from({length:8},()=>new Vector4())},
@@ -238,6 +242,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
       const ox=settings.mapX??0,oy=settings.mapY??0;
       if(common.mistOrigin.value.x!==ox||common.mistOrigin.value.y!==oy)flow.reset();
       flow.update({...settings,mistInteraction:visible&&settings.mistInteraction!==false,props:settings.props?.map(p=>({...p,x:p.x-ox,y:p.y-oy}))});
+      common.mistBodyHeightScale.value=flow.heightScale;
       coverage=settings.mistCoverage??'patches';
       volume.visible=visible;
       volume.position.set(ox+settings.mapWidth/2,height/2,oy+settings.mapHeight/2);

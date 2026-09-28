@@ -1,7 +1,7 @@
-import {DataTexture, LinearFilter, RGBAFormat} from 'three';
+import {DataTexture, LinearFilter, RedFormat, RGBAFormat} from 'three';
 type FlowSettings={mapWidth:number;mapHeight:number;mistInteraction?:boolean;scenery:boolean;props?:readonly {x:number;y:number;size:number}[]};
 type ContactToken={id:string;x:number;y:number;diameter:number;visible:boolean;
-  body?:{x:number;y:number;radiusX:number;radiusY:number;facing:number}};
+  body?:{x:number;y:number;radiusX:number;radiusY:number;height?:number;facing:number}};
 
 /** Small map-space field: RG displaces existing mist, B clears a path, A compresses it.
  * This is a bounded visual approximation, not a fluid solver or game visibility. */
@@ -12,11 +12,14 @@ export function createMistFlow() {
   const pushX=new Float32Array(width*height),pushY=new Float32Array(width*height),pushWeight=new Float32Array(width*height);
   const texture=new DataTexture(data,width,height,RGBAFormat);
   texture.minFilter=texture.magFilter=LinearFilter;texture.generateMipmaps=false;
+  const heights=new Uint8Array(width*height);
+  const heightTexture=new DataTexture(heights,width,height,RedFormat);
+  heightTexture.minFilter=heightTexture.magFilter=LinearFilter;heightTexture.generateMipmaps=false;
   let mapWidth=1216,mapHeight=832,enabled=true,obstacleKey='',time=0,lastUpload=-1;
   let obstacles=0;
   const previous=new Map<string,{x:number;y:number;bodyX:number;bodyY:number;travel:number;ordinal:number}>();
   const lifetime=6;
-  const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;born:number;dx:number;dy:number;curl:boolean;ordinal:number}[]=[];
+  const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;height:number;born:number;dx:number;dy:number;curl:boolean;ordinal:number}[]=[];
   // Rasterize only a small world-space rectangle around each retained segment.
   function visit(wx:number,wy:number,r:number,paint:(i:number,x:number,y:number)=>void){
     const x0=Math.max(0,Math.floor((wx-r)/mapWidth*width)),x1=Math.min(width-1,Math.ceil((wx+r)/mapWidth*width));
@@ -51,7 +54,8 @@ export function createMistFlow() {
     lastUpload=-1;
   }
   return {
-    texture,
+    texture,heightTexture,
+    get heightScale(){return Math.max(mapWidth,mapHeight);},
     update:rebuild,
     reset(){previous.clear();wakes.length=0;lastUpload=-1;},
     setTokens(tokens:readonly ContactToken[]){
@@ -84,7 +88,7 @@ export function createMistFlow() {
               const total=last.length+length;
               last.x=(last.x*last.length+x*length)/total;last.y=(last.y*last.length+y*length)/total;
               last.length=total;last.curl ||= curl;
-            }else wakes.push({id:token.id,x,y,length,radius,front,born:time,dx,dy,curl,ordinal});
+            }else wakes.push({id:token.id,x,y,length,radius,front,height:body.height??token.diameter*1.6,born:time,dx,dy,curl,ordinal});
           }
           if(wakes.length>96)wakes.splice(0,wakes.length-96);
         }else travel=0;
@@ -100,10 +104,11 @@ export function createMistFlow() {
       if(!enabled)wakes.length=0;
       for(let i=wakes.length-1;i>=0;i--)if(seconds-wakes[i].born>lifetime)wakes.splice(i,1);
       if(lastUpload>=0&&seconds-lastUpload<1/15)return;
-      lastUpload=seconds;data.set(base);pushX.fill(0);pushY.fill(0);pushWeight.fill(0);
+      lastUpload=seconds;data.set(base);heights.fill(0);pushX.fill(0);pushY.fill(0);pushWeight.fill(0);
       for(const wake of wakes){
         const age=Math.max(0,seconds-wake.born),fade=1-smooth(2.8,lifetime,age);
         const nx=-wake.dy,ny=wake.dx;
+        const encodedHeight=Math.max(1,clamp(wake.height/Math.max(mapWidth,mapHeight)*255));
         // These coordinates stay on the travelled path. Only ambient wind
         // carries them a little; the figure's new position never drags them.
         const wx=wake.x+age*3,wy=wake.y+age;
@@ -139,6 +144,7 @@ export function createMistFlow() {
           // Overlapping path samples must not multiply the same outward push.
           if(weight>pushWeight[p]){pushWeight[p]=weight;pushX[p]=-nx*shift;pushY[p]=-ny*shift;}
           data[i+3]=Math.max(data[i+3],clamp(bank*.75*255));
+          if(clearing>.001||bank>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
         });
         if(!wake.curl)continue;
         // Move existing patches outward, then gently fold them back in. There
@@ -166,15 +172,16 @@ export function createMistFlow() {
             data[i]=clamp(data[i]+(dx*c-dy*s-dx)*2);
             data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy)*2);
             data[i+3]=Math.max(data[i+3],clamp(influence*.42*255));
+            if(influence>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
           });
         }
       }
       for(let p=0;p<pushWeight.length;p++)if(pushWeight[p]>0){
         const i=p*4;data[i]=clamp(data[i]+pushX[p]*2);data[i+1]=clamp(data[i+1]+pushY[p]*2);
       }
-      texture.needsUpdate=true;
+      texture.needsUpdate=true;heightTexture.needsUpdate=true;
     },
     get state(){return {wakes:wakes.length,obstacles,enabled,time,oldestWakeAge:wakes.length?time-wakes[0].born:0};},
-    dispose(){texture.dispose();previous.clear();wakes.length=0;},
+    dispose(){texture.dispose();heightTexture.dispose();previous.clear();wakes.length=0;},
   };
 }

@@ -75,8 +75,8 @@ export type EnvironmentContactToken = {
   x: number;
   y: number;
   diameter: number;
-  /** Measured lower-body ellipse in map coordinates; decorative base excluded. */
-  body?: {x:number;y:number;radiusX:number;radiusY:number;facing:number};
+  /** Measured whole-body envelope in map coordinates; decorative base excluded. */
+  body?: {x:number;y:number;radiusX:number;radiusY:number;height?:number;facing:number};
   visible: boolean;
 };
 

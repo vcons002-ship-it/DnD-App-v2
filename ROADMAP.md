@@ -2098,3 +2098,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Darkness visibility includes distant illuminated areas and enemies in them, with 60 ft applying only to unlit terrain. Hidden tokens and both fog layers still apply; concealed carried lights cannot disclose nearby creatures. Shared visibility, encounter tags, moving-token filtering, and the personal vision mask use the same policy. Interactive dungeon preview includes a distant lit enemy.
 
 - [x] Mist wakes coalesce adjacent movement samples and retain bounded longer history, avoiding half-second truncation when the party moves together. Interactive darkvision preview starts at 22% mist for clearer movement comparison.
+
+- [x] Whole-body mist interaction test: measure torso, limbs and head rather than only shins; store body height along each wake so displacement and compression reach the figure height and taper above it. Strength, curl timing and lifetime unchanged.
