@@ -1,5 +1,7 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {DEFAULT_MAP_ENVIRONMENT,sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
+import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../shared/mapEnvironmentPresets.js';
+import {stormLightningAt} from '../../shared/stormLighting.js';
 import {createMap,createSession,getMap,listMaps,getSessionByCode,setActiveMap,updateMapEnvironment,importMaps,createCharacter,createToken,claimCharacter,getToken,listTokens,moveToken} from './sessions.js';
 import {exportSession,importSession} from './backup.js';
 import {db} from './db.js';
@@ -30,6 +32,37 @@ describe('saved map environment',()=>{
     expect(getMap(map.id)!.environment).toEqual(DEFAULT_MAP_ENVIRONMENT);
     expect(sanitizeMapEnvironment(null)).toEqual(DEFAULT_MAP_ENVIRONMENT);
   });
+  it('applies complete presets without changing placed lights, calibration, or other maps',()=>{
+    const session=createSession('Preset save'),map=createMap(session.id,{name:'Storm'}),other=createMap(session.id,{name:'Prep'});
+    const light={id:'saved',x:30,y:50,radiusFt:15,heightFt:.5,color:'warm',intensity:1,flicker:true,visibleTorch:true,fixture:'lantern'};
+    updateMapEnvironment(session.id,map.id,{lights:[light],shadowDirectionDegrees:123,shadowLength:2,windDirectionDegrees:210});
+    const dm=client(session.id,map.id,'dm');
+    for(const preset of MAP_ENVIRONMENT_PRESETS){
+      dm({mapId:map.id,settings:environmentPresetPatch(preset.id)});
+      const saved=getMap(map.id)!.environment!;
+      expect(matchingEnvironmentPreset(saved)).toBe(preset.id);
+      expect(matchingEnvironmentPreset({...saved,mistHeightFt:saved.mistHeightFt*12.8/12.8})).toBe(preset.id);
+      expect(saved).toMatchObject({lights:[light],shadowDirectionDegrees:123,shadowLength:2,windDirectionDegrees:210});
+    }
+    dm({mapId:map.id,settings:environmentPresetPatch('rainstorm')});
+    expect(getMap(map.id)!.environment).toMatchObject({lightning:true,groundWetness:.8});
+    const restored=importSession(exportSession(session.code)!);
+    expect(listMaps(getSessionByCode(restored.code)!.id).find(m=>m.name==='Storm')!.environment).toEqual(getMap(map.id)!.environment);
+    dm({mapId:map.id,settings:environmentPresetPatch('clear-day')});
+    expect(getMap(map.id)!.environment).toMatchObject({lightning:false,groundWetness:0,weather:'none',heavyDarkness:false});
+    dm({mapId:map.id,settings:{lightLevel:.6}});
+    expect(matchingEnvironmentPreset(getMap(map.id)!.environment!)).toBe('');
+    expect(getMap(other.id)!.environment).toEqual(DEFAULT_MAP_ENVIRONMENT);
+    expect(environmentPresetPatch('invalid')).toBeUndefined();
+  });
+  it('keeps cloud lightning sparse, bounded, deterministic and off at frozen time',()=>{
+    expect(stormLightningAt(0)).toBe(0);expect(stormLightningAt(NaN)).toBe(0);
+    const samples=Array.from({length:12000},(_,i)=>stormLightningAt(1700000000+i*.01));
+    expect(samples.every(v=>v>=0&&v<=1)).toBe(true);
+    expect(samples.filter(v=>v>.01).length).toBeLessThan(samples.length*.08);
+    expect(Math.max(...samples)).toBeGreaterThan(.9);
+    expect(stormLightningAt(1700000007.2)).toBe(stormLightningAt(1700000007.2));
+  });
   it('enforces DM and campaign ownership through the actual socket handler',()=>{
     const a=createSession('A'),b=createSession('B'),map=createMap(a.id,{name:'A'}),foreign=createMap(b.id,{name:'B'});
     client(a.id,map.id,'player')({mapId:map.id,settings:{enabled:true}});
@@ -41,10 +74,10 @@ describe('saved map environment',()=>{
   });
   it('bounds weather and local lights while preserving invalid partial fields',()=>{
     const light={id:'torch',x:75,y:25,radiusFt:500,heightFt:-1,color:'warm',intensity:8,flicker:true};
-    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,heavyDarkness:true,lights:[light,light,{id:'broken',x:NaN,y:0}]});
-    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0,heavyDarkness:true});
+    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,heavyDarkness:true,lightning:true,groundWetness:5,lights:[light,light,{id:'broken',x:NaN,y:0}]});
+    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0,heavyDarkness:true,lightning:true,groundWetness:1});
     expect(result.lights).toEqual([{...light,radiusFt:60,heightFt:.5,intensity:2}]);
-    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad',heavyDarkness:'false'},result)).toEqual(result);
+    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad',heavyDarkness:'false',lightning:'false',groundWetness:NaN},result)).toEqual(result);
     expect(sanitizeMapEnvironment({lights:Array.from({length:20},(_,i)=>({...light,id:String(i)}))}).lights).toHaveLength(20);
     expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:true,fixture:'lantern'}]}).lights[0]).toMatchObject({visibleTorch:true,fixture:'lantern'});
     expect(sanitizeMapEnvironment({lights:[{...light,fixture:'invalid'}]}).lights[0].fixture).toBeUndefined();

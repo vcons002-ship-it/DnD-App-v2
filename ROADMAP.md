@@ -4,6 +4,15 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Environment presets and rainstorm - September 2026
+
+- [x] Nine one-click atmosphere presets in DM Maps, retaining placed lights,
+  calibrated shadow direction/length and wind direction, with custom adjustment.
+- [x] Rainstorm with gusting rain, wet-ground highlights and sparse cloud
+  lightning illuminating the map, figures and mist. Preserve fog and reduced
+  motion; record preset changes, party lanterns, movement and camera views.
+  See [presets, storm and verification](docs/ENVIRONMENT_PRESETS_STORM_2026_09_28.md).
+
 ## Placed torches and carried lanterns - September 2026
 
 - [x] Move carried lanterns to the hip, add saved Heavy darkness and a placed

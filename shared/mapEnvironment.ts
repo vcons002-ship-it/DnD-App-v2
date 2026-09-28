@@ -5,6 +5,8 @@ export type MapEnvironment = {
   heavyDarkness: boolean;
   weather: 'none' | 'rain' | 'snow';
   weatherIntensity: number;
+  lightning: boolean;
+  groundWetness: number;
   windDirectionDegrees: number;
   windStrength: number;
   lights: MapEnvironmentLight[];
@@ -22,7 +24,7 @@ export type MapEnvironment = {
 export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
 export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
-  lighting:'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.5,windDirectionDegrees:20,windStrength:.4,lights:[],
+  lighting:'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.5,lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],
   enabled: false, shadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
   shadowOpacity: .65, mist: true, mistOpacity: .35, mistHeightFt: 2,
   mistShadows: true, mistInteraction: true,
@@ -33,12 +35,12 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   const result = {...previous};
   if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
   const source = input as Record<string, unknown>;
-  for (const key of ['enabled', 'heavyDarkness', 'shadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
+  for (const key of ['enabled', 'heavyDarkness', 'lightning', 'shadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
     if (typeof source[key] === 'boolean') result[key] = source[key];
   }
   for (const [key, min, max] of [
     ['shadowLength', .1, 4], ['shadowOpacity', 0, 1], ['mistOpacity', 0, .7], ['mistHeightFt', .5, 10],
-    ['lightLevel',.1,1],['weatherIntensity',0,1],['windStrength',0,1],
+    ['groundWetness',0,1],['lightLevel',.1,1],['weatherIntensity',0,1],['windStrength',0,1],
   ] as const) {
     const value = source[key];
     if (typeof value === 'number' && Number.isFinite(value)) result[key] = Math.max(min, Math.min(max, value));

@@ -267,7 +267,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
     const atmosphereAnimated = !!environment?.enabled && environment.mistQuality!=='off' && !reducedMotion.matches &&
-      (environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
+      ((environment.groundWetness??0)>0 || environment.lightning || environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));

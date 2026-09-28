@@ -3,6 +3,10 @@
 Development extension of the saved map environment. Three-dimensional scenery
 is deferred. The original map image and miniature files are preserved.
 
+The subsequent [presets and rainstorm revision](ENVIRONMENT_PRESETS_STORM_2026_09_28.md)
+adds wet-ground highlights, cloud-lightning illumination and nine complete
+atmosphere presets. The limitations below describe this original first batch.
+
 ## Controls
 
 DM: Maps → Environment → Enable environment.

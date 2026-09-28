@@ -3,6 +3,7 @@ import type {MapState} from '../../../shared/types';
 import {DEFAULT_MAP_ENVIRONMENT, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
 import {useStore} from '../state/socket';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
+import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
 import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
 
 export function EnvironmentQualityControl(){
@@ -31,12 +32,17 @@ export function MapEnvironmentControls({map}:{map:MapState}){
   const save=useStore(s=>s.setMapEnvironment);
   const {placement,place}=useEnvironmentEditor();
   const update=(patch:Partial<MapEnvironment>)=>save(map.id,patch);
-  const toggle=(key:'enabled'|'heavyDarkness'|'shadows'|'mist'|'mistShadows'|'mistInteraction',label:string)=><label className="environment-toggle">
+  const toggle=(key:'enabled'|'heavyDarkness'|'shadows'|'mist'|'mistShadows'|'mistInteraction'|'lightning',label:string)=><label className="environment-toggle">
     <input type="checkbox" checked={settings[key]} onChange={e=>update({[key]:e.target.checked})}/>{label}
   </label>;
   return <details className="map-environment-controls" key={map.id}>
     <summary>Environment <span className="muted">{settings.enabled?'On':'Off'}</span></summary>
     <p className="muted">{map.name} · saved for everyone on this map</p>
+    <label className="environment-preset">Environment preset <select aria-label="Environment preset" value={matchingEnvironmentPreset(settings)} onChange={e=>{const patch=environmentPresetPatch(e.target.value);if(patch)update(patch);}}>
+      <option value="" disabled>Custom settings</option>
+      {MAP_ENVIRONMENT_PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}
+    </select></label>
+    <small>Apply a look, then adjust it below. Keeps placed lights and your chosen shadow and wind directions.</small>
     {toggle('enabled','Enable environment')}
     {settings.enabled&&<>
       <fieldset><legend>Lighting</legend>
@@ -66,6 +72,8 @@ export function MapEnvironmentControls({map}:{map:MapState}){
       <fieldset><legend>Weather</legend>
         <label>Weather <select aria-label="Weather" value={settings.weather} onChange={e=>update({weather:e.target.value as MapEnvironment['weather']})}><option value="none">None</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>
         {settings.weather!=='none'&&<SettingSlider label="Weather strength" value={settings.weatherIntensity*100} min={0} max={100} suffix="%" onCommit={v=>update({weatherIntensity:v/100})}/>}
+        {settings.weather==='rain'&&toggle('lightning','Lightning flashes')}
+        <SettingSlider label="Wet ground" value={settings.groundWetness*100} min={0} max={100} suffix="%" onCommit={v=>update({groundWetness:v/100})}/>
         <SettingSlider label="Wind direction" value={settings.windDirectionDegrees} min={0} max={359} suffix="°" onCommit={v=>update({windDirectionDegrees:v})}/>
         <SettingSlider label="Wind strength" value={settings.windStrength*100} min={0} max={100} suffix="%" onCommit={v=>update({windStrength:v/100})}/>
       </fieldset>

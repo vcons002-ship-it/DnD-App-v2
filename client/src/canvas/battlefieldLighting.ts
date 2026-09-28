@@ -7,13 +7,16 @@ import {
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
 import type {TorchLight} from './miniatureTorchLighting';
+import {stormLightningAt} from '../../../shared/stormLighting';
 
 const palettes={day:{color:0x1c2230,opacity:0,ambient:1.35,key:3,reflection:1},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
+const lightningColor=new Color(0xd7e7ff);
 const colors={warm:new Color(0xffb258),cool:new Color(0x89bbff),green:new Color(0x85eab5)};
 export type CarriedLanternLight={id:string;x:number;y:number;height:number;facing:number};
 export const torchFieldGlsl=`
   uniform sampler2D torchField;
   uniform vec4 torchBounds;
+  uniform float stormFlash;
   vec3 torchIllumination(vec2 point){
     vec2 uv=(point-torchBounds.xy)/torchBounds.zw;
     if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return vec3(0.);
@@ -25,16 +28,32 @@ export const torchFieldGlsl=`
 export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambient:HemisphereLight|undefined,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],depth:{texture:Texture;resolution:Vector2}){
   const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??2,reflection:scene.environmentIntensity};
   const field=new WebGLRenderTarget(512,512,{type:HalfFloatType,depthBuffer:false,stencilBuffer:false});
-  const fieldUniforms={torchField:{value:field.texture},torchBounds:{value:new Vector4()}};
-  const uniforms={...visibility,...fieldUniforms,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},gradeColor:{value:new Color()},gradeOpacity:{value:0}};
+  const fieldUniforms={torchField:{value:field.texture},torchBounds:{value:new Vector4()},stormFlash:{value:0}};
+  const uniforms={...visibility,...fieldUniforms,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},gradeColor:{value:new Color()},gradeOpacity:{value:0},wetness:{value:0},surfaceTime:{value:0},surfaceScale:{value:12.8},wetLight:{value:1}};
   const material=new ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,toneMapped:false,uniforms,
     vertexShader:`varying vec3 world;void main(){world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(world,1.);}`,
     fragmentShader:`${environmentVisibilityGlsl}${torchFieldGlsl}
       varying vec3 world;uniform sampler2D figureDepth;uniform vec2 resolution;uniform vec3 gradeColor;uniform float gradeOpacity;
+      uniform float wetness,surfaceTime,surfaceScale,wetLight;
+      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
       void main(){if(environmentVisible(world.xz)<.5||texture2D(figureDepth,gl_FragCoord.xy/resolution).r<.999999)discard;
         vec3 illumination=torchIllumination(world.xz);float strength=max(illumination.r,max(illumination.g,illumination.b));
         float coverage=1.-exp(-strength);vec3 tint=illumination/max(.001,strength);
         float alpha=mix(gradeOpacity,.10,coverage);vec3 color=mix(gradeColor,tint*.30,coverage);
+        if(wetness>0.){
+          vec2 p=world.xz/surfaceScale;
+          float wetPatch=noise(p*.21)*.65+noise(p*.59)*.35;
+          float puddle=smoothstep(.43,.68,wetPatch)*wetness;
+          vec3 normal=normalize(vec3(sin(p.x*2.3+surfaceTime*.7)*.035,1.,cos(p.y*2.1-surfaceTime*.6)*.035));
+          vec3 halfway=normalize(normalize(cameraPosition-world)+normalize(vec3(-.25,1.,.25)));
+          float sheen=pow(max(0.,dot(normal,halfway)),55.);
+          float wetAlpha=puddle*(.16+sheen*.28);
+          vec3 wetColor=mix(vec3(.035,.05,.065),vec3(.48,.59,.69)*(wetLight+stormFlash),sheen)+tint*coverage*.13;
+          float combined=alpha+wetAlpha*(1.-alpha);
+          color=(color*alpha*(1.-wetAlpha)+wetColor*wetAlpha)/max(.001,combined);alpha=combined;
+        }
+        alpha=mix(alpha,.34,stormFlash*.9);color=mix(color,vec3(.67,.76,.9),stormFlash*.85);
         gl_FragColor=vec4(color,alpha);
         #include <colorspace_fragment>
       }`});
@@ -95,10 +114,19 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     fieldGeometry.setAttribute('source',sourceAttribute);fieldGeometry.setAttribute('radiance',radianceAttribute);
   }
   let settings:EnvironmentPreviewSettings,carried:CarriedLanternLight[]=[],lights:TorchLight[]=[],time=0;
+  const baseLight={key:original.key,ambient:original.ambient,reflection:original.reflection,color:original.color.clone()};
   const restore=()=>{key.intensity=original.key;key.color.copy(original.color);if(ambient)ambient.intensity=original.ambient;scene.environmentIntensity=original.reflection;};
   const phase=(id:string)=>{let hash=0;for(let i=0;i<id.length;i++)hash=(hash*31+id.charCodeAt(i))|0;return hash*.013;};
   const tick=(seconds:number)=>{
     time=seconds;if(!settings)return;
+    // A zero time is the renderer's reduced-motion path: suppress flashes too.
+    const flash=plane.visible&&settings.lightning&&settings.weather==='rain'&&seconds>0?stormLightningAt(Date.now()/1000):0;
+    fieldUniforms.stormFlash.value=flash;uniforms.surfaceTime.value=seconds;
+    if(plane.visible){
+      key.intensity=baseLight.key+flash*3.5;key.color.copy(baseLight.color).lerp(lightningColor,flash);
+      if(ambient)ambient.intensity=baseLight.ambient+flash*1.1;
+      scene.environmentIntensity=baseLight.reflection+flash*.45;
+    }
     const ppf=settings.pixelsPerFoot??12.8;
     const sources=[...(settings.lights??[]).map(l=>({...l,height:l.heightFt*ppf,carried:false,facing:0})),
       ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:true,visibleTorch:false,fixture:'lantern' as const,carried:true}))];
@@ -149,12 +177,16 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     const maxSize=next.mistQuality==='low'?512:1024,ratio=next.mapWidth/next.mapHeight;
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
     uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
-    if(enabled){key.intensity=preset.key*level;key.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);if(ambient)ambient.intensity=preset.ambient*level;scene.environmentIntensity=preset.reflection*level;}
+    uniforms.wetness.value=next.groundWetness??0;uniforms.surfaceScale.value=next.pixelsPerFoot??12.8;uniforms.wetLight.value=Math.max(.12,preset.ambient*level);
+    baseLight.key=preset.key*level;baseLight.ambient=preset.ambient*level;baseLight.reflection=preset.reflection*level;
+    baseLight.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);
+    if(enabled){key.intensity=baseLight.key;key.color.copy(baseLight.color);if(ambient)ambient.intensity=baseLight.ambient;scene.environmentIntensity=baseLight.reflection;}
     else restore();tick(time);
   },tick,setCarried(next:CarriedLanternLight[]){carried=next;},get lights(){return lights;},
     renderField(renderer:WebGLRenderer){const previous=renderer.getRenderTarget();renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);renderer.setRenderTarget(previous);},
-    get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker));},
+    get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
+      wetGround:plane.visible?settings.groundWetness??0:0,lightningEnabled:plane.visible&&!!settings.lightning&&settings.weather==='rain',lightningFlash:fieldUniforms.stormFlash.value,
       carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height})))};},
     dispose(){scene.remove(plane);plane.geometry.dispose();material.dispose();for(const mesh of [shafts,cups,flames,frames,windows,handles])if(mesh){scene.remove(mesh);mesh.dispose();}
       shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();fieldMaterial.dispose();restore();},

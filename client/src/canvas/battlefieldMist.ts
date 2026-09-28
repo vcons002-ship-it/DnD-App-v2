@@ -129,7 +129,7 @@ const fragmentShader = /* glsl */`
         float sunward = mistDensity(p + mistToLight * sunStep);
         float sunlight = exp(-sunward * mistHeight / mistWorldScale * mistStrength * .055);
         float illumination = clamp(.22 + .78 * sunlight + (density - sunward) * .18, .3, 1.0);
-        vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination) * mistTint;
+        vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination) * (mistTint+vec3(.52,.60,.72)*stormFlash);
         // Warm scattering follows the same animated sources as the ground and figures.
         vec3 localLight=torchIllumination(p.xz);
         color += (vec3(1.)-exp(-localLight*.42))*exp(-p.y/(mistWorldScale*140.))*.72;

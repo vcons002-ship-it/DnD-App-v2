@@ -15,7 +15,8 @@ export function createBattlefieldWeather(scene:Scene,depth:{texture:Texture;reso
       varying vec2 tex;varying vec3 world;varying float alpha,splash;
       void main(){tex=uv;float height=16.*scaleFt;float speed=mix(29.,2.5,snow)*scaleFt;
         float phase=fract(seed.z+time*speed/height);splash=snow<.5&&phase>.94?1.:0.;
-        vec2 drift=wind*time*scaleFt+snow*vec2(sin(time*.7+seed.w*41.),cos(time*.5+seed.x*32.))*scaleFt*.7;
+        float gustTime=time+sin(time*.65)*.4+sin(time*.23)*.8;
+        vec2 drift=wind*gustTime*scaleFt+snow*vec2(sin(time*.7+seed.w*41.),cos(time*.5+seed.x*32.))*scaleFt*.7;
         vec2 ground=bounds.xy+mod(seed.xy*bounds.zw+drift,bounds.zw);
         world=vec3(ground.x,height*(1.-phase),ground.y);
         if(splash>.5)world.y=.06;

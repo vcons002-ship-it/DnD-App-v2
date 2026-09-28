@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import type { StateSnapshot } from '../shared/types';
+import {stormLightningAt} from '../shared/stormLighting';
 import { MONSTER_MODEL_TYPES, monsterVariation, monsterVariantIds } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
@@ -51,6 +52,18 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await page.getByLabel('Enable environment',{exact:true}).click();
     await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
     await expect(layer).toHaveAttribute('data-mist-visible','true');
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('rainstorm');
+    await expect(layer).toHaveAttribute('data-weather','rain');
+    await expect(layer).toHaveAttribute('data-wet-ground','0.8');
+    await expect(layer).toHaveAttribute('data-lightning-enabled','true');
+    await page.screenshot({path:info.outputPath('environment-presets-dm.png')});
+    await player.emulateMedia({reducedMotion:'reduce'});
+    await expect(layer).toHaveAttribute('data-lightning-flash','0');
+    await player.emulateMedia({reducedMotion:'no-preference'});
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('dungeon');
+    await expect(layer).toHaveAttribute('data-weather','none');
+    await expect(layer).toHaveAttribute('data-wet-ground','0');
+    await expect(layer).toHaveAttribute('data-lightning-enabled','false');
     await page.getByLabel('Lighting preset',{exact:true}).selectOption('dungeon');
     await page.getByLabel('Heavy darkness',{exact:true}).click();
     await expect(layer).toHaveAttribute('data-darkness','heavy');
@@ -95,6 +108,12 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await page.keyboard.press('Escape');
     await expect(page.locator('.environment-placement-hint')).toHaveCount(0);
     const originalLight=(await f.snapshot()).map!.environment!.lights[0];
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('rainstorm');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights).toEqual([originalLight]);
+    await expect(layer).toHaveAttribute('data-wet-ground','0.8');
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('deep-dungeon');
+    await expect(layer).toHaveAttribute('data-darkness','heavy');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights).toEqual([originalLight]);
     f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:Array.from({length:12},(_,i)=>({...originalLight,id:`many-${i}`,x:150+i%4*240,y:200+Math.floor(i/4)*170}))}});
     await expect(layer).toHaveAttribute('data-light-count','12');
     await expect(layer).toHaveAttribute('data-visible-torch-count','12');
@@ -188,6 +207,14 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(layer).toHaveAttribute('data-light-count','0');
     await expect(dmLayer).toHaveAttribute('data-light-count','1');
     await expect.poll(async()=>(await f.snapshot()).measurements.length).toBe(0);
+    // Exercise the strongest storm flash against covered map pixels too.
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{weather:'rain',lightning:true,groundWetness:1}});
+    const flashTime=Array.from({length:1900},(_,i)=>1700000000+i*.01).find(t=>stormLightningAt(t)>.95)!;
+    await expect(layer).toHaveAttribute('data-lightning-enabled','true');
+    // Freeze Date only; installing a clock after load would reset performance.now
+    // beneath the renderer's existing animation origin.
+    await player.evaluate(ms=>{Date.now=()=>ms;},flashTime*1000);
+    await expect.poll(async()=>Number(await layer.getAttribute('data-lightning-flash'))).toBeGreaterThan(.9);
     await afterPaint(player);
     const clip=(await layer.boundingBox())!;
     const on=await player.screenshot({clip,path:info.outputPath('fully-covered-effects-on.png')});
