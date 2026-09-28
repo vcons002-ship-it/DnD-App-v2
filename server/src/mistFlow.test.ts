@@ -100,6 +100,16 @@ describe('mist movement history',()=>{
     expect(pixel(flow,255,350)).toEqual([128,128,255,0]);
     flow.dispose();
   });
+  it('gives a faster pass more displacement at the same body size and path',()=>{
+    const measure=(dt:number)=>{
+      const flow=field();flow.setTokens([token(200)]);flow.tick(1+dt);
+      flow.setTokens([token(215)]);flow.tick(1+dt+.08);
+      const data=flow.texture.image.data as Uint8Array;let displacement=0;
+      for(let i=0;i<data.length;i+=4)displacement+=Math.hypot(data[i]-128,data[i+1]-128);
+      flow.dispose();return displacement;
+    };
+    expect(measure(.03)).toBeGreaterThan(measure(.25)*1.3);
+  });
   it('clears hidden or disabled history and does not draw a trail across a teleport',()=>{
     const flow=field();walk(flow);expect(flow.state.wakes).toBeGreaterThan(0);
     flow.setTokens([token(400,350,false)]);flow.tick(3.2);

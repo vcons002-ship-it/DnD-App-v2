@@ -2106,3 +2106,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Mist contact starts pushing immediately instead of ramping after passage. Continuous opposed shear along wake edges replaces discrete circular swirl stamps; the body-front boundary still prevents a disturbance ahead of contact.
 
 - [x] Mist body bounds exclude named base materials and plinth-height vertices; wake recovery uses irregular multi-frequency curl displacement of existing density, with reduced clearing and edge compression to avoid straight carved trails.
+
+- [x] Stronger smoke-like body wake: speed-scaled initial separation transitions into inward refill and forward entrainment, with increased irregular turbulence. Body/base exclusion, front-contact bounds, fog visibility and bounded history remain intact.

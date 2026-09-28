@@ -17,9 +17,9 @@ export function createMistFlow() {
   heightTexture.minFilter=heightTexture.magFilter=LinearFilter;heightTexture.generateMipmaps=false;
   let mapWidth=1216,mapHeight=832,enabled=true,obstacleKey='',time=0,lastUpload=-1;
   let obstacles=0;
-  const previous=new Map<string,{x:number;y:number;bodyX:number;bodyY:number}>();
+  const previous=new Map<string,{x:number;y:number;bodyX:number;bodyY:number;time:number}>();
   const lifetime=6;
-  const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;height:number;born:number;dx:number;dy:number}[]=[];
+  const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;height:number;born:number;dx:number;dy:number;energy:number}[]=[];
   // Rasterize only a small world-space rectangle around each retained segment.
   function visit(wx:number,wy:number,r:number,paint:(i:number,x:number,y:number)=>void){
     const x0=Math.max(0,Math.floor((wx-r)/mapWidth*width)),x1=Math.min(width-1,Math.ceil((wx+r)/mapWidth*width));
@@ -73,6 +73,9 @@ export function createMistFlow() {
           const radius=Math.hypot((-dy*c-dx*s)*body.radiusX,(-dy*s+dx*c)*body.radiusY);
           const front=Math.hypot((dx*c-dy*s)*body.radiusX,(dx*s+dy*c)*body.radiusY);
           const count=Math.min(12,Math.ceil(distance/Math.max(3,radius*.5))),length=distance/count;
+          // Speed relative to body size keeps the response consistent across map scales.
+          const speed=distance/Math.max(1/120,Math.min(.25,time-from.time))/Math.max(1,2*Math.max(radius,front));
+          const energy=1.15+1.25*smooth(1,10,speed);
           for(let j=1;j<=count;j++){
             const x=from.bodyX+(body.x-from.bodyX)*(j-.5)/count,y=from.bodyY+(body.y-from.bodyY)*(j-.5)/count;
             // Coalesce adjacent straight samples. Otherwise three walking figures
@@ -83,12 +86,12 @@ export function createMistFlow() {
               &&Math.hypot(x-dx*length*.5-(last.x+last.dx*last.length*.5),y-dy*length*.5-(last.y+last.dy*last.length*.5))<1){
               const total=last.length+length;
               last.x=(last.x*last.length+x*length)/total;last.y=(last.y*last.length+y*length)/total;
-              last.length=total;
-            }else wakes.push({id:token.id,x,y,length,radius,front,height:body.height??token.diameter*1.6,born:time,dx,dy});
+              last.energy=(last.energy*last.length+energy*length)/total;last.length=total;
+            }else wakes.push({id:token.id,x,y,length,radius,front,height:body.height??token.diameter*1.6,born:time,dx,dy,energy});
           }
           if(wakes.length>96)wakes.splice(0,wakes.length-96);
         }
-        previous.set(token.id,{x:token.x,y:token.y,bodyX:body.x,bodyY:body.y});
+        previous.set(token.id,{x:token.x,y:token.y,bodyX:body.x,bodyY:body.y,time});
       }
     },
     tick(seconds:number){
@@ -129,7 +132,9 @@ export function createMistFlow() {
         visit(wx,wy,extent,(i,x,y)=>{
           const touched=contact(x,y);if(touched<=0)return;
           const px=x-wx,py=y-wy;
-          const recovery=smooth(.12,1.3,age)*(1-smooth(3.5,lifetime,age));
+          const recovery=smooth(.08,.9,age)*(1-smooth(3.5,lifetime,age));
+          const inflow=smooth(.18,1.25,age)*(1-smooth(3.4,lifetime,age));
+          const outward=1-smooth(.3,1.8,age);
           // Curl of a smooth, multi-frequency stream field. It transports the
           // existing density without placing circles or spiral-shaped opacity.
           const u=x/(wake.radius*1.8),v=y/(wake.radius*1.8);
@@ -139,23 +144,29 @@ export function createMistFlow() {
             +.32*(-.93*Math.cos(c)*Math.cos(phaseD)-1.47*Math.sin(c)*Math.sin(phaseD));
           const ty=-.83*Math.cos(a)*Math.cos(b)-.46*Math.sin(a)*Math.sin(b)
             -.32*(1.71*Math.cos(c)*Math.cos(phaseD)-.61*Math.sin(c)*Math.sin(phaseD));
-          const meander=Math.sin(a)*Math.cos(b)*wake.radius*.3*recovery;
+          const meander=Math.sin(a)*Math.cos(b)*wake.radius*.42*recovery;
           const along=px*wake.dx+py*wake.dy,across=px*nx+py*ny-meander;
           const end=Math.max(0,Math.abs(along)-wake.length*.5);
           const d=Math.hypot(across,end)/halfWidth;
-          const clearing=(1-smooth(.38,1,d))*fade*touched;
+          const clearing=(1-smooth(.38,1,d))*fade*touched*(1-inflow*.55);
           data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.16)));
           const bank=Math.exp(-Math.pow((Math.abs(across)-spread)/(wake.radius*.45),2)
             -Math.pow(end/Math.max(wake.front,wake.radius*.8),2))*fade*touched;
-          const shift=Math.sign(across)*Math.min(Math.abs(across)*1.6,spread*1.65)*bank;
-          const p=i/4,weight=Math.abs(shift);
+          // Inverse texture displacement: first part the mist, then pull it back
+          // across the path. Forward entrainment draws air into the body's wake.
+          const shift=Math.sign(across)*Math.min(Math.abs(across)*1.8,spread*1.9)*bank*wake.energy*(outward-inflow*.8);
+          const core=Math.exp(-Math.pow(across/(wake.radius*.9),2)-Math.pow(end/Math.max(wake.front,wake.radius),2))*fade*touched;
+          const draft=wake.radius*.8*wake.energy*inflow*core;
+          const eddy=wake.radius*1.15*wake.energy*recovery*Math.max(bank,core*.65);
+          const displacementX=-nx*shift-wake.dx*draft+tx*eddy;
+          const displacementY=-ny*shift-wake.dy*draft+ty*eddy;
+          const p=i/4,weight=Math.hypot(displacementX,displacementY);
           // Overlapping path samples must not multiply the same outward push.
           if(weight>pushWeight[p]){
-            const eddy=wake.radius*.7*recovery*bank;
-            pushWeight[p]=weight;pushX[p]=-nx*shift+tx*eddy;pushY[p]=-ny*shift+ty*eddy;
+            pushWeight[p]=weight;pushX[p]=displacementX;pushY[p]=displacementY;
           }
           data[i+3]=Math.max(data[i+3],clamp(bank*.45*255));
-          if(clearing>.001||bank>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
+          if(clearing>.001||bank>.001||weight>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
         });
 
       }
