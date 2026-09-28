@@ -12,6 +12,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Personal darkvision - September 2026
 
+- [x] Add subtle grayscale contours in unlit heavy-darkness vision, keeping
+  dark surfaces dark and fading the contour pass under lantern/torch light.
+
 - [x] Preserve actual map darkness inside Darkvision; remove the ambient boost
   so torch and lantern glow contrasts against very dark grayscale surroundings.
 

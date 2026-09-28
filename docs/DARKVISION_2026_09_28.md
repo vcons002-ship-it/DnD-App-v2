@@ -58,3 +58,13 @@ apply unchanged. The vision overlay only desaturates unlit areas and enforces
 range. Torches/lanterns retain their normal illumination and stand out against the
 same dark environment seen by the DM. This supersedes the earlier dim ambient
 floor described in the natural-light refinement.
+
+## Subtle Darkvision contours
+
+Heavy-darkness player views add a soft grayscale detail pass to the unlit image.
+A small blur suppresses pixel noise, then a positive edge filter adds a faint
+highlight to brighter edges while leaving uniform dark surfaces unchanged.
+The existing illumination mask fades this pass out under lantern/torch light,
+and the outer personal mask keeps it inside 60 feet. It runs over both scenery
+and tokens without changing ambient lighting or restoring affinity colors.
+Regular darkness retains its existing rendering.
