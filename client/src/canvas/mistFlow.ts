@@ -17,9 +17,9 @@ export function createMistFlow() {
   heightTexture.minFilter=heightTexture.magFilter=LinearFilter;heightTexture.generateMipmaps=false;
   let mapWidth=1216,mapHeight=832,enabled=true,obstacleKey='',time=0,lastUpload=-1;
   let obstacles=0;
-  const previous=new Map<string,{x:number;y:number;bodyX:number;bodyY:number;travel:number;ordinal:number}>();
+  const previous=new Map<string,{x:number;y:number;bodyX:number;bodyY:number}>();
   const lifetime=6;
-  const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;height:number;born:number;dx:number;dy:number;curl:boolean;ordinal:number}[]=[];
+  const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;height:number;born:number;dx:number;dy:number}[]=[];
   // Rasterize only a small world-space rectangle around each retained segment.
   function visit(wx:number,wy:number,r:number,paint:(i:number,x:number,y:number)=>void){
     const x0=Math.max(0,Math.floor((wx-r)/mapWidth*width)),x1=Math.min(width-1,Math.ceil((wx+r)/mapWidth*width));
@@ -67,17 +67,12 @@ export function createMistFlow() {
         const body=token.body??{x:token.x,y:token.y,radiusX:token.diameter*.22,radiusY:token.diameter*.16,facing:0};
         const from=previous.get(token.id),distance=from?Math.hypot(token.x-from.x,token.y-from.y):0;
         if(from&&distance<Math.max(1.5,Math.min(body.radiusX,body.radiusY)*.2))continue;
-        let travel=from?.travel??0,ordinal=from?.ordinal??0;
         if(from&&enabled&&distance<token.diameter*3){
           const dx=(token.x-from.x)/distance,dy=(token.y-from.y)/distance,c=Math.cos(body.facing),s=Math.sin(body.facing);
           const radius=Math.hypot((-dy*c-dx*s)*body.radiusX,(-dy*s+dx*c)*body.radiusY);
           const front=Math.hypot((dx*c-dy*s)*body.radiusX,(dx*s+dy*c)*body.radiusY);
           const count=Math.min(12,Math.ceil(distance/Math.max(3,radius*.5))),length=distance/count;
           for(let j=1;j<=count;j++){
-            travel+=length;
-            // Broad disturbances overlap along the path, independent of FPS.
-            const curl=travel>=radius*1.5;
-            if(curl){travel%=radius*1.5;ordinal++;}
             const x=from.bodyX+(body.x-from.bodyX)*(j-.5)/count,y=from.bodyY+(body.y-from.bodyY)*(j-.5)/count;
             // Coalesce adjacent straight samples. Otherwise three walking figures
             // exhaust the history in half a second, before the wake can roll back.
@@ -87,12 +82,12 @@ export function createMistFlow() {
               &&Math.hypot(x-dx*length*.5-(last.x+last.dx*last.length*.5),y-dy*length*.5-(last.y+last.dy*last.length*.5))<1){
               const total=last.length+length;
               last.x=(last.x*last.length+x*length)/total;last.y=(last.y*last.length+y*length)/total;
-              last.length=total;last.curl ||= curl;
-            }else wakes.push({id:token.id,x,y,length,radius,front,height:body.height??token.diameter*1.6,born:time,dx,dy,curl,ordinal});
+              last.length=total;
+            }else wakes.push({id:token.id,x,y,length,radius,front,height:body.height??token.diameter*1.6,born:time,dx,dy});
           }
           if(wakes.length>96)wakes.splice(0,wakes.length-96);
-        }else travel=0;
-        previous.set(token.id,{x:token.x,y:token.y,bodyX:body.x,bodyY:body.y,travel,ordinal});
+        }
+        previous.set(token.id,{x:token.x,y:token.y,bodyX:body.x,bodyY:body.y});
       }
     },
     tick(seconds:number){
@@ -125,8 +120,9 @@ export function createMistFlow() {
         // A bank travels outward first, carrying nearby noisy density with it.
         // It then recedes as air rolls back into the trail. Opacity reduction is
         // deliberately small; displacement and compression do the visible work.
-        const opening=smooth(0,.35,age),returning=smooth(.7,5.5,age);
-        const spread=wake.radius*(.4+.85*opening)*(1-returning*.55);
+        const returning=smooth(.25,5.5,age);
+        // Contact pushes immediately; only the recovery evolves with trail age.
+        const spread=wake.radius*.95*(1-returning*.55);
         const halfWidth=spread*.7;
         const extent=wake.length*.5+Math.max(wake.front,wake.radius*1.9);
         visit(wx,wy,extent,(i,x,y)=>{
@@ -138,43 +134,22 @@ export function createMistFlow() {
           const clearing=(1-smooth(.38,1,d))*fade*touched;
           data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.28)));
           const bank=Math.exp(-Math.pow((Math.abs(across)-spread)/(wake.radius*.45),2)
-            -Math.pow(end/(wake.radius*.5),2))*opening*fade*touched;
+            -Math.pow(end/Math.max(wake.front,wake.radius*.8),2))*fade*touched;
           const shift=Math.sign(across)*Math.min(Math.abs(across)*1.6,spread*1.65)*bank;
           const p=i/4,weight=Math.abs(shift);
           // Overlapping path samples must not multiply the same outward push.
-          if(weight>pushWeight[p]){pushWeight[p]=weight;pushX[p]=-nx*shift;pushY[p]=-ny*shift;}
+          if(weight>pushWeight[p]){
+            // A continuous, opposed shear along the displaced edges bends the
+            // existing mist back into the path. No circular vortex stamps.
+            const recovery=smooth(.12,1.3,age)*(1-smooth(3.5,lifetime,age));
+            const phase=(x*wake.dx+y*wake.dy)/(wake.radius*2.4)+age*.65;
+            const shear=Math.sin(phase)*wake.radius*.65*recovery*bank*Math.sign(across);
+            pushWeight[p]=weight;pushX[p]=-nx*shift+wake.dx*shear;pushY[p]=-ny*shift+wake.dy*shear;
+          }
           data[i+3]=Math.max(data[i+3],clamp(bank*.75*255));
           if(clearing>.001||bank>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
         });
-        if(!wake.curl)continue;
-        // Move existing patches outward, then gently fold them back in. There
-        // is no spiral ribbon: the mist's own density supplies all visible form.
-        const strength=smooth(.05,.35,age)*fade;
-        for(const side of [-1,1]){
-          const variation=Math.sin(wake.ordinal*2.399+side*1.7);
-          const roll=smooth(.1+variation*.06,2.1+variation*.3,age);
-          const r=wake.radius*(.8+variation*.1+roll*.12);
-          // As the cleared gap closes, broad eddies travel inward with it.
-          // Unequal sides roll existing patches into the gap instead of leaving
-          // all the rotation outside an empty, straight-sided corridor.
-          const inward=1.1-roll*.6+variation*.12;
-          const cx=wx-wake.dx*r*.25+nx*side*wake.radius*inward;
-          const cy=wy-wake.dy*r*.25+ny*side*wake.radius*inward;
-          visit(cx,cy,r*1.8,(i,x,y)=>{
-            const touched=contact(x,y);if(touched<=0)return;
-            const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)/r;
-            if(d>=1.8)return;
-            const along=(x-wx)*wake.dx+(y-wy)*wake.dy;
-            const behind=1-smooth(0,wake.radius*.75,along);
-            const influence=(1-smooth(.15,1.8,d))*strength*behind*touched;
-            const angle=side*roll*(2.6+variation*.3)*influence;
-            const c=Math.cos(angle),s=Math.sin(angle);
-            data[i]=clamp(data[i]+(dx*c-dy*s-dx)*2);
-            data[i+1]=clamp(data[i+1]+(dx*s+dy*c-dy)*2);
-            data[i+3]=Math.max(data[i+3],clamp(influence*.42*255));
-            if(influence>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
-          });
-        }
+
       }
       for(let p=0;p<pushWeight.length;p++)if(pushWeight[p]>0){
         const i=p*4;data[i]=clamp(data[i]+pushX[p]*2);data[i+1]=clamp(data[i+1]+pushY[p]*2);

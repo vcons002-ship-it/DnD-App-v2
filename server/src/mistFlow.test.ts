@@ -90,6 +90,16 @@ describe('mist movement history',()=>{
     flow.setTokens([at(350,false)]);flow.tick(2.9);
     expect(Math.max(...values)).toBe(0);flow.dispose();
   });
+  it('pushes sideways on the first contact frame without waiting for the wake to age',()=>{
+    const flow=field();
+    flow.setTokens([token(200)]);flow.setTokens([token(210)]);flow.tick(1.07);
+    const data=flow.texture.image.data as Uint8Array;
+    let moved=0;
+    for(let i=0;i<data.length;i+=4)if(Math.abs(data[i]-128)>2||Math.abs(data[i+1]-128)>2)moved++;
+    expect(moved).toBeGreaterThan(5);
+    expect(pixel(flow,255,350)).toEqual([128,128,255,0]);
+    flow.dispose();
+  });
   it('clears hidden or disabled history and does not draw a trail across a teleport',()=>{
     const flow=field();walk(flow);expect(flow.state.wakes).toBeGreaterThan(0);
     flow.setTokens([token(400,350,false)]);flow.tick(3.2);

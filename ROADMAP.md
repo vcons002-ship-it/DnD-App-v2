@@ -2102,3 +2102,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Whole-body mist interaction test: measure torso, limbs and head rather than only shins; store body height along each wake so displacement and compression reach the figure height and taper above it. Strength, curl timing and lifetime unchanged.
 
 - [x] Stronger whole-body mist response: faster lateral separation, deeper returning curls and denser displaced edges, retaining the existing modest clearing amount. The interactive movement test now sets six-foot mist directly.
+
+- [x] Mist contact starts pushing immediately instead of ramping after passage. Continuous opposed shear along wake edges replaces discrete circular swirl stamps; the body-front boundary still prevents a disturbance ahead of contact.
