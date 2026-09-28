@@ -15,6 +15,22 @@ function walk(flow:ReturnType<typeof field>){
 }
 
 describe('mist movement history',()=>{
+  it.each([[1,0,0],[0,1,Math.PI/2]])('starts at the measured body, leaving mist ahead untouched (%s,%s)',(dx,dy,facing)=>{
+    const flow=field();
+    const at=(distance:number)=>({...token(250+dx*distance,250+dy*distance),diameter:100,
+      body:{x:250+dx*distance,y:250+dy*distance,radiusX:20,radiusY:8,facing}});
+    flow.setTokens([at(0)]);
+    for(let i=1;i<=10;i++){flow.setTokens([at(i*8)]);flow.tick(1+i*.08);}
+    flow.tick(2.1);
+    // Still inside the decorative base's radius, but beyond the body's front.
+    expect(pixel(flow,250+dx*108,250+dy*108)).toEqual([128,128,255,0]);
+    // The shallow leading cap must not open a wide bow wave beside the nose.
+    expect(pixel(flow,250+dx*95-dy*25,250+dy*95+dx*25)).toEqual([128,128,255,0]);
+    // Motion still displaces mist beside the travelled lower-body corridor.
+    expect(flow.state.wakes).toBeGreaterThan(0);
+    expect(pixel(flow,250+dx*50-dy*7,250+dy*50+dx*7)).not.toEqual([128,128,255,0]);
+    flow.dispose();
+  });
   it('preserves the trail when a camera redraw is followed by an older animation timestamp',()=>{
     const flow=field();walk(flow);
     const before=flow.state, pixels=(flow.texture.image.data as Uint8Array).slice();

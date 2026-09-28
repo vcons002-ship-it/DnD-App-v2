@@ -23,6 +23,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   mist: part around the figure, gently fold inward, and refill the old trail.
 - [x] Make sideways displacement and gathering the main movement reaction;
   reduce the erasing effect and carry broad return eddies into the closing gap.
+- [x] Fit mist contact to each loaded model's lower body, excluding bases and
+  weapons. Narrow the leading edge and keep spreading/return curls behind it.
 
 ## Undead and demon library expansion - September 2026
 

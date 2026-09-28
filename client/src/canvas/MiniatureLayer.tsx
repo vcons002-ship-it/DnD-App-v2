@@ -16,6 +16,7 @@ import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
 import {createPreviewGpuTiming} from './previewGpuTiming';
+import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import { useStore } from '../state/socket';
 import {
@@ -80,6 +81,7 @@ type Instance = {
   originalTransparent: boolean[];
   mixer: AnimationMixer | null;
   shadowAnimated: boolean;
+  mistBody?: MistBody;
   fx: FxManifest | null;
   lightning: ReturnType<typeof createVanecLightning> | null;
 };
@@ -289,7 +291,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       battlefield?.setTokens(props.tokens.map(token => {
         const instance=instances.get(token.id);
-        return {id:token.id,x:instance?.root.position.x ?? token.x,y:instance?.root.position.z ?? token.y,diameter:token.diameter,visible:!!instance?.root.visible && !token.hidden};
+        const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
+        const body=instance?.mistBody?mistBodyInMap(instance.mistBody,x,y,instance.root.rotation.y,instance.root.scale.x):undefined;
+        return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden};
       }));
       battlefield?.tick(reducedMotion.matches ? 0 : seconds);
       try {
@@ -330,6 +334,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistWakes=String(mistState.wakes);
           host.dataset.mistTime=String(mistState.time);
           host.dataset.mistOldestWakeAge=String(mistState.oldestWakeAge);
+          host.dataset.mistBodies=JSON.stringify([...instances].flatMap(([id,instance])=>instance.mistBody?[{id,source:instance.mistBody.source,
+            width:instance.mistBody.radiusX*2*instance.root.scale.x,depth:instance.mistBody.radiusZ*2*instance.root.scale.x}]:[]));
           host.dataset.mistObstacles=String(mistState.obstacles);
           host.dataset.mistInteraction=String(mistState.enabled);
           if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}
@@ -604,6 +610,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
           // Emissive/material flicker does not change the ground silhouette.
           shadowAnimated: gltf.animations.some(clip => clip.tracks.some(track => /\.(position|quaternion|scale|morphTargetInfluences)(\[|$)/.test(track.name))),
+          mistBody:props.environmentPreview?measureMistBody(gltf.scene,definition):undefined,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         instances.set(token.id, instance);

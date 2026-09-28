@@ -324,3 +324,37 @@ timestamps. The closer recording shows displacement, the return after stopping,
 movement during orbit and overhead.
 
 Preview: https://dnd.nic024i.app/uploads/previews/environment-displaced-mist-20260927/index.html
+
+## Lower-body contact and narrow leading edge
+
+Wake size now comes from a lower-body mesh measurement rather than the base
+diameter. The preview samples referenced vertices once per loaded asset, applies
+the mesh transforms, excludes named base/weapon/accessory meshes, and fits an
+ellipse to robust horizontal bounds of the shins/knees. The cached ellipse
+retains its offset from the base center and follows miniature scale and facing.
+It is a resting-pose approximation, not continuous triangle collision. Assets
+without enough usable body samples use a compact fallback, reported explicitly
+in the preview diagnostics.
+
+All seven preview models measured successfully. Druk's local-axis footprint in
+map pixels is 38.15 by 33.59, versus his 61-pixel base diameter. At the study's
+map scale that is about 3.0 by 2.6 feet. Movement uses the ellipse's projected
+width and depth, so changing direction respects the body orientation.
+
+Every displacement, gathering, clearing and curl contribution is clipped to a
+rounded leading cap at the swept body's front. The cap gets narrower toward
+the nose; no contribution starts beyond it. Its boundary stays fixed in map
+coordinates while old mist drifts, preventing the historical effect from
+advancing into untouched mist. Sideways banks and eddies are smaller as well,
+with their wider motion confined to the trail behind the body.
+
+Tests cover excluding a wide base and long sword from body measurement, model
+offset/scale/rotation, and untouched mist beyond and beside the leading edge
+for two movement directions. Existing history/privacy/expiry checks and the
+browser orbit regression remain in place. The public phone-width test checks
+that Druk uses the measured geometry footprint and preserves wakes during
+movement and camera rotation.
+
+Preview: https://dnd.nic024i.app/uploads/previews/environment-body-wake-20260927/index.html
+
+This continues the standalone environment study; no live campaign was changed.
