@@ -4,6 +4,13 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Daylight figure colors - September 2026
+
+- [x] Rebalance daylight fill, directional light and reflections to stop figure
+  colors washing out; retain untinted original map colors. Compare identical
+  camera views and verify unchanged ground pixels with stronger cloth color.
+  See [daylight follow-up](docs/ENVIRONMENT_WIND_COLOR_2026_09_28.md#daylight-figure-color-follow-up).
+
 ## Wind and scene color - September 2026
 
 - [x] Extend wind to 300% of the previous maximum; rain streaks follow gusts.

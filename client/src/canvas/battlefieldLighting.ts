@@ -9,7 +9,7 @@ import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './envi
 import type {TorchLight} from './miniatureTorchLighting';
 import {stormLightningAt} from '../../../shared/stormLighting';
 
-const palettes={day:{color:0x1c2230,opacity:0,ambient:1.35,key:3,reflection:1},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
+const palettes={day:{color:0x1c2230,opacity:0,ambient:.75,key:2,reflection:.35},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
 const colors={warm:new Color(0xffb258),cool:new Color(0x89bbff),green:new Color(0x85eab5)};
 export type CarriedLanternLight={id:string;x:number;y:number;height:number;facing:number};
@@ -182,9 +182,12 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
     uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
     uniforms.wetness.value=next.groundWetness??0;uniforms.surfaceScale.value=next.pixelsPerFoot??12.8;uniforms.wetLight.value=Math.max(.12,preset.ambient*level);
-    const day=(next.lighting??'day')==='day',tintAmount=next.sceneTintStrength??0;
+    const tintAmount=next.sceneTintStrength??0;
     uniforms.sceneTint.value.set(next.sceneTint??'#ffffff');uniforms.sceneTintStrength.value=tintAmount;
-    baseLight.key=(day?original.key:preset.key)*level;baseLight.ambient=(day?original.ambient:preset.ambient)*level;baseLight.reflection=(day?original.reflection:preset.reflection)*level;
+    // Daylight needs a balanced fill/key/reflection rig: the brighter showcase
+    // rig lifts diffuse atlases into the tone mapper's pale highlight range.
+    // This only lights figures; the day ground-grade opacity remains zero.
+    baseLight.key=preset.key*level;baseLight.ambient=preset.ambient*level;baseLight.reflection=preset.reflection*level;
     baseLight.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);
     baseLight.color.lerp(uniforms.sceneTint.value,tintAmount);
     if(enabled&&ambient){ambient.color.copy(original.sky).lerp(uniforms.sceneTint.value,tintAmount);ambient.groundColor.copy(original.ground).lerp(uniforms.sceneTint.value,tintAmount);}

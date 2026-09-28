@@ -12,7 +12,7 @@ const base:Atmosphere={
 };
 const preset=(id:string,label:string,description:string,settings:Partial<Atmosphere>)=>({id,label,description,settings:{...base,...settings}});
 export const MAP_ENVIRONMENT_PRESETS=[
-  preset('clear-day','Clear day','Original map colors, default figure lighting and defined token shadows.',{}),
+  preset('clear-day','Clear day','Original map colors, balanced daylight and defined token shadows.',{}),
   preset('golden-dusk','Golden dusk','Warm fading daylight and softer shadows.',{lighting:'dusk',shadowOpacity:.5}),
   preset('moonlit-night','Moonlit night','Cool moonlight with a little low mist.',{lighting:'night',mist:true,shadowOpacity:.35}),
   preset('light-rain','Light rain','Gentle rain, subdued daylight and thin ground mist.',{lighting:'day',lightLevel:.7,groundWetness:.35,weather:'rain',weatherIntensity:.3,windStrength:.25,shadowOpacity:.2,mist:true,mistOpacity:.06}),

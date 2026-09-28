@@ -16,11 +16,12 @@ DM: **Maps > Environment**.
   Mist color remains an independent control. Scene tint does not recolor the
   HUD, labels, affinity borders, source model files or original map image.
 - **Clear day** resets custom tint to white at 0%, uses full ambient brightness
-  and the ordinary miniature lighting, and disables atmospheric coloring effects.
+  and balanced miniature daylight, and disables atmospheric coloring effects.
   An unlit, unshadowed map pixel receives no grade contribution. Existing placed
   lights and token shadows are still available. Day previously lowered the
-  figures' ambient intensity from the normal 2 to 1.35; it now uses the renderer's
-  captured original lighting values. Other lighting presets retain their looks.
+  figures' ambient intensity from 2 to 1.35; restoring the brighter showcase rig
+  subsequently washed out diffuse colors. The follow-up below replaces that rig
+  with balanced daylight. Other lighting presets retain their looks.
 
 `sceneTint` (strict six-digit hex) and `sceneTintStrength` (0..1) use the existing
 sanitized map environment JSON and shared snapshots. Older saves default to no
@@ -57,3 +58,22 @@ Preview: https://dnd.nic024i.app/uploads/previews/environment-wind-color-2026092
 The video compares Clear day, cool/warm tints, reset, and rain at 0%, 100% and
 300% wind plus a direction change. Only static preview media and the isolated
 lab are published; the running campaign application and save are unchanged.
+
+## Daylight figure-color follow-up
+
+The brighter restored rig made red robes look pink and lifted skin and cloth
+into the tone mapper's pale highlight range. Day now uses ambient fill 0.75,
+directional light 2, and reflection intensity 0.35. Source textures, material
+colors, renderer exposure and map pixels are unchanged. Tint, lanterns, shadows
+and other lighting presets keep working through the same renderer.
+
+`verify-daylight.mjs EVIDENCE_DIRECTORY` compares the published pre-fix scene
+with the local rebuilt lab at the same camera and frozen animation time. It
+checks original ground pixels and compares the same red-cloth pixels on Vanec.
+The run retained 0 changed ground pixels and raised red-cloth chroma from 0.509
+to 0.637 across 4,834 pixels, without a saturation filter. Visual review confirms
+stronger cloth color and darker, better defined materials on all seven figures.
+
+Comparison: https://dnd.nic024i.app/uploads/previews/environment-daylight-20260928/index.html
+
+The comparison is published separately; the previous videos remain historical.
