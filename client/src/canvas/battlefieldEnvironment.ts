@@ -7,6 +7,7 @@ import {
   type HemisphereLight,
 } from 'three';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
+import {createBattlefieldParticles} from './battlefieldParticles';
 import {createBattlefieldWeather} from './battlefieldWeather';
 import {createBattlefieldLighting} from './battlefieldLighting';
 import {createBattlefieldMist} from './battlefieldMist';
@@ -33,7 +34,7 @@ export type EnvironmentMistPatch = {
 };
 
 /** Renderer settings shared by the isolated study and the app. Lengths are map pixels. */
-export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'heavyDarkness'|'weather'|'weatherIntensity'|'lightning'|'groundWetness'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
+export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'heavyDarkness'|'weather'|'weatherIntensity'|'particles'|'particleIntensity'|'mistColor'|'lightning'|'groundWetness'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
   /** Fallback carriers also illuminate the map when their viewer chooses 2D tokens. */
   carriedLanterns?: {id:string;x:number;y:number;diameter:number;facing:number}[];
   /** Transparent effects over the existing Konva artwork in the real battlefield. */
@@ -162,6 +163,7 @@ export function createBattlefieldEnvironment(
   const lighting=createBattlefieldLighting(scene,keyLight,ambient,visibility.uniforms,depthBuffer);
   const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms,lighting.fieldUniforms);
   const weather=createBattlefieldWeather(scene,depthBuffer,visibility.uniforms);
+  const particles=createBattlefieldParticles(scene,depthBuffer,visibility.uniforms);
   const geometries = new Set<BufferGeometry>();
   const materials = new Set<Material>();
   const textures = new Set<Texture>();
@@ -415,7 +417,7 @@ export function createBattlefieldEnvironment(
     scenery.visible = settings.enabled && settings.scenery;
     visibility.update(settings);
     mist.update(settings);
-    weather.update(settings);lighting.update(settings);
+    weather.update(settings);particles.update(settings);lighting.update(settings);
     contacts.visible = settings.enabled && settings.shadows;
     ground.material = settings.overlay ? overlayGroundMaterial : settings.enabled && (settings.shadows || (settings.mist && settings.mistShadows !== false)) ? shadowedGroundMaterial : groundMaterial;
     floorUniforms.shadowStrength.value = settings.shadows ? clamp(settings.shadowOpacity, 0, 1) : 0;
@@ -450,8 +452,8 @@ export function createBattlefieldEnvironment(
 
   function tick(timeSeconds: number) {
     if (disposed) return false;
-    mist.tick(timeSeconds);weather.tick(timeSeconds);lighting.tick(timeSeconds);
-    return settings.enabled&&(settings.mist||weather.animated||lighting.animated);
+    mist.tick(timeSeconds);weather.tick(timeSeconds);particles.tick(timeSeconds);lighting.tick(timeSeconds);
+    return settings.enabled&&(settings.mist||weather.animated||particles.animated||lighting.animated);
   }
 
   function dispose() {
@@ -463,7 +465,7 @@ export function createBattlefieldEnvironment(
     geometries.forEach((entry) => entry.dispose());
     materials.forEach((entry) => entry.dispose());
     textures.forEach((entry) => entry.dispose());
-    contactMeshes.clear(); mist.dispose();weather.dispose();lighting.dispose();visibility.dispose();
+    contactMeshes.clear(); mist.dispose();weather.dispose();particles.dispose();lighting.dispose();visibility.dispose();
   }
 
   update(initial);
@@ -471,6 +473,6 @@ export function createBattlefieldEnvironment(
     lighting,
     renderMist: mist.render,
     get mistState() { return mist.state; },
-    get atmosphereState(){return {...weather.state,...lighting.state};},
+    get atmosphereState(){return {...weather.state,...particles.state,...lighting.state,mistColor:settings.mistColor??'natural'};},
   };
 }

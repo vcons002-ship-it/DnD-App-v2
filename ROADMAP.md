@@ -4,6 +4,16 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Environmental variety - September 2026
+
+- [x] Add Autumn wind, Firefly glade, Haunted marsh, Ashfall, Sandstorm and
+  Blizzard presets, bringing the shared catalog to 15.
+- [x] Independent bounded ambient particles and mist colors, preserving map
+  art, fog, lights, movement wakes and viewer quality/reduced-motion choices.
+- [x] Record the six looks, moving lanterns and camera views; verify real
+  DM/player synchronization and publish a mobile-accessible comparison.
+  See [controls, limits and verification](docs/ENVIRONMENT_VARIETY_2026_09_28.md).
+
 ## Environment presets and rainstorm - September 2026
 
 - [x] Nine one-click atmosphere presets in DM Maps, retaining placed lights,

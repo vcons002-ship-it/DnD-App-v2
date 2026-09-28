@@ -9,12 +9,13 @@ import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
 import './preview.css';
 
+const varietyStudy=new URLSearchParams(location.search).has('variety');
 const stormStudy=new URLSearchParams(location.search).has('storm');
 const dungeonStudy=new URLSearchParams(location.search).has('dungeon');
 const mapWidth=dungeonStudy?1402:1216,mapHeight=dungeonStudy?1122:832;
 const pixelsPerFoot=dungeonStudy?5:64/5;
 const torchStudy=dungeonStudy||new URLSearchParams(location.search).has('torches');
-const atmosphereStudy=stormStudy||torchStudy||new URLSearchParams(location.search).has('atmosphere');
+const atmosphereStudy=varietyStudy||stormStudy||torchStudy||new URLSearchParams(location.search).has('atmosphere');
 const testLights:NonNullable<EnvironmentPreviewSettings['lights']>=[
   {id:'brazier-west',x:480,y:520,radiusFt:17,heightFt:5,color:'warm',intensity:1,flicker:true,visibleTorch:true},
   {id:'lantern-east',x:750,y:485,radiusFt:16,heightFt:6,color:'warm',intensity:1,flicker:true,visibleTorch:true},
@@ -52,7 +53,7 @@ const initialSettings:EnvironmentPreviewSettings={
   mistCoverage:'map',mistHeight:(dungeonStudy?1.5:torchStudy?10:2)*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
-  ...(stormStudy?presetSettings('clear-day'):{}),
+  ...((stormStudy||varietyStudy)?presetSettings('clear-day'):{}),
 };
 
 function Preview(){
@@ -172,7 +173,7 @@ function Preview(){
       movingFrame.current=requestAnimationFrame(tick);return;
     }
     cancelAnimationFrame(movingFrame.current);const start=performance.now(),party=tokens.filter(t=>['druk','varis','vanec'].includes(t.id));
-    const destinations=party.map(t=>stormStudy?{x:t.x+(party[0].x>600?-160:160),y:t.y+(party[0].x>600?55:-55)}:{x:t.x>650?t.x-230:t.x+230,y:t.y>440?t.y-70:t.y+70});
+    const destinations=party.map(t=>(stormStudy||varietyStudy)?{x:t.x+(party[0].x>600?-160:160),y:t.y+(party[0].x>600?55:-55)}:{x:t.x>650?t.x-230:t.x+230,y:t.y>440?t.y-70:t.y+70});
     setNotice('Hip lanterns move and turn with their owners as the party crosses the mist.');
     const tick=(now:number)=>{const t=Math.min(1,(now-start)/6400),e=t*t*(3-2*t);
       party.forEach((token,i)=>layer.current?.moveToken(token.id,token.x+(destinations[i].x-token.x)*e,token.y+(destinations[i].y-token.y)*e,t===1));
@@ -182,7 +183,7 @@ function Preview(){
   };
   const settingsProps=useMemo(()=>settings,[settings]);
   return <div className="environment-app">
-    <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>{dungeonStudy?'The castle basement':stormStudy?'Storm over the courtyard':'The ruined courtyard'}</h1><p className="subtitle">{stormStudy?'Rain, wet stone & cloud lightning':dungeonStudy?'Hip lanterns, light floor mist & dungeon darkness':atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
+    <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>{dungeonStudy?'The castle basement':varietyStudy?'Six new atmospheres':stormStudy?'Storm over the courtyard':'The ruined courtyard'}</h1><p className="subtitle">{varietyStudy?'Leaves, fireflies, ash, sand & snow':stormStudy?'Rain, wet stone & cloud lightning':dungeonStudy?'Hip lanterns, light floor mist & dungeon darkness':atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
     <nav className="camera-bar" aria-label="Camera controls">
       <button aria-label="45° view" onClick={()=>transition(fitted(45,current.current.rotation,true))}>45° view</button>
       <button aria-label="Overhead view" onClick={()=>transition(fitted(0,current.current.rotation,true))}>Overhead</button>
@@ -192,7 +193,7 @@ function Preview(){
       <button aria-label="Zoom in" onClick={()=>zoom(1.2)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.2)}>−</button>
       {dungeonStudy&&<button onClick={()=>{const party=tokens.slice(0,3),x=party.reduce((n,t)=>n+t.x,0)/3,y=party.reduce((n,t)=>n+t.y,0)/3,scale=3;transition({tilt:45,rotation:0,view:{scale,x:size.width/2-x*scale,y:size.height*.57-y*scale*groundYScale(45)}});}}>Party view</button>}
       {dungeonStudy&&<button aria-pressed={!!settings.heavyDarkness} onClick={()=>change('heavyDarkness',!settings.heavyDarkness)}>Heavy darkness</button>}
-      {(torchStudy||stormStudy)&&<>
+      {(torchStudy||stormStudy||varietyStudy)&&<>
         <button onClick={()=>transition(fitted(45,dungeonStudy?0:180,true))}>Front view</button>
         <button onClick={()=>{const t=tokens.find(t=>t.id==='druk')!,scale=dungeonStudy?6:2.6;transition({tilt:45,rotation:180,view:{scale,x:size.width/2-t.x*scale,y:size.height*.62-t.y*scale*groundYScale(45)}});}}>Lantern close-up</button>
         <button onClick={moveParty} disabled={ready<7}>Move party</button>
@@ -201,7 +202,7 @@ function Preview(){
         {!dungeonStudy&&<button onClick={()=>change('lights',manyLights)}>Twelve torches</button>}
       </>}
       {!dungeonStudy&&<button onClick={moveDruk} disabled={ready<7}>Move Druk</button>}
-      {atmosphereStudy&&!torchStudy&&!stormStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
+      {atmosphereStudy&&!torchStudy&&!stormStudy&&!varietyStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
         setSettings(s=>({...s,enabled:true,scenery:false,lighting:preset==='Rain'?'dusk':preset==='Snow'?'day':preset.toLowerCase() as 'day'|'dusk'|'night'|'dungeon',
           weather:preset==='Rain'?'rain':preset==='Snow'?'snow':'none',lights:preset==='Night'||preset==='Dungeon'?testLights:[],mistOpacity:.22}));
       }}>{preset}</button>)}
@@ -221,11 +222,11 @@ function Preview(){
           <option value="" disabled>Custom settings</option>{MAP_ENVIRONMENT_PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}
         </select></label>
         <p className="help">Presets keep your placed lights, shadow direction and wind direction.</p>
-        {(torchStudy||stormStudy)&&<>
+        {(torchStudy||stormStudy||varietyStudy)&&<>
           <h3>Hip lanterns</h3>
           {['druk','varis','vanec'].map(id=><label className="switch" key={id}><input type="checkbox" checked={!!tokens.find(t=>t.id===id)?.carriedLantern} onChange={e=>setTokens(list=>list.map(t=>t.id===id?{...t,carriedLantern:e.target.checked}:t))}/>{id[0].toUpperCase()+id.slice(1)} lantern</label>)}
           <label className="switch"><input type="checkbox" checked={!!settings.lights?.some(l=>l.visibleTorch)} onChange={e=>change('lights',settings.lights?.map(l=>({...l,visibleTorch:e.target.checked})))}/>{dungeonStudy?'Visible placed lanterns':'Visible placed torches'}</label>
-          <p className="help">{stormStudy?'Carried lanterns keep their warmth in rain and darkness.':dungeonStudy?"Light floor mist, 1.5 feet high. Three floor lanterns and the party's hip lanterns illuminate the dungeon.":'Night with 10 ft mist at maximum strength. Small lanterns hang at the hip and illuminate nearby figures and mist.'}</p>
+          <p className="help">{(stormStudy||varietyStudy)?'Carried lanterns keep their warmth through changing weather and atmosphere.':dungeonStudy?"Light floor mist, 1.5 feet high. Three floor lanterns and the party's hip lanterns illuminate the dungeon.":'Night with 10 ft mist at maximum strength. Small lanterns hang at the hip and illuminate nearby figures and mist.'}</p>
         </>}
 
         <label className="switch master"><input type="checkbox" checked={settings.enabled} onChange={e=>change('enabled',e.target.checked)}/>Show effects</label>
@@ -237,6 +238,10 @@ function Preview(){
           <label className="quality">Weather <select aria-label="Weather" value={settings.weather} onChange={e=>change('weather',e.target.value as EnvironmentPreviewSettings['weather'])}>{['none','rain','snow'].map(v=><option key={v}>{v}</option>)}</select></label>
           <label className="range">Weather strength <input aria-label="Weather strength" type="range" min="0" max="1" step=".05" value={settings.weatherIntensity} onChange={e=>change('weatherIntensity',+e.target.value)}/></label>
           <label className="switch"><input aria-label="Lightning flashes" type="checkbox" checked={!!settings.lightning} onChange={e=>change('lightning',e.target.checked)}/>Lightning flashes</label>
+          <label className="quality">Particles <select aria-label="Atmosphere particles" value={settings.particles??'none'} onChange={e=>change('particles',e.target.value as EnvironmentPreviewSettings['particles'])}>
+            <option value="none">None</option><option value="leaves">Autumn leaves</option><option value="fireflies">Fireflies</option><option value="embers">Ash and embers</option><option value="dust">Windblown dust</option>
+          </select></label>
+          <label className="range">Particle density <input aria-label="Particle density" type="range" min="0" max="1" step=".05" value={settings.particleIntensity??.5} onChange={e=>change('particleIntensity',+e.target.value)}/></label>
           <label className="range">Wet ground <input aria-label="Wet ground" type="range" min="0" max="1" step=".05" value={settings.groundWetness??0} onChange={e=>change('groundWetness',+e.target.value)}/></label>
           <label className="range">Wind direction <input aria-label="Wind direction" type="range" min="0" max="359" value={settings.windDirectionDegrees} onChange={e=>change('windDirectionDegrees',+e.target.value)}/></label>
           <label className="range">Wind strength <input aria-label="Wind strength" type="range" min="0" max="1" step=".05" value={settings.windStrength} onChange={e=>change('windStrength',+e.target.value)}/></label>
@@ -249,6 +254,9 @@ function Preview(){
         <p className="help">Move Druk to leave a fading wake. Auto lowers mist detail on small screens or large drawing buffers; figures stay sharp.</p>
         <label className="switch"><input type="checkbox" checked={settings.mistCoverage==='map'} onChange={e=>change('mistCoverage',e.target.checked?'map':'patches')}/>Whole-map mist</label>
         <label className="switch"><input type="checkbox" checked={settings.mistShadows!==false} onChange={e=>change('mistShadows',e.target.checked)}/>Mist shadows</label>
+        <label className="quality">Mist color <select aria-label="Mist color" value={settings.mistColor??'natural'} onChange={e=>change('mistColor',e.target.value as EnvironmentPreviewSettings['mistColor'])}>
+          <option value="natural">Natural</option><option value="cool">Cool blue</option><option value="green">Eerie green</option><option value="ash">Ash grey</option><option value="sand">Warm sand</option>
+        </select></label>
         <label className="range">Mist strength <output>{Math.round((settings.mistOpacity??.5)*100)}%</output><input aria-label="Mist strength" type="range" min="0" max=".7" step=".01" value={settings.mistOpacity} onChange={e=>change('mistOpacity',+e.target.value)}/></label>
         <label className="range">Mist height <output>{((settings.mistHeight??25.6)/pixelsPerFoot).toFixed(1)} ft</output><input aria-label="Mist height" type="range" min=".5" max="10" step=".5" value={(settings.mistHeight??25.6)/pixelsPerFoot} onChange={e=>change('mistHeight',+e.target.value*pixelsPerFoot)}/></label>
         <p className="help">Height sets how far the mist reaches above the ground. Switch whole-map coverage off to compare the original patches.</p>

@@ -12,7 +12,7 @@ export function EnvironmentQualityControl(){
     <select aria-label="Environment quality" value={quality} onChange={e=>setQuality(e.target.value as EnvironmentQuality)}>
       <option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option><option value="off">Off</option>
     </select>
-    <small>Only changes this browser. Low reduces mist detail and weather particles; Off hides environmental effects.</small>
+    <small>Only changes this browser. Low reduces mist detail and particle counts; Off hides environmental effects.</small>
   </label>;
 }
 
@@ -77,6 +77,13 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         <SettingSlider label="Wind direction" value={settings.windDirectionDegrees} min={0} max={359} suffix="°" onCommit={v=>update({windDirectionDegrees:v})}/>
         <SettingSlider label="Wind strength" value={settings.windStrength*100} min={0} max={100} suffix="%" onCommit={v=>update({windStrength:v/100})}/>
       </fieldset>
+      <fieldset><legend>Atmosphere particles</legend>
+        <label>Particles <select aria-label="Atmosphere particles" value={settings.particles} onChange={e=>update({particles:e.target.value as MapEnvironment['particles']})}>
+          <option value="none">None</option><option value="leaves">Autumn leaves</option><option value="fireflies">Fireflies</option><option value="embers">Ash and embers</option><option value="dust">Windblown dust</option>
+        </select></label>
+        {settings.particles!=='none'&&<SettingSlider label="Particle density" value={settings.particleIntensity*100} min={0} max={100} suffix="%" onCommit={v=>update({particleIntensity:v/100})}/>}
+        <small>Combines with weather and mist. Uses the wind settings above.</small>
+      </fieldset>
       <fieldset><legend>Shadows</legend>
         {toggle('shadows','Token shadows')}
         {settings.shadows&&<>
@@ -89,6 +96,9 @@ export function MapEnvironmentControls({map}:{map:MapState}){
       <fieldset><legend>Mist</legend>
         {toggle('mist','Drifting mist')}
         {settings.mist&&<>
+          <label>Mist color <select aria-label="Mist color" value={settings.mistColor} onChange={e=>update({mistColor:e.target.value as MapEnvironment['mistColor']})}>
+            <option value="natural">Natural</option><option value="cool">Cool blue</option><option value="green">Eerie green</option><option value="ash">Ash grey</option><option value="sand">Warm sand</option>
+          </select></label>
           <SettingSlider label="Mist density" value={settings.mistOpacity*100} min={0} max={70} suffix="%" onCommit={v=>update({mistOpacity:v/100})}/>
           <SettingSlider label="Mist height" value={settings.mistHeightFt} min={.5} max={10} step={.5} suffix=" ft" onCommit={v=>update({mistHeightFt:v})}/>
           {toggle('mistShadows','Subtle mist shading')}{toggle('mistInteraction','React to moving figures')}

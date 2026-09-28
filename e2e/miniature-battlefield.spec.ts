@@ -52,8 +52,29 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await page.getByLabel('Enable environment',{exact:true}).click();
     await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
     await expect(layer).toHaveAttribute('data-mist-visible','true');
+    // New presets use the actual saved DM UI and synchronize to the player.
+    for(const [preset,particles,color] of [['autumn-wind','leaves','natural'],['firefly-glade','fireflies','green'],['haunted-marsh','fireflies','green'],['ashfall','embers','ash'],['sandstorm','dust','sand'],['blizzard','none','cool']]){
+      await page.getByLabel('Environment preset',{exact:true}).selectOption(preset);
+      await expect(layer).toHaveAttribute('data-particles',particles);
+      await expect(dmLayer).toHaveAttribute('data-particles',particles);
+      await expect(layer).toHaveAttribute('data-mist-color',color);
+      await expect.poll(async()=>(await f.snapshot()).map?.environment?.particles).toBe(particles);
+    }
+    await page.getByLabel('Atmosphere particles',{exact:true}).selectOption('leaves');
+    await page.getByLabel('Mist color',{exact:true}).selectOption('natural');
+    await expect(layer).toHaveAttribute('data-particles','leaves');
+    await expect(layer).toHaveAttribute('data-weather','snow'); // Independent layers.
+    await expect(page.getByLabel('Environment preset',{exact:true})).toHaveValue('');
+    await player.emulateMedia({reducedMotion:'reduce'});
+    await expect(layer).toHaveAttribute('data-particle-time','0');
+    await player.emulateMedia({reducedMotion:'no-preference'});
+    await expect.poll(async()=>Number(await layer.getAttribute('data-particle-time'))).toBeGreaterThan(0);
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('firefly-glade');
+    await page.locator('.map-environment-controls > summary').scrollIntoViewIfNeeded();
+    await page.screenshot({path:info.outputPath('environment-variety-dm.png')});
     await page.getByLabel('Environment preset',{exact:true}).selectOption('rainstorm');
     await expect(layer).toHaveAttribute('data-weather','rain');
+    await expect(layer).toHaveAttribute('data-particles','none');
     await expect(layer).toHaveAttribute('data-wet-ground','0.8');
     await expect(layer).toHaveAttribute('data-lightning-enabled','true');
     await page.screenshot({path:info.outputPath('environment-presets-dm.png')});
@@ -151,6 +172,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await player.setViewportSize({width:390,height:844});
     await expect(layer).toHaveAttribute('data-mist-quality','low');
     await expect(layer).toHaveAttribute('data-weather-quality','low');
+    await expect(layer).toHaveAttribute('data-particle-quality','low');
     await player.screenshot({path:info.outputPath('weather-player-snow-phone.png')});
     await player.screenshot({path:info.outputPath('environment-player-phone.png')});
     await player.getByRole('button',{name:'Interface settings',exact:true}).click();
@@ -208,12 +230,18 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(dmLayer).toHaveAttribute('data-light-count','1');
     await expect.poll(async()=>(await f.snapshot()).measurements.length).toBe(0);
     // Exercise the strongest storm flash against covered map pixels too.
-    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{weather:'rain',lightning:true,groundWetness:1}});
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{weather:'rain',lightning:true,groundWetness:1,particles:'fireflies',particleIntensity:1}});
     const flashTime=Array.from({length:1900},(_,i)=>1700000000+i*.01).find(t=>stormLightningAt(t)>.95)!;
     await expect(layer).toHaveAttribute('data-lightning-enabled','true');
     // Freeze Date only; installing a clock after load would reset performance.now
     // beneath the renderer's existing animation origin.
     await player.evaluate(ms=>{Date.now=()=>ms;},flashTime*1000);
+    await expect.poll(async()=>Number(await layer.getAttribute('data-lightning-flash'))).toBeGreaterThan(.9);
+    // Changing reduced motion at the peak must clear the flash on its final frame.
+    await player.emulateMedia({reducedMotion:'reduce'});
+    await expect(layer).toHaveAttribute('data-lightning-flash','0');
+    await expect(layer).toHaveAttribute('data-particle-time','0');
+    await player.emulateMedia({reducedMotion:'no-preference'});
     await expect.poll(async()=>Number(await layer.getAttribute('data-lightning-flash'))).toBeGreaterThan(.9);
     await afterPaint(player);
     const clip=(await layer.boundingBox())!;

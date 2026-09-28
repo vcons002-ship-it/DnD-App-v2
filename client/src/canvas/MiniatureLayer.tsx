@@ -208,6 +208,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let paintCount = 0, paintEpoch = performance.now();
   const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let paintedReducedMotion: boolean | undefined;
 
   const updateCamera = () => {
     const scale = Math.max(0.0001, view.scale);
@@ -267,12 +268,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
     const atmosphereAnimated = !!environment?.enabled && environment.mistQuality!=='off' && !reducedMotion.matches &&
-      ((environment.groundWetness??0)>0 || environment.lightning || environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
+      ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0) || (environment.groundWetness??0)>0 || environment.lightning || environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
-    if (now - lastPaint >= (props.environmentPreview ? 1000 / 60 - 1 : 1000 / 24)) {
+    // Paint the preference change even inside the frame cap: this may be the
+    // last frame once animation stops, so no flash or moving effect may linger.
+    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= (props.environmentPreview ? 1000 / 60 - 1 : 1000 / 24)) {
+      paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
       const seconds = (now - started) / 1000;
       for(const [id,move] of moves)if(move.until<now)moves.delete(id);

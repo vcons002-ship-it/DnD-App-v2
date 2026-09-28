@@ -5,6 +5,9 @@ export type MapEnvironment = {
   heavyDarkness: boolean;
   weather: 'none' | 'rain' | 'snow';
   weatherIntensity: number;
+  particles: 'none' | 'leaves' | 'fireflies' | 'embers' | 'dust';
+  particleIntensity: number;
+  mistColor: 'natural' | 'cool' | 'green' | 'ash' | 'sand';
   lightning: boolean;
   groundWetness: number;
   windDirectionDegrees: number;
@@ -24,7 +27,7 @@ export type MapEnvironment = {
 export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
 export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
-  lighting:'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.5,lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],
+  lighting:'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],
   enabled: false, shadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
   shadowOpacity: .65, mist: true, mistOpacity: .35, mistHeightFt: 2,
   mistShadows: true, mistInteraction: true,
@@ -40,7 +43,7 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   }
   for (const [key, min, max] of [
     ['shadowLength', .1, 4], ['shadowOpacity', 0, 1], ['mistOpacity', 0, .7], ['mistHeightFt', .5, 10],
-    ['groundWetness',0,1],['lightLevel',.1,1],['weatherIntensity',0,1],['windStrength',0,1],
+    ['particleIntensity',0,1],['groundWetness',0,1],['lightLevel',.1,1],['weatherIntensity',0,1],['windStrength',0,1],
   ] as const) {
     const value = source[key];
     if (typeof value === 'number' && Number.isFinite(value)) result[key] = Math.max(min, Math.min(max, value));
@@ -51,6 +54,8 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   }
   if(['day','dusk','night','dungeon'].includes(source.lighting as string))result.lighting=source.lighting as MapEnvironment['lighting'];
   if(['none','rain','snow'].includes(source.weather as string))result.weather=source.weather as MapEnvironment['weather'];
+  if(['none','leaves','fireflies','embers','dust'].includes(source.particles as string))result.particles=source.particles as MapEnvironment['particles'];
+  if(['natural','cool','green','ash','sand'].includes(source.mistColor as string))result.mistColor=source.mistColor as MapEnvironment['mistColor'];
   if(Array.isArray(source.lights)){
     const seen=new Set<string>();
     const number=(v:unknown,min:number,max:number,fallback:number)=>typeof v==='number'&&Number.isFinite(v)?Math.min(max,Math.max(min,v)):fallback;

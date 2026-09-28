@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 // A separate static lab: no app server, save file or campaign connection.
 const out=path.resolve(process.argv[2]);await mkdir(out,{recursive:true});
+const varietyStudy=process.argv.includes('--variety');
 const stormStudy=process.argv.includes('--storm');
 const dungeonStudy=process.argv.includes('--dungeon');
 const weatherStudy=process.argv.includes('--weather');
@@ -32,10 +33,10 @@ page.on('pageerror',e=>errors.push(e.message));
 page.on('console',m=>{if(m.type()==='error'&&/shader|WebGLProgram/i.test(m.text()))errors.push(m.text());});
 let box;
 try{
-  await page.goto('http://127.0.0.1:4198/environment-test.html'+(stormStudy?'?storm=1':dungeonStudy?'?dungeon=1':torchStudy?'?torches=1':weatherStudy?'?atmosphere=1':''));
+  await page.goto('http://127.0.0.1:4198/environment-test.html'+(varietyStudy?'?variety=1':stormStudy?'?storm=1':dungeonStudy?'?dungeon=1':torchStudy?'?torches=1':weatherStudy?'?atmosphere=1':''));
   await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]')?.dataset.miniatureCount==='7');
   await page.getByRole('button',{name:'Close-up',exact:true}).click();await page.waitForTimeout(800);
-  if(!weatherStudy&&!torchStudy&&!dungeonStudy&&!stormStudy){await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);}
+  if(!weatherStudy&&!torchStudy&&!dungeonStudy&&!stormStudy&&!varietyStudy){await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);}
   box=await page.getByTestId('environment-stage').boundingBox();
   await page.evaluate(()=>{
     const marker=document.createElement('div');marker.id='record-start-marker';marker.style.cssText='position:fixed;left:0;top:0;width:8px;height:8px;background:#ff00ff;z-index:9999';document.body.append(marker);
@@ -47,7 +48,27 @@ try{
     if(weatherStudy&&text.startsWith('Torches off'))await page.locator('#record-start-marker').evaluate(e=>e.style.background='#00ffff');
     await page.mouse.move(1410,945);
   };
-  if(stormStudy){
+  if(varietyStudy){
+    const preset=page.getByLabel('Environment preset',{exact:true});
+    const diagnostics=()=>page.getByTestId('miniature-layer').evaluate(e=>({...e.dataset}));
+    const looks=[['autumn-wind','Autumn wind - falling leaves catch the evening light'],['firefly-glade','Firefly glade - glowing fireflies above thin green mist'],['haunted-marsh','Haunted marsh - deeper mist and damp ground'],['ashfall','Ashfall - drifting ash and rising embers'],['sandstorm','Sandstorm - warm haze and windblown dust'],['blizzard','Blizzard - thick snow and cold low mist']];
+    for(const [id,title] of looks){
+      await preset.selectOption(id);await caption(title);await page.waitForTimeout(4800);
+      await page.screenshot({path:path.join(out,id+'.png')});phases.push({text:id,data:await diagnostics()});
+    }
+    await preset.selectOption('haunted-marsh');
+    for(const name of ['Druk lantern','Varis lantern','Vanec lantern'])await page.getByLabel(name,{exact:true}).check();
+    await caption('Hip lanterns through the marsh - the party leaves a wake');
+    await page.getByRole('button',{name:'Move party',exact:true}).click();await page.waitForTimeout(7000);
+    await page.screenshot({path:path.join(out,'marsh-lanterns.png')});
+    await preset.selectOption('autumn-wind');await caption('Rotate the view - leaves stay anchored to the map');
+    await page.getByRole('button',{name:'Rotate view',exact:true}).click();await page.waitForTimeout(3500);
+    await page.getByRole('button',{name:'Rotate view',exact:true}).click();
+    await page.getByRole('button',{name:'Overhead view',exact:true}).click();await caption('Overhead - the same wind and falling leaves');await page.waitForTimeout(2500);
+    await page.screenshot({path:path.join(out,'autumn-overhead.png')});
+    await preset.selectOption('clear-day');await caption('Clear day - one click resets the atmosphere');await page.waitForTimeout(1500);
+    assert.equal((await diagnostics()).particles,'none');assert.equal((await diagnostics()).weather,'none');
+  }else if(stormStudy){
     const layer=page.getByTestId('miniature-layer');
     const diagnostics=()=>layer.evaluate(e=>({...e.dataset}));
     const preset=page.getByLabel('Environment preset',{exact:true});
@@ -194,7 +215,7 @@ const source=await page.video().path();
 const pixels=execFileSync(ffmpeg,['-v','error','-i',source,'-vf','fps=25,crop=2:2:2:2,format=rgb24','-f','rawvideo','pipe:1']);
 let frame=0;for(;frame<pixels.length/12;frame++)if(pixels[frame*12]>210&&pixels[frame*12+1]<40&&pixels[frame*12+2]>210)break;
 assert(frame<pixels.length/12,'Recording start marker missing');
-const start=frame/25,video=path.join(out,stormStudy?'storm-environment.mp4':dungeonStudy?'dungeon-lanterns.mp4':torchStudy?'torches-and-lanterns.mp4':weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
+const start=frame/25,video=path.join(out,varietyStudy?'environment-variety.mp4':stormStudy?'storm-environment.mp4':dungeonStudy?'dungeon-lanterns.mp4':torchStudy?'torches-and-lanterns.mp4':weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
 const crop=`crop=${Math.floor(box.width/2)*2}:${Math.floor(box.height/2)*2}:${Math.floor(box.x/2)*2}:${Math.floor(box.y/2)*2}`;
 execFileSync(ffmpeg,['-y','-v','error','-ss',String(start),'-i',source,'-vf',crop,'-c:v','libx264','-preset','fast','-crf','19','-pix_fmt','yuv420p','-an','-movflags','+faststart',video],{windowsHide:true});
 execFileSync(ffmpeg,['-y','-v','error','-ss','3','-i',video,'-frames:v','1',path.join(out,'poster.png')],{windowsHide:true});

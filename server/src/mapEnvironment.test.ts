@@ -49,7 +49,7 @@ describe('saved map environment',()=>{
     const restored=importSession(exportSession(session.code)!);
     expect(listMaps(getSessionByCode(restored.code)!.id).find(m=>m.name==='Storm')!.environment).toEqual(getMap(map.id)!.environment);
     dm({mapId:map.id,settings:environmentPresetPatch('clear-day')});
-    expect(getMap(map.id)!.environment).toMatchObject({lightning:false,groundWetness:0,weather:'none',heavyDarkness:false});
+    expect(getMap(map.id)!.environment).toMatchObject({lightning:false,groundWetness:0,weather:'none',heavyDarkness:false,particles:'none',mistColor:'natural'});
     dm({mapId:map.id,settings:{lightLevel:.6}});
     expect(matchingEnvironmentPreset(getMap(map.id)!.environment!)).toBe('');
     expect(getMap(other.id)!.environment).toEqual(DEFAULT_MAP_ENVIRONMENT);
@@ -74,10 +74,10 @@ describe('saved map environment',()=>{
   });
   it('bounds weather and local lights while preserving invalid partial fields',()=>{
     const light={id:'torch',x:75,y:25,radiusFt:500,heightFt:-1,color:'warm',intensity:8,flicker:true};
-    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,heavyDarkness:true,lightning:true,groundWetness:5,lights:[light,light,{id:'broken',x:NaN,y:0}]});
-    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0,heavyDarkness:true,lightning:true,groundWetness:1});
+    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,heavyDarkness:true,lightning:true,groundWetness:5,particles:'leaves',particleIntensity:5,mistColor:'sand',lights:[light,light,{id:'broken',x:NaN,y:0}]});
+    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0,heavyDarkness:true,lightning:true,groundWetness:1,particles:'leaves',particleIntensity:1,mistColor:'sand'});
     expect(result.lights).toEqual([{...light,radiusFt:60,heightFt:.5,intensity:2}]);
-    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad',heavyDarkness:'false',lightning:'false',groundWetness:NaN},result)).toEqual(result);
+    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad',heavyDarkness:'false',lightning:'false',groundWetness:NaN,particles:'unknown',particleIntensity:NaN,mistColor:'invalid'},result)).toEqual(result);
     expect(sanitizeMapEnvironment({lights:Array.from({length:20},(_,i)=>({...light,id:String(i)}))}).lights).toHaveLength(20);
     expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:true,fixture:'lantern'}]}).lights[0]).toMatchObject({visibleTorch:true,fixture:'lantern'});
     expect(sanitizeMapEnvironment({lights:[{...light,fixture:'invalid'}]}).lights[0].fixture).toBeUndefined();
@@ -124,7 +124,7 @@ describe('saved map environment',()=>{
   it('shares active-map settings, keeps staged maps separate, and round-trips saves',()=>{
     const session=createSession('Environment saves'),active=createMap(session.id,{name:'Active'}),staged=createMap(session.id,{name:'Prep'});
     setActiveMap(session.id,active.id);
-    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',windStrength:.6,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
+    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',particles:'embers',particleIntensity:.65,mistColor:'ash',windStrength:.6,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
     updateMapEnvironment(session.id,staged.id,{mist:false,shadowDirectionDegrees:270});
     expect(buildSnapshot(session.id,'player',staged.id,'viewer')!.map!.environment).toEqual(getMap(active.id)!.environment);
     expect(buildSnapshot(session.id,'dm',staged.id)!.map!.environment).toEqual(getMap(staged.id)!.environment);
