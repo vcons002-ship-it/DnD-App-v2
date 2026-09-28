@@ -65,6 +65,7 @@ export function createMistFlow() {
       for(const token of tokens){
         if(!token.visible)continue;
         const body=token.body??{x:token.x,y:token.y,radiusX:token.diameter*.22,radiusY:token.diameter*.16,facing:0};
+        if(body.radiusX<=0||body.radiusY<=0)continue;
         const from=previous.get(token.id),distance=from?Math.hypot(token.x-from.x,token.y-from.y):0;
         if(from&&distance<Math.max(1.5,Math.min(body.radiusX,body.radiusY)*.2))continue;
         if(from&&enabled&&distance<token.diameter*3){
@@ -128,25 +129,32 @@ export function createMistFlow() {
         visit(wx,wy,extent,(i,x,y)=>{
           const touched=contact(x,y);if(touched<=0)return;
           const px=x-wx,py=y-wy;
-          const along=px*wake.dx+py*wake.dy,across=px*nx+py*ny;
+          const recovery=smooth(.12,1.3,age)*(1-smooth(3.5,lifetime,age));
+          // Curl of a smooth, multi-frequency stream field. It transports the
+          // existing density without placing circles or spiral-shaped opacity.
+          const u=x/(wake.radius*1.8),v=y/(wake.radius*1.8);
+          const a=.83*u+.57*v+age*.72,b=-.46*u+1.13*v-age*.49;
+          const c=1.71*u-.93*v-age*.38,phaseD=.61*u+1.47*v+age*.57;
+          const tx=.57*Math.cos(a)*Math.cos(b)-1.13*Math.sin(a)*Math.sin(b)
+            +.32*(-.93*Math.cos(c)*Math.cos(phaseD)-1.47*Math.sin(c)*Math.sin(phaseD));
+          const ty=-.83*Math.cos(a)*Math.cos(b)-.46*Math.sin(a)*Math.sin(b)
+            -.32*(1.71*Math.cos(c)*Math.cos(phaseD)-.61*Math.sin(c)*Math.sin(phaseD));
+          const meander=Math.sin(a)*Math.cos(b)*wake.radius*.3*recovery;
+          const along=px*wake.dx+py*wake.dy,across=px*nx+py*ny-meander;
           const end=Math.max(0,Math.abs(along)-wake.length*.5);
           const d=Math.hypot(across,end)/halfWidth;
           const clearing=(1-smooth(.38,1,d))*fade*touched;
-          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.28)));
+          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.16)));
           const bank=Math.exp(-Math.pow((Math.abs(across)-spread)/(wake.radius*.45),2)
             -Math.pow(end/Math.max(wake.front,wake.radius*.8),2))*fade*touched;
           const shift=Math.sign(across)*Math.min(Math.abs(across)*1.6,spread*1.65)*bank;
           const p=i/4,weight=Math.abs(shift);
           // Overlapping path samples must not multiply the same outward push.
           if(weight>pushWeight[p]){
-            // A continuous, opposed shear along the displaced edges bends the
-            // existing mist back into the path. No circular vortex stamps.
-            const recovery=smooth(.12,1.3,age)*(1-smooth(3.5,lifetime,age));
-            const phase=(x*wake.dx+y*wake.dy)/(wake.radius*2.4)+age*.65;
-            const shear=Math.sin(phase)*wake.radius*.65*recovery*bank*Math.sign(across);
-            pushWeight[p]=weight;pushX[p]=-nx*shift+wake.dx*shear;pushY[p]=-ny*shift+wake.dy*shear;
+            const eddy=wake.radius*.7*recovery*bank;
+            pushWeight[p]=weight;pushX[p]=-nx*shift+tx*eddy;pushY[p]=-ny*shift+ty*eddy;
           }
-          data[i+3]=Math.max(data[i+3],clamp(bank*.75*255));
+          data[i+3]=Math.max(data[i+3],clamp(bank*.45*255));
           if(clearing>.001||bank>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
         });
 

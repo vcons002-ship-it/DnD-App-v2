@@ -34,4 +34,22 @@ describe('whole-body mist envelope',()=>{
     model.traverse(node=>{if(node instanceof Mesh)node.geometry.dispose();});material.dispose();
   });
 
+  it('ignores a broad unnamed plinth using its base material',()=>{
+    const model=new Group(),bodyMaterial=new MeshBasicMaterial(),baseMaterial=new MeshBasicMaterial();
+    baseMaterial.name='dark_pewter_base';
+    const bodyMesh=new Mesh(new BoxGeometry(.8,2,.5,2,8,2),bodyMaterial);bodyMesh.position.y=1;model.add(bodyMesh);
+    const plinth=new Mesh(new CylinderGeometry(3,3,.7,40),baseMaterial);plinth.position.y=.2;model.add(plinth);
+    const body=measureMistBody(model,{baseDiameter:6,baseCenter:[0,0,0]});
+    expect(body.radiusX*2).toBeCloseTo(.8);expect(body.radiusZ*2).toBeCloseTo(.5);
+    model.traverse(node=>{if(node instanceof Mesh)node.geometry.dispose();});bodyMaterial.dispose();baseMaterial.dispose();
+  });
+
+  it('does not substitute the base diameter when no body geometry exists',()=>{
+    const model=new Group(),material=new MeshBasicMaterial();
+    const base=new Mesh(new CylinderGeometry(4,4,1),material);base.name='base';model.add(base);
+    const body=measureMistBody(model,{baseDiameter:8,baseCenter:[0,0,0]});
+    expect(body.radiusX).toBe(0);expect(body.radiusZ).toBe(0);expect(body.height).toBe(0);
+    base.geometry.dispose();material.dispose();
+  });
+
 });

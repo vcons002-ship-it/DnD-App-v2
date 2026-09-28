@@ -13,7 +13,8 @@ export function measureMistBody(model:Object3D,definition:Definition):MistBody{
   model.traverse(node=>{
     if(!(node instanceof Mesh)||!node.geometry.getAttribute('position'))return;
     let label='';for(let parent:Object3D|null=node;parent&&parent!==model;parent=parent.parent)label+=' '+parent.name;
-    if(/base|pedestal|rim|sword|handaxe|weapon|staff|quiver|arrow|bow/i.test(label))return;
+    for(const material of Array.isArray(node.material)?node.material:[node.material])label+=' '+material.name;
+    if(/base|pedestal|plinth|platform|display.?disk|rim|sword|handaxe|weapon|staff|quiver|arrow|bow/i.test(label))return;
     meshes.push(node);
   });
   const count=meshes.reduce((sum,m)=>sum+(m.geometry.index?.count??m.geometry.getAttribute('position').count),0);
@@ -30,10 +31,10 @@ export function measureMistBody(model:Object3D,definition:Definition):MistBody{
   const foot=points.reduce((min,p)=>Math.min(min,p.y),Infinity);
   // Exclude the plinth contact; include legs, torso, arms and head. Robust
   // bounds suppress stray accessory vertices in combined meshes.
-  const lower=points.filter(p=>p.y>=foot+d*.06);
+  const lower=points.filter(p=>p.y>=Math.max(foot+d*.06,definition.baseCenter[1]+d*.14));
   const ys=points.map(p=>p.y).sort((a,b)=>a-b);
   const height=Math.max(d*.3,(ys[Math.floor((ys.length-1)*.995)]??(definition.baseCenter[1]+d*1.6))-definition.baseCenter[1]);
-  let result:MistBody={x:0,z:0,radiusX:d*.22,radiusZ:d*.16,height,source:'fallback',samples:lower.length};
+  let result:MistBody={x:0,z:0,radiusX:0,radiusZ:0,height:0,source:'fallback',samples:lower.length};
   if(lower.length>=12){
     const xs=lower.map(p=>p.x).sort((a,b)=>a-b),zs=lower.map(p=>p.z).sort((a,b)=>a-b);
     const lo=Math.floor((lower.length-1)*.02),hi=Math.ceil((lower.length-1)*.98);
