@@ -1,0 +1,28 @@
+{
+  "id": "cultist-fanatic",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "bytes": 2709168,
+  "triangles": 38584,
+  "sha256": "58bcfd1bcf2cee7e659d91b847b813f88ed875359fa352f137d5d366950a2708",
+  "policy": "monster-reduction-v1",
+  "sourceViewCount": 4,
+  "handSourceViewCount": 4,
+  "handTextureViewCount": 4,
+  "texturePolicy": "named-multiview-texture-v1",
+  "texture": "Two 2048x2048 JPEG95 atlases",
+  "restoredTextures": [
+    {
+      "material": "Material_0",
+      "sha256": "d4f097deabc2f92c0006071dd3e6029c3c95c132b0ae695e82abf539b46153ee"
+    },
+    {
+      "material": "Cultist_Fanatic_Left_Hand_Skin",
+      "sha256": "26800f96fec608861574c1172c170ac55316756b87953eaea7ac3351316e84fc"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import {rollDice} from '../../shared/dice.js';
+import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
@@ -262,6 +263,15 @@ export function createMap(
   );
   // Maps start staged, including the first map. Only Make active starts reveals.
   return getMap(id)!;
+}
+
+/** Scoped here as well as at the socket boundary so callers cannot edit another campaign. */
+export function updateMapEnvironment(sessionId: string, mapId: string, settings: unknown): boolean {
+  const map = getMap(mapId);
+  if (!map || map.sessionId !== sessionId) return false;
+  db.prepare('UPDATE maps SET environment = ? WHERE id = ? AND session_id = ?')
+    .run(JSON.stringify(sanitizeMapEnvironment(settings, map.environment)), mapId, sessionId);
+  return true;
 }
 
 export function updateMapGrid(
@@ -599,6 +609,9 @@ export function resizeMiniature(tokenId: string, widthFt: number): Token | null 
   const width = Math.min(120, Math.max(.5, Math.round(widthFt * 2) / 2));
   db.prepare('UPDATE tokens SET miniature_width_ft = ? WHERE id = ?').run(width, tokenId);
   return getToken(tokenId);
+}
+export function setTokenLantern(tokenId:string,enabled:boolean):void {
+  db.prepare('UPDATE tokens SET carried_lantern = ? WHERE id = ?').run(enabled?1:0,tokenId);
 }
 /** Change occupied space and keep the legacy grid size in sync. */
 export function resizeToken(tokenId: string, widthFt: number): Token | null {
@@ -1124,6 +1137,7 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
   if (token.widthFt !== copy.widthFt) resizeToken(copy.id, token.widthFt);
   if (token.miniatureWidthFt !== undefined) resizeMiniature(copy.id, token.miniatureWidthFt);
   db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(token.facing ?? 0, copy.id);
+  setTokenLantern(copy.id,!!token.carriedLantern);
   return getToken(copy.id);
 });
 

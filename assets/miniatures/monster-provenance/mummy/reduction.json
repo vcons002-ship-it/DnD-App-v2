@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "id": "monster-reduction-v1",
+    "targetTriangles": 20000,
+    "errorLimit": 0.01,
+    "colorEncoding": "jpeg",
+    "quality": 95,
+    "chromaSubsampling": "4:4:4",
+    "resize": false,
+    "geometryCompression": false
+  },
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\mummy\\generation-01\\01_textured_mesh.glb",
+  "sourceSha256": "30f16d9ae3c85ede42540c5e87e9f08ef117c5c3e28c51795f0ce05be9e93a83",
+  "sourceBytes": 5437684,
+  "originalTriangles": 40000,
+  "triangles": 20000,
+  "bytes": 1671360,
+  "reductionPercent": 69.26338492637673,
+  "sha256": "6758a70e43857af3d8792cdf14198961e60f17fa661fd0115a751491d013f1c7",
+  "textures": [
+    {
+      "index": 0,
+      "action": "jpeg95",
+      "width": 2048,
+      "height": 2048,
+      "beforeBytes": 4149284,
+      "afterBytes": 1084713,
+      "sha256": "f682ffaad329763b1a66394682f77652c7f5a0e208af9a5c8df3aa4d7cfb9fe6"
+    }
+  ],
+  "simplifyMs": 29.53800000000001,
+  "totalMs": 618.1626,
+  "peakRssMiB": 161.6640625,
+  "versions": {
+    "gltfTransform": "4.5.0",
+    "meshoptimizer": "1.2.0",
+    "sharp": "0.35.4"
+  },
+  "validation": "export reloaded; finite positions; indices in range; textures unchanged on export; source preserved",
+  "targetReached": true
+}

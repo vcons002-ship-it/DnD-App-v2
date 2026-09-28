@@ -1,3 +1,4 @@
+import {registerAssetCache} from './lib/registerAssetCache';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
@@ -7,6 +8,8 @@ import { DmLibraryRoute } from './routes/DmLibraryRoute';
 import { PlayerRoute } from './routes/PlayerRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
+
+registerAssetCache();
 
 function Home() {
   return (

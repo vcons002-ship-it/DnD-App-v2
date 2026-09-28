@@ -2,6 +2,7 @@
 // Keep this framework-free so it can be imported from either side.
 
 import type { AbilityKey } from './skills.js';
+import type { MapEnvironment } from './mapEnvironment.js';
 
 export type Role = 'dm' | 'player';
 
@@ -129,6 +130,8 @@ export type Token = {
   y: number;
   /** Last movement direction in radians around glTF Y; zero faces map south. */
   facing?: number;
+  /** Shared carried lantern; visual lighting, not automatic vision/fog reveal. */
+  carriedLantern?: boolean;
   /** Legacy size in grid squares (1 = Medium, 2 = Large, ...); kept for back-compat. */
   size: number;
   /**
@@ -736,6 +739,8 @@ export type LootContents = {
 };
 
 export type MapState = {
+  /** Optional for old exports; absent settings keep environmental effects off. */
+  environment?: MapEnvironment;
   id: string;
   sessionId: string;
   name: string;
@@ -794,6 +799,8 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Server-authored personal dungeon visibility; independent of graphics quality. */
+  playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
   role: Role;
@@ -1580,6 +1587,7 @@ export interface ClientToServerEvents {
   'map:rename': (payload: MapRenamePayload) => void;
   'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
+  'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;
@@ -1608,6 +1616,7 @@ export interface ClientToServerEvents {
    *  server fans it out as `fx:tokenDrag` to viewers who can see the token. */
   'token:drag': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
+  'token:setLantern': (payload: {tokenId:string;enabled:boolean}) => void;
   'token:setShape': (payload: TokenSetShapePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;

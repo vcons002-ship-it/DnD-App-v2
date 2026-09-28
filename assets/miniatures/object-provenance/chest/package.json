@@ -1,0 +1,14 @@
+{
+  "id": "object-chest",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "bytes": 1631096,
+  "triangles": 20000,
+  "sha256": "3b63be8a1c6cc9bf6824a2a791a7c2bd75265d789846ac82ac8385d51e5dc009",
+  "policy": "monster-reduction-v1",
+  "sourceViewCount": 4
+}

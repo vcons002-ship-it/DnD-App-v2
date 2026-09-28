@@ -1,11 +1,376 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
 import type { StateSnapshot } from '../shared/types';
+import {stormLightningAt} from '../shared/stormLighting';
 import { MONSTER_MODEL_TYPES, monsterVariation, monsterVariantIds } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
+// Optional capture runs the same regression against real sockets and models.
+const movementDemo=process.env.DND_MOVEMENT_DEMO==='1';
+test.use({video:movementDemo ? {mode:'on',size:{width:1600,height:1000}} : 'off'});
+test.beforeAll(()=>{
+  if(!movementDemo)return;
+  const require=createRequire(process.cwd()+'/package.json');
+  const encoder=require('playwright-core/lib/server/registry/index').registry.findExecutable('ffmpeg');
+  const executable=execFileSync('where.exe',['ffmpeg'],{encoding:'utf8'}).trim().split(/\r?\n/)[0];
+  encoder.executablePath=()=>executable;encoder.executablePathOrDie=()=>executable;
+});
+
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
+
+test('saved map environment works for DM and player, preserves tools, and clips fog', async ({page,request,browser},info)=>{
+  test.setTimeout(150000);
+  await page.setViewportSize({width:1440,height:960});
+  const errors:string[]=[];
+  const watch=(p:Page)=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});};
+  watch(page);
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/courtyard.png'));
+  await page.goto(`/dm?code=${f.code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  const dmLayer=page.getByTestId('miniature-layer');
+  await expect(dmLayer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960}});
+  const player=await context.newPage();watch(player);
+  try {
+    await enter(player,f.code);
+    const layer=player.getByTestId('miniature-layer');
+    await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+    // A carried lantern works without enabling a map environment, and is shared.
+    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
+    await expect(dmLayer).toHaveAttribute('data-carried-lantern-count','1');
+    await expect(layer).toHaveAttribute('data-visible-torch-count','0');
+    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await page.getByRole('button',{name:'Maps',exact:true}).click();
+    await page.locator('.map-environment-controls > summary').click();
+    await page.getByLabel('Enable environment',{exact:true}).click();
+    await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
+    await expect(layer).toHaveAttribute('data-mist-visible','true');
+    await page.getByLabel('Wind strength',{exact:true}).focus();await page.keyboard.press('End');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.windStrength).toBe(3);
+    await expect(layer).toHaveAttribute('data-wind-strength','3');
+    await expect.poll(async()=>Number(await layer.getAttribute('data-weather-wind-ft'))).toBeCloseTo(21);
+    // Dispatch the same native color-input event a picker produces.
+    await page.getByLabel('Scene tint',{exact:true}).evaluate((input:HTMLInputElement)=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'#579dcc');
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    await expect(layer).toHaveAttribute('data-scene-tint','#579dcc');
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0.25');
+    await page.getByLabel('Scene tint strength',{exact:true}).focus();await page.keyboard.press('End');
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','1');
+    await page.getByRole('button',{name:'Reset scene tint',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{sceneTint:'#ff3322',sceneTintStrength:.7}});
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0.7');
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('clear-day');
+    await expect(layer).toHaveAttribute('data-scene-grade-opacity','0');
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0');
+    await expect(layer).toHaveAttribute('data-scene-tint','#ffffff');
+    await page.screenshot({path:info.outputPath('wind-color-dm.png')});
+    // New presets use the actual saved DM UI and synchronize to the player.
+    for(const [preset,particles,color] of [['autumn-wind','leaves','natural'],['firefly-glade','fireflies','green'],['haunted-marsh','fireflies','green'],['ashfall','embers','ash'],['sandstorm','dust','sand'],['blizzard','none','cool']]){
+      await page.getByLabel('Environment preset',{exact:true}).selectOption(preset);
+      await expect(layer).toHaveAttribute('data-particles',particles);
+      await expect(dmLayer).toHaveAttribute('data-particles',particles);
+      await expect(layer).toHaveAttribute('data-mist-color',color);
+      await expect.poll(async()=>(await f.snapshot()).map?.environment?.particles).toBe(particles);
+    }
+    await page.getByLabel('Atmosphere particles',{exact:true}).selectOption('leaves');
+    await page.getByLabel('Mist color',{exact:true}).selectOption('natural');
+    await expect(layer).toHaveAttribute('data-particles','leaves');
+    await expect(layer).toHaveAttribute('data-weather','snow'); // Independent layers.
+    await expect(page.getByLabel('Environment preset',{exact:true})).toHaveValue('');
+    await player.emulateMedia({reducedMotion:'reduce'});
+    await expect(layer).toHaveAttribute('data-particle-time','0');
+    await player.emulateMedia({reducedMotion:'no-preference'});
+    await expect.poll(async()=>Number(await layer.getAttribute('data-particle-time'))).toBeGreaterThan(0);
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('firefly-glade');
+    await page.locator('.map-environment-controls > summary').scrollIntoViewIfNeeded();
+    await page.screenshot({path:info.outputPath('environment-variety-dm.png')});
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('rainstorm');
+    await expect(layer).toHaveAttribute('data-weather','rain');
+    await expect(layer).toHaveAttribute('data-particles','none');
+    await expect(layer).toHaveAttribute('data-wet-ground','0.8');
+    await expect(layer).toHaveAttribute('data-lightning-enabled','true');
+    await page.screenshot({path:info.outputPath('environment-presets-dm.png')});
+    await player.emulateMedia({reducedMotion:'reduce'});
+    await expect(layer).toHaveAttribute('data-lightning-flash','0');
+    await player.emulateMedia({reducedMotion:'no-preference'});
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('dungeon');
+    await expect(layer).toHaveAttribute('data-weather','none');
+    await expect(layer).toHaveAttribute('data-wet-ground','0');
+    await expect(layer).toHaveAttribute('data-lightning-enabled','false');
+    await page.getByLabel('Lighting preset',{exact:true}).selectOption('dungeon');
+    await page.getByLabel('Heavy darkness',{exact:true}).click();
+    await expect(layer).toHaveAttribute('data-darkness','heavy');
+    await expect(dmLayer).toHaveAttribute('data-darkness','heavy');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.heavyDarkness).toBe(true);
+    await page.getByLabel('Weather',{exact:true}).selectOption('rain');
+    await expect(layer).toHaveAttribute('data-lighting','dungeon');
+    await expect(layer).toHaveAttribute('data-weather','rain');
+    const rainTime=Number(await layer.getAttribute('data-weather-time'));
+    await expect.poll(async()=>Number(await layer.getAttribute('data-weather-time'))).toBeGreaterThan(rainTime);
+    await player.getByRole('button',{name:'2D player tokens',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-miniature-count','0');
+    await expect(layer).toHaveAttribute('data-miniature-status','ready');
+    const emptyTime=Number(await layer.getAttribute('data-weather-time'));
+    await expect.poll(async()=>Number(await layer.getAttribute('data-weather-time'))).toBeGreaterThan(emptyTime);
+    await player.getByRole('button',{name:'3D player tokens',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-miniature-count','3');
+    await page.getByRole('button',{name:'Place light on map',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'Click map to place light'})).toBeVisible();
+    const drukPoint=(await tokenView(page,f.ready.tokens[0].id))!;
+    await page.mouse.click(drukPoint.x+80,drukPoint.y+60);
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights.length).toBe(1);
+    await expect(layer).toHaveAttribute('data-light-count','1');
+    await expect(layer).toHaveAttribute('data-visible-torch-count','1');
+    await page.locator('.environment-light-list summary').click();
+    await page.getByLabel('Light 1 model',{exact:true}).selectOption('lantern');
+    await expect(layer).toHaveAttribute('data-placed-lantern-count','1');
+    await expect(layer).toHaveAttribute('data-visible-torch-count','0');
+    await page.screenshot({path:info.outputPath('dungeon-darkness-dm-controls.png')});
+    await page.getByLabel('Show 3D lantern',{exact:true}).click();
+    await expect(layer).toHaveAttribute('data-placed-lantern-count','0');
+    await expect(layer).toHaveAttribute('data-light-count','1');
+    await page.getByLabel('Show 3D lantern',{exact:true}).click();
+    await page.getByLabel('Light 1 model',{exact:true}).selectOption('torch');
+    await page.getByLabel('Show 3D torch',{exact:true}).click();
+    await expect(layer).toHaveAttribute('data-visible-torch-count','0');
+    await expect(layer).toHaveAttribute('data-light-count','1');
+    await page.getByLabel('Show 3D torch',{exact:true}).click();
+    await page.getByLabel('Light 1 color',{exact:true}).selectOption('cool');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights[0].color).toBe('cool');
+    await page.getByRole('button',{name:'Move light 1',exact:true}).click();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.environment-placement-hint')).toHaveCount(0);
+    const originalLight=(await f.snapshot()).map!.environment!.lights[0];
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('rainstorm');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights).toEqual([originalLight]);
+    await expect(layer).toHaveAttribute('data-wet-ground','0.8');
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('deep-dungeon');
+    await expect(layer).toHaveAttribute('data-darkness','heavy');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights).toEqual([originalLight]);
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:Array.from({length:12},(_,i)=>({...originalLight,id:`many-${i}`,x:150+i%4*240,y:200+Math.floor(i/4)*170}))}});
+    await expect(layer).toHaveAttribute('data-light-count','12');
+    await expect(layer).toHaveAttribute('data-visible-torch-count','12');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[originalLight],lighting:'night',mistHeightFt:10,mistOpacity:.7}});
+    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
+    const beforeTorch=JSON.parse((await layer.getAttribute('data-carried-lantern-positions'))!)[0];
+    const bearer=f.ready.tokens[0];
+    f.socket.emit('token:move',{tokenId:bearer.id,x:bearer.x+100,y:bearer.y+40});
+    await expect.poll(async()=>JSON.parse((await layer.getAttribute('data-carried-lantern-positions'))!)[0].x).not.toBe(beforeTorch.x);
+    await player.screenshot({path:info.outputPath('waist-lantern-player-night.png')});
+    await player.getByRole('button',{name:'2D player tokens',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-miniature-count','0');
+    await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
+    await expect(layer).toHaveAttribute('data-light-count','2');
+    await player.getByRole('button',{name:'3D player tokens',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-miniature-count','3');
+    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-carried-lantern-count','0');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lighting:'dungeon',mistHeightFt:2,mistOpacity:.35}});
+    await player.screenshot({path:info.outputPath('weather-player-dungeon-rain.png')});
+    await page.getByLabel('Weather',{exact:true}).selectOption('snow');
+    await expect(layer).toHaveAttribute('data-weather','snow');
+    await page.getByLabel('Lighting preset',{exact:true}).selectOption('day');
+    await page.getByLabel('Shadow direction',{exact:true}).focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.shadowDirectionDegrees).toBe(1);
+    await page.getByLabel('Mist height',{exact:true}).focus();await page.keyboard.press('ArrowRight');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.mistHeightFt).toBe(2.5);
+    await expect(layer).toHaveAttribute('data-mist-height',String(2.5*100/5));
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{shadowDirectionDegrees:55,mistHeightFt:2}});
+    await expect(page.getByLabel('Shadow direction',{exact:true})).toHaveValue('55');
+    await page.locator('.map-environment-controls > summary').scrollIntoViewIfNeeded();
+    await page.screenshot({path:info.outputPath('environment-dm-controls.png')});
+    await player.screenshot({path:info.outputPath('environment-player-45.png')});
+    await player.setViewportSize({width:390,height:844});
+    await expect(layer).toHaveAttribute('data-mist-quality','low');
+    await expect(layer).toHaveAttribute('data-weather-quality','low');
+    await expect(layer).toHaveAttribute('data-particle-quality','low');
+    await player.screenshot({path:info.outputPath('weather-player-snow-phone.png')});
+    await player.screenshot({path:info.outputPath('environment-player-phone.png')});
+    await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await expect(player.getByLabel('Environment quality',{exact:true})).toBeVisible();
+    await player.screenshot({path:info.outputPath('environment-player-quality-phone.png')});
+    await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
+    await player.setViewportSize({width:1440,height:960});
+    await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await expect(player.getByLabel('Environment quality',{exact:true})).toBeVisible();
+    await player.screenshot({path:info.outputPath('environment-player-quality.png')});
+    await player.locator('#player-layout-options').screenshot({path:info.outputPath('environment-player-quality-panel.png')});
+    await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
+    await expect(layer).toHaveAttribute('data-environment','off');
+    await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
+    await player.getByLabel('Environment quality',{exact:true}).selectOption('low');
+    await expect(layer).toHaveAttribute('data-mist-quality','low');
+    await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
+    await player.reload();await expect(layer).toHaveAttribute('data-mist-quality','low',{timeout:60000});
+    await expect(layer).toHaveAttribute('data-weather','snow');
+    await expect(layer).toHaveAttribute('data-darkness','heavy');
+    await expect(layer).toHaveAttribute('data-light-count','1');
+    await page.reload();await expect(dmLayer).toHaveAttribute('data-mist-visible','true',{timeout:60000});
+    await expect(dmLayer).toHaveAttribute('data-darkness','heavy');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:false}});
+    await expect(layer).toHaveAttribute('data-darkness','normal');
+    f.socket.emit('mapImage:add',{mapId:f.mapId,imagePath:f.ready.map!.imagePath!,x:-300,y:-150,w:300,h:300});
+    await expect.poll(async()=>(await f.snapshot()).mapImages.length).toBe(1);
+    await expect(layer).toHaveAttribute('data-environment-bounds','[-300,-150,1516,982]');
+    const druk=f.ready.tokens[0];
+    f.socket.emit('token:move',{tokenId:druk.id,x:druk.x+100,y:druk.y+30});
+    await expect.poll(async()=>Number(await layer.getAttribute('data-mist-wakes'))).toBeGreaterThan(0);
+    const bodies=JSON.parse((await layer.getAttribute('data-mist-bodies'))!);
+    expect(bodies.find((b:any)=>b.id===druk.id).source).toBe('geometry');
+    // The usual measuring tools remain above the transparent effects.
+    f.socket.emit('measure:add',{kind:'ruler',origin:{x:200,y:550},target:{x:700,y:550}});
+    await expect.poll(async()=>(await f.snapshot()).measurements.length).toBe(1);
+    await player.screenshot({path:info.outputPath('environment-player-ruler.png')});
+    f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'map',enabled:true});
+    f.socket.emit('fog:cover',{mapId:f.mapId,layer:'map'});
+    const cells=Array.from({length:8},(_,r)=>Array.from({length:5},(_,c)=>`${c},${r}`)).flat();
+    f.socket.emit('fog:paint',{mapId:f.mapId,layer:'map',cells,reveal:true});
+    await expect(layer).toHaveAttribute('data-miniature-count','1');
+    await player.screenshot({path:info.outputPath('environment-player-fog-45.png')});
+    await player.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees','0');
+    await player.screenshot({path:info.outputPath('environment-player-fog-overhead.png')});
+    // With all figures hidden and all cells covered, no environment pixel may
+    // brighten the blackout. Compare actual composed screen pixels on/off.
+    for(const token of f.ready.tokens)f.socket.emit('token:setHidden',{tokenId:token.id,hidden:true});
+    f.socket.emit('fog:cover',{mapId:f.mapId,layer:'map'});
+    f.socket.emit('measure:clear',{mapId:f.mapId});
+    await expect(layer).toHaveAttribute('data-miniature-count','0');
+    await expect(layer).toHaveAttribute('data-miniature-status','ready');
+    await expect(layer).toHaveAttribute('data-light-count','0');
+    await expect(dmLayer).toHaveAttribute('data-light-count','1');
+    await expect.poll(async()=>(await f.snapshot()).measurements.length).toBe(0);
+    // Exercise the strongest storm flash against covered map pixels too.
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{weather:'rain',lightning:true,groundWetness:1,particles:'fireflies',particleIntensity:1,sceneTint:'#ff3322',sceneTintStrength:1,windStrength:3}});
+    const flashTime=Array.from({length:1900},(_,i)=>1700000000+i*.01).find(t=>stormLightningAt(t)>.95)!;
+    await expect(layer).toHaveAttribute('data-lightning-enabled','true');
+    // Freeze Date only; installing a clock after load would reset performance.now
+    // beneath the renderer's existing animation origin.
+    await player.evaluate(ms=>{Date.now=()=>ms;},flashTime*1000);
+    await expect.poll(async()=>Number(await layer.getAttribute('data-lightning-flash'))).toBeGreaterThan(.9);
+    // Changing reduced motion at the peak must clear the flash on its final frame.
+    await player.emulateMedia({reducedMotion:'reduce'});
+    await expect(layer).toHaveAttribute('data-lightning-flash','0');
+    await expect(layer).toHaveAttribute('data-particle-time','0');
+    await player.emulateMedia({reducedMotion:'no-preference'});
+    await expect.poll(async()=>Number(await layer.getAttribute('data-lightning-flash'))).toBeGreaterThan(.9);
+    await afterPaint(player);
+    const clip=(await layer.boundingBox())!;
+    const on=await player.screenshot({clip,path:info.outputPath('fully-covered-effects-on.png')});
+    await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
+    await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
+    const off=await player.screenshot({clip,path:info.outputPath('fully-covered-effects-off.png')});
+    const diff=await player.evaluate(async(images)=>{
+      const data=await Promise.all(images.map(async base64=>{
+        const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+        const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
+        const c=new OffscreenCanvas(bitmap.width,bitmap.height),ctx=c.getContext('2d')!;
+        ctx.drawImage(bitmap,0,0);return {w:c.width,h:c.height,p:ctx.getImageData(0,0,c.width,c.height).data};
+      }));
+      let changed=0;const [a,b]=data;
+      // Only the central map, away from HUD and clock-dependent text.
+      for(let y=Math.floor(a.h*.25);y<a.h*.7;y++)for(let x=Math.floor(a.w*.3);x<a.w*.7;x++){
+        const i=(y*a.w+x)*4;if(Math.abs(a.p[i]-b.p[i])+Math.abs(a.p[i+1]-b.p[i+1])+Math.abs(a.p[i+2]-b.p[i+2])>3)changed++;
+      }return changed;
+    },[on,off].map(b=>b.toString('base64')));
+    expect(diff).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {await context.close();}
+});
+
+test('cultist and demon library entries load the real equipped models in both map views', async ({ page, request }, info) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const f = await fixture(page, request);
+  const errors: string[] = [], loaded: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const creatures = [
+    ['Cultist Swordsman', 'cultist'], ['Cultist Fanatic', 'cultist-fanatic'],
+    ['Vrock', 'vrock'], ['Hezrou', 'hezrou'], ['Glabrezu', 'glabrezu'],
+  ];
+  page.on('response', response => {
+    for (const [, family] of creatures) if (response.url().endsWith(`/miniatures/monsters/${family}.glb`) && response.ok()) loaded.push(family);
+  });
+  for (const [index, [name, family]] of creatures.entries()) {
+    const library = await (await request.get(`/api/library/creatures?q=${encodeURIComponent(name)}`)).json();
+    const entry = library.find((c: any) => c.name === name);
+    expect(entry.modelType).toBe(family);
+    expect(entry.weapons.length).toBeGreaterThan(0);
+    f.socket.emit('monster:create', entry);
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === name)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 160 + index * 220, y: 590 });
+  }
+  const ready = await f.snapshot();
+  expect(ready.tokens.filter(t => t.kind === 'monster')).toHaveLength(5);
+  await enter(page, f.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '8', { timeout: 60000 });
+  expect(new Set(loaded)).toEqual(new Set(creatures.map(([, family]) => family)));
+  for (const token of ready.tokens.filter(t => t.kind === 'monster')) {
+    expect((await tokenView(page, token.id))?.miniatureReady).toBe(true);
+    const monster = ready.monsters.find(m => m.id === token.refId)!;
+    expect(token.widthFt).toBe(monster.creatureType.startsWith('Large') ? 10 : 5);
+  }
+  await page.getByTitle('Zoom out', { exact: true }).click();
+  await page.getByTitle('Zoom out', { exact: true }).click();
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('cultists-demons-45.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('cultists-demons-overhead.png') });
+  expect(errors).toEqual([]);
+});
+
+test('undead and demon library entries spawn their distinct real 3D models in both map views', async ({ page, request }, info) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const f = await fixture(page, request);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const names = ['Shadow', 'Mummy', 'Quasit', 'Dretch'];
+  const loaded: string[] = [];
+  page.on('response', response => {
+    for (const name of names) if (response.url().endsWith(`/miniatures/monsters/${name.toLowerCase()}.glb`) && response.ok()) loaded.push(name);
+  });
+  for (const [index, name] of names.entries()) {
+    const library = await (await request.get(`/api/library/creatures?q=${name}`)).json();
+    const entry = library.find((c: any) => c.name === name);
+    expect(entry.modelType).toBe(name.toLowerCase());
+    expect(entry.weapons.length).toBeGreaterThan(0);
+    f.socket.emit('monster:create', entry);
+    const template = (await f.snapshot()).monsterTemplates.find(m => m.name === name)!;
+    f.socket.emit('token:spawn', { mapId: f.mapId, kind: 'monster', refId: template.id, x: 210 + index * 250, y: 565 });
+  }
+  const ready = await f.snapshot();
+  expect(ready.tokens.filter(t => t.kind === 'monster')).toHaveLength(4);
+  await enter(page, f.code);
+  const layer = page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count', '7', { timeout: 60000 });
+  expect(new Set(loaded)).toEqual(new Set(names));
+  for (const token of ready.tokens.filter(t => t.kind === 'monster')) {
+    expect((await tokenView(page, token.id))?.miniatureReady).toBe(true);
+  }
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('undead-fiends-45.png') });
+  await page.getByRole('button', { name: 'Flat battlefield view', exact: true }).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees', '0');
+  await afterPaint(page);
+  await page.screenshot({ path: info.outputPath('undead-fiends-overhead.png') });
+  expect(errors).toEqual([]);
+});
 
 test('DM can request a separate equipped model despite an existing family and apply it when ready', async ({ page, request }, info) => {
   test.setTimeout(120000);
@@ -104,7 +469,7 @@ test('asset production keeps missing creatures usable and loads published models
 
 // Only the E2E server's disposable database is modified. The actual bundled
 // GLBs, production map component, Socket.IO path and browser WebGL are used.
-async function fixture(page: Page, request: APIRequestContext) {
+async function fixture(page: Page, request: APIRequestContext, mapArt?: Buffer) {
   const created = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: '3D battlefield regression' },
   });
@@ -131,7 +496,7 @@ async function fixture(page: Page, request: APIRequestContext) {
   });
   const uploaded = await request.post(`/api/sessions/${code}/maps`, {
     headers: { 'x-dm-passphrase': DM_SECRET },
-    multipart: { name: 'Miniature test board', image: { name: 'board.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') } },
+    multipart: { name: 'Miniature test board', image: { name: 'board.png', mimeType: 'image/png', buffer: mapArt ?? Buffer.from(png, 'base64') } },
   });
   expect(uploaded.ok()).toBeTruthy();
   const map = await uploaded.json();
@@ -377,23 +742,21 @@ test('monster and player miniatures disappear as whole tokens under base-cell fo
   expect((await f.snapshot()).tokens).toHaveLength(7); // DM still sees all tokens.
   f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['5,6', '6,3'], reveal: true });
   await expect(layer).toHaveAttribute('data-miniature-count', '6');
-  // A player dragging another PC into map fog loses its whole HUD as well as the model.
+  // Planning into fog conceals only the preview; the real token stays at its visible origin.
   const v = (await tokenView(page, varis.id))!, concealed = offsetPoint(v, 0, -220);
   await page.mouse.move(v.x, v.y); await page.mouse.down();
   await page.mouse.move(concealed.x, concealed.y, { steps: 15 });
-  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(0);
+  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(1);
+  await expect(layer).not.toHaveAttribute('data-preview-token-id',varis.id);
   await page.mouse.up();
   await expect(layer).toHaveAttribute('data-miniature-count', '5');
   f.socket.emit('token:move', { tokenId: varis.id, x: varis.x, y: varis.y });
   await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  // A legacy DM drag must neither move nor conceal a player's visible token.
   f.socket.emit('token:drag', { tokenId: skeleton.id, x: 10, y: 10 });
-  await expect(layer).toHaveAttribute('data-miniature-count', '5');
-  expect(await tokenView(page, skeleton.id)).toBeNull();
-  // A paused held drag must not reappear when the ordinary tether timer expires.
   await page.waitForTimeout(500);
-  expect(await tokenView(page, skeleton.id)).toBeNull();
-  f.socket.emit('token:drag', { tokenId: skeleton.id, x: skeleton.x, y: skeleton.y });
   await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  expect(await tokenView(page, skeleton.id)).not.toBeNull();
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: false });
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'tokens', enabled: true });
   await expect(layer).toHaveAttribute('data-miniature-count', '3');
@@ -1464,4 +1827,276 @@ test('animated view rotation keeps player base dragging aligned in both projecti
  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('0\u00b0');
  const target=(await tokenView(page,token.id))!;await page.mouse.click(target.x,target.y,{button:'right'});
  await expect(page.getByRole('dialog',{name:'Token actions'})).toBeVisible();
+});
+
+
+test('private movement shadows keep the figure at its origin and animate committed moves for both roles',async({page,request,browser},info)=>{
+  test.setTimeout(120000);
+  await page.setViewportSize({width:1600,height:1000});
+  const f=await fixture(page,request,movementDemo?readFileSync('assets/environment-preview/courtyard.png'):undefined);
+  f.socket.emit('monster:create',{name:'Goblin',maxHp:12,modelType:'goblin'});
+  const monster=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin')!;
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:monster.id,x:750,y:650});
+  const ready=await f.snapshot();
+  const goblin=ready.tokens.find(t=>t.kind==='monster')!;
+  const druk=ready.tokens.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Druk')!.id)!;
+  await enter(page,f.code);
+  const playerLayer=page.getByTestId('miniature-layer');
+  await expect(playerLayer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},...(movementDemo?{recordVideo:{dir:info.outputPath('dm-recording'),size:{width:1600,height:1000}}}:{})});
+  const phases:{name:string;at:number}[]=[];
+  const phase=async(p:Page,name:string)=>{
+    if(!movementDemo)return;
+    phases.push({name,at:Date.now()});
+    await p.evaluate(text=>{
+      let title=document.getElementById('movement-demo-caption');
+      if(!title){title=document.createElement('div');title.id='movement-demo-caption';title.style.cssText='position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 22px;background:#121c24ef;border:1px solid #b9d8e0;border-radius:8px;color:#e2f1f5;font:20px Georgia;text-align:center;pointer-events:none';document.body.append(title);}
+      title.textContent=text;
+    },name);
+    await p.waitForTimeout(1100);
+  };
+  const hold=async(p:Page,ms=2000)=>{if(movementDemo)await p.waitForTimeout(ms);};
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const inspect=(p:Page,id:string)=>p.evaluate(id=>{
+    const stages=(window as any).Konva.stages;
+    const node=stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);
+    const preview=stages.flatMap((s:any)=>s.find('.token-move-preview')).find((n:any)=>n.getAttr('tokenId')===id);
+    const art=node?.findOne('.token-art');
+    return {x:node?.x(),y:node?.y(),artX:node?.x()+art?.x(),artY:node?.y()+art?.y(),preview:preview?.visible()??false,
+      distance:preview?.findOne('Text')?.text(),facing:preview?.findOne('Group')?.findOne('Line')?.rotation()};
+  },id);
+  const track=(p:Page,id:string)=>p.evaluate(id=>{
+    const samples:any[]=[];(window as any).__moveSamples=samples;
+    const start=performance.now();const tick=()=>{
+      const node=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);
+      if(node)samples.push({time:performance.now()-start,x:node.x(),y:node.y()});
+      if(performance.now()-start<1100)requestAnimationFrame(tick);
+    };tick();
+  },id);
+  const assertAnimation=async(p:Page,from:{x:number;y:number},to:{x:number;y:number})=>{
+    await p.waitForTimeout(550);
+    const samples=await p.evaluate(()=>(window as any).__moveSamples as {time:number;x:number;y:number}[]);
+    const distance=Math.hypot(to.x-from.x,to.y-from.y);
+    const middle=samples.filter(v=>{const d=Math.hypot(v.x-from.x,v.y-from.y);return d>distance*.08&&d<distance*.92;});
+    expect(middle.length).toBeGreaterThan(2);
+    expect(Math.hypot(samples.at(-1)!.x-to.x,samples.at(-1)!.y-to.y)).toBeLessThan(.01);
+  };
+  try{
+    const dm=await context.newPage();dm.on('pageerror',e=>errors.push(e.message));
+    await dm.goto(`/dm?code=${f.code}`);await dm.locator('input[type=password]').fill(DM_SECRET);
+    await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+    await phase(page,'Player view: hold a drag to plan your move');
+    // A player plans in perspective: the body/name stay at the committed origin.
+    const v=(await tokenView(page,druk.id))!,end=offsetPoint(v,180,180);
+    await page.mouse.move(v.x,v.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:24});
+    await afterPaint(page);
+    const held=await inspect(page,druk.id);
+    expect(held.artX).toBeCloseTo(druk.x);expect(held.artY).toBeCloseTo(druk.y);
+    expect(held.preview).toBe(true);expect(held.distance).toBe('9 ft');expect(held.facing).toBeCloseTo(-45,0);
+    await expect(playerLayer).toHaveAttribute('data-preview-token-id',druk.id);
+    expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)).toMatchObject({x:druk.x,y:druk.y});
+    expect((await inspect(dm,druk.id)).preview).toBe(false);
+    await phase(page,'Shadow preview - 9 ft - facing the move');
+    await page.screenshot({path:info.outputPath('player-private-shadow.png')});
+    await hold(page);
+    await phase(page,'Release: Druk moves smoothly into place');
+    await track(page,druk.id);await track(dm,druk.id);await page.mouse.up();
+    await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(druk.x+175);
+    const placed=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
+    expect(placed.facing).toBeCloseTo(Math.PI/4);
+    await Promise.all([assertAnimation(page,druk,placed),assertAnimation(dm,druk,placed)]);
+    await expect(playerLayer).not.toHaveAttribute('data-preview-token-id',druk.id);
+    await hold(page);
+    // DM planning stays private, including forged/legacy drag events.
+    const observer=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(observer);
+    await observer.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',name:'Observer'});
+    const leaked:unknown[]=[];observer.on('fx:tokenDrag',event=>leaked.push(event));
+    await phase(dm,'DM view: privately plan a creature move');
+    const g=(await tokenView(dm,goblin.id))!,ge=offsetPoint(g,200,-150);
+    await dm.mouse.move(g.x,g.y);await dm.mouse.down();await dm.mouse.move(ge.x,ge.y,{steps:24});
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-preview-token-id',goblin.id);
+    f.socket.emit('token:drag',{tokenId:goblin.id,x:950,y:500});
+    await page.waitForTimeout(250);
+    expect(leaked).toEqual([]);expect(await inspect(page,goblin.id)).toMatchObject({x:goblin.x,y:goblin.y,preview:false});
+    expect((await f.snapshot()).tokens.find(t=>t.id===goblin.id)).toMatchObject({x:goblin.x,y:goblin.y});
+    await hold(dm);
+    await dm.screenshot({path:info.outputPath('dm-private-shadow.png')});
+    await phase(page,'Player view: no destination or preview is revealed');
+    await hold(page);
+    await page.screenshot({path:info.outputPath('player-sees-no-dm-plan.png')});
+    await phase(page,'Only the released creature move becomes visible');
+    await phase(dm,'Release: the creature moves for everyone');
+    await track(page,goblin.id);await track(dm,goblin.id);await dm.mouse.up();
+    await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===goblin.id)!.x).toBeGreaterThan(940);
+    const moved=(await f.snapshot()).tokens.find(t=>t.id===goblin.id)!;
+    await Promise.all([assertAnimation(page,goblin,moved),assertAnimation(dm,goblin,moved)]);
+    await hold(page);
+    // Escape removes the preview without submitting a move.
+    const c=(await tokenView(page,druk.id))!,ce=offsetPoint(c,-180,0);
+    await page.mouse.move(c.x,c.y);await page.mouse.down();await page.mouse.move(ce.x,ce.y,{steps:16});
+    await page.keyboard.press('Escape');await page.mouse.up();await afterPaint(page);
+    expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)).toMatchObject({x:placed.x,y:placed.y});
+    expect(await inspect(page,druk.id)).toMatchObject({x:placed.x,y:placed.y,preview:false});
+    await phase(page,'Escape cancels a planned move');
+    // The same interaction works with 2D fallback art and overhead projection.
+    await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
+    await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+    await expect(playerLayer).toHaveAttribute('data-tilt-degrees','0');
+    await phase(page,'Overhead and 2D tokens use the same movement');
+    const b=(await tokenView(page,druk.id))!,be=offsetPoint(b,-160,30);
+    await page.mouse.move(b.x,b.y);await page.mouse.down();await page.mouse.move(be.x,be.y,{steps:18});
+    expect(await inspect(page,druk.id)).toMatchObject({artX:placed.x,artY:placed.y,preview:true});
+    await hold(page);
+    await track(page,druk.id);await page.mouse.up();
+    await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeLessThan(placed.x-155);
+    await assertAnimation(page,placed,(await f.snapshot()).tokens.find(t=>t.id===druk.id)!);
+    await hold(page);
+    if(movementDemo)writeFileSync(info.outputPath('movement-phases.json'),JSON.stringify(phases,null,2));
+    expect(errors).toEqual([]);
+  }finally{await context.close();}
+});
+
+
+test('chests and traps use 3D objects while retaining hidden state and interactions',async({page,request,browser},info)=>{
+  test.setTimeout(150000);
+  await page.setViewportSize({width:1440,height:960});
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+  for(const [i,kind] of (['chest','trap'] as const).entries()){
+    f.socket.emit('monster:create',{name:kind==='chest'?'Treasure chest':'Jaw trap',objectKind:kind,maxHp:10,modelType:'none'});
+    const template=(await f.snapshot()).monsterTemplates.find(m=>m.objectKind===kind)!;
+    f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:450+i*300,y:520});
+  }
+  const ready=await f.snapshot(),objects=ready.tokens.filter(t=>t.kind==='monster');
+  const chest=objects.find(t=>ready.monsters.find(m=>m.id===t.refId)?.objectKind==='chest')!;
+  const trap=objects.find(t=>t.id!==chest.id)!;
+  f.socket.emit('token:setHidden',{tokenId:trap.id,hidden:true});
+  await page.goto(`/dm?code=${f.code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  const layer=page.getByTestId('miniature-layer');
+  await expect(layer).toHaveAttribute('data-miniature-count','5',{timeout:60000});
+  for(const t of objects)expect((await tokenView(page,t.id))?.miniatureReady).toBe(true);
+  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960}});
+  try{
+    const player=await context.newPage();await enter(player,f.code);
+    const playerLayer=player.getByTestId('miniature-layer');
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+    expect(await tokenView(player,trap.id)).toBeNull();
+    f.socket.emit('token:setHidden',{tokenId:trap.id,hidden:false});
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','5');
+    await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees','45');
+    await afterPaint(page);
+    await page.screenshot({path:info.outputPath('objects-45.png')});
+    if(movementDemo)await page.waitForTimeout(2000);
+    for(let i=0;i<3;i++)await page.getByTitle('Zoom in',{exact:true}).click();
+    await afterPaint(page);
+    await page.screenshot({path:info.outputPath('objects-close.png')});
+    if(movementDemo)await page.waitForTimeout(2500);
+    const base=(await tokenView(page,chest.id))!;
+    await page.mouse.click(base.x,base.y);
+    await expect(page.getByRole('region',{name:'Token info',exact:true})).toBeVisible();
+    f.socket.emit('object:interact',{monsterId:chest.refId,action:'open'});
+    await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===chest.refId)?.conditions.some(c=>c.label==='Open')).toBe(true);
+    await page.getByRole('button',{name:'Close token inspector',exact:true}).click();
+    await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees','0');
+    await afterPaint(page);await page.screenshot({path:info.outputPath('objects-overhead.png')});
+    if(movementDemo)await page.waitForTimeout(2500);
+    await player.getByRole('button',{name:'2D monster tokens',exact:true}).click();
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','3');
+    for(const t of objects)expect((await tokenView(player,t.id))?.bodyVisible).toBe(true);
+    await player.getByRole('button',{name:'3D monster tokens',exact:true}).click();
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','5');
+    f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'tokens',enabled:true});
+    await expect(playerLayer).toHaveAttribute('data-miniature-count','3');
+    expect(errors).toEqual([]);
+  }finally{await context.close();}
+});
+
+
+test('personal darkvision dungeon demo with and without lanterns',async({page,request,browser},info)=>{
+ test.setTimeout(180000);await page.setViewportSize({width:1440,height:960});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL/i.test(m.text()))errors.push(m.text());});
+ const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:10,widthFt:280,locked:false});
+ const pcs=f.ready.tokens;
+ const druk=pcs.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Druk')!.id)!;
+ const varis=pcs.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Varis')!.id)!;
+ const vanec=pcs.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Vanec')!.id)!;
+ f.socket.emit('token:move',{tokenId:druk.id,x:450,y:560});
+ f.socket.emit('token:move',{tokenId:varis.id,x:1000,y:560});
+ f.socket.emit('token:move',{tokenId:vanec.id,x:490,y:615});
+ for(const [i,x] of [580,1000].entries()){
+  f.socket.emit('monster:create',{name:`Dungeon guard ${i}`,maxHp:12,modelType:'goblin',disposition:'enemy'});
+  const template=(await f.snapshot()).monsterTemplates.find(m=>m.name===`Dungeon guard ${i}`)!;
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x,y:630});
+ }
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,mist:true,mistOpacity:.08,mistHeightFt:1,shadows:true,lights:[]}});
+ await enter(page,f.code);
+ const vision=page.getByTestId('player-vision');await expect(vision).toHaveAttribute('data-range-ft','60');
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+ expect(await tokenView(page,varis.id)).toBeNull();
+ const other=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960},...(movementDemo?{recordVideo:{dir:info.outputPath('varis-video'),size:{width:1440,height:960}}}:{})});
+ try{
+  const second=await other.newPage();await enter(second,f.code,'Varis');
+  await expect(second.getByTestId('player-vision')).toHaveAttribute('data-range-ft','60');
+  expect(await tokenView(second,druk.id)).toBeNull();
+  await expect(second.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
+  await second.screenshot({path:info.outputPath('varis-personal-view.png')});
+  // Distant light reveals its occupants without extending the observer's darkvision.
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[{id:'distant-hall',x:1000,y:610,radiusFt:15,heightFt:3,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','5',{timeout:30000});
+  expect(await tokenView(page,varis.id)).not.toBeNull();
+  await page.screenshot({path:info.outputPath('distant-lantern-visible.png')});
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:30000});
+  expect(await tokenView(page,varis.id)).toBeNull();
+
+  for(let i=0;i<2;i++)await page.getByTitle('Zoom in',{exact:true}).click();
+  const caption=async(text:string)=>page.evaluate(value=>{let el=document.getElementById('vision-demo-caption');if(!el){el=document.createElement('div');el.id='vision-demo-caption';el.style.cssText='position:fixed;top:112px;left:50%;transform:translateX(-50%);padding:12px 22px;background:#111b;border:1px solid #b8a36d;color:#f2e6c7;font:20px Georgia;z-index:9999;pointer-events:none';document.body.append(el);}el.textContent=value;},text);
+  for(const heavy of [false,true])for(const lantern of [false,true]){
+   f.socket.emit('token:move',{tokenId:druk.id,x:450,y:560});
+   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:heavy}});
+   await expect(vision).toHaveAttribute('data-heavy',String(heavy));
+   const lamp=page.getByRole('button',{name:'Carried lantern',exact:true});
+   // Toggle through the player's real control; the character owns the light.
+   const current=(await f.snapshot()).tokens.find(t=>t.id===druk.id)?.carriedLantern??false;
+   if(current!==lantern)await lamp.click();
+   await expect.poll(async()=>!!(await f.snapshot()).tokens.find(t=>t.id===druk.id)?.carriedLantern).toBe(lantern);
+   await page.waitForTimeout(650);
+   await caption(`${heavy?'Heavy darkness: grayscale':'Regular darkness: color'} - ${lantern?'hip lantern':'Darkvision only'} - 60 ft`);
+   await page.screenshot({path:info.outputPath(`${heavy?'heavy':'regular'}-${lantern?'lantern':'darkvision'}.png`)});
+   if(movementDemo)await page.waitForTimeout(1200);
+   const base=(await tokenView(page,druk.id))!,end=offsetPoint(base,220,0);
+   await page.mouse.move(base.x,base.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:24});
+   if(movementDemo)await page.waitForTimeout(600);
+   await page.mouse.up();
+   await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(650);
+   await page.waitForTimeout(900);
+   await page.screenshot({path:info.outputPath(`${heavy?'heavy':'regular'}-${lantern?'lantern':'darkvision'}-moved.png`)});
+   if(movementDemo)await page.waitForTimeout(1800);
+  }
+  // Quality off cannot reveal distant terrain or monsters.
+  await page.getByRole('button',{name:'Interface settings',exact:true}).click();
+  await page.getByLabel('Environment quality',{exact:true}).selectOption('off');
+  await page.getByRole('button',{name:'Close interface settings',exact:true}).click();
+  await expect(vision).toBeVisible();await expect(vision).toHaveAttribute('data-heavy','true');
+  await caption('Effects off: personal 60 ft visibility still enforced');
+  await page.screenshot({path:info.outputPath('vision-effects-off.png')});
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','0');
+  await page.screenshot({path:info.outputPath('vision-overhead.png')});
+  // A second player moves with an independent horizon on the same live map.
+  const secondBase=(await tokenView(second,varis.id))!,secondEnd=offsetPoint(secondBase,-180,0);
+  await second.mouse.move(secondBase.x,secondBase.y);await second.mouse.down();await second.mouse.move(secondEnd.x,secondEnd.y,{steps:24});
+  if(movementDemo)await second.waitForTimeout(700);
+  await second.mouse.up();await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===varis.id)!.x).toBeLessThan(850);
+  if(movementDemo)await second.waitForTimeout(2200);
+  await second.screenshot({path:info.outputPath('varis-personal-moved.png')});
+  expect(errors).toEqual([]);
+ }finally{await other.close();}
 });

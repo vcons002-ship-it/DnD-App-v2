@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "id": "monster-reduction-v1",
+    "targetTriangles": 20000,
+    "errorLimit": 0.01,
+    "colorEncoding": "jpeg",
+    "quality": 95,
+    "chromaSubsampling": "4:4:4",
+    "resize": false,
+    "geometryCompression": false
+  },
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\hezrou\\generation-01\\01_textured_mesh.glb",
+  "sourceSha256": "f652948963ad8cfa4409549f5d99859431b0b626c5875088cc33127eceaf96d4",
+  "sourceBytes": 5233384,
+  "originalTriangles": 40000,
+  "triangles": 20000,
+  "bytes": 1741964,
+  "reductionPercent": 66.71438594989398,
+  "sha256": "d2d627f5650a2c0cefde6f8935fd77a90ae46384f3605e4a5115b538f78092c8",
+  "textures": [
+    {
+      "index": 0,
+      "action": "jpeg95",
+      "width": 2048,
+      "height": 2048,
+      "beforeBytes": 3884604,
+      "afterBytes": 1104595,
+      "sha256": "a176db7298f5159816dfed4efb8190656993a0337831ae61524c499c386d247b"
+    }
+  ],
+  "simplifyMs": 29.263499999999908,
+  "totalMs": 626.2837,
+  "peakRssMiB": 160.05078125,
+  "versions": {
+    "gltfTransform": "4.5.0",
+    "meshoptimizer": "1.2.0",
+    "sharp": "0.35.4"
+  },
+  "validation": "export reloaded; finite positions; indices in range; textures unchanged on export; source preserved",
+  "targetReached": true
+}

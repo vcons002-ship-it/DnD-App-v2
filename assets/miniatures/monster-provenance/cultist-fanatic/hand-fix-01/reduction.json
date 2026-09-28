@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "id": "monster-reduction-v1",
+    "targetTriangles": 20000,
+    "errorLimit": 0.01,
+    "colorEncoding": "jpeg",
+    "quality": 95,
+    "chromaSubsampling": "4:4:4",
+    "resize": false,
+    "geometryCompression": false
+  },
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\cultist-fanatic\\hand-fix-01\\generation-01\\01_textured_mesh.glb",
+  "sourceSha256": "7ccbc65c79bc9980dd9d28f8d29ad593e2b3c688c21fb0cbb3d854fa4a66c0d7",
+  "sourceBytes": 3943508,
+  "originalTriangles": 40000,
+  "triangles": 20000,
+  "bytes": 1250900,
+  "reductionPercent": 68.27951154150061,
+  "sha256": "116d0ae34247d8a77eb0a778c71a084c7d8a34d8ffb26d7c0bc551f8ea3907b8",
+  "textures": [
+    {
+      "index": 0,
+      "action": "jpeg95",
+      "width": 2048,
+      "height": 2048,
+      "beforeBytes": 2698164,
+      "afterBytes": 692953,
+      "sha256": "26800f96fec608861574c1172c170ac55316756b87953eaea7ac3351316e84fc"
+    }
+  ],
+  "simplifyMs": 30.897699999999986,
+  "totalMs": 496.5724,
+  "peakRssMiB": 156.69140625,
+  "versions": {
+    "gltfTransform": "4.5.0",
+    "meshoptimizer": "1.2.0",
+    "sharp": "0.35.4"
+  },
+  "validation": "export reloaded; finite positions; indices in range; textures unchanged on export; source preserved",
+  "targetReached": true
+}

@@ -35,3 +35,31 @@ assets/miniatures/monster-provenance/** filter=lfs diff=lfs merge=lfs -text
 # budget is exhausted. Keep exact binary bytes; existing LFS assets stay as-is.
 client/public/miniatures/druk-c652013a617c.glb -filter -diff -merge -text
 assets/miniatures/runtime-provenance/druk-v9/head-refinement/natural-face-20260926/** -filter -diff -merge -text
+
+# Small new monster families use regular Git while the LFS budget is exhausted.
+client/public/miniatures/monsters/shadow.glb -filter -diff -merge -text
+client/public/miniatures/monsters/mummy.glb -filter -diff -merge -text
+client/public/miniatures/monsters/quasit.glb -filter -diff -merge -text
+client/public/miniatures/monsters/dretch.glb -filter -diff -merge -text
+assets/miniatures/monster-provenance/shadow/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/mummy/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/quasit/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/dretch/** -filter -diff -merge -text
+client/public/miniatures/monsters/cultist-fanatic.glb -filter -diff -merge -text
+client/public/miniatures/monsters/vrock.glb -filter -diff -merge -text
+client/public/miniatures/monsters/hezrou.glb -filter -diff -merge -text
+client/public/miniatures/monsters/glabrezu.glb -filter -diff -merge -text
+assets/miniatures/monster-provenance/cultist-fanatic/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/vrock/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/hezrou/** -filter -diff -merge -text
+assets/miniatures/monster-provenance/glabrezu/** -filter -diff -merge -text
+
+# Small static object models and source art; preserve binary bytes in regular Git.
+client/public/miniatures/objects/*.glb -filter -diff -merge -text
+assets/miniatures/object-provenance/** -filter -diff -merge -text
+
+# Verified lossless character delivery copies and byte-stable receipts.
+client/public/miniatures/druk-c98df869b913.glb -filter -diff -merge -text
+client/public/miniatures/varis-264feff1b076.glb -filter -diff -merge -text
+client/public/miniatures/vanec-7f57d87ce42f.glb -filter -diff -merge -text
+assets/miniatures/character-compression/*.json -filter diff merge -text whitespace=cr-at-eol

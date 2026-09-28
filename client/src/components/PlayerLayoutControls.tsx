@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
+import {EnvironmentQualityControl} from './MapEnvironmentControls';
 import type { PlayerLayoutController, PlayerPanelName, PlayerPanelSize } from '../lib/usePlayerLayout';
 
 export function ChatBubbleIcon() {
@@ -154,6 +155,7 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
       <label className="player-scale-label" htmlFor="player-ui-scale">UI scale <output>{Math.round(layout.scale * 100)}%</output></label>
       <input id="player-ui-scale" type="range" min="70" max="115" step="5" value={Math.round(layout.scale * 100)} onChange={(event) => layout.setScale(Number(event.target.value) / 100)} />
       <div className="player-scale-limits"><span>Compact 70%</span><span>Large 115%</span></div>
+      <EnvironmentQualityControl/>
       <fieldset className="resource-layout-picker">
         <legend>Orb resources</legend>
         {(['compact', 'concentric'] as const).map((option) => <label key={option}>

@@ -68,6 +68,7 @@ import {
   applyDamage,
   isDeadEntity,
   setTempHp,
+  setTokenLantern,
   claimCharacter,
   clearOwnershipElsewhere,
   listCharacters,
@@ -153,6 +154,7 @@ import {
   createPastedObject,
   createSummon,
   updateMapGrid,
+  updateMapEnvironment,
   rollAllInitiative,
   startCombat, finishInitiative, rollPlayerInitiative, setInitiativePending,
   rollMissingInitiative,
@@ -438,6 +440,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!ids.length) return;
       reorderMaps(sid, ids);
       afterChange();
+    });
+
+    on('map:setEnvironment', (p) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || !p || typeof p.mapId !== 'string') return;
+      if (updateMapEnvironment(sid, p.mapId, p.settings)) afterChange();
     });
 
     on('map:setGrid', (p) => {
@@ -807,6 +815,15 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (miniature === true) resizeMiniature(tokenId, widthFt);
       else resizeToken(tokenId, widthFt);
       afterChange();
+    });
+    on('token:setLantern',({tokenId,enabled})=>{
+      const sid=sessionId(),token=getToken(tokenId);
+      if(!sid||!token||typeof enabled!=='boolean'||getMap(token.mapId)?.sessionId!==sid)return;
+      if(!isDm()){
+        const character=token.kind==='pc'?getCharacter(token.refId):null;
+        if(token.isHidden||token.mapId!==getActiveMapId(sid)||character?.claimedBy!==socket.id)return;
+      }
+      setTokenLantern(tokenId,enabled);afterChange();
     });
 
     on('token:setShape', ({ tokenId, shape }) => {

@@ -1,0 +1,42 @@
+{
+  "original": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\cultist-fanatic\\hand-fix-01\\original-runtime.glb",
+  "originalSha256": "f0b4a305b5eddf214661e532dce7a37f93574188908181af98f7890fb23501be",
+  "handSource": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\cultist-fanatic\\hand-fix-01\\reduced\\model.glb",
+  "handSourceSha256": "116d0ae34247d8a77eb0a778c71a084c7d8a34d8ffb26d7c0bc551f8ea3907b8",
+  "anatomicalSide": "left",
+  "mirrored": false,
+  "wristCenter": [
+    0.2829686999320984,
+    -0.3506011366844177,
+    1.031184196472168
+  ],
+  "outward": [
+    0.09999874979257584,
+    -0.9949875473976135,
+    0.0
+  ],
+  "cuffWidth": 0.08893918924150057,
+  "cuffThickness": 0.07930809259414673,
+  "wristInsideCuff": 0.02,
+  "sourceWristCutZ": -0.600506317615509,
+  "sourceWristCenter": [
+    0.030176416039466858,
+    0.16924995183944702,
+    -0.6005063056945801
+  ],
+  "handScale": 0.1065428604976021,
+  "handLength": 0.17,
+  "fingerAxis": [
+    0.1000075563788414,
+    -0.7000529170036316,
+    0.7070534229278564
+  ],
+  "cuffBlendLength": 0.04,
+  "removedOriginalTriangles": 662,
+  "protectedOriginalVertices": 15355,
+  "protectedCoordinatesUnchanged": true,
+  "baseCoordinatesUnchanged": true,
+  "rotationDeterminant": 1.0000001192092896,
+  "triangles": 38488,
+  "output": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\cultist-fanatic\\hand-fix-01\\fitted-02\\assembled.glb"
+}

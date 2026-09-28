@@ -1,10 +1,11 @@
+import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
+  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -14,7 +15,11 @@ import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
+import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
+import {createPreviewGpuTiming} from './previewGpuTiming';
+import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
+import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import { useStore } from '../state/socket';
 import {
   miniatureCameraTarget,
@@ -25,6 +30,7 @@ import {
 export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
+  carriedLantern?: boolean;
   tint?: string;
   outline?: string;
   shade?: [number, number, number];
@@ -35,6 +41,7 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
   view: BattlefieldView;
   tiltDegrees: number;
@@ -45,12 +52,15 @@ type Props = {
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
+  /** Shared renderer settings; the app uses a transparent ground overlay. */
+  environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
   setProjection: (tilt:number, rotation:number, view:BattlefieldView) => void;
-  moveToken: (id: string, x: number, y: number, finished: boolean) => void;
+  moveToken: (id: string, x: number, y: number, finished: boolean, facing?: number) => void;
+  previewMove: (id: string, point: {x:number;y:number;facing:number} | null) => void;
 };
 type FxManifest = {
   duration_seconds: number;
@@ -58,6 +68,9 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  lanternAnchor:Vector3;
+  torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
+  measureBody: () => MistBody;
   root: Group;
   outlineMaterial: MeshBasicMaterial;
   outlineViewport: { value: Vector2 };
@@ -74,6 +87,8 @@ type Instance = {
   originalOpacity: number[];
   originalTransparent: boolean[];
   mixer: AnimationMixer | null;
+  shadowAnimated: boolean;
+  mistBody?: MistBody;
   fx: FxManifest | null;
   lightning: ReturnType<typeof createVanecLightning> | null;
 };
@@ -136,8 +151,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
 
-  scene.add(new HemisphereLight(0xe5edff, 0x726856, 2));
-  const key = new DirectionalLight(0xffeddb, 3);
+  const ambient = new HemisphereLight(0xe5edff, 0x726856, NEUTRAL_MINIATURE_LIGHTING.ambient);
+  scene.add(ambient);
+  const key = new DirectionalLight(0xffeddb, NEUTRAL_MINIATURE_LIGHTING.key);
   key.position.set(-3, 8, 5);
   scene.add(key);
   // A small neutral environment keeps metal readable without per-token lights/shadows.
@@ -149,6 +165,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     room = new RoomEnvironment();
     environment = pmrem.fromScene(room, 0.04, 0.1, 100);
     scene.environment = environment.texture;
+    scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
@@ -165,6 +182,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const instances = new Map<string, Instance>();
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
+  // One local planning figure; geometry is shared with the loaded model. It has
+  // no effects, shadows, labels, hit region or network representation.
+  let preview: {id:string;root:Group} | null = null;
+  const previewMaterial = new MeshStandardMaterial({color: '#83aab6', transparent:true, opacity:.3,
+    roughness:.9, metalness:0, depthWrite:false});
+  const clearPreview = () => {
+    if(preview)scene.remove(preview.root);
+    preview=null;delete host.dataset.previewTokenId;
+  };
   const abort = new AbortController();
   let props = initial;
   let view = initial.view;
@@ -172,15 +198,22 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let disposed = false;
   let failed = false;
   let frame = 0;
+  let frameQueued = false;
   let lastPaint = 0;
-  let started = performance.now();
+  const started = performance.now();
   let lastIds = '';
   let lastStatus = '';
   let hasRendered = false;
   let renderedWidth = 0;
   let renderedHeight = 0;
   let renderedPixelRatio = 0;
+  let battlefield: ReturnType<typeof createBattlefieldEnvironment> | null = null;
+  let lastEnvironment: EnvironmentPreviewSettings | undefined;
+  let paintCount = 0, paintEpoch = performance.now();
+  let totalPaintCount = 0;
+  const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let paintedReducedMotion: boolean | undefined;
 
   const updateCamera = () => {
     const scale = Math.max(0.0001, view.scale);
@@ -214,7 +247,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const publish = () => {
     const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
     const key = ids.join('|');
-    const status = failed ? 'unavailable' : ids.length ? 'ready' : 'loading';
+    const status = failed ? 'unavailable' : ids.length || (!props.tokens.length && battlefield?.ready) ? 'ready' : 'loading';
     if (key !== lastIds || status !== lastStatus || !hasRendered) {
       lastIds = key;
       lastStatus = status;
@@ -232,23 +265,35 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     publish();
     dispose();
   };
-  const draw = (now: number) => {
+  const draw = (_frameTime: number) => {
+    // RAF's frame-start timestamp can precede an immediate camera redraw in the
+    // same frame. One live clock keeps movement, fog history and FX monotonic.
+    const now = performance.now();
     frame = 0;
     if (disposed || failed || document.hidden) return;
+    const environment=props.environmentPreview;
+    const atmosphereAnimated = !!environment?.enabled && environment.mistQuality!=='off' && !reducedMotion.matches &&
+      ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0) || (environment.groundWetness??0)>0 || environment.lightning || environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
-    if (now - lastPaint >= 1000 / 24) {
+    // Paint the preference change even inside the frame cap: this may be the
+    // last frame once animation stops, so no flash or moving effect may linger.
+    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= (props.environmentPreview ? 1000 / 60 - 1 : 1000 / 24)) {
+      paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
       const seconds = (now - started) / 1000;
+      for(const [id,move] of moves)if(move.until<now)moves.delete(id);
       for (const token of props.tokens) {
         const instance = instances.get(token.id);
         if (!instance) continue;
         const move = moves.get(token.id);
         if (move && move.until < now) moves.delete(token.id);
         const position = moves.get(token.id) ?? token;
+        const wasVisible = instance.root.visible;
         instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
+        if (battlefield && (wasVisible !== instance.root.visible || instance.root.position.x !== position.x || instance.root.position.z !== position.y || instance.root.rotation.y !== (position.facing ?? 0) || (animated && instance.shadowAnimated))) renderer.shadowMap.needsUpdate = true;
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
         instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
@@ -261,37 +306,113 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
+      battlefield?.setTokens(props.tokens.map(token => {
+        const instance=instances.get(token.id);
+        const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
+        const body=instance?.mistBody?mistBodyInMap(instance.mistBody,x,y,instance.root.rotation.y,instance.root.scale.x):undefined;
+        return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden};
+      }));
+      if(battlefield){
+        const ppf=props.environmentPreview?.pixelsPerFoot??12.8;
+        const carriers=new Map((props.environmentPreview?.carriedLanterns??[]).map(t=>[t.id,t]));
+        for(const token of props.tokens)if(token.carriedLantern&&!token.hidden)carriers.set(token.id,{...token,facing:token.facing??0});
+        battlefield.lighting.setCarried([...carriers.values()].flatMap(token=>{
+          const instance=instances.get(token.id),move=moves.get(token.id);
+          const x=instance?.root.position.x??move?.x??token.x,y=instance?.root.position.z??move?.y??token.y;
+          if(!(props.isVisibleAt?.(token.id,x,y)??true))return [];
+          if(instance){
+            const belt=instance.root.localToWorld(instance.lanternAnchor.clone()),facing=instance.root.rotation.y;
+            return [{id:token.id,x:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,y:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:belt.y-ppf*.52,facing}];
+          }
+          const facing=move?.facing??token.facing,dx=-token.diameter*.30,dz=token.diameter*.10;
+          return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*2.8,facing}];
+        }));
+        battlefield.tick(reducedMotion.matches?0:seconds);
+        props.onVisionLights?.(battlefield.lighting.lights);
+      }
+      for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain);
       try {
+        timing?.begin();
+        battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const renderedNames=names.sync(props.nameLabels?.()??[],visible);
-        if (renderedNames.size || props.tokens.some(token => token.outline)) {
+        if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
+          const shadowUpdate = renderer.shadowMap.needsUpdate;
+          renderer.shadowMap.needsUpdate = false;
           renderer.setRenderTarget(outlineMask); renderer.clear(); renderer.render(scene, camera);
+          renderer.shadowMap.needsUpdate = shadowUpdate;
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
         }
         renderer.render(scene, camera);
+        battlefield?.renderMist(renderer,camera);
+        timing?.end();
+        if (battlefield) {
+          paintCount++;
+          host.dataset.renderCount=String(++totalPaintCount);
+          if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
+          host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
+          host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
+          host.dataset.groundReady=String(battlefield.ready);
+          const environment=props.environmentPreview!;
+          host.dataset.environmentBounds=JSON.stringify([environment.mapX??0,environment.mapY??0,environment.mapWidth,environment.mapHeight]);
+          const mistState=battlefield.mistState;
+          for(const [name,value] of Object.entries(battlefield.atmosphereState))host.dataset[name]=String(value);
+          host.dataset.mistVisible=String(mistState.visible);
+          host.dataset.mistCoverage=mistState.coverage;
+          host.dataset.mistHeight=String(mistState.height);
+          host.dataset.mistLayers=String(mistState.layers);
+          host.dataset.mistShadows=String(mistState.shadows);
+          host.dataset.mistForm='volume';
+          host.dataset.mistStyle='wisps';
+          host.dataset.mistQuality=mistState.quality;
+          host.dataset.mistScale=String(mistState.scale);
+          host.dataset.mistSteps=String(mistState.steps);
+          host.dataset.mistResolution=`${mistState.bufferWidth}x${mistState.bufferHeight}`;
+          host.dataset.mistWakes=String(mistState.wakes);
+          host.dataset.mistTime=String(mistState.time);
+          host.dataset.mistOldestWakeAge=String(mistState.oldestWakeAge);
+          host.dataset.mistBodies=JSON.stringify([...instances].flatMap(([id,instance])=>instance.mistBody?[{id,source:instance.mistBody.source,
+            height:instance.mistBody.height*instance.root.scale.x,width:instance.mistBody.radiusX*2*instance.root.scale.x,depth:instance.mistBody.radiusZ*2*instance.root.scale.x}]:[]));
+          host.dataset.mistObstacles=String(mistState.obstacles);
+          host.dataset.mistInteraction=String(mistState.enabled);
+          if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}
+        }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
         publish();
       } catch { fail(); }
     }
-    if (!failed && (animated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
+    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0)) queueDraw();
+  };
+  const queueDraw = () => {
+    if (frame || frameQueued || disposed || failed) return;
+    frameQueued = true;
+    // Let an enclosing camera-animation callback queue its next update first.
+    // That update can then cancel this fallback and paint the final camera and
+    // token positions once, instead of painting the old view and then the new.
+    queueMicrotask(() => {
+      frameQueued = false;
+      if (!frame && !disposed && !failed) frame = requestAnimationFrame(draw);
+    });
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
     // Pointer/camera changes paint on the next frame even when an animated
     // miniature already has a frame pending under the 24fps idle effect cap.
     lastPaint = 0;
-    if (!frame) frame = requestAnimationFrame(draw);
+    queueDraw();
   };
   const removeInstance = (id: string) => {
+    if(preview?.id===id)clearPreview();
     const instance = instances.get(id);
     if (!instance) return;
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
+    if (battlefield) renderer.shadowMap.needsUpdate = true;
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
     instance.outlineMaterial.dispose();
@@ -307,11 +428,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const place = (token: MiniatureToken, instance: Instance) => {
     const factor = token.diameter / token.definition.baseDiameter;
+    const visible=props.isVisibleAt?.(token.id, (moves.get(token.id) ?? token).x, (moves.get(token.id) ?? token).y) ?? true;
+    if(battlefield && (instance.root.visible!==visible || instance.root.scale.x!==factor))renderer.shadowMap.needsUpdate=true;
     instance.root.scale.setScalar(factor);
     const model = instance.root.children[0];
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     const position = moves.get(token.id) ?? token;
-    instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
+    if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
+    instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
         instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
@@ -350,6 +474,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
       material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
     });
+    {
+      if(battlefield&&!instance.mistBody)instance.mistBody=instance.measureBody();
+      const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden;
+      model.traverse(node=>{if(node instanceof Mesh && node.name !== 'disposition-outline'){
+        const opaque=(Array.isArray(node.material)?node.material:[node.material]).every(material=>!material.transparent);
+        if(node.castShadow !== (casts && opaque))renderer.shadowMap.needsUpdate=true;
+        node.castShadow=casts && opaque;node.receiveShadow=casts && opaque;
+      }});
+    }
   };
   const sync = (next: Props) => {
     if (disposed || failed) return;
@@ -365,12 +498,21 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       renderer.getDrawingBufferSize(outlineResolution.value);
       outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
+    if(next.environmentPreview){
+      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,{texture:outlineMask.depthTexture!,resolution:outlineResolution.value},invalidate,ambient);
+      else if(lastEnvironment!==next.environmentPreview)battlefield.update(next.environmentPreview);
+      lastEnvironment=next.environmentPreview;
+    } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;
+      host.dataset.environment='off';host.dataset.mistVisible='false';host.dataset.shadows='false';host.dataset.mistWakes='0';
+      host.dataset.weather='none';host.dataset.weatherCount='0';host.dataset.lighting='off';host.dataset.lightCount='0';
+      host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
+    }
     updateCamera();
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
     }
     for (const id of moves.keys()) {
-      if (!next.tokens.some((token) => token.id === id)) moves.delete(id);
+      if (!next.tokens.some((token) => token.id === id) && !next.environmentPreview?.carriedLanterns?.some(t=>t.id===id)) moves.delete(id);
     }
     for (const [id, instance] of instances) {
       const token = next.tokens.find((item) => item.id === id);
@@ -403,6 +545,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // Animated source transforms remain intact below this base-centering group.
         const centered = new Group();
         const model = gltf.scene.clone(true);
+        const lanternAnchor=measureLanternAnchor(model,definition),torchLighting=createMiniatureTorchLighting();
         centered.add(model); root.add(centered);
         // A ground-plane marker in the same depth buffer as the miniature:
         // body, base and weapons occlude its rear arc. It follows live drags
@@ -442,6 +585,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           const copy = (material: Material) => {
             if (!cloned.has(material)) {
               const copy = material.clone();
+              // Generated color-only atlases omit metallicFactor; glTF defaults
+              // that omission to 1 (solid metal), even for skin and cloth. Give
+              // those atlases a diffuse response to local light. Preserve every
+              // explicitly authored metal factor and metallic/roughness map.
+              const sourceIndex=gltf.parser.associations.get(material)?.materials;
+              const pbr=sourceIndex===undefined?undefined:gltf.parser.json.materials?.[sourceIndex]?.pbrMetallicRoughness;
+              if(copy instanceof MeshStandardMaterial && pbr && pbr.metallicFactor===undefined && !pbr.metallicRoughnessTexture)copy.metalness=0;
+              torchLighting.attach(copy);
               // Mark the complete visible figure, not individual mesh boundaries.
               // All bodies mask outlines so overlapping tokens also stay clean.
               copy.stencilWrite = true;
@@ -517,15 +668,21 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
+          lanternAnchor,torchLighting,
           root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
+          // Emissive/material flicker does not change the ground silhouette.
+          shadowAnimated: gltf.animations.some(clip => clip.tracks.some(track => /\.(position|quaternion|scale|morphTargetInfluences)(\[|$)/.test(track.name))),
+          measureBody:()=>measureMistBody(gltf.scene,definition),
+          mistBody:props.environmentPreview?measureMistBody(gltf.scene,definition):undefined,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         instances.set(token.id, instance);
         place(current, instance);
         scene.add(root);
+        if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();
         const fx = definition.fxUrl ? await manifests.get(definition.fxUrl) : null;
         if (!disposed && instances.get(token.id) === instance && fx && Array.isArray(fx.keyframes) && fx.material_channels) {
@@ -538,7 +695,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     invalidate();
   };
   const contextLost = (event: Event) => { event.preventDefault(); fail(); };
-  const visibility = () => { started = performance.now(); invalidate(); };
+  const visibility = () => { invalidate(); };
   const dispose = () => {
     if (disposed) return;
     disposed = true;
@@ -550,7 +707,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     [...instances.keys()].forEach(removeInstance);
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
+    clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
+    battlefield?.dispose();battlefield=null;
+    timing?.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;
@@ -572,15 +732,46 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     setProjection(tilt, rotation, nextView) {
       if(disposed || failed)return;
       props={...props,tiltDegrees:tilt,rotationDegrees:rotation};view=nextView;
+      // Keep the miniature projection synchronous with the map. queueDraw puts
+      // the automatic animation fallback after the next camera update, so the
+      // update replaces that fallback rather than duplicating the scene render.
       updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
       host.dataset.tiltDegrees=String(tilt);
     },
     setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
-    moveToken(id, x, y, finished) {
+    previewMove(id, point) {
+      if(disposed)return;
+      if(!point){if(preview?.id===id)clearPreview();invalidate();return;}
+      const instance=instances.get(id);
+      if(!instance)return;
+      if(preview?.id!==id){
+        clearPreview();
+        const root=new Group();
+        root.add(instance.root.children[0].clone(true));
+        root.traverse(node=>{
+          node.layers.set(0);
+          if(node instanceof Mesh){
+            if(node.name==='disposition-outline')node.visible=false;
+            node.material=previewMaterial;
+            node.castShadow=false;node.receiveShadow=false;
+          }
+        });
+        preview={id,root};scene.add(root);host.dataset.previewTokenId=id;
+      }
+      preview!.root.scale.copy(instance.root.scale);
+      preview!.root.position.set(point.x,0,point.y);
+      preview!.root.rotation.y=point.facing;
+      preview!.root.visible=props.isVisibleAt?.(id,point.x,point.y)??true;
+      invalidate();
+    },
+    moveToken(id, x, y, finished, facing) {
       if (disposed) return;
-      const token = props.tokens.find((item) => item.id === id);
+      const token = props.tokens.find((item) => item.id === id)??props.environmentPreview?.carriedLanterns?.find(t=>t.id===id);
       if (!token) return;
-      moves.set(id, { x, y, facing: facingAfterMove(token.x, token.y, x, y, token.facing),
+      if(finished && facing!==undefined && x===token.x && y===token.y){
+        moves.delete(id);invalidate();return;
+      }
+      moves.set(id, { x, y, facing: facing ?? facingAfterMove(token.x, token.y, x, y, token.facing),
         fromX: token.x, fromY: token.y, until: finished ? performance.now() + 1500 : Infinity });
       invalidate();
     },
@@ -594,7 +785,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   const latest = useRef(props);
   latest.current = props;
   const [state, setState] = useState({ ids: [] as string[], status: 'loading' });
-  const hasMiniatures = props.tokens.length > 0;
+  const needsScene = props.tokens.length > 0 || !!props.environmentPreview;
   const socket = useStore(state => state.socket);
   useEffect(() => {
     const cast = ({ tokenIds }: { tokenIds: string[] }) => engine.current?.spellCast(tokenIds);
@@ -605,10 +796,11 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
     setProjection: (tilt,rotation,view) => engine.current?.setProjection(tilt,rotation,view),
-    moveToken: (id, x, y, finished) => engine.current?.moveToken(id, x, y, finished),
+    moveToken: (id, x, y, finished, facing) => engine.current?.moveToken(id, x, y, finished, facing),
+    previewMove: (id,point) => engine.current?.previewMove(id,point),
   }), []);
   useEffect(() => {
-    if (!hasMiniatures) {
+    if (!needsScene) {
       setState({ ids: [], status: 'idle' });
       latest.current.onReady(new Set());
       return;
@@ -621,7 +813,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
       latest.current.onReady(new Set());
     }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [hasMiniatures]);
+  }, [needsScene]);
   useEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}

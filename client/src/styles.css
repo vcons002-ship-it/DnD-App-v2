@@ -1776,3 +1776,21 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .initiative-waiting { position:fixed; z-index:80; top:85px; left:50%; transform:translateX(-50%); padding:8px 16px; border:1px solid #b39b65; border-radius:6px; background:#201b16ee; color:#ffe6aa; pointer-events:none; }
 @keyframes initiative-arrival { from {opacity:0;scale:.9} to {opacity:1;scale:1} }
 @media (prefers-reduced-motion:reduce) { .initiative-persistent {animation:none;} }
+
+/* Saved map atmosphere stays inside the existing Maps panel. */
+.map-environment-controls { margin: 10px 0; padding: 9px; border: 1px solid #555043; border-radius: 6px; }
+.map-environment-controls summary { cursor: pointer; font-weight: 600; }
+.environment-light-list details { margin: 7px 0; padding: 5px; background: #ffffff06; }
+.map-environment-controls select { max-width: 100%; margin: 4px; }
+.environment-placement-hint { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); z-index: 30; background: #181b20ed; border: 1px solid #b8a66c; border-radius: 6px; padding: 8px 14px; color: #f3e6c9; white-space: nowrap; }
+.map-environment-controls summary span { float: right; }
+.map-environment-controls fieldset { border: 1px solid #42434b; margin: 8px 0; padding: 8px; min-width: 0; }
+.map-environment-controls p { margin: 6px 0; font-size: 12px; }
+.map-environment-controls small, .environment-quality small { display: block; font-size: 11px; line-height: 1.4; color: #b8b7b2; }
+.environment-toggle { display: flex; align-items: center; gap: 7px; font-size: 13px; margin: 5px 0; }
+.environment-toggle input[type=checkbox] { width: auto; }
+.environment-slider { display: block; margin: 7px 0; font-size: 12px; }
+.environment-slider span { display: flex; justify-content: space-between; }
+.environment-slider input { width: 100%; margin: 3px 0; }
+.environment-quality { display: block; margin: 10px 0; font-size: 13px; }
+.environment-quality select { margin: 5px 0; width: 100%; }

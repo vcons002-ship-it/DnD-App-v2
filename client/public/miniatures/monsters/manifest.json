@@ -956,6 +956,162 @@
       "sourceSha256": "902e0119b8b512546d9f3531767d95da12bbfb9c42573d3117f9f97fab6f1585",
       "url": "/miniatures/monsters/bandit-chief.glb",
       "texture": "2048x2048 JPEG95"
+    },
+    {
+      "id": "shadow",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1392644,
+      "triangles": 20712,
+      "sha256": "ad9ae69dddcb425fc7c641945d1bf5937cb0cb6ce716a68e457494aaeca97d34",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/shadow.glb",
+      "sourceSha256": "cb5a6044ad7287537bdee88ec712da8e704158679ffb839bce7f571d68645441",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "mummy",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1704600,
+      "triangles": 20756,
+      "sha256": "5b001d74e227821f771d23d545205b50809a53d86340d94c0acaebe9bdc03a05",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/mummy.glb",
+      "sourceSha256": "30f16d9ae3c85ede42540c5e87e9f08ef117c5c3e28c51795f0ce05be9e93a83",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "quasit",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1726960,
+      "triangles": 20762,
+      "sha256": "f348ecc118b56f56c0951dca3f1f40edd5978d22563d71d1067f950c651467bd",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/quasit.glb",
+      "sourceSha256": "fb43b2dfbba7b05ba6eca1828cf0ad9e49187b4573f2b76227d6e6845aecf72f",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "dretch",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1582700,
+      "triangles": 20442,
+      "sha256": "82c83362d635e56d710acc3c432ebe21e6e320b2a57fa71f2861df988648f900",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/dretch.glb",
+      "sourceSha256": "a8cba89d5c8a0f996452974486574191d3fb52ff6d5d172cec5f36c3197a11a2",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "cultist-fanatic",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 2709168,
+      "triangles": 38584,
+      "sha256": "58bcfd1bcf2cee7e659d91b847b813f88ed875359fa352f137d5d366950a2708",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/cultist-fanatic.glb",
+      "sourceSha256": "c5f79766eaf2b6065cce651eece4585e7e1e1f65f80f707415819c169a5c5dc9",
+      "texture": "Two 2048x2048 JPEG95 atlases",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1",
+      "handSourceViewCount": 4,
+      "handTextureViewCount": 4,
+      "handSourceSha256": "7ccbc65c79bc9980dd9d28f8d29ad593e2b3c688c21fb0cbb3d854fa4a66c0d7",
+      "handRevision": "hand-fix-01"
+    },
+    {
+      "id": "vrock",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 2018276,
+      "triangles": 20571,
+      "sha256": "3f91e12c8b9f3090e2441c88692cb4bc29a5ffecdc45f64b2a5e0e5fa0b2f38c",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/vrock.glb",
+      "sourceSha256": "3ec99b8b2195b08eddf0da973d69a65f00eddbe5eae0a4cd2ce58b853250d8f4",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "hezrou",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1761200,
+      "triangles": 20498,
+      "sha256": "800fc9508ba373142990af830557b2e0e13c5eb7866b2521319d4a127c549d65",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/hezrou.glb",
+      "sourceSha256": "f652948963ad8cfa4409549f5d99859431b0b626c5875088cc33127eceaf96d4",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
+    },
+    {
+      "id": "glabrezu",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "bytes": 1718764,
+      "triangles": 20698,
+      "sha256": "43aec780c93a807ca6c4f993d4cae6e7b87c9144395f67d6341be1246d6fc47f",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "url": "/miniatures/monsters/glabrezu.glb",
+      "sourceSha256": "bfaa1011e489a7bd3ebd5e13d1544b1c7e999cc867dfd84a2ba2c0792ec56196",
+      "texture": "2048x2048 JPEG95",
+      "textureViewCount": 4,
+      "texturePolicy": "named-multiview-texture-v1"
     }
   ],
   "variants": [

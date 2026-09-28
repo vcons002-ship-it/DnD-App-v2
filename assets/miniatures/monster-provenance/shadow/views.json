@@ -1,0 +1,31 @@
+{
+  "source": "C:/Users/vcons/.codex/generated_images/01a0bc77-1b83-7a53-9c53-86e904a628b4/exec-707d6c59-6c8f-4617-bc26-d2397fad1184.png",
+  "width": 1254,
+  "height": 1254,
+  "views": [
+    {
+      "name": "front",
+      "file": "front.png",
+      "width": 619,
+      "height": 619
+    },
+    {
+      "name": "back",
+      "file": "back.png",
+      "width": 619,
+      "height": 619
+    },
+    {
+      "name": "left",
+      "file": "left.png",
+      "width": 619,
+      "height": 619
+    },
+    {
+      "name": "right",
+      "file": "right.png",
+      "width": 619,
+      "height": 619
+    }
+  ]
+}

@@ -12,6 +12,8 @@ export const MONSTER_MODEL_TYPES = [
   'tattered-cloak-mage', 'young-treant', 'orc-swordsman',
   'cultist', 'scout', 'veteran', 'bandit-captain', 'archmage',
   'sailor', 'sailor-marine', 'elite-castle-guard', 'bandit-chief',
+  'shadow', 'mummy', 'quasit', 'dretch',
+  'cultist-fanatic', 'vrock', 'hezrou', 'glabrezu',
 ] as const;
 export type MonsterModelType = typeof MONSTER_MODEL_TYPES[number];
 export type MonsterAppearance = { name?: string; creatureType?: string; modelType?: string; modelColor?: string; visualTags?: string[]; objectKind?: ObjectKind };
@@ -32,7 +34,7 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
   if (family === 'treant') return 'huge';
   if (family === 'young-treant') return 'large';
   if (/\bblack bear\b|\bgiant wolf spider\b/.test(name)) return 'medium';
-  if (['owlbear', 'brown-bear', 'ogre', 'giant-bat'].includes(family)) return 'large';
+  if (['owlbear', 'brown-bear', 'ogre', 'giant-bat', 'vrock', 'hezrou', 'glabrezu'].includes(family)) return 'large';
   if (['troll', 'stone-golem', 'werebear'].includes(family) || /\bdire wolf\b|\bgiant spider\b|\bgiant constrictor snake\b/.test(name)) return /giant constrictor snake/.test(name) ? 'huge' : 'large';
   if (family === 'spider') return /giant/.test(name) ? 'large' : 'tiny';
   if (family === 'snake') {
@@ -40,15 +42,15 @@ export function creatureSize(appearance: MonsterAppearance): CreatureSize {
     if (/constrict|large/.test(name)) return 'large';
     return /giant/.test(name) ? 'medium' : 'tiny';
   }
-  if (family === 'mage-hand' || family === 'imp') return 'tiny';
-  if (['goblin', 'goblin-crossbowman', 'kobold', 'giant-rat'].includes(family)) return 'small';
+  if (family === 'mage-hand' || family === 'imp' || family === 'quasit') return 'tiny';
+  if (['goblin', 'goblin-crossbowman', 'kobold', 'giant-rat', 'dretch'].includes(family)) return 'small';
   return 'medium';
 }
 /** New placements only; existing occupied spaces and DM choices are preserved. */
 export function defaultMonsterWidthFt(appearance: MonsterAppearance): number {
   return CREATURE_SPACE_FT[creatureSize(appearance)];
 }
-export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'young-treant', 'troll', 'stone-golem', 'werebear', 'owlbear', 'brown-bear', 'ogre', 'giant-bat'];
+export const TIGHT_BASE_FAMILIES = ['dragon', 'two-headed-dragon', 'treant', 'young-treant', 'troll', 'stone-golem', 'werebear', 'owlbear', 'brown-bear', 'ogre', 'giant-bat', 'vrock', 'hezrou', 'glabrezu'];
 /** Visible base width is independent of combat space and can be overridden. */
 export function miniatureBaseWidthFt(token: { kind: string; widthFt: number; miniatureWidthFt?: number }, appearance: MonsterAppearance = {}): number {
   if (token.miniatureWidthFt !== undefined) return token.miniatureWidthFt;
@@ -93,11 +95,12 @@ export const LIBRARY_FAMILY_UPGRADES: Record<string, { from: string; to: string 
   'rebel mage': { from: 'human-mage', to: 'tattered-cloak-mage' },
 };
 const FAMILY_ALIASES: Record<string, string> = {
+  'cultist swordsman': 'cultist',
   bandit: 'human-bandit', commoner: 'human-commoner', guard: 'human-guard', mage: 'human-mage',
   'dire wolf': 'wolf', 'giant wolf spider': 'spider', 'constrictor snake': 'snake',
   specter: 'ghost', ...Object.fromEntries(Object.entries(LIBRARY_FAMILY_UPGRADES).map(([name, rule]) => [name, rule.to])),
 };
-const SPECIFIC_ROLE_FAMILIES = new Set(Object.values(LIBRARY_FAMILY_UPGRADES).map(rule => rule.to));
+const SPECIFIC_ROLE_FAMILIES = new Set([...Object.values(LIBRARY_FAMILY_UPGRADES).map(rule => rule.to), 'cultist-fanatic']);
 export function resolveMonsterModelType(m: MonsterAppearance): string {
   if (m.objectKind) return 'none';
   const explicit = normalizeModelType(m.modelType);

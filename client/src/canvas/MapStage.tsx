@@ -1,3 +1,5 @@
+import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
+import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -34,6 +36,10 @@ import { getPlayerId, useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
+import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
+import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
+import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment';
+import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import { ScaleMenu } from '../components/ScaleMenu';
 import { TilesMenu } from '../components/TilesMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
@@ -378,13 +384,20 @@ export function MapStage({
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
+  const visionRef=useRef<PlayerVisionHandle>(null);
+  const visionLightTime=useRef(0);
+  const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
+    const now=performance.now();if(now-visionLightTime.current<66)return;
+    visionLightTime.current=now;visionRef.current?.lights(lights);
+  },[]);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
   const handleMiniatureReady = useCallback((ids: ReadonlySet<string>) => {
     setReadyMiniatures((old) => old.size === ids.size && [...old].every((id) => ids.has(id)) ? old : ids);
   }, []);
   const handleMiniatureUnavailable = useCallback(() => setReadyMiniatures(new Set()), []);
   const handleTokenVisualMove = useCallback((token: Token, x: number, y: number, finished: boolean) => {
-    miniatureRef.current?.moveToken(token.id, x, y, finished);
+    miniatureRef.current?.moveToken(token.id, x, y, finished, token.facing);
+    visionRef.current?.move(token.id,x,y);
   }, []);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
@@ -429,6 +442,13 @@ export function MapStage({
     if (hover && !ids.has(hover.token.id)) setHover(null);
   }, [snapshot.tokens, menu, hover]);
   const map = snapshot.map;
+  const {placement:lightPlacement,place:placeLight}=useEnvironmentEditor();
+  const placingLight=snapshot.role==='dm'&&lightPlacement?.mapId===map?.id&&!!lightPlacement;
+  useEffect(()=>{
+    if(lightPlacement&&(lightPlacement.mapId!==map?.id||snapshot.role!=='dm'))placeLight(null);
+    const cancel=(event:KeyboardEvent)=>{if(lightPlacement&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();placeLight(null);}};
+    window.addEventListener('keydown',cancel,true);return()=>window.removeEventListener('keydown',cancel,true);
+  },[map?.id,snapshot.role,lightPlacement,placeLight]);
 
   // DM: paste an image from the clipboard → upload → choose Object or Decal.
   // Falls back to <img>/image-URL pastes (e.g. copying art out of a web page
@@ -589,7 +609,6 @@ export function MapStage({
   const saveResolve = useStore((s) => s.saveResolve);
   const hpFx = useStore((s) => s.hpFx);
   const dragGhosts = useStore((s) => s.dragGhosts);
-  const dragToken = useStore((s) => s.dragToken);
   const typingChars = useStore((s) => s.typingChars);
   const sayBubbles = useStore((s) => s.sayBubbles);
   const cursors = useStore((s) => s.cursors);
@@ -679,6 +698,17 @@ export function MapStage({
   // Pixels per foot — tokens are sized by their real width in feet, so they keep
   // their footprint when only the visual grid cell changes.
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
+  const {quality:environmentQuality}=useEnvironmentQuality();
+  const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
+    const saved=map?.environment??DEFAULT_MAP_ENVIRONMENT;
+    const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
+    if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
+    const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
+    return {...settings,...(snapshot.playerVision?.heavy?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+      scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
+      fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
+  },[map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
+
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
   const [tool, setTool] = useState<MeasureTool | null>(null);
@@ -753,6 +783,13 @@ export function MapStage({
   const measureActive = !!tool || removeMode || scaleMode || matchMode || !!annotate;
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
+  const privateDrag = useRef(false);
+  const handleDragActive = useStableCallback((active: boolean) => {
+    privateDrag.current=active;
+    setDraggingToken(active);
+    // A shared DM pointer must not disclose the otherwise private destination.
+    if(active){hideCursor();setHover(null);}
+  });
   const gridHot = draggingToken || measureActive;
 
   // Identity-stable token handlers so the memoized TokenShape only re-renders
@@ -771,8 +808,8 @@ export function MapStage({
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) =>
     onMoveToken(tok.id, x, y, placed),
   );
-  const handleTokenDragPreview = useStableCallback((tok: Token, x: number, y: number) =>
-    dragToken(tok.id, x, y),
+  const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) =>
+    miniatureRef.current?.previewMove(tok.id, point),
   );
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
     setHover(null);
@@ -781,9 +818,9 @@ export function MapStage({
     setCombatTarget(tok.id);
     setMenu({ token: tok, x: cx, y: cy });
   });
-  const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) =>
-    setHover({ token: tok, x: cx, y: cy }),
-  );
+  const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) => {
+    if(!privateDrag.current)setHover({ token: tok, x: cx, y: cy });
+  });
   const handleTokenHoverEnd = useStableCallback(() => setHover(null));
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
@@ -970,7 +1007,7 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && tokenVisibleAt({ ...token, role: snapshot.role,
+      return !!token && (token.owned || visionContains(snapshot.playerVision,x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y });
     };
   }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
@@ -988,11 +1025,12 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
-      combatRole: token.kind==='monster'?token.combatRole:undefined,
+      carriedLantern:token.carriedLantern,
+      combatRole: token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
-      outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      outline: !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
-      shade: monster ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
+      shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
       selected: orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
@@ -1216,6 +1254,16 @@ export function MapStage({
       setPinching(true);
       return;
     }
+    if(placingLight&&map&&lightPlacement&&(!('button' in e.evt)||e.evt.button===0)){
+      const pos=pointerToImage(stage);
+      if(pos){
+        const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
+        const lights=lightPlacement.lightId?settings.lights.map(light=>light.id===lightPlacement.lightId?{...light,x:pos.x,y:pos.y}:light):
+          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:'warm' as const,intensity:1,flicker:true,visibleTorch:true}];
+        useStore.getState().setMapEnvironment(map.id,{lights});placeLight(null);
+      }
+      return;
+    }
     if (scaleMode || matchMode) {
       // scaleMode → drag a reference line for a known distance; matchMode → drag
       // a BOX across one printed grid square (a live square preview shows the
@@ -1300,7 +1348,7 @@ export function MapStage({
     // Live "laser pointer": broadcast my cursor (throttled ~20/s) so others see
     // what I'm pointing at — independent of any active tool.
     const cursorStage = e.target.getStage();
-    if (cursorStage && map) {
+    if (cursorStage && map && !privateDrag.current) {
       const now = Date.now();
       if (now - cursorThrottle.current > 45) {
         cursorThrottle.current = now;
@@ -1511,7 +1559,7 @@ export function MapStage({
   };
 
   // Pan by dragging empty canvas (disabled while placing or painting fog).
-  const panning = !onPlaceAt && !fogActive && !measureActive && !pinching;
+  const panning = !placingLight && !onPlaceAt && !fogActive && !measureActive && !pinching;
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
@@ -1519,6 +1567,7 @@ export function MapStage({
       if (layer) { layer.position(position); layer.batchDraw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
+    visionRef.current?.camera({view:{...view,...position}});
   };
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
@@ -1544,6 +1593,7 @@ export function MapStage({
       if(previous.tilt!==tilt || labels.length)layer.draw();
     }
     miniatureRef.current?.setProjection(tilt,rotation,nextView);
+    visionRef.current?.camera({tilt,rotation,view:nextView});
     if(rotationLabel.current)rotationLabel.current.textContent=`${((Math.round(rotation)%360)+360)%360}\u00b0`;
   };
   const commitProjection=(tilt:number,rotation:number,nextView:View)=>{
@@ -1614,6 +1664,7 @@ export function MapStage({
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
+        hideAffinity={!visionLit(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         draggable={
@@ -1629,7 +1680,7 @@ export function MapStage({
         onContextMenu={handleTokenMenu}
         onHover={handleTokenHover}
         onHoverEnd={handleTokenHoverEnd}
-        onDragActive={setDraggingToken}
+        onDragActive={handleDragActive}
         onDragPreview={handleTokenDragPreview}
         onVisualMove={handleTokenVisualMove}
         isVisibleAt={tokenVisibleAtPosition}
@@ -1648,6 +1699,7 @@ export function MapStage({
       {selectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
         style={{ left: Math.min(selectionBox.box.start.x, selectionBox.box.end.x), top: Math.min(selectionBox.box.start.y, selectionBox.box.end.y),
           width: Math.abs(selectionBox.box.end.x - selectionBox.box.start.x), height: Math.abs(selectionBox.box.end.y - selectionBox.box.start.y) }} />}
+      {placingLight&&<div className="environment-placement-hint" role="status">Click map to {lightPlacement?.lightId?'move':'place'} light · <button onClick={()=>placeLight(null)}>Cancel</button></div>}
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>
@@ -1689,7 +1741,7 @@ export function MapStage({
               {[false, true].map(enabled => (
                 <button key={String(enabled)} className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
                   aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`} aria-pressed={group.enabled === enabled}
-                  title={`Only changes ${group.kind} tokens in your view`}
+                  title={group.kind === 'monster' ? 'Changes monsters, chests and traps in your view' : 'Only changes player tokens in your view'}
                   onClick={() => {
                     if (group.enabled === enabled) return;
                     // Freeze the inherited monster setting before changing the legacy PC key.
@@ -2074,6 +2126,7 @@ export function MapStage({
                   />
                 ))}
               <FootprintLayer
+                isVisibleAt={tokenVisibleAtPosition}
                 tokens={snapshot.tokens}
                 gridSizePx={grid}
                 pxPerFoot={pxPerFoot}
@@ -2240,11 +2293,13 @@ export function MapStage({
               )}
             </Layer>
           </Stage>
-          {miniatureTokens.length > 0 && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
+          {(miniatureTokens.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
+            <MiniatureLayer key={map?.id} ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
+              environmentPreview={environment}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
-              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} />
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
+          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}/>}
           <DecalPopup snapshot={snapshot} />
           {hover && !menu && (
             <TokenHoverCard

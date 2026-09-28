@@ -1,0 +1,18 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Painted high quality fantasy tabletop miniature reference sheet, 2048x2048, four equal square panels in a 2x2 grid: front, back, left profile, right profile. Exactly the same creature and pose in all four views, full body entirely visible at equal scale. Plain white background, soft even studio light, no base, no text. Simple clean silhouette and readable materials for multi-view 3D reconstruction. A human cult fanatic in deep burgundy hooded robes over fitted dark leather armor, a simple aged bronze holy symbol at the chest. Pale stern face clearly visible beneath the hood. Holding a short dark steel pact blade up at the ready in his right hand, left hand raised to cast. Grounded combat stance. Restrained trim, natural cloth folds. No shield, no floating effects.",
+  "requestedSheetDimensions": [
+    2048,
+    2048
+  ],
+  "actualSheetDimensions": [
+    1254,
+    1254
+  ],
+  "extractedViewDimensions": [
+    619,
+    619
+  ],
+  "upscaled": false,
+  "texturePolicy": "named-multiview-texture-v1"
+}

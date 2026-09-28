@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "f2c9099d967f440384a9004e7c0c7670",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\front.png",
+      "sha256": "3ab9e588f12e44a62782bf203b38d79f15ef1b3dd6ed7a72d534a1e5a84fac0f"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\back.png",
+      "sha256": "a80615e50b2dc73d587c30476c52c194e2072e2c7af476826e935c768a8155af"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\left.png",
+      "sha256": "b8106de7a848c8a7af6f1411f46a496a632379fdb5ef93fb2db79c76b6c38a1d"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\right.png",
+      "sha256": "127e683a63cfc7e1233cba6ee9e8bbc3ad3d5eb7d4b83f9af3c6015c94a0a995"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 927103,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 927103,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 1618396,
+    "number_of_vertices": 809185,
+    "time": {
+      "remove background": 2.8859007358551025,
+      "shape generation": 68.1215500831604,
+      "export to trimesh": 0.44744229316711426,
+      "face reduction": 18.770540237426758,
+      "texture generation": 47.33534240722656,
+      "total": 137.71346068382263
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 927103,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\generation-01\\00_white_mesh.glb",
+      "sha256": "45239f01066c3d6b03af9ef5eb2235cf6cb2eb2c4f68c1240b4ff2efb6cf220b",
+      "bytes": 29131760,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\undead-fiends-20260927\\quasit\\generation-01\\01_textured_mesh.glb",
+      "sha256": "fb43b2dfbba7b05ba6eca1828cf0ad9e49187b4573f2b76227d6e6845aecf72f",
+      "bytes": 5172300,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 139.281,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

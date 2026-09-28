@@ -10,6 +10,7 @@ import type {
 import { resolveToken } from '../lib/entities';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { MiniatureSizeControl } from './MiniatureSizeControl';
+import {CarriedLanternControl} from './CarriedLanternControl';
 import { useStore } from '../state/socket';
 import { ConditionPicker } from './ConditionPicker';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
@@ -446,6 +447,7 @@ export function SelectedTokenPanel({
       label: 'DM tools',
       node: (
         <div className="dm-token-actions">
+          <CarriedLanternControl token={token}/>
           {resolveMiniature(d.name, token.kind, monsterEntity) && <MiniatureSizeControl token={token} />}
           <h4>Token icon</h4>
           <IconTools

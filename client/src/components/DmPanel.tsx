@@ -15,6 +15,7 @@ import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { ImportMapsDialog } from './ImportMapsDialog';
 import { TemplateEditor } from './TemplateEditor';
 import { EditableName } from './EditableName';
+import {MapEnvironmentControls} from './MapEnvironmentControls';
 
 /** Show emoji icons inline; image-path icons get a placeholder glyph. */
 const iconText = (icon: string): string =>
@@ -298,6 +299,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
           {snapshot.maps.length === 0 && <p className="muted">No maps yet.</p>}
         </div>
 
+        {viewMap && !viewMap.slidesUrl && <MapEnvironmentControls key={viewMap.id} map={viewMap}/>}
         <input
           placeholder="Map name (optional)"
           value={mapName}

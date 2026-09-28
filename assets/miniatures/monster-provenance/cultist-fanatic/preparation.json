@@ -1,0 +1,23 @@
+{
+  "name": "cultist-fanatic",
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\cultist-fanatic\\reduced\\model.glb",
+  "sourceSha256": "d03bc964ca6a3140a06d920fdbd8f0457127f9f21f25751c97f518b6852261e7",
+  "bodyTriangles": 19999,
+  "sourceBodyTriangles": 19999,
+  "uniformScale": 0.6673158360692127,
+  "bodyHeight": 1.3306543984529757,
+  "baseDiameter": 1.0,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "sourcePreserved": true,
+  "baseTop": 0.055,
+  "footRadiusAfterScale": 0.465,
+  "footRadiusLimit": 0.465,
+  "targetHeight": 1.8,
+  "orientation": "upright",
+  "note": "Standard 20k JPEG95 derivative fitted with a round base; no further simplification.",
+  "removedSpeckVertices": 0
+}

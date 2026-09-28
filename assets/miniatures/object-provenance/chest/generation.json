@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "142ce62248e946388436790f7f3e1dae",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\front.png",
+      "sha256": "2b02f04d17dea3529ddc634cc88623c20a1b98cdd972940861821b7ba1b506eb"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\back.png",
+      "sha256": "c145e0ab297acf09b8dcf8b962d798b247dc6415b74e2a6b1e05a1ff86eef948"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\left.png",
+      "sha256": "fee2977c5ce11d7834008dd677005374cf367cb5447eb69695456dedbe1498a3"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\right.png",
+      "sha256": "2511e71d0324f8f5aafeab851d9ac3b377fa24f9ce572aa7b29af808c3e858d4"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 928401,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 928401,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 2413532,
+    "number_of_vertices": 1206841,
+    "time": {
+      "remove background": 1.05076265335083,
+      "shape generation": 60.96090269088745,
+      "export to trimesh": 0.5463254451751709,
+      "face reduction": 27.047616720199585,
+      "texture generation": 36.31807470321655,
+      "total": 126.0855484008789
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 928401,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\generation\\00_white_mesh.glb",
+      "sha256": "0db61caf9af4ec99b42ebc1bae69e8027724644b0c01a94060120bab83364e72",
+      "bytes": 43445268,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\objects-chests-traps-20260928\\chest\\generation\\01_textured_mesh.glb",
+      "sha256": "bd6fcc49d8e2b7dc14839726c7e0b6364afd2a902a7ee27847da4fdb52eb6581",
+      "bytes": 5053360,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 128.703,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

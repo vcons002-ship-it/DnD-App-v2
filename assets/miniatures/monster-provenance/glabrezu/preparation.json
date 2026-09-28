@@ -1,0 +1,23 @@
+{
+  "name": "glabrezu",
+  "source": "C:\\Users\\vcons\\OneDrive\\Desktop\\Claude Work Folder\\DnD-token-models\\cultists-demons-20260927\\glabrezu\\reduced\\model.glb",
+  "sourceSha256": "71cbdaae05b5f490a633f45e721ee791f7eea15266040a912f3856232cc0c864",
+  "bodyTriangles": 19934,
+  "sourceBodyTriangles": 19934,
+  "uniformScale": 0.7222628930567776,
+  "bodyHeight": 1.4400183416466763,
+  "baseDiameter": 1.0,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "sourcePreserved": true,
+  "baseTop": 0.055,
+  "footRadiusAfterScale": 0.465,
+  "footRadiusLimit": 0.465,
+  "targetHeight": 1.6,
+  "orientation": "upright",
+  "note": "Standard 20k JPEG95 derivative fitted with a round base; no further simplification.",
+  "removedSpeckVertices": 103
+}

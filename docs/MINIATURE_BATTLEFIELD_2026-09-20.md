@@ -85,14 +85,17 @@ normalization group, preserving Vanec's animated components.
 
 | Character | Selected source | Triangles retained |
 | --- | --- | ---: |
-| Druk | v9 final-07, decorated base and fitted hip axes | 916,637 |
+| Druk | v9 natural face, eye/jaw correction 02, with decorated base and hip axes | 880,404 |
 | Varis | v5 anatomical wrist fit 07, followed by weapon alignment 01 | 905,238 |
 | Vanec | v4 assembly-04, reconstructed staff and fitted ruby effects | 1,138,771 |
 
 These are losslessly compressed delivery copies of the approved high-resolution
-models. Full geometry and original embedded image bytes are retained: there is
-no runtime simplification, atlas resizing or lossy texture re-encoding. The
-originals remain unchanged. Meshopt compression requires the bundled decoder.
+models. Full triangle detail and decoded texture pixels are retained: there is
+no runtime simplification, atlas resizing or lossy texture re-encoding. Lossless
+WebP/PNG repacking and sharing duplicate vertices reduce their combined GLBs to
+83.64 MB. The originals remain unchanged. Meshopt uses the bundled decoder;
+the current loader also supports WebP. See the
+[all-character compression receipt](CHARACTER_COMPRESSION_2026_09_28.md).
 Compression receipts verify decoded vertex/animation bytes and oriented triangle
 equivalence (the codec may rotate a triangle's three indices cyclically).
 

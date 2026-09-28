@@ -4,6 +4,148 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Mobile mist performance - September 2026
+
+- [x] Reuse native personal-vision SVG masks, batch updates per frame and reuse
+  circle geometry without changing light falloff or visibility rules.
+- [x] Eliminate duplicate scene renders during camera-follow movement while
+  keeping miniatures aligned with the map; retain full visual settings.
+- [x] Add the interactive preview's on-device Performance readout and repeatable
+  CPU-throttled profiling. See [measurements and limits](docs/MIST_MOBILE_PERFORMANCE_2026_09_28.md).
+
+## Lossless character delivery - September 2026
+
+- [x] Apply the accepted lossless texture and mesh optimization to Druk, Varis
+  and Vanec; wire new immutable URLs into the shared runtime and preview.
+- [x] Verify exact decoded texture pixels, triangle attributes, transforms and
+  Vanec's 16 animation channels; require all three optimized entries at build.
+  Combined GLBs: 123.29 MB to 83.64 MB. See [compression details](docs/CHARACTER_COMPRESSION_2026_09_28.md).
+
+## Persistent visual asset downloads - September 2026
+
+- [x] Cache downloaded model, art, texture, font and effect bundle assets on each
+  browser across maps/reloads. Stable URLs revalidate conditionally; API/save
+  state is excluded. Requires HTTPS or localhost; browser storage limits apply.
+
+## Personal darkvision - September 2026
+
+- [x] Fully remove grayscale and pale detail overlays in illuminated light pools,
+  using one shared smooth coverage curve across map and miniature rendering.
+
+- [x] Read original map/miniature colors for faint Darkvision detail; preserve a
+  legible calibrated grid above darkness and beneath figures.
+
+- [x] Add subtle grayscale contours in unlit heavy-darkness vision, keeping
+  dark surfaces dark and fading the contour pass under lantern/torch light.
+
+- [x] Preserve actual map darkness inside Darkvision; remove the ambient boost
+  so torch and lantern glow contrasts against very dark grayscale surroundings.
+
+
+- [x] Night/dungeon maps enforce a personal 60-foot horizon: regular darkness
+  keeps color, heavy darkness uses grayscale, and lantern pools restore color.
+- [x] Treat light radius as useful illumination, with a soft fade to 1.5 times
+  the radius; share falloff across ground, figures and Darkvision.
+- [x] Blend color restoration with actual lamp positions, flicker and natural
+  light attenuation, preserving the warm glow without an inner color disk.
+- [x] Hide affinity borders outside visible light pools, retain DM overview,
+  filter enemy lists per player, and enforce vision even with effects off.
+  See [darkvision notes](docs/DARKVISION_2026_09_28.md).
+
+## 3D chest and trap objects - September 2026
+
+- [x] Generate multiview textured chest and jaw-trap props, reduced to 20k
+  triangles each; ground them without miniature pedestals.
+- [x] Resolve existing object tokens by kind through the common 3D renderer,
+  retaining fog, hidden state, selection and interactions, with a 2D fallback.
+  See [object token notes](docs/OBJECT_TOKENS_2026_09_28.md).
+
+## Daylight figure colors - September 2026
+
+- [x] Apply the corrected neutral lighting to the default renderer too, including
+  maps without environment settings and effects-off views. Share defaults with
+  Clear day so the two paths cannot retain different brightness values.
+
+- [x] Rebalance daylight fill, directional light and reflections to stop figure
+  colors washing out; retain untinted original map colors. Compare identical
+  camera views and verify unchanged ground pixels with stronger cloth color.
+  See [daylight follow-up](docs/ENVIRONMENT_WIND_COLOR_2026_09_28.md#daylight-figure-color-follow-up).
+
+## Wind and scene color - September 2026
+
+- [x] Extend wind to 300% of the previous maximum; rain streaks follow gusts.
+- [x] Add saved DM scene tint, strength and reset controls. Clear day resets
+  tint and restores the default miniature lighting with no map color wash.
+- [x] Verify DM/player synchronization, save import, fog masking and original
+  artwork pixels; record no/old-maximum/new-maximum wind and tint comparisons.
+  See [wind and color controls](docs/ENVIRONMENT_WIND_COLOR_2026_09_28.md).
+
+## Environmental variety - September 2026
+
+- [x] Add Autumn wind, Firefly glade, Haunted marsh, Ashfall, Sandstorm and
+  Blizzard presets, bringing the shared catalog to 15.
+- [x] Independent bounded ambient particles and mist colors, preserving map
+  art, fog, lights, movement wakes and viewer quality/reduced-motion choices.
+- [x] Record the six looks, moving lanterns and camera views; verify real
+  DM/player synchronization and publish a mobile-accessible comparison.
+  See [controls, limits and verification](docs/ENVIRONMENT_VARIETY_2026_09_28.md).
+
+## Environment presets and rainstorm - September 2026
+
+- [x] Nine one-click atmosphere presets in DM Maps, retaining placed lights,
+  calibrated shadow direction/length and wind direction, with custom adjustment.
+- [x] Rainstorm with gusting rain, wet-ground highlights and sparse cloud
+  lightning illuminating the map, figures and mist. Preserve fog and reduced
+  motion; record preset changes, party lanterns, movement and camera views.
+  See [presets, storm and verification](docs/ENVIRONMENT_PRESETS_STORM_2026_09_28.md).
+
+## Placed torches and carried lanterns - September 2026
+
+- [x] Move carried lanterns to the hip, add saved Heavy darkness and a placed
+  lantern model choice, and record the Castle Basement with light floor mist
+  and party movement in normal/heavy darkness. See
+  [dungeon preview and verification](docs/DUNGEON_LANTERNS_2026_09_27.md).
+- [x] Optional visible 3D torches on placed map lights, without a placement count cap.
+- [x] Player Lantern on/off control and DM token override. Small lanterns attach
+  at the hip, move and turn with the figure, and light nearby
+  figures, ground and mist. Preserve fog, ownership, 2D view and save behavior.
+- [x] Night demonstration with maximum mist height/density, three/twelve placed
+  torches, waist lanterns, party movement, rotation and overhead comparison.
+  See [implementation and verification](docs/TORCHES_LANTERNS_2026_09_27.md).
+
+## Movement previews and mist feedback - September 2026
+
+- [x] Private translucent destination figures with grid distance and expected
+  facing. Release animates the accepted position for all viewers; Escape cancels.
+  Preserve base selection, fog and collision rules across 2D/3D and both views.
+- [x] Keep DM planning out of player drag events and suppress shared pointers
+  while planning. Test with connected DM/player clients and real miniatures.
+- [x] Make the standalone mist wake visible beyond a moving figure's base and
+  preserve its displaced rim. Record reaction off/on and overhead comparisons.
+  See [implementation and verification](docs/TOKEN_MOVEMENT_PREVIEW_2026_09_27.md).
+- [x] Refine the mist into a retained movement trail with delayed inward curls
+  along its edges, replacing the circular disturbance around the moving base.
+- [x] Strengthen the cleared path and curled edges, preserve wake history during
+  camera rotation, and break up parallel mist strips with irregular curved patches.
+  Verify simultaneous movement/orbit and record multiple angles in the static lab.
+- [x] Replace the visible spiral strands with broad displacement of existing
+  mist: part around the figure, gently fold inward, and refill the old trail.
+- [x] Make sideways displacement and gathering the main movement reaction;
+  reduce the erasing effect and carry broad return eddies into the closing gap.
+- [x] Fit mist contact to each loaded model's lower body, excluding bases and
+  weapons. Narrow the leading edge and keep spreading/return curls behind it.
+
+## Undead and demon library expansion - September 2026
+
+- [x] Add Shadow, Mummy, Quasit and Dretch templates using SRD 5.2.1, with
+  complete stats, rollable attacks and named special actions. Seed missing
+  entries once without replacing saved custom versions or restoring deletions.
+- [x] Give each creature a distinct four-view Hunyuan model and texture,
+  reduced geometry, 2048-square texture, fitted pewter base and 2D fallback.
+  Use the shared fog, click, facing, tint and D&D creature-size behavior.
+- [x] Record prompts, original views, generation, reduction and base receipts.
+  See `docs/token-generation/UNDEAD_FIENDS_2026_09_27.md` for provenance and limits.
+
 ## Live physics dice and class trays - September 2026
 
 - [x] Live server-authoritative rigid-body rolls with fixed face labels. The
@@ -1956,3 +2098,32 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Persistent caster prompt with matching dice, leap counter, Choose target map selection, named confirmation and End spell; critical dice and immunities handled.
 - [x] Shared attack/spell target lists sorted by grid distance with public encounter tags and distance labels.
 - [x] Right-click token actions: choose controlled attacker, visible conditions/distance, advantage, off-hand/two-handed intent, weapon ranges, spell level and damage type; menu stays inside the viewport and scrolls without dismissing.
+
+### Environmental depth proof (2026-09-27)
+
+- [x] Isolated courtyard study with map-aligned contact/cast shadows, painted-shadow direction matching, localized drifting mist, and decorative raised stone in the miniature depth buffer. Uses the unchanged courtyard artwork and seven existing miniatures, with overhead/45-degree comparison, orbit and moving-token inspection. See [preview instructions and boundaries](docs/ENVIRONMENT_PREVIEW_2026_09_27.md).
+- [x] Whole-map mist comparison with a dedicated on/off toggle, patch/full-map coverage, independent density and 0.5-to-10-foot height controls; recorded low/high mist and verified rendered heights in desktop and phone-width browsers.
+- [x] Replace the preview's flat mist sheets with a depth-clipped density volume: fuller billows, shaded interiors, and optional soft ground shading that follows the mist and the map light direction. Keep height, coverage and density controls.
+- [x] Refine the proof into faster drifting wisps with sparse low billows, scenery deflection and fading token wakes. Add Auto/High/Low/Off atmosphere quality, a separate low-resolution mist pass with depth-aware compositing, and asynchronous GPU measurements.
+- [x] Opt-in saved map shadows/mist in DM Maps, active/staged map isolation, browser-local Auto/High/Low/Off for both roles, transparent map compositing, fog-clipped effects, calibrated mist height/density/drift, and negative-tile support. Verified with real DM/player views and a fully covered fog pixel comparison. See [integration notes](docs/ENVIRONMENT_CONTROLS_2026_09_27.md).
+- [x] Saved rain/snow, shared wind, Day/Dusk/Night/Dungeon light presets, and DM-placed local lights with position/height/color/radius/intensity and flickering brightness/reach. Actual miniature illumination, corrected unspecified atlas metalness, fog-private sources, bounded weather particles and local quality controls. See [weather/lighting notes](docs/WEATHER_LIGHTING_2026_09_27.md).
+- [ ] Deferred at user request: editable raised scenery with server-shaped visibility and fog clipping; painted-wall depth/collision remains a separate step.
+- [ ] Crowded-board and physical-phone performance measurements before recommending High atmosphere quality broadly.
+
+- [x] Interactive dungeon darkness preview: personal Druk/Varis/Vanec and DM views, regular/heavy comparisons, lantern toggles, animated party movement, camera controls and touch rotation. Uses production vision/lighting and original models; isolated from campaign data. Package with `node scripts/environment-preview/build.mjs --vision`.
+
+- [x] Darkness visibility includes distant illuminated areas and enemies in them, with 60 ft applying only to unlit terrain. Hidden tokens and both fog layers still apply; concealed carried lights cannot disclose nearby creatures. Shared visibility, encounter tags, moving-token filtering, and the personal vision mask use the same policy. Interactive dungeon preview includes a distant lit enemy.
+
+- [x] Mist wakes coalesce adjacent movement samples and retain bounded longer history, avoiding half-second truncation when the party moves together. Interactive darkvision preview starts at 22% mist for clearer movement comparison.
+
+- [x] Whole-body mist interaction test: measure torso, limbs and head rather than only shins; store body height along each wake so displacement and compression reach the figure height and taper above it. Strength, curl timing and lifetime unchanged.
+
+- [x] Stronger whole-body mist response: faster lateral separation, deeper returning curls and denser displaced edges, retaining the existing modest clearing amount. The interactive movement test now sets six-foot mist directly.
+
+- [x] Mist contact starts pushing immediately instead of ramping after passage. Continuous opposed shear along wake edges replaces discrete circular swirl stamps; the body-front boundary still prevents a disturbance ahead of contact.
+
+- [x] Mist body bounds exclude named base materials and plinth-height vertices; wake recovery uses irregular multi-frequency curl displacement of existing density, with reduced clearing and edge compression to avoid straight carved trails.
+
+- [x] Stronger smoke-like body wake: speed-scaled initial separation transitions into inward refill and forward entrainment, with increased irregular turbulence. Body/base exclusion, front-contact bounds, fog visibility and bounded history remain intact.
+
+- [x] Mist movement opens a temporary swept-body density gap instead of only warping the pattern. Displaced banks cannot cancel the fresh clearing; the gap narrows and refills over about four seconds while turbulent motion continues.

@@ -1,0 +1,1361 @@
+{
+  "schemaVersion": 1,
+  "id": "vanec",
+  "sourceUrl": "/miniatures/vanec-f1fd3b7ba9b5.glb",
+  "sourceSha256": "f1fd3b7ba9b54d804c030168ad7771519336869091e4b1901d271c7503b95847",
+  "sourceBytes": 47597248,
+  "url": "/miniatures/vanec-7f57d87ce42f.glb",
+  "sha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
+  "bytes": 33210108,
+  "triangles": 1138771,
+  "verticesBefore": 1271246,
+  "verticesAfter": 784297,
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 3331868,
+      "sourceSha256": "04761e80ed438bebf0f4729023f39fed2cfe973acd4a904266ec99bde7a0599c",
+      "sourceMime": "image/png",
+      "bytes": 2492220,
+      "sha256": "86a62f99c788573873a9fb6280d65b8accba386ba95877392f6d3e773c88e88b",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "de4a6abf04fb023d96af73503a8b932466430352e4c6329e9fdfd2a9e848e968"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 997919,
+      "sourceSha256": "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
+      "sourceMime": "image/jpeg",
+      "bytes": 997919,
+      "sha256": "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
+      "mime": "image/jpeg",
+      "method": "original",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "b4fbde82f1fc2bceee2cc223006bbbce92a59cdd8579a02caf54356482645c56"
+      }
+    },
+    {
+      "index": 2,
+      "sourceBytes": 3224150,
+      "sourceSha256": "535fc6523fe768e6f21bd3ca783f6ebe8124ff381f1479ca2cf948e52425755c",
+      "sourceMime": "image/png",
+      "bytes": 2277844,
+      "sha256": "15305a76867a779b0a2b741b3ef18c81ea695e83a4d7a2bb9794d03a84867e36",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "3fc272d222b26631a771f7e8daf6aaf7bf09fa4774dac21e28f6efb294d7455d"
+      }
+    },
+    {
+      "index": 3,
+      "sourceBytes": 2821452,
+      "sourceSha256": "b30a611ec580eb03d5a00413260db23873da0a6912db1a55dd847e47901de161",
+      "sourceMime": "image/png",
+      "bytes": 2157980,
+      "sha256": "1be3790da59c94b5f3a336d2c5fb6512524dc61b221ee61a9e3a08c4b84770ec",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "73baef2eed6dc5c03efe38cbd73f3d550891964930d49eaec06b0c92b3c41938"
+      }
+    },
+    {
+      "index": 4,
+      "sourceBytes": 227840,
+      "sourceSha256": "0afa33c5b26cc0410c97c7c9016f9774d7785045b90cd74355de1aa41fa170e0",
+      "sourceMime": "image/png",
+      "bytes": 205107,
+      "sha256": "d644b1ac4109741b514472eea7adb94e8ebfae83c50bef87b7960fc3215ca53a",
+      "mime": "image/png",
+      "method": "lossless PNG",
+      "decodedRgba": {
+        "width": 1254,
+        "height": 1254,
+        "channels": 4,
+        "sha256": "c9633960f1bb607a29677b2532440a5663647132e92a86ffbfefed364958e19c"
+      }
+    },
+    {
+      "index": 5,
+      "sourceBytes": 234401,
+      "sourceSha256": "bc4988e23a29c211523503afb0b8b48f6803314c0241dd7a75d7c4db13bfde3c",
+      "sourceMime": "image/png",
+      "bytes": 209469,
+      "sha256": "4d44f124bfebe0dae5221819b1c40f6d5641e6f367630d33e1a0dd46eb891256",
+      "mime": "image/png",
+      "method": "lossless PNG",
+      "decodedRgba": {
+        "width": 1254,
+        "height": 1254,
+        "channels": 4,
+        "sha256": "f8bf3a392bf25a823e98429990cb7657c4293d6c8c2e330201e7a360a1929f74"
+      }
+    },
+    {
+      "index": 6,
+      "sourceBytes": 195847,
+      "sourceSha256": "c5fe3a8c38ca4e839f9abffd57c73296142ad66f313e27b9bc58e089c9a15bfe",
+      "sourceMime": "image/png",
+      "bytes": 173021,
+      "sha256": "e0544b8260f840fc0f73293d049242984a6c3ceadeb4376ab2d4417ead181c01",
+      "mime": "image/png",
+      "method": "lossless PNG",
+      "decodedRgba": {
+        "width": 1254,
+        "height": 1254,
+        "channels": 4,
+        "sha256": "88a5a125fdee5b696b3d3bd808bf0bf757415a8c11f3b61cfebe00c0b3a5d8fe"
+      }
+    },
+    {
+      "index": 7,
+      "sourceBytes": 213641,
+      "sourceSha256": "1848b6ce99a4fbb8c96b25ad2067944218e4ef989ad0e3c4431876ddb98cf8a9",
+      "sourceMime": "image/png",
+      "bytes": 189304,
+      "sha256": "46604c7131a83bd4b1a54c68bfd3ec3745ac5b47360aa1399647515417b31f07",
+      "mime": "image/png",
+      "method": "lossless PNG",
+      "decodedRgba": {
+        "width": 1254,
+        "height": 1254,
+        "channels": 4,
+        "sha256": "ed3b4cf0bfdd386ef155fd2a8524101a431a136d2b6583e70a8b9fa050a52bd3"
+      }
+    },
+    {
+      "index": 8,
+      "sourceBytes": 4852388,
+      "sourceSha256": "e4639488d35620ced47c92b7e389844a609adea7a6f2b5370eeb1ecb72cdcd07",
+      "sourceMime": "image/png",
+      "bytes": 3599914,
+      "sha256": "7581a45d5676c80700db208b6534e4796e0086fb5f78f53f46b4f867f082db69",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "02411f21de0c65b519408bff9c9f76726932af0e8080a9844bc6a0a04bb3ef71"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "geometry_0",
+      "material": "",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 267117,
+      "triangleContentSha256": "c65406751e1b135b4d45cb26527671fcbd10af8626b2e50e8c502dfd1a410259"
+    },
+    {
+      "mesh": "Vanec_Robe_Local_Repair_rear_hem_slit",
+      "material": "Vanec_Local_Robe_Infill_From_Existing_Cloth_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1472,
+      "triangleContentSha256": "fc0a378f9e624760dc66fa371578259610cc7afc5eefb62af9f835a4f4f3b90d"
+    },
+    {
+      "mesh": "Vanec_Robe_Local_Repair_side_pinhole",
+      "material": "Vanec_Local_Robe_Infill_From_Existing_Cloth_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1472,
+      "triangleContentSha256": "1f71d6f283507ffc0f597a4b54bd0416f159217a39d6b739a6c6209504107a26"
+    },
+    {
+      "mesh": "Vanec_Robe_Local_Repair_rear_lower_slit",
+      "material": "Vanec_Local_Robe_Infill_From_Existing_Cloth_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1472,
+      "triangleContentSha256": "3fe94ee79d4e60c23a20d561c0d4b77909e20644ad11c2d5df56b330956cb88a"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "PBR_Material",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 15931,
+      "triangleContentSha256": "e4d1d4ebeee9c617a50db5c6818ead8dc849292c876e75e74ebd84bf2674d9d3"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "Vanec_Charcoal_Hair_And_Plum_Horns",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 204033,
+      "triangleContentSha256": "5cab787bb353bfa76bd9e5c4ddb86dd210df9ece725fd6a753be4f603171530d"
+    },
+    {
+      "mesh": "Vanec_Left_Hand_With_Smooth_Proximal_Wrist",
+      "material": "Material_0",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 14802,
+      "triangleContentSha256": "adf0803a6390a8f7a86cfda42d99816580e398e6cadc5978b397e5a6457b5de0"
+    },
+    {
+      "mesh": "Vanec_Left_Hand_With_Smooth_Proximal_Wrist",
+      "material": "Vanec_Left_Hand_Local_Fingertip_Color_Refinement",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 18560,
+      "triangleContentSha256": "49277d3a47e9006a043645742d519f6bf6b7be818f93cb6c28525447b3326af4"
+    },
+    {
+      "mesh": "Vanec_Left_Hand_With_Smooth_Proximal_Wrist",
+      "material": "Vanec_Smooth_Wrist_Transition",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 8512,
+      "triangleContentSha256": "92f8fef3205d4fcb325a1d8e616daa3be1693adb34dd763cd894a98b05bc6a78"
+    },
+    {
+      "mesh": "Palm_Lightning_Main_Crimson_Mesh",
+      "material": "VanecFX_Palm_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 124,
+      "triangleContentSha256": "d9cde8b33fe251b5670b0b8ae2331a7f8366bf5e0eac96f5961fe1d131d2a09c"
+    },
+    {
+      "mesh": "Palm_Lightning_Main_Core_Mesh",
+      "material": "VanecFX_Palm_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 124,
+      "triangleContentSha256": "ff63bd55d64f033622ee113c60d497409c8ae994c7d287070a05f43ca7829903"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_A_Crimson_Mesh",
+      "material": "VanecFX_Palm_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 60,
+      "triangleContentSha256": "c73e73a6a9583ffe0e0fcf8b708b7cdcbfbd334e0ff5f50984f411aea9a57532"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_A_Core_Mesh",
+      "material": "VanecFX_Palm_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 60,
+      "triangleContentSha256": "3e201ea849b8ad1d4053eb300d46c31a5ee490155186040c101e4e9d2b2969dd"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_B_Crimson_Mesh",
+      "material": "VanecFX_Palm_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 60,
+      "triangleContentSha256": "ca10e783c67054652fe33c044dea52da8528a14f959326ce7c20aa6f79943e63"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_B_Core_Mesh",
+      "material": "VanecFX_Palm_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 60,
+      "triangleContentSha256": "4030f799ec5ccad7eddd6b207f88d78d7eb6bcfa36352aa02b8204c0e4618a1e"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_C_Crimson_Mesh",
+      "material": "VanecFX_Palm_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 60,
+      "triangleContentSha256": "411c3a49da2b4a2558ae7c8eb98159fbd591f8fe36533e0a48b02737b6ad1cc2"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_C_Core_Mesh",
+      "material": "VanecFX_Palm_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 60,
+      "triangleContentSha256": "9819c29590ef3c85569ef17dd6cb7488bc35c72b4e1c9e2ddf74a5b5998cc310"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_D_Crimson_Mesh",
+      "material": "VanecFX_Palm_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 44,
+      "triangleContentSha256": "b58b315d4889bcdf4dba008d57955d01a39c8430fa5047962c3247e7ea20d3fa"
+    },
+    {
+      "mesh": "Palm_Lightning_Fork_D_Core_Mesh",
+      "material": "VanecFX_Palm_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 44,
+      "triangleContentSha256": "c9a4a0366bc8bd73a81d36a1040ae2eba48f7d489795b83fefee71a0a1dda20d"
+    },
+    {
+      "mesh": "Staff_Lightning_Arc_1_Crimson_Mesh",
+      "material": "VanecFX_Staff_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 92,
+      "triangleContentSha256": "c0875e77c44d84429b0d94872e4f3f0c9aa5dfdf03c902de1f4707f79a4892fb"
+    },
+    {
+      "mesh": "Staff_Lightning_Arc_1_Core_Mesh",
+      "material": "VanecFX_Staff_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 92,
+      "triangleContentSha256": "4a50c72f4222a27a4960eb85926b6e0fe1104df47d32192ec66fc249e79cbc34"
+    },
+    {
+      "mesh": "Staff_Lightning_Arc_2_Crimson_Mesh",
+      "material": "VanecFX_Staff_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 92,
+      "triangleContentSha256": "ecb768b952e931bd9e5757c31169368e5134ac9c24dfcf7f34c58b95a01375f7"
+    },
+    {
+      "mesh": "Staff_Lightning_Arc_2_Core_Mesh",
+      "material": "VanecFX_Staff_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 92,
+      "triangleContentSha256": "c4e3d34b391caa7ba0f7fd39855453ef48b8f4b09fbe9d6300ca44711062284b"
+    },
+    {
+      "mesh": "Staff_Lightning_Arc_3_Crimson_Mesh",
+      "material": "VanecFX_Staff_Crimson",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 92,
+      "triangleContentSha256": "dc8c116f3ba2cd6688275e0bf6271130696fd33aeb0910145c3af23345b47801"
+    },
+    {
+      "mesh": "Staff_Lightning_Arc_3_Core_Mesh",
+      "material": "VanecFX_Staff_Core",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 92,
+      "triangleContentSha256": "a5bc3072bf8462e603a2ace462f8929556b79d2899c0c74c0479722ffecbe96a"
+    },
+    {
+      "mesh": "Icosphere",
+      "material": "VanecFX_Dark_Ruby_Droplet",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 80,
+      "triangleContentSha256": "0b1198500a72c22750cd356f99c84de1d88051e7babe999eb829b1a520242418"
+    },
+    {
+      "mesh": "Icosphere.001",
+      "material": "VanecFX_Dark_Ruby_Droplet",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 80,
+      "triangleContentSha256": "4f50b005efd3f73e87245b962f8af844a6151efe1468b234a0b1a7af238a6863"
+    },
+    {
+      "mesh": "Icosphere.002",
+      "material": "VanecFX_Dark_Ruby_Droplet",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 80,
+      "triangleContentSha256": "e3c7782587716205f07b079aafbce009170200507ade237c44fe3ab3247dd1a2"
+    },
+    {
+      "mesh": "Staff_Ruby_Glow_Facets_1",
+      "material": "VanecFX_Ruby_Glow",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "da9c3de751224c887f9aaf97a7858dadd8b3056768863d37b6a6fa62f6bce3da"
+    },
+    {
+      "mesh": "Staff_Ruby_Glow_Facets_2",
+      "material": "VanecFX_Ruby_Glow",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "b7c15ea872f27e49400912419d3dd409136cef9b1ba89a473e723dca402a598a"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "VanecV4_Reference_front",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 15566,
+      "triangleContentSha256": "7af00a62da4c79cef35175800a4492f24806d5b3a79a779dcb89387ad93b922b"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "VanecV4_Reference_back",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 15309,
+      "triangleContentSha256": "e098c0bb835c958c0b2805bb2d0ac2b2f4fcc6bfd8049cce6219c293b669d738"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "VanecV4_Reference_left",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 14406,
+      "triangleContentSha256": "1ca5708e6c6eb548a5db19592c282bc9d9135b682eb1f6bf9b6dd4221c9fab99"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "VanecV4_Reference_right",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 14397,
+      "triangleContentSha256": "3589cb3057693988cd099459f3d7d4e151a37a13d0e136049eaaf66c15a1acf5"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 543466,
+      "triangleContentSha256": "867161818831dc112a87f2f7f4fff1a6ea4e0c4fb7684047d6e7c0592d1630ac"
+    }
+  ],
+  "animations": [
+    {
+      "name": "Vanec_Crimson_Arc_Pulse",
+      "extras": {},
+      "channels": [
+        {
+          "node": 6,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 7,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 8,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 9,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 10,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 11,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 12,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 13,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 14,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 15,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "2795611cf5c9dd92ddb1be9b7ae48c53fb05bfe8fbbc27a700b1199f7eedd21c"
+          }
+        },
+        {
+          "node": 16,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "245d090bb3111398d792d21ae0a1349a705487b67f2758da8e89e172670c1bb4"
+          }
+        },
+        {
+          "node": 17,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "245d090bb3111398d792d21ae0a1349a705487b67f2758da8e89e172670c1bb4"
+          }
+        },
+        {
+          "node": 18,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "245d090bb3111398d792d21ae0a1349a705487b67f2758da8e89e172670c1bb4"
+          }
+        },
+        {
+          "node": 19,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "245d090bb3111398d792d21ae0a1349a705487b67f2758da8e89e172670c1bb4"
+          }
+        },
+        {
+          "node": 20,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "245d090bb3111398d792d21ae0a1349a705487b67f2758da8e89e172670c1bb4"
+          }
+        },
+        {
+          "node": 21,
+          "path": "scale",
+          "interpolation": "LINEAR",
+          "input": {
+            "type": "SCALAR",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "71bc5b0a562ba3ba66ab5a16c07d475bb4f0413e18ad939aeb847ae34202fab5"
+          },
+          "output": {
+            "type": "VEC3",
+            "component": 5126,
+            "normalized": false,
+            "count": 65,
+            "sha256": "245d090bb3111398d792d21ae0a1349a705487b67f2758da8e89e172670c1bb4"
+          }
+        }
+      ]
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "animationDataExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  }
+}

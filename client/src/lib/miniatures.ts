@@ -1,5 +1,6 @@
 ﻿import manifest from '../../public/miniatures/manifest.json';
 import monsters from '../../public/miniatures/monsters/manifest.json';
+import objects from '../../public/miniatures/objects/manifest.json';
 import type { TokenKind } from '../../../shared/types';
 import { type MonsterAppearance, monsterVariation, monsterVariantIds } from '../../../shared/monsterAppearance';
 import { productionFamily, type ProducedMiniature } from '../../../shared/assetProduction';
@@ -14,7 +15,7 @@ export type MiniatureDefinition = {
   fxUrl?: string;
   baseTextureUrl?: string;
 };
-export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
+export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
 const generated: Record<string, MiniatureDefinition> = Object.create(null);
 const bundledMonsterIds = new Set([...monsters.models, ...monsters.variants].map(m => m.id));
 const listeners = new Set<() => void>();
@@ -50,6 +51,10 @@ export function useMiniatureCatalog() {
 }
 export function miniatureFamilies() { return [...new Set([...monsters.models.map(m => m.id), ...Object.keys(generated)])]; }
 export function resolveMiniature(name: string, kind: TokenKind, appearance: MonsterAppearance = {}, creatureId = ''): MiniatureDefinition | null {
+  // Objects use their semantic kind, independent of creature matching and generation.
+  if (kind === 'monster' && appearance.objectKind) {
+    return MINIATURES[`object-${appearance.objectKind}`] ?? null;
+  }
   const key = kind === 'pc' ? name.trim().toLowerCase() : productionFamily({ ...appearance, name });
   if (!key || (kind === 'pc' && !['druk', 'varis', 'vanec'].includes(key))) return null;
   const variant = kind === 'monster' ? monsterVariation(key, creatureId).variant : 0;

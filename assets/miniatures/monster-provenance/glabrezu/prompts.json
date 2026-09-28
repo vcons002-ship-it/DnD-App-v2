@@ -1,0 +1,18 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Painted high quality fantasy tabletop miniature reference sheet, 2048x2048, four equal square panels in a 2x2 grid: front, back, left profile, right profile. Exactly the same creature and pose in all four views, full body entirely visible at equal scale. Plain white background, soft even studio light, no base, no text. Simple clean silhouette and readable materials for multi-view 3D reconstruction. A large hulking four-armed demon with russet brown skin, a horned canine head and sturdy digitigrade legs. Two enormous upper arms end in lobster pincers held raised and open; two smaller humanoid arms below them held ready near its waist. Clear separation between all four arms and torso. Broad feet firmly planted. No wings, weapons, armor or effects.",
+  "requestedSheetDimensions": [
+    2048,
+    2048
+  ],
+  "actualSheetDimensions": [
+    1254,
+    1254
+  ],
+  "extractedViewDimensions": [
+    619,
+    619
+  ],
+  "upscaled": false,
+  "texturePolicy": "named-multiview-texture-v1"
+}

@@ -1,0 +1,11 @@
+{
+  "generator": "built-in imagegen",
+  "requestedSize": "2048x2048",
+  "actualSize": [
+    1254,
+    1254
+  ],
+  "layout": "front upper left, back upper right, left lower left, right lower right",
+  "reference": "Closed wooden chest with iron bands and brass lock",
+  "upscaled": false
+}
