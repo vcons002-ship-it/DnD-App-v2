@@ -68,3 +68,14 @@ The existing illumination mask fades this pass out under lantern/torch light,
 and the outer personal mask keeps it inside 60 feet. It runs over both scenery
 and tokens without changing ambient lighting or restoring affinity colors.
 Regular darkness retains its existing rendering.
+
+## Source-art detail and grid repair
+
+The screen-wide edge filter was too dependent on already-darkened pixels and
+could sharpen labels without making terrain readable. It has been replaced:
+map detail now samples original artwork (including additional map tiles) in a
+fog-aware ground shader. The grid uses its actual calibrated spacing, offsets
+and hidden flag, and is drawn above the darkness but masked behind 3D figures.
+Miniatures derive faint grayscale highlights from their original diffuse color
+and view-facing contour. Both fade under local light. Uniform dark terrain stays
+dark; the existing final 60-foot visibility mask remains authoritative visually.

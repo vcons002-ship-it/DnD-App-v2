@@ -1,3 +1,4 @@
+import {createDarkvisionTerrain} from './darkvisionTerrain';
 import {
   BoxGeometry, BufferGeometry, CanvasTexture, CylinderGeometry, Group,
   IcosahedronGeometry, Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFShadowMap,
@@ -36,6 +37,8 @@ export type EnvironmentMistPatch = {
 /** Renderer settings shared by the isolated study and the app. Lengths are map pixels. */
 export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'sceneTint'|'sceneTintStrength'|'heavyDarkness'|'weather'|'weatherIntensity'|'particles'|'particleIntensity'|'mistColor'|'lightning'|'groundWetness'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
   /** Fallback carriers also illuminate the map when their viewer chooses 2D tokens. */
+  darkvisionTerrain?: {url:string;x:number;y:number;w:number;h:number}[];
+  darkvisionGrid?: {size:number;x:number;y:number};
   carriedLanterns?: {id:string;x:number;y:number;diameter:number;facing:number}[];
   /** Transparent effects over the existing Konva artwork in the real battlefield. */
   overlay?: boolean;
@@ -161,6 +164,7 @@ export function createBattlefieldEnvironment(
   environment.add(scenery, contacts);
   const visibility = createEnvironmentVisibility();
   const lighting=createBattlefieldLighting(scene,keyLight,ambient,visibility.uniforms,depthBuffer);
+  const darkvisionTerrain=createDarkvisionTerrain(scene,visibility.uniforms,lighting.fieldUniforms,depthBuffer,requestRender);
   const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms,lighting.fieldUniforms);
   const weather=createBattlefieldWeather(scene,depthBuffer,visibility.uniforms);
   const particles=createBattlefieldParticles(scene,depthBuffer,visibility.uniforms);
@@ -417,7 +421,7 @@ export function createBattlefieldEnvironment(
     scenery.visible = settings.enabled && settings.scenery;
     visibility.update(settings);
     mist.update(settings);
-    weather.update(settings);particles.update(settings);lighting.update(settings);
+    weather.update(settings);particles.update(settings);lighting.update(settings);darkvisionTerrain.update(settings);
     contacts.visible = settings.enabled && settings.shadows;
     ground.material = settings.overlay ? overlayGroundMaterial : settings.enabled && (settings.shadows || (settings.mist && settings.mistShadows !== false)) ? shadowedGroundMaterial : groundMaterial;
     floorUniforms.shadowStrength.value = settings.shadows ? clamp(settings.shadowOpacity, 0, 1) : 0;
@@ -465,7 +469,7 @@ export function createBattlefieldEnvironment(
     geometries.forEach((entry) => entry.dispose());
     materials.forEach((entry) => entry.dispose());
     textures.forEach((entry) => entry.dispose());
-    contactMeshes.clear(); mist.dispose();weather.dispose();particles.dispose();lighting.dispose();visibility.dispose();
+    contactMeshes.clear(); mist.dispose();weather.dispose();particles.dispose();lighting.dispose();darkvisionTerrain.dispose();visibility.dispose();
   }
 
   update(initial);

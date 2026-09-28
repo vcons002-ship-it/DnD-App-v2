@@ -12,6 +12,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Personal darkvision - September 2026
 
+- [x] Read original map/miniature colors for faint Darkvision detail; preserve a
+  legible calibrated grid above darkness and beneath figures.
+
 - [x] Add subtle grayscale contours in unlit heavy-darkness vision, keeping
   dark surfaces dark and fading the contour pass under lantern/torch light.
 

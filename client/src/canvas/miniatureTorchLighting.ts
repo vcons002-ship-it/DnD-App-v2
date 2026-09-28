@@ -6,15 +6,16 @@ export type TorchLight = {id:string;x:number;y:number;height:number;radius:numbe
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(){
-  const uniforms={torchCount:{value:0},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())}};
+  const uniforms={darkvisionDetail:{value:0},torchCount:{value:0},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())}};
   const point=new Vector3();
   return {attach(material:Material){
     if(!(material instanceof MeshStandardMaterial))return;
     const previous=material.onBeforeCompile,cache=material.customProgramCacheKey();
     material.onBeforeCompile=function(shader,renderer){
       previous.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);
-      shader.fragmentShader=lightFalloffGlsl+'uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
+      shader.fragmentShader=lightFalloffGlsl+'uniform float darkvisionDetail; uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',`#include <lights_fragment_begin>
+        float darkvisionLight=0.;
         #if defined(RE_Direct)
         for(int torchIndex=0;torchIndex<8;torchIndex++){
           if(torchIndex>=torchCount)break;
@@ -22,6 +23,7 @@ export function createMiniatureTorchLighting(){
           float torchDistance=length(torchDelta);
           directLight.direction=torchDelta/max(.001,torchDistance);
           directLight.color=torchColors[torchIndex]*lightIrradiance(torchDistance,torchPositions[torchIndex].w,1.);
+          darkvisionLight+=max(directLight.color.r,max(directLight.color.g,directLight.color.b));
           directLight.visible=true;
           // A little local reflected light keeps surfaces facing away from a hip
           // lantern readable. This vanishes with the source; it is not ambient lift.
@@ -29,9 +31,16 @@ export function createMiniatureTorchLighting(){
           RE_Direct(directLight,geometryPosition,geometryNormal,geometryViewDir,geometryClearcoatNormal,material,reflectedLight);
         }
         #endif`);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        float sourceLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+        float contour=pow(1.-abs(dot(normalize(normal),normalize(vViewPosition))),3.);
+        float detail=smoothstep(.2,.8,sourceLuma)*.020+contour*.018;
+        outgoingLight+=vec3(detail*darkvisionDetail*exp(-darkvisionLight));
+        #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v3';
-  },update(lights:readonly TorchLight[],root:Group,camera:Camera){
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v4';
+  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false){
+    uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];
     for(const light of lights){
       const d2=(light.x-root.position.x)**2+(light.y-root.position.z)**2;
