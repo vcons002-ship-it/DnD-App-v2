@@ -1,5 +1,5 @@
 import {
-  BackSide, BoxGeometry, Data3DTexture, LinearFilter, Matrix4, Mesh, NoBlending,
+  BackSide, BoxGeometry, Color, Data3DTexture, LinearFilter, Matrix4, Mesh, NoBlending,
   OrthographicCamera, PlaneGeometry, RedFormat, RepeatWrapping, Scene, ShaderMaterial,
   Vector2, Vector3, Vector4, WebGLRenderTarget, type Camera, type Texture, type WebGLRenderer,
 } from 'three';
@@ -248,7 +248,8 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
       common.mistWind.value.set(Math.cos(wind)*windSpeed,Math.sin(wind)*windSpeed);
       const tint=settings.lighting==='night'?[.25,.35,.55]:settings.lighting==='dungeon'?[.25,.23,.3]:settings.lighting==='dusk'?[.8,.61,.6]:[1,1,1];
       const palette={natural:[1,1,1],cool:[.65,.9,1.2],green:[.6,1.55,.62],ash:[.64,.61,.59],sand:[1.25,.88,.43]}[settings.mistColor??'natural'];
-      common.mistTint.value.fromArray(tint.map((v,i)=>v*palette[i])).multiplyScalar((settings.lightLevel??1)*(settings.heavyDarkness?.10:1));
+      const sceneTint=new Color(0xffffff).lerp(new Color(settings.sceneTint??'#ffffff'),settings.sceneTintStrength??0);
+      common.mistTint.value.fromArray(tint.map((v,i)=>v*palette[i])).multiply(new Vector3(sceneTint.r,sceneTint.g,sceneTint.b)).multiplyScalar((settings.lightLevel??1)*(settings.heavyDarkness?.10:1));
       common.mistStrength.value=visible?Math.max(0,Math.min(.7,settings.mistOpacity??.28)):0;
       common.mistMapSize.value.set(settings.mapWidth,settings.mapHeight);
       common.mistOrigin.value.set(ox,oy);

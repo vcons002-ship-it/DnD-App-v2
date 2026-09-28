@@ -22,7 +22,8 @@ export function createBattlefieldWeather(scene:Scene,depth:{texture:Texture;reso
         if(splash>.5)world.y=.06;
         vec4 p=viewMatrix*vec4(world,1.);
         float width=mix(.085,.20,snow)*scaleFt*(.7+seed.w*.6),length=mix(1.5,.20,snow)*scaleFt;
-        vec3 velocity=(viewMatrix*vec4(wind.x*scaleFt,-speed,wind.y*scaleFt,0.)).xyz;
+        float gustVelocity=1.+cos(time*.65)*.26+cos(time*.23)*.184;
+        vec3 velocity=(viewMatrix*vec4(wind.x*scaleFt*gustVelocity,-speed,wind.y*scaleFt*gustVelocity,0.)).xyz;
         vec2 along=normalize(velocity.xy+vec2(.01)),across=vec2(along.y,-along.x);
         if(splash>.5){float age=(phase-.94)/.06;float radius=(.10+age*.55)*scaleFt;
           world+=vec3(position.x*radius,0.,-position.y*radius);p=viewMatrix*vec4(world,1.);alpha=(1.-age)*.26;
@@ -54,7 +55,7 @@ export function createBattlefieldWeather(scene:Scene,depth:{texture:Texture;reso
     uniforms.wind.value.set(Math.cos(angle)*speed,Math.sin(angle)*speed);updateBudget();
   },tick(seconds:number){uniforms.time.value=seconds;if(settings)updateBudget();},
     get animated(){return mesh.visible;},
-    get state(){return {weather:mesh.visible?settings.weather??'none':'none',weatherCount:mesh.visible?geometry.instanceCount:0,weatherQuality:quality,weatherTime:uniforms.time.value};},
+    get state(){return {weather:mesh.visible?settings.weather??'none':'none',weatherCount:mesh.visible?geometry.instanceCount:0,weatherQuality:quality,weatherTime:uniforms.time.value,windStrength:settings.windStrength??.4,weatherWindFt:uniforms.wind.value.length()};},
     dispose(){scene.remove(mesh);geometry.dispose();material.dispose();},
   };
 }

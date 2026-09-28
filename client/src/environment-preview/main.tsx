@@ -233,6 +233,9 @@ function Preview(){
         <p className="help">Switch off to compare with the original lighting.</p>
         {atmosphereStudy&&<>
           <label className="quality">Lighting <select aria-label="Lighting preset" value={settings.lighting} onChange={e=>change('lighting',e.target.value as EnvironmentPreviewSettings['lighting'])}>{['day','dusk','night','dungeon'].map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="quality">Scene tint <input aria-label="Scene tint" type="color" value={settings.sceneTint??'#ffffff'} onChange={e=>{change('sceneTint',e.target.value);if(!settings.sceneTintStrength)change('sceneTintStrength',.25);}}/></label>
+          <label className="range">Scene tint strength <output>{Math.round((settings.sceneTintStrength??0)*100)}%</output><input aria-label="Scene tint strength" type="range" min="0" max="1" step=".01" value={settings.sceneTintStrength??0} onChange={e=>change('sceneTintStrength',+e.target.value)}/></label>
+          <button onClick={()=>{change('sceneTint','#ffffff');change('sceneTintStrength',0);}}>Reset scene tint</button>
           <label className="switch"><input aria-label="Heavy darkness setting" type="checkbox" checked={!!settings.heavyDarkness} onChange={e=>change('heavyDarkness',e.target.checked)}/>Heavy darkness</label>
           <p className="help">Dim ambient light while keeping lantern light at full strength.</p>
           <label className="quality">Weather <select aria-label="Weather" value={settings.weather} onChange={e=>change('weather',e.target.value as EnvironmentPreviewSettings['weather'])}>{['none','rain','snow'].map(v=><option key={v}>{v}</option>)}</select></label>
@@ -244,7 +247,7 @@ function Preview(){
           <label className="range">Particle density <input aria-label="Particle density" type="range" min="0" max="1" step=".05" value={settings.particleIntensity??.5} onChange={e=>change('particleIntensity',+e.target.value)}/></label>
           <label className="range">Wet ground <input aria-label="Wet ground" type="range" min="0" max="1" step=".05" value={settings.groundWetness??0} onChange={e=>change('groundWetness',+e.target.value)}/></label>
           <label className="range">Wind direction <input aria-label="Wind direction" type="range" min="0" max="359" value={settings.windDirectionDegrees} onChange={e=>change('windDirectionDegrees',+e.target.value)}/></label>
-          <label className="range">Wind strength <input aria-label="Wind strength" type="range" min="0" max="1" step=".05" value={settings.windStrength} onChange={e=>change('windStrength',+e.target.value)}/></label>
+          <label className="range">Wind strength <output>{Math.round((settings.windStrength??.4)*100)}%</output><input aria-label="Wind strength" type="range" min="0" max="3" step=".05" value={settings.windStrength} onChange={e=>change('windStrength',+e.target.value)}/></label>
           <label className="switch"><input type="checkbox" checked={!!settings.lights?.length} onChange={e=>change('lights',e.target.checked?sceneLights:[])}/>Three local lights</label>
           <p className="help">Warm pools illuminate the original map and the figures. Lighting is visual; fog still controls visibility.</p>
         </>}

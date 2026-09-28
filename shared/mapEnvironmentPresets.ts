@@ -2,17 +2,17 @@ import {type MapEnvironment} from './mapEnvironment.js';
 
 // Presets replace atmosphere only. Map-calibrated shadow direction/length,
 // placed lights and viewer quality are deliberately outside their owned fields.
-type Atmosphere = Pick<MapEnvironment,'enabled'|'lighting'|'lightLevel'|'heavyDarkness'|
+type Atmosphere = Pick<MapEnvironment,'enabled'|'lighting'|'lightLevel'|'sceneTint'|'sceneTintStrength'|'heavyDarkness'|
   'particles'|'particleIntensity'|'mistColor'|'weather'|'weatherIntensity'|'lightning'|'groundWetness'|'windStrength'|'shadows'|'shadowOpacity'|
   'mist'|'mistOpacity'|'mistHeightFt'|'mistShadows'|'mistInteraction'>;
 const base:Atmosphere={
-  enabled:true,lighting:'day',lightLevel:1,heavyDarkness:false,
+  enabled:true,lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,
   weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windStrength:.15,shadows:true,shadowOpacity:.65,
   mist:false,mistOpacity:.08,mistHeightFt:1.5,mistShadows:true,mistInteraction:true,
 };
 const preset=(id:string,label:string,description:string,settings:Partial<Atmosphere>)=>({id,label,description,settings:{...base,...settings}});
 export const MAP_ENVIRONMENT_PRESETS=[
-  preset('clear-day','Clear day','Bright daylight with defined token shadows.',{}),
+  preset('clear-day','Clear day','Original map colors, default figure lighting and defined token shadows.',{}),
   preset('golden-dusk','Golden dusk','Warm fading daylight and softer shadows.',{lighting:'dusk',shadowOpacity:.5}),
   preset('moonlit-night','Moonlit night','Cool moonlight with a little low mist.',{lighting:'night',mist:true,shadowOpacity:.35}),
   preset('light-rain','Light rain','Gentle rain, subdued daylight and thin ground mist.',{lighting:'day',lightLevel:.7,groundWetness:.35,weather:'rain',weatherIntensity:.3,windStrength:.25,shadowOpacity:.2,mist:true,mistOpacity:.06}),

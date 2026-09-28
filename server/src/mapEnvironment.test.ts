@@ -49,11 +49,22 @@ describe('saved map environment',()=>{
     const restored=importSession(exportSession(session.code)!);
     expect(listMaps(getSessionByCode(restored.code)!.id).find(m=>m.name==='Storm')!.environment).toEqual(getMap(map.id)!.environment);
     dm({mapId:map.id,settings:environmentPresetPatch('clear-day')});
-    expect(getMap(map.id)!.environment).toMatchObject({lightning:false,groundWetness:0,weather:'none',heavyDarkness:false,particles:'none',mistColor:'natural'});
+    expect(getMap(map.id)!.environment).toMatchObject({lightning:false,groundWetness:0,weather:'none',heavyDarkness:false,particles:'none',mistColor:'natural',sceneTint:'#ffffff',sceneTintStrength:0});
     dm({mapId:map.id,settings:{lightLevel:.6}});
     expect(matchingEnvironmentPreset(getMap(map.id)!.environment!)).toBe('');
     expect(getMap(other.id)!.environment).toEqual(DEFAULT_MAP_ENVIRONMENT);
     expect(environmentPresetPatch('invalid')).toBeUndefined();
+  });
+  it('saves stronger wind and safe scene tint, and clears custom coloring with Clear day',()=>{
+    const session=createSession('Wind and color'),map=createMap(session.id,{name:'Weather'});
+    const dm=client(session.id,map.id,'dm');
+    dm({mapId:map.id,settings:{enabled:true,windStrength:2.5,sceneTint:'#Ab45Ef',sceneTintStrength:.35}});
+    const saved=getMap(map.id)!.environment!;
+    expect(saved).toMatchObject({windStrength:2.5,sceneTint:'#ab45ef',sceneTintStrength:.35});
+    expect(sanitizeMapEnvironment({windStrength:Infinity,sceneTint:'red;url(x)',sceneTintStrength:'1'},saved)).toEqual(saved);
+    expect(sanitizeMapEnvironment({windStrength:99,sceneTintStrength:2},saved)).toMatchObject({windStrength:3,sceneTintStrength:1});
+    dm({mapId:map.id,settings:environmentPresetPatch('clear-day')});
+    expect(getMap(map.id)!.environment).toMatchObject({lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,mist:false,groundWetness:0});
   });
   it('keeps cloud lightning sparse, bounded, deterministic and off at frozen time',()=>{
     expect(stormLightningAt(0)).toBe(0);expect(stormLightningAt(NaN)).toBe(0);
@@ -124,7 +135,7 @@ describe('saved map environment',()=>{
   it('shares active-map settings, keeps staged maps separate, and round-trips saves',()=>{
     const session=createSession('Environment saves'),active=createMap(session.id,{name:'Active'}),staged=createMap(session.id,{name:'Prep'});
     setActiveMap(session.id,active.id);
-    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',particles:'embers',particleIntensity:.65,mistColor:'ash',windStrength:.6,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
+    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',particles:'embers',particleIntensity:.65,mistColor:'ash',windStrength:2.6,sceneTint:'#5632a4',sceneTintStrength:.4,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
     updateMapEnvironment(session.id,staged.id,{mist:false,shadowDirectionDegrees:270});
     expect(buildSnapshot(session.id,'player',staged.id,'viewer')!.map!.environment).toEqual(getMap(active.id)!.environment);
     expect(buildSnapshot(session.id,'dm',staged.id)!.map!.environment).toEqual(getMap(staged.id)!.environment);

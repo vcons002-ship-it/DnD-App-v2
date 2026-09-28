@@ -52,6 +52,28 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await page.getByLabel('Enable environment',{exact:true}).click();
     await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
     await expect(layer).toHaveAttribute('data-mist-visible','true');
+    await page.getByLabel('Wind strength',{exact:true}).focus();await page.keyboard.press('End');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.windStrength).toBe(3);
+    await expect(layer).toHaveAttribute('data-wind-strength','3');
+    await expect.poll(async()=>Number(await layer.getAttribute('data-weather-wind-ft'))).toBeCloseTo(21);
+    // Dispatch the same native color-input event a picker produces.
+    await page.getByLabel('Scene tint',{exact:true}).evaluate((input:HTMLInputElement)=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'#579dcc');
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    await expect(layer).toHaveAttribute('data-scene-tint','#579dcc');
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0.25');
+    await page.getByLabel('Scene tint strength',{exact:true}).focus();await page.keyboard.press('End');
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','1');
+    await page.getByRole('button',{name:'Reset scene tint',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{sceneTint:'#ff3322',sceneTintStrength:.7}});
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0.7');
+    await page.getByLabel('Environment preset',{exact:true}).selectOption('clear-day');
+    await expect(layer).toHaveAttribute('data-scene-grade-opacity','0');
+    await expect(layer).toHaveAttribute('data-scene-tint-strength','0');
+    await expect(layer).toHaveAttribute('data-scene-tint','#ffffff');
+    await page.screenshot({path:info.outputPath('wind-color-dm.png')});
     // New presets use the actual saved DM UI and synchronize to the player.
     for(const [preset,particles,color] of [['autumn-wind','leaves','natural'],['firefly-glade','fireflies','green'],['haunted-marsh','fireflies','green'],['ashfall','embers','ash'],['sandstorm','dust','sand'],['blizzard','none','cool']]){
       await page.getByLabel('Environment preset',{exact:true}).selectOption(preset);
@@ -230,7 +252,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(dmLayer).toHaveAttribute('data-light-count','1');
     await expect.poll(async()=>(await f.snapshot()).measurements.length).toBe(0);
     // Exercise the strongest storm flash against covered map pixels too.
-    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{weather:'rain',lightning:true,groundWetness:1,particles:'fireflies',particleIntensity:1}});
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{weather:'rain',lightning:true,groundWetness:1,particles:'fireflies',particleIntensity:1,sceneTint:'#ff3322',sceneTintStrength:1,windStrength:3}});
     const flashTime=Array.from({length:1900},(_,i)=>1700000000+i*.01).find(t=>stormLightningAt(t)>.95)!;
     await expect(layer).toHaveAttribute('data-lightning-enabled','true');
     // Freeze Date only; installing a clock after load would reset performance.now

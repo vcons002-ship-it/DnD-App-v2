@@ -50,6 +50,10 @@ export function MapEnvironmentControls({map}:{map:MapState}){
           <option value="day">Day</option><option value="dusk">Dusk</option><option value="night">Night</option><option value="dungeon">Dungeon</option>
         </select></label>
         <SettingSlider label="Ambient light" value={settings.lightLevel*100} min={10} max={100} suffix="%" onCommit={v=>update({lightLevel:v/100})}/>
+        <label>Scene tint <input aria-label="Scene tint" type="color" value={settings.sceneTint} onChange={e=>update({sceneTint:e.target.value,sceneTintStrength:settings.sceneTintStrength||.25})}/></label>
+        <SettingSlider label="Scene tint strength" value={settings.sceneTintStrength*100} min={0} max={100} suffix="%" onCommit={v=>update({sceneTintStrength:v/100})}/>
+        <button onClick={()=>update({sceneTint:'#ffffff',sceneTintStrength:0})}>Reset scene tint</button>
+        <small>Adds color to the map and figure lighting. Clear day uses original colors with no tint.</small>
         {toggle('heavyDarkness','Heavy darkness')}
         <small>Dims ambient light and mist. Torches and lanterns keep their brightness.</small>
         <small>Lighting is visual; fog controls visibility. Painted walls do not block these lights.</small>
@@ -75,7 +79,8 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         {settings.weather==='rain'&&toggle('lightning','Lightning flashes')}
         <SettingSlider label="Wet ground" value={settings.groundWetness*100} min={0} max={100} suffix="%" onCommit={v=>update({groundWetness:v/100})}/>
         <SettingSlider label="Wind direction" value={settings.windDirectionDegrees} min={0} max={359} suffix="°" onCommit={v=>update({windDirectionDegrees:v})}/>
-        <SettingSlider label="Wind strength" value={settings.windStrength*100} min={0} max={100} suffix="%" onCommit={v=>update({windStrength:v/100})}/>
+        <SettingSlider label="Wind strength" value={settings.windStrength*100} min={0} max={300} suffix="%" onCommit={v=>update({windStrength:v/100})}/>
+        <small>Wind moves mist, particles and snow, and tilts rain. 100% is the previous maximum.</small>
       </fieldset>
       <fieldset><legend>Atmosphere particles</legend>
         <label>Particles <select aria-label="Atmosphere particles" value={settings.particles} onChange={e=>update({particles:e.target.value as MapEnvironment['particles']})}>

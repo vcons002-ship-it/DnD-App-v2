@@ -26,21 +26,24 @@ export const torchFieldGlsl=`
 
 /** All sources splat into a bounded light field; there is no map-wide light-count limit. */
 export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambient:HemisphereLight|undefined,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],depth:{texture:Texture;resolution:Vector2}){
-  const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??2,reflection:scene.environmentIntensity};
+  const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??2,sky:ambient?.color.clone()??new Color(0xffffff),ground:ambient?.groundColor.clone()??new Color(0xffffff),reflection:scene.environmentIntensity};
   const field=new WebGLRenderTarget(512,512,{type:HalfFloatType,depthBuffer:false,stencilBuffer:false});
   const fieldUniforms={torchField:{value:field.texture},torchBounds:{value:new Vector4()},stormFlash:{value:0}};
-  const uniforms={...visibility,...fieldUniforms,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},gradeColor:{value:new Color()},gradeOpacity:{value:0},wetness:{value:0},surfaceTime:{value:0},surfaceScale:{value:12.8},wetLight:{value:1}};
+  const uniforms={...visibility,...fieldUniforms,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},gradeColor:{value:new Color()},gradeOpacity:{value:0},sceneTint:{value:new Color(0xffffff)},sceneTintStrength:{value:0},wetness:{value:0},surfaceTime:{value:0},surfaceScale:{value:12.8},wetLight:{value:1}};
   const material=new ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,toneMapped:false,uniforms,
     vertexShader:`varying vec3 world;void main(){world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(world,1.);}`,
     fragmentShader:`${environmentVisibilityGlsl}${torchFieldGlsl}
       varying vec3 world;uniform sampler2D figureDepth;uniform vec2 resolution;uniform vec3 gradeColor;uniform float gradeOpacity;
-      uniform float wetness,surfaceTime,surfaceScale,wetLight;
+      uniform float wetness,surfaceTime,surfaceScale,wetLight,sceneTintStrength;uniform vec3 sceneTint;
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
       void main(){if(environmentVisible(world.xz)<.5||texture2D(figureDepth,gl_FragCoord.xy/resolution).r<.999999)discard;
         vec3 illumination=torchIllumination(world.xz);float strength=max(illumination.r,max(illumination.g,illumination.b));
         float coverage=1.-exp(-strength);vec3 tint=illumination/max(.001,strength);
         float alpha=mix(gradeOpacity,.10,coverage);vec3 color=mix(gradeColor,tint*.30,coverage);
+        float tintAlpha=sceneTintStrength*(1.-coverage*.75);
+        float tintedAlpha=alpha+tintAlpha*(1.-alpha);
+        color=(color*alpha*(1.-tintAlpha)+sceneTint*tintAlpha)/max(.001,tintedAlpha);alpha=tintedAlpha;
         if(wetness>0.){
           vec2 p=world.xz/surfaceScale;
           float wetPatch=noise(p*.21)*.65+noise(p*.59)*.35;
@@ -54,6 +57,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
           color=(color*alpha*(1.-wetAlpha)+wetColor*wetAlpha)/max(.001,combined);alpha=combined;
         }
         alpha=mix(alpha,.34,stormFlash*.9);color=mix(color,vec3(.67,.76,.9),stormFlash*.85);
+        if(alpha<=0.)discard; // Neutral day contributes no color at all.
         gl_FragColor=vec4(color,alpha);
         #include <colorspace_fragment>
       }`});
@@ -115,7 +119,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   }
   let settings:EnvironmentPreviewSettings,carried:CarriedLanternLight[]=[],lights:TorchLight[]=[],time=0;
   const baseLight={key:original.key,ambient:original.ambient,reflection:original.reflection,color:original.color.clone()};
-  const restore=()=>{key.intensity=original.key;key.color.copy(original.color);if(ambient)ambient.intensity=original.ambient;scene.environmentIntensity=original.reflection;};
+  const restore=()=>{key.intensity=original.key;key.color.copy(original.color);if(ambient){ambient.intensity=original.ambient;ambient.color.copy(original.sky);ambient.groundColor.copy(original.ground);}scene.environmentIntensity=original.reflection;};
   const phase=(id:string)=>{let hash=0;for(let i=0;i<id.length;i++)hash=(hash*31+id.charCodeAt(i))|0;return hash*.013;};
   const tick=(seconds:number)=>{
     time=seconds;if(!settings)return;
@@ -178,14 +182,19 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
     uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
     uniforms.wetness.value=next.groundWetness??0;uniforms.surfaceScale.value=next.pixelsPerFoot??12.8;uniforms.wetLight.value=Math.max(.12,preset.ambient*level);
-    baseLight.key=preset.key*level;baseLight.ambient=preset.ambient*level;baseLight.reflection=preset.reflection*level;
+    const day=(next.lighting??'day')==='day',tintAmount=next.sceneTintStrength??0;
+    uniforms.sceneTint.value.set(next.sceneTint??'#ffffff');uniforms.sceneTintStrength.value=tintAmount;
+    baseLight.key=(day?original.key:preset.key)*level;baseLight.ambient=(day?original.ambient:preset.ambient)*level;baseLight.reflection=(day?original.reflection:preset.reflection)*level;
     baseLight.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);
+    baseLight.color.lerp(uniforms.sceneTint.value,tintAmount);
+    if(enabled&&ambient){ambient.color.copy(original.sky).lerp(uniforms.sceneTint.value,tintAmount);ambient.groundColor.copy(original.ground).lerp(uniforms.sceneTint.value,tintAmount);}
     if(enabled){key.intensity=baseLight.key;key.color.copy(baseLight.color);if(ambient)ambient.intensity=baseLight.ambient;scene.environmentIntensity=baseLight.reflection;}
     else restore();tick(time);
   },tick,setCarried(next:CarriedLanternLight[]){carried=next;},get lights(){return lights;},
     renderField(renderer:WebGLRenderer){const previous=renderer.getRenderTarget();renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);renderer.setRenderTarget(previous);},
     get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
+      sceneTint:settings.sceneTint??'#ffffff',sceneTintStrength:plane.visible?settings.sceneTintStrength??0:0,sceneGradeOpacity:plane.visible?uniforms.gradeOpacity.value:0,
       wetGround:plane.visible?settings.groundWetness??0:0,lightningEnabled:plane.visible&&!!settings.lightning&&settings.weather==='rain',lightningFlash:fieldUniforms.stormFlash.value,
       carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height})))};},
     dispose(){scene.remove(plane);plane.geometry.dispose();material.dispose();for(const mesh of [shafts,cups,flames,frames,windows,handles])if(mesh){scene.remove(mesh);mesh.dispose();}

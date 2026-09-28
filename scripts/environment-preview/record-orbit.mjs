@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 // A separate static lab: no app server, save file or campaign connection.
 const out=path.resolve(process.argv[2]);await mkdir(out,{recursive:true});
 const varietyStudy=process.argv.includes('--variety');
-const stormStudy=process.argv.includes('--storm');
+const windColorStudy=process.argv.includes('--wind-color');
+const stormStudy=windColorStudy||process.argv.includes('--storm');
 const dungeonStudy=process.argv.includes('--dungeon');
 const weatherStudy=process.argv.includes('--weather');
 const torchStudy=process.argv.includes('--torches');
@@ -48,7 +49,41 @@ try{
     if(weatherStudy&&text.startsWith('Torches off'))await page.locator('#record-start-marker').evaluate(e=>e.style.background='#00ffff');
     await page.mouse.move(1410,945);
   };
-  if(varietyStudy){
+  if(windColorStudy){
+    const preset=page.getByLabel('Environment preset',{exact:true}),layer=page.getByTestId('miniature-layer');
+    const setInput=async(label,value)=>page.getByLabel(label,{exact:true}).evaluate((input,value)=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+    },String(value));
+    await caption('Clear day - original map colors, no color wash');await page.waitForTimeout(2200);
+    await page.screenshot({path:path.join(out,'clear-day.png')});
+    // Prove unshadowed artwork matches effects Off, then that the color control changes it.
+    await page.getByLabel('Token shadows',{exact:true}).uncheck();await page.waitForTimeout(300);
+    const clip={x:box.x+90,y:box.y+box.height-170,width:170,height:80};
+    const neutral=await page.screenshot({clip});
+    await page.getByLabel('Show effects',{exact:true}).uncheck();await page.waitForTimeout(300);
+    const original=await page.screenshot({clip});
+    await page.getByLabel('Show effects',{exact:true}).check();
+    await setInput('Scene tint','#579dcc');await caption('DM scene tint - cool blue at 25 percent');await page.waitForTimeout(3000);
+    const colored=await page.screenshot({clip});
+    const compare=await page.evaluate(async images=>{
+      const data=await Promise.all(images.map(async s=>{const image=await createImageBitmap(new Blob([Uint8Array.from(atob(s),c=>c.charCodeAt(0))],{type:'image/png'}));const canvas=new OffscreenCanvas(image.width,image.height),ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);return ctx.getImageData(0,0,canvas.width,canvas.height).data;}));
+      let neutralDiff=0,coloredDiff=0;for(let i=0;i<data[0].length;i+=4){if(Math.abs(data[0][i]-data[1][i])+Math.abs(data[0][i+1]-data[1][i+1])+Math.abs(data[0][i+2]-data[1][i+2])>3)neutralDiff++;if(Math.abs(data[0][i]-data[2][i])+Math.abs(data[0][i+1]-data[2][i+1])+Math.abs(data[0][i+2]-data[2][i+2])>3)coloredDiff++;}return {neutralDiff,coloredDiff};
+    },[neutral,original,colored].map(b=>b.toString('base64')));
+    assert.equal(compare.neutralDiff,0);assert(compare.coloredDiff>10000);phases.push({text:'Original artwork pixel comparison',data:compare});
+    await page.screenshot({path:path.join(out,'cool-tint.png')});
+    await setInput('Scene tint','#d99750');await caption('Warm amber at 25 percent - map and figure lighting');await page.waitForTimeout(3000);
+    await page.screenshot({path:path.join(out,'warm-tint.png')});
+    await preset.selectOption('clear-day');await caption('Clear day resets the custom tint');await page.waitForTimeout(1800);
+    await preset.selectOption('light-rain');await page.getByLabel('Drifting mist',{exact:true}).uncheck();
+    await setInput('Weather strength',1);await setInput('Wind direction',0);
+    for(const [wind,title] of [[0,'Rain with no wind'],[1,'Rain at 100 percent wind - the previous maximum'],[3,'Rain at 300 percent wind - stronger sideways travel and slant']]){
+      await setInput('Wind strength',wind);await caption(title);await page.waitForTimeout(4200);
+      await page.screenshot({path:path.join(out,`rain-wind-${wind}.png`)});phases.push({text:title,data:await layer.evaluate(e=>({...e.dataset}))});
+    }
+    await setInput('Wind direction',90);await caption('Wind direction also changes the direction of the rain');await page.waitForTimeout(3500);
+    await preset.selectOption('clear-day');await caption('Clear day - back to original colors');await page.waitForTimeout(1500);
+  }else if(varietyStudy){
     const preset=page.getByLabel('Environment preset',{exact:true});
     const diagnostics=()=>page.getByTestId('miniature-layer').evaluate(e=>({...e.dataset}));
     const looks=[['autumn-wind','Autumn wind - falling leaves catch the evening light'],['firefly-glade','Firefly glade - glowing fireflies above thin green mist'],['haunted-marsh','Haunted marsh - deeper mist and damp ground'],['ashfall','Ashfall - drifting ash and rising embers'],['sandstorm','Sandstorm - warm haze and windblown dust'],['blizzard','Blizzard - thick snow and cold low mist']];
@@ -215,7 +250,7 @@ const source=await page.video().path();
 const pixels=execFileSync(ffmpeg,['-v','error','-i',source,'-vf','fps=25,crop=2:2:2:2,format=rgb24','-f','rawvideo','pipe:1']);
 let frame=0;for(;frame<pixels.length/12;frame++)if(pixels[frame*12]>210&&pixels[frame*12+1]<40&&pixels[frame*12+2]>210)break;
 assert(frame<pixels.length/12,'Recording start marker missing');
-const start=frame/25,video=path.join(out,varietyStudy?'environment-variety.mp4':stormStudy?'storm-environment.mp4':dungeonStudy?'dungeon-lanterns.mp4':torchStudy?'torches-and-lanterns.mp4':weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
+const start=frame/25,video=path.join(out,windColorStudy?'wind-color.mp4':varietyStudy?'environment-variety.mp4':stormStudy?'storm-environment.mp4':dungeonStudy?'dungeon-lanterns.mp4':torchStudy?'torches-and-lanterns.mp4':weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
 const crop=`crop=${Math.floor(box.width/2)*2}:${Math.floor(box.height/2)*2}:${Math.floor(box.x/2)*2}:${Math.floor(box.y/2)*2}`;
 execFileSync(ffmpeg,['-y','-v','error','-ss',String(start),'-i',source,'-vf',crop,'-c:v','libx264','-preset','fast','-crf','19','-pix_fmt','yuv420p','-an','-movflags','+faststart',video],{windowsHide:true});
 execFileSync(ffmpeg,['-y','-v','error','-ss','3','-i',video,'-frames:v','1',path.join(out,'poster.png')],{windowsHide:true});

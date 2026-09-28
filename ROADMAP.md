@@ -4,6 +4,15 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Wind and scene color - September 2026
+
+- [x] Extend wind to 300% of the previous maximum; rain streaks follow gusts.
+- [x] Add saved DM scene tint, strength and reset controls. Clear day resets
+  tint and restores the default miniature lighting with no map color wash.
+- [x] Verify DM/player synchronization, save import, fog masking and original
+  artwork pixels; record no/old-maximum/new-maximum wind and tint comparisons.
+  See [wind and color controls](docs/ENVIRONMENT_WIND_COLOR_2026_09_28.md).
+
 ## Environmental variety - September 2026
 
 - [x] Add Autumn wind, Firefly glade, Haunted marsh, Ashfall, Sandstorm and
