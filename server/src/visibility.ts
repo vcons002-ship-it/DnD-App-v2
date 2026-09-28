@@ -297,7 +297,11 @@ export function createSnapshotBuilder(
       : { tokens: [], measurements: [], annotations: [], mapImages: [] };
 
     const owned=new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
-    const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned);
+    const lightMapFog=map?.mapFogEnabled?new Set(map.mapFogRevealed):null;
+    const lightTokenFog=map?.tokenFogEnabled?new Set(map.tokenFogRevealed):null;
+    const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned,t=>tokenVisibleAt({role,hidden:t.isHidden,
+      owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
+      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;

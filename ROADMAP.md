@@ -2094,3 +2094,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [ ] Crowded-board and physical-phone performance measurements before recommending High atmosphere quality broadly.
 
 - [x] Interactive dungeon darkness preview: personal Druk/Varis/Vanec and DM views, regular/heavy comparisons, lantern toggles, animated party movement, camera controls and touch rotation. Uses production vision/lighting and original models; isolated from campaign data. Package with `node scripts/environment-preview/build.mjs --vision`.
+
+- [x] Darkness visibility includes distant illuminated areas and enemies in them, with 60 ft applying only to unlit terrain. Hidden tokens and both fog layers still apply; concealed carried lights cannot disclose nearby creatures. Shared visibility, encounter tags, moving-token filtering, and the personal vision mask use the same policy. Interactive dungeon preview includes a distant lit enemy.

@@ -2047,6 +2047,15 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
   expect(await tokenView(second,druk.id)).toBeNull();
   await expect(second.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
   await second.screenshot({path:info.outputPath('varis-personal-view.png')});
+  // Distant light reveals its occupants without extending the observer's darkvision.
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[{id:'distant-hall',x:1000,y:610,radiusFt:15,heightFt:3,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','5',{timeout:30000});
+  expect(await tokenView(page,varis.id)).not.toBeNull();
+  await page.screenshot({path:info.outputPath('distant-lantern-visible.png')});
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:30000});
+  expect(await tokenView(page,varis.id)).toBeNull();
+
   for(let i=0;i<2;i++)await page.getByTitle('Zoom in',{exact:true}).click();
   const caption=async(text:string)=>page.evaluate(value=>{let el=document.getElementById('vision-demo-caption');if(!el){el=document.createElement('div');el.id='vision-demo-caption';el.style.cssText='position:fixed;top:112px;left:50%;transform:translateX(-50%);padding:12px 22px;background:#111b;border:1px solid #b8a36d;color:#f2e6c7;font:20px Georgia;z-index:9999;pointer-events:none';document.body.append(el);}el.textContent=value;},text);
   for(const heavy of [false,true])for(const lantern of [false,true]){

@@ -18,7 +18,7 @@ export function encounterTags(map: MapState, tokens: Token[], monsters: Map<stri
     if (active) {
       const mapFog = map.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-      const partyVision=createPlayerVision(map,tokens,new Set(tokens.filter(t=>t.kind==='pc').map(t=>t.refId)));
+      const partyVision=createPlayerVision(map,tokens,new Set(tokens.filter(t=>t.kind==='pc').map(t=>t.refId)),t=>tokenVisibleAt({role:'player',hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monsters.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid:map.gridSizePx,x:t.x,y:t.y}));
       const visible = creatures.filter(t => tokenVisibleAt({ role: 'player', hidden: t.isHidden, owned: false,
         foe: monsters.get(t.refId)!.disposition !== 'friendly', mapFog, tokenFog, grid: map.gridSizePx, x: t.x, y: t.y }) && visionContains(partyVision,t.x,t.y));
       // Matching DM numbers is safe only at the initial, complete reveal.

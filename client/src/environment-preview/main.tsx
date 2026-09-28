@@ -45,7 +45,7 @@ const courtyardTokens:MiniatureToken[]=[
   {id:'goblin-b',x:585,y:285,diameter:42,hidden:false,facing:-.2,outline:'#c96654',definition:miniature('goblin-helmet')},
   {id:'wolf',x:810,y:386,diameter:43,hidden:false,facing:Math.PI*.3,outline:'#c96654',definition:miniature('wolf')},
 ];
-const dungeonPositions=[{x:520,y:530},{x:465,y:530},{x:410,y:530},{x:740,y:700},{x:470,y:315},{x:1180,y:710},{x:1100,y:285}];
+const dungeonPositions=[{x:520,y:530},{x:465,y:530},{x:410,y:530},(visionStudy?{x:850,y:490}:{x:740,y:700}),{x:470,y:315},{x:1180,y:710},{x:1100,y:285}];
 const originalTokens=dungeonStudy?courtyardTokens.map((token,i)=>({...token,...dungeonPositions[i],diameter:token.diameter*5/12.8,facing:Math.PI/2,carriedLantern:i<3})):courtyardTokens;
 type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const presetSettings=(id:string)=>{const {mistHeightFt,...settings}=environmentPresetPatch(id)!;return {...settings,mistHeight:(mistHeightFt??2)*pixelsPerFoot};};
@@ -79,12 +79,11 @@ function Preview(){
     origins:tokens.filter(t=>t.id===viewer).map(t=>({...t,...livePositions.current.get(t.id)})),
     lights:[...(settings.lights??[]).map(l=>({id:l.id,x:l.x,y:l.y,radius:l.radiusFt*pixelsPerFoot,height:l.heightFt*pixelsPerFoot,strength:l.intensity})),
       ...tokens.filter(t=>t.carriedLantern).map(t=>({...t,...livePositions.current.get(t.id),radius:20*pixelsPerFoot,height:2.8*pixelsPerFoot,strength:.85}))]}:undefined;
-  if(vision)vision.lights=vision.lights.filter(l=>visionContains(vision,l.x,l.y));
   visionState.current=vision;
   const visibleAt=useCallback((_id:string,x:number,y:number)=>visionContains(visionState.current,x,y),[]);
   const onVisionLights=useCallback((lights:VisionLight[])=>{
     const now=performance.now();if(now-lastLights.current<100)return;lastLights.current=now;
-    visionLayer.current?.lights(lights.filter(l=>visionContains(visionState.current,l.x,l.y)));
+    visionLayer.current?.lights(lights);
   },[]);
   const [camera,setCamera]=useState<Camera>({tilt:45,rotation:0,view:{x:0,y:0,scale:1}});
   const current=useRef(camera);
@@ -221,7 +220,7 @@ function Preview(){
       <button onClick={()=>setTokens(list=>list.map(t=>({...t,carriedLantern:['druk','varis','vanec'].includes(t.id)})))}>Lanterns on</button>
       <button aria-pressed={!!settings.lights?.length} onClick={()=>change('lights',settings.lights?.length?[]:sceneLights)}>Placed lights</button>
       <button onClick={moveParty} disabled={ready<7||walking}>{walking?'Party moving...':'Move party'}</button>
-      <p>Player view: 60 ft. Compare the same lit area in both darkness levels. Changes stay in this preview.</p>
+      <p>Darkvision: 60 ft. The enemy by the hall lantern is beyond it. Toggle Placed lights to compare. Changes stay in this preview.</p>
     </section>}
     <nav className="camera-bar" aria-label="Camera controls">
       <button aria-label="45° view" onClick={()=>transition(fitted(45,current.current.rotation,true))}>45° view</button>

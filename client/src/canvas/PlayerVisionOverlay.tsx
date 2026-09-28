@@ -9,7 +9,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const shade=useRef<HTMLDivElement>(null),cover=useRef<HTMLDivElement>(null);
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
  const renderedLights=useRef<VisionLight[]|null>(null);
- const draw=(lightOnly=false)=>{
+ const draw=()=>{
   if(!shade.current||!cover.current)return;
   const {vision,view,tilt,rotation,width,height}=state.current;
   const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
@@ -38,12 +38,13 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    }return bands.join('');
   }).join('');
   const mask=(shapes:string)=>`url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><defs><mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`)}")`;
-  if(!lightOnly)cover.current.style.maskImage=mask(circles);
+  // Lit islands remain visible beyond darkvision, without revealing the dark gap.
+  cover.current.style.maskImage=mask(circles+(vision.origins.length?lights:''));
   shade.current.style.maskImage=mask(lights);
   shade.current.style.backdropFilter=vision.heavy?'grayscale(1)':'none';
   shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?'grayscale(1)':'none');
  };
- useImperativeHandle(ref,()=>({lights(next){renderedLights.current=next;draw(true);},camera(next){state.current={...state.current,...next};draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});draw();}}),[]);
+ useImperativeHandle(ref,()=>({lights(next){renderedLights.current=next;draw();},camera(next){state.current={...state.current,...next};draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});draw();}}),[]);
  useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   draw();},[props]);
