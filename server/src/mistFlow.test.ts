@@ -43,10 +43,10 @@ describe('mist movement history',()=>{
     flow.tick(0);expect(flow.state.wakes).toBe(0);
     flow.dispose();
   });
-  it('parts mist along a narrow path without erasing it or creating a halo ahead',()=>{
+  it('opens the swept body space while leaving the uncontacted mist alone',()=>{
     const flow=field();walk(flow);
     expect(pixel(flow,300,350)[2]).toBeLessThan(245);
-    expect(pixel(flow,300,350)[2]).toBeGreaterThan(175); // preserve most density: displacement creates the gap
+    expect(pixel(flow,300,350)[2]).toBeLessThan(160); // a real density gap, not just coordinate wobble
     expect(pixel(flow,440,350)[2]).toBe(255);
     expect(pixel(flow,300,410)[2]).toBe(255);
     // Edge roll-up behind the walker does not disturb the mist ahead of it.
@@ -109,6 +109,13 @@ describe('mist movement history',()=>{
       flow.dispose();return displacement;
     };
     expect(measure(.03)).toBeGreaterThan(measure(.25)*1.3);
+  });
+  it('opens a deep gap immediately and refills it after the body has passed',()=>{
+    const flow=field();flow.setTokens([token(200)]);flow.tick(1.1);
+    flow.setTokens([token(215)]);flow.tick(1.18);
+    const fresh=pixel(flow,208,350)[2];expect(fresh).toBeLessThan(65);
+    flow.tick(3.4);expect(pixel(flow,208,350)[2]).toBeGreaterThan(fresh+90);
+    flow.tick(7.3);expect(pixel(flow,208,350)).toEqual([128,128,255,0]);flow.dispose();
   });
   it('clears hidden or disabled history and does not draw a trail across a teleport',()=>{
     const flow=field();walk(flow);expect(flow.state.wakes).toBeGreaterThan(0);

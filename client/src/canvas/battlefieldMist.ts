@@ -70,7 +70,8 @@ const densityField = /* glsl */`
     float billow = smoothstep(.51,.75,bank) * (1.0 - smoothstep(.28,.93,y));
     float clearing = mix(1.0,flow.b,bodyContact);
     float ambient = wisps * 1.5 + billow * .8;
-    float compressed = flow.a * bodyContact;
+    // Displaced banks must not refill the fresh body gap in the same sample.
+    float compressed = flow.a * bodyContact * smoothstep(.2,.85,flow.b);
     // Compress the existing noisy volume only. Adding density independently of
     // that volume made the wake look like bright lines drawn on top of the fog.
     return edge * smoothstep(0.0,.025,y) * ambient * (clearing + compressed * 1.35);

@@ -122,12 +122,13 @@ export function createMistFlow() {
           return (1-smooth(wake.front*.65,wake.front,along))*(1-smooth(edge*.7,edge,across));
         };
         // A bank travels outward first, carrying nearby noisy density with it.
-        // It then recedes as air rolls back into the trail. Opacity reduction is
-        // deliberately small; displacement and compression do the visible work.
+        // It then recedes as air rolls back into the trail. The swept body
+        // excludes density first; distortion alone cannot open space in dense mist.
         const returning=smooth(.25,5.5,age);
         // Contact pushes immediately; only the recovery evolves with trail age.
         const spread=wake.radius*.95*(1-returning*.55);
-        const halfWidth=spread*.7;
+        const refill=smooth(.45,3.8,age);
+        const halfWidth=wake.radius*(1-refill*.7);
         const extent=wake.length*.5+Math.max(wake.front,wake.radius*1.9);
         visit(wx,wy,extent,(i,x,y)=>{
           const touched=contact(x,y);if(touched<=0)return;
@@ -148,8 +149,9 @@ export function createMistFlow() {
           const along=px*wake.dx+py*wake.dy,across=px*nx+py*ny-meander;
           const end=Math.max(0,Math.abs(along)-wake.length*.5);
           const d=Math.hypot(across,end)/halfWidth;
-          const clearing=(1-smooth(.38,1,d))*fade*touched*(1-inflow*.55);
-          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.16)));
+          const clearing=(1-smooth(.55,1.15,d))*(1-refill)*touched;
+          // Reserve the swept body volume, then progressively return its density.
+          data[i+2]=Math.min(data[i+2],clamp(255*(1-clearing*.94)));
           const bank=Math.exp(-Math.pow((Math.abs(across)-spread)/(wake.radius*.45),2)
             -Math.pow(end/Math.max(wake.front,wake.radius*.8),2))*fade*touched;
           // Inverse texture displacement: first part the mist, then pull it back
@@ -165,7 +167,7 @@ export function createMistFlow() {
           if(weight>pushWeight[p]){
             pushWeight[p]=weight;pushX[p]=displacementX;pushY[p]=displacementY;
           }
-          data[i+3]=Math.max(data[i+3],clamp(bank*.45*255));
+          data[i+3]=Math.max(data[i+3],clamp(bank*.7*255));
           if(clearing>.001||bank>.001||weight>.001)heights[i/4]=Math.max(heights[i/4],encodedHeight);
         });
 

@@ -2108,3 +2108,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Mist body bounds exclude named base materials and plinth-height vertices; wake recovery uses irregular multi-frequency curl displacement of existing density, with reduced clearing and edge compression to avoid straight carved trails.
 
 - [x] Stronger smoke-like body wake: speed-scaled initial separation transitions into inward refill and forward entrainment, with increased irregular turbulence. Body/base exclusion, front-contact bounds, fog visibility and bounded history remain intact.
+
+- [x] Mist movement opens a temporary swept-body density gap instead of only warping the pattern. Displaced banks cannot cancel the fresh clearing; the gap narrows and refills over about four seconds while turbulent motion continues.
