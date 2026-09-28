@@ -1,3 +1,4 @@
+import {lightFalloffGlsl} from '../../../shared/lightFalloff';
 import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,Vector2,type Scene,type Texture} from 'three';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
@@ -14,11 +15,11 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
   for(const [index,tile] of tiles.entries()){
    const material=new ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,toneMapped:false,uniforms:{...visibility,...lights,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},art:{value:null},texel:{value:new Vector2(1/1024,1/1024)},gridSize:{value:settings.darkvisionGrid?.size??0},gridOffset:{value:new Vector2(settings.darkvisionGrid?.x??0,settings.darkvisionGrid?.y??0)}},
     vertexShader:`varying vec2 artUv;varying vec3 world;void main(){artUv=uv;world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(world,1.);}`,
-    fragmentShader:`${environmentVisibilityGlsl}${torchFieldGlsl}
+    fragmentShader:`${environmentVisibilityGlsl}${torchFieldGlsl}${lightFalloffGlsl}
      uniform sampler2D art,figureDepth;uniform vec2 texel,resolution,gridOffset;uniform float gridSize;varying vec2 artUv;varying vec3 world;
      float lum(vec2 p){return dot(texture2D(art,p).rgb,vec3(.2126,.7152,.0722));}
      void main(){if(environmentVisible(world.xz)<.5||texture2D(figureDepth,gl_FragCoord.xy/resolution).r<.999999)discard;
-      vec3 illumination=torchIllumination(world.xz);float unlit=exp(-max(illumination.r,max(illumination.g,illumination.b)));
+      vec3 illumination=torchIllumination(world.xz);float unlit=1.-lightColorCoverage(max(illumination.r,max(illumination.g,illumination.b)));
       vec2 stepUv=max(texel*2.,fwidth(artUv)*1.5);float l=lum(artUv);
       float edge=length(vec2(lum(artUv+vec2(stepUv.x,0.))-lum(artUv-vec2(stepUv.x,0.)),lum(artUv+vec2(0.,stepUv.y))-lum(artUv-vec2(0.,stepUv.y))));
       float detail=smoothstep(.025,.22,edge)*.20+smoothstep(.35,.85,l)*.13;

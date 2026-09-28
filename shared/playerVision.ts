@@ -1,10 +1,10 @@
-import {lightIrradiance} from './lightFalloff.js';
+import {lightIrradiance,lightColorCoverage} from './lightFalloff.js';
 import type {MapState,Token} from './types.js';
 export type VisionPoint={id:string;x:number;y:number};
 export type VisionLight=VisionPoint&{radius:number;height:number;strength:number};
 /** Same ground irradiance and coverage as battlefieldLighting torch-field shader. */
 export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'height'|'strength'>){
- return 1-Math.exp(-lightIrradiance(Math.hypot(distance,light.height),light.radius,light.strength));
+ return lightColorCoverage(lightIrradiance(Math.hypot(distance,light.height),light.radius,light.strength));
 }
 export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionPoint[];lights:VisionLight[]};
 /** Campaign rule: both dungeon darkness levels have a hard personal 60-foot horizon. */

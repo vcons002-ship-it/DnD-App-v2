@@ -12,6 +12,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Personal darkvision - September 2026
 
+- [x] Fully remove grayscale and pale detail overlays in illuminated light pools,
+  using one shared smooth coverage curve across map and miniature rendering.
+
 - [x] Read original map/miniature colors for faint Darkvision detail; preserve a
   legible calibrated grid above darkness and beneath figures.
 

@@ -1,3 +1,4 @@
+import {lightColorCoverage} from '../../shared/lightFalloff.js';
 import {db} from './db.js';
 import {describe,it,expect} from 'vitest';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,moveToken,setTokenHidden,setFogLayer,setFogRevealed} from './sessions.js';
@@ -8,13 +9,22 @@ describe('personal dungeon vision',()=>{
  it('color reveal fades with physical light attenuation instead of a hard radius',()=>{
   const lamp={radius:100,height:14,strength:.85};
   expect(lightCoverage(0,lamp)).toBeGreaterThan(.90);
-  expect(lightCoverage(60,lamp)).toBeGreaterThan(lightCoverage(90,lamp));
+  expect(lightCoverage(60,lamp)).toBe(1);
+  expect(lightCoverage(100,lamp)).toBe(1);
+  expect(lightCoverage(125,lamp)).toBeLessThan(1);
   expect(lightCoverage(90,lamp)).toBeGreaterThan(0);
   expect(lightCoverage(100,lamp)).toBeGreaterThan(.70);
   expect(lightCoverage(125,lamp)).toBeGreaterThan(0);
   expect(lightCoverage(150,lamp)).toBe(0);
   expect(lightCoverage(60,{...lamp,strength:0})).toBe(0);
-  expect(lightCoverage(60,{...lamp,strength:1.5})).toBeGreaterThan(lightCoverage(60,lamp));
+  expect(lightCoverage(125,{...lamp,strength:1.5})).toBeGreaterThan(lightCoverage(125,lamp));
+ });
+ it('removes every grayscale/detail contribution at useful illumination while retaining a soft edge',()=>{
+  expect(lightColorCoverage(0)).toBe(0);
+  expect(lightColorCoverage(.05)).toBe(0);
+  expect(lightColorCoverage(.575)).toBeCloseTo(.5);
+  expect(lightColorCoverage(1.1)).toBe(1);
+  expect(lightColorCoverage(3)).toBe(1);
  });
  function setup(){
   const s=createSession('Personal vision'),map=createMap(s.id,{name:'Dark dungeon'});

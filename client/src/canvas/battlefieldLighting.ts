@@ -34,14 +34,14 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const uniforms={...visibility,...fieldUniforms,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},gradeColor:{value:new Color()},gradeOpacity:{value:0},sceneTint:{value:new Color(0xffffff)},sceneTintStrength:{value:0},wetness:{value:0},surfaceTime:{value:0},surfaceScale:{value:12.8},wetLight:{value:1}};
   const material=new ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,toneMapped:false,uniforms,
     vertexShader:`varying vec3 world;void main(){world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(world,1.);}`,
-    fragmentShader:`${environmentVisibilityGlsl}${torchFieldGlsl}
+    fragmentShader:`${environmentVisibilityGlsl}${torchFieldGlsl}${lightFalloffGlsl}
       varying vec3 world;uniform sampler2D figureDepth;uniform vec2 resolution;uniform vec3 gradeColor;uniform float gradeOpacity;
       uniform float wetness,surfaceTime,surfaceScale,wetLight,sceneTintStrength;uniform vec3 sceneTint;
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
       void main(){if(environmentVisible(world.xz)<.5||texture2D(figureDepth,gl_FragCoord.xy/resolution).r<.999999)discard;
         vec3 illumination=torchIllumination(world.xz);float strength=max(illumination.r,max(illumination.g,illumination.b));
-        float coverage=1.-exp(-strength);vec3 tint=illumination/max(.001,strength);
+        float coverage=lightColorCoverage(strength);vec3 tint=illumination/max(.001,strength);
         float alpha=mix(gradeOpacity,.10,coverage);vec3 color=mix(gradeColor,tint*.30,coverage);
         float tintAlpha=sceneTintStrength*(1.-coverage*.75);
         float tintedAlpha=alpha+tintAlpha*(1.-alpha);

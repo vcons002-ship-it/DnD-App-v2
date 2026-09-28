@@ -79,3 +79,12 @@ and hidden flag, and is drawn above the darkness but masked behind 3D figures.
 Miniatures derive faint grayscale highlights from their original diffuse color
 and view-facing contour. Both fade under local light. Uniform dark terrain stays
 dark; the existing final 60-foot visibility mask remains authoritative visually.
+
+## Lit-area color preservation
+
+The old exponential light mask never reached full coverage, leaving grayscale
+and pale terrain detail over illuminated surfaces. Ground grading, the personal
+color mask, terrain/grid detail and miniature detail now share a smooth coverage
+curve that reaches exactly 1 at useful illumination. This fully removes the
+Darkvision veil in the lit core, with a smooth transition only at the dim fringe.
+Ambient lighting outside the pool still differs between regular/heavy darkness.

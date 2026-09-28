@@ -35,10 +35,10 @@ export function createMiniatureTorchLighting(){
         float sourceLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
         float contour=pow(1.-abs(dot(normalize(normal),normalize(vViewPosition))),3.);
         float detail=smoothstep(.2,.8,sourceLuma)*.020+contour*.018;
-        outgoingLight+=vec3(detail*darkvisionDetail*exp(-darkvisionLight));
+        outgoingLight+=vec3(detail*darkvisionDetail*(1.-lightColorCoverage(darkvisionLight)));
         #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v4';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v5';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];

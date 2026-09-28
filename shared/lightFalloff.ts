@@ -6,8 +6,14 @@ export function lightIrradiance(distance:number,radius:number,strength:number){
  const t=Math.min(1,Math.max(0,(q-1)/.5));
  return 3*strength/(1+q*q)*(1-t*t*(3-2*t));
 }
+/** Fully lit surfaces must have no residual grayscale/detail veil. */
+export function lightColorCoverage(irradiance:number){
+ const t=Math.min(1,Math.max(0,(irradiance-.05)/1.05));
+ return t*t*(3-2*t);
+}
 /** Kept together with the CPU function for ground, figures and vision masks. */
 export const lightFalloffGlsl=`
+ float lightColorCoverage(float irradiance){return smoothstep(.05,1.1,irradiance);}
  float lightIrradiance(float distance,float radius,float strength){
   float q=max(0.,distance)/max(.001,radius);
   return 3.*strength/(1.+q*q)*(1.-smoothstep(1.,1.5,q));
