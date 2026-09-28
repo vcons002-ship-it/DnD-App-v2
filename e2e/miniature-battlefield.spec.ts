@@ -40,7 +40,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await enter(player,f.code);
     const layer=player.getByTestId('miniature-layer');
     await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
-    // A carried torch works without enabling a map environment, and is shared.
+    // A carried lantern works without enabling a map environment, and is shared.
     await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
     await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
     await expect(dmLayer).toHaveAttribute('data-carried-lantern-count','1');
@@ -52,6 +52,10 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
     await expect(layer).toHaveAttribute('data-mist-visible','true');
     await page.getByLabel('Lighting preset',{exact:true}).selectOption('dungeon');
+    await page.getByLabel('Heavy darkness',{exact:true}).click();
+    await expect(layer).toHaveAttribute('data-darkness','heavy');
+    await expect(dmLayer).toHaveAttribute('data-darkness','heavy');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.heavyDarkness).toBe(true);
     await page.getByLabel('Weather',{exact:true}).selectOption('rain');
     await expect(layer).toHaveAttribute('data-lighting','dungeon');
     await expect(layer).toHaveAttribute('data-weather','rain');
@@ -72,6 +76,15 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(layer).toHaveAttribute('data-light-count','1');
     await expect(layer).toHaveAttribute('data-visible-torch-count','1');
     await page.locator('.environment-light-list summary').click();
+    await page.getByLabel('Light 1 model',{exact:true}).selectOption('lantern');
+    await expect(layer).toHaveAttribute('data-placed-lantern-count','1');
+    await expect(layer).toHaveAttribute('data-visible-torch-count','0');
+    await page.screenshot({path:info.outputPath('dungeon-darkness-dm-controls.png')});
+    await page.getByLabel('Show 3D lantern',{exact:true}).click();
+    await expect(layer).toHaveAttribute('data-placed-lantern-count','0');
+    await expect(layer).toHaveAttribute('data-light-count','1');
+    await page.getByLabel('Show 3D lantern',{exact:true}).click();
+    await page.getByLabel('Light 1 model',{exact:true}).selectOption('torch');
     await page.getByLabel('Show 3D torch',{exact:true}).click();
     await expect(layer).toHaveAttribute('data-visible-torch-count','0');
     await expect(layer).toHaveAttribute('data-light-count','1');
@@ -138,8 +151,12 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
     await player.reload();await expect(layer).toHaveAttribute('data-mist-quality','low',{timeout:60000});
     await expect(layer).toHaveAttribute('data-weather','snow');
+    await expect(layer).toHaveAttribute('data-darkness','heavy');
     await expect(layer).toHaveAttribute('data-light-count','1');
     await page.reload();await expect(dmLayer).toHaveAttribute('data-mist-visible','true',{timeout:60000});
+    await expect(dmLayer).toHaveAttribute('data-darkness','heavy');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:false}});
+    await expect(layer).toHaveAttribute('data-darkness','normal');
     f.socket.emit('mapImage:add',{mapId:f.mapId,imagePath:f.ready.map!.imagePath!,x:-300,y:-150,w:300,h:300});
     await expect.poll(async()=>(await f.snapshot()).mapImages.length).toBe(1);
     await expect(layer).toHaveAttribute('data-environment-bounds','[-300,-150,1516,982]');

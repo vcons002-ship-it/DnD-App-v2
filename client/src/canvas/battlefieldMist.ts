@@ -247,7 +247,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
       const wind=(settings.windDirectionDegrees??20)*Math.PI/180,windSpeed=(settings.windStrength??.4)*25;
       common.mistWind.value.set(Math.cos(wind)*windSpeed,Math.sin(wind)*windSpeed);
       const tint=settings.lighting==='night'?[.25,.35,.55]:settings.lighting==='dungeon'?[.25,.23,.3]:settings.lighting==='dusk'?[.8,.61,.6]:[1,1,1];
-      common.mistTint.value.fromArray(tint).multiplyScalar(settings.lightLevel??1);
+      common.mistTint.value.fromArray(tint).multiplyScalar((settings.lightLevel??1)*(settings.heavyDarkness?.10:1));
       common.mistStrength.value=visible?Math.max(0,Math.min(.7,settings.mistOpacity??.28)):0;
       common.mistMapSize.value.set(settings.mapWidth,settings.mapHeight);
       common.mistOrigin.value.set(ox,oy);

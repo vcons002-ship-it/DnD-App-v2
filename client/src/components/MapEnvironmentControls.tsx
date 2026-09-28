@@ -31,7 +31,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
   const save=useStore(s=>s.setMapEnvironment);
   const {placement,place}=useEnvironmentEditor();
   const update=(patch:Partial<MapEnvironment>)=>save(map.id,patch);
-  const toggle=(key:'enabled'|'shadows'|'mist'|'mistShadows'|'mistInteraction',label:string)=><label className="environment-toggle">
+  const toggle=(key:'enabled'|'heavyDarkness'|'shadows'|'mist'|'mistShadows'|'mistInteraction',label:string)=><label className="environment-toggle">
     <input type="checkbox" checked={settings[key]} onChange={e=>update({[key]:e.target.checked})}/>{label}
   </label>;
   return <details className="map-environment-controls" key={map.id}>
@@ -44,6 +44,8 @@ export function MapEnvironmentControls({map}:{map:MapState}){
           <option value="day">Day</option><option value="dusk">Dusk</option><option value="night">Night</option><option value="dungeon">Dungeon</option>
         </select></label>
         <SettingSlider label="Ambient light" value={settings.lightLevel*100} min={10} max={100} suffix="%" onCommit={v=>update({lightLevel:v/100})}/>
+        {toggle('heavyDarkness','Heavy darkness')}
+        <small>Dims ambient light and mist. Torches and lanterns keep their brightness.</small>
         <small>Lighting is visual; fog controls visibility. Painted walls do not block these lights.</small>
         <div className="environment-light-list">{settings.lights.map((light,index)=>{
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});
@@ -53,7 +55,8 @@ export function MapEnvironmentControls({map}:{map:MapState}){
             <SettingSlider label={`Light ${index+1} height`} value={light.heightFt} min={.5} max={30} step={.5} suffix=" ft" onCommit={v=>edit({heightFt:v})}/>
             <SettingSlider label={`Light ${index+1} strength`} value={light.intensity*100} min={10} max={200} suffix="%" onCommit={v=>edit({intensity:v/100})}/>
             <label className="environment-toggle"><input type="checkbox" checked={light.flicker} onChange={e=>edit({flicker:e.target.checked})}/>Gentle flicker</label>
-            <label className="environment-toggle"><input type="checkbox" checked={!!light.visibleTorch} onChange={e=>edit({visibleTorch:e.target.checked})}/>Show 3D torch</label>
+            <label>Model <select aria-label={`Light ${index+1} model`} value={light.fixture??'torch'} onChange={e=>edit({fixture:e.target.value as 'torch'|'lantern'})}><option value="torch">Torch</option><option value="lantern">Lantern</option></select></label>
+            <label className="environment-toggle"><input type="checkbox" checked={!!light.visibleTorch} onChange={e=>edit({visibleTorch:e.target.checked})}/>Show 3D {light.fixture==='lantern'?'lantern':'torch'}</label>
             <button onClick={()=>place({mapId:map.id,lightId:light.id})}>Move light {index+1}</button>
             <button onClick={()=>{update({lights:settings.lights.filter(l=>l.id!==light.id)});place(null);}}>Remove light {index+1}</button>
           </details>;

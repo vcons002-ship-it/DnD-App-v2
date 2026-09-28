@@ -101,19 +101,19 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     time=seconds;if(!settings)return;
     const ppf=settings.pixelsPerFoot??12.8;
     const sources=[...(settings.lights??[]).map(l=>({...l,height:l.heightFt*ppf,carried:false,facing:0})),
-      ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:true,visibleTorch:false,carried:true}))];
+      ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:true,visibleTorch:false,fixture:'lantern' as const,carried:true}))];
     lights=plane.visible?sources.map(source=>{
       const seed=phase(source.id),f=Math.sin(time*6.3+seed)*.10+Math.sin(time*11.1+seed*3)*.06+Math.sin(time*2.7+seed)*.08;
       const color=colors[source.color];
       return {id:source.id,x:source.x,y:source.y,height:source.height,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
-        strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,carried:source.carried,facing:source.facing};
+        strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing};
     }):[];
     ensureCapacity(lights.length);let visible=0,lanterns=0;
     lights.forEach((light,i)=>{
       sourceAttribute.setXYZW(i,light.x,light.height,light.y,light.radius);
       radianceAttribute.setXYZW(i,light.color.x,light.color.y,light.color.z,light.strength);
-      if(light.carried){
-        const size=ppf*.8,angle=light.facing??0,c=Math.cos(angle),s=Math.sin(angle);
+      if(light.carried||(light.visibleTorch&&light.fixture==='lantern')){
+        const size=ppf*(light.carried?.8:1.2),angle=light.facing??0,c=Math.cos(angle),s=Math.sin(angle);
         const part=(mesh:InstancedMesh,index:number,x:number,y:number,z:number,w:number,h:number,d:number)=>{
           matrix.makeRotationY(angle).scale(new Vector3(w*size,h*size,d*size));
           matrix.setPosition(light.x+(x*c+z*s)*size,light.height+y*size,light.y+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
@@ -143,18 +143,18 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   };
   return {fieldUniforms,update(next:EnvironmentPreviewSettings){
     settings=next;const enabled=next.enabled&&next.mistQuality!=='off',preset=palettes[next.lighting??'day'];
-    const level=next.lightLevel??1;
+    const level=(next.lightLevel??1)*(next.heavyDarkness?.10:1);
     plane.visible=enabled;plane.position.set((next.mapX??0)+next.mapWidth/2,.004,(next.mapY??0)+next.mapHeight/2);plane.scale.set(next.mapWidth,next.mapHeight,1);
     fieldUniforms.torchBounds.value.set(next.mapX??0,next.mapY??0,next.mapWidth,next.mapHeight);
     const maxSize=next.mistQuality==='low'?512:1024,ratio=next.mapWidth/next.mapHeight;
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
-    uniforms.gradeColor.value.set(preset.color);uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
+    uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
     if(enabled){key.intensity=preset.key*level;key.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);if(ambient)ambient.intensity=preset.ambient*level;scene.environmentIntensity=preset.reflection*level;}
     else restore();tick(time);
   },tick,setCarried(next:CarriedLanternLight[]){carried=next;},get lights(){return lights;},
     renderField(renderer:WebGLRenderer){const previous=renderer.getRenderTarget();renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);renderer.setRenderTarget(previous);},
     get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker));},
-    get state(){return {lighting:plane.visible?settings.lighting??'day':'off',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch).length,carriedLanternCount:carried.length,
+    get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
       carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height})))};},
     dispose(){scene.remove(plane);plane.geometry.dispose();material.dispose();for(const mesh of [shafts,cups,flames,frames,windows,handles])if(mesh){scene.remove(mesh);mesh.dispose();}
       shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();fieldMaterial.dispose();restore();},

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 // A separate static lab: no app server, save file or campaign connection.
 const out=path.resolve(process.argv[2]);await mkdir(out,{recursive:true});
+const dungeonStudy=process.argv.includes('--dungeon');
 const weatherStudy=process.argv.includes('--weather');
 const torchStudy=process.argv.includes('--torches');
 const root=path.resolve('client/environment-dist');
@@ -30,10 +31,10 @@ page.on('pageerror',e=>errors.push(e.message));
 page.on('console',m=>{if(m.type()==='error'&&/shader|WebGLProgram/i.test(m.text()))errors.push(m.text());});
 let box;
 try{
-  await page.goto('http://127.0.0.1:4198/environment-test.html'+(torchStudy?'?torches=1':weatherStudy?'?atmosphere=1':''));
+  await page.goto('http://127.0.0.1:4198/environment-test.html'+(dungeonStudy?'?dungeon=1':torchStudy?'?torches=1':weatherStudy?'?atmosphere=1':''));
   await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]')?.dataset.miniatureCount==='7');
   await page.getByRole('button',{name:'Close-up',exact:true}).click();await page.waitForTimeout(800);
-  if(!weatherStudy&&!torchStudy){await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);}
+  if(!weatherStudy&&!torchStudy&&!dungeonStudy){await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.waitForTimeout(800);}
   box=await page.getByTestId('environment-stage').boundingBox();
   await page.evaluate(()=>{
     const marker=document.createElement('div');marker.id='record-start-marker';marker.style.cssText='position:fixed;left:0;top:0;width:8px;height:8px;background:#ff00ff;z-index:9999';document.body.append(marker);
@@ -45,7 +46,43 @@ try{
     if(weatherStudy&&text.startsWith('Torches off'))await page.locator('#record-start-marker').evaluate(e=>e.style.background='#00ffff');
     await page.mouse.move(1410,945);
   };
-  if(torchStudy){
+  if(dungeonStudy){
+    const diagnostics=()=>page.getByTestId('miniature-layer').evaluate(e=>({...e.dataset}));
+    await caption('Castle basement - normal darkness - light floor mist');
+    await page.waitForTimeout(2500);
+    await page.screenshot({path:path.join(out,'dungeon-normal.png')});
+    assert.equal((await diagnostics()).carriedLanternCount,'3');
+    assert.equal((await diagnostics()).placedLanternCount,'3');
+    await page.getByRole('button',{name:'Heavy darkness',exact:true}).click();
+    await caption('Heavy darkness - the same lanterns at the same brightness');
+    await page.waitForTimeout(2500);
+    assert.equal((await diagnostics()).darkness,'heavy');
+    await page.screenshot({path:path.join(out,'dungeon-heavy.png')});
+    await page.getByRole('button',{name:'Heavy darkness',exact:true}).click();
+    await page.getByRole('button',{name:'Party view',exact:true}).click();await page.waitForTimeout(800);
+    await caption('Normal darkness - the party moves through the dungeon');
+    await page.getByRole('button',{name:'Move party',exact:true}).click();
+    await page.waitForTimeout(9000);
+    phases.push({text:'Normal movement',data:await diagnostics()});
+    await page.screenshot({path:path.join(out,'dungeon-normal-movement.png')});
+    await page.getByRole('button',{name:'Heavy darkness',exact:true}).click();
+    await caption('Heavy darkness - hip lanterns light the way back');
+    await page.getByRole('button',{name:'Move party',exact:true}).click();
+    await page.waitForTimeout(4500);
+    await page.screenshot({path:path.join(out,'dungeon-heavy-movement.png')});
+    await page.waitForTimeout(4500);
+    phases.push({text:'Heavy movement',data:await diagnostics()});
+    await page.getByRole('button',{name:'Heavy darkness',exact:true}).click();
+    await caption('Small lanterns sit at the side of the hip');
+    await page.getByRole('button',{name:'Lantern close-up',exact:true}).click();
+    await page.waitForTimeout(3000);
+    await page.screenshot({path:path.join(out,'hip-lantern-closeup.png')});
+    await page.getByRole('button',{name:'Reset view',exact:true}).click();
+    await caption('Full dungeon - three occasional floor lanterns');
+    await page.waitForTimeout(3000);
+    await page.screenshot({path:path.join(out,'dungeon-full.png')});
+    phases.push({text:'Dungeon diagnostics',data:await diagnostics()});
+  }else if(torchStudy){
     await caption('Night - maximum mist strength - 10 ft mist height');
     await page.waitForTimeout(2800);await page.screenshot({path:path.join(out,'night-three-torches.png')});
     await caption('The 3D torch can be hidden while its light stays on');
@@ -125,7 +162,7 @@ const source=await page.video().path();
 const pixels=execFileSync(ffmpeg,['-v','error','-i',source,'-vf','fps=25,crop=2:2:2:2,format=rgb24','-f','rawvideo','pipe:1']);
 let frame=0;for(;frame<pixels.length/12;frame++)if(pixels[frame*12]>210&&pixels[frame*12+1]<40&&pixels[frame*12+2]>210)break;
 assert(frame<pixels.length/12,'Recording start marker missing');
-const start=frame/25,video=path.join(out,torchStudy?'torches-and-lanterns.mp4':weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
+const start=frame/25,video=path.join(out,dungeonStudy?'dungeon-lanterns.mp4':torchStudy?'torches-and-lanterns.mp4':weatherStudy?'weather-lighting.mp4':'mist-orbit.mp4');
 const crop=`crop=${Math.floor(box.width/2)*2}:${Math.floor(box.height/2)*2}:${Math.floor(box.x/2)*2}:${Math.floor(box.y/2)*2}`;
 execFileSync(ffmpeg,['-y','-v','error','-ss',String(start),'-i',source,'-vf',crop,'-c:v','libx264','-preset','fast','-crf','19','-pix_fmt','yuv420p','-an','-movflags','+faststart',video],{windowsHide:true});
 execFileSync(ffmpeg,['-y','-v','error','-ss','3','-i',video,'-frames:v','1',path.join(out,'poster.png')],{windowsHide:true});

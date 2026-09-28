@@ -6,9 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Placed torches and carried lanterns - September 2026
 
+- [x] Move carried lanterns to the hip, add saved Heavy darkness and a placed
+  lantern model choice, and record the Castle Basement with light floor mist
+  and party movement in normal/heavy darkness. See
+  [dungeon preview and verification](docs/DUNGEON_LANTERNS_2026_09_27.md).
 - [x] Optional visible 3D torches on placed map lights, without a placement count cap.
 - [x] Player Lantern on/off control and DM token override. Small lanterns attach
-  at the front of the waist, move and turn with the figure, and light nearby
+  at the hip, move and turn with the figure, and light nearby
   figures, ground and mist. Preserve fog, ownership, 2D view and save behavior.
 - [x] Night demonstration with maximum mist height/density, three/twelve placed
   torches, waist lanterns, party movement, rotation and overhead comparison.

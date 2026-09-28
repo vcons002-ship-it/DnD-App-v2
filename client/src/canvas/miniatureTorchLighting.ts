@@ -1,7 +1,7 @@
 import {Box3, Mesh, MeshStandardMaterial, Vector3, Vector4, type Camera, type Group, type Material, type Object3D} from 'three';
 import type {MiniatureDefinition} from '../lib/miniatures';
 
-export type TorchLight = {id:string;x:number;y:number;height:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;carried?:boolean;facing?:number};
+export type TorchLight = {id:string;x:number;y:number;height:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(){
@@ -45,13 +45,13 @@ export function createMiniatureTorchLighting(){
   }};
 }
 
-/** Locate the belt's front surface from body geometry, before adding outline shells. */
+/** Sample the side of the belt, before adding outline shells or accessories. */
 export function measureLanternAnchor(model:Group,definition:MiniatureDefinition){
   model.updateMatrixWorld(true);
   let body:Object3D|undefined;
   model.traverse(node=>{if(!body && /body/i.test(node.name))body=node;});
   const d=definition.baseDiameter,base=new Vector3().fromArray(definition.baseCenter);
-  if(!body)return new Vector3(-d*.08,d*.75,d*.22);
+  if(!body)return new Vector3(-d*.28,d*.75,d*.10);
   const bounds=new Box3().setFromObject(body),height=bounds.max.y-bounds.min.y;
   const waist=bounds.min.y+height*.52,point=new Vector3(),samples:Vector3[]=[];
   body.traverse(node=>{
@@ -62,10 +62,12 @@ export function measureLanternAnchor(model:Group,definition:MiniatureDefinition)
     const stride=Math.max(1,Math.ceil((end-start)/20000));
     for(let i=start;i<end;i+=stride){
       point.fromBufferAttribute(positions,index?index.getX(i):i).applyMatrix4(node.matrixWorld);
-      if(Math.abs(point.y-waist)<d*.045 && Math.abs(point.x-base.x)<d*.19)samples.push(point.clone());
+      if(Math.abs(point.y-waist)<d*.045 && Math.abs(point.x-base.x)<d*.4)samples.push(point.clone());
     }
   });
-  const x=base.x-d*.07;
-  const front=samples.filter(p=>Math.abs(p.x-x)<d*.09).map(p=>p.z).sort((a,b)=>a-b);
-  return new Vector3(x,waist,front.length?front[Math.floor((front.length-1)*.96)]:base.z+d*.22).sub(base);
+  const xs=samples.map(p=>p.x).sort((a,b)=>a-b);
+  const x=xs.length?xs[Math.floor((xs.length-1)*.05)]:base.x-d*.28;
+  const side=samples.filter(p=>p.x<=x+d*.065).map(p=>p.z).sort((a,b)=>a-b);
+  // A slightly forward-facing hip position stays clear of the belt's center.
+  return new Vector3(x,waist,side.length?side[Math.floor((side.length-1)*.68)]:base.z+d*.10).sub(base);
 }

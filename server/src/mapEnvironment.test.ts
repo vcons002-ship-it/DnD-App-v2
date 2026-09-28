@@ -41,12 +41,13 @@ describe('saved map environment',()=>{
   });
   it('bounds weather and local lights while preserving invalid partial fields',()=>{
     const light={id:'torch',x:75,y:25,radiusFt:500,heightFt:-1,color:'warm',intensity:8,flicker:true};
-    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,lights:[light,light,{id:'broken',x:NaN,y:0}]});
-    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0});
+    const result=sanitizeMapEnvironment({lighting:'night',weather:'rain',weatherIntensity:4,windDirectionDegrees:-40,windStrength:-1,heavyDarkness:true,lights:[light,light,{id:'broken',x:NaN,y:0}]});
+    expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0,heavyDarkness:true});
     expect(result.lights).toEqual([{...light,radiusFt:60,heightFt:.5,intensity:2}]);
-    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad'},result)).toEqual(result);
+    expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad',heavyDarkness:'false'},result)).toEqual(result);
     expect(sanitizeMapEnvironment({lights:Array.from({length:20},(_,i)=>({...light,id:String(i)}))}).lights).toHaveLength(20);
-    expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:true}]}).lights[0].visibleTorch).toBe(true);
+    expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:true,fixture:'lantern'}]}).lights[0]).toMatchObject({visibleTorch:true,fixture:'lantern'});
+    expect(sanitizeMapEnvironment({lights:[{...light,fixture:'invalid'}]}).lights[0].fixture).toBeUndefined();
     expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:'true'}]}).lights[0].visibleTorch).toBeUndefined();
   });
   it('shares carried lanterns, enforces ownership, and retains them through movement and save import',()=>{
@@ -90,7 +91,7 @@ describe('saved map environment',()=>{
   it('shares active-map settings, keeps staged maps separate, and round-trips saves',()=>{
     const session=createSession('Environment saves'),active=createMap(session.id,{name:'Active'}),staged=createMap(session.id,{name:'Prep'});
     setActiveMap(session.id,active.id);
-    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',weather:'snow',windStrength:.6,lights:[{id:'lamp',x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
+    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',windStrength:.6,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
     updateMapEnvironment(session.id,staged.id,{mist:false,shadowDirectionDegrees:270});
     expect(buildSnapshot(session.id,'player',staged.id,'viewer')!.map!.environment).toEqual(getMap(active.id)!.environment);
     expect(buildSnapshot(session.id,'dm',staged.id)!.map!.environment).toEqual(getMap(staged.id)!.environment);

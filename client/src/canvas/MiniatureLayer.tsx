@@ -313,9 +313,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           if(!(props.isVisibleAt?.(token.id,x,y)??true))return [];
           if(instance){
             const belt=instance.root.localToWorld(instance.lanternAnchor.clone()),facing=instance.root.rotation.y;
-            return [{id:token.id,x:belt.x+Math.sin(facing)*ppf*.24,y:belt.z+Math.cos(facing)*ppf*.24,height:belt.y-ppf*.52,facing}];
+            return [{id:token.id,x:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,y:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:belt.y-ppf*.52,facing}];
           }
-          const facing=move?.facing??token.facing,dx=-token.diameter*.07,dz=token.diameter*.22;
+          const facing=move?.facing??token.facing,dx=-token.diameter*.30,dz=token.diameter*.10;
           return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*2.8,facing}];
         }));
         battlefield.tick(reducedMotion.matches?0:seconds);

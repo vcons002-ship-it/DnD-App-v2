@@ -7,22 +7,29 @@ import {groundYScale,projectGround,unprojectGround,screenToMap,type BattlefieldV
 import {facingAfterMove} from '../../../shared/tokenFacing';
 import './preview.css';
 
-const mapWidth=1216,mapHeight=832;
-const pixelsPerFoot=64/5;
-const torchStudy=new URLSearchParams(location.search).has('torches');
+const dungeonStudy=new URLSearchParams(location.search).has('dungeon');
+const mapWidth=dungeonStudy?1402:1216,mapHeight=dungeonStudy?1122:832;
+const pixelsPerFoot=dungeonStudy?5:64/5;
+const torchStudy=dungeonStudy||new URLSearchParams(location.search).has('torches');
 const atmosphereStudy=torchStudy||new URLSearchParams(location.search).has('atmosphere');
 const testLights:NonNullable<EnvironmentPreviewSettings['lights']>=[
   {id:'brazier-west',x:480,y:520,radiusFt:17,heightFt:5,color:'warm',intensity:1,flicker:true,visibleTorch:true},
   {id:'lantern-east',x:750,y:485,radiusFt:16,heightFt:6,color:'warm',intensity:1,flicker:true,visibleTorch:true},
   {id:'arcane-north',x:610,y:285,radiusFt:12,heightFt:4,color:'cool',intensity:.9,flicker:false,visibleTorch:true},
 ];
+const dungeonLights:NonNullable<EnvironmentPreviewSettings['lights']>=[
+  {id:'store-lantern',x:430,y:370,radiusFt:13,heightFt:.55,color:'warm',intensity:.8,flicker:true,visibleTorch:true,fixture:'lantern'},
+  {id:'hall-lantern',x:820,y:490,radiusFt:14,heightFt:.55,color:'warm',intensity:.85,flicker:true,visibleTorch:true,fixture:'lantern'},
+  {id:'stair-lantern',x:905,y:775,radiusFt:12,heightFt:.55,color:'warm',intensity:.8,flicker:true,visibleTorch:true,fixture:'lantern'},
+];
+const sceneLights=dungeonStudy?dungeonLights:testLights;
 const manyLights=Array.from({length:12},(_,i)=>({id:`torch-${i}`,x:320+(i%4)*180,y:200+Math.floor(i/4)*210,radiusFt:12,heightFt:5,color:'warm' as const,intensity:.85,flicker:true,visibleTorch:true}));
 const asset=(url:string)=>new URL('.'+url,location.href).href;
 const miniature=(id:string)=>{
   const source=MINIATURES[id];
   return {...source,url:asset(source.url),baseTextureUrl:source.baseTextureUrl?asset(source.baseTextureUrl):undefined,fxUrl:source.fxUrl?asset(source.fxUrl):undefined};
 };
-const originalTokens:MiniatureToken[]=[
+const courtyardTokens:MiniatureToken[]=[
   {id:'druk',x:470,y:460,diameter:61,hidden:false,facing:Math.PI*.92,outline:'#70ae77',definition:miniature('druk')},
   {id:'varis',x:580,y:495,diameter:54,hidden:false,facing:Math.PI,outline:'#70ae77',definition:miniature('varis')},
   {id:'vanec',x:720,y:450,diameter:53,hidden:false,facing:Math.PI*1.13,outline:'#70ae77',definition:miniature('vanec')},
@@ -31,12 +38,14 @@ const originalTokens:MiniatureToken[]=[
   {id:'goblin-b',x:585,y:285,diameter:42,hidden:false,facing:-.2,outline:'#c96654',definition:miniature('goblin-helmet')},
   {id:'wolf',x:810,y:386,diameter:43,hidden:false,facing:Math.PI*.3,outline:'#c96654',definition:miniature('wolf')},
 ];
+const dungeonPositions=[{x:520,y:530},{x:465,y:530},{x:410,y:530},{x:740,y:700},{x:470,y:315},{x:1180,y:710},{x:1100,y:285}];
+const originalTokens=dungeonStudy?courtyardTokens.map((token,i)=>({...token,...dungeonPositions[i],diameter:token.diameter*5/12.8,facing:Math.PI/2,carriedLantern:i<3})):courtyardTokens;
 type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const initialSettings:EnvironmentPreviewSettings={
-  enabled:true,mapUrl:new URL('./courtyard.png',location.href).href,mapWidth,mapHeight,
-  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:torchStudy?.7:atmosphereStudy?.22:.5,
-  pixelsPerFoot,lighting:torchStudy?'night':'day',lightLevel:1,weather:'none',weatherIntensity:.75,windDirectionDegrees:20,windStrength:.4,lights:torchStudy?testLights:[],
-  mistCoverage:'map',mistHeight:(torchStudy?10:2)*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
+  enabled:true,mapUrl:new URL(dungeonStudy?'./dungeon.png':'./courtyard.png',location.href).href,mapWidth,mapHeight,
+  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:dungeonStudy?.08:torchStudy?.7:atmosphereStudy?.22:.5,
+  pixelsPerFoot,lighting:dungeonStudy?'dungeon':torchStudy?'night':'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.75,windDirectionDegrees:20,windStrength:dungeonStudy?.15:.4,lights:torchStudy?sceneLights:[],
+  mistCoverage:'map',mistHeight:(dungeonStudy?1.5:torchStudy?10:2)*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
 };
@@ -56,7 +65,7 @@ function Preview(){
   const pointer=useRef<{id:number;x:number;y:number;camera:Camera;kind:'pan'|'rotate'|'shadow'}|null>(null);
   const onReady=useCallback((ids:ReadonlySet<string>)=>setReady(ids.size),[]);
   const fitted=useCallback((tilt=45,rotation=0,close=false):Camera=>{
-    let scale=Math.min(size.width/(mapWidth*1.12),size.height/(mapHeight*groundYScale(tilt)*1.35))*(close?2.05:1);
+    let scale=Math.min(size.width/(mapWidth*1.12),size.height/(mapHeight*groundYScale(tilt)*1.35))*(close?(dungeonStudy?2.8:2.05):1);
     if(!close){
       // Perspective enlarges the near corners: fit their projected positions.
       let low=0,high=scale;
@@ -64,14 +73,15 @@ function Preview(){
       for(let i=0;i<24;i++){
         const candidate=(low+high)/2;
         const fits=[[0,0],[mapWidth,0],[0,mapHeight],[mapWidth,mapHeight]].every(([x,y])=>{
-          const p=projectGround(size.width/2+(x-608)*candidate,size.height/2+(y-425)*candidate*groundYScale(tilt),size.width,size.height,tilt,rotation);
+          const p=projectGround(size.width/2+(x-mapWidth/2)*candidate,size.height/2+(y-mapHeight/2-9)*candidate*groundYScale(tilt),size.width,size.height,tilt,rotation);
           return p.x>=padding&&p.x<=size.width-padding&&p.y>=padding&&p.y<=size.height-padding;
         });
         if(fits)low=candidate;else high=candidate;
       }
       scale=low;
     }
-    return {tilt,rotation,view:{x:size.width/2-608*scale,y:size.height/2-425*scale*groundYScale(tilt),scale}};
+    const center=close&&dungeonStudy?{x:620,y:535}:{x:mapWidth/2,y:mapHeight/2+9};
+    return {tilt,rotation,view:{x:size.width/2-center.x*scale,y:size.height/2-center.y*scale*groundYScale(tilt),scale}};
   },[size]);
   useEffect(()=>{
     const observer=new ResizeObserver(entries=>{const box=entries[0].contentRect;setSize({width:Math.round(box.width),height:Math.round(box.height)});});
@@ -138,9 +148,27 @@ function Preview(){
     };movingFrame.current=requestAnimationFrame(tick);
   };
   const moveParty=()=>{
+    if(dungeonStudy){
+      stop();cancelAnimationFrame(movingFrame.current);
+      const party=tokens.filter(t=>['druk','varis','vanec'].includes(t.id));
+      const returning=party[0].x>850,start=performance.now(),travel=550;
+      // Follow the L-shaped corridor, keeping every base on its floor.
+      const point=(distance:number)=>distance<=380?{x:520+distance,y:530}:{x:900,y:530+distance-380};
+      const cameraStart=current.current;
+      const tick=(now:number)=>{
+        const t=Math.min(1,(now-start)/8500),e=t*t*(3-2*t),distance=travel*(returning?1-e:e);
+        party.forEach((token,i)=>{const p=point(distance-i*55),heading=distance-i*55<380?(returning?-Math.PI/2:Math.PI/2):(returning?Math.PI:0);layer.current?.moveToken(token.id,p.x,p.y,t===1,heading);});
+        const center=point(distance-55),scale=cameraStart.view.scale;
+        apply({...cameraStart,view:{scale,x:size.width/2-center.x*scale,y:size.height*.57-center.y*scale*groundYScale(cameraStart.tilt)}});
+        if(t<1)movingFrame.current=requestAnimationFrame(tick);
+        else{setCamera({...current.current});setTokens(list=>list.map(token=>{const i=party.findIndex(p=>p.id===token.id);if(i<0)return token;const p=point(distance-i*55);return {...token,...p,facing:returning?-Math.PI/2:0};}));}
+      };
+      setNotice('Hip lanterns follow the party through the dungeon. Light floor mist curls behind them.');
+      movingFrame.current=requestAnimationFrame(tick);return;
+    }
     cancelAnimationFrame(movingFrame.current);const start=performance.now(),party=tokens.filter(t=>['druk','varis','vanec'].includes(t.id));
     const destinations=party.map(t=>({x:t.x>650?t.x-230:t.x+230,y:t.y>440?t.y-70:t.y+70}));
-    setNotice('Waist lanterns move and turn with their owners as the party crosses the mist.');
+    setNotice('Hip lanterns move and turn with their owners as the party crosses the mist.');
     const tick=(now:number)=>{const t=Math.min(1,(now-start)/6400),e=t*t*(3-2*t);
       party.forEach((token,i)=>layer.current?.moveToken(token.id,token.x+(destinations[i].x-token.x)*e,token.y+(destinations[i].y-token.y)*e,t===1));
       if(t<1)movingFrame.current=requestAnimationFrame(tick);
@@ -149,7 +177,7 @@ function Preview(){
   };
   const settingsProps=useMemo(()=>settings,[settings]);
   return <div className="environment-app">
-    <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>The ruined courtyard</h1><p className="subtitle">{atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
+    <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>{dungeonStudy?'The castle basement':'The ruined courtyard'}</h1><p className="subtitle">{dungeonStudy?'Hip lanterns, light floor mist & dungeon darkness':atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
     <nav className="camera-bar" aria-label="Camera controls">
       <button aria-label="45° view" onClick={()=>transition(fitted(45,current.current.rotation,true))}>45° view</button>
       <button aria-label="Overhead view" onClick={()=>transition(fitted(0,current.current.rotation,true))}>Overhead</button>
@@ -157,15 +185,17 @@ function Preview(){
       <button aria-label="Close-up" onClick={()=>transition(fitted(current.current.tilt,current.current.rotation,true))}>Close-up</button>
       <button aria-label="Reset view" onClick={()=>transition(fitted())}>Full map</button>
       <button aria-label="Zoom in" onClick={()=>zoom(1.2)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.2)}>−</button>
+      {dungeonStudy&&<button onClick={()=>{const party=tokens.slice(0,3),x=party.reduce((n,t)=>n+t.x,0)/3,y=party.reduce((n,t)=>n+t.y,0)/3,scale=3;transition({tilt:45,rotation:0,view:{scale,x:size.width/2-x*scale,y:size.height*.57-y*scale*groundYScale(45)}});}}>Party view</button>}
+      {dungeonStudy&&<button aria-pressed={!!settings.heavyDarkness} onClick={()=>change('heavyDarkness',!settings.heavyDarkness)}>Heavy darkness</button>}
       {torchStudy&&<>
-        <button onClick={()=>transition(fitted(45,180,true))}>Front view</button>
-        <button onClick={()=>{const t=tokens.find(t=>t.id==='druk')!,scale=2.6;transition({tilt:45,rotation:180,view:{scale,x:size.width/2-t.x*scale,y:size.height*.62-t.y*scale*groundYScale(45)}});}}>Lantern close-up</button>
+        <button onClick={()=>transition(fitted(45,dungeonStudy?0:180,true))}>Front view</button>
+        <button onClick={()=>{const t=tokens.find(t=>t.id==='druk')!,scale=dungeonStudy?6:2.6;transition({tilt:45,rotation:180,view:{scale,x:size.width/2-t.x*scale,y:size.height*.62-t.y*scale*groundYScale(45)}});}}>Lantern close-up</button>
         <button onClick={moveParty} disabled={ready<7}>Move party</button>
         <button onClick={()=>change('lights',[])}>Lanterns only</button>
-        <button onClick={()=>change('lights',testLights)}>Three torches</button>
-        <button onClick={()=>change('lights',manyLights)}>Twelve torches</button>
+        <button onClick={()=>change('lights',sceneLights)}>{dungeonStudy?'Three lanterns':'Three torches'}</button>
+        {!dungeonStudy&&<button onClick={()=>change('lights',manyLights)}>Twelve torches</button>}
       </>}
-      <button onClick={moveDruk} disabled={ready<7}>Move Druk</button>
+      {!dungeonStudy&&<button onClick={moveDruk} disabled={ready<7}>Move Druk</button>}
       {atmosphereStudy&&!torchStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
         setSettings(s=>({...s,enabled:true,scenery:false,lighting:preset==='Rain'?'dusk':preset==='Snow'?'day':preset.toLowerCase() as 'day'|'dusk'|'night'|'dungeon',
           weather:preset==='Rain'?'rain':preset==='Snow'?'snow':'none',lights:preset==='Night'||preset==='Dungeon'?testLights:[],mistOpacity:.22}));
@@ -183,21 +213,23 @@ function Preview(){
       <aside aria-label="Environment controls">
         <h2>Environment</h2>
         {torchStudy&&<>
-          <h3>Waist lanterns</h3>
+          <h3>Hip lanterns</h3>
           {['druk','varis','vanec'].map(id=><label className="switch" key={id}><input type="checkbox" checked={!!tokens.find(t=>t.id===id)?.carriedLantern} onChange={e=>setTokens(list=>list.map(t=>t.id===id?{...t,carriedLantern:e.target.checked}:t))}/>{id[0].toUpperCase()+id.slice(1)} lantern</label>)}
-          <label className="switch"><input type="checkbox" checked={!!settings.lights?.some(l=>l.visibleTorch)} onChange={e=>change('lights',settings.lights?.map(l=>({...l,visibleTorch:e.target.checked})))}/>Visible placed torches</label>
-          <p className="help">Night with 10 ft mist at maximum strength. Small lanterns hang at the front of the waist and illuminate nearby figures and mist.</p>
+          <label className="switch"><input type="checkbox" checked={!!settings.lights?.some(l=>l.visibleTorch)} onChange={e=>change('lights',settings.lights?.map(l=>({...l,visibleTorch:e.target.checked})))}/>{dungeonStudy?'Visible placed lanterns':'Visible placed torches'}</label>
+          <p className="help">{dungeonStudy?"Light floor mist, 1.5 feet high. Three floor lanterns and the party's hip lanterns illuminate the dungeon.":'Night with 10 ft mist at maximum strength. Small lanterns hang at the hip and illuminate nearby figures and mist.'}</p>
         </>}
 
         <label className="switch master"><input type="checkbox" checked={settings.enabled} onChange={e=>change('enabled',e.target.checked)}/>Show effects</label>
         <p className="help">Switch off to compare with the original lighting.</p>
         {atmosphereStudy&&<>
           <label className="quality">Lighting <select aria-label="Lighting preset" value={settings.lighting} onChange={e=>change('lighting',e.target.value as EnvironmentPreviewSettings['lighting'])}>{['day','dusk','night','dungeon'].map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="switch"><input aria-label="Heavy darkness setting" type="checkbox" checked={!!settings.heavyDarkness} onChange={e=>change('heavyDarkness',e.target.checked)}/>Heavy darkness</label>
+          <p className="help">Dim ambient light while keeping lantern light at full strength.</p>
           <label className="quality">Weather <select aria-label="Weather" value={settings.weather} onChange={e=>change('weather',e.target.value as EnvironmentPreviewSettings['weather'])}>{['none','rain','snow'].map(v=><option key={v}>{v}</option>)}</select></label>
           <label className="range">Weather strength <input aria-label="Weather strength" type="range" min="0" max="1" step=".05" value={settings.weatherIntensity} onChange={e=>change('weatherIntensity',+e.target.value)}/></label>
           <label className="range">Wind direction <input aria-label="Wind direction" type="range" min="0" max="359" value={settings.windDirectionDegrees} onChange={e=>change('windDirectionDegrees',+e.target.value)}/></label>
           <label className="range">Wind strength <input aria-label="Wind strength" type="range" min="0" max="1" step=".05" value={settings.windStrength} onChange={e=>change('windStrength',+e.target.value)}/></label>
-          <label className="switch"><input type="checkbox" checked={!!settings.lights?.length} onChange={e=>change('lights',e.target.checked?testLights:[])}/>Three local lights</label>
+          <label className="switch"><input type="checkbox" checked={!!settings.lights?.length} onChange={e=>change('lights',e.target.checked?sceneLights:[])}/>Three local lights</label>
           <p className="help">Warm pools illuminate the original map and the figures. Lighting is visual; fog still controls visibility.</p>
         </>}
         <label className="switch"><input type="checkbox" checked={settings.mist} onChange={e=>change('mist',e.target.checked)}/>Drifting mist</label>

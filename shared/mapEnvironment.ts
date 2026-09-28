@@ -2,6 +2,7 @@
 export type MapEnvironment = {
   lighting: 'day' | 'dusk' | 'night' | 'dungeon';
   lightLevel: number;
+  heavyDarkness: boolean;
   weather: 'none' | 'rain' | 'snow';
   weatherIntensity: number;
   windDirectionDegrees: number;
@@ -18,10 +19,10 @@ export type MapEnvironment = {
   mistShadows: boolean;
   mistInteraction: boolean;
 };
-export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean;visibleTorch?:boolean};
+export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
 export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
-  lighting:'day',lightLevel:1,weather:'none',weatherIntensity:.5,windDirectionDegrees:20,windStrength:.4,lights:[],
+  lighting:'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.5,windDirectionDegrees:20,windStrength:.4,lights:[],
   enabled: false, shadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
   shadowOpacity: .65, mist: true, mistOpacity: .35, mistHeightFt: 2,
   mistShadows: true, mistInteraction: true,
@@ -32,7 +33,7 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   const result = {...previous};
   if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
   const source = input as Record<string, unknown>;
-  for (const key of ['enabled', 'shadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
+  for (const key of ['enabled', 'heavyDarkness', 'shadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
     if (typeof source[key] === 'boolean') result[key] = source[key];
   }
   for (const [key, min, max] of [
@@ -57,7 +58,7 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
       if(typeof v.id!=='string'||!v.id||v.id.length>80||seen.has(v.id)||typeof v.x!=='number'||!Number.isFinite(v.x)||typeof v.y!=='number'||!Number.isFinite(v.y))return [];
       seen.add(v.id);
       return [{id:v.id,x:number(v.x,-1e6,1e6,0),y:number(v.y,-1e6,1e6,0),radiusFt:number(v.radiusFt,3,60,15),heightFt:number(v.heightFt,.5,30,6),
-        color:v.color==='cool'||v.color==='green'?v.color:'warm',intensity:number(v.intensity,.1,2,1),flicker:v.flicker===true,...(v.visibleTorch===true?{visibleTorch:true}:{})}];
+        color:v.color==='cool'||v.color==='green'?v.color:'warm',intensity:number(v.intensity,.1,2,1),flicker:v.flicker===true,...(v.visibleTorch===true?{visibleTorch:true}:{}),...(v.fixture==='lantern'?{fixture:'lantern' as const}:{})}];
     });
   }
   return result;

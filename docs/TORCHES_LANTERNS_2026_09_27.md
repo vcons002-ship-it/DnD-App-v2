@@ -1,5 +1,10 @@
 # Placed torches and waist lanterns
 
+The later [dungeon revision](DUNGEON_LANTERNS_2026_09_27.md) moves the carried
+lanterns from the waist's front to the hip, adds Heavy darkness, and provides a
+placed lantern model choice. The original recording below shows the first
+waist attachment.
+
 The DM can place lights without the former eight-light count cap and choose
 **Show 3D torch** on each light. Newly placed lights show a torch by default;
 older saved lights retain their invisible-source appearance. Position, radius,
