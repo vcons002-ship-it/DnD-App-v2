@@ -6,9 +6,9 @@
       "id": "druk",
       "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
       "baseTextureSha256": "e19b0a12af0c4f383b3731a90016184ad6799f0e6441df9e520d44595cf9013b",
-      "url": "/miniatures/druk-c652013a617c.glb",
-      "sha256": "c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813",
-      "bytes": 35745748,
+      "url": "/miniatures/druk-c98df869b913.glb",
+      "sha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+      "bytes": 24966816,
       "triangles": 880404,
       "baseCenter": [
         0.03537392616271973,
@@ -28,13 +28,24 @@
         "92440024215241427bd6f5d65b6760d72cf2755d88501ff902dba06a458b6da2",
         "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c",
         "c15e3cb4fa586931fe24322d7f0e12282ae0366891bde55f8786f55a5c50b5b8"
-      ]
+      ],
+      "deliveryOptimization": "lossless-textures-and-mesh",
+      "runtimeImageHashes": [
+        "d54db9b6ed6ed388dd4576a9aa72cd686c417d7c621296f6666e5555d5b719ac",
+        "6400e423b0348e799771546891d72caca1337120dc66eeacb80ccab25998917d",
+        "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+        "6a9e31d057247a1bb8cbba82d9d761e3f0faf1c1b35d10fdd8d799770e4823e3",
+        "e85d82105645088b528f5d3953da6018515f5172ccb6dd2e0c010fead4ecd0c1",
+        "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088"
+      ],
+      "optimizationReceipt": "assets/miniatures/character-compression/druk.json",
+      "optimizationReceiptSha256": "465901552b5f71a66ef86754e5143b829f05ed8e885970f773a68ba38c54aec8"
     },
     {
       "id": "varis",
-      "url": "/miniatures/varis-6bf5fc9672ac.glb",
-      "sha256": "6bf5fc9672ac39a0eeecf523b8dea4092b9446064c692dfc78ae995666faef42",
-      "bytes": 39946880,
+      "url": "/miniatures/varis-264feff1b076.glb",
+      "sha256": "264feff1b076e6fc0b7d75f72a143e9e02948c4de5e5cef3bd91dbda0defbd5d",
+      "bytes": 25467436,
       "triangles": 905238,
       "baseCenter": [
         0.08445727825164795,
@@ -60,13 +71,30 @@
         "16540a081cca67c673e49cd1c34f144851f74879bab68a1b63fb45b90e5de89d",
         "e343586ce92887a0fae5ab204b0c3ca8832880866eafd50f1c20280ca6b5f6c7",
         "969f300af4a899cc017303cccbbc2ca53549f4d049573cbb722054529ea2f089"
-      ]
+      ],
+      "deliveryOptimization": "lossless-textures-and-mesh",
+      "runtimeImageHashes": [
+        "03f23e36cddd454917195212da8fb6b5dd01be6609efc8f0b8666f28ec28b62b",
+        "13b9bf6a5f63c01fdc6bbdd3e1572534cd2e0afb5a7b7ca89764d691aa41d085",
+        "d594a9a8e5d704a1b04a3548a5fd9928b9ac3c4b2e9eaf8168c960441595a0c2",
+        "6400e423b0348e799771546891d72caca1337120dc66eeacb80ccab25998917d",
+        "eb8a6fb128fa3516b4b70933005ba026409bd92a02adf96679e28efd4004cb8a",
+        "b10cd7cb96e822ac4b6d94e5d1ae94f1d491409c967bf48f461a93361ebd7891",
+        "e5b4da6b38089b8d7fd3aa4f5102511169e0f994430d59443a413f9d94c6cf22",
+        "fc0ffee8651aaeebd011a45cfada812c86c1373c99f3da859add37a9098d9ff2",
+        "14245242f55f9963df11626ba458c6eafd8966e8e38b96c04de97bd8f30b0da6",
+        "668ceb0a95ba180e97cc8159d9dd28332c5eb5688e01ff61b8c4d7322cb4c2c9",
+        "8bcafe2b9aa69faf4dfb2dc6556505d0b79116ba1401de47525f62b1029d9073",
+        "c453a9a0a034d4356381de4d9ebe223d1318930541c75e40e9cf1a73b0d9057f"
+      ],
+      "optimizationReceipt": "assets/miniatures/character-compression/varis.json",
+      "optimizationReceiptSha256": "007c04594932a3939f7697285d069aa5f0137df675848c1fcdebe18471bcf67f"
     },
     {
       "id": "vanec",
-      "url": "/miniatures/vanec-f1fd3b7ba9b5.glb",
-      "sha256": "f1fd3b7ba9b54d804c030168ad7771519336869091e4b1901d271c7503b95847",
-      "bytes": 47597248,
+      "url": "/miniatures/vanec-7f57d87ce42f.glb",
+      "sha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
+      "bytes": 33210108,
       "triangles": 1138771,
       "baseCenter": [
         -0.00920414924621582,
@@ -90,7 +118,21 @@
         "1848b6ce99a4fbb8c96b25ad2067944218e4ef989ad0e3c4431876ddb98cf8a9",
         "e4639488d35620ced47c92b7e389844a609adea7a6f2b5370eeb1ecb72cdcd07"
       ],
-      "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json"
+      "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json",
+      "deliveryOptimization": "lossless-textures-and-mesh",
+      "runtimeImageHashes": [
+        "86a62f99c788573873a9fb6280d65b8accba386ba95877392f6d3e773c88e88b",
+        "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
+        "15305a76867a779b0a2b741b3ef18c81ea695e83a4d7a2bb9794d03a84867e36",
+        "1be3790da59c94b5f3a336d2c5fb6512524dc61b221ee61a9e3a08c4b84770ec",
+        "d644b1ac4109741b514472eea7adb94e8ebfae83c50bef87b7960fc3215ca53a",
+        "4d44f124bfebe0dae5221819b1c40f6d5641e6f367630d33e1a0dd46eb891256",
+        "e0544b8260f840fc0f73293d049242984a6c3ceadeb4376ab2d4417ead181c01",
+        "46604c7131a83bd4b1a54c68bfd3ec3745ac5b47360aa1399647515417b31f07",
+        "7581a45d5676c80700db208b6534e4796e0086fb5f78f53f46b4f867f082db69"
+      ],
+      "optimizationReceipt": "assets/miniatures/character-compression/vanec.json",
+      "optimizationReceiptSha256": "b2e71228468b17dc286f6f1f2d74777c9c637ea634102100465f5650c4e7df64"
     }
   ],
   "files": [

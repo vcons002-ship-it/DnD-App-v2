@@ -20,14 +20,16 @@ its dark basalt texture to the base after loading.
 
 | Artifact | Value |
 | --- | --- |
-| Runtime file | `druk-c652013a617c.glb` |
-| Runtime size | 35,745,748 bytes (35.75 MB) |
+| Runtime file | `druk-c98df869b913.glb` |
+| Runtime size | 24,966,816 bytes (24.97 MB) |
 | Triangles | 880,404 |
 | Source SHA-256 | `186dde63b81d2a6523ae8c990a53ff5862e7b7f559ace17e72953ed9d8305582` |
-| Runtime SHA-256 | `c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813` |
+| Earlier Meshopt-only SHA-256 | `c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813` |
 
-Lossless Meshopt compression preserves decoded geometry and embedded texture
-bytes. The hash-named URL replaces the previous Druk model in the shared player
+Lossless Meshopt compression and texture repacking preserve every triangle's
+attribute bytes and decoded texture pixels. The September 28 workflow installed
+the previously separate 24.97 MB test and applied it to Varis and Vanec too; see
+[character compression](../CHARACTER_COMPRESSION_2026_09_28.md). The hash-named URL replaces the previous Druk model in the shared player
 and DM manifest, so an existing browser cache cannot serve the old head for the
 new URL. No campaign migration is needed.
 

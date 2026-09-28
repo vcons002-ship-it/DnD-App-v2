@@ -13,6 +13,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Add the interactive preview's on-device Performance readout and repeatable
   CPU-throttled profiling. See [measurements and limits](docs/MIST_MOBILE_PERFORMANCE_2026_09_28.md).
 
+## Lossless character delivery - September 2026
+
+- [x] Apply the accepted lossless texture and mesh optimization to Druk, Varis
+  and Vanec; wire new immutable URLs into the shared runtime and preview.
+- [x] Verify exact decoded texture pixels, triangle attributes, transforms and
+  Vanec's 16 animation channels; require all three optimized entries at build.
+  Combined GLBs: 123.29 MB to 83.64 MB. See [compression details](docs/CHARACTER_COMPRESSION_2026_09_28.md).
+
 ## Persistent visual asset downloads - September 2026
 
 - [x] Cache downloaded model, art, texture, font and effect bundle assets on each

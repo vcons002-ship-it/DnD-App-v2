@@ -114,8 +114,11 @@ and steady-state rendering are separate; these runs excluded initial download.
 
 ## Remaining limits
 
-The three full-detail player models contain about 2.92 million triangles and
-123.29 MB of GLB assets combined. Their render cost and the wide viewport's
+At the time of these measurements, the three full-detail player models contained
+about 2.92 million triangles and 123.29 MB of GLB assets combined. A subsequent
+[lossless delivery pass](CHARACTER_COMPRESSION_2026_09_28.md) reduced those GLBs
+to 83.64 MB while retaining the triangles and decoded pixels; the measurements
+above predate that asset change. Their render cost and the wide viewport's
 pixel count remain relevant on a phone. This work deliberately does not reduce
 geometry, textures, mist quality or shadows. Further batching/caching should
 be guided by a profile of the physical phone; model simplification, lower

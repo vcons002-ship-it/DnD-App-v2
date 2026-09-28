@@ -57,3 +57,9 @@ assets/miniatures/monster-provenance/glabrezu/** -filter -diff -merge -text
 # Small static object models and source art; preserve binary bytes in regular Git.
 client/public/miniatures/objects/*.glb -filter -diff -merge -text
 assets/miniatures/object-provenance/** -filter -diff -merge -text
+
+# Verified lossless character delivery copies and byte-stable receipts.
+client/public/miniatures/druk-c98df869b913.glb -filter -diff -merge -text
+client/public/miniatures/varis-264feff1b076.glb -filter -diff -merge -text
+client/public/miniatures/vanec-7f57d87ce42f.glb -filter -diff -merge -text
+assets/miniatures/character-compression/*.json -filter diff merge -text whitespace=cr-at-eol

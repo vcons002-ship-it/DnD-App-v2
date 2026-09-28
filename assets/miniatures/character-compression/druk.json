@@ -1,0 +1,1212 @@
+{
+  "schemaVersion": 1,
+  "id": "druk",
+  "sourceUrl": "/miniatures/druk-c652013a617c.glb",
+  "sourceSha256": "c652013a617c4309ae1f10c62fd8af034c06a1c39abcbf45e350e69f38e32813",
+  "sourceBytes": 35745748,
+  "url": "/miniatures/druk-c98df869b913.glb",
+  "sha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+  "bytes": 24966816,
+  "triangles": 880404,
+  "verticesBefore": 1804836,
+  "verticesAfter": 531919,
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 2951652,
+      "sourceSha256": "f5139df3438e7eb6f674d914192e4ba456b8669e59da5066e9cabee0ea142db8",
+      "sourceMime": "image/png",
+      "bytes": 2135296,
+      "sha256": "d54db9b6ed6ed388dd4576a9aa72cd686c417d7c621296f6666e5555d5b719ac",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "3283c36d4ccdf20ea9602c454cc0a64e363832e32d6e44a1e149a802ffa9705c"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 2622552,
+      "sourceSha256": "3464ae554a018388053d44fe988fe77e403239dd7368166fa753099a5d0d9f43",
+      "sourceMime": "image/png",
+      "bytes": 1928274,
+      "sha256": "6400e423b0348e799771546891d72caca1337120dc66eeacb80ccab25998917d",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "7326fe5ec7bb9d369bc697398cd6c70071b1910ec5063cbea21e4981b266fbcd"
+      }
+    },
+    {
+      "index": 2,
+      "sourceBytes": 1003217,
+      "sourceSha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+      "sourceMime": "image/jpeg",
+      "bytes": 1003217,
+      "sha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+      "mime": "image/jpeg",
+      "method": "original",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "c729358643876e08027a0677fadec96c7cdc87992992e45a96d3acb3d3eb39d3"
+      }
+    },
+    {
+      "index": 3,
+      "sourceBytes": 3244670,
+      "sourceSha256": "92440024215241427bd6f5d65b6760d72cf2755d88501ff902dba06a458b6da2",
+      "sourceMime": "image/png",
+      "bytes": 2169794,
+      "sha256": "6a9e31d057247a1bb8cbba82d9d761e3f0faf1c1b35d10fdd8d799770e4823e3",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "a5fd8cfe7319bad280b3775e7e5934a53b739f953c0d178d56cde0c0a00a5773"
+      }
+    },
+    {
+      "index": 4,
+      "sourceBytes": 2594268,
+      "sourceSha256": "924fcf77d1d449dc4d72d78cb4b15a04bfd4054a3f94eeae1d5bb45d5567821c",
+      "sourceMime": "image/png",
+      "bytes": 1978226,
+      "sha256": "e85d82105645088b528f5d3953da6018515f5172ccb6dd2e0c010fead4ecd0c1",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "744f01c45f54933db1ee4ceda2770fed1d2fa49401d552b5639c5a89a22f33e9"
+      }
+    },
+    {
+      "index": 5,
+      "sourceBytes": 2783404,
+      "sourceSha256": "c15e3cb4fa586931fe24322d7f0e12282ae0366891bde55f8786f55a5c50b5b8",
+      "sourceMime": "image/png",
+      "bytes": 2139574,
+      "sha256": "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "e25efa580701599a708a94074619d006239d2bdcf14d271fb9e1bd9591dd209b"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "geometry_0",
+      "material": "",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 215979,
+      "triangleContentSha256": "8c34926f28279733dc5afec2d0b45cee5bd63cc3ddd8ffe15cf4e384c9a41b8c"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "DrukV9_Dark_Olive_Textured_Arms",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 15931,
+      "triangleContentSha256": "6b461ab81f2b53dc0c879deb351c46dcaa28fdbbef098d8abd9199cc0f04f43c"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "DrukV9_Dark_Olive_Textured_Hands",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 2,
+      "triangleContentSha256": "5b4f06f86eee2be7f3d9a2fdcf4762fe96a44d21190c9dcd95f49032e3596b4d"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "DrukV9_Dark_Olive_Clean_Patch_02",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 228,
+      "triangleContentSha256": "56e3b76d3fc8a215a2f0795dcf7dfe4a5a5f0ddd0a9d8594715a177a27194703"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "DrukV9_Dark_Olive_Clean_Patch_03",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 420,
+      "triangleContentSha256": "4c450c8282e9c8e9deeb683ff90e5e6848e1c9680d86718a6d23bba37df87b1c"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "DrukV9_Dark_Olive_Clean_Patch_04",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1362,
+      "triangleContentSha256": "2ad914fa57598f55af02a576e768a0fc96d1793997798bd8ab172140a854dbff"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV7_Gauntlet_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 14662,
+      "triangleContentSha256": "6b1305720744e25139be6b34ddb467f8114044ff1307791e4867bb062fb0966b"
+    },
+    {
+      "mesh": "",
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 2194,
+      "triangleContentSha256": "4076dac69c72f269b4d442e1736fd2b9ea3e78eff383b09cf9620a6ed2a1e012"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV7_Glove_Grip_Interior",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 734,
+      "triangleContentSha256": "2ebbd3929095643bac8fa55d6ffea7cdc64185c4530555cc4bb7408b71c62526"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV7_Gauntlet_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 309,
+      "triangleContentSha256": "9832619bca07982fd888ca430a1153f78f9c7d70d7f4e584fabb5dad11dafd97"
+    },
+    {
+      "mesh": "",
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1217,
+      "triangleContentSha256": "5505c5cca2df2bc54a3d4e9480bbcf034fdb52062404b9eb14684236bb30fdf3"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV7_Gauntlet_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 11139,
+      "triangleContentSha256": "9578527f18e6f69f7c81045febe592b2823af2160cfa63b77f6be185de13e37b"
+    },
+    {
+      "mesh": "",
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 3960,
+      "triangleContentSha256": "eead25ebcb7147554510b7d0082441a8cc8520b2c2ddf820713ecc3c43b7ddfa"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV7_Glove_Grip_Interior",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 502,
+      "triangleContentSha256": "9744c246ae70b8728ec1807dee59bc885683b4d51531e81cc2319542b81ee0c0"
+    },
+    {
+      "mesh": "",
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 251,
+      "triangleContentSha256": "1024cd0a3af255820cf78b8bb3b1d1740e9e4b538bac4beb0ff812f37ae7d8f7"
+    },
+    {
+      "mesh": "DrukV7_Approved_BoneSword_Mesh",
+      "material": "PBR_Material",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 40000,
+      "triangleContentSha256": "2d59a34abdac674aeb8655952ac875c4e123f67c1f1587642dfe552e73a89dc4"
+    },
+    {
+      "mesh": "Pinned_Rear_Neck_Repair",
+      "material": "Original_Atlas_Darkened_Rear_Hair",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 7302,
+      "triangleContentSha256": "380dca28cd4349c4aa0ceb72ffd43f2287fec154a53b8d807ac6e71bc497d307"
+    },
+    {
+      "mesh": "",
+      "material": "Short_Boundary_Leather_Transition",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 2342,
+      "triangleContentSha256": "c9363ef42abdc83e16be4c3829ea97765418bb4b584f049012ff371213d6b2bd"
+    },
+    {
+      "mesh": "",
+      "material": "Short_Boundary_Leather_Transition",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 2352,
+      "triangleContentSha256": "f09c413ed533b846db5567ff7abc740a45b544704700b4dc1b606677ac9a1a31"
+    },
+    {
+      "mesh": "",
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "1c3649696f9f352809138e4e8a73aa99da431ad44fa109863878a3b163d10439"
+    },
+    {
+      "mesh": "",
+      "material": "Restrained_Aged_Brass_Trim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "36fca47180c134a2a1a8f5da8bd118827ee7455c6671b1a5ae005ebff6fb49e1"
+    },
+    {
+      "mesh": "",
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "0447873d92a2460373f28f17a91c281c8a066a84647529b169157717a7481436"
+    },
+    {
+      "mesh": "",
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "075531ca9c17315f9be1c1575c328b1fb2cece14f35750dfd29dffda746897b1"
+    },
+    {
+      "mesh": "",
+      "material": "Restrained_Aged_Brass_Trim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "a8d21f817c9bfea13c2850a6b2b30798fd46213ccbac02a29b316b24d6b19067"
+    },
+    {
+      "mesh": "",
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "triangleContentSha256": "247930c9551b7180b984ac323d42e053c96cbb431928913e90b18bfb89dba75d"
+    },
+    {
+      "mesh": "",
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 192,
+      "triangleContentSha256": "903d8931240db7209a31bc6196cee2a9969e6020bc908afd646652cce1360ac4"
+    },
+    {
+      "mesh": "",
+      "material": "Earth_Stone_Moss_Vertex_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 12096,
+      "triangleContentSha256": "1111ba239c5df3b9410606a336e16f2df86c38e97b96d18b01c7de6a6042dab3"
+    },
+    {
+      "mesh": "",
+      "material": "Weathered_Stone_Vertex_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "triangleContentSha256": "1e582626c96584d29ea333d2b02b5eb96aecaf5cd4b674af99b32a2c19f0f74a"
+    },
+    {
+      "mesh": "",
+      "material": "Weathered_Stone_Vertex_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "triangleContentSha256": "58894d35ed22ca161409f39e2b3a30b0b0847232262682d888823b6d7b97a80f"
+    },
+    {
+      "mesh": "",
+      "material": "Weathered_Stone_Vertex_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "triangleContentSha256": "93360757a0936c71dae55a16d55dbd74ac460643a4049aba03b1d6494094cf10"
+    },
+    {
+      "mesh": "",
+      "material": "Weathered_Stone_Vertex_Color",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "triangleContentSha256": "7da318ac2ef8db1d88c93b526825b67a4f6c655a178fdba85a85675ed97bdfa3"
+    },
+    {
+      "mesh": "",
+      "material": "Restrained_Aged_Brass_Trim",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1808,
+      "triangleContentSha256": "69f7239509e652a25a7ae34d77deaf778b502ffacc7ff86f786eb45ecc7a3cb5"
+    },
+    {
+      "mesh": "",
+      "material": "Matte_Olive_Orb_Inset",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 96,
+      "triangleContentSha256": "2c3457111e2e2893ae695067ad15bab1bbcbad0d051d4bd188ae5e68b56e2dbc"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "Weathered_Steel",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 46692,
+      "triangleContentSha256": "322f9b0250548dcb482e7b6cac67010381337ad91a35b5885ff8276c0cff6bc3"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "Wood_and_Dark_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 103308,
+      "triangleContentSha256": "627317f5ecf4bc43fd651f89b1a5bb2a218223e3344bee8da7a4d0dacba6ebf9"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "Weathered_Steel",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 46692,
+      "triangleContentSha256": "322f9b0250548dcb482e7b6cac67010381337ad91a35b5885ff8276c0cff6bc3"
+    },
+    {
+      "mesh": "geometry_0",
+      "material": "Wood_and_Dark_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 103308,
+      "triangleContentSha256": "627317f5ecf4bc43fd651f89b1a5bb2a218223e3344bee8da7a4d0dacba6ebf9"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 512,
+      "triangleContentSha256": "2329edd5c2981d035202492df5d24d3ac343ab5993aef7ca37bd8304e77d85d2"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 12,
+      "triangleContentSha256": "2ec94628e85eadb81e6bb01706f68cc8aad759fc45e5787b135c37df2a225aab"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 512,
+      "triangleContentSha256": "4e72b6c4896458d7e8ba15f862a53c764c6648c9ef09fac61c9bf281921a02fd"
+    },
+    {
+      "mesh": "",
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 12,
+      "triangleContentSha256": "1f5899b826c84ad12534ba11fd5c175546d331ce7421d630307b2e37ebfa22f1"
+    },
+    {
+      "mesh": "Recessed_Neck_Closure",
+      "material": "Druk_Recessed_Collar_Dark_Lining",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 3246,
+      "triangleContentSha256": "ecded707a1ea183d798c3442fd05e1d85554aa307987287d674b90e0e21cc3fa"
+    },
+    {
+      "mesh": "Druk_Natural_Multiview_Head",
+      "material": "Druk_Natural_Face_Organic_Material",
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 238548,
+      "triangleContentSha256": "e1e665e9181cbe8b64133e269d80260998468de64508cfdc33578f65f2106446"
+    }
+  ],
+  "animations": [],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "animationDataExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  }
+}
