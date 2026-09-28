@@ -1,18 +1,19 @@
 import {forwardRef,useImperativeHandle,useLayoutEffect,useRef} from 'react';
-import type {PlayerVision} from '../../../shared/playerVision';
+import {lightCoverage,type VisionLight,type PlayerVision} from '../../../shared/playerVision';
 import {groundYScale,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
-export type PlayerVisionHandle={camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+export type PlayerVisionHandle={lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** A screen-space mask above BOTH renderers. Never disabled by effect quality. */
 export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null),cover=useRef<HTMLDivElement>(null);
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
- const draw=()=>{
+ const renderedLights=useRef<VisionLight[]|null>(null);
+ const draw=(lightOnly=false)=>{
   if(!shade.current||!cover.current)return;
   const {vision,view,tilt,rotation,width,height}=state.current;
   const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
-  const path=(point:{id:string;x:number;y:number},radius:number)=>{
-   const p=live.current.get(point.id)??point;
+  const path=(point:{id:string;x:number;y:number},radius:number,actual=false)=>{
+   const p=actual?point:live.current.get(point.id)??point;
    let poly=Array.from({length:96},(_,i)=>{const t=i*Math.PI/48;
     const dx=view.x+(p.x+Math.cos(t)*radius)*view.scale-width/2;
     const dy=view.y+(p.y+Math.sin(t)*radius)*view.scale*sy-height/2;
@@ -25,15 +26,24 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    return poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
   };
   const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.radius)}"/>`).join('');
-  const lights=vision.lights.map(l=>`<path fill="black" d="${path(l,l.radius)}"/>`).join('');
+  // Nested bands sample the renderer's smooth attenuation, including source height,
+  // intensity, flicker radius and the actual animated hip anchor. No hard color disk.
+  const lights=(renderedLights.current??vision.lights).map(l=>{
+   let previous=0;const bands:string[]=[];
+   for(let i=32;i>=1;i--){const radius=l.radius*i/32;
+    const coverage=lightCoverage(radius-l.radius/64,l);
+    const alpha=Math.max(0,(coverage-previous)/Math.max(.00001,1-previous));previous=coverage;
+    if(alpha>.0001)bands.push(`<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);
+   }return bands.join('');
+  }).join('');
   const mask=(shapes:string)=>`url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><defs><mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`)}")`;
-  cover.current.style.maskImage=mask(circles);
+  if(!lightOnly)cover.current.style.maskImage=mask(circles);
   shade.current.style.maskImage=mask(lights);
-  shade.current.style.backdropFilter=vision.heavy?'grayscale(1) brightness(.72)':'brightness(.85)';
-  shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?'grayscale(1) brightness(.72)':'brightness(.85)');
+  shade.current.style.backdropFilter=vision.heavy?'grayscale(1)':'none';
+  shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?'grayscale(1)':'none');
  };
- useImperativeHandle(ref,()=>({camera(next){state.current={...state.current,...next};draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});draw();}}),[]);
- useLayoutEffect(()=>{state.current=props;
+ useImperativeHandle(ref,()=>({lights(next){renderedLights.current=next;draw(true);},camera(next){state.current={...state.current,...next};draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});draw();}}),[]);
+ useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   draw();},[props]);
  return <div data-testid="player-vision" data-range-ft={props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}

@@ -8,6 +8,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 - [x] Night/dungeon maps enforce a personal 60-foot horizon: regular darkness
   keeps color, heavy darkness uses grayscale, and lantern pools restore color.
+- [x] Blend color restoration with actual lamp positions, flicker and natural
+  light attenuation, preserving the warm glow without an inner color disk.
 - [x] Hide affinity borders outside visible light pools, retain DM overview,
   filter enemy lists per player, and enforce vision even with effects off.
   See [darkvision notes](docs/DARKVISION_2026_09_28.md).

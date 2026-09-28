@@ -385,6 +385,11 @@ export function MapStage({
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
   const visionRef=useRef<PlayerVisionHandle>(null);
+  const visionLightTime=useRef(0);
+  const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
+    const now=performance.now();if(now-visionLightTime.current<66)return;
+    visionLightTime.current=now;visionRef.current?.lights(lights);
+  },[]);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
   const handleMiniatureReady = useCallback((ids: ReadonlySet<string>) => {
     setReadyMiniatures((old) => old.size === ids.size && [...old].every((id) => ids.has(id)) ? old : ids);
@@ -699,7 +704,7 @@ export function MapStage({
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
-    return {...settings,...(snapshot.playerVision?{lighting:'day' as const,lightLevel:1,heavyDarkness:false,sceneTintStrength:0}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+    return {...settings,...(snapshot.playerVision?{personalDarkvision:true}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
   },[map?.environment,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
@@ -2292,7 +2297,7 @@ export function MapStage({
             <MiniatureLayer key={map?.id} ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
-              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} />
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
           {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}/>}
           <DecalPopup snapshot={snapshot} />

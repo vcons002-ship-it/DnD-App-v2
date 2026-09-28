@@ -41,6 +41,7 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
   view: BattlefieldView;
   tiltDegrees: number;
@@ -325,6 +326,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*2.8,facing}];
         }));
         battlefield.tick(reducedMotion.matches?0:seconds);
+        props.onVisionLights?.(battlefield.lighting.lights);
       }
       for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera);
       try {

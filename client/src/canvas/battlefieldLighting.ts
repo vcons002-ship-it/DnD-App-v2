@@ -181,7 +181,8 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     fieldUniforms.torchBounds.value.set(next.mapX??0,next.mapY??0,next.mapWidth,next.mapHeight);
     const maxSize=next.mistQuality==='low'?512:1024,ratio=next.mapWidth/next.mapHeight;
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
-    uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
+    uniforms.gradeColor.value.set(next.personalDarkvision?0x111217:next.heavyDarkness?0x010205:preset.color);
+    uniforms.gradeOpacity.value=next.personalDarkvision?(next.heavyDarkness?.50:.32):1-(1-preset.opacity)*level;
     uniforms.wetness.value=next.groundWetness??0;uniforms.surfaceScale.value=next.pixelsPerFoot??12.8;uniforms.wetLight.value=Math.max(.12,preset.ambient*level);
     const tintAmount=next.sceneTintStrength??0;
     uniforms.sceneTint.value.set(next.sceneTint??'#ffffff');uniforms.sceneTintStrength.value=tintAmount;
@@ -189,7 +190,8 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     // rig lifts diffuse atlases into the tone mapper's pale highlight range.
     // This only lights figures; the day ground-grade opacity remains zero.
     baseLight.key=preset.key*level;baseLight.ambient=preset.ambient*level;baseLight.reflection=preset.reflection*level;
-    baseLight.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);
+    if(next.personalDarkvision){baseLight.key=1.05;baseLight.ambient=.48;baseLight.reflection=.25;}
+    baseLight.color.set(next.personalDarkvision?original.color:next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);
     baseLight.color.lerp(uniforms.sceneTint.value,tintAmount);
     if(enabled&&ambient){ambient.color.copy(original.sky).lerp(uniforms.sceneTint.value,tintAmount);ambient.groundColor.copy(original.ground).lerp(uniforms.sceneTint.value,tintAmount);}
     if(enabled){key.intensity=baseLight.key;key.color.copy(baseLight.color);if(ambient)ambient.intensity=baseLight.ambient;scene.environmentIntensity=baseLight.reflection;}

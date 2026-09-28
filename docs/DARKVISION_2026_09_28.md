@@ -26,3 +26,15 @@ Verification: server tests cover two-player isolation in both broadcast orders,
 visibility, and encounter numbering. The production-browser demo exercises both
 darkness levels, the real lantern control, click-drag movement, a second player's
 independent view, overhead projection, and effects-off enforcement.
+
+## Natural light reveal refinement
+
+Color restoration now follows the ground-light irradiance falloff, source height,
+strength and live flickering radius. The renderer supplies the actual animated
+hip-lantern position. A soft sampled attenuation mask replaces the hard inner
+color disk; overlapping sources combine. Personal vision retains a dim ambient
+floor so Darkvision stays readable while the original torch lighting can glow.
+Regular darkness needs no color mask at all. The separate 60-foot visibility
+horizon remains enforced. Effects-off uses the saved-source falloff fallback.
+Carried lanterns reach 20 feet; newly placed torches default to 15 feet, with the
+DM's 3-60 foot radius control retained. These are current app light radii.
