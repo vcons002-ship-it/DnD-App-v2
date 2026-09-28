@@ -38,3 +38,14 @@ Regular darkness needs no color mask at all. The separate 60-foot visibility
 horizon remains enforced. Effects-off uses the saved-source falloff fallback.
 Carried lanterns reach 20 feet; newly placed torches default to 15 feet, with the
 DM's 3-60 foot radius control retained. These are current app light radii.
+
+## Useful light radius
+
+The configured radius now means useful illumination, with a smooth spill ending
+at 1.5 times that radius. A carried lantern illuminates about 20 feet outward
+(40 feet across), fading out by 30 feet. A default placed torch illuminates about
+15 feet outward, fading out by 22.5 feet. Flicker still subtly varies reach.
+Ground illumination, miniature surface lighting, and Darkvision color reveal
+share the same falloff definition in shared/lightFalloff.ts. This is an artistic
+light profile calibrated to readable map distances. The 60-foot personal horizon
+and manual fog still cap visibility, regardless of the spill.

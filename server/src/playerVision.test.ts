@@ -7,10 +7,12 @@ import {visionContains,visionLit,lightCoverage} from '../../shared/playerVision.
 describe('personal dungeon vision',()=>{
  it('color reveal fades with physical light attenuation instead of a hard radius',()=>{
   const lamp={radius:100,height:14,strength:.85};
-  expect(lightCoverage(0,lamp)).toBeGreaterThan(.99);
+  expect(lightCoverage(0,lamp)).toBeGreaterThan(.90);
   expect(lightCoverage(60,lamp)).toBeGreaterThan(lightCoverage(90,lamp));
   expect(lightCoverage(90,lamp)).toBeGreaterThan(0);
-  expect(lightCoverage(100,lamp)).toBe(0);
+  expect(lightCoverage(100,lamp)).toBeGreaterThan(.70);
+  expect(lightCoverage(125,lamp)).toBeGreaterThan(0);
+  expect(lightCoverage(150,lamp)).toBe(0);
   expect(lightCoverage(60,{...lamp,strength:0})).toBe(0);
   expect(lightCoverage(60,{...lamp,strength:1.5})).toBeGreaterThan(lightCoverage(60,lamp));
  });

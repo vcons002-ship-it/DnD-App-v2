@@ -1,3 +1,4 @@
+import {LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import {forwardRef,useImperativeHandle,useLayoutEffect,useRef} from 'react';
 import {lightCoverage,type VisionLight,type PlayerVision} from '../../../shared/playerVision';
 import {groundYScale,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
@@ -30,7 +31,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // intensity, flicker radius and the actual animated hip anchor. No hard color disk.
   const lights=(renderedLights.current??vision.lights).map(l=>{
    let previous=0;const bands:string[]=[];
-   for(let i=32;i>=1;i--){const radius=l.radius*i/32;
+   for(let i=48;i>=1;i--){const radius=l.radius*LIGHT_SPILL_MULTIPLIER*i/48;
     const coverage=lightCoverage(radius-l.radius/64,l);
     const alpha=Math.max(0,(coverage-previous)/Math.max(.00001,1-previous));previous=coverage;
     if(alpha>.0001)bands.push(`<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);

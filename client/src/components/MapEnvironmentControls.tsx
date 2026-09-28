@@ -61,7 +61,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});
           return <details key={light.id}><summary>Light {index+1} · {light.color}</summary>
             <label>Color <select aria-label={`Light ${index+1} color`} value={light.color} onChange={e=>edit({color:e.target.value as typeof light.color})}><option value="warm">Warm</option><option value="cool">Cool</option><option value="green">Eerie green</option></select></label>
-            <SettingSlider label={`Light ${index+1} radius`} value={light.radiusFt} min={3} max={60} suffix=" ft" onCommit={v=>edit({radiusFt:v})}/>
+            <SettingSlider label={`Light ${index+1} lit radius`} value={light.radiusFt} min={3} max={60} suffix=" ft" onCommit={v=>edit({radiusFt:v})}/>
             <SettingSlider label={`Light ${index+1} height`} value={light.heightFt} min={.5} max={30} step={.5} suffix=" ft" onCommit={v=>edit({heightFt:v})}/>
             <SettingSlider label={`Light ${index+1} strength`} value={light.intensity*100} min={10} max={200} suffix="%" onCommit={v=>edit({intensity:v/100})}/>
             <label className="environment-toggle"><input type="checkbox" checked={light.flicker} onChange={e=>edit({flicker:e.target.checked})}/>Gentle flicker</label>

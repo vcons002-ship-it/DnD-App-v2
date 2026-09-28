@@ -1,3 +1,4 @@
+import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {
   AdditiveBlending, BoxGeometry, Color, ConeGeometry, CylinderGeometry, DynamicDrawUsage, HalfFloatType, InstancedBufferAttribute,
@@ -69,12 +70,12 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   fieldGeometry.index=quad.index;fieldGeometry.attributes=quad.attributes;
   const fieldMaterial=new ShaderMaterial({uniforms:fieldUniforms,transparent:true,blending:AdditiveBlending,depthTest:false,depthWrite:false,toneMapped:false,
     vertexShader:`attribute vec4 source;attribute vec4 radiance;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;
-      void main(){lightSource=source;lightRadiance=radiance;world=source.xz+position.xy*source.w;
+      void main(){lightSource=source;lightRadiance=radiance;world=source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
         gl_Position=vec4((world-torchBounds.xy)/torchBounds.zw*2.-1.,0.,1.);}`,
-    fragmentShader:`varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;
+    fragmentShader:`${lightFalloffGlsl}
+ varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;
       void main(){float d=length(vec3(world-lightSource.xz,lightSource.y));float radius=lightSource.w;
-        float attenuation=pow(clamp(1.-pow(d/radius,4.),0.,1.),2.);
-        float irradiance=radius*radius/max(1.,d*d)*attenuation*lightSource.y/max(1.,d)*.65*lightRadiance.w;
+        float irradiance=lightIrradiance(d,radius,lightRadiance.w);
         gl_FragColor=vec4(lightRadiance.rgb*irradiance,1.);}`});
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
   const wood=new MeshStandardMaterial({color:0x51331d,roughness:.83,emissive:0x331609,emissiveIntensity:.13});

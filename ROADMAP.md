@@ -4,10 +4,19 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Persistent visual asset downloads - September 2026
+
+- [x] Cache downloaded model, art, texture, font and effect bundle assets on each
+  browser across maps/reloads. Stable URLs revalidate conditionally; API/save
+  state is excluded. Requires HTTPS or localhost; browser storage limits apply.
+
 ## Personal darkvision - September 2026
+
 
 - [x] Night/dungeon maps enforce a personal 60-foot horizon: regular darkness
   keeps color, heavy darkness uses grayscale, and lantern pools restore color.
+- [x] Treat light radius as useful illumination, with a soft fade to 1.5 times
+  the radius; share falloff across ground, figures and Darkvision.
 - [x] Blend color restoration with actual lamp positions, flicker and natural
   light attenuation, preserving the warm glow without an inner color disk.
 - [x] Hide affinity borders outside visible light pools, retain DM overview,

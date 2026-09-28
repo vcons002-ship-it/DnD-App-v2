@@ -1,3 +1,4 @@
+import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import {Box3, Mesh, MeshStandardMaterial, Vector3, Vector4, type Camera, type Group, type Material, type Object3D} from 'three';
 import type {MiniatureDefinition} from '../lib/miniatures';
 
@@ -12,7 +13,7 @@ export function createMiniatureTorchLighting(){
     const previous=material.onBeforeCompile,cache=material.customProgramCacheKey();
     material.onBeforeCompile=function(shader,renderer){
       previous.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);
-      shader.fragmentShader='uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
+      shader.fragmentShader=lightFalloffGlsl+'uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',`#include <lights_fragment_begin>
         #if defined(RE_Direct)
         for(int torchIndex=0;torchIndex<8;torchIndex++){
@@ -20,18 +21,18 @@ export function createMiniatureTorchLighting(){
           vec3 torchDelta=torchPositions[torchIndex].xyz-geometryPosition;
           float torchDistance=length(torchDelta);
           directLight.direction=torchDelta/max(.001,torchDistance);
-          directLight.color=torchColors[torchIndex]*getDistanceAttenuation(torchDistance,torchPositions[torchIndex].w,2.0);
+          directLight.color=torchColors[torchIndex]*lightIrradiance(torchDistance,torchPositions[torchIndex].w,1.);
           directLight.visible=true;
           RE_Direct(directLight,geometryPosition,geometryNormal,geometryViewDir,geometryClearcoatNormal,material,reflectedLight);
         }
         #endif`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v1';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v2';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera){
     const chosen:{light:TorchLight;score:number}[]=[];
     for(const light of lights){
       const d2=(light.x-root.position.x)**2+(light.y-root.position.z)**2;
-      if(d2>light.radius**2)continue;
+      if(d2>(light.radius*LIGHT_SPILL_MULTIPLIER)**2)continue;
       const score=light.strength*light.radius**2/Math.max(1,d2+light.height**2*.25);
       let i=0;while(i<chosen.length&&chosen[i].score>=score)i++;
       if(i<8){chosen.splice(i,0,{light,score});if(chosen.length>8)chosen.pop();}
@@ -40,7 +41,7 @@ export function createMiniatureTorchLighting(){
     chosen.forEach(({light},i)=>{
       point.set(light.x,light.height,light.y).applyMatrix4(camera.matrixWorldInverse);
       uniforms.torchPositions.value[i].set(point.x,point.y,point.z,light.radius);
-      uniforms.torchColors.value[i].copy(light.color).multiplyScalar(light.radius**2*.55*light.strength);
+      uniforms.torchColors.value[i].copy(light.color).multiplyScalar(light.strength);
     });
   }};
 }
