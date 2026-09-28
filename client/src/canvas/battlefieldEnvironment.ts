@@ -6,6 +6,7 @@ import {
   type DirectionalLight, type Scene, type WebGLRenderer,
 } from 'three';
 import {createBattlefieldMist} from './battlefieldMist';
+import {createEnvironmentVisibility, environmentVisibilityGlsl, type EnvironmentFog} from './environmentVisibility';
 
 export type EnvironmentSceneryProp = {
   id?: string;
@@ -27,8 +28,15 @@ export type EnvironmentMistPatch = {
   rotation?: number;
 };
 
-/** Preview-only rendering settings. Positions and lengths are map image pixels. */
+/** Renderer settings shared by the isolated study and the app. Lengths are map pixels. */
 export type EnvironmentPreviewSettings = {
+  /** Transparent effects over the existing Konva artwork in the real battlefield. */
+  overlay?: boolean;
+  mapX?: number;
+  mapY?: number;
+  /** Pixels per foot; keeps mist density and drift consistent across calibrated maps. */
+  pixelsPerFoot?: number;
+  fog?: EnvironmentFog;
   enabled: boolean;
   mapUrl: string;
   mapWidth: number;
@@ -143,7 +151,8 @@ export function createBattlefieldEnvironment(
   contacts.name = 'miniature-contact-shadows';
   scene.add(environment);
   environment.add(scenery, contacts);
-  const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution);
+  const visibility = createEnvironmentVisibility();
+  const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms);
   const geometries = new Set<BufferGeometry>();
   const materials = new Set<Material>();
   const textures = new Set<Texture>();
@@ -155,6 +164,14 @@ export function createBattlefieldEnvironment(
   const floorUniforms = { groundArtwork: { value: null as Texture | null }, shadowStrength: { value: 0 } };
   const shadowedGroundMaterial = material(new ShadowMaterial({ transparent: false,
     depthWrite: true, toneMapped: false }));
+  const overlayGroundMaterial = material(new ShadowMaterial({transparent:true,depthWrite:false,toneMapped:false}));
+  overlayGroundMaterial.onBeforeCompile=(shader)=>{
+    Object.assign(shader.uniforms,floorUniforms);
+    shader.fragmentShader='uniform float shadowStrength;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('opacity * ( 1.0 - getShadowMask() )','shadowStrength * ( 1.0 - getShadowMask() )');
+    mist.extendGroundShader(shader,true);
+  };
+  overlayGroundMaterial.customProgramCacheKey=()=> 'battlefield-transparent-environment-v1';
   // Composite in the opaque artwork pass. This keeps the map's original colors outside
   // the shadow and avoids a second nearly coplanar transparent plane in the shared canvas.
   shadowedGroundMaterial.onBeforeCompile = (shader) => {
@@ -186,6 +203,13 @@ export function createBattlefieldEnvironment(
   const contactMaterial = material(new MeshBasicMaterial({
     map: contactMap, transparent: true, depthWrite: false, toneMapped: false,
   }));
+  contactMaterial.onBeforeCompile=(shader)=>{
+    Object.assign(shader.uniforms,visibility.uniforms);
+    shader.vertexShader='varying vec3 contactWorld;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('void main() {','void main() {\n contactWorld=(modelMatrix*vec4(position,1.0)).xyz;');
+    shader.fragmentShader='varying vec3 contactWorld;\n'+environmentVisibilityGlsl+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('void main() {','void main() {\n if(environmentVisible(contactWorld.xz)<.5)discard;');
+  };
   const contactMeshes = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
   const loader = new TextureLoader();
   const original = {
@@ -239,6 +263,7 @@ export function createBattlefieldEnvironment(
   }
 
   function updateMap() {
+    if(settings.overlay){ground.visible=true;return;}
     if (mapUrl === settings.mapUrl) return;
     mapUrl = settings.mapUrl;
     const version = ++mapVersion;
@@ -322,7 +347,7 @@ export function createBattlefieldEnvironment(
   function updateLighting() {
     renderer.getDrawingBufferSize(drawingSize);
     const nextKey = JSON.stringify([settings.enabled, settings.shadows, settings.scenery,
-      settings.shadowDirectionDegrees, settings.shadowLength, settings.mapWidth, settings.mapHeight,
+      settings.shadowDirectionDegrees, settings.shadowLength, settings.mapWidth, settings.mapHeight, settings.mapX, settings.mapY,
       settings.props, drawingSize.x, drawingSize.y]);
     if (nextKey === lightingKey) return;
     lightingKey = nextKey;
@@ -337,9 +362,10 @@ export function createBattlefieldEnvironment(
     const reach = Math.max(width, height) * 1.2;
     const direction = settings.shadowDirectionDegrees * Math.PI / 180;
     const length = clamp(settings.shadowLength, 0.1, 4);
-    keyLight.target.position.set(width / 2, 0, height / 2);
-    keyLight.position.set(width / 2 - Math.cos(direction) * reach * length,
-      reach, height / 2 - Math.sin(direction) * reach * length);
+    const cx=(settings.mapX??0)+width/2,cy=(settings.mapY??0)+height/2;
+    keyLight.target.position.set(cx, 0, cy);
+    keyLight.position.set(cx - Math.cos(direction) * reach * length,
+      reach, cy - Math.sin(direction) * reach * length);
     keyLight.target.updateMatrixWorld();
     keyLight.castShadow = settings.shadows;
     renderer.shadowMap.enabled = settings.shadows;
@@ -375,12 +401,13 @@ export function createBattlefieldEnvironment(
     // This group also owns the baseline artwork: the effects toggle must never hide the map.
     environment.visible = true;
     const width = Math.max(1, settings.mapWidth), height = Math.max(1, settings.mapHeight);
-    ground.position.x = width / 2; ground.position.z = height / 2;
+    ground.position.x = (settings.mapX??0)+width / 2; ground.position.z = (settings.mapY??0)+height / 2;
     ground.scale.set(width, height, 1);
     scenery.visible = settings.enabled && settings.scenery;
+    visibility.update(settings);
     mist.update(settings);
     contacts.visible = settings.enabled && settings.shadows;
-    ground.material = settings.enabled && (settings.shadows || (settings.mist && settings.mistShadows !== false)) ? shadowedGroundMaterial : groundMaterial;
+    ground.material = settings.overlay ? overlayGroundMaterial : settings.enabled && (settings.shadows || (settings.mist && settings.mistShadows !== false)) ? shadowedGroundMaterial : groundMaterial;
     floorUniforms.shadowStrength.value = settings.shadows ? clamp(settings.shadowOpacity, 0, 1) : 0;
     contactMaterial.opacity = clamp(settings.shadowOpacity * 0.85, 0, 0.75);
     updateMap(); updateProps(); updateLighting();
@@ -425,11 +452,11 @@ export function createBattlefieldEnvironment(
     geometries.forEach((entry) => entry.dispose());
     materials.forEach((entry) => entry.dispose());
     textures.forEach((entry) => entry.dispose());
-    contactMeshes.clear(); mist.dispose();
+    contactMeshes.clear(); mist.dispose(); visibility.dispose();
   }
 
   update(initial);
-  return { update, tick, setTokens, dispose, get ready() { return groundMaterial.map !== null; },
+  return { update, tick, setTokens, dispose, get ready() { return settings.overlay || groundMaterial.map !== null; },
     renderMist: mist.render,
     get mistState() { return mist.state; },
   };

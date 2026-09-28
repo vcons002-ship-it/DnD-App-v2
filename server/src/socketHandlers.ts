@@ -153,6 +153,7 @@ import {
   createPastedObject,
   createSummon,
   updateMapGrid,
+  updateMapEnvironment,
   rollAllInitiative,
   startCombat, finishInitiative, rollPlayerInitiative, setInitiativePending,
   rollMissingInitiative,
@@ -438,6 +439,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!ids.length) return;
       reorderMaps(sid, ids);
       afterChange();
+    });
+
+    on('map:setEnvironment', (p) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || !p || typeof p.mapId !== 'string') return;
+      if (updateMapEnvironment(sid, p.mapId, p.settings)) afterChange();
     });
 
     on('map:setGrid', (p) => {

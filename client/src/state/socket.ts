@@ -1,4 +1,5 @@
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
+import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { withRollComparison } from '../../../shared/dicePresentation';
@@ -197,6 +198,7 @@ type Store = {
   renameMap: (mapId: string, name: string) => void;
   /** DM: set the map list's order (ids in display order). */
   reorderMaps: (orderedIds: string[]) => void;
+  setMapEnvironment: (mapId: string, settings: Partial<MapEnvironment>) => void;
   setMapGrid: (
     mapId: string,
     gridSizePx: number,
@@ -911,6 +913,7 @@ export const useStore = create<Store>((set, get) => ({
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
   reorderMaps: (orderedIds) => get().socket?.emit('map:reorder', { orderedIds }),
+  setMapEnvironment: (mapId, settings) => get().socket?.emit('map:setEnvironment', {mapId, settings}),
   setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt, opts) =>
     get().socket?.emit('map:setGrid', {
       mapId,

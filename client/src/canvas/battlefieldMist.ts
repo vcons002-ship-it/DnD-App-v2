@@ -5,13 +5,17 @@ import {
 } from 'three';
 import type {EnvironmentContactToken, EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {createMistFlow} from './mistFlow';
+import {environmentVisibilityGlsl, type createEnvironmentVisibility} from './environmentVisibility';
 
 // Shared by the volume and its ground shading, so both move and reshape together.
 const densityField = /* glsl */`
+  ${environmentVisibilityGlsl}
   uniform highp sampler3D mistNoise;
   uniform sampler2D mistFlow;
   uniform float mistTime, mistHeight, mistStrength, mistWholeMap, mistShadowStrength;
+  uniform float mistWorldScale;
   uniform vec2 mistMapSize;
+  uniform vec2 mistOrigin;
   uniform vec3 mistToLight;
   uniform int mistPatchCount;
   uniform vec4 mistPatches[8];
@@ -22,7 +26,8 @@ const densityField = /* glsl */`
     return texture(mistNoise, (cell + f + .5) / 64.0).r;
   }
   float mistEnvelope(vec2 p) {
-    vec2 edge = min(p, mistMapSize - p);
+    vec2 local = p - mistOrigin;
+    vec2 edge = min(local, mistMapSize - local);
     float border = smoothstep(0.0, 24.0, min(edge.x, edge.y));
     if (mistWholeMap > .5) return border;
     float patches = 0.0;
@@ -39,13 +44,13 @@ const densityField = /* glsl */`
   float mistDensity(vec3 world) {
     float y = world.y / mistHeight;
     if (y <= 0.0 || y >= 1.0) return 0.0;
-    float edge = mistEnvelope(world.xz);
+    float edge = mistEnvelope(world.xz) * environmentVisible(world.xz);
     if (edge < .001) return 0.0;
-    vec4 flow = texture2D(mistFlow, world.xz / mistMapSize);
+    vec4 flow = texture2D(mistFlow, (world.xz - mistOrigin) / mistMapSize);
     vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5;
     // World-space domain warping and differently oriented octaves prevent long
     // parallel strips showing through when looking along the wind direction.
-    vec2 drift = bent - vec2(9.4,3.42) * mistTime;
+    vec2 drift = bent / mistWorldScale - vec2(9.4,3.42) * mistTime;
     vec3 warpPoint = vec3(drift / 115.0, y * .8 + mistTime * .025);
     vec2 warp = vec2(mistNoiseAt(warpPoint),mistNoiseAt(warpPoint + vec3(19.1,7.7,11.3))) - .5;
     vec2 p = drift + warp * 95.0;
@@ -72,7 +77,7 @@ const densityField = /* glsl */`
       opticalDepth += mistDensity(samplePoint);
     }
     // A restrained, diffuse loss of light, not an opaque mesh shadow.
-    return 1.0 - mistShadowStrength * (1.0 - exp(-opticalDepth * pathLength / 3.0 * mistStrength * .065));
+    return 1.0 - mistShadowStrength * (1.0 - exp(-opticalDepth * pathLength / mistWorldScale / 3.0 * mistStrength * .065));
   }
 `;
 
@@ -96,8 +101,8 @@ const fragmentShader = /* glsl */`
     vec3 farPoint = reconstructWorld(ndc, 1.0);
     vec3 direction = normalize(farPoint - origin);
     vec3 safeDirection = direction + vec3(1e-8);
-    vec3 a = (vec3(0.0) - origin) / safeDirection;
-    vec3 b = (vec3(mistMapSize.x, mistHeight, mistMapSize.y) - origin) / safeDirection;
+    vec3 a = (vec3(mistOrigin.x,0.0,mistOrigin.y) - origin) / safeDirection;
+    vec3 b = (vec3(mistOrigin.x+mistMapSize.x, mistHeight, mistOrigin.y+mistMapSize.y) - origin) / safeDirection;
     vec3 nearBounds = min(a, b), farBounds = max(a, b);
     float entry = max(0.0, max(nearBounds.x, max(nearBounds.y, nearBounds.z)));
     float exitPoint = min(farBounds.x, min(farBounds.y, farBounds.z));
@@ -118,10 +123,10 @@ const fragmentShader = /* glsl */`
       if (density > .005) {
         float sunStep = max(1.5, mistHeight * .12);
         float sunward = mistDensity(p + mistToLight * sunStep);
-        float sunlight = exp(-sunward * mistHeight * mistStrength * .055);
+        float sunlight = exp(-sunward * mistHeight / mistWorldScale * mistStrength * .055);
         float illumination = clamp(.22 + .78 * sunlight + (density - sunward) * .18, .3, 1.0);
         vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination);
-        float alpha = 1.0 - exp(-density * mistStrength * stepLength * .12);
+        float alpha = 1.0 - exp(-density * mistStrength * stepLength / mistWorldScale * .12);
         light += transmittance * alpha * color;
         transmittance *= 1.0 - alpha;
         if (transmittance < .035) break;
@@ -136,9 +141,11 @@ const fragmentShader = /* glsl */`
 // Four neighboring fog samples, weighted by the actual opaque surface depth.
 // This keeps a low-resolution wisp from leaking across a sharp miniature edge.
 const compositeFragment=/* glsl */`
+  ${environmentVisibilityGlsl}
   uniform sampler2D mistColor, mistSceneDepth;
   uniform vec2 lowResolution;
   uniform mat4 mistProjectionInverse;
+  uniform mat4 mistCameraWorld;
   varying vec2 vUv;
   float viewDepth(vec2 uv) {
     float d=texture2D(mistSceneDepth,uv).r;
@@ -146,6 +153,15 @@ const compositeFragment=/* glsl */`
     return p.z/p.w;
   }
   void main(){
+    // Screen-space clipping as well as density clipping keeps even low-res fog
+    // interpolation from brightening the concealed terrain behind it.
+    vec4 nearP=mistProjectionInverse*vec4(vUv*2.0-1.0,-1.0,1.0);
+    vec4 farP=mistProjectionInverse*vec4(vUv*2.0-1.0,1.0,1.0);
+    vec3 start=(mistCameraWorld*vec4(nearP.xyz/nearP.w,1.0)).xyz;
+    vec3 end=(mistCameraWorld*vec4(farP.xyz/farP.w,1.0)).xyz;
+    vec3 direction=end-start;
+    vec3 ground=start-direction*start.y/direction.y;
+    if(environmentVisible(ground.xz)<.5)discard;
     vec2 p=vUv*lowResolution-.5, f=fract(p), base=floor(p);
     float center=viewDepth(vUv), total=0.0;
     vec4 color=vec4(0.0);
@@ -164,7 +180,7 @@ const compositeFragment=/* glsl */`
 `;
 
 /** One bounded density volume, clipped against the scene's opaque depth. */
-export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
+export function createBattlefieldMist(depth: Texture, resolution: Vector2, visibility: ReturnType<typeof createEnvironmentVisibility>['uniforms']) {
   const flow=createMistFlow();
   const data = new Uint8Array(64 * 64 * 64);
   let seed = 572919;
@@ -178,6 +194,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
   noise.wrapS = noise.wrapT = noise.wrapR = RepeatWrapping;
   noise.needsUpdate = true;
   const common = {
+    ...visibility, mistOrigin:{value:new Vector2()}, mistWorldScale:{value:1},
     mistNoise:{value:noise}, mistFlow:{value:flow.texture}, mistTime:{value:0}, mistHeight:{value:25.6}, mistStrength:{value:0},
     mistWholeMap:{value:1}, mistMapSize:{value:new Vector2(1216,832)},
     mistToLight:{value:new Vector3(-.5,1,-.7).normalize()}, mistShadowStrength:{value:0},
@@ -198,8 +215,8 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
   };
   const volumeScene=new Scene();volumeScene.add(volume);
   const target=new WebGLRenderTarget(1,1,{depthBuffer:false,stencilBuffer:false,minFilter:LinearFilter,magFilter:LinearFilter});
-  const composite=new ShaderMaterial({uniforms:{mistColor:{value:target.texture},mistSceneDepth:{value:depth},lowResolution:{value:lowResolution},
-    mistProjectionInverse:material.uniforms.mistProjectionInverse},
+  const composite=new ShaderMaterial({uniforms:{...visibility,mistColor:{value:target.texture},mistSceneDepth:{value:depth},lowResolution:{value:lowResolution},
+    mistProjectionInverse:material.uniforms.mistProjectionInverse,mistCameraWorld:material.uniforms.mistCameraWorld},
     vertexShader:'varying vec2 vUv; void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:compositeFragment,
     transparent:true,depthTest:false,depthWrite:false,toneMapped:false});
   const quadGeometry=new PlaneGeometry(2,2),quad=new Mesh(quadGeometry,composite),compositeScene=new Scene();
@@ -211,14 +228,18 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
       const height=Math.max(.5,settings.mistHeight??25.6);
       quality=settings.mistQuality??'auto';
       const visible=settings.enabled&&settings.mist&&quality!=='off';
-      flow.update(settings);
+      const ox=settings.mapX??0,oy=settings.mapY??0;
+      if(common.mistOrigin.value.x!==ox||common.mistOrigin.value.y!==oy)flow.reset();
+      flow.update({...settings,mistInteraction:visible&&settings.mistInteraction!==false,props:settings.props?.map(p=>({...p,x:p.x-ox,y:p.y-oy}))});
       coverage=settings.mistCoverage??'patches';
       volume.visible=visible;
-      volume.position.set(settings.mapWidth/2,height/2,settings.mapHeight/2);
+      volume.position.set(ox+settings.mapWidth/2,height/2,oy+settings.mapHeight/2);
       volume.scale.set(settings.mapWidth,height,settings.mapHeight);
       common.mistHeight.value=height;
+      common.mistWorldScale.value=Math.max(.001,(settings.pixelsPerFoot??12.8)/12.8);
       common.mistStrength.value=visible?Math.max(0,Math.min(.7,settings.mistOpacity??.28)):0;
       common.mistMapSize.value.set(settings.mapWidth,settings.mapHeight);
+      common.mistOrigin.value.set(ox,oy);
       common.mistWholeMap.value=coverage==='map'?1:0;
       const angle=settings.shadowDirectionDegrees*Math.PI/180;
       common.mistToLight.value.set(-Math.cos(angle)*settings.shadowLength,1,-Math.sin(angle)*settings.shadowLength).normalize();
@@ -231,7 +252,10 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
         common.mistPatchRotation.value[index].set(Math.cos(a),Math.sin(a));
       });
     },
-    setTokens(tokens:readonly EnvironmentContactToken[]){flow.setTokens(tokens);},
+    setTokens(tokens:readonly EnvironmentContactToken[]){
+      const {x,y}=common.mistOrigin.value;
+      flow.setTokens(tokens.map(t=>({...t,x:t.x-x,y:t.y-y,body:t.body?{...t.body,x:t.body.x-x,y:t.body.y-y}:undefined})));
+    },
     render(renderer:WebGLRenderer,camera:Camera){
       if(!volume.visible)return;
       // Auto caps fog pixel work; main scene and miniatures keep full resolution.
@@ -247,13 +271,14 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2) {
         renderer.setRenderTarget(previous);renderer.autoClear=false;renderer.render(compositeScene,quadCamera);
       }finally{renderer.setRenderTarget(previous);renderer.autoClear=autoClear;renderer.shadowMap.needsUpdate=shadowUpdate;}
     },
-    extendGroundShader(shader:{uniforms:Record<string,{value:unknown}>;vertexShader:string;fragmentShader:string}) {
+    extendGroundShader(shader:{uniforms:Record<string,{value:unknown}>;vertexShader:string;fragmentShader:string},overlay=false) {
       Object.assign(shader.uniforms,common);
       shader.vertexShader='varying vec3 mistGroundWorld;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('void main() {','void main() {\n mistGroundWorld = (modelMatrix * vec4(position,1.0)).xyz;');
       shader.fragmentShader='varying vec3 mistGroundWorld;\n'+densityField+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('void main() {','void main() {\n if(environmentVisible(mistGroundWorld.xz)<.5)discard;');
       shader.fragmentShader=shader.fragmentShader.replace('#include <tonemapping_fragment>',
-        'gl_FragColor.rgb *= mistGroundShade(mistGroundWorld);\n#include <tonemapping_fragment>');
+        (overlay?'gl_FragColor.a = 1.0-(1.0-gl_FragColor.a)*mistGroundShade(mistGroundWorld);':'gl_FragColor.rgb *= mistGroundShade(mistGroundWorld);')+'\n#include <tonemapping_fragment>');
     },
     tick(seconds:number){common.mistTime.value=seconds;flow.tick(seconds);return volume.visible;},
     get state(){return {visible:volume.visible,coverage,height:common.mistHeight.value,layers:1,shadows:common.mistShadowStrength.value>0,

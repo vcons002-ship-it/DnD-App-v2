@@ -1,5 +1,10 @@
 # Courtyard environment proof
 
+**Current status:** the standalone studies below remain available unchanged. The
+development branch now also has opt-in, saved map controls; see
+[the app integration notes](ENVIRONMENT_CONTROLS_2026_09_27.md). The latest
+lower-body mist candidate is still awaiting the user's remaining visual testing.
+
 An isolated interactive lighting study uses the production `MiniatureLayer`
 renderer and the existing courtyard image, all three party miniatures, a Cultist
 Fanatic, two goblins and a wolf. It is a separate static entry point, not a
@@ -32,7 +37,7 @@ It does not start the game server, connect to multiplayer, or write campaign dat
 - Original ground image preserved byte-for-byte; selected GLBs copied without
   reduction or texture edits. Asset hashes are written in the build receipt.
 
-## Boundaries
+## Original standalone boundaries
 
 Normal battlefields do not pass `environmentPreview` and retain their existing
 lighting, visibility, interactions and frame scheduling. This proof adds no

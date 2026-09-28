@@ -1996,4 +1996,6 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Whole-map mist comparison with a dedicated on/off toggle, patch/full-map coverage, independent density and 0.5-to-10-foot height controls; recorded low/high mist and verified rendered heights in desktop and phone-width browsers.
 - [x] Replace the preview's flat mist sheets with a depth-clipped density volume: fuller billows, shaded interiors, and optional soft ground shading that follows the mist and the map light direction. Keep height, coverage and density controls.
 - [x] Refine the proof into faster drifting wisps with sparse low billows, scenery deflection and fading token wakes. Add Auto/High/Low/Off atmosphere quality, a separate low-resolution mist pass with depth-aware compositing, and asynchronous GPU measurements.
-- [ ] Shared per-map environment settings, fog-aware scenery/effect clipping, and quality/performance controls before campaign integration.
+- [x] Opt-in saved map shadows/mist in DM Maps, active/staged map isolation, browser-local Auto/High/Low/Off for both roles, transparent map compositing, fog-clipped effects, calibrated mist height/density/drift, and negative-tile support. Verified with real DM/player views and a fully covered fog pixel comparison. See [integration notes](docs/ENVIRONMENT_CONTROLS_2026_09_27.md).
+- [ ] Editable raised scenery with server-shaped visibility and fog clipping; painted-wall depth/collision remains a separate step.
+- [ ] Crowded-board and physical-phone performance measurements before recommending High atmosphere quality broadly.

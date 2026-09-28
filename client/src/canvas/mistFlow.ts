@@ -53,6 +53,7 @@ export function createMistFlow() {
   return {
     texture,
     update:rebuild,
+    reset(){previous.clear();wakes.length=0;lastUpload=-1;},
     setTokens(tokens:readonly ContactToken[]){
       const visible=new Set(tokens.filter(t=>t.visible).map(t=>t.id));
       for(let i=wakes.length-1;i>=0;i--)if(!visible.has(wakes[i].id))wakes.splice(i,1);

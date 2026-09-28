@@ -2,6 +2,7 @@
 // Keep this framework-free so it can be imported from either side.
 
 import type { AbilityKey } from './skills.js';
+import type { MapEnvironment } from './mapEnvironment.js';
 
 export type Role = 'dm' | 'player';
 
@@ -736,6 +737,8 @@ export type LootContents = {
 };
 
 export type MapState = {
+  /** Optional for old exports; absent settings keep environmental effects off. */
+  environment?: MapEnvironment;
   id: string;
   sessionId: string;
   name: string;
@@ -1580,6 +1583,7 @@ export interface ClientToServerEvents {
   'map:rename': (payload: MapRenamePayload) => void;
   'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
+  'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;

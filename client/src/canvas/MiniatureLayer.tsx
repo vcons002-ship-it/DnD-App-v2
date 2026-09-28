@@ -48,7 +48,7 @@ type Props = {
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
-  /** Isolated environment proof; ordinary battlefields retain their renderer. */
+  /** Shared renderer settings; the app uses a transparent ground overlay. */
   environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
@@ -64,6 +64,7 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  measureBody: () => MistBody;
   root: Group;
   outlineMaterial: MeshBasicMaterial;
   outlineViewport: { value: Vector2 };
@@ -319,6 +320,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
           host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
           host.dataset.groundReady=String(battlefield.ready);
+          const environment=props.environmentPreview!;
+          host.dataset.environmentBounds=JSON.stringify([environment.mapX??0,environment.mapY??0,environment.mapWidth,environment.mapHeight]);
           const mistState=battlefield.mistState;
           host.dataset.mistVisible=String(mistState.visible);
           host.dataset.mistCoverage=mistState.coverage;
@@ -423,7 +426,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
       material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
     });
-    if (battlefield) {
+    {
+      if(battlefield&&!instance.mistBody)instance.mistBody=instance.measureBody();
       const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden;
       model.traverse(node=>{if(node instanceof Mesh && node.name !== 'disposition-outline'){
         const opaque=(Array.isArray(node.material)?node.material:[node.material]).every(material=>!material.transparent);
@@ -451,7 +455,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       else if(lastEnvironment!==next.environmentPreview)battlefield.update(next.environmentPreview);
       lastEnvironment=next.environmentPreview;
       ambient.intensity=next.environmentPreview.enabled ? 1.35 : 2;
-    } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;}
+    } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;
+      host.dataset.environment='off';host.dataset.mistVisible='false';host.dataset.shadows='false';host.dataset.mistWakes='0';
+    }
     updateCamera();
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
@@ -610,6 +616,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
           // Emissive/material flicker does not change the ground silhouette.
           shadowAnimated: gltf.animations.some(clip => clip.tracks.some(track => /\.(position|quaternion|scale|morphTargetInfluences)(\[|$)/.test(track.name))),
+          measureBody:()=>measureMistBody(gltf.scene,definition),
           mistBody:props.environmentPreview?measureMistBody(gltf.scene,definition):undefined,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };

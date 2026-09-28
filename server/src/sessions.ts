@@ -1,4 +1,5 @@
 import {rollDice} from '../../shared/dice.js';
+import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
@@ -262,6 +263,15 @@ export function createMap(
   );
   // Maps start staged, including the first map. Only Make active starts reveals.
   return getMap(id)!;
+}
+
+/** Scoped here as well as at the socket boundary so callers cannot edit another campaign. */
+export function updateMapEnvironment(sessionId: string, mapId: string, settings: unknown): boolean {
+  const map = getMap(mapId);
+  if (!map || map.sessionId !== sessionId) return false;
+  db.prepare('UPDATE maps SET environment = ? WHERE id = ? AND session_id = ?')
+    .run(JSON.stringify(sanitizeMapEnvironment(settings, map.environment)), mapId, sessionId);
+  return true;
 }
 
 export function updateMapGrid(

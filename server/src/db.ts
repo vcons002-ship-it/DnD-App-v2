@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import { randomUUID, randomInt } from 'node:crypto';
 import { config } from './config.js';
+import { sanitizeMapEnvironment } from '../../shared/mapEnvironment.js';
 import type {
   Character,
   Condition,
@@ -332,6 +333,7 @@ ensureColumn('maps', 'grid_offset_x', 'grid_offset_x REAL NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_offset_y', 'grid_offset_y REAL NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_locked', 'grid_locked INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_hidden', 'grid_hidden INTEGER NOT NULL DEFAULT 0');
+ensureColumn('maps', 'environment', "environment TEXT NOT NULL DEFAULT '{}'");
 // DM-chosen map order. Legacy rows default to 0 and are listed by created_at as
 // before, so an existing campaign's map order is untouched until the DM reorders
 // (which stamps every map 1..N); new maps take MAX+1 so they land at the end.
@@ -600,8 +602,13 @@ export function newSessionCode(): string {
 }
 
 // ---- Row -> domain mappers ----
+function readMapEnvironment(value?: string) {
+  try { return sanitizeMapEnvironment(JSON.parse(value ?? '{}')); }
+  catch { return sanitizeMapEnvironment(null); }
+}
 
 type MapRow = {
+  environment?: string;
   id: string;
   session_id: string;
   name: string;
@@ -622,6 +629,7 @@ type MapRow = {
 
 export function rowToMap(r: MapRow): MapState {
   return {
+    environment: readMapEnvironment(r.environment),
     id: r.id,
     sessionId: r.session_id,
     name: r.name,

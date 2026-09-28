@@ -34,6 +34,8 @@ import { getPlayerId, useStore } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
+import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
+import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import { ScaleMenu } from '../components/ScaleMenu';
 import { TilesMenu } from '../components/TilesMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
@@ -678,6 +680,15 @@ export function MapStage({
   // Pixels per foot — tokens are sized by their real width in feet, so they keep
   // their footprint when only the visual grid cell changes.
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
+  const {quality:environmentQuality}=useEnvironmentQuality();
+  const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
+    const settings=map?.environment;
+    if(!map || !settings?.enabled || environmentQuality==='off' || map.slidesUrl)return undefined;
+    return {...settings,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+      scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
+      fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
+  },[map?.environment,map?.slidesUrl,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
+
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
   const [tool, setTool] = useState<MeasureTool | null>(null);
@@ -2246,8 +2257,9 @@ export function MapStage({
               )}
             </Layer>
           </Stage>
-          {miniatureTokens.length > 0 && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
+          {(miniatureTokens.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
+            <MiniatureLayer key={map?.id} ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
+              environmentPreview={environment}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} />
           </Suspense></MiniatureFallback>}

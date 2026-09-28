@@ -21,6 +21,104 @@ test.beforeAll(()=>{
 const sockets: Socket[] = [];
 test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
+test('saved map environment works for DM and player, preserves tools, and clips fog', async ({page,request,browser},info)=>{
+  test.setTimeout(150000);
+  await page.setViewportSize({width:1440,height:960});
+  const errors:string[]=[];
+  const watch=(p:Page)=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});};
+  watch(page);
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/courtyard.png'));
+  await page.goto(`/dm?code=${f.code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  const dmLayer=page.getByTestId('miniature-layer');
+  await expect(dmLayer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960}});
+  const player=await context.newPage();watch(player);
+  try {
+    await enter(player,f.code);
+    const layer=player.getByTestId('miniature-layer');
+    await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+    await page.getByRole('button',{name:'Maps',exact:true}).click();
+    await page.locator('.map-environment-controls summary').click();
+    await page.getByLabel('Enable environment',{exact:true}).click();
+    await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
+    await expect(layer).toHaveAttribute('data-mist-visible','true');
+    await page.getByLabel('Shadow direction',{exact:true}).focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.shadowDirectionDegrees).toBe(1);
+    await page.getByLabel('Mist height',{exact:true}).focus();await page.keyboard.press('ArrowRight');
+    await expect.poll(async()=>(await f.snapshot()).map?.environment?.mistHeightFt).toBe(2.5);
+    await expect(layer).toHaveAttribute('data-mist-height',String(2.5*100/5));
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{shadowDirectionDegrees:55,mistHeightFt:2}});
+    await expect(page.getByLabel('Shadow direction',{exact:true})).toHaveValue('55');
+    await page.locator('.map-environment-controls summary').scrollIntoViewIfNeeded();
+    await page.screenshot({path:info.outputPath('environment-dm-controls.png')});
+    await player.screenshot({path:info.outputPath('environment-player-45.png')});
+    await player.setViewportSize({width:390,height:844});
+    await expect(layer).toHaveAttribute('data-mist-quality','low');
+    await player.screenshot({path:info.outputPath('environment-player-phone.png')});
+    await player.setViewportSize({width:1440,height:960});
+    await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
+    await expect(layer).toHaveAttribute('data-environment','off');
+    await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
+    await player.getByLabel('Environment quality',{exact:true}).selectOption('low');
+    await expect(layer).toHaveAttribute('data-mist-quality','low');
+    await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
+    await player.reload();await expect(layer).toHaveAttribute('data-mist-quality','low',{timeout:60000});
+    await page.reload();await expect(dmLayer).toHaveAttribute('data-mist-visible','true',{timeout:60000});
+    f.socket.emit('mapImage:add',{mapId:f.mapId,imagePath:f.ready.map!.imagePath!,x:-300,y:-150,w:300,h:300});
+    await expect.poll(async()=>(await f.snapshot()).mapImages.length).toBe(1);
+    await expect(layer).toHaveAttribute('data-environment-bounds','[-300,-150,1516,982]');
+    const druk=f.ready.tokens[0];
+    f.socket.emit('token:move',{tokenId:druk.id,x:druk.x+100,y:druk.y+30});
+    await expect.poll(async()=>Number(await layer.getAttribute('data-mist-wakes'))).toBeGreaterThan(0);
+    const bodies=JSON.parse((await layer.getAttribute('data-mist-bodies'))!);
+    expect(bodies.find((b:any)=>b.id===druk.id).source).toBe('geometry');
+    // The usual measuring tools remain above the transparent effects.
+    f.socket.emit('measure:add',{kind:'ruler',origin:{x:200,y:550},target:{x:700,y:550}});
+    await expect.poll(async()=>(await f.snapshot()).measurements.length).toBe(1);
+    await player.screenshot({path:info.outputPath('environment-player-ruler.png')});
+    f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'map',enabled:true});
+    f.socket.emit('fog:cover',{mapId:f.mapId,layer:'map'});
+    const cells=Array.from({length:8},(_,r)=>Array.from({length:5},(_,c)=>`${c},${r}`)).flat();
+    f.socket.emit('fog:paint',{mapId:f.mapId,layer:'map',cells,reveal:true});
+    await expect(layer).toHaveAttribute('data-miniature-count','1');
+    await player.screenshot({path:info.outputPath('environment-player-fog-45.png')});
+    await player.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+    await expect(layer).toHaveAttribute('data-tilt-degrees','0');
+    await player.screenshot({path:info.outputPath('environment-player-fog-overhead.png')});
+    // With all figures hidden and all cells covered, no environment pixel may
+    // brighten the blackout. Compare actual composed screen pixels on/off.
+    for(const token of f.ready.tokens)f.socket.emit('token:setHidden',{tokenId:token.id,hidden:true});
+    f.socket.emit('fog:cover',{mapId:f.mapId,layer:'map'});
+    f.socket.emit('measure:clear',{mapId:f.mapId});
+    await expect(layer).toHaveAttribute('data-miniature-count','0');
+    const clip=(await layer.boundingBox())!;
+    const on=await player.screenshot({clip});
+    await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
+    await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
+    const off=await player.screenshot({clip});
+    const diff=await player.evaluate(async(images)=>{
+      const data=await Promise.all(images.map(async base64=>{
+        const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+        const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
+        const c=new OffscreenCanvas(bitmap.width,bitmap.height),ctx=c.getContext('2d')!;
+        ctx.drawImage(bitmap,0,0);return {w:c.width,h:c.height,p:ctx.getImageData(0,0,c.width,c.height).data};
+      }));
+      let changed=0;const [a,b]=data;
+      // Only the central map, away from HUD and clock-dependent text.
+      for(let y=Math.floor(a.h*.25);y<a.h*.7;y++)for(let x=Math.floor(a.w*.3);x<a.w*.7;x++){
+        const i=(y*a.w+x)*4;if(Math.abs(a.p[i]-b.p[i])+Math.abs(a.p[i+1]-b.p[i+1])+Math.abs(a.p[i+2]-b.p[i+2])>3)changed++;
+      }return changed;
+    },[on,off].map(b=>b.toString('base64')));
+    expect(diff).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {await context.close();}
+});
+
 test('cultist and demon library entries load the real equipped models in both map views', async ({ page, request }, info) => {
   test.setTimeout(120000);
   await page.setViewportSize({ width: 1600, height: 1000 });
