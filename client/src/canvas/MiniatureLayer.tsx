@@ -330,7 +330,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         battlefield.tick(reducedMotion.matches?0:seconds);
         props.onVisionLights?.(battlefield.lighting.lights);
       }
-      for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain);
+      for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
       try {
         timing?.begin();
         battlefield?.lighting.renderField(renderer);

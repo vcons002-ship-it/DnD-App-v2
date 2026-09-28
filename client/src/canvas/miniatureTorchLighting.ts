@@ -1,6 +1,7 @@
 import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import {Box3, Mesh, MeshStandardMaterial, Vector3, Vector4, type Camera, type Group, type Material, type Object3D} from 'three';
 import type {MiniatureDefinition} from '../lib/miniatures';
+import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 
 export type TorchLight = {id:string;x:number;y:number;height:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number};
 
@@ -39,12 +40,13 @@ export function createMiniatureTorchLighting(){
         #include <opaque_fragment>`);
     };
     material.customProgramCacheKey=()=>cache+'-nearby-torches-v5';
-  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false){
+  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=[]){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];
     for(const light of lights){
       const d2=(light.x-root.position.x)**2+(light.y-root.position.z)**2;
       if(d2>(light.radius*LIGHT_SPILL_MULTIPLIER)**2)continue;
+      if(!hasLineOfSight(light,{x:root.position.x,y:root.position.z},walls))continue;
       const score=light.strength*light.radius**2/Math.max(1,d2+light.height**2*.25);
       let i=0;while(i<chosen.length&&chosen[i].score>=score)i++;
       if(i<8){chosen.splice(i,0,{light,score});if(chosen.length>8)chosen.pop();}

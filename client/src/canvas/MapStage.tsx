@@ -1,4 +1,6 @@
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
+import {WallMenu,type WallTool} from '../components/WallMenu';
+import {distanceToWall,MAX_MAP_WALLS} from '../../../shared/mapWalls';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
@@ -7,7 +9,7 @@ import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance
 import { productionFamily } from '../../../shared/assetProduction';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Stage, Layer, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
+import { Stage, Layer, Group, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
@@ -649,6 +651,22 @@ export function MapStage({
   const penRef = useRef<number[] | null>(null);
   const [penDraft, setPenDraft] = useState<number[] | null>(null);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
+  const [wallTool,setWallTool]=useState<WallTool>('off');
+  const [wallSnap,setWallSnap]=useState(false);
+  const [wallAnchor,setWallAnchor]=useState<Pt|null>(null),[wallPointer,setWallPointer]=useState<Pt|null>(null);
+  const wallActive=isDm&&wallTool!=='off';
+  const wallPoint=(p:Pt):Pt=>{
+    for(const wall of map?.walls??[])for(const point of [{x:wall.ax,y:wall.ay},{x:wall.bx,y:wall.by}])
+      if(Math.hypot(p.x-point.x,p.y-point.y)<10/view.scale)return point;
+    const ox=map?.gridOffsetX??0,oy=map?.gridOffsetY??0;
+    return wallSnap?{x:Math.round((p.x-ox)/grid)*grid+ox,y:Math.round((p.y-oy)/grid)*grid+oy}:p;
+  };
+  useEffect(()=>{setWallTool('off');setWallAnchor(null);setWallPointer(null);},[map?.id]);
+  useEffect(()=>{
+    if(!wallActive)return;
+    const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setWallAnchor(null);setWallPointer(null);if(!wallAnchor)setWallTool('off');}};
+    window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);
+  },[wallActive,wallAnchor]);
   const [paintLayer, setPaintLayer] = useState<FogLayer>('map');
   const [brushSize, setBrushSize] = useState(1); // cells per side (1,3,5)
   // Fog cell index range over the composite box (may be negative when tiles
@@ -705,9 +723,10 @@ export function MapStage({
     if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
     return {...settings,...(snapshot.playerVision?.heavy?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+      walls:map.walls,lights:[...settings.lights,...(snapshot.playerVision?.lights??[]).filter(l=>!settings.lights.some(s=>s.id===l.id)&&!carriedLanterns.some(c=>c.id===l.id)).map(l=>({id:l.id,x:l.x,y:l.y,radiusFt:l.radius/pxPerFoot,heightFt:l.height/pxPerFoot,intensity:l.strength,color:'warm' as const,flicker:false,visibleTorch:false}))],
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
-  },[map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
+  },[map?.walls,map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
 
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
@@ -780,7 +799,8 @@ export function MapStage({
     setTool(null); setRemoveMode(false); setScaleMode(false); setMatchMode(false);
     setAnnotate(null); setTilesMode(false); setFogBrush('off'); setMenu(null);
   }, [orbTarget?.rollId]);
-  const measureActive = !!tool || removeMode || scaleMode || matchMode || !!annotate;
+  const measureActive = wallActive || !!tool || removeMode || scaleMode || matchMode || !!annotate;
+  useEffect(()=>{if(tool||removeMode||scaleMode||matchMode||annotate||fogActive||tilesMode||placingLight||orbTarget){setWallTool('off');setWallAnchor(null);}},[tool,removeMode,scaleMode,matchMode,annotate,fogActive,tilesMode,placingLight,orbTarget]);
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const privateDrag = useRef(false);
@@ -1254,6 +1274,22 @@ export function MapStage({
       setPinching(true);
       return;
     }
+    if(wallActive&&map){
+      if('button' in e.evt&&e.evt.button!==0)return;
+      const raw=pointerToImage(stage);if(!raw)return;
+      if(wallTool==='erase'){
+        const wall=(map.walls??[]).reduce<import('../../../shared/mapWalls').MapWall|undefined>((best,w)=>!best||distanceToWall(raw,w)<distanceToWall(raw,best)?w:best,undefined);
+        if(wall&&distanceToWall(raw,wall)<14/view.scale)useStore.getState().editMapWalls(map.id,{removeId:wall.id});
+      }else{
+        const p=wallPoint(raw);
+        if(wallAnchor&&Math.hypot(p.x-wallAnchor.x,p.y-wallAnchor.y)>.1){
+          if((map.walls?.length??0)>=MAX_MAP_WALLS){notify('Wall limit reached. Erase an unused segment first.');return;}
+          useStore.getState().editMapWalls(map.id,{add:{id:crypto.randomUUID(),ax:wallAnchor.x,ay:wallAnchor.y,bx:p.x,by:p.y}});
+        }
+        setWallAnchor(p);setWallPointer(p);
+      }
+      return;
+    }
     if(placingLight&&map&&lightPlacement&&(!('button' in e.evt)||e.evt.button===0)){
       const pos=pointerToImage(stage);
       if(pos){
@@ -1345,6 +1381,7 @@ export function MapStage({
       pinchRef.current = next;
       return;
     }
+    if(wallActive){const stage=e.target.getStage(),p=stage?pointerToImage(stage):null;if(p)setWallPointer(wallPoint(p));hideCursor();return;}
     // Live "laser pointer": broadcast my cursor (throttled ~20/s) so others see
     // what I'm pointing at — independent of any active tool.
     const cursorStage = e.target.getStage();
@@ -1934,6 +1971,10 @@ export function MapStage({
                         setScaleMode((s) => !s);
                       }}
                     />
+                    <WallMenu tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
+                      onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
+                      onFinish={()=>{setWallAnchor(null);setWallPointer(null);}}
+                      onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
                     <FogMenu
                       mapFogEnabled={mapFogEnabled}
                       tokenFogEnabled={tokenFogEnabled}
@@ -2265,6 +2306,11 @@ export function MapStage({
                       listening={false}
                     />
                   )}
+              {wallActive&&<Group listening={false}>
+                {(map?.walls??[]).map(w=><Line key={w.id} points={[w.ax,w.ay,w.bx,w.by]} stroke="#ffc76e" strokeWidth={3/view.scale} lineCap="round"/>)}
+                {wallAnchor&&wallPointer&&<Line points={[wallAnchor.x,wallAnchor.y,wallPointer.x,wallPointer.y]} stroke="#fff1c2" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>}
+                {wallPointer&&<Circle x={wallPointer.x} y={wallPointer.y} radius={5/view.scale} fill={wallTool==='erase'?'#ff6677':'#fff1c2'}/>}
+              </Group>}
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
               <DragGhostLayer
                 ghosts={dragGhosts}
@@ -2300,6 +2346,11 @@ export function MapStage({
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
           {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}/>}
+          {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
+            <span>{wallTool==='draw'?'Click corners to trace walls · Esc ends this chain':'Click a wall to erase it'}</span>
+            {wallTool==='draw'&&<button className="btn tiny" onClick={()=>{setWallAnchor(null);setWallPointer(null);}}>Finish chain</button>}
+            <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
+          </div>}
           <DecalPopup snapshot={snapshot} />
           {hover && !menu && (
             <TokenHoverCard

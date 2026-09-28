@@ -739,6 +739,8 @@ export type LootContents = {
 };
 
 export type MapState = {
+  /** Saved DM-drawn barriers; absent in older campaigns. */
+  walls?: import('./mapWalls.js').MapWall[];
   /** Optional for old exports; absent settings keep environmental effects off. */
   environment?: MapEnvironment;
   id: string;
@@ -1588,6 +1590,7 @@ export interface ClientToServerEvents {
   'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
   'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
+  'map:editWalls': (payload: {mapId: string; add?: import('./mapWalls.js').MapWall; removeId?: string}) => void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;

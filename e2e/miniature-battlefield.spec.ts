@@ -571,6 +571,73 @@ function offsetPoint(view: NonNullable<Awaited<ReturnType<typeof tokenView>>>, d
     y: p.top + p.h / 2 + (m[1] * x + m[5] * y + m[13]) / w };
 }
 
+test('DM draws saved walls and each player sees their own lit side in overhead and tilted views',async({page,request,browser},info)=>{
+  test.setTimeout(180000);
+  await page.setViewportSize({width:1500,height:1000});
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+  const errors:string[]=[];
+  const watch=(p:Page)=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});};watch(page);
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:true,mist:false,lights:[{id:'west-torch',x:640,y:400,radiusFt:30,heightFt:5,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
+  await f.snapshot();
+  await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  // Trace a partition through the real drawing controls, leaving an open doorway.
+  const druk=f.ready.tokens[0],vanec=f.ready.tokens[2];
+  const mapClick=async(x:number,y:number)=>{const p=offsetPoint((await tokenView(page,druk.id))!,x-druk.x,y-druk.y);await page.mouse.click(p.x,p.y);};
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw connected walls',exact:true}).click();
+  await mapClick(750,40);await mapClick(750,650);
+  await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
+  await page.getByRole('button',{name:'Finish chain',exact:true}).click();
+  expect(await page.locator('.stage-wrap').evaluate(e=>[e.scrollLeft,e.scrollTop])).toEqual([0,0]);
+  await mapClick(750,720);await mapClick(750,790);
+  await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(2);
+  await page.screenshot({path:info.outputPath('walls-dm-drawing.png')});
+  await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
+  const contexts=await Promise.all([browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}}),browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}})]);
+  try{
+    const [west,east]=await Promise.all(contexts.map(c=>c.newPage()));watch(west);watch(east);
+    await enter(west,f.code,'Druk',false);await enter(east,f.code,'Vanec',false);
+    await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
+    await expect(east.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
+    await expect.poll(()=>tokenView(west,vanec.id)).toBeNull();
+    await expect.poll(()=>tokenView(east,druk.id)).toBeNull();
+    await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
+    await expect(east.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
+    await west.screenshot({path:info.outputPath('walls-druk-overhead.png')});await east.screenshot({path:info.outputPath('walls-vanec-overhead.png')});
+    for(const p of [west,east])await p.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+    await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
+    await expect(east.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
+    await afterPaint(west);await afterPaint(east);
+    await west.screenshot({path:info.outputPath('walls-druk-45.png')});await east.screenshot({path:info.outputPath('walls-vanec-45.png')});
+    // Display preferences cannot disable wall occlusion or disclose hidden models.
+    await west.evaluate(()=>{localStorage.setItem('dnd-environment-quality','off');window.dispatchEvent(new Event('dnd-environment-quality-change'));});
+    await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
+    expect(await tokenView(west,vanec.id)).toBeNull();
+    await west.getByRole('button',{name:'2D player tokens',exact:true}).click();
+    await west.setViewportSize({width:720,height:900});
+    await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
+    expect(await tokenView(west,vanec.id)).toBeNull();
+    await west.screenshot({path:info.outputPath('walls-mobile-effects-off.png')});
+    // A forged player edit cannot erase the wall.
+    const rogue=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(rogue);
+    await rogue.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player'});
+    const walls=(await f.snapshot()).map!.walls!;
+    rogue.emit('map:editWalls',{mapId:f.mapId,removeId:walls[0].id});
+    await rogue.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player'});
+    expect((await f.snapshot()).map!.walls).toEqual(walls);
+    // Erase using the actual DM tool; both players immediately regain sight.
+    await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Erase a wall',exact:true}).click();
+    await mapClick((walls[0].ax+walls[0].bx)/2,(walls[0].ay+walls[0].by)/2);
+    await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
+    await expect.poll(()=>tokenView(west,vanec.id)).not.toBeNull();
+    await expect.poll(()=>tokenView(east,druk.id)).not.toBeNull();
+    await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
+    await page.reload();await expect(page.getByRole('button',{name:'Walls',exact:true})).toBeVisible();
+    expect((await f.snapshot()).map!.walls).toHaveLength(1);
+    expect(errors).toEqual([]);
+  }finally{for(const c of contexts)await c.close();}
+});
+
 async function monsterFixture(page: Page, request: APIRequestContext) {
   const f = await fixture(page, request);
   const creatures = [

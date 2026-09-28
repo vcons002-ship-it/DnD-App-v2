@@ -320,12 +320,14 @@ export function createSnapshotBuilder(
         owned: t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId,
         foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
         mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y));
-      // Carried lights must obey the same hidden/token-fog rules as their source.
-      if(playerVision){const ids=new Set(tokens.map(t=>t.id));const placed=new Set(map?.environment?.lights.map(l=>l.id));
-        playerVision.lights=playerVision.lights.filter(l=>ids.has(l.id)||placed.has(l.id));}
+      // Sources were fog/hidden-gated in createPlayerVision. A placed source
+      // around a corner can illuminate a visible doorway; do not remove it
+      // simply because its fixture is outside this viewer's line of sight.
+      // Carried lights also require sight of their source so an unseen creature's
+      // ID/position never leaks through a lighting payload.
       // Visibility is personal: never share a shaped monster cache between viewers.
       if(map?.environment&&playerVision)map={...map,environment:{...map.environment,
-        lights:map.environment.lights.filter(l=>visionContains(playerVision,l.x,l.y))}};
+        lights:map.environment.lights.map(l=>visionContains(playerVision,l.x,l.y)?l:{...l,visibleTorch:false})}};
       const visibleMonIds = new Set(
         tokens.filter((t) => t.kind === 'monster').map((t) => t.refId),
       );

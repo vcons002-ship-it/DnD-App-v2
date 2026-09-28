@@ -2101,6 +2101,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ### Environmental depth proof (2026-09-27)
 
+- [x] DM wall tracing with connected segments, endpoint/grid snapping, erase and undo-last; saved per map and preserved through backup/restore. Walls block personal terrain/token sight, darkvision and placed/carried lights; hidden/fog rules and encounter reveal tags remain server-enforced. Includes cached visibility polygons and clipped light-field geometry for overhead/tilted views. See [wall controls and verification](docs/MAP_WALLS_2026_09_28.md).
+
 - [x] Isolated courtyard study with map-aligned contact/cast shadows, painted-shadow direction matching, localized drifting mist, and decorative raised stone in the miniature depth buffer. Uses the unchanged courtyard artwork and seven existing miniatures, with overhead/45-degree comparison, orbit and moving-token inspection. See [preview instructions and boundaries](docs/ENVIRONMENT_PREVIEW_2026_09_27.md).
 - [x] Whole-map mist comparison with a dedicated on/off toggle, patch/full-map coverage, independent density and 0.5-to-10-foot height controls; recorded low/high mist and verified rendered heights in desktop and phone-width browsers.
 - [x] Replace the preview's flat mist sheets with a depth-clipped density volume: fuller billows, shaded interiors, and optional soft ground shading that follows the mist and the map light direction. Keep height, coverage and density controls.
