@@ -1,0 +1,211 @@
+[
+  {
+    "stage": "before",
+    "case": "moving-interaction",
+    "profile": "desktop",
+    "rafFps": 24.6806039491102,
+    "p95FrameMs": 54,
+    "medianRenderFps": 51.1,
+    "mist": "high",
+    "resolution": "571x396",
+    "errors": []
+  },
+  {
+    "stage": "before",
+    "case": "moving-no-mist",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 5.901604163237993,
+    "p95FrameMs": 194.20000000000073,
+    "medianRenderFps": 11.5,
+    "mist": "off",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "before",
+    "case": "moving-mist-no-interaction",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 3.619581938239273,
+    "p95FrameMs": 340.1999999999971,
+    "medianRenderFps": 7.0,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "before",
+    "case": "moving-interaction",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 2.9011259995160255,
+    "p95FrameMs": 404.3000000000029,
+    "medianRenderFps": 5.3,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "before",
+    "case": "moving-dm-no-vision-mask",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 27.92435039595796,
+    "p95FrameMs": 46.69999999999709,
+    "medianRenderFps": 56.4,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "after",
+    "case": "moving-interaction",
+    "profile": "desktop",
+    "rafFps": 144.74066540627237,
+    "p95FrameMs": 9.400000000001455,
+    "medianRenderFps": 153.2,
+    "mist": "high",
+    "resolution": "571x396",
+    "errors": []
+  },
+  {
+    "stage": "after",
+    "case": "moving-no-mist",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 20.263791138297318,
+    "p95FrameMs": 56.100000000000364,
+    "medianRenderFps": 41.2,
+    "mist": "off",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "after",
+    "case": "moving-mist-no-interaction",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 20.396375582372272,
+    "p95FrameMs": 55.900000000001455,
+    "medianRenderFps": 40.9,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "after",
+    "case": "moving-interaction",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 19.454201567311113,
+    "p95FrameMs": 63.5,
+    "medianRenderFps": 37.8,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "after",
+    "case": "moving-dm-no-vision-mask",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 38.360149077689165,
+    "p95FrameMs": 41.5,
+    "medianRenderFps": 58.9,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "final",
+    "case": "moving-interaction",
+    "profile": "desktop",
+    "rafFps": 159.61604886650787,
+    "p95FrameMs": 9.399999999999636,
+    "medianRenderFps": 158.5,
+    "mist": "high",
+    "resolution": "571x396",
+    "errors": []
+  },
+  {
+    "stage": "final",
+    "case": "moving-no-mist",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 31.57436306847311,
+    "p95FrameMs": 37.19999999999891,
+    "medianRenderFps": 31.5,
+    "mist": "off",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "final",
+    "case": "moving-mist-no-interaction",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 32.54560905477138,
+    "p95FrameMs": 34.29999999999927,
+    "medianRenderFps": 31.9,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "final",
+    "case": "moving-interaction",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 28.712133601909247,
+    "p95FrameMs": 43.5,
+    "medianRenderFps": 28.2,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "final",
+    "case": "moving-dm-no-vision-mask",
+    "profile": "phone-layout-4x-cpu",
+    "rafFps": 59.75082634069791,
+    "p95FrameMs": 28,
+    "medianRenderFps": 58.85,
+    "mist": "low",
+    "resolution": "184x241",
+    "errors": []
+  },
+  {
+    "stage": "final-wide",
+    "case": "moving-no-mist",
+    "profile": "wide-phone-layout-4x-cpu",
+    "rafFps": 29.26155467899572,
+    "p95FrameMs": 40.399999999999636,
+    "medianRenderFps": 27.6,
+    "mist": "off",
+    "resolution": "271x346",
+    "errors": []
+  },
+  {
+    "stage": "final-wide",
+    "case": "moving-mist-no-interaction",
+    "profile": "wide-phone-layout-4x-cpu",
+    "rafFps": 30.27391548669909,
+    "p95FrameMs": 37.29999999999927,
+    "medianRenderFps": 29.8,
+    "mist": "low",
+    "resolution": "271x346",
+    "errors": []
+  },
+  {
+    "stage": "final-wide",
+    "case": "moving-interaction",
+    "profile": "wide-phone-layout-4x-cpu",
+    "rafFps": 27.83249896079956,
+    "p95FrameMs": 43.599999999998545,
+    "medianRenderFps": 27.7,
+    "mist": "low",
+    "resolution": "271x346",
+    "errors": []
+  },
+  {
+    "stage": "final-wide",
+    "case": "moving-dm-no-vision-mask",
+    "profile": "wide-phone-layout-4x-cpu",
+    "rafFps": 55.3157532001024,
+    "p95FrameMs": 28.599999999998545,
+    "medianRenderFps": 55.7,
+    "mist": "low",
+    "resolution": "271x346",
+    "errors": []
+  }
+]

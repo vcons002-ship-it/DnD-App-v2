@@ -69,6 +69,12 @@ function Preview(){
   const [viewer,setViewer]=useState('druk');
   const [touchRotate,setTouchRotate]=useState(false);
   const [walking,setWalking]=useState(false);
+  const [showPerformance,setShowPerformance]=useState(false);
+  const [performanceStats,setPerformanceStats]=useState({fps:'...',quality:'...',resolution:'...'});
+  useEffect(()=>{if(!showPerformance)return;const timer=setInterval(()=>{
+    const node=stage.current?.querySelector<HTMLElement>('[data-testid="miniature-layer"]');
+    if(node)setPerformanceStats({fps:node.dataset.renderFps??'...',quality:node.dataset.mistQuality??'...',resolution:node.dataset.mistResolution??'...'});
+  },1000);return()=>clearInterval(timer);},[showPerformance]);
   const visionLayer=useRef<PlayerVisionHandle>(null);
   const livePositions=useRef(new Map<string,{x:number;y:number}>());
   const visionState=useRef<PlayerVision|undefined>(undefined);
@@ -221,6 +227,7 @@ function Preview(){
       <button aria-pressed={!!settings.lights?.length} onClick={()=>change('lights',settings.lights?.length?[]:sceneLights)}>Placed lights</button>
       <button onClick={moveParty} disabled={ready<7||walking}>{walking?'Party moving...':'Move party'}</button>
       <button onClick={()=>{setSettings(s=>({...s,enabled:true,mist:true,mistOpacity:.5,mistHeight:6*pixelsPerFoot,mistInteraction:true,mistQuality:'auto',mistCoverage:'map'}));transition(fitted(current.current.tilt,current.current.rotation,true));}}>Mist movement test</button>
+      <button aria-pressed={showPerformance} onClick={()=>setShowPerformance(v=>!v)}>Performance</button>
       <p>Darkvision: 60 ft. The enemy by the hall lantern is beyond it. Toggle Placed lights to compare. Changes stay in this preview.</p>
     </section>}
     <nav className="camera-bar" aria-label="Camera controls">
@@ -253,6 +260,7 @@ function Preview(){
         onWheel={e=>{e.preventDefault();zoom(e.deltaY<0?1.07:1/1.07);}}>
         <MiniatureLayer ref={layer} tokens={renderedTokens} isVisibleAt={visibleAt} onVisionLights={onVisionLights} view={current.current.view} tiltDegrees={current.current.tilt} rotationDegrees={current.current.rotation} width={size.width} height={size.height} onReady={onReady} environmentPreview={settingsProps}/>
         {vision&&<PlayerVisionOverlay ref={visionLayer} vision={vision} view={current.current.view} tilt={current.current.tilt} rotation={current.current.rotation} width={size.width} height={size.height}/>}
+        {showPerformance&&<div className="performance-readout" role="status">Scene: {performanceStats.fps} fps<br/>Mist: {performanceStats.quality} / {performanceStats.resolution}<br/><small>Live reading from this device. Move the party to test.</small></div>}
         {ready<7&&<div className="loading">Loading original miniatures · {ready}/7<span>First load downloads the full models. Keep this page open while they load.</span></div>}
         {guide&&<svg className="shadow-guide" aria-hidden="true"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#ffe3a0"/></marker></defs><line x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} stroke="#ffe3a0" strokeWidth="3" markerEnd="url(#arrow)"/></svg>}
         <div className="stage-note">{calibrating?'Drag from an object toward the tip of its painted shadow.':notice}</div>

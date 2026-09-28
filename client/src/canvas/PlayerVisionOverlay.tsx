@@ -1,23 +1,28 @@
 import {LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
-import {forwardRef,useImperativeHandle,useLayoutEffect,useRef} from 'react';
+import {forwardRef,useEffect,useId,useImperativeHandle,useLayoutEffect,useRef} from 'react';
 import {lightCoverage,type VisionLight,type PlayerVision} from '../../../shared/playerVision';
 import {groundYScale,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
+const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
 export type PlayerVisionHandle={lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** A screen-space mask above BOTH renderers. Never disabled by effect quality. */
 export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision}>(function PlayerVisionOverlay(props,ref){
- const shade=useRef<HTMLDivElement>(null),cover=useRef<HTMLDivElement>(null);
+ const shade=useRef<HTMLDivElement>(null);
+ const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
+ const id=useId().replace(/:/g,'');
+ const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,coverId=`vision-cover-${id}`;
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
  const renderedLights=useRef<VisionLight[]|null>(null);
+ const pendingDraw=useRef(0);
  const draw=()=>{
-  if(!shade.current||!cover.current)return;
+  if(!shade.current||!lightPaths.current||!originPaths.current)return;
   const {vision,view,tilt,rotation,width,height}=state.current;
   const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
   const path=(point:{id:string;x:number;y:number},radius:number,actual=false)=>{
    const p=actual?point:live.current.get(point.id)??point;
-   let poly=Array.from({length:96},(_,i)=>{const t=i*Math.PI/48;
-    const dx=view.x+(p.x+Math.cos(t)*radius)*view.scale-width/2;
-    const dy=view.y+(p.y+Math.sin(t)*radius)*view.scale*sy-height/2;
+   let poly=circleVertices.map(vertex=>{
+    const dx=view.x+(p.x+vertex.x*radius)*view.scale-width/2;
+    const dy=view.y+(p.y+vertex.y*radius)*view.scale*sy-height/2;
     const x=c*dx-s*dy/sy,y=s*dx*sy+c*dy;return {x,y,w:1-y*k};});
    // Clip behind-camera vertices before perspective division, including deep zoom.
    const clipped:typeof poly=[];
@@ -37,20 +42,33 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     if(alpha>.0001)bands.push(`<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);
    }return bands.join('');
   }).join('');
-  const mask=(shapes:string)=>`url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><defs><mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`)}")`;
-  // Lit islands remain visible beyond darkvision, without revealing the dark gap.
-  cover.current.style.maskImage=mask(circles+(vision.origins.length?lights:''));
-  shade.current.style.maskImage=mask(lights);
+  // Keep the SVG mask in the DOM and share light geometry between both masks.
+  // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
+  originPaths.current.innerHTML=circles;
+  lightPaths.current.innerHTML=lights;
   shade.current.style.backdropFilter=vision.heavy?'grayscale(1)':'none';
   shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?'grayscale(1)':'none');
  };
- useImperativeHandle(ref,()=>({lights(next){renderedLights.current=next;draw();},camera(next){state.current={...state.current,...next};draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});draw();}}),[]);
+ // Movement, camera following and flickering lights can all update in one
+ // frame. Rebuild the SVG masks once using the final state, not for every event.
+ const schedule=()=>{if(!pendingDraw.current)pendingDraw.current=requestAnimationFrame(()=>{pendingDraw.current=0;draw();});};
+ useEffect(()=>()=>cancelAnimationFrame(pendingDraw.current),[]);
+ useImperativeHandle(ref,()=>({lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};schedule();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
  useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
-  draw();},[props]);
+  schedule();},[props]);
  return <div data-testid="player-vision" data-range-ft={props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
-  <div ref={shade} style={{position:'absolute',inset:0}}/>
-  <div ref={cover} style={{position:'absolute',inset:0,background:'#050608'}}/>
+  <svg width={props.width} height={props.height} style={{position:'absolute',inset:0}} aria-hidden="true"><defs>
+   <g id={lightId} ref={lightPaths}/>
+   <mask id={shadeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
+    <rect width={props.width} height={props.height} fill="white"/><use href={`#${lightId}`}/>
+   </mask>
+   <mask id={coverId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
+    <rect width={props.width} height={props.height} fill="white"/><g ref={originPaths}/>{props.vision.origins.length>0&&<use href={`#${lightId}`}/>}
+   </mask>
+  </defs></svg>
+  <div ref={shade} style={{position:'absolute',inset:0,maskImage:`url(#${shadeId})`}}/>
+  <div style={{position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}/>
  </div>;
 });

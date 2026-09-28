@@ -198,6 +198,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let disposed = false;
   let failed = false;
   let frame = 0;
+  let frameQueued = false;
   let lastPaint = 0;
   const started = performance.now();
   let lastIds = '';
@@ -209,6 +210,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let battlefield: ReturnType<typeof createBattlefieldEnvironment> | null = null;
   let lastEnvironment: EnvironmentPreviewSettings | undefined;
   let paintCount = 0, paintEpoch = performance.now();
+  let totalPaintCount = 0;
   const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let paintedReducedMotion: boolean | undefined;
@@ -349,6 +351,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         timing?.end();
         if (battlefield) {
           paintCount++;
+          host.dataset.renderCount=String(++totalPaintCount);
           if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
           host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
           host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
@@ -382,14 +385,25 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch { fail(); }
     }
-    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0)) frame = requestAnimationFrame(draw);
+    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0)) queueDraw();
+  };
+  const queueDraw = () => {
+    if (frame || frameQueued || disposed || failed) return;
+    frameQueued = true;
+    // Let an enclosing camera-animation callback queue its next update first.
+    // That update can then cancel this fallback and paint the final camera and
+    // token positions once, instead of painting the old view and then the new.
+    queueMicrotask(() => {
+      frameQueued = false;
+      if (!frame && !disposed && !failed) frame = requestAnimationFrame(draw);
+    });
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
     // Pointer/camera changes paint on the next frame even when an animated
     // miniature already has a frame pending under the 24fps idle effect cap.
     lastPaint = 0;
-    if (!frame) frame = requestAnimationFrame(draw);
+    queueDraw();
   };
   const removeInstance = (id: string) => {
     if(preview?.id===id)clearPreview();
@@ -718,6 +732,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     setProjection(tilt, rotation, nextView) {
       if(disposed || failed)return;
       props={...props,tiltDegrees:tilt,rotationDegrees:rotation};view=nextView;
+      // Keep the miniature projection synchronous with the map. queueDraw puts
+      // the automatic animation fallback after the next camera update, so the
+      // update replaces that fallback rather than duplicating the scene render.
       updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
       host.dataset.tiltDegrees=String(tilt);
     },

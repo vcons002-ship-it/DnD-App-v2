@@ -4,6 +4,15 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Mobile mist performance - September 2026
+
+- [x] Reuse native personal-vision SVG masks, batch updates per frame and reuse
+  circle geometry without changing light falloff or visibility rules.
+- [x] Eliminate duplicate scene renders during camera-follow movement while
+  keeping miniatures aligned with the map; retain full visual settings.
+- [x] Add the interactive preview's on-device Performance readout and repeatable
+  CPU-throttled profiling. See [measurements and limits](docs/MIST_MOBILE_PERFORMANCE_2026_09_28.md).
+
 ## Persistent visual asset downloads - September 2026
 
 - [x] Cache downloaded model, art, texture, font and effect bundle assets on each
