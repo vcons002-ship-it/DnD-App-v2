@@ -68,6 +68,17 @@ describe('mist movement history',()=>{
     expect(pixel(flow,310,355)).toEqual([128,128,255,0]);
     flow.dispose();
   });
+  it('retains curling history for three small figures moving at 60 fps',()=>{
+    const flow=field();
+    for(let frame=0;frame<=300;frame++){
+      flow.tick(1+frame/60);
+      flow.setTokens([0,1,2].map(i=>({id:`party-${i}`,x:200+frame*1.1,y:300+i*30,diameter:24,visible:true,
+        body:{x:200+frame*1.1,y:300+i*30,radiusX:7,radiusY:7,facing:0}})));
+    }
+    expect(flow.state.wakes).toBeLessThanOrEqual(96);
+    expect(flow.state.oldestWakeAge).toBeGreaterThan(3);
+    flow.tick(13);expect(flow.state.wakes).toBe(0);flow.dispose();
+  });
   it('clears hidden or disabled history and does not draw a trail across a teleport',()=>{
     const flow=field();walk(flow);expect(flow.state.wakes).toBeGreaterThan(0);
     flow.setTokens([token(400,350,false)]);flow.tick(3.2);

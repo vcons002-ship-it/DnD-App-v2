@@ -51,7 +51,7 @@ type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const presetSettings=(id:string)=>{const {mistHeightFt,...settings}=environmentPresetPatch(id)!;return {...settings,mistHeight:(mistHeightFt??2)*pixelsPerFoot};};
 const initialSettings:EnvironmentPreviewSettings={
   enabled:true,mapUrl:new URL(dungeonStudy?'./dungeon.png':'./courtyard.png',location.href).href,mapWidth,mapHeight,
-  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:dungeonStudy?.08:torchStudy?.7:atmosphereStudy?.22:.5,
+  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:visionStudy?.22:dungeonStudy?.08:torchStudy?.7:atmosphereStudy?.22:.5,
   pixelsPerFoot,lighting:dungeonStudy?'dungeon':torchStudy?'night':'day',lightLevel:1,heavyDarkness:false,weather:'none',weatherIntensity:.75,windDirectionDegrees:20,windStrength:dungeonStudy?.15:.4,lights:torchStudy?sceneLights:[],
   mistCoverage:'map',mistHeight:(dungeonStudy?1.5:torchStudy?10:2)*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
@@ -220,6 +220,7 @@ function Preview(){
       <button onClick={()=>setTokens(list=>list.map(t=>({...t,carriedLantern:['druk','varis','vanec'].includes(t.id)})))}>Lanterns on</button>
       <button aria-pressed={!!settings.lights?.length} onClick={()=>change('lights',settings.lights?.length?[]:sceneLights)}>Placed lights</button>
       <button onClick={moveParty} disabled={ready<7||walking}>{walking?'Party moving...':'Move party'}</button>
+      <button onClick={()=>{setSettings(s=>({...s,enabled:true,mist:true,mistOpacity:.5,mistHeight:3*pixelsPerFoot,mistInteraction:true,mistQuality:'auto',mistCoverage:'map'}));transition(fitted(current.current.tilt,current.current.rotation,true));}}>Mist movement test</button>
       <p>Darkvision: 60 ft. The enemy by the hall lantern is beyond it. Toggle Placed lights to compare. Changes stay in this preview.</p>
     </section>}
     <nav className="camera-bar" aria-label="Camera controls">

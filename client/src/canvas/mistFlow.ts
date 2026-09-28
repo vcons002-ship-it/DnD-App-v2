@@ -74,10 +74,19 @@ export function createMistFlow() {
             // Broad disturbances overlap along the path, independent of FPS.
             const curl=travel>=radius*1.5;
             if(curl){travel%=radius*1.5;ordinal++;}
-            wakes.push({id:token.id,x:from.bodyX+(body.x-from.bodyX)*(j-.5)/count,y:from.bodyY+(body.y-from.bodyY)*(j-.5)/count,
-              length,radius,front,born:time,dx,dy,curl,ordinal});
+            const x=from.bodyX+(body.x-from.bodyX)*(j-.5)/count,y=from.bodyY+(body.y-from.bodyY)*(j-.5)/count;
+            // Coalesce adjacent straight samples. Otherwise three walking figures
+            // exhaust the history in half a second, before the wake can roll back.
+            let last:typeof wakes[number]|undefined;
+            for(let k=wakes.length-1;k>=0;k--)if(wakes[k].id===token.id){last=wakes[k];break;}
+            if(last&&time-last.born<.3&&last.length+length<radius*2.5&&last.dx*dx+last.dy*dy>.995
+              &&Math.hypot(x-dx*length*.5-(last.x+last.dx*last.length*.5),y-dy*length*.5-(last.y+last.dy*last.length*.5))<1){
+              const total=last.length+length;
+              last.x=(last.x*last.length+x*length)/total;last.y=(last.y*last.length+y*length)/total;
+              last.length=total;last.curl ||= curl;
+            }else wakes.push({id:token.id,x,y,length,radius,front,born:time,dx,dy,curl,ordinal});
           }
-          if(wakes.length>48)wakes.splice(0,wakes.length-48);
+          if(wakes.length>96)wakes.splice(0,wakes.length-96);
         }else travel=0;
         previous.set(token.id,{x:token.x,y:token.y,bodyX:body.x,bodyY:body.y,travel,ordinal});
       }
