@@ -58,8 +58,15 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await player.setViewportSize({width:390,height:844});
     await expect(layer).toHaveAttribute('data-mist-quality','low');
     await player.screenshot({path:info.outputPath('environment-player-phone.png')});
+    await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await expect(player.getByLabel('Environment quality',{exact:true})).toBeVisible();
+    await player.screenshot({path:info.outputPath('environment-player-quality-phone.png')});
+    await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
     await player.setViewportSize({width:1440,height:960});
     await player.getByRole('button',{name:'Interface settings',exact:true}).click();
+    await expect(player.getByLabel('Environment quality',{exact:true})).toBeVisible();
+    await player.screenshot({path:info.outputPath('environment-player-quality.png')});
+    await player.locator('#player-layout-options').screenshot({path:info.outputPath('environment-player-quality-panel.png')});
     await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
     await expect(layer).toHaveAttribute('data-environment','off');
     await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
