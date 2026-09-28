@@ -799,6 +799,8 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Server-authored personal dungeon visibility; independent of graphics quality. */
+  playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
   role: Role;

@@ -1,3 +1,4 @@
+import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
@@ -174,8 +175,8 @@ type MapData = {
  * (creatures, roll log, chat, …) is loaded ONCE and creature lookups go through
  * in-memory maps — previously every connected client re-ran every query and
  * each token cost its own SELECT (an N+1 that scaled as clients × tokens).
- * The returned shaper is pure CPU per viewer; player-shaped monsters and roll
- * log are computed lazily once and shared by every player connection.
+ * The returned shaper is pure CPU per viewer; monster visibility is computed per viewer, while the public roll
+ * log is computed lazily once and shared by player connections.
  * Returns null when the session doesn't exist.
  */
 export function createSnapshotBuilder(
@@ -215,7 +216,7 @@ export function createSnapshotBuilder(
 
   // Lazy, shared across the connections that need them.
   let templates: Monster[] | null = null; // DM-only
-  let playerMonsters: (Monster | MonsterPublic)[] | null = null;
+
   let playerRollLog: RollEntry[] | null = null;
   let playerChat: ChatMessage[] | null = null;
   const mapData = new Map<string, MapData>();
@@ -295,6 +296,8 @@ export function createSnapshotBuilder(
       ? loadMapData(map.id)
       : { tokens: [], measurements: [], annotations: [], mapImages: [] };
 
+    const owned=new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
+    const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned);
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;
@@ -312,19 +315,17 @@ export function createSnapshotBuilder(
       tokens = tokens.filter(t => tokenVisibleAt({ role, hidden: t.isHidden,
         owned: t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId,
         foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
-        mapFog, tokenFog, grid, x: t.x, y: t.y }));
-      // Only reveal monsters the player can actually SEE — i.e. referenced by a
-      // token that survived the hidden/fog filter above. Previously EVERY session
-      // monster (incl. hidden-token and staged-map creatures) was listed, leaking
-      // boss names / ambush existence. (The visible-monster set is the same for
-      // all players, since fog/hidden are session-level, not per-viewer.)
-      // The visible-monster set is viewer-independent (fog/hidden are
-      // session-level and `ownedBy` only affects PC tokens), so this shared
-      // memo still computes once per change-cycle.
+        mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y));
+      // Carried lights must obey the same hidden/token-fog rules as their source.
+      if(playerVision){const ids=new Set(tokens.map(t=>t.id));const placed=new Set(map?.environment?.lights.map(l=>l.id));
+        playerVision.lights=playerVision.lights.filter(l=>ids.has(l.id)||placed.has(l.id));}
+      // Visibility is personal: never share a shaped monster cache between viewers.
+      if(map?.environment&&playerVision)map={...map,environment:{...map.environment,
+        lights:map.environment.lights.filter(l=>visionContains(playerVision,l.x,l.y))}};
       const visibleMonIds = new Set(
         tokens.filter((t) => t.kind === 'monster').map((t) => t.refId),
       );
-      shapedMonsters = playerMonsters ??= monsters
+      shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
         .map(toPlayerMonster);
       // Strip other players' infrastructure ids (live socket + durable browser
@@ -398,6 +399,7 @@ export function createSnapshotBuilder(
     }
     return {
       role,
+      ...(playerVision?{playerVision}:{}),
       initiativePending: session.initiativePending,
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&

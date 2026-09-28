@@ -1,3 +1,5 @@
+import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
+import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -382,6 +384,7 @@ export function MapStage({
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
+  const visionRef=useRef<PlayerVisionHandle>(null);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
   const handleMiniatureReady = useCallback((ids: ReadonlySet<string>) => {
     setReadyMiniatures((old) => old.size === ids.size && [...old].every((id) => ids.has(id)) ? old : ids);
@@ -389,6 +392,7 @@ export function MapStage({
   const handleMiniatureUnavailable = useCallback(() => setReadyMiniatures(new Set()), []);
   const handleTokenVisualMove = useCallback((token: Token, x: number, y: number, finished: boolean) => {
     miniatureRef.current?.moveToken(token.id, x, y, finished, token.facing);
+    visionRef.current?.move(token.id,x,y);
   }, []);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
@@ -695,10 +699,10 @@ export function MapStage({
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
-    return {...settings,carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+    return {...settings,...(snapshot.playerVision?{lighting:'day' as const,lightLevel:1,heavyDarkness:false,sceneTintStrength:0}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
-  },[map?.environment,map?.slidesUrl,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
+  },[map?.environment,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
 
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
@@ -998,7 +1002,7 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && tokenVisibleAt({ ...token, role: snapshot.role,
+      return !!token && (token.owned || visionContains(snapshot.playerVision,x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y });
     };
   }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
@@ -1019,7 +1023,7 @@ export function MapStage({
       carriedLantern:token.carriedLantern,
       combatRole: token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
-      outline: monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      outline: !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: token.id === activeTurnTokenId,
@@ -1558,6 +1562,7 @@ export function MapStage({
       if (layer) { layer.position(position); layer.batchDraw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
+    visionRef.current?.camera({view:{...view,...position}});
   };
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
@@ -1583,6 +1588,7 @@ export function MapStage({
       if(previous.tilt!==tilt || labels.length)layer.draw();
     }
     miniatureRef.current?.setProjection(tilt,rotation,nextView);
+    visionRef.current?.camera({tilt,rotation,view:nextView});
     if(rotationLabel.current)rotationLabel.current.textContent=`${((Math.round(rotation)%360)+360)%360}\u00b0`;
   };
   const commitProjection=(tilt:number,rotation:number,nextView:View)=>{
@@ -1653,6 +1659,7 @@ export function MapStage({
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
+        hideAffinity={!visionLit(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         draggable={
@@ -2287,6 +2294,7 @@ export function MapStage({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} />
           </Suspense></MiniatureFallback>}
+          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}/>}
           <DecalPopup snapshot={snapshot} />
           {hover && !menu && (
             <TokenHoverCard

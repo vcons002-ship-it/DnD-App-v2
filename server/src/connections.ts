@@ -1,3 +1,4 @@
+import {visionContains} from '../../shared/playerVision.js';
 import {isLiveCommand,afterRollCommit} from './liveRollContext.js';
 import { tokenVisibleAt } from '../../shared/fog.js';
 import type { Server } from 'socket.io';
@@ -129,13 +130,16 @@ export function broadcastTokenDrag(
   const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
   const owner = token.kind === 'pc' ? getCharacter(token.refId)?.claimedBy : null;
   const foe = token.kind === 'monster' && getMonster(token.refId)?.disposition !== 'friendly';
+  const build=createSnapshotBuilder(sessionId);
   for (const [socketId, conn] of conns) {
     if (socketId === fromSocketId || conn.sessionId !== sessionId) continue;
     if (sender.role === 'dm' && conn.role !== 'dm') continue;
     // Players are locked to the active map; a DM may be staging another.
     const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
     if (token.mapId !== viewMapId) continue;
-    const visible = (px: number, py: number) => tokenVisibleAt({ role: conn.role,
+    const personal=conn.role==='dm'?undefined:build?.(conn.role,null,socketId,conn.playerId);
+    if(personal&&!personal.tokens.some(t=>t.id===token.id))continue;
+    const visible = (px: number, py: number) => visionContains(personal?.playerVision,px,py) && tokenVisibleAt({ role: conn.role,
       hidden: token.isHidden, owned: owner === socketId, foe, mapFog, tokenFog, grid, x: px, y: py });
     // Never reveal an unknown token merely because its preview crosses open ground.
     if (!visible(token.x, token.y)) continue;

@@ -45,6 +45,7 @@ type Props = {
   listening?: boolean;
   /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
+  hideAffinity?: boolean;
   viewRotation?: number;
   miniatureDiameterFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
@@ -82,6 +83,7 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  hideAffinity = false,
   viewRotation = 0,
   miniatureDiameterFt,
   onSelect,
@@ -580,7 +582,7 @@ function TokenShapeInner({
         </Group>
       )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
-      {display.disposition && !miniatureReady && (
+      {display.disposition && !miniatureReady && !hideAffinity && (
         <Circle
           x={-radius * 0.8}
           y={-radius * 0.8}
@@ -761,6 +763,7 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.hideAffinity === n.hideAffinity &&
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.onSelect === n.onSelect &&

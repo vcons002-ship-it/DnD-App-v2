@@ -55,8 +55,8 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         <button onClick={()=>update({sceneTint:'#ffffff',sceneTintStrength:0})}>Reset scene tint</button>
         <small>Adds color to the map and figure lighting. Clear day uses original colors with no tint.</small>
         {toggle('heavyDarkness','Heavy darkness')}
-        <small>Dims ambient light and mist. Torches and lanterns keep their brightness.</small>
-        <small>Lighting is visual; fog controls visibility. Painted walls do not block these lights.</small>
+        <small>Heavy darkness is nonmagical: Darkvision is grayscale. Regular darkness preserves color. Lantern-lit areas keep their color.</small>
+        <small>Night and Dungeon limit each player to 60 ft around their own token, even with effects off. The DM sees the full map. Fog still applies; painted walls do not block sight.</small>
         <div className="environment-light-list">{settings.lights.map((light,index)=>{
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});
           return <details key={light.id}><summary>Light {index+1} · {light.color}</summary>

@@ -846,15 +846,16 @@ describe('createSnapshotBuilder (fan-out path)', () => {
     expect(build('player')).toEqual(buildSnapshot(s.id, 'player'));
   });
 
-  it('shares the player-shaped monsters/roll log across player builds (computed once)', () => {
+  it('shares the public roll log but shapes monster lists per viewer', () => {
     const s = createSession('Builder2');
     const map = createMap(s.id, { name: 'Arena' });
     setActiveMap(s.id, map.id);
     const build = createSnapshotBuilder(s.id)!;
     const a = build('player', null, 'sock-a');
     const b = build('player', null, 'sock-b');
-    // Same array identity proves the shaping ran once for the whole fan-out.
-    expect(a.monsters).toBe(b.monsters);
+    // Monster visibility is personal; only the public roll log is shared.
+    expect(a.monsters).toEqual(b.monsters);
+    expect(a.monsters).not.toBe(b.monsters);
     expect(a.rollLog).toBe(b.rollLog);
   });
 

@@ -2015,3 +2015,78 @@ test('chests and traps use 3D objects while retaining hidden state and interacti
     expect(errors).toEqual([]);
   }finally{await context.close();}
 });
+
+
+test('personal darkvision dungeon demo with and without lanterns',async({page,request,browser},info)=>{
+ test.setTimeout(180000);await page.setViewportSize({width:1440,height:960});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:10,widthFt:280,locked:false});
+ const pcs=f.ready.tokens;
+ const druk=pcs.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Druk')!.id)!;
+ const varis=pcs.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Varis')!.id)!;
+ const vanec=pcs.find(t=>t.refId===f.initial.characters.find(c=>c.name==='Vanec')!.id)!;
+ f.socket.emit('token:move',{tokenId:druk.id,x:450,y:560});
+ f.socket.emit('token:move',{tokenId:varis.id,x:1000,y:560});
+ f.socket.emit('token:move',{tokenId:vanec.id,x:490,y:615});
+ for(const [i,x] of [580,1000].entries()){
+  f.socket.emit('monster:create',{name:`Dungeon guard ${i}`,maxHp:12,modelType:'goblin',disposition:'enemy'});
+  const template=(await f.snapshot()).monsterTemplates.find(m=>m.name===`Dungeon guard ${i}`)!;
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x,y:630});
+ }
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,mist:true,mistOpacity:.08,mistHeightFt:1,shadows:true,lights:[]}});
+ await enter(page,f.code);
+ const vision=page.getByTestId('player-vision');await expect(vision).toHaveAttribute('data-range-ft','60');
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+ expect(await tokenView(page,varis.id)).toBeNull();
+ const other=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960},...(movementDemo?{recordVideo:{dir:info.outputPath('varis-video'),size:{width:1440,height:960}}}:{})});
+ try{
+  const second=await other.newPage();await enter(second,f.code,'Varis');
+  await expect(second.getByTestId('player-vision')).toHaveAttribute('data-range-ft','60');
+  expect(await tokenView(second,druk.id)).toBeNull();
+  await expect(second.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
+  await second.screenshot({path:info.outputPath('varis-personal-view.png')});
+  for(let i=0;i<2;i++)await page.getByTitle('Zoom in',{exact:true}).click();
+  const caption=async(text:string)=>page.evaluate(value=>{let el=document.getElementById('vision-demo-caption');if(!el){el=document.createElement('div');el.id='vision-demo-caption';el.style.cssText='position:fixed;top:112px;left:50%;transform:translateX(-50%);padding:12px 22px;background:#111b;border:1px solid #b8a36d;color:#f2e6c7;font:20px Georgia;z-index:9999;pointer-events:none';document.body.append(el);}el.textContent=value;},text);
+  for(const heavy of [false,true])for(const lantern of [false,true]){
+   f.socket.emit('token:move',{tokenId:druk.id,x:450,y:560});
+   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:heavy}});
+   await expect(vision).toHaveAttribute('data-heavy',String(heavy));
+   const lamp=page.getByRole('button',{name:'Carried lantern',exact:true});
+   // Toggle through the player's real control; the character owns the light.
+   const current=(await f.snapshot()).tokens.find(t=>t.id===druk.id)?.carriedLantern??false;
+   if(current!==lantern)await lamp.click();
+   await expect.poll(async()=>!!(await f.snapshot()).tokens.find(t=>t.id===druk.id)?.carriedLantern).toBe(lantern);
+   await page.waitForTimeout(650);
+   await caption(`${heavy?'Heavy darkness: grayscale':'Regular darkness: color'} - ${lantern?'hip lantern':'Darkvision only'} - 60 ft`);
+   await page.screenshot({path:info.outputPath(`${heavy?'heavy':'regular'}-${lantern?'lantern':'darkvision'}.png`)});
+   if(movementDemo)await page.waitForTimeout(1200);
+   const base=(await tokenView(page,druk.id))!,end=offsetPoint(base,220,0);
+   await page.mouse.move(base.x,base.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:24});
+   if(movementDemo)await page.waitForTimeout(600);
+   await page.mouse.up();
+   await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(650);
+   await page.waitForTimeout(900);
+   await page.screenshot({path:info.outputPath(`${heavy?'heavy':'regular'}-${lantern?'lantern':'darkvision'}-moved.png`)});
+   if(movementDemo)await page.waitForTimeout(1800);
+  }
+  // Quality off cannot reveal distant terrain or monsters.
+  await page.getByRole('button',{name:'Interface settings',exact:true}).click();
+  await page.getByLabel('Environment quality',{exact:true}).selectOption('off');
+  await page.getByRole('button',{name:'Close interface settings',exact:true}).click();
+  await expect(vision).toBeVisible();await expect(vision).toHaveAttribute('data-heavy','true');
+  await caption('Effects off: personal 60 ft visibility still enforced');
+  await page.screenshot({path:info.outputPath('vision-effects-off.png')});
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','0');
+  await page.screenshot({path:info.outputPath('vision-overhead.png')});
+  // A second player moves with an independent horizon on the same live map.
+  const secondBase=(await tokenView(second,varis.id))!,secondEnd=offsetPoint(secondBase,-180,0);
+  await second.mouse.move(secondBase.x,secondBase.y);await second.mouse.down();await second.mouse.move(secondEnd.x,secondEnd.y,{steps:24});
+  if(movementDemo)await second.waitForTimeout(700);
+  await second.mouse.up();await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===varis.id)!.x).toBeLessThan(850);
+  if(movementDemo)await second.waitForTimeout(2200);
+  await second.screenshot({path:info.outputPath('varis-personal-moved.png')});
+  expect(errors).toEqual([]);
+ }finally{await other.close();}
+});

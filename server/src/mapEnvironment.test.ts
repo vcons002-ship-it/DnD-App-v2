@@ -122,6 +122,8 @@ describe('saved map environment',()=>{
   });
   it('only shares revealed light sources with players, including the map list',()=>{
     const session=createSession('Hidden torches'),map=createMap(session.id,{name:'Dungeon'});
+    const character=createCharacter(session.id,{name:'Viewer'});claimCharacter(character.id,'viewer');
+    createToken({mapId:map.id,kind:'pc',refId:character.id,x:25,y:25});
     setActiveMap(session.id,map.id);
     const lights=[{id:'visible',x:25,y:25,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true},{id:'hidden',x:75,y:25,radiusFt:15,heightFt:6,color:'cool',intensity:1,flicker:false}];
     updateMapEnvironment(session.id,map.id,{enabled:true,lighting:'dungeon',weather:'rain',lights});

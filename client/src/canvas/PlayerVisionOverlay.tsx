@@ -1,0 +1,44 @@
+import {forwardRef,useImperativeHandle,useLayoutEffect,useRef} from 'react';
+import type {PlayerVision} from '../../../shared/playerVision';
+import {groundYScale,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
+type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
+export type PlayerVisionHandle={camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+/** A screen-space mask above BOTH renderers. Never disabled by effect quality. */
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision}>(function PlayerVisionOverlay(props,ref){
+ const shade=useRef<HTMLDivElement>(null),cover=useRef<HTMLDivElement>(null);
+ const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
+ const draw=()=>{
+  if(!shade.current||!cover.current)return;
+  const {vision,view,tilt,rotation,width,height}=state.current;
+  const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
+  const path=(point:{id:string;x:number;y:number},radius:number)=>{
+   const p=live.current.get(point.id)??point;
+   let poly=Array.from({length:96},(_,i)=>{const t=i*Math.PI/48;
+    const dx=view.x+(p.x+Math.cos(t)*radius)*view.scale-width/2;
+    const dy=view.y+(p.y+Math.sin(t)*radius)*view.scale*sy-height/2;
+    const x=c*dx-s*dy/sy,y=s*dx*sy+c*dy;return {x,y,w:1-y*k};});
+   // Clip behind-camera vertices before perspective division, including deep zoom.
+   const clipped:typeof poly=[];
+   for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],pin=p.w>=.01,qin=q.w>=.01;
+    if(pin)clipped.push(p);if(pin!==qin){const t=(.01-p.w)/(q.w-p.w);clipped.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,w:.01});}}
+   poly=clipped;
+   return poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
+  };
+  const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.radius)}"/>`).join('');
+  const lights=vision.lights.map(l=>`<path fill="black" d="${path(l,l.radius)}"/>`).join('');
+  const mask=(shapes:string)=>`url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><defs><mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`)}")`;
+  cover.current.style.maskImage=mask(circles);
+  shade.current.style.maskImage=mask(lights);
+  shade.current.style.backdropFilter=vision.heavy?'grayscale(1) brightness(.72)':'brightness(.85)';
+  shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?'grayscale(1) brightness(.72)':'brightness(.85)');
+ };
+ useImperativeHandle(ref,()=>({camera(next){state.current={...state.current,...next};draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});draw();}}),[]);
+ useLayoutEffect(()=>{state.current=props;
+  for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
+  draw();},[props]);
+ return <div data-testid="player-vision" data-range-ft={props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
+  style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
+  <div ref={shade} style={{position:'absolute',inset:0}}/>
+  <div ref={cover} style={{position:'absolute',inset:0,background:'#050608'}}/>
+ </div>;
+});
