@@ -9,12 +9,14 @@ import './preview.css';
 
 const mapWidth=1216,mapHeight=832;
 const pixelsPerFoot=64/5;
-const atmosphereStudy=new URLSearchParams(location.search).has('atmosphere');
+const torchStudy=new URLSearchParams(location.search).has('torches');
+const atmosphereStudy=torchStudy||new URLSearchParams(location.search).has('atmosphere');
 const testLights:NonNullable<EnvironmentPreviewSettings['lights']>=[
-  {id:'brazier-west',x:480,y:520,radiusFt:17,heightFt:5,color:'warm',intensity:1,flicker:true},
-  {id:'lantern-east',x:750,y:485,radiusFt:16,heightFt:6,color:'warm',intensity:1,flicker:true},
-  {id:'arcane-north',x:610,y:285,radiusFt:12,heightFt:4,color:'cool',intensity:.9,flicker:false},
+  {id:'brazier-west',x:480,y:520,radiusFt:17,heightFt:5,color:'warm',intensity:1,flicker:true,visibleTorch:true},
+  {id:'lantern-east',x:750,y:485,radiusFt:16,heightFt:6,color:'warm',intensity:1,flicker:true,visibleTorch:true},
+  {id:'arcane-north',x:610,y:285,radiusFt:12,heightFt:4,color:'cool',intensity:.9,flicker:false,visibleTorch:true},
 ];
+const manyLights=Array.from({length:12},(_,i)=>({id:`torch-${i}`,x:320+(i%4)*180,y:200+Math.floor(i/4)*210,radiusFt:12,heightFt:5,color:'warm' as const,intensity:.85,flicker:true,visibleTorch:true}));
 const asset=(url:string)=>new URL('.'+url,location.href).href;
 const miniature=(id:string)=>{
   const source=MINIATURES[id];
@@ -32,9 +34,9 @@ const originalTokens:MiniatureToken[]=[
 type Camera={tilt:number;rotation:number;view:BattlefieldView};
 const initialSettings:EnvironmentPreviewSettings={
   enabled:true,mapUrl:new URL('./courtyard.png',location.href).href,mapWidth,mapHeight,
-  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:atmosphereStudy?.22:.5,
-  pixelsPerFoot,lighting:'day',lightLevel:1,weather:'none',weatherIntensity:.75,windDirectionDegrees:20,windStrength:.4,lights:[],
-  mistCoverage:'map',mistHeight:2*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
+  shadows:true,mist:true,scenery:!atmosphereStudy,shadowDirectionDegrees:55,shadowLength:1.05,shadowOpacity:.8,mistOpacity:torchStudy?.7:atmosphereStudy?.22:.5,
+  pixelsPerFoot,lighting:torchStudy?'night':'day',lightLevel:1,weather:'none',weatherIntensity:.75,windDirectionDegrees:20,windStrength:.4,lights:torchStudy?testLights:[],
+  mistCoverage:'map',mistHeight:(torchStudy?10:2)*pixelsPerFoot,mistShadows:true,mistQuality:'auto',mistInteraction:true,
   props:[{type:'pillar',x:392,y:432,size:42,height:95},{type:'pillar',x:775,y:492,size:45,height:115},{type:'rock',x:840,y:430,size:48,height:27},{type:'rock',x:867,y:443,size:24,height:15}],
   mistPatches:[{x:610,y:285,width:145,depth:235,height:25},{x:676,y:442,width:290,depth:105,height:26}],
 };
@@ -135,6 +137,16 @@ function Preview(){
       else setTokens(list=>list.map(item=>item.id===token.id?{...item,...destination,facing:facingAfterMove(token.x,token.y,destination.x,destination.y,token.facing)}:item));
     };movingFrame.current=requestAnimationFrame(tick);
   };
+  const moveParty=()=>{
+    cancelAnimationFrame(movingFrame.current);const start=performance.now(),party=tokens.filter(t=>['druk','varis','vanec'].includes(t.id));
+    const destinations=party.map(t=>({x:t.x>650?t.x-230:t.x+230,y:t.y>440?t.y-70:t.y+70}));
+    setNotice('Waist lanterns move and turn with their owners as the party crosses the mist.');
+    const tick=(now:number)=>{const t=Math.min(1,(now-start)/6400),e=t*t*(3-2*t);
+      party.forEach((token,i)=>layer.current?.moveToken(token.id,token.x+(destinations[i].x-token.x)*e,token.y+(destinations[i].y-token.y)*e,t===1));
+      if(t<1)movingFrame.current=requestAnimationFrame(tick);
+      else setTokens(list=>list.map(token=>{const i=party.findIndex(p=>p.id===token.id);return i<0?token:{...token,...destinations[i],facing:facingAfterMove(token.x,token.y,destinations[i].x,destinations[i].y,token.facing)};}));
+    };movingFrame.current=requestAnimationFrame(tick);
+  };
   const settingsProps=useMemo(()=>settings,[settings]);
   return <div className="environment-app">
     <header><div><p className="eyebrow">BATTLEFIELD STUDY · 01</p><h1>The ruined courtyard</h1><p className="subtitle">{atmosphereStudy?'Weather, changing light & drifting mist':'Matched shadows, drifting mist & raised stone'}</p></div><span className="study-badge">Interactive test</span></header>
@@ -145,8 +157,16 @@ function Preview(){
       <button aria-label="Close-up" onClick={()=>transition(fitted(current.current.tilt,current.current.rotation,true))}>Close-up</button>
       <button aria-label="Reset view" onClick={()=>transition(fitted())}>Full map</button>
       <button aria-label="Zoom in" onClick={()=>zoom(1.2)}>+</button><button aria-label="Zoom out" onClick={()=>zoom(1/1.2)}>−</button>
+      {torchStudy&&<>
+        <button onClick={()=>transition(fitted(45,180,true))}>Front view</button>
+        <button onClick={()=>{const t=tokens.find(t=>t.id==='druk')!,scale=2.6;transition({tilt:45,rotation:180,view:{scale,x:size.width/2-t.x*scale,y:size.height*.62-t.y*scale*groundYScale(45)}});}}>Lantern close-up</button>
+        <button onClick={moveParty} disabled={ready<7}>Move party</button>
+        <button onClick={()=>change('lights',[])}>Lanterns only</button>
+        <button onClick={()=>change('lights',testLights)}>Three torches</button>
+        <button onClick={()=>change('lights',manyLights)}>Twelve torches</button>
+      </>}
       <button onClick={moveDruk} disabled={ready<7}>Move Druk</button>
-      {atmosphereStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
+      {atmosphereStudy&&!torchStudy&&(['Day','Dusk','Rain','Snow','Night','Dungeon'] as const).map(preset=><button key={preset} onClick={()=>{
         setSettings(s=>({...s,enabled:true,scenery:false,lighting:preset==='Rain'?'dusk':preset==='Snow'?'day':preset.toLowerCase() as 'day'|'dusk'|'night'|'dungeon',
           weather:preset==='Rain'?'rain':preset==='Snow'?'snow':'none',lights:preset==='Night'||preset==='Dungeon'?testLights:[],mistOpacity:.22}));
       }}>{preset}</button>)}
@@ -162,6 +182,13 @@ function Preview(){
       </div>
       <aside aria-label="Environment controls">
         <h2>Environment</h2>
+        {torchStudy&&<>
+          <h3>Waist lanterns</h3>
+          {['druk','varis','vanec'].map(id=><label className="switch" key={id}><input type="checkbox" checked={!!tokens.find(t=>t.id===id)?.carriedLantern} onChange={e=>setTokens(list=>list.map(t=>t.id===id?{...t,carriedLantern:e.target.checked}:t))}/>{id[0].toUpperCase()+id.slice(1)} lantern</label>)}
+          <label className="switch"><input type="checkbox" checked={!!settings.lights?.some(l=>l.visibleTorch)} onChange={e=>change('lights',settings.lights?.map(l=>({...l,visibleTorch:e.target.checked})))}/>Visible placed torches</label>
+          <p className="help">Night with 10 ft mist at maximum strength. Small lanterns hang at the front of the waist and illuminate nearby figures and mist.</p>
+        </>}
+
         <label className="switch master"><input type="checkbox" checked={settings.enabled} onChange={e=>change('enabled',e.target.checked)}/>Show effects</label>
         <p className="help">Switch off to compare with the original lighting.</p>
         {atmosphereStudy&&<>
@@ -179,7 +206,7 @@ function Preview(){
         <p className="help">Move Druk to leave a fading wake. Auto lowers mist detail on small screens or large drawing buffers; figures stay sharp.</p>
         <label className="switch"><input type="checkbox" checked={settings.mistCoverage==='map'} onChange={e=>change('mistCoverage',e.target.checked?'map':'patches')}/>Whole-map mist</label>
         <label className="switch"><input type="checkbox" checked={settings.mistShadows!==false} onChange={e=>change('mistShadows',e.target.checked)}/>Mist shadows</label>
-        <label className="range">Mist strength <output>{Math.round((settings.mistOpacity??.5)*100)}%</output><input aria-label="Mist strength" type="range" min="0" max=".5" step=".01" value={settings.mistOpacity} onChange={e=>change('mistOpacity',+e.target.value)}/></label>
+        <label className="range">Mist strength <output>{Math.round((settings.mistOpacity??.5)*100)}%</output><input aria-label="Mist strength" type="range" min="0" max=".7" step=".01" value={settings.mistOpacity} onChange={e=>change('mistOpacity',+e.target.value)}/></label>
         <label className="range">Mist height <output>{((settings.mistHeight??25.6)/pixelsPerFoot).toFixed(1)} ft</output><input aria-label="Mist height" type="range" min=".5" max="10" step=".5" value={(settings.mistHeight??25.6)/pixelsPerFoot} onChange={e=>change('mistHeight',+e.target.value*pixelsPerFoot)}/></label>
         <p className="help">Height sets how far the mist reaches above the ground. Switch whole-map coverage off to compare the original patches.</p>
         <label className="switch"><input type="checkbox" checked={settings.shadows} onChange={e=>change('shadows',e.target.checked)}/>Token shadows</label>

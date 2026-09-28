@@ -53,11 +53,12 @@ export function MapEnvironmentControls({map}:{map:MapState}){
             <SettingSlider label={`Light ${index+1} height`} value={light.heightFt} min={.5} max={30} step={.5} suffix=" ft" onCommit={v=>edit({heightFt:v})}/>
             <SettingSlider label={`Light ${index+1} strength`} value={light.intensity*100} min={10} max={200} suffix="%" onCommit={v=>edit({intensity:v/100})}/>
             <label className="environment-toggle"><input type="checkbox" checked={light.flicker} onChange={e=>edit({flicker:e.target.checked})}/>Gentle flicker</label>
+            <label className="environment-toggle"><input type="checkbox" checked={!!light.visibleTorch} onChange={e=>edit({visibleTorch:e.target.checked})}/>Show 3D torch</label>
             <button onClick={()=>place({mapId:map.id,lightId:light.id})}>Move light {index+1}</button>
             <button onClick={()=>{update({lights:settings.lights.filter(l=>l.id!==light.id)});place(null);}}>Remove light {index+1}</button>
           </details>;
         })}</div>
-        {placement?.mapId===map.id?<button onClick={()=>place(null)}>Cancel light placement</button>:<button disabled={settings.lights.length>=8} onClick={()=>place({mapId:map.id})}>Place light on map</button>}
+        {placement?.mapId===map.id?<button onClick={()=>place(null)}>Cancel light placement</button>:<button onClick={()=>place({mapId:map.id})}>Place light on map</button>}
       </fieldset>
       <fieldset><legend>Weather</legend>
         <label>Weather <select aria-label="Weather" value={settings.weather} onChange={e=>update({weather:e.target.value as MapEnvironment['weather']})}><option value="none">None</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>

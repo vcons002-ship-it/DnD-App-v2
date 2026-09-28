@@ -16,6 +16,7 @@ import { ActionsTraitsView } from './StatBlock';
 import { effectiveAc } from '../../../shared/modifiers';
 import { resourceSigilPresentation } from '../../../shared/resourceSigils';
 import { PlayerConditionControl } from './PlayerConditionControl';
+import {CarriedLanternControl} from './CarriedLanternControl';
 import { DamageHealControls } from './DamageHealControls';
 import { DeathSaves } from './DeathSaves';
 import { HudIcon } from './HudIcon';
@@ -319,6 +320,7 @@ export function PlayerHud({
           <JeweledResources character={character} layout={resourceLayout} overflowCustomResources={overflowCustomResources} />
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />
+            <CarriedLanternControl token={snapshot.tokens.find(t=>t.kind==='pc'&&t.refId===character.id)}/>
             {!isPlaced && (
               <button onClick={onPlace}>
                 {placing ? 'Click map…' : 'Place token'}

@@ -610,6 +610,9 @@ export function resizeMiniature(tokenId: string, widthFt: number): Token | null 
   db.prepare('UPDATE tokens SET miniature_width_ft = ? WHERE id = ?').run(width, tokenId);
   return getToken(tokenId);
 }
+export function setTokenLantern(tokenId:string,enabled:boolean):void {
+  db.prepare('UPDATE tokens SET carried_lantern = ? WHERE id = ?').run(enabled?1:0,tokenId);
+}
 /** Change occupied space and keep the legacy grid size in sync. */
 export function resizeToken(tokenId: string, widthFt: number): Token | null {
   // Snap to half-foot steps; 0.5 ft minimum allows small objects, 120 ft caps
@@ -1134,6 +1137,7 @@ export const duplicateToken = db.transaction((tokenId: string): Token | null => 
   if (token.widthFt !== copy.widthFt) resizeToken(copy.id, token.widthFt);
   if (token.miniatureWidthFt !== undefined) resizeMiniature(copy.id, token.miniatureWidthFt);
   db.prepare('UPDATE tokens SET facing = ? WHERE id = ?').run(token.facing ?? 0, copy.id);
+  setTokenLantern(copy.id,!!token.carriedLantern);
   return getToken(copy.id);
 });
 

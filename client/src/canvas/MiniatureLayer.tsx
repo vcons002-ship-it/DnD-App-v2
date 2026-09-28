@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
+  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -18,6 +18,7 @@ import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from '.
 import {createPreviewGpuTiming} from './previewGpuTiming';
 import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
+import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import { useStore } from '../state/socket';
 import {
   miniatureCameraTarget,
@@ -28,6 +29,7 @@ import {
 export type MiniatureToken = {
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
+  carriedLantern?: boolean;
   tint?: string;
   outline?: string;
   shade?: [number, number, number];
@@ -64,6 +66,8 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  lanternAnchor:Vector3;
+  torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
   measureBody: () => MistBody;
   root: Group;
   outlineMaterial: MeshBasicMaterial;
@@ -263,7 +267,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
     const atmosphereAnimated = !!environment?.enabled && environment.mistQuality!=='off' && !reducedMotion.matches &&
-      (environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker));
+      (environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
@@ -271,6 +275,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (now - lastPaint >= (props.environmentPreview ? 1000 / 60 - 1 : 1000 / 24)) {
       lastPaint = now;
       const seconds = (now - started) / 1000;
+      for(const [id,move] of moves)if(move.until<now)moves.delete(id);
       for (const token of props.tokens) {
         const instance = instances.get(token.id);
         if (!instance) continue;
@@ -298,9 +303,27 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const body=instance?.mistBody?mistBodyInMap(instance.mistBody,x,y,instance.root.rotation.y,instance.root.scale.x):undefined;
         return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden};
       }));
-      battlefield?.tick(reducedMotion.matches ? 0 : seconds);
+      if(battlefield){
+        const ppf=props.environmentPreview?.pixelsPerFoot??12.8;
+        const carriers=new Map((props.environmentPreview?.carriedLanterns??[]).map(t=>[t.id,t]));
+        for(const token of props.tokens)if(token.carriedLantern&&!token.hidden)carriers.set(token.id,{...token,facing:token.facing??0});
+        battlefield.lighting.setCarried([...carriers.values()].flatMap(token=>{
+          const instance=instances.get(token.id),move=moves.get(token.id);
+          const x=instance?.root.position.x??move?.x??token.x,y=instance?.root.position.z??move?.y??token.y;
+          if(!(props.isVisibleAt?.(token.id,x,y)??true))return [];
+          if(instance){
+            const belt=instance.root.localToWorld(instance.lanternAnchor.clone()),facing=instance.root.rotation.y;
+            return [{id:token.id,x:belt.x+Math.sin(facing)*ppf*.24,y:belt.z+Math.cos(facing)*ppf*.24,height:belt.y-ppf*.52,facing}];
+          }
+          const facing=move?.facing??token.facing,dx=-token.diameter*.07,dz=token.diameter*.22;
+          return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*2.8,facing}];
+        }));
+        battlefield.tick(reducedMotion.matches?0:seconds);
+      }
+      for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera);
       try {
         timing?.begin();
+        battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const renderedNames=names.sync(props.nameLabels?.()??[],visible);
         if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
@@ -460,13 +483,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;
       host.dataset.environment='off';host.dataset.mistVisible='false';host.dataset.shadows='false';host.dataset.mistWakes='0';
       host.dataset.weather='none';host.dataset.weatherCount='0';host.dataset.lighting='off';host.dataset.lightCount='0';
+      host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
     }
     updateCamera();
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
     }
     for (const id of moves.keys()) {
-      if (!next.tokens.some((token) => token.id === id)) moves.delete(id);
+      if (!next.tokens.some((token) => token.id === id) && !next.environmentPreview?.carriedLanterns?.some(t=>t.id===id)) moves.delete(id);
     }
     for (const [id, instance] of instances) {
       const token = next.tokens.find((item) => item.id === id);
@@ -499,6 +523,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // Animated source transforms remain intact below this base-centering group.
         const centered = new Group();
         const model = gltf.scene.clone(true);
+        const lanternAnchor=measureLanternAnchor(model,definition),torchLighting=createMiniatureTorchLighting();
         centered.add(model); root.add(centered);
         // A ground-plane marker in the same depth buffer as the miniature:
         // body, base and weapons occlude its rear arc. It follows live drags
@@ -545,6 +570,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
               const sourceIndex=gltf.parser.associations.get(material)?.materials;
               const pbr=sourceIndex===undefined?undefined:gltf.parser.json.materials?.[sourceIndex]?.pbrMetallicRoughness;
               if(copy instanceof MeshStandardMaterial && pbr && pbr.metallicFactor===undefined && !pbr.metallicRoughnessTexture)copy.metalness=0;
+              torchLighting.attach(copy);
               // Mark the complete visible figure, not individual mesh boundaries.
               // All bodies mask outlines so overlapping tokens also stay clean.
               copy.stencilWrite = true;
@@ -620,6 +646,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
+          lanternAnchor,torchLighting,
           root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
@@ -714,7 +741,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     },
     moveToken(id, x, y, finished, facing) {
       if (disposed) return;
-      const token = props.tokens.find((item) => item.id === id);
+      const token = props.tokens.find((item) => item.id === id)??props.environmentPreview?.carriedLanterns?.find(t=>t.id===id);
       if (!token) return;
       if(finished && facing!==undefined && x===token.x && y===token.y){
         moves.delete(id);invalidate();return;

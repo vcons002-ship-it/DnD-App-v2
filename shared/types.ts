@@ -130,6 +130,8 @@ export type Token = {
   y: number;
   /** Last movement direction in radians around glTF Y; zero faces map south. */
   facing?: number;
+  /** Shared carried lantern; visual lighting, not automatic vision/fog reveal. */
+  carriedLantern?: boolean;
   /** Legacy size in grid squares (1 = Medium, 2 = Large, ...); kept for back-compat. */
   size: number;
   /**
@@ -1612,6 +1614,7 @@ export interface ClientToServerEvents {
    *  server fans it out as `fx:tokenDrag` to viewers who can see the token. */
   'token:drag': (payload: TokenMovePayload) => void;
   'token:resize': (payload: TokenResizePayload) => void;
+  'token:setLantern': (payload: {tokenId:string;enabled:boolean}) => void;
   'token:setShape': (payload: TokenSetShapePayload) => void;
   'token:spawn': (payload: TokenSpawnPayload) => void;
   'token:delete': (payload: TokenDeletePayload) => void;

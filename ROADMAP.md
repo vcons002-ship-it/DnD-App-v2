@@ -4,6 +4,16 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Placed torches and carried lanterns - September 2026
+
+- [x] Optional visible 3D torches on placed map lights, without a placement count cap.
+- [x] Player Lantern on/off control and DM token override. Small lanterns attach
+  at the front of the waist, move and turn with the figure, and light nearby
+  figures, ground and mist. Preserve fog, ownership, 2D view and save behavior.
+- [x] Night demonstration with maximum mist height/density, three/twelve placed
+  torches, waist lanterns, party movement, rotation and overhead comparison.
+  See [implementation and verification](docs/TORCHES_LANTERNS_2026_09_27.md).
+
 ## Movement previews and mist feedback - September 2026
 
 - [x] Private translucent destination figures with grid distance and expected

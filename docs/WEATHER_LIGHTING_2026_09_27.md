@@ -13,7 +13,7 @@ DM: Maps → Environment → Enable environment.
 - Place light on map: click terrain for a light at that position. Each light has
   warm/cool/green color, radius, height, strength and optional gentle flicker.
   Move/remove controls are inside each light's disclosure. Escape cancels only
-  placement. Up to eight lights per map.
+  placement. The later torch/lantern extension removes the eight-light placement limit; see `TORCHES_LANTERNS_2026_09_27.md`.
 - Players and DM retain browser-local Auto/High/Low/Off. Low reduces particle
   count and mist detail. Off restores normal map/miniature rendering.
 

@@ -6,6 +6,7 @@ import {
 import type {EnvironmentContactToken, EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {createMistFlow} from './mistFlow';
 import {environmentVisibilityGlsl, type createEnvironmentVisibility} from './environmentVisibility';
+import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
 
 // Shared by the volume and its ground shading, so both move and reshape together.
 const densityField = /* glsl */`
@@ -88,6 +89,7 @@ const vertexShader = /* glsl */`
 `;
 const fragmentShader = /* glsl */`
   ${densityField}
+  ${torchFieldGlsl}
   uniform sampler2D mistSceneDepth;
   uniform vec2 mistResolution;
   uniform float mistSteps;
@@ -128,6 +130,9 @@ const fragmentShader = /* glsl */`
         float sunlight = exp(-sunward * mistHeight / mistWorldScale * mistStrength * .055);
         float illumination = clamp(.22 + .78 * sunlight + (density - sunward) * .18, .3, 1.0);
         vec3 color = mix(vec3(.3, .35, .36), vec3(.72, .78, .77), illumination) * mistTint;
+        // Warm scattering follows the same animated sources as the ground and figures.
+        vec3 localLight=torchIllumination(p.xz);
+        color += (vec3(1.)-exp(-localLight*.42))*exp(-p.y/(mistWorldScale*140.))*.72;
         float alpha = 1.0 - exp(-density * mistStrength * stepLength / mistWorldScale * .12);
         light += transmittance * alpha * color;
         transmittance *= 1.0 - alpha;
@@ -182,7 +187,7 @@ const compositeFragment=/* glsl */`
 `;
 
 /** One bounded density volume, clipped against the scene's opaque depth. */
-export function createBattlefieldMist(depth: Texture, resolution: Vector2, visibility: ReturnType<typeof createEnvironmentVisibility>['uniforms']) {
+export function createBattlefieldMist(depth: Texture, resolution: Vector2, visibility: ReturnType<typeof createEnvironmentVisibility>['uniforms'],torchField:ReturnType<typeof createBattlefieldLighting>['fieldUniforms']) {
   const flow=createMistFlow();
   const data = new Uint8Array(64 * 64 * 64);
   let seed = 572919;
@@ -204,7 +209,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
     mistPatchRotation:{value:Array.from({length:8},()=>new Vector2(1,0))},
   };
   const lowResolution=new Vector2(1,1);
-  const material = new ShaderMaterial({uniforms:{...common,
+  const material = new ShaderMaterial({uniforms:{...common,...torchField,
     mistSceneDepth:{value:depth}, mistResolution:{value:lowResolution},mistSteps:{value:24},
     mistProjectionInverse:{value:new Matrix4()}, mistCameraWorld:{value:new Matrix4()},
   }, vertexShader, fragmentShader, side:BackSide, blending:NoBlending, depthWrite:false, depthTest:false, toneMapped:false});

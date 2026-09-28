@@ -691,12 +691,14 @@ export function MapStage({
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
   const {quality:environmentQuality}=useEnvironmentQuality();
   const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
-    const settings=map?.environment;
-    if(!map || !settings?.enabled || environmentQuality==='off' || map.slidesUrl)return undefined;
-    return {...settings,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+    const saved=map?.environment??DEFAULT_MAP_ENVIRONMENT;
+    const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
+    if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
+    const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
+    return {...settings,carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
-  },[map?.environment,map?.slidesUrl,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
+  },[map?.environment,map?.slidesUrl,snapshot.tokens,environmentQuality,extX0,extY0,imgW,imgH,pxPerFoot,isDm,mapFogEnabled,grid,map?.mapFogRevealed]);
 
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
@@ -1014,6 +1016,7 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      carriedLantern:token.carriedLantern,
       combatRole: token.kind==='monster'?token.combatRole:undefined,
       conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
       outline: monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
@@ -1247,7 +1250,7 @@ export function MapStage({
       if(pos){
         const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
         const lights=lightPlacement.lightId?settings.lights.map(light=>light.id===lightPlacement.lightId?{...light,x:pos.x,y:pos.y}:light):
-          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:'warm' as const,intensity:1,flicker:true}].slice(0,8);
+          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:'warm' as const,intensity:1,flicker:true,visibleTorch:true}];
         useStore.getState().setMapEnvironment(map.id,{lights});placeLight(null);
       }
       return;

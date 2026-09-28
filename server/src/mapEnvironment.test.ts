@@ -1,6 +1,6 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {DEFAULT_MAP_ENVIRONMENT,sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
-import {createMap,createSession,getMap,listMaps,getSessionByCode,setActiveMap,updateMapEnvironment,importMaps} from './sessions.js';
+import {createMap,createSession,getMap,listMaps,getSessionByCode,setActiveMap,updateMapEnvironment,importMaps,createCharacter,createToken,claimCharacter,getToken,listTokens,moveToken} from './sessions.js';
 import {exportSession,importSession} from './backup.js';
 import {db} from './db.js';
 import {buildSnapshot} from './visibility.js';
@@ -17,7 +17,7 @@ function client(sessionId:string,mapId:string,role:'dm'|'player'){
   const handlers=new Map<string,(p:unknown)=>void>(),id=`environment-${Math.random()}`;
   connect({id,on:(event:string,fn:(p:unknown)=>void)=>handlers.set(event,fn),emit:vi.fn()});
   setConn(id,{sessionId,viewMapId:mapId,role,playerId:null});connections.push(id);
-  return (p:unknown)=>handlers.get('map:setEnvironment')!(p);
+  return Object.assign((p:unknown)=>handlers.get('map:setEnvironment')!(p),{id,send:(event:string,p:unknown)=>handlers.get(event)!(p)});
 }
 describe('saved map environment',()=>{
   it('defaults old and new maps off and safely bounds partial settings',()=>{
@@ -45,7 +45,35 @@ describe('saved map environment',()=>{
     expect(result).toMatchObject({lighting:'night',weather:'rain',weatherIntensity:1,windDirectionDegrees:320,windStrength:0});
     expect(result.lights).toEqual([{...light,radiusFt:60,heightFt:.5,intensity:2}]);
     expect(sanitizeMapEnvironment({weather:'storm',lighting:'unknown',lights:'bad'},result)).toEqual(result);
-    expect(sanitizeMapEnvironment({lights:Array.from({length:20},(_,i)=>({...light,id:String(i)}))}).lights).toHaveLength(8);
+    expect(sanitizeMapEnvironment({lights:Array.from({length:20},(_,i)=>({...light,id:String(i)}))}).lights).toHaveLength(20);
+    expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:true}]}).lights[0].visibleTorch).toBe(true);
+    expect(sanitizeMapEnvironment({lights:[{...light,visibleTorch:'true'}]}).lights[0].visibleTorch).toBeUndefined();
+  });
+  it('shares carried lanterns, enforces ownership, and retains them through movement and save import',()=>{
+    const session=createSession('Carried lanterns'),map=createMap(session.id,{name:'Night'}),prep=createMap(session.id,{name:'Prep'});
+    setActiveMap(session.id,map.id);
+    const ch=createCharacter(session.id,{name:'Torch bearer'}),other=createCharacter(session.id,{name:'Another player'});
+    const token=createToken({mapId:map.id,kind:'pc',refId:ch.id,x:25,y:25});
+    const another=createToken({mapId:map.id,kind:'pc',refId:other.id,x:75,y:25});
+    const staged=createToken({mapId:prep.id,kind:'pc',refId:ch.id,x:25,y:25});
+    const player=client(session.id,map.id,'player'),dm=client(session.id,map.id,'dm');claimCharacter(ch.id,player.id);
+    const toggle=(sender:typeof player,id:string,enabled:unknown)=>sender.send('token:setLantern',{tokenId:id,enabled});
+    toggle(player,token.id,true);expect(getToken(token.id)!.carriedLantern).toBe(true);
+    toggle(player,another.id,true);toggle(player,staged.id,true);
+    expect(getToken(another.id)!.carriedLantern).toBe(false);expect(getToken(staged.id)!.carriedLantern).toBe(false);
+    toggle(player,token.id,'false');expect(getToken(token.id)!.carriedLantern).toBe(true);
+    const foreign=createSession('Foreign'),foreignMap=createMap(foreign.id,{name:'Elsewhere'});
+    const foreignToken=createToken({mapId:foreignMap.id,kind:'pc',refId:createCharacter(foreign.id,{name:'Foreign'}).id,x:0,y:0});
+    toggle(dm,foreignToken.id,true);expect(getToken(foreignToken.id)!.carriedLantern).toBe(false);
+    toggle(dm,another.id,true);expect(getToken(another.id)!.carriedLantern).toBe(true);
+    moveToken(token.id,125,150);expect(getToken(token.id)).toMatchObject({x:125,y:150,carriedLantern:true});
+    expect(buildSnapshot(session.id,'player',map.id,player.id)!.tokens.find(t=>t.id===token.id)?.carriedLantern).toBe(true);
+    db.prepare('UPDATE tokens SET is_hidden = 1 WHERE id = ?').run(token.id);
+    toggle(player,token.id,false);expect(getToken(token.id)!.carriedLantern).toBe(true);
+    expect(buildSnapshot(session.id,'player',map.id,player.id)!.tokens.some(t=>t.id===token.id)).toBe(false);
+    const restored=importSession(exportSession(session.code)!);
+    const restoredMap=listMaps(getSessionByCode(restored.code)!.id).find(m=>m.name==='Night')!;
+    expect(listTokens(restoredMap.id).filter(t=>t.carriedLantern)).toHaveLength(2);
   });
   it('only shares revealed light sources with players, including the map list',()=>{
     const session=createSession('Hidden torches'),map=createMap(session.id,{name:'Dungeon'});

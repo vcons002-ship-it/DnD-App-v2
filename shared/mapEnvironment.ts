@@ -18,7 +18,7 @@ export type MapEnvironment = {
   mistShadows: boolean;
   mistInteraction: boolean;
 };
-export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean};
+export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean;visibleTorch?:boolean};
 export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
   lighting:'day',lightLevel:1,weather:'none',weatherIntensity:.5,windDirectionDegrees:20,windStrength:.4,lights:[],
@@ -51,13 +51,13 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   if(Array.isArray(source.lights)){
     const seen=new Set<string>();
     const number=(v:unknown,min:number,max:number,fallback:number)=>typeof v==='number'&&Number.isFinite(v)?Math.min(max,Math.max(min,v)):fallback;
-    result.lights=source.lights.slice(0,8).flatMap((light:unknown)=>{
+    result.lights=source.lights.flatMap((light:unknown)=>{
       if(!light||typeof light!=='object')return [];
       const v=light as Record<string,unknown>;
       if(typeof v.id!=='string'||!v.id||v.id.length>80||seen.has(v.id)||typeof v.x!=='number'||!Number.isFinite(v.x)||typeof v.y!=='number'||!Number.isFinite(v.y))return [];
       seen.add(v.id);
       return [{id:v.id,x:number(v.x,-1e6,1e6,0),y:number(v.y,-1e6,1e6,0),radiusFt:number(v.radiusFt,3,60,15),heightFt:number(v.heightFt,.5,30,6),
-        color:v.color==='cool'||v.color==='green'?v.color:'warm',intensity:number(v.intensity,.1,2,1),flicker:v.flicker===true}];
+        color:v.color==='cool'||v.color==='green'?v.color:'warm',intensity:number(v.intensity,.1,2,1),flicker:v.flicker===true,...(v.visibleTorch===true?{visibleTorch:true}:{})}];
     });
   }
   return result;

@@ -34,6 +34,8 @@ export type EnvironmentMistPatch = {
 
 /** Renderer settings shared by the isolated study and the app. Lengths are map pixels. */
 export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'weather'|'weatherIntensity'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
+  /** Fallback carriers also illuminate the map when their viewer chooses 2D tokens. */
+  carriedLanterns?: {id:string;x:number;y:number;diameter:number;facing:number}[];
   /** Transparent effects over the existing Konva artwork in the real battlefield. */
   overlay?: boolean;
   mapX?: number;
@@ -157,9 +159,9 @@ export function createBattlefieldEnvironment(
   scene.add(environment);
   environment.add(scenery, contacts);
   const visibility = createEnvironmentVisibility();
-  const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms);
-  const weather=createBattlefieldWeather(scene,depthBuffer,visibility.uniforms);
   const lighting=createBattlefieldLighting(scene,keyLight,ambient,visibility.uniforms,depthBuffer);
+  const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms,lighting.fieldUniforms);
+  const weather=createBattlefieldWeather(scene,depthBuffer,visibility.uniforms);
   const geometries = new Set<BufferGeometry>();
   const materials = new Set<Material>();
   const textures = new Set<Texture>();
@@ -466,6 +468,7 @@ export function createBattlefieldEnvironment(
 
   update(initial);
   return { update, tick, setTokens, dispose, get ready() { return settings.overlay || groundMaterial.map !== null; },
+    lighting,
     renderMist: mist.render,
     get mistState() { return mist.state; },
     get atmosphereState(){return {...weather.state,...lighting.state};},
