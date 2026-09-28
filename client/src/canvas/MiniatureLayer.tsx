@@ -1,3 +1,4 @@
+import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -149,9 +150,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
 
-  const ambient = new HemisphereLight(0xe5edff, 0x726856, 2);
+  const ambient = new HemisphereLight(0xe5edff, 0x726856, NEUTRAL_MINIATURE_LIGHTING.ambient);
   scene.add(ambient);
-  const key = new DirectionalLight(0xffeddb, 3);
+  const key = new DirectionalLight(0xffeddb, NEUTRAL_MINIATURE_LIGHTING.key);
   key.position.set(-3, 8, 5);
   scene.add(key);
   // A small neutral environment keeps metal readable without per-token lights/shadows.
@@ -163,6 +164,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     room = new RoomEnvironment();
     environment = pmrem.fromScene(room, 0.04, 0.1, 100);
     scene.environment = environment.texture;
+    scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();

@@ -14,6 +14,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Daylight figure colors - September 2026
 
+- [x] Apply the corrected neutral lighting to the default renderer too, including
+  maps without environment settings and effects-off views. Share defaults with
+  Clear day so the two paths cannot retain different brightness values.
+
 - [x] Rebalance daylight fill, directional light and reflections to stop figure
   colors washing out; retain untinted original map colors. Compare identical
   camera views and verify unchanged ground pixels with stronger cloth color.

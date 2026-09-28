@@ -1,3 +1,4 @@
+import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {
   AdditiveBlending, BoxGeometry, Color, ConeGeometry, CylinderGeometry, DynamicDrawUsage, HalfFloatType, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, TorusGeometry,
@@ -9,7 +10,7 @@ import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './envi
 import type {TorchLight} from './miniatureTorchLighting';
 import {stormLightningAt} from '../../../shared/stormLighting';
 
-const palettes={day:{color:0x1c2230,opacity:0,ambient:.75,key:2,reflection:.35},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
+const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
 const colors={warm:new Color(0xffb258),cool:new Color(0x89bbff),green:new Color(0x85eab5)};
 export type CarriedLanternLight={id:string;x:number;y:number;height:number;facing:number};
@@ -26,7 +27,7 @@ export const torchFieldGlsl=`
 
 /** All sources splat into a bounded light field; there is no map-wide light-count limit. */
 export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambient:HemisphereLight|undefined,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],depth:{texture:Texture;resolution:Vector2}){
-  const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??2,sky:ambient?.color.clone()??new Color(0xffffff),ground:ambient?.groundColor.clone()??new Color(0xffffff),reflection:scene.environmentIntensity};
+  const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??NEUTRAL_MINIATURE_LIGHTING.ambient,sky:ambient?.color.clone()??new Color(0xffffff),ground:ambient?.groundColor.clone()??new Color(0xffffff),reflection:scene.environmentIntensity};
   const field=new WebGLRenderTarget(512,512,{type:HalfFloatType,depthBuffer:false,stencilBuffer:false});
   const fieldUniforms={torchField:{value:field.texture},torchBounds:{value:new Vector4()},stormFlash:{value:0}};
   const uniforms={...visibility,...fieldUniforms,figureDepth:{value:depth.texture},resolution:{value:depth.resolution},gradeColor:{value:new Color()},gradeOpacity:{value:0},sceneTint:{value:new Color(0xffffff)},sceneTintStrength:{value:0},wetness:{value:0},surfaceTime:{value:0},surfaceScale:{value:12.8},wetLight:{value:1}};

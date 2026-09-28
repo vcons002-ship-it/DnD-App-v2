@@ -77,3 +77,23 @@ stronger cloth color and darker, better defined materials on all seven figures.
 Comparison: https://dnd.nic024i.app/uploads/previews/environment-daylight-20260928/index.html
 
 The comparison is published separately; the previous videos remain historical.
+
+## Default renderer follow-up
+
+The chest/trap recording exposed a separate route: a map with no environment
+settings never instantiated the environment lighting controller, so it retained
+ambient 2, key 3 and reflection 1. Disabling environment effects also restored
+those original values. The earlier Clear day correction therefore did not cover
+ordinary maps or effects-off views.
+
+`miniatureLightingDefaults.ts` now supplies ambient 0.75, key 2 and reflection
+0.35 to both renderer initialization and the Clear day palette. Environment
+shutdown/quality-off restores that same corrected baseline. Dusk, night and
+dungeon settings are unchanged. Source models, textures and map art are unchanged.
+
+Verified with typecheck, all 915 tests, production build, the real DM/player
+environment regression and the chest/trap regression. Fresh capture uses a map
+without environment settings; preview image/video loading also checked at
+390 by 844. The live campaign app is not deployed by this change.
+
+[Corrected map capture and before/after](https://dnd.nic024i.app/uploads/previews/objects-lighting-fixed-20260928/index.html)
