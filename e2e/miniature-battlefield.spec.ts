@@ -2928,6 +2928,30 @@ test('shared creature awareness stays grayscale and noninteractive until persona
  });expect(rgba).toBeGreaterThan(100);
  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await page.waitForTimeout(850);
  await page.screenshot({path:info.outputPath('03-shared-tilted.png')});if(movementDemo)await page.waitForTimeout(2500);
+ // Reproduce the reported raised-head/room-mask intersection. The lifted
+ // framebuffer must change actual head pixels, without exposing terrain or a
+ // second copy of the shared figures. Disable only the lift for the comparison.
+ const lift=page.getByTestId('personal-sight-miniatures');
+ await expect(lift).toBeVisible();
+ const base=(await tokenView(page,druk.id))!;
+ const crop={x:Math.floor(base.x-110),y:Math.floor(base.y-150),width:220,height:200};
+ const restored=await page.screenshot({clip:crop,path:info.outputPath('head-after.png')});
+ await lift.evaluate((c:HTMLCanvasElement)=>{c.style.visibility='hidden';});await afterPaint(page);
+ const covered=await page.screenshot({clip:crop,path:info.outputPath('head-before.png')});
+ await lift.evaluate((c:HTMLCanvasElement)=>{c.style.visibility='';});await afterPaint(page);
+ const a=await sharp(restored).removeAlpha().raw().toBuffer(),b=await sharp(covered).removeAlpha().raw().toBuffer();
+ let restoredHeadPixels=0,changedSurroundings=0;
+ for(let y=0;y<crop.height;y++)for(let x=0;x<crop.width;x++){
+  const i=(y*crop.width+x)*3,delta=Math.max(...[0,1,2].map(c=>Math.abs(a[i+c]-b[i+c])));
+  if(delta<12)continue;
+  if(x>60&&x<165&&y<130)restoredHeadPixels++;else changedSurroundings++;
+ }
+ expect(restoredHeadPixels).toBeGreaterThan(100);expect(changedSurroundings).toBeLessThan(15);
+ await page.mouse.move(250,160);await page.mouse.down({button:'right'});
+ await page.mouse.move(356,160,{steps:25});await page.mouse.up({button:'right'});await afterPaint(page);
+ await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('37\u00b0');
+ await page.screenshot({path:info.outputPath('03b-rotated.png')});if(movementDemo)await page.waitForTimeout(1500);
+ await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();await page.waitForTimeout(700);
  // The 2D fallback has the identical awareness and input rules.
  await page.getByRole('button',{name:'2D monster tokens',exact:true}).click();await afterPaint(page);
  expect((await tokenView(page,enemy.id))?.bodyVisible).toBe(true);expect((await sharedNode())?.listening).toBe(false);
@@ -2939,6 +2963,13 @@ test('shared creature awareness stays grayscale and noninteractive until persona
   await expect(page.getByTestId('shared-sight-miniatures')).toHaveAttribute('data-token-ids',new RegExp(enemy.id));
   await page.waitForTimeout(600);await page.screenshot({path:info.outputPath(heavyDarkness?'06-heavy-darkness.png':'05-dim-darkness.png')});if(movementDemo)await page.waitForTimeout(1800);
  }
+ await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{mist:true,mistOpacity:.3,mistHeightFt:6}});
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-mist-visible','true');
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-carried-lantern-count','1');
+ await page.waitForTimeout(1000);await page.screenshot({path:info.outputPath('06b-lantern-mist.png')});if(movementDemo)await page.waitForTimeout(2000);
+ await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{mist:false}});
  // Another real player has personal sight of the same creature.
  const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
  try{const scout=await ctx.newPage();await enter(scout,f.code,'Varis',false);
@@ -2963,5 +2994,5 @@ test('shared creature awareness stays grayscale and noninteractive until persona
  await expect.poll(()=>tokenView(page,enemy.id)).toBeNull();
  await expect(page.getByTestId('shared-sight-miniatures')).not.toHaveAttribute('data-token-ids',new RegExp(enemy.id));
  await page.screenshot({path:info.outputPath('09-enemy-gone-terrain-remembered.png')});if(movementDemo)await page.waitForTimeout(2500);
- expect(errors).toEqual([]);writeFileSync(info.outputPath('shared-sight-result.json'),JSON.stringify({renderedPixels:rgba,noninteractive:true,personalSightRestored:true,lastObserverLoss:true,errors},null,2));
+ expect(errors).toEqual([]);writeFileSync(info.outputPath('shared-sight-result.json'),JSON.stringify({renderedPixels:rgba,restoredHeadPixels,changedSurroundings,noninteractive:true,personalSightRestored:true,lastObserverLoss:true,errors},null,2));
 });

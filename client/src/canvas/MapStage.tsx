@@ -2427,7 +2427,7 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer key={map?.id} ref={miniatureRef} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />

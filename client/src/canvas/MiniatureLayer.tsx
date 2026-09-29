@@ -13,6 +13,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
+import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
@@ -43,6 +44,7 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  personalVision?: boolean;
   onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
   preloadDefinitions?: MiniatureDefinition[];
@@ -156,10 +158,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const outlineMask = new WebGLRenderTarget(1, 1);
   outlineMask.depthTexture = new DepthTexture(1, 1);
   const outlineProjectionInverse = {value: new Matrix4()};
-  const maskMaterial = new MeshBasicMaterial({color: 0xffffff, toneMapped: false});
+  const maskMaterial = createMiniatureVisibilityMaterial();
   const outlineResolution = {value: new Vector2(1, 1)};
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
+  const visionLift=createMiniatureVisionLift(renderer,host,outlineMask.texture);
   // Copy only the party-awareness pass above the personal vision cover. Reuse
   // this renderer and its loaded assets; never copy terrain, lights or effects.
   const sharedCanvas=document.createElement('canvas');
@@ -188,7 +191,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environment = environment.texture;
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
-    sharedCanvas.remove();sharedDepth.dispose();names.dispose();
+    sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
@@ -369,7 +372,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
-        if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        if (props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -413,6 +416,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
+        visionLift.render(!!props.personalVision);
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();
         if (battlefield) {
@@ -787,7 +791,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
-    sharedCanvas.remove();sharedDepth.dispose();
+    sharedCanvas.remove();sharedDepth.dispose();visionLift.dispose();
     battlefield?.dispose();battlefield=null;
     localShadows.dispose();
     timing?.dispose();

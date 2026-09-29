@@ -7,11 +7,13 @@ import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
 export type PlayerVisionHandle={lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
-/** A screen-space mask above BOTH renderers. Never disabled by effect quality. */
+/** Terrain visibility stays below lifted miniature pixels; heavy-darkness
+ * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
 export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;terrain?:MemoryTerrain}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
+ const root=useRef<HTMLDivElement>(null);
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
  const sightPaths=useRef<SVGClipPathElement>(null),lightClips=useRef<SVGGElement>(null);
  const memoryPaths=useRef<SVGClipPathElement>(null),memoryPlane=useRef<HTMLDivElement>(null),memoryMap=useRef<HTMLDivElement>(null);
@@ -21,6 +23,11 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,coverId=`vision-cover-${id}`;
  const sightId=`vision-sight-${id}`;
  const memoryId=`vision-memory-${id}`;
+ useLayoutEffect(()=>{
+  const parent=root.current?.parentElement;
+  parent?.style.setProperty('--player-vision-cover',`url(#${coverId})`);
+  return ()=>{parent?.style.removeProperty('--player-vision-cover');};
+ },[coverId]);
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0);
@@ -98,7 +105,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   schedule();},[props]);
  const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;
- return <div data-testid="player-vision" data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.daylight?'unlimited':props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
+ return <><div ref={root} data-testid="player-vision" data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.daylight?'unlimited':props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
   <svg width={props.width} height={props.height} style={{position:'absolute',inset:0}} aria-hidden="true"><defs>
    <clipPath id={sightId} clipPathUnits="userSpaceOnUse" ref={sightPaths}/><g ref={lightClips}/>
@@ -111,7 +118,6 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     <rect width={props.width} height={props.height} fill="white"/><g ref={originPaths}/>{props.vision.origins.length>0&&<g clipPath={`url(#${sightId})`}><use href={`#${lightId}`}/></g>}
    </mask>
   </defs></svg>
-  <div ref={shade} style={{position:'absolute',inset:0,maskImage:`url(#${shadeId})`}}/>
   <div style={{position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>
    {terrain&&b&&<div data-testid="explored-terrain" style={{position:'absolute',inset:0,clipPath:`url(#${memoryId})`}}>
     <div ref={memoryPlane} style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:'grayscale(1) brightness(.48)'}}>
@@ -123,5 +129,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     </div>
    </div>}
   </div>
- </div>;
+ </div>
+  <div ref={shade} data-testid="player-vision-shade" style={{position:'absolute',inset:0,zIndex:4,pointerEvents:'none',maskImage:`url(#${shadeId})`}}/>
+ </>;
 });

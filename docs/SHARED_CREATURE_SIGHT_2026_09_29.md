@@ -41,6 +41,23 @@ flicker and weather do not repeatedly copy the same figures.
 
 Shared figures do not create local lights, shadows or mist disturbances.
 Creature awareness does not change the map's persisted explored-terrain shape.
+
+### Raised miniatures at fog boundaries
+
+Terrain fog must not slice through the head of a miniature whose base is
+visible. The opaque-body mask now carries a personal/shared identifier in
+addition to its existing alpha and depth. A framebuffer copy restores personal
+body pixels above the terrain cover, only where that cover would obscure them.
+It uses the already rendered color, including illumination and mist, without a
+second model render or a second WebGL context. The terrain image is not copied
+into this overlay. Heavy-darkness desaturation stays above both layers.
+
+The browser regression compares a close-up with this lift enabled and disabled:
+762 head-region pixels are restored, with zero changed surrounding pixels in
+the captured comparison. It also exercises rotation, both darkness levels,
+carried lanterns with tall mist, shared-only targeting, discovery and observer
+loss. Door and base-cell fog scenarios pass alongside it. This rendering fix
+does not alter server visibility or saved campaign data.
 A door walkthrough exposed a terrain union precision error; normalization now
 also covers previously saved intersection vertices, with a regression for
 repeated fractional thick-door openings and closure.

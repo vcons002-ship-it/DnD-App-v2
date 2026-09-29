@@ -25,6 +25,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   Reuse loaded 2D/3D assets and preserve fog, walls, personal lighting and DM hiding.
   See [creature awareness](docs/SHARED_CREATURE_SIGHT_2026_09_29.md).
 
+- [x] Keep visible miniature bodies above terrain fog in tilted and rotated
+  views. Restore raised body pixels using the finished lighting/mist frame;
+  retain personal darkness, shared awareness and hidden-enemy boundaries.
+  Pixel regression verifies the room mask no longer clips Druk's head.
+
 ## Live dice modifier presentation - September 2026
 
 - [x] After live dice settle, reveal labeled attack/check and damage modifiers
