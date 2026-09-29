@@ -655,12 +655,21 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
   test.skip(!movementDemo,'Optional recorded walkthrough');test.setTimeout(240000);
   const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
   const druk=f.ready.tokens[0],varis=f.ready.tokens[1],vanec=f.ready.tokens[2];
-  for(const [token,x,y] of [[druk,450,145],[varis,690,490],[vanec,1090,270]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
+  for(const [token,x,y] of [[druk,450,280],[varis,690,510],[vanec,1090,270]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
   f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140,hidden:true});
   f.socket.emit('monster:create',{name:'Goblin',maxHp:12,modelType:'goblin'});
   const goblinTemplate=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin')!;
-  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:goblinTemplate.id,x:740,y:260});
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:goblinTemplate.id,x:330,y:180});
   const goblin=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+  // Other rooms are already traced. Door gaps follow the painted door frames;
+  // doors in this walkthrough are treated as open, with no extra door state.
+  const preparedWalls=[[811,78,835,350],[811,78,1333,110],[1305,78,1333,1015],
+    [816,348,994,373],[979,348,1004,492],[979,545,1004,714],[979,770,1004,1015],
+    [995,405,1048,435],[1100,405,1333,435],[996,577,1333,600],[992,987,1333,1015],
+    [254,561,285,1020],[254,561,436,590],[482,561,610,590],[578,586,607,800],
+    [252,786,446,810],[500,786,602,810],[514,807,540,1020],[254,995,899,1020],
+    [598,629,705,653],[751,629,857,653],[833,627,857,790],[873,787,899,1020]];
+  preparedWalls.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'prepared-'+i,kind:'rectangle',ax,ay,bx,by}}));
   const contexts:Awaited<ReturnType<typeof browser.newContext>>[]=[];
   const recordings=new Map<Page,{start:number;file:string}>(),chapters:{file:string;start:number;end:number;label:string}[]=[];
   const errors:string[]=[];
@@ -674,9 +683,9 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
     await p.evaluate(text=>{
       let caption=document.querySelector<HTMLDivElement>('#wall-demo-caption');
       if(!caption){caption=document.createElement('div');caption.id='wall-demo-caption';document.body.append(caption);}
-      caption.textContent=text;Object.assign(caption.style,{position:'fixed',top:'174px',left:'50%',transform:'translateX(-50%)',padding:'10px 20px',background:'#111820ed',border:'1px solid #c8ab72',borderRadius:'6px',color:'#ffebbd',font:'20px Georgia',zIndex:'1000',pointerEvents:'none',whiteSpace:'nowrap'});
+      caption.textContent=text;Object.assign(caption.style,{position:'fixed',top:'110px',left:'50%',transform:'translateX(-50%)',padding:'10px 20px',background:'#111820ed',border:'1px solid #c8ab72',borderRadius:'6px',color:'#ffebbd',font:'20px Georgia',zIndex:'1000',pointerEvents:'none',whiteSpace:'nowrap'});
     },label);
-    const start=(Date.now()-recording.start)/1000;await p.waitForTimeout(600);await action();await p.waitForTimeout(1800);
+    const start=(Date.now()-recording.start)/1000;await p.waitForTimeout(900);await action();await p.waitForTimeout(3000);
     chapters.push({file:recording.file,start,end:(Date.now()-recording.start)/1000,label});
   };
   try{
@@ -686,59 +695,110 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
       const actual=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
       return offsetPoint((await tokenView(p,token.id))!,x-actual.x,y-actual.y);
     };
+    const move=async(p:Page,token:typeof druk,x:number,y:number)=>{
+      const a=(await tokenView(p,token.id))!,b=await point(p,token,x,y);
+      await p.mouse.move(a.x,a.y);await p.mouse.down();
+      for(let step=1;step<=32;step++){await p.mouse.move(a.x+(b.x-a.x)*step/32,a.y+(b.y-a.y)*step/32);await p.waitForTimeout(35);}
+      await p.waitForTimeout(500);await p.mouse.up();
+      await expect.poll(async()=>Math.hypot((await f.snapshot()).tokens.find(t=>t.id===token.id)!.x-x,(await f.snapshot()).tokens.find(t=>t.id===token.id)!.y-y)).toBeLessThan(2);
+      await p.waitForTimeout(650);
+    };
+    const focus=async(p:Page,token:typeof druk)=>{
+      const center=await point(p,token,505,345);await p.mouse.move(center.x,center.y);
+      for(let i=0;i<4;i++){await p.mouse.wheel(0,-100);await p.waitForTimeout(150);}
+      const anchor=await point(p,token,505,290),dx=760-anchor.x,dy=385-anchor.y;
+      await p.mouse.move(1060,650);await p.mouse.down();await p.mouse.move(1060+dx,650+dy,{steps:18});await p.mouse.up();await afterPaint(p);
+    };
     await chapter(dm,'DM: drag rectangles over the full thickness of the room walls',async()=>{
       await dm.getByRole('button',{name:'Walls',exact:true}).click();await dm.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
-      const rectangles=[[252,78,286,445],[258,78,610,110],[258,405,610,445],[578,108,610,235],[578,335,610,421]];
+      const rectangles=[[252,78,286,435],[258,78,610,110],[578,108,610,435],[258,405,500,435],[545,405,610,435]];
       for(const [i,[ax,ay,bx,by]] of rectangles.entries()){
         const a=await point(dm,druk,ax,ay),b=await point(dm,druk,bx,by);
         await dm.mouse.move(a.x,a.y);await dm.mouse.down();
         for(let step=1;step<=22;step++){await dm.mouse.move(a.x+(b.x-a.x)*step/22,a.y+(b.y-a.y)*step/22);await dm.waitForTimeout(35);}
-        await dm.mouse.up();await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(i+1);await dm.waitForTimeout(450);
+        await dm.mouse.up();await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(preparedWalls.length+i+1);await dm.waitForTimeout(450);
       }
       await dm.screenshot({path:info.outputPath('rectangle-walls-dm.png')});
     });
     await dm.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
-    await chapter(dm,'DM: the placed torch now lights through the doorway, not through stone',async()=>{
-      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,mist:false,lights:[{id:'room-torch',x:525,y:280,radiusFt:30,heightFt:5,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
+    const torch={id:'room-torch',x:390,y:295,radiusFt:25,heightFt:8,intensity:1,color:'warm' as const,flicker:false,visibleTorch:true};
+    await chapter(dm,'DM overview: Druk is inside; Varis approaches the south doorway',async()=>{
+      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,shadows:true,lighting:'dungeon',heavyDarkness:false,mist:false,lights:[torch]}});
       await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-light-count','1');
-      await dm.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await dm.waitForTimeout(2000);
+      await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-local-shadow-lights','1');
+      await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-directional-shadow','false');
+      await dm.waitForTimeout(1800);
       await dm.screenshot({path:info.outputPath('rectangle-walls-light.png')});
     });
     const west=await newView('druk-vision'),hall=await newView('varis-vision');
-    await enter(west,f.code,'Druk',true);await enter(hall,f.code,'Varis',true);
-    await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','5');
-    expect(await tokenView(west,goblin.id)).toBeNull();
-    await chapter(west,'Druk: the wall hides the goblin and the rest of the party',async()=>{
-      await west.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await west.waitForTimeout(2200);
+    await enter(west,f.code,'Druk',false);await enter(hall,f.code,'Varis',false);
+    await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count',String(preparedWalls.length+5));
+    await focus(west,druk);await focus(hall,varis);
+    expect(await tokenView(hall,druk.id)).toBeNull();expect(await tokenView(hall,goblin.id)).toBeNull();
+    await chapter(west,'Druk: the room is visible, but Varis is hidden beyond the south wall',async()=>{
+      await expect.poll(()=>tokenView(west,goblin.id)).not.toBeNull();expect(await tokenView(west,varis.id)).toBeNull();
       await west.screenshot({path:info.outputPath('rectangle-walls-druk-hidden.png')});
     });
-    await chapter(hall,'Varis: a separate view from the hallway',async()=>{
-      await expect.poll(()=>tokenView(hall,goblin.id)).not.toBeNull();
-      await hall.waitForTimeout(2400);await hall.screenshot({path:info.outputPath('rectangle-walls-varis.png')});
+    await chapter(hall,'Varis: the hallway is visible; the room behind the wall is hidden',async()=>{
+      await hall.screenshot({path:info.outputPath('rectangle-walls-varis.png')});
     });
-    await chapter(west,'Druk moves toward the doorway — the goblin comes into view',async()=>{
-      const a=await point(west,druk,450,145),b=await point(west,druk,450,305);
-      await west.mouse.move(a.x,a.y);await west.mouse.down();
-      for(let step=1;step<=25;step++){await west.mouse.move(a.x+(b.x-a.x)*step/25,a.y+(b.y-a.y)*step/25);await west.waitForTimeout(45);}
-      await west.waitForTimeout(600);await west.mouse.up();
-      await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBeGreaterThan(250);
-      await expect.poll(()=>tokenView(west,goblin.id)).not.toBeNull();
+    await chapter(hall,'Varis walks toward the doorway; Druk is still behind the wall',async()=>{
+      await move(hall,varis,520,470);expect(await tokenView(hall,druk.id)).toBeNull();
+      await hall.screenshot({path:info.outputPath('varis-approaching.png')});
+    });
+    await chapter(hall,'Closer to the opening: Varis sees Druk, but not the far corner',async()=>{
+      await move(hall,varis,520,443);await expect.poll(()=>tokenView(hall,druk.id)).not.toBeNull();expect(await tokenView(hall,goblin.id)).toBeNull();
+      await hall.screenshot({path:info.outputPath('varis-at-door.png')});
+    });
+    await chapter(west,'Same moment from Druk: Varis has appeared in the doorway',async()=>{
+      await expect.poll(()=>tokenView(west,varis.id)).not.toBeNull();
       await west.screenshot({path:info.outputPath('rectangle-walls-druk-doorway.png')});
     });
-    await chapter(west,'Heavy darkness: darkvision remains personal and stops at the walls',async()=>{
-      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:true,lights:[]}});
-      await expect(west.getByTestId('player-vision')).toHaveAttribute('data-heavy','true');await west.waitForTimeout(1600);
-      await west.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await west.waitForTimeout(1000);
+    await chapter(hall,'Varis enters: the hidden corner and its goblin are now revealed',async()=>{
+      await move(hall,varis,522,365);await expect.poll(()=>tokenView(hall,goblin.id)).not.toBeNull();
+      await hall.screenshot({path:info.outputPath('varis-inside-room.png')});
     });
-    await chapter(west,'Druk lights his hip lantern — light reaches through the opening',async()=>{
-      await west.getByRole('button',{name:'Carried lantern',exact:true}).click();
-      await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-carried-lantern-count','1');await west.waitForTimeout(2200);
-      await west.screenshot({path:info.outputPath('rectangle-walls-lantern.png')});
+    await chapter(hall,'Varis steps back into the hall: the hidden corner disappears again',async()=>{
+      await move(hall,varis,520,443);await move(hall,varis,520,485);
+      await expect.poll(()=>tokenView(hall,druk.id)).toBeNull();expect(await tokenView(hall,goblin.id)).toBeNull();
+    });
+    await chapter(hall,'Heavy darkness, lantern off: grayscale sight still stops at walls',async()=>{
+      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:true,lights:[]}});
+      await expect(hall.getByTestId('player-vision')).toHaveAttribute('data-heavy','true');await move(hall,varis,520,443);
+      await hall.screenshot({path:info.outputPath('varis-darkvision.png')});
+    });
+    await chapter(hall,'Varis lights his hip lantern and walks into the room',async()=>{
+      await hall.getByRole('button',{name:'Carried lantern',exact:true}).click();
+      await expect(hall.getByTestId('miniature-layer')).toHaveAttribute('data-carried-lantern-count','1');
+      await move(hall,varis,522,365);await move(hall,varis,530,300);
+      await hall.screenshot({path:info.outputPath('rectangle-walls-lantern.png')});
+    });
+    await chapter(hall,'The moving lantern changes the shadows; walls still hide other rooms',async()=>{
+      await move(hall,varis,515,225);await move(hall,varis,440,205);
+      await hall.screenshot({path:info.outputPath('lantern-moving-shadows.png')});
+    });
+    await chapter(dm,'Shadow check: the torch moves from one side of Druk to the other',async()=>{
+      await focus(dm,druk);
+      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:false,lights:[torch]}});
+      await hall.getByRole('button',{name:'Carried lantern',exact:true}).click();
+      await dm.waitForTimeout(1200);await dm.screenshot({path:info.outputPath('shadow-torch-west.png')});
+      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[{...torch,x:545,y:280}]}});
+      await dm.waitForTimeout(1800);await dm.screenshot({path:info.outputPath('shadow-torch-east.png')});
+      expect(Number(await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-lights'))).toBe(1);
+      const updates=await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-updates');
+      await dm.waitForTimeout(700);
+      expect(await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-updates')).toBe(updates);
+    });
+    await chapter(hall,'Same room at 45 degrees: light, walls and personal sight agree',async()=>{
+      await hall.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await hall.waitForTimeout(1800);
+      await hall.screenshot({path:info.outputPath('varis-room-45.png')});
     });
     expect(errors).toEqual([]);
+    writeFileSync(info.outputPath('wall-render-stats.json'),JSON.stringify(await Promise.all([dm,west,hall].map(p=>p.getByTestId('miniature-layer').evaluate(el=>({fps:(el as HTMLElement).dataset.renderFps,shadowSources:(el as HTMLElement).dataset.localShadowSourceIds,shadowUpdates:(el as HTMLElement).dataset.localShadowUpdates})))),null,2));
   }finally{
     for(const c of contexts)await c.close();
     writeFileSync(info.outputPath('wall-video-chapters.json'),JSON.stringify(chapters,null,2));
+    writeFileSync(info.outputPath('wall-browser-errors.json'),JSON.stringify(errors,null,2));
   }
 });
 

@@ -11,6 +11,7 @@ import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import {createBattlefieldParticles} from './battlefieldParticles';
 import {createBattlefieldWeather} from './battlefieldWeather';
 import {createBattlefieldLighting} from './battlefieldLighting';
+import type {createLocalLightShadows} from './localLightShadows';
 import {createBattlefieldMist} from './battlefieldMist';
 import {createEnvironmentVisibility, environmentVisibilityGlsl, type EnvironmentFog} from './environmentVisibility';
 
@@ -153,6 +154,7 @@ export function createBattlefieldEnvironment(
   keyLight: DirectionalLight,
   initial: EnvironmentPreviewSettings,
   depthBuffer: {texture: Texture; resolution: Vector2},
+  shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms'],
   requestRender: () => void = () => {},
   ambient?: HemisphereLight,
 ) {
@@ -164,7 +166,7 @@ export function createBattlefieldEnvironment(
   scene.add(environment);
   environment.add(scenery, contacts);
   const visibility = createEnvironmentVisibility();
-  const lighting=createBattlefieldLighting(scene,keyLight,ambient,visibility.uniforms,depthBuffer);
+  const lighting=createBattlefieldLighting(scene,keyLight,ambient,visibility.uniforms,depthBuffer,shadowUniforms);
   const darkvisionTerrain=createDarkvisionTerrain(scene,visibility.uniforms,lighting.fieldUniforms,depthBuffer,requestRender);
   const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms,lighting.fieldUniforms);
   const weather=createBattlefieldWeather(scene,depthBuffer,visibility.uniforms);
@@ -362,7 +364,7 @@ export function createBattlefieldEnvironment(
 
   function updateLighting() {
     renderer.getDrawingBufferSize(drawingSize);
-    const nextKey = JSON.stringify([settings.enabled, settings.shadows, settings.scenery,
+    const nextKey = JSON.stringify([settings.enabled, settings.shadows, settings.scenery,settings.lighting,
       settings.shadowDirectionDegrees, settings.shadowLength, settings.mapWidth, settings.mapHeight, settings.mapX, settings.mapY,
       settings.props, drawingSize.x, drawingSize.y]);
     if (nextKey === lightingKey) return;
@@ -383,7 +385,8 @@ export function createBattlefieldEnvironment(
     keyLight.position.set(cx - Math.cos(direction) * reach * length,
       reach, cy - Math.sin(direction) * reach * length);
     keyLight.target.updateMatrixWorld();
-    keyLight.castShadow = settings.shadows;
+    // Dungeon fill keeps surfaces readable; it is not a sun casting fixed shadows.
+    keyLight.castShadow = settings.shadows && settings.lighting!=='dungeon';
     renderer.shadowMap.enabled = settings.shadows;
     renderer.shadowMap.type = PCFShadowMap;
     // Mist animation never refreshes this map. The parent marks moving/animated casters dirty.

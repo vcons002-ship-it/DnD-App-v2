@@ -11,6 +11,7 @@ import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
 import type {TorchLight} from './miniatureTorchLighting';
 import {stormLightningAt} from '../../../shared/stormLighting';
+import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
@@ -28,7 +29,7 @@ export const torchFieldGlsl=`
 `;
 
 /** All sources splat into a bounded light field; there is no map-wide light-count limit. */
-export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambient:HemisphereLight|undefined,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],depth:{texture:Texture;resolution:Vector2}){
+export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambient:HemisphereLight|undefined,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],depth:{texture:Texture;resolution:Vector2},shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
   const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??NEUTRAL_MINIATURE_LIGHTING.ambient,sky:ambient?.color.clone()??new Color(0xffffff),ground:ambient?.groundColor.clone()??new Color(0xffffff),reflection:scene.environmentIntensity};
   const field=new WebGLRenderTarget(512,512,{type:HalfFloatType,depthBuffer:false,stencilBuffer:false});
   const fieldUniforms={torchField:{value:field.texture},torchBounds:{value:new Vector4()},stormFlash:{value:0}};
@@ -70,15 +71,15 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const quad=new PlaneGeometry(2,2),fieldGeometry=new InstancedBufferGeometry();
   fieldGeometry.index=quad.index;fieldGeometry.attributes=quad.attributes;
   const wallGeometryMode={value:0};
-  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,wallGeometryMode},transparent:true,blending:AdditiveBlending,depthTest:false,depthWrite:false,toneMapped:false,
-    vertexShader:`attribute vec4 source;attribute vec4 radiance;uniform float wallGeometryMode;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;
-      void main(){lightSource=source;lightRadiance=radiance;world=wallGeometryMode>.5?position.xy:source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
+  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode},transparent:true,blending:AdditiveBlending,depthTest:false,depthWrite:false,toneMapped:false,
+    vertexShader:`attribute vec4 source;attribute vec4 radiance;attribute float shadowSlot;uniform float wallGeometryMode;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
+      void main(){sourceShadow=shadowSlot;lightSource=source;lightRadiance=radiance;world=wallGeometryMode>.5?position.xy:source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
         gl_Position=vec4((world-torchBounds.xy)/torchBounds.zw*2.-1.,0.,1.);}`,
-    fragmentShader:`${lightFalloffGlsl}
- varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;
+    fragmentShader:`${lightFalloffGlsl}${localShadowGlsl}
+ varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
       void main(){float d=length(vec3(world-lightSource.xz,lightSource.y));float radius=lightSource.w;
         float irradiance=lightIrradiance(d,radius,lightRadiance.w);
-        gl_FragColor=vec4(lightRadiance.rgb*irradiance,1.);}`});
+        gl_FragColor=vec4(lightRadiance.rgb*irradiance*localLightVisibility(sourceShadow,vec3(world.x,.1,world.y)),1.);}`});
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
   const wallSplats=new Mesh(new BufferGeometry(),fieldMaterial);wallSplats.frustumCulled=false;wallSplats.visible=false;fieldScene.add(wallSplats);
   let wallGeometryKey='',vertexSources:number[]=[];
@@ -109,6 +110,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
         geometry.setAttribute('position',new Float32BufferAttribute(new Float32Array(capacity*3),3).setUsage(DynamicDrawUsage));
         geometry.setAttribute('source',new Float32BufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage));
         geometry.setAttribute('radiance',new Float32BufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage));
+        geometry.setAttribute('shadowSlot',new Float32BufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage));
         wallSplats.geometry.dispose();wallSplats.geometry=geometry;
       }
       const points=wallSplats.geometry.getAttribute('position');
@@ -144,7 +146,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const bronze=new MeshStandardMaterial({color:0x5e4929,metalness:.68,roughness:.35,emissive:0x7a360c,emissiveIntensity:.25});
   const glow=new MeshBasicMaterial({color:0xffc768,transparent:true,opacity:.85,depthWrite:false,toneMapped:false});
   let capacity=0,shafts:InstancedMesh,cups:InstancedMesh,flames:InstancedMesh,frames:InstancedMesh,windows:InstancedMesh,handles:InstancedMesh;
-  let sourceAttribute:InstancedBufferAttribute,radianceAttribute:InstancedBufferAttribute;
+  let sourceAttribute:InstancedBufferAttribute,radianceAttribute:InstancedBufferAttribute,shadowAttribute:InstancedBufferAttribute;
   const matrix=new Matrix4();
   function ensureCapacity(count:number){
     if(capacity>=Math.max(1,count))return;
@@ -160,6 +162,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     sourceAttribute=new InstancedBufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage);
     radianceAttribute=new InstancedBufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage);
     fieldGeometry.setAttribute('source',sourceAttribute);fieldGeometry.setAttribute('radiance',radianceAttribute);
+    shadowAttribute=new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage);fieldGeometry.setAttribute('shadowSlot',shadowAttribute);
   }
   let settings:EnvironmentPreviewSettings,carried:CarriedLanternLight[]=[],lights:TorchLight[]=[],time=0;
   const baseLight={key:original.key,ambient:original.ambient,reflection:original.reflection,color:original.color.clone()};
@@ -239,7 +242,12 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     if(enabled){key.intensity=baseLight.key;key.color.copy(baseLight.color);if(ambient)ambient.intensity=baseLight.ambient;scene.environmentIntensity=baseLight.reflection;}
     else restore();tick(time);
   },tick,setCarried(next:CarriedLanternLight[]){carried=next;},get lights(){return lights;},
-    renderField(renderer:WebGLRenderer){const previous=renderer.getRenderTarget();renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);renderer.setRenderTarget(previous);},
+    renderField(renderer:WebGLRenderer){
+      lights.forEach((l,i)=>shadowAttribute.setX(i,l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
+      const slots=wallSplats.geometry.getAttribute('shadowSlot');if(slots){vertexSources.forEach((index,i)=>slots.setX(i,lights[index].shadowSlot??-1));slots.needsUpdate=true;}
+      const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate;renderer.shadowMap.needsUpdate=false;
+      renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);renderer.setRenderTarget(previous);renderer.shadowMap.needsUpdate=pending;
+    },
     get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
       sceneTint:settings.sceneTint??'#ffffff',sceneTintStrength:plane.visible?settings.sceneTintStrength??0:0,sceneGradeOpacity:plane.visible?uniforms.gradeOpacity.value:0,

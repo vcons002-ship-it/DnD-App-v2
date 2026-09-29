@@ -91,9 +91,10 @@ export function MapEnvironmentControls({map}:{map:MapState}){
       </fieldset>
       <fieldset><legend>Shadows</legend>
         {toggle('shadows','Token shadows')}
-        {settings.shadows&&<>
+        {settings.shadows&&settings.lighting==='dungeon'&&<small>Torches and lanterns set each creature’s shadow direction and length. Move a light or change its height to adjust the shadows.</small>}
+        {settings.shadows&&settings.lighting!=='dungeon'&&<>
           <SettingSlider label="Shadow direction" value={settings.shadowDirectionDegrees} min={0} max={359} suffix="°" onCommit={v=>update({shadowDirectionDegrees:v})}/>
-          <small>Direction the shadow points on the map: 0° right, 90° down. Match a shadow already painted into the art.</small>
+          <small>Outdoor light direction: 0° right, 90° down. Match the map art. Torches and lanterns also cast shadows from their own positions.</small>
           <SettingSlider label="Shadow length" value={settings.shadowLength} min={.1} max={4} step={.05} suffix="×" onCommit={v=>update({shadowLength:v})}/>
           <SettingSlider label="Shadow darkness" value={settings.shadowOpacity*100} min={0} max={100} suffix="%" onCommit={v=>update({shadowOpacity:v/100})}/>
         </>}

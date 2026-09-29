@@ -20,6 +20,7 @@ import {createPreviewGpuTiming} from './previewGpuTiming';
 import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
+import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {
   miniatureCameraTarget,
@@ -141,6 +142,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.setAttribute('aria-hidden', 'true');
   host.appendChild(renderer.domElement);
   const scene = new Scene();
+  const localShadows=createLocalLightShadows(renderer);
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
   const outlineMask = new WebGLRenderTarget(1, 1);
@@ -330,9 +332,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         battlefield.tick(reducedMotion.matches?0:seconds);
         props.onVisionLights?.(battlefield.lighting.lights);
       }
-      for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
       try {
         timing?.begin();
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows);
+        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const renderedNames=names.sync(props.nameLabels?.()??[],visible);
@@ -355,6 +358,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
           host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
           host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
+          host.dataset.directionalShadow=String(key.castShadow);
+          for(const [name,value] of Object.entries(localShadows.state))host.dataset[name]=String(value);
           host.dataset.groundReady=String(battlefield.ready);
           const environment=props.environmentPreview!;
           host.dataset.environmentBounds=JSON.stringify([environment.mapX??0,environment.mapY??0,environment.mapWidth,environment.mapHeight]);
@@ -383,7 +388,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
         publish();
-      } catch { fail(); }
+      } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
     if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0)) queueDraw();
   };
@@ -499,7 +504,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       outlineMask.setSize(outlineResolution.value.x, outlineResolution.value.y);
     }
     if(next.environmentPreview){
-      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,{texture:outlineMask.depthTexture!,resolution:outlineResolution.value},invalidate,ambient);
+      if(!battlefield)battlefield=createBattlefieldEnvironment(scene,renderer,key,next.environmentPreview,{texture:outlineMask.depthTexture!,resolution:outlineResolution.value},localShadows.uniforms,invalidate,ambient);
       else if(lastEnvironment!==next.environmentPreview)battlefield.update(next.environmentPreview);
       lastEnvironment=next.environmentPreview;
     } else if(battlefield){battlefield.dispose();battlefield=null;lastEnvironment=undefined;ambient.intensity=2;
@@ -545,7 +550,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // Animated source transforms remain intact below this base-centering group.
         const centered = new Group();
         const model = gltf.scene.clone(true);
-        const lanternAnchor=measureLanternAnchor(model,definition),torchLighting=createMiniatureTorchLighting();
+        const lanternAnchor=measureLanternAnchor(model,definition),torchLighting=createMiniatureTorchLighting(localShadows.uniforms);
         centered.add(model); root.add(centered);
         // A ground-plane marker in the same depth buffer as the miniature:
         // body, base and weapons occlude its rear arc. It follows live drags
@@ -710,6 +715,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
     battlefield?.dispose();battlefield=null;
+    localShadows.dispose();
     timing?.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
