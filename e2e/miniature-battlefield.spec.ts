@@ -2554,6 +2554,12 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
  try{
   const player=await context.newPage();await enter(player,f.code,'Druk',false);
+  const markerStates=()=>player.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.wall-door-marker').map((n:any)=>n.getAttr('doorState'))));
+  await expect.poll(markerStates).toEqual(['Door']);
+  f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'map',enabled:true});await f.snapshot();
+  await expect.poll(markerStates).toEqual([]);
+  f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'map',enabled:false});await f.snapshot();
+  await expect.poll(markerStates).toEqual(['Door']);
   await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft','unlimited');
   await expect.poll(()=>tokenView(player,varis.id)).toBeNull();
   await expect(player.getByTestId('door-controls')).toHaveCount(0); // Too far away.
@@ -2561,7 +2567,14 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
   await expect(player.getByTestId('door-controls').getByRole('button',{name:/Open$/})).toBeVisible();
   await page.getByRole('button',{name:'Walls',exact:true}).click();
   await page.getByRole('button',{name:/Door 1: closed/}).click();
+  await page.getByTestId('door-controls').getByTitle("Hidden objects aren't shown to players",{exact:true}).click();
+  await expect.poll(markerStates).toEqual([]);
+  await expect(player.getByTestId('door-controls')).toHaveCount(0);
+  await page.getByTestId('door-controls').getByTitle("Hidden objects aren't shown to players",{exact:true}).click();
+  await expect.poll(markerStates).toEqual(['Door']);
   await page.getByTestId('door-controls').getByTitle('Toggle Locked',{exact:true}).click();
+  await expect.poll(markerStates).toEqual(['Locked']);
+  await player.screenshot({path:info.outputPath('door-marker-locked.png')});
   await page.getByLabel('Lock DC',{exact:true}).fill('99');await page.getByLabel('Lock DC',{exact:true}).blur();
   await expect(player.getByTestId('door-controls').getByRole('button',{name:/Pick lock/})).toBeVisible();
   await player.getByTestId('door-controls').getByRole('button',{name:/Pick lock/}).click();
@@ -2576,6 +2589,7 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
   await player.getByTestId('door-controls').getByRole('button',{name:/Open$/}).click();
   await expect.poll(async()=>(await f.snapshot()).map!.walls!.find(w=>w.id===door.id)!.open).toBe(true);
   await expect.poll(()=>tokenView(player,varis.id)).not.toBeNull();
+  await expect.poll(markerStates).toEqual(['Open']);
   await player.screenshot({path:info.outputPath('daylight-door-open.png')});
   // A real player drag passes through the opening.
   const from=(await tokenView(player,druk.id))!,to=offsetPoint(from,150,0);
