@@ -1,5 +1,6 @@
 // Run after the optional Playwright rectangle-wall walkthrough recording.
 import {copyFile,mkdir,readFile,writeFile} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
@@ -11,6 +12,9 @@ const ffprobe=path.join(path.dirname(ffmpeg),process.platform==='win32'?'ffprobe
 const chapters=JSON.parse(await readFile(path.join(evidence,'wall-video-chapters.json'),'utf8'));
 const output=path.join(evidence,'published');
 await mkdir(output,{recursive:true});
+const contrast=path.join(path.dirname(evidence),'miniature-battlefield-local-shadow-contrast-inspection-chromium');
+const comparison=existsSync(path.join(contrast,'on.png'));
+if(comparison)for(const state of ['off','on'])execFileSync(ffmpeg,['-y','-hide_banner','-loglevel','error','-i',path.join(contrast,state+'.png'),'-vf','crop=320:230:380:420,scale=640:460','-frames:v','1',path.join(output,`shadow-${state}.png`)],{stdio:'inherit'});
 // Browser video frame duplication can drift from wall-clock timestamps. Locate
 // the captions actually present in the recording before cutting its chapters.
 const aligned=new Map();
@@ -48,22 +52,25 @@ for(const [name] of images)await copyFile(path.join(evidence,name+'.png'),path.j
 const escape=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 await writeFile(path.join(output,'index.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rectangle walls: light and personal vision</title>
 <style>body{margin:0;background:#111518;color:#eee9df;font:16px/1.5 system-ui}main{max-width:1140px;margin:auto;padding:20px 16px 60px}h1{font:500 clamp(28px,5vw,42px) Georgia;color:#e3c78c}h2{font:500 24px Georgia}p{color:#c2c8ca}a{color:#ecd3a3}video,img{display:block;width:100%;height:auto;border:1px solid #716449;border-radius:8px;box-sizing:border-box}nav{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}button{font:inherit;background:#262c30;color:#eee4ce;border:1px solid #7f704e;padding:9px 13px;border-radius:6px;cursor:pointer;text-align:left}section{margin-top:28px}small{color:#a1adb3}</style>
-<main><h1>Varis approaches Druk\u2019s room</h1><p>A longer walkthrough recorded in the real app. The camera stays overhead while Varis approaches the actual south doorway, sees Druk, enters the room, and backs out. Then compare darkvision, a moving hip lantern, and shadows from a placed torch.</p>
+<main><h1>Short creature shadows and lantern light</h1><p>A walkthrough recorded in the real app. Varis approaches Druk through the south doorway, enters, and backs out. Then compare darkvision, a moving hip lantern, and a flickering placed torch. Chapters 11\u201313 focus on the revised lighting and shadows.</p>
+${comparison?'<section><h2>Same view: shadows off / shadows on</h2><p>Close-ups from the actual app on a plain floor. The placed torch is to Druk\u2019s left; his short shadow extends to the right. The comparison holds the torch steady so only the shadow changes.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px"><div><p>Shadows off</p><img src="shadow-off.png" alt="Druk with shadows disabled"></div><div><p>Shadows on</p><img src="shadow-on.png" alt="Druk with a short shadow cast to the right"></div></div></section>':''}
+<h2>Dungeon walkthrough</h2>
 <video id="demo" controls playsinline preload="metadata" poster="poster.png"><source src="dungeon-walkthrough.mp4" type="video/mp4"></video>
 <p><a href="dungeon-walkthrough.mp4">Open the video directly</a> \u00b7 ${Math.round(cursor)} seconds \u00b7 Captioned walkthrough</p>
 <nav aria-label="Video chapters">${sections.map((s,i)=>`<button data-time="${s.time.toFixed(2)}">${i+1}. ${escape(s.label)}</button>`).join('')}</nav>
 <p><strong>DM controls:</strong> Walls \u2192 Draw wall rectangles. Drag corner to corner and release. Escape cancels a draft; Erase or Undo removes an entire rectangle. Leave an opening where there is a doorway. Connected lines remain available for diagonal barriers.</p>
 <p>Druk sees the room from inside. Varis initially sees only the hall. Approaching the opening reveals Druk first; the goblin in the far corner stays hidden until Varis enters. Each player\u2019s view updates independently. Door gaps in this walkthrough are treated as open.</p>
-<p>Creature shadows now use the position and height of nearby torches and lanterns. The fixed directional shadow is disabled in dungeon lighting. Shadows painted into the map image itself remain part of that artwork.</p>
+<p>Carried lantern light passes through its owner. Other creatures cast full, lighter silhouettes; shadows on figures are softer still. Walls continue blocking light fully. The fixed directional shadow is disabled in dungeon lighting. Shadows painted into the map image itself remain part of that artwork.</p>
 <p><small>Development preview; the campaign app has not been updated. Walls block light and sight, including darkvision; they do not stop token movement. Each map saves its own walls. Four nearby light sources can cast detailed creature shadows at a time; remaining lights still illuminate the scene.</small></p>
 ${images.map(([n,title])=>`<section><h2>${escape(title)}</h2><a href="${n}.png"><img src="${n}.png" alt="${escape(title)}" loading="lazy"></a></section>`).join('')}
 </main><script>const video=document.getElementById('demo');document.querySelectorAll('[data-time]').forEach(button=>button.addEventListener('click',()=>{video.currentTime=Number(button.dataset.time);video.play().catch(()=>{});video.scrollIntoView({behavior:'smooth',block:'center'});}));</script></html>`);
 
-const slug='dungeon-wall-walkthrough-20260928';
+const slug=process.env.PREVIEW_SLUG??'dungeon-wall-walkthrough-20260928';
+if(!/^[a-z0-9-]+$/.test(slug))throw Error('Invalid preview slug');
 const destination=path.join('C:/Users/vcons/DnD-App-v2/server/uploads/previews',slug);
 const url=`https://dnd.nic024i.app/uploads/previews/${slug}/`;
 await mkdir(destination,{recursive:true});
-const files=['index.html','dungeon-walkthrough.mp4','poster.png',...images.map(([n])=>n+'.png')];
+const files=['index.html','dungeon-walkthrough.mp4','poster.png',...images.map(([n])=>n+'.png'),...(comparison?['shadow-off.png','shadow-on.png']:[])];
 for(const file of files)await copyFile(path.join(output,file),path.join(destination,file));
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const receipt={url:url+'index.html',seconds:cursor,chapters:sections,files:[]};

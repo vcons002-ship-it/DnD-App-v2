@@ -69,6 +69,7 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  baseDiameter:number;
   lanternAnchor:Vector3;
   torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
   measureBody: () => MistBody;
@@ -334,7 +335,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
@@ -673,7 +674,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          lanternAnchor,torchLighting,
+          baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
           root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),

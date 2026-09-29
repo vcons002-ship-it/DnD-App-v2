@@ -26,7 +26,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
           vec3 torchDelta=torchPositions[torchIndex].xyz-geometryPosition;
           float torchDistance=length(torchDelta);
           directLight.direction=torchDelta/max(.001,torchDistance);
-          float shadow=localLightVisibility(torchShadowSlots[torchIndex],torchWorldPosition+inverseTransformDirection(geometryNormal,viewMatrix)*.35);
+          float shadow=localLightVisibility(torchShadowSlots[torchIndex],torchWorldPosition+inverseTransformDirection(geometryNormal,viewMatrix)*.35,.14);
           directLight.color=torchColors[torchIndex]*lightIrradiance(torchDistance,torchPositions[torchIndex].w,1.)*shadow;
           darkvisionLight+=max(directLight.color.r,max(directLight.color.g,directLight.color.b));
           directLight.visible=true;
@@ -43,7 +43,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         outgoingLight+=vec3(detail*darkvisionDetail*(1.-lightColorCoverage(darkvisionLight)));
         #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v6-shadows';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v7-short-shadows';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=[]){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];

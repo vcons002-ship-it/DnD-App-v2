@@ -2,7 +2,7 @@ import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFall
 import {wallVisibilityPolygon} from '../../../shared/mapWalls';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, Float32BufferAttribute, Color, ConeGeometry, CylinderGeometry, DynamicDrawUsage, HalfFloatType, InstancedBufferAttribute,
+  AdditiveBlending, CustomBlending, OneFactor, BoxGeometry, BufferGeometry, Float32BufferAttribute, Color, ConeGeometry, CylinderGeometry, DynamicDrawUsage, HalfFloatType, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, TorusGeometry,
   PlaneGeometry, Scene, ShaderMaterial, Vector3, Vector4, WebGLRenderTarget,
   type DirectionalLight, type HemisphereLight, type Texture, type Vector2, type WebGLRenderer,
@@ -12,6 +12,7 @@ import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './envi
 import type {TorchLight} from './miniatureTorchLighting';
 import {stormLightningAt} from '../../../shared/stormLighting';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
+import {localCreatureShadowStrength} from './creatureShadowStyle';
 
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
@@ -21,11 +22,12 @@ export const torchFieldGlsl=`
   uniform sampler2D torchField;
   uniform vec4 torchBounds;
   uniform float stormFlash;
-  vec3 torchIllumination(vec2 point){
+  vec4 torchFieldAt(vec2 point){
     vec2 uv=(point-torchBounds.xy)/torchBounds.zw;
-    if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return vec3(0.);
-    return texture2D(torchField,uv).rgb;
+    if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return vec4(0.);
+    return texture2D(torchField,uv);
   }
+  vec3 torchIllumination(vec2 point){return torchFieldAt(point).rgb;}
 `;
 
 /** All sources splat into a bounded light field; there is no map-wide light-count limit. */
@@ -42,7 +44,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
       void main(){if(environmentVisible(world.xz)<.5||texture2D(figureDepth,gl_FragCoord.xy/resolution).r<.999999)discard;
-        vec3 illumination=torchIllumination(world.xz);float strength=max(illumination.r,max(illumination.g,illumination.b));
+        vec4 lightField=torchFieldAt(world.xz);vec3 illumination=lightField.rgb;float strength=max(illumination.r,max(illumination.g,illumination.b));
         float coverage=lightColorCoverage(strength);vec3 tint=illumination/max(.001,strength);
         float alpha=mix(gradeOpacity,.10,coverage);vec3 color=mix(gradeColor,tint*.30,coverage);
         float tintAlpha=sceneTintStrength*(1.-coverage*.75);
@@ -61,17 +63,27 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
           color=(color*alpha*(1.-wetAlpha)+wetColor*wetAlpha)/max(.001,combined);alpha=combined;
         }
         alpha=mix(alpha,.34,stormFlash*.9);color=mix(color,vec3(.67,.76,.9),stormFlash*.85);
-        if(alpha<=0.)discard; // Neutral day contributes no color at all.
+        // Bright lantern coverage saturates near the source. Preserve readable
+        // creature shadows there by compositing the blocked fraction separately.
+        // Additional lights fill the shadow through the summed irradiance field.
+        float shade=clamp(lightField.a/max(.001,strength+lightField.a),0.,${localCreatureShadowStrength})*coverage*(1.-stormFlash);
+        if(alpha<=0.&&shade<=0.)discard; // Neutral day contributes no color at all.
         gl_FragColor=vec4(color,alpha);
         #include <colorspace_fragment>
+        // Alpha blending happens in output space. Apply the neutral shadow after
+        // color conversion; doing it before conversion lifts the dark map pixels
+        // into a brown veil instead of darkening the existing floor artwork.
+        float shadedAlpha=alpha+shade*(1.-alpha);
+        gl_FragColor.rgb*=alpha*(1.-shade)/max(.001,shadedAlpha);
+        gl_FragColor.a=shadedAlpha;
       }`});
   // Existing figure depth avoids coplanar ground z-fighting and leaves bodies lit by PBR.
   const plane=new Mesh(new PlaneGeometry(1,1),material);plane.rotation.x=-Math.PI/2;plane.renderOrder=2;plane.frustumCulled=false;scene.add(plane);
-  const fieldScene=new Scene(),fieldCamera=new OrthographicCamera(-1,1,1,-1,0,1);
+  const fieldScene=new Scene(),fieldCamera=new OrthographicCamera(-1,1,1,-1,0,1),fieldClearColor=new Color();
   const quad=new PlaneGeometry(2,2),fieldGeometry=new InstancedBufferGeometry();
   fieldGeometry.index=quad.index;fieldGeometry.attributes=quad.attributes;
   const wallGeometryMode={value:0};
-  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode},transparent:true,blending:AdditiveBlending,depthTest:false,depthWrite:false,toneMapped:false,
+  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode},transparent:true,blending:CustomBlending,blendSrc:OneFactor,blendDst:OneFactor,depthTest:false,depthWrite:false,toneMapped:false,
     vertexShader:`attribute vec4 source;attribute vec4 radiance;attribute float shadowSlot;uniform float wallGeometryMode;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
       void main(){sourceShadow=shadowSlot;lightSource=source;lightRadiance=radiance;world=wallGeometryMode>.5?position.xy:source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
         gl_Position=vec4((world-torchBounds.xy)/torchBounds.zw*2.-1.,0.,1.);}`,
@@ -79,7 +91,9 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
  varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
       void main(){float d=length(vec3(world-lightSource.xz,lightSource.y));float radius=lightSource.w;
         float irradiance=lightIrradiance(d,radius,lightRadiance.w);
-        gl_FragColor=vec4(lightRadiance.rgb*irradiance*localLightVisibility(sourceShadow,vec3(world.x,.1,world.y)),1.);}`});
+        float visible=localLightVisibility(sourceShadow,vec3(world.x,.1,world.y),${localCreatureShadowStrength});
+        float blocked=(1.-visible)*irradiance*max(lightRadiance.r,max(lightRadiance.g,lightRadiance.b));
+        gl_FragColor=vec4(lightRadiance.rgb*irradiance*visible,blocked);}`});
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
   const wallSplats=new Mesh(new BufferGeometry(),fieldMaterial);wallSplats.frustumCulled=false;wallSplats.visible=false;fieldScene.add(wallSplats);
   let wallGeometryKey='',vertexSources:number[]=[];
@@ -245,8 +259,10 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     renderField(renderer:WebGLRenderer){
       lights.forEach((l,i)=>shadowAttribute.setX(i,l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
       const slots=wallSplats.geometry.getAttribute('shadowSlot');if(slots){vertexSources.forEach((index,i)=>slots.setX(i,lights[index].shadowSlot??-1));slots.needsUpdate=true;}
-      const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate;renderer.shadowMap.needsUpdate=false;
-      renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);renderer.setRenderTarget(previous);renderer.shadowMap.needsUpdate=pending;
+      const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate,clearAlpha=renderer.getClearAlpha();renderer.getClearColor(fieldClearColor);renderer.shadowMap.needsUpdate=false;
+      // Alpha stores blocked irradiance, so start at zero even in opaque previews.
+      try{renderer.setClearColor(0,0);renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);}
+      finally{renderer.setRenderTarget(previous);renderer.setClearColor(fieldClearColor,clearAlpha);renderer.shadowMap.needsUpdate=pending;}
     },
     get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,

@@ -651,6 +651,60 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
   }finally{for(const c of contexts)await c.close();}
 });
 
+test('local shadow contrast inspection',async({page,request},info)=>{
+ test.skip(!movementDemo,'Optional shadow capture');test.setTimeout(90000);
+ await page.setViewportSize({width:1600,height:1000});
+ const f=await fixture(page,request);await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+ const light={id:'test-torch',x:185,y:370,radiusFt:35,heightFt:6,intensity:1,color:'warm' as const,flicker:false,visibleTorch:true};
+ for(const on of [false,true]){
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,shadows:on,lighting:'dungeon',mist:false,lights:[light]}});
+  await expect(layer).toHaveAttribute('data-shadows',String(on));await page.waitForTimeout(1000);await page.mouse.move(1450,950);
+  await page.screenshot({path:info.outputPath(on?'on.png':'off.png')});
+ }
+ await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await page.waitForTimeout(1000);await page.screenshot({path:info.outputPath('tilted.png')});
+ writeFileSync(info.outputPath('shadow-state.json'),JSON.stringify(await layer.evaluate(el=>({...((el as HTMLElement).dataset)})),null,2));
+});
+
+test('dungeon torch shadows closeup',async({page,request},info)=>{
+ test.skip(!movementDemo,'Optional shadow capture');test.setTimeout(90000);await page.setViewportSize({width:1600,height:1000});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
+ const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png')),druk=f.ready.tokens[0],varis=f.ready.tokens[1];
+ f.socket.emit('token:move',{tokenId:druk.id,x:1130,y:800});f.socket.emit('token:move',{tokenId:varis.id,x:1180,y:915});
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140,hidden:true});
+ for(const [i,[ax,ay,bx,by]] of [[979,600,1004,714],[979,770,1004,1015],[992,987,1333,1015],[1305,600,1333,1015],[996,577,1333,600]].entries())f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'wall-'+i,kind:'rectangle',ax,ay,bx,by}});
+ const torch={id:'closeup-torch',x:1040,y:800,radiusFt:25,heightFt:6,intensity:1,color:'warm' as const,flicker:true,visibleTorch:true};
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,shadows:false,mist:false,lighting:'dungeon',lights:[torch]}});
+ await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+ const a=(await tokenView(page,druk.id))!;await page.mouse.move(a.x,a.y);for(let i=0;i<11;i++){await page.mouse.wheel(0,-100);await page.waitForTimeout(100);}
+ const b=(await tokenView(page,druk.id))!;await page.mouse.move(1350,650);await page.mouse.down();await page.mouse.move(1350+760-b.x,650+440-b.y,{steps:20});await page.mouse.up();await page.mouse.move(1450,940);
+ await page.evaluate(()=>{const e=document.createElement('div');e.id='shadow-caption';Object.assign(e.style,{position:'fixed',top:'110px',left:'50%',transform:'translateX(-50%)',padding:'10px 20px',background:'#111820ed',border:'1px solid #c8ab72',borderRadius:'6px',color:'#ffebbd',font:'20px Georgia',zIndex:'1000'});document.body.append(e);});
+ const style=process.env.DND_SHADOW_STYLE??'full',title=style==='compact'?'A: Compressed full silhouette':style==='map'?'B: Map-matched environmental shadow':'C: Full local shadow, lighter';
+ for(const [name,label,on,x] of [['off','Shadows off - torch flicker remains active',false,1040],['on',title+' - torch left',true,1040],['opposite',title+' - torch right',true,1260]] as const){
+  await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,label);
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{shadows:on,lights:[{...torch,x}]}});
+  await expect(layer).toHaveAttribute('data-shadows',String(on));await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath(name+'.png')});
+ }
+ await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - Varis carries the light');
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});f.socket.emit('token:setLantern',{tokenId:varis.id,enabled:true});
+ await expect(layer).toHaveAttribute('data-carried-lantern-count','1');await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath('lantern.png')});
+ f.socket.emit('token:setLantern',{tokenId:varis.id,enabled:false});
+ const opposite={...torch,id:'east-torch',x:1260},north={...torch,id:'north-torch',x:1150,y:675};
+ for(const [name,label,lights] of [['two','two lights: left + right',[torch,opposite]],['three','three lights: left + right + north',[torch,opposite,north]]] as const){
+  await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - '+label);
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[...lights]}});
+  await expect(layer).toHaveAttribute('data-light-count',String(lights.length));
+  await expect(layer).toHaveAttribute('data-local-shadow-lights',String(style==='map'?0:lights.length));
+  await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath(name+'.png')});
+ }
+ await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - three lights, 45-degree view');
+ await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+ await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath('three-tilted.png')});
+ expect(errors).toEqual([]);
+ writeFileSync(info.outputPath('shadow-state.json'),JSON.stringify(await layer.evaluate(el=>({...((el as HTMLElement).dataset)})),null,2));
+});
+
 test('rectangle wall walkthrough on the dungeon with personal sight and lanterns',async({page,request,browser},info)=>{
   test.skip(!movementDemo,'Optional recorded walkthrough');test.setTimeout(240000);
   const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
@@ -721,7 +775,7 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
       await dm.screenshot({path:info.outputPath('rectangle-walls-dm.png')});
     });
     await dm.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
-    const torch={id:'room-torch',x:390,y:295,radiusFt:25,heightFt:8,intensity:1,color:'warm' as const,flicker:false,visibleTorch:true};
+    const torch={id:'room-torch',x:390,y:295,radiusFt:25,heightFt:6,intensity:1,color:'warm' as const,flicker:true,visibleTorch:true};
     await chapter(dm,'DM overview: Druk is inside; Varis approaches the south doorway',async()=>{
       f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,shadows:true,lighting:'dungeon',heavyDarkness:false,mist:false,lights:[torch]}});
       await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-light-count','1');
@@ -771,20 +825,27 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
       await hall.getByRole('button',{name:'Carried lantern',exact:true}).click();
       await expect(hall.getByTestId('miniature-layer')).toHaveAttribute('data-carried-lantern-count','1');
       await move(hall,varis,522,365);await move(hall,varis,530,300);
+      const casters=JSON.parse((await hall.getByTestId('miniature-layer').getAttribute('data-local-shadow-casters'))!);
+      expect(casters[varis.id]).toContain(druk.id);expect(casters[varis.id]).not.toContain(varis.id);
       await hall.screenshot({path:info.outputPath('rectangle-walls-lantern.png')});
     });
-    await chapter(hall,'The moving lantern changes the shadows; walls still hide other rooms',async()=>{
+    await chapter(hall,'Lantern light passes through Varis; nearby shadows stay short and soft',async()=>{
       await move(hall,varis,515,225);await move(hall,varis,440,205);
       await hall.screenshot({path:info.outputPath('lantern-moving-shadows.png')});
     });
     await chapter(dm,'Shadow check: the torch moves from one side of Druk to the other',async()=>{
       await focus(dm,druk);
+      const close=await point(dm,druk,450,270);await dm.mouse.move(close.x,close.y);
+      for(let i=0;i<3;i++){await dm.mouse.wheel(0,-100);await dm.waitForTimeout(150);}
+      await dm.mouse.move(1450,930);
       f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:false,lights:[torch]}});
       await hall.getByRole('button',{name:'Carried lantern',exact:true}).click();
       await dm.waitForTimeout(1200);await dm.screenshot({path:info.outputPath('shadow-torch-west.png')});
       f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[{...torch,x:545,y:280}]}});
       await dm.waitForTimeout(1800);await dm.screenshot({path:info.outputPath('shadow-torch-east.png')});
       expect(Number(await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-lights'))).toBe(1);
+      const casters=JSON.parse((await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-casters'))!);
+      expect(casters[torch.id]).toContain(varis.id);expect(casters[torch.id]).toContain(druk.id);
       const updates=await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-updates');
       await dm.waitForTimeout(700);
       expect(await dm.getByTestId('miniature-layer').getAttribute('data-local-shadow-updates')).toBe(updates);
