@@ -56,6 +56,7 @@ type Props = {
   width: number;
   height: number;
   isVisibleAt?: (id: string, x: number, y: number) => boolean;
+  visualPosition?: (id:string)=>{x:number;y:number}|undefined;
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
@@ -323,7 +324,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (!instance) continue;
         const move = moves.get(token.id);
         if (move && move.until < now) moves.delete(token.id);
-        const position = moves.get(token.id) ?? token;
+        const position = {...(moves.get(token.id) ?? token),...props.visualPosition?.(token.id)};
         const wasVisible = instance.root.visible;
         instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
         if (battlefield && (wasVisible !== instance.root.visible || instance.root.position.x !== position.x || instance.root.position.z !== position.y || instance.root.rotation.y !== (position.facing ?? 0) || (animated && instance.shadowAnimated))) renderer.shadowMap.needsUpdate = true;
@@ -477,10 +478,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     lastPaint = 0;
     queueDraw();
   };
-  const removeInstance = (id: string) => {
-    if(preview?.id===id)clearPreview();
-    const instance = instances.get(id);
-    if (!instance) return;
+  const disposeInstance = (instance:Instance) => {
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
@@ -494,13 +492,20 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.material.dispose();
     instance.turnRing.geometry.dispose();
     instance.turnRing.material.dispose();
+  };
+  const removeInstance = (id: string) => {
+    if(preview?.id===id)clearPreview();
+    const instance = instances.get(id);
+    if (!instance) return;
+    disposeInstance(instance);
     instances.delete(id);
     loading.delete(id);
     moves.delete(id);
   };
   const place = (token: MiniatureToken, instance: Instance) => {
     const factor = token.diameter / token.definition.baseDiameter;
-    const visible=props.isVisibleAt?.(token.id, (moves.get(token.id) ?? token).x, (moves.get(token.id) ?? token).y) ?? true;
+    const position = {...(moves.get(token.id) ?? token),...props.visualPosition?.(token.id)};
+    const visible=props.isVisibleAt?.(token.id,position.x,position.y) ?? true;
     if(battlefield && (instance.root.visible!==visible || instance.root.scale.x!==factor))renderer.shadowMap.needsUpdate=true;
     instance.root.scale.setScalar(factor);
     const model = instance.root.children[0];
@@ -510,7 +515,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       node.layers.enable(token.sharedSightOnly?4:5);
     });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
-    const position = moves.get(token.id) ?? token;
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
@@ -760,8 +764,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           mistBody:props.environmentPreview?measureMistBody(gltf.scene,definition):undefined,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
-        instances.set(token.id, instance);
         place(current, instance);
+        // First-use shader linking was blocking the movement frame for hundreds
+        // of milliseconds. Compile against the real lighting before drawing the
+        // new body; KHR_parallel_shader_compile lets existing figures keep moving.
+        try { await renderer.compileAsync(root,camera,scene); }
+        catch(error) {console.warn('Miniature shader preparation failed',error);}
+        const latest=props.tokens.find(t=>t.id===token.id&&t.definition.url===definition.url);
+        if(disposed||failed||!latest||instances.has(token.id)) {disposeInstance(instance);return;}
+        instances.set(token.id, instance);
+        place(latest, instance);
         scene.add(root);
         if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();

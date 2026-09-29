@@ -3074,6 +3074,8 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
  };
  try{
   const scout=await newView('Varis'),fighter=await newView('Druk');
+  const profiler=process.env.DND_REVEAL_CPU?await scout.context().newCDPSession(scout):null;
+  if(profiler){await profiler.send('Profiler.enable');await profiler.send('Profiler.start');}
   const caption=async(p:Page,label:string)=>p.evaluate(({label,title,name})=>{
    let el=document.getElementById('corner-caption');if(!el){el=document.createElement('div');el.id='corner-caption';el.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);width:1000px;max-width:75vw;padding:12px 20px;background:#10171fee;border:1px solid #bda56d;border-radius:8px;color:#f6e6c4;font:20px/1.4 Georgia;z-index:9999;pointer-events:none;text-align:center';document.body.append(el);}
    el.textContent=`${title} — ${name}'s view · ${label}`;
@@ -3121,12 +3123,39 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
    expect(await tokenView(scout,enemy.id)).toBeNull();expect(await tokenView(fighter,enemy.id)).toBeNull();
   });
   await chapter('Varis turns the corner: sentry revealed at 45 ft',scout,async()=>{
-   await move(scout,varis,600,650);await move(scout,varis,600,550);await verifyRange(varis,'scout reveal');
+   await move(scout,varis,600,650);
+   if(process.env.DND_REVEAL_PROFILE)for(const p of [scout,fighter])await p.evaluate(({scoutId,enemyId})=>{
+    const frames:any[]=[],tasks:any[]=[];let active=true;
+    const observer=new PerformanceObserver(list=>tasks.push(...list.getEntries().map(e=>({start:e.startTime,duration:e.duration}))));observer.observe({type:'longtask',buffered:false});
+    const sample=(time:number)=>{
+     const nodes=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token'));
+     const actor=nodes.find((n:any)=>n.getAttr('tokenId')===scoutId),enemy=nodes.find((n:any)=>n.getAttr('tokenId')===enemyId);
+     const memory=document.querySelector('[id^="vision-memory-"]')?.innerHTML;
+     frames.push({time,x:actor?.x(),y:actor?.y(),enemy:!!enemy,opacity:enemy?.opacity(),ready:enemy?.getAttr('miniatureReady'),memory});
+     if(active)requestAnimationFrame(sample);
+    };requestAnimationFrame(sample);
+    (window as any).finishRevealProfile=()=>{active=false;observer.disconnect();return {frames,tasks,resources:performance.getEntriesByType('resource').filter(e=>/goblin.*glb/.test(e.name)).map(e=>({name:e.name,start:e.startTime,duration:e.duration}))};};
+   },{scoutId:varis.id,enemyId:enemy.id});
+   await move(scout,varis,600,550);await verifyRange(varis,'scout reveal');
    await expect.poll(()=>personalTokenView(scout,enemy.id)).not.toBeNull();
    await expect.poll(async()=>(await tokenView(fighter,enemy.id))?.sharedSightOnly).toBe(true);
    await expect(fighter.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(0);
    await scout.screenshot({path:info.outputPath('01-varis-reveal.png')});await fighter.screenshot({path:info.outputPath('02-druk-shared.png')});
   });
+  if(process.env.DND_REVEAL_PROFILE){
+   if(profiler)writeFileSync(info.outputPath('cpu.json'),JSON.stringify(await profiler.send('Profiler.stop')));
+   for(const p of [scout,fighter]){
+    const profile=await p.evaluate(()=>(window as any).finishRevealProfile());
+    writeFileSync(info.outputPath(`reveal-${recording.get(p)!.name}.json`),JSON.stringify(profile,null,2));
+    const visible=profile.frames.filter((v:any)=>v.enemy&&v.opacity>0);
+    expect(visible.length).toBeGreaterThan(0);
+    expect(visible.every((v:any)=>hasLineOfSight({x:v.x,y:v.y},enemy,ready.map!.walls)), 'A revealed creature never precedes the displayed observer around the corner').toBe(true);
+    const memoryChanged=profile.frames.find((v:any)=>v.memory!==profile.frames[0].memory);
+    expect(memoryChanged,'The new explored area eventually appears').toBeTruthy();
+    expect(Math.abs(memoryChanged.y-550),'Shared terrain memory waits for movement').toBeLessThan(2);
+   }
+   expect(errors).toEqual([]);return;
+  }
   await chapter('Varis enters the side room; nobody can see the sentry now',scout,async()=>{
    await move(scout,varis,500,550);await move(scout,varis,360,550);await move(scout,varis,360,450);
    const snap=await f.snapshot(),a=snap.tokens.find(t=>t.id===varis.id)!,b=snap.tokens.find(t=>t.id===druk.id)!;

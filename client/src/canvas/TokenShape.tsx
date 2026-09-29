@@ -19,6 +19,7 @@ import { sameTokenDisplay, sameTokenFields, type TokenDisplay } from '../lib/ent
 import { useImage } from './useImage';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { moveDistanceFt, tokenMoveDuration, tokenMoveProgress } from './tokenMotion';
+import type {TokenPresentation} from './tokenPresentation';
 
 const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
@@ -32,6 +33,7 @@ export const DISPOSITION_HEX: Record<string, string> = {
 
 type Props = {
   token: Token;
+  presentation?: TokenPresentation;
   display: TokenDisplay;
   gridSizePx: number;
   /** Pixels per foot (from the map scale) — sizes the token by its real width. */
@@ -77,6 +79,7 @@ const isAdditive = (e: KonvaEventObject<Event>): boolean => {
 
 function TokenShapeInner({
   token,
+  presentation,
   display,
   gridSizePx,
   pxPerFoot,
@@ -161,6 +164,11 @@ function TokenShapeInner({
     const node=tokenNode.current;
     if(!node)return;
     const destination={x:token.x,y:token.y};
+    if(presentation){
+      if(dragging.current&&(destination.x!==committed.current.x||destination.y!==committed.current.y))cancelDrag();
+      committed.current=destination;pose.current=presentation.position(token.id)??destination;
+      node.position(pose.current);return;
+    }
     if(destination.x===committed.current.x && destination.y===committed.current.y)return;
     if(dragging.current)cancelDrag();
     committed.current=destination;
@@ -180,7 +188,7 @@ function TokenShapeInner({
       motion.current=t<1 ? requestAnimationFrame(paint) : 0;
     };
     paint(start);
-  },[token.x,token.y,pxPerFoot]);
+  },[token.x,token.y,pxPerFoot,presentation]);
 
   useEffect(()=>{
     const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')cancelDrag();};
@@ -415,8 +423,8 @@ function TokenShapeInner({
       tokenId={token.id}
       miniatureReady={miniatureReady}
       miniaturePending={miniaturePending}
-      x={token.x}
-      y={token.y}
+      x={presentation?.position(token.id)?.x??token.x}
+      y={presentation?.position(token.id)?.y??token.y}
       listening={listening}
       draggable={draggable}
       // Konva synthesizes a `click` for the right mouse button too (unlike the
@@ -445,7 +453,7 @@ function TokenShapeInner({
       onMouseOver={handleMouseOver}
       onMouseMove={handleMouseMove}
       onMouseOut={handleMouseOut}
-      opacity={token.isHidden ? 0.45 : 1}
+      opacity={isVisibleAt?.(token.id,presentation?.position(token.id)?.x??token.x,presentation?.position(token.id)?.y??token.y)===false ? 0 : token.isHidden ? 0.45 : 1}
     >
       {/* The entire painted token is decoration. Names, badges, HP bars and
           status/turn rings must not steal clicks from nearby token bodies. */}
@@ -767,6 +775,7 @@ export const TokenShape = memo(
   TokenShapeInner,
   (p, n) =>
     sameTokenFields(p.token, n.token) &&
+    p.presentation === n.presentation &&
     sameTokenDisplay(p.display, n.display) &&
     p.gridSizePx === n.gridSizePx &&
     p.pxPerFoot === n.pxPerFoot &&

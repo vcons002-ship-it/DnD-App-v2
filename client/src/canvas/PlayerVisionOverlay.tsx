@@ -4,14 +4,15 @@ import {lightCoverage,type VisionLight,type PlayerVision} from '../../../shared/
 import {groundYScale,groundPerspectiveCss,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
 import type {ExploredTerrain} from '../../../shared/exploration';
 import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared/mapWalls';
+import type {TokenPresentation} from './tokenPresentation';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
-export type PlayerVisionHandle={lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+export type PlayerVisionHandle={frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** Terrain visibility stays below lifted miniature pixels; heavy-darkness
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
-export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;terrain?:MemoryTerrain}>(function PlayerVisionOverlay(props,ref){
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
  const root=useRef<HTMLDivElement>(null);
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
@@ -58,12 +59,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    return poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
   };
   const path=(point:{id:string;x:number;y:number},radius:number,actual=false,occlude=false)=>{
-   const p=actual?point:live.current.get(point.id)??point;
+   const p=actual?point:state.current.presentation?.position(point.id)??live.current.get(point.id)??point;
    return project(occlude?polygon({...p,id:point.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
   };
   // Reproject remembered terrain only when history or camera changes, never for
   // every light flicker. It contains map images/grid only, not a live scene copy.
-  const geometry=state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
+  const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
   if(memoryPaths.current&&(memoryProjection.current?.geometry!==geometry||memoryProjection.current?.camera!==camera)){
    memoryPaths.current.innerHTML=(geometry??[]).map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r.map(([x,y])=>({x,y})))).join('')}"/>`).join('');
    memoryProjection.current={geometry,camera};
@@ -100,7 +101,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  // frame. Rebuild the SVG masks once using the final state, not for every event.
  const schedule=()=>{if(!pendingDraw.current)pendingDraw.current=requestAnimationFrame(()=>{pendingDraw.current=0;draw();});};
  useEffect(()=>()=>cancelAnimationFrame(pendingDraw.current),[]);
- useImperativeHandle(ref,()=>({lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};schedule();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
+ useImperativeHandle(ref,()=>({frame(){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};schedule();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
  useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   schedule();},[props]);

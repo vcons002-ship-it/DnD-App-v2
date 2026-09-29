@@ -1,5 +1,6 @@
 import {ObjectControls} from '../components/ObjectControls';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
+import {TokenPresentation} from './tokenPresentation';
 import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,MAX_MAP_WALLS,wallEdgeCount} from '../../../shared/mapWalls';
 import {visionContains,visionLit} from '../../../shared/playerVision';
@@ -8,7 +9,7 @@ import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
 import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance';
 import { productionFamily } from '../../../shared/assetProduction';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Group, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
@@ -389,6 +390,7 @@ export function MapStage({
   const sharedTokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
   const visionRef=useRef<PlayerVisionHandle>(null);
+  const presentation=useRef(new TokenPresentation()).current;
   const visionLightTime=useRef(0);
   const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
     const now=performance.now();if(now-visionLightTime.current<66)return;
@@ -721,6 +723,7 @@ export function MapStage({
   // Pixels per foot — tokens are sized by their real width in feet, so they keep
   // their footprint when only the visual grid cell changes.
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
+  presentation.sync(snapshot,pxPerFoot,performance.now(),window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const {quality:environmentQuality}=useEnvironmentQuality();
   const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
     const saved=map?.environment??DEFAULT_MAP_ENVIRONMENT;
@@ -1045,11 +1048,12 @@ export function MapStage({
     const ownerId = useStore.getState().socket?.id;
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
     const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
-    const tokens = new Map(snapshot.tokens.map(t => [t.id, { hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly,
+    const tokens = new Map(snapshot.tokens.map(t => [t.id, { kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly,
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && (token.sharedSightOnly || (token.owned || visionContains(snapshot.playerVision,x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
+      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || visionContains(presentation.partyVision(),x,y)) :
+        (token.owned || visionContains(presentation.personalVision(),x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
   }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
@@ -1057,6 +1061,31 @@ export function MapStage({
   visibleAtRef.current = miniatureVisibleAt;
   // Keep TokenShape's memo stable across unrelated snapshots while reading current fog.
   const tokenVisibleAtPosition = useCallback((id: string, x: number, y: number) => visibleAtRef.current(id, x, y), []);
+
+  // One RAF drives all anchors, including stationary enemies becoming visible.
+  // Keeping this above individual layers also survives a 2D -> 3D or shared-sight
+  // remount without restarting (or skipping) the moving figure's animation.
+  useLayoutEffect(()=>{
+    let frame=0;
+    const tokens=new Map(snapshot.tokens.map(t=>[t.id,t]));
+    const paint=()=>{
+      presentation.advance(performance.now());
+      const moving=presentation.moving();
+      for(const node of stageRef.current?.find<Konva.Group>('.token')??[]){
+        const token=tokens.get(node.getAttr('tokenId'));if(!token)continue;
+        const p=presentation.position(token.id)??token;
+        const opacity=tokenVisibleAtPosition(token.id,p.x,p.y)?(token.isHidden?.45:1):0;
+        const changed=(!node.isDragging()&&(node.x()!==p.x||node.y()!==p.y))||node.opacity()!==opacity;
+        if(!node.isDragging())node.position(p);
+        node.opacity(opacity);
+        if(changed)node.getLayer()?.batchDraw();
+        miniatureRef.current?.moveToken(token.id,p.x,p.y,!moving,token.facing);
+      }
+      visionRef.current?.frame();
+      if(moving)frame=requestAnimationFrame(paint);
+    };
+    paint();return ()=>cancelAnimationFrame(frame);
+  },[snapshot,readyMiniatures,presentation,tokenVisibleAtPosition]);
 
   // The public party roster contains names, not hidden token positions.
   const preloadMiniatures = useMemo(() => use3dTokens ? snapshot.characters.flatMap(character => {
@@ -1753,6 +1782,7 @@ export function MapStage({
       <TokenShape
         key={t.id}
         token={t}
+        presentation={presentation}
         display={d}
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
@@ -2428,11 +2458,11 @@ export function MapStage({
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
-              environmentPreview={environment}
+              environmentPreview={environment} visualPosition={presentation.position}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
           {!wallActive&&nearbyDoors.length>0&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>
             {nearbyDoors.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div key={d.id}>

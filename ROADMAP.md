@@ -13,6 +13,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Shared exploration memory - September 2026
 
+- [x] Align terrain/creature reveals with animated movement in both personal and
+  shared sight, and asynchronously prepare first-use miniature shaders to avoid
+  blocking the movement frame. See [timing evidence and replay](docs/REVEAL_TIMING_2026_09_29.md).
+
 - [x] Retain explored terrain as a dim grayscale party map outside personal
   sight. Save per map across reconnects and backups, preserve individual token
   visibility, and let explicit DM fog override memory. Verified in the running
