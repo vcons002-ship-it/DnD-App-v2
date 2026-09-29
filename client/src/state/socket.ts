@@ -199,6 +199,7 @@ type Store = {
   /** DM: set the map list's order (ids in display order). */
   reorderMaps: (orderedIds: string[]) => void;
   setMapEnvironment: (mapId: string, settings: Partial<MapEnvironment>) => void;
+  editMapWalls: (mapId:string, edit:{add?:import('../../../shared/mapWalls').MapWall;removeId?:string})=>void;
   setMapGrid: (
     mapId: string,
     gridSizePx: number,
@@ -914,6 +915,7 @@ export const useStore = create<Store>((set, get) => ({
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
   reorderMaps: (orderedIds) => get().socket?.emit('map:reorder', { orderedIds }),
   setMapEnvironment: (mapId, settings) => get().socket?.emit('map:setEnvironment', {mapId, settings}),
+  editMapWalls: (mapId,edit)=>get().socket?.emit('map:editWalls',{mapId,...edit}),
   setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt, opts) =>
     get().socket?.emit('map:setGrid', {
       mapId,

@@ -1,4 +1,5 @@
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
+import {editMapWalls} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
 import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
@@ -440,6 +441,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!ids.length) return;
       reorderMaps(sid, ids);
       afterChange();
+    });
+
+    on('map:editWalls', (p) => {
+      const sid=sessionId();
+      if(!sid||!isDm()||!p||typeof p.mapId!=='string')return;
+      const error=editMapWalls(sid,p.mapId,p);
+      if(error)socket.emit('notice',{message:error});else afterChange();
     });
 
     on('map:setEnvironment', (p) => {
