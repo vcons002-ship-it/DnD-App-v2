@@ -397,7 +397,9 @@ export function MapStage({
   const handleMiniatureReady = useCallback((ids: ReadonlySet<string>) => {
     setReadyMiniatures((old) => old.size === ids.size && [...old].every((id) => ids.has(id)) ? old : ids);
   }, []);
-  const handleMiniatureUnavailable = useCallback(() => setReadyMiniatures(new Set()), []);
+  const [failedMiniatures, setFailedMiniatures] = useState<ReadonlySet<string>>(new Set());
+  const [miniaturesUnavailable, setMiniaturesUnavailable] = useState(false);
+  const handleMiniatureUnavailable = useCallback(() => { setReadyMiniatures(new Set()); setMiniaturesUnavailable(true); }, []);
   const handleTokenVisualMove = useCallback((token: Token, x: number, y: number, finished: boolean) => {
     miniatureRef.current?.moveToken(token.id, x, y, finished, token.facing);
     visionRef.current?.move(token.id,x,y);
@@ -1042,11 +1044,16 @@ export function MapStage({
   // Keep TokenShape's memo stable across unrelated snapshots while reading current fog.
   const tokenVisibleAtPosition = useCallback((id: string, x: number, y: number) => visibleAtRef.current(id, x, y), []);
 
+  // The public party roster contains names, not hidden token positions.
+  const preloadMiniatures = useMemo(() => use3dTokens ? snapshot.characters.flatMap(character => {
+    const definition = resolveMiniature(character.name, 'pc');
+    return definition ? [definition] : [];
+  }) : [], [snapshot.characters, use3dTokens]);
+
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
     if(map?.walls?.some(w=>w.tokenId===token.id))return [];
     if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
-    // Only role-filtered snapshot tokens are eligible; never fetch hidden PCs
-    // for a player even if a stale snapshot reaches this component.
+    // Only role-filtered tokens can create instances; background assets have no positions.
     if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
@@ -1731,6 +1738,7 @@ export function MapStage({
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
+        miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureTokens.some(m => m.id === t.id)}
         hideAffinity={!visionLit(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
@@ -2395,8 +2403,8 @@ export function MapStage({
               )}
             </Layer>
           </Stage>
-          {(miniatureTokens.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer key={map?.id} ref={miniatureRef} tokens={miniatureTokens} view={view} isVisibleAt={tokenVisibleAtPosition}
+          {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
+            <MiniatureLayer key={map?.id} ref={miniatureRef} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />

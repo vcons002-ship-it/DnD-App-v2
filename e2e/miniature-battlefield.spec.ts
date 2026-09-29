@@ -10,7 +10,8 @@ import { DM_SECRET, PORT } from './playwright.config';
 
 // Optional capture runs the same regression against real sockets and models.
 const movementDemo=process.env.DND_MOVEMENT_DEMO==='1';
-test.use({video:movementDemo ? {mode:'on',size:{width:1600,height:1000}} : 'off'});
+// Network-failure tests must intercept requests rather than the asset-cache service worker.
+test.use({serviceWorkers:'block',video:movementDemo ? {mode:'on',size:{width:1600,height:1000}} : 'off'});
 test.beforeAll(()=>{
   if(!movementDemo)return;
   const require=createRequire(process.cwd()+'/package.json');
@@ -557,6 +558,7 @@ async function tokenView(page: Page, id: string) {
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
       bodyVisible: node.findOne('.token-body')?.isVisible(),
       miniatureReady: node.getAttr('miniatureReady'),
+      miniaturePending: node.getAttr('miniaturePending'),
       opacity: node.opacity(),
     };
   }, id);
@@ -2687,4 +2689,43 @@ test('record wall doors daylight and distant torch visibility',async({page,reque
   }finally{await ctx.close();}
  }
  writeFileSync(info.outputPath('chapters.json'),JSON.stringify(clips,null,2));expect(errors).toEqual([]);
+});
+
+
+test('hidden party models preload and delayed reveals never display 2D bodies', async ({page,request}) => {
+  test.setTimeout(120000);
+  const f=await fixture(page,request), [druk,varis,vanec]=f.ready.tokens;
+  f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'partition',kind:'rectangle',ax:450,ay:-2000,bx:470,by:2000}});
+  await f.snapshot();
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>release=resolve), requests:string[]=[];
+  await page.route(/\/miniatures\/(varis|vanec)-.*\.glb/,async route=>{
+    requests.push(route.request().url());await gate;await route.continue();
+  });
+  try {
+    await enter(page,f.code,'Druk',false);
+    await expect.poll(()=>requests.length).toBe(2);
+    await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+    expect(await tokenView(page,varis.id)).toBeNull();
+    expect(await tokenView(page,vanec.id)).toBeNull();
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1');
+    f.socket.emit('map:editWalls',{mapId:f.mapId,removeId:'partition'});
+    for(const token of [varis,vanec]) {
+      await expect.poll(async()=>(await tokenView(page,token.id))?.miniaturePending).toBe(true);
+      const view=(await tokenView(page,token.id))!;
+      expect(view.bodyVisible).toBe(false);expect(view.healthBars.length).toBeGreaterThan(0);
+    }
+    release();
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+    for(const token of [varis,vanec])expect((await tokenView(page,token.id))?.bodyVisible).toBe(false);
+    expect(requests.length).toBe(2);
+  } finally {release();}
+});
+
+test('failed party model download restores usable 2D fallback',async({page,request})=>{
+  const f=await fixture(page,request),varis=f.ready.tokens[1];
+  await page.route(/\/miniatures\/varis-.*\.glb/,route=>route.abort());
+  await enter(page,f.code);
+  await expect.poll(async()=>(await tokenView(page,varis.id))?.bodyVisible,{timeout:30000}).toBe(true);
+  expect((await tokenView(page,varis.id))?.miniaturePending).toBe(false);
 });

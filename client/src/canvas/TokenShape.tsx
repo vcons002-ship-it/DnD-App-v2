@@ -46,6 +46,7 @@ type Props = {
   listening?: boolean;
   /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
+  miniaturePending?: boolean;
   hideAffinity?: boolean;
   viewRotation?: number;
   miniatureDiameterFt?: number;
@@ -85,6 +86,7 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  miniaturePending = false,
   hideAffinity = false,
   viewRotation = 0,
   miniatureDiameterFt,
@@ -102,7 +104,7 @@ function TokenShapeInner({
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
-  const radius = ((miniatureReady ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
+  const radius = (((miniatureReady || miniaturePending) ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
   const auras = presentAuras(display.conditions);
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
@@ -412,6 +414,7 @@ function TokenShapeInner({
       name="token"
       tokenId={token.id}
       miniatureReady={miniatureReady}
+      miniaturePending={miniaturePending}
       x={token.x}
       y={token.y}
       listening={listening}
@@ -448,7 +451,7 @@ function TokenShapeInner({
           status/turn rings must not steal clicks from nearby token bodies. */}
       <Group ref={tokenArt} name="token-art" listening={false}>
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
-      {!miniatureReady && auras.map((a, i) => (
+      {!miniatureReady && !miniaturePending && auras.map((a, i) => (
         <Circle
           key={a}
           radius={radius + 5 + i * 5}
@@ -456,7 +459,7 @@ function TokenShapeInner({
           strokeWidth={4}
         />
       ))}
-      {activeTurn && !miniatureReady && (
+      {activeTurn && !miniatureReady && !miniaturePending && (
         <Circle
           name="active-turn-ring"
           ref={turnRing}
@@ -468,7 +471,11 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
-      <Group name="token-body" visible={!miniatureReady}>
+      {miniaturePending && <Group name="token-miniature-loading" listening={false}>
+        <Circle radius={Math.min(radius * .3, 12)} stroke="#c9bb9b" strokeWidth={1.5} dash={[3, 3]} />
+        <Text text="Loading 3D..." x={-45} y={16} width={90} align="center" fontSize={11} fill="#e8ddc6" stroke="#111" strokeWidth={2} fillAfterStrokeEnabled />
+      </Group>}
+      <Group name="token-body" visible={!miniatureReady && !miniaturePending}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
           // Pasted art: draw the whole image as-is (no clip), with an outline
@@ -588,7 +595,7 @@ function TokenShapeInner({
         </Group>
       )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
-      {display.disposition && !miniatureReady && !hideAffinity && (
+      {display.disposition && !miniatureReady && !miniaturePending && !hideAffinity && (
         <Circle
           x={-radius * 0.8}
           y={-radius * 0.8}
@@ -600,7 +607,7 @@ function TokenShapeInner({
       )}
       {/* Combat-role badge (bottom-left corner): ⚔️ melee · 🏹 ranged · ✨ caster.
           A solid dark disc behind the emoji keeps it legible over any token art. */}
-      {token.kind !== 'pc' && token.combatRole && !miniatureReady && (
+      {token.kind !== 'pc' && token.combatRole && !miniatureReady && !miniaturePending && (
         <Group name="token-combat-role" x={-radius * 0.72} y={radius * 0.72}>
           <Circle
             radius={roleBadgeR}
@@ -636,7 +643,7 @@ function TokenShapeInner({
       )}
       {/* The crown distinguishes 2D player-character tokens. A ready miniature
           provides its own silhouette, so it keeps only the health/status HUD. */}
-      {token.kind === 'pc' && !miniatureReady &&
+      {token.kind === 'pc' && !miniatureReady && !miniaturePending &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
           return (
@@ -671,7 +678,7 @@ function TokenShapeInner({
           ctx.beginPath();
           // An image token paints a circular fallback until its icon loads
           // (or if the icon is missing/failed), so its hit region must too.
-          if (miniatureReady) {
+          if (miniatureReady || miniaturePending) {
             // The model, weapon and HUD never receive input. Its circular base
             // is the sole hit region, even if its old portrait used another shape.
             ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
@@ -708,7 +715,7 @@ function TokenShapeInner({
       <Group ref={dragOverlay} name="token-move-preview" tokenId={token.id} visible={false} listening={false}>
         <Group ref={previewBase}>
           <Circle radius={radius} fill="#7fb6c8" opacity={.18} stroke="#b8e3ef" strokeWidth={2}/>
-          {!miniatureReady && (iconImg ? <KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2} opacity={.32}/>
+          {!miniatureReady && !miniaturePending && (iconImg ? <KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2} opacity={.32}/>
             : <Text text={hasEmojiIcon ? display.icon : display.name.slice(0,1)} x={-radius} y={-radius*.5} width={radius*2} align="center" fontSize={radius} fill="#b8e3ef" opacity={.45}/>)}
           <Line ref={previewArrow} points={[-radius*.22,radius*1.05,0,radius*1.4,radius*.22,radius*1.05]} stroke="#b8e3ef" strokeWidth={3} lineCap="round" lineJoin="round"/>
         </Group>
@@ -769,6 +776,7 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.miniaturePending === n.miniaturePending &&
     p.hideAffinity === n.hideAffinity &&
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&

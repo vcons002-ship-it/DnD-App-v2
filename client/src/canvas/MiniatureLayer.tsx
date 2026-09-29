@@ -44,6 +44,9 @@ export type MiniatureToken = {
 type Props = {
   onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
+  preloadDefinitions?: MiniatureDefinition[];
+  onFailed?: (tokenIds: ReadonlySet<string>) => void;
+  onUnavailable?: () => void;
   view: BattlefieldView;
   tiltDegrees: number;
   rotationDegrees?: number;
@@ -184,6 +187,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const assets = new Map<string, Promise<GLTF | null>>();
+  const failedAssets = new Set<string>();
+  let lastFailedIds: string | undefined;
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
   const loading = new Map<string, string>();
@@ -251,6 +256,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
+    const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)).map(t => t.id).sort();
+    if (failedIds.join("|") !== lastFailedIds) {
+      lastFailedIds = failedIds.join("|");
+      props.onFailed?.(new Set(failedIds));
+    }
     const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
     const key = ids.join('|');
     const status = failed ? 'unavailable' : ids.length || (!props.tokens.length && battlefield?.ready) ? 'ready' : 'loading';
@@ -265,6 +275,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const fail = () => {
     if (disposed) return;
     failed = true;
+    props.onUnavailable?.();
     renderer.domElement.style.visibility = 'hidden';
     cancelAnimationFrame(frame);
     frame = 0;
@@ -493,6 +504,18 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }});
     }
   };
+  // Warm parsed models and their textures without creating hidden token instances.
+  const loadDefinition = (definition: MiniatureDefinition) => {
+      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
+        .then(async gltf => {
+          try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
+          catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
+        }).catch(() => { failedAssets.add(definition.url); if (!disposed) invalidate(); return null; }));
+      if (definition.fxUrl && !manifests.has(definition.fxUrl)) {
+        manifests.set(definition.fxUrl, fetch(definition.fxUrl, { signal: abort.signal })
+          .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
+      }
+  };
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
@@ -537,15 +560,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (failed || loading.get(token.id) === token.definition.url) continue;
       loading.set(token.id, token.definition.url);
       const definition = token.definition;
-      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
-        .then(async gltf => {
-          try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
-          catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
-        }).catch(() => null));
-      if (definition.fxUrl && !manifests.has(definition.fxUrl)) {
-        manifests.set(definition.fxUrl, fetch(definition.fxUrl, { signal: abort.signal })
-          .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
-      }
+      loadDefinition(definition);
       void assets.get(definition.url)!.then(async (gltf) => {
         if (disposed || failed || !gltf) return;
         const current = props.tokens.find((item) => item.id === token.id && item.definition.url === definition.url);
@@ -701,6 +716,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
       });
     }
+    for (const definition of next.preloadDefinitions ?? []) loadDefinition(definition);
     invalidate();
   };
   const contextLost = (event: Event) => { event.preventDefault(); fail(); };
@@ -795,7 +811,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   const latest = useRef(props);
   latest.current = props;
   const [state, setState] = useState({ ids: [] as string[], status: 'loading' });
-  const needsScene = props.tokens.length > 0 || !!props.environmentPreview;
+  const needsScene = props.tokens.length > 0 || !!props.preloadDefinitions?.length || !!props.environmentPreview;
   const socket = useStore(state => state.socket);
   useEffect(() => {
     const cast = ({ tokenIds }: { tokenIds: string[] }) => engine.current?.spellCast(tokenIds);
@@ -820,6 +836,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     } catch {
       host.current?.replaceChildren();
       setState({ ids: [], status: 'unavailable' });
+      latest.current.onUnavailable?.();
       latest.current.onReady(new Set());
     }
     return () => { engine.current?.dispose(); engine.current = null; };
