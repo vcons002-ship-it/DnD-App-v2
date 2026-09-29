@@ -1,3 +1,4 @@
+import {upgradeLegacyGeminiModel} from '../../shared/geminiModels.js';
 import dotenv from 'dotenv';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
@@ -101,8 +102,8 @@ export const config = {
   /** Where `dmPassphrase` came from (drives what the boot banner prints). */
   dmSecretSource: dmSecretSource as DmSecretSource,
   geminiApiKey: process.env.GEMINI_API_KEY || '',
-  /** Explicit Gemini model override; blank = auto-discover a fast model. */
-  geminiModel: process.env.GEMINI_MODEL || '',
+  /** Explicit Gemini model override; blank in Settings = auto-discover, Pro preferred. */
+  geminiModel: upgradeLegacyGeminiModel(process.env.GEMINI_MODEL),
   /** Local Ollama HTTP server base URL (the rules assistant tries this first). */
   ollamaUrl: (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, ''),
   /** Default Ollama model (must be pulled locally; the chat can pick another). */
@@ -143,7 +144,7 @@ export const config = {
    *  same model/lora_name/strength_model interface; skipped if not installed. */
   comfyMapLoraNode: process.env.COMFY_MAP_LORA_NODE || '',
   /** Image-capable Gemini model used when local ComfyUI generation fails. */
-  geminiImageModel: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+  geminiImageModel: upgradeLegacyGeminiModel(process.env.GEMINI_IMAGE_MODEL,true),
   /** Default AI backend for generation features: 'gemini' (best quality, local
    *  fallback) or 'local' (Ollama first — Gemini backup). The chat picks its own
    *  per-question backend; 'local' here is the default preference. */

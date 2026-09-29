@@ -55,3 +55,14 @@ Coordinates are normalized to the entire source image: top-left origin, x right,
 The server validates shape, finite values, bounds, image/grid identity, current walls, selected kinds and the existing wall-edge limit. A changed image, grid or wall set invalidates the draft. Download JSON preserves the complete draft for inspection; drafts are currently held in the review window, not saved to the campaign. Applied walls use normal map persistence and backups.
 
 Version 1 analyzes only the base uploaded image, not separately placed map tiles. Footprints are axis-aligned rectangles. Isometric floor footprints and heights are ambiguous and require human review. Future versions can add polygons, separate movement/vision/shadow flags, and approved obstacle persistence without changing the coordinate convention.
+
+
+## Yellow mask experiments (29 September 2026)
+
+The built-in OpenAI image tool produced a closer wall mask than coordinate prompting. Two independent Gemini API tests used `gemini-3-pro-image` (confirmed by the response's `modelVersion`) with the original map as image input. First attempt painted broad wall regions and altered much of the background; a targeted retry followed wall caps more closely but returned outlines rather than filled regions. These are isolated artifacts, not applied campaign walls.
+
+The image gateway now supports reference-image input and selects the nearest supported aspect ratio instead of forcing landscape images to 3:2. It ignores intermediate thought images when saving final output. Pro generation has a longer timeout and retains the existing connection retries.
+
+All Gemini text/JSON calls share the quality-first `gemini-3.1-pro-preview` default; image calls use `gemini-3-pro-image`. Startup upgrades the named legacy Gemini/Flash presets from env or saved settings. Other custom model names remain intact, and Settings still allows overrides. Blank model selection during a running session auto-discovers Pro first; startup resolves blank to the documented default. No live installed settings or campaign files were modified by these tests.
+
+Model references: https://ai.google.dev/gemini-api/docs/models and https://ai.google.dev/gemini-api/docs/image-generation .

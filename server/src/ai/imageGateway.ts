@@ -29,15 +29,15 @@ export async function generateImageWithBackup(prompt:string, options: Parameters
   return generateApiImage(prompt, options);
 }
 
-async function generateApiImage(prompt:string, options: Parameters<typeof generateImage>[1]) {
+export async function generateApiImage(prompt:string, options: Parameters<typeof generateImage>[1], referenceImages: {mimeType:string;data:string}[] = []) {
   type Result={candidates?:{content?:{parts?:{inlineData?:{mimeType?:string;data?:string}}[]}}[]};
   const result=await apiRequest<Result>(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiImageModel}:generateContent`,
     {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},body:JSON.stringify({
-      contents:[{parts:[{text:prompt}]}],
-      generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:(options?.width ?? 768)>(options?.height ?? 768)?'3:2':'1:1', ...((options?.width ?? 0) >= 2048 ? {imageSize:'2K'} : {})}}
-    })}, {timeoutMs:120000,label:'Gemini image API'});
-  const image=result?.data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData?.data)?.inlineData;
+      contents:[{parts:[{text:prompt},...referenceImages.map(inlineData=>({inlineData}))]}],
+      generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:closestImageAspect(options?.width??768,options?.height??768), ...((options?.width ?? 0) >= 2048 ? {imageSize:'2K'} : {})}}
+    })}, {timeoutMs:180000,label:`Gemini image API (${config.geminiImageModel})`});
+  const image=result?.data?.candidates?.[0]?.content?.parts?.find(p=>!(p as {thought?:boolean}).thought && p.inlineData?.data)?.inlineData;
   const ext=image?.mimeType==='image/png'?'.png':image?.mimeType==='image/jpeg'?'.jpg':image?.mimeType==='image/webp'?'.webp':null;
   if(!image?.data || !ext || image.data.length>35_000_000) {
     reportAi('Image generation failed. The image API did not return a usable image.');
@@ -47,10 +47,16 @@ async function generateApiImage(prompt:string, options: Parameters<typeof genera
     const filename=`${randomUUID()}${ext}`;
     await fs.mkdir(config.uploadsDir,{recursive:true});
     await fs.writeFile(path.join(config.uploadsDir,filename),Buffer.from(image.data,'base64'));
-    reportAi('Gemini image API completed the image.');
+    reportAi(`Gemini image API (${config.geminiImageModel}) completed the image.`);
     return {path:`/uploads/${filename}`};
   } catch {
     reportAi('The API generated an image, but the server could not save it.');
     return {error:'Could not save the generated image.'};
   }
+}
+
+export function closestImageAspect(width:number,height:number):string {
+ const ratios=['1:1','2:3','3:2','3:4','4:3','4:5','5:4','9:16','16:9','21:9'];
+ const distance=(r:string)=>{const [w,h]=r.split(':').map(Number);return Math.abs(Math.log((width/height)/(w/h)));};
+ return ratios.sort((a,b)=>distance(a)-distance(b))[0];
 }
