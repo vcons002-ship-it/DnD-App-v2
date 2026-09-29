@@ -681,6 +681,42 @@ test('dungeon torch shadows closeup',async({page,request},info)=>{
  const b=(await tokenView(page,druk.id))!;await page.mouse.move(1350,650);await page.mouse.down();await page.mouse.move(1350+760-b.x,650+440-b.y,{steps:20});await page.mouse.up();await page.mouse.move(1450,940);
  await page.evaluate(()=>{const e=document.createElement('div');e.id='shadow-caption';Object.assign(e.style,{position:'fixed',top:'110px',left:'50%',transform:'translateX(-50%)',padding:'10px 20px',background:'#111820ed',border:'1px solid #c8ab72',borderRadius:'6px',color:'#ffebbd',font:'20px Georgia',zIndex:'1000'});document.body.append(e);});
  const style=process.env.DND_SHADOW_STYLE??'full',title=style==='compact'?'A: Longer complete silhouette':style==='map'?'B: Environmental shape per light':'C: Full local shadow, lighter';
+ if(process.env.DND_SHADOW_MOTION==='1'){
+  test.setTimeout(180000);expect(style).toBe('full');
+  const west={...torch,radiusFt:20,intensity:.85},east={...west,id:'east-lantern',x:1260,fixture:'lantern' as const};
+  const chapters:{name:string;label:string}[]=[];
+  const caption=async(name:string,label:string)=>{chapters.push({name,label});await page.evaluate(t=>document.getElementById('shadow-caption')!.textContent=t,label);await page.waitForTimeout(1000);};
+  const move=async(token:typeof druk,x:number,y:number)=>{
+   const actual=(await f.snapshot()).tokens.find(t=>t.id===token.id)!,a=(await tokenView(page,token.id))!,b=offsetPoint(a,x-actual.x,y-actual.y);
+   await page.mouse.move(a.x,a.y);await page.mouse.down();
+   for(let i=1;i<=28;i++){await page.mouse.move(a.x+(b.x-a.x)*i/28,a.y+(b.y-a.y)*i/28);await page.waitForTimeout(35);}
+   await page.waitForTimeout(250);await page.mouse.up();await page.mouse.move(1450,940);
+   await expect.poll(async()=>{const t=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;return Math.hypot(t.x-x,t.y-y);}).toBeLessThan(2);
+   await page.waitForTimeout(1500);
+  };
+  const finish=async(name:string)=>{await page.waitForTimeout(2000);await page.screenshot({path:info.outputPath(name+'.png')});};
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{shadows:true,lights:[west]}});
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await page.waitForTimeout(1000);
+  await caption('fixed','C: Moving through a flickering placed torch');
+  await move(druk,1200,800);await move(druk,1160,730);await move(druk,1080,770);await move(druk,1130,800);await finish('fixed');
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[west,east]}});
+  await expect(layer).toHaveAttribute('data-local-shadow-lights','2');
+  await caption('two','C: Two placed lights - torch and lantern');
+  await move(druk,1190,760);await move(varis,1100,910);await move(druk,1110,790);await move(varis,1210,895);await finish('two');
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});f.socket.emit('token:setLantern',{tokenId:varis.id,enabled:true});
+  await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
+  await caption('carried','C: Moving hip lantern - nine-foot light source');
+  await move(varis,1240,790);await move(varis,1170,690);await move(varis,1040,705);await move(varis,1050,895);await move(druk,1160,810);await finish('carried');
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[west,east]}});
+  await expect(layer).toHaveAttribute('data-local-shadow-lights','3');
+  await caption('mixed','C: Carried lantern plus two flickering placed lights');
+  await move(varis,1180,930);await move(druk,1210,800);await move(druk,1120,755);await finish('mixed');
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await page.waitForTimeout(1000);
+  await caption('overhead','C: The same moving shadows from overhead');
+  await move(varis,1060,895);await move(druk,1200,760);await move(varis,1180,930);await finish('overhead');
+  expect((await f.snapshot()).map!.environment!.lights.every(l=>l.flicker)).toBe(true);
+  expect(errors).toEqual([]);writeFileSync(info.outputPath('motion-chapters.json'),JSON.stringify(chapters,null,2));return;
+ }
  for(const [name,label,on,x] of [['off','Shadows off - torch flicker remains active',false,1040],['on',title+' - torch left',true,1040],['opposite',title+' - torch right',true,1260]] as const){
   await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,label);
   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{shadows:on,lights:[{...torch,x}]}});
