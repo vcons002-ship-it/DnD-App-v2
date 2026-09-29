@@ -2346,43 +2346,25 @@ export function MapStage({
                 {wallPointer&&<Circle x={wallPointer.x} y={wallPointer.y} radius={5/view.scale} fill={wallTool==='erase'?'#ff6677':'#fff1c2'}/>}
               </Group>}
               {doors.filter(doorVisible).map(d=>{
-                const horizontal=d.kind==='rectangle'?Math.abs(d.bx-d.ax)>=Math.abs(d.by-d.ay):false;
-                const points=d.kind==='rectangle'?(horizontal?[d.ax,(d.ay+d.by)/2,d.bx,(d.ay+d.by)/2]:[(d.ax+d.bx)/2,d.ay,(d.ax+d.bx)/2,d.by]):[d.ax,d.ay,d.bx,d.by];
                 const token=snapshot.tokens.find(t=>t.id===d.tokenId),object=snapshot.monsters.find(m=>m.id===token?.refId);
                 const locked=!!object?.conditions.some(c=>c.label.toLowerCase()==='locked'),hidden=!!token?.isHidden;
                 const color=hidden?'#a2a8b1':locked?'#efb05f':d.open?'#94d6b0':'#f1d49c';
                 const label=hidden?'Hidden':locked?'Locked':d.open?'Open':'Door';
-                let marker={x:(d.ax+d.bx)/2,y:(d.ay+d.by)/2};
-                if(!isDm){
-                  // Place the badge just outside the visible wall face, so the
-                  // sight mask does not bury a closed door's interaction marker.
-                  const origins=snapshot.playerVision?.origins??[];
-                  const candidates=doorApproachPoints(d).filter(p=>visionContains(snapshot.playerVision,p.x,p.y)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
-                  const pairs=candidates.flatMap(p=>origins.map(o=>({p,o,distance:Math.hypot(p.x-o.x,p.y-o.y)}))).sort((a,b)=>a.distance-b.distance);
-                  const near=pairs[0];
-                  if(near){
-                    if(d.kind==='rectangle'){
-                      const nx=near.p.x<Math.min(d.ax,d.bx)?-1:near.p.x>Math.max(d.ax,d.bx)?1:0;
-                      const ny=near.p.y<Math.min(d.ay,d.by)?-1:near.p.y>Math.max(d.ay,d.by)?1:0;
-                      marker={x:near.p.x+nx*28/view.scale,y:near.p.y+ny*36/view.scale};
-                    }else{
-                      const dx=d.bx-d.ax,dy=d.by-d.ay,len=Math.hypot(dx,dy),side=(near.o.x-marker.x)*-dy+(near.o.y-marker.y)*dx>=0?1:-1;
-                      marker={x:marker.x-dy/len*side*42/view.scale,y:marker.y+dx/len*side*42/view.scale};
-                    }
-                  }
+                // One full-width line on each outer face. The ordinary vision
+                // mask hides the far face of a closed door, including in daylight.
+                const pad=2/view.scale;
+                let faces:number[][];
+                if(d.kind==='rectangle'){
+                  const x0=Math.min(d.ax,d.bx),x1=Math.max(d.ax,d.bx),y0=Math.min(d.ay,d.by),y1=Math.max(d.ay,d.by);
+                  faces=x1-x0>=y1-y0?[[x0,y0-pad,x1,y0-pad],[x0,y1+pad,x1,y1+pad]]:[[x0-pad,y0,x0-pad,y1],[x1+pad,y0,x1+pad,y1]];
+                }else{
+                  const dx=d.bx-d.ax,dy=d.by-d.ay,len=Math.hypot(dx,dy),nx=-dy/len*pad,ny=dx/len*pad;
+                  faces=[[d.ax+nx,d.ay+ny,d.bx+nx,d.by+ny],[d.ax-nx,d.ay-ny,d.bx-nx,d.by-ny]];
                 }
                 const activate=()=>{if(isDm)setSelectedDoor(d.id);else if(!nearbyDoors.some(door=>door.id===d.id))notify('Move your character within 5 ft of this door to open it or pick its lock.');};
-                return <Group key={d.id}>
-                  <Line name="wall-door" points={points} stroke={color} strokeWidth={6/view.scale} dash={d.open?[7/view.scale,5/view.scale]:undefined} opacity={hidden ? .4 : 1} listening={false}/>
-                  <Group name="wall-door-marker" doorId={d.id} doorState={label} x={marker.x} y={marker.y} scaleX={1/view.scale} scaleY={1/view.scale} opacity={hidden ? .65 : 1} listening={!wallActive}
-                    onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
-                    <Circle radius={15} fill="#111820" stroke={color} strokeWidth={2} dash={hidden?[3,3]:undefined}/>
-                    <Rect x={-7} y={-10} width={14} height={20} cornerRadius={1} stroke={color} strokeWidth={1.5}/>
-                    {d.open?<Line points={[-7,-10,2,-6,2,14,-7,10,-7,-10]} closed fill="#263d34" stroke={color} strokeWidth={1.5}/>:<Circle x={3} y={1} radius={1.5} fill={color}/>}
-                    {locked&&<><Line points={[-4,2,-4,-2,-2,-4,2,-4,4,-2,4,2]} stroke={color} strokeWidth={1.5}/><Rect x={-5} y={1} width={10} height={8} cornerRadius={1} fill={color}/></>}
-                    <Rect x={-23} y={17} width={46} height={15} fill="#111820ee" cornerRadius={3}/>
-                    <Text x={-23} y={19} width={46} text={label} align="center" fontSize={10} fontStyle="bold" fill={color}/>
-                  </Group>
+                return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} opacity={hidden ? .45 : 1} listening={!wallActive}
+                  onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
+                  {faces.map((points,i)=><Line key={i} name="wall-door-face" points={points} stroke={color} strokeWidth={4/view.scale} hitStrokeWidth={16/view.scale} lineCap="butt" dash={d.open||hidden?[7/view.scale,5/view.scale]:undefined}/>)}
                 </Group>;
               })}
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
