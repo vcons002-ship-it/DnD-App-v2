@@ -427,6 +427,12 @@ ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
 ensureColumn('tokens', 'in_combat', 'in_combat INTEGER');
 ensureColumn('tokens', 'facing', 'facing REAL NOT NULL DEFAULT 0');
 ensureColumn('tokens', 'carried_lantern', 'carried_lantern INTEGER NOT NULL DEFAULT 0');
+// Shared exploration contains terrain geometry only and follows the map lifecycle.
+db.exec(`CREATE TABLE IF NOT EXISTS explored_terrain (
+  map_id TEXT PRIMARY KEY REFERENCES maps(id) ON DELETE CASCADE,
+  terrain_key TEXT NOT NULL,
+  geometry TEXT NOT NULL DEFAULT '[]'
+)`);
 // No token FK: deleted enemies must not free a public encounter number for reuse.
 db.exec(`CREATE TABLE IF NOT EXISTS encounter_tags (
   map_id TEXT NOT NULL REFERENCES maps(id) ON DELETE CASCADE,

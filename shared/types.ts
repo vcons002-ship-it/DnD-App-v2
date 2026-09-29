@@ -801,6 +801,8 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Shared party exploration, saved per map; current sight remains personal. */
+  exploredTerrain?: import('./exploration.js').ExploredTerrain;
   /** Server-authored personal dungeon visibility; independent of graphics quality. */
   playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;

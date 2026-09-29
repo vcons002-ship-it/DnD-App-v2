@@ -1,4 +1,5 @@
 import {doorApproachPoints} from '../../shared/mapWalls.js';
+import {rememberTerrain} from './exploration.js';
 import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
@@ -272,7 +273,9 @@ export function createSnapshotBuilder(
     return d;
   };
 
-  // Track active-map reveals even when only a DM staging another map is connected.
+  // DM-only prep does not explore terrain. When players view the active map,
+  // accumulate shared party history once per broadcast; live sight stays personal.
+  let exploredTerrain:import('../../shared/exploration.js').ExploredTerrain|undefined;
   if (activeMapId && mapById.has(activeMapId)) loadMapData(activeMapId);
 
   // Players see the attack resolution (HIT/MISS) but not the target's AC.
@@ -302,6 +305,9 @@ export function createSnapshotBuilder(
     const lightTokenFog=map?.tokenFogEnabled?new Set(map.tokenFogRevealed):null;
     const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
+      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
+    if(role==='player'&&map)exploredTerrain??=rememberTerrain(map,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
+      owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
       mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
@@ -410,6 +416,7 @@ export function createSnapshotBuilder(
     return {
       role,
       ...(playerVision?{playerVision}:{}),
+      ...(role==='player'?{exploredTerrain:exploredTerrain??[]}:{}),
       initiativePending: session.initiativePending,
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&

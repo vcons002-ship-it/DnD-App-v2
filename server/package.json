@@ -22,6 +22,7 @@
     "meshoptimizer": "1.2.0",
     "multer": "^2.0.1",
     "pdf-parse": "^2.4.5",
+    "polygon-clipping": "0.15.7",
     "sharp": "0.35.4",
     "socket.io": "^4.8.1"
   },

@@ -11,6 +11,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   gaps in a disposable dungeon. See [results and replay](docs/YELLOW_MASK_WALL_TEST_2026_09_29.md).
   Automatic yellow-mask generation/import in the DM UI remains a future step.
 
+## Shared exploration memory - September 2026
+
+- [x] Retain explored terrain as a dim grayscale party map outside personal
+  sight. Save per map across reconnects and backups, preserve individual token
+  visibility, and let explicit DM fog override memory. Verified in the running
+  app in overhead/45-degree views and a second player session.
+  See [behavior and verification](docs/EXPLORED_TERRAIN_2026_09_29.md).
+
 ## Live dice modifier presentation - September 2026
 
 - [x] After live dice settle, reveal labeled attack/check and damage modifiers

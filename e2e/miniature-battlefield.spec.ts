@@ -2825,3 +2825,65 @@ test('Gemini outline becomes solid app walls that block movement and preserve do
   expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeLessThan(580);
   writeFileSync(info.outputPath('mask-wall-result.json'),JSON.stringify({walls:geometry.walls.length,edges:geometry.walls.length*4,maskCoverage:geometry.coverage,stoppedAt:stopped,doorwayTest:'passed',visionTest:'passed'},null,2));
 });
+
+test('explored dungeon terrain remains gray after retreat while creatures disappear in overhead and tilted views',async({page,request,browser},info)=>{
+ test.setTimeout(150000);await page.setViewportSize({width:1500,height:1000});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png')),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140.2,locked:false});
+ f.socket.emit('token:move',{tokenId:druk.id,x:430,y:475});f.socket.emit('token:move',{tokenId:varis.id,x:350,y:475});f.socket.emit('token:move',{tokenId:vanec.id,x:400,y:720});
+ const rects=[[250,80,600,102],[250,102,273,428],[273,405,493,427],[543,405,600,427],[578,102,600,285],[578,335,600,405]];
+ rects.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:`room-${i}`,kind:'rectangle',ax,ay,bx,by}}));
+ await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(rects.length);
+ await enter(page,f.code,'Druk',false);
+ await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+ await expect.poll(async()=>(await tokenView(page,varis.id))?.miniatureReady).toBe(true);
+ const sample=async(viewer=page,actor=druk)=>{
+  const token=(await f.snapshot()).tokens.find(t=>t.id===actor.id)!,v=(await tokenView(viewer,actor.id))!,point=offsetPoint(v,415-token.x,250-token.y);
+  const shot=await viewer.screenshot(),patch=await sharp(shot).extract({left:Math.round(point.x)-5,top:Math.round(point.y)-5,width:10,height:10}).toBuffer();const {channels}=await sharp(patch).stats();
+  return channels.slice(0,3).map(c=>c.mean);
+ };
+ const unseen=await sample();expect(Math.max(...unseen)).toBeLessThan(10);
+ await page.screenshot({path:info.outputPath('01-unexplored.png')});if(movementDemo)await page.waitForTimeout(2400);
+ const dragTo=async(x:number,y:number)=>{
+  const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!,view=(await tokenView(page,druk.id))!,to=offsetPoint(view,x-token.x,y-token.y);
+  await page.mouse.move(view.x,view.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:36});if(movementDemo)await page.waitForTimeout(450);await page.mouse.up();
+  await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x-x)).toBeLessThan(2);
+  await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y-y)).toBeLessThan(2);
+  await page.waitForTimeout(movementDemo?1400:650);
+ };
+ await dragTo(520,475);await dragTo(520,365);
+ f.socket.emit('token:move',{tokenId:varis.id,x:430,y:340});
+ await expect.poll(async()=>(await tokenView(page,varis.id))?.miniatureReady).toBe(true);
+ await page.screenshot({path:info.outputPath('02-visible-room.png')});if(movementDemo)await page.waitForTimeout(2400);
+ const visible=await sample();expect(Math.max(...visible)-Math.min(...visible)).toBeGreaterThan(8);
+ await dragTo(520,475);await dragTo(430,475);
+ await expect.poll(()=>tokenView(page,varis.id)).toBeNull();
+ const remembered=await sample();expect(Math.max(...remembered)-Math.min(...remembered)).toBeLessThan(3);
+ expect(Math.min(...remembered)).toBeGreaterThan(Math.max(...unseen)+5);
+ await page.screenshot({path:info.outputPath('03-remembered-room.png')});if(movementDemo)await page.waitForTimeout(3500);
+ const partyContext=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
+ try {
+  const other=await partyContext.newPage();await enter(other,f.code,'Vanec',false);
+  await expect.poll(async()=>(await tokenView(other,vanec.id))?.miniatureReady).toBe(true);
+  expect(await tokenView(other,varis.id)).toBeNull();
+  const shared=await sample(other,vanec);expect(Math.max(...shared)-Math.min(...shared)).toBeLessThan(3);expect(Math.min(...shared)).toBeGreaterThan(10);
+  await other.screenshot({path:info.outputPath('05-shared-with-vanec.png')});
+ }finally{await partyContext.close();}
+ await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
+ await page.waitForTimeout(700);
+ const tilted=await sample();expect(Math.max(...tilted)-Math.min(...tilted)).toBeLessThan(3);expect(Math.min(...tilted)).toBeGreaterThan(10);
+ await page.screenshot({path:info.outputPath('04-remembered-tilted.png')});if(movementDemo)await page.waitForTimeout(3000);
+ // Reload reconnects and reclaims the same character; history comes from the server.
+ await page.reload();await expect(page.getByTestId('player-hud')).toBeVisible();
+ await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady).toBe(true);
+ await expect.poll(()=>tokenView(page,varis.id)).toBeNull();
+ await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await page.waitForTimeout(700);
+ const reloaded=await sample();expect(Math.max(...reloaded)-Math.min(...reloaded)).toBeLessThan(3);expect(Math.min(...reloaded)).toBeGreaterThan(10);
+ // The DM's explicit fog remains authoritative over remembered terrain.
+ f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'map',enabled:true});f.socket.emit('fog:cover',{mapId:f.mapId,layer:'map'});
+ await expect.poll(async()=>Math.max(...await sample())).toBeLessThan(10);
+ expect(errors).toEqual([]);
+ writeFileSync(info.outputPath('terrain-memory-result.json'),JSON.stringify({unseen,visible,remembered,tilted,reloaded,errors},null,2));
+});

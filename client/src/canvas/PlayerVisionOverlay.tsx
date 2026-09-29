@@ -1,20 +1,26 @@
 import {LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import {forwardRef,useEffect,useId,useImperativeHandle,useLayoutEffect,useRef} from 'react';
 import {lightCoverage,type VisionLight,type PlayerVision} from '../../../shared/playerVision';
-import {groundYScale,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
+import {groundYScale,groundPerspectiveCss,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
+import type {ExploredTerrain} from '../../../shared/exploration';
 import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared/mapWalls';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
 export type PlayerVisionHandle={lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** A screen-space mask above BOTH renderers. Never disabled by effect quality. */
-export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision}>(function PlayerVisionOverlay(props,ref){
+type TerrainTile={url:string;x:number;y:number;w:number;h:number};
+type MemoryTerrain={explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;terrain?:MemoryTerrain}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
  const sightPaths=useRef<SVGClipPathElement>(null),lightClips=useRef<SVGGElement>(null);
+ const memoryPaths=useRef<SVGClipPathElement>(null),memoryPlane=useRef<HTMLDivElement>(null),memoryMap=useRef<HTMLDivElement>(null);
+ const memoryProjection=useRef<{geometry:ExploredTerrain|undefined;camera:string}|null>(null);
  const polygonCache=useRef(new Map<string,{key:string;points:WallPoint[]}>());
  const id=useId().replace(/:/g,'');
  const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,coverId=`vision-cover-${id}`;
  const sightId=`vision-sight-${id}`;
+ const memoryId=`vision-memory-${id}`;
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0);
@@ -32,9 +38,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    const points=wallVisibilityPolygon(point,vision.walls??[],radius);
    polygonCache.current.set(slot,{key,points});return points;
   };
-  const path=(point:{id:string;x:number;y:number},radius:number,actual=false,occlude=false)=>{
-   const p=actual?point:live.current.get(point.id)??point;
-   const vertices=occlude?polygon({...p,id:point.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius}));
+  const project=(vertices:WallPoint[])=>{
    let poly=vertices.map(vertex=>{
     const dx=view.x+vertex.x*view.scale-width/2;
     const dy=view.y+vertex.y*view.scale*sy-height/2;
@@ -46,6 +50,19 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    poly=clipped;
    return poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
   };
+  const path=(point:{id:string;x:number;y:number},radius:number,actual=false,occlude=false)=>{
+   const p=actual?point:live.current.get(point.id)??point;
+   return project(occlude?polygon({...p,id:point.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
+  };
+  // Reproject remembered terrain only when history or camera changes, never for
+  // every light flicker. It contains map images/grid only, not a live scene copy.
+  const geometry=state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
+  if(memoryPaths.current&&(memoryProjection.current?.geometry!==geometry||memoryProjection.current?.camera!==camera)){
+   memoryPaths.current.innerHTML=(geometry??[]).map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r.map(([x,y])=>({x,y})))).join('')}"/>`).join('');
+   memoryProjection.current={geometry,camera};
+   if(memoryPlane.current)memoryPlane.current.style.transform=groundPerspectiveCss(width,height,tilt,rotation);
+   if(memoryMap.current)memoryMap.current.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale},${view.scale*sy})`;
+  }
   const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.daylight?SIGHT_EXTENT:vision.radius,false,!!vision.walls?.length)}"/>`).join('');
   sightPaths.current.innerHTML=vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,true)}"/>`).join('');
   // Nested bands sample the renderer's smooth attenuation, including source height,
@@ -80,10 +97,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   schedule();},[props]);
- return <div data-testid="player-vision" data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.daylight?'unlimited':props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
+ const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;
+ return <div data-testid="player-vision" data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.daylight?'unlimited':props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
   <svg width={props.width} height={props.height} style={{position:'absolute',inset:0}} aria-hidden="true"><defs>
    <clipPath id={sightId} clipPathUnits="userSpaceOnUse" ref={sightPaths}/><g ref={lightClips}/>
+   <clipPath id={memoryId} clipPathUnits="userSpaceOnUse" ref={memoryPaths}/>
    <g id={lightId} ref={lightPaths}/>
    <mask id={shadeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
     <rect width={props.width} height={props.height} fill="white"/><use href={`#${lightId}`}/>
@@ -93,6 +112,16 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    </mask>
   </defs></svg>
   <div ref={shade} style={{position:'absolute',inset:0,maskImage:`url(#${shadeId})`}}/>
-  <div style={{position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}/>
+  <div style={{position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>
+   {terrain&&b&&<div data-testid="explored-terrain" style={{position:'absolute',inset:0,clipPath:`url(#${memoryId})`}}>
+    <div ref={memoryPlane} style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:'grayscale(1) brightness(.48)'}}>
+     <div ref={memoryMap} style={{position:'absolute',transformOrigin:'0 0'}}>
+      {!terrain.tiles.length&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,background:'#2a2f3a'}}/>}
+      {terrain.tiles.map((t,i)=><img key={`${t.url}:${i}`} src={t.url} alt="" draggable={false} style={{position:'absolute',left:t.x,top:t.y,width:t.w,height:t.h,maxWidth:'none'}}/>)}
+      {g&&g.size>0&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,backgroundImage:'linear-gradient(to right,#ffffff50 1px,transparent 1px),linear-gradient(to bottom,#ffffff50 1px,transparent 1px)',backgroundSize:`${g.size}px ${g.size}px`,backgroundPosition:`${g.x-b.x}px ${g.y-b.y}px`}}/>}
+     </div>
+    </div>
+   </div>}
+  </div>
  </div>;
 });
