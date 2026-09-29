@@ -10,7 +10,7 @@ export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resoluti
     scene.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.dispose();entry.texture.dispose();labels.delete(id);
   };
   return {
-    sync(descriptors:MiniatureNameLabel[],visible:ReadonlySet<string>){
+    sync(descriptors:MiniatureNameLabel[],visible:ReadonlySet<string>,shared:ReadonlySet<string>=new Set()){
       const rendered=new Set<string>();
       for(const label of descriptors){
         if(!visible.has(label.id))continue;
@@ -39,6 +39,7 @@ export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resoluti
           entry.canvas=label.canvas;entry.mesh.material.map=entry.texture;
         }
         entry.covered.value=label.emphasized?1:.22;
+        entry.mesh.layers.set(shared.has(label.id)?4:0);
         entry.mesh.material.opacity=label.opacity;
         const position=entry.mesh.geometry.getAttribute('position');
         label.points.forEach((p,i)=>position.setXYZ(i,p.x,0,p.y));position.needsUpdate=true;

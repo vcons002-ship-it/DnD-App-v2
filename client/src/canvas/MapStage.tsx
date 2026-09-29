@@ -84,7 +84,7 @@ function floatingAttacker(
   mySocketId: string | undefined,
 ): Token | null {
   const selected = snapshot.tokens.filter(
-    (t) => selectedIds.includes(t.id) && t.id !== target.id,
+    (t) => !t.sharedSightOnly && selectedIds.includes(t.id) && t.id !== target.id,
   );
   if (isDm) return selected[0] ?? null;
   const friendly = selected.find(
@@ -386,6 +386,7 @@ export function MapStage({
   const stageRef = useRef<Konva.Stage>(null);
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
   const tokenLayerRef = useRef<Konva.Layer>(null);
+  const sharedTokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
   const visionRef=useRef<PlayerVisionHandle>(null);
   const visionLightTime=useRef(0);
@@ -723,7 +724,7 @@ export function MapStage({
   const {quality:environmentQuality}=useEnvironmentQuality();
   const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
     const saved=map?.environment??DEFAULT_MAP_ENVIRONMENT;
-    const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
+    const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
     return {...settings,...(snapshot.playerVision?.heavy?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
@@ -819,11 +820,13 @@ export function MapStage({
   // Identity-stable token handlers so the memoized TokenShape only re-renders
   // when its own token/display actually changes (not on every snapshot).
   const handleTokenSelect = useStableCallback((tok: Token, additive: boolean) => {
+    if(tok.sharedSightOnly)return;
     if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
     else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
+    if(tok.sharedSightOnly)return;
     if (saveResolve || orbTarget) return;
     onSelectToken(tok, false);
     setDetailsExpanded(true); // open the player's read-only Details
@@ -836,6 +839,7 @@ export function MapStage({
     miniatureRef.current?.previewMove(tok.id, point),
   );
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
+    if(tok.sharedSightOnly)return;
     setHover(null);
     // Also aim the Combat section's target dropdown at the right-clicked token,
     // so closing the menu still leaves the side panel set up to attack it.
@@ -843,9 +847,19 @@ export function MapStage({
     setMenu({ token: tok, x: cx, y: cy });
   });
   const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) => {
+    if(tok.sharedSightOnly)return;
     if(!privateDrag.current)setHover({ token: tok, x: cx, y: cy });
   });
   const handleTokenHoverEnd = useStableCallback(() => setHover(null));
+  useEffect(()=>{
+    const direct=(id:string)=>snapshot.tokens.some(t=>t.id===id&&!t.sharedSightOnly);
+    if(menu&&!direct(menu.token.id))setMenu(null);
+    if(!isDm && selectedIds.some(id=>!direct(id))){
+      if(onSelectTokens)onSelectTokens(selectedIds.filter(direct));else onSelectToken(null);
+    }
+    if(hover&&!direct(hover.token.id))setHover(null);
+    if(orbTarget?.targetId&&!direct(orbTarget.targetId))setOrbTarget({...orbTarget,targetId:undefined});
+  },[snapshot.tokens,menu,hover,orbTarget,setOrbTarget,isDm,selectedIds,onSelectTokens,onSelectToken]);
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
   // toolbar above the map; grab that slot once the toolbar has mounted.
@@ -886,7 +900,7 @@ export function MapStage({
     // grid×size — on a map whose grid isn't 5 ft/square those diverge and the
     // clickable disc mis-targets an emanation onto a neighbour.
     snapshot.tokens.find(
-      (t) => Math.hypot(p.x - t.x, p.y - t.y) <= (readyMiniatures.has(t.id) ? miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name }) : t.widthFt) / fpp / 2,
+      (t) => !t.sharedSightOnly && Math.hypot(p.x - t.x, p.y - t.y) <= (readyMiniatures.has(t.id) ? miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name }) : t.widthFt) / fpp / 2,
     );
 
   // DM scale control (committed on blur/Enter; synced from the live map). The
@@ -1031,12 +1045,12 @@ export function MapStage({
     const ownerId = useStore.getState().socket?.id;
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
     const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
-    const tokens = new Map(snapshot.tokens.map(t => [t.id, { hidden: t.isHidden,
+    const tokens = new Map(snapshot.tokens.map(t => [t.id, { hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly,
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && (token.owned || visionContains(snapshot.playerVision,x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
-        mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y });
+      return !!token && (token.sharedSightOnly || (token.owned || visionContains(snapshot.playerVision,x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
+        mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
   }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
   const visibleAtRef = useRef(miniatureVisibleAt);
@@ -1059,14 +1073,15 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
-      carriedLantern:token.carriedLantern,
-      combatRole: token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
-      conditionColors: presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
-      outline: !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      sharedSightOnly: token.sharedSightOnly,
+      carriedLantern:!token.sharedSightOnly && token.carriedLantern,
+      combatRole: !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
+      conditionColors: token.sharedSightOnly ? [] : presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
+      outline: token.sharedSightOnly || !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
-      activeTurn: token.id === activeTurnTokenId,
-      selected: orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id),
+      activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
+      selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
   }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, dragGhosts, miniatureCatalogRevision]);
   useEffect(() => {
@@ -1074,19 +1089,21 @@ export function MapStage({
   }, [miniatureTokens.length, handleMiniatureReady]);
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
-  const miniatureNameLabels = useStableCallback(() => readMiniatureNames(tokenLayerRef.current,
-    id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id));
+  const readSharedNames=useMemo(()=>createMiniatureNameReader(),[]);
+  const miniatureNameLabels = useStableCallback(() => [...readMiniatureNames(tokenLayerRef.current,
+    id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id), ...readSharedNames(sharedTokenLayerRef.current,()=>false)]);
   const handleRenderedNames = useCallback((ids: ReadonlySet<string>) => {
-    const layer=tokenLayerRef.current;
-    if(!layer)return;
-    let changed=false;
-    for(const node of layer.find<Konva.Group>('.token')) {
-      const opacity=ids.has(node.getAttr('tokenId'))?0:1;
-      for(const label of node.find('.token-label, .token-tracking-tag')) {
-        if(label.opacity()!==opacity){label.opacity(opacity);changed=true;}
+    for(const layer of [tokenLayerRef.current, sharedTokenLayerRef.current]) {
+      if(!layer)continue;
+      let changed=false;
+      for(const node of layer.find<Konva.Group>('.token')) {
+        const opacity=ids.has(node.getAttr('tokenId'))?0:1;
+        for(const label of node.find('.token-label, .token-tracking-tag')) {
+          if(label.opacity()!==opacity){label.opacity(opacity);changed=true;}
+        }
       }
+      if(changed)layer.batchDraw();
     }
-    if(changed)layer.batchDraw();
   },[]);
 
   // Flat tokens belong to the ground plane, beneath miniature geometry.
@@ -1099,12 +1116,14 @@ export function MapStage({
     if (background) background.style.zIndex = '0';
     if (groundTokens) groundTokens.style.zIndex = '0';
     if (foreground) foreground.style.zIndex = '2';
+    const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
+    if(shared){shared.style.zIndex='4';shared.style.filter='grayscale(1)';shared.style.opacity='.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
   }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
 
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]
+    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current]
       .filter((layer): layer is Konva.Layer => !!layer)
       .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees, rotationDegrees));
     projectionCanvases.current=canvases;
@@ -1637,7 +1656,7 @@ export function MapStage({
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current]) {
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current]) {
       if (layer) { layer.position(position); layer.batchDraw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
@@ -1659,7 +1678,7 @@ export function MapStage({
     const previous=projectionState.current;
     projectionState.current={tilt,rotation};
     for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
-    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current]){
+    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current]){
       if(!layer)continue;
       if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
       const labels=layer.find('.token-upright-hud');
@@ -1718,7 +1737,7 @@ export function MapStage({
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
-  const renderTokens = (miniatures: boolean) => snapshot.tokens.filter(t=>!doors.some(d=>d.tokenId===t.id)).filter((token) =>
+  const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doors.some(d=>d.tokenId===t.id)).filter((token) =>
     !dragGhosts[token.id]?.hidden && (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
@@ -1739,17 +1758,17 @@ export function MapStage({
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
         miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureTokens.some(m => m.id === t.id)}
-        hideAffinity={!visionLit(snapshot.playerVision,t.x,t.y)}
+        hideAffinity={!!t.sharedSightOnly || !visionLit(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         movementWalls={isDm?undefined:map?.walls}
         draggable={
-          draggableTokens && movable && !fogActive && !measureActive && !saveResolve && !orbTarget
+          !t.sharedSightOnly && draggableTokens && movable && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
-        listening={!measureActive}
-        selected={orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id)}
-        activeTurn={t.id === activeTurnTokenId}
-        initiativeRank={initiativeRank.get(t.id) ?? null}
+        listening={!t.sharedSightOnly && !measureActive}
+        selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id))}
+        activeTurn={!t.sharedSightOnly && t.id === activeTurnTokenId}
+        initiativeRank={t.sharedSightOnly ? null : initiativeRank.get(t.id) ?? null}
         onSelect={handleTokenSelect}
         onActivate={handleTokenActivate}
         onMove={handleTokenMove}
@@ -2401,6 +2420,10 @@ export function MapStage({
               {showCursors && (
                 <CursorPointers cursors={cursors} currentMapId={map?.id} scale={view.scale} />
               )}
+            </Layer>
+            <Layer ref={sharedTokenLayerRef} name="shared-sight-layer" listening={false}
+              x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale * groundScaleY}>
+              {renderTokens(false, true)}{renderTokens(true, true)}
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>

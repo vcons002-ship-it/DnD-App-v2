@@ -61,7 +61,7 @@ export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token[
   for (const [socketId, conn] of conns) {
     if (conn.sessionId !== sessionId) continue;
     const snapshot = build(conn.role, conn.role === 'dm' ? conn.viewMapId : null, socketId, conn.playerId);
-    const tokenIds = snapshot.tokens.filter(t => t.kind === kind && t.refId === refId).map(t => t.id);
+    const tokenIds = snapshot.tokens.filter(t => !t.sharedSightOnly && t.kind === kind && t.refId === refId).map(t => t.id);
     if (tokenIds.length) io.to(socketId).emit('fx:spellCast', { tokenIds });
   }
 }
@@ -93,7 +93,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     io.to(socketId).emit('state:snapshot', snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
     const visible = hpFx.filter((e) =>
-      snapshot.tokens.some((t) => t.kind === e.kind && t.refId === e.refId),
+      snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
     ).map((event) => {
       if (!event.rollId || visibleRolls.has(event.rollId)) return event;
       // Hidden DM rolls still cause visible HP feedback, but never expose a

@@ -39,7 +39,7 @@ export function FloatingMenu({ snapshot, token, attacker: defaultAttacker, x, y,
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({left:x,top:y});
   const socketId = useStore(s => s.socket?.id);
-  const actors = snapshot.tokens.filter(t => t.mapId === token.mapId && (snapshot.role === 'dm' ||
+  const actors = snapshot.tokens.filter(t => !t.sharedSightOnly && t.mapId === token.mapId && (snapshot.role === 'dm' ||
     t.kind === 'pc' && snapshot.characters.some(c => c.id === t.refId && c.claimedBy === socketId) ||
     t.kind === 'monster' && snapshot.monsters.some(m => m.id === t.refId && m.disposition === 'friendly')) && !resolveToken(snapshot,t).objectKind);
   const attacker = actors.find(t => t.id === chosenAttacker) ?? defaultAttacker ?? actors.find(t => t.id === snapshot.activeTurnTokenId) ?? actors[0] ?? null;

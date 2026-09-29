@@ -558,6 +558,7 @@ async function tokenView(page: Page, id: string) {
       healthY: node.findOne('.token-health')?.y(),
       healthBars: node.find('Rect').filter((n: any) => n.height() === 6).map((n: any) => ({ width: n.width(), fill: n.fill() })),
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
+      sharedSightOnly: node.getLayer().name()==='shared-sight-layer',
       bodyVisible: node.findOne('.token-body')?.isVisible(),
       miniatureReady: node.getAttr('miniatureReady'),
       miniaturePending: node.getAttr('miniaturePending'),
@@ -584,12 +585,12 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:true,mist:false,lights:[{id:'west-torch',x:640,y:400,radiusFt:30,heightFt:5,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
   await f.snapshot();
   await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:60000});
   // Trace thick rectangles through the real drawing controls, leaving a doorway.
   const druk=f.ready.tokens[0],vanec=f.ready.tokens[2];
-  const mapClick=async(x:number,y:number)=>{const p=offsetPoint((await tokenView(page,druk.id))!,x-druk.x,y-druk.y);await page.mouse.click(p.x,p.y);};
+  const mapClick=async(x:number,y:number)=>{const p=offsetPoint((await personalTokenView(page,druk.id))!,x-druk.x,y-druk.y);await page.mouse.click(p.x,p.y);};
   const rectangle=async(ax:number,ay:number,bx:number,by:number)=>{
-    const view=(await tokenView(page,druk.id))!,a=offsetPoint(view,ax-druk.x,ay-druk.y),b=offsetPoint(view,bx-druk.x,by-druk.y);
+    const view=(await personalTokenView(page,druk.id))!,a=offsetPoint(view,ax-druk.x,ay-druk.y),b=offsetPoint(view,bx-druk.x,by-druk.y);
     await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:18});await page.mouse.up();
   };
   await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
@@ -600,7 +601,7 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
   await rectangle(770,790,730,720); // Reverse drag.
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(2);
   // Cancel a draft without saving a partial shape, then undo/redo a complete rectangle.
-  const cancel=(await tokenView(page,druk.id))!,ca=offsetPoint(cancel,600-druk.x,700-druk.y),cb=offsetPoint(cancel,670-druk.x,760-druk.y);
+  const cancel=(await personalTokenView(page,druk.id))!,ca=offsetPoint(cancel,600-druk.x,700-druk.y),cb=offsetPoint(cancel,670-druk.x,760-druk.y);
   await page.mouse.move(ca.x,ca.y);await page.mouse.down();await page.mouse.move(cb.x,cb.y,{steps:8});await page.keyboard.press('Escape');await page.mouse.up();
   expect((await f.snapshot()).map!.walls).toHaveLength(2);
   await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Undo last wall',exact:true}).click();
@@ -616,10 +617,10 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
     await enter(west,f.code,'Druk',false);await enter(east,f.code,'Vanec',false);
     await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
     await expect(east.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
-    await expect.poll(()=>tokenView(west,vanec.id)).toBeNull();
-    await expect.poll(()=>tokenView(east,druk.id)).toBeNull();
-    await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
-    await expect(east.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
+    await expect.poll(()=>personalTokenView(west,vanec.id)).toBeNull();
+    await expect.poll(()=>personalTokenView(east,druk.id)).toBeNull();
+    await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','2',{timeout:60000});
+    await expect(east.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','1',{timeout:60000});
     await west.screenshot({path:info.outputPath('walls-druk-overhead.png')});await east.screenshot({path:info.outputPath('walls-vanec-overhead.png')});
     for(const p of [west,east])await p.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
     await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
@@ -629,11 +630,11 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
     // Display preferences cannot disable wall occlusion or disclose hidden models.
     await west.evaluate(()=>{localStorage.setItem('dnd-environment-quality','off');window.dispatchEvent(new Event('dnd-environment-quality-change'));});
     await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
-    expect(await tokenView(west,vanec.id)).toBeNull();
+    expect(await personalTokenView(west,vanec.id)).toBeNull();
     await west.getByRole('button',{name:'2D player tokens',exact:true}).click();
     await west.setViewportSize({width:720,height:900});
     await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','2');
-    expect(await tokenView(west,vanec.id)).toBeNull();
+    expect(await personalTokenView(west,vanec.id)).toBeNull();
     await west.screenshot({path:info.outputPath('walls-mobile-effects-off.png')});
     // A forged player edit cannot erase the wall.
     const rogue=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(rogue);
@@ -646,8 +647,8 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
     await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Erase a wall',exact:true}).click();
     await mapClick((walls[0].ax+walls[0].bx)/2,(walls[0].ay+walls[0].by)/2);
     await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
-    await expect.poll(()=>tokenView(west,vanec.id)).not.toBeNull();
-    await expect.poll(()=>tokenView(east,druk.id)).not.toBeNull();
+    await expect.poll(()=>personalTokenView(west,vanec.id)).not.toBeNull();
+    await expect.poll(()=>personalTokenView(east,druk.id)).not.toBeNull();
     await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
     await page.reload();await expect(page.getByRole('button',{name:'Walls',exact:true})).toBeVisible();
     expect((await f.snapshot()).map!.walls).toHaveLength(1);
@@ -793,13 +794,13 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
   };
   try{
     const dm=await newView('dm-rectangles');await dm.goto(`/dm?code=${f.code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','4',{timeout:60000});
     const point=async(p:Page,token:typeof druk,x:number,y:number)=>{
       const actual=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
-      return offsetPoint((await tokenView(p,token.id))!,x-actual.x,y-actual.y);
+      return offsetPoint((await personalTokenView(p,token.id))!,x-actual.x,y-actual.y);
     };
     const move=async(p:Page,token:typeof druk,x:number,y:number)=>{
-      const a=(await tokenView(p,token.id))!,b=await point(p,token,x,y);
+      const a=(await personalTokenView(p,token.id))!,b=await point(p,token,x,y);
       await p.mouse.move(a.x,a.y);await p.mouse.down();
       for(let step=1;step<=32;step++){await p.mouse.move(a.x+(b.x-a.x)*step/32,a.y+(b.y-a.y)*step/32);await p.waitForTimeout(35);}
       await p.waitForTimeout(500);await p.mouse.up();
@@ -837,33 +838,33 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
     await enter(west,f.code,'Druk',false);await enter(hall,f.code,'Varis',false);
     await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count',String(preparedWalls.length+5));
     await focus(west,druk);await focus(hall,varis);
-    expect(await tokenView(hall,druk.id)).toBeNull();expect(await tokenView(hall,goblin.id)).toBeNull();
+    expect(await personalTokenView(hall,druk.id)).toBeNull();expect(await personalTokenView(hall,goblin.id)).toBeNull();
     await chapter(west,'Druk: the room is visible, but Varis is hidden beyond the south wall',async()=>{
-      await expect.poll(()=>tokenView(west,goblin.id)).not.toBeNull();expect(await tokenView(west,varis.id)).toBeNull();
+      await expect.poll(()=>personalTokenView(west,goblin.id)).not.toBeNull();expect(await personalTokenView(west,varis.id)).toBeNull();
       await west.screenshot({path:info.outputPath('rectangle-walls-druk-hidden.png')});
     });
     await chapter(hall,'Varis: the hallway is visible; the room behind the wall is hidden',async()=>{
       await hall.screenshot({path:info.outputPath('rectangle-walls-varis.png')});
     });
     await chapter(hall,'Varis walks toward the doorway; Druk is still behind the wall',async()=>{
-      await move(hall,varis,520,470);expect(await tokenView(hall,druk.id)).toBeNull();
+      await move(hall,varis,520,470);expect(await personalTokenView(hall,druk.id)).toBeNull();
       await hall.screenshot({path:info.outputPath('varis-approaching.png')});
     });
     await chapter(hall,'Closer to the opening: Varis sees Druk, but not the far corner',async()=>{
-      await move(hall,varis,520,443);await expect.poll(()=>tokenView(hall,druk.id)).not.toBeNull();expect(await tokenView(hall,goblin.id)).toBeNull();
+      await move(hall,varis,520,443);await expect.poll(()=>personalTokenView(hall,druk.id)).not.toBeNull();expect(await personalTokenView(hall,goblin.id)).toBeNull();
       await hall.screenshot({path:info.outputPath('varis-at-door.png')});
     });
     await chapter(west,'Same moment from Druk: Varis has appeared in the doorway',async()=>{
-      await expect.poll(()=>tokenView(west,varis.id)).not.toBeNull();
+      await expect.poll(()=>personalTokenView(west,varis.id)).not.toBeNull();
       await west.screenshot({path:info.outputPath('rectangle-walls-druk-doorway.png')});
     });
     await chapter(hall,'Varis enters: the hidden corner and its goblin are now revealed',async()=>{
-      await move(hall,varis,522,365);await expect.poll(()=>tokenView(hall,goblin.id)).not.toBeNull();
+      await move(hall,varis,522,365);await expect.poll(()=>personalTokenView(hall,goblin.id)).not.toBeNull();
       await hall.screenshot({path:info.outputPath('varis-inside-room.png')});
     });
     await chapter(hall,'Varis steps back into the hall: the hidden corner disappears again',async()=>{
       await move(hall,varis,520,443);await move(hall,varis,520,485);
-      await expect.poll(()=>tokenView(hall,druk.id)).toBeNull();expect(await tokenView(hall,goblin.id)).toBeNull();
+      await expect.poll(()=>personalTokenView(hall,druk.id)).toBeNull();expect(await personalTokenView(hall,goblin.id)).toBeNull();
     });
     await chapter(hall,'Heavy darkness, lantern off: grayscale sight still stops at walls',async()=>{
       f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:true,lights:[]}});
@@ -1117,49 +1118,49 @@ test('monster miniatures load, recolor independently, use base hits and face the
   } finally { await context.close(); }
 });
 
-test('monster and player miniatures disappear as whole tokens under base-cell fog and live concealment', async ({ page, request }) => {
+test('base-cell fog conceals creatures and leaves PCs as party awareness until explicit hiding', async ({ page, request }) => {
   test.setTimeout(120_000);
   const f = await monsterFixture(page, request);
   await enter(page, f.code);
   const layer = page.getByTestId('miniature-layer');
-  await expect(layer).toHaveAttribute('data-miniature-count', '6', { timeout: 60_000 });
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '6', { timeout: 60_000 });
   const [goblin, skeleton, wolf] = f.monsters;
   const varis = f.ready.tokens.find(t => t.refId === f.initial.characters.find(c => c.name === 'Varis')!.id)!;
   // Fogged anchor removes the entire miniature, even when its body extends into a revealed cell.
   f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['9,3', '2,6', '8,6', '10,6'], reveal: true });
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: true });
-  await expect(layer).toHaveAttribute('data-miniature-count', '4');
-  expect(await tokenView(page, skeleton.id)).toBeNull();
-  expect(await tokenView(page, varis.id)).toBeNull();
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '4');
+  expect(await personalTokenView(page, skeleton.id)).toBeNull();
+  expect(await personalTokenView(page, varis.id)).toBeNull();
   expect((await f.snapshot()).tokens).toHaveLength(7); // DM still sees all tokens.
   f.socket.emit('fog:paint', { mapId: f.mapId, layer: 'map', cells: ['5,6', '6,3'], reveal: true });
-  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '6');
   // Planning into fog conceals only the preview; the real token stays at its visible origin.
-  const v = (await tokenView(page, varis.id))!, concealed = offsetPoint(v, 0, -220);
+  const v = (await personalTokenView(page, varis.id))!, concealed = offsetPoint(v, 0, -220);
   await page.mouse.move(v.x, v.y); await page.mouse.down();
   await page.mouse.move(concealed.x, concealed.y, { steps: 15 });
-  await expect.poll(async () => (await tokenView(page, varis.id))?.opacity).toBe(1);
+  await expect.poll(async () => (await personalTokenView(page, varis.id))?.opacity).toBe(1);
   await expect(layer).not.toHaveAttribute('data-preview-token-id',varis.id);
   await page.mouse.up();
-  await expect(layer).toHaveAttribute('data-miniature-count', '5');
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '5');
   f.socket.emit('token:move', { tokenId: varis.id, x: varis.x, y: varis.y });
-  await expect(layer).toHaveAttribute('data-miniature-count', '6');
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '6');
   // A legacy DM drag must neither move nor conceal a player's visible token.
   f.socket.emit('token:drag', { tokenId: skeleton.id, x: 10, y: 10 });
   await page.waitForTimeout(500);
-  await expect(layer).toHaveAttribute('data-miniature-count', '6');
-  expect(await tokenView(page, skeleton.id)).not.toBeNull();
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '6');
+  expect(await personalTokenView(page, skeleton.id)).not.toBeNull();
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'map', enabled: false });
   f.socket.emit('fog:setLayer', { mapId: f.mapId, layer: 'tokens', enabled: true });
-  await expect(layer).toHaveAttribute('data-miniature-count', '3');
-  expect(await tokenView(page, goblin.id)).toBeNull();
-  expect(await tokenView(page, wolf.id)).toBeNull();
-  expect(await tokenView(page, varis.id)).not.toBeNull();
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '3');
+  expect(await personalTokenView(page, goblin.id)).toBeNull();
+  expect(await personalTokenView(page, wolf.id)).toBeNull();
+  expect(await personalTokenView(page, varis.id)).not.toBeNull();
   f.socket.emit('monster:update', { monsterId: wolf.refId, disposition: 'friendly' });
-  await expect(layer).toHaveAttribute('data-miniature-count', '4');
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '4');
   f.socket.emit('token:setHidden', { tokenId: wolf.id, hidden: true });
-  await expect(layer).toHaveAttribute('data-miniature-count', '3');
-  expect(await tokenView(page, wolf.id)).toBeNull();
+  await expect(layer).toHaveAttribute('data-personal-miniature-count', '3');
+  expect(await personalTokenView(page, wolf.id)).toBeNull();
 });
 
 test('perspective recedes toward the far edge and keeps wheel zoom and pan under the pointer', async ({ page, request }, info) => {
@@ -2433,23 +2434,23 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,mist:true,mistOpacity:.08,mistHeightFt:1,shadows:true,lights:[]}});
  await enter(page,f.code);
  const vision=page.getByTestId('player-vision');await expect(vision).toHaveAttribute('data-range-ft','60');
- await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
- expect(await tokenView(page,varis.id)).toBeNull();
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:60000});
+ expect(await personalTokenView(page,varis.id)).toBeNull();
  const other=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960},...(movementDemo?{recordVideo:{dir:info.outputPath('varis-video'),size:{width:1440,height:960}}}:{})});
  try{
   const second=await other.newPage();await enter(second,f.code,'Varis');
   await expect(second.getByTestId('player-vision')).toHaveAttribute('data-range-ft','60');
-  expect(await tokenView(second,druk.id)).toBeNull();
-  await expect(second.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
+  expect(await personalTokenView(second,druk.id)).toBeNull();
+  await expect(second.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','2',{timeout:60000});
   await second.screenshot({path:info.outputPath('varis-personal-view.png')});
   // Distant light reveals its occupants without extending the observer's darkvision.
   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[{id:'distant-hall',x:1000,y:610,radiusFt:15,heightFt:3,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','5',{timeout:30000});
-  expect(await tokenView(page,varis.id)).not.toBeNull();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','5',{timeout:30000});
+  expect(await personalTokenView(page,varis.id)).not.toBeNull();
   await page.screenshot({path:info.outputPath('distant-lantern-visible.png')});
   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:30000});
-  expect(await tokenView(page,varis.id)).toBeNull();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:30000});
+  expect(await personalTokenView(page,varis.id)).toBeNull();
 
   for(let i=0;i<2;i++)await page.getByTitle('Zoom in',{exact:true}).click();
   const caption=async(text:string)=>page.evaluate(value=>{let el=document.getElementById('vision-demo-caption');if(!el){el=document.createElement('div');el.id='vision-demo-caption';el.style.cssText='position:fixed;top:112px;left:50%;transform:translateX(-50%);padding:12px 22px;background:#111b;border:1px solid #b8a36d;color:#f2e6c7;font:20px Georgia;z-index:9999;pointer-events:none';document.body.append(el);}el.textContent=value;},text);
@@ -2466,7 +2467,7 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
    await caption(`${heavy?'Heavy darkness: grayscale':'Regular darkness: color'} - ${lantern?'hip lantern':'Darkvision only'} - 60 ft`);
    await page.screenshot({path:info.outputPath(`${heavy?'heavy':'regular'}-${lantern?'lantern':'darkvision'}.png`)});
    if(movementDemo)await page.waitForTimeout(1200);
-   const base=(await tokenView(page,druk.id))!,end=offsetPoint(base,220,0);
+   const base=(await personalTokenView(page,druk.id))!,end=offsetPoint(base,220,0);
    await page.mouse.move(base.x,base.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:24});
    if(movementDemo)await page.waitForTimeout(600);
    await page.mouse.up();
@@ -2486,7 +2487,7 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','0');
   await page.screenshot({path:info.outputPath('vision-overhead.png')});
   // A second player moves with an independent horizon on the same live map.
-  const secondBase=(await tokenView(second,varis.id))!,secondEnd=offsetPoint(secondBase,-180,0);
+  const secondBase=(await personalTokenView(second,varis.id))!,secondEnd=offsetPoint(secondBase,-180,0);
   await second.mouse.move(secondBase.x,secondBase.y);await second.mouse.down();await second.mouse.move(secondEnd.x,secondEnd.y,{steps:24});
   if(movementDemo)await second.waitForTimeout(700);
   await second.mouse.up();await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===varis.id)!.x).toBeLessThan(850);
@@ -2506,7 +2507,7 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  await page.goto(`/dm?code=${f.code}`);
  await page.locator('input[type=password]').fill(DM_SECRET);
  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
- await expect.poll(()=>tokenView(page,druk.id)).not.toBeNull();
+ await expect.poll(()=>personalTokenView(page,druk.id)).not.toBeNull();
  const outlines=()=>page.evaluate(()=>(window as any).Konva.stages.reduce((n:number,s:any)=>n+s.find('.wall-edit-outlines').length,0));
  expect(await outlines()).toBe(0);
  await page.getByRole('button',{name:'Walls',exact:true}).click();
@@ -2515,8 +2516,8 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
  await expect.poll(outlines).toBe(0);
  await enter(page,f.code,'Druk',false);
- await expect.poll(()=>tokenView(page,druk.id)).not.toBeNull();
- const view=(await tokenView(page,druk.id))!,target=offsetPoint(view,350,0);
+ await expect.poll(()=>personalTokenView(page,druk.id)).not.toBeNull();
+ const view=(await personalTokenView(page,druk.id))!,target=offsetPoint(view,350,0);
  await page.mouse.move(view.x,view.y);await page.mouse.down();
  await page.mouse.move(target.x,target.y,{steps:20});await page.mouse.up();
  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(300);
@@ -2547,10 +2548,10 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
  await f.snapshot();
  await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);
  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
- await expect.poll(()=>tokenView(page,druk.id)).not.toBeNull();
+ await expect.poll(()=>personalTokenView(page,druk.id)).not.toBeNull();
  await page.getByRole('button',{name:'Walls',exact:true}).click();
  await page.getByRole('button',{name:'Draw door opening',exact:true}).click();
- const view=(await tokenView(page,druk.id))!,a=offsetPoint(view,160,-60),b=offsetPoint(view,160,60);
+ const view=(await personalTokenView(page,druk.id))!,a=offsetPoint(view,160,-60),b=offsetPoint(view,160,60);
  await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:12});await page.mouse.up();
  await expect.poll(async()=>(await f.snapshot()).map!.walls!.filter(w=>w.door).length).toBe(1);
  const door=(await f.snapshot()).map!.walls!.find(w=>w.door)!;
@@ -2565,7 +2566,7 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
   f.socket.emit('fog:setLayer',{mapId:f.mapId,layer:'map',enabled:false});await f.snapshot();
   await expect.poll(markerStates).toEqual(['Door']);
   await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft','unlimited');
-  await expect.poll(()=>tokenView(player,varis.id)).toBeNull();
+  await expect.poll(()=>personalTokenView(player,varis.id)).toBeNull();
   await expect(player.getByTestId('door-controls')).toHaveCount(0); // Too far away.
   f.socket.emit('token:move',{tokenId:druk.id,x:380,y:360});await f.snapshot();
   await expect(player.getByTestId('door-controls').getByRole('button',{name:/Open$/})).toBeVisible();
@@ -2592,23 +2593,23 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
   await player.screenshot({path:info.outputPath('daylight-door-closed.png')});
   await player.getByTestId('door-controls').getByRole('button',{name:/Open$/}).click();
   await expect.poll(async()=>(await f.snapshot()).map!.walls!.find(w=>w.id===door.id)!.open).toBe(true);
-  await expect.poll(()=>tokenView(player,varis.id)).not.toBeNull();
+  await expect.poll(()=>personalTokenView(player,varis.id)).not.toBeNull();
   await expect.poll(markerStates).toEqual(['Open']);
   await player.screenshot({path:info.outputPath('daylight-door-open.png')});
   // A real player drag passes through the opening.
-  const from=(await tokenView(player,druk.id))!,to=offsetPoint(from,150,0);
+  const from=(await personalTokenView(player,druk.id))!,to=offsetPoint(from,150,0);
   await player.mouse.move(from.x,from.y);await player.mouse.down();await player.mouse.move(to.x,to.y,{steps:15});await player.mouse.up();
   await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(470);
   await player.getByTestId('door-controls').getByRole('button',{name:/Close$/}).click();
   await expect.poll(async()=>(await f.snapshot()).map!.walls!.find(w=>w.id===door.id)!.open).toBe(false);
   // On returning to the first room, closing the door re-hides the second room.
   f.socket.emit('token:move',{tokenId:druk.id,x:380,y:360});await f.snapshot();
-  await expect.poll(()=>tokenView(player,varis.id)).toBeNull();
+  await expect.poll(()=>personalTokenView(player,varis.id)).toBeNull();
   // DM can operate the same door through the wall menu.
   await page.getByRole('button',{name:'Walls',exact:true}).click();
   await page.getByRole('button',{name:/Door 1: closed/}).click();
   await page.getByTestId('door-controls').getByRole('button',{name:/Open$/}).last().click();
-  await expect.poll(()=>tokenView(player,varis.id)).not.toBeNull();
+  await expect.poll(()=>personalTokenView(player,varis.id)).not.toBeNull();
   await player.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
   await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft','unlimited');
   await player.screenshot({path:info.outputPath('daylight-door-tilted.png')});
@@ -2707,19 +2708,19 @@ test('hidden party models preload and delayed reveals never display 2D bodies', 
   try {
     await enter(page,f.code,'Druk',false);
     await expect.poll(()=>requests.length).toBe(2);
-    await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
-    expect(await tokenView(page,varis.id)).toBeNull();
-    expect(await tokenView(page,vanec.id)).toBeNull();
-    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1');
+    await expect.poll(async()=>(await personalTokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+    expect(await personalTokenView(page,varis.id)).toBeNull();
+    expect(await personalTokenView(page,vanec.id)).toBeNull();
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','1');
     f.socket.emit('map:editWalls',{mapId:f.mapId,removeId:'partition'});
     for(const token of [varis,vanec]) {
-      await expect.poll(async()=>(await tokenView(page,token.id))?.miniaturePending).toBe(true);
-      const view=(await tokenView(page,token.id))!;
+      await expect.poll(async()=>(await personalTokenView(page,token.id))?.miniaturePending).toBe(true);
+      const view=(await personalTokenView(page,token.id))!;
       expect(view.bodyVisible).toBe(false);expect(view.healthBars.length).toBeGreaterThan(0);
     }
     release();
-    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
-    for(const token of [varis,vanec])expect((await tokenView(page,token.id))?.bodyVisible).toBe(false);
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:60000});
+    for(const token of [varis,vanec])expect((await personalTokenView(page,token.id))?.bodyVisible).toBe(false);
     expect(requests.length).toBe(2);
   } finally {release();}
 });
@@ -2796,25 +2797,25 @@ test('Gemini outline becomes solid app walls that block movement and preserve do
   for(const wall of geometry.walls)f.socket.emit('map:editWalls',{mapId:f.mapId,add:wall});
   await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(geometry.walls.length);
   await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:60000});
   await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
   await page.screenshot({path:info.outputPath('dm-mask-walls.png')});
   if(movementDemo)await page.waitForTimeout(4000);
   await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
   await enter(page,f.code,'Druk',false);
-  await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
-  expect(await tokenView(page,varis.id)).toBeNull();
+  await expect.poll(async()=>(await personalTokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+  expect(await personalTokenView(page,varis.id)).toBeNull();
   await page.screenshot({path:info.outputPath('player-room-hidden.png')});
   if(movementDemo)await page.waitForTimeout(2500);
-  let position=(await tokenView(page,druk.id))!,target=offsetPoint(position,0,-140);
+  let position=(await personalTokenView(page,druk.id))!,target=offsetPoint(position,0,-140);
   await page.mouse.move(position.x,position.y);await page.mouse.down();await page.mouse.move(target.x,target.y,{steps:36});if(movementDemo)await page.waitForTimeout(1000);await page.mouse.up();
   await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBeLessThan(475);
-  const stopped=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;expect(stopped.y).toBeGreaterThan(425);expect(await tokenView(page,varis.id)).toBeNull();
+  const stopped=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;expect(stopped.y).toBeGreaterThan(425);expect(await personalTokenView(page,varis.id)).toBeNull();
   await page.screenshot({path:info.outputPath('player-stopped-at-wall.png')});
   if(movementDemo)await page.waitForTimeout(2200);
-  const dragTo=async(x:number,y:number)=>{const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;const view=(await tokenView(page,druk.id))!,to=offsetPoint(view,x-token.x,y-token.y);await page.mouse.move(view.x,view.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:32});if(movementDemo)await page.waitForTimeout(700);await page.mouse.up();await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x-x)).toBeLessThan(2);await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y-y)).toBeLessThan(2);if(movementDemo)await page.waitForTimeout(1400);};
+  const dragTo=async(x:number,y:number)=>{const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;const view=(await personalTokenView(page,druk.id))!,to=offsetPoint(view,x-token.x,y-token.y);await page.mouse.move(view.x,view.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:32});if(movementDemo)await page.waitForTimeout(700);await page.mouse.up();await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x-x)).toBeLessThan(2);await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y-y)).toBeLessThan(2);if(movementDemo)await page.waitForTimeout(1400);};
   await dragTo(520,475);await dragTo(520,365);
-  await expect.poll(async()=>(await tokenView(page,varis.id))?.miniatureReady).toBe(true);
+  await expect.poll(async()=>(await personalTokenView(page,varis.id))?.miniatureReady).toBe(true);
   await page.screenshot({path:info.outputPath('player-entered-through-gap.png')});
   if(movementDemo)await page.waitForTimeout(3500);
   // Authoritative socket movement must also stop at a wall, even if a client bypasses drag checks.
@@ -2826,7 +2827,7 @@ test('Gemini outline becomes solid app walls that block movement and preserve do
   writeFileSync(info.outputPath('mask-wall-result.json'),JSON.stringify({walls:geometry.walls.length,edges:geometry.walls.length*4,maskCoverage:geometry.coverage,stoppedAt:stopped,doorwayTest:'passed',visionTest:'passed'},null,2));
 });
 
-test('explored dungeon terrain remains gray after retreat while creatures disappear in overhead and tilted views',async({page,request,browser},info)=>{
+test('explored dungeon terrain remains gray after retreat and party figures leave personal sight in both views',async({page,request,browser},info)=>{
  test.setTimeout(150000);await page.setViewportSize({width:1500,height:1000});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png')),[druk,varis,vanec]=f.ready.tokens;
@@ -2836,17 +2837,17 @@ test('explored dungeon terrain remains gray after retreat while creatures disapp
  rects.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:`room-${i}`,kind:'rectangle',ax,ay,bx,by}}));
  await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(rects.length);
  await enter(page,f.code,'Druk',false);
- await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
- await expect.poll(async()=>(await tokenView(page,varis.id))?.miniatureReady).toBe(true);
+ await expect.poll(async()=>(await personalTokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+ await expect.poll(async()=>(await personalTokenView(page,varis.id))?.miniatureReady).toBe(true);
  const sample=async(viewer=page,actor=druk)=>{
-  const token=(await f.snapshot()).tokens.find(t=>t.id===actor.id)!,v=(await tokenView(viewer,actor.id))!,point=offsetPoint(v,415-token.x,250-token.y);
+  const token=(await f.snapshot()).tokens.find(t=>t.id===actor.id)!,v=(await personalTokenView(viewer,actor.id))!,point=offsetPoint(v,415-token.x,250-token.y);
   const shot=await viewer.screenshot(),patch=await sharp(shot).extract({left:Math.round(point.x)-5,top:Math.round(point.y)-5,width:10,height:10}).toBuffer();const {channels}=await sharp(patch).stats();
   return channels.slice(0,3).map(c=>c.mean);
  };
  const unseen=await sample();expect(Math.max(...unseen)).toBeLessThan(10);
  await page.screenshot({path:info.outputPath('01-unexplored.png')});if(movementDemo)await page.waitForTimeout(2400);
  const dragTo=async(x:number,y:number)=>{
-  const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!,view=(await tokenView(page,druk.id))!,to=offsetPoint(view,x-token.x,y-token.y);
+  const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!,view=(await personalTokenView(page,druk.id))!,to=offsetPoint(view,x-token.x,y-token.y);
   await page.mouse.move(view.x,view.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:36});if(movementDemo)await page.waitForTimeout(450);await page.mouse.up();
   await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x-x)).toBeLessThan(2);
   await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y-y)).toBeLessThan(2);
@@ -2854,19 +2855,19 @@ test('explored dungeon terrain remains gray after retreat while creatures disapp
  };
  await dragTo(520,475);await dragTo(520,365);
  f.socket.emit('token:move',{tokenId:varis.id,x:430,y:340});
- await expect.poll(async()=>(await tokenView(page,varis.id))?.miniatureReady).toBe(true);
+ await expect.poll(async()=>(await personalTokenView(page,varis.id))?.miniatureReady).toBe(true);
  await page.screenshot({path:info.outputPath('02-visible-room.png')});if(movementDemo)await page.waitForTimeout(2400);
  const visible=await sample();expect(Math.max(...visible)-Math.min(...visible)).toBeGreaterThan(8);
  await dragTo(520,475);await dragTo(430,475);
- await expect.poll(()=>tokenView(page,varis.id)).toBeNull();
+ await expect.poll(()=>personalTokenView(page,varis.id)).toBeNull();
  const remembered=await sample();expect(Math.max(...remembered)-Math.min(...remembered)).toBeLessThan(3);
  expect(Math.min(...remembered)).toBeGreaterThan(Math.max(...unseen)+5);
  await page.screenshot({path:info.outputPath('03-remembered-room.png')});if(movementDemo)await page.waitForTimeout(3500);
  const partyContext=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
  try {
   const other=await partyContext.newPage();await enter(other,f.code,'Vanec',false);
-  await expect.poll(async()=>(await tokenView(other,vanec.id))?.miniatureReady).toBe(true);
-  expect(await tokenView(other,varis.id)).toBeNull();
+  await expect.poll(async()=>(await personalTokenView(other,vanec.id))?.miniatureReady).toBe(true);
+  expect(await personalTokenView(other,varis.id)).toBeNull();
   const shared=await sample(other,vanec);expect(Math.max(...shared)-Math.min(...shared)).toBeLessThan(3);expect(Math.min(...shared)).toBeGreaterThan(10);
   await other.screenshot({path:info.outputPath('05-shared-with-vanec.png')});
  }finally{await partyContext.close();}
@@ -2877,8 +2878,8 @@ test('explored dungeon terrain remains gray after retreat while creatures disapp
  await page.screenshot({path:info.outputPath('04-remembered-tilted.png')});if(movementDemo)await page.waitForTimeout(3000);
  // Reload reconnects and reclaims the same character; history comes from the server.
  await page.reload();await expect(page.getByTestId('player-hud')).toBeVisible();
- await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady).toBe(true);
- await expect.poll(()=>tokenView(page,varis.id)).toBeNull();
+ await expect.poll(async()=>(await personalTokenView(page,druk.id))?.miniatureReady).toBe(true);
+ await expect.poll(()=>personalTokenView(page,varis.id)).toBeNull();
  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await page.waitForTimeout(700);
  const reloaded=await sample();expect(Math.max(...reloaded)-Math.min(...reloaded)).toBeLessThan(3);expect(Math.min(...reloaded)).toBeGreaterThan(10);
  // The DM's explicit fog remains authoritative over remembered terrain.
@@ -2886,4 +2887,81 @@ test('explored dungeon terrain remains gray after retreat while creatures disapp
  await expect.poll(async()=>Math.max(...await sample())).toBeLessThan(10);
  expect(errors).toEqual([]);
  writeFileSync(info.outputPath('terrain-memory-result.json'),JSON.stringify({unseen,visible,remembered,tilted,reloaded,errors},null,2));
+});
+
+
+async function personalTokenView(page:Page,id:string){
+ const view=await tokenView(page,id);return view?.sharedSightOnly?null:view;
+}
+
+test('shared creature awareness stays grayscale and noninteractive until personal sight, then vanishes with last observer',async({page,request,browser},info)=>{
+ test.setTimeout(180000);await page.setViewportSize({width:1500,height:1000});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
+ const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png')),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140.2,locked:false});
+ f.socket.emit('token:move',{tokenId:druk.id,x:430,y:475});f.socket.emit('token:move',{tokenId:varis.id,x:350,y:475});f.socket.emit('token:move',{tokenId:vanec.id,x:1000,y:720});
+ const rects=[[250,80,600,102],[250,102,273,428],[273,405,493,427],[543,405,600,427],[578,102,600,285],[578,335,600,405]];
+ rects.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:`room-${i}`,kind:'rectangle',ax,ay,bx,by}}));
+ f.socket.emit('monster:create',{name:'Room sentry',maxHp:15,modelType:'goblin',disposition:'enemy'});
+ const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Room sentry')!;
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:380,y:250});
+ const enemy=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+ f.socket.emit('character:update',{characterId:druk.refId,weapons:[{name:'Greatsword',kind:'melee',damage:'2d6',attackBonus:5}]});
+ await enter(page,f.code,'Druk',false);
+ await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+ expect(await tokenView(page,enemy.id)).toBeNull();
+ await page.getByTitle('Zoom in',{exact:true}).click();await page.getByTitle('Zoom in',{exact:true}).click();await afterPaint(page);
+ await page.screenshot({path:info.outputPath('01-before-discovery.png')});if(movementDemo)await page.waitForTimeout(1500);
+ // A separate player's scout enters the room, leaving Druk outside its walls.
+ f.socket.emit('token:move',{tokenId:varis.id,x:430,y:340});
+ await expect.poll(async()=>(await tokenView(page,enemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
+ await expect(page.getByTestId('shared-sight-miniatures')).toHaveAttribute('data-token-ids',new RegExp(enemy.id));
+ await expect(page.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(0);
+ const sharedNode=()=>page.evaluate(id=>{const node=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);return node?{layer:node.getLayer().name(),listening:node.isListening()}:null;},enemy.id);
+ expect(await sharedNode()).toEqual({layer:'shared-sight-layer',listening:false});
+ const ghost=(await tokenView(page,enemy.id))!;await page.mouse.click(ghost.x,ghost.y,{button:'right'});
+ await expect(page.locator('.floating-menu')).toHaveCount(0);
+ await afterPaint(page);await page.screenshot({path:info.outputPath('02-shared-overhead.png')});if(movementDemo)await page.waitForTimeout(2500);
+ // Verify actual rendered pixels, not only scene membership or the snapshot flag.
+ const rgba=await page.getByTestId('shared-sight-miniatures').evaluate((canvas:HTMLCanvasElement)=>{
+  const data=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;let count=0;for(let i=3;i<data.length;i+=4)if(data[i]>40)count++;return count;
+ });expect(rgba).toBeGreaterThan(100);
+ await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await page.waitForTimeout(850);
+ await page.screenshot({path:info.outputPath('03-shared-tilted.png')});if(movementDemo)await page.waitForTimeout(2500);
+ // The 2D fallback has the identical awareness and input rules.
+ await page.getByRole('button',{name:'2D monster tokens',exact:true}).click();await afterPaint(page);
+ expect((await tokenView(page,enemy.id))?.bodyVisible).toBe(true);expect((await sharedNode())?.listening).toBe(false);
+ await page.screenshot({path:info.outputPath('04-shared-2d.png')});if(movementDemo)await page.waitForTimeout(1700);
+ await page.getByRole('button',{name:'3D monster tokens',exact:true}).click();
+ for(const heavyDarkness of [false,true]){
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness,mist:false,lights:[]}});
+  await expect(page.getByTestId('player-vision')).toHaveAttribute('data-heavy',String(heavyDarkness));
+  await expect(page.getByTestId('shared-sight-miniatures')).toHaveAttribute('data-token-ids',new RegExp(enemy.id));
+  await page.waitForTimeout(600);await page.screenshot({path:info.outputPath(heavyDarkness?'06-heavy-darkness.png':'05-dim-darkness.png')});if(movementDemo)await page.waitForTimeout(1800);
+ }
+ // Another real player has personal sight of the same creature.
+ const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
+ try{const scout=await ctx.newPage();await enter(scout,f.code,'Varis',false);
+  await expect.poll(async()=>(await tokenView(scout,enemy.id))?.miniatureReady).toBe(true);
+  await expect(scout.getByTestId('shared-sight-miniatures')).not.toHaveAttribute('data-token-ids',new RegExp(enemy.id));
+  await scout.screenshot({path:info.outputPath('07-scout-personal-view.png')});
+ }finally{await ctx.close();}
+ // Druk enters: the gray sighting becomes a normal interactive creature.
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:false}});
+ f.socket.emit('token:move',{tokenId:druk.id,x:520,y:365});
+ await expect.poll(async()=>(await sharedNode())?.layer).toBe('miniature-hud-layer');
+ expect((await sharedNode())?.listening).toBe(true);
+ await expect(page.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(1);
+ await page.screenshot({path:info.outputPath('08-personal-sight.png')});if(movementDemo)await page.waitForTimeout(2000);
+ const directView=(await tokenView(page,enemy.id))!;await page.mouse.click(directView.x,directView.y,{button:'right'});
+ await expect(page.locator('.floating-menu')).toBeVisible();
+ f.socket.emit('token:move',{tokenId:druk.id,x:430,y:475});
+ await expect.poll(async()=>(await sharedNode())?.listening).toBe(false);
+ await expect(page.locator('.floating-menu')).toHaveCount(0);
+ await expect(page.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(0);
+ f.socket.emit('token:move',{tokenId:varis.id,x:350,y:475});
+ await expect.poll(()=>tokenView(page,enemy.id)).toBeNull();
+ await expect(page.getByTestId('shared-sight-miniatures')).not.toHaveAttribute('data-token-ids',new RegExp(enemy.id));
+ await page.screenshot({path:info.outputPath('09-enemy-gone-terrain-remembered.png')});if(movementDemo)await page.waitForTimeout(2500);
+ expect(errors).toEqual([]);writeFileSync(info.outputPath('shared-sight-result.json'),JSON.stringify({renderedPixels:rgba,noninteractive:true,personalSightRestored:true,lastObserverLoss:true,errors},null,2));
 });

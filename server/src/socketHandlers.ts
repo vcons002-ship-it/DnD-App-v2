@@ -322,7 +322,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               // mutations are queued; newly joined viewers get a fresh decision.
               if(!audienceCache.has(id)) {
                 const view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
-                audienceCache.set(id,!!view&&sources.every(source=>view.tokens.some(t=>t.kind===source!.kind&&t.refId===source!.refId)));
+                audienceCache.set(id,!!view&&sources.every(source=>view.tokens.some(t=>!t.sharedSightOnly&&t.kind===source!.kind&&t.refId===source!.refId)));
               }
               return audienceCache.get(id)!;
             });
@@ -1120,11 +1120,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     // Casting and applying a roll may only target a token in the caller's
     // current, role-shaped map. Reuse visibility shaping so hidden/fog/staged
     // tokens cannot be attacked by replaying an old or guessed token id.
-    const canTargetSpellToken = (tokenId: string): boolean => {
+    const canDirectlyTargetToken = (tokenId: string): boolean => {
       const conn = commandConnection();
       if (!conn) return false;
       const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, socket.id, conn.playerId);
-      return !!snapshot?.tokens.some((token) => token.id === tokenId);
+      return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly);
     };
 
     on('resource:set', ({ characterId, group, key, max, used, remove, preserveMax }) => {
@@ -1306,8 +1306,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const tgt = typeof targetTokenId === 'string' ? targetTokenId : undefined;
-      if (tgt !== undefined && !canTargetSpellToken(tgt)) {
-        socket.emit('notice', { message: 'That target is no longer available on this map. Select it again.' });
+      if (tgt !== undefined && !canDirectlyTargetToken(tgt)) {
+        socket.emit('notice', { message: 'Choose a creature you can see yourself. Party sightings cannot be targeted.' });
         return;
       }
       const cast = typeof castLevel === 'number' && Number.isFinite(castLevel)
@@ -1590,7 +1590,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (typeof rollId !== 'string' || typeof tokenId !== 'string') return;
       // Caster ownership never grants access to another session's source roll.
       const entry = getRollEntry(rollId, sid);
-      if (!entry?.apply || !canTargetSpellToken(tokenId)) return;
+      if (!entry?.apply || !canDirectlyTargetToken(tokenId)) return;
       const owner = entry.apply.owner;
       const caster = owner ? getCharacter(owner) : null;
       const allowed =
@@ -1971,6 +1971,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on(
       'combat:attack',
       ({ attackerTokenId, targetTokenId, weaponIndex, advantage, offhand, twoHanded }) => {
+        if (!isDm() && !canDirectlyTargetToken(targetTokenId)) {
+          socket.emit('notice', {message:'You must see this creature yourself to target it. Party sightings are for awareness only.'});
+          return;
+        }
         const sid = sessionId();
         if (!sid) return;
         const at = getToken(attackerTokenId);
@@ -2045,7 +2049,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid=sessionId(); if(!sid||!canEditCreature(kind,refId)) return;
       const ch=kind==='pc'?getCharacter(refId):getMonster(refId);
       const ab=ch?.sheetAbilities.find(a=>a.id===abilityId);
-      if(!ab||(!isDm()&&!buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===targetTokenId))) return;
+      if(!ab||!canDirectlyTargetToken(targetTokenId)) return;
       if(!castMark(sid,kind,refId,ab,targetTokenId,1,true)) socket.emit('notice',{message:'The mark can move only after its target reaches 0 HP, to a visible creature within 90 feet.'});
       afterChange();
     });
@@ -2055,8 +2059,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const apply=getRollEntry(rollId,sid)?.apply;
       const owner=apply?.owner ? getCharacter(apply.owner) : null;
       if (!isDm() && (!owner || owner.claimedBy !== socket.id)) return;
-      if (!end && (typeof targetTokenId !== 'string' || (!isDm() &&
-        !buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===targetTokenId)))) {
+      if (!end && (typeof targetTokenId !== 'string' || !canDirectlyTargetToken(targetTokenId))) {
         socket.emit('notice',{message:'Choose a visible creature for the orb.'}); return;
       }
       const result=resolveOrbLeap(sid,rollId,targetTokenId,!!end);
@@ -2069,7 +2072,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || typeof opportunityId !== 'string') return;
       const offer = listRipostes(sid).find(o => o.id === opportunityId);
       const ch = offer ? getCharacter(offer.owner) : null;
-      if (!ch || (!isDm() && ch.claimedBy !== socket.id)) return;
+      if (!ch || (!isDm() && (ch.claimedBy !== socket.id || (!pass && !canDirectlyTargetToken(offer!.attackerTokenId))))) return;
       const result = resolveRiposte(sid, isDm() ? 'DM' : ch.name, opportunityId, weaponIndex, !!pass);
       if (!result.ok) socket.emit('notice', {message: result.reason});
       afterChange();

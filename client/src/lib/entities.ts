@@ -101,6 +101,7 @@ export const sameConditions = (a: Condition[], b: Condition[]): boolean =>
   );
 
 export const sameTokenFields = (a: Token, b: Token): boolean =>
+  a.sharedSightOnly === b.sharedSightOnly &&
   a.id === b.id &&
   a.kind === b.kind &&
   a.refId === b.refId &&

@@ -85,9 +85,10 @@ describe('saved personal wall visibility',()=>{
   for(const settings of [{heavyDarkness:true},{heavyDarkness:false},{lighting:'day' as const},{enabled:false}]){
    updateMapEnvironment(f.session.id,f.map.id,settings);
    const west=buildSnapshot(f.session.id,'player',null,'west')!,east=buildSnapshot(f.session.id,'player',null,'east')!;
-   expect(west.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
-   expect(west.monsters.some(m=>m.id===f.enemy.refId)).toBe(false);
-   expect(east.tokens.some(t=>t.id===f.enemy.id)).toBe(true);
+   expect(west.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(false);
+   expect(west.tokens.find(t=>t.id===f.enemy.id)?.sharedSightOnly).toBe(true);
+   expect(west.monsters.some(m=>m.id===f.enemy.refId)).toBe(true);
+   expect(east.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(true);
    expect(visionContains(west.playerVision,850,500)).toBe(false);
    expect(buildSnapshot(f.session.id,'dm',f.map.id)!.tokens).toHaveLength(3);
   }
@@ -106,7 +107,7 @@ describe('saved personal wall visibility',()=>{
  it('does not expose an unseen carrier through the light payload',()=>{
   const f=fixture();db.prepare('UPDATE tokens SET carried_lantern = 1 WHERE id = ?').run(f.enemy.id);
   const west=buildSnapshot(f.session.id,'player',null,'west')!;
-  expect(west.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  expect(west.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(false);
   expect(west.playerVision!.lights.some(l=>l.id===f.enemy.id)).toBe(false);
   expect(buildSnapshot(f.session.id,'player',null,'east')!.playerVision!.lights.some(l=>l.id===f.enemy.id)).toBe(true);
  });
@@ -114,7 +115,7 @@ describe('saved personal wall visibility',()=>{
   const f=fixture();editMapWalls(f.session.id,f.map.id,{removeId:wall.id});
   editMapWalls(f.session.id,f.map.id,{add:{...wall,by:380}});editMapWalls(f.session.id,f.map.id,{add:{...wall,id:'lower',ay:460}});
   moveToken(f.enemy.id,850,400);
-  const seen=()=>buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id);
+  const seen=()=>buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly);
   expect(seen()).toBe(true);moveToken(f.west.id,500,800);expect(seen()).toBe(false);
   moveToken(f.west.id,500,400);expect(seen()).toBe(true);
   setTokenHidden(f.enemy.id,true);expect(seen()).toBe(false);setTokenHidden(f.enemy.id,false);
@@ -196,15 +197,15 @@ describe('doors incorporated into walls',()=>{
   // Put the observer very far away on a clear line through the doorway.
   moveToken(f.west.id,-10000,400);moveToken(f.enemy.id,850,400);
   expect(editMapWalls(f.session.id,f.map.id,{door:{wallId:wall.id,id:'door',ax:700,ay:300,bx:700,by:600}})).toBeNull();
-  expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(false);
   expect(setWallDoor(f.session.id,f.map.id,'door',true)).toBeNull();
   const snap=buildSnapshot(f.session.id,'player',null,'west')!;
   expect(snap.playerVision?.daylight).toBe(true);
-  expect(snap.tokens.some(t=>t.id===f.enemy.id)).toBe(true);
+  expect(snap.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(true);
   const restored=importSession(exportSession(f.session.code)!);
   expect(listMaps(getSessionByCode(restored.code)!.id)[0].walls?.find(w=>w.id==='door')?.open).toBe(true);
   expect(setWallDoor(f.session.id,f.map.id,'door',false)).toBeNull();
-  expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(false);
   setWallDoor(f.session.id,f.map.id,'door',true);moveToken(f.west.id,700,400);
   expect(setWallDoor(f.session.id,f.map.id,'door',false)).toContain('clear');
   expect(getMap(f.map.id)!.walls!.find(w=>w.id==='door')!.open).toBe(true);

@@ -119,6 +119,9 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  /** Viewer-only live party awareness. Render grayscale; never a direct target.
+   * Not stored on tokens or retained after the party loses sight of a creature. */
+  sharedSightOnly?: boolean;
   /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
   revealTag?: string;
   id: string;

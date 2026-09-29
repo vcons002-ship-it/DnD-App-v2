@@ -29,6 +29,7 @@ import {
 } from './miniatureProjection';
 
 export type MiniatureToken = {
+  sharedSightOnly?: boolean;
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   carriedLantern?: boolean;
@@ -159,12 +160,23 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const outlineResolution = {value: new Vector2(1, 1)};
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
+  // Copy only the party-awareness pass above the personal vision cover. Reuse
+  // this renderer and its loaded assets; never copy terrain, lights or effects.
+  const sharedCanvas=document.createElement('canvas');
+  sharedCanvas.dataset.testid='shared-sight-miniatures';
+  sharedCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;filter:grayscale(1);opacity:.78';
+  host.parentElement?.appendChild(sharedCanvas);
+  const sharedContext=sharedCanvas.getContext('2d')!;
+  const sharedDepth=new MeshBasicMaterial({colorWrite:false});
+  let sharedFrameKey='';
+  const labelVersions=new WeakMap<HTMLCanvasElement,number>();let nextLabelVersion=0;
 
   const ambient = new HemisphereLight(0xe5edff, 0x726856, NEUTRAL_MINIATURE_LIGHTING.ambient);
   scene.add(ambient);
   const key = new DirectionalLight(0xffeddb, NEUTRAL_MINIATURE_LIGHTING.key);
   key.position.set(-3, 8, 5);
   scene.add(key);
+  ambient.layers.enable(4);key.layers.enable(4);
   // A small neutral environment keeps metal readable without per-token lights/shadows.
   let pmrem: PMREMGenerator | null = null;
   let room: RoomEnvironment | null = null;
@@ -176,6 +188,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environment = environment.texture;
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
+    sharedCanvas.remove();sharedDepth.dispose();names.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
@@ -327,7 +340,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const instance=instances.get(token.id);
         const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
         const body=instance?.mistBody?mistBodyInMap(instance.mistBody,x,y,instance.root.rotation.y,instance.root.scale.x):undefined;
-        return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden};
+        return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden && !token.sharedSightOnly};
       }));
       if(battlefield){
         const ppf=props.environmentPreview?.pixelsPerFoot??12.8;
@@ -349,11 +362,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
-        const renderedNames=names.sync(props.nameLabels?.()??[],visible);
+        const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
+        const labels=props.nameLabels?.()??[];
+        const renderedNames=names.sync(labels,visible,sharedIds);
         if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
@@ -364,8 +379,41 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
         }
+        // Shared figures cannot cast shadows or light the viewer's actual map.
+        // A depth-only pass of personal figures preserves overlap ordering.
+        const sw=renderer.domElement.width,sh=renderer.domElement.height;
+        if(sharedCanvas.width!==sw||sharedCanvas.height!==sh){sharedCanvas.width=sw;sharedCanvas.height=sh;}
+        sharedCanvas.dataset.tokenIds=[...sharedIds].filter(id=>visible.has(id)).join(',');
+        sharedCanvas.style.display=sharedCanvas.dataset.tokenIds?'block':'none';
+        // Static awareness need not redraw for weather or torch flicker. Camera,
+        // pose, name, appearance and foreground occlusion changes invalidate it.
+        const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
+          props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
+          labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
+        if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
+          sharedFrameKey=sharedKey;sharedContext.clearRect(0,0,sw,sh);
+          if(sharedIds.size){
+            const layers=camera.layers.mask,autoClear=renderer.autoClear;
+            const ambientIntensity=ambient.intensity,keyIntensity=key.intensity,reflection=scene.environmentIntensity;
+            const shadowUpdate=renderer.shadowMap.needsUpdate;
+            renderer.shadowMap.needsUpdate=false;
+            camera.layers.set(5);scene.overrideMaterial=sharedDepth;
+            renderer.render(scene,camera);
+            scene.overrideMaterial=null;camera.layers.set(4);renderer.autoClear=false;
+            ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
+            scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
+            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,false,[]);}
+            renderer.render(scene,camera);
+            sharedContext.drawImage(renderer.domElement,0,0);
+            camera.layers.mask=layers;renderer.autoClear=autoClear;
+            ambient.intensity=ambientIntensity;key.intensity=keyIntensity;scene.environmentIntensity=reflection;
+            renderer.shadowMap.needsUpdate=shadowUpdate;
+          }
+        }
+        for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
+        for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();
         if (battlefield) {
           paintCount++;
@@ -452,6 +500,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if(battlefield && (instance.root.visible!==visible || instance.root.scale.x!==factor))renderer.shadowMap.needsUpdate=true;
     instance.root.scale.setScalar(factor);
     const model = instance.root.children[0];
+    model.traverse(node=>{
+      if(!(node instanceof Mesh)||node.name==='disposition-outline')return;
+      node.layers.disable(4);node.layers.disable(5);
+      node.layers.enable(token.sharedSightOnly?4:5);
+    });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     const position = moves.get(token.id) ?? token;
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
@@ -496,7 +549,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     });
     {
       if(battlefield&&!instance.mistBody)instance.mistBody=instance.measureBody();
-      const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden;
+      const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden && !token.sharedSightOnly;
       model.traverse(node=>{if(node instanceof Mesh && node.name !== 'disposition-outline'){
         const opaque=(Array.isArray(node.material)?node.material:[node.material]).every(material=>!material.transparent);
         if(node.castShadow !== (casts && opaque))renderer.shadowMap.needsUpdate=true;
@@ -734,6 +787,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
+    sharedCanvas.remove();sharedDepth.dispose();
     battlefield?.dispose();battlefield=null;
     localShadows.dispose();
     timing?.dispose();
@@ -844,6 +898,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   useEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}
+    data-personal-miniature-count={state.ids.filter(id=>!props.tokens.find(t=>t.id===id)?.sharedSightOnly).length}
     data-miniature-ids={state.ids.join(',')} data-miniature-status={state.status}
     data-tilt-degrees={props.tiltDegrees} />;
 });

@@ -19,6 +19,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   app in overhead/45-degree views and a second player session.
   See [behavior and verification](docs/EXPLORED_TERRAIN_2026_09_29.md).
 
+- [x] Keep party members known in grayscale outside personal sight. Share live
+  enemy sightings as grayscale, display-only figures; remove them when the last
+  party observer loses sight. Block direct targeting in the UI and server.
+  Reuse loaded 2D/3D assets and preserve fog, walls, personal lighting and DM hiding.
+  See [creature awareness](docs/SHARED_CREATURE_SIGHT_2026_09_29.md).
+
 ## Live dice modifier presentation - September 2026
 
 - [x] After live dice settle, reveal labeled attack/check and damage modifiers

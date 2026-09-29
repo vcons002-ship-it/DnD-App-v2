@@ -5,7 +5,11 @@ import {wallVisibilityPolygon,SIGHT_EXTENT} from '../../shared/mapWalls.js';
 import type {ExploredTerrain} from '../../shared/exploration.js';
 import type {MapState,MapImage,Token} from '../../shared/types.js';
 
-const union=(parts:ExploredTerrain[])=>parts.length?clipping.union(parts[0],...parts.slice(1)):[];
+// Boolean intersections also introduce fractional vertices into saved history.
+// Normalize BOTH old history and new sight before the next union, otherwise
+// successive thick-door openings can leave near-coincident dangling edges.
+const quantize=(shape:ExploredTerrain):ExploredTerrain=>shape.map(p=>p.map(r=>r.map(([x,y])=>[Math.round(x*64)/64,Math.round(y*64)/64])));
+const union=(parts:ExploredTerrain[])=>parts.length?clipping.union(quantize(parts[0]),...parts.slice(1).map(quantize)):[];
 const polygon=(vision:PlayerVision,point:{x:number;y:number},radius:number):ExploredTerrain=>
  // Quantize below a displayed pixel before Boolean operations. Near-identical
  // corner rays at the very distant daylight boundary otherwise accumulate

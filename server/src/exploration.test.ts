@@ -3,7 +3,7 @@ import {db} from './db.js';
 import {buildSnapshot} from './visibility.js';
 import {clearExplorationCache,visibleTerrain} from './exploration.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,moveToken,setFogLayer,setFogRevealed,updateMapEnvironment,getSessionByCode,listMaps,listCharacters} from './sessions.js';
-import {editMapWalls} from './mapWalls.js';
+import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {exportSession,importSession} from './backup.js';
 import type {ExploredTerrain} from '../../shared/exploration.js';
 
@@ -27,6 +27,22 @@ function fixture(){
  return {s,map,a,b,ta,enemy,snap};
 }
 describe('persistent shared party terrain memory',()=>{
+ it('merges fractional thick-door openings across repeated movement and closure',()=>{
+  const warnings=vi.spyOn(console,'warn').mockImplementation(()=>{});
+  try {
+   for(const edge of [419.46875,419.473684,420,419.47]){
+    const f=fixture();editMapWalls(f.s.id,f.map.id,{removeId:'partition'});
+    editMapWalls(f.s.id,f.map.id,{add:{id:'thick',kind:'rectangle',ax:450,ay:-2000,bx:470,by:2000}});
+    editMapWalls(f.s.id,f.map.id,{door:{wallId:'thick',id:'door',ax:460,ay:300.526316,bx:460,by:edge}});
+    const other=buildSnapshot(f.s.id,'dm',f.map.id)!.tokens.find(t=>t.refId===f.b.id)!;
+    moveToken(other.id,600,360);
+    for(let pass=0;pass<3;pass++)for(const x of [300,380,530,380]){
+     moveToken(f.ta.id,x,360);setWallDoor(f.s.id,f.map.id,'door',pass%2===0);f.snap();
+    }
+   }
+   expect(warnings).not.toHaveBeenCalled();
+  }finally{warnings.mockRestore();}
+ });
  it('leaves an unobstructed non-dark map fully visible in color, while explicit fog still hides tokens',()=>{
   const f=fixture();editMapWalls(f.s.id,f.map.id,{removeId:'partition'});
   const snap=f.snap();expect(snap.playerVision).toBeUndefined();expect(snap.tokens.some(t=>t.id===f.enemy.id)).toBe(true);

@@ -12,7 +12,7 @@ export function validTargets(snapshot: StateSnapshot, attacker: Token): Token[] 
   return snapshot.tokens.filter(
     (t) =>
       t.mapId === attacker.mapId && t.id !== attacker.id &&
-      (snapshot.role !== 'player' || !isFriendly(snapshot, t)),
+      (snapshot.role !== 'player' || (!t.sharedSightOnly && !isFriendly(snapshot, t))),
   ).sort((a, b) => tokenDistanceFt(attacker, a, snapshot.map) - tokenDistanceFt(attacker, b, snapshot.map) || targetLabel(snapshot, a).localeCompare(targetLabel(snapshot, b)));
 }
 
@@ -32,7 +32,7 @@ export function healTargets(snapshot: StateSnapshot, caster: Token): Token[] {
     ...snapshot.tokens.filter(
       (t) =>
         t.id !== caster.id &&
-        (snapshot.role !== 'player' || isFriendly(snapshot, t)),
+        (snapshot.role !== 'player' || (!t.sharedSightOnly && isFriendly(snapshot, t))),
     ),
   ];
 }

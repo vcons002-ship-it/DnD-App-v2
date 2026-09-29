@@ -1,7 +1,9 @@
 # Shared explored terrain
 
-Players share one explored map, while current line of sight and creature
-visibility remain personal. This is enabled automatically with wall/darkness
+Players share one explored map, while current line of sight remains personal.
+Live party creature awareness is described in the
+[follow-up implementation](SHARED_CREATURE_SIGHT_2026_09_29.md).
+Terrain memory is enabled automatically with wall/darkness
 vision. The display has three states:
 
 - Currently visible: existing map colors, lighting, darkvision and effects.
@@ -39,14 +41,13 @@ only on geometry/camera changes, rather than every light flicker.
 
 Memory contains only map images and the grid. It does not include miniatures,
 names, health, doors' interactive controls, annotations, spell effects, moving
-lights or other live scene objects. Token filtering, target lists, reveal tags
-and interaction permissions continue using current personal sight. A party
-member exploring a room lets others remember its layout without revealing
-creatures through walls.
+lights or other live scene objects. Direct targeting continues using personal
+sight. The follow-up creature-awareness layer shows current party sightings
+in grayscale, without storing them in terrain memory.
 
 ## Verification
 
-- Server tests cover shared exploration without shared enemy visibility,
+- Server tests cover shared exploration without retaining unseen enemies,
   no-wall daylight, DM fog, darkvision range, distant lights, cache loss,
   reconnect, map switches, replaced art, backup/restore and repeated doorway
   walks without polygon-clipping errors.
@@ -54,8 +55,8 @@ creatures through walls.
   exact pixel colors before/during/after exploration, verifies hidden figures,
   compares overhead/45-degree memory alignment, opens a separate Vanec player
   session to verify shared memory, reloads, then verifies explicit DM fog wins.
-- Test name: `explored dungeon terrain remains gray after retreat while
-  creatures disappear in overhead and tilted views` in
+- Test name: `explored dungeon terrain remains gray after retreat and party
+  figures leave personal sight in both views` in
   `e2e/miniature-battlefield.spec.ts`. Set `DND_MOVEMENT_DEMO=1` to record.
 - All app tests use a disposable database; the live campaign is unchanged.
 

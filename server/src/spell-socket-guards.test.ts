@@ -8,6 +8,9 @@ import {
   setManualDamage, setFogLayer,
 } from './sessions.js';
 import { getSpell } from './spells/srd.js';
+import {editMapWalls} from './mapWalls.js';
+import {buildSnapshot} from './visibility.js';
+import {moveToken,updateCharacter} from './sessions.js';
 import type { SheetAbility } from '../../shared/types.js';
 
 const connected: string[] = [];
@@ -48,6 +51,32 @@ function fixture() {
 }
 
 describe('spell socket target and ownership boundaries', () => {
+  it('rejects shared-only weapon, spell and damage target requests without spending resources, and permits personal sight',()=>{
+    const f=fixture(),client=harness(f.session.id,f.map.id),target=f.target();
+    claimCharacter(f.caster.id,client.id);
+    updateCharacter(f.caster.id,{weapons:[{name:'Dagger',kind:'melee',damage:'1d4',attackBonus:5}]});
+    const actor=createToken({mapId:f.map.id,kind:'pc',refId:f.caster.id,x:50,y:100});
+    const scout=createCharacter(f.session.id,{name:'Scout'});
+    createToken({mapId:f.map.id,kind:'pc',refId:scout.id,x:150,y:150});
+    editMapWalls(f.session.id,f.map.id,{add:{id:'wall',ax:75,ay:-1000,bx:75,by:1000}});
+    expect(buildSnapshot(f.session.id,'player',null,client.id)!.tokens.find(t=>t.id===target.token.id)?.sharedSightOnly).toBe(true);
+    const slots=getCharacter(f.caster.id)!.spellSlots;
+    client.send('combat:attack',{attackerTokenId:actor.id,targetTokenId:target.token.id,weaponIndex:0});
+    client.send('ability:roll',{kind:'pc',refId:f.caster.id,abilityId:f.ability.id,castLevel:1,targetTokenId:target.token.id});
+    expect(listRollLog(f.session.id)).toEqual([]);expect(getCharacter(f.caster.id)!.spellSlots).toEqual(slots);
+    const rays={...getSpell('Scorching Ray')!,id:'rays'};setSheetAbility('pc',f.caster.id,rays);
+    client.send('ability:roll',{kind:'pc',refId:f.caster.id,abilityId:rays.id,castLevel:2});
+    const cast=listRollLog(f.session.id).at(-1)!;
+    const before=getRollEntry(cast.id)!.apply;
+    client.send('save:resolve',{rollId:cast.id,tokenId:target.token.id,instanceIndex:0});
+    expect(getRollEntry(cast.id)!.apply).toEqual(before);expect(getMonster(target.monster.id)!.curHp).toBe(40);
+    moveToken(actor.id,120,100);
+    client.send('save:resolve',{rollId:cast.id,tokenId:target.token.id,instanceIndex:0});
+    expect(getRollEntry(cast.id)!.apply?.consumedAttacks).toBe(1);
+    const count=listRollLog(f.session.id).length;
+    client.send('combat:attack',{attackerTokenId:actor.id,targetTokenId:target.token.id,weaponIndex:0});
+    expect(listRollLog(f.session.id).length).toBeGreaterThan(count);
+  });
   it('sends one visible cast pulse for a cantrip and a leveled spell, never for individual beam hits', () => {
     const f = fixture(), client = harness(f.session.id, f.map.id), target = f.target();
     claimCharacter(f.caster.id, client.id);
