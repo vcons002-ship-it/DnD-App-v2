@@ -4,7 +4,7 @@ import type {MiniatureDefinition} from '../lib/miniatures';
 import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 
-export type TorchLight = {id:string;x:number;y:number;height:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number};
+export type TorchLight = {id:string;x:number;y:number;height:number;fixtureHeight?:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
@@ -66,12 +66,12 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
 }
 
 /** Sample the side of the belt, before adding outline shells or accessories. */
-export function measureLanternAnchor(model:Group,definition:MiniatureDefinition){
+export function measureLanternAnchors(model:Group,definition:MiniatureDefinition){
   model.updateMatrixWorld(true);
   let body:Object3D|undefined;
   model.traverse(node=>{if(!body && /body/i.test(node.name))body=node;});
   const d=definition.baseDiameter,base=new Vector3().fromArray(definition.baseCenter);
-  if(!body)return new Vector3(-d*.28,d*.75,d*.10);
+  if(!body)return {hip:new Vector3(-d*.28,d*.75,d*.10),chestHeight:d*1.15};
   const bounds=new Box3().setFromObject(body),height=bounds.max.y-bounds.min.y;
   const waist=bounds.min.y+height*.52,point=new Vector3(),samples:Vector3[]=[];
   body.traverse(node=>{
@@ -89,5 +89,5 @@ export function measureLanternAnchor(model:Group,definition:MiniatureDefinition)
   const x=xs.length?xs[Math.floor((xs.length-1)*.05)]:base.x-d*.28;
   const side=samples.filter(p=>p.x<=x+d*.065).map(p=>p.z).sort((a,b)=>a-b);
   // A slightly forward-facing hip position stays clear of the belt's center.
-  return new Vector3(x,waist,side.length?side[Math.floor((side.length-1)*.68)]:base.z+d*.10).sub(base);
+  return {hip:new Vector3(x,waist,side.length?side[Math.floor((side.length-1)*.68)]:base.z+d*.10).sub(base),chestHeight:bounds.min.y+height*.73-base.y};
 }

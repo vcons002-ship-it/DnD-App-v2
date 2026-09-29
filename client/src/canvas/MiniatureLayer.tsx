@@ -19,7 +19,7 @@ import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from '.
 import {createPreviewGpuTiming} from './previewGpuTiming';
 import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
-import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
+import {createMiniatureTorchLighting,measureLanternAnchors} from './miniatureTorchLighting';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {
@@ -71,6 +71,7 @@ type FxManifest = {
 type Instance = {
   baseDiameter:number;
   lanternAnchor:Vector3;
+  lanternChestHeight:number;
   torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
   measureBody: () => MistBody;
   root: Group;
@@ -325,17 +326,17 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           if(!(props.isVisibleAt?.(token.id,x,y)??true))return [];
           if(instance){
             const belt=instance.root.localToWorld(instance.lanternAnchor.clone()),facing=instance.root.rotation.y;
-            return [{id:token.id,x:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,y:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:belt.y-ppf*.52,facing}];
+            return [{id:token.id,x:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,y:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:instance.root.position.y+instance.lanternChestHeight*instance.root.scale.y,fixtureHeight:belt.y-ppf*.52,facing}];
           }
           const facing=move?.facing??token.facing,dx=-token.diameter*.30,dz=token.diameter*.10;
-          return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*2.8,facing}];
+          return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*4.3,fixtureHeight:ppf*2.8,facing}];
         }));
         battlefield.tick(reducedMotion.matches?0:seconds);
         props.onVisionLights?.(battlefield.lighting.lights);
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
@@ -551,7 +552,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // Animated source transforms remain intact below this base-centering group.
         const centered = new Group();
         const model = gltf.scene.clone(true);
-        const lanternAnchor=measureLanternAnchor(model,definition),torchLighting=createMiniatureTorchLighting(localShadows.uniforms);
+        const lanternAnchors=measureLanternAnchors(model,definition),torchLighting=createMiniatureTorchLighting(localShadows.uniforms);
         centered.add(model); root.add(centered);
         // A ground-plane marker in the same depth buffer as the miniature:
         // body, base and weapons occlude its rear arc. It follows live drags
@@ -674,7 +675,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
-          baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
+          baseDiameter:definition.baseDiameter,lanternAnchor:lanternAnchors.hip,lanternChestHeight:lanternAnchors.chestHeight,torchLighting,
           root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),

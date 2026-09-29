@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {selectShadowLights,castsLocalShadow,compactShadowHeightScale,LOCAL_SHADOW_SOURCES} from '../../shared/localLightShadows.js';
+import {selectShadowLights,castsLocalShadow,compactShadowHeightScale,environmentalShadowSlope,LOCAL_SHADOW_SOURCES} from '../../shared/localLightShadows.js';
 const light=(id:string,x:number,y=100)=>({id,x,y,height:50,radius:200,strength:1});
 describe('local shadow light selection',()=>{
  it('fits the entire projected silhouette without a distance cutoff, including low lanterns',()=>{
@@ -8,9 +8,18 @@ describe('local shadow light selection',()=>{
    const scale=compactShadowHeightScale(lightHeight,distance,height,radius,diameter);
    const top=height*scale;
    expect(top).toBeLessThan(lightHeight);
-   expect((distance+radius)*top/(lightHeight-top)).toBeCloseTo(diameter*1.4,5);
+   expect((distance+radius)*top/(lightHeight-top)).toBeCloseTo(diameter*2.8,5);
   }
   expect(compactShadowHeightScale(1000,10,50,10,50)).toBe(1);
+ });
+ it('directs the environmental silhouette away from each light without changing its length',()=>{
+  const caster={x:100,y:100};
+  expect(environmentalShadowSlope({x:0,y:100},caster,1.3)).toEqual({x:1.3,y:0});
+  expect(environmentalShadowSlope({x:200,y:100},caster,1.3)).toEqual({x:-1.3,y:0});
+  expect(environmentalShadowSlope({x:100,y:0},caster,1.3)).toEqual({x:0,y:1.3});
+  const diagonal=environmentalShadowSlope({x:0,y:0},caster,1.3);
+  expect(Math.hypot(diagonal.x,diagonal.y)).toBeCloseTo(1.3);
+  expect(environmentalShadowSlope(caster,caster,1.3)).toEqual({x:0,y:0});
  });
  it('passes a carried lantern through its owner, without exempting other creatures or placed lights',()=>{
   const owner={id:'varis',x:100,y:100,visible:true},other={...owner,id:'druk',x:140};

@@ -680,7 +680,7 @@ test('dungeon torch shadows closeup',async({page,request},info)=>{
  const a=(await tokenView(page,druk.id))!;await page.mouse.move(a.x,a.y);for(let i=0;i<11;i++){await page.mouse.wheel(0,-100);await page.waitForTimeout(100);}
  const b=(await tokenView(page,druk.id))!;await page.mouse.move(1350,650);await page.mouse.down();await page.mouse.move(1350+760-b.x,650+440-b.y,{steps:20});await page.mouse.up();await page.mouse.move(1450,940);
  await page.evaluate(()=>{const e=document.createElement('div');e.id='shadow-caption';Object.assign(e.style,{position:'fixed',top:'110px',left:'50%',transform:'translateX(-50%)',padding:'10px 20px',background:'#111820ed',border:'1px solid #c8ab72',borderRadius:'6px',color:'#ffebbd',font:'20px Georgia',zIndex:'1000'});document.body.append(e);});
- const style=process.env.DND_SHADOW_STYLE??'full',title=style==='compact'?'A: Compressed full silhouette':style==='map'?'B: Map-matched environmental shadow':'C: Full local shadow, lighter';
+ const style=process.env.DND_SHADOW_STYLE??'full',title=style==='compact'?'A: Longer complete silhouette':style==='map'?'B: Environmental shape per light':'C: Full local shadow, lighter';
  for(const [name,label,on,x] of [['off','Shadows off - torch flicker remains active',false,1040],['on',title+' - torch left',true,1040],['opposite',title+' - torch right',true,1260]] as const){
   await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,label);
   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{shadows:on,lights:[{...torch,x}]}});
@@ -689,13 +689,21 @@ test('dungeon torch shadows closeup',async({page,request},info)=>{
  await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - Varis carries the light');
  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});f.socket.emit('token:setLantern',{tokenId:varis.id,enabled:true});
  await expect(layer).toHaveAttribute('data-carried-lantern-count','1');await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath('lantern.png')});
+ const lanternPosition=JSON.parse((await layer.getAttribute('data-carried-lantern-positions'))!)[0];
+ expect(lanternPosition.height).toBeGreaterThan(lanternPosition.fixtureHeight+5);
+ const lanternCasters=JSON.parse((await layer.getAttribute('data-local-shadow-casters'))!);
+ expect(lanternCasters[varis.id]).not.toContain(varis.id);expect(lanternCasters[varis.id]).toContain(druk.id);
+ await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - hip lantern, chest-height light');
+ await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath('lantern-tilted.png')});
+ await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+ writeFileSync(info.outputPath('lantern-height.json'),JSON.stringify(lanternPosition,null,2));
  f.socket.emit('token:setLantern',{tokenId:varis.id,enabled:false});
  const opposite={...torch,id:'east-torch',x:1260},north={...torch,id:'north-torch',x:1150,y:675};
  for(const [name,label,lights] of [['two','two lights: left + right',[torch,opposite]],['three','three lights: left + right + north',[torch,opposite,north]]] as const){
   await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - '+label);
   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[...lights]}});
   await expect(layer).toHaveAttribute('data-light-count',String(lights.length));
-  await expect(layer).toHaveAttribute('data-local-shadow-lights',String(style==='map'?0:lights.length));
+  await expect(layer).toHaveAttribute('data-local-shadow-lights',String(lights.length));
   await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath(name+'.png')});
  }
  await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - three lights, 45-degree view');

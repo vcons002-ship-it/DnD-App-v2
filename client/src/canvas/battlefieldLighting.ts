@@ -17,7 +17,7 @@ import {localCreatureShadowStrength} from './creatureShadowStyle';
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
 const colors={warm:new Color(0xffb258),cool:new Color(0x89bbff),green:new Color(0x85eab5)};
-export type CarriedLanternLight={id:string;x:number;y:number;height:number;facing:number};
+export type CarriedLanternLight={id:string;x:number;y:number;height:number;fixtureHeight:number;facing:number};
 export const torchFieldGlsl=`
   uniform sampler2D torchField;
   uniform vec4 torchBounds;
@@ -193,12 +193,12 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       scene.environmentIntensity=baseLight.reflection+flash*.45;
     }
     const ppf=settings.pixelsPerFoot??12.8;
-    const sources=[...(settings.lights??[]).map(l=>({...l,height:l.heightFt*ppf,carried:false,facing:0})),
+    const sources=[...(settings.lights??[]).map(l=>({...l,height:l.heightFt*ppf,fixtureHeight:l.heightFt*ppf,carried:false,facing:0})),
       ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:true,visibleTorch:false,fixture:'lantern' as const,carried:true}))];
     lights=plane.visible?sources.map(source=>{
       const seed=phase(source.id),f=Math.sin(time*6.3+seed)*.10+Math.sin(time*11.1+seed*3)*.06+Math.sin(time*2.7+seed)*.08;
       const color=colors[source.color];
-      return {id:source.id,x:source.x,y:source.y,height:source.height,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
+      return {id:source.id,x:source.x,y:source.y,height:source.height,fixtureHeight:source.fixtureHeight,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
         strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing};
     }):[];
     ensureCapacity(lights.length);let visible=0,lanterns=0;
@@ -209,7 +209,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
         const size=ppf*(light.carried?.8:1.2),angle=light.facing??0,c=Math.cos(angle),s=Math.sin(angle);
         const part=(mesh:InstancedMesh,index:number,x:number,y:number,z:number,w:number,h:number,d:number)=>{
           matrix.makeRotationY(angle).scale(new Vector3(w*size,h*size,d*size));
-          matrix.setPosition(light.x+(x*c+z*s)*size,light.height+y*size,light.y+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
+          matrix.setPosition(light.x+(x*c+z*s)*size,(light.fixtureHeight??light.height)+y*size,light.y+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
         };
         part(windows,lanterns,0,0,0,.48,.73,.32);
         windows.setColorAt(lanterns,new Color().setScalar(.85+light.strength*.15));
@@ -268,7 +268,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
       sceneTint:settings.sceneTint??'#ffffff',sceneTintStrength:plane.visible?settings.sceneTintStrength??0:0,sceneGradeOpacity:plane.visible?uniforms.gradeOpacity.value:0,
       wetGround:plane.visible?settings.groundWetness??0:0,lightningEnabled:plane.visible&&!!settings.lightning&&settings.weather==='rain',lightningFlash:fieldUniforms.stormFlash.value,
-      carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height})))};},
+      carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height,fixtureHeight:l.fixtureHeight})))};},
     dispose(){scene.remove(plane);plane.geometry.dispose();material.dispose();for(const mesh of [shafts,cups,flames,frames,windows,handles])if(mesh){scene.remove(mesh);mesh.dispose();}
       shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();wallSplats.geometry.dispose();fieldMaterial.dispose();restore();},
   };

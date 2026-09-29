@@ -1,5 +1,4 @@
 import {createDarkvisionTerrain} from './darkvisionTerrain';
-import {creatureShadowStyle} from './creatureShadowStyle';
 import {
   BoxGeometry, BufferGeometry, CanvasTexture, CylinderGeometry, Group,
   IcosahedronGeometry, Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFShadowMap,
@@ -387,7 +386,7 @@ export function createBattlefieldEnvironment(
       reach, cy - Math.sin(direction) * reach * length);
     keyLight.target.updateMatrixWorld();
     // Dungeon fill keeps surfaces readable; it is not a sun casting fixed shadows.
-    keyLight.castShadow = settings.shadows && (settings.lighting!=='dungeon'||creatureShadowStyle==='map');
+    keyLight.castShadow = settings.shadows && settings.lighting!=='dungeon';
     renderer.shadowMap.enabled = settings.shadows;
     renderer.shadowMap.type = PCFShadowMap;
     // Mist animation never refreshes this map. The parent marks moving/animated casters dirty.
