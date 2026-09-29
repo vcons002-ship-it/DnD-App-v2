@@ -231,3 +231,41 @@ test('natural twenty check rendering announces the face and retains the total',a
   await expect(page.getByRole('status',{name:'Natural 20 celebration'})).toHaveText('Nat 20!',{timeout:30_000});
   await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
 });
+
+// Deterministic presentation fixtures exercise every legacy result through the
+// live-physics UI. Only received presentation data is changed; game math is not.
+for(const outcome of ['hit','miss','crit','fumble','pass','fail'] as const){
+ test(`live result prominently announces ${outcome} before compacting`,async({page,request})=>{
+  await page.routeWebSocket(/socket\.io/,ws=>{
+   const upstream=ws.connectToServer();upstream.onMessage(message=>{
+    if(typeof message==='string'&&message.startsWith('42')){
+     const packet=JSON.parse(message.slice(2));
+     if(packet[0]==='state:snapshot'){
+      for(const row of packet[1].rollLog??[])if(row.reveal?.kind==='check'){
+       row.reveal={...row.reveal,kind:outcome==='pass'||outcome==='fail'?'check':'attack',
+        d20:outcome==='fumble'?1:outcome==='crit'?20:12,toHit:[{label:'STR',value:3}],
+        attackTotal:outcome==='fumble'?4:outcome==='crit'?23:15,outcome,physical:true,target:'Timing target T1'};
+      }
+      message='42'+JSON.stringify(packet);
+     }
+    }ws.send(message);
+   });
+  });
+  const f=await fixture(request,page);
+  await page.evaluate(()=>{const times:any={};(window as any).__stampTimes=times;const tick=()=>{const card=document.querySelector('.roll-reveal');if(card?.querySelector('[aria-label="Roll result"]')){times.stamp??=performance.now();if(card.getAttribute('data-impact-ready')==='true'){times.impact=performance.now();return;}}requestAnimationFrame(tick);};tick();});
+  f.socket.emit('skill:roll',{characterId:f.character.id,skill:'Perception'});
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
+  const result=page.getByRole('status',{name:'Roll result',exact:true});
+  const labels={hit:'HIT',miss:'MISS',crit:'CRITICAL HIT!',fumble:'Fumble!',pass:'PASS',fail:'FAIL'};
+  await expect(result).toContainText(labels[outcome]);
+  await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
+  if(outcome==='fumble')await expect(result).toHaveText('Fumble!');
+  if(outcome==='crit')await expect(page.getByLabel('Critical hit celebration')).toBeVisible();
+  await expect(result).toBeVisible();
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
+  await expect(result).toBeVisible();
+  const times=await page.evaluate(()=>(window as any).__stampTimes);
+  expect(times.impact-times.stamp).toBeGreaterThanOrEqual(1000);
+ });
+}

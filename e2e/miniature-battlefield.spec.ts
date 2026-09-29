@@ -891,7 +891,7 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
           await checks.getByRole('button',{name:/^Roll Perception check/}).click();
           await expect(hall.locator('[data-live-dice="true"]')).toBeVisible();
           await expect(hall.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:45000});
-          await hall.waitForTimeout(2000);await hall.keyboard.press('Escape');
+          await expect(hall.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:15000});await hall.waitForTimeout(1800);await hall.keyboard.press('Escape');
           await hall.screenshot({path:info.outputPath(`dark-check-${mode}.png`)});
         });
       }
@@ -905,12 +905,12 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
           await hall.locator('.compact-player-combat').getByRole('button',{name:/Shortsword/}).click();
           await expect(hall.locator('[data-live-dice="true"]')).toBeVisible();
           await expect(hall.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:45000});
-          await hall.waitForTimeout(2000);await hall.keyboard.press('Escape');
+          await expect(hall.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:15000});await hall.waitForTimeout(1800);await hall.keyboard.press('Escape');
           if(await hall.locator('.damage-prompt-btn').count()){
             await hall.locator('.damage-prompt-btn').first().click();
             await expect(hall.locator('[data-live-dice="true"]')).toBeVisible();
             await expect(hall.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:45000});
-            await hall.waitForTimeout(2200);await hall.keyboard.press('Escape');break;
+            await expect(hall.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:15000});await hall.waitForTimeout(1800);await hall.keyboard.press('Escape');break;
           }
         }
         await hall.screenshot({path:info.outputPath('dark-combat-hit.png')});
@@ -920,10 +920,10 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
         const before=(await f.snapshot()).rollLog.length;
         f.socket.emit('combat:attack',{attackerTokenId:goblin.id,targetTokenId:varis.id,weaponIndex:0});
         await expect.poll(async()=>(await f.snapshot()).rollLog.length,{timeout:45000}).toBeGreaterThan(before);
-        await hall.waitForTimeout(2500);await hall.keyboard.press('Escape');
+        await expect(hall.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:15000});await hall.waitForTimeout(1800);await hall.keyboard.press('Escape');
         const pending=[...(await f.snapshot()).rollLog].reverse().find(r=>r.pending&&!r.pending.done);
         if(pending){f.socket.emit('combat:damage',{rollId:pending.id});await expect.poll(async()=>(await f.snapshot()).rollLog.find(r=>r.id===pending.id)?.pending?.done,{timeout:45000}).toBe(true);}
-        await hall.waitForTimeout(3000);await hall.keyboard.press('Escape');
+        if(pending)await expect(hall.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:15000});await hall.waitForTimeout(1800);await hall.keyboard.press('Escape');
         await hall.screenshot({path:info.outputPath('dark-combat-end.png')});
       });
       writeFileSync(info.outputPath('dark-combat-rolls.json'),JSON.stringify((await f.snapshot()).rollLog,null,2));

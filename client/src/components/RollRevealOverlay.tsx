@@ -15,6 +15,7 @@ import type { RollComparison } from '../../../shared/types';
 // Pacing (ms). Tweak to taste.
 const STEP_MS = 550; // each to-hit / modifier chip flying in
 const OUTCOME_MS = 340; // beat before the HIT/MISS stamp
+const RESULT_STAMP_HOLD_MS = 1200; // let the result read before clearing the map
 const DMG_GAP_MS = 300; // beat before the damage dice start rolling
 const HOLD_MS = 6500; // linger on the final numbers after damage concludes
 const DART_HOLD_MS = 6500; // linger for a damage-only burst (Fireball cast / MM dart)
@@ -245,15 +246,16 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
       at(complete,()=>{
         setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
         if(naturalTwenty||reveal.outcome==='crit')playCritical();
-        else if(reveal.outcome==='miss'||reveal.outcome==='fumble')playMiss();
+        else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();
         else if(isCheck||isDice)playSkill();else playHit();
-        releaseImpact(rollFx.rollId);
       });
-      at(complete+HOLD_MS,dismiss);
+      const impactAt=complete+(!isBurst&&reveal.outcome!=='none'?RESULT_STAMP_HOLD_MS:0);
+      at(impactAt,()=>releaseImpact(rollFx.rollId));
+      at(impactAt+HOLD_MS,dismiss);
       return cleanup;
     }
     if (staticReveal) {
-      if(reveal.physical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
+      if(reveal.physical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
       setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
       at(0, () => releaseImpact(rollFx.rollId));
       at(HOLD_MS, dismiss);
@@ -357,7 +359,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
     reveal.outcome === 'crit'
       ? 'CRITICAL HIT!'
       : reveal.outcome === 'fumble'
-        ? 'FUMBLE!'
+        ? 'Fumble!'
         : reveal.outcome === 'hit'
           ? 'HIT'
           : reveal.outcome === 'pass'
@@ -432,7 +434,9 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         )}
 
         {!staticReveal && comparison && ((comparison.kind==='d20' && stage.phase!=='rolling' && stage.phase!=='landing') || (comparison.kind==='dice' && stage.diceLocked>0)) && <div className="rr-comparison-title">{comparison.mode==='adv'?'Advantage':'Disadvantage'} / Kept roll {comparison.kept+1}</div>}
-        {showOutcome && <div className="roll-reveal-outcome">{outcomeLabel}</div>}
+        {showOutcome && <div className="roll-reveal-outcome" role="status" aria-label="Roll result">
+          {outcomeLabel}
+        </div>}
         {showOutcome && reveal.outcome === 'crit' && <div className="critical-flourish" aria-label="Critical hit celebration">
           <span aria-hidden="true">✦</span><strong>DEVASTATING STRIKE</strong><span aria-hidden="true">✦</span>
           <small>Double the damage dice</small>

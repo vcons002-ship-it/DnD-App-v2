@@ -2142,3 +2142,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] DM creature rolls use a dedicated leather/pewter dragon tray and affinity-colored marbled dice (enemy red, neutral amber, friendly green; general DM rolls purple). Player class styles remain separate.
 - [x] Settled face numbers hold for 460 ms before flying to their result boxes. Live physics retains its pace; damage presentation waits through the face flights and modifier sequence, or releases when skipped. Browser regression checks cover normal completion, skip, and animations disabled.
+
+- [x] Live dice retain the existing HIT/MISS/Fumble!/CRITICAL HIT and PASS/FAIL stamps, critical flourish, Nat 20 celebration, and matching result sounds. The result stamp gets a 1.2-second reading beat before compacting; damage feedback remains gated until completion or skip.
