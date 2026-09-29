@@ -1,4 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import {stopAtWalls,type MapWall} from '../../../shared/mapWalls';
 import {
   Group,
   Circle,
@@ -48,6 +49,7 @@ type Props = {
   hideAffinity?: boolean;
   viewRotation?: number;
   miniatureDiameterFt?: number;
+  movementWalls?: readonly MapWall[];
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -86,6 +88,7 @@ function TokenShapeInner({
   hideAffinity = false,
   viewRotation = 0,
   miniatureDiameterFt,
+  movementWalls,
   onSelect,
   onActivate,
   onMove,
@@ -217,10 +220,13 @@ function TokenShapeInner({
     dragOverlay.current?.moveToTop();
     paintDrag(tokenNode.current!.x(),tokenNode.current!.y());
   };
-  const handleDragMove = (e: KonvaEventObject<DragEvent>) => paintDrag(e.target.x(),e.target.y());
+  const constrainMove=(x:number,y:number)=>stopAtWalls(committed.current,{x,y},(miniatureDiameterFt??token.widthFt)*pxPerFoot/2,movementWalls);
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
+    const p=constrainMove(e.target.x(),e.target.y());e.target.position(p);paintDrag(p.x,p.y);
+  };
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     if(cancelled.current)return;
-    const {x,y}=e.target.position();
+    const {x,y}=constrainMove(e.target.x(),e.target.y());
     clearPreview();
     // No optimistic teleport: wait for the accepted position. A rejected move
     // simply leaves the token here, so no stale acknowledgement can move it.
@@ -766,6 +772,7 @@ export const TokenShape = memo(
     p.hideAffinity === n.hideAffinity &&
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
+    p.movementWalls === n.movementWalls &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&

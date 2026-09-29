@@ -15,7 +15,7 @@ export function WallMenu({tool,count,snap,onTool,onSnap,onUndo,onFinish}:{
   return <>
     <button ref={button} className={`btn tiny ${tool!=='off'?'on':''}`} onClick={()=>{
       const rect=button.current!.getBoundingClientRect();setPosition(position?null:{left:Math.max(8,Math.min(rect.left,window.innerWidth-254)),top:rect.bottom+4});
-    }} aria-label="Walls" title="Draw walls that block light and sight">Walls{tool!=='off'?`: ${tool==='rectangle'?'Rectangle':tool==='draw'?'Line':'Erase'}`:''} ▾</button>
+    }} aria-label="Walls" title="Draw walls that block player movement, light and sight">Walls{tool!=='off'?`: ${tool==='rectangle'?'Rectangle':tool==='draw'?'Line':'Erase'}`:''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu" style={{...position,width:238}}>
         <div className="measure-label">{count} saved {count===1?'wall':'walls'}</div>

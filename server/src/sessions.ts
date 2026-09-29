@@ -1,4 +1,5 @@
 import {rollDice} from '../../shared/dice.js';
+import {stopAtWalls} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
@@ -590,14 +591,26 @@ export function faceTokenToward(sessionId:string,attackerTokenId:string,targetTo
  return true;
 }
 
-export function moveToken(tokenId: string, x: number, y: number): Token | null {
+export function wallLimitedMove(token:Token,x:number,y:number) {
+  const map=getMap(token.mapId),entity=token.kind==='monster'?getMonster(token.refId):getCharacter(token.refId);
+  const radius=map?miniatureBaseWidthFt(token,entity??{})*map.gridSizePx/(map.feetPerSquare||5)/2:0;
+  return stopAtWalls(token,{x,y},radius,map?.walls);
+}
+
+export function moveToken(tokenId: string, x: number, y: number, blockWalls=false): Token | null {
   // Never trust client coordinates: reject NaN/Infinity and clamp to a sane
   // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
   // would break the map view for everyone) or bind a non-finite value.
   const clamp = (n: number) => Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   const previous = getToken(tokenId);
   if (!previous) return null;
-  const {x: nextX, y: nextY} = resolveBasePlacement(previous, clamp(x), clamp(y));
+  const desired=blockWalls?wallLimitedMove(previous,clamp(x),clamp(y)):{x:clamp(x),y:clamp(y)};
+  const {x: nextX, y: nextY} = resolveBasePlacement(previous, desired.x, desired.y);
+  if(blockWalls){
+    const safe=wallLimitedMove(previous,nextX,nextY);
+    // Base-overlap correction must never push a token through a wall either.
+    if(Math.hypot(safe.x-nextX,safe.y-nextY)>.001)return previous;
+  }
   const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
   db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
   return getToken(tokenId);

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,type MapWall} from '../../shared/mapWalls.js';
+import {stopAtWalls,hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,type MapWall} from '../../shared/mapWalls.js';
 import {visionContains,visionLit} from '../../shared/playerVision.js';
 import {editMapWalls} from './mapWalls.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,getMap,getSessionByCode,listMaps,moveToken,setTokenHidden,setFogLayer,setFogRevealed} from './sessions.js';
@@ -127,5 +127,35 @@ describe('saved personal wall visibility',()=>{
   expect(buildSnapshot(f.session.id,'dm',f.map.id)!.tokens.find(t=>t.id===hidden.id)!.revealTag).toBe('U');
   editMapWalls(f.session.id,f.map.id,{removeId:wall.id});
   expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.find(t=>t.id===hidden.id)!.revealTag).not.toBe('U');
+ });
+});
+
+
+describe('solid wall movement',()=>{
+ const barrier:MapWall={id:'solid',kind:'rectangle',ax:100,ay:-100,bx:120,by:100};
+ it('sweeps the whole base across thick walls in either direction',()=>{
+  expect(stopAtWalls({x:0,y:0},{x:1000,y:0},10,[barrier]).x).toBeCloseTo(89.99);
+  expect(stopAtWalls({x:200,y:0},{x:0,y:0},10,[barrier]).x).toBeCloseTo(130.01);
+  expect(stopAtWalls({x:0,y:0},{x:1000,y:0},10,[{...barrier,kind:undefined,bx:100}]).x).toBeCloseTo(89.99);
+ });
+ it('allows parallel travel and moving away but clips diagonal corner contact',()=>{
+  expect(stopAtWalls({x:89.99,y:0},{x:89.99,y:50},10,[barrier])).toEqual({x:89.99,y:50});
+  expect(stopAtWalls({x:89.99,y:0},{x:0,y:0},10,[barrier])).toEqual({x:0,y:0});
+  const result=stopAtWalls({x:0,y:0},{x:200,y:200},10,[barrier]);
+  expect(result.x).toBeLessThan(100);expect(result.y).toBe(result.x);
+  expect(distanceToWall(result,barrier)).toBeGreaterThanOrEqual(10);
+ });
+ it('requires enough doorway clearance for the entire base',()=>{
+  const door:MapWall[]=[{id:'top',ax:100,ay:-100,bx:100,by:-15},{id:'bottom',ax:100,ay:15,bx:100,by:100}];
+  expect(stopAtWalls({x:0,y:0},{x:200,y:0},10,door)).toEqual({x:200,y:0});
+  expect(stopAtWalls({x:0,y:0},{x:200,y:0},20,door).x).toBeLessThan(100);
+  expect(stopAtWalls({x:110,y:0},{x:200,y:0},10,[barrier])).toEqual({x:110,y:0});
+ });
+ it('enforces collision in saved player moves while allowing DM corrections',()=>{
+  const f=fixture();
+  const first=moveToken(f.west.id,1200,400,true)!;
+  expect(first.x).toBeGreaterThan(500);expect(first.x).toBeLessThan(700);
+  expect(moveToken(f.west.id,1200,400,true)!.x).toBeCloseTo(first.x);
+  expect(moveToken(f.west.id,1200,400)!.x).toBe(1200);
  });
 });

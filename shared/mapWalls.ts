@@ -99,3 +99,32 @@ export function wallVisibilityPolygon(origin: WallPoint, walls: readonly MapWall
     return {x:origin.x+dx*d,y:origin.y+dy*d};
   });
 }
+
+/** Sweep the circular base along the whole drag, stopping before first contact.
+ * Segment walls have rounded endpoints; rectangle interiors are solid. */
+export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:readonly MapWall[]=[]):WallPoint {
+ const dx=end.x-start.x,dy=end.y-start.y,length=Math.hypot(dx,dy);
+ if(!length||!walls.length)return end;
+ const r=Math.max(0,radius),ux=dx/length,uy=dy/length;
+ if(walls.some(w=>insideWall(start,w)||distanceToWall(start,w)<r-1e-5))return {...start};
+ let hit=length;
+ for(const w of wallEdges(walls)){
+  if(Math.max(start.x,end.x)+r<Math.min(w.ax,w.bx)||Math.min(start.x,end.x)-r>Math.max(w.ax,w.bx)||Math.max(start.y,end.y)+r<Math.min(w.ay,w.by)||Math.min(start.y,end.y)-r>Math.max(w.ay,w.by))continue;
+  const sx=w.bx-w.ax,sy=w.by-w.ay,sl=Math.hypot(sx,sy);if(!sl)continue;
+  const tx=sx/sl,ty=sy/sl,nx=-ty,ny=tx;
+  const side=(start.x-w.ax)*nx+(start.y-w.ay)*ny,velocity=ux*nx+uy*ny;
+  for(const sign of [-1,1])if(sign*velocity<-EPS){
+   const t=(sign*r-side)/velocity;
+   const along=(start.x+ux*t-w.ax)*tx+(start.y+uy*t-w.ay)*ty;
+   if(t>=-EPS&&along>=-EPS&&along<=sl+EPS)hit=Math.min(hit,Math.max(0,t));
+  }
+  for(const p of [{x:w.ax,y:w.ay},{x:w.bx,y:w.by}]){
+   const qx=start.x-p.x,qy=start.y-p.y,b=qx*ux+qy*uy,c=qx*qx+qy*qy-r*r,disc=b*b-c;
+   if(b>=0||disc<0)continue;
+   const t=-b-Math.sqrt(disc);if(t>=-EPS)hit=Math.min(hit,Math.max(0,t));
+  }
+ }
+ if(hit>=length)return end;
+ const travel=Math.max(0,hit-.01);
+ return {x:start.x+ux*travel,y:start.y+uy*travel};
+}

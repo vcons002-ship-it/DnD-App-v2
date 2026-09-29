@@ -1718,6 +1718,7 @@ export function MapStage({
         hideAffinity={!visionLit(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
+        movementWalls={isDm?undefined:map?.walls}
         draggable={
           draggableTokens && movable && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
@@ -2319,7 +2320,7 @@ export function MapStage({
                       listening={false}
                     />
                   )}
-              {wallActive&&<Group listening={false}>
+              {wallActive&&<Group name="wall-edit-outlines" listening={false}>
                 {(map?.walls??[]).map(w=>w.kind==='rectangle'
                   ?<Rect key={w.id} x={Math.min(w.ax,w.bx)} y={Math.min(w.ay,w.by)} width={Math.abs(w.bx-w.ax)} height={Math.abs(w.by-w.ay)} stroke="#ffc76e" fill="#ffc76e25" strokeWidth={2/view.scale}/>
                   :<Line key={w.id} points={[w.ax,w.ay,w.bx,w.by]} stroke="#ffc76e" strokeWidth={3/view.scale} lineCap="round"/>)}

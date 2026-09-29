@@ -2491,3 +2491,41 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
   expect(errors).toEqual([]);
  }finally{await other.close();}
 });
+
+
+test('walls block player drags and hide DM outlines outside editing',async({page,request})=>{
+ test.setTimeout(120000);
+ await page.setViewportSize({width:1500,height:1000});
+ const f=await fixture(page,request),druk=f.ready.tokens[0];
+ f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'solid',kind:'rectangle',ax:450,ay:100,bx:470,by:500}});
+ await f.snapshot();
+ await page.goto(`/dm?code=${f.code}`);
+ await page.locator('input[type=password]').fill(DM_SECRET);
+ await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ await expect.poll(()=>tokenView(page,druk.id)).not.toBeNull();
+ const outlines=()=>page.evaluate(()=>(window as any).Konva.stages.reduce((n:number,s:any)=>n+s.find('.wall-edit-outlines').length,0));
+ expect(await outlines()).toBe(0);
+ await page.getByRole('button',{name:'Walls',exact:true}).click();
+ await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+ await expect.poll(outlines).toBe(1);
+ await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
+ await expect.poll(outlines).toBe(0);
+ await enter(page,f.code,'Druk',false);
+ await expect.poll(()=>tokenView(page,druk.id)).not.toBeNull();
+ const view=(await tokenView(page,druk.id))!,target=offsetPoint(view,350,0);
+ await page.mouse.move(view.x,view.y);await page.mouse.down();
+ await page.mouse.move(target.x,target.y,{steps:20});await page.mouse.up();
+ await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(300);
+ const stopped=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
+ expect(stopped.x).toBeLessThan(450);expect(await outlines()).toBe(0);
+ const player=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(player);
+ await player.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'wall-movement-test'});
+ player.emit('token:move',{tokenId:druk.id,x:1000,y:360});
+ await new Promise(r=>setTimeout(r,200));
+ expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeCloseTo(stopped.x);
+ // Two legal moves around the wall end, through the doorway space.
+ player.emit('token:move',{tokenId:druk.id,x:stopped.x,y:650});
+ await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBe(650);
+ player.emit('token:move',{tokenId:druk.id,x:800,y:650});
+ await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBe(800);
+});

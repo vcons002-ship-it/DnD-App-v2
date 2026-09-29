@@ -142,6 +142,7 @@ import {
   listTokens,
   monsterInSession,
   moveToken,
+  wallLimitedMove,
   firstInInitiative,
   releaseClaims,
   renameMap,
@@ -773,7 +774,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     // ---- Shared: anyone in the session may move/resize tokens (per spec) ----
 
     on('token:move', ({ tokenId, x, y }, placed) => {
-      if (!sessionId()) return;
+      const moving=getToken(tokenId);
+      if (!sessionId()||!moving||getMap(moving.mapId)?.sessionId!==sessionId()) return;
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
       // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
       // Hidden tokens are never sent to players, so a non-DM move of one is
@@ -794,7 +796,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           return;
         }
       }
-      const moved = moveToken(tokenId, x, y);
+      const moved = moveToken(tokenId, x, y, !isDm());
       afterChange();
       if (moved && typeof placed === 'function') placed({x:moved.x,y:moved.y});
     });
@@ -806,7 +808,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid = sessionId();
       if (!sid) return;
       const t = getToken(tokenId);
-      if (!t) return;
+      if (!t||getMap(t.mapId)?.sessionId!==sid) return;
       if (!isDm()) {
         if (t.isHidden) return;
         if (t.kind === 'monster') {
@@ -814,7 +816,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           if (!m || m.disposition !== 'friendly' || m.objectKind) return;
         }
       }
-      broadcastTokenDrag(io, sid, socket.id, t, x, y);
+      const point=!isDm()&&Number.isFinite(x)&&Number.isFinite(y)?wallLimitedMove(t,x,y):{x,y};
+      broadcastTokenDrag(io, sid, socket.id, t, point.x, point.y);
     });
 
     on('token:resize', ({ tokenId, widthFt, miniature }) => {
