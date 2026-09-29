@@ -199,7 +199,7 @@ type Store = {
   /** DM: set the map list's order (ids in display order). */
   reorderMaps: (orderedIds: string[]) => void;
   setMapEnvironment: (mapId: string, settings: Partial<MapEnvironment>) => void;
-  editMapWalls: (mapId:string, edit:{add?:import('../../../shared/mapWalls').MapWall;removeId?:string})=>void;
+  editMapWalls: (mapId:string, edit:import('../../../shared/mapWalls').WallEdit)=>void;
   setMapGrid: (
     mapId: string,
     gridSizePx: number,

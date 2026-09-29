@@ -219,7 +219,8 @@ export const importSession = db.transaction(
 
     // 6. Maps, then their tokens (ref_id -> the remapped creature).
     for (const mp of data.maps)
-      insertRow('maps', mp, { id: mapIds.get(mp.id as string), session_id: sid });
+      insertRow('maps', mp, { id: mapIds.get(mp.id as string), session_id: sid,
+        ...(typeof mp.walls==='string'?{walls:JSON.stringify(JSON.parse(mp.walls).map((w:{tokenId?:string})=>({...w,...(w.tokenId?{tokenId:newRef(w.tokenId,tokIds)}:{})})))}:{}) });
     for (const t of data.tokens) {
       const ref = newRef(t.ref_id, t.kind === 'pc' ? charIds : monIds);
       const map = newRef(t.map_id, mapIds);

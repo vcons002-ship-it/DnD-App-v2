@@ -1,3 +1,4 @@
+import {sanitizeWalls,type MapWall} from '../../shared/mapWalls.js';
 // A small per-session undo stack for the DM's destructive actions (delete a
 // token / creature, or "cover all" fog). Before such an action the handler
 // captures the exact rows about to vanish (or the value about to be wiped) and
@@ -54,11 +55,24 @@ function captureRows(specs: { table: string; ids: string[] }[]): Captured {
   return out;
 }
 
-function restoreRows(captured: Captured): void {
+function captureDoorWalls(captured:Captured):{mapId:string;walls:MapWall[]}[]{
+ const tokens=captured.filter(c=>c.table==='tokens').map(c=>c.row);
+ return [...new Set(tokens.map(t=>String(t.map_id)))].map(mapId=>{
+  const row=db.prepare('SELECT walls FROM maps WHERE id=?').get(mapId) as {walls:string}|undefined;
+  const ids=new Set(tokens.map(t=>t.id));
+  return {mapId,walls:sanitizeWalls(JSON.parse(row?.walls??'[]')).filter(w=>w.tokenId&&ids.has(w.tokenId))};
+ }).filter(m=>m.walls.length);
+}
+function restoreRows(captured: Captured,doors:ReturnType<typeof captureDoorWalls>=[]): void {
   db.transaction(() => {
     for (const { table, row } of captured) {
       const exists = db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(row.id);
       if (!exists) insertRow(table, row); // verbatim, original id
+    }
+    for(const door of doors){
+      const row=db.prepare('SELECT walls FROM maps WHERE id=?').get(door.mapId) as {walls:string};
+      const walls=sanitizeWalls(JSON.parse(row.walls));
+      db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify([...walls,...door.walls.filter(d=>!walls.some(w=>w.id===d.id))]),door.mapId);
     }
   })();
 }
@@ -66,7 +80,8 @@ function restoreRows(captured: Captured): void {
 /** Snapshot a soon-to-be-deleted token and register its undo. */
 export function captureTokenDelete(sessionId: string, tokenId: string): void {
   const rows = captureRows([{ table: 'tokens', ids: [tokenId] }]);
-  if (rows.length) pushUndo(sessionId, 'Delete token', () => restoreRows(rows));
+  const doors=captureDoorWalls(rows);
+  if (rows.length) pushUndo(sessionId, 'Delete token', () => restoreRows(rows,doors));
 }
 
 /** Snapshot a soon-to-be-deleted creature PLUS its placed tokens (both vanish),
@@ -83,7 +98,8 @@ export function captureCreatureDelete(
   ]);
   if (rows.length) {
     const label = kind === 'pc' ? 'Delete character' : 'Delete creature';
-    pushUndo(sessionId, label, () => restoreRows(rows));
+    const doors=captureDoorWalls(rows);
+    pushUndo(sessionId, label, () => restoreRows(rows,doors));
   }
 }
 

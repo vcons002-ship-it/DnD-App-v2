@@ -56,6 +56,7 @@ export function ObjectControls({
   const setCondition = useStore((s) => s.setCondition);
   const clearCondition = useStore((s) => s.clearCondition);
   const setTokenHidden = useStore((s) => s.setTokenHidden);
+  const updateMonster = useStore(s=>s.updateMonster);
   const interactObject = useStore((s) => s.interactObject);
   const socketId = useStore((s) => s.socket?.id);
 
@@ -113,6 +114,7 @@ export function ObjectControls({
       ) : (
         m.conditions.length === 0 && <p className="muted">No visible state.</p>
       )}
+      {editable&&(m.objectKind==='door'||m.objectKind==='chest')&&<label className="trap-dc">Lock DC <input aria-label="Lock DC" type="number" min={1} value={('objectDc' in m&&m.objectDc)||12} onChange={e=>updateMonster({monsterId:m.id,objectDc:Math.max(1,Number(e.target.value))})}/></label>}
       {/* Players (and the DM) can pick a locked door/chest or open an unlocked
           one — the missing affordance that made locked chests feel broken. */}
       {(m.objectKind === 'door' || m.objectKind === 'chest') && (() => {

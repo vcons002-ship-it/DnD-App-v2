@@ -2533,3 +2533,144 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  player.emit('token:move',{tokenId:druk.id,x:800,y:680});
  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBe(800);
 });
+
+
+test('DM cuts doors into walls and players reveal daylight rooms by opening them',async({page,request,browser},info)=>{
+ test.setTimeout(240000);await page.setViewportSize({width:1500,height:1000});
+ const f=await fixture(page,request),druk=f.ready.tokens[0],varis=f.ready.tokens[1];
+ f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'partition',kind:'rectangle',ax:450,ay:-2000,bx:470,by:2000}});
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:false}});
+ await f.snapshot();
+ await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);
+ await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ await expect.poll(()=>tokenView(page,druk.id)).not.toBeNull();
+ await page.getByRole('button',{name:'Walls',exact:true}).click();
+ await page.getByRole('button',{name:'Draw door opening',exact:true}).click();
+ const view=(await tokenView(page,druk.id))!,a=offsetPoint(view,160,-60),b=offsetPoint(view,160,60);
+ await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:12});await page.mouse.up();
+ await expect.poll(async()=>(await f.snapshot()).map!.walls!.filter(w=>w.door).length).toBe(1);
+ const door=(await f.snapshot()).map!.walls!.find(w=>w.door)!;
+ await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
+ const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
+ try{
+  const player=await context.newPage();await enter(player,f.code,'Druk',false);
+  await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft','unlimited');
+  await expect.poll(()=>tokenView(player,varis.id)).toBeNull();
+  await expect(player.getByTestId('door-controls')).toHaveCount(0); // Too far away.
+  f.socket.emit('token:move',{tokenId:druk.id,x:380,y:360});await f.snapshot();
+  await expect(player.getByTestId('door-controls').getByRole('button',{name:/Open$/})).toBeVisible();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();
+  await page.getByRole('button',{name:/Door 1: closed/}).click();
+  await page.getByTestId('door-controls').getByTitle('Toggle Locked',{exact:true}).click();
+  await page.getByLabel('Lock DC',{exact:true}).fill('99');await page.getByLabel('Lock DC',{exact:true}).blur();
+  await expect(player.getByTestId('door-controls').getByRole('button',{name:/Pick lock/})).toBeVisible();
+  await player.getByTestId('door-controls').getByRole('button',{name:/Pick lock/}).click();
+  await expect.poll(async()=>(await f.snapshot()).rollLog.some(r=>r.label==='Pick lock'&&r.detail.includes('FAILED')),{timeout:60000}).toBe(true);
+  expect((await f.snapshot()).map!.walls!.find(w=>w.id===door.id)!.open).toBe(false);
+  await page.getByLabel('Lock DC',{exact:true}).fill('1');await page.getByLabel('Lock DC',{exact:true}).blur();
+  await player.getByTestId('door-controls').getByRole('button',{name:/Pick lock/}).click();
+  await expect.poll(async()=>(await f.snapshot()).rollLog.some(r=>r.label==='Pick lock'&&r.detail.includes('UNLOCKED')),{timeout:60000}).toBe(true);
+  // Dismiss the dice tray if it still covers the nearby interaction controls.
+  await player.keyboard.press('Escape');
+  await player.screenshot({path:info.outputPath('daylight-door-closed.png')});
+  await player.getByTestId('door-controls').getByRole('button',{name:/Open$/}).click();
+  await expect.poll(async()=>(await f.snapshot()).map!.walls!.find(w=>w.id===door.id)!.open).toBe(true);
+  await expect.poll(()=>tokenView(player,varis.id)).not.toBeNull();
+  await player.screenshot({path:info.outputPath('daylight-door-open.png')});
+  // A real player drag passes through the opening.
+  const from=(await tokenView(player,druk.id))!,to=offsetPoint(from,150,0);
+  await player.mouse.move(from.x,from.y);await player.mouse.down();await player.mouse.move(to.x,to.y,{steps:15});await player.mouse.up();
+  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(470);
+  await player.getByTestId('door-controls').getByRole('button',{name:/Close$/}).click();
+  await expect.poll(async()=>(await f.snapshot()).map!.walls!.find(w=>w.id===door.id)!.open).toBe(false);
+  // On returning to the first room, closing the door re-hides the second room.
+  f.socket.emit('token:move',{tokenId:druk.id,x:380,y:360});await f.snapshot();
+  await expect.poll(()=>tokenView(player,varis.id)).toBeNull();
+  // DM can operate the same door through the wall menu.
+  await page.getByRole('button',{name:'Walls',exact:true}).click();
+  await page.getByRole('button',{name:/Door 1: closed/}).click();
+  await page.getByTestId('door-controls').getByRole('button',{name:/Open$/}).last().click();
+  await expect.poll(()=>tokenView(player,varis.id)).not.toBeNull();
+  await player.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft','unlimited');
+  await player.screenshot({path:info.outputPath('daylight-door-tilted.png')});
+ }finally{await context.close();}
+});
+
+
+test('record wall doors daylight and distant torch visibility',async({page,request,browser},info)=>{
+ test.skip(!movementDemo,'Optional recorded walkthrough');test.setTimeout(300000);
+ const clips:{file:string;start:number;end:number;label:string}[]=[];
+ const errors:string[]=[];
+ for(const scene of [1,2,3]){
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png')),druk=f.ready.tokens[0];
+  for(const token of f.ready.tokens.slice(1))f.socket.emit('token:delete',{tokenId:token.id});
+  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:scene===3?30:50,feetPerSquare:5,widthFt:scene===3?234:140,hidden:true});
+  const start=scene===3?{x:750,y:435}:{x:680,y:285};
+  f.socket.emit('token:move',{tokenId:druk.id,...start});
+  f.socket.emit('monster:create',{name:'Room sentry',maxHp:15,modelType:'goblin',disposition:'enemy'});
+  const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Room sentry')!;
+  const target=scene===3?{x:1200,y:200}:{x:430,y:215};
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,...target});
+  const guard=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+  const walls=scene===3?[[811,78,835,250],[811,78,1333,110],[1305,78,1333,435],[811,348,994,373],[979,348,1004,492],[995,405,1333,435]]:[[254,80,280,430],[254,80,610,110],[580,80,610,430],[254,405,610,430]];
+  walls.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'wall-'+i,kind:'rectangle',ax,ay,bx,by}}));
+  if(scene!==3)f.socket.emit('map:editWalls',{mapId:f.mapId,door:{wallId:'wall-2',id:'entry',ax:595,ay:245,bx:595,by:330}});
+  const lights=[{id:'room-torch',x:scene===3?1180:445,y:scene===3?175:170,radiusFt:scene===3?20:25,heightFt:6,intensity:1,color:'warm' as const,flicker:true,visibleTorch:true}];
+  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:scene!==1,lighting:'dungeon',heavyDarkness:true,mist:false,lights}});
+  if(scene===2)f.socket.emit('token:setLantern',{tokenId:druk.id,enabled:true});
+  await f.snapshot();
+  const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},recordVideo:{dir:info.outputPath('scene-'+scene),size:{width:1600,height:1000}}});
+  const recordingStart=Date.now(),player=await ctx.newPage(),file=await player.video()!.path();
+  player.on('pageerror',e=>errors.push(e.message));
+  const caption=async(text:string)=>player.evaluate(value=>{let el=document.getElementById('doors-demo-caption');if(!el){el=document.createElement('div');el.id='doors-demo-caption';el.style.cssText='position:fixed;top:78px;left:50%;transform:translateX(-50%);padding:12px 22px;background:#111b;border:1px solid #b8a36d;border-radius:6px;color:#f2e6c7;font:20px Georgia;z-index:9999;pointer-events:none;max-width:1050px;text-align:center';document.body.append(el);}el.textContent=value;},text);
+  const wait=async(ms=2400)=>player.waitForTimeout(ms);
+  const drag=async(x:number,y:number)=>{
+   const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!,v=(await tokenView(player,druk.id))!,dest=offsetPoint(v,x-token.x,y-token.y);
+   await player.mouse.move(v.x,v.y);await player.mouse.down();await player.mouse.move(dest.x,dest.y,{steps:30});await wait(700);await player.mouse.up();await wait(1600);
+  };
+  try{
+   await enter(player,f.code,'Druk',false);
+   await expect(player.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
+   await expect.poll(()=>tokenView(player,guard.id)).toBeNull();
+   await wait(1000);
+   const clipStart=(Date.now()-recordingStart)/1000;
+   if(scene===1){
+    await caption('1. Daylight: environment effects OFF. Walls hide the room and its sentry.');await wait(4200);
+    await drag(650,350);await caption('Personal line of sight follows Druk. The room stays hidden behind its walls.');await wait(2700);
+    await drag(680,285);await wait();
+    await caption('The DM opens the doorway: daylight reveals the room, with no 60 ft cutoff.');
+    f.socket.emit('map:setDoor',{mapId:f.mapId,doorId:'entry',open:true});await f.snapshot();
+    await expect.poll(()=>tokenView(player,guard.id)).not.toBeNull();await wait(4500);
+   }else if(scene===2){
+    await caption('2. Heavy darkness: the closed door blocks the lit room and its sentry.');await wait(4000);
+    await caption('Trying to drag through the closed door: movement stops at the doorway.');await drag(450,285);
+    expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(610);
+    await wait(2200);await player.screenshot({path:info.outputPath('closed-door-darkness.png')});
+    await caption('Click Open. Torchlight and sight now pass through the doorway.');
+    await player.getByTestId('door-controls').getByRole('button',{name:/Open$/}).click();
+    await expect.poll(()=>tokenView(player,guard.id)).not.toBeNull();await wait(4000);
+    await player.screenshot({path:info.outputPath('open-door-lit-room.png')});
+    await caption('Druk moves through the opening into the torch-lit room.');await drag(450,285);await wait(3500);
+    expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeLessThan(580);
+   }else{
+    await caption('3. Heavy darkness: a torch-lit sentry is hidden around the wall corner.');await wait(4000);
+    await caption('Druk rounds the corner. The distant torch reveals the sentry beyond darkvision range.');await drag(750,290);
+    await expect.poll(()=>tokenView(player,guard.id)).not.toBeNull();
+    const snap=await f.snapshot(),hero=snap.tokens.find(t=>t.id===druk.id)!;
+    const feet=Math.hypot(hero.x-target.x,hero.y-target.y)*snap.map!.feetPerSquare/snap.map!.gridSizePx;
+    expect(feet).toBeGreaterThan(60);
+    await caption(`Sentry visible at ${Math.round(feet)} ft: unobstructed sight + torchlight, beyond 60 ft darkvision.`);await wait(4500);
+    await player.screenshot({path:info.outputPath('torch-reveal-beyond-60ft.png')});
+    await caption('Extinguish the distant torch: the same sentry disappears beyond 60 ft.');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[]}});await f.snapshot();
+    await expect.poll(()=>tokenView(player,guard.id)).toBeNull();await wait(3500);
+    await caption('Relight the torch: the distant sentry becomes visible again.');
+    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights}});await f.snapshot();
+    await expect.poll(()=>tokenView(player,guard.id)).not.toBeNull();await wait(4000);
+   }
+   clips.push({file,start:clipStart,end:(Date.now()-recordingStart)/1000,label:['Daylight walls','Darkness: open the door and enter','Around a corner: torch-lit enemy beyond 60 ft'][scene-1]});
+  }finally{await ctx.close();}
+ }
+ writeFileSync(info.outputPath('chapters.json'),JSON.stringify(clips,null,2));expect(errors).toEqual([]);
+});

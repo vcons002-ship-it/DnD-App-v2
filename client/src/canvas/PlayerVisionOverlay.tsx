@@ -80,7 +80,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   schedule();},[props]);
- return <div data-testid="player-vision" data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
+ return <div data-testid="player-vision" data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.daylight?'unlimited':props.vision.rangeFt} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
   <svg width={props.width} height={props.height} style={{position:'absolute',inset:0}} aria-hidden="true"><defs>
    <clipPath id={sightId} clipPathUnits="userSpaceOnUse" ref={sightPaths}/><g ref={lightClips}/>

@@ -1,6 +1,7 @@
+import {ObjectControls} from '../components/ObjectControls';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {WallMenu,type WallTool} from '../components/WallMenu';
-import {distanceToWall,MAX_MAP_WALLS,wallEdgeCount} from '../../../shared/mapWalls';
+import {doorApproachPoints,distanceToWall,MAX_MAP_WALLS,wallEdgeCount} from '../../../shared/mapWalls';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
@@ -652,6 +653,7 @@ export function MapStage({
   const [penDraft, setPenDraft] = useState<number[] | null>(null);
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
   const [wallTool,setWallTool]=useState<WallTool>('off');
+  const [doorWallId,setDoorWallId]=useState<string|null>(null),[selectedDoor,setSelectedDoor]=useState<string|null>(null);
   const [wallSnap,setWallSnap]=useState(false);
   const [wallAnchor,setWallAnchor]=useState<Pt|null>(null),[wallPointer,setWallPointer]=useState<Pt|null>(null);
   const wallActive=isDm&&wallTool!=='off';
@@ -661,7 +663,7 @@ export function MapStage({
     const ox=map?.gridOffsetX??0,oy=map?.gridOffsetY??0;
     return wallSnap?{x:Math.round((p.x-ox)/grid)*grid+ox,y:Math.round((p.y-oy)/grid)*grid+oy}:p;
   };
-  useEffect(()=>{setWallTool('off');setWallAnchor(null);setWallPointer(null);},[map?.id]);
+  useEffect(()=>{setWallTool('off');setWallAnchor(null);setWallPointer(null);setSelectedDoor(null);setDoorWallId(null);},[map?.id]);
   useEffect(()=>{
     if(!wallActive)return;
     const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setWallAnchor(null);setWallPointer(null);if(!wallAnchor)setWallTool('off');}};
@@ -1019,6 +1021,10 @@ export function MapStage({
     return { x: -view.x / s - m, y: -view.y / (s * groundScaleY) - m, w: vw + 2 * m, h: vh + 2 * m };
   }, [view, size, groundScaleY]);
 
+  const doors=(map?.walls??[]).filter(w=>w.door);
+  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>visionContains(snapshot.playerVision,p.x,p.y)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
+  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&distanceToWall(t,d)<=5*pxPerFoot)));
+  const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
     const ownerId = useStore.getState().socket?.id;
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
@@ -1037,6 +1043,7 @@ export function MapStage({
   const tokenVisibleAtPosition = useCallback((id: string, x: number, y: number) => visibleAtRef.current(id, x, y), []);
 
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
+    if(map?.walls?.some(w=>w.tokenId===token.id))return [];
     if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
     // Only role-filtered snapshot tokens are eligible; never fetch hidden PCs
     // for a player even if a stale snapshot reaches this component.
@@ -1280,6 +1287,10 @@ export function MapStage({
       if(wallTool==='erase'){
         const wall=(map.walls??[]).reduce<import('../../../shared/mapWalls').MapWall|undefined>((best,w)=>!best||distanceToWall(raw,w)<distanceToWall(raw,best)?w:best,undefined);
         if(wall&&distanceToWall(raw,wall)<14/view.scale)useStore.getState().editMapWalls(map.id,{removeId:wall.id});
+      }else if(wallTool==='door'){
+        const wall=(map.walls??[]).filter(w=>!w.door).sort((a,b)=>distanceToWall(raw,a)-distanceToWall(raw,b))[0];
+        if(!wall||distanceToWall(raw,wall)>14/view.scale){notify('Start the door on an existing wall, then drag along its width.');return;}
+        setDoorWallId(wall.id);setWallAnchor(raw);setWallPointer(raw);
       }else if(wallTool==='rectangle'){
         const p=wallPoint(raw);setWallAnchor(p);setWallPointer(p);
       }else{
@@ -1365,6 +1376,11 @@ export function MapStage({
   // deselect; a press that moved was a pan → keep the selection. Then run the
   // normal stroke-end handling.
   const handlePointerUp = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if(wallActive&&wallTool==='door'&&wallAnchor&&doorWallId&&map&&!pinchRef.current){
+      const stage=e.target.getStage(),p=stage?pointerToImage(stage):null;
+      if(p)useStore.getState().editMapWalls(map.id,{door:{wallId:doorWallId,id:crypto.randomUUID(),tokenId:snapshot.tokens.find(t=>selectedIds.includes(t.id)&&snapshot.monsters.some(m=>m.id===t.refId&&m.objectKind==='door'))?.id,ax:wallAnchor.x,ay:wallAnchor.y,bx:p.x,by:p.y}});
+      setWallAnchor(null);setWallPointer(null);setDoorWallId(null);
+    }
     if(wallActive&&wallTool==='rectangle'&&wallAnchor&&map&&!pinchRef.current){
       const stage=e.target.getStage(),raw=stage?pointerToImage(stage):null;
       if(raw){
@@ -1433,7 +1449,7 @@ export function MapStage({
   };
 
   const endStroke = () => {
-    if(wallTool==='rectangle'){setWallAnchor(null);setWallPointer(null);}
+    if(wallTool==='rectangle'||wallTool==='door'){setWallAnchor(null);setWallPointer(null);}
     clickStart.current = null; // a press that ends any other way isn't a click
     if (pinchRef.current) {
       pinchRef.current = null;
@@ -1695,7 +1711,7 @@ export function MapStage({
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
-  const renderTokens = (miniatures: boolean) => snapshot.tokens.filter((token) =>
+  const renderTokens = (miniatures: boolean) => snapshot.tokens.filter(t=>!doors.some(d=>d.tokenId===t.id)).filter((token) =>
     !dragGhosts[token.id]?.hidden && (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
@@ -1986,7 +2002,7 @@ export function MapStage({
                         setScaleMode((s) => !s);
                       }}
                     />
-                    <WallMenu tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
+                    <WallMenu doors={doors} onDoor={id=>setSelectedDoor(id)} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
                       onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
                       onFinish={()=>{setWallAnchor(null);setWallPointer(null);}}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
@@ -2329,6 +2345,11 @@ export function MapStage({
                   :<Line points={[wallAnchor.x,wallAnchor.y,wallPointer.x,wallPointer.y]} stroke="#fff1c2" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>)}
                 {wallPointer&&<Circle x={wallPointer.x} y={wallPointer.y} radius={5/view.scale} fill={wallTool==='erase'?'#ff6677':'#fff1c2'}/>}
               </Group>}
+              {doors.filter(doorVisible).map(d=>{
+                const horizontal=d.kind==='rectangle'?Math.abs(d.bx-d.ax)>=Math.abs(d.by-d.ay):false;
+                const points=d.kind==='rectangle'?(horizontal?[d.ax,(d.ay+d.by)/2,d.bx,(d.ay+d.by)/2]:[(d.ax+d.bx)/2,d.ay,(d.ax+d.bx)/2,d.by]):[d.ax,d.ay,d.bx,d.by];
+                return <Line key={d.id} name="wall-door" points={points} stroke={d.open?'#9bc6a5':'#c99453'} strokeWidth={6/view.scale} dash={d.open?[7/view.scale,5/view.scale]:undefined} hitStrokeWidth={20/view.scale} listening={!wallActive&&isDm} onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;setSelectedDoor(d.id);}} onTap={e=>{e.cancelBubble=true;setSelectedDoor(d.id);}}/>;
+              })}
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
               <DragGhostLayer
                 ghosts={dragGhosts}
@@ -2364,8 +2385,15 @@ export function MapStage({
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
           {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}/>}
+          {!wallActive&&nearbyDoors.length>0&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>
+            {nearbyDoors.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div key={d.id}>
+              <strong>Door {doors.indexOf(d)+1}</strong>
+              {token?<><ObjectControls snapshot={snapshot} token={token} editable={isDm}/>{isDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
+            </div>;})}
+            {isDm&&<button className="btn tiny" onClick={()=>setSelectedDoor(null)}>Dismiss</button>}
+          </div>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
-            <span>{wallTool==='rectangle'?'Drag across the wall’s length and thickness · Release to save · Esc cancels':wallTool==='draw'?'Click corners to trace walls · Esc ends this chain':'Click a wall to erase it'}</span>
+            <span>{wallTool==='rectangle'?'Drag across the wall’s length and thickness · Release to save · Esc cancels':wallTool==='door'?'Drag along an existing wall to set the door width. Release to save':wallTool==='draw'?'Click corners to trace walls · Esc ends this chain':'Click a wall to erase it'}</span>
             {wallTool==='draw'&&<button className="btn tiny" onClick={()=>{setWallAnchor(null);setWallPointer(null);}}>Finish chain</button>}
             <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
           </div>}

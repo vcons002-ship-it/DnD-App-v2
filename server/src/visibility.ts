@@ -1,3 +1,4 @@
+import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
@@ -316,10 +317,13 @@ export function createSnapshotBuilder(
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
       if(map?.environment && mapFog)map={...map,environment:{...map.environment,
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
-      tokens = tokens.filter(t => tokenVisibleAt({ role, hidden: t.isHidden,
+      tokens = tokens.filter(t => {
+        const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
+        if(door)return !t.isHidden&&doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&visionContains(playerVision,p.x,p.y));
+        return tokenVisibleAt({ role, hidden: t.isHidden,
         owned: t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId,
         foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
-        mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y));
+        mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y);});
       // Sources were fog/hidden-gated in createPlayerVision. A placed source
       // around a corner can illuminate a visible doorway; do not remove it
       // simply because its fixture is outside this viewer's line of sight.

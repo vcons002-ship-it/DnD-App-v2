@@ -633,7 +633,13 @@ type MapRow = {
 
 export function rowToMap(r: MapRow): MapState {
   return {
-    walls: (()=>{try{return sanitizeWalls(JSON.parse(r.walls??'[]'));}catch{return [];}})(),
+    walls: (()=>{try{return sanitizeWalls(JSON.parse(r.walls??'[]')).map(w=>{
+      if(!w.door||!w.tokenId)return w;
+      const row=db.prepare('SELECT m.conditions FROM tokens t JOIN monsters m ON m.id=t.ref_id WHERE t.id=? AND t.map_id=? AND m.object_kind=?').get(w.tokenId,r.id,'door') as {conditions:string}|undefined;
+      if(!row)return {...w,open:false};
+      const conditions=JSON.parse(row.conditions) as {label:string}[];
+      return {...w,open:conditions.some(c=>c.label.toLowerCase()==='open')};
+    });}catch{return [];}})(),
     environment: readMapEnvironment(r.environment),
     id: r.id,
     sessionId: r.session_id,

@@ -1590,7 +1590,8 @@ export interface ClientToServerEvents {
   'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
   'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
-  'map:editWalls': (payload: {mapId: string; add?: import('./mapWalls.js').MapWall; removeId?: string}) => void;
+  'map:editWalls': (payload: {mapId: string} & import('./mapWalls.js').WallEdit) => void;
+  'map:setDoor': (payload:{mapId:string;doorId:string;open:boolean})=>void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;

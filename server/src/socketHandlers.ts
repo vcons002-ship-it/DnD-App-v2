@@ -1,5 +1,7 @@
+import {doorApproachPoints,distanceToWall} from '../../shared/mapWalls.js';
+import {visionContains} from '../../shared/playerVision.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
-import {editMapWalls} from './mapWalls.js';
+import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
 import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
@@ -140,6 +142,7 @@ import {
   listRollLog,
   listChat,
   listTokens,
+  listMaps,
   monsterInSession,
   moveToken,
   wallLimitedMove,
@@ -454,6 +457,30 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid=sessionId();
       if(!sid||!isDm()||!p||typeof p.mapId!=='string')return;
       const error=editMapWalls(sid,p.mapId,p);
+      if(error)socket.emit('notice',{message:error});else afterChange();
+    });
+
+    const usableWallDoor=(map:NonNullable<ReturnType<typeof getMap>>,door:NonNullable<typeof map.walls>[number])=>{
+      if(isDm())return true;
+      const sid=sessionId()!;
+      const snapshot=buildSnapshot(sid,'player',null,socket.id,commandConnection()?.playerId);
+      const visible=snapshot?.map?.id===map.id&&(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(point=>visionContains(snapshot?.playerVision,point.x,point.y)&&(!map.mapFogEnabled||map.mapFogRevealed.includes(`${Math.floor(point.x/map.gridSizePx)},${Math.floor(point.y/map.gridSizePx)}`)));
+      const nearby=listTokens(map.id).some(t=>t.kind==='pc'&&!t.isHidden&&ownsCharacter(t.refId)&&distanceToWall(t,door)<=5*map.gridSizePx/map.feetPerSquare);
+      if(!visible||!nearby)socket.emit('notice',{message:'Move your character within 5 ft of a visible door to use it.'});
+      return visible&&nearby;
+    };
+    const linkedWallDoor=(refId:string)=>{
+      const sid=sessionId();if(!sid)return undefined;
+      for(const map of listMaps(sid)){
+        const door=map.walls?.find(w=>w.door&&w.tokenId&&getToken(w.tokenId)?.refId===refId);
+        if(door)return {map,door};
+      }
+    };
+    on('map:setDoor',p=>{
+      const sid=sessionId();if(!sid||!p||typeof p.open!=='boolean')return;
+      const map=getMap(p.mapId),door=map?.walls?.find(w=>w.id===p.doorId&&w.door);
+      if(!map||map.sessionId!==sid||!door||!usableWallDoor(map,door))return;
+      const error=setWallDoor(sid,map.id,door.id,p.open);
       if(error)socket.emit('notice',{message:error});else afterChange();
     });
 
@@ -776,6 +803,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('token:move', ({ tokenId, x, y }, placed) => {
       const moving=getToken(tokenId);
       if (!sessionId()||!moving||getMap(moving.mapId)?.sessionId!==sessionId()) return;
+      if(getMap(moving.mapId)?.walls?.some(w=>w.tokenId===moving.id))return;
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
       // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
       // Hidden tokens are never sent to players, so a non-DM move of one is
@@ -959,6 +987,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     on('condition:set', ({ kind, refId, condition }) => {
       if (!sessionId() || !canEditCreature(kind, refId)) return;
+      const linked=kind==='monster'&&condition.label.toLowerCase()==='open'?linkedWallDoor(refId):undefined;
+      if(linked){const error=setWallDoor(sessionId()!,linked.map.id,linked.door.id,true);if(error)socket.emit('notice',{message:error});else afterChange();return;}
       const full: Condition = { id: newId(), ...condition };
       setCondition(kind, refId, full);
       afterChange();
@@ -966,6 +996,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     on('condition:clear', ({ kind, refId, conditionId }) => {
       if (!sessionId() || !canEditCreature(kind, refId)) return;
+      const linked=kind==='monster'&&getMonster(refId)?.conditions.some(c=>c.id===conditionId&&c.label.toLowerCase()==='open')?linkedWallDoor(refId):undefined;
+      if(linked){const error=setWallDoor(sessionId()!,linked.map.id,linked.door.id,false);if(error)socket.emit('notice',{message:error});else afterChange();return;}
       clearCondition(kind, refId, conditionId);
       afterChange();
     });
@@ -1191,7 +1223,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid = sessionId();
       if (!sid) return;
       const obj = getMonster(monsterId);
-      if (!obj || (obj.objectKind !== 'door' && obj.objectKind !== 'chest')) return;
+      if (!obj || obj.sessionId!==sid || (obj.objectKind !== 'door' && obj.objectKind !== 'chest')) return;
+      const linked=linkedWallDoor(monsterId);
+      if(linked&&!usableWallDoor(linked.map,linked.door))return;
+      if(linked&&action==='open'){
+        const error=setWallDoor(sid,linked.map.id,linked.door.id,!linked.door.open);
+        if(error)socket.emit('notice',{message:error});else afterChange();
+        return;
+      }
       const has = (label: string) =>
         obj.conditions.find((c) => c.label.toLowerCase() === label.toLowerCase());
       const locked = has('locked');

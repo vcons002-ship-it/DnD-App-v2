@@ -535,6 +535,13 @@ export function createPastedObject(
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y, shape: 'image' });
 }
 
+/** Wall doors retain the same editable object record as legacy door tokens. */
+export function createWallDoorObject(sessionId:string,mapId:string,x:number,y:number):Token {
+ const name='Door';
+ const m=insertMonster(sessionId,{name,maxHp:1,objectKind:'door',objectDc:12,disposition:'neutral',modelType:'none',source:'manual'}, {isTemplate:false,templateId:null,name});
+ return createToken({mapId,kind:'monster',refId:m.id,x,y});
+}
+
 /**
  * Spawn a lightweight summon/companion: a FRIENDLY creature token (Mage Hand, a
  * conjured beast, …) with a name + icon and a minimal stat block. It's a real
@@ -664,6 +671,10 @@ export function deleteToken(tokenId: string): void {
   const token = getToken(tokenId);
   const sessionId = token ? getMap(token.mapId)?.sessionId : undefined;
   if (token && sessionId) passTurnOnFrom(sessionId, tokenId);
+  if(token){
+    const map=getMap(token.mapId);
+    if(map?.walls?.some(w=>w.tokenId===tokenId))db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(map.walls.filter(w=>w.tokenId!==tokenId)),map.id);
+  }
   db.prepare('DELETE FROM tokens WHERE id = ?').run(tokenId);
 }
 

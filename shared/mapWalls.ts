@@ -1,5 +1,5 @@
 /** Opaque, infinitely tall sight barriers in map pixels. Gaps remain open doorways. */
-export type MapWall = {id: string; ax: number; ay: number; bx: number; by: number; kind?:'rectangle'};
+export type MapWall = {id: string; ax: number; ay: number; bx: number; by: number; kind?:'rectangle';door?:boolean;open?:boolean;tokenId?:string};
 export type WallPoint = {x: number; y: number};
 export const MAX_MAP_WALLS = 512;
 export const SIGHT_EXTENT = 4_000_000;
@@ -10,7 +10,7 @@ export const wallEdgeCount=(walls:readonly MapWall[])=>walls.reduce((count,w)=>c
 /** A rectangle is one saved/editable wall; its four edges share the existing ray caster. */
 function wallEdges(walls:readonly MapWall[]):MapWall[]{
   const cached=edgesCache.get(walls);if(cached)return cached;
-  const edges=walls.flatMap(w=>w.kind==='rectangle'?[
+  const edges=walls.filter(w=>!w.door||!w.open).flatMap(w=>w.kind==='rectangle'?[
     {id:w.id,ax:w.ax,ay:w.ay,bx:w.bx,by:w.ay},
     {id:w.id,ax:w.bx,ay:w.ay,bx:w.bx,by:w.by},
     {id:w.id,ax:w.bx,ay:w.by,bx:w.ax,by:w.by},
@@ -18,7 +18,7 @@ function wallEdges(walls:readonly MapWall[]):MapWall[]{
   ]:[w]);
   edgesCache.set(walls,edges);return edges;
 }
-const insideWall=(p:WallPoint,w:MapWall)=>w.kind==='rectangle'&&p.x>Math.min(w.ax,w.bx)+EPS&&p.x<Math.max(w.ax,w.bx)-EPS&&p.y>Math.min(w.ay,w.by)+EPS&&p.y<Math.max(w.ay,w.by)-EPS;
+const insideWall=(p:WallPoint,w:MapWall)=>!(w.door&&w.open)&&w.kind==='rectangle'&&p.x>Math.min(w.ax,w.bx)+EPS&&p.x<Math.max(w.ax,w.bx)-EPS&&p.y>Math.min(w.ay,w.by)+EPS&&p.y<Math.max(w.ay,w.by)-EPS;
 const cornersCache=new WeakMap<readonly MapWall[],WallPoint[]>();
 function wallCorners(walls:readonly MapWall[]):WallPoint[]{
   const cached=cornersCache.get(walls);if(cached)return cached;
@@ -46,7 +46,7 @@ export function sanitizeWalls(input: unknown): MapWall[] {
     if(w.kind!==undefined&&w.kind!=='rectangle')continue;
     if(w.kind==='rectangle'&&(Math.abs(w.ax-w.bx)<.1||Math.abs(w.ay-w.by)<.1))continue;
     edgeCount+=w.kind==='rectangle'?4:1;if(edgeCount>MAX_MAP_WALLS)break;
-    ids.add(w.id); walls.push({id:w.id,ax:w.ax,ay:w.ay,bx:w.bx,by:w.by,...(w.kind==='rectangle'?{kind:'rectangle' as const}:{})});
+    ids.add(w.id); walls.push({id:w.id,ax:w.ax,ay:w.ay,bx:w.bx,by:w.by,...(w.kind==='rectangle'?{kind:'rectangle' as const}:{}),...(w.door===true?{door:true,open:w.open===true,...(typeof w.tokenId==='string'&&/^[\w-]{1,80}$/.test(w.tokenId)?{tokenId:w.tokenId}:{})}:{})});
   }
   return walls;
 }
@@ -106,7 +106,7 @@ export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:re
  const dx=end.x-start.x,dy=end.y-start.y,length=Math.hypot(dx,dy);
  if(!length||!walls.length)return end;
  const r=Math.max(0,radius),ux=dx/length,uy=dy/length;
- if(walls.some(w=>insideWall(start,w)||distanceToWall(start,w)<r-1e-5))return {...start};
+ if(walls.some(w=>insideWall(start,w)||(!(w.door&&w.open)&&distanceToWall(start,w)<r-1e-5)))return {...start};
  let hit=length;
  for(const w of wallEdges(walls)){
   if(Math.max(start.x,end.x)+r<Math.min(w.ax,w.bx)||Math.min(start.x,end.x)-r>Math.max(w.ax,w.bx)||Math.max(start.y,end.y)+r<Math.min(w.ay,w.by)||Math.min(start.y,end.y)-r>Math.max(w.ay,w.by))continue;
@@ -135,4 +135,33 @@ export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:re
  */
 export function wallCollisionRadiusFt(occupiedWidthFt:number):number {
  return Math.max(.5,Number.isFinite(occupiedWidthFt)?occupiedWidthFt:5)*.25;
+}
+
+
+export type WallEdit={add?:MapWall;removeId?:string;door?:{wallId:string;id:string;tokenId?:string;ax:number;ay:number;bx:number;by:number}};
+/** Replace part of a wall with a full-thickness door. Remaining pieces stay solid. */
+export function cutDoor(w:MapWall,d:NonNullable<WallEdit['door']>):MapWall[]|null {
+ if(w.door||![d.ax,d.ay,d.bx,d.by].every(Number.isFinite)||!/^[\w-]{1,64}$/.test(d.id))return null;
+ const horizontal=w.kind==='rectangle'?Math.abs(w.bx-w.ax)>=Math.abs(w.by-w.ay):false;
+ const a=w.kind==='rectangle'?{x:horizontal?Math.min(w.ax,w.bx):(w.ax+w.bx)/2,y:horizontal?(w.ay+w.by)/2:Math.min(w.ay,w.by)}:{x:w.ax,y:w.ay};
+ const b=w.kind==='rectangle'?{x:horizontal?Math.max(w.ax,w.bx):a.x,y:horizontal?a.y:Math.max(w.ay,w.by)}:{x:w.bx,y:w.by};
+ const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+ const project=(x:number,y:number)=>Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/(len*len)));
+ const t1=project(d.ax,d.ay),t2=project(d.bx,d.by),lo=Math.min(t1,t2),hi=Math.max(t1,t2);
+ if((hi-lo)*len<.1)return null;
+ const slice=(start:number,end:number,id:string,door=false):MapWall=>{
+  const p={x:a.x+dx*start,y:a.y+dy*start},q={x:a.x+dx*end,y:a.y+dy*end};
+  if(w.kind==='rectangle'){
+   if(horizontal){p.y=Math.min(w.ay,w.by);q.y=Math.max(w.ay,w.by);}
+   else{p.x=Math.min(w.ax,w.bx);q.x=Math.max(w.ax,w.bx);}
+  }
+  return {id,ax:p.x,ay:p.y,bx:q.x,by:q.y,...(w.kind?{kind:w.kind}:{}),...(door?{door:true,open:false}:{})};
+ };
+ return [...(lo*len>=.1?[slice(0,lo,d.id+'-a')]:[]),...(len*(1-hi)>=.1?[slice(hi,1,d.id+'-b')]:[]),slice(lo,hi,d.id,true)];
+}
+/** Door surfaces visible from either side, including thick closed doors. */
+export function doorApproachPoints(w:MapWall):WallPoint[]{
+ if(w.kind==='rectangle')return [{x:Math.min(w.ax,w.bx)-.1,y:(w.ay+w.by)/2},{x:Math.max(w.ax,w.bx)+.1,y:(w.ay+w.by)/2},{x:(w.ax+w.bx)/2,y:Math.min(w.ay,w.by)-.1},{x:(w.ax+w.bx)/2,y:Math.max(w.ay,w.by)+.1}];
+ const dx=w.bx-w.ax,dy=w.by-w.ay,l=Math.hypot(dx,dy),x=(w.ax+w.bx)/2,y=(w.ay+w.by)/2;
+ return [{x:x-dy/l*.1,y:y+dx/l*.1},{x:x+dy/l*.1,y:y-dx/l*.1}];
 }
