@@ -1,6 +1,6 @@
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {WallMenu,type WallTool} from '../components/WallMenu';
-import {distanceToWall,MAX_MAP_WALLS} from '../../../shared/mapWalls';
+import {distanceToWall,MAX_MAP_WALLS,wallEdgeCount} from '../../../shared/mapWalls';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
@@ -656,7 +656,7 @@ export function MapStage({
   const [wallAnchor,setWallAnchor]=useState<Pt|null>(null),[wallPointer,setWallPointer]=useState<Pt|null>(null);
   const wallActive=isDm&&wallTool!=='off';
   const wallPoint=(p:Pt):Pt=>{
-    for(const wall of map?.walls??[])for(const point of [{x:wall.ax,y:wall.ay},{x:wall.bx,y:wall.by}])
+    for(const wall of map?.walls??[])for(const point of [{x:wall.ax,y:wall.ay},{x:wall.bx,y:wall.by},...(wall.kind==='rectangle'?[{x:wall.ax,y:wall.by},{x:wall.bx,y:wall.ay}]:[])])
       if(Math.hypot(p.x-point.x,p.y-point.y)<10/view.scale)return point;
     const ox=map?.gridOffsetX??0,oy=map?.gridOffsetY??0;
     return wallSnap?{x:Math.round((p.x-ox)/grid)*grid+ox,y:Math.round((p.y-oy)/grid)*grid+oy}:p;
@@ -1280,10 +1280,12 @@ export function MapStage({
       if(wallTool==='erase'){
         const wall=(map.walls??[]).reduce<import('../../../shared/mapWalls').MapWall|undefined>((best,w)=>!best||distanceToWall(raw,w)<distanceToWall(raw,best)?w:best,undefined);
         if(wall&&distanceToWall(raw,wall)<14/view.scale)useStore.getState().editMapWalls(map.id,{removeId:wall.id});
+      }else if(wallTool==='rectangle'){
+        const p=wallPoint(raw);setWallAnchor(p);setWallPointer(p);
       }else{
         const p=wallPoint(raw);
         if(wallAnchor&&Math.hypot(p.x-wallAnchor.x,p.y-wallAnchor.y)>.1){
-          if((map.walls?.length??0)>=MAX_MAP_WALLS){notify('Wall limit reached. Erase an unused segment first.');return;}
+          if(wallEdgeCount(map.walls??[])>=MAX_MAP_WALLS){notify('Wall limit reached. Erase an unused wall first.');return;}
           useStore.getState().editMapWalls(map.id,{add:{id:crypto.randomUUID(),ax:wallAnchor.x,ay:wallAnchor.y,bx:p.x,by:p.y}});
         }
         setWallAnchor(p);setWallPointer(p);
@@ -1363,6 +1365,17 @@ export function MapStage({
   // deselect; a press that moved was a pan → keep the selection. Then run the
   // normal stroke-end handling.
   const handlePointerUp = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if(wallActive&&wallTool==='rectangle'&&wallAnchor&&map&&!pinchRef.current){
+      const stage=e.target.getStage(),raw=stage?pointerToImage(stage):null;
+      if(raw){
+        const p=wallPoint(raw),minSize=Math.max(.1,2/view.scale);
+        if(Math.abs(p.x-wallAnchor.x)>=minSize&&Math.abs(p.y-wallAnchor.y)>=minSize){
+          if(wallEdgeCount(map.walls??[])+4>MAX_MAP_WALLS)notify('Wall limit reached. Erase an unused wall first.');
+          else useStore.getState().editMapWalls(map.id,{add:{id:crypto.randomUUID(),kind:'rectangle',ax:wallAnchor.x,ay:wallAnchor.y,bx:p.x,by:p.y}});
+        }
+      }
+      setWallAnchor(null);setWallPointer(null);
+    }
     const start = clickStart.current;
     clickStart.current = null;
     if (start) {
@@ -1420,6 +1433,7 @@ export function MapStage({
   };
 
   const endStroke = () => {
+    if(wallTool==='rectangle'){setWallAnchor(null);setWallPointer(null);}
     clickStart.current = null; // a press that ends any other way isn't a click
     if (pinchRef.current) {
       pinchRef.current = null;
@@ -2307,8 +2321,12 @@ export function MapStage({
                     />
                   )}
               {wallActive&&<Group listening={false}>
-                {(map?.walls??[]).map(w=><Line key={w.id} points={[w.ax,w.ay,w.bx,w.by]} stroke="#ffc76e" strokeWidth={3/view.scale} lineCap="round"/>)}
-                {wallAnchor&&wallPointer&&<Line points={[wallAnchor.x,wallAnchor.y,wallPointer.x,wallPointer.y]} stroke="#fff1c2" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>}
+                {(map?.walls??[]).map(w=>w.kind==='rectangle'
+                  ?<Rect key={w.id} x={Math.min(w.ax,w.bx)} y={Math.min(w.ay,w.by)} width={Math.abs(w.bx-w.ax)} height={Math.abs(w.by-w.ay)} stroke="#ffc76e" fill="#ffc76e25" strokeWidth={2/view.scale}/>
+                  :<Line key={w.id} points={[w.ax,w.ay,w.bx,w.by]} stroke="#ffc76e" strokeWidth={3/view.scale} lineCap="round"/>)}
+                {wallAnchor&&wallPointer&&(wallTool==='rectangle'
+                  ?<Rect x={Math.min(wallAnchor.x,wallPointer.x)} y={Math.min(wallAnchor.y,wallPointer.y)} width={Math.abs(wallPointer.x-wallAnchor.x)} height={Math.abs(wallPointer.y-wallAnchor.y)} stroke="#fff1c2" fill="#ffe5b333" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>
+                  :<Line points={[wallAnchor.x,wallAnchor.y,wallPointer.x,wallPointer.y]} stroke="#fff1c2" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>)}
                 {wallPointer&&<Circle x={wallPointer.x} y={wallPointer.y} radius={5/view.scale} fill={wallTool==='erase'?'#ff6677':'#fff1c2'}/>}
               </Group>}
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
@@ -2347,7 +2365,7 @@ export function MapStage({
           </Suspense></MiniatureFallback>}
           {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}/>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
-            <span>{wallTool==='draw'?'Click corners to trace walls · Esc ends this chain':'Click a wall to erase it'}</span>
+            <span>{wallTool==='rectangle'?'Drag across the wall’s length and thickness · Release to save · Esc cancels':wallTool==='draw'?'Click corners to trace walls · Esc ends this chain':'Click a wall to erase it'}</span>
             {wallTool==='draw'&&<button className="btn tiny" onClick={()=>{setWallAnchor(null);setWallPointer(null);}}>Finish chain</button>}
             <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
           </div>}

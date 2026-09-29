@@ -581,15 +581,28 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
   await f.snapshot();
   await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
-  // Trace a partition through the real drawing controls, leaving an open doorway.
+  // Trace thick rectangles through the real drawing controls, leaving a doorway.
   const druk=f.ready.tokens[0],vanec=f.ready.tokens[2];
   const mapClick=async(x:number,y:number)=>{const p=offsetPoint((await tokenView(page,druk.id))!,x-druk.x,y-druk.y);await page.mouse.click(p.x,p.y);};
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw connected walls',exact:true}).click();
-  await mapClick(750,40);await mapClick(750,650);
+  const rectangle=async(ax:number,ay:number,bx:number,by:number)=>{
+    const view=(await tokenView(page,druk.id))!,a=offsetPoint(view,ax-druk.x,ay-druk.y),b=offsetPoint(view,bx-druk.x,by-druk.y);
+    await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:18});await page.mouse.up();
+  };
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+  await rectangle(730,40,770,650);
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
-  await page.getByRole('button',{name:'Finish chain',exact:true}).click();
+  expect((await f.snapshot()).map!.walls![0].kind).toBe('rectangle');
   expect(await page.locator('.stage-wrap').evaluate(e=>[e.scrollLeft,e.scrollTop])).toEqual([0,0]);
-  await mapClick(750,720);await mapClick(750,790);
+  await rectangle(770,790,730,720); // Reverse drag.
+  await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(2);
+  // Cancel a draft without saving a partial shape, then undo/redo a complete rectangle.
+  const cancel=(await tokenView(page,druk.id))!,ca=offsetPoint(cancel,600-druk.x,700-druk.y),cb=offsetPoint(cancel,670-druk.x,760-druk.y);
+  await page.mouse.move(ca.x,ca.y);await page.mouse.down();await page.mouse.move(cb.x,cb.y,{steps:8});await page.keyboard.press('Escape');await page.mouse.up();
+  expect((await f.snapshot()).map!.walls).toHaveLength(2);
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Undo last wall',exact:true}).click();
+  await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+  await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
+  await rectangle(770,790,730,720);
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(2);
   await page.screenshot({path:info.outputPath('walls-dm-drawing.png')});
   await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
@@ -636,6 +649,97 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
     expect((await f.snapshot()).map!.walls).toHaveLength(1);
     expect(errors).toEqual([]);
   }finally{for(const c of contexts)await c.close();}
+});
+
+test('rectangle wall walkthrough on the dungeon with personal sight and lanterns',async({page,request,browser},info)=>{
+  test.skip(!movementDemo,'Optional recorded walkthrough');test.setTimeout(240000);
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+  const druk=f.ready.tokens[0],varis=f.ready.tokens[1],vanec=f.ready.tokens[2];
+  for(const [token,x,y] of [[druk,450,145],[varis,690,490],[vanec,1090,270]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
+  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140,hidden:true});
+  f.socket.emit('monster:create',{name:'Goblin',maxHp:12,modelType:'goblin'});
+  const goblinTemplate=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin')!;
+  f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:goblinTemplate.id,x:740,y:260});
+  const goblin=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+  const contexts:Awaited<ReturnType<typeof browser.newContext>>[]=[];
+  const recordings=new Map<Page,{start:number;file:string}>(),chapters:{file:string;start:number;end:number;label:string}[]=[];
+  const errors:string[]=[];
+  const newView=async(name:string)=>{
+    const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},recordVideo:{dir:info.outputPath(name),size:{width:1600,height:1000}}});contexts.push(ctx);
+    const start=Date.now(),p=await ctx.newPage();recordings.set(p,{start,file:await p.video()!.path()});
+    p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});return p;
+  };
+  const chapter=async(p:Page,label:string,action:()=>Promise<void>)=>{
+    const recording=recordings.get(p)!;
+    await p.evaluate(text=>{
+      let caption=document.querySelector<HTMLDivElement>('#wall-demo-caption');
+      if(!caption){caption=document.createElement('div');caption.id='wall-demo-caption';document.body.append(caption);}
+      caption.textContent=text;Object.assign(caption.style,{position:'fixed',top:'174px',left:'50%',transform:'translateX(-50%)',padding:'10px 20px',background:'#111820ed',border:'1px solid #c8ab72',borderRadius:'6px',color:'#ffebbd',font:'20px Georgia',zIndex:'1000',pointerEvents:'none',whiteSpace:'nowrap'});
+    },label);
+    const start=(Date.now()-recording.start)/1000;await p.waitForTimeout(600);await action();await p.waitForTimeout(1800);
+    chapters.push({file:recording.file,start,end:(Date.now()-recording.start)/1000,label});
+  };
+  try{
+    const dm=await newView('dm-rectangles');await dm.goto(`/dm?code=${f.code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+    const point=async(p:Page,token:typeof druk,x:number,y:number)=>{
+      const actual=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
+      return offsetPoint((await tokenView(p,token.id))!,x-actual.x,y-actual.y);
+    };
+    await chapter(dm,'DM: drag rectangles over the full thickness of the room walls',async()=>{
+      await dm.getByRole('button',{name:'Walls',exact:true}).click();await dm.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+      const rectangles=[[252,78,286,445],[258,78,610,110],[258,405,610,445],[578,108,610,235],[578,335,610,421]];
+      for(const [i,[ax,ay,bx,by]] of rectangles.entries()){
+        const a=await point(dm,druk,ax,ay),b=await point(dm,druk,bx,by);
+        await dm.mouse.move(a.x,a.y);await dm.mouse.down();
+        for(let step=1;step<=22;step++){await dm.mouse.move(a.x+(b.x-a.x)*step/22,a.y+(b.y-a.y)*step/22);await dm.waitForTimeout(35);}
+        await dm.mouse.up();await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(i+1);await dm.waitForTimeout(450);
+      }
+      await dm.screenshot({path:info.outputPath('rectangle-walls-dm.png')});
+    });
+    await dm.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
+    await chapter(dm,'DM: the placed torch now lights through the doorway, not through stone',async()=>{
+      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,mist:false,lights:[{id:'room-torch',x:525,y:280,radiusFt:30,heightFt:5,intensity:1,color:'warm',flicker:true,visibleTorch:true}]}});
+      await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-light-count','1');
+      await dm.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await dm.waitForTimeout(2000);
+      await dm.screenshot({path:info.outputPath('rectangle-walls-light.png')});
+    });
+    const west=await newView('druk-vision'),hall=await newView('varis-vision');
+    await enter(west,f.code,'Druk',true);await enter(hall,f.code,'Varis',true);
+    await expect(west.getByTestId('player-vision')).toHaveAttribute('data-wall-count','5');
+    expect(await tokenView(west,goblin.id)).toBeNull();
+    await chapter(west,'Druk: the wall hides the goblin and the rest of the party',async()=>{
+      await west.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await west.waitForTimeout(2200);
+      await west.screenshot({path:info.outputPath('rectangle-walls-druk-hidden.png')});
+    });
+    await chapter(hall,'Varis: a separate view from the hallway',async()=>{
+      await expect.poll(()=>tokenView(hall,goblin.id)).not.toBeNull();
+      await hall.waitForTimeout(2400);await hall.screenshot({path:info.outputPath('rectangle-walls-varis.png')});
+    });
+    await chapter(west,'Druk moves toward the doorway — the goblin comes into view',async()=>{
+      const a=await point(west,druk,450,145),b=await point(west,druk,450,305);
+      await west.mouse.move(a.x,a.y);await west.mouse.down();
+      for(let step=1;step<=25;step++){await west.mouse.move(a.x+(b.x-a.x)*step/25,a.y+(b.y-a.y)*step/25);await west.waitForTimeout(45);}
+      await west.waitForTimeout(600);await west.mouse.up();
+      await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBeGreaterThan(250);
+      await expect.poll(()=>tokenView(west,goblin.id)).not.toBeNull();
+      await west.screenshot({path:info.outputPath('rectangle-walls-druk-doorway.png')});
+    });
+    await chapter(west,'Heavy darkness: darkvision remains personal and stops at the walls',async()=>{
+      f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:true,lights:[]}});
+      await expect(west.getByTestId('player-vision')).toHaveAttribute('data-heavy','true');await west.waitForTimeout(1600);
+      await west.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await west.waitForTimeout(1000);
+    });
+    await chapter(west,'Druk lights his hip lantern — light reaches through the opening',async()=>{
+      await west.getByRole('button',{name:'Carried lantern',exact:true}).click();
+      await expect(west.getByTestId('miniature-layer')).toHaveAttribute('data-carried-lantern-count','1');await west.waitForTimeout(2200);
+      await west.screenshot({path:info.outputPath('rectangle-walls-lantern.png')});
+    });
+    expect(errors).toEqual([]);
+  }finally{
+    for(const c of contexts)await c.close();
+    writeFileSync(info.outputPath('wall-video-chapters.json'),JSON.stringify(chapters,null,2));
+  }
 });
 
 async function monsterFixture(page: Page, request: APIRequestContext) {

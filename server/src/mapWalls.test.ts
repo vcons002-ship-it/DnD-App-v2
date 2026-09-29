@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,type MapWall} from '../../shared/mapWalls.js';
+import {hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,type MapWall} from '../../shared/mapWalls.js';
 import {visionContains,visionLit} from '../../shared/playerVision.js';
 import {editMapWalls} from './mapWalls.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,getMap,getSessionByCode,listMaps,moveToken,setTokenHidden,setFogLayer,setFogRevealed} from './sessions.js';
@@ -22,6 +22,26 @@ function fixture(){
  return {session,map,west,east,enemy};
 }
 describe('wall geometry',()=>{
+ it('blocks the complete thickness and all sides of a rectangle, including its interior',()=>{
+  const rect:MapWall={id:'thick',kind:'rectangle',ax:100,ay:100,bx:140,by:300};
+  expect(wallEdgeCount([rect])).toBe(4);
+  for(const [a,b] of [[{x:50,y:200},{x:200,y:200}],[{x:200,y:200},{x:50,y:200}],[{x:120,y:50},{x:120,y:400}],[{x:110,y:200},{x:130,y:200}]])expect(hasLineOfSight(a,b,[rect])).toBe(false);
+  expect(hasLineOfSight({x:50,y:50},{x:200,y:50},[rect])).toBe(true);
+  expect(distanceToWall({x:120,y:200},rect)).toBe(0);
+  expect(distanceToWall({x:80,y:200},rect)).toBe(20);
+  expect(wallVisibilityPolygon({x:120,y:200},[rect],400).every(p=>p.x===120&&p.y===200)).toBe(true);
+  expect(sanitizeWalls([{...rect,bx:100}])).toEqual([]);
+ });
+ it('retains reverse drags and treats rectangular walls as one saved undo/erase operation',()=>{
+  const f=fixture(),rect:MapWall={id:'rectangle',kind:'rectangle',ax:700,ay:600,bx:650,by:100};
+  expect(editMapWalls(f.session.id,f.map.id,{add:rect})).toBeNull();
+  expect(getMap(f.map.id)!.walls).toEqual([wall,rect]);
+  const restored=importSession(exportSession(f.session.code)!);
+  expect(listMaps(getSessionByCode(restored.code)!.id)[0].walls).toEqual([wall,rect]);
+  expect(hasLineOfSight({x:600,y:300},{x:800,y:300},[rect])).toBe(false);
+  expect(editMapWalls(f.session.id,f.map.id,{removeId:rect.id})).toBeNull();
+  expect(getMap(f.map.id)!.walls).toEqual([wall]);
+ });
  it('blocks crossings and exact corners but leaves doorway rays and parallel rays open',()=>{
   expect(hasLineOfSight({x:500,y:400},{x:900,y:400},[wall])).toBe(false);
   expect(hasLineOfSight({x:500,y:400},{x:500,y:1000},[wall])).toBe(true);
