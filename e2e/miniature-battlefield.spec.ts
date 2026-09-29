@@ -7,6 +7,9 @@ import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import type { StateSnapshot } from '../shared/types';
 import {stormLightningAt} from '../shared/stormLighting';
+import {createPlayerVision,visionContains,visionLit} from '../shared/playerVision';
+import {hasLineOfSight} from '../shared/mapWalls';
+import {tokenDistanceFt} from '../shared/distance';
 import { MONSTER_MODEL_TYPES, monsterVariation, monsterVariantIds } from '../shared/monsterAppearance';
 import { DM_SECRET, PORT } from './playwright.config';
 
@@ -3004,4 +3007,154 @@ test('shared creature awareness stays grayscale and noninteractive until persona
  await expect(page.getByTestId('shared-sight-miniatures')).not.toHaveAttribute('data-token-ids',new RegExp(enemy.id));
  await page.screenshot({path:info.outputPath('09-enemy-gone-terrain-remembered.png')});if(movementDemo)await page.waitForTimeout(2500);
  expect(errors).toEqual([]);writeFileSync(info.outputPath('shared-sight-result.json'),JSON.stringify({renderedPixels:rgba,restoredHeadPixels,changedSurroundings,noninteractive:true,personalSightRestored:true,lastObserverLoss:true,errors},null,2));
+});
+
+// A purpose-built stone gallery makes the corner, doorway and 45-foot sightline
+// unambiguous. Painted wall rectangles and collision rectangles are identical.
+const cornerDemoWalls=[
+ [570,300,1430,330],[1400,330,1430,630],[650,600,1430,630],
+ [570,330,600,500],[420,600,450,930],[420,900,680,930],
+ [650,630,680,930],[250,600,450,630],[250,500,280,600],
+ [250,300,280,530],[250,300,600,330],[420,330,450,530],
+ [250,500,330,530],[390,500,450,530],[450,500,600,530],
+];
+async function cornerDemoMap(){
+ const walls=cornerDemoWalls.map(([ax,ay,bx,by])=>`<rect x="${ax}" y="${ay}" width="${bx-ax}" height="${by-ay}" fill="url(#wall)" stroke="#171b1d" stroke-width="3"/><path d="M${ax+3},${by-3}V${ay+3}H${bx-3}" fill="none" stroke="#8e938b" stroke-opacity=".7" stroke-width="3"/>`).join('');
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1000"><defs>
+  <pattern id="floor" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="#494c4a"/><path d="M0 0H100M0 50H100M50 0V50M25 50V100M75 50V100" stroke="#292f30" stroke-width="2"/><path d="M2 3H48M52 3H98M2 53H23M28 53H73M78 53H98" stroke="#6a6e65" stroke-width="2"/><path d="M20 14l4 9-7 5M66 67l8 7-3 14" stroke="#383d3c" fill="none"/><rect x="55" y="4" width="42" height="44" fill="#77735f" opacity=".1"/></pattern>
+  <pattern id="wall" width="50" height="30" patternUnits="userSpaceOnUse"><rect width="50" height="30" fill="#666b65"/><path d="M0 0H50V30H0ZM25 0V30" stroke="#303735" stroke-width="2"/></pattern>
+ </defs><rect width="1500" height="1000" fill="#141a1d"/>
+ <path d="M250 300H1430V630H680V930H420V630H250Z" fill="url(#floor)"/>
+ <rect x="450" y="330" width="120" height="170" fill="#202629"/>
+ <path d="M700 360H1340V565H700Z" fill="none" stroke="#7d8171" stroke-width="3" opacity=".3"/>
+ <path d="M730 375H1310V550H730Z" fill="none" stroke="#242b2c" stroke-width="2"/>
+ ${walls}<path d="M333 515H387" stroke="#9d8b64" stroke-width="3"/>
+ <g fill="#2e3838" stroke="#6d756c" stroke-width="2"><rect x="300" y="355" width="65" height="30" rx="3"/><rect x="305" y="392" width="32" height="24" rx="2"/></g>
+ </svg>`;
+ return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+for(const mode of ['regular','darkness','heavy'] as const)test(`record corner party combat ${mode}`,async({page,request,browser},info)=>{
+ test.skip(!movementDemo,'Optional two-player recorded walkthrough');test.setTimeout(360000);
+ const f=await fixture(page,request,await cornerDemoMap()),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('token:delete',{tokenId:vanec.id});
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:150,locked:false,hidden:false});
+ f.socket.emit('token:move',{tokenId:varis.id,x:600,y:800});f.socket.emit('token:move',{tokenId:druk.id,x:500,y:800});
+ cornerDemoWalls.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:`corner-${i}`,kind:'rectangle',ax,ay,bx,by}}));
+ f.socket.emit('monster:create',{name:'Goblin sentry',modelType:'goblin',disposition:'enemy',maxHp:100,armorClass:12,weapons:[{name:'Scimitar',kind:'melee',damage:'1d6+2',attackBonus:4}]});
+ const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin sentry')!;
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:1050,y:550});
+ f.socket.emit('character:update',{characterId:druk.refId,className:'Fighter',level:5,armorClass:17,stats:{STR:18,DEX:18,CON:16,INT:10,WIS:12,CHA:10},
+  weapons:[{name:'Longbow',kind:'ranged',damage:'1d8+4',damageType:'piercing',attackBonus:7,range:'150/600 ft'},
+   {name:'Greatsword',kind:'melee',damage:'2d6+4',damageType:'slashing',attackBonus:7}]});
+ f.socket.emit('character:update',{characterId:varis.refId,className:'Ranger',level:5,armorClass:16,maxHp:45,curHp:45,
+  stats:{STR:12,DEX:18,CON:14,INT:10,WIS:16,CHA:10},weapons:[{name:'Shortsword',kind:'melee',damage:'1d6+4',damageType:'piercing',attackBonus:7}]});
+ f.socket.emit('session:setManualDamage',{manual:true});
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:mode!=='regular',lighting:'dungeon',heavyDarkness:mode==='heavy',mist:false,shadows:true,lights:[]}});
+ const ready=await f.snapshot(),enemy=ready.tokens.find(t=>t.kind==='monster')!;
+ const contexts:Awaited<ReturnType<typeof browser.newContext>>[]=[],errors:string[]=[];
+ const recording=new Map<Page,{file:string;epoch:number;name:string}>();
+ const chapters:{label:string;actor:string;views:{name:string;file:string;start:number;end:number}[]}[]=[];
+ const evidence:Record<string,unknown>[]=[];
+ const title=mode==='regular'?'Regular light':mode==='darkness'?'Darkness (dim light)':'Heavy darkness';
+ const newView=async(name:string)=>{
+  const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},recordVideo:{dir:info.outputPath(name),size:{width:1600,height:1000}},serviceWorkers:'block'});contexts.push(ctx);
+  const epoch=Date.now(),p=await ctx.newPage();recording.set(p,{file:await p.video()!.path(),epoch,name});
+  p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
+  await enter(p,f.code,name,true);
+  await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
+  await p.waitForTimeout(800);
+  const own=name==='Varis'?varis:druk;
+  await p.getByRole('button',{name:'Carried lantern',exact:true}).click();
+  await p.getByTitle('Zoom in',{exact:true}).click();await afterPaint(p);
+  // Frame the whole route, including the side room, in both independent views.
+  const current=(await f.snapshot()).tokens.find(t=>t.id===own.id)!,v=(await tokenView(p,own.id))!,anchor=offsetPoint(v,740-current.x,580-current.y);
+  await p.mouse.move(1100,880);await p.mouse.down();await p.mouse.move(1100+760-anchor.x,880+535-anchor.y,{steps:20});await p.mouse.up();await afterPaint(p);
+  return p;
+ };
+ try{
+  const scout=await newView('Varis'),fighter=await newView('Druk');
+  const caption=async(p:Page,label:string)=>p.evaluate(({label,title,name})=>{
+   let el=document.getElementById('corner-caption');if(!el){el=document.createElement('div');el.id='corner-caption';el.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);width:1000px;max-width:75vw;padding:12px 20px;background:#10171fee;border:1px solid #bda56d;border-radius:8px;color:#f6e6c4;font:20px/1.4 Georgia;z-index:9999;pointer-events:none;text-align:center';document.body.append(el);}
+   el.textContent=`${title} — ${name}'s view · ${label}`;
+  },{label,title,name:recording.get(p)!.name});
+  const chapter=async(label:string,actor:Page,action:()=>Promise<void>)=>{
+   console.log(`${mode}: ${label}`);
+   for(const p of [scout,fighter])await caption(p,label);
+   const starts=new Map([scout,fighter].map(p=>[p,(Date.now()-recording.get(p)!.epoch)/1000]));
+   await actor.waitForTimeout(1100);await action();await actor.waitForTimeout(2200);
+   chapters.push({label,actor:recording.get(actor)!.name,views:[scout,fighter].map(p=>({...recording.get(p)!,start:starts.get(p)!,end:(Date.now()-recording.get(p)!.epoch)/1000}))});
+  };
+  const move=async(p:Page,token:typeof druk,x:number,y:number)=>{
+   const current=(await f.snapshot()).tokens.find(t=>t.id===token.id)!,v=(await personalTokenView(p,token.id))!,dest=offsetPoint(v,x-current.x,y-current.y);
+   expect(hasLineOfSight(current,{x,y},ready.map!.walls),'Every drag follows a clear physical route').toBe(true);
+   await p.mouse.move(v.x,v.y);await p.mouse.down();
+   for(let i=1;i<=24;i++){await p.mouse.move(v.x+(dest.x-v.x)*i/24,v.y+(dest.y-v.y)*i/24);await p.waitForTimeout(25);}
+   await p.waitForTimeout(350);await p.mouse.up();
+   await expect.poll(async()=>{const actual=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;return Math.hypot(actual.x-x,actual.y-y);}).toBeLessThan(2);
+   await p.waitForTimeout(650);
+  };
+  const verifyRange=async(token:typeof druk,phase:string)=>{
+   const snap=await f.snapshot(),actual=snap.tokens.find(t=>t.id===token.id)!,vision=createPlayerVision(snap.map,snap.tokens,new Set([token.refId]));
+   const distance=tokenDistanceFt(actual,enemy,snap.map);
+   expect(distance).toBeCloseTo(45,1);expect(visionContains(vision,enemy.x,enemy.y)).toBe(true);
+   if(mode!=='regular')expect(visionLit(vision,enemy.x,enemy.y),'Enemy must be beyond lantern light').toBe(false);
+   evidence.push({phase,distance,personallyVisible:visionContains(vision,enemy.x,enemy.y),lanternLit:visionLit(vision,enemy.x,enemy.y)});
+  };
+  const finishRoll=async()=>{
+   await expect(fighter.locator('[data-live-dice="true"]')).toBeVisible({timeout:15000});
+   await expect(fighter.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:60000});
+   await expect(fighter.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:20000});
+   await fighter.waitForTimeout(1800);await fighter.keyboard.press('Escape');await fighter.waitForTimeout(500);
+  };
+  const attack=async(weapon:string)=>{
+   await fighter.getByLabel('Attack target').selectOption(enemy.id);
+   const before=(await f.snapshot()).rollLog.length;
+   await fighter.locator('.compact-player-combat').getByRole('button',{name:new RegExp(weapon)}).click();await finishRoll();
+   if(await fighter.locator('.damage-prompt-btn').count()){
+    await fighter.locator('.damage-prompt-btn').first().click();await finishRoll();
+   }
+   await expect.poll(async()=>(await f.snapshot()).rollLog.length).toBeGreaterThan(before);
+   evidence.push({phase:weapon,rolls:(await f.snapshot()).rollLog.slice(0,4)});
+  };
+  await chapter('Both lanterns on; the corner blocks sight of the sentry',scout,async()=>{
+   expect(await tokenView(scout,enemy.id)).toBeNull();expect(await tokenView(fighter,enemy.id)).toBeNull();
+  });
+  await chapter('Varis turns the corner: sentry revealed at 45 ft',scout,async()=>{
+   await move(scout,varis,600,650);await move(scout,varis,600,550);await verifyRange(varis,'scout reveal');
+   await expect.poll(()=>personalTokenView(scout,enemy.id)).not.toBeNull();
+   await expect.poll(async()=>(await tokenView(fighter,enemy.id))?.sharedSightOnly).toBe(true);
+   await expect(fighter.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(0);
+   await scout.screenshot({path:info.outputPath('01-varis-reveal.png')});await fighter.screenshot({path:info.outputPath('02-druk-shared.png')});
+  });
+  await chapter('Varis enters the side room; nobody can see the sentry now',scout,async()=>{
+   await move(scout,varis,500,550);await move(scout,varis,360,550);await move(scout,varis,360,450);
+   const snap=await f.snapshot(),a=snap.tokens.find(t=>t.id===varis.id)!,b=snap.tokens.find(t=>t.id===druk.id)!;
+   expect(hasLineOfSight(a,b,snap.map!.walls)).toBe(false);expect(hasLineOfSight(a,enemy,snap.map!.walls)).toBe(false);
+   await expect.poll(()=>tokenView(scout,enemy.id)).toBeNull();await expect.poll(()=>tokenView(fighter,enemy.id)).toBeNull();
+   expect((await tokenView(fighter,varis.id))?.sharedSightOnly).toBe(true);
+   await scout.screenshot({path:info.outputPath('03-varis-alone.png')});await fighter.screenshot({path:info.outputPath('04-druk-enemy-gone.png')});
+  });
+  await chapter('Druk turns the corner: 45 ft, beyond lantern light',fighter,async()=>{
+   await move(fighter,druk,600,800);await move(fighter,druk,600,650);await move(fighter,druk,600,550);await verifyRange(druk,'ranged position');
+   await expect.poll(()=>personalTokenView(fighter,enemy.id)).not.toBeNull();
+   await expect.poll(async()=>(await tokenView(scout,enemy.id))?.sharedSightOnly).toBe(true);
+   await expect(scout.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(0);
+   await fighter.screenshot({path:info.outputPath('05-druk-range.png')});await scout.screenshot({path:info.outputPath('06-varis-shared.png')});
+  });
+  await chapter('Druk fires his longbow from 45 ft',fighter,async()=>{await attack('Longbow');});
+  await chapter('Druk advances into lantern-lit melee range: 5 ft',fighter,async()=>{
+   await move(fighter,druk,800,550);await move(fighter,druk,1000,550);
+   const snap=await f.snapshot(),actual=snap.tokens.find(t=>t.id===druk.id)!;
+   expect(tokenDistanceFt(actual,enemy,snap.map)).toBeCloseTo(5,1);
+   expect(visionLit(createPlayerVision(snap.map,snap.tokens,new Set([druk.refId])),enemy.x,enemy.y)).toBe(true);
+   expect((await tokenView(scout,druk.id))?.sharedSightOnly).toBe(true);
+   await fighter.screenshot({path:info.outputPath('07-druk-melee.png')});await scout.screenshot({path:info.outputPath('08-varis-room-view.png')});
+  });
+  await chapter('Druk attacks with his greatsword; Varis remains isolated',fighter,async()=>{await attack('Greatsword');});
+  expect(errors).toEqual([]);
+ }finally{
+  for(const ctx of contexts)await ctx.close();
+  writeFileSync(info.outputPath('chapters.json'),JSON.stringify({mode,title,chapters,evidence,errors},null,2));
+ }
 });
