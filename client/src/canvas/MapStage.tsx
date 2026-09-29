@@ -2010,7 +2010,7 @@ export function MapStage({
                         setScaleMode((s) => !s);
                       }}
                     />
-                    <WallMenu doors={doors} onDoor={id=>setSelectedDoor(id)} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
+                    <WallMenu map={map} doors={doors} onDoor={id=>setSelectedDoor(id)} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
                       onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
                       onFinish={()=>{setWallAnchor(null);setWallPointer(null);}}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>

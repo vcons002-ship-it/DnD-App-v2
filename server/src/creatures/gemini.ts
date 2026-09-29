@@ -191,7 +191,7 @@ export async function callGeminiText(
 /** Call Gemini, discovering/rotating models so a retired one never blocks us. */
 export async function callGemini(
   prompt: string,
-  opts: { json?: boolean; signal?: AbortSignal } = {},
+  opts: { json?: boolean; signal?: AbortSignal; images?: {mimeType:string;data:string}[] } = {},
 ): Promise<string | null> {
   if (!geminiEnabled() || opts.signal?.aborted) return null;
   const json = opts.json !== false; // default: structured JSON (existing callers)
@@ -213,8 +213,8 @@ export async function callGemini(
     const result = await apiRequest<{candidates?: {content?: {parts?: {text?:string}[]}}[]}>(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:'application/json'}:{}})},
-      {signal:opts.signal});
+        body:JSON.stringify({contents:[{parts:[{text:prompt},...(opts.images??[]).map(inlineData=>({inlineData}))]}],generationConfig:json?{responseMimeType:'application/json'}:{}})},
+      {signal:opts.signal,timeoutMs:opts.images?.length?120000:undefined});
     if(!result || opts.signal?.aborted) return null;
     if(result.status===404 && !config.geminiModel) {resolvedModel=null;continue;}
     if(result.status!==200) return null;

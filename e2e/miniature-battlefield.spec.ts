@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
@@ -2728,4 +2729,56 @@ test('failed party model download restores usable 2D fallback',async({page,reque
   await enter(page,f.code);
   await expect.poll(async()=>(await tokenView(page,varis.id))?.bodyVisible,{timeout:30000}).toBe(true);
   expect((await tokenView(page,varis.id))?.miniaturePending).toBe(false);
+});
+
+
+test('DM reviews local wall drafts and applies only selected walls',async({page,request},info)=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width:1500,height:1000});
+  const art=await sharp(Buffer.from('<svg width="1200" height="800"><rect width="1200" height="800" fill="#ddd"/><path d="M480 50H510V320H480ZM480 430H510V740H480ZM510 50H1080V70H510Z" fill="#222"/></svg>')).png().toBuffer();
+  const f=await fixture(page,request,art);
+  expect((await request.post(`/api/maps/${f.mapId}/wall-draft`,{data:{method:'local'}})).status()).toBe(403);
+  await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();
+  await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Wall draft',exact:true});
+  await expect(dialog).toBeVisible();
+  await page.getByRole('button',{name:'Analyze map',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Download JSON',exact:true})).toBeVisible();
+  expect((await f.snapshot()).map!.walls).toEqual([]);
+  await expect(page.getByRole('button',{name:'Apply 0 walls',exact:true})).toBeDisabled();
+  const suggestions=dialog.locator('input[type=checkbox]');
+  // First checkbox controls art; the rest correspond to draft walls.
+  await suggestions.nth(1).check();
+  await page.screenshot({path:info.outputPath('local-wall-draft.png')});
+  await page.getByRole('button',{name:'Apply 1 walls',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(1);
+  const wall=(await f.snapshot()).map!.walls![0];expect(wall.kind).toBe('rectangle');
+});
+
+
+test('capture local and recorded live AI dungeon wall drafts',async({page,request},info)=>{
+  test.skip(process.env.DND_WALL_DRAFT_DEMO!=='1','Optional live API result comparison');test.setTimeout(90000);
+  await page.setViewportSize({width:1500,height:1100});
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
+  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140.2,locked:false});await f.snapshot();
+  const recorded=JSON.parse(readFileSync('artifacts/wall-draft-ai.json','utf8'));
+  const sourceResponse=await request.post(`/api/maps/${f.mapId}/wall-draft`,{headers:{'x-dm-passphrase':DM_SECRET},data:{method:'local',options:{threshold:60,polarity:'dark',minLengthSquares:2}}});
+  expect(sourceResponse.ok()).toBe(true);const local=await sourceResponse.json();recorded.source=local.source;
+  // Replay the actual live API geometry from this identical image for repeatable UI capture.
+  await page.route(`**/api/maps/${f.mapId}/wall-draft`,async route=>{
+    if(route.request().postDataJSON()?.method==='ai')await route.fulfill({json:recorded});else await route.continue();
+  });
+  await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);
+  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).click();
+  await page.getByLabel('Wall detection threshold',{exact:true}).fill('60');
+  await page.getByRole('button',{name:'Analyze map',exact:true}).click();await expect(page.getByRole('button',{name:'Download JSON',exact:true})).toBeVisible();
+  await page.screenshot({path:info.outputPath('dungeon-local-draft.png')});
+  await page.getByLabel('Wall detection method',{exact:true}).selectOption('ai');
+  await page.getByRole('button',{name:'Analyze again',exact:true}).click();
+  await expect(page.getByText('Draft from AI image analysis.',{exact:false})).toBeVisible();
+  await page.screenshot({path:info.outputPath('dungeon-ai-draft.png')});
 });

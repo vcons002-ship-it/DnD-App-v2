@@ -11,6 +11,8 @@ function effectivePrefer(prefer?: 'gemini' | 'local'): 'gemini' | 'local' {
 }
 
 export type GenOpts = {
+  images?: {mimeType: string; data: string}[];
+  validateJson?: (value: unknown) => boolean;
   prefer?: 'gemini' | 'local';
   ollamaModel?: string;
   /** Cancel the in-flight call (the chat's Stop button). */
@@ -41,12 +43,12 @@ export function extractJson(text: string): string {
 
 /** Shared bounded fallback: each backend is used at most once per operation. */
 async function generate(system: string, user: string, json: boolean, opts: GenOpts): Promise<string|null> {
-  const local=()=>ollamaChat(system,user,{json,model:opts.ollamaModel,signal:opts.signal,timeoutMs:opts.timeoutMs,temperature:opts.temperature});
-  const api=()=>json ? callGemini(user,{signal:opts.signal}) : callGeminiText(`${system}\n\n${user}`,opts.signal);
+  const local=()=>ollamaChat(system,user,{json,model:opts.ollamaModel,signal:opts.signal,timeoutMs:opts.timeoutMs,temperature:opts.temperature,images:opts.images?.map(image=>image.data)});
+  const api=()=>json ? callGemini(user,{signal:opts.signal,images:opts.images}) : callGeminiText(`${system}\n\n${user}`,opts.signal);
   const accept=(text:string|null) => {
     if(!text?.trim()) return null;
     if(!json) return text;
-    try {const cleaned=extractJson(text);JSON.parse(cleaned);return cleaned;} catch{return null;}
+    try {const cleaned=extractJson(text);const parsed=JSON.parse(cleaned);if(opts.validateJson&&!opts.validateJson(parsed))return null;return cleaned;} catch{return null;}
   };
   const order=effectivePrefer(opts.prefer)==='local' ? ['local','api'] : ['api','local'];
   let failed=false;

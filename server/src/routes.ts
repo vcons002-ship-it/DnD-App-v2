@@ -1,3 +1,5 @@
+import {suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
+import {getMap} from './sessions.js';
 import { Router } from 'express';
 import { assetQueue } from './assets/production.js';
 import { requestCreatureAsset } from './assets/hooks.js';
@@ -190,6 +192,31 @@ const backupUpload = multer({
 
 export function createApiRouter(io: IOServer): Router {
   const router = Router();
+  const analyzingMaps=new Set<string>();
+  router.post('/maps/:mapId/wall-draft',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId);
+    if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
+    if(analyzingMaps.has(mapId)){res.status(409).json({error:'This map is already being analyzed.'});return;}
+    analyzingMaps.add(mapId);
+    try{
+      const method=req.body?.method??'ai';
+      if(method!=='ai'&&method!=='local'){res.status(400).json({error:'Choose AI or local detection.'});return;}
+      res.json(await suggestMapGeometry(mapId,method,req.body?.options));
+    }
+    catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not read the map image.'});}
+    finally{analyzingMaps.delete(mapId);}
+  });
+  router.post('/maps/:mapId/wall-draft/apply',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId),map=getMap(mapId);
+    if(!map){res.status(404).json({error:'Map not found.'});return;}
+    try{
+      const count=await applyGeometryDraft(mapId,req.body?.draft,req.body?.selected);
+      broadcastSnapshots(io,map.sessionId);res.json({count});
+    }catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not apply this draft.'});}
+  });
+
   // Catalog is public art only. Work-in-progress names, errors and controls are DM-only.
   router.get('/assets/catalog', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
