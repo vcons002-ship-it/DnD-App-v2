@@ -2517,6 +2517,10 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  await expect.poll(outlines).toBe(0);
  await enter(page,f.code,'Druk',false);
  await expect.poll(()=>personalTokenView(page,druk.id)).not.toBeNull();
+ // Let model loading and automatic camera fitting finish before measuring a
+ // screen-space drag; otherwise the pointer coordinates can become stale.
+ await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+ await afterPaint(page);
  const view=(await personalTokenView(page,druk.id))!,target=offsetPoint(view,350,0);
  await page.mouse.move(view.x,view.y);await page.mouse.down();
  await page.mouse.move(target.x,target.y,{steps:20});await page.mouse.up();
@@ -2525,9 +2529,13 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  expect(stopped.x).toBeLessThan(450);expect(await outlines()).toBe(0);
  const player=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(player);
  await player.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'wall-movement-test'});
- player.emit('token:move',{tokenId:druk.id,x:1000,y:360});
- await new Promise(r=>setTimeout(r,200));
- expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeCloseTo(stopped.x);
+ const placed=await player.timeout(5000).emitWithAck('token:move',{tokenId:druk.id,x:1000,y:360});
+ // A move toward the far side stops at the near face, even when the first
+ // pointer drag stopped short. Repeating it cannot tunnel through the wall.
+ expect(placed.x).toBeGreaterThanOrEqual(stopped.x);expect(placed.x).toBeLessThan(450);
+ const blocked=await player.timeout(5000).emitWithAck('token:move',{tokenId:druk.id,x:1000,y:360});
+ expect(blocked.x).toBeCloseTo(placed.x);
+ expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeCloseTo(placed.x);
  // Add the lower wall: only a 3 ft gap remains, narrower than Druk's visual base.
  f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'lower',kind:'rectangle',ax:450,ay:710,bx:470,by:800}});
  f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'middle',kind:'rectangle',ax:450,ay:500,bx:470,by:650}});
@@ -2912,7 +2920,8 @@ test('shared creature awareness stays grayscale and noninteractive until persona
  expect(await tokenView(page,enemy.id)).toBeNull();
  await page.getByTitle('Zoom in',{exact:true}).click();await page.getByTitle('Zoom in',{exact:true}).click();await afterPaint(page);
  await page.screenshot({path:info.outputPath('01-before-discovery.png')});if(movementDemo)await page.waitForTimeout(1500);
- // A separate player's scout enters the room, leaving Druk outside its walls.
+ // DM staging bypasses collision here: reposition the scout to isolate sight
+ // changes. This capture demonstrates visibility, not a legal walking route.
  f.socket.emit('token:move',{tokenId:varis.id,x:430,y:340});
  await expect.poll(async()=>(await tokenView(page,enemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
  await expect(page.getByTestId('shared-sight-miniatures')).toHaveAttribute('data-token-ids',new RegExp(enemy.id));
