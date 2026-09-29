@@ -691,9 +691,10 @@ test('dungeon torch shadows closeup',async({page,request},info)=>{
  await expect(layer).toHaveAttribute('data-carried-lantern-count','1');await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath('lantern.png')});
  const lanternPosition=JSON.parse((await layer.getAttribute('data-carried-lantern-positions'))!)[0];
  expect(lanternPosition.height).toBeGreaterThan(lanternPosition.fixtureHeight+5);
+ expect(lanternPosition.height).toBeCloseTo(torch.heightFt*(50/5),5);
  const lanternCasters=JSON.parse((await layer.getAttribute('data-local-shadow-casters'))!);
  expect(lanternCasters[varis.id]).not.toContain(varis.id);expect(lanternCasters[varis.id]).toContain(druk.id);
- await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - hip lantern, chest-height light');
+ await page.evaluate(text=>document.getElementById('shadow-caption')!.textContent=text,title+' - hip lantern, six-foot light');
  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await page.waitForTimeout(5000);await page.screenshot({path:info.outputPath('lantern-tilted.png')});
  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
  writeFileSync(info.outputPath('lantern-height.json'),JSON.stringify(lanternPosition,null,2));
