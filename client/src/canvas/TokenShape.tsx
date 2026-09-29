@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import {stopAtWalls,type MapWall} from '../../../shared/mapWalls';
+import {stopAtWalls,wallCollisionRadiusFt,type MapWall} from '../../../shared/mapWalls';
 import {
   Group,
   Circle,
@@ -220,7 +220,7 @@ function TokenShapeInner({
     dragOverlay.current?.moveToTop();
     paintDrag(tokenNode.current!.x(),tokenNode.current!.y());
   };
-  const constrainMove=(x:number,y:number)=>stopAtWalls(committed.current,{x,y},(miniatureDiameterFt??token.widthFt)*pxPerFoot/2,movementWalls);
+  const constrainMove=(x:number,y:number)=>stopAtWalls(committed.current,{x,y},wallCollisionRadiusFt(token.widthFt)*pxPerFoot,movementWalls);
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
     const p=constrainMove(e.target.x(),e.target.y());e.target.position(p);paintDrag(p.x,p.y);
   };

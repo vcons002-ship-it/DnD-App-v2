@@ -128,3 +128,11 @@ export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:re
  const travel=Math.max(0,hit-.01);
  return {x:start.x+ux*travel,y:start.y+uy*travel};
 }
+
+/** Forgiving body clearance, independent of decorative miniature/base scaling.
+ * A 5 ft combat space needs 2.5 ft of doorway width. This is collision leeway,
+ * not an automatic implementation of squeezing costs or combat penalties.
+ */
+export function wallCollisionRadiusFt(occupiedWidthFt:number):number {
+ return Math.max(.5,Number.isFinite(occupiedWidthFt)?occupiedWidthFt:5)*.25;
+}

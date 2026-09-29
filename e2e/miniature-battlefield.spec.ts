@@ -2523,9 +2523,13 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  player.emit('token:move',{tokenId:druk.id,x:1000,y:360});
  await new Promise(r=>setTimeout(r,200));
  expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeCloseTo(stopped.x);
- // Two legal moves around the wall end, through the doorway space.
- player.emit('token:move',{tokenId:druk.id,x:stopped.x,y:650});
- await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBe(650);
- player.emit('token:move',{tokenId:druk.id,x:800,y:650});
+ // Add the lower wall: only a 3 ft gap remains, narrower than Druk's visual base.
+ f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'lower',kind:'rectangle',ax:450,ay:710,bx:470,by:800}});
+ f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'middle',kind:'rectangle',ax:450,ay:500,bx:470,by:650}});
+ await f.snapshot();
+ // Two legal moves through a 60px (3 ft) doorway centered at y=680.
+ player.emit('token:move',{tokenId:druk.id,x:stopped.x,y:680});
+ await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBe(680);
+ player.emit('token:move',{tokenId:druk.id,x:800,y:680});
  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBe(800);
 });

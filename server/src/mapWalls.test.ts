@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {stopAtWalls,hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,type MapWall} from '../../shared/mapWalls.js';
+import {wallCollisionRadiusFt,stopAtWalls,hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,type MapWall} from '../../shared/mapWalls.js';
 import {visionContains,visionLit} from '../../shared/playerVision.js';
 import {editMapWalls} from './mapWalls.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,getMap,getSessionByCode,listMaps,moveToken,setTokenHidden,setFogLayer,setFogRevealed} from './sessions.js';
@@ -158,4 +158,14 @@ describe('solid wall movement',()=>{
   expect(moveToken(f.west.id,1200,400,true)!.x).toBeCloseTo(first.x);
   expect(moveToken(f.west.id,1200,400)!.x).toBe(1200);
  });
+});
+
+
+it('allows modest doorway squeeze independent of decorative base size',()=>{
+ const walls:MapWall[]=[{id:'top',ax:100,ay:-100,bx:100,by:-30},{id:'bottom',ax:100,ay:30,bx:100,by:100}];
+ // 20px/ft: a three-foot doorway admits a medium body, not a large body.
+ expect(wallCollisionRadiusFt(5)).toBe(1.25);
+ expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(5)*20,walls)).toEqual({x:200,y:0});
+ expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(10)*20,walls).x).toBeLessThan(100);
+ expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(5)*20,[{id:'solid',ax:100,ay:-100,bx:100,by:100}]).x).toBeCloseTo(74.99);
 });

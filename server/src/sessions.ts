@@ -1,5 +1,5 @@
 import {rollDice} from '../../shared/dice.js';
-import {stopAtWalls} from '../../shared/mapWalls.js';
+import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
@@ -592,8 +592,8 @@ export function faceTokenToward(sessionId:string,attackerTokenId:string,targetTo
 }
 
 export function wallLimitedMove(token:Token,x:number,y:number) {
-  const map=getMap(token.mapId),entity=token.kind==='monster'?getMonster(token.refId):getCharacter(token.refId);
-  const radius=map?miniatureBaseWidthFt(token,entity??{})*map.gridSizePx/(map.feetPerSquare||5)/2:0;
+  const map=getMap(token.mapId);
+  const radius=map?wallCollisionRadiusFt(token.widthFt)*map.gridSizePx/(map.feetPerSquare||5):0;
   return stopAtWalls(token,{x,y},radius,map?.walls);
 }
 
