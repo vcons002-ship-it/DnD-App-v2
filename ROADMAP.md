@@ -4,6 +4,13 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Yellow mask wall import experiment - September 2026
+
+- [x] Convert the accepted Gemini wall outlines to solid app rectangles and
+  test player collision, server collision, blocked sight and preserved doorway
+  gaps in a disposable dungeon. See [results and replay](docs/YELLOW_MASK_WALL_TEST_2026_09_29.md).
+  Automatic yellow-mask generation/import in the DM UI remains a future step.
+
 ## Live dice modifier presentation - September 2026
 
 - [x] After live dice settle, reveal labeled attack/check and damage modifiers

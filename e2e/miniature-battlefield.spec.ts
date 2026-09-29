@@ -1,3 +1,4 @@
+import {wallsFromYellowMask} from '../server/src/wallMask';
 import sharp from 'sharp';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
@@ -2781,4 +2782,46 @@ test('capture local and recorded live AI dungeon wall drafts',async({page,reques
   await page.getByRole('button',{name:'Analyze again',exact:true}).click();
   await expect(page.getByText('Draft from AI image analysis.',{exact:false})).toBeVisible();
   await page.screenshot({path:info.outputPath('dungeon-ai-draft.png')});
+});
+
+
+test('Gemini outline becomes solid app walls that block movement and preserve doorway visibility',async({page,request,browser},info)=>{
+  test.skip(process.env.DND_MASK_WALL_DEMO!=='1','Requires the recorded Gemini mask artifact');test.setTimeout(150000);
+  await page.setViewportSize({width:1500,height:1000});
+  const geometry=await wallsFromYellowMask(readFileSync('artifacts/gemini-yellow-mask-v2/generated.jpg'),1402,1122,50);
+  expect(geometry.walls.length).toBeLessThan(128);
+  const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png')),[druk,varis,vanec]=f.ready.tokens;
+  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:140.2,locked:false});
+  f.socket.emit('token:move',{tokenId:druk.id,x:430,y:475});f.socket.emit('token:move',{tokenId:varis.id,x:430,y:340});f.socket.emit('token:move',{tokenId:vanec.id,x:400,y:720});
+  for(const wall of geometry.walls)f.socket.emit('map:editWalls',{mapId:f.mapId,add:wall});
+  await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(geometry.walls.length);
+  await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+  await page.screenshot({path:info.outputPath('dm-mask-walls.png')});
+  if(movementDemo)await page.waitForTimeout(4000);
+  await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
+  await enter(page,f.code,'Druk',false);
+  await expect.poll(async()=>(await tokenView(page,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+  expect(await tokenView(page,varis.id)).toBeNull();
+  await page.screenshot({path:info.outputPath('player-room-hidden.png')});
+  if(movementDemo)await page.waitForTimeout(2500);
+  let position=(await tokenView(page,druk.id))!,target=offsetPoint(position,0,-140);
+  await page.mouse.move(position.x,position.y);await page.mouse.down();await page.mouse.move(target.x,target.y,{steps:36});if(movementDemo)await page.waitForTimeout(1000);await page.mouse.up();
+  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y).toBeLessThan(475);
+  const stopped=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;expect(stopped.y).toBeGreaterThan(425);expect(await tokenView(page,varis.id)).toBeNull();
+  await page.screenshot({path:info.outputPath('player-stopped-at-wall.png')});
+  if(movementDemo)await page.waitForTimeout(2200);
+  const dragTo=async(x:number,y:number)=>{const token=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;const view=(await tokenView(page,druk.id))!,to=offsetPoint(view,x-token.x,y-token.y);await page.mouse.move(view.x,view.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:32});if(movementDemo)await page.waitForTimeout(700);await page.mouse.up();await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x-x)).toBeLessThan(2);await expect.poll(async()=>Math.abs((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.y-y)).toBeLessThan(2);if(movementDemo)await page.waitForTimeout(1400);};
+  await dragTo(520,475);await dragTo(520,365);
+  await expect.poll(async()=>(await tokenView(page,varis.id))?.miniatureReady).toBe(true);
+  await page.screenshot({path:info.outputPath('player-entered-through-gap.png')});
+  if(movementDemo)await page.waitForTimeout(3500);
+  // Authoritative socket movement must also stop at a wall, even if a client bypasses drag checks.
+  const playerSocket=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(playerSocket);
+  await playerSocket.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'mask-movement-test'});
+  playerSocket.emit('token:move',{tokenId:druk.id,x:700,y:365});
+  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeGreaterThan(520);
+  expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeLessThan(580);
+  writeFileSync(info.outputPath('mask-wall-result.json'),JSON.stringify({walls:geometry.walls.length,edges:geometry.walls.length*4,maskCoverage:geometry.coverage,stoppedAt:stopped,doorwayTest:'passed',visionTest:'passed'},null,2));
 });
