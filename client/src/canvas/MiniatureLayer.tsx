@@ -96,8 +96,8 @@ type Instance = {
 };
 type Engine = MiniatureLayerHandle & { sync: (props: Props) => void; dispose: () => void };
 
-// Lift illumination to the comparison torch height; the fixture remains on the hip.
-const CARRIED_LIGHT_HEIGHT_FT=6;
+// Lift illumination above humanoid figures; the fixture remains on the hip.
+const CARRIED_LIGHT_HEIGHT_FT=9;
 
 function disposeAsset(gltf: GLTF) {
   const geometries = new Set<Mesh['geometry']>();
