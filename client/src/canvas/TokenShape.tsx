@@ -34,6 +34,7 @@ export const DISPOSITION_HEX: Record<string, string> = {
 type Props = {
   token: Token;
   presentation?: TokenPresentation;
+  sharedDarkvision?: boolean;
   display: TokenDisplay;
   gridSizePx: number;
   /** Pixels per foot (from the map scale) — sizes the token by its real width. */
@@ -80,6 +81,7 @@ const isAdditive = (e: KonvaEventObject<Event>): boolean => {
 function TokenShapeInner({
   token,
   presentation,
+  sharedDarkvision=false,
   display,
   gridSizePx,
   pxPerFoot,
@@ -128,6 +130,7 @@ function TokenShapeInner({
   // origin. Only the private shadow travels until a server snapshot commits.
   const tokenNode = useRef<Konva.Group>(null);
   const tokenArt = useRef<Konva.Group>(null);
+  const tokenBody = useRef<Konva.Group>(null);
   const dragOverlay = useRef<Konva.Group>(null);
   const previewBase = useRef<Konva.Group>(null);
   const previewArrow = useRef<Konva.Line>(null);
@@ -380,6 +383,21 @@ function TokenShapeInner({
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
   // the others fill/stroke a shape and clip image icons to it.
   const shape = token.shape ?? 'circle';
+  useLayoutEffect(()=>{
+    const body=tokenBody.current;if(!body)return;
+    body.clearCache();body.filters([]);
+    if(sharedDarkvision&&!miniatureReady&&!miniaturePending){
+      body.cache({pixelRatio:2});
+      body.filters([(data:ImageData)=>{
+        for(let i=0;i<data.data.length;i+=4){
+          const l=(data.data[i]*.2126+data.data[i+1]*.7152+data.data[i+2]*.0722)/255;
+          const value=255*(.018+l*.10);
+          data.data[i]=data.data[i+1]=data.data[i+2]=value;
+        }
+      }]);
+    }
+    body.getLayer()?.batchDraw();
+  },[sharedDarkvision,miniatureReady,miniaturePending,iconImg,display,shape,radius,selected,isDead]);
   const strokeColor = selected ? '#ffffff' : '#1118';
   const strokeW = selected ? 4 : 2;
   // Clip path for an image icon, matched to the silhouette.
@@ -483,7 +501,7 @@ function TokenShapeInner({
         <Circle radius={Math.min(radius * .3, 12)} stroke="#c9bb9b" strokeWidth={1.5} dash={[3, 3]} />
         <Text text="Loading 3D..." x={-45} y={16} width={90} align="center" fontSize={11} fill="#e8ddc6" stroke="#111" strokeWidth={2} fillAfterStrokeEnabled />
       </Group>}
-      <Group name="token-body" visible={!miniatureReady && !miniaturePending}>
+      <Group ref={tokenBody} name="token-body" visible={!miniatureReady && !miniaturePending}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
           // Pasted art: draw the whole image as-is (no clip), with an outline
@@ -776,6 +794,7 @@ export const TokenShape = memo(
   (p, n) =>
     sameTokenFields(p.token, n.token) &&
     p.presentation === n.presentation &&
+    p.sharedDarkvision === n.sharedDarkvision &&
     sameTokenDisplay(p.display, n.display) &&
     p.gridSizePx === n.gridSizePx &&
     p.pxPerFoot === n.pxPerFoot &&

@@ -390,6 +390,7 @@ export function MapStage({
   const sharedTokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
   const visionRef=useRef<PlayerVisionHandle>(null);
+  const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const presentation=useRef(new TokenPresentation()).current;
   const visionLightTime=useRef(0);
   const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
@@ -1783,6 +1784,7 @@ export function MapStage({
         key={t.id}
         token={t}
         presentation={presentation}
+        sharedDarkvision={!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy}
         display={d}
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
@@ -2458,7 +2460,7 @@ export function MapStage({
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
-              environmentPreview={environment} visualPosition={presentation.position}
+              environmentPreview={environment} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}

@@ -3140,6 +3140,32 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
    await expect.poll(()=>personalTokenView(scout,enemy.id)).not.toBeNull();
    await expect.poll(async()=>(await tokenView(fighter,enemy.id))?.sharedSightOnly).toBe(true);
    await expect(fighter.getByLabel('Attack target').locator(`option[value="${enemy.id}"]`)).toHaveCount(0);
+   if(mode==='heavy'){
+    await expect(fighter.getByTestId('darkvision-memory-terrain')).toHaveAttribute('data-ready','true');
+    const terrainSample=async(p:Page)=>{
+     const actual=(await f.snapshot()).tokens.find(t=>t.id===varis.id)!,v=(await tokenView(p,varis.id))!,point=offsetPoint(v,1050-actual.x,400-actual.y);
+     const shot=await p.screenshot();
+     const patch=await sharp(shot).extract({left:Math.round(point.x)-14,top:Math.round(point.y)-14,width:28,height:28}).toBuffer();
+     const {channels}=await sharp(patch).stats();
+     return channels.slice(0,3).map(c=>c.mean);
+    };
+    const liveTerrain=await terrainSample(scout),memoryTerrain=await terrainSample(fighter);
+    expect(Math.abs(memoryTerrain[0]-liveTerrain[0]),'Remembered terrain matches live unlit darkvision').toBeLessThan(4);
+    expect(Math.max(...memoryTerrain)-Math.min(...memoryTerrain)).toBeLessThan(2);
+    const bodySample=async(p:Page,shared:boolean)=>{
+     const v=(await tokenView(p,enemy.id))!;
+     return p.getByTestId(shared?'shared-sight-miniatures':'personal-sight-miniatures').evaluate((canvas:HTMLCanvasElement,point)=>{
+      const rect=canvas.getBoundingClientRect(),scale=canvas.width/rect.width;
+      const bytes=canvas.getContext('2d')!.getImageData(Math.round((point.x-rect.left-45)*scale),Math.round((point.y-rect.top-100)*scale),Math.round(90*scale),Math.round(99*scale)).data;
+      let total=0,count=0;for(let i=0;i<bytes.length;i+=4)if(bytes[i+3]>128){total+=bytes[i]*.2126+bytes[i+1]*.7152+bytes[i+2]*.0722;count++;}
+      return {mean:total/Math.max(1,count),count};
+     },{x:v.x,y:v.y});
+    };
+    const personalBody=await bodySample(scout,false),sharedBody=await bodySample(fighter,true);
+    expect(personalBody.count).toBeGreaterThan(50);expect(sharedBody.count).toBeGreaterThan(50);
+    expect(sharedBody.mean,'Shared creatures do not use brighter daylight lighting').toBeLessThanOrEqual(personalBody.mean+3);
+    evidence.push({phase:'heavy-darkness appearance',liveTerrain,memoryTerrain,personalBody,sharedBody});
+   }
    await scout.screenshot({path:info.outputPath('01-varis-reveal.png')});await fighter.screenshot({path:info.outputPath('02-druk-shared.png')});
   });
   if(process.env.DND_REVEAL_PROFILE){

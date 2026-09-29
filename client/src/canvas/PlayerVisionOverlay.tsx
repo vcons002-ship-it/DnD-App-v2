@@ -7,7 +7,7 @@ import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared
 import type {TokenPresentation} from './tokenPresentation';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
-export type PlayerVisionHandle={frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+export type PlayerVisionHandle={memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** Terrain visibility stays below lifted miniature pixels; heavy-darkness
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
@@ -18,6 +18,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
  const sightPaths=useRef<SVGClipPathElement>(null),lightClips=useRef<SVGGElement>(null);
  const memoryPaths=useRef<SVGClipPathElement>(null),memoryPlane=useRef<HTMLDivElement>(null),memoryMap=useRef<HTMLDivElement>(null);
+ const memoryCanvas=useRef<HTMLCanvasElement>(null);
  const memoryProjection=useRef<{geometry:ExploredTerrain|undefined;camera:string}|null>(null);
  const polygonCache=useRef(new Map<string,{key:string;points:WallPoint[]}>());
  const id=useId().replace(/:/g,'');
@@ -101,7 +102,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  // frame. Rebuild the SVG masks once using the final state, not for every event.
  const schedule=()=>{if(!pendingDraw.current)pendingDraw.current=requestAnimationFrame(()=>{pendingDraw.current=0;draw();});};
  useEffect(()=>()=>cancelAnimationFrame(pendingDraw.current),[]);
- useImperativeHandle(ref,()=>({frame(){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};schedule();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
+ useImperativeHandle(ref,()=>({memoryCanvas:()=>memoryCanvas.current,frame(){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};schedule();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
  useLayoutEffect(()=>{state.current=props;renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   schedule();},[props]);
@@ -121,13 +122,14 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   </defs></svg>
   <div style={{position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>
    {terrain&&b&&<div data-testid="explored-terrain" style={{position:'absolute',inset:0,clipPath:`url(#${memoryId})`}}>
-    <div ref={memoryPlane} style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:'grayscale(1) brightness(.48)'}}>
+    <div ref={memoryPlane} style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:props.vision.heavy?'grayscale(1) brightness(.025)':'grayscale(1) brightness(.48)'}}>
      <div ref={memoryMap} style={{position:'absolute',transformOrigin:'0 0'}}>
       {!terrain.tiles.length&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,background:'#2a2f3a'}}/>}
       {terrain.tiles.map((t,i)=><img key={`${t.url}:${i}`} src={t.url} alt="" draggable={false} style={{position:'absolute',left:t.x,top:t.y,width:t.w,height:t.h,maxWidth:'none'}}/>)}
       {g&&g.size>0&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,backgroundImage:'linear-gradient(to right,#ffffff50 1px,transparent 1px),linear-gradient(to bottom,#ffffff50 1px,transparent 1px)',backgroundSize:`${g.size}px ${g.size}px`,backgroundPosition:`${g.x-b.x}px ${g.y-b.y}px`}}/>}
      </div>
     </div>
+    {props.vision.heavy&&<canvas ref={memoryCanvas} data-testid="darkvision-memory-terrain" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%'}}/>}
    </div>}
   </div>
  </div>

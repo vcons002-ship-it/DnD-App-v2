@@ -44,6 +44,7 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
   personalVision?: boolean;
   onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
@@ -392,6 +393,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // Static awareness need not redraw for weather or torch flicker. Camera,
         // pose, name, appearance and foreground occlusion changes invalidate it.
         const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
+          environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
           props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
           labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
         if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
@@ -404,9 +406,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             camera.layers.set(5);scene.overrideMaterial=sharedDepth;
             renderer.render(scene,camera);
             scene.overrideMaterial=null;camera.layers.set(4);renderer.autoClear=false;
-            ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
-            scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
-            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,false,[]);}
+            // Shared sight uses the map's unlit darkvision appearance. Daylight
+            // lighting here made party sightings much brighter than personal sight.
+            if(!environment?.heavyDarkness){
+              ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
+              scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
+            }
+            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain,[]);}
             renderer.render(scene,camera);
             sharedContext.drawImage(renderer.domElement,0,0);
             camera.layers.mask=layers;renderer.autoClear=autoClear;
@@ -415,6 +421,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           }
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
+        battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
         visionLift.render(!!props.personalVision);

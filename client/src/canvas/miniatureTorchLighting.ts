@@ -39,11 +39,13 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
       shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
         float sourceLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
         float contour=pow(1.-abs(dot(normalize(normal),normalize(vViewPosition))),3.);
-        float detail=smoothstep(.2,.8,sourceLuma)*.020+contour*.018;
+        // Gentle midtone/facing detail for creatures in unlit heavy darkness.
+        // Coverage removes this contribution wherever a torch supplies light.
+        float detail=.004+smoothstep(.08,.70,sourceLuma)*.026+contour*.022;
         outgoingLight+=vec3(detail*darkvisionDetail*(1.-lightColorCoverage(darkvisionLight)));
         #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v7-short-shadows';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v8-darkvision-detail';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=[]){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];

@@ -13,6 +13,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Shared exploration memory - September 2026
 
+- [x] Match remembered terrain and shared figures to heavy-darkness darkvision;
+  gently lift unlit creature detail without washing out torchlight. See
+  [rendered comparison and verification](docs/HEAVY_DARKNESS_MEMORY_2026_09_29.md).
+
 - [x] Align terrain/creature reveals with animated movement in both personal and
   shared sight, and asynchronously prepare first-use miniature shaders to avoid
   blocking the movement frame. See [timing evidence and replay](docs/REVEAL_TIMING_2026_09_29.md).
