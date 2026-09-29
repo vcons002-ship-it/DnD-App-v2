@@ -2180,10 +2180,9 @@ export function MapStage({
                     }
                   />
                 ))}
-              <FootprintLayer
+              <FootprintLayer key={map?.id}
                 isVisibleAt={tokenVisibleAtPosition}
                 tokens={snapshot.tokens}
-                gridSizePx={grid}
                 pxPerFoot={pxPerFoot}
               />
             </Layer>

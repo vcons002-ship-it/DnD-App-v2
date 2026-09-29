@@ -900,14 +900,12 @@ Smaller refinements on top of the shipped Phase 2 work.
   **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
   tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
   `onDragActive` signal from `TokenShape`).
-- ☑ **Token footprint trail [req].** A move (local drag OR another client's, diffed
-  from the snapshot) leaves a lingering trail of **white footprints** (alternating
-  left/right ellipses with a **faint dark outline** for contrast) from the old spot
-  to the new one, fading **oldest-first** over **~30s** so players remember where a
-  token came from. Only the **6 most-recent** trails are kept — a 7th move **fades
-  the oldest out** (~2s) instead of popping. Decorative/non-listening; the
-  self-contained `FootprintLayer` owns the position-diff + fade tick so the long
-  fade never re-renders the rest of the map.
+- [x] **Token footprint trail [req].** Committed movement leaves alternating boot
+  impressions with a shaped sole, heel and tread. Steps appear behind the moving
+  token using the same movement easing, at physical stride spacing independent
+  of grid size. Muted warm marks hold briefly, then fade oldest-first over 5-9s.
+  Six active trails are retained with a bounded overflow fade; map changes reset
+  trails, and existing per-position visibility gates remain in effect.
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
@@ -1037,9 +1035,9 @@ Smaller refinements on top of the shipped Phase 2 work.
   (backfilled `size*5`); resize works in 5ft steps; legacy `size` kept in sync.
 - ☑ **Creature search full-width [req].** The DM creature-search box spans the
   panel with HP / Add creature / AI on the row below (`.add-monster` column layout).
-- ☑ **Footstep trail rework [req].** Footprints are spaced a constant distance
-  apart (≈one per 0.8 cells, count scales with the move), larger and brighter, and
-  hold fully opaque before a faster oldest-first fade.
+- [x] **Footstep trail rework [req].** Physical spacing (2.2 ft for Medium,
+  scaled for creature size), progressive deposition and softer oldest-first fade.
+  Long moves retain the newest 48 steps without stretching stride spacing.
 - ☑ **DM removes PCs from the spawn list [req].** DM-gated `character:delete`
   removes a character + its tokens via a 🗑 button, refused while a connected
   player holds the claim (`isConnected`).

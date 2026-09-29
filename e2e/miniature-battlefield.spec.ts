@@ -2243,6 +2243,8 @@ test('private movement shadows keep the figure at its origin and animate committ
     const placed=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
     expect(placed.facing).toBeCloseTo(Math.PI/4);
     await Promise.all([assertAnimation(page,druk,placed),assertAnimation(dm,druk,placed)]);
+    await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.footstep')).length)).toBeGreaterThan(2);
+    await page.screenshot({path:info.outputPath('footsteps-tilted.png')});
     await expect(playerLayer).not.toHaveAttribute('data-preview-token-id',druk.id);
     await hold(page);
     // DM planning stays private, including forged/legacy drag events.
@@ -2288,6 +2290,7 @@ test('private movement shadows keep the figure at its origin and animate committ
     await track(page,druk.id);await page.mouse.up();
     await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===druk.id)!.x).toBeLessThan(placed.x-155);
     await assertAnimation(page,placed,(await f.snapshot()).tokens.find(t=>t.id===druk.id)!);
+    await page.screenshot({path:info.outputPath('footsteps-overhead.png')});
     await hold(page);
     if(movementDemo)writeFileSync(info.outputPath('movement-phases.json'),JSON.stringify(phases,null,2));
     expect(errors).toEqual([]);
