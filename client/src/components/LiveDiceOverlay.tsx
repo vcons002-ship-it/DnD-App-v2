@@ -1,7 +1,7 @@
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import {useStore} from '../state/socket';
-import {diceThemeForClass} from '../../../shared/diceThemes';
+import {diceThemeForRoll} from '../../../shared/diceThemes';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../../shared/liveDiceTypes';
 import {dieResultEmphasis,dieResultTier,dieResultLabel,type Toss} from '../lib/diceTrayTypes';
@@ -29,7 +29,7 @@ export function LiveDiceOverlay(){
   let stopped=false,raf=0,renderer:ReturnType<typeof import('../lib/diceTrayRenderer').createTrayRenderer>|undefined;
   setArrived([]);setFailed(false);
   const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,resultsStartedAt:number|undefined;
-  const theme=diceThemeForClass(frame.className);
+  const theme=diceThemeForRoll(frame.className,frame.dmDice,frame.affinity);
   const viewer=useStore.getState(),character=viewer.snapshot?.characters.find(c=>c.name===frame.roller);
   const own=viewer.snapshot?.role==='dm'?(frame.roller==='DM'||!!character&&!character.claimedBy):character?.claimedBy===viewer.socket?.id;
   const viewPose=(poses:number[])=>own?poses:poses.map((v,i)=>{
@@ -102,7 +102,7 @@ export function LiveDiceOverlay(){
  };
  return <div className="roll-reveal-backdrop" data-live-dice="true"><div className="roll-reveal" role="status" aria-label="Live dice roll">
   <div className="roll-reveal-title">{frame.roller} &middot; {frame.label}{frame.target&&<span className="rr-arrow"> &rarr; {frame.target}</span>}</div>
-  <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={diceThemeForClass(frame.className).id}>
+  <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={diceThemeForRoll(frame.className,frame.dmDice,frame.affinity).id}>
    <canvas className="dice-tray-canvas" ref={canvas} aria-label="Server dice rolling live"/>
    {(failed||reduced)&&<div className="dice-tray-status">{failed?'Live roll - graphics unavailable':'Live roll in progress'}</div>}
    <div className="tray-number-flights" aria-hidden="true">{frame.sides.map((_,i)=><span key={i} ref={el=>{flights.current[i]=el;}} style={resultStyle(i)} data-strength={tier(i)} data-tone={frame.critical[i]?'critical':frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'normal'} className={`tray-flying-number${frame.critical[i]?' critical':''}`}><span className="tray-number-flash"/>{value(i)}</span>)}</div>

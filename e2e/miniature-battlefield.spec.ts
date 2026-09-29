@@ -751,7 +751,7 @@ test('dungeon torch shadows closeup',async({page,request},info)=>{
 });
 
 test('rectangle wall walkthrough on the dungeon with personal sight and lanterns',async({page,request,browser},info)=>{
-  test.skip(!movementDemo,'Optional recorded walkthrough');test.setTimeout(240000);
+  test.skip(!movementDemo,'Optional recorded walkthrough');test.setTimeout(420000);
   const f=await fixture(page,request,readFileSync('assets/environment-preview/dungeon.png'));
   const druk=f.ready.tokens[0],varis=f.ready.tokens[1],vanec=f.ready.tokens[2];
   for(const [token,x,y] of [[druk,450,280],[varis,690,510],[vanec,1090,270]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
@@ -878,6 +878,57 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
       await move(hall,varis,515,225);await move(hall,varis,440,205);
       await hall.screenshot({path:info.outputPath('lantern-moving-shadows.png')});
     });
+    if(process.env.DND_DUNGEON_COMBAT==='1'){
+      f.socket.emit('character:update',{characterId:varis.refId,className:'Ranger',level:5,maxHp:45,curHp:45,armorClass:14,
+        stats:{STR:12,DEX:18,CON:14,INT:10,WIS:16,CHA:10},weapons:[{name:'Shortsword',kind:'melee',damage:'1d6',damageType:'piercing',attackBonus:7}]});
+      f.socket.emit('monster:update',{monsterId:goblin.refId,maxHp:70,curHp:70,armorClass:12,weapons:[{name:'Scimitar',kind:'melee',damage:'1d6+2',damageType:'slashing',attackBonus:5}]});
+      f.socket.emit('session:setManualDamage',{manual:true});await f.snapshot();
+      for(const mode of ['Normal','Adv','Dis'] as const){
+        await chapter(hall,`Heavy darkness: Perception check - ${mode==='Normal'?'normal roll':mode==='Adv'?'advantage':'disadvantage'}`,async()=>{
+          if(!await hall.locator('.compact-checks').isVisible())await hall.locator('.hud-actions').getByRole('button',{name:'Checks',exact:true}).click();
+          const checks=hall.locator('.compact-checks');
+          if(mode!=='Normal')await checks.getByRole('button',{name:mode,exact:true}).click();
+          await checks.getByRole('button',{name:/^Roll Perception check/}).click();
+          await expect(hall.locator('[data-live-dice="true"]')).toBeVisible();
+          await expect(hall.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:45000});
+          await hall.waitForTimeout(2000);await hall.keyboard.press('Escape');
+          await hall.screenshot({path:info.outputPath(`dark-check-${mode}.png`)});
+        });
+      }
+      await chapter(hall,'Heavy darkness: Varis closes with the goblin by lantern light',async()=>{
+        await move(hall,varis,380,210);
+        await hall.screenshot({path:info.outputPath('dark-combat-start.png')});
+      });
+      await chapter(hall,'Varis attacks in heavy darkness: attack roll, then damage',async()=>{
+        await hall.locator('.compact-player-combat select').first().selectOption(goblin.id);
+        for(let attempt=0;attempt<3;attempt++){
+          await hall.locator('.compact-player-combat').getByRole('button',{name:/Shortsword/}).click();
+          await expect(hall.locator('[data-live-dice="true"]')).toBeVisible();
+          await expect(hall.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:45000});
+          await hall.waitForTimeout(2000);await hall.keyboard.press('Escape');
+          if(await hall.locator('.damage-prompt-btn').count()){
+            await hall.locator('.damage-prompt-btn').first().click();
+            await expect(hall.locator('[data-live-dice="true"]')).toBeVisible();
+            await expect(hall.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:45000});
+            await hall.waitForTimeout(2200);await hall.keyboard.press('Escape');break;
+          }
+        }
+        await hall.screenshot({path:info.outputPath('dark-combat-hit.png')});
+      });
+      await chapter(hall,'The goblin retaliates while the lantern and walls still govern sight',async()=>{
+        f.socket.emit('session:setHideDmRolls',{hide:false});
+        const before=(await f.snapshot()).rollLog.length;
+        f.socket.emit('combat:attack',{attackerTokenId:goblin.id,targetTokenId:varis.id,weaponIndex:0});
+        await expect.poll(async()=>(await f.snapshot()).rollLog.length,{timeout:45000}).toBeGreaterThan(before);
+        await hall.waitForTimeout(2500);await hall.keyboard.press('Escape');
+        const pending=[...(await f.snapshot()).rollLog].reverse().find(r=>r.pending&&!r.pending.done);
+        if(pending){f.socket.emit('combat:damage',{rollId:pending.id});await expect.poll(async()=>(await f.snapshot()).rollLog.find(r=>r.id===pending.id)?.pending?.done,{timeout:45000}).toBe(true);}
+        await hall.waitForTimeout(3000);await hall.keyboard.press('Escape');
+        await hall.screenshot({path:info.outputPath('dark-combat-end.png')});
+      });
+      writeFileSync(info.outputPath('dark-combat-rolls.json'),JSON.stringify((await f.snapshot()).rollLog,null,2));
+      return;
+    }
     await chapter(dm,'Shadow check: the torch moves from one side of Druk to the other',async()=>{
       await focus(dm,druk);
       const close=await point(dm,druk,450,270);await dm.mouse.move(close.x,close.y);

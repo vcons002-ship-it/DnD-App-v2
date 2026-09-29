@@ -15,3 +15,7 @@ Create a premium fantasy dice tray FLOOR texture for a videogame, straight ortho
 ## sorcerer
 
 Create a premium fantasy dice tray FLOOR texture for a videogame, straight orthographic overhead, rectangular landscape 3:2 filling entire canvas edge to edge. Vanec: smoky black and crimson glass with delicate silver filigree inlay confined to outer 12 percent border, intricate elegant arcane corner metalwork with deep ruby cabochons and tiny restrained red energy threads inside glass border, very dark burgundy velvet central rolling area covering 76 percent. Quiet nearly black center for readable dice. Flat flatlay texture, no perspective, no walls, no dice, no objects, no text, no lettering. Photoreal luxury craftsmanship, refined silver not crude painted symbols, softly lit.
+
+## DM tray (2026-09-29)
+
+`dm-v1.webp`: generated with the OpenAI image-generation tool for the dedicated DM monster/NPC dice tray. Original PNG: `C:/Users/vcons/.codex/generated_images/01a0bc77-1b83-7a53-9c53-86e904a628b4/exec-1642c937-b491-47d0-92af-ddf6f6d854de.png`. Converted to WebP at quality 92, 1536 x 1024. Dark charcoal leather center, sculpted pewter dragon rim, purple corner jewels; the renderer provides physical wall depth. Dice affinity colors are rendered materials, not baked into the tray image.

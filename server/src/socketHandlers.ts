@@ -293,7 +293,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               :requestedToken?.kind==='pc'?getCharacter(requestedToken.refId)
               :payload?.characterId?getCharacter(payload.characterId)
               :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id):character;
-            const meta={ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
+            const rolledToken=payload?.tokenId?getToken(payload.tokenId):undefined;
+            const npc=pending?.attacker.kind==='monster'?getMonster(pending.attacker.refId)
+              :requestedToken?.kind==='monster'?getMonster(requestedToken.refId)
+              :payload?.kind==='monster'&&abilityOwner?getMonster(abilityOwner.id)
+              :rolledToken?.kind==='monster'?getMonster(rolledToken.refId):undefined;
+            const dmDice=!!npc || isDm()&&!actor;
+            const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
             const targetId=payload?.targetTokenId??(event==='save:resolve'?payload?.tokenId:undefined)??pending?.hitOptions?.targetTokenId??riposte?.attackerTokenId;
             const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id})):[];

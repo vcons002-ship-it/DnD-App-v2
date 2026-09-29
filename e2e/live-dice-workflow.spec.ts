@@ -46,6 +46,8 @@ test('server live fireball and manual weapon damage match the streamed faces',as
      await dm.locator('.compact-player-combat').getByRole('button',{name:/Quarterstaff/}).click();
      await expect(dm.locator('[data-live-dice="true"]')).toBeVisible();
      await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
+     await expect(dm.locator('.rr-adjustment').first()).toBeVisible();
+     await expect(dm.locator('.roll-reveal[data-impact-ready="false"]')).toBeVisible();
      hit=(await snap()).rollLog.findLast((r:any)=>r.pending&&!r.pending.done);
      if(!hit)await dm.keyboard.press('Escape');
    }

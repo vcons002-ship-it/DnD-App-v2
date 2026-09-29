@@ -4,6 +4,14 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Live dice modifier presentation - September 2026
+
+- [x] After live dice settle, reveal labeled attack/check and damage modifiers
+  one at a time, animate the running total, then collapse for map effects.
+  Reduced-motion presentation still resolves immediately.
+- [x] Correct the combat recording fixture to use Druk's approved Fighter
+  obsidian-and-gold dice theme.
+
 ## Mobile mist performance - September 2026
 
 - [x] Reuse native personal-vision SVG masks, batch updates per frame and reuse
@@ -903,7 +911,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] **Token footprint trail [req].** Committed movement leaves alternating boot
   impressions with a shaped sole, heel and tread. Steps appear behind the moving
   token using the same movement easing, at physical stride spacing independent
-  of grid size. Muted warm marks hold briefly, then fade oldest-first over 5-9s.
+  of grid size. Bright ivory marks with dark outlines hold for four seconds, then fade
+  oldest-first. Prints are enlarged 30% for readability over textured maps.
   Six active trails are retained with a bounded overflow fade; map changes reset
   trails, and existing per-position visibility gates remain in effect.
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
@@ -2130,3 +2139,6 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Stronger smoke-like body wake: speed-scaled initial separation transitions into inward refill and forward entrainment, with increased irregular turbulence. Body/base exclusion, front-contact bounds, fog visibility and bounded history remain intact.
 
 - [x] Mist movement opens a temporary swept-body density gap instead of only warping the pattern. Displaced banks cannot cancel the fresh clearing; the gap narrows and refills over about four seconds while turbulent motion continues.
+
+- [x] DM creature rolls use a dedicated leather/pewter dragon tray and affinity-colored marbled dice (enemy red, neutral amber, friendly green; general DM rolls purple). Player class styles remain separate.
+- [x] Settled face numbers hold for 460 ms before flying to their result boxes. Live physics retains its pace; damage presentation waits through the face flights and modifier sequence, or releases when skipped. Browser regression checks cover normal completion, skip, and animations disabled.

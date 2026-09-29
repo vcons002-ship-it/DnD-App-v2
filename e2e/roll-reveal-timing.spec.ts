@@ -117,7 +117,7 @@ test('live damage stays out of HP and history until the dice settle, then expose
       const live=document.querySelector('[data-live-dice="true"]');
       const popup=document.querySelector('.roll-reveal');
       const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('Text').filter((n:any)=>/^[+\u2212]\d+$/.test(n.text())&&n.fill()==='#e23b3b'));
-      samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
+      samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',ready:popup?.getAttribute('data-impact-ready')==='true',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
       if(live||!fx.length)requestAnimationFrame(sample);
     };sample();
   });
@@ -128,10 +128,24 @@ test('live damage stays out of HP and history until the dice settle, then expose
   const samples=await page.evaluate(()=>(window as any).__liveTiming);
   expect(samples.some((s:any)=>s.live&&!s.settled)).toBe(true);
   expect(samples.filter((s:any)=>s.live&&s.fx)).toHaveLength(0);
+  expect(samples.filter((s:any)=>!s.ready&&s.fx)).toHaveLength(0);
   expect(samples.some((s:any)=>s.fx&&s.impact&&s.height<=180)).toBe(true);
   await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
   await page.waitForTimeout(3000);
   await expect(page.locator('.roll-reveal')).toBeVisible();
+});
+
+test('skipping the bonus reveal releases damage immediately', async ({page,request}) => {
+  const f=await fixture(request,page), pending=await armManualDamage(page,f);
+  await page.locator('.damage-prompt-btn').click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30_000});
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','false');
+  expect(await floaters(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.roll-reveal')).toHaveCount(0);
+  const result=await resolveDamage(page,f,pending.id);
+  await expect.poll(()=>floaters(page),{timeout:1500}).toContain(`\u2212${result.total}`);
 });
 
 test('queued direct damage applies once after live damage and reload does not replay floaters', async ({page,request}) => {

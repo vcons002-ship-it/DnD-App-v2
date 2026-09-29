@@ -22,10 +22,10 @@ type Trail = {
 };
 
 // Local-only ground marks: a soft hold, then an oldest-first fade.
-const HOLD = 2600;
+const HOLD = 4000;
 const STAGGER = 70;
 const FADE = 2600;
-const BASE = .56;
+const BASE = .92;
 const MAX_TRAILS = 6;
 const EXPIRE_FADE = 900;
 const TICK_MS = 32;
@@ -119,8 +119,8 @@ export function FootprintLayer({
             ? Math.max(0, Math.min(1, (tr.expireAt - now) / EXPIRE_FADE))
             : 1;
         const scale = Math.max(.3, Math.min(4, tr.widthFt / 5));
-        const foot = Math.max(1, pxPerFoot * scale);
-        const spread = foot * .36;
+        const foot = Math.max(1, pxPerFoot * scale * 1.3);
+        const spread = foot * .42;
         const n = tr.n;
         const marks = [];
         for (let i = 0; i < n; i++) {
@@ -140,9 +140,9 @@ export function FootprintLayer({
               opacity={op} listening={false}>
               {/* Rounded forefoot, narrow arch, and separate heel. Travel is +X. */}
               <Path data="M -.12 -.17 C .02 -.18 .15 -.25 .34 -.22 C .56 -.21 .61 -.11 .60 .02 C .59 .18 .45 .24 .26 .22 L -.09 .15 Q -.19 .02 -.12 -.17 Z M -.24 -.16 L -.49 -.15 Q -.57 0 -.49 .15 L -.24 .15 Z"
-                fill="#d5c9b0" stroke="#28251f" strokeWidth={.035} />
+                fill="#fff3d8" stroke="#181b20" strokeWidth={.085} />
               <Path data="M .22 -.17 L .20 .17 M .36 -.16 L .34 .16 M .49 -.11 L .47 .10 M -.40 -.10 L -.40 .10"
-                stroke="#615b50" strokeWidth={.045} opacity={.65} />
+                stroke="#514c43" strokeWidth={.055} opacity={.8} />
             </Group>,
           );
         }

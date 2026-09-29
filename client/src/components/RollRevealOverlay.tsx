@@ -4,7 +4,7 @@ import {diceEntrySide} from '../lib/diceEntrySide';
 import type {DiceEntrySide} from '../lib/diceTrayTypes';
 import { PhysicsDiceTray } from './PhysicsDiceTray';
 import type { TrayDie } from '../lib/diceTrayTypes';
-import { diceThemeForClass } from '../../../shared/diceThemes';
+import { diceThemeForRoll } from '../../../shared/diceThemes';
 import { flattenDamageDice } from '../../../shared/diceVisuals';
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
@@ -157,12 +157,13 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const rollFx = useStore((s) => s.rollFx);
   const staticReveal = reducedMotion || !!rollFx?.reveal.physical;
   const dismiss = useStore((s) => s.dismissRollFx);
-  const characterClass = useStore(s => {
+  const rollTheme = useStore(s => {
     const name = s.rollFx?.reveal.attacker;
     const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;
     const direct = s.snapshot?.characters.filter(c => c.name === name) ?? [];
     const matches = direct.length ? direct : s.snapshot?.characters.filter(c => c.name === roller) ?? [];
-    return matches.length === 1 ? matches[0].className : '';
+    const npc=s.snapshot?.monsters.find(m=>m.name===name||name?.startsWith(m.name+' ')||m.name===roller);
+    return diceThemeForRoll(matches.length===1?matches[0].className:'',!!npc||(!matches.length&&roller==='DM'),npc?.disposition);
   });
   const entrySide = useStore(s => {
     const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;
@@ -177,14 +178,15 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
   if(liveDice)return <LiveDiceOverlay />;
-  return rollFx ? <DiceThemeContext.Provider value={diceThemeForClass(characterClass)}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
+  return rollFx ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!rollFx.reveal.physical} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
 });
 
-function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
+function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical, dismiss }: {
   rollFx: NonNullable<ReturnType<typeof useStore.getState>['rollFx']>;
   entrySide: DiceEntrySide;
   player: boolean;
   staticReveal: boolean;
+  animatePhysical: boolean;
   dismiss: () => void;
 }) {
   const releaseImpact = useStore((s) => s.releaseRollImpact);
@@ -231,6 +233,25 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
       ? Math.max(...comparison.sets.map((set) => set.dice.length))
       : allFaces.length;
     const localMods = reveal.damageMods ?? [];
+    if (animatePhysical) {
+      // Live physics already revealed the dice. Continue with the labeled
+      // arithmetic before collapsing to the map-impact summary.
+      const adjustments = isBurst ? localMods : toHit;
+      setStage({phase:isBurst?'damage':'tohit',dieFace:reveal.d20??0,toHitShown:0,
+        diceLocked:visualDiceCount,diceStopping:visualDiceCount,modsShown:0});
+      adjustments.forEach((_,i)=>at(STEP_MS*(i+1),()=>setStage(p=>({...p,
+        ...(isBurst?{modsShown:i+1}:{toHitShown:i+1})}))));
+      const complete=adjustments.length*STEP_MS+900;
+      at(complete,()=>{
+        setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
+        if(naturalTwenty||reveal.outcome==='crit')playCritical();
+        else if(reveal.outcome==='miss'||reveal.outcome==='fumble')playMiss();
+        else if(isCheck||isDice)playSkill();else playHit();
+        releaseImpact(rollFx.rollId);
+      });
+      at(complete+HOLD_MS,dismiss);
+      return cleanup;
+    }
     if (staticReveal) {
       if(reveal.physical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
       setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
@@ -303,7 +324,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rollFx?.id, staticReveal]);
+  }, [rollFx?.id, staticReveal, animatePhysical]);
 
   // Running totals (tweened so the numbers visibly climb as dice settle).
   const toHitTarget =
@@ -317,8 +338,8 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, dismiss }: {
   const dmgTarget =
     faces.slice(0, positiveDiceLocked).reduce((s, f) => s + f.value, 0) +
     mods.slice(0, stage.modsShown).reduce((s, m) => s + m.value, 0);
-  const toHitShownNum = useTween(stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : toHitTarget, staticReveal ? 0 : 260);
-  const dmgShownNum = useTween(dmgTarget, staticReveal ? 0 : 260);
+  const toHitShownNum = useTween(stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : toHitTarget, staticReveal && !animatePhysical ? 0 : 260);
+  const dmgShownNum = useTween(dmgTarget, staticReveal && !animatePhysical ? 0 : 260);
 
   // Skip on Escape (parity with click/tap-to-skip).
   useEffect(() => {

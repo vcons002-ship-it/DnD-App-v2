@@ -77,7 +77,7 @@ void main(){
  vec3 beyond=studioLight(rotation*ray);
  vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*2.4);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
- if(style!=1){for(int j=0;j<20;j++){
+ if(style==0||style==2){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
    float interior=smoothstep(.02,.22,min((float(j)+.5)*stepSize,distance-(float(j)+.5)*stepSize));
    vec3 drift=style==0?vec3(time*.065,-time*.045,time*.035):vec3(0.);
@@ -106,6 +106,12 @@ void main(){
    vec3 stone=vec3(.0008,.0007,.00075)+vec3(.003,.0026,.0024)*band+vec3(.004)*cloud;
    vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5));
    color=stone+polished*(.045+fresnel*.9);
+ }
+ if(style==3){
+   float marble=fbm(pos*3.5+vec3(fbm(pos*6.)));
+   float vein=1.-smoothstep(.008,.035,abs(marble-.5));
+   vec3 stone=tint*(.20+marble*.45)+vec3(.055)*vein;
+   color=stone+studioLight(rotation*reflect(incoming,n))*(.09+fresnel*.6);
  }
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
@@ -142,7 +148,7 @@ void main(){
    }
    else if(style==2){color=bronzeSurface(n,incoming);}
    else {
-     vec3 f0=style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
+     vec3 f0=style==3?vec3(.78,.83,.90):style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
      vec3 tangent=normalize(axis-n*dot(axis,n));
      float brushing=(noise(vec3(tex*vec2(900.,70.),3.))-.5)*.025;
@@ -178,7 +184,7 @@ void main(){
    color=gold*(vec3(.22)+environment*.85)+gold*pow(max(0.,dot(rotation*n,halfLight)),90.)*.8;
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
  }
- gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:.96);
+ gl_FragColor=vec4(color,(critical>.5||style==1||style==3||metalEdge)?1.:.96);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
@@ -198,13 +204,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     return {c,n,u,v,inset,radius};
   });
   const root=new THREE.Group();
-  const glass=['sorcerer','fighter','ranger'].includes(theme.id);
-  const style=theme.id==='fighter'?1:theme.id==='ranger'?2:0;
+  const dm=theme.id.startsWith('dm-');
+  const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
+  const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.68,.36).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1||style===3)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();

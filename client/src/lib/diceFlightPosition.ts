@@ -4,7 +4,7 @@ export function diceFlightPoint(root:{left:number;top:number;width:number},local
  return {x:(x-root.left)/scale,y:(y-root.top)/scale};
 }
 
-export const DIE_FLASH_MS=320;
+export const DIE_FLASH_MS=460;
 export const DIE_FLIGHT_MS=650;
 export const DIE_REVEAL_MS=DIE_FLASH_MS+DIE_FLIGHT_MS;
 /** The flash stays on the face. Only the lift-off phase travels to the box. */
