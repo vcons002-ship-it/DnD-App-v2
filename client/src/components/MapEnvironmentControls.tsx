@@ -1,3 +1,4 @@
+import {LightDraft} from './LightDraft';
 import {useEffect, useState} from 'react';
 import type {MapState} from '../../../shared/types';
 import {DEFAULT_MAP_ENVIRONMENT, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
@@ -28,6 +29,7 @@ function SettingSlider({label,value,min,max,step=1,suffix='',onCommit}:{label:st
 }
 
 export function MapEnvironmentControls({map}:{map:MapState}){
+  const [lightDraftOpen,setLightDraftOpen]=useState(false);
   const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
   const save=useStore(s=>s.setMapEnvironment);
   const {placement,place}=useEnvironmentEditor();
@@ -44,6 +46,8 @@ export function MapEnvironmentControls({map}:{map:MapState}){
     </select></label>
     <small>Apply a look, then adjust it below. Keeps placed lights and your chosen shadow and wind directions.</small>
     {toggle('enabled','Enable environment')}
+    <button disabled={!map.imagePath} onClick={()=>setLightDraftOpen(true)}>Suggest lights from map art</button>
+    {lightDraftOpen&&<LightDraft key={map.id} map={map} onClose={()=>setLightDraftOpen(false)}/>}
     {settings.enabled&&<>
       <fieldset><legend>Lighting</legend>
         <label>Time / setting <select aria-label="Lighting preset" value={settings.lighting} onChange={e=>update({lighting:e.target.value as MapEnvironment['lighting']})}>

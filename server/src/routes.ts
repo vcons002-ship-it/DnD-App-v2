@@ -1,3 +1,4 @@
+import {suggestMapLights,applyLightDraft} from './mapLightDraft.js';
 import {suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
 import {getMap} from './sessions.js';
 import { Router } from 'express';
@@ -215,6 +216,25 @@ export function createApiRouter(io: IOServer): Router {
       const count=await applyGeometryDraft(mapId,req.body?.draft,req.body?.selected);
       broadcastSnapshots(io,map.sessionId);res.json({count});
     }catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not apply this draft.'});}
+  });
+
+  const draftingLights=new Set<string>();
+  router.post('/maps/:mapId/light-draft',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId);
+    if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
+    if(draftingLights.has(mapId)){res.status(409).json({error:'Light analysis is already running for this map.'});return;}
+    draftingLights.add(mapId);
+    try{res.json(await suggestMapLights(mapId));}
+    catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft map lights.'});}
+    finally{draftingLights.delete(mapId);}
+  });
+  router.post('/maps/:mapId/light-draft/apply',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId),map=getMap(mapId);
+    if(!map){res.status(404).json({error:'Map not found.'});return;}
+    try{const count=await applyLightDraft(mapId,req.body?.draft,req.body?.selected);broadcastSnapshots(io,map.sessionId);res.json({count});}
+    catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not apply light draft.'});}
   });
 
   // Catalog is public art only. Work-in-progress names, errors and controls are DM-only.

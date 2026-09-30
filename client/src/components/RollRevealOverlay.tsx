@@ -1,5 +1,5 @@
 import {LiveDiceOverlay} from './LiveDiceOverlay';
-import { hasNaturalTwenty } from '../../../shared/rollReveal';
+import { hasNaturalTwenty, rollOutcomeLabel } from '../../../shared/rollReveal';
 import {diceEntrySide} from '../lib/diceEntrySide';
 import type {DiceEntrySide} from '../lib/diceTrayTypes';
 import { PhysicsDiceTray } from './PhysicsDiceTray';
@@ -357,18 +357,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
 
   const mapImpact = !!rollFx.impactReady && ((!isCheck && !isDice) || !!rollFx.hasMapImpact);
   const showNaturalTwenty = naturalTwenty && (staticReveal || (isCheck ? stage.phase === 'outcome' || stage.phase === 'damage' : !!rollFx.impactReady));
-  const outcomeLabel =
-    reveal.outcome === 'crit'
-      ? 'CRITICAL HIT!'
-      : reveal.outcome === 'fumble'
-        ? 'Fumble!'
-        : reveal.outcome === 'hit'
-          ? 'HIT'
-          : reveal.outcome === 'pass'
-            ? /save|saving throw/i.test(reveal.title??'')?'SAVE PASSED':'PASS'
-            : reveal.outcome === 'fail'
-              ? /save|saving throw/i.test(reveal.title??'')?'SAVE FAILED':'FAIL'
-              : 'MISS';
+  const outcomeLabel = rollOutcomeLabel(reveal);
   // The result stamp shows once the roll resolves — but only when there IS a
   // pass/fail/hit result (a plain check or `/roll` has outcome 'none' → no stamp).
   const showOutcome =

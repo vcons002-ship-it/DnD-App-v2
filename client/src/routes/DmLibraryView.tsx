@@ -10,8 +10,15 @@ import { TemplateEditor } from '../components/TemplateEditor';
 import { LibrarySaveDialog } from '../components/LibrarySaveDialog';
 import { AiStatus } from '../components/AiStatus';
 import { ConnectionStatus } from '../components/ConnectionStatus';
-import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { Toast } from '../components/Toast';
+
+function CreatureIcon({ icon }: { icon?: string }) {
+  const [failed, setFailed] = useState(false);
+  const image = !!icon && /^(?:\/|https?:\/\/|data:image\/|blob:)/i.test(icon);
+  return <span className="library-card-icon" aria-hidden="true">
+    {image && !failed ? <img src={icon} alt="" loading="lazy" onError={() => setFailed(true)} /> : image ? '\u{1F47E}' : icon || '\u{1F47E}'}
+  </span>;
+}
 
 /** The three places a creature can come from. */
 type Source = 'session' | 'library' | 'find';
@@ -243,7 +250,7 @@ export function DmLibraryView() {
                   className={`library-card ${pickedId === m.id ? 'picked' : ''}`}
                   onClick={() => setPickedId(m.id)}
                 >
-                  <span className="library-card-icon">{m.icon || '👾'}</span>
+                  <CreatureIcon key={m.icon} icon={m.icon} />
                   <span className="library-card-name">{m.name}</span>
                   <span className="muted">
                     {m.creatureType || 'creature'} · {m.maxHp} hp
@@ -258,7 +265,7 @@ export function DmLibraryView() {
                   className={`library-card ${picked?.name === t.name ? 'picked' : ''}`}
                   onClick={() => setPicked(t)}
                 >
-                  <span className="library-card-icon">{t.icon || '👾'}</span>
+                  <CreatureIcon key={t.icon} icon={t.icon} />
                   <span className="library-card-name">{t.name}</span>
                   <span className="muted">
                     {t.creatureType || 'creature'} · {t.maxHp} hp
@@ -345,7 +352,7 @@ export function DmLibraryView() {
             {source !== 'session' && picked && (
               <div className="panel-section">
                 <h3>
-                  {picked.icon} {picked.name}
+                  <CreatureIcon key={picked.icon} icon={picked.icon} /> {picked.name}
                 </h3>
                 <div className="dice-row">
                   <button className="btn" disabled={busy} onClick={() => addToSession(picked)}>
@@ -392,7 +399,6 @@ export function DmLibraryView() {
           AI lookup and AI fill in THIS window would give no feedback at all. */}
       <AiStatus />
       <ConnectionStatus />
-      <RollRevealOverlay />
       <Toast />
     </div>
   );

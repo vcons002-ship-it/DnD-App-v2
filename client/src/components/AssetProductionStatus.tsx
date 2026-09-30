@@ -6,10 +6,11 @@ import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { useStore } from '../state/socket';
 
 /** Private job names/status never go to the player catalog or player UI. */
-export function AssetProductionStatus({ monster }: { monster: Monster }) {
+export function AssetProductionStatus({ monster, initiallyExpanded=false }: { monster: Monster; initiallyExpanded?: boolean }) {
   const role = useStore(s => s.snapshot?.role);
   const updateMonster = useStore(s => s.updateMonster);
   const [notes, setNotes] = useState('');
+  const [requestOpen,setRequestOpen]=useState(initiallyExpanded);
   const [state, setState] = useState<{ jobs: AssetJob[]; paused: boolean }>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -48,7 +49,7 @@ export function AssetProductionStatus({ monster }: { monster: Monster }) {
       {job?.state === 'failed' && <button disabled={busy} onClick={() => void action(`/api/assets/jobs/${job.id}/retry`, {})}>Retry 3D</button>}
       {state && <button disabled={busy} title="Pausing lets the current model finish and holds subsequent jobs." onClick={() => void action('/api/assets/pause', { paused: !state.paused })}>{state.paused ? 'Resume 3D queue' : 'Pause 3D queue'}</button>}
     </div>
-    <details>
+    <details open={requestOpen} onToggle={e=>setRequestOpen(e.currentTarget.open)}>
       <summary>New 3D model</summary>
       <small>Uses this token’s weapons, attacks, and armor details. Keeps the current model until you choose Use this model.</small>
       <label>Appearance notes (optional)<textarea aria-label="3D appearance notes" maxLength={600} value={notes} onChange={e => setNotes(e.target.value)} placeholder="For example: chainmail, crossbow held ready, sword sheathed" /></label>

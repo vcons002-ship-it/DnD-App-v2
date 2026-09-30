@@ -243,7 +243,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     const maxSize=next.mistQuality==='low'?512:1024,ratio=next.mapWidth/next.mapHeight;
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
     uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);
-    uniforms.gradeOpacity.value=1-(1-preset.opacity)*level;
+    uniforms.gradeOpacity.value=Math.min(next.dmVisibility ? .25 : 1,1-(1-preset.opacity)*level);
     uniforms.wetness.value=next.groundWetness??0;uniforms.surfaceScale.value=next.pixelsPerFoot??12.8;uniforms.wetLight.value=Math.max(.12,preset.ambient*level);
     const tintAmount=next.sceneTintStrength??0;
     uniforms.sceneTint.value.set(next.sceneTint??'#ffffff');uniforms.sceneTintStrength.value=tintAmount;
@@ -251,6 +251,11 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     // rig lifts diffuse atlases into the tone mapper's pale highlight range.
     // This only lights figures; the day ground-grade opacity remains zero.
     baseLight.key=preset.key*level;baseLight.ambient=preset.ambient*level;baseLight.reflection=preset.reflection*level;
+    if(next.dmVisibility){
+      baseLight.key=Math.max(baseLight.key,NEUTRAL_MINIATURE_LIGHTING.key*.7);
+      baseLight.ambient=Math.max(baseLight.ambient,NEUTRAL_MINIATURE_LIGHTING.ambient*.7);
+      baseLight.reflection=Math.max(baseLight.reflection,NEUTRAL_MINIATURE_LIGHTING.reflection*.7);
+    }
     baseLight.color.set(next.lighting==='dusk'?0xffbb83:next.lighting==='night'?0x9bb9ff:original.color);
     baseLight.color.lerp(uniforms.sceneTint.value,tintAmount);
     if(enabled&&ambient){ambient.color.copy(original.sky).lerp(uniforms.sceneTint.value,tintAmount);ambient.groundColor.copy(original.ground).lerp(uniforms.sceneTint.value,tintAmount);}

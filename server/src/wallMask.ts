@@ -1,23 +1,57 @@
 import sharp from 'sharp';
+import {fitWallMask,prepareWallMask} from './wallMaskRectangles.js';
+import {contourWallMask} from './wallMaskContours.js';
 import type {MapWall} from '../../shared/mapWalls.js';
 
-/** Experimental yellow-outline import. No AI inference or hand-authored coordinates.
- * Fill only narrow enclosed regions, then decompose into existing solid wall rectangles.
- * Large enclosed rooms remain empty. Small colour/encoding gaps are closed first. */
-export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number) {
+/** Yellow-mask import. No AI inference or hand-authored coordinates in conversion.
+ * Fill only narrow enclosed regions, then trace solid contours with room holes.
+ * Complex noisy masks retain the conservative rectangle-fitting fallback.
+ * Large enclosed rooms remain empty. Narrow unpainted cuts are protected during fitting. */
+export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer) {
   if(![width,height,gridSizePx].every(n=>Number.isFinite(n)&&n>0)||width>20000||height>20000)throw new Error('Invalid map dimensions.');
   const scale=Math.min(1,800/Math.max(width,height)),w=Math.round(width*scale),h=Math.round(height*scale),size=w*h;
   const {data,info}=await sharp(image,{limitInputPixels:40_000_000}).rotate().resize(w,h,{fit:'fill',kernel:'nearest'}).removeAlpha().toColourspace('srgb').raw().toBuffer({resolveWithObject:true});
   const yellow=new Uint8Array(size);
-  for(let p=0;p<size;p++){const i=p*info.channels;yellow[p]=data[i]>165&&data[i+1]>155&&data[i+2]<115&&data[i]>data[i+2]*1.8&&data[i+1]>data[i+2]*1.8?255:0;}
-  // Close tiny encoding breaks with a 5x5 kernel in the scaled working image.
-  const dilated=new Uint8Array(size),closed=new Uint8Array(size);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(yellow[y*w+x])for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h)dilated[(y+dy)*w+x+dx]=255;
-  for(let y=2;y<h-2;y++)for(let x=2;x<w-2;x++){
-    let all=true;for(let dy=-2;dy<=2&&all;dy++)for(let dx=-2;dx<=2;dx++)if(!dilated[(y+dy)*w+x+dx]){all=false;break;}
-    if(all)closed[y*w+x]=255;
+  const faint=new Uint8Array(size);
+  for(let p=0;p<size;p++){
+    const i=p*info.channels,hue=data[i+2]<115&&data[i]>data[i+2]*1.8&&data[i+1]>data[i+2]*1.8;
+    yellow[p]=hue&&data[i]>165&&data[i+1]>155?255:0;
+    faint[p]=hue&&data[i]>25&&data[i+1]>20&&Math.min(data[i],data[i+1])-data[i+2]>18?1:0;
   }
-  const solid=Uint8Array.from(closed,n=>n?1:0),seen=new Uint8Array(size),queue=new Int32Array(size),distance=new Int32Array(size);
+  // Dark yellow paint in stone grooves belongs to the annotation. Grow only from
+  // bright annotation seeds; do not classify unrelated warm floor art as walls.
+  const seeds=yellow.slice(),paintRadius=Math.max(1,Math.min(3,Math.round(gridSizePx*scale*.08)));
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(faint[y*w+x]&&!seeds[y*w+x]){
+    let near=false;for(let dy=-paintRadius;dy<=paintRadius&&!near;dy++)for(let dx=-paintRadius;dx<=paintRadius;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h&&seeds[(y+dy)*w+x+dx]){near=true;break;}
+    if(near)yellow[y*w+x]=255;
+  }
+  // Ignore yellow that was already in the source art (torch flames, gold, etc.).
+  // Slight dilation tolerates small JPEG/resampling shifts at those same pixels.
+  if(originalImage){
+    const original=await sharp(originalImage,{limitInputPixels:80_000_000}).rotate().resize(w,h,{fit:'fill'}).removeAlpha().toColourspace('srgb').raw().toBuffer();
+    const radius=Math.max(2,Math.round(gridSizePx*scale*.08));
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i=(y*w+x)*3;
+      // Unchanged warm art in an intentional gap is not faint paint. Do not grow
+      // annotation into it merely because a bright yellow edge is nearby.
+      const p=y*w+x,j=p*info.channels;
+      if(!seeds[p]&&Math.max(Math.abs(original[i]-data[j]),Math.abs(original[i+1]-data[j+1]),Math.abs(original[i+2]-data[j+2]))<=20)yellow[p]=0;
+      if(original[i]>165&&original[i+1]>145&&original[i+2]<130&&original[i]>original[i+2]*1.6&&original[i+1]>original[i+2]*1.6)
+        for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h)yellow[(y+dy)*w+x+dx]=0;
+    }
+  }
+  // Isolated flecks shorter than half a grid square are not reliable wall bands.
+  // Ignore them rather than turning remaining flame highlights into obstacles.
+  const visited=new Uint8Array(size),minSpan=Math.max(4,gridSizePx*scale*.5);
+  for(let p=0;p<size;p++)if(yellow[p]&&!visited[p]){
+    const pixels=[p];visited[p]=1;let minX=p%w,maxX=minX,minY=Math.floor(p/w),maxY=minY;
+    for(let n=0;n<pixels.length;n++){
+      const q=pixels[n],x=q%w,y=Math.floor(q/w);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h){const next=(y+dy)*w+x+dx;if(yellow[next]&&!visited[next]){visited[next]=1;pixels.push(next);}}
+    }
+    if(Math.max(maxX-minX+1,maxY-minY+1)<minSpan)for(const q of pixels)yellow[q]=0;
+  }
+  const solid=Uint8Array.from(yellow,n=>n?1:0),seen=new Uint8Array(size),queue=new Int32Array(size),distance=new Int32Array(size);
   const neighbors=(p:number)=>[...(p%w?[p-1]:[]),...(p%w<w-1?[p+1]:[]),...(p>=w?[p-w]:[]),...(p<size-w?[p+w]:[])];
   let filledPixels=0;
   for(let start=0;start<size;start++) {
@@ -32,29 +66,14 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
     while(head<tail){const p=queue[head++];depth=Math.max(depth,distance[p]);for(const q of neighbors(p))if(!solid[q]&&distance[q]===-1){distance[q]=distance[p]+1;queue[tail++]=q;}}
     if(depth<=Math.max(3,gridSizePx*scale*.45)){for(const p of component)solid[p]=1;filledPixels+=component.length;}
   }
-  const initial=solid.reduce((a,b)=>a+b,0),remaining=solid.slice(),walls:MapWall[]=[];
-  const heights=new Int32Array(w),stack=new Int32Array(w+1);
-  let represented=0;
-  // Largest-rectangle decomposition uses the existing four-edge solid-wall primitive.
-  while(walls.length<120){
-    heights.fill(0);let best={area:0,x:0,y:0,width:0,height:0};
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++)heights[x]=remaining[y*w+x]?heights[x]+1:0;
-      let top=0;
-      for(let x=0;x<=w;x++){
-        const current=x<w?heights[x]:0;
-        while(top&&heights[stack[top-1]]>current){const high=heights[stack[--top]],left=top?stack[top-1]+1:0,length=x-left,area=high*length;
-          if(high>=2&&length>=2&&area>best.area)best={area,x:left,y:y-high+1,width:length,height:high};}
-        stack[top++]=x;
-      }
-    }
-    if(best.area<12)break;
-    for(let y=best.y;y<best.y+best.height;y++)for(let x=best.x;x<best.x+best.width;x++)remaining[y*w+x]=0;
-    represented+=best.area;
-    walls.push({id:`mask-${walls.length}`,kind:'rectangle',ax:best.x*width/w,ay:best.y*height/h,bx:(best.x+best.width)*width/w,by:(best.y+best.height)*height/h});
-  }
+  const prepared=prepareWallMask(solid,w,h,gridSizePx*scale);
+  const contours=await contourWallMask(prepared.solid,prepared.protectedPixels,w,h);
+  const fitted=contours?{...contours,solid:prepared.solid}:await fitWallMask(solid,w,h,gridSizePx*scale);
+  const scalePoint=(p:{x:number;y:number})=>({x:p.x*width/w,y:p.y*height/h});
+  const walls:MapWall[]=contours?contours.walls.map(wall=>({...wall,ax:wall.ax*width/w,ay:wall.ay*height/h,bx:wall.bx*width/w,by:wall.by*height/h,points:wall.points!.map(scalePoint),...(wall.holes?{holes:wall.holes.map(r=>r.map(scalePoint))}:{})})):
+    ('rectangles' in fitted?fitted.rectangles:[]).map((r,index)=>({id:`mask-${index}`,kind:'rectangle',ax:r.x*width/w,ay:r.y*height/h,bx:r.right*width/w,by:r.bottom*height/h}));
   if(!walls.length)throw new Error('No usable yellow wall regions found.');
-  const coverage=represented/initial;
+  const coverage=fitted.coverage;
   if(coverage<.94)throw new Error('Mask is too complex for the wall limit; simplify it before importing.');
-  return {walls,coverage,filledPixels,workWidth:w,workHeight:h,solidMask:Buffer.from(solid.map(n=>n*255))};
+  return {walls,coverage,filledPixels,workWidth:w,workHeight:h,solidMask:Buffer.from(fitted.solid.map(n=>n*255))};
 }

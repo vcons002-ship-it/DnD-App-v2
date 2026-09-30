@@ -4,6 +4,19 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Wall shape editing - September 2026
+
+- [x] Add angled lines, hollow circular walls and free-draw strokes with map-scaled thickness.
+- [x] Drag and rotate any wall piece; preserve linked door state and object alignment.
+- [x] Trace AI yellow masks into editable contours with room holes, protecting narrow openings and retaining the conservative rectangle fallback.
+
+## DM guide usability follow-ups - September 2026
+
+- [x] Default to a readable DM working light level, with a local Scene lighting toggle; preserve player darkness and the saved environment.
+- [x] Dismiss initiative prompts when rolling starts; group DM initiative dice in one labeled tray with each creature's modifier and total.
+- [x] Expose pre-placement custom 3D generation directly beside creature templates.
+- [x] Move 3D initiative badges in front of bases, with labels and health below, following camera rotation.
+
 ## Yellow mask wall import experiment - September 2026
 
 - [x] Convert the accepted Gemini wall outlines to solid app rectangles and
@@ -2187,3 +2200,18 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Settled face numbers hold for 460 ms before flying to their result boxes. Live physics retains its pace; damage presentation waits through the face flights and modifier sequence, or releases when skipped. Browser regression checks cover normal completion, skip, and animations disabled.
 
 - [x] Live dice retain the existing HIT/MISS/Fumble!/CRITICAL HIT and PASS/FAIL stamps, critical flourish, Nat 20 celebration, and matching result sounds. The result stamp gets a 1.2-second reading beat before compacting; damage feedback remains gated until completion or skip.
+
+- DM guide follow-up: shared-library image icons render as bounded thumbnails with creature names; dashboard and library leave rolls in the log without modal dice reveals. Revised guide demonstrates adding, moving, and resizing an actual map tile.
+
+- AI walls now default to image-API yellow-mask generation and reviewed conversion, filtering preexisting yellow art with one filled-band retry for unusable masks. The DM guide includes real map generation, wall review/application and player collision/visibility proof.
+
+- Independent AI light drafting: Environment > Suggest lights from map art, magenta-marker review and selective apply; preserves wall workflow, map art and existing lights, with hidden fixtures and tested defaults.
+
+- [x] Yellow-mask wall conversion: grid-scaled rectangle fitting, dark-paint seam recognition, protected narrow cuts, and stress tests for offset/diagonal openings. Existing saved walls remain unchanged.
+
+- Complex wall-mask integration verified on a fresh Gemini dungeon with round,
+  octagonal, diagonal, curved and cave boundaries. The final cave prompt draws a
+  continuous outer-rim outline connected to masonry: 4 saved pieces / 423 edges,
+  22 sight-and-movement probes, 720 cave-boundary rays and real player dragging
+  passed. Protected gaps survive bounded contour simplification. See
+  docs/MAP_GEOMETRY_DRAFT.md for the earlier cave-gap finding and successful retest.

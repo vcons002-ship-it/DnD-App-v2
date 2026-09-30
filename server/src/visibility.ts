@@ -62,6 +62,10 @@ const stripListFog = (m: MapState): MapState => ({
  * total without naming the creature's stats. The d20, total and outcome stay.
  */
 function redactCreatureMods(e: RollEntry): RollEntry {
+  if(/^(Pick lock|Disarm trap)$/i.test(e.label??'')){
+    const hideDc=(text:string)=>text.replace(/\s*vs DC\s+-?\d+/gi,'');
+    e={...e,expr:hideDc(e.expr),detail:hideDc(e.detail)};
+  }
   let detail = e.detail.replace(/vs AC -?\d+/g, 'vs AC ?');
   if (!e.hideMods) return { ...e, detail };
   detail = detail
@@ -142,7 +146,7 @@ function toPlayerMonster(m: Monster): Monster | MonsterPublic {
   // Friendly = full stat block, but loot stays behind the same reveal gate as
   // every other tier (a friendly NPC's pockets aren't public until the DM says).
   if (m.disposition === 'friendly')
-    return { ...m, name: playerMonsterName(m), ...(m.loot && !lootVisibleToPlayers(m) ? { loot: undefined } : {}) };
+    return { ...m, ...(m.objectKind?{objectDc:undefined}:{}), name: playerMonsterName(m), ...(m.loot && !lootVisibleToPlayers(m) ? { loot: undefined } : {}) };
   return {
     id: m.id,
     name: playerMonsterName(m),
