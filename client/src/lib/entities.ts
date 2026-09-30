@@ -40,6 +40,8 @@ export function resolveToken(
   snapshot: StateSnapshot,
   token: Token,
 ): TokenDisplay {
+  const withMarks=(conditions:Condition[]):Condition[]=>token.markLabels?.length?
+    [...conditions,...token.markLabels.map(label=>({id:`spell-mark:${label}`,label,aura:'green' as const,isConcentration:false}))]:conditions;
   if (token.kind === 'pc') {
     const c = snapshot.characters.find((x) => x.id === token.refId);
     if (!c) return { name: 'Unknown', conditions: [], icon: '' };
@@ -48,7 +50,7 @@ export function resolveToken(
       curHp: c.curHp,
       maxHp: c.maxHp,
       tempHp: c.tempHp,
-      conditions: c.conditions,
+      conditions: withMarks(c.conditions),
       icon: c.icon,
     };
   }
@@ -60,7 +62,7 @@ export function resolveToken(
       curHp: m.curHp,
       maxHp: m.maxHp,
       tempHp: m.tempHp,
-      conditions: m.conditions,
+      conditions: withMarks(m.conditions),
       disposition: m.disposition,
       objectKind: m.objectKind,
       icon: m.icon,
@@ -71,7 +73,7 @@ export function resolveToken(
   // never the persistent skull.
   return {
     name: m.name,
-    conditions: m.conditions,
+    conditions: withMarks(m.conditions),
     disposition: m.disposition,
     objectKind: m.objectKind,
     dead: m.dead,
@@ -101,6 +103,7 @@ export const sameConditions = (a: Condition[], b: Condition[]): boolean =>
   );
 
 export const sameTokenFields = (a: Token, b: Token): boolean =>
+  JSON.stringify(a.markLabels??[]) === JSON.stringify(b.markLabels??[]) &&
   a.sharedSightOnly === b.sharedSightOnly &&
   a.id === b.id &&
   a.kind === b.kind &&

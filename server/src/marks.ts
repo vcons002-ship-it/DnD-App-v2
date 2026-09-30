@@ -1,7 +1,7 @@
 import { markSpell, abilityKey } from '../../shared/hitFeatures.js';
-import type { TokenKind, SheetAbility, Token, RevealStep } from '../../shared/types.js';
+import type { TokenKind, SheetAbility, Token, RevealStep, Character, Monster } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
-import { rollDice } from '../../shared/dice.js';
+import { rollDicePool, withDiceMetadata } from '../../shared/dice.js';
 import { damageMultiplier } from '../../shared/combatMath.js';
 import { getCharacter, getMonster, getToken, getSessionById, getMap, listTokens, listCharacters, listMonsters, queueSpellImpact, setSheetAbility, setConcentration, addRollLog } from './sessions.js';
 
@@ -32,19 +32,27 @@ export function castMark(sessionId:string,kind:TokenKind,id:string,ability:Sheet
   return true;
 }
 
-/** Automatic separate-type damage for every attack roll against the marked creature. */
+/** One source for the damage eligibility and the persistent target indicator. */
+export function activeMarks(caster:Character|Monster|undefined|null,target:Pick<Token,'kind'|'refId'>) {
+  return (caster?.sheetAbilities??[]).filter(ab=>markSpell(ab)&&ab.mark?.active&&ab.mark.expiresAt>Date.now()&&
+    ab.mark.kind===target.kind&&ab.mark.refId===target.refId&&caster!.conditions.some(c=>c.isConcentration&&
+      abilityKey({name:c.label.replace(/^Concentration:\s*/i,'')})===abilityKey(ab)));
+}
+
+/** Mark damage has its own labeled throw, then joins the attack's HP application. */
 export function markedDamage(kind:TokenKind,id:string,target:Token,crit:boolean) {
   const caster=markedEntity(kind,id), victim=markedEntity(target.kind,target.refId);
   const dice:RevealStep[]=[], mods:RevealStep[]=[]; let amount=0;
   if (!caster || !victim) return {amount,dice,mods};
-  for(const ab of caster.sheetAbilities) {
+  for(const ab of activeMarks(caster,target)) {
     const type=markSpell(ab), mark=ab.mark;
     if (!type || !mark?.active || mark.expiresAt<=Date.now() || mark.kind!==target.kind || mark.refId!==target.refId ||
         !caster.conditions.some(c=>c.isConcentration && abilityKey({name:c.label.replace(/^Concentration:\s*/i,'')})===abilityKey(ab))) continue;
-    const roll=rollDice(crit?'2d6':'1d6',undefined,{criticalFrom:crit?1:undefined})!;
-    const value=Math.floor(roll.total*damageMultiplier(type,victim.resistances,victim.weaknesses,victim.immunities,{magical:true}));
-    roll.rolls.forEach((face,i)=>dice.push({label:`${ab.name} (${type})${i>0?' CRIT':''}`,value:face,faces:[face],diceExpression:'1d6',critical:i>0}));
-    if (value!==roll.total) mods.push({label:`${ab.name} ${type} adjustment`,value:value-roll.total});
+    const rolls=withDiceMetadata({label:`${ab.name} — ${type} damage`},()=>rollDicePool([{expr:'1d6'},...(crit?[{expr:'1d6',critical:true}]:[])]));
+    const total=rolls.reduce((sum,r)=>sum+(r?.total??0),0);
+    const value=Math.floor(total*damageMultiplier(type,victim.resistances,victim.weaknesses,victim.immunities,{magical:true}));
+    rolls.forEach((r,i)=>r?.rolls.forEach(face=>dice.push({label:`${ab.name} (${type})${i>0?' CRIT':''}`,value:face,faces:[face],diceExpression:'1d6',critical:i>0})));
+    if (value!==total) mods.push({label:`${ab.name} ${type} adjustment`,value:value-total});
     amount+=value;
   }
   return {amount,dice,mods};

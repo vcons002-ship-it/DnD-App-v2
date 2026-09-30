@@ -2,8 +2,9 @@ import {materializeLiveDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
-import { rollDice, rollDicePool, withDiceTarget } from '../../shared/dice.js';
+import { rollDice, rollDicePool, withDiceMetadata } from '../../shared/dice.js';
 import { hasLineOfSight } from '../../shared/mapWalls.js';
+import {rollSaveBatch} from './saveDiceBatch.js';
 import { abilityMod, proficiencyBonus } from '../../shared/skills.js';
 import { damageMultiplier, rollSavingThrow, weaponIsMagical } from '../../shared/combatMath.js';
 import { saveAdvantage, saveAutoFail } from '../../shared/conditionEffects.js';
@@ -56,9 +57,19 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
   const labels=e.conditions.map(c=>c.label), extra=saveExtra(e,ab);
   const state=saveAdvantage(labels,ab,adv,strFeatureAdv(target.kind,target.refId,ab)).state;
   const c={...e,stats:effectiveStats(e).scores,isMonster:target.kind==='monster',level:e.level??0};
-  const out=rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab));
+  const out=withDiceMetadata({label:`${label} - ${ab} Saving Throw`,target:{kind:target.kind,refId:target.refId}},()=>rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab)));
   const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
-  addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}`});
+  const ensnaring=abilityKey({name:label})==='ensnaring strike';
+  const effectKey=abilityKey({name:label});
+  const explanation=ensnaring?(passed?'Resisted - no spell damage.':'Restrained - damage at the start of its turn.')
+    : effectKey==='stunning strike'?(passed?'Not stunned - slowed until the caster\'s next turn.':'Stunned until the caster\'s next turn.')
+    : effectKey==='thunderous smite'?(passed?'Push and knockdown resisted.':'Knocked prone and pushed 10 ft.')
+    : effectKey==='wrathful smite'?(passed?'Fear resisted or ended.':'Frightened - the effect continues.')
+    : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.') : undefined;
+  addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}${explanation?`. ${explanation}`:''}`,
+    reveal:{kind:'check',title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
+      toHit:[{label:`${ab} save modifiers`,value:total-out.face}],outcome:passed?'pass':'fail',effectOutcome:explanation,
+      visibilityTarget:{kind:target.kind,refId:target.refId}}});
   return passed;
 }
 export function resolveHitFeature(sid:string,roller:string,rollId:string,abilityId:string,level?:number) {
@@ -91,17 +102,15 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
         tokenDistanceFt(t,target,map)>5+1e-6||!hasLineOfSight(target,t,map.walls))return false;
       seen.add(id);return true;
     });
-    // Saves roll through authoritative live physics. Each has its own audience;
-    // hidden creatures still take damage without disclosing their name or dice.
-    const saves=targets.map(t=>{
+    // Show the shared damage first, then all target saves in one labeled throw.
+    const damage=withDiceMetadata({label:'Hail of Thorns — Piercing Damage'},()=>rollDice(`${n}d10`))!,impactId=newId();
+    const requests=targets.map(t=>{
       const entity=markedEntity(t.kind,t.refId)!,labels=entity.conditions.map(c=>c.label);
-      const out=withDiceTarget(t,`${ab.name} — DEX save`,()=>rollSavingThrow(
-        {...entity,stats:effectiveStats(entity).scores,isMonster:t.kind==='monster',level:entity.level??0},
-        'DEX',dc,saveAdvantage(labels,'DEX').state,(entity.saveProficiencies??[]).some(v=>v.toUpperCase()==='DEX')));
-      const total=out.total+saveExtra(entity,'DEX').total;
-      return {t,entity,total,out,passed:!saveAutoFail(labels,'DEX')&&total>=dc};
+      return {target:t,c:{...entity,stats:effectiveStats(entity).scores,isMonster:t.kind==='monster',level:entity.level??0},ability:'DEX',dc,
+        mode:saveAdvantage(labels,'DEX').state,proficient:(entity.saveProficiencies??[]).some(v=>v.toUpperCase()==='DEX'),extra:saveExtra(entity,'DEX').total,autoFail:!!saveAutoFail(labels,'DEX')};
     });
-    const damage=rollDice(`${n}d10`)!,impactId=newId();
+    const outcomes=rollSaveBatch(requests,`${ab.name} — DEX Saving Throws`);
+    const saves=requests.map((r,i)=>({t:r.target,entity:markedEntity(r.target.kind,r.target.refId)!,out:outcomes[i],total:outcomes[i].total+r.extra,passed:!r.autoFail&&outcomes[i].total+r.extra>=dc}));
     // The weapon and burst are distinct damage sources, but their map effects
     // wait for the final burst roll to finish (or be skipped).
     resolveAttackDamage(sid,roller,rollId,impactId);
@@ -113,7 +122,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
       addRollLog(sid,{roller:entity.name,label:'Hail of Thorns: DEX save',expr:'DEX save',total,hpNote,
         hideMods:t.kind==='monster'&&getMonster(t.refId)?.disposition!=='friendly',
         detail:`${entity.name}: DEX save ${total} vs DC ${dc}: ${passed?'PASS (half damage)':'FAIL'}; ${amount} piercing damage.`,
-        reveal:{kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
+        reveal:{kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',effectOutcome:`${amount} piercing damage${passed?' (save for half)':''}.`,outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
           toHit:[{label:'DEX save modifiers',value:total-out.face}],visibilityTarget:{kind:t.kind,refId:t.refId}}});
     }
     queueSpellImpact(sid,target.kind,target.refId,'Hail of Thorns',impactId,Math.max(map.feetPerSquare,target.widthFt)+10);

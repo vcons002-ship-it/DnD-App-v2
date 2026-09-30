@@ -60,7 +60,9 @@ describe('optional on-hit abilities',()=>{
  expect(listRollLog(f.s.id).find(r=>r.id===impact.rollId)?.reveal?.kind).toBe('damage');
  expect(getMonster(f.mon.id)!.curHp).toBe(191);
  expect(getMonster(f.mon.id)!.conditions.some(c=>c.label==='Restrained')).toBe(true);
+ expect(listRollLog(f.s.id).some(r=>r.reveal?.effectOutcome?.includes('damage at the start'))).toBe(true);
  processHitEffects(f.s.id,f.tt,'start');expect(getMonster(f.mon.id)!.curHp).toBe(187);
+ const tick=listRollLog(f.s.id).at(-1)!;expect(tick.reveal?.title).toBe('Ensnaring Strike - Start-of-turn Damage');expect(tick.reveal?.damageDice?.[0].faces).toHaveLength(1);
  expect(drainHpFx(f.s.id)[0]?.spell).toBe('Ensnaring Strike');
  processHitEffects(f.s.id,f.tt,'start');expect(getMonster(f.mon.id)!.curHp).toBe(187);
  setConcentration('pc',f.ch.id,'Bless');expect(getMonster(f.mon.id)!.conditions.some(c=>c.label==='Restrained')).toBe(false);

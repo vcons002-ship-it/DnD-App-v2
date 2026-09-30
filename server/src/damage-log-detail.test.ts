@@ -54,9 +54,9 @@ const total = (value: NonNullable<RollReveal['damageBreakdown']>) =>
   [...value.dice, ...value.mods].reduce((sum, step) => sum + step.value, 0);
 
 describe('itemized damage accounting', () => {
-  it('preserves the original RNG order across maneuver, attack, weapon and each rider', () => {
+  it('rolls the attack before the weapon and maneuver damage, retaining every rider', () => {
     const f = fixture(false);
-    const sequence = [.125, .5, .1, .7, .3, .9, .2];
+    const sequence = [.5, .1, .7, .125, .3, .9, .2];
     const random = vi.spyOn(Math, 'random').mockImplementation(() => {
       const next = sequence.shift();
       if (next === undefined) throw new Error('Unexpected additional random roll');
@@ -122,9 +122,9 @@ describe('itemized damage accounting', () => {
     expect(total(pending.damageBreakdown!)).toBe(53);
     expect(pending.damageBreakdown?.dice.filter((step) => step.label.includes('CRIT'))).toEqual([
       { label: 'CRIT', value: 12, faces: [6, 6], diceExpression: '2d6' },
+      { label: '1d8 (Feinting Attack CRIT)', value: 8, faces: [8] },
       { label: '1d6 (Rune edge CRIT)', value: 6, faces: [6] },
       { label: "1d4 (Hunter's Mark CRIT)", value: 4, faces: [4] },
-      { label: '1d8 (Feinting Attack CRIT)', value: 8, faces: [8] },
       { label: '1d4 (fire rider CRIT)', value: 4, faces: [4] },
     ]);
     const other = buildSnapshot(f.session.id, 'player', null, 'other')!.rollLog.at(-1)!;

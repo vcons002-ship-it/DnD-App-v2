@@ -14,6 +14,7 @@ export function LiveDiceOverlay(){
  const frame=useStore(s=>s.liveDice)!;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null);
  const boxes=useRef<(HTMLSpanElement|null)[]>([]),flights=useRef<(HTMLSpanElement|null)[]>([]);
+ const saveLabels=useRef<(HTMLSpanElement|null)[]>([]);
  const [arrived,setArrived]=useState<number[]>([]),[failed,setFailed]=useState(false);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const frames=useRef<{at:number;frame:LiveDiceFrame}[]>([]);
@@ -64,6 +65,10 @@ export function LiveDiceOverlay(){
      renderer!.setKeptSet(b.frame.done?b.frame.kept:undefined);
      const finalWasDrawn=finalTrayDrawn;
      if(!reduced&&!finalTrayDrawn){renderer!.draw(ctx,width,height,dpr,alpha,now);node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);finalTrayDrawn=b.frame.done&&alpha===1;}
+     if(b.frame.saveDice){
+       const rect=root.current!.getBoundingClientRect(),c=node.getBoundingClientRect();
+       saveLabels.current.forEach((el,i)=>{if(!el)return;const p=renderer!.numberPosition(i),pos=diceFlightPoint(rect,root.current!.clientWidth,c.left+p.x*c.width,c.top+p.y*c.height);el.style.left=`${pos.x}px`;el.style.top=`${pos.y-25}px`;});
+     }
      if(!readySent){readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});}
      if(b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
@@ -96,17 +101,26 @@ export function LiveDiceOverlay(){
  },[frame.id]);
  const value=(i:number)=>{const v=frame.values[i];return v===null?'?':frame.percentile[i]==='tens'?String((v-1)*10).padStart(2,'0'):frame.percentile[i]==='ones'?v-1:v;};
  const tier=(i:number)=>dieResultTier(liveDieResult(frame,i));
+ const saveResult=(i:number)=>{
+   const save=frame.saveDice?.[i];if(!save||!frame.done||(!arrived.includes(i)&&!failed))return undefined;
+   const indices=frame.saveDice!.flatMap((s,j)=>s.group===save.group?[j]:[]);
+   const faces=indices.map(j=>frame.values[j]??0),face=save.mode==='dis'?Math.min(...faces):Math.max(...faces);
+   if(indices.length>1&&i!==indices[faces.indexOf(face)])return {calculation:'',outcome:'Discarded'};
+   const total=face+save.modifier;return {calculation:`${save.label}: ${face} ${save.modifier>=0?'+':'?'} ${Math.abs(save.modifier)} = ${total}`,outcome:!save.autoFail&&total>=save.dc?'PASS':'FAIL'};
+ };
  const resultStyle=(i:number)=>{
   const strength=dieResultEmphasis(liveDieResult(frame,i));
   return {'--roll-strength':strength,'--arrival-scale':1.12+strength*.5,'--arrival-glow':`${5+Math.pow(strength,3)*28}px`} as CSSProperties;
  };
  return <div className="roll-reveal-backdrop" data-live-dice="true"><div className="roll-reveal" role="status" aria-label="Live dice roll">
-  <div className="roll-reveal-title">{frame.roller} &middot; {frame.label}{frame.target&&<span className="rr-arrow"> &rarr; {frame.target}</span>}</div>
+  <div className="roll-reveal-title">{frame.label}</div>
+  <div className="roll-reveal-who">{frame.roller}{frame.target&&<span className="rr-arrow"> &rarr; {frame.target}</span>}</div>
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={diceThemeForRoll(frame.className,frame.dmDice,frame.affinity).id}>
    <canvas className="dice-tray-canvas" ref={canvas} aria-label="Server dice rolling live"/>
+   {frame.saveDice&&<div className="tray-save-labels" aria-hidden="true">{frame.saveDice.map((save,i)=><span key={i} ref={el=>{saveLabels.current[i]=el;}} className="tray-save-label">{save.label}{save.mode?` ${save.mode.toUpperCase()}`:''}</span>)}</div>}
    {(failed||reduced)&&<div className="dice-tray-status">{failed?'Live roll - graphics unavailable':'Live roll in progress'}</div>}
    <div className="tray-number-flights" aria-hidden="true">{frame.sides.map((_,i)=><span key={i} ref={el=>{flights.current[i]=el;}} style={resultStyle(i)} data-strength={tier(i)} data-tone={frame.critical[i]?'critical':frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'normal'} className={`tray-flying-number${frame.critical[i]?' critical':''}`}><span className="tray-number-flash"/>{value(i)}</span>)}</div>
-   <div className="dice-tray-results">{frame.sides.map((side,i)=><span ref={el=>{boxes.current[i]=el;}} className={`tray-die-result${frame.critical[i]?' critical':''}`} data-filled={arrived.includes(i)||failed} data-strength={tier(i)} style={{...resultStyle(i),...(frame.done&&frame.mode?{borderColor:frame.sets[i]===frame.kept?'#39ef87':'#ff5365',boxShadow:`0 0 6px ${frame.sets[i]===frame.kept?'#39ef87':'#ff5365'}`} : {})}} key={i}>{frame.percentile[i]?`d100 ${frame.percentile[i]}`:`d${side}`}<strong>{arrived.includes(i)||failed?value(i):'?'}</strong><small className="tray-max-label" style={{visibility:(arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i))?'visible':'hidden'}} aria-hidden={!((arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i)))}>{dieResultLabel(liveDieResult(frame,i))}</small>{frame.rerolls[i]>0&&<small>Rerolled {frame.rerolls[i]} times</small>}</span>)}</div>
+   <div className="dice-tray-results">{frame.sides.map((side,i)=><span ref={el=>{boxes.current[i]=el;}} className={`tray-die-result${frame.critical[i]?' critical':''}`} data-filled={arrived.includes(i)||failed} data-strength={tier(i)} style={{...resultStyle(i),...(frame.done&&frame.mode?{borderColor:frame.sets[i]===frame.kept?'#39ef87':'#ff5365',boxShadow:`0 0 6px ${frame.sets[i]===frame.kept?'#39ef87':'#ff5365'}`} : {})}} key={i}>{frame.saveDice?.[i]&&<small className="tray-save-name">{frame.saveDice[i].label}</small>}{frame.percentile[i]?`d100 ${frame.percentile[i]}`:`d${side}`}<strong>{arrived.includes(i)||failed?value(i):'?'}</strong><small className="tray-max-label" style={{visibility:(arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i))?'visible':'hidden'}} aria-hidden={!((arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i)))}>{dieResultLabel(liveDieResult(frame,i))}</small>{frame.saveDice?.[i]&&<span className="tray-save-outcome" data-outcome={saveResult(i)?.outcome}><small>{saveResult(i)?.calculation || "\u00a0"}</small><b>{saveResult(i)?.outcome || "\u00a0"}</b></span>}{frame.rerolls[i]>0&&<small>Rerolled {frame.rerolls[i]} times</small>}</span>)}</div>
   </div>
   <div className="muted">{frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</div>
  </div></div>;

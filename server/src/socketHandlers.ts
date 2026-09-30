@@ -1,3 +1,4 @@
+import {shapeSaveFrame} from './liveSaveFrame.js';
 import {doorApproachPoints,distanceToWall} from '../../shared/mapWalls.js';
 import {visionContains} from '../../shared/playerVision.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
@@ -13,7 +14,7 @@ import { invokeSafely } from './safeHandler.js';
 import { newId } from './db.js';
 import { parseRollCommand, rollDice, isValidDiceExpression } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
-import { spellDamageTypeChoices } from '../../shared/spellExecution.js';
+import { effectiveSheetAbility, spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
   resolveAttack,
   resolveAttackDamage,
@@ -305,6 +306,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const dmDice=!!npc || isDm()&&!actor;
             const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
             if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
+            if(event==='death:roll')meta.label='Death Saving Throw';
+            else if(ability?.roll?.kind==='heal')meta.label=`${ability.name} — Healing Roll`;
+            else if(ability?.roll&&['save','damage'].includes(ability.roll.kind))meta.label=`${ability.name} — Damage Roll`;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
             const targetId=payload?.targetTokenId??(event==='save:resolve'?payload?.tokenId:undefined)??pending?.hitOptions?.targetTokenId??riposte?.attackerTokenId;
             const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id})):[];
@@ -327,7 +331,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               }
               return audienceCache.get(id)!;
             });
-            let lastId='';
+            const lastDelivered=new Map<string,string>();
             try{
               await runLiveCommand(()=>{
                 const emit=socket.emit;
@@ -335,7 +339,20 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 (socket as any).emit=(...values:any[])=>{afterRollCommit(()=>emit.apply(socket,values as any));return socket;};
                 activeCommandConnection=commandConn;
                 try{handler(...args);}finally{socket.emit=emit;activeCommandConnection=undefined;}
-              },(frame,info)=>{lastId=frame.id;for(const id of audience()){
+              },(frame,info)=>{for(const id of audience()){
+                if(info?.saveDice){
+                  const shaped=shapeSaveFrame(frame,info.saveDice,target=>{
+                    const key=`save:${id}:${target.kind}:${target.refId}`;
+                    if(!targetLabels.has(key)){
+                      const conn=getConn(id)!,view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
+                      const token=view?.tokens.find(t=>!t.sharedSightOnly&&t.kind===target.kind&&t.refId===target.refId);
+                      targetLabels.set(key,token?(token.kind==='monster'&&token.revealTag&&token.revealTag!=='U'?token.revealTag:liveRollTarget(view!,[target])):undefined);
+                    }
+                    return targetLabels.get(key);
+                  });
+                  if(shaped){io.to(id).emit('dice:frame',shaped);lastDelivered.set(id,frame.id);}
+                  continue;
+                }
                 const labelKey=`${id}:${info?.target?.refId??''}`;
                 if(!targetLabels.has(labelKey)){
                   const conn=getConn(id)!;
@@ -347,9 +364,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 }
                 // An automatic area save must not expose an unseen bystander.
                 if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
-                io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(labelKey)});
+                io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(labelKey)});lastDelivered.set(id,frame.id);
               }},meta);
-            }finally{if(lastId)for(const id of audience())io.to(id).emit('dice:finished',{id:lastId});}
+            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});}
           },failed);
           return;
         }
@@ -607,7 +624,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!map || map.sessionId !== sid) return;
       if (!isDm() && getActiveMapId(sid) !== mapId) return;
       const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-      const ability = ent?.sheetAbilities.find((a) => a.id === abilityId);
+      const savedAbility = ent?.sheetAbilities.find((a) => a.id === abilityId);
+      const ability = savedAbility ? effectiveSheetAbility(savedAbility) : undefined;
       if (!ability?.summon) return;
       const name = (ability.summon.name?.trim() || ability.name || 'Summon').slice(0, 60);
       const icon = (ability.summon.icon || '✋').slice(0, 2000);

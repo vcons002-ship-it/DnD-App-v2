@@ -101,3 +101,14 @@
 /* The destination is the centered numeral, not a left-aligned glyph in a wide box. */
 .physics-dice-tray .tray-die-result{text-align:center;}
 .physics-dice-tray .tray-max-label{min-height:1.2em;}
+.tray-save-labels { position:absolute; inset:0; pointer-events:none; }
+.tray-save-label { position:absolute; transform:translate(-50%,-100%); padding:2px 6px; border-radius:4px; background:#101720e8; color:#fff1cf; font:bold 13px/1.2 system-ui; white-space:nowrap; box-shadow:0 1px 4px #000; }
+.tray-save-name { color:#fff1cf; font-weight:bold; }
+.tray-save-outcome { min-height:1.3em; white-space:nowrap; }
+
+.tray-save-name { display:block; margin-bottom:3px; }
+.tray-save-outcome { display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:5px; }
+.tray-save-outcome b { font:800 14px/1.2 system-ui; letter-spacing:.05em; padding:3px 8px; border-radius:4px; }
+.tray-save-outcome[data-outcome="PASS"] b { color:#a1ffc5; background:#17492d; }
+.tray-save-outcome[data-outcome="FAIL"] b { color:#ffc3bf; background:#632724; }
+.tray-save-outcome[data-outcome="Discarded"] b { color:#b5bbc4; font-size:11px; }

@@ -1,3 +1,4 @@
+import { starterCreatures } from './creatures/starterLibrary.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice} from '../../shared/dice.js';
 import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
@@ -560,7 +561,7 @@ export function createSummon(
 ): Token {
   const m = insertMonster(
     sessionId,
-    { name, maxHp: 1, icon, disposition: 'friendly', source: 'manual' },
+    { ...(name.trim().toLowerCase()==='mage hand' ? starterCreatures().find(c=>c.name==='Mage Hand') : {}), name, maxHp: 1, icon, disposition: 'friendly', source: 'manual' },
     { isTemplate: false, templateId: null, name },
   );
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y });
@@ -1310,11 +1311,12 @@ export function endConcentration(kind: TokenKind, refId: string, reason: string)
       }
     }
   }
-  const activeMap=getSessionById(entity.sessionId)?.activeMapId;
-  if(activeMap) for(const tok of listTokens(activeMap)) {
-    const subject=tok.kind==='pc'?getCharacter(tok.refId):getMonster(tok.refId);
-    for(const c of subject?.conditions??[]) if(c.combatEffect?.concentration && c.combatEffect.casterKind===kind && c.combatEffect.casterId===refId && spells.some(n=>abilityKey({name:n})===abilityKey({name:c.combatEffect!.spell})))
-      clearCondition(tok.kind,tok.refId,c.id);
+  // Linked buffs belong to creatures, even after the party switches maps.
+  for(const [subjectKind,subjects] of [['pc',listCharacters(entity.sessionId)],['monster',listMonsters(entity.sessionId)]] as const) {
+    for(const subject of subjects) for(const c of subject.conditions) {
+      if(c.combatEffect?.concentration && c.combatEffect.casterKind===kind && c.combatEffect.casterId===refId && spells.some(n=>abilityKey({name:n})===abilityKey({name:c.combatEffect!.spell})))
+        clearCondition(subjectKind,subject.id,c.id);
+    }
   }
   addRollLog(entity.sessionId, {
     roller: 'DM',
@@ -1579,6 +1581,8 @@ export function addRollLog(
    *  Never supplied by a client; ordinary log callers keep automatic IDs. */
   id = newId(),
 ): RollEntry {
+  if(entry.reveal&&!entry.reveal.title&&(entry.reveal.kind==='attack'||entry.reveal.kind==='damage'))
+    entry.reveal={...entry.reveal,title:`${['Attack','Damage'].includes(entry.label)?entry.expr:entry.label} — ${entry.reveal.kind==='attack'?'Attack Roll':'Damage Roll'}`};
   if(entry.reveal && isLiveCommand())entry.reveal={...entry.reveal,physical:true};
   const createdAt = Date.now();
   // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle

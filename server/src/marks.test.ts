@@ -7,6 +7,11 @@ import { castMark, markedDamage } from './marks.js';
 import { resolveAttack, resolveAbilityRoll, resolveAttackDamage } from './combat.js';
 import { effectiveSheetAbility } from '../../shared/spellExecution.js';
 import type { SheetAbility } from '../../shared/types.js';
+import {runLiveCommand} from './liveRolls.js';
+import {type PhysicalDiceInfo} from '../../shared/dice.js';
+import {buildSnapshot} from './visibility.js';
+
+
 afterEach(()=>vi.restoreAllMocks());
 function setup(manual=false) {
  const s=createSession('Marks'); const map=createMap(s.id,{name:'Field'}); setActiveMap(s.id,map.id); setManualDamage(s.id,manual);
@@ -21,6 +26,50 @@ function setup(manual=false) {
  return {s,c,target,second,at,tt,nt,hm};
 }
 describe('2024 marked attack workflow',()=>{
+ it.each([false,true])('throws weapon then labeled mark damage with only added crit dice gold (crit=%s)',async crit=>{
+ const f=setup(true);castMark(f.s.id,'pc',f.c.id,f.hm,f.tt.id,1);drainHpFx(f.s.id);
+ const requests:{sides:number[];info?:PhysicalDiceInfo}[]=[];
+ const live=async(run:()=>void)=>runLiveCommand(run,()=>{},{label:'Bow',roller:'Ranger',className:'Ranger'},async(sides,_publish,_meta,_seed,info)=>{
+   requests.push({sides,info});return sides.map(s=>s===20?(crit?20:12):s);
+ });
+ await live(()=>{resolveAttack(f.s.id,'Ranger',f.at.id,f.tt.id,0);});
+ const hit=listRollLog(f.s.id).slice().reverse().find(r=>r.pending)!;
+ expect(requests.map(r=>r.sides)).toEqual([[20]]);expect(getCharacter(f.target.id)!.curHp).toBe(100);
+ requests.length=0;
+ await live(()=>{resolveAttackDamage(f.s.id,'Ranger',hit.id);});
+ expect(requests.map(r=>r.sides)).toEqual(crit?[[8,8],[6,6]]:[[8],[6]]);
+ expect(requests.flatMap(r=>r.info?.criticalDice??[])).toEqual(crit?[false,true,false,true]:[false,false]);
+ expect(requests[1].info?.label).toBe("Hunter's Mark — force damage");
+ const result=listRollLog(f.s.id).slice().reverse().find(r=>r.reveal?.kind==='damage')!;
+ expect(flattenDamageDice(result.reveal!.damageDice).map(d=>d.sides)).toEqual(crit?[8,8,6,6]:[8,6]);
+ expect(flattenDamageDice(result.reveal!.damageDice).map(d=>d.crit)).toEqual(crit?[false,true,false,true]:[false,false]);
+ // Piercing resistance affects the weapon, not Force; ability modifier is not doubled.
+ expect(result.reveal!.damage).toBe(crit?21:11);
+ expect(drainHpFx(f.s.id)).toHaveLength(1);
+ expect(getCharacter(f.target.id)!.curHp).toBe(100-result.reveal!.damage!);
+ });
+ it('rolls spell damage then mark damage and combines the final application',async()=>{
+ const f=setup(true);castMark(f.s.id,'pc',f.c.id,f.hm,f.tt.id,1);
+ const bolt:SheetAbility={id:'bolt',name:'Ray',type:'spell',level:0,description:'',source:'custom',roll:{kind:'attack',dice:'1d8',damageType:'fire'}};
+ const requests:number[][]=[];
+ const live=async(run:()=>void)=>runLiveCommand(run,()=>{},{label:'Ray',roller:'Ranger',className:'Ranger'},async sides=>{requests.push(sides);return sides.map(s=>s);});
+ await live(()=>{resolveAbilityRoll(f.s.id,'Ranger',getCharacter(f.c.id)!,bolt,0,undefined,f.tt.id);});
+ const hit=listRollLog(f.s.id).slice().reverse().find(r=>r.pending)!;
+ await live(()=>{resolveAttackDamage(f.s.id,'Ranger',hit.id);});
+ expect(requests).toEqual([[20],[8,8],[6,6]]);
+ });
+ it('shows a persistent target ring and named hover tag, moves it, and clears it with concentration',()=>{
+ const f=setup();castMark(f.s.id,'pc',f.c.id,f.hm,f.tt.id,1);
+ const marked=(id:string)=>{const s=buildSnapshot(f.s.id,'dm')!;return s.tokens.find(t=>t.id===id)!;};
+ expect(marked(f.tt.id).markLabels?.includes(f.hm.name)??false).toBe(true);
+
+ expect(getCharacter(f.target.id)!.conditions).toHaveLength(0); // derived display, no stale saved condition
+ applyDamage('pc',f.target.id,100);castMark(f.s.id,'pc',f.c.id,getCharacter(f.c.id)!.sheetAbilities[0],f.nt.id,1,true);
+ expect(marked(f.tt.id).markLabels?.includes(f.hm.name)??false).toBe(false);
+ expect(marked(f.nt.id).markLabels?.includes(f.hm.name)??false).toBe(true);
+ setConcentration('pc',f.c.id,'Bless');
+ expect(marked(f.nt.id).markLabels?.includes(f.hm.name)??false).toBe(false);
+ });
  it('upgrades active saved stance targets once without spending slots or resetting concentration',()=>{
  const f=setup();
  setSheetAbility('pc',f.c.id,{...f.hm,type:'stance',stance:{active:true,targeted:true,targetId:f.tt.id,bonusDamage:'1d6',appliesTo:'all'}});

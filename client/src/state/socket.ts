@@ -435,6 +435,7 @@ export function getPlayerId(): string {
   return playerIdMemo;
 }
 
+const queuedRollFx: NonNullable<Store['rollFx']>[] = [];
 export const useStore = create<Store>((set, get) => ({
   liveDice: null,
   socket: null,
@@ -477,14 +478,16 @@ export const useStore = create<Store>((set, get) => ({
   dismissRollFx: () => {
     const current = get().rollFx;
     if (current) get().releaseRollImpact(current.rollId);
-    set({ rollFx: null });
+    const next=queuedRollFx.shift() ?? null;
+    set({ rollFx: next });
+    if(next)setTimeout(()=>{if(get().rollFx?.id===next.id)get().dismissRollFx();},90000);
   },
   showRollAnim: localStorage.getItem('dnd.rollAnimOff') !== '1',
   toggleRollAnim: () => {
     const next = !get().showRollAnim;
     safeSetItem('dnd.rollAnimOff', next ? '0' : '1');
     set({ showRollAnim: next });
-    if (!next) get().dismissRollFx();
+    if (!next) { for(const fx of queuedRollFx.splice(0))get().releaseRollImpact(fx.rollId);get().dismissRollFx(); }
   },
   viewMapId: null,
   dragGhosts: {},
@@ -627,7 +630,7 @@ export const useStore = create<Store>((set, get) => ({
       dmPassphrase: dmPassphrase ?? null,
       viewMapId: null,
       hpFx: [],
-      rollFx: null,
+      rollFx: (queuedRollFx.length=0,null),
       hurtFx: null,
       dragGhosts: {},
       typingChars: {},
@@ -685,15 +688,13 @@ export const useStore = create<Store>((set, get) => ({
           // An un-animated miss → immediate; an animated one plays at its stamp.
           else if (/\bMISS\b/.test(fresh.detail ?? '') && !willAnimate) playMiss();
           if (willAnimate && fresh.reveal) {
-            // Replacement/skip flushes the previous roll's remaining feedback,
-            // never attaching its numbers to the newly arriving roll.
-            get().dismissRollFx();
-            const fxId = nextFloaterId++;
-            set({ rollFx: {
-              id: fxId,
-              rollId: fresh.id,
-              reveal: snapshot.role === 'player' ? withRollComparison(fresh.reveal, fresh.detail) : fresh.reveal,
-            } });
+            // Preserve every resolved save; a damage summary must not replace it.
+            for(const entry of unseen.filter(e=>e.reveal)) {
+              queuedRollFx.push({id:nextFloaterId++,rollId:entry.id,
+                reveal:snapshot.role==='player'?withRollComparison(entry.reveal!,entry.detail):entry.reveal!});
+            }
+            if(!get().rollFx)set({rollFx:queuedRollFx.shift() ?? null});
+            const fxId=get().rollFx?.id;
             // The overlay owns normal dismissal after physics and modifiers settle.
             // Allow worker startup, up to two physical tosses, and the reading hold;
             // this is only a recovery timeout for a broken reveal, not its pacing.
@@ -717,7 +718,7 @@ export const useStore = create<Store>((set, get) => ({
       const immediate: HpFloater[] = [];
       for (const event of added) {
         if ((event.delta < 0 || event.spell) && event.rollId && get().showRollAnim &&
-          current?.rollId === event.rollId && !current.impactReady) {
+          ((current?.rollId === event.rollId && !current.impactReady) || queuedRollFx.some(fx=>fx.rollId===event.rollId))) {
           heldHpFx.set(event.rollId, [...(heldHpFx.get(event.rollId) ?? []), event]);
         } else immediate.push(event);
       }
@@ -903,7 +904,7 @@ export const useStore = create<Store>((set, get) => ({
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     heldHpFx.clear();
-    set({ liveDice:null, socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
+    queuedRollFx.length=0;set({ liveDice:null, socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {

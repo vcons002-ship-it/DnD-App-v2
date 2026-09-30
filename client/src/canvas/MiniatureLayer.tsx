@@ -5,7 +5,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
+  Box3, Sprite, SpriteMaterial, CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -42,6 +42,7 @@ export type MiniatureToken = {
   activeTurn?: boolean;
   selected?: boolean;
   conditionColors?: string[];
+  hunterMarked?: boolean;
   combatRole?: CombatRole | null;
   definition: MiniatureDefinition;
 };
@@ -90,6 +91,7 @@ type Instance = {
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
   conditionRings: Mesh<RingGeometry, MeshBasicMaterial>[];
+  hunterMark: Sprite;
   combatBadge: Group;
   badgeMesh: Mesh<PlaneGeometry,MeshBasicMaterial>;
   badgeTexture: CanvasTexture;
@@ -511,6 +513,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.lightning?.dispose();
     instance.outlineMaterial.dispose();
     instance.badgeMesh.geometry.dispose();instance.badgeMesh.material.dispose();instance.badgeTexture.dispose();
+    instance.hunterMark.material.map?.dispose();instance.hunterMark.material.dispose();
     instance.conditionRings.forEach(ring=>{ring.geometry.dispose();ring.material.dispose();});
     instance.selectionRing.geometry.dispose();
     instance.selectionRing.material.dispose();
@@ -540,6 +543,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
+    instance.hunterMark.visible=!!token.hunterMarked && !token.sharedSightOnly;
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
@@ -684,6 +688,18 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           ring.name='token-condition-ring';ring.rotation.x=-Math.PI/2;
           ring.position.y=.003;ring.renderOrder=-1;root.add(ring);return ring;
         });
+        // A camera-facing amber sigil above the measured head, distinct from buff rings.
+        const markCanvas=document.createElement('canvas');markCanvas.width=markCanvas.height=128;
+        const markContext=markCanvas.getContext('2d')!;
+        markContext.strokeStyle='#ffe7a1';markContext.lineWidth=5;markContext.shadowColor='#ffa62b';markContext.shadowBlur=12;
+        markContext.beginPath();markContext.moveTo(64,14);markContext.lineTo(104,55);markContext.lineTo(64,98);markContext.lineTo(24,55);markContext.closePath();markContext.fillStyle='#211407';markContext.fill();markContext.stroke();
+        markContext.beginPath();markContext.ellipse(64,55,23,12,0,0,Math.PI*2);markContext.stroke();
+        markContext.fillStyle='#fff5d2';markContext.beginPath();markContext.arc(64,55,6,0,Math.PI*2);markContext.fill();
+        markContext.beginPath();markContext.moveTo(53,106);markContext.lineTo(64,117);markContext.lineTo(75,106);markContext.stroke();
+        const hunterMark=new Sprite(new SpriteMaterial({map:new CanvasTexture(markCanvas),transparent:true,depthTest:true,depthWrite:false,toneMapped:false}));
+        const headY=new Box3().setFromObject(model).max.y-definition.baseCenter[1];
+        hunterMark.name='hunters-mark-sigil';hunterMark.scale.setScalar(definition.baseDiameter*.6);
+        hunterMark.position.set(0,headY+definition.baseDiameter*.42,0);hunterMark.visible=false;root.add(hunterMark);
         const badgeCanvas=document.createElement('canvas');badgeCanvas.width=badgeCanvas.height=128;
         const badgeTexture=new CanvasTexture(badgeCanvas);
         const badgeMesh=new Mesh(new PlaneGeometry(.44,.44),new MeshBasicMaterial({map:badgeTexture,transparent:true,depthTest:true,depthWrite:false,toneMapped:false}));
@@ -780,7 +796,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const materials = [...cloned.values()];
         const instance: Instance = {
           baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
-          root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
+          root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,

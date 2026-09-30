@@ -1,4 +1,5 @@
-import {isValidDiceExpression} from '../../shared/dice.js';
+import { isHasteSpell } from '../../shared/spellExecution.js';
+import {isValidDiceExpression,withDiceMetadata} from '../../shared/dice.js';
 import {isLiveCommand} from './liveRollContext.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
@@ -31,6 +32,7 @@ import {
   setSheetAbility,
   setTokensCondition,
   setConcentration,
+  endConcentration,
   setCondition,
   setDeathSaves,
   setItem,
@@ -401,8 +403,8 @@ export function resolveAttack(
 
   // Battle Master: fire at most one active maneuver whose weapon tag matches (or
   // that has no tag) when a Superiority Die is left. Roll the die up front so a
-  // Precision-style maneuver (addDieTo 'attack') can add it to the to-hit roll;
-  // a 'damage' maneuver folds it into the damage like flat mastery damage.
+  // Precision-style maneuver (addDieTo 'attack') can add it to the to-hit roll.
+  // Damage dice wait for a hit, including pre-armed reach/advantage maneuvers.
   let maneuverFired:
     | { ability: SheetAbility; spec: ManeuverSpec; die: number }
     | null = null;
@@ -419,16 +421,11 @@ export function resolveAttack(
           (ab.maneuver.appliesToTags ?? []).some((tg) => wtags.includes(tg.trim().toLowerCase()))),
     );
     if (man?.maneuver && hasDie) {
-      const rolled = liveResume?.state?.maneuverRoll ?? rollDice(ch.superiorityDie || 'd8');
+      const rolled = man.maneuver.addDieTo==='damage'?null:liveResume?.state?.maneuverRoll ?? rollDice(ch.superiorityDie || 'd8');
       maneuverRoll=rolled??undefined;
       const die = rolled?.total ?? 0;
       maneuverFired = { ability: man, spec: man.maneuver, die };
       if (man.maneuver.addDieTo === 'attack') maneuverToHit = die;
-      else if (man.maneuver.addDieTo === 'damage') {
-        flatBonus += die;
-        flatLabels.push(man.name);
-        if (rolled) appendDamageBreakdownRoll(featureBreakdown, rolled, man.name);
-      }
     }
   }
 
@@ -518,6 +515,7 @@ export function resolveAttack(
     ?ch.sheetAbilities.filter(ab=>isOnHitManeuver(ab)&&(!ab.maneuver?.appliesToTags?.length||ab.maneuver.appliesToTags.some(tag=>wtags.includes(tag.toLowerCase())))):[];
   const offeredFeatures=ch?hitOptions(sessionId,ch,at,tt,weapon,adv.state):[];
   const waitForDamage=isLiveCommand()&&!liveResume&&!!(session?.manualDamage||offeredSmite||offeredManeuvers.length||offeredFeatures.length);
+  const armedDamageDice=maneuverFired?.spec.addDieTo==='damage'?[ch?.superiorityDie||'d8']:[];
   const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
     attackOnly:waitForDamage,
     fixedAttack:liveResume?.fixed,
@@ -542,7 +540,7 @@ export function resolveAttack(
       pending:{target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
         live:{kind:'weapon',args:[sessionId,roller,attackerTokenId,targetTokenId,weaponIndex,advantage,offhand,twoHanded,ownerCharacterId,riposteAbilityId],fixed:{out,state:{at,tt,a,t,ch,maneuverRoll}}},
         ...(features.length?{hitOptions:{abilityIds:features.map(ab=>ab.id),attackerTokenId,targetTokenId,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:1,rawDamage:0}}:{}),
-        ...(maneuvers.length?{maneuver:{abilityIds:maneuvers.map(ab=>ab.id),rawDamage:0,multiplier:1,minimumAdjustment:0,dc:0}}:{})},
+        ...(maneuvers.length?{maneuver:{abilityIds:maneuvers.map(ab=>ab.id),targetTokenId,rawDamage:0,multiplier:1,minimumAdjustment:0,dc:0}}:{})},
       ...(smite&&ch?{smite:{owner:ch.id,abilityId:smite.id,abilityName:smite.name,target:{kind:t.kind,refId:t.refId,name:t.name,tokenId:tt.id},crit:out.crit}}:{})
     },id);
     if(maneuverFired&&ch) {
@@ -569,6 +567,11 @@ export function resolveAttack(
 
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
+  if(out.hit&&armedDamageDice.length&&maneuverFired){
+    const rolls=withDiceMetadata({label:`${maneuverFired.ability.name} — Superiority damage`},()=>rollDicePool([{expr:armedDamageDice[0]},...(out.crit?[{expr:armedDamageDice[0],critical:true}]:[])]));
+    rolls.forEach((r,i)=>{if(r){extra+=r.total;appendDamageBreakdownRoll(damageBreakdown,r,`${maneuverFired!.ability.name}${i?' CRIT':''}`);}});
+    maneuverFired.die=rolls[0]?.total??0;
+  }
   const masteryNotes: string[] = [];
   if (out.hit && autoCrit) masteryNotes.push(`auto-crit (${autoCrit})`);
   if (out.hit && (stanceRerollDamage || stanceExtraCritDie))
@@ -578,7 +581,7 @@ export function resolveAttack(
   // mastery) included, not just the weapon's own dice. Returns 0 for no/zero roll.
   const rollRiderDice = (expr: string, source: string): number => {
     const critDice=out.crit?damageParts(expr).dice:'';
-    const [r,critical]=rollDicePool([{expr},...(critDice?[{expr:critDice,critical:true}]:[])]);
+    const [r,critical]=withDiceMetadata({label:`${source} — Damage`},()=>rollDicePool([{expr},...(critDice?[{expr:critDice,critical:true}]:[])]));
     if (!r) return 0;
     appendDamageBreakdownRoll(damageBreakdown, r, source);
     if (r.total <= 0) {
@@ -618,16 +621,6 @@ export function resolveAttack(
         extra += total;
         masteryNotes.push(`+${total}[${sd.label}]`);
       }
-    }
-  }
-  // A damage Superiority Die is one of the attack's damage dice, so a crit rolls
-  // it a second time (RAW). It was folded in before the crit was known.
-  if (out.crit && maneuverFired?.spec.addDieTo === 'damage' && ch) {
-    const again = rollDice(ch.superiorityDie || 'd8',undefined,{critical:true});
-    if (again && again.total > 0) {
-      appendDamageBreakdownRoll(damageBreakdown, again, `${maneuverFired.ability.name} CRIT`);
-      extra += again.total;
-      masteryNotes.push(`+${again.total}[${maneuverFired.ability.name} CRIT]`);
     }
   }
 
@@ -813,7 +806,7 @@ export function resolveAttack(
             amount: applied,
             ...(featureOptions.length ? {hitOptions:{abilityIds:featureOptions.map(ab=>ab.id),attackerTokenId:at.id,targetTokenId:tt.id,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:mult,rawDamage:weaponRawDamage}} : {}),
             ...(maneuverOptions.length ? { maneuver: { abilityIds: maneuverOptions.map(ab => ab.id),
-              rawDamage: weaponRawDamage, multiplier: mult,
+              targetTokenId:tt.id,rawDamage: weaponRawDamage, multiplier: mult,
               minimumAdjustment: damageBreakdown.mods.filter(m => m.label === 'minimum damage').reduce((sum, m) => sum + m.value, 0),
               dc: 8 + profBonusFor(a.c) + Math.max(abilityMod(effectiveStats(a.c).scores.STR ?? 10), abilityMod(effectiveStats(a.c).scores.DEX ?? 10)),
             } } : {}),
@@ -995,7 +988,7 @@ export function resolveManeuver(sessionId: string, roller: string, rollId: strin
     return { ok: false, reason: 'That hit no longer offers this maneuver.' };
   if (!pool || pool.used >= pool.max) return { ok: false, reason: 'No Superiority Dice left.' };
   if(p.live){materializeLiveDamage(sessionId,rollId);return resolveManeuver(sessionId,roller,rollId,abilityId);}
-  const dice = rollDicePool(Array.from({length:p.crit?2:1},(_,i)=>({expr:ch.superiorityDie||'d8',critical:i>0})));
+  const dice = withDiceMetadata({label:`${ability.name} — Superiority damage`},()=>rollDicePool(Array.from({length:p.crit?2:1},(_,i)=>({expr:ch.superiorityDie||'d8',critical:i>0}))));
   if (dice.some(d => !d)) return { ok: false, reason: 'Invalid Superiority Die.' };
   const rolled = dice.reduce((sum, d) => sum + d!.total, 0);
   const amount = Math.max(0, Math.floor((opportunity.rawDamage + rolled) * opportunity.multiplier)
@@ -1008,12 +1001,17 @@ export function resolveManeuver(sessionId: string, roller: string, rollId: strin
       mods: [...(p.damageBreakdown?.mods ?? p.mods), ...mods]}});
   setResource(ch.id, 'resources', 'Superiority Dice', {used: pool.used + 1});
   setSheetAbility('pc', ch.id, {...ability, maneuver: {...ability.maneuver!, active: false}});
-  resolveAttackDamage(sessionId, roller, rollId);
   const spec = ability.maneuver!;
-  addRollLog(sessionId, {roller, label: ability.name, expr: ch.superiorityDie || 'd8', total: rolled,
+  const maneuverEntry=addRollLog(sessionId, {roller, label: ability.name, expr: ch.superiorityDie || 'd8', total: rolled,
     detail: `${ch.name}: ${ability.name} against ${p.target.name}. ${spec.save ? `DC ${opportunity.dc} ${spec.save.ability} save. ` : ''}${spec.note ?? ''}`,
     ...(spec.save ? {apply: {amount: 0, dc: opportunity.dc, save: spec.save.ability, onFail: spec.save.onFail, owner: ch.id, targetMode: 'single'}} : {}),
   });
+  const struckToken=opportunity.targetTokenId?getToken(opportunity.targetTokenId):listTokens(getSessionById(sessionId)!.activeMapId!).find(t=>t.kind===p.target.kind&&t.refId===p.target.refId);
+  if(spec.save&&struckToken){
+    withDiceMetadata({label:`${ability.name} — ${spec.save.ability.toUpperCase()} Saving Throw`,target:struckToken},()=>resolveForcedSave(sessionId,maneuverEntry.id,struckToken.id));
+    setRollApply(maneuverEntry.id,undefined);
+  }
+  resolveAttackDamage(sessionId, roller, rollId);
   return {ok: true};
 }
 
@@ -1340,7 +1338,7 @@ export function resolveCheck(
     ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab), hexDisadvantage(sessionId,kind,refId,ab),
   );
   // dc 0 → unused; `proficient: false` makes it a plain ability check.
-  const out = rollSavingThrow(c, ab, 0, adv.state, false);
+  const out = rollSavingThrow(c, ab, 0, adv.state, false, `${ab} Check`);
   addRollLog(sessionId, {
     roller,
     label: `${ab} check`,
@@ -1505,7 +1503,7 @@ export function resolveForcedSave(
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
       saveReveal = checkReveal({
         who: r.name,
-        title: `${ability.toUpperCase()} save`,
+        title: `${src?.label ?? 'Effect'} ? ${ability.toUpperCase()} Saving Throw`,
         face: out.face,
         total,
         steps: [
@@ -1514,6 +1512,15 @@ export function resolveForcedSave(
         ],
         outcome: pass ? 'pass' : 'fail',
       });
+      if(apply.amount>0)saveReveal.effectOutcome=`${pass?'Save passed':'Save failed'} - ${dmg} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
+      // Zero-damage control spells need the caster-facing meaning of the save.
+      // Damage spells may still deal half damage on a pass, so do not call them unsuccessful.
+      if (apply.amount === 0 && src?.label) {
+        saveReveal.effectOutcome = pass ? `${src.label} resisted!` : `${src.label} successful!`;
+        if(src.label.trim().toLowerCase()==='pushing attack')saveReveal.effectOutcome=pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
+        else if(apply.onFail)saveReveal.effectOutcome=pass?`${src.label} resisted - no ${apply.onFail}.`:`${src.label} successful - ${apply.onFail}.`;
+
+      }
     }
   } else {
     dmg = Math.floor(apply.amount * mult);
@@ -1607,7 +1614,7 @@ function resolveTargetedSpellAttack(opts: {
   const adv = attackAdvantage(attacker?.conditions.map((condition) => condition.label) ?? [],
     t.conditionLabels, within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId));
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
-  const { face, detail: d20detail } = opts.liveResume?.fixed ?? rollD20Detail(adv.state);
+  const { face, detail: d20detail } = opts.liveResume?.fixed ?? withDiceMetadata({label:`${opts.title} — Spell Attack Roll`},()=>rollD20Detail(adv.state));
   const fumble = face === 1;
   const attackTotal = face + opts.attackBonus;
   const hit = opts.liveResume?.fixed.hit ?? (face === 20 || (!fumble && attackTotal >= t.ac));
@@ -1628,7 +1635,7 @@ function resolveTargetedSpellAttack(opts: {
   let dmgFaces = '';
   const revealDice: NonNullable<RollReveal['damageDice']> = [];
   const revealMods: NonNullable<RollReveal['damageMods']> = [];
-  const [first,second]=hit&&opts.dice?rollDicePool([{expr:opts.dice},...(crit?[{expr:criticalDiceExpression(opts.dice),critical:true}]:[])]):[];
+  const [first,second]=hit&&opts.dice?withDiceMetadata({label:`${opts.title} — Spell Damage`},()=>rollDicePool([{expr:opts.dice!},...(crit?[{expr:criticalDiceExpression(opts.dice!),critical:true}]:[])])):[];
   if (hit && opts.dice && first) {
     let dmg = first.total;
     dmgFaces = `${opts.dice}[${first.rolls.join(',')}]`;
@@ -1839,6 +1846,22 @@ function resolveSheetAbilityFor(
   if (targetTokenId && !spellTarget(sessionId, targetTokenId)) return false;
   if (hitFeature(ability)) return false; // Offered only on a qualifying hit.
   if (markSpell(ability)) return castMark(sessionId,kind,entity.id,ability,targetTokenId,castLevel ?? 1,false,damageTypeChoice);
+  if (isHasteSpell(ability)) {
+    const target = targetTokenId ? spellTarget(sessionId, targetTokenId) : undefined;
+    if (!target) return false;
+    // Recasting on another creature replaces this caster's previous linked buff.
+    endConcentration(kind, entity.id, 'replaced by Haste');
+    setConcentration(kind, entity.id, 'Haste');
+    setCondition(target.kind, target.refId, {
+      id:newId(), label:'Haste', aura:'green', isConcentration:false,
+      combatEffect:{casterKind:kind,casterId:entity.id,spell:'Haste',concentration:true},
+    });
+    setLastAttackRole(kind,entity.id,'caster');
+    const recipient=target.kind==='pc'?getCharacter(target.refId):getMonster(target.refId);
+    addRollLog(sessionId,{roller,label:'Haste',expr:'Haste',total:0,
+      detail:`Haste \u2192 ${recipient?.name ?? 'Target'}: buff applied while concentrating.`});
+    return true;
+  }
   ability = effectiveSheetAbility(ability, castLevel);
   const damageTypes = spellDamageTypeChoices(ability, castLevel);
   if (damageTypes.length) {
@@ -1990,7 +2013,9 @@ function resolveSheetAbilityFor(
     const bonusKind = roll.healingBonus ?? (ability.type === 'spell' ? 'spellcasting' : 'none');
     const castMod = bonusKind === 'spellcasting' ? spellcastingMod(stats, castingAbility)
       : bonusKind === 'fighterLevel' && entity.className?.trim().toLowerCase() === 'fighter' ? level : 0;
-    const healRoll = dice ? rollFaces(dice) : null;
+    const healRoll = dice ? withDiceMetadata({label:`${ability.name} — Healing Roll`},()=>rollDice(dice)) : null;
+    const bonusLabel=bonusKind==='fighterLevel'?'Fighter level':`${castingAbility??'Spellcasting'} modifier`;
+    const healingId=newId();
     const val = Math.max(0, (healRoll?.total ?? 0) + castMod);
     // Targeted (floating menu / the heal-target dropdown): apply it right away.
     const tok = targetTokenId ? getToken(targetTokenId) : null;
@@ -2005,7 +2030,7 @@ function resolveSheetAbilityFor(
     const targetDead = !!(target && targetEntity && isDeadEntity(target.kind, targetEntity));
     const healNote =
       target && val > 0 && !targetDead
-        ? applyDamageNoted(target.kind, target.refId, -val, undefined, undefined, false, undefined, ability.name)
+        ? applyDamageNoted(target.kind, target.refId, -val, undefined, undefined, false, healingId, ability.name)
         : undefined;
     addRollLog(sessionId, {
       roller,
@@ -2013,8 +2038,8 @@ function resolveSheetAbilityFor(
       expr: title,
       total: val,
       detail:
-        `${title}: ${val} healing [${healRoll?.text ?? dice}${
-          castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} ${bonusKind === 'fighterLevel' ? 'Fighter level' : 'mod'}` : ''
+        `${title}: ${val} healing [${healRoll?.rolls.join(' + ') ?? dice}${
+          castMod ? ` ${castMod > 0 ? '+' : '-'} ${Math.abs(castMod)} ${bonusLabel}` : ''
         }]` +
         (target
           ? targetDead
@@ -2023,7 +2048,10 @@ function resolveSheetAbilityFor(
           : ''),
       description: ability.description || undefined,
       hpNote: healNote,
-    });
+      reveal:healRoll?{...diceReveal(roller,healRoll,`${ability.name} — Healing`),target:target?.name,damage:val,
+        damageMods:[...(diceReveal(roller,healRoll).damageMods??[]),...(castMod?[{label:bonusLabel,value:castMod}]:[]),
+          ...(val!==healRoll.total+castMod?[{label:'Minimum healing',value:val-healRoll.total-castMod}]:[])]}:undefined,
+    },healingId);
     return true;
   }
 

@@ -6,7 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {DM_SECRET,PORT} from './playwright.config';
 
 // Opt-in recording; the private, read-only sheet export is never bundled.
-test.skip(process.env.DND_PARTY_DEMO!=='1','Manual campaign walkthrough recording');
+test.skip(process.env.DND_FIXES_DEMO!=='1','Manual campaign walkthrough recording');
 test.beforeAll(()=>{const require=createRequire(process.cwd()+'/package.json');const encoder=require('playwright-core/lib/server/registry/index').registry.findExecutable('ffmpeg');const path=execFileSync('where.exe',['ffmpeg'],{encoding:'utf8'}).trim().split(/\r?\n/)[0];encoder.executablePath=()=>path;encoder.executablePathOrDie=()=>path;});
 
 for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${actor}`,async({browser,request},info)=>{
@@ -26,7 +26,7 @@ for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${
   socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:c.id,x,y});
  }
  for(const [name,modelType,x,y] of [['Bugbear guard','bugbear',635,480],['Goblin archer','goblin',690,445],['Skeleton','skeleton',890,445],['Cultist','cultist',940,565]] as const){
-  socket.emit('monster:create',{name,modelType,maxHp:160,armorClass:12,disposition:'enemy',stats:{STR:12,DEX:12,CON:12,INT:8,WIS:8,CHA:8},weapons:[{name:'Scimitar',kind:'melee',damage:'1d6+2',damageType:'slashing',attackBonus:3}]});
+  socket.emit('monster:create',{name,modelType,maxHp:160,armorClass:actor==='Druk'?8:12,disposition:'enemy',stats:{STR:12,DEX:12,CON:12,INT:8,WIS:8,CHA:8},weapons:[{name:'Scimitar',kind:'melee',damage:'1d6+2',damageType:'slashing',attackBonus:3}]});
   const m=(await snap()).monsterTemplates.find((m:any)=>m.name===name);socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:m.id,x,y});
  }
  socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dusk',weather:'none',mist:false,shadows:true,lights:[]}});
@@ -67,8 +67,14 @@ for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible({timeout:20000});
   await page.evaluate(text=>{document.getElementById('demo-step')!.textContent=text;},label);
   await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:120000});
-  await page.waitForTimeout(350);if(await page.locator('.roll-reveal').isVisible())await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:30000});await page.waitForTimeout(1750);
-  if(await page.locator('.roll-reveal').isVisible()){if(process.env.DND_RANGER_REVIEW==='1'&&await page.locator('.damage-prompt:not(.spell-prompt)').isVisible()){await step('The hit result clears automatically. The damage choices stay available.');await expect(page.locator('.roll-reveal')).toHaveCount(0,{timeout:12000});}else await click(page.locator('.roll-reveal'),'Click the completed result to close it and keep any spell targeting active.');}
+  await page.waitForTimeout(350);if(await page.getByLabel('Spell outcome').isVisible())await page.screenshot({path:info.outputPath('save-outcome-first-'+chapterId+'.png')});if(await page.locator('.roll-reveal').isVisible())await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:30000});await page.waitForTimeout(1750);
+  if(await page.locator('.roll-reveal').isVisible()){if(true&&await page.locator('.damage-prompt:not(.spell-prompt)').isVisible()){await step('The hit result clears automatically. The damage choices stay available.');await expect(page.locator('.roll-reveal')).toHaveCount(0,{timeout:12000});}else await click(page.locator('.roll-reveal'),'Click the completed result to close it and keep any spell targeting active.');}
+  for(let queued=0;queued<8 && await page.locator('.roll-reveal').isVisible();queued++){
+    await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true',{timeout:30000});
+    if(await page.getByLabel('Spell outcome').isVisible()){console.log('Effect outcome:',await page.getByLabel('Spell outcome').innerText());await page.screenshot({path:info.outputPath('save-outcome-'+chapterId+'.png')});}
+    await page.waitForTimeout(1500);if(await page.locator('.roll-reveal').isVisible())await click(page.locator('.roll-reveal'),'Read the save result and effect; click to continue.');
+    await page.waitForTimeout(300);
+  }
   await page.waitForTimeout(450);evidence.push({chapter:chapterId,rolls:(await snap()).rollLog.filter((r:any)=>!before.includes(r.id))});
  };
  const combat=page.locator('.compact-player-combat');
@@ -114,38 +120,33 @@ for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${
   // Character-specific flows are below; every gameplay action uses visible UI.
   if(actor==='Varis'){
    await chapter('Movement and bow attack','Move on the map, choose a target, attack, then roll damage.');await move(60,-45);await attack('HotGuy Bow',{right:true});
-   await chapter('Hunter’s Mark','Choose an enemy → cast the mark → attack that marked enemy.');await selectTarget();await click(combat.getByRole('button',{name:/Hunter.s Mark/}),'Combat panel → Hunter’s Mark. The cast marks the selected enemy.');await page.waitForTimeout(1800);const markedTarget=await target();expect(markedTarget.markLabels.some((label:string)=>/Hunter.s Mark/.test(label))).toBe(true);await step("The marked enemy keeps a green ground ring. Hover to read Hunter's Mark.");const markPoint=await point(markedTarget.id);await page.mouse.move(markPoint.x,markPoint.y,{steps:18});await page.waitForTimeout(2000);await page.screenshot({path:info.outputPath('persistent-mark.png')});await attack('HotGuy Bow');
-   await chapter('Hail of Thorns','A ranged hit offers the spell beside Roll damage.');const saveCapture=page.locator('.tray-save-label').first().waitFor({state:'visible',timeout:150000}).then(async()=>{await page.waitForTimeout(1800);await page.screenshot({path:info.outputPath('hail-save-labels.png')});expect(await page.locator('.roll-reveal-title').innerText()).toContain('DEX Saving Throws');}).catch(error=>{throw error;});await attack('HotGuy Bow',{feature:'Hail of Thorns'});await saveCapture;
+   await chapter('Hunter’s Mark','Choose an enemy → cast the mark → attack that marked enemy.');await selectTarget();await click(combat.getByRole('button',{name:/Hunter.s Mark/}),'Combat panel → Hunter’s Mark. The cast marks the selected enemy.');await page.waitForTimeout(1800);const markedTarget=await target();expect(markedTarget.markLabels.some((label:string)=>/Hunter.s Mark/.test(label))).toBe(true);await step("The marked enemy keeps a green ground ring. Hover to read Hunter's Mark.");const markPoint=await point(markedTarget.id);await page.mouse.move(markPoint.x,markPoint.y,{steps:18});await page.waitForTimeout(2000);await page.screenshot({path:info.outputPath('persistent-mark.png')});if(process.env.DND_MARK_PREVIEW==='1')return;await attack('HotGuy Bow');
+   await chapter('Hail of Thorns','A ranged hit offers the spell beside Roll damage.');const saveCapture=page.locator('.tray-save-label').first().waitFor({state:'visible',timeout:150000}).then(async()=>{await expect(page.locator('.tray-save-outcome b').first()).toHaveText(/PASS|FAIL/,{timeout:45000});await page.screenshot({path:info.outputPath('hail-save-labels.png')});expect(await page.locator('.roll-reveal-title').innerText()).toContain('DEX Saving Throws');}).catch(error=>{throw error;});await attack('HotGuy Bow',{feature:'Hail of Thorns'});await saveCapture;
    await step('The 5 ft burst selects targets automatically. Each creature saves; the shared d10 damage applies without more target clicks.');await page.waitForTimeout(2000);
    await chapter('Ensnaring Strike','Hit → Ensnaring Strike → slot level → target saving throw and vines.');await attack('HotGuy Bow',{feature:'Ensnaring Strike'});
    await chapter('Cure Wounds','Select a wounded ally in Heal target, then cast.');const ds=(await snap()).tokens.find((t:any)=>t.refId===people.Druk.id);await choose(combat.locator('.dice-row').filter({hasText:'Heal target'}).locator('select'),ds.id,'Heal target → Druk.');await roll(()=>click(combat.getByRole('button',{name:/Cure Wounds/}),'Cure Wounds → roll healing and apply it to Druk.'));
-   if(process.env.DND_RANGER_REVIEW!=='1'){await castConcentration('Pass without Trace','Cast starts concentration and spends the slot. The +10 Stealth bonus still needs manual tracking.');
+   if(false){await castConcentration('Pass without Trace','Cast starts concentration and spends the slot. The +10 Stealth bonus still needs manual tracking.');
    await chapter('Remaining weapons','Shortsword, off-hand dagger and the saved Gernade attack.');await move(75,-65);await attack('Shortsword');await click(combat.getByRole('button',{name:'Off-hand',exact:true}),'Enable Off-hand for the dagger.');await attack('Dagger');await click(combat.getByRole('button',{name:'Off-hand',exact:true}),'Turn Off-hand off.');await attack('Gernade');}
   }
   if(actor==='Druk'){
-   await chapter('Great Weapon Master and Halberd','The saved GWM toggle is on; attack with the heavy halberd.');await attack('Halberd',{right:true});
-   await chapter('Lunging Attack','Arm before the attack; the next hit includes a Superiority Die.');await click(combat.locator('.combat-toggle-row').filter({hasText:'Lunging Attack'}).getByRole('button'),'Lunging Attack → Off to Armed.');await attack('Halberd');
    await chapter('Pushing Attack','A hit offers Maneuver → Pushing Attack beside Roll damage.');await attack('Halberd',{maneuver:'Pushing Attack'});await step('The struck target automatically rolls its STR saving throw. No second target click is needed.');await step('Read the STR save result. The push distance is applied by moving the target manually.');await page.waitForTimeout(1800);
-   if(process.env.DND_RANGER_REVIEW!=='1'){await chapter('Second Wind','Use the Combat button; healing and the resource counter update.');await roll(()=>click(combat.getByRole('button',{name:/Second Wind/}),'Second Wind → roll 1d10 + fighter level healing.'));
-   await chapter('Action Surge','Spend its resource manually, then take another attack.','manual resource');await resources('Action Surge',1);await attack('Spine Club');
-   await chapter('Longbow Mastery','Read Slow, then attack with the bow. The saved mastery text requests manual tracking.','manual rider');await detail('Longbow Mastery');await step('Slow: reduce speed by 10 ft after a hit. This saved entry has no automatic effect toggle.');await closeBook();await attack('Longbow');
-   await chapter('Handaxe Mastery','Read Vex, attack, then arm advantage for the next attack on that enemy.','manual rider');await detail('Handaxe Mastery');await closeBook();const vexHit=await attack('Handaxe');if(vexHit){await click(combat.getByRole('button',{name:/^.*ADV$/}).first(),'Vex: manually arm Advantage after the successful hit.');await attack('Handaxe');}
-   await chapter('Longsword Mastery','Read Sap, then use the versatile sword in two hands.','manual rider');await detail('Longsword Mastery');await closeBook();await click(combat.getByRole('button',{name:'2H',exact:true}),'2H uses the longsword’s d10 damage.');await attack('Longsword');await step('Sap requires disadvantage on the enemy’s next attack; this saved entry describes manual tracking.');await page.waitForTimeout(1500);
    await chapter('Riposte','A missed enemy melee attack opens the temporary reaction prompt.','reaction');
    // The DM attack is recorded in a separate segment; do not fake a reaction offer.
+   socket.emit('character:update',{characterId:people.Druk.id,armorClass:30});await snap();
+   await step('Reaction test setup: Druk has AC 30 and the training enemy AC 8 to demonstrate Riposte. Dice remain random.');
    const dm=await context.newPage();await dm.goto(`/dm?code=${code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await expect(dm.getByTestId('miniature-layer')).toBeVisible();
    await installOverlay(dm);await dm.evaluate(()=>{document.getElementById('demo-title')!.textContent='Druk ? DM setup for Riposte';document.getElementById('demo-step')!.textContent='Select the Bugbear, right-click Druk, then choose Scimitar. A miss offers Druk a reaction.';});
    const dt=(await snap()).tokens.find((t:any)=>t.refId===people.Druk.id),bug=await target();
    // Map the same existing menu through the DM view (no direct combat event injection).
    const dmPoint=async(id:string)=>dm.evaluate(id=>{const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id)),n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},id);
-   for(let attempt=0;attempt<8;attempt++){
+   for(let attempt=0;attempt<8;attempt++){console.log('Riposte enemy attempt',attempt);await dm.bringToFront();
     const before=(await snap()).rollLog.map((r:any)=>r.id),b=await dmPoint(bug.id),d=await dmPoint(dt.id);
     await dm.mouse.move(b.x,b.y,{steps:20});await dm.waitForTimeout(450);await dm.mouse.click(b.x,b.y);
     await dm.mouse.move(d.x,d.y,{steps:20});await dm.waitForTimeout(450);await dm.mouse.click(d.x,d.y,{button:'right'});
     const button=dm.getByRole('dialog',{name:'Token actions'}).getByRole('button',{name:/Scimitar/});
     const bounds=await button.boundingBox();await dm.mouse.move(bounds!.x+bounds!.width/2,bounds!.y+bounds!.height/2,{steps:20});await dm.waitForTimeout(650);await button.click();
     await expect.poll(async()=>(await snap()).rollLog.some((r:any)=>!before.includes(r.id)&&r.reveal?.kind==='attack'),{timeout:45000}).toBe(true);
-    await dm.waitForTimeout(1600);await dm.keyboard.press('Escape');
+    await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:60000});await dm.waitForTimeout(1600);await dm.keyboard.press('Escape');console.log('Enemy attack resolved');
     if(await page.getByRole('region',{name:'Riposte opportunity'}).isVisible())break;
     if(await dm.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn').isVisible()){
       const beforeDamage=(await snap()).rollLog.map((r:any)=>r.id);await dm.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn').click();
@@ -154,36 +155,26 @@ for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${
     }
    }
    const dmVideo=dm.video()!;await dm.close();writeFileSync(info.outputPath('dm-riposte-video.txt'),await dmVideo.path());
-   await page.bringToFront();await roll(()=>click(page.getByRole('region',{name:'Riposte opportunity'}).getByRole('button',{name:/Riposte.*Halberd/}),'Riposte → Halberd. This spends a Superiority Die and your reaction.'));await damage();
-   await chapter('Saved traits and custom action','Character → Traits & Feats; Spellbook → Custom actions.','passive / description');await click(page.getByLabel("Open Druk's character record"));await click(page.locator('.character-window').getByText('Traits & Feats',{exact:true}));await step('Defense, Savage Attacker, Orc Resilience and Slasher are saved traits. Review their text and any manual bookkeeping.');await page.waitForTimeout(3500);await closeBook();await openBook();await page.locator('.character-window').getByText('Custom actions',{exact:true}).scrollIntoViewIfNeeded();await step('Tactical Shift is saved as custom text here; it has no roll button.');await page.waitForTimeout(2500);await closeBook();
-  }
+   await page.bringToFront();console.log('Taking riposte reaction');await roll(()=>click(page.getByRole('region',{name:'Riposte opportunity'}).getByRole('button',{name:/Riposte.*Halberd/}),'Riposte → Halberd. This spends a Superiority Die and your reaction.'));await damage();
   }
   if(actor==='Vanec'){
-   await chapter('Fire Bolt','Choose an enemy → Fire Bolt → attack roll → Roll damage.');await attack('Fire Bolt',{right:true,enemy:'Goblin'});
-   await chapter('Chromatic Orb','Choose damage type and slot level, then cast from the right-click menu.');const g=await target('Goblin');await tokenClick(g,'Right-click Goblin → Chromatic Orb controls.',true);const menu=page.getByRole('dialog',{name:'Token actions'});await choose(menu.getByLabel('Chromatic Orb damage type'),'lightning','Chromatic Orb damage type → Lightning.');await roll(()=>click(menu.getByRole('button',{name:/Chromatic Orb/}),'Cast Chromatic Orb on the selected goblin.'));await damage();
-   const orb=page.getByRole('region',{name:'Chromatic Orb'});if(await orb.isVisible()){await click(orb.getByRole('button',{name:'Choose target',exact:true}),'Matching damage dice → Choose target for a free leap.');await tokenClick(await target('Skeleton'),'Click Skeleton’s base; inspect the named confirmation.');await roll(()=>click(orb.getByRole('button',{name:'Confirm target',exact:true}),'Confirm target → roll the leap attack.'));await damage();if(await orb.isVisible())await click(orb.getByRole('button',{name:'End spell',exact:true}),'End spell once the demonstration is complete.');}else{await step('No matching damage dice on this roll, so no leap is offered.');await page.waitForTimeout(1700);}
-   await chapter('Shocking Grasp','Move toward the enemy → melee spell attack → lightning damage.');await move(5,-100);await attack('Shocking Grasp',{enemy:'Skeleton'});
-   await chapter('Command','Choose target → Command → WIS save. The one-word command is adjudicated manually.');await selectTarget('Cultist');await roll(()=>click(combat.getByRole('button',{name:/Command/}),'Command → force the selected creature’s WIS save.'));
+   await selectTarget('Cultist');
    await chapter('Hold Person','Choose a humanoid → Hold Person → WIS save and concentration.');await roll(()=>click(combat.getByRole('button',{name:/Hold Person/}),'Hold Person → roll its WIS save. Paralyzed still needs manual application on a failure.'));
-   await chapter('Hypnotic Pattern','Cast once → Roll saving throws → click each affected target.');await click(combat.getByRole('button',{name:/Hypnotic Pattern/}),'Hypnotic Pattern starts concentration; now choose targets.');await applyTargets(['Goblin','Cultist'],true);await step('On failed saves, Charmed and Incapacitated are applied manually. The template does not select targets automatically.');await page.waitForTimeout(1600);
    await chapter('Fireball','Roll damage once → Apply spell damage → click each affected creature.');await roll(()=>click(combat.getByRole('button',{name:/Fireball/}),'Fireball → roll all eight d6.'));await applyTargets(['Goblin','Skeleton','Cultist']);
-   await castConcentration('Detect Magic','Cast starts concentration and spends a slot. Magic detection itself is DM-adjudicated.');
-   await castConcentration('Haste','Cast starts concentration. Choose the willing recipient with your DM; the buff is tracked manually.');
-   await castConcentration('Alter Self','Cast starts concentration. The selected transformation and its effects are manual.');
-   for(const [name,note] of [
-    ['Shield','This saved Shield has no Cast button. Spend an L1 slot manually and track +5 AC until the next turn.'],
-    ['Misty Step','This saved entry has no teleport control. Spend an L2 slot and have the DM move you to a legal visible space.'],
-    ['Mage Hand','This saved Mage Hand has no Summon button. Its hand token must be placed manually by the DM.'],
-    ['Prestidigitation','Description-only utility: describe the minor effect to the DM; no dice or slot is needed.'],
-    ['Message','Description-only utility: the app does not open a private spell-message flow.'],
-    ['Twinned Spell','Description-only metamagic: spend sorcery points and resolve the second target manually.'],
-    ['Empowered Spell','Description-only metamagic: spend a sorcery point and reroll the chosen damage dice manually.'],
-    ['Metamagic: Quickened Spell','Description-only metamagic: spend 2 sorcery points, then cast the spell using its normal button.'],
-   ]){await manual(name,note);if(name==='Shield')await resources('Lvl 1',1,'spellSlots');if(name==='Misty Step')await resources('Lvl 2',1,'spellSlots');if(name==='Twinned Spell'||name==='Empowered Spell')await resources('Sorcery Points',1);if(name==='Metamagic: Quickened Spell')await resources('Sorcery Points',2);}
-   await chapter('Font of Magic and custom resources','Character → Traits & Feats and Resources.','manual resource');await click(page.getByLabel("Open Vanec's character record"));await click(page.locator('.character-window').getByText('Traits & Feats',{exact:true}));await step('Font of Magic is saved as text. Convert slots and Sorcery Points manually using the resource pips.');await page.waitForTimeout(2200);await closeBook();
-   await chapter('Saved custom actions and staff','Inspect legacy actions and the weapon loadout.','saved-data review');await openBook();await step('Scorching Ray is saved in Custom actions, not as a combat-panel spell. Its three-ray workflow is unavailable from this saved entry.');await page.locator('.character-window-content').evaluate(el=>el.scrollTop=el.scrollHeight);await page.waitForTimeout(2600);await closeBook();await selectTarget('Skeleton');await step('The Magical Orc Staff is saved without damage dice. The recording leaves that incomplete definition intact.');await page.waitForTimeout(2200);await attack('Shortsword');await attack('Dagger');
+   await chapter('Haste','Choose Druk, cast Haste, and inspect the concentration-linked buff.');
+   const drukToken=(await snap()).tokens.find((t:any)=>t.refId===people.Druk.id);
+   await tokenClick(drukToken,'Right-click Druk ? Haste.',true);
+   await click(page.getByRole('dialog',{name:'Token actions'}).getByRole('button',{name:/Haste/}).first(),'Cast Haste on Druk. No damage roll is needed.');
+   await expect.poll(async()=>(await snap()).characters.find((c:any)=>c.id===people.Druk.id).conditions.some((c:any)=>c.label==='Haste')).toBe(true);
+   await step('Druk has Haste; Vanec holds concentration. Replacing concentration removes the linked buff.');await page.waitForTimeout(2500);await page.screenshot({path:info.outputPath('haste.png')});
+   await castConcentration('Detect Magic','Switch concentration to Detect Magic; Druk?s Haste buff disappears.');
+   expect((await snap()).characters.find((c:any)=>c.id===people.Druk.id).conditions.some((c:any)=>c.label==='Haste')).toBe(false);
+   await chapter('Mage Hand','Spellbook ? Mage Hand ? Summon. The existing 3D hand appears on the map.');
+   await openBook();await click(entry('Mage Hand').getByRole('button',{name:/Summon/}),'Click Summon. Mage Hand is a cantrip and spends no slot.');await closeBook();
+   await expect.poll(async()=>(await snap()).monsters.some((m:any)=>m.modelType==='mage-hand')).toBe(true);
+   await step('Friendly Tiny spell effect, with no attacks. Duration, range and dismissal remain manual.');await page.waitForTimeout(3500);await page.screenshot({path:info.outputPath('mage-hand.png')});
   }
-  await chapter('Review complete','Every saved spell and ability was covered. Manual gaps were shown rather than silently automated.','summary');await page.waitForTimeout(2200);
+  await chapter('Review complete','Focused review complete. These actions used the real app and live dice.','summary');await page.waitForTimeout(2200);
  }catch(error){writeFileSync(info.outputPath('capture-error.txt'),String((error as Error).stack??error));throw error;}finally{
   evidence.push({finalCharacters:(await snap()).characters,errors});writeFileSync(info.outputPath('chapters.json'),JSON.stringify({actor,chapters,evidence},null,2));await page.screenshot({path:info.outputPath('end.png')}).catch(()=>{});
   const video=page.video()!;await context.close();writeFileSync(info.outputPath('video-path.txt'),await video.path());socket.disconnect();

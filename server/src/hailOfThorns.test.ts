@@ -73,8 +73,9 @@ describe('Hail of Thorns on a ranged hit',()=>{
     {label:'Hail',roller:'Varis',className:'Ranger'},async(sides,_publish,_meta,_seed,info)=>{
       requests.push({sides,info});expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);return sides.map(s=>Math.ceil(s/2));
     });
-  expect(requests.map(r=>r.sides)).toEqual([[20],[20],[10,10]]);
-  expect(requests.slice(0,2).map(r=>r.info?.target?.refId)).toEqual([f.main.m.id,f.near.m.id]);
+  expect(requests.map(r=>r.sides)).toEqual([[10,10],[20,20]]);
+  expect(requests[1].info?.label).toBe('Hail of Thorns — DEX Saving Throws');
+  expect(requests[1].info?.saveDice?.map(d=>d.target.refId)).toEqual([f.main.m.id,f.near.m.id]);
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
  });
 });

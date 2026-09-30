@@ -90,6 +90,11 @@ describe('editing & deleting saved sessions', () => {
     expect(m.disposition).toBe('friendly');
     expect(m.objectKind).toBeFalsy();
     expect(m.name).toBe('Mage Hand');
+    expect(m.modelType).toBe('mage-hand');
+    expect(m.creatureType).toBe('Tiny spell effect');
+    expect(m.armorClass).toBe(0);
+    expect(m.weapons).toHaveLength(0);
+    expect(m.speed).toContain('30 ft.');
     expect(m.icon).toBe('✋');
     expect(listTokens(map.id).map((t) => t.id)).toContain(tok.id);
   });
