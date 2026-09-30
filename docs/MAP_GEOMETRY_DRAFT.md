@@ -54,7 +54,7 @@ Coordinates are normalized to the entire source image: top-left origin, x right,
 
 The server validates shape, finite values, bounds, image/grid identity, current walls, selected kinds and the existing wall-edge limit. A changed image, grid or wall set invalidates the draft. Download JSON preserves the complete draft for inspection; drafts are currently held in the review window, not saved to the campaign. Applied walls use normal map persistence and backups.
 
-Version 1 analyzes only the base uploaded image, not separately placed map tiles. Footprints are axis-aligned rectangles. Isometric floor footprints and heights are ambiguous and require human review. Future versions can add polygons, separate movement/vision/shadow flags, and approved obstacle persistence without changing the coordinate convention.
+Version 1 analyzes only the base uploaded image, not separately placed map tiles. Footprints support rectangles and polygon contours with holes. Isometric floor footprints and heights are ambiguous and require human review. Separate movement/vision/shadow flags and approved obstacle persistence remain future work.
 
 
 ## Yellow mask experiments (29 September 2026)
@@ -66,3 +66,157 @@ The image gateway now supports reference-image input and selects the nearest sup
 All Gemini text/JSON calls share the quality-first `gemini-3.1-pro-preview` default; image calls use `gemini-3-pro-image`. Startup upgrades the named legacy Gemini/Flash presets from env or saved settings. Other custom model names remain intact, and Settings still allows overrides. Blank model selection during a running session auto-discovers Pro first; startup resolves blank to the documented default. No live installed settings or campaign files were modified by these tests.
 
 Model references: https://ai.google.dev/gemini-api/docs/models and https://ai.google.dev/gemini-api/docs/image-generation .
+
+
+## Integrated yellow-mask drafting (30 September 2026)
+
+The default AI method now uses the accepted second-test prompt and the configured
+Gemini image model with the actual map image as reference. It no longer asks a
+text model to invent rectangle coordinates. Connection retries and failure notices
+use the image gateway. A failure leaves saved walls unchanged; no text-only local
+fallback is used because it cannot preserve the reference-image editing contract.
+
+The generated annotation is converted by `wallsFromYellowMask` and reviewed over
+the original map. The DM can toggle the annotation, deselect suggestions, then
+apply selected walls. The map art is never replaced. Existing walls are appended
+to, stale drafts are rejected, and the wall-edge budget still applies. Conversion
+coverage is not an accuracy score. Door gaps remain open until the DM adds doors.
+AI output can still shift details; review is required, especially for isometric,
+curved, or diagonal architecture. Only the base image is analyzed, not extra tiles.
+
+Local contrast detection remains an explicitly experimental alternative.
+
+The converter excludes yellow already present in the source image and isolated tiny flecks. Unusable masks get one image-generation retry requesting filled wall bands; persistent errors leave the map unchanged.
+
+## Simplified walls and protected gaps
+
+The default yellow-mask converter now fits long, supported rectangles instead of
+decomposing every edge sliver into another wall. Repair and fitting tolerances
+scale with the grid and are capped in the working raster. Dark yellow paint in
+stone grooves is recognized only near bright annotation; unchanged warm source
+art is excluded from that growth. The AI wall prompt and independent light-mask
+workflow are unchanged.
+
+Before smoothing, the converter identifies narrow unpainted cuts that connect
+through a wall band. These pixels are reserved throughout fitting, merging and
+connector creation. A small supported connector can seal a fitting seam, but it
+cannot cross a protected opening. The interior of a solid wall is retained, including diagonal runs; small exact patches repair any remaining uncovered core pixels. Ambiguous unpainted cuts are kept, even if this
+requires more rectangles. Masks exceeding the wall budget or minimum coverage
+fail for review rather than silently closing gaps to meet the count.
+
+The integrated conservative converter produces 32 walls for the saved crypt
+mask (previous converter: 120; earlier more aggressive prototype: 17). Its 5,173
+solid-wall sight probes still pass. A controlled stress dungeon covers 0.3–5 ft
+gaps, vertical slits, a 2 ft corridor, offset doors, a diagonal slit, jagged caps,
+and dark painted seams. Unit tests also cover a one-pixel opening, unchanged amber
+floor in a gap, larger source images, and the normal draft/apply persistence path.
+
+Only openings represented in the mask can be protected. Subpixel gaps can be
+lost when images are resized to the 800-pixel working raster, and a doorway painted
+over by the AI cannot be inferred by conversion. Review the draft before applying.
+Existing saved walls are not automatically rewritten. No data migration is needed.
+
+
+## Angled, circular and free-draw walls
+
+The DM Walls menu offers Rectangle, Line, Circle, Free draw, Move / rotate,
+Erase, and Door. Lines can be dragged at any angle. Line, circle and free-draw
+thickness is entered in feet using the map scale. Circle drawing starts at the
+room center and ends at its wall; the interior is empty. A free-draw stroke is
+simplified to one editable piece. Move / rotate accepts a drag, a round rotation
+handle, or an exact angle. Outlines remain DM-only and hide after Done.
+
+Rectangles, strokes and imported contours share one boundary representation for
+picking, line of sight, torch shadows and swept movement. Curves use a bounded
+polygon approximation. Existing rectangle and line saves load unchanged. Moving
+a door keeps its linked object aligned and preserves its locks, stats and state.
+The door tool clips a local opening through angled, curved and imported walls;
+it does not cut through the far side of a circular room.
+
+Yellow masks now preferentially trace connected contours, including holes for
+rooms, rather than constructing diagonal and curved boundaries from rectangles.
+The same protected-gap preprocessing remains. Simplification is checked against
+reserved openings, wall cores and pixel coverage; noisy masks that cannot fit
+within the 512-edge budget use the conservative rectangle fallback. The separate light-masking workflow is unchanged. The wall prompt also identifies
+natural cave boundaries and the solid top surfaces of structural pillars.
+
+The saved crypt mask now yields **3 connected wall pieces**, compared with 32
+rectangles from the preceding fitter and 120 from the original converter. All
+5,173 solid-wall probes and 35 doorway/corridor movement and sight cases pass.
+A controlled round room plus angled wall converts to two contour pieces; a narrow
+entrance stays open. Tests also apply a closed circular room through the normal
+AI draft, normalized JSON and persistence path, retaining its empty interior.
+
+No existing saved walls are automatically converted. Applied new drafts can be
+selected, moved, rotated, erased and cut for doors with the same wall tools.
+
+
+## Complex live API test: Twisted Vaults (30 September 2026)
+
+A new 2400 x 1792 map and yellow annotation were generated through the real
+Gemini image gateway. The map includes a circular chamber and pillar, an
+octagonal room, diagonal and curved corridors, small door thresholds, and an
+irregular cave. The DM opened Suggest walls,
+generated a mask, reviewed it, and applied the draft through the normal HTTP
+route. Reading the saved map back confirmed **11 polygon wall pieces, 443
+boundary edges**, including empty interiors. No hand-authored wall coordinates
+or mocked AI response were used for the import.
+
+Earlier masks exposed two conversion failures: global curve simplification could
+slightly cover protected pixels, and jagged cave boundaries could exceed the
+edge budget or the original 97% raster coverage threshold. The converter now
+tries bounded simplification tolerances up to 1.5 working pixels and cuts any
+protected gap pixels back out of simplified contours. It requires every wall
+core pixel to survive and every protected opening to remain clear. Contours
+must retain at least 96% raster coverage (boundary stair-steps account for the
+remaining difference), within the unchanged 512-edge limit. The final live mask
+retained 96.9%. The review identifies contour fitting versus rectangle fallback.
+Coverage is not AI detection accuracy, and the DM still needs to inspect the mask.
+
+Verification on the applied map: 11 open passage/doorway probes and 11 solid-wall
+probes passed both sight and medium-creature movement checks. A real player
+walked from the circle into the passage, was stopped when dragged through its
+wall, and walked through the angled entrance and corridor. DM and player browser
+recordings reported no errors. Three sanitized saved-mask regression fixtures
+reproduce the earlier failures without an API key. The full suite passed 1,049
+tests, along with type checking and the production build.
+
+Preview: https://dnd.nic024i.app/uploads/previews/complex-wall-mask-20260930/index.html
+It includes the original image, generated mask, actual saved contours, and a
+one-minute UI recording. API wait time is shortened. Development build only;
+no live campaign database or production code was changed.
+
+
+### Cave follow-up: enclosure defect confirmed
+
+A closer player walkthrough found gaps along the irregular cave rim. These were
+not covered by the earlier 22 spot checks. On the unchanged imported map, Druk
+entered the intended doorway and was blocked by the intact east wall, but moved
+from approximately (2060, 1670) to (2090, 1760) through the missing lower boundary.
+Other gaps transmit sight. The cave's faint/broken yellow annotation was retained
+as openings during import. This cave is not fully enclosed and still needs repair.
+The 47-second recording preserves the defect rather than patching it for display:
+https://dnd.nic024i.app/uploads/previews/cave-walk-20260930/index.html
+Evidence: artifacts/cave-walk/proof.json confirms unchanged walls and the actual
+player endpoints. No production code or campaign data was changed for this test.
+
+
+### Continuous outer cave outline (follow-up)
+
+The old instruction traced the boundary between walkable floor and rock. It has
+been replaced with a continuous opaque yellow outline, about 10 image pixels
+wide, along the **outer** rock rim. The rim remains inside the visible boundary;
+the line must join adjacent masonry masks, skip real entrances, and ignore
+cracks/shading as reasons for breaks. Retry wording preserves this distinction.
+
+A fresh Gemini request on the same source succeeded on its first attempt. The
+whole map converted to four editable polygon pieces / 423 edges and was applied
+through the normal DM UI. All 22 original sight/movement checks and 720 outward
+sight rays around the lower cave boundary passed. Real player dragging entered
+and explored the cave, stopped at the east wall, and was stopped at the former
+lower escape gap. No manual wall patch was used. Original map art is unchanged.
+Type checking and all 26 focused wall/import tests passed.
+
+Preview: https://dnd.nic024i.app/uploads/previews/cave-outline-20260930/index.html
+Evidence: artifacts/cave-outline/ (prompt, draft/apply response, ray checks,
+actual player positions and recording metadata). Development code only.

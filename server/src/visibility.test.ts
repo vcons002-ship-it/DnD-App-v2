@@ -43,7 +43,7 @@ import {
   setHideDmRolls,
   listRollLog,
 } from './sessions.js';
-import { resolveAttack, resolveAbilityRoll, resolveForcedSave } from './combat.js';
+import { resolveAttack, resolveAbilityRoll, resolveForcedSave, resolveObjectCheck } from './combat.js';
 import type { SheetAbility } from '../../shared/types.js';
 
 /** Helper: make a template and place one numbered instance of it. */
@@ -911,4 +911,21 @@ describe('defeated enemies read as dead to players', () => {
     });
     expect(playerView(s, gob.id).dead).toBe(true);
   });
+});
+
+it('keeps lock DCs in DM logs while players receive only the check result',()=>{
+  const session=createSession('Private chest check');
+  const map=createMap(session.id,{name:'Room'});setActiveMap(session.id,map.id);
+  const pc=createCharacter(session.id,{name:'Rogue',stats:{DEX:12}});
+  const template=createMonsterTemplate(session.id,{name:'Chest',objectKind:'chest',disposition:'friendly',maxHp:1,objectDc:99});
+  const chest=instantiateMonster(template.id)!;
+  setFogLayer(map.id,'map',false);setFogLayer(map.id,'tokens',false);
+  createToken({mapId:map.id,kind:'monster',refId:chest.id,x:50,y:50});
+  resolveObjectCheck(session.id,pc.name,pc,chest,'unlock');
+  const dm=buildSnapshot(session.id,'dm')!,player=buildSnapshot(session.id,'player')!;
+  const d=dm.rollLog.at(-1)!,p=player.rollLog.at(-1)!;
+  expect(d.expr).toContain('DC 99');expect(d.detail).toContain('DC 99');
+  expect(p.expr).not.toContain('DC');expect(p.detail).not.toContain('DC');
+  expect(p.reveal).toMatchObject({kind:'check',outcome:'fail',target:chest.name});
+  expect(player.monsters.find(m=>m.id===chest.id)).not.toHaveProperty('objectDc',99);
 });

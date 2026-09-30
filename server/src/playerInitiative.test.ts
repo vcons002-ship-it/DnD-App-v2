@@ -1,3 +1,4 @@
+import {withDiceSource,type PhysicalDiceInfo} from '../../shared/dice.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createSession, createMap, setActiveMap, createCharacter, createToken, claimCharacter,
   startCombat, rollPlayerInitiative, getSessionById, getToken, listRollLog, finishInitiative,
@@ -42,4 +43,21 @@ it('disconnected players roll automatically and End combat cancels pending reque
   clearInitiative(f.s.id);startCombat(f.s.id);clearInitiative(f.s.id);
   expect(rollPlayerInitiative(f.s.id,f.a.id,'owner')).toBe(false);
   expect(getSessionById(f.s.id)!.initiativePending).toBe(false);
+});
+
+it('requests DM initiative dice together and keeps each token bonus and identity',()=>{
+  const f=arena();
+  const extra=createCharacter(f.s.id,{name:'Second DM creature',stats:{DEX:18}});
+  const token=createToken({mapId:f.map.id,kind:'pc',refId:extra.id,x:150,y:50});
+  const requests:{sides:number[];info:PhysicalDiceInfo}[]=[];
+  withDiceSource((sides,info)=>{requests.push({sides,info});return [3,17];},()=>startCombat(f.s.id));
+  expect(requests).toHaveLength(1);
+  expect(requests[0].sides).toEqual([20,20]);
+  expect(requests[0].info.saveDice).toEqual([
+    {rollKind:'initiative',target:{kind:'pc',refId:f.b.refId},group:f.b.id,modifier:0,dc:0},
+    {rollKind:'initiative',target:{kind:'pc',refId:extra.id},group:token.id,modifier:4,dc:0},
+  ]);
+  expect(getToken(f.b.id)!.initiative).toBe(3);
+  expect(getToken(token.id)!.initiative).toBe(21);
+  expect(getToken(f.a.id)!.initiative).toBeNull();
 });

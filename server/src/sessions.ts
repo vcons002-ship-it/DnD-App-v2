@@ -1,6 +1,6 @@
 import { starterCreatures } from './creatures/starterLibrary.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
-import {rollDice} from '../../shared/dice.js';
+import {rollDice,withDiceMetadata} from '../../shared/dice.js';
 import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
@@ -1333,8 +1333,18 @@ export function endConcentration(kind: TokenKind, refId: string, reason: string)
 const INCAPACITATING = ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'];
 
 /** A d20 + DEX modifier for a token (5e initiative). */
-const rollInitiative = (token: Token): number =>
-  rollDice('1d20')!.total + initiativeBonus(token);
+/** One authoritative request gives the live tray all initiative dice together.
+ * Keep one identity and modifier per token, using the grouped-save presentation. */
+function rollInitiativeGroup(tokens: Token[]): void {
+  for(let offset=0;offset<tokens.length;offset+=100){
+    const batch=tokens.slice(offset,offset+100);
+    const modifiers=batch.map(initiativeBonus);
+    const faces=withDiceMetadata({label:'Initiative - Group Roll',saveDice:batch.map((t,i)=>({
+      rollKind:'initiative',target:{kind:t.kind,refId:t.refId},group:t.id,modifier:modifiers[i],dc:0,
+    }))},()=>rollDice(`${batch.length}d20`)!.rolls);
+    batch.forEach((token,i)=>setTokenInitiative(token.id,faces[i]+modifiers[i]));
+  }
+}
 
 /** Roll initiative (d20 + DEX) for every COMBATANT on a map (resets the round).
  *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
@@ -1384,11 +1394,11 @@ export function startCombat(sessionId: string, connected: (id: string) => boolea
   if (!session?.activeMapId || session.initiativePending) return;
   clearInitiative(sessionId);
   const map = getMap(session.activeMapId);
-  for (const token of listTokens(session.activeMapId)) {
-    if (!rollsInitiative(token, map)) continue;
-    const ch = token.kind === 'pc' ? getCharacter(token.refId) : null;
-    if (!ch?.claimedBy || !connected(ch.claimedBy)) setTokenInitiative(token.id, rollInitiative(token));
-  }
+  rollInitiativeGroup(listTokens(session.activeMapId).filter(token=>{
+    if(!rollsInitiative(token,map))return false;
+    const ch=token.kind==='pc'?getCharacter(token.refId):null;
+    return !ch?.claimedBy || !connected(ch.claimedBy);
+  }));
   setInitiativePending(sessionId, true);
   finishInitiative(sessionId);
 }
@@ -1420,23 +1430,19 @@ export function rollPlayerInitiative(sessionId: string, tokenId: string, socketI
 }
 
 export function rollAllInitiative(mapId: string): void {
-  const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
-  const map = getMap(mapId); // loaded once; fog sets are rebuilt per token
-  db.transaction(() => {
-    for (const t of listTokens(mapId)) {
-      roll.run(rollsInitiative(t, map) ? rollInitiative(t) : null, t.id);
-    }
+  const map = getMap(mapId);
+  db.transaction(()=>{
+    const tokens=listTokens(mapId);
+    for(const token of tokens)if(!rollsInitiative(token,map))setTokenInitiative(token.id,null);
+    rollInitiativeGroup(tokens.filter(token=>rollsInitiative(token,map)));
   })();
 }
 
 /** Roll only for combatants that haven't rolled yet (latecomers to combat). */
 export function rollMissingInitiative(mapId: string): void {
-  const roll = db.prepare('UPDATE tokens SET initiative = ? WHERE id = ?');
-  db.transaction(() => {
-    const map = getMap(mapId);
-    for (const t of listTokens(mapId)) {
-      if (t.initiative === null && rollsInitiative(t, map)) roll.run(rollInitiative(t), t.id);
-    }
+  db.transaction(()=>{
+    const map=getMap(mapId);
+    rollInitiativeGroup(listTokens(mapId).filter(t=>t.initiative===null&&rollsInitiative(t,map)));
   })();
 }
 

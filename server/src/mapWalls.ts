@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {cutPolygonDoor} from './wallPolygonDoor.js';
 import {db} from './db.js';
 import {getMap,listTokens,getToken,getMonster,createWallDoorObject,setCondition,clearCondition} from './sessions.js';
 import {sanitizeWalls,MAX_MAP_WALLS,wallEdgeCount,cutDoor,distanceToWall,wallCollisionRadiusFt,type WallEdit} from '../../shared/mapWalls.js';
@@ -10,9 +11,10 @@ export function editMapWalls(sessionId:string,mapId:string,edit:WallEdit):string
   let walls=map.walls??[];
   if(edit.door){
     if(walls.some(w=>w.id===edit.door!.id))return null;
-    const wall=walls.find(w=>w.id===edit.door!.wallId),parts=wall&&cutDoor(wall,edit.door);
+    const wall=walls.find(w=>w.id===edit.door!.wallId),parts=wall&&(cutDoor(wall,edit.door)??cutPolygonDoor(wall,edit.door));
     if(!parts)return 'Drag along an existing wall to set the door width.';
     const next=[...walls.filter(w=>w.id!==wall!.id),...parts];
+    if(sanitizeWalls(next).length!==next.length)return 'The door could not be fitted safely. Try a shorter, straighter opening.';
     if(wallEdgeCount(next)>MAX_MAP_WALLS)return 'Wall limit reached. Erase an unused wall first.';
     let token=edit.door.tokenId?getToken(edit.door.tokenId):null;
     if(edit.door.tokenId&&(!token||token.mapId!==mapId||token.kind!=='monster'||getMonster(token.refId)?.objectKind!=='door'||walls.some(w=>w.tokenId===token!.id)))return 'Select an unattached door object on this map.';
@@ -21,6 +23,16 @@ export function editMapWalls(sessionId:string,mapId:string,edit:WallEdit):string
     door.tokenId=token.id;
     db.prepare('UPDATE tokens SET x=?, y=? WHERE id=?').run((door.ax+door.bx)/2,(door.ay+door.by)/2,token.id);
     door.open=!!getMonster(token.refId)?.conditions.some(c=>c.label.toLowerCase()==='open');
+    walls=next;
+  }else if(edit.update!==undefined){
+    const old=walls.find(w=>w.id===edit.update!.id);
+    if(!old)return 'Wall not found.';
+    // Transforming geometry must not change lock state or detach the door object.
+    const [wall]=sanitizeWalls([{...edit.update,door:old.door,open:old.open,tokenId:old.tokenId}]);
+    if(!wall)return 'Invalid wall shape.';
+    const next=walls.map(w=>w.id===old.id?wall:w);
+    if(wallEdgeCount(next)>MAX_MAP_WALLS)return 'Wall limit reached. Simplify this wall first.';
+    if(old.tokenId)db.prepare('UPDATE tokens SET x=?, y=? WHERE id=? AND map_id=?').run((wall.ax+wall.bx)/2,(wall.ay+wall.by)/2,old.tokenId,mapId);
     walls=next;
   }else if(edit.add!==undefined){
     const [wall]=sanitizeWalls([edit.add]);

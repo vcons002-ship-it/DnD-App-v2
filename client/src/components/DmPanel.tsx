@@ -13,6 +13,7 @@ import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { NewCharacterForm } from './NewCharacterForm';
 import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { ImportMapsDialog } from './ImportMapsDialog';
+import { AssetProductionStatus } from './AssetProductionStatus';
 import { TemplateEditor } from './TemplateEditor';
 import { EditableName } from './EditableName';
 import {MapEnvironmentControls} from './MapEnvironmentControls';
@@ -54,6 +55,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
   // '' = a normal creature; otherwise a non-combat object (trap/door/chest/item).
   const [objectKind, setObjectKind] = useState<'' | ObjectKind>('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [modelId,setModelId]=useState<string|null>(null);
   const [copyFrom, setCopyFrom] = useState('');
   const [busy, setBusy] = useState(false);
   // Creature search (SRD autofill + optional AI lookup).
@@ -331,7 +333,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
               className="btn"
               disabled={busy || genMapBusy || !mapPrompt.trim()}
               onClick={generateMap}
-              title="Generate a battle map with your local ComfyUI"
+              title="Generate a battle map with local generation and image API backup"
             >
               {genMapBusy ? '✨…' : '✨ Generate'}
             </button>
@@ -457,11 +459,14 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
                 className={`btn tiny ${editingId === m.id ? 'on' : ''}`}
                 title="Adjust stats / image before placing"
                 onClick={() =>
-                  setEditingId((cur) => (cur === m.id ? null : m.id))
+                  (setModelId(null),setEditingId((cur) => (cur === m.id ? null : m.id)))
                 }
               >
                 Edit
               </button>
+              {!m.objectKind&&<button className={`btn tiny ${modelId===m.id?'on':''}`} aria-expanded={modelId===m.id}
+                title={`Prepare a 3D model for ${m.name} before placing`}
+                onClick={()=>{setEditingId(null);setModelId(cur=>cur===m.id?null:m.id);}}>3D model</button>}
               <button
                 className="btn tiny"
                 title="Remove this spawn button"
@@ -471,6 +476,11 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
               </button>
             </div>
             {editingId === m.id && <TemplateEditor monster={m} />}
+            {modelId===m.id&&<section className="template-editor" aria-label={`3D model for ${m.name}`}>
+              <h4>{m.name} - 3D model</h4>
+              <p className="hint">Create and choose its model here, then click the creature name to place it. New placements inherit the chosen model.</p>
+              <AssetProductionStatus key={m.id} monster={m} initiallyExpanded />
+            </section>}
           </div>
         ))}
         {monsters.length === 0 && (

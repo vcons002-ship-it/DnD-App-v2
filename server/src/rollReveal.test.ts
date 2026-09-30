@@ -1,3 +1,4 @@
+import {rollOutcomeLabel} from '../../shared/rollReveal.js';
 import { describe, it, expect } from 'vitest';
 import { checkReveal, diceReveal, hasNaturalTwenty } from '../../shared/rollReveal.js';
 import { rollDice } from '../../shared/dice.js';
@@ -193,4 +194,13 @@ describe('natural twenty celebrations', () => {
     expect(hasNaturalTwenty({...r,damageDice:[{label:'1d100',value:20,faces:[20]}]})).toBe(false);
     expect(hasNaturalTwenty({...r,comparison:{kind:'dice',mode:'dis',kept:1,sets:[{dice:[{sides:20,value:20}],total:20},{dice:[{sides:20,value:8}],total:8}]}})).toBe(false);
   });
+});
+
+it('uses Success or Failed for object checks, never attack stamps',()=>{
+  for(const title of ['Pick lock','Disarm trap']){
+    const reveal:RollReveal={kind:'check',attacker:'Rogue',title,outcome:'fail'};
+    expect(rollOutcomeLabel(reveal)).toBe('Failed');
+    expect(rollOutcomeLabel({...reveal,outcome:'pass'})).toBe('Success');
+    expect(rollOutcomeLabel({...reveal,outcome:'miss'})).toBe('Failed');
+  }
 });

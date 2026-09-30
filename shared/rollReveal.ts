@@ -100,3 +100,14 @@ export function hasNaturalTwenty(reveal: RollReveal): boolean {
   }
   return (reveal.damageDice ?? []).some(d => /^\d+d20$/i.test(d.label.trim()) && d.faces?.includes(20));
 }
+
+/** Checks use task outcomes; attack words never describe unlocking or disarming. */
+export function rollOutcomeLabel(reveal: RollReveal): string {
+  if(reveal.outcome==='none')return '';
+  if(reveal.kind==='check'){
+    const passed=reveal.outcome==='pass'||reveal.outcome==='hit'||reveal.outcome==='crit';
+    if(/save|saving throw/i.test(reveal.title??''))return passed?'SAVE PASSED':'SAVE FAILED';
+    return passed?'Success':'Failed';
+  }
+  return ({crit:'CRITICAL HIT!',fumble:'Fumble!',hit:'HIT',miss:'MISS',pass:'Success',fail:'Failed',none:''})[reveal.outcome];
+}

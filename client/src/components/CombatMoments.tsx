@@ -12,6 +12,11 @@ export function CombatMoments() {
   const rollMyInitiative = useStore(s => s.rollMyInitiative);
   const rollRemaining = useStore(s => s.rollMissingInitiative);
   const rollFx = useStore(s => s.rollFx);
+  const liveDice = useStore(s => s.liveDice);
+  const [initiativeSubmitted,setInitiativeSubmitted]=useState(false);
+  useEffect(()=>{setInitiativeSubmitted(false);},[snapshot?.initiativePending,snapshot?.map?.id,socket?.id]);
+  useEffect(()=>{const reset=()=>setInitiativeSubmitted(false);socket?.on('error',reset);return()=>{socket?.off('error',reset);};},[socket]);
+  useEffect(()=>{if(liveDice)setQueue(q=>q.filter(b=>b.kind!=='initiative'));},[liveDice?.id]);
   const pendingSeen = useRef(snapshot?.initiativePending);
   const [queue, setQueue] = useState<{id: string; title: string; detail: string; kind: 'initiative' | 'turn'}[]>([]);
   const lastTurn = useRef<string>();
@@ -53,7 +58,7 @@ export function CombatMoments() {
       detail: `${name} · Round ${snapshot.round}`, kind: 'turn'}]);
   }, [snapshot, socket?.id]);
 
-  const banner = rollFx && presented.current !== queue[0]?.id ? undefined : queue[0];
+  const banner = liveDice || rollFx ? undefined : queue[0];
   useEffect(() => {
     if (!banner) return;
     presented.current = banner.id;
@@ -74,12 +79,12 @@ export function CombatMoments() {
   const mine = waiting.find(t => snapshot?.characters.find(c => c.id === t.refId)?.claimedBy === socket?.id);
   const dmWaiting = snapshot?.initiativePending && snapshot.role === 'dm';
   return <>
-    {(mine || dmWaiting) && <div className={`combat-moment combat-moment-initiative initiative-persistent ${animate ? '' : 'no-motion'}`}
+    {(mine || dmWaiting) && !initiativeSubmitted && !liveDice && !rollFx && <div className={`combat-moment combat-moment-initiative initiative-persistent ${animate ? '' : 'no-motion'}`}
       role="region" aria-label="Initiative roll request">
       <span className="combat-moment-kicker">Combat is starting</span>
       <strong>Roll initiative!</strong>
       <span>{mine ? 'Roll to find your place in the turn order.' : `Waiting for ${waiting.length} player roll${waiting.length === 1 ? '' : 's'}.`}</span>
-      <button className="btn initiative-roll-button" onClick={() => mine ? rollMyInitiative(mine.id) : rollRemaining()}>
+      <button className="btn initiative-roll-button" onClick={() => {setInitiativeSubmitted(true);setQueue(q=>q.filter(b=>b.kind!=='initiative'));mine ? rollMyInitiative(mine.id) : rollRemaining();}}>
         {mine ? 'Roll initiative' : 'Roll remaining'}
       </button>
     </div>}

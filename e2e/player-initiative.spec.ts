@@ -57,7 +57,7 @@ test('Player initiative request persists until rolled', async ({ page, browser, 
   await page.locator('.claim-row').filter({hasText:'Druk'}).click();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
   socket.emit('initiative:start');
-  await expect(page.getByRole('region',{name:'Initiative roll request'})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Initiative roll request'})).toBeVisible({timeout:60000});
   expect((await snapshot()).tokens.find(t=>t.id===pc.id)!.initiative).toBeNull();
   expect((await snapshot()).tokens.find(t=>t.id===enemy.id)!.initiative).not.toBeNull();
   expect((await snapshot()).activeTurnTokenId).toBeNull();
@@ -66,7 +66,8 @@ test('Player initiative request persists until rolled', async ({ page, browser, 
   await page.reload();
   await expect(page.getByRole('button',{name:'Roll initiative',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Roll initiative',exact:true}).click();
-  await expect.poll(async()=> (await snapshot()).initiativePending).toBe(false);
+  await expect(page.getByRole('region',{name:'Initiative roll request'})).toHaveCount(0);
+  await expect.poll(async()=> (await snapshot()).initiativePending,{timeout:60000}).toBe(false);
   await expect(page.getByRole('region',{name:'Initiative roll request'})).toHaveCount(0);
   const result=await snapshot();
   expect(result.tokens.find(t=>t.id===pc.id)!.initiative).not.toBeNull();

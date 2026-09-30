@@ -37,6 +37,8 @@ export type EnvironmentMistPatch = {
 
 /** Renderer settings shared by the isolated study and the app. Lengths are map pixels. */
 export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'sceneTint'|'sceneTintStrength'|'heavyDarkness'|'weather'|'weatherIntensity'|'particles'|'particleIntensity'|'mistColor'|'lightning'|'groundWetness'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
+  /** Local DM working-view fill; never changes saved map lighting or player visibility. */
+  dmVisibility?: boolean;
   walls?: import('../../../shared/mapWalls').MapWall[];
   /** Fallback carriers also illuminate the map when their viewer chooses 2D tokens. */
   darkvisionTerrain?: {url:string;x:number;y:number;w:number;h:number}[];

@@ -106,7 +106,7 @@ export function LiveDiceOverlay(){
    const indices=frame.saveDice!.flatMap((s,j)=>s.group===save.group?[j]:[]);
    const faces=indices.map(j=>frame.values[j]??0),face=save.mode==='dis'?Math.min(...faces):Math.max(...faces);
    if(indices.length>1&&i!==indices[faces.indexOf(face)])return {calculation:'',outcome:'Discarded'};
-   const total=face+save.modifier;return {calculation:`${save.label}: ${face} ${save.modifier>=0?'+':'?'} ${Math.abs(save.modifier)} = ${total}`,outcome:!save.autoFail&&total>=save.dc?'PASS':'FAIL'};
+   const total=face+save.modifier;return {calculation:`${save.label}: ${face} ${save.modifier>=0?'+':'?'} ${Math.abs(save.modifier)} = ${total}`,outcome:save.rollKind==='initiative'?`Initiative ${total}`:!save.autoFail&&total>=save.dc?'PASS':'FAIL'};
  };
  const resultStyle=(i:number)=>{
   const strength=dieResultEmphasis(liveDieResult(frame,i));
