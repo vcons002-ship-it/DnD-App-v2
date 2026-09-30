@@ -1759,6 +1759,8 @@ export type JoinAck =
  *  `damageType` (canonical 5e type, when the source knew it) drives a brief
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpFxEvent = {
+  /** Cosmetic source name, including spell riders on a weapon hit. */
+  spell?: string;
   kind: TokenKind;
   refId: string;
   /** Negative: full damage taken after defenses (including overkill/temp HP).

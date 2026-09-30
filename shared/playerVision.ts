@@ -1,12 +1,12 @@
-import {lightIrradiance,lightColorCoverage} from './lightFalloff.js';
+import {lightIrradiance,lightColorCoverage,spellEmissionIrradiance} from './lightFalloff.js';
 import {tokenVisibleAt} from './fog.js';
 import {hasLineOfSight,type MapWall} from './mapWalls.js';
 import type {MapState,Token} from './types.js';
 export type VisionPoint={id:string;x:number;y:number};
-export type VisionLight=VisionPoint&{radius:number;height:number;strength:number};
+export type VisionLight=VisionPoint&{radius:number;height:number;strength:number;transient?:boolean};
 /** Same ground irradiance and coverage as battlefieldLighting torch-field shader. */
-export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'height'|'strength'>){
- return lightColorCoverage(lightIrradiance(Math.hypot(distance,light.height),light.radius,light.strength));
+export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'height'|'strength'|'transient'>){
+ return lightColorCoverage((light.transient?spellEmissionIrradiance:lightIrradiance)(Math.hypot(distance,light.height),light.radius,light.strength));
 }
 export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionPoint[];lights:VisionLight[];walls?:MapWall[];daylight?:boolean};
 /** Campaign rule: 60 feet reveals unlit darkness; unobscured illuminated areas remain visible at any distance. */

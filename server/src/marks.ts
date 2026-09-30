@@ -3,7 +3,7 @@ import type { TokenKind, SheetAbility, Token, RevealStep } from '../../shared/ty
 import { tokenDistanceFt } from '../../shared/distance.js';
 import { rollDice } from '../../shared/dice.js';
 import { damageMultiplier } from '../../shared/combatMath.js';
-import { getCharacter, getMonster, getToken, getSessionById, getMap, listTokens, listCharacters, listMonsters, setSheetAbility, setConcentration, addRollLog } from './sessions.js';
+import { getCharacter, getMonster, getToken, getSessionById, getMap, listTokens, listCharacters, listMonsters, queueSpellImpact, setSheetAbility, setConcentration, addRollLog } from './sessions.js';
 
 export const markedEntity = (kind:TokenKind,id:string) => kind === 'pc' ? getCharacter(id) : getMonster(id);
 export function castMark(sessionId:string,kind:TokenKind,id:string,ability:SheetAbility,targetId:string|undefined,level:number,move=false,hexAbility?:string): boolean {
@@ -28,6 +28,7 @@ export function castMark(sessionId:string,kind:TokenKind,id:string,ability:Sheet
       expiresAt:move ? ability.mark!.expiresAt : Date.now()+(level>=5?24:level>=3?8:1)*3600000}});
   addRollLog(sessionId,{roller:caster.name,label:ability.name,expr:move?'Move mark':'Mark',total:0,
     detail:`${caster.name}: ${ability.name} ${move?'moved to':'marks'} ${markedEntity(target.kind,target.refId)!.name}${move?' (no spell slot)':''}.`});
+  queueSpellImpact(sessionId,target.kind,target.refId,ability.name);
   return true;
 }
 

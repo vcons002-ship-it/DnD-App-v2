@@ -716,7 +716,7 @@ export const useStore = create<Store>((set, get) => ({
       const current = get().rollFx;
       const immediate: HpFloater[] = [];
       for (const event of added) {
-        if (event.delta < 0 && event.rollId && get().showRollAnim &&
+        if ((event.delta < 0 || event.spell) && event.rollId && get().showRollAnim &&
           current?.rollId === event.rollId && !current.impactReady) {
           heldHpFx.set(event.rollId, [...(heldHpFx.get(event.rollId) ?? []), event]);
         } else immediate.push(event);

@@ -22,7 +22,7 @@ export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
     if(fx.dice) {
       const roll=rollDice(fx.dice)!;
       const amount=Math.floor(roll.total*damageMultiplier(fx.damageType,e.resistances,e.weaknesses,e.immunities,{magical:true}));
-      applyDamage(token.kind,token.refId,amount,fx.damageType);
+      applyDamage(token.kind,token.refId,amount,fx.damageType,false,undefined,{spell:fx.spell});
       noteConcentration(sid,token.kind,token.refId,amount);
       addRollLog(sid,{roller:fx.spell,label:'Ongoing damage',expr:fx.dice,total:amount,detail:`${e.name}: ${fx.spell} deals ${amount} ${fx.damageType} damage.`});
     }

@@ -16,6 +16,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const shade=useRef<HTMLDivElement>(null);
  const root=useRef<HTMLDivElement>(null);
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
+ const spellPaths=useRef<SVGGElement>(null);
  const sightPaths=useRef<SVGClipPathElement>(null),lightClips=useRef<SVGGElement>(null);
  const memoryPaths=useRef<SVGClipPathElement>(null),memoryPlane=useRef<HTMLDivElement>(null),memoryMap=useRef<HTMLDivElement>(null);
  const memoryCanvas=useRef<HTMLCanvasElement>(null);
@@ -76,7 +77,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   sightPaths.current.innerHTML=vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,true)}"/>`).join('');
   // Nested bands sample the renderer's smooth attenuation, including source height,
   // intensity, flicker radius and the actual animated hip anchor. No hard color disk.
-  const clips:string[]=[];
+  const clips:string[]=[],spellBands:string[]=[];
   const lights=(renderedLights.current??vision.lights).map((l,index)=>{
    let previous=0;const bands:string[]=[];
    for(let i=48;i>=1;i--){const radius=l.radius*LIGHT_SPILL_MULTIPLIER*i/48;
@@ -84,10 +85,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     const alpha=Math.max(0,(coverage-previous)/Math.max(.00001,1-previous));previous=coverage;
     if(alpha>.0001)bands.push(`<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);
    }
-   if(!vision.walls?.length)return bands.join('');
+   if(!vision.walls?.length){if(l.transient){spellBands.push(bands.join(''));return '';}return bands.join('');}
    const clip=`vision-lamp-${id}-${index}`;
    clips.push(`<clipPath id="${clip}" clipPathUnits="userSpaceOnUse"><path d="${path(l,SIGHT_EXTENT,!!renderedLights.current,true)}"/></clipPath>`);
-   return `<g clip-path="url(#${clip})">${bands.join('')}</g>`;
+   const result=`<g clip-path="url(#${clip})">${bands.join('')}</g>`;
+   if(l.transient){spellBands.push(result);return '';}
+   return result;
   }).join('');
   lightClips.current.innerHTML=clips.join('');
   for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
@@ -95,6 +98,9 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
   originPaths.current.innerHTML=circles;
   lightPaths.current.innerHTML=lights;
+  // Cosmetic flashes restore color only inside already-visible terrain. They
+  // never enter the sight-cover mask or authorize/persist exploration.
+  if(spellPaths.current)spellPaths.current.innerHTML=spellBands.join('');
   shade.current.style.backdropFilter=vision.heavy?'grayscale(1)':'none';
   shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?'grayscale(1)':'none');
  };
@@ -114,7 +120,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    <clipPath id={memoryId} clipPathUnits="userSpaceOnUse" ref={memoryPaths}/>
    <g id={lightId} ref={lightPaths}/>
    <mask id={shadeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
-    <rect width={props.width} height={props.height} fill="white"/><use href={`#${lightId}`}/>
+    <rect width={props.width} height={props.height} fill="white"/><use href={`#${lightId}`}/><g ref={spellPaths}/>
    </mask>
    <mask id={coverId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
     <rect width={props.width} height={props.height} fill="white"/><g ref={originPaths}/>{props.vision.origins.length>0&&<g clipPath={`url(#${sightId})`}><use href={`#${lightId}`}/></g>}

@@ -1,4 +1,5 @@
 import { flattenDamageDice } from '../../shared/diceVisuals.js';
+import {drainHpFx} from './sessions.js';
 import { migrateActiveMarks } from './db.js';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createSession, createMap, setActiveMap, createCharacter, createToken, setSheetAbility, getCharacter, applyDamage, setConcentration, clearCondition, setManualDamage, listRollLog } from './sessions.js';
@@ -41,6 +42,7 @@ describe('2024 marked attack workflow',()=>{
  it('marks without damage, adds Force only to that target, and doubles mark dice on crits',()=>{
  const f=setup(); vi.spyOn(Math,'random').mockReturnValue(.5);
  expect(castMark(f.s.id,'pc',f.c.id,f.hm,f.tt.id,1)).toBe(true);
+ expect(drainHpFx(f.s.id)[0]).toMatchObject({delta:0,spell:"Hunter's Mark",refId:f.target.id});
  expect(getCharacter(f.target.id)!.curHp).toBe(100);
  expect(markedDamage('pc',f.c.id,f.tt,false).amount).toBe(4);
  expect(markedDamage('pc',f.c.id,f.tt,true).amount).toBe(8);
@@ -49,6 +51,7 @@ describe('2024 marked attack workflow',()=>{
  it.each([false,true])('combines weapon and mark into one damage application (manual=%s)',manual=>{
  const f=setup(manual); vi.spyOn(Math,'random').mockReturnValue(.5);
  castMark(f.s.id,'pc',f.c.id,f.hm,f.tt.id,1);
+ drainHpFx(f.s.id);
  expect(resolveAttack(f.s.id,'Ranger',f.at.id,f.tt.id,0)).toBe(true);
  const hit=listRollLog(f.s.id).slice().reverse().find(r=>r.reveal?.kind==='attack')!;
  if(manual) {expect(getCharacter(f.target.id)!.curHp).toBe(100); resolveAttackDamage(f.s.id,'Ranger',hit.id);}
@@ -58,6 +61,7 @@ describe('2024 marked attack workflow',()=>{
  expect([...(damage.reveal!.damageDice??[]),...(damage.reveal!.damageMods??[])].reduce((sum,d)=>sum+d.value,0)).toBe(damage.reveal!.damage);
  expect(damage.reveal!.damageDice!.find(d=>d.label.includes("Hunter's Mark"))!.faces).toHaveLength(1);
  expect(getCharacter(f.target.id)!.curHp).toBe(100-damage.reveal!.damage!);
+ expect(drainHpFx(f.s.id)[0]).toMatchObject({spell:"Hunter's Mark",rollId:damage.id,delta:-damage.reveal!.damage!});
  });
  it('includes Force on spell attack hits and crits',()=>{
  const f=setup(); vi.spyOn(Math,'random').mockReturnValue(.999);

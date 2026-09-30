@@ -266,9 +266,10 @@ function applyDamageNoted(
   crit = false,
   /** The exact reveal that should release this transient damage floater. */
   rollId?: string,
+  spell?: string,
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType, crit, rollId);
+  const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell});
   if (!before || !after) return undefined;
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
   if (
@@ -750,7 +751,7 @@ export function resolveAttack(
   const attackRollId = liveResume?.id ?? newId();
   let hpNote: RollEntry['hpNote'];
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId, [weapon.name,...damageBreakdown.dice.map(d=>d.label)].join(" + "));
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   // RAW the smite comes IMMEDIATELY after its hit, so this character's new
@@ -1165,6 +1166,7 @@ export function resolveAttackDamage(
     p.attacker,
     p.crit,
     damageRollId,
+    [p.weapon,...p.dice.map(d=>d.label)].join(" + "),
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
   addRollLog(sessionId, {
@@ -1432,7 +1434,7 @@ export function resolveForcedSave(
     }
     dmg = Math.floor(base * mult);
     const dartRollId = newId();
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId);
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, src?.expr ?? src?.label);
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
@@ -1521,7 +1523,7 @@ export function resolveForcedSave(
   // without a new reveal may instead share its still-playing cast animation.
   // Clients never wait on a source roll that has already finished or is hidden.
   const fxRollId = saveReveal ? resolutionRollId : src?.reveal ? src.id : undefined;
-  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId);
+  const saveNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, src?.expr ?? src?.label);
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   // Mark this target consumed so a repeat click on the same creature is rejected.
   setRollApply(rollId, {
@@ -1661,7 +1663,7 @@ function resolveTargetedSpellAttack(opts: {
   consumeHitAdvantage(tt!);
   const attackRollId = opts.liveResume?.id ?? newId();
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId, opts.title);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -2002,7 +2004,7 @@ function resolveSheetAbilityFor(
     const targetDead = !!(target && targetEntity && isDeadEntity(target.kind, targetEntity));
     const healNote =
       target && val > 0 && !targetDead
-        ? applyDamageNoted(target.kind, target.refId, -val)
+        ? applyDamageNoted(target.kind, target.refId, -val, undefined, undefined, false, undefined, ability.name)
         : undefined;
     addRollLog(sessionId, {
       roller,

@@ -4,7 +4,7 @@ import type {MiniatureDefinition} from '../lib/miniatures';
 import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 
-export type TorchLight = {id:string;x:number;y:number;height:number;fixtureHeight?:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number};
+export type TorchLight = {id:string;x:number;y:number;height:number;fixtureHeight?:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
@@ -27,7 +27,8 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
           float torchDistance=length(torchDelta);
           directLight.direction=torchDelta/max(.001,torchDistance);
           float shadow=localLightVisibility(torchShadowSlots[torchIndex],torchWorldPosition+inverseTransformDirection(geometryNormal,viewMatrix)*.35,.14);
-          directLight.color=torchColors[torchIndex]*lightIrradiance(torchDistance,torchPositions[torchIndex].w,1.)*shadow;
+          float irradiance=torchShadowSlots[torchIndex]<-1.5?spellEmissionIrradiance(torchDistance,torchPositions[torchIndex].w,1.):lightIrradiance(torchDistance,torchPositions[torchIndex].w,1.);
+          directLight.color=torchColors[torchIndex]*irradiance*shadow;
           darkvisionLight+=max(directLight.color.r,max(directLight.color.g,directLight.color.b));
           directLight.visible=true;
           // A little local reflected light keeps surfaces facing away from a hip
@@ -45,7 +46,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         outgoingLight+=vec3(detail*darkvisionDetail*(1.-lightColorCoverage(darkvisionLight)));
         #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v9-darkvision-detail';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v10-spell-flashes';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=[]){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];
@@ -62,7 +63,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
       point.set(light.x,light.height,light.y).applyMatrix4(camera.matrixWorldInverse);
       uniforms.torchPositions.value[i].set(point.x,point.y,point.z,light.radius);
       uniforms.torchColors.value[i].copy(light.color).multiplyScalar(light.strength);
-      uniforms.torchShadowSlots.value[i]=light.shadowSlot??-1;
+      uniforms.torchShadowSlots.value[i]=light.transient?-2:light.shadowSlot??-1;
     });
   }};
 }

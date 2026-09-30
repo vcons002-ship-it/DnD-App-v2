@@ -5,7 +5,7 @@ import { broadcastSnapshots, dropConn, setConn, type IOServer } from './connecti
 import {
   addRollLog, applyDamage, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, drainHpFx, getMonster, instantiateMonster, listRollLog,
-  setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,
+  setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,
 } from './sessions.js';
 
 const sockets: string[] = [];
@@ -181,6 +181,13 @@ describe('exact attack damage-to-reveal correlation', () => {
     const { player, dm } = views(f);
     expect(player.events).toEqual([]);
     expect(dm.events).toHaveLength(1);
+  });
+  it('non-damaging spell light respects the same hidden-token privacy boundary',()=>{
+    const f=fixture(false);setTokenHidden(f.targetToken.id,true);
+    queueSpellImpact(f.session.id,'monster',f.target.id,"Hunter's Mark");
+    const {player,dm}=views(f);
+    expect(player.events).toEqual([]);
+    expect(dm.events).toEqual([{kind:'monster',refId:f.target.id,delta:0,spell:"Hunter's Mark"}]);
   });
 });
 
