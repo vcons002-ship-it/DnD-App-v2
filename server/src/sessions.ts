@@ -3256,20 +3256,21 @@ export function setEntityIcon(
 // the token). Never persisted; capped so an undrained queue can't grow forever.
 const hpFxQueue: (HpFxEvent & { sessionId: string })[] = [];
 /** A non-damaging spell impact uses the same visibility/timing channel. */
-export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string){
+export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string,areaWidthFt?:number){
   const name=spellImpactName(spell);
-  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(rollId?{rollId}:{})});
+  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
 }
 export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQueue.splice(0,hpFxQueue.length,...saved);};}
 export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, effect, rollId, spell } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, effect, rollId, spell, areaWidthFt } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
       delta,
+      ...(areaWidthFt ? {areaWidthFt} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       ...(damageType ? { damageType } : {}),

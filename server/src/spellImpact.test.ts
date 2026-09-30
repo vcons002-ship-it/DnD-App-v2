@@ -42,22 +42,10 @@ describe('spell impact identity and lighting',()=>{
   if(style.kind==='arrows')expect(spellEmissionEnvelope(style.duration*.4,style)).toBeGreaterThan(.8);
   expect(spellEmissionIrradiance(15,15,1)).toBeLessThan(lightIrradiance(15,15,1)/100);
  });
- it('preserves the Hail of Thorns identity and the exact save reveal on a real cast',()=>{
-  vi.spyOn(Math,'random').mockReturnValue(.5);
+ it('rejects standalone Hail casts because the spell belongs to a ranged hit',()=>{
   const s=createSession('Spell light'),map=createMap(s.id,{name:'Dungeon'});setActiveMap(s.id,map.id);
   const caster=createCharacter(s.id,{name:'Ranger',className:'Ranger',level:5,stats:{WIS:18}});
-  const monster=instantiateMonster(createMonsterTemplate(s.id,{name:'Goblin',maxHp:50,stats:{DEX:1}}).id)!;
-  const target=createToken({mapId:map.id,kind:'monster',refId:monster.id,x:200,y:200});
-  const ability={...getSpell('Hail of Thorns')!,id:'hail'};
-  expect(resolveAbilityRoll(s.id,'Ranger',caster,ability,1,undefined,target.id)).toBe(true);
-  const cast=listRollLog(s.id).find(r=>r.apply)!;expect(cast).toBeTruthy();
+  expect(resolveAbilityRoll(s.id,'Ranger',caster,{...getSpell('Hail of Thorns')!,id:'hail'},1)).toBe(false);
   expect(drainHpFx(s.id)).toHaveLength(0);
-  resolveForcedSave(s.id,cast.id,target.id);
-  const events=drainHpFx(s.id);expect(events).toHaveLength(1);
-  expect(events[0]).toMatchObject({spell:'Hail of Thorns',damageType:'piercing',refId:monster.id});
-  const reveal=listRollLog(s.id).find(r=>r.id===events[0].rollId)!;
-  expect(reveal.reveal?.kind).toBe('check');
-  expect(reveal.label).toBe('DEX save');
-  expect(events[0].delta).toBe(getMonster(monster.id)!.curHp-50);
  });
 });

@@ -20,13 +20,18 @@ const TERM = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
 const MAX_TERMS = 100;
 const MAX_TOTAL_DICE = 1000;
 
-export type PhysicalDiceInfo={expr:string;advantage?:Advantage;critical?:boolean;criticalFrom?:number;criticalDice?:boolean[]};
+export type PhysicalDiceInfo={expr:string;advantage?:Advantage;critical?:boolean;criticalFrom?:number;criticalDice?:boolean[];target?:{kind:'pc'|'monster';refId:string};label?:string};
 type DiceSource = (sides:number[],info:PhysicalDiceInfo) => number[];
 let physicalSource:DiceSource|undefined;
 export function withDiceSource<T>(source:DiceSource,run:()=>T):T {
   const previous=physicalSource;physicalSource=source;try{return run();}finally{physicalSource=previous;}
 }
 export function usingPhysicalDice(){return !!physicalSource;}
+/** A secondary save belongs to its actual target, including its visibility. */
+export function withDiceTarget<T>(target:NonNullable<PhysicalDiceInfo['target']>,label:string,run:()=>T):T {
+  const source=physicalSource;
+  return source?withDiceSource((sides,info)=>source(sides,{...info,target,label}),run):run();
+}
 let faces:number[]|undefined;
 const d = (sides: number) => {
   if (faces) {

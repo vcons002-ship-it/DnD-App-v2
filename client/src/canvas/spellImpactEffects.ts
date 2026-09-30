@@ -24,14 +24,15 @@ export function createSpellImpactEffects(scene:Scene){
     const haloMaterial=new MeshBasicMaterial({color:style.color,map:glow,transparent:true,blending:AdditiveBlending,side:DoubleSide,depthWrite:false,toneMapped:false});
     const halo=new Mesh(plane,haloMaterial);halo.rotation.x=-Math.PI/2;halo.position.y=.08;root.add(halo);
     const arrows:Group[]=[],vines:Mesh[]=[],sparks:Mesh[]=[];
-    const arrowCount=style.projectiles??14;
+    const arrowCount=input.event.areaWidthFt?32:style.projectiles??14;
     if(style.kind==='arrows')for(let i=0;i<arrowCount;i++){
       const arrow=new Group(),stem=new Mesh(shaft,bright),head=new Mesh(tip,body);
       stem.position.y=.38;head.rotation.z=Math.PI;arrow.add(stem,head);
       // Two fletchings and a long luminous shaft make these read as arrows.
       for(const sign of [-1,1]){const feather=new Mesh(tip,body);feather.scale.set(.6,.55,.2);feather.position.set(sign*.035,.69,0);feather.rotation.z=sign*.42;arrow.add(feather);}
       const angle=i*2.399963,r=arrowCount===1?0:.12+Math.sqrt((i+.5)/arrowCount)*.68;
-      arrow.userData={x:Math.cos(angle)*r,z:Math.sin(angle)*r,delay:(i%5)*.058};
+      arrow.userData={x:Math.cos(angle)*r,z:Math.sin(angle)*r,
+        areaX:((i*.61803398875)%1)-.5,areaZ:((i*.41421356237+.23)%1)-.5,delay:(i%5)*.058};
       arrow.rotation.z=-.12;root.add(arrow);arrows.push(arrow);
     }
     if(style.kind==='vines')for(let i=0;i<5;i++){
@@ -73,8 +74,10 @@ export function createSpellImpactEffects(scene:Scene){
         e.materials[0].opacity=fade*(reduced?.5:.85);e.materials[1].opacity=emission*(reduced?.4:1);
         e.materials[2].opacity=e.style.kind==='mark'?emission*.4:0;
         e.halo.scale.setScalar(e.style.kind==='mark'?1.6:2.4);e.halo.rotation.z=reduced?0:t*.7;
+        const areaScale=e.input.event.areaWidthFt?e.input.event.areaWidthFt*pixelsPerFoot/size:0;
         for(const arrow of e.arrows){const progress=Math.max(0,Math.min(1,(t-arrow.userData.delay)/.48));
-          arrow.visible=t>=arrow.userData.delay;arrow.position.set(arrow.userData.x+(1-progress)*.4,reduced?.15:2.4*(1-progress)+.12,arrow.userData.z);}
+          const x=areaScale?arrow.userData.areaX*areaScale:arrow.userData.x,z=areaScale?arrow.userData.areaZ*areaScale:arrow.userData.z;
+          arrow.visible=t>=arrow.userData.delay;arrow.position.set(x+(1-progress)*.4,reduced?.15:2.4*(1-progress)+.12,z);}
         for(const vine of e.vines){const growth=reduced?1:Math.max(.001,Math.min(1,(t-vine.userData.delay)/.40));
           vine.userData.growth=growth;vine.geometry.setDrawRange(0,Math.floor((vine.geometry.index!.count*growth)/3)*3);
           vine.children.forEach((leaf,j)=>{leaf.visible=growth>=(8+j*10)/39;});}
@@ -86,7 +89,7 @@ export function createSpellImpactEffects(scene:Scene){
         e.root.updateMatrixWorld(true);
         const samples:{object:Group|Mesh;local:Vector3;weight:number}[]=[];
         if(e.arrows.length){
-          const indices=e.arrows.length===1?[0]:[0,7,13];
+          const indices=e.arrows.length===1?[0]:[0,Math.floor(e.arrows.length/2),e.arrows.length-1];
           for(const i of indices){const arrow=e.arrows[i];if(arrow?.visible)samples.push({object:arrow,local:new Vector3(0,.2,0),weight:1/indices.length});}
         }else if(e.vines.length){
           for(const i of [0,2,4]){const vine=e.vines[i],growth=vine.userData.growth;

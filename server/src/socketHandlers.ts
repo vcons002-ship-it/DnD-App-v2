@@ -304,6 +304,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               :rolledToken?.kind==='monster'?getMonster(rolledToken.refId):undefined;
             const dmDice=!!npc || isDm()&&!actor;
             const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
+            if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
             const targetId=payload?.targetTokenId??(event==='save:resolve'?payload?.tokenId:undefined)??pending?.hitOptions?.targetTokenId??riposte?.attackerTokenId;
             const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id})):[];
@@ -334,13 +335,19 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 (socket as any).emit=(...values:any[])=>{afterRollCommit(()=>emit.apply(socket,values as any));return socket;};
                 activeCommandConnection=commandConn;
                 try{handler(...args);}finally{socket.emit=emit;activeCommandConnection=undefined;}
-              },frame=>{lastId=frame.id;for(const id of audience()){
-                if(!targetLabels.has(id)){
+              },(frame,info)=>{lastId=frame.id;for(const id of audience()){
+                const labelKey=`${id}:${info?.target?.refId??''}`;
+                if(!targetLabels.has(labelKey)){
                   const conn=getConn(id)!;
                   const view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
-                  targetLabels.set(id,(view?liveRollTarget(view,targetRefs):undefined)??(ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
+                  if(info?.target&&conn.role!=='dm'&&!view?.tokens.some(t=>!t.sharedSightOnly&&t.kind===info.target!.kind&&t.refId===info.target!.refId)){
+                    targetLabels.set(labelKey,undefined);continue;
+                  }
+                  targetLabels.set(labelKey,(view?liveRollTarget(view,info?.target?[info.target]:targetRefs):undefined)??(ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
                 }
-                io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(id)});
+                // An automatic area save must not expose an unseen bystander.
+                if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
+                io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(labelKey)});
               }},meta);
             }finally{if(lastId)for(const id of audience())io.to(id).emit('dice:finished',{id:lastId});}
           },failed);

@@ -3280,12 +3280,16 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  };
  await caption('Heavy darkness — lantern light only');await page.waitForTimeout(1800);darkBody=await brightness(await page.screenshot({path:info.outputPath('00-before.png')}));
  await caption('Hail of Thorns — a descending volley of magical arrows');
- await combat.getByRole('button',{name:/Hail of Thorns/}).click();
- await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
- await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
- await page.keyboard.press('Escape');
- await page.getByRole('button',{name:/Apply spell damage/}).click();
- const point=(await tokenView(page,enemy.id))!;await page.mouse.click(point.x,point.y);
+ let hailHit=false;
+ for(let attempt=0;attempt<5&&!hailHit;attempt++){
+  await combat.getByRole('button',{name:/Longbow/}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});await page.keyboard.press('Escape');
+  hailHit=await page.locator('.damage-prompt-btn').isVisible();
+ }
+ expect(hailHit).toBe(true);
+ await page.locator('.damage-prompt').getByRole('button',{name:'Hail of Thorns',exact:true}).click();
+ await page.locator('.damage-prompt').getByRole('button',{name:'L1',exact:true}).click();
  await impact('arrows','01-hail');
  await page.keyboard.press('Escape');
  await caption('Ensnaring Strike — vines grow around the struck creature');

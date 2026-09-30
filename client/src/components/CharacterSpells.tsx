@@ -536,7 +536,7 @@ export function CharacterSpells({
 
           {editable &&
             upcastable(a) &&
-            ((displayRoll && !rollsElsewhere) || (!displayRoll && isConcentration(a))) && (
+            !hitFeature(a) && ((displayRoll && !rollsElsewhere) || (!displayRoll && isConcentration(a))) && (
               <select
                 className="spell-level"
                 value={lvl}
@@ -577,7 +577,8 @@ export function CharacterSpells({
               ))}
             </select>
           )}
-          {editable && !displayRoll && isConcentration(a) && (
+          {hitFeature(a) && <span className="muted spell-meta">{hitFeature(a)==='hail of thorns'?'Ranged hit → Hail of Thorns → slot; automatic 5 ft burst':'Offered after a hit, beside Roll damage'}</span>}
+          {editable && !displayRoll && !hitFeature(a) && isConcentration(a) && (
             <button
               className="btn tiny"
               title="Cast — start concentration (drops any spell you were concentrating on)"
@@ -599,7 +600,7 @@ export function CharacterSpells({
           )}
           {/* A text-only entry (e.g. imported) → look it up and make it
               rollable in place. Skipped for toggle-driven items. */}
-          {editable && !displayRoll && !a.mastery && !a.maneuver && !a.stance && (
+          {editable && !displayRoll && !hitFeature(a) && !a.mastery && !a.maneuver && !a.stance && (
             <button
               className="btn tiny"
               disabled={enrichId === a.id}

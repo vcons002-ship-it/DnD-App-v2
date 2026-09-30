@@ -120,12 +120,12 @@ function activeStances(kind: TokenKind, refId: string): SheetAbility[] {
 }
 
 /** Resistances an active stance grants on top of the stat block (Rage). */
-function stanceResistances(kind: TokenKind, refId: string): string[] {
+export function stanceResistances(kind: TokenKind, refId: string): string[] {
   return activeStances(kind, refId).flatMap((ab) => ab.stance!.grantsResistances ?? []);
 }
 
 /** Named advantage on a Strength check or save from an active stance (Rage). */
-function strFeatureAdv(kind: TokenKind, refId: string, ability: string): string[] {
+export function strFeatureAdv(kind: TokenKind, refId: string, ability: string): string[] {
   if (ability.trim().toUpperCase() !== 'STR') return [];
   return activeStances(kind, refId)
     .filter((ab) => ab.stance!.advOnStrChecks)
@@ -253,7 +253,7 @@ function hidesMods(kind: TokenKind, refId: string): boolean {
   return kind === 'monster' && getMonster(refId)?.disposition !== 'friendly';
 }
 
-function applyDamageNoted(
+export function applyDamageNoted(
   kind: TokenKind,
   refId: string,
   amount: number,
@@ -1144,6 +1144,7 @@ export function resolveAttackDamage(
   sessionId: string,
   roller: string,
   rollId: string,
+  impactRollId?: string,
 ): boolean {
   materializeLiveDamage(sessionId,rollId);
   const entry = getRollEntry(rollId, sessionId);
@@ -1165,7 +1166,7 @@ export function resolveAttackDamage(
     p.damageType,
     p.attacker,
     p.crit,
-    damageRollId,
+    impactRollId ?? damageRollId,
     [p.weapon,...p.dice.map(d=>d.label)].join(" + "),
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);

@@ -965,6 +965,8 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Automatic area saves are visible only to viewers who can see this creature. */
+  visibilityTarget?: {kind: TokenKind; refId: string};
   /** Faces already rolled by authoritative live physics; do not replay a cosmetic throw. */
   physical?: boolean;
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
@@ -1759,6 +1761,8 @@ export type JoinAck =
  *  `damageType` (canonical 5e type, when the source knew it) drives a brief
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpFxEvent = {
+  /** Server-selected footprint of a single area impact, in feet. */
+  areaWidthFt?: number;
   /** Cosmetic source name, including spell riders on a weapon hit. */
   spell?: string;
   kind: TokenKind;

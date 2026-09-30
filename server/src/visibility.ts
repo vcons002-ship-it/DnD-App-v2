@@ -416,6 +416,8 @@ export function createSnapshotBuilder(
       }
     }
 
+    if (role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
+      !t.sharedSightOnly && t.kind===e.reveal!.visibilityTarget!.kind && t.refId===e.reveal!.visibilityTarget!.refId));
     if (role==='dm') {
       const labels=new Map(data.tokens.filter(t=>t.kind==='monster'&&t.revealTag).map(t=>{
         const name=monById.get(t.refId)?.name??'';

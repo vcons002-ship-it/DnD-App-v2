@@ -5,7 +5,7 @@ import type { Token } from '../../shared/types.js';
 import { markedEntity } from './marks.js';
 import { hitEffectSave } from './hitFeatures.js';
 import { listTokens,getSessionById,clearCondition,applyDamage,addRollLog,setCondition } from './sessions.js';
-import { noteConcentration } from './combat.js';
+import { noteConcentration, stanceResistances } from './combat.js';
 
 export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
   const e=markedEntity(token.kind,token.refId); if(!e) return;
@@ -21,7 +21,7 @@ export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
     setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,lastTick:tick}});
     if(fx.dice) {
       const roll=rollDice(fx.dice)!;
-      const amount=Math.floor(roll.total*damageMultiplier(fx.damageType,e.resistances,e.weaknesses,e.immunities,{magical:true}));
+      const amount=Math.floor(roll.total*damageMultiplier(fx.damageType,[...e.resistances,...stanceResistances(token.kind,token.refId)],e.weaknesses,e.immunities,{magical:true}));
       applyDamage(token.kind,token.refId,amount,fx.damageType,false,undefined,{spell:fx.spell});
       noteConcentration(sid,token.kind,token.refId,amount);
       addRollLog(sid,{roller:fx.spell,label:'Ongoing damage',expr:fx.dice,total:amount,detail:`${e.name}: ${fx.spell} deals ${amount} ${fx.damageType} damage.`});

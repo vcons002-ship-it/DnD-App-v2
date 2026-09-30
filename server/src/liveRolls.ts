@@ -91,7 +91,7 @@ export async function physicalFaces(
 /** Each synchronous pass is atomic. An unresolved die suspends the command,
  * rolls back DB/transient effects, and resumes with the actual settled faces.
  * No transaction or database lock is held while the physics runs. */
-export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame)=>void,meta:LiveRollMeta,roll=physicalFaces){
+export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
  const tape:{sides:number[];faces:number[]}[]=[];
  for(;;){
   let cursor=0;const undoHp=checkpointHpFx(),undoReactions=checkpointReactions();
@@ -112,7 +112,7 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame)=>voi
    let turned=false;
    for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
-   tape.push({sides:e.sides,faces:await roll(e.sides,publish,meta,undefined,e.info)});
+   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>publish(frame,e.info),{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
   }
  }
 }

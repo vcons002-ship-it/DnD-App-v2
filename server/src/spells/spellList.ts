@@ -670,10 +670,10 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 1,
     school: 'Conjuration',
     classes: ['ranger'],
-    tags: ['conjuration', 'ranger', 'piercing', 'concentration', 'aoe'],
-    meta: '1 bonus action · Self · V · Concentration',
+    tags: ['conjuration', 'ranger', 'piercing', 'aoe'],
+    meta: '1 bonus action after a ranged weapon hit · Self · V · Instantaneous',
     description:
-      'Your next ranged weapon hit bursts into thorns. Each creature within 5 ft of the target makes a DEX save, taking piercing damage (half on success).',
+      'Immediately after a ranged weapon hit, cast from the hit options. The target and every creature within 5 ft make a DEX save, taking 1d10 piercing damage (half on success). No concentration.',
     upcast: '+1d10 damage per slot above 1st.',
     roll: { kind: 'save', dice: '1d10', scaleDice: '1d10', baseLevel: 1, save: 'DEX', damageType: 'piercing' },
   },
