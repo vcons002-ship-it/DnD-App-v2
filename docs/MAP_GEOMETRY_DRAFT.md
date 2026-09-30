@@ -102,6 +102,22 @@ not a guarantee that every generated mask finds every feature. Raw images,
 drafts and the explicit saved-response replay receipt are under
 `artifacts/two-pass-walls/`.
 
+Combined verification with the approved solid-fill prompt and the unchanged
+natural-boundary prompt: three fresh API requests (wall, natural, door) on
+Twisted Vaults produced 3 wall polygons using 423 edges and 9 door candidates.
+Review excluded the lower rectangular room's empty archway; all 8 real doors,
+including the cave door, fitted against the final walls. The saved setup uses
+455 edges. All 8 doors passed open/closed/reclosed sight and movement checks,
+184 probes across door spans and jamb joins found no leaks, and 1,440 cave
+enclosure rays plus both masonry-to-cave join checks passed. The cave door's
+lock also prevented opening. The natural prompt already includes other solid
+rock boundaries and pillars, so it was not changed. The central pillar was
+again omitted by the model; the empty archway was again a false door candidate.
+Evidence and exact request metadata: `artifacts/connected-masks/`.
+The real player UI also passed a closed-door drag rejection, Open action,
+successful drag into the cave and Close action from inside. Both prompt strings
+were checked byte-for-byte against their accepted test receipts.
+
 ## Separate door-mask workflow
 
 DM: **Walls → Suggest doors from map art → Find doors**. This makes a separate
