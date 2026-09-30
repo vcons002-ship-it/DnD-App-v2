@@ -13,7 +13,7 @@ import {reportAi} from './ai/status.js';
 import {parseGeometrySuggestions,draftWallShape,type MapGeometryDraft} from '../../shared/mapGeometryDraft.js';
 import {MAX_MAP_WALLS,wallEdgeCount,sanitizeWalls} from '../../shared/mapWalls.js';
 
-export const YELLOW_WALL_PROMPT='Return the supplied map with ONLY a bright yellow (#FFFF00) paint annotation over the narrow TOP CAPS of its structural stone walls. Trace each visible wall cap precisely at its existing width and location. Leave doors and open passages unpainted. Do not include vertical wall faces, wall shadows, furniture or stairs. All original floor, objects, lighting, and background pixels must remain visible and unchanged. Do not black out the map. Do not produce a standalone segmentation diagram or black-background mask. Do not broaden or smooth the architecture. Preserve the entire source composition and framing. No labels.';
+export const YELLOW_WALL_PROMPT='Paint the entire TOP CAPS of the structural stone walls solid opaque bright yellow (#FFFF00), edge to edge at their exact existing width and location. Cover the stone texture and mortar seams with continuous filled yellow bands. Do not draw outlines, border strokes or centerlines. Leave doors and open passages unpainted. Do not include vertical wall faces, wall shadows, furniture or stairs. Preserve all other map pixels, the full composition and exact framing. Do not broaden the walls, black out the map or make a standalone segmentation diagram. No labels.';
 
 const hash=(data:string|Buffer)=>createHash('sha256').update(data).digest('hex');
 export async function geometrySource(mapId:string) {

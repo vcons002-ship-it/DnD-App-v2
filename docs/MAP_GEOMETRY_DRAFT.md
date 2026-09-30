@@ -45,8 +45,20 @@ server suite passed 1,059 tests; typecheck and production build passed.
 
 ## Two-pass structural walls and natural boundaries
 
-The first request uses the original focused wall-cap prompt again. It paints
-masonry yellow and has no cave, pillar or natural-boundary instructions.
+The first request focuses only on masonry. It explicitly requests solid opaque
+yellow across the entire wall-top width, covering texture and mortar seams,
+and excludes outlines, border strokes and centerlines. It has no cave, pillar
+or natural-boundary instructions. The previously restored prompt was the saved
+second Gemini experiment on a different dungeon; its "trace" wording also
+produced outlines on the crypt. The exact successful filled crypt request was
+not retained, so restoring that earlier base prompt did not reproduce it.
+
+The explicit fill prompt was tested on the same crypt image in one real Gemini
+request. The raw response painted the wall tops again (some mortar detail
+remained), and converted into 3 polygon pieces with 194 edges. The divider
+blocked sight and movement; all four doorway routes stayed open. Evidence and
+the exact request are under `artifacts/crypt-solid-pass/`. This correction only
+changes the first-pass prompt; the natural-boundary pass is unchanged.
 
 The second request receives that already annotated image and adds **green**
 cave rim outlines, other solid natural rock boundaries and pillar tops. Cave
