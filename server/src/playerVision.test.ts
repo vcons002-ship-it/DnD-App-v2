@@ -46,12 +46,12 @@ describe('personal dungeon vision',()=>{
    for(const socket of order){const snap=build('player',null,socket);
     expect(snap.playerVision?.rangeFt).toBe(60);
     expect(snap.tokens.some(t=>t.id===(socket==='vision-a'?f.near:f.far).id)).toBe(true);
-    expect(snap.tokens.some(t=>t.id===(socket==='vision-a'?f.far:f.near).id)).toBe(false);
-    expect(snap.monsters.map(m=>m.id)).toEqual([(socket==='vision-a'?f.near:f.far).refId]);
+    expect(snap.tokens.find(t=>t.id===(socket==='vision-a'?f.far:f.near).id)?.sharedSightOnly).toBe(true);
+    expect(snap.monsters.map(m=>m.id).sort()).toEqual([f.near.refId,f.far.refId].sort());
    }
   }
   expect(buildSnapshot(f.s.id,'dm',f.map.id)!.tokens).toHaveLength(4);
-  expect(buildSnapshot(f.s.id,'player',null,'unclaimed')!.tokens).toHaveLength(0);
+  expect(buildSnapshot(f.s.id,'player',null,'unclaimed')!.tokens.every(t=>t.sharedSightOnly)).toBe(true);
  });
  it('applies the same strict boundary in dim and complete darkness and updates after movement',()=>{
   const f=setup();
@@ -77,9 +77,9 @@ describe('personal dungeon vision',()=>{
    expect(snap.monsters.some(m=>m.id===f.far.refId)).toBe(true);
    expect(snap.tokens.find(t=>t.id===f.far.id)?.revealTag).not.toBe('U');
   }
-  expect(buildSnapshot(f.s.id,'player',null,'unclaimed')!.tokens).toHaveLength(0);
+  expect(buildSnapshot(f.s.id,'player',null,'unclaimed')!.tokens.every(t=>t.sharedSightOnly)).toBe(true);
   updateMapEnvironment(f.s.id,f.map.id,{lights:[]});
-  expect(buildSnapshot(f.s.id,'player',null,'vision-a')!.tokens.some(t=>t.id===f.far.id)).toBe(false);
+  expect(buildSnapshot(f.s.id,'player',null,'vision-a')!.tokens.find(t=>t.id===f.far.id)?.sharedSightOnly).toBe(true);
  });
  it('keeps distant lit enemies hidden under token fog or the DM hidden flag',()=>{
   const f=setup();updateMapEnvironment(f.s.id,f.map.id,{lights:[{id:'distant',x:1400,y:100,radiusFt:15,heightFt:5,intensity:1,color:'warm',flicker:true}]});
@@ -110,6 +110,8 @@ describe('personal dungeon vision',()=>{
   expect(buildSnapshot(f.s.id,'player',null,'vision-a')!.tokens.some(t=>t.id===f.far.id)).toBe(true);
   // A second, unlit enemy next to the carrier must not be disclosed by a concealed source.
   moveToken(f.near.id,1350,100);
+  const other=buildSnapshot(f.s.id,'dm',f.map.id)!.tokens.find(t=>t.kind==='pc'&&t.id!==f.ta.id)!;
+  setTokenHidden(other.id,true); // Isolate personal light visibility from party awareness.
   for(const conceal of ['hidden','fog']){
    setTokenHidden(f.far.id,conceal==='hidden');
    if(conceal==='fog'){setFogLayer(f.map.id,'tokens',true);setFogRevealed(f.map.id,'tokens',['27,2']);}

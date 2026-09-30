@@ -13,6 +13,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
+import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
@@ -20,6 +21,7 @@ import {createPreviewGpuTiming} from './previewGpuTiming';
 import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
+import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {
@@ -29,6 +31,7 @@ import {
 } from './miniatureProjection';
 
 export type MiniatureToken = {
+  sharedSightOnly?: boolean;
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   carriedLantern?: boolean;
@@ -42,14 +45,20 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
+  personalVision?: boolean;
   onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
+  preloadDefinitions?: MiniatureDefinition[];
+  onFailed?: (tokenIds: ReadonlySet<string>) => void;
+  onUnavailable?: () => void;
   view: BattlefieldView;
   tiltDegrees: number;
   rotationDegrees?: number;
   width: number;
   height: number;
   isVisibleAt?: (id: string, x: number, y: number) => boolean;
+  visualPosition?: (id:string)=>{x:number;y:number}|undefined;
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
@@ -152,16 +161,28 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const outlineMask = new WebGLRenderTarget(1, 1);
   outlineMask.depthTexture = new DepthTexture(1, 1);
   const outlineProjectionInverse = {value: new Matrix4()};
-  const maskMaterial = new MeshBasicMaterial({color: 0xffffff, toneMapped: false});
+  const maskMaterial = createMiniatureVisibilityMaterial();
   const outlineResolution = {value: new Vector2(1, 1)};
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
+  const visionLift=createMiniatureVisionLift(renderer,host,outlineMask.texture);
+  // Copy only the party-awareness pass above the personal vision cover. Reuse
+  // this renderer and its loaded assets; never copy terrain, lights or effects.
+  const sharedCanvas=document.createElement('canvas');
+  sharedCanvas.dataset.testid='shared-sight-miniatures';
+  sharedCanvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;filter:grayscale(1);opacity:.78';
+  host.parentElement?.appendChild(sharedCanvas);
+  const sharedContext=sharedCanvas.getContext('2d')!;
+  const sharedDepth=new MeshBasicMaterial({colorWrite:false});
+  let sharedFrameKey='';
+  const labelVersions=new WeakMap<HTMLCanvasElement,number>();let nextLabelVersion=0;
 
   const ambient = new HemisphereLight(0xe5edff, 0x726856, NEUTRAL_MINIATURE_LIGHTING.ambient);
   scene.add(ambient);
   const key = new DirectionalLight(0xffeddb, NEUTRAL_MINIATURE_LIGHTING.key);
   key.position.set(-3, 8, 5);
   scene.add(key);
+  ambient.layers.enable(4);key.layers.enable(4);
   // A small neutral environment keeps metal readable without per-token lights/shadows.
   let pmrem: PMREMGenerator | null = null;
   let room: RoomEnvironment | null = null;
@@ -173,6 +194,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environment = environment.texture;
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
+    sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
@@ -184,8 +206,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const assets = new Map<string, Promise<GLTF | null>>();
+  const failedAssets = new Set<string>();
+  let lastFailedIds: string | undefined;
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
+  const shaderWarmup=createMiniatureShaderWarmup(renderer,createMiniatureTorchLighting(localShadows.uniforms));
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
   // One local planning figure; geometry is shared with the loaded model. It has
@@ -251,6 +276,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
+    const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)).map(t => t.id).sort();
+    if (failedIds.join("|") !== lastFailedIds) {
+      lastFailedIds = failedIds.join("|");
+      props.onFailed?.(new Set(failedIds));
+    }
     const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
     const key = ids.join('|');
     const status = failed ? 'unavailable' : ids.length || (!props.tokens.length && battlefield?.ready) ? 'ready' : 'loading';
@@ -265,6 +295,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const fail = () => {
     if (disposed) return;
     failed = true;
+    props.onUnavailable?.();
     renderer.domElement.style.visibility = 'hidden';
     cancelAnimationFrame(frame);
     frame = 0;
@@ -296,7 +327,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (!instance) continue;
         const move = moves.get(token.id);
         if (move && move.until < now) moves.delete(token.id);
-        const position = moves.get(token.id) ?? token;
+        const position = {...(moves.get(token.id) ?? token),...props.visualPosition?.(token.id)};
         const wasVisible = instance.root.visible;
         instance.root.visible = props.isVisibleAt?.(token.id, position.x, position.y) ?? true;
         if (battlefield && (wasVisible !== instance.root.visible || instance.root.position.x !== position.x || instance.root.position.z !== position.y || instance.root.rotation.y !== (position.facing ?? 0) || (animated && instance.shadowAnimated))) renderer.shadowMap.needsUpdate = true;
@@ -316,7 +347,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const instance=instances.get(token.id);
         const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
         const body=instance?.mistBody?mistBodyInMap(instance.mistBody,x,y,instance.root.rotation.y,instance.root.scale.x):undefined;
-        return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden};
+        return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden && !token.sharedSightOnly};
       }));
       if(battlefield){
         const ppf=props.environmentPreview?.pixelsPerFoot??12.8;
@@ -338,12 +369,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
-        const renderedNames=names.sync(props.nameLabels?.()??[],visible);
-        if (battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
+        const labels=props.nameLabels?.()??[];
+        const renderedNames=names.sync(labels,visible,sharedIds);
+        if (props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -353,8 +386,48 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
         }
+        // Shared figures cannot cast shadows or light the viewer's actual map.
+        // A depth-only pass of personal figures preserves overlap ordering.
+        const sw=renderer.domElement.width,sh=renderer.domElement.height;
+        if(sharedCanvas.width!==sw||sharedCanvas.height!==sh){sharedCanvas.width=sw;sharedCanvas.height=sh;}
+        sharedCanvas.dataset.tokenIds=[...sharedIds].filter(id=>visible.has(id)).join(',');
+        sharedCanvas.style.display=sharedCanvas.dataset.tokenIds?'block':'none';
+        // Static awareness need not redraw for weather or torch flicker. Camera,
+        // pose, name, appearance and foreground occlusion changes invalidate it.
+        const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
+          environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
+          props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
+          labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
+        if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
+          sharedFrameKey=sharedKey;sharedContext.clearRect(0,0,sw,sh);
+          if(sharedIds.size){
+            const layers=camera.layers.mask,autoClear=renderer.autoClear;
+            const ambientIntensity=ambient.intensity,keyIntensity=key.intensity,reflection=scene.environmentIntensity;
+            const shadowUpdate=renderer.shadowMap.needsUpdate;
+            renderer.shadowMap.needsUpdate=false;
+            camera.layers.set(5);scene.overrideMaterial=sharedDepth;
+            renderer.render(scene,camera);
+            scene.overrideMaterial=null;camera.layers.set(4);renderer.autoClear=false;
+            // Shared sight uses the map's unlit darkvision appearance. Daylight
+            // lighting here made party sightings much brighter than personal sight.
+            if(!environment?.heavyDarkness){
+              ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
+              scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
+            }
+            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain,[]);}
+            renderer.render(scene,camera);
+            sharedContext.drawImage(renderer.domElement,0,0);
+            camera.layers.mask=layers;renderer.autoClear=autoClear;
+            ambient.intensity=ambientIntensity;key.intensity=keyIntensity;scene.environmentIntensity=reflection;
+            renderer.shadowMap.needsUpdate=shadowUpdate;
+          }
+        }
+        for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
+        battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
+        visionLift.render(!!props.personalVision);
+        for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();
         if (battlefield) {
           paintCount++;
@@ -414,10 +487,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     lastPaint = 0;
     queueDraw();
   };
-  const removeInstance = (id: string) => {
-    if(preview?.id===id)clearPreview();
-    const instance = instances.get(id);
-    if (!instance) return;
+  const disposeInstance = (instance:Instance) => {
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
@@ -431,18 +501,29 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.material.dispose();
     instance.turnRing.geometry.dispose();
     instance.turnRing.material.dispose();
+  };
+  const removeInstance = (id: string) => {
+    if(preview?.id===id)clearPreview();
+    const instance = instances.get(id);
+    if (!instance) return;
+    disposeInstance(instance);
     instances.delete(id);
     loading.delete(id);
     moves.delete(id);
   };
   const place = (token: MiniatureToken, instance: Instance) => {
     const factor = token.diameter / token.definition.baseDiameter;
-    const visible=props.isVisibleAt?.(token.id, (moves.get(token.id) ?? token).x, (moves.get(token.id) ?? token).y) ?? true;
+    const position = {...(moves.get(token.id) ?? token),...props.visualPosition?.(token.id)};
+    const visible=props.isVisibleAt?.(token.id,position.x,position.y) ?? true;
     if(battlefield && (instance.root.visible!==visible || instance.root.scale.x!==factor))renderer.shadowMap.needsUpdate=true;
     instance.root.scale.setScalar(factor);
     const model = instance.root.children[0];
+    model.traverse(node=>{
+      if(!(node instanceof Mesh)||node.name==='disposition-outline')return;
+      node.layers.disable(4);node.layers.disable(5);
+      node.layers.enable(token.sharedSightOnly?4:5);
+    });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
-    const position = moves.get(token.id) ?? token;
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
@@ -485,13 +566,25 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     });
     {
       if(battlefield&&!instance.mistBody)instance.mistBody=instance.measureBody();
-      const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden;
+      const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden && !token.sharedSightOnly;
       model.traverse(node=>{if(node instanceof Mesh && node.name !== 'disposition-outline'){
         const opaque=(Array.isArray(node.material)?node.material:[node.material]).every(material=>!material.transparent);
         if(node.castShadow !== (casts && opaque))renderer.shadowMap.needsUpdate=true;
         node.castShadow=casts && opaque;node.receiveShadow=casts && opaque;
       }});
     }
+  };
+  // Warm parsed models and their textures without creating hidden token instances.
+  const loadDefinition = (definition: MiniatureDefinition) => {
+      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
+        .then(async gltf => {
+          try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
+          catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
+        }).catch(() => { failedAssets.add(definition.url); if (!disposed) invalidate(); return null; }));
+      if (definition.fxUrl && !manifests.has(definition.fxUrl)) {
+        manifests.set(definition.fxUrl, fetch(definition.fxUrl, { signal: abort.signal })
+          .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
+      }
   };
   const sync = (next: Props) => {
     if (disposed || failed) return;
@@ -517,6 +610,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
     }
     updateCamera();
+    shaderWarmup.update(camera,scene,`${renderer.shadowMap.enabled}:${key.castShadow}:${!!scene.environment}`);
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
     }
@@ -537,15 +631,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (failed || loading.get(token.id) === token.definition.url) continue;
       loading.set(token.id, token.definition.url);
       const definition = token.definition;
-      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
-        .then(async gltf => {
-          try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
-          catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
-        }).catch(() => null));
-      if (definition.fxUrl && !manifests.has(definition.fxUrl)) {
-        manifests.set(definition.fxUrl, fetch(definition.fxUrl, { signal: abort.signal })
-          .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
-      }
+      loadDefinition(definition);
       void assets.get(definition.url)!.then(async (gltf) => {
         if (disposed || failed || !gltf) return;
         const current = props.tokens.find((item) => item.id === token.id && item.definition.url === definition.url);
@@ -688,8 +774,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           mistBody:props.environmentPreview?measureMistBody(gltf.scene,definition):undefined,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
-        instances.set(token.id, instance);
         place(current, instance);
+        // First-use shader linking was blocking the movement frame for hundreds
+        // of milliseconds. Compile against the real lighting before drawing the
+        // new body; KHR_parallel_shader_compile lets existing figures keep moving.
+        try { await renderer.compileAsync(root,camera,scene); }
+        catch(error) {console.warn('Miniature shader preparation failed',error);}
+        const latest=props.tokens.find(t=>t.id===token.id&&t.definition.url===definition.url);
+        if(disposed||failed||!latest||instances.has(token.id)) {disposeInstance(instance);return;}
+        instances.set(token.id, instance);
+        place(latest, instance);
         scene.add(root);
         if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();
@@ -701,6 +795,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
       });
     }
+    for (const definition of next.preloadDefinitions ?? []) loadDefinition(definition);
     invalidate();
   };
   const contextLost = (event: Event) => { event.preventDefault(); fail(); };
@@ -716,8 +811,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     [...instances.keys()].forEach(removeInstance);
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
+    shaderWarmup.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
+    sharedCanvas.remove();sharedDepth.dispose();visionLift.dispose();
     battlefield?.dispose();battlefield=null;
     localShadows.dispose();
     timing?.dispose();
@@ -795,7 +892,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   const latest = useRef(props);
   latest.current = props;
   const [state, setState] = useState({ ids: [] as string[], status: 'loading' });
-  const needsScene = props.tokens.length > 0 || !!props.environmentPreview;
+  const needsScene = props.tokens.length > 0 || !!props.preloadDefinitions?.length || !!props.environmentPreview;
   const socket = useStore(state => state.socket);
   useEffect(() => {
     const cast = ({ tokenIds }: { tokenIds: string[] }) => engine.current?.spellCast(tokenIds);
@@ -820,6 +917,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     } catch {
       host.current?.replaceChildren();
       setState({ ids: [], status: 'unavailable' });
+      latest.current.onUnavailable?.();
       latest.current.onReady(new Set());
     }
     return () => { engine.current?.dispose(); engine.current = null; };
@@ -827,6 +925,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   useEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}
+    data-personal-miniature-count={state.ids.filter(id=>!props.tokens.find(t=>t.id===id)?.sharedSightOnly).length}
     data-miniature-ids={state.ids.join(',')} data-miniature-status={state.status}
     data-tilt-degrees={props.tiltDegrees} />;
 });

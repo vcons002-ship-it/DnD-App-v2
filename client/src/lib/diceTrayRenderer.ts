@@ -6,7 +6,8 @@ import type {DiceTheme} from '../../../shared/diceThemes';
 const trayTextures=new Map<string,Promise<THREE.Texture>>();
 export const warmTrayGraphics=()=>{getDiceStage();};
 export async function loadTrayTexture(themeId:string){
-  if(!['fighter','ranger','sorcerer'].includes(themeId))return undefined;
+  if(themeId.startsWith('dm-'))themeId='dm';
+  if(!['fighter','ranger','sorcerer','dm'].includes(themeId))return undefined;
   try{let promise=trayTextures.get(themeId);if(!promise){promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);trayTextures.set(themeId,promise);}const t=(await promise).clone();t.colorSpace=THREE.SRGBColorSpace;return t;}catch{trayTextures.delete(themeId);return undefined;}
 }
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false){
@@ -30,8 +31,8 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const feltMap=new THREE.CanvasTexture(felt);feltMap.colorSpace=THREE.SRGBColorSpace;feltMap.wrapS=feltMap.wrapT=THREE.RepeatWrapping;feltMap.repeat.set(10,7);textures.push(feltMap);
   if(trayArt){trayArt.anisotropy=stage.renderer.capabilities.getMaxAnisotropy();textures.push(trayArt);}
   const feltMaterial=new THREE.MeshStandardMaterial({map:trayArt??feltMap,roughness:.94,metalness:0,bumpMap:feltMap,bumpScale:.012,envMapIntensity:.35});materials.push(feltMaterial);floor.material=feltMaterial;
-  const trim=theme.id==='fighter'?0xa27632:theme.id==='ranger'?0x784825:theme.id==='sorcerer'?0x454956:0x49413a;
-  const rim=theme.id==='fighter'?0x111116:theme.id==='ranger'?0x241207:theme.id==='sorcerer'?0x22080e:0x160904;
+  const trim=theme.id.startsWith('dm-')?0x9ba5b1:theme.id==='fighter'?0xa27632:theme.id==='ranger'?0x784825:theme.id==='sorcerer'?0x454956:0x49413a;
+  const rim=theme.id.startsWith('dm-')?0x171b23:theme.id==='fighter'?0x111116:theme.id==='ranger'?0x241207:theme.id==='sorcerer'?0x22080e:0x160904;
   for(const [x,y,w,h] of [[-7.2,0,.4,9.8],[7.2,0,.4,9.8],[0,-4.7,14.8,.4],[0,4.7,14.8,.4]]){
     const wall=box(x,y,.55,w,h,1.1,rim);
     const lining=wall.material as THREE.MeshStandardMaterial;

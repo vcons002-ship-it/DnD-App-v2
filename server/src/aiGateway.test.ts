@@ -54,6 +54,16 @@ describe('AI gateway — backend selection', () => {
     clearResolvedModel();
   });
 
+  it('passes the map image to both backends and falls back on invalid geometry JSON', async () => {
+    config.geminiApiKey='k'; config.aiMode='local';
+    const fetcher=stub('{"items":[]}', '{"wrong":true}');vi.stubGlobal('fetch',fetcher);
+    const image={mimeType:'image/png',data:'image-base64'};
+    expect(await generateJson('map',{images:[image],validateJson:v=>Array.isArray((v as any).items)})).toBe('{"items":[]}');
+    const bodies=fetcher.mock.calls.map(call=>JSON.parse(String(call[1]?.body??'{}')));
+    expect(bodies.find(b=>b.messages)?.messages[1].images).toEqual(['image-base64']);
+    expect(bodies.find(b=>b.contents)?.contents[0].parts[1]).toEqual({inlineData:image});
+  });
+
   it('gemini mode + key: prefers Gemini', async () => {
     config.geminiApiKey = 'k';
     vi.stubGlobal('fetch', stub('{"src":"gemini"}', '{"src":"local"}'));

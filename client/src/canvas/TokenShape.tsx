@@ -1,4 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import {stopAtWalls,wallCollisionRadiusFt,type MapWall} from '../../../shared/mapWalls';
 import {
   Group,
   Circle,
@@ -18,6 +19,7 @@ import { sameTokenDisplay, sameTokenFields, type TokenDisplay } from '../lib/ent
 import { useImage } from './useImage';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { moveDistanceFt, tokenMoveDuration, tokenMoveProgress } from './tokenMotion';
+import type {TokenPresentation} from './tokenPresentation';
 
 const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
@@ -31,6 +33,8 @@ export const DISPOSITION_HEX: Record<string, string> = {
 
 type Props = {
   token: Token;
+  presentation?: TokenPresentation;
+  sharedDarkvision?: boolean;
   display: TokenDisplay;
   gridSizePx: number;
   /** Pixels per foot (from the map scale) — sizes the token by its real width. */
@@ -45,9 +49,11 @@ type Props = {
   listening?: boolean;
   /** Replaces the portrait; the name, health and base hit region stay live. */
   miniatureReady?: boolean;
+  miniaturePending?: boolean;
   hideAffinity?: boolean;
   viewRotation?: number;
   miniatureDiameterFt?: number;
+  movementWalls?: readonly MapWall[];
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -74,6 +80,8 @@ const isAdditive = (e: KonvaEventObject<Event>): boolean => {
 
 function TokenShapeInner({
   token,
+  presentation,
+  sharedDarkvision=false,
   display,
   gridSizePx,
   pxPerFoot,
@@ -83,9 +91,11 @@ function TokenShapeInner({
   initiativeRank,
   listening = true,
   miniatureReady = false,
+  miniaturePending = false,
   hideAffinity = false,
   viewRotation = 0,
   miniatureDiameterFt,
+  movementWalls,
   onSelect,
   onActivate,
   onMove,
@@ -99,7 +109,7 @@ function TokenShapeInner({
 }: Props) {
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
-  const radius = ((miniatureReady ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
+  const radius = (((miniatureReady || miniaturePending) ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
   const auras = presentAuras(display.conditions);
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
@@ -120,6 +130,7 @@ function TokenShapeInner({
   // origin. Only the private shadow travels until a server snapshot commits.
   const tokenNode = useRef<Konva.Group>(null);
   const tokenArt = useRef<Konva.Group>(null);
+  const tokenBody = useRef<Konva.Group>(null);
   const dragOverlay = useRef<Konva.Group>(null);
   const previewBase = useRef<Konva.Group>(null);
   const previewArrow = useRef<Konva.Line>(null);
@@ -156,6 +167,11 @@ function TokenShapeInner({
     const node=tokenNode.current;
     if(!node)return;
     const destination={x:token.x,y:token.y};
+    if(presentation){
+      if(dragging.current&&(destination.x!==committed.current.x||destination.y!==committed.current.y))cancelDrag();
+      committed.current=destination;pose.current=presentation.position(token.id)??destination;
+      node.position(pose.current);return;
+    }
     if(destination.x===committed.current.x && destination.y===committed.current.y)return;
     if(dragging.current)cancelDrag();
     committed.current=destination;
@@ -175,7 +191,7 @@ function TokenShapeInner({
       motion.current=t<1 ? requestAnimationFrame(paint) : 0;
     };
     paint(start);
-  },[token.x,token.y,pxPerFoot]);
+  },[token.x,token.y,pxPerFoot,presentation]);
 
   useEffect(()=>{
     const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')cancelDrag();};
@@ -217,10 +233,13 @@ function TokenShapeInner({
     dragOverlay.current?.moveToTop();
     paintDrag(tokenNode.current!.x(),tokenNode.current!.y());
   };
-  const handleDragMove = (e: KonvaEventObject<DragEvent>) => paintDrag(e.target.x(),e.target.y());
+  const constrainMove=(x:number,y:number)=>stopAtWalls(committed.current,{x,y},wallCollisionRadiusFt(token.widthFt)*pxPerFoot,movementWalls);
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
+    const p=constrainMove(e.target.x(),e.target.y());e.target.position(p);paintDrag(p.x,p.y);
+  };
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     if(cancelled.current)return;
-    const {x,y}=e.target.position();
+    const {x,y}=constrainMove(e.target.x(),e.target.y());
     clearPreview();
     // No optimistic teleport: wait for the accepted position. A rejected move
     // simply leaves the token here, so no stale acknowledgement can move it.
@@ -364,6 +383,21 @@ function TokenShapeInner({
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
   // the others fill/stroke a shape and clip image icons to it.
   const shape = token.shape ?? 'circle';
+  useLayoutEffect(()=>{
+    const body=tokenBody.current;if(!body)return;
+    body.clearCache();body.filters([]);
+    if(sharedDarkvision&&!miniatureReady&&!miniaturePending){
+      body.cache({pixelRatio:2});
+      body.filters([(data:ImageData)=>{
+        for(let i=0;i<data.data.length;i+=4){
+          const l=(data.data[i]*.2126+data.data[i+1]*.7152+data.data[i+2]*.0722)/255;
+          const value=255*(.018+l*.10);
+          data.data[i]=data.data[i+1]=data.data[i+2]=value;
+        }
+      }]);
+    }
+    body.getLayer()?.batchDraw();
+  },[sharedDarkvision,miniatureReady,miniaturePending,iconImg,display,shape,radius,selected,isDead]);
   const strokeColor = selected ? '#ffffff' : '#1118';
   const strokeW = selected ? 4 : 2;
   // Clip path for an image icon, matched to the silhouette.
@@ -406,8 +440,9 @@ function TokenShapeInner({
       name="token"
       tokenId={token.id}
       miniatureReady={miniatureReady}
-      x={token.x}
-      y={token.y}
+      miniaturePending={miniaturePending}
+      x={presentation?.position(token.id)?.x??token.x}
+      y={presentation?.position(token.id)?.y??token.y}
       listening={listening}
       draggable={draggable}
       // Konva synthesizes a `click` for the right mouse button too (unlike the
@@ -436,13 +471,13 @@ function TokenShapeInner({
       onMouseOver={handleMouseOver}
       onMouseMove={handleMouseMove}
       onMouseOut={handleMouseOut}
-      opacity={token.isHidden ? 0.45 : 1}
+      opacity={isVisibleAt?.(token.id,presentation?.position(token.id)?.x??token.x,presentation?.position(token.id)?.y??token.y)===false ? 0 : token.isHidden ? 0.45 : 1}
     >
       {/* The entire painted token is decoration. Names, badges, HP bars and
           status/turn rings must not steal clicks from nearby token bodies. */}
       <Group ref={tokenArt} name="token-art" listening={false}>
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
-      {!miniatureReady && auras.map((a, i) => (
+      {!miniatureReady && !miniaturePending && auras.map((a, i) => (
         <Circle
           key={a}
           radius={radius + 5 + i * 5}
@@ -450,7 +485,7 @@ function TokenShapeInner({
           strokeWidth={4}
         />
       ))}
-      {activeTurn && !miniatureReady && (
+      {activeTurn && !miniatureReady && !miniaturePending && (
         <Circle
           name="active-turn-ring"
           ref={turnRing}
@@ -462,7 +497,11 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
-      <Group name="token-body" visible={!miniatureReady}>
+      {miniaturePending && <Group name="token-miniature-loading" listening={false}>
+        <Circle radius={Math.min(radius * .3, 12)} stroke="#c9bb9b" strokeWidth={1.5} dash={[3, 3]} />
+        <Text text="Loading 3D..." x={-45} y={16} width={90} align="center" fontSize={11} fill="#e8ddc6" stroke="#111" strokeWidth={2} fillAfterStrokeEnabled />
+      </Group>}
+      <Group ref={tokenBody} name="token-body" visible={!miniatureReady && !miniaturePending}>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
           // Pasted art: draw the whole image as-is (no clip), with an outline
@@ -582,7 +621,7 @@ function TokenShapeInner({
         </Group>
       )}
       {/* Disposition dot (top-left): green friendly · amber neutral · red enemy. */}
-      {display.disposition && !miniatureReady && !hideAffinity && (
+      {display.disposition && !miniatureReady && !miniaturePending && !hideAffinity && (
         <Circle
           x={-radius * 0.8}
           y={-radius * 0.8}
@@ -594,7 +633,7 @@ function TokenShapeInner({
       )}
       {/* Combat-role badge (bottom-left corner): ⚔️ melee · 🏹 ranged · ✨ caster.
           A solid dark disc behind the emoji keeps it legible over any token art. */}
-      {token.kind !== 'pc' && token.combatRole && !miniatureReady && (
+      {token.kind !== 'pc' && token.combatRole && !miniatureReady && !miniaturePending && (
         <Group name="token-combat-role" x={-radius * 0.72} y={radius * 0.72}>
           <Circle
             radius={roleBadgeR}
@@ -630,7 +669,7 @@ function TokenShapeInner({
       )}
       {/* The crown distinguishes 2D player-character tokens. A ready miniature
           provides its own silhouette, so it keeps only the health/status HUD. */}
-      {token.kind === 'pc' && !miniatureReady &&
+      {token.kind === 'pc' && !miniatureReady && !miniaturePending &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
           return (
@@ -665,7 +704,7 @@ function TokenShapeInner({
           ctx.beginPath();
           // An image token paints a circular fallback until its icon loads
           // (or if the icon is missing/failed), so its hit region must too.
-          if (miniatureReady) {
+          if (miniatureReady || miniaturePending) {
             // The model, weapon and HUD never receive input. Its circular base
             // is the sole hit region, even if its old portrait used another shape.
             ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
@@ -702,7 +741,7 @@ function TokenShapeInner({
       <Group ref={dragOverlay} name="token-move-preview" tokenId={token.id} visible={false} listening={false}>
         <Group ref={previewBase}>
           <Circle radius={radius} fill="#7fb6c8" opacity={.18} stroke="#b8e3ef" strokeWidth={2}/>
-          {!miniatureReady && (iconImg ? <KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2} opacity={.32}/>
+          {!miniatureReady && !miniaturePending && (iconImg ? <KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2} opacity={.32}/>
             : <Text text={hasEmojiIcon ? display.icon : display.name.slice(0,1)} x={-radius} y={-radius*.5} width={radius*2} align="center" fontSize={radius} fill="#b8e3ef" opacity={.45}/>)}
           <Line ref={previewArrow} points={[-radius*.22,radius*1.05,0,radius*1.4,radius*.22,radius*1.05]} stroke="#b8e3ef" strokeWidth={3} lineCap="round" lineJoin="round"/>
         </Group>
@@ -754,6 +793,8 @@ export const TokenShape = memo(
   TokenShapeInner,
   (p, n) =>
     sameTokenFields(p.token, n.token) &&
+    p.presentation === n.presentation &&
+    p.sharedDarkvision === n.sharedDarkvision &&
     sameTokenDisplay(p.display, n.display) &&
     p.gridSizePx === n.gridSizePx &&
     p.pxPerFoot === n.pxPerFoot &&
@@ -763,9 +804,11 @@ export const TokenShape = memo(
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
+    p.miniaturePending === n.miniaturePending &&
     p.hideAffinity === n.hideAffinity &&
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
+    p.movementWalls === n.movementWalls &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&

@@ -234,7 +234,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     if(flames.instanceColor)flames.instanceColor.needsUpdate=true;
     flame.uniforms.flameTime.value=time;
   };
-  return {fieldUniforms,update(next:EnvironmentPreviewSettings){
+  return {fieldUniforms,terrainGrade:{gradeColor:uniforms.gradeColor,gradeOpacity:uniforms.gradeOpacity,sceneTint:uniforms.sceneTint,sceneTintStrength:uniforms.sceneTintStrength},update(next:EnvironmentPreviewSettings){
     settings=next;wallGeometryKey='';const enabled=next.enabled&&next.mistQuality!=='off',preset=palettes[next.lighting??'day'];
     const level=(next.lightLevel??1)*(next.heavyDarkness?.10:1);
     plane.visible=enabled;plane.position.set((next.mapX??0)+next.mapWidth/2,.004,(next.mapY??0)+next.mapHeight/2);plane.scale.set(next.mapWidth,next.mapHeight,1);

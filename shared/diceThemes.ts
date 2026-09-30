@@ -21,3 +21,11 @@ export function diceThemeForClass(className = ''): DiceTheme {
   const match = className.toLowerCase().match(/\b(fighter|ranger|sorcerer|barbarian|bard|cleric|druid|monk|paladin|rogue|warlock|wizard|artificer)\b/);
   return DICE_THEMES[match?.[1] ?? 'neutral'];
 }
+
+const DM_DICE_THEMES: Record<string,DiceTheme> = Object.fromEntries(
+  Object.entries({enemy:0,friendly:140,neutral:49,'neutral-roll':265}).map(([key,hue])=>
+    [key,{...theme(`dm-${key}`,hue,65,'#c0c7d1','scale'),ink:'#edf0f5'}]));
+export function diceThemeForRoll(className = '', dmDice = false, affinity?: string): DiceTheme {
+  if (!dmDice) return diceThemeForClass(className);
+  return DM_DICE_THEMES[affinity??'neutral-roll']??DM_DICE_THEMES['neutral-roll'];
+}

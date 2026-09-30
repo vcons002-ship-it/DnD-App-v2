@@ -1,3 +1,5 @@
+import {doorApproachPoints} from '../../shared/mapWalls.js';
+import {rememberTerrain} from './exploration.js';
 import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
@@ -271,7 +273,9 @@ export function createSnapshotBuilder(
     return d;
   };
 
-  // Track active-map reveals even when only a DM staging another map is connected.
+  // DM-only prep does not explore terrain. When players view the active map,
+  // accumulate shared party history once per broadcast; live sight stays personal.
+  let exploredTerrain:import('../../shared/exploration.js').ExploredTerrain|undefined;
   if (activeMapId && mapById.has(activeMapId)) loadMapData(activeMapId);
 
   // Players see the attack resolution (HIT/MISS) but not the target's AC.
@@ -302,6 +306,9 @@ export function createSnapshotBuilder(
     const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
       mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
+    if(role==='player'&&map)exploredTerrain??=rememberTerrain(map,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
+      owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
+      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;
@@ -312,14 +319,31 @@ export function createSnapshotBuilder(
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
+      const party = new Set(data.tokens.filter(t => t.kind === 'pc' && !t.isHidden).map(t => t.refId));
+      const partyVision = createPlayerVision(map, data.tokens, party, t => tokenVisibleAt({role, hidden:t.isHidden,
+        owned:t.kind==='pc', foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
+        mapFog, tokenFog, grid, x:t.x, y:t.y}));
       // A concealed torch must not leak its position or light nearby visible figures.
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
       if(map?.environment && mapFog)map={...map,environment:{...map.environment,
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
-      tokens = tokens.filter(t => tokenVisibleAt({ role, hidden: t.isHidden,
-        owned: t.kind === 'pc' && charById.get(t.refId)?.claimedBy === socketId,
+      tokens = tokens.flatMap(t => {
+        if(t.isHidden)return [];
+        const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
+        if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&visionContains(playerVision,p.x,p.y))?[t]:[];
+        const personallyVisible = tokenVisibleAt({ role, hidden: false,
+        owned: t.kind === 'pc' && owned.has(t.refId),
         foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
-        mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y));
+        mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y);
+        if(personallyVisible)return [t];
+        // Party positions are always known. Explicit DM hiding still wins.
+        // Objects remain personal; remembered terrain never retains enemies.
+        if(t.kind==='pc')return [{...t,sharedSightOnly:true}];
+        if(monById.get(t.refId)?.objectKind || !party.size)return [];
+        const partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
+          foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && visionContains(partyVision,t.x,t.y);
+        return partyVisible?[{...t,sharedSightOnly:true}]:[];
+      });
       // Sources were fog/hidden-gated in createPlayerVision. A placed source
       // around a corner can illuminate a visible doorway; do not remove it
       // simply because its fixture is outside this viewer's line of sight.
@@ -406,10 +430,11 @@ export function createSnapshotBuilder(
     return {
       role,
       ...(playerVision?{playerVision}:{}),
+      ...(role==='player'?{exploredTerrain:exploredTerrain??[]}:{}),
       initiativePending: session.initiativePending,
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
-        tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId)),
+        tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId && !t.sharedSightOnly)),
       sessionCode: session.code,
       sessionName: session.name,
       map,

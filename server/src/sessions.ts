@@ -1,4 +1,5 @@
 import {rollDice} from '../../shared/dice.js';
+import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
@@ -534,6 +535,13 @@ export function createPastedObject(
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y, shape: 'image' });
 }
 
+/** Wall doors retain the same editable object record as legacy door tokens. */
+export function createWallDoorObject(sessionId:string,mapId:string,x:number,y:number):Token {
+ const name='Door';
+ const m=insertMonster(sessionId,{name,maxHp:1,objectKind:'door',objectDc:12,disposition:'neutral',modelType:'none',source:'manual'}, {isTemplate:false,templateId:null,name});
+ return createToken({mapId,kind:'monster',refId:m.id,x,y});
+}
+
 /**
  * Spawn a lightweight summon/companion: a FRIENDLY creature token (Mage Hand, a
  * conjured beast, …) with a name + icon and a minimal stat block. It's a real
@@ -590,14 +598,26 @@ export function faceTokenToward(sessionId:string,attackerTokenId:string,targetTo
  return true;
 }
 
-export function moveToken(tokenId: string, x: number, y: number): Token | null {
+export function wallLimitedMove(token:Token,x:number,y:number) {
+  const map=getMap(token.mapId);
+  const radius=map?wallCollisionRadiusFt(token.widthFt)*map.gridSizePx/(map.feetPerSquare||5):0;
+  return stopAtWalls(token,{x,y},radius,map?.walls);
+}
+
+export function moveToken(tokenId: string, x: number, y: number, blockWalls=false): Token | null {
   // Never trust client coordinates: reject NaN/Infinity and clamp to a sane
   // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
   // would break the map view for everyone) or bind a non-finite value.
   const clamp = (n: number) => Math.max(-100_000, Math.min(100_000, Number.isFinite(n) ? n : 0));
   const previous = getToken(tokenId);
   if (!previous) return null;
-  const {x: nextX, y: nextY} = resolveBasePlacement(previous, clamp(x), clamp(y));
+  const desired=blockWalls?wallLimitedMove(previous,clamp(x),clamp(y)):{x:clamp(x),y:clamp(y)};
+  const {x: nextX, y: nextY} = resolveBasePlacement(previous, desired.x, desired.y);
+  if(blockWalls){
+    const safe=wallLimitedMove(previous,nextX,nextY);
+    // Base-overlap correction must never push a token through a wall either.
+    if(Math.hypot(safe.x-nextX,safe.y-nextY)>.001)return previous;
+  }
   const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
   db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
   return getToken(tokenId);
@@ -651,6 +671,10 @@ export function deleteToken(tokenId: string): void {
   const token = getToken(tokenId);
   const sessionId = token ? getMap(token.mapId)?.sessionId : undefined;
   if (token && sessionId) passTurnOnFrom(sessionId, tokenId);
+  if(token){
+    const map=getMap(token.mapId);
+    if(map?.walls?.some(w=>w.tokenId===tokenId))db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(map.walls.filter(w=>w.tokenId!==tokenId)),map.id);
+  }
   db.prepare('DELETE FROM tokens WHERE id = ?').run(tokenId);
 }
 

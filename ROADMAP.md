@@ -4,6 +4,52 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Yellow mask wall import experiment - September 2026
+
+- [x] Convert the accepted Gemini wall outlines to solid app rectangles and
+  test player collision, server collision, blocked sight and preserved doorway
+  gaps in a disposable dungeon. See [results and replay](docs/YELLOW_MASK_WALL_TEST_2026_09_29.md).
+  Automatic yellow-mask generation/import in the DM UI remains a future step.
+
+## Shared exploration memory - September 2026
+
+- [x] Prepare common creature shaders before first reveal and raise heavy-darkness
+  creature detail another step, using the same shading for party-shared figures.
+  See [cold-reveal comparison](docs/COLD_REVEAL_DETAIL_2026_09_29.md).
+
+- [x] Match remembered terrain and shared figures to heavy-darkness darkvision;
+  gently lift unlit creature detail without washing out torchlight. See
+  [rendered comparison and verification](docs/HEAVY_DARKNESS_MEMORY_2026_09_29.md).
+
+- [x] Align terrain/creature reveals with animated movement in both personal and
+  shared sight, and asynchronously prepare first-use miniature shaders to avoid
+  blocking the movement frame. See [timing evidence and replay](docs/REVEAL_TIMING_2026_09_29.md).
+
+- [x] Retain explored terrain as a dim grayscale party map outside personal
+  sight. Save per map across reconnects and backups, preserve individual token
+  visibility, and let explicit DM fog override memory. Verified in the running
+  app in overhead/45-degree views and a second player session.
+  See [behavior and verification](docs/EXPLORED_TERRAIN_2026_09_29.md).
+
+- [x] Keep party members known in grayscale outside personal sight. Share live
+  enemy sightings as grayscale, display-only figures; remove them when the last
+  party observer loses sight. Block direct targeting in the UI and server.
+  Reuse loaded 2D/3D assets and preserve fog, walls, personal lighting and DM hiding.
+  See [creature awareness](docs/SHARED_CREATURE_SIGHT_2026_09_29.md).
+
+- [x] Keep visible miniature bodies above terrain fog in tilted and rotated
+  views. Restore raised body pixels using the finished lighting/mist frame;
+  retain personal darkness, shared awareness and hidden-enemy boundaries.
+  Pixel regression verifies the room mask no longer clips Druk's head.
+
+## Live dice modifier presentation - September 2026
+
+- [x] After live dice settle, reveal labeled attack/check and damage modifiers
+  one at a time, animate the running total, then collapse for map effects.
+  Reduced-motion presentation still resolves immediately.
+- [x] Correct the combat recording fixture to use Druk's approved Fighter
+  obsidian-and-gold dice theme.
+
 ## Mobile mist performance - September 2026
 
 - [x] Reuse native personal-vision SVG masks, batch updates per frame and reuse
@@ -900,14 +946,13 @@ Smaller refinements on top of the shipped Phase 2 work.
   **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
   tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
   `onDragActive` signal from `TokenShape`).
-- ☑ **Token footprint trail [req].** A move (local drag OR another client's, diffed
-  from the snapshot) leaves a lingering trail of **white footprints** (alternating
-  left/right ellipses with a **faint dark outline** for contrast) from the old spot
-  to the new one, fading **oldest-first** over **~30s** so players remember where a
-  token came from. Only the **6 most-recent** trails are kept — a 7th move **fades
-  the oldest out** (~2s) instead of popping. Decorative/non-listening; the
-  self-contained `FootprintLayer` owns the position-diff + fade tick so the long
-  fade never re-renders the rest of the map.
+- [x] **Token footprint trail [req].** Committed movement leaves alternating boot
+  impressions with a shaped sole, heel and tread. Steps appear behind the moving
+  token using the same movement easing, at physical stride spacing independent
+  of grid size. Bright ivory marks with dark outlines hold for four seconds, then fade
+  oldest-first. Prints are enlarged 30% for readability over textured maps.
+  Six active trails are retained with a bounded overflow fade; map changes reset
+  trails, and existing per-position visibility gates remain in effect.
 - ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
   toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
   Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
@@ -1037,9 +1082,9 @@ Smaller refinements on top of the shipped Phase 2 work.
   (backfilled `size*5`); resize works in 5ft steps; legacy `size` kept in sync.
 - ☑ **Creature search full-width [req].** The DM creature-search box spans the
   panel with HP / Add creature / AI on the row below (`.add-monster` column layout).
-- ☑ **Footstep trail rework [req].** Footprints are spaced a constant distance
-  apart (≈one per 0.8 cells, count scales with the move), larger and brighter, and
-  hold fully opaque before a faster oldest-first fade.
+- [x] **Footstep trail rework [req].** Physical spacing (2.2 ft for Medium,
+  scaled for creature size), progressive deposition and softer oldest-first fade.
+  Long moves retain the newest 48 steps without stretching stride spacing.
 - ☑ **DM removes PCs from the spawn list [req].** DM-gated `character:delete`
   removes a character + its tokens via a 🗑 button, refused while a connected
   player holds the claim (`isConnected`).
@@ -2132,3 +2177,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Stronger smoke-like body wake: speed-scaled initial separation transitions into inward refill and forward entrainment, with increased irregular turbulence. Body/base exclusion, front-contact bounds, fog visibility and bounded history remain intact.
 
 - [x] Mist movement opens a temporary swept-body density gap instead of only warping the pattern. Displaced banks cannot cancel the fresh clearing; the gap narrows and refills over about four seconds while turbulent motion continues.
+
+- [x] DM creature rolls use a dedicated leather/pewter dragon tray and affinity-colored marbled dice (enemy red, neutral amber, friendly green; general DM rolls purple). Player class styles remain separate.
+- [x] Settled face numbers hold for 460 ms before flying to their result boxes. Live physics retains its pace; damage presentation waits through the face flights and modifier sequence, or releases when skipped. Browser regression checks cover normal completion, skip, and animations disabled.
+
+- [x] Live dice retain the existing HIT/MISS/Fumble!/CRITICAL HIT and PASS/FAIL stamps, critical flourish, Nat 20 celebration, and matching result sounds. The result stamp gets a 1.2-second reading beat before compacting; damage feedback remains gated until completion or skip.

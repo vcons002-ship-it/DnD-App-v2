@@ -427,6 +427,12 @@ ensureColumn('tokens', 'shape', "shape TEXT NOT NULL DEFAULT 'circle'");
 ensureColumn('tokens', 'in_combat', 'in_combat INTEGER');
 ensureColumn('tokens', 'facing', 'facing REAL NOT NULL DEFAULT 0');
 ensureColumn('tokens', 'carried_lantern', 'carried_lantern INTEGER NOT NULL DEFAULT 0');
+// Shared exploration contains terrain geometry only and follows the map lifecycle.
+db.exec(`CREATE TABLE IF NOT EXISTS explored_terrain (
+  map_id TEXT PRIMARY KEY REFERENCES maps(id) ON DELETE CASCADE,
+  terrain_key TEXT NOT NULL,
+  geometry TEXT NOT NULL DEFAULT '[]'
+)`);
 // No token FK: deleted enemies must not free a public encounter number for reuse.
 db.exec(`CREATE TABLE IF NOT EXISTS encounter_tags (
   map_id TEXT NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
@@ -633,7 +639,13 @@ type MapRow = {
 
 export function rowToMap(r: MapRow): MapState {
   return {
-    walls: (()=>{try{return sanitizeWalls(JSON.parse(r.walls??'[]'));}catch{return [];}})(),
+    walls: (()=>{try{return sanitizeWalls(JSON.parse(r.walls??'[]')).map(w=>{
+      if(!w.door||!w.tokenId)return w;
+      const row=db.prepare('SELECT m.conditions FROM tokens t JOIN monsters m ON m.id=t.ref_id WHERE t.id=? AND t.map_id=? AND m.object_kind=?').get(w.tokenId,r.id,'door') as {conditions:string}|undefined;
+      if(!row)return {...w,open:false};
+      const conditions=JSON.parse(row.conditions) as {label:string}[];
+      return {...w,open:conditions.some(c=>c.label.toLowerCase()==='open')};
+    });}catch{return [];}})(),
     environment: readMapEnvironment(r.environment),
     id: r.id,
     sessionId: r.session_id,

@@ -68,6 +68,7 @@ export async function ollamaChat(
   system: string,
   user: string,
   opts: {
+    images?: string[];
     json?: boolean;
     model?: string;
     signal?: AbortSignal;
@@ -97,7 +98,7 @@ export async function ollamaChat(
         },
         messages: [
           { role: 'system', content: system },
-          { role: 'user', content: user },
+          { role: 'user', content: user, ...(opts.images?.length ? {images:opts.images} : {}) },
         ],
       }),
       signal,

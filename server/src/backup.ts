@@ -20,6 +20,7 @@ export type SessionBundle = {
   maps: Row[];
   tokens: Row[];
   encounterTags?: Row[];
+  exploredTerrain?: Row[];
   characters: Row[];
   monsters: Row[];
   measurements: Row[];
@@ -66,6 +67,7 @@ export function exportSession(code: string): SessionBundle | null {
       sid,
     ),
     encounterTags: all('SELECT t.* FROM encounter_tags t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
+    exploredTerrain: all('SELECT t.* FROM explored_terrain t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
     characters: all('SELECT * FROM characters WHERE session_id = ?', sid),
     monsters: all('SELECT * FROM monsters WHERE session_id = ?', sid),
     measurements: all('SELECT * FROM measurements WHERE session_id = ?', sid),
@@ -219,7 +221,8 @@ export const importSession = db.transaction(
 
     // 6. Maps, then their tokens (ref_id -> the remapped creature).
     for (const mp of data.maps)
-      insertRow('maps', mp, { id: mapIds.get(mp.id as string), session_id: sid });
+      insertRow('maps', mp, { id: mapIds.get(mp.id as string), session_id: sid,
+        ...(typeof mp.walls==='string'?{walls:JSON.stringify(JSON.parse(mp.walls).map((w:{tokenId?:string})=>({...w,...(w.tokenId?{tokenId:newRef(w.tokenId,tokIds)}:{})})))}:{}) });
     for (const t of data.tokens) {
       const ref = newRef(t.ref_id, t.kind === 'pc' ? charIds : monIds);
       const map = newRef(t.map_id, mapIds);
@@ -234,6 +237,10 @@ export const importSession = db.transaction(
     }
 
     // 7. Per-map extras + the session-wide logs.
+    for(const explored of data.exploredTerrain??[]){
+      const map=newRef(explored.map_id,mapIds);
+      if(map)insertRow('explored_terrain',explored,{map_id:map});
+    }
     for (const r of data.measurements)
       insertRow('measurements', r, {
         id: newId(),

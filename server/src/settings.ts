@@ -1,3 +1,4 @@
+import {upgradeLegacyGeminiModel} from '../../shared/geminiModels.js';
 import fs from 'node:fs';
 import { config } from './config.js';
 import { clearResolvedModel } from './creatures/gemini.js';
@@ -28,8 +29,8 @@ export function loadSettings(): void {
     const raw = fs.readFileSync(config.settingsPath, 'utf8');
     const s = JSON.parse(raw) as RuntimeSettings;
     if (typeof s.geminiApiKey === 'string') config.geminiApiKey = s.geminiApiKey;
-    if (typeof s.geminiImageModel === 'string' && s.geminiImageModel.trim()) config.geminiImageModel = s.geminiImageModel.trim();
-    if (typeof s.geminiModel === 'string') config.geminiModel = s.geminiModel;
+    if (typeof s.geminiImageModel === 'string' && s.geminiImageModel.trim()) config.geminiImageModel = upgradeLegacyGeminiModel(s.geminiImageModel,true);
+    if (typeof s.geminiModel === 'string') config.geminiModel = upgradeLegacyGeminiModel(s.geminiModel);
     if (typeof s.ollamaUrl === 'string' && s.ollamaUrl.trim())
       config.ollamaUrl = s.ollamaUrl.trim().replace(/\/$/, '');
     if (typeof s.ollamaModel === 'string' && s.ollamaModel.trim())

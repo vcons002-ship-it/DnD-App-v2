@@ -117,7 +117,7 @@ test('live damage stays out of HP and history until the dice settle, then expose
       const live=document.querySelector('[data-live-dice="true"]');
       const popup=document.querySelector('.roll-reveal');
       const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('Text').filter((n:any)=>/^[+\u2212]\d+$/.test(n.text())&&n.fill()==='#e23b3b'));
-      samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
+      samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',ready:popup?.getAttribute('data-impact-ready')==='true',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
       if(live||!fx.length)requestAnimationFrame(sample);
     };sample();
   });
@@ -128,10 +128,24 @@ test('live damage stays out of HP and history until the dice settle, then expose
   const samples=await page.evaluate(()=>(window as any).__liveTiming);
   expect(samples.some((s:any)=>s.live&&!s.settled)).toBe(true);
   expect(samples.filter((s:any)=>s.live&&s.fx)).toHaveLength(0);
+  expect(samples.filter((s:any)=>!s.ready&&s.fx)).toHaveLength(0);
   expect(samples.some((s:any)=>s.fx&&s.impact&&s.height<=180)).toBe(true);
   await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
   await page.waitForTimeout(3000);
   await expect(page.locator('.roll-reveal')).toBeVisible();
+});
+
+test('skipping the bonus reveal releases damage immediately', async ({page,request}) => {
+  const f=await fixture(request,page), pending=await armManualDamage(page,f);
+  await page.locator('.damage-prompt-btn').click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30_000});
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','false');
+  expect(await floaters(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.roll-reveal')).toHaveCount(0);
+  const result=await resolveDamage(page,f,pending.id);
+  await expect.poll(()=>floaters(page),{timeout:1500}).toContain(`\u2212${result.total}`);
 });
 
 test('queued direct damage applies once after live damage and reload does not replay floaters', async ({page,request}) => {
@@ -217,3 +231,41 @@ test('natural twenty check rendering announces the face and retains the total',a
   await expect(page.getByRole('status',{name:'Natural 20 celebration'})).toHaveText('Nat 20!',{timeout:30_000});
   await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
 });
+
+// Deterministic presentation fixtures exercise every legacy result through the
+// live-physics UI. Only received presentation data is changed; game math is not.
+for(const outcome of ['hit','miss','crit','fumble','pass','fail'] as const){
+ test(`live result prominently announces ${outcome} before compacting`,async({page,request})=>{
+  await page.routeWebSocket(/socket\.io/,ws=>{
+   const upstream=ws.connectToServer();upstream.onMessage(message=>{
+    if(typeof message==='string'&&message.startsWith('42')){
+     const packet=JSON.parse(message.slice(2));
+     if(packet[0]==='state:snapshot'){
+      for(const row of packet[1].rollLog??[])if(row.reveal?.kind==='check'){
+       row.reveal={...row.reveal,kind:outcome==='pass'||outcome==='fail'?'check':'attack',
+        d20:outcome==='fumble'?1:outcome==='crit'?20:12,toHit:[{label:'STR',value:3}],
+        attackTotal:outcome==='fumble'?4:outcome==='crit'?23:15,outcome,physical:true,target:'Timing target T1'};
+      }
+      message='42'+JSON.stringify(packet);
+     }
+    }ws.send(message);
+   });
+  });
+  const f=await fixture(request,page);
+  await page.evaluate(()=>{const times:any={};(window as any).__stampTimes=times;const tick=()=>{const card=document.querySelector('.roll-reveal');if(card?.querySelector('[aria-label="Roll result"]')){times.stamp??=performance.now();if(card.getAttribute('data-impact-ready')==='true'){times.impact=performance.now();return;}}requestAnimationFrame(tick);};tick();});
+  f.socket.emit('skill:roll',{characterId:f.character.id,skill:'Perception'});
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
+  const result=page.getByRole('status',{name:'Roll result',exact:true});
+  const labels={hit:'HIT',miss:'MISS',crit:'CRITICAL HIT!',fumble:'Fumble!',pass:'PASS',fail:'FAIL'};
+  await expect(result).toContainText(labels[outcome]);
+  await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
+  if(outcome==='fumble')await expect(result).toHaveText('Fumble!');
+  if(outcome==='crit')await expect(page.getByLabel('Critical hit celebration')).toBeVisible();
+  await expect(result).toBeVisible();
+  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
+  await expect(result).toBeVisible();
+  const times=await page.evaluate(()=>(window as any).__stampTimes);
+  expect(times.impact-times.stamp).toBeGreaterThanOrEqual(1000);
+ });
+}

@@ -119,6 +119,9 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  /** Viewer-only live party awareness. Render grayscale; never a direct target.
+   * Not stored on tokens or retained after the party loses sight of a creature. */
+  sharedSightOnly?: boolean;
   /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
   revealTag?: string;
   id: string;
@@ -801,6 +804,8 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Shared party exploration, saved per map; current sight remains personal. */
+  exploredTerrain?: import('./exploration.js').ExploredTerrain;
   /** Server-authored personal dungeon visibility; independent of graphics quality. */
   playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
@@ -1590,7 +1595,8 @@ export interface ClientToServerEvents {
   'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
   'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
-  'map:editWalls': (payload: {mapId: string; add?: import('./mapWalls.js').MapWall; removeId?: string}) => void;
+  'map:editWalls': (payload: {mapId: string} & import('./mapWalls.js').WallEdit) => void;
+  'map:setDoor': (payload:{mapId:string;doorId:string;open:boolean})=>void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;
   'measure:clear': (payload: MeasureClearPayload) => void;

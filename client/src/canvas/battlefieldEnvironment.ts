@@ -167,7 +167,7 @@ export function createBattlefieldEnvironment(
   environment.add(scenery, contacts);
   const visibility = createEnvironmentVisibility();
   const lighting=createBattlefieldLighting(scene,keyLight,ambient,visibility.uniforms,depthBuffer,shadowUniforms);
-  const darkvisionTerrain=createDarkvisionTerrain(scene,visibility.uniforms,lighting.fieldUniforms,depthBuffer,requestRender);
+  const darkvisionTerrain=createDarkvisionTerrain(scene,visibility.uniforms,lighting.fieldUniforms,lighting.terrainGrade,depthBuffer,requestRender);
   const mist = createBattlefieldMist(depthBuffer.texture, depthBuffer.resolution, visibility.uniforms,lighting.fieldUniforms);
   const weather=createBattlefieldWeather(scene,depthBuffer,visibility.uniforms);
   const particles=createBattlefieldParticles(scene,depthBuffer,visibility.uniforms);
@@ -480,6 +480,7 @@ export function createBattlefieldEnvironment(
   return { update, tick, setTokens, dispose, get ready() { return settings.overlay || groundMaterial.map !== null; },
     lighting,
     renderMist: mist.render,
+    renderMemory: darkvisionTerrain.renderMemory,
     get mistState() { return mist.state; },
     get atmosphereState(){return {...weather.state,...particles.state,...lighting.state,mistColor:settings.mistColor??'natural'};},
   };

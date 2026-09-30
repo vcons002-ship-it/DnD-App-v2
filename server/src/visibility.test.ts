@@ -508,7 +508,7 @@ describe('visibility role-shaping', () => {
     }
   });
 
-  it('map fog hides any non-owned token, but a player keeps their own PC', () => {
+  it('map fog preserves party positions as awareness and keeps the owned PC directly visible', () => {
     const session = createSession('MapFog');
     const map = createMap(session.id, { name: 'Cave', imagePath: '/u/x.png' });
     setActiveMap(session.id, map.id);
@@ -520,9 +520,9 @@ describe('visibility role-shaping', () => {
     setFogLayer(map.id, 'map', true);
     coverFog(map.id, 'map');
 
-    // The owning player still sees their own token; another player does not.
+    // The owner sees their PC; other players retain a grayscale party position.
     expect(buildSnapshot(session.id, 'player', null, 'socket-A')!.tokens).toHaveLength(1);
-    expect(buildSnapshot(session.id, 'player', null, 'socket-B')!.tokens).toHaveLength(0);
+    expect(buildSnapshot(session.id, 'player', null, 'socket-B')!.tokens).toMatchObject([{sharedSightOnly:true}]);
   });
 
   it('per-token hide keeps a token from players regardless of fog', () => {

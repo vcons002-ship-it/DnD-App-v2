@@ -1,3 +1,4 @@
+import {DEFAULT_GEMINI_MODEL,preferredGeminiTextModel} from '../../../shared/geminiModels.js';
 import { apiRequest } from '../ai/apiRequest.js';
 import { MONSTER_MODEL_TYPES, MONSTER_COLORS, normalizeModelType, normalizeModelColor, normalizeVisualTags } from '../../../shared/monsterAppearance.js';
 import { randomUUID } from 'node:crypto';
@@ -18,13 +19,7 @@ import { sanitizeModifiers } from '../../../shared/modifiers.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
 // through on "model not found" (404). A configured model override wins.
-const FALLBACK_MODELS = [
-  'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-pro-latest',
-  'gemini-2.5-pro',
-];
+const FALLBACK_MODELS = [DEFAULT_GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-2.5-pro'];
 
 /** The model we last reached successfully, cached for the process. */
 let resolvedModel: string | null = null;
@@ -166,7 +161,7 @@ function parseStats(v: unknown): Record<string, number> {
 
 /**
  * Ask the API which models THIS key can use for generateContent, and pick a
- * fast one (prefer "flash"). This adapts to whatever the user's key/project has
+ * quality-first one (prefer Pro). This adapts to whatever the user's key/project has
  * access to, so we never call a retired model.
  */
 async function discoverModel(signal?: AbortSignal): Promise<string | null> {
@@ -174,9 +169,9 @@ async function discoverModel(signal?: AbortSignal): Promise<string | null> {
     'https://generativelanguage.googleapis.com/v1beta/models',
     {headers:{'x-goog-api-key':config.geminiApiKey}},
     {signal,timeoutMs:15000,label:'Gemini model discovery'});
-  return result?.data?.models?.filter(m=>m.supportedGenerationMethods?.includes('generateContent'))
+  return preferredGeminiTextModel(result?.data?.models?.filter(m=>m.supportedGenerationMethods?.includes('generateContent'))
     .map(m=>m.name.replace(/^models\//,''))
-    .find(n=>/flash/i.test(n) && !/image|lite|thinking|tts/i.test(n)) ?? null;
+    .filter(Boolean) ?? []) ?? null;
 }
 
 /** Plain-text Gemini call (no JSON mime) for prose answers like the rules
@@ -191,7 +186,7 @@ export async function callGeminiText(
 /** Call Gemini, discovering/rotating models so a retired one never blocks us. */
 export async function callGemini(
   prompt: string,
-  opts: { json?: boolean; signal?: AbortSignal } = {},
+  opts: { json?: boolean; signal?: AbortSignal; images?: {mimeType:string;data:string}[] } = {},
 ): Promise<string | null> {
   if (!geminiEnabled() || opts.signal?.aborted) return null;
   const json = opts.json !== false; // default: structured JSON (existing callers)
@@ -213,8 +208,8 @@ export async function callGemini(
     const result = await apiRequest<{candidates?: {content?: {parts?: {text?:string}[]}}[]}>(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:'application/json'}:{}})},
-      {signal:opts.signal});
+        body:JSON.stringify({contents:[{parts:[{text:prompt},...(opts.images??[]).map(inlineData=>({inlineData}))]}],generationConfig:json?{responseMimeType:'application/json'}:{}})},
+      {signal:opts.signal,timeoutMs:120000});
     if(!result || opts.signal?.aborted) return null;
     if(result.status===404 && !config.geminiModel) {resolvedModel=null;continue;}
     if(result.status!==200) return null;

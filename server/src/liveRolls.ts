@@ -26,7 +26,7 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
   return info.advantage==='adv' ? (totals[0]>=totals[1]?0:1) : (totals[0]<=totals[1]?0:1);
 }
 
-type LiveRollMeta={label:string;roller:string;className:string;ready?:(id:string)=>Promise<void>;onFacing?:()=>void};
+type LiveRollMeta={label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;onFacing?:()=>void};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,
@@ -83,7 +83,7 @@ export async function physicalFaces(
       },1000/30);
     });
     // Allow the visible face-to-result animation to finish before publishing damage.
-    await new Promise(resolve=>setTimeout(resolve,1500+expanded.length*80));
+    await new Promise(resolve=>setTimeout(resolve,1640+expanded.length*80));
     result.push(...decode(values)); offset+=logical.length;
   }
   return result;

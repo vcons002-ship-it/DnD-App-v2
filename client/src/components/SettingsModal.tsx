@@ -29,13 +29,7 @@ type PublicSettings = {
 
 type RulebookInfo = { name: string; uploadedAt: number; pages: number; chunks: number };
 
-const SUGGESTED_MODELS = [
-  'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-pro-latest',
-  'gemini-2.5-pro',
-];
+const SUGGESTED_MODELS = ['gemini-3.1-pro-preview', 'gemini-3.8-flash'];
 
 /** DM settings popup: edit the Gemini API key + model (and future options). */
 export function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -307,7 +301,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="settings-field">
-          Model <span className="muted">(blank = auto-detect a fast model)</span>
+          Model <span className="muted">(blank = auto-detect, Pro preferred)</span>
           <input
             list="gemini-models"
             placeholder="auto"
@@ -322,9 +316,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </label>
 
         <label className="settings-field">
-          Image API backup model
-          <input value={imageModel} onChange={e=>setImageModel(e.target.value)} placeholder="gemini-3.1-flash-image" />
-          <span className="muted">Used when ComfyUI fails. Uses the Gemini key above; local workflows and LoRAs are not reproduced by the API.</span>
+          Image API model
+          <input value={imageModel} onChange={e=>setImageModel(e.target.value)} placeholder="gemini-3-pro-image" />
+          <span className="muted">Used for API-first art and when ComfyUI fails. Uses the Gemini key above; local workflows and LoRAs are not reproduced by the API.</span>
         </label>
 
         <h4>Rules assistant (local — Ollama)</h4>
