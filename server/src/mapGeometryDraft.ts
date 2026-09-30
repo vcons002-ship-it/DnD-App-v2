@@ -57,16 +57,22 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   throw new Error('Could not produce a usable wall mask. No walls were applied.');
 }
 
-/** One atomic append; image/grid/wall changes invalidate an old review. No existing wall is replaced. */
-export async function applyGeometryDraft(mapId:string,raw:unknown,selected:unknown) {
+/** Validate against the source being reviewed without changing the map. */
+export function prepareWallDraft(raw:unknown,selected:unknown,source:MapGeometryDraft['source']) {
   const draft=raw as MapGeometryDraft;
   if(draft?.version!==1||typeof draft.id!=='string'||!/^[\w-]{1,60}$/.test(draft.id))throw new Error('Invalid draft version or id.');
-  const items=parseGeometrySuggestions(draft),{source}=await geometrySource(mapId);
+  const items=parseGeometrySuggestions(draft);
   if(JSON.stringify(draft.source)!==JSON.stringify(source))throw new Error('The map image, grid or walls changed. Generate a new draft before applying.');
   if(!Array.isArray(selected)||selected.some(id=>typeof id!=='string'||!items.some(i=>i.id===id&&i.kind==='wall')))throw new Error('Select wall suggestions from this draft.');
   const additions=items.filter(i=>selected.includes(i.id)).map(item=>({...draftWallShape(item,source),id:`draft-${draft.id}-${item.id}`}));
   if(!additions.length)throw new Error('Select at least one wall.');
   if(sanitizeWalls(additions).length!==additions.length)throw new Error('Some walls are too small or exceed the wall limit.');
+  return additions;
+}
+
+/** One atomic append; image/grid/wall changes invalidate an old review. No existing wall is replaced. */
+export async function applyGeometryDraft(mapId:string,raw:unknown,selected:unknown) {
+  const {source}=await geometrySource(mapId),additions=prepareWallDraft(raw,selected,source);
   db.transaction(()=>{
     const map=getMap(mapId);
     if(!map||hash(JSON.stringify(map.walls??[]))!==source.wallsHash)throw new Error('Walls changed during review. Generate a new draft.');

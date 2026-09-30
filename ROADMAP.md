@@ -6,6 +6,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Wall shape editing - September 2026
 
+- [x] One-click walls, doors and lights: separate parallel mask requests, combined review, doors fitted to selected new walls, per-step retry and atomic application.
 - [x] Separate cyan-mask door analysis, review/select and atomic import of working doors into existing wall gaps. Keep wall/light requests independent and preserve original art.
 - [x] Add angled lines, hollow circular walls and free-draw strokes with map-scaled thickness.
 - [x] Drag and rotate any wall piece; preserve linked door state and object alignment.

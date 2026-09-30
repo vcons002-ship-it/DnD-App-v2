@@ -1,5 +1,46 @@
 # Map geometry drafts (experimental)
 
+## One-click walls, doors and lights
+
+DM: **Walls → Suggest walls, doors & lights** starts all three existing image
+API workflows immediately. Each receives the original base map and keeps its
+own prompt and mask: yellow walls, cyan doors, magenta light sources. The
+individual workflow buttons remain available.
+
+The combined review shows progress for each analysis and previews the selected
+results together over the map. Switch tabs to select walls, doors or lights;
+**Show mask** displays that workflow's raw AI image. Doors are fitted against
+existing walls plus the new walls currently selected, so deselecting a jamb can
+disable its door until the jamb is selected again. Incorrect doors still need
+to be deselected; suggestions without two suitable jambs cannot be applied.
+
+**Apply selected setup** validates every selected draft and saves the complete
+selection in one transaction, then broadcasts one map update. Doors start
+closed and unlocked. Lights use the existing art, with no added 3D fixture.
+The base image and existing map features are preserved. If one analysis fails,
+**Retry walls/doors/lights** reruns only that step; successful drafts and their
+selections stay available. After all requests finish, successful results can
+also be applied without the failed step. **Run all again** explicitly replaces
+all three drafts. Closing without applying leaves gameplay unchanged.
+
+`POST /api/maps/:mapId/setup-draft/apply` requires DM authentication and accepts
+`{drafts, selected}` with separate `walls`, `doors` and `lights` members. The
+server checks image/grid/wall/light freshness, refits doors itself and enforces
+the combined geometry budget before writing anything. Tiles are not analyzed.
+The button makes three independent image requests, with the existing per-step
+retry behavior; it does not combine all mask tasks into one image prompt.
+
+Verified in the isolated app on 30 September 2026: one UI click made three real
+Gemini mask requests on a fresh Lantern Crypt map. The combined endpoint saved
+6 wall pieces, 4 fitted doors and 12 lights, preserving the image and omitting
+3D light fixtures. Evidence is under `artifacts/setup-live/`. This verifies the
+combined workflow, not perfect detection: the wall mask missed the horizontal
+divider between the two left rooms, and door suggestions still require review.
+Three Playwright tests cover one-click launch, review-dependent door fitting,
+real atomic Apply, per-step retry/selection retention and DM authorization
+(image generation is stubbed only in those automated browser tests). The full
+server suite passed 1,059 tests; typecheck and production build passed.
+
 ## Separate door-mask workflow
 
 DM: **Walls → Suggest doors from map art → Find doors**. This makes a separate

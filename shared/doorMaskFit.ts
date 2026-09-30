@@ -1,7 +1,6 @@
-import type {DoorMarker} from '../../shared/mapDoorDraft.js';
-import type {MapWall} from '../../shared/mapWalls.js';
-import {insideWallGeometry,wallBoundarySegments} from '../../shared/wallGeometry.js';
-import {polygonWall} from './wallPolygonDoor.js';
+import type {DoorMarker} from './mapDoorDraft.js';
+import type {MapWall} from './mapWalls.js';
+import {insideWallGeometry,wallBoundarySegments} from './wallGeometry.js';
 
 /** Fit the detected line to nearby jambs. Never cut or move existing wall art. */
 export function fitDoorMarker(marker:DoorMarker,walls:readonly MapWall[],gridSizePx:number):{wall?:MapWall;issue?:string} {
@@ -27,5 +26,6 @@ export function fitDoorMarker(marker:DoorMarker,walls:readonly MapWall[],gridSiz
   // any part of the opening when the linked door is opened.
   const pad=Math.max(.5,gridSizePx*.025),half=Math.max(1,Math.min(marker.thickness,gridSizePx*.2))/2;
   const p=(along:number,across:number)=>({x:x+tx*along-ty*across,y:y+ty*along+tx*across});
-  return {wall:{...polygonWall(marker.id,[[p(lo-pad,-half),p(hi+pad,-half),p(hi+pad,half),p(lo-pad,half)]]),door:true,open:false}};
+  const points=[p(lo-pad,-half),p(hi+pad,-half),p(hi+pad,half),p(lo-pad,half)];
+  return {wall:{id:marker.id,kind:'polygon',ax:Math.min(...points.map(p=>p.x)),ay:Math.min(...points.map(p=>p.y)),bx:Math.max(...points.map(p=>p.x)),by:Math.max(...points.map(p=>p.y)),points,door:true,open:false}};
 }
