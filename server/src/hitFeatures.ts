@@ -2,7 +2,9 @@ import {materializeLiveDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
-import { rollDicePool } from '../../shared/dice.js';
+import { rollDice, rollDicePool, withDiceMetadata } from '../../shared/dice.js';
+import { hasLineOfSight } from '../../shared/mapWalls.js';
+import {rollSaveBatch} from './saveDiceBatch.js';
 import { abilityMod, proficiencyBonus } from '../../shared/skills.js';
 import { damageMultiplier, rollSavingThrow, weaponIsMagical } from '../../shared/combatMath.js';
 import { saveAdvantage, saveAutoFail } from '../../shared/conditionEffects.js';
@@ -13,8 +15,8 @@ import { newId } from './db.js';
 import { markedEntity } from './marks.js';
 import { getSessionById, getCharacter, getMonster, getMap, getToken, listTokens, getRollEntry,
   setRollPending, setSheetAbility, setResource, spendSpellSlot, setCondition, clearCondition,
-  setConcentration, addRollLog, endConcentration, moveToken } from './sessions.js';
-import { resolveAttackDamage } from './combat.js';
+  setConcentration, addRollLog, endConcentration, moveToken, queueSpellImpact } from './sessions.js';
+import { resolveAttackDamage, applyDamageNoted, noteConcentration, stanceResistances, strFeatureAdv } from './combat.js';
 
 export function turnKey(sid:string) {
   const s=getSessionById(sid);
@@ -39,8 +41,9 @@ export function hitOptions(sid:string,ch:Character,at:Token,target:Token,w:Weapo
     tokenDistanceFt(t,target,getMap(at.mapId))<=5);
   return ch.sheetAbilities.filter(ab=>{
     const key=hitFeature(ab); if(!key) return false;
+    if(hitSpell(key)&&victim&&'objectKind' in victim&&victim.objectKind)return false;
     if(hitSpell(key)) return hitLevels(ch,ab).length>0 && (!s?.activeTurnTokenId||s.activeTurnTokenId===at.id) &&
-      (!s?.activeTurnTokenId || !ch.sheetAbilities.some(a=>a.hitUsedTurn===`bonus:${turn}`)) && (key==='ensnaring strike'||w.kind==='melee');
+      (!s?.activeTurnTokenId || !ch.sheetAbilities.some(a=>a.hitUsedTurn===`bonus:${turn}`)) && (key==='hail of thorns'?w.kind==='ranged':key==='ensnaring strike'||w.kind==='melee');
     if(spent(ch,key,turn)) return false;
     if(key==='sneak attack') return (w.kind==='ranged'||(w.tags??[]).some(t=>t.toLowerCase()==='finesse')) && adv!=='dis' && (adv==='adv'||ally);
     if(key==='stunning strike') return monkWeapon(w) && ['Focus Points','Focus','Ki'].some(k=>ch.resources[k]?.used<ch.resources[k]?.max);
@@ -52,11 +55,21 @@ export function hitOptions(sid:string,ch:Character,at:Token,target:Token,w:Weapo
 function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv') {
   const e=markedEntity(target.kind,target.refId)!;
   const labels=e.conditions.map(c=>c.label), extra=saveExtra(e,ab);
-  const state=saveAdvantage(labels,ab,adv).state;
+  const state=saveAdvantage(labels,ab,adv,strFeatureAdv(target.kind,target.refId,ab)).state;
   const c={...e,stats:effectiveStats(e).scores,isMonster:target.kind==='monster',level:e.level??0};
-  const out=rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab));
+  const out=withDiceMetadata({label:`${label} - ${ab} Saving Throw`,target:{kind:target.kind,refId:target.refId}},()=>rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab)));
   const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
-  addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}`});
+  const ensnaring=abilityKey({name:label})==='ensnaring strike';
+  const effectKey=abilityKey({name:label});
+  const explanation=ensnaring?(passed?'Resisted - no spell damage.':'Restrained - damage at the start of its turn.')
+    : effectKey==='stunning strike'?(passed?'Not stunned - slowed until the caster\'s next turn.':'Stunned until the caster\'s next turn.')
+    : effectKey==='thunderous smite'?(passed?'Push and knockdown resisted.':'Knocked prone and pushed 10 ft.')
+    : effectKey==='wrathful smite'?(passed?'Fear resisted or ended.':'Frightened - the effect continues.')
+    : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.') : undefined;
+  addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}${explanation?`. ${explanation}`:''}`,
+    reveal:{kind:'check',title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
+      toHit:[{label:`${ab} save modifiers`,value:total-out.face}],outcome:passed?'pass':'fail',effectOutcome:explanation,
+      visibilityTarget:{kind:target.kind,refId:target.refId}}});
   return passed;
 }
 export function resolveHitFeature(sid:string,roller:string,rollId:string,abilityId:string,level?:number) {
@@ -74,11 +87,51 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
   const pool=['Focus Points','Focus','Ki'].find(k=>ch.resources[k]?.used<ch.resources[k]?.max);
   if(key==='stunning strike'&&!pool) return {ok:false,reason:'No Focus/Ki points remaining.'};
   if(p.live){materializeLiveDamage(sid,rollId);return resolveHitFeature(sid,roller,rollId,abilityId,level);}
-  // Claim first. All subsequent damage remains part of the original attack.
+  // Claim the optional feature before spending its resource or resolving damage.
   setSheetAbility('pc',ch.id,{...ab,hitUsedTurn:spell?`bonus:${turn}`:turn,stance:ab.stance?{...ab.stance,active:false}:undefined});
   if(spell) spendSpellSlot(ch.id,level!);
   if(key==='stunning strike') setResource(ch.id,'resources',pool!,{used:ch.resources[pool!].used+1});
   const n=level??1;
+  if(key==='hail of thorns') {
+    const map=getMap(target.mapId)!;
+    const dc=spellSaveDC(ch.level,effectiveStats(ch).scores,spellcastingKeyFor(ch,ab));
+    const seen=new Set<string>();
+    const targets=listTokens(target.mapId).filter(t=>{
+      const entity=markedEntity(t.kind,t.refId),id=`${t.kind}:${t.refId}`;
+      if(!entity||('objectKind' in entity&&entity.objectKind)||seen.has(id)||
+        tokenDistanceFt(t,target,map)>5+1e-6||!hasLineOfSight(target,t,map.walls))return false;
+      seen.add(id);return true;
+    });
+    // Show the shared damage first, then all target saves in one labeled throw.
+    const damage=withDiceMetadata({label:'Hail of Thorns — Piercing Damage'},()=>rollDice(`${n}d10`))!,impactId=newId();
+    const requests=targets.map(t=>{
+      const entity=markedEntity(t.kind,t.refId)!,labels=entity.conditions.map(c=>c.label);
+      return {target:t,c:{...entity,stats:effectiveStats(entity).scores,isMonster:t.kind==='monster',level:entity.level??0},ability:'DEX',dc,
+        mode:saveAdvantage(labels,'DEX').state,proficient:(entity.saveProficiencies??[]).some(v=>v.toUpperCase()==='DEX'),extra:saveExtra(entity,'DEX').total,autoFail:!!saveAutoFail(labels,'DEX')};
+    });
+    const outcomes=rollSaveBatch(requests,`${ab.name} — DEX Saving Throws`);
+    const saves=requests.map((r,i)=>({t:r.target,entity:markedEntity(r.target.kind,r.target.refId)!,out:outcomes[i],total:outcomes[i].total+r.extra,passed:!r.autoFail&&outcomes[i].total+r.extra>=dc}));
+    // The weapon and burst are distinct damage sources, but their map effects
+    // wait for the final burst roll to finish (or be skipped).
+    resolveAttackDamage(sid,roller,rollId,impactId);
+    for(const {t,entity,total,out,passed} of saves){
+      const multiplier=damageMultiplier('piercing',[...entity.resistances,...stanceResistances(t.kind,t.refId)],entity.weaknesses,entity.immunities,{magical:true});
+      const amount=Math.floor(Math.floor(damage.total*(passed?.5:1))*multiplier);
+      const hpNote=applyDamageNoted(t.kind,t.refId,amount,'piercing',attacker,false,impactId);
+      noteConcentration(sid,t.kind,t.refId,amount);
+      addRollLog(sid,{roller:entity.name,label:'Hail of Thorns: DEX save',expr:'DEX save',total,hpNote,
+        hideMods:t.kind==='monster'&&getMonster(t.refId)?.disposition!=='friendly',
+        detail:`${entity.name}: DEX save ${total} vs DC ${dc}: ${passed?'PASS (half damage)':'FAIL'}; ${amount} piercing damage.`,
+        reveal:{kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',effectOutcome:`${amount} piercing damage${passed?' (save for half)':''}.`,outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
+          toHit:[{label:'DEX save modifiers',value:total-out.face}],visibilityTarget:{kind:t.kind,refId:t.refId}}});
+    }
+    queueSpellImpact(sid,target.kind,target.refId,'Hail of Thorns',impactId,Math.max(map.feetPerSquare,target.widthFt)+10);
+    addRollLog(sid,{roller,label:'Hail of Thorns',expr:damage.expr,total:damage.total,
+      detail:`${ch.name}: Hail of Thorns (${damage.expr}) → ${victim.name} and creatures within 5 ft. ${damage.detail}. DEX save for half.`,
+      reveal:{kind:'damage',attacker:roller,target:`${victim.name} · 5 ft burst`,outcome:'none',damage:damage.total,damageType:'piercing',
+        damageDice:[{label:'Hail of Thorns',value:damage.total,faces:damage.rolls,diceExpression:damage.expr}]}},impactId);
+    return {ok:true};
+  }
   const expr=key==='sneak attack'?`${Math.ceil(ch.level/2)}d6`:key==='colossus slayer'?'1d8':key==='divine strike'?(ch.level>=14?'2d8':'1d8'):
     key==='searing smite'?`${n}d6`:key==='thunderous smite'?`${n+1}d6`:key==='wrathful smite'?`${n}d6`:undefined;
   const type=key==='searing smite'?'fire':key==='thunderous smite'?'thunder':key==='wrathful smite'?'necrotic':key==='divine strike'?(ab.roll?.damageType||'radiant'):w.damageType;

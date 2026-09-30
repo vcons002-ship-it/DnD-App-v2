@@ -119,6 +119,8 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  /** Derived active spell marks; display only, never a persisted condition. */
+  markLabels?: string[];
   /** Viewer-only live party awareness. Render grayscale; never a direct target.
    * Not stored on tokens or retained after the party loses sight of a creature. */
   sharedSightOnly?: boolean;
@@ -965,6 +967,10 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Plain-language effect result alongside the target's save result. */
+  effectOutcome?: string;
+  /** Automatic area saves are visible only to viewers who can see this creature. */
+  visibilityTarget?: {kind: TokenKind; refId: string};
   /** Faces already rolled by authoritative live physics; do not replay a cosmetic throw. */
   physical?: boolean;
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
@@ -1019,7 +1025,7 @@ export type PendingDamage = {
   live?: {kind: 'weapon' | 'spell'; args: unknown[]; fixed: unknown};
   hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
 
-  maneuver?: { abilityIds: string[]; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };
+  maneuver?: { abilityIds: string[]; targetTokenId?:string; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };
   /** Multi-ray cast whose next attack waits until this hit's damage is applied. */
   sourceRollId?: string;
   /** Who takes it (and their name, so the button can read "→ Goblin"). */
@@ -1759,6 +1765,10 @@ export type JoinAck =
  *  `damageType` (canonical 5e type, when the source knew it) drives a brief
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpFxEvent = {
+  /** Server-selected footprint of a single area impact, in feet. */
+  areaWidthFt?: number;
+  /** Cosmetic source name, including spell riders on a weapon hit. */
+  spell?: string;
   kind: TokenKind;
   refId: string;
   /** Negative: full damage taken after defenses (including overkill/temp HP).

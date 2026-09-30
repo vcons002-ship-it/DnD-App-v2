@@ -41,6 +41,11 @@ export async function physicalFaces(
     const logical:number[]=[]; let count=0;
     while(offset+logical.length<sides.length) {
       const side=sides[offset+logical.length], next=side===100?2:1;
+      const save=info?.saveDice?.[offset+logical.length];
+      if(save&&info?.saveDice&&count>0&&info.saveDice[offset+logical.length-1]?.group!==save.group){
+        const groupSize=info.saveDice.slice(offset+logical.length).findIndex(d=>d.group!==save.group);
+        if(count+(groupSize<0?info.saveDice.length-offset-logical.length:groupSize)>40)break;
+      }
       if(count+next>40) break;
       logical.push(side); count+=next;
     }
@@ -62,7 +67,7 @@ export async function physicalFaces(
       const state=world.snapshot();
       const kept=state.done&&info?.advantage&&offset+logical.length===sides.length
         ? keptPhysicalSet([...result,...decode(state.values as number[])],info) : undefined;
-      publish({...state,poses:state.poses.map(v=>Math.round(v*10000)/10000),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...displayMeta});
+      publish({...state,poses:state.poses.map(v=>Math.round(v*10000)/10000),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
       return state;
     };
     const prepared=ready?.(id);
@@ -83,7 +88,7 @@ export async function physicalFaces(
       },1000/30);
     });
     // Allow the visible face-to-result animation to finish before publishing damage.
-    await new Promise(resolve=>setTimeout(resolve,1640+expanded.length*80));
+    await new Promise(resolve=>setTimeout(resolve,1640+expanded.length*80+(info?.saveDice?1800:0)));
     result.push(...decode(values)); offset+=logical.length;
   }
   return result;
@@ -91,7 +96,7 @@ export async function physicalFaces(
 /** Each synchronous pass is atomic. An unresolved die suspends the command,
  * rolls back DB/transient effects, and resumes with the actual settled faces.
  * No transaction or database lock is held while the physics runs. */
-export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame)=>void,meta:LiveRollMeta,roll=physicalFaces){
+export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
  const tape:{sides:number[];faces:number[]}[]=[];
  for(;;){
   let cursor=0;const undoHp=checkpointHpFx(),undoReactions=checkpointReactions();
@@ -112,7 +117,7 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame)=>voi
    let turned=false;
    for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
-   tape.push({sides:e.sides,faces:await roll(e.sides,publish,meta,undefined,e.info)});
+   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>publish(frame,e.info),{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
   }
  }
 }

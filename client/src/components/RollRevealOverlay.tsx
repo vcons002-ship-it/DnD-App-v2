@@ -193,6 +193,8 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
   const releaseImpact = useStore((s) => s.releaseRollImpact);
   const landings = useRef<{ d20?: (set: number) => void; damage?: (index: number, set: number) => void }>({});
   const reveal = rollFx?.reveal;
+  const awaitingDamage=useStore(s=>!!s.snapshot?.rollLog.some(e=>e.id===rollFx.rollId&&e.pending&&!e.pending.done));
+  const resultHoldMs=reveal?.kind==='check' && ['pass','fail'].includes(reveal.outcome)?8000:awaitingDamage?1200:HOLD_MS;
   const comparison = reveal?.comparison;
   // A 'check' is a single-d20 skill/save/check → total (no damage phase). A 'dice'
   // roll (`/roll`, dice-panel buttons) and a spell-damage 'damage' burst are both
@@ -251,14 +253,14 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
       });
       const impactAt=complete+(!isBurst&&reveal.outcome!=='none'?RESULT_STAMP_HOLD_MS:0);
       at(impactAt,()=>releaseImpact(rollFx.rollId));
-      at(impactAt+HOLD_MS,dismiss);
+      at(impactAt+resultHoldMs,dismiss);
       return cleanup;
     }
     if (staticReveal) {
       if(reveal.physical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
       setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
       at(0, () => releaseImpact(rollFx.rollId));
-      at(HOLD_MS, dismiss);
+      at(resultHoldMs, dismiss);
       return cleanup;
     }
     if (!staticReveal) {
@@ -317,7 +319,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
           if (hasDamage) startDamage(outcomeAt + DMG_GAP_MS);
           else {
             at(outcomeAt, () => releaseImpact(rollFx.rollId));
-            at(outcomeAt + HOLD_MS, dismiss);
+            at(outcomeAt + resultHoldMs, dismiss);
           }
         };
 
@@ -363,9 +365,9 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         : reveal.outcome === 'hit'
           ? 'HIT'
           : reveal.outcome === 'pass'
-            ? 'PASS'
+            ? /save|saving throw/i.test(reveal.title??'')?'SAVE PASSED':'PASS'
             : reveal.outcome === 'fail'
-              ? 'FAIL'
+              ? /save|saving throw/i.test(reveal.title??'')?'SAVE FAILED':'FAIL'
               : 'MISS';
   // The result stamp shows once the roll resolves — but only when there IS a
   // pass/fail/hit result (a plain check or `/roll` has outcome 'none' → no stamp).
@@ -399,17 +401,17 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         onClick={dismiss}
         title="Click to skip"
       >
+        {reveal.title && <div className="rr-title">{reveal.title.replace(/\bsave\b/i,'Saving Throw')}</div>}
         <div className="roll-reveal-who">
           {reveal.attacker}
           {reveal.target ? <span className="rr-arrow"> &rarr; {reveal.target}</span> : reveal.kind==='damage' ? <span className="rr-arrow"> &middot; Targets not selected</span> : ''}
         </div>
         {mapImpact && <div className="roll-impact-summary" role="status">
           <strong>{reveal.damage !== undefined ? reveal.damage : reveal.attackTotal}</strong>
-          <span>{reveal.damage !== undefined ? `${reveal.damageType ?? ''} damage` : isCheck ? 'Check total' : 'Attack total'}</span>
+          <span>{reveal.damage !== undefined ? isDice ? /healing/i.test(reveal.title??'')?'healing':'total' : `${reveal.damageType ?? ''} damage` : isCheck ? /save|saving throw/i.test(reveal.title??'')?'Save total':'Check total' : 'Attack total'}</span>
         </div>}
         {showNaturalTwenty && <div className="natural-twenty" role="status" aria-label="Natural 20 celebration">Nat 20!</div>}
         {/* Sub-headline for a check/dice roll: the check name or the expression. */}
-        {reveal.title && <div className="rr-title">{reveal.title}</div>}
 
         {!isBurst && (staticReveal || stage.phase !== 'damage') && (
           <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>
@@ -437,6 +439,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         {showOutcome && <div className="roll-reveal-outcome" role="status" aria-label="Roll result">
           {outcomeLabel}
         </div>}
+        {showOutcome && reveal.effectOutcome && <div className="rr-title" role="status" aria-label="Spell outcome">{reveal.effectOutcome}</div>}
         {showOutcome && reveal.outcome === 'crit' && <div className="critical-flourish" aria-label="Critical hit celebration">
           <span aria-hidden="true">✦</span><strong>DEVASTATING STRIKE</strong><span aria-hidden="true">✦</span>
           <small>Double the damage dice</small>

@@ -1,4 +1,5 @@
 import {wallsFromYellowMask} from '../server/src/wallMask';
+import {getSpell} from '../server/src/spells/srd';
 import sharp from 'sharp';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
@@ -2552,7 +2553,7 @@ test('walls block player drags and hide DM outlines outside editing',async({page
 
 
 test('DM cuts doors into walls and players reveal daylight rooms by opening them',async({page,request,browser},info)=>{
- test.setTimeout(240000);await page.setViewportSize({width:1500,height:1000});
+ test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1500,height:1000});
  const f=await fixture(page,request),druk=f.ready.tokens[0],varis=f.ready.tokens[1];
  f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'partition',kind:'rectangle',ax:450,ay:-2000,bx:470,by:2000}});
  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:false}});
@@ -3219,4 +3220,112 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
   for(const ctx of contexts)await ctx.close();
   writeFileSync(info.outputPath('chapters.json'),JSON.stringify({mode,title,chapters,evidence,errors},null,2));
  }
+});
+
+test('spell impacts light a heavy dungeon after dice and keep hunter spell identities',async({page,request},info)=>{
+ test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1600,height:1000});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
+ page.on('dialog',d=>d.accept());
+ const f=await fixture(page,request,await cornerDemoMap()),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:150,locked:false,hidden:false});
+ for(const [token,x,y] of [[druk,1050,570],[varis,650,550],[vanec,700,600]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
+ cornerDemoWalls.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:`spell-wall-${i}`,kind:'rectangle',ax,ay,bx,by}}));
+ f.socket.emit('monster:create',{name:'Goblin sentry',modelType:'goblin',disposition:'enemy',maxHp:400,armorClass:1,stats:{STR:1,DEX:1},weapons:[{name:'Scimitar',kind:'melee',damage:'1d6',attackBonus:4}]});
+ const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin sentry')!;
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:980,y:550});
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:350,y:400});
+ const spells=['Hail of Thorns','Ensnaring Strike','Fire Bolt'].map(name=>({...getSpell(name)!,id:name}));
+ spells.push({id:'mark',name:"Hunter's Mark",type:'spell',level:1,description:'Mark a creature as your quarry.',tags:['concentration']});
+ f.socket.emit('character:update',{characterId:varis.refId,className:'Ranger',level:8,armorClass:16,stats:{STR:12,DEX:20,CON:14,INT:18,WIS:20,CHA:10},weapons:[{name:'Longbow',kind:'ranged',damage:'1d8',damageType:'piercing',attackBonus:100,range:'150/600 ft'}],sheetAbilities:spells});
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:true,mist:false,shadows:true,lights:[]}});
+ f.socket.emit('session:setManualDamage',{manual:true});
+ const ready=await f.snapshot(),enemy=ready.tokens.find(t=>t.kind==='monster'&&t.x>900)!,hidden=ready.tokens.find(t=>t.kind==='monster'&&t.x<400)!;
+ await enter(page,f.code,'Varis');
+ const layer=page.getByTestId('miniature-layer'),combat=page.locator('.compact-player-combat');
+ await expect(layer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+ await expect(layer).toHaveAttribute('data-spell-impact-count','0');
+ await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ await page.getByLabel('Attack target',{exact:true}).selectOption(enemy.id);
+ await expect.poll(()=>tokenView(page,hidden.id)).toBeNull();
+ // Inspect the actual figure materials at a readable scale, not just a distant flash.
+ await page.mouse.move(900,750);await page.mouse.down();await page.mouse.move(750,750,{steps:12});await page.mouse.up();
+ const focus=(await tokenView(page,enemy.id))!;await page.mouse.move(focus.x,focus.y);
+ for(let i=0;i<7;i++){await page.mouse.wheel(0,-100);await afterPaint(page);}
+ await page.mouse.move(1250,230);await page.waitForTimeout(400);
+ const drukView=(await tokenView(page,druk.id))!;
+ const brightness=async(png:Buffer)=>{
+  const {data}=await sharp(png).extract({left:Math.round(drukView.x-16),top:Math.round(drukView.y-65),width:32,height:55}).removeAlpha().raw().toBuffer({resolveWithObject:true});
+  // Colored light need not raise all three channels: measure its strongest
+  // channel rather than treating saturated orange as dimmer than gray.
+  const channels=[0,0,0];for(let i=0;i<data.length;i++)channels[i%3]+=data[i];
+  return Math.max(...channels)/(data.length/3);
+ };
+ let darkBody=0;
+ await page.evaluate(()=>{
+  const label=document.createElement('div');label.id='spell-demo-caption';label.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:100;background:#080d13eb;border:1px solid #a7b8b1;color:#ebf4ed;padding:12px 24px;border-radius:8px;font:22px Georgia;pointer-events:none;white-space:nowrap';document.body.append(label);
+  const samples:any[]=[];(window as any).spellLightSamples=samples;
+  const sample=()=>{const l=document.querySelector('[data-testid="miniature-layer"]') as HTMLElement|null,r=document.querySelector('.roll-reveal');
+   samples.push({t:performance.now(),count:Number(l?.dataset.spellImpactCount??0),strength:Number(l?.dataset.spellLightStrength??0),positions:JSON.parse(l?.dataset.spellLightPositions??'[]'),kinds:l?.dataset.spellImpactKinds,rolling:!!document.querySelector('[data-live-dice="true"]'),ready:r?.getAttribute('data-impact-ready'),caption:document.getElementById('spell-demo-caption')?.textContent});
+   (window as any).spellLightFrame=requestAnimationFrame(sample);};sample();
+ });
+ const caption=async(text:string)=>page.locator('#spell-demo-caption').evaluate((el,text)=>{el.textContent=text;},text);
+ const done=async()=>{await expect(layer).toHaveAttribute('data-spell-impact-count','0',{timeout:10000});await page.keyboard.press('Escape');await page.waitForTimeout(500);};
+ const impact=async(kind:string,name:string)=>{
+  await page.waitForFunction(kind=>(document.querySelector('[data-testid="miniature-layer"]') as HTMLElement)?.dataset.spellImpactKinds===kind,kind,{polling:'raf',timeout:45000});
+  await page.waitForFunction(()=>Number((document.querySelector('[data-testid="miniature-layer"]') as HTMLElement)?.dataset.spellLightStrength)>1,undefined,{polling:'raf',timeout:5000});
+  if(kind==='arrows')await page.waitForTimeout(500); // falling light reaches the figures
+  const png=await page.screenshot({path:info.outputPath(`${name}.png`)});
+  if(kind==='arrows'||kind==='burst')expect(await brightness(png),'The nearby figure is actually illuminated').toBeGreaterThan(darkBody*1.3);
+  expect(await tokenView(page,hidden.id)).toBeNull();await done();
+ };
+ await caption('Heavy darkness — lantern light only');await page.waitForTimeout(1800);darkBody=await brightness(await page.screenshot({path:info.outputPath('00-before.png')}));
+ await caption('Hail of Thorns — a descending volley of magical arrows');
+ let hailHit=false;
+ for(let attempt=0;attempt<5&&!hailHit;attempt++){
+  await combat.getByRole('button',{name:/Longbow/}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});await page.keyboard.press('Escape');
+  hailHit=await page.locator('.damage-prompt-btn').isVisible();
+ }
+ expect(hailHit).toBe(true);
+ await page.locator('.damage-prompt').getByRole('button',{name:'Hail of Thorns',exact:true}).click();
+ await page.locator('.damage-prompt').getByRole('button',{name:'L1',exact:true}).click();
+ await impact('arrows','01-hail');
+ await page.keyboard.press('Escape');
+ await caption('Ensnaring Strike — vines grow around the struck creature');
+ let hit=false;
+ for(let attempt=0;attempt<5&&!hit;attempt++){
+  await combat.getByRole('button',{name:/Longbow/}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});await page.keyboard.press('Escape');
+  hit=await page.locator('.damage-prompt-btn').isVisible();
+ }
+ expect(hit).toBe(true);
+ await page.locator('.damage-prompt').getByRole('button',{name:'Ensnaring Strike',exact:true}).click();
+ await page.locator('.damage-prompt').getByRole('button',{name:'L1',exact:true}).click();
+ await impact('vines','02-vines');
+ await caption('Hunter’s Mark — a brief green magical aura');
+ await combat.getByRole('button',{name:/Hunter.s Mark/}).click();await impact('mark','03-mark');
+ // A normal elemental spell follows the same light channel, including its damage-roll wait.
+ await caption('Fire Bolt — warm firelight on the floor and nearby figures');
+ let fireHit=false;
+ for(let attempt=0;attempt<5&&!fireHit;attempt++){
+  await combat.getByRole('button',{name:/Fire Bolt/}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});await page.keyboard.press('Escape');
+  fireHit=await page.locator('.damage-prompt-btn').isVisible();
+ }
+ expect(fireHit).toBe(true);await page.locator('.damage-prompt-btn').click();await impact('burst','04-fire');
+ await caption('Each flash fades; walls and unexplored rooms stay hidden');await page.waitForTimeout(2000);
+ const samples=await page.evaluate(()=>{cancelAnimationFrame((window as any).spellLightFrame);return (window as any).spellLightSamples;});
+ writeFileSync(info.outputPath('spell-light-timing.json'),JSON.stringify({samples,errors},null,2));
+ expect(samples.some((s:any)=>s.count>0)).toBe(true);
+ expect(samples.filter((s:any)=>s.count>0&&s.rolling&&s.ready!=='true')).toEqual([]);
+ const movingSources=(kind:string)=>samples.filter((s:any)=>s.kinds===kind&&s.positions.length===3);
+ const arrowSources=movingSources('arrows'),vineSources=movingSources('vines');
+ expect(arrowSources.length).toBeGreaterThan(4);expect(vineSources.length).toBeGreaterThan(4);
+ expect(arrowSources[0].positions[0][1]-arrowSources.at(-1).positions[0][1],'Arrow light descends with the luminous shaft').toBeGreaterThan(20);
+ const vineTop=vineSources.at(-1).positions[0][1];
+ expect(vineTop-vineSources[0].positions[0][1],'Vine light rises along the growing vine, scaled to this creature').toBeGreaterThan(vineTop*.25);
+ expect(errors).toEqual([]);
 });

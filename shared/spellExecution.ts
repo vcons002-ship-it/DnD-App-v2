@@ -42,6 +42,8 @@ export function effectiveSheetAbility(ability: SheetAbility, castLevel?: number)
   if (hitFeature(ability)) return {...ability,roll:undefined,stance:undefined};
   if (markSpell(ability)) return {...ability,type:'spell',level:1,roll:{kind:'damage',dice:'0',baseLevel:1,targetMode:'single'}};
   const name = ability.name.trim().toLowerCase();
+  if (isHasteSpell(ability)) return {...ability, level:3, tags:[...(ability.tags??[]),'concentration'], roll:{kind:'damage',dice:'0',baseLevel:3,targetMode:'single'}};
+  if (ability.type==='spell' && name==='mage hand' && !ability.summon) return {...ability,level:0,summon:{name:'Mage Hand',icon:'\u270b'}};
   const savedRoll = ability.roll;
   if (ability.type === 'ability' && name === 'second wind' && savedRoll?.kind === 'heal' &&
       savedRoll.dice?.replace(/\s/g, '').toLowerCase() === '1d10') {
@@ -144,3 +146,6 @@ export function spellcastingKeyFor(
 export function criticalDiceExpression(expression: string): string {
   return (expression.replace(/\s+/g, '').match(/[+-]?(?:\d*)d\d+/gi) ?? []).join('');
 }
+
+/** Recognize existing saved Haste entries without rewriting campaign sheets. */
+export const isHasteSpell = (a: SheetAbility): boolean => a.type === 'spell' && a.name.trim().toLowerCase() === 'haste';

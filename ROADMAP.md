@@ -2146,6 +2146,11 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ### Environmental depth proof (2026-09-27)
 
+- [x] Spell impacts briefly light visible terrain and nearby miniatures in their
+  elemental colors. Hunter spells have arrow volleys, growing vines and mark
+  auras; light waits for dice, respects walls and leaves exploration unchanged.
+  See [spell impact lighting](docs/SPELL_IMPACT_LIGHTING.md).
+
 - [x] DM wall tracing with drag-to-draw rectangles covering both sides and thickness in one stroke; connected lines remain available for diagonal barriers. Includes endpoint/grid snapping and whole-wall erase/undo; saved per map and preserved through backup/restore. Walls block personal terrain/token sight, darkvision and placed/carried lights; hidden/fog rules and encounter reveal tags remain server-enforced. Includes cached visibility polygons and clipped light-field geometry for overhead/tilted views, plus a recorded two-player dungeon walkthrough. See [wall controls and verification](docs/MAP_WALLS_2026_09_28.md).
 - [x] Local torches and carried lanterns cast creature geometry shadows on terrain and figures; dungeon fill no longer casts a fixed directional shadow. Four nearby source depth cubes are cached between caster/source movement, with remaining lights still contributing illumination. Recorded Varis approaching Druk through the painted south doorway, entering/backtracking, darkvision, moving-lantern shadows and an opposite-side torch comparison.
 - [x] Carried lanterns pass through their own carrier. Full local creature silhouettes use lighter shadows on the floor / very subtle shadows on figures, keeping wall occlusion fully opaque. Verified carrier exclusion and restoration for other light sources in the dungeon walkthrough.

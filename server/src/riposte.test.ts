@@ -6,8 +6,21 @@ import { resolveAttack, resolveRiposte, resolveAttackDamage } from './combat.js'
 import { getManeuver } from './maneuvers/srd.js';
 import { listRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { buildSnapshot } from './visibility.js';
+import {runLiveCommand} from './liveRolls.js';
+import type {PhysicalDiceInfo} from '../../shared/dice.js';
 
 afterEach(() => vi.restoreAllMocks());
+it.each([false,true])('live Riposte rolls its attack first and never rolls damage on a miss (hit=%s)',async hit=>{
+ const f=arena(true),offer=f.miss();updateCharacter(f.fighter.id,{weapons:[{name:'Sword',kind:'melee',damage:'1d6',attackBonus:100}]});
+ const requests:{sides:number[];info?:PhysicalDiceInfo}[]=[];
+ const live=async(run:()=>void)=>runLiveCommand(run,()=>{},{label:'Riposte',roller:'Fighter',className:'Fighter'},async(sides,_p,_m,_seed,info)=>{requests.push({sides,info});return sides.map(s=>s===20?(hit?12:1):4);});
+ await live(()=>{expect(resolveRiposte(f.s.id,'Fighter',offer.id,0).ok).toBe(true);});
+ expect(requests.map(r=>r.sides)).toEqual([[20]]);
+ const pending=listRollLog(f.s.id).filter(e=>e.pending).at(-1);
+ if(hit){expect(pending).toBeTruthy();await live(()=>{resolveAttackDamage(f.s.id,'Fighter',pending!.id);});expect(requests.map(r=>r.sides)).toEqual([[20],[6],[8]]);expect(requests[2].info?.label).toContain('Riposte');}
+ else {expect(pending).toBeUndefined();expect(getCharacter(f.foe.id)!.curHp).toBe(100);}
+ expect(getCharacter(f.fighter.id)!.resources['Superiority Dice'].used).toBe(1);
+});
 function arena(manual = false, ranged = false, distance = 50) {
   const s = createSession('Reactions');
   const map = createMap(s.id, {name: 'Arena'}); setActiveMap(s.id, map.id); setManualDamage(s.id, manual);

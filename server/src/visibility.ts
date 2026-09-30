@@ -1,4 +1,5 @@
 import {doorApproachPoints} from '../../shared/mapWalls.js';
+import {activeMarks} from './marks.js';
 import {rememberTerrain} from './exploration.js';
 import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
@@ -198,6 +199,12 @@ export function createSnapshotBuilder(
   const maps = listMaps(sessionId);
   const characters = listCharacters(sessionId);
   const monsters = listMonsters(sessionId);
+  const targetMarks=new Map<string,Set<string>>();
+  for(const caster of [...characters,...monsters])for(const ab of caster.sheetAbilities){
+    if(!ab.mark||!activeMarks(caster,ab.mark).includes(ab))continue;
+    const key=`${ab.mark.kind}:${ab.mark.refId}`;
+    const labels=targetMarks.get(key)??new Set<string>();labels.add(ab.name);targetMarks.set(key,labels);
+  }
   const rollLog = listRollLog(sessionId).map(e=>e.pending?.live?{...e,pending:{...e.pending,live:undefined}}:e);
   const chat = listChat(sessionId);
   const charById = new Map(characters.map((c) => [c.id, c]));
@@ -260,6 +267,7 @@ export function createSnapshotBuilder(
         tokens: rawTokens.map((t) => ({
           ...(tagMap.has(t.id) ? { revealTag: tagMap.get(t.id) } : {}),
           ...t,
+          ...(targetMarks.has(`${t.kind}:${t.refId}`)?{markLabels:[...targetMarks.get(`${t.kind}:${t.refId}`)!]}:{}),
           combatRole: tokenCombatRole(t),
           // Who "Roll all" would pull in, decided server-side (it depends on fog).
           inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null),
@@ -416,6 +424,8 @@ export function createSnapshotBuilder(
       }
     }
 
+    if (role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
+      !t.sharedSightOnly && t.kind===e.reveal!.visibilityTarget!.kind && t.refId===e.reveal!.visibilityTarget!.refId));
     if (role==='dm') {
       const labels=new Map(data.tokens.filter(t=>t.kind==='monster'&&t.revealTag).map(t=>{
         const name=monById.get(t.refId)?.name??'';

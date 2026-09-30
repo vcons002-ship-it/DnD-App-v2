@@ -58,7 +58,7 @@ export function CombatSection({
   const weapons = caster.weapons;
   const abilities = caster.sheetAbilities.filter((a) => !!effectiveSheetAbility(a).roll);
   // Summon-tagged spells/abilities get a ✋ Summon button right here in the console.
-  const summonAbilities = caster.sheetAbilities.filter((a) => a.summon);
+  const summonAbilities = caster.sheetAbilities.map(a=>effectiveSheetAbility(a)).filter((a) => a.summon);
   const castSummon = (a: (typeof summonAbilities)[number]) => {
     if (!summonMap) {
       notify('No active map to summon onto.');

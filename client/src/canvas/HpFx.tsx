@@ -3,6 +3,7 @@ import { Circle, Group, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import type { HpFloater } from '../state/socket';
+import {spellImpactStyle} from '../../../shared/spellImpact';
 
 /**
  * Transient combat FX over tokens, driven by server 'fx:hp' events:
@@ -288,16 +289,24 @@ function GlyphPop({
 
 /** The composed burst for one floater (or null when it should stay plain). */
 function BurstFx({
+  spellEffects3D,
   floater,
   token,
   pxPerFoot,
 }: {
+  spellEffects3D?: boolean;
   floater: HpFloater;
   token: Token;
   pxPerFoot: number;
 }) {
   const radius = (token.widthFt * pxPerFoot) / 2;
   const { x: cx, y: cy } = token;
+  const spell=spellImpactStyle(floater);
+  if(spell&&spell.kind!=='burst')return <>
+    {!spellEffects3D&&<><RingPulse cx={cx} cy={cy} radius={radius} color={spell.color}/>
+      <Particles cx={cx} cy={cy} spread={radius*1.4} palette={[spell.color,'#dcffbd']} count={12} mode="rise"/></>}
+    {floater.effect==='death'&&<GlyphPop cx={cx} cy={cy} text="💀" fontSize={Math.max(16,radius)} rise={radius}/>}
+  </>;
 
   if (floater.effect === 'loot') {
     return (
@@ -329,7 +338,7 @@ function BurstFx({
           <RingPulse cx={cx} cy={cy} radius={radius} color={style.color} />
           <Particles cx={cx} cy={cy} spread={radius * 1.3} palette={style.palette} count={8} mode="radial" />
           {floater.damageType === 'lightning' ? (
-            <LightningBolt cx={cx} cy={cy} radius={radius} />
+            !spellEffects3D&&<LightningBolt cx={cx} cy={cy} radius={radius} />
           ) : (
             <GlyphPop
               cx={cx}
@@ -428,11 +437,13 @@ function FloaterText({
 
 /** All live floaters for the current map, anchored to their creatures' tokens. */
 export const HpFxLayer = memo(function HpFxLayer({
+  spellEffects3D=false,
   floaters,
   tokens,
   pxPerFoot,
   gridSizePx,
 }: {
+  spellEffects3D?: boolean;
   floaters: HpFloater[];
   tokens: Token[];
   pxPerFoot: number;
@@ -446,7 +457,7 @@ export const HpFxLayer = memo(function HpFxLayer({
         if (!token) return null; // creature isn't on the viewed map
         return (
           <Group key={f.id} listening={false}>
-            <BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} />
+            <BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D} />
             {/* A pure-effect event (loot sparkle) has no number to float. */}
             {f.delta !== 0 && (
               <FloaterText

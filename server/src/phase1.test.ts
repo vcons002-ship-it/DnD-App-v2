@@ -47,12 +47,12 @@ describe('#6 save-for-half damage', () => {
     const target = instantiateMonster(tmpl.id)!;
     const tok = createToken({ mapId: map.id, kind: 'monster', refId: target.id, x: 1, y: 1 });
 
-    // Hail of Thorns-style: a DEX save spell for half on a success.
+    // Custom area spell: a DEX save spell for half on a success.
     resolveAbilityRoll(
       s.id,
       'Druid',
       getCharacter(caster.id)!,
-      ability({ name: 'Hail of Thorns', type: 'spell', roll: { kind: 'save', dice: '1d10', save: 'DEX', baseLevel: 1 } }),
+      ability({ name: 'Thorn Burst', type: 'spell', roll: { kind: 'save', dice: '1d10', save: 'DEX', baseLevel: 1 } }),
     );
     const entry = listRollLog(s.id).at(-1)!;
     const amount = entry.apply!.amount;

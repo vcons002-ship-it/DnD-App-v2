@@ -7,6 +7,6 @@ export function markSpell(a: SheetAbility): 'force' | 'necrotic' | undefined {
 export function hitFeature(a: SheetAbility): string | undefined {
   if (a.source === 'custom' || a.executionProfile === 'manual') return;
   const key = abilityKey(a);
-  return ['sneak attack','stunning strike','colossus slayer','divine strike','searing smite','thunderous smite','wrathful smite','ensnaring strike'].includes(key) ? key : undefined;
+  return ['sneak attack','stunning strike','colossus slayer','divine strike','searing smite','thunderous smite','wrathful smite','ensnaring strike','hail of thorns'].includes(key) ? key : undefined;
 }
-export const hitSpell = (key: string) => ['searing smite','thunderous smite','wrathful smite','ensnaring strike'].includes(key);
+export const hitSpell = (key: string) => ['searing smite','thunderous smite','wrathful smite','ensnaring strike','hail of thorns'].includes(key);

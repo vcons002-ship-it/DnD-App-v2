@@ -5,6 +5,8 @@ import { createSession, createMap, setActiveMap, createCharacter, createToken,
 import { resolveAttack, resolveAttackDamage, resolveManeuver } from './combat.js';
 import { getManeuver } from './maneuvers/srd.js';
 import { isOnHitManeuver } from '../../shared/maneuvers.js';
+import {runLiveCommand} from './liveRolls.js';
+import type {PhysicalDiceInfo} from '../../shared/dice.js';
 
 afterEach(() => vi.restoreAllMocks());
 function arena(manual: boolean) {
@@ -19,7 +21,7 @@ function arena(manual: boolean) {
   const b = createToken({mapId: map.id, kind: 'pc', refId: target.id, x: 60, y: 0});
   vi.spyOn(Math, 'random').mockReturnValue(.5);
   const hit = () => { resolveAttack(s.id, 'DM', a.id, b.id, 0); return listRollLog(s.id).filter(e => e.label === 'Attack').at(-1)!; };
-  return {s, ch, target, hit};
+  return {s, ch, target, hit,a,b};
 }
 for (const manual of [false, true]) {
   it(`offers known maneuvers after a hit and combines damage once (manual=${manual})`, () => {
@@ -31,7 +33,9 @@ for (const manual of [false, true]) {
     expect(getCharacter(f.target.id)!.curHp).toBe(192);
     expect(getCharacter(f.ch.id)!.resources['Superiority Dice'].used).toBe(1);
     expect(listRollLog(f.s.id).filter(e => e.label === 'Concentration')).toHaveLength(1);
-    expect(listRollLog(f.s.id).find(e => e.label === 'Trip Attack')?.apply).toMatchObject({amount: 0, dc: 15, onFail: 'Prone'});
+    expect(listRollLog(f.s.id).find(e => e.label === 'Trip Attack')?.apply).toBeUndefined();
+    expect(listRollLog(f.s.id).some(e=>e.label==='STR save')).toBe(true);
+    expect(getCharacter(f.target.id)!.conditions.some(c=>c.label==='Prone')).toBe(true);
     expect(resolveManeuver(f.s.id, 'DM', hit.id, 'trip').ok).toBe(false);
     expect(resolveAttackDamage(f.s.id, 'DM', hit.id)).toBe(false);
   });
@@ -74,4 +78,19 @@ it('does not offer on misses or alongside a maneuver used for the attack roll', 
 it('keeps reaction, pre-attack, check and secondary-target maneuvers out of this choice', () => {
   for (const name of ['Precision Attack', 'Parry', 'Feinting Attack', 'Grappling Strike', 'Sweeping Attack', 'Riposte'])
     expect(isOnHitManeuver({...getManeuver(name)!, id: name})).toBe(false);
+});
+it('rolls Pushing Attack only after the hit, then saves its already chosen target automatically',async()=>{
+ const f=arena(true);updateCharacter(f.ch.id,{weapons:[{name:'Sword',kind:'melee',damage:'1d6',attackBonus:100}]});
+ setSheetAbility('pc',f.ch.id,{...getManeuver('Pushing Attack')!,id:'push',maneuver:{...getManeuver('Pushing Attack')!.maneuver!,active:true}});
+ const requests:{sides:number[];info?:PhysicalDiceInfo}[]=[];
+ const live=async(run:()=>void)=>runLiveCommand(run,()=>{},{label:'Attack',roller:'Fighter',className:'Fighter'},async(sides,_p,_m,_seed,info)=>{requests.push({sides,info});return sides.map(s=>s===20?12:4);});
+ await live(()=>{resolveAttack(f.s.id,'Fighter',f.a.id,f.b.id,0);});
+ expect(requests.map(r=>r.sides)).toEqual([[20]]);expect(getCharacter(f.ch.id)!.resources['Superiority Dice'].used).toBe(0);
+ const pending=listRollLog(f.s.id).find(e=>e.pending)!;
+ await live(()=>{expect(resolveManeuver(f.s.id,'Fighter',pending.id,'push').ok).toBe(true);});
+ expect(requests.map(r=>r.sides)).toEqual([[20],[6],[8],[20]]);
+ expect(requests.map(r=>r.info?.label)).toEqual(['Sword — Attack Roll','Sword — Weapon Damage','Pushing Attack — Superiority damage','Pushing Attack — STR Saving Throw']);
+ expect(requests[3].info?.target?.refId).toBe(f.target.id);
+ expect(listRollLog(f.s.id).some(e=>e.apply)).toBe(false);
+ expect(getCharacter(f.ch.id)!.resources['Superiority Dice'].used).toBe(1);
 });

@@ -2,7 +2,7 @@
 // framework-free so the server resolves authoritatively and it's unit-tested.
 import type { Weapon } from './types.js';
 import { abilityMod, proficiencyBonus, signed } from './skills.js';
-import { rollDice, rollDicePool } from './dice.js';
+import { rollDice, rollDicePool, withDiceMetadata } from './dice.js';
 import { DAMAGE_TYPES } from './damage.js';
 import type { Advantage } from './dice.js';
 
@@ -167,7 +167,7 @@ export function rollWeaponAttack(
     extraCritDie?: boolean;
   },
 ): AttackOutcome {
-  const {face,detail:d20detail}=opts?.fixedAttack?{face:opts.fixedAttack.face,detail:opts.fixedAttack.detailToHit.match(/d20\[[^\]]+\](?:\u2192(?:adv|dis) \d+)?/)?.[0]??`d20[${opts.fixedAttack.face}]`}:rollD20Detail(advantage);
+  const {face,detail:d20detail}=opts?.fixedAttack?{face:opts.fixedAttack.face,detail:opts.fixedAttack.detailToHit.match(/d20\[[^\]]+\](?:\u2192(?:adv|dis) \d+)?/)?.[0]??`d20[${opts.fixedAttack.face}]`}:withDiceMetadata({label:`${weapon.name} — Attack Roll`},()=>rollD20Detail(advantage));
   const { bonus, detail: bonusDetail, parts: bonusParts } = weaponAttackBonusDetail(attacker, weapon);
   const toHitExtra = opts?.attackRollBonus ?? 0;
   // Structured to-hit breakdown for the reveal animation (d20 + these).
@@ -212,7 +212,7 @@ export function rollWeaponAttack(
       const p: string[] = [];
       const steps: AttackStep[] = [];
       let total = 0;
-      const [r1,r2]=dice?rollDicePool([{expr:dice},...(crit?[{expr:dice,critical:true}]:[])]):[];
+      const [r1,r2]=dice?withDiceMetadata({label:`${weapon.name} — ${crit?'Critical Weapon':'Weapon'} Damage`},()=>rollDicePool([{expr:dice},...(crit?[{expr:dice,critical:true}]:[])])):[];
       if (r1) {
         total += r1.total;
         p.push(`${dice}[${r1.rolls.join(',')}]`);
@@ -305,8 +305,9 @@ export function rollSavingThrow(
   dc: number,
   advantage?: Advantage,
   proficient = false,
+  rollLabel = `${ability.toUpperCase()} Saving Throw`,
 ): SaveOutcome {
-  const { face, detail: d20Detail } = rollD20Detail(advantage);
+  const { face, detail: d20Detail } = withDiceMetadata({label:rollLabel},()=>rollD20Detail(advantage));
   const mod = abilityMod(c.stats[ability.toUpperCase()]) + (proficient ? profBonusFor(c) : 0);
   const total = face + mod;
   return { face, mod, total, pass: total >= dc, proficient, d20Detail };

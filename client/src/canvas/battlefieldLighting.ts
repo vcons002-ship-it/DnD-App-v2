@@ -90,7 +90,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     fragmentShader:`${lightFalloffGlsl}${localShadowGlsl}
  varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
       void main(){float d=length(vec3(world-lightSource.xz,lightSource.y));float radius=lightSource.w;
-        float irradiance=lightIrradiance(d,radius,lightRadiance.w);
+        float irradiance=sourceShadow<-1.5?spellEmissionIrradiance(d,radius,lightRadiance.w):lightIrradiance(d,radius,lightRadiance.w);
         float visible=localLightVisibility(sourceShadow,vec3(world.x,.1,world.y),${localCreatureShadowStrength});
         float blocked=(1.-visible)*irradiance*max(lightRadiance.r,max(lightRadiance.g,lightRadiance.b));
         gl_FragColor=vec4(lightRadiance.rgb*irradiance*visible,blocked);}`});
@@ -108,7 +108,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       wallGeometryKey=next;
       const ids=new Set(lights.map(l=>l.id));for(const id of lightPolygons.keys())if(!ids.has(id))lightPolygons.delete(id);
       lights.forEach((l,index)=>{
-        const radius=(l.carried?20:settings.lights?.find(s=>s.id===l.id)?.radiusFt??20)*(settings.pixelsPerFoot??12.8)*LIGHT_SPILL_MULTIPLIER*1.2;
+        const radius=(l.transient?l.radius:(l.carried?20:settings.lights?.find(s=>s.id===l.id)?.radiusFt??20)*(settings.pixelsPerFoot??12.8))*LIGHT_SPILL_MULTIPLIER*1.2;
         const cacheKey=`${wallKey}:${l.x},${l.y},${radius}`;
         let cached=lightPolygons.get(l.id);
         if(cached?.key!==cacheKey){cached={key:cacheKey,points:wallVisibilityPolygon(l,walls,radius)};lightPolygons.set(l.id,cached);}
@@ -178,7 +178,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     fieldGeometry.setAttribute('source',sourceAttribute);fieldGeometry.setAttribute('radiance',radianceAttribute);
     shadowAttribute=new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage);fieldGeometry.setAttribute('shadowSlot',shadowAttribute);
   }
-  let settings:EnvironmentPreviewSettings,carried:CarriedLanternLight[]=[],lights:TorchLight[]=[],time=0;
+  let settings:EnvironmentPreviewSettings,carried:CarriedLanternLight[]=[],lights:TorchLight[]=[],transient:TorchLight[]=[],time=0;
   const baseLight={key:original.key,ambient:original.ambient,reflection:original.reflection,color:original.color.clone()};
   const restore=()=>{key.intensity=original.key;key.color.copy(original.color);if(ambient){ambient.intensity=original.ambient;ambient.color.copy(original.sky);ambient.groundColor.copy(original.ground);}scene.environmentIntensity=original.reflection;};
   const phase=(id:string)=>{let hash=0;for(let i=0;i<id.length;i++)hash=(hash*31+id.charCodeAt(i))|0;return hash*.013;};
@@ -201,6 +201,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       return {id:source.id,x:source.x,y:source.y,height:source.height,fixtureHeight:source.fixtureHeight,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
         strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing};
     }):[];
+    if(plane.visible)lights.push(...transient);
     ensureCapacity(lights.length);let visible=0,lanterns=0;
     lights.forEach((light,i)=>{
       sourceAttribute.setXYZW(i,light.x,light.height,light.y,light.radius);
@@ -255,10 +256,10 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     if(enabled&&ambient){ambient.color.copy(original.sky).lerp(uniforms.sceneTint.value,tintAmount);ambient.groundColor.copy(original.ground).lerp(uniforms.sceneTint.value,tintAmount);}
     if(enabled){key.intensity=baseLight.key;key.color.copy(baseLight.color);if(ambient)ambient.intensity=baseLight.ambient;scene.environmentIntensity=baseLight.reflection;}
     else restore();tick(time);
-  },tick,setCarried(next:CarriedLanternLight[]){carried=next;},get lights(){return lights;},
+  },tick,setCarried(next:CarriedLanternLight[]){carried=next;},setTransient(next:TorchLight[]){transient=next;},get lights(){return lights;},
     renderField(renderer:WebGLRenderer){
-      lights.forEach((l,i)=>shadowAttribute.setX(i,l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
-      const slots=wallSplats.geometry.getAttribute('shadowSlot');if(slots){vertexSources.forEach((index,i)=>slots.setX(i,lights[index].shadowSlot??-1));slots.needsUpdate=true;}
+      lights.forEach((l,i)=>shadowAttribute.setX(i,l.transient?-2:l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
+      const slots=wallSplats.geometry.getAttribute('shadowSlot');if(slots){vertexSources.forEach((index,i)=>slots.setX(i,lights[index].transient?-2:lights[index].shadowSlot??-1));slots.needsUpdate=true;}
       const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate,clearAlpha=renderer.getClearAlpha();renderer.getClearColor(fieldClearColor);renderer.shadowMap.needsUpdate=false;
       // Alpha stores blocked irradiance, so start at zero even in opaque previews.
       try{renderer.setClearColor(0,0);renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);}

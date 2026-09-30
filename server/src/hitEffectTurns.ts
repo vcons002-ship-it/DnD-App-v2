@@ -1,11 +1,12 @@
+import {newId} from './db.js';
 import { abilityKey } from '../../shared/hitFeatures.js';
-import { rollDice } from '../../shared/dice.js';
+import { rollDice, withDiceMetadata } from '../../shared/dice.js';
 import { damageMultiplier } from '../../shared/combatMath.js';
 import type { Token } from '../../shared/types.js';
 import { markedEntity } from './marks.js';
 import { hitEffectSave } from './hitFeatures.js';
 import { listTokens,getSessionById,clearCondition,applyDamage,addRollLog,setCondition } from './sessions.js';
-import { noteConcentration } from './combat.js';
+import { noteConcentration, stanceResistances } from './combat.js';
 
 export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
   const e=markedEntity(token.kind,token.refId); if(!e) return;
@@ -20,11 +21,15 @@ export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
     if(fx.phase!==phase || fx.lastTick===tick) continue;
     setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,lastTick:tick}});
     if(fx.dice) {
-      const roll=rollDice(fx.dice)!;
-      const amount=Math.floor(roll.total*damageMultiplier(fx.damageType,e.resistances,e.weaknesses,e.immunities,{magical:true}));
-      applyDamage(token.kind,token.refId,amount,fx.damageType);
+      const roll=withDiceMetadata({label:`${fx.spell} - Start-of-turn Damage`,target:{kind:token.kind,refId:token.refId}},()=>rollDice(fx.dice!))!;
+      const rollId=newId();
+      const amount=Math.floor(roll.total*damageMultiplier(fx.damageType,[...e.resistances,...stanceResistances(token.kind,token.refId)],e.weaknesses,e.immunities,{magical:true}));
+      applyDamage(token.kind,token.refId,amount,fx.damageType,false,rollId,{spell:fx.spell});
       noteConcentration(sid,token.kind,token.refId,amount);
-      addRollLog(sid,{roller:fx.spell,label:'Ongoing damage',expr:fx.dice,total:amount,detail:`${e.name}: ${fx.spell} deals ${amount} ${fx.damageType} damage.`});
+      addRollLog(sid,{roller:fx.spell,label:'Ongoing damage',expr:fx.dice,total:amount,detail:`${e.name}: ${fx.spell} deals ${amount} ${fx.damageType} damage at the start of its turn.`,
+        reveal:{kind:'damage',title:`${fx.spell} - Start-of-turn Damage`,attacker:fx.spell,target:e.name,outcome:'none',damage:amount,damageType:fx.damageType,
+          damageDice:[{label:fx.dice,value:roll.total,faces:roll.rolls}],damageMods:amount!==roll.total?[{label:'Damage adjustment',value:amount-roll.total}]:[],
+          visibilityTarget:{kind:token.kind,refId:token.refId}}},rollId);
     }
     if(fx.save&&hitEffectSave(sid,token,fx.save,fx.dc!,fx.spell)) clearCondition(token.kind,token.refId,c.id);
   }

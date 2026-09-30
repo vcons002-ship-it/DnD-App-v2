@@ -27,6 +27,8 @@ import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
+import {spellImpactStyle} from '../../../shared/spellImpact';
+import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
 import { CursorPointers } from './CursorPointers';
@@ -393,8 +395,13 @@ export function MapStage({
   const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const presentation=useRef(new TokenPresentation()).current;
   const visionLightTime=useRef(0);
+  const visionSpellLights=useRef(false);
   const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
-    const now=performance.now();if(now-visionLightTime.current<66)return;
+    const now=performance.now(),spell=lights.some(l=>l.transient);
+    // Always publish the first and last flash frame, including a static map
+    // whose render loop goes idle immediately after the effect expires.
+    if(spell===visionSpellLights.current&&now-visionLightTime.current<(spell?16:66))return;
+    visionSpellLights.current=spell;
     visionLightTime.current=now;visionRef.current?.lights(lights);
   },[]);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
@@ -1106,7 +1113,8 @@ export function MapStage({
       sharedSightOnly: token.sharedSightOnly,
       carriedLantern:!token.sharedSightOnly && token.carriedLantern,
       combatRole: !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
-      conditionColors: token.sharedSightOnly ? [] : presentAuras(resolveToken(snapshot, token).conditions).map(a=>AURA_HEX[a]),
+      hunterMarked: !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
+      conditionColors: token.sharedSightOnly ? [] : presentAuras(resolveToken(snapshot, token).conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
       outline: token.sharedSightOnly || !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: monster ? monsterTint(monster) : undefined,
       shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
@@ -1119,6 +1127,13 @@ export function MapStage({
   }, [miniatureTokens.length, handleMiniatureReady]);
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
+  const spellImpacts=useMemo<SpellImpact[]>(()=>hpFx.flatMap(event=>{
+    if(!spellImpactStyle(event))return [];
+    const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
+    if(!token)return [];
+    return [{id:event.id,event,tokenId:token.id,x:token.x,y:token.y,
+      diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
+  }),[hpFx,snapshot.tokens,miniatureTokens,pxPerFoot,isDm]);
   const readSharedNames=useMemo(()=>createMiniatureNameReader(),[]);
   const miniatureNameLabels = useStableCallback(() => [...readMiniatureNames(tokenLayerRef.current,
     id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id), ...readSharedNames(sharedTokenLayerRef.current,()=>false)]);
@@ -2443,6 +2458,7 @@ export function MapStage({
               />
               {/* Floating ±X damage/heal numbers — topmost, click-through. */}
               <HpFxLayer
+                spellEffects3D={!miniaturesUnavailable}
                 floaters={hpFx}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
@@ -2458,9 +2474,9 @@ export function MapStage({
               {renderTokens(false, true)}{renderTokens(true, true)}
             </Layer>
           </Stage>
-          {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
+          {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
-              environmentPreview={environment} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
+              environmentPreview={environment} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}

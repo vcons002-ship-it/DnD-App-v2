@@ -5,7 +5,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
-  CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
+  Box3, Sprite, SpriteMaterial, CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -22,6 +22,7 @@ import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
+import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {
@@ -41,10 +42,12 @@ export type MiniatureToken = {
   activeTurn?: boolean;
   selected?: boolean;
   conditionColors?: string[];
+  hunterMarked?: boolean;
   combatRole?: CombatRole | null;
   definition: MiniatureDefinition;
 };
 type Props = {
+  spellImpacts?: SpellImpact[];
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
   personalVision?: boolean;
   onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
@@ -88,6 +91,7 @@ type Instance = {
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
   conditionRings: Mesh<RingGeometry, MeshBasicMaterial>[];
+  hunterMark: Sprite;
   combatBadge: Group;
   badgeMesh: Mesh<PlaneGeometry,MeshBasicMaterial>;
   badgeTexture: CanvasTexture;
@@ -155,6 +159,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.setAttribute('aria-hidden', 'true');
   host.appendChild(renderer.domElement);
   const scene = new Scene();
+  const spellImpacts=createSpellImpactEffects(scene);
   const localShadows=createLocalLightShadows(renderer);
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
@@ -194,6 +199,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environment = environment.texture;
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
+    spellImpacts.dispose();localShadows.dispose();
     sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
@@ -317,7 +323,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
     // Paint the preference change even inside the frame cap: this may be the
     // last frame once animation stops, so no flash or moving effect may linger.
-    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= (props.environmentPreview ? 1000 / 60 - 1 : 1000 / 24)) {
+    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= (props.environmentPreview || spellImpacts.active ? 1000 / 60 - 1 : 1000 / 24)) {
       paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
       const seconds = (now - started) / 1000;
@@ -343,6 +349,17 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
+      const impactLights=spellImpacts.tick(now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
+        const impact=props.spellImpacts?.find(e=>e.tokenId===id);if(!impact)return;
+        const instance=instances.get(id),point=props.visualPosition?.(id)??impact;
+        return {...point,visible:props.isVisibleAt?.(id,point.x,point.y)??true,
+          height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined};
+      });
+      host.dataset.spellImpactCount=String(spellImpacts.kinds.length);
+      host.dataset.spellImpactKinds=spellImpacts.kinds.join(',');
+      host.dataset.spellLightStrength=String(impactLights.reduce((sum,l)=>sum+l.strength,0));
+      host.dataset.spellLightPositions=JSON.stringify(impactLights.map(l=>[l.x,l.height,l.y]));
+      battlefield?.lighting.setTransient(impactLights);
       battlefield?.setTokens(props.tokens.map(token => {
         const instance=instances.get(token.id);
         const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
@@ -369,8 +386,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
-        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??[],instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
+        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
@@ -467,7 +484,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0)) queueDraw();
+    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -496,6 +513,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.lightning?.dispose();
     instance.outlineMaterial.dispose();
     instance.badgeMesh.geometry.dispose();instance.badgeMesh.material.dispose();instance.badgeTexture.dispose();
+    instance.hunterMark.material.map?.dispose();instance.hunterMark.material.dispose();
     instance.conditionRings.forEach(ring=>{ring.geometry.dispose();ring.material.dispose();});
     instance.selectionRing.geometry.dispose();
     instance.selectionRing.material.dispose();
@@ -525,6 +543,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
+    instance.hunterMark.visible=!!token.hunterMarked && !token.sharedSightOnly;
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
@@ -589,6 +608,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
+    spellImpacts.sync(next.spellImpacts??[],performance.now());
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
@@ -668,6 +688,18 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           ring.name='token-condition-ring';ring.rotation.x=-Math.PI/2;
           ring.position.y=.003;ring.renderOrder=-1;root.add(ring);return ring;
         });
+        // A camera-facing amber sigil above the measured head, distinct from buff rings.
+        const markCanvas=document.createElement('canvas');markCanvas.width=markCanvas.height=128;
+        const markContext=markCanvas.getContext('2d')!;
+        markContext.strokeStyle='#ffe7a1';markContext.lineWidth=5;markContext.shadowColor='#ffa62b';markContext.shadowBlur=12;
+        markContext.beginPath();markContext.moveTo(64,14);markContext.lineTo(104,55);markContext.lineTo(64,98);markContext.lineTo(24,55);markContext.closePath();markContext.fillStyle='#211407';markContext.fill();markContext.stroke();
+        markContext.beginPath();markContext.ellipse(64,55,23,12,0,0,Math.PI*2);markContext.stroke();
+        markContext.fillStyle='#fff5d2';markContext.beginPath();markContext.arc(64,55,6,0,Math.PI*2);markContext.fill();
+        markContext.beginPath();markContext.moveTo(53,106);markContext.lineTo(64,117);markContext.lineTo(75,106);markContext.stroke();
+        const hunterMark=new Sprite(new SpriteMaterial({map:new CanvasTexture(markCanvas),transparent:true,depthTest:true,depthWrite:false,toneMapped:false}));
+        const headY=new Box3().setFromObject(model).max.y-definition.baseCenter[1];
+        hunterMark.name='hunters-mark-sigil';hunterMark.scale.setScalar(definition.baseDiameter*.6);
+        hunterMark.position.set(0,headY+definition.baseDiameter*.42,0);hunterMark.visible=false;root.add(hunterMark);
         const badgeCanvas=document.createElement('canvas');badgeCanvas.width=badgeCanvas.height=128;
         const badgeTexture=new CanvasTexture(badgeCanvas);
         const badgeMesh=new Mesh(new PlaneGeometry(.44,.44),new MeshBasicMaterial({map:badgeTexture,transparent:true,depthTest:true,depthWrite:false,toneMapped:false}));
@@ -764,7 +796,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const materials = [...cloned.values()];
         const instance: Instance = {
           baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
-          root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
+          root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
@@ -812,6 +844,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     shaderWarmup.dispose();
+    spellImpacts.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
     sharedCanvas.remove();sharedDepth.dispose();visionLift.dispose();
@@ -892,7 +925,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   const latest = useRef(props);
   latest.current = props;
   const [state, setState] = useState({ ids: [] as string[], status: 'loading' });
-  const needsScene = props.tokens.length > 0 || !!props.preloadDefinitions?.length || !!props.environmentPreview;
+  const needsScene = props.tokens.length > 0 || !!props.preloadDefinitions?.length || !!props.environmentPreview || !!props.spellImpacts?.length;
   const socket = useStore(state => state.socket);
   useEffect(() => {
     const cast = ({ tokenIds }: { tokenIds: string[] }) => engine.current?.spellCast(tokenIds);

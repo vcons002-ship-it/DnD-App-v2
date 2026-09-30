@@ -30,7 +30,7 @@ import {
 } from '../lib/spellcasting';
 import { useAbilityToggles } from './AbilityToggles';
 import { Spellbook } from './Spellbook';
-import { effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -429,6 +429,7 @@ export function CharacterSpells({
 
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
+    const summon = effectiveSheetAbility(a).summon;
     const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
     const displayRoll = hitFeature(a) ? undefined : effectiveSheetAbility(a, lvl).roll;
     const damageTypes = spellDamageTypeChoices(a, lvl);
@@ -536,7 +537,7 @@ export function CharacterSpells({
 
           {editable &&
             upcastable(a) &&
-            ((displayRoll && !rollsElsewhere) || (!displayRoll && isConcentration(a))) && (
+            !hitFeature(a) && ((displayRoll && !rollsElsewhere) || (!displayRoll && isConcentration(a))) && (
               <select
                 className="spell-level"
                 value={lvl}
@@ -577,7 +578,8 @@ export function CharacterSpells({
               ))}
             </select>
           )}
-          {editable && !displayRoll && isConcentration(a) && (
+          {hitFeature(a) && <span className="muted spell-meta">{hitFeature(a)==='hail of thorns'?'Ranged hit → Hail of Thorns → slot; automatic 5 ft burst':'Offered after a hit, beside Roll damage'}</span>}
+          {editable && !displayRoll && !hitFeature(a) && isConcentration(a) && (
             <button
               className="btn tiny"
               title="Cast — start concentration (drops any spell you were concentrating on)"
@@ -588,18 +590,18 @@ export function CharacterSpells({
           )}
           {/* Summon-tagged spell/ability: spawn its friendly companion (leveled
               spells spend a slot server-side). Shown even in the combat console. */}
-          {editable && a.summon && (
+          {editable && summon && (
             <button
               className="btn tiny"
-              title={`Summon ${a.summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
+              title={`Summon ${summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
               onClick={() => castSummon(a)}
             >
-              {a.summon.icon || '✋'} Summon
+              {summon.icon || '✋'} Summon
             </button>
           )}
           {/* A text-only entry (e.g. imported) → look it up and make it
               rollable in place. Skipped for toggle-driven items. */}
-          {editable && !displayRoll && !a.mastery && !a.maneuver && !a.stance && (
+          {editable && !displayRoll && !hitFeature(a) && !a.mastery && !a.maneuver && !a.stance && (
             <button
               className="btn tiny"
               disabled={enrichId === a.id}
@@ -791,9 +793,10 @@ export function CharacterSpells({
                 ✏️ Add roll
               </button>
             )}
-            {!a.roll && displayRoll && <p className="muted">A compatible spell profile supplies this saving-throw action without rewriting the saved spell. Conditions and other effects remain manual.</p>}
+            {!isHasteSpell(a) && !a.roll && displayRoll && <p className="muted">A compatible spell profile supplies this saving-throw action without rewriting the saved spell. Conditions and other effects remain manual.</p>}
             {manualRiderNote(a) && <p className="muted">{manualRiderNote(a)}</p>}
-            {editable && displayRoll && (
+            {isHasteSpell(a) && <p className="muted">Choose a creature in Combat or from its map menu. Haste adds a green buff until the caster?s concentration ends.</p>}
+            {editable && displayRoll && !isHasteSpell(a) && (
               <div className="sb-roll-edit">
                 <select
                   value={displayRoll.kind}

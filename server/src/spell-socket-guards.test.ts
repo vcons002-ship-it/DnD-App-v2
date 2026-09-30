@@ -3,7 +3,7 @@ import { registerSocketHandlers } from './socketHandlers.js';
 import { dropConn, setConn, type IOServer } from './connections.js';
 import {
   addRollLog, claimCharacter, createCharacter, createMap, createMonsterTemplate, createSession,
-  createToken, getCharacter, getMonster, getRollEntry, instantiateMonster, listRollLog,
+  createToken, getCharacter, getMonster, getRollEntry, instantiateMonster, listRollLog, listTokens,
   setActiveMap, setSheetAbility, setTokenHidden,
   setManualDamage, setFogLayer,
 } from './sessions.js';
@@ -126,6 +126,15 @@ describe('spell socket target and ownership boundaries', () => {
     setSheetAbility('pc', f.caster.id, { id: 'summon', name: 'Mage Hand', type: 'spell', level: 0, description: '', summon: { name: 'Hand' } });
     client.send('summon:cast', { kind: 'pc', refId: f.caster.id, abilityId: 'summon', mapId: f.map.id, x: 150, y: 150 });
     expect(client.routed.filter(e => e.event === 'fx:spellCast').map(e => e.payload)).toEqual([{ tokenIds: [token.id] }]);
+  });
+  it('summons the 3D Mage Hand from an older saved spell without summon metadata',()=>{
+    const f=fixture(),client=harness(f.session.id,f.map.id);claimCharacter(f.caster.id,client.id);
+    setSheetAbility('pc',f.caster.id,{id:'old-hand',name:'Mage Hand',type:'spell',level:0,description:''});
+    const slots=getCharacter(f.caster.id)!.spellSlots;
+    client.send('summon:cast',{kind:'pc',refId:f.caster.id,abilityId:'old-hand',mapId:f.map.id,x:150,y:150});
+    const hand=listTokens(f.map.id).filter(t=>t.kind==='monster').map(t=>getMonster(t.refId)!).find(m=>m.name==='Mage Hand');
+    expect(hand?.modelType).toBe('mage-hand');expect(hand?.weapons).toEqual([]);
+    expect(hand?.disposition).toBe('friendly');expect(getCharacter(f.caster.id)!.spellSlots).toEqual(slots);
   });
   it('the owner casts the existing Command entry, spends one slot and forces the selected save once', () => {
     const f = fixture(), target = f.target(), client = harness(f.session.id, f.map.id);

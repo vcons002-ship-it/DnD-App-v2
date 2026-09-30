@@ -110,7 +110,7 @@ function TokenShapeInner({
   // Real-world footprint: width in feet → pixels. Independent of the visual grid,
   // so changing only the grid cell size never rescales a token.
   const radius = (((miniatureReady || miniaturePending) ? miniatureDiameterFt ?? token.widthFt : token.widthFt) * pxPerFoot) / 2;
-  const auras = presentAuras(display.conditions);
+  const auras = presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label)));
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
   const hasEmojiIcon = !!display.icon && !hasImageIcon;
@@ -427,7 +427,7 @@ function TokenShapeInner({
         <Line
           closed
           points={[0, -radius, radius * 0.87, radius * 0.5, -radius * 0.87, radius * 0.5]}
-          {...p}
+      {...p}
         />
       );
     return <Circle radius={radius} {...p} />;
@@ -559,6 +559,11 @@ function TokenShapeInner({
       )}
       </Group>
       <Group name="token-upright-hud" rotation={-viewRotation}>
+          {!miniatureReady && !token.sharedSightOnly && token.markLabels?.some(label=>/hunter.s mark/i.test(label)) && <Group y={-radius-22} listening={false} name="hunters-mark-sigil">
+        <RegularPolygon sides={4} radius={14} stroke="#ffe7a1" strokeWidth={2} fill="#352106" rotation={0} shadowColor="#ffa62b" shadowBlur={8}/>
+        <Circle radius={4} fill="#fff5d2"/>
+      </Group>}
+
       {/* Death marker when downed (visible HP at 0, or a manual "Dead" mark). */}
       {isDead && (
         <Text

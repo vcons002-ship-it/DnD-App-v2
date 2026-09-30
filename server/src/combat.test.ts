@@ -1376,7 +1376,7 @@ describe('Apply damage → click-to-target saves', () => {
     expect(getMonster(inst.id)!.curHp).toBe(30);
   });
 
-  it('PC save spell (Hail of Thorns-style) deals HALF on a pass, not 0', () => {
+  it('PC save spell (Custom area spell) deals HALF on a pass, not 0', () => {
     const { s, map } = arena();
     const ch = createCharacter(s.id, {
       name: 'Ranger',
@@ -1387,7 +1387,7 @@ describe('Apply damage → click-to-target saves', () => {
     // A save-for-half spell with deterministic 10 damage (10d1).
     const ability: SheetAbility = {
       id: 'hot',
-      name: 'Hail of Thorns',
+      name: 'Thorn Burst',
       type: 'spell',
       level: 1,
       description: '',

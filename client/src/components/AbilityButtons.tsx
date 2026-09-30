@@ -13,7 +13,7 @@ import {
   upcastable,
 } from '../lib/spellcasting';
 import { useStore } from '../state/socket';
-import { effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -100,7 +100,7 @@ export function AbilityButtons({
             disabled={!menu && execution.roll?.kind !== 'heal' && !multiple && !targetTokenId}
             onClick={() => cast(a)}
           >
-            {ROLL_ICON[execution.roll!.kind] ?? '🎲'} {a.name}
+            {(isHasteSpell(a) ? '\u2726' : ROLL_ICON[execution.roll!.kind]) ?? '🎲'} {a.name}
           </button>
         );
         const damageTypeSelect = damageTypes.length > 0 && (

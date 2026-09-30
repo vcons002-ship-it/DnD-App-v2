@@ -1,3 +1,5 @@
+import { starterCreatures } from './creatures/starterLibrary.js';
+import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice} from '../../shared/dice.js';
 import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
@@ -559,7 +561,7 @@ export function createSummon(
 ): Token {
   const m = insertMonster(
     sessionId,
-    { name, maxHp: 1, icon, disposition: 'friendly', source: 'manual' },
+    { ...(name.trim().toLowerCase()==='mage hand' ? starterCreatures().find(c=>c.name==='Mage Hand') : {}), name, maxHp: 1, icon, disposition: 'friendly', source: 'manual' },
     { isTemplate: false, templateId: null, name },
   );
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y });
@@ -1309,11 +1311,12 @@ export function endConcentration(kind: TokenKind, refId: string, reason: string)
       }
     }
   }
-  const activeMap=getSessionById(entity.sessionId)?.activeMapId;
-  if(activeMap) for(const tok of listTokens(activeMap)) {
-    const subject=tok.kind==='pc'?getCharacter(tok.refId):getMonster(tok.refId);
-    for(const c of subject?.conditions??[]) if(c.combatEffect?.concentration && c.combatEffect.casterKind===kind && c.combatEffect.casterId===refId && spells.some(n=>abilityKey({name:n})===abilityKey({name:c.combatEffect!.spell})))
-      clearCondition(tok.kind,tok.refId,c.id);
+  // Linked buffs belong to creatures, even after the party switches maps.
+  for(const [subjectKind,subjects] of [['pc',listCharacters(entity.sessionId)],['monster',listMonsters(entity.sessionId)]] as const) {
+    for(const subject of subjects) for(const c of subject.conditions) {
+      if(c.combatEffect?.concentration && c.combatEffect.casterKind===kind && c.combatEffect.casterId===refId && spells.some(n=>abilityKey({name:n})===abilityKey({name:c.combatEffect!.spell})))
+        clearCondition(subjectKind,subject.id,c.id);
+    }
   }
   addRollLog(entity.sessionId, {
     roller: 'DM',
@@ -1578,6 +1581,8 @@ export function addRollLog(
    *  Never supplied by a client; ordinary log callers keep automatic IDs. */
   id = newId(),
 ): RollEntry {
+  if(entry.reveal&&!entry.reveal.title&&(entry.reveal.kind==='attack'||entry.reveal.kind==='damage'))
+    entry.reveal={...entry.reveal,title:`${['Attack','Damage'].includes(entry.label)?entry.expr:entry.label} — ${entry.reveal.kind==='attack'?'Attack Roll':'Damage Roll'}`};
   if(entry.reveal && isLiveCommand())entry.reveal={...entry.reveal,physical:true};
   const createdAt = Date.now();
   // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
@@ -3254,16 +3259,23 @@ export function setEntityIcon(
 // broadcastSnapshots drains it into per-viewer 'fx:hp' events (floating ±X over
 // the token). Never persisted; capped so an undrained queue can't grow forever.
 const hpFxQueue: (HpFxEvent & { sessionId: string })[] = [];
+/** A non-damaging spell impact uses the same visibility/timing channel. */
+export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string,areaWidthFt?:number){
+  const name=spellImpactName(spell);
+  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
+}
 export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQueue.splice(0,hpFxQueue.length,...saved);};}
 export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, effect, rollId } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, effect, rollId, spell, areaWidthFt } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
       delta,
+      ...(areaWidthFt ? {areaWidthFt} : {}),
+      ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       ...(damageType ? { damageType } : {}),
       ...(effect ? { effect } : {}),
@@ -3290,7 +3302,7 @@ export function applyDamage(
    *  a dead creature — and it reconciles the whole death state (saves, Dead
    *  mark, downed conditions), not just the HP number. Callers must gate it on
    *  the DM role; spells, abilities and potions never pass it. */
-  opts?: { correction?: boolean },
+  opts?: { correction?: boolean; spell?: string },
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -3337,15 +3349,17 @@ export function applyDamage(
     !(entity as Monster).objectKind &&
     entity.curHp > 0 &&
     nextCur === 0;
-  if (fxDelta !== 0 && hpFxQueue.length < 200)
+  const spell=spellImpactName(opts?.spell);
+  if ((fxDelta !== 0 || spell) && hpFxQueue.length < 200)
     hpFxQueue.push({
       sessionId: entity.sessionId,
       kind,
       refId,
       delta: fxDelta,
+      ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       // Type only rides on damage (heals are sign-coded green client-side).
-      ...(fxDelta < 0 && isDamageType(damageType)
+      ...(fxDelta <= 0 && isDamageType(damageType)
         ? { damageType: damageType.trim().toLowerCase() }
         : {}),
       ...(died ? { effect: 'death' as const } : {}),
