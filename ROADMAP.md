@@ -13,6 +13,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Shared exploration memory - September 2026
 
+- [x] Prepare common creature shaders before first reveal and raise heavy-darkness
+  creature detail another step, using the same shading for party-shared figures.
+  See [cold-reveal comparison](docs/COLD_REVEAL_DETAIL_2026_09_29.md).
+
 - [x] Match remembered terrain and shared figures to heavy-darkness darkvision;
   gently lift unlit creature detail without washing out torchlight. See
   [rendered comparison and verification](docs/HEAVY_DARKNESS_MEMORY_2026_09_29.md).

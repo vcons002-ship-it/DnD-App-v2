@@ -3163,6 +3163,7 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
     };
     const personalBody=await bodySample(scout,false),sharedBody=await bodySample(fighter,true);
     expect(personalBody.count).toBeGreaterThan(50);expect(sharedBody.count).toBeGreaterThan(50);
+    expect(personalBody.mean,'Unlit creatures retain readable darkvision detail').toBeGreaterThan(10);
     expect(sharedBody.mean,'Shared creatures do not use brighter daylight lighting').toBeLessThanOrEqual(personalBody.mean+3);
     evidence.push({phase:'heavy-darkness appearance',liveTerrain,memoryTerrain,personalBody,sharedBody});
    }
@@ -3175,6 +3176,12 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
     writeFileSync(info.outputPath(`reveal-${recording.get(p)!.name}.json`),JSON.stringify(profile,null,2));
     const visible=profile.frames.filter((v:any)=>v.enemy&&v.opacity>0);
     expect(visible.length).toBeGreaterThan(0);
+    const readyFrame=visible.find((v:any)=>v.ready);
+    expect(readyFrame,'The revealed creature finishes preparing its 3D model').toBeTruthy();
+    evidence.push({phase:'first reveal timing',viewer:recording.get(p)!.name,
+     modelDelayMs:readyFrame.time-visible[0].time,
+     maxFrameGapMs:Math.max(...profile.frames.slice(1).map((v:any,i:number)=>v.time-profile.frames[i].time)),
+     longTasks:profile.tasks});
     expect(visible.every((v:any)=>hasLineOfSight({x:v.x,y:v.y},enemy,ready.map!.walls)), 'A revealed creature never precedes the displayed observer around the corner').toBe(true);
     const memoryChanged=profile.frames.find((v:any)=>v.memory!==profile.frames[0].memory);
     expect(memoryChanged,'The new explored area eventually appears').toBeTruthy();

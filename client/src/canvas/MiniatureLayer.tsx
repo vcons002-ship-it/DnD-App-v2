@@ -21,6 +21,7 @@ import {createPreviewGpuTiming} from './previewGpuTiming';
 import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
+import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {
@@ -209,6 +210,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let lastFailedIds: string | undefined;
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
+  const shaderWarmup=createMiniatureShaderWarmup(renderer,createMiniatureTorchLighting(localShadows.uniforms));
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
   // One local planning figure; geometry is shared with the loaded model. It has
@@ -608,6 +610,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
     }
     updateCamera();
+    shaderWarmup.update(camera,scene,`${renderer.shadowMap.enabled}:${key.castShadow}:${!!scene.environment}`);
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
     }
@@ -808,6 +811,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     [...instances.keys()].forEach(removeInstance);
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
+    shaderWarmup.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
     sharedCanvas.remove();sharedDepth.dispose();visionLift.dispose();
