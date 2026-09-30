@@ -6,6 +6,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Wall shape editing - September 2026
 
+- [x] Separate cyan-mask door analysis, review/select and atomic import of working doors into existing wall gaps. Keep wall/light requests independent and preserve original art.
 - [x] Add angled lines, hollow circular walls and free-draw strokes with map-scaled thickness.
 - [x] Drag and rotate any wall piece; preserve linked door state and object alignment.
 - [x] Trace AI yellow masks into editable contours with room holes, protecting narrow openings and retaining the conservative rectangle fallback.

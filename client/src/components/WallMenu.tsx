@@ -1,5 +1,6 @@
 import type {MapState} from '../../../shared/types';
 import {WallDraft} from './WallDraft';
+import {DoorDraft} from './DoorDraft';
 import {useEffect,useRef,useState} from 'react';
 
 export type WallTool='off'|'rectangle'|'draw'|'circle'|'freehand'|'edit'|'erase'|'door';
@@ -10,6 +11,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   onSnap:(snap:boolean)=>void;onUndo:()=>void;onFinish:()=>void;doors?:{id:string;open?:boolean}[];onDoor?:(id:string,open:boolean)=>void;
 }){
   const [draftOpen,setDraftOpen]=useState(false);
+  const [doorsDraftOpen,setDoorsDraftOpen]=useState(false);
   const button=useRef<HTMLButtonElement>(null);
   const [position,setPosition]=useState<{left:number;top:number}|null>(null);
   useEffect(()=>{
@@ -19,12 +21,14 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   },[position]);
   return <>
     {draftOpen&&map&&<WallDraft key={map.id} map={map} onClose={()=>setDraftOpen(false)}/>}
+    {doorsDraftOpen&&map&&<DoorDraft key={map.id} map={map} onClose={()=>setDoorsDraftOpen(false)}/>}
     <button ref={button} className={`btn tiny ${tool!=='off'?'on':''}`} onClick={()=>{
       const rect=button.current!.getBoundingClientRect();setPosition(position?null:{left:Math.max(8,Math.min(rect.left,window.innerWidth-254)),top:rect.bottom+4});
     }} aria-label="Walls" title="Draw walls that block player movement, light and sight">Walls{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu" style={{...position,width:238}}>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
+        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
         <div className="measure-label">{count} saved {count===1?'wall':'walls'}</div>
         <button className={`measure-row ${tool==='rectangle'?'on':''}`} onClick={()=>{onTool('rectangle');setPosition(null);}}>Draw wall rectangles</button>
         <button className={`measure-row ${tool==='draw'?'on':''}`} onClick={()=>{onTool('draw');setPosition(null);}}>Draw wall line</button>

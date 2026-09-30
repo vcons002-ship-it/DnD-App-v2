@@ -1,5 +1,48 @@
 # Map geometry drafts (experimental)
 
+## Separate door-mask workflow
+
+DM: **Walls → Suggest doors from map art → Find doors**. This makes a separate
+image API request using the original map, independent of the yellow wall mask
+and magenta light mask. The API draws cyan lines along visible closed doors,
+from jamb to jamb. The converter extracts each line's center, width and angle;
+diagonal doors retain their orientation.
+
+Apply walls first. Review the original art with the proposed doors or toggle
+the AI mask. Open passages can be mistaken for doors and real doors can be
+missed, so deselect incorrect suggestions and add missing doors manually.
+Each candidate must meet existing walls on both sides within a bounded fitting
+distance. Markers over solid walls, distant from jambs or already occupied by a
+working door are flagged and cannot be applied. This importer only fills
+existing gaps; it never cuts or replaces existing wall pieces. Use **Draw door
+opening** for a door that needs to be cut through a solid wall.
+
+**Apply** creates selected linked door objects as one transaction. Doors start
+closed and unlocked and inherit the existing open/close, lock, hidden-door,
+collision and visibility behavior. They can be moved or rotated with wall
+editing. Original map art, existing walls and lights remain unchanged. Saved
+doors use normal map persistence and campaign backups. Only the base uploaded
+image is analyzed, not added map tiles.
+
+Both `POST /api/maps/:mapId/door-draft` and
+`POST /api/maps/:mapId/door-draft/apply` require DM authentication. Apply accepts
+`{draft, selected}` and validates source image/grid/wall freshness, marker
+geometry, selection and edge budget before creating any objects. The server
+recalculates the fitted geometry; supplied open/lock state is not accepted.
+
+Live Twisted Vaults test (30 September 2026): four Gemini image calls found
+7–8 of the eight visible doors and each also marked an empty passage. The
+recorded run missed the cave door. The DM deselected the false positive and
+applied seven doors. All seven passed closed/open movement and sight checks;
+real player dragging verified a horizontal and diagonal doorway plus closing
+from the other side. The four existing wall contours were preserved exactly;
+total geometry was 451 edges. Full server suite: 1,054 passing tests, plus
+targeted retest after fitting adjustment. Typecheck and builds passed.
+
+[Mask comparisons and 76-second walkthrough](https://dnd.nic024i.app/uploads/previews/door-mask-20260930/index.html).
+Evidence: `artifacts/door-mask/`; recordings: `artifacts/dm-guide/31-door-*`.
+This is a reviewed draft tool, not a reliable unattended door detector.
+
 DM: **Walls → Suggest walls from map art**.
 
 Two methods share one review screen and JSON contract:
