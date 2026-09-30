@@ -9,6 +9,7 @@ import {editMapWalls} from './mapWalls.js';
 import {geometrySource,suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
 import {parseGeometrySuggestions,draftWallRect,type MapGeometryDraft} from '../../shared/mapGeometryDraft.js';
 import {generateApiImage} from './ai/imageGateway.js';
+import * as wallMaskTools from './wallMask.js';
 import {wallMaskStressFixture} from './testFixtures/wallMaskStress.js';
 import {hasLineOfSight,stopAtWalls} from '../../shared/mapWalls.js';
 vi.mock('./ai/imageGateway.js',()=>({generateApiImage:vi.fn()}));
@@ -37,7 +38,7 @@ describe('map geometry draft',()=>{
       const draft=await suggestMapGeometry(map.id);await applyGeometryDraft(map.id,draft,draft.items.map(i=>i.id));
       const saved=getMap(map.id)!;expect(saved.imagePath).toBe(map.imagePath);
       for(const {name,a,b,radius} of f.routes){expect(hasLineOfSight(a,b,saved.walls),name).toBe(true);expect(stopAtWalls(a,b,radius,saved.walls),name).toEqual(b);}
-      expect(generateApiImage).toHaveBeenCalledTimes(1);
+      expect(generateApiImage).toHaveBeenCalledTimes(2);
     }finally{config.geminiApiKey=oldKey;}
   },15000);
   it('aligns normalized coordinates to image pixels and rejects unsafe geometry',()=>{
@@ -64,13 +65,14 @@ describe('map geometry draft',()=>{
     try {
       const name=`mask-${f.map.id}.png`;
       await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#222"/><rect x="450" y="60" width="20" height="420" fill="#ffff00"/></svg>')).png().toFile(path.join(config.uploadsDir,name));
-      vi.mocked(generateApiImage).mockResolvedValueOnce({path:f.map.imagePath!}).mockResolvedValueOnce({path:`/uploads/${name}`});
+      vi.mocked(generateApiImage).mockResolvedValueOnce({path:f.map.imagePath!}).mockResolvedValueOnce({path:f.map.imagePath!}).mockResolvedValue({path:`/uploads/${name}`});
       const draft=await suggestMapGeometry(f.map.id);
       expect(draft.items.length).toBeGreaterThan(0);expect(draft.maskCoverage).toBeGreaterThan(.94);
       expect(draft.maskImagePath).toBe(`/uploads/${name}`);expect(getMap(f.map.id)!.walls).toEqual([]);expect(getMap(f.map.id)!.imagePath).toBe(f.map.imagePath);
       const [prompt,,references]=vi.mocked(generateApiImage).mock.calls[0];
-      expect(generateApiImage).toHaveBeenCalledTimes(2);expect(vi.mocked(generateApiImage).mock.calls[1][0]).toContain('solid opaque yellow bands');
+      expect(generateApiImage).toHaveBeenCalledTimes(4);expect(vi.mocked(generateApiImage).mock.calls[2][0]).toContain('solid opaque yellow bands');
       expect(prompt).toContain('TOP CAPS');expect(prompt).toContain('Leave doors and open passages unpainted');
+      expect(prompt).not.toContain('cave');expect(prompt).not.toContain('pillar');
       expect(references?.[0].mimeType).toBe('image/png');expect(Buffer.from(references![0].data,'base64').length).toBeGreaterThan(100);
       await applyGeometryDraft(f.map.id,draft,draft.items.map(i=>i.id));expect(getMap(f.map.id)!.walls!.length).toBe(draft.items.length);
     } finally {config.geminiApiKey=oldKey;}
@@ -79,6 +81,46 @@ describe('map geometry draft',()=>{
     const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test-key';
     try {vi.mocked(generateApiImage).mockResolvedValue({error:'Image request failed'});await expect(suggestMapGeometry(f.map.id)).rejects.toThrow('Image request failed');expect(getMap(f.map.id)!.walls).toEqual([]);}
     finally {config.geminiApiKey=oldKey;}
+  });
+  it('feeds the structural mask to a separate natural pass and retains both raw images',async()=>{
+    const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test-key';
+    try{
+      const firstName=`structural-${f.map.id}.png`,secondName=`natural-${f.map.id}.png`;
+      const structural=await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#222"/><rect x="100" y="60" width="20" height="420" fill="#ffff00"/></svg>')).png().toBuffer();
+      await fs.writeFile(path.join(config.uploadsDir,firstName),structural);
+      await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#222"/><circle cx="700" cy="300" r="120" fill="none" stroke="#00ff00" stroke-width="20"/></svg>')).png().toFile(path.join(config.uploadsDir,secondName));
+      vi.mocked(generateApiImage).mockResolvedValueOnce({path:`/uploads/${firstName}`}).mockResolvedValueOnce({path:`/uploads/${secondName}`});
+      const draft=await suggestMapGeometry(f.map.id),reference=await sharp(structural).resize({width:2048,height:2048,fit:'inside',withoutEnlargement:true}).png().toBuffer();
+      expect(vi.mocked(generateApiImage).mock.calls[1][0]).toContain('SECOND pass');expect(vi.mocked(generateApiImage).mock.calls[1][2]).toEqual([{mimeType:'image/png',data:reference.toString('base64')}]);
+      expect(draft.wallMaskImagePath).toBe(`/uploads/${firstName}`);expect(draft.naturalMaskImagePath).toBe(`/uploads/${secondName}`);expect(draft.maskImagePath).toContain('wall-union-');expect(draft.items).toHaveLength(2);
+      expect(getMap(f.map.id)!.walls).toEqual([]);await applyGeometryDraft(f.map.id,draft,draft.items.map(i=>i.id));
+      expect(hasLineOfSight({x:70,y:200},{x:160,y:200},getMap(f.map.id)!.walls)).toBe(false);expect(hasLineOfSight({x:700,y:300},{x:900,y:300},getMap(f.map.id)!.walls)).toBe(false);
+      // Some real unions exceed the contour budget even when the two masks fit
+      // separately. Force that failure, then use the real converter for both.
+      const conversion=vi.spyOn(wallMaskTools,'wallsFromYellowMask').mockRejectedValueOnce(new Error('Mask exceeds contour budget'));
+      try{
+        vi.mocked(generateApiImage).mockResolvedValueOnce({path:`/uploads/${firstName}`}).mockResolvedValueOnce({path:`/uploads/${secondName}`});
+        const fallback=await suggestMapGeometry(f.map.id);
+        expect(fallback.items).toHaveLength(2);expect(fallback.maskImagePath).toContain('wall-union-');expect(fallback.maskWarnings).toEqual([]);
+      }finally{conversion.mockRestore();}
+    }finally{config.geminiApiKey=oldKey;}
+  });
+  it('supports cave-only art with no yellow masonry in the first response',async()=>{
+    const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test-key';
+    try{
+      const name=`cave-only-${f.map.id}.png`;await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#777"/><circle cx="500" cy="300" r="170" fill="none" stroke="#00ff00" stroke-width="20"/></svg>')).png().toFile(path.join(config.uploadsDir,name));
+      vi.mocked(generateApiImage).mockResolvedValueOnce({path:f.map.imagePath!}).mockResolvedValueOnce({path:`/uploads/${name}`});
+      const draft=await suggestMapGeometry(f.map.id);expect(draft.items).toHaveLength(1);expect(generateApiImage).toHaveBeenCalledTimes(2);
+    }finally{config.geminiApiKey=oldKey;}
+  });
+  it('retains structural walls with a visible warning when the natural pass fails, and allows opting out',async()=>{
+    const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test-key';
+    try{
+      const name=`fallback-${f.map.id}.png`;await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#222"/><rect x="450" y="60" width="20" height="420" fill="#ffff00"/></svg>')).png().toFile(path.join(config.uploadsDir,name));
+      vi.mocked(generateApiImage).mockResolvedValueOnce({path:`/uploads/${name}`}).mockResolvedValueOnce({error:'API connection failed'});
+      const draft=await suggestMapGeometry(f.map.id);expect(draft.items).toHaveLength(1);expect(draft.maskWarnings?.[0]).toContain('API connection failed');expect(draft.maskImagePath).toBe(draft.wallMaskImagePath);expect(getMap(f.map.id)!.walls).toEqual([]);
+      vi.clearAllMocks();vi.mocked(generateApiImage).mockResolvedValue({path:`/uploads/${name}`});const wallsOnly=await suggestMapGeometry(f.map.id,'ai',{naturalBoundaries:false});expect(generateApiImage).toHaveBeenCalledTimes(1);expect(wallsOnly.naturalMaskImagePath).toBeUndefined();
+    }finally{config.geminiApiKey=oldKey;}
   });
   it('applies only reviewed walls, preserves prior walls and rejects stale or repeated application',async()=>{
     const f=await fixture();editMapWalls(f.session.id,f.map.id,{add:{id:'manual',ax:10,ay:10,bx:10,by:100}});

@@ -3,6 +3,16 @@ import sharp from 'sharp';
 import {wallsFromYellowMask} from './wallMask.js';
 import {hasLineOfSight,stopAtWalls,sanitizeWalls,wallEdgeCount} from '../../shared/mapWalls.js';
 import {wallMaskStressFixture} from './testFixtures/wallMaskStress.js';
+import {contourWallMask} from './wallMaskContours.js';
+
+it('does not return collapsed zero-area contours as invalid wall pieces',async()=>{
+ const w=80,h=80,mask=new Uint8Array(w*h);
+ for(let y=10;y<70;y++)for(let x=10;x<24;x++)mask[y*w+x]=1;
+ for(let i=0;i<5;i++)mask[(30+i)*w+50+i]=1;
+ const result=await contourWallMask(mask,new Uint8Array(mask.length),w,h,true);
+ expect(result).not.toBeNull();expect(sanitizeWalls(result!.walls)).toHaveLength(result!.walls.length);
+ expect(result!.walls.every(w=>w.points!.length>=3)).toBe(true);
+});
 
 it('fills yellow wall outlines, leaves large room interiors empty and preserves door gaps',async()=>{
  const image=await sharp(Buffer.from('<svg width="400" height="300"><rect width="400" height="300" fill="#222"/><g stroke="#ffff00" stroke-width="3" fill="none"><rect x="190" y="20" width="18" height="100"/><rect x="190" y="180" width="18" height="100"/><rect x="20" y="40" width="130" height="160"/></g></svg>')).png().toBuffer();

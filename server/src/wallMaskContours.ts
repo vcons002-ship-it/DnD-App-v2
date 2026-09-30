@@ -50,7 +50,7 @@ function restoreGaps(walls:MapWall[],reserved:Uint8Array,raster:Buffer,w:number,
  }
  return result;
 }
-export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Array,w:number,h:number):Promise<{walls:MapWall[];coverage:number}|null>{
+export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Array,w:number,h:number,minimizeEdges=false):Promise<{walls:MapWall[];coverage:number}|null>{
  const raw=trace(solid,w,h),outer=raw.filter(r=>signedArea(r)>0),holes=raw.filter(r=>signedArea(r)<0);
  if(outer.length>120)return null;
  // Assign a hole only to its smallest enclosing component (nested islands stay solid).
@@ -63,6 +63,10 @@ export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Arra
  // same coverage/edge limits; complexity never authorizes closing a doorway.
  for(const tolerance of [1.25,1.3,1.35,1.4,1.45,1.5,.8,.45,0]){
   let walls=grouped.map((rs,i)=>polygonWall(`mask-${i}`,rs.map(r=>simplifyRing(r,tolerance))));
+  // A tiny diagonal fragment can collapse to a two-point, zero-area ring.
+  // Its SVG already paints nothing; do not return it as an invalid saved wall.
+  walls=walls.filter(w=>w.points!.length>=3&&Math.abs(signedArea(w.points!))>.005)
+    .map(w=>({...w,...(w.holes?{holes:w.holes.filter(r=>r.length>=3&&Math.abs(signedArea(r))>.005)}:{})}));
   if(wallEdgeCount(walls)>MAX_MAP_WALLS)continue;
   const render=()=>sharp(Buffer.from(`<svg width="${w}" height="${h}"><rect width="100%" height="100%" fill="black"/>${walls.map(w=>`<path d="${wallSvgPath(w)}" fill="white" fill-rule="evenodd"/>`).join('')}</svg>`)).removeAlpha().greyscale().raw().toBuffer();
   let raster=await render();
@@ -82,7 +86,7 @@ export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Arra
   if(!closesGap&&!losesCore&&total&&represented/total>=.96){
    if(!best||wallEdgeCount(walls)<wallEdgeCount(best.walls))best={walls,coverage:represented/total};
    // Keep some room for subsequent manual edits and doors where possible.
-   if(wallEdgeCount(walls)<=MAX_MAP_WALLS*.85)return best;
+   if(!minimizeEdges&&wallEdgeCount(walls)<=MAX_MAP_WALLS*.85)return best;
   }
  }
  return best;

@@ -7,7 +7,7 @@ import type {MapWall} from '../../shared/mapWalls.js';
  * Fill only narrow enclosed regions, then trace solid contours with room holes.
  * Complex noisy masks retain the conservative rectangle-fitting fallback.
  * Large enclosed rooms remain empty. Narrow unpainted cuts are protected during fitting. */
-export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer) {
+export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer,minimizeEdges=false) {
   if(![width,height,gridSizePx].every(n=>Number.isFinite(n)&&n>0)||width>20000||height>20000)throw new Error('Invalid map dimensions.');
   const scale=Math.min(1,800/Math.max(width,height)),w=Math.round(width*scale),h=Math.round(height*scale),size=w*h;
   const {data,info}=await sharp(image,{limitInputPixels:40_000_000}).rotate().resize(w,h,{fit:'fill',kernel:'nearest'}).removeAlpha().toColourspace('srgb').raw().toBuffer({resolveWithObject:true});
@@ -67,7 +67,7 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
     if(depth<=Math.max(3,gridSizePx*scale*.45)){for(const p of component)solid[p]=1;filledPixels+=component.length;}
   }
   const prepared=prepareWallMask(solid,w,h,gridSizePx*scale);
-  const contours=await contourWallMask(prepared.solid,prepared.protectedPixels,w,h);
+  const contours=await contourWallMask(prepared.solid,prepared.protectedPixels,w,h,minimizeEdges);
   const fitted=contours?{...contours,solid:prepared.solid}:await fitWallMask(solid,w,h,gridSizePx*scale);
   const scalePoint=(p:{x:number;y:number})=>({x:p.x*width/w,y:p.y*height/h});
   const walls:MapWall[]=contours?contours.walls.map(wall=>({...wall,ax:wall.ax*width/w,ay:wall.ay*height/h,bx:wall.bx*width/w,by:wall.by*height/h,points:wall.points!.map(scalePoint),...(wall.holes?{holes:wall.holes.map(r=>r.map(scalePoint))}:{})})):

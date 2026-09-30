@@ -19,7 +19,7 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false){
   const source={mapId:map.id,imageHash:hash(image),width:400,height:300,gridSizePx:map.gridSizePx,feetPerSquare:map.feetPerSquare,gridOffsetX:map.gridOffsetX,gridOffsetY:map.gridOffsetY,wallsHash:hash('[]')};
   const {wallsHash,...lightSource}=source;
   const drafts={
-    walls:{version:1,id:'e2e-walls',method:'ai',source,maskImagePath:map.imagePath,items:[
+    walls:{version:1,id:'e2e-walls',method:'ai',source,maskImagePath:map.imagePath,wallMaskImagePath:map.imagePath+'?walls',naturalMaskImagePath:map.imagePath+'?natural',items:[
       {id:'item-0',kind:'wall',label:'Left jamb',ax:0,ay:140/300,bx:.4,by:160/300,heightFt:10,confidence:1},
       {id:'item-1',kind:'wall',label:'Right jamb',ax:.6,ay:140/300,bx:1,by:160/300,heightFt:10,confidence:1},
     ]},
@@ -48,6 +48,10 @@ test('one click runs all three analyses, fits doors to selected walls and applie
   await expect.poll(()=>f.calls).toEqual({walls:1,doors:1,lights:1});
   const dialog=page.getByRole('dialog',{name:'Map setup draft'});
   await expect(dialog.getByRole('button',{name:'Apply selected setup'})).toBeEnabled();
+  await dialog.getByLabel('Show walls mask').check();
+  await dialog.getByLabel('Wall mask stage').selectOption('natural');await expect(dialog.locator('svg image')).toHaveAttribute('href',f.map.imagePath+'?natural');
+  await dialog.getByLabel('Wall mask stage').selectOption('walls');await expect(dialog.locator('svg image')).toHaveAttribute('href',f.map.imagePath+'?walls');
+  await dialog.getByLabel('Show walls mask').uncheck();
   await dialog.getByRole('button',{name:'Doors draft',exact:true}).click();await expect(dialog.getByLabel('Door 1',{exact:true})).toBeChecked();
   await dialog.getByRole('button',{name:'Walls draft',exact:true}).click();await dialog.getByLabel('Left jamb').uncheck();
   await dialog.getByRole('button',{name:'Doors draft',exact:true}).click();await expect(dialog.getByLabel(/^Door 1/)).toBeDisabled();await expect(dialog.getByLabel(/^Door 1/)).not.toBeChecked();

@@ -19,6 +19,7 @@ export function MapSetupDraft({map,onClose}:{map:MapState;onClose:()=>void}){
   const [selected,setSelected]=useState<MapSetupSelection>(emptySelection);
   const [progress,setProgress]=useState<Record<MapSetupStep,Progress>>({walls:{state:'waiting'},doors:{state:'waiting'},lights:{state:'waiting'}});
   const [tab,setTab]=useState<MapSetupStep>('walls'),[mask,setMask]=useState(false),[applying,setApplying]=useState(false),[error,setError]=useState('');
+  const [wallMaskStage,setWallMaskStage]=useState('combined');
   const started=useRef(false);
   const running=steps.some(s=>progress[s].state==='running'||progress[s].state==='waiting'),busy=running||applying;
   const runStep=async(step:MapSetupStep)=>{
@@ -49,7 +50,8 @@ export function MapSetupDraft({map,onClose}:{map:MapState;onClose:()=>void}){
   const counts={walls:wallShapes.length,doors:fittedDoors.length,lights:drafts.lights?.lights.length??0};
   const total=steps.reduce((n,s)=>n+effective[s].length,0);
   const source=drafts.walls?.source??drafts.doors?.source??drafts.lights?.source;
-  const imagePath=mask?drafts[tab]?.maskImagePath??map.imagePath:map.imagePath;
+  const wallMaskPath=wallMaskStage==='walls'?drafts.walls?.wallMaskImagePath:wallMaskStage==='natural'?drafts.walls?.naturalMaskImagePath:drafts.walls?.maskImagePath;
+  const imagePath=mask?(tab==='walls'?wallMaskPath??drafts.walls?.maskImagePath:drafts[tab]?.maskImagePath)??map.imagePath:map.imagePath;
   const toggle=(step:MapSetupStep,id:string)=>setSelected(old=>({...old,[step]:old[step].includes(id)?old[step].filter(i=>i!==id):[...old[step],id]}));
   const apply=async()=>{
     setApplying(true);setError('');
@@ -60,17 +62,19 @@ export function MapSetupDraft({map,onClose}:{map:MapState;onClose:()=>void}){
   };
   return createPortal(<div role="dialog" aria-modal="true" aria-label="Map setup draft" style={{position:'fixed',inset:16,zIndex:1100,background:'#131820',border:'1px solid #aa8550',borderRadius:8,padding:16,display:'flex',flexDirection:'column',gap:10,boxShadow:'0 0 0 100vmax #000b'}}>
     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>Walls, doors & lights - {map.name}</strong><button className="btn" disabled={busy} onClick={onClose}>Close</button></div>
-    <p style={{margin:0}}>Three separate AI masks from the original map. Review the results, then apply your selections together. Only the base map image is analyzed.</p>
+    <p style={{margin:0}}>Separate wall, door and light workflows. Walls use a structural pass, then a cave and pillar pass. Review the results before applying. Only the base map image is analyzed.</p>
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{steps.map(step=><button key={step} className={`btn ${tab===step?'on':''}`} aria-label={`${names[step]} draft`} aria-pressed={tab===step} onClick={()=>setTab(step)}>{names[step]}: {progress[step].state==='ready'?`${counts[step]} found`:progress[step].state==='error'?'Needs attention':progress[step].state==='running'?'Analyzing...':'Starting...'}</button>)}</div>
     <div role="status">{applying?'Saving selected walls, doors and lights...':running?'Analyzing the map. Completed results appear below while the other masks finish.':'Review complete masks below. Doors fit to your selected walls; lights use the existing map art.'}</div>
     {steps.filter(s=>progress[s].state==='error').map(step=><div key={step} role="alert" style={{color:'#ffd39a'}}>{names[step]}: {progress[step].error} <button className="btn tiny" disabled={busy} onClick={()=>void runStep(step)}>Retry {names[step].toLowerCase()}</button></div>)}
     {error&&<div role="alert" style={{color:'#ffb6a1'}}>{error}</div>}
+    {drafts.walls?.maskWarnings?.map(warning=><div key={warning} role="alert" style={{color:'#ffd39a'}}>{warning}</div>)}
     <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
       <button className="btn" disabled={busy||!total} onClick={apply}>Apply selected setup</button>
       <span>{effective.walls.length} walls · {effective.doors.length} doors · {effective.lights.length} lights selected</span>
       <button className="btn" disabled={busy} onClick={()=>void runAll()}>Run all again</button>
       <button className="btn" disabled={busy||!drafts[tab]} onClick={()=>setSelected(old=>({...old,[tab]:[]}))}>Deselect {tab}</button>
       <label><input type="checkbox" disabled={!drafts[tab]?.maskImagePath} checked={mask} onChange={e=>setMask(e.target.checked)}/>Show {tab} mask</label>
+      {mask&&tab==='walls'&&drafts.walls?.wallMaskImagePath&&<label>Mask view <select aria-label="Wall mask stage" value={wallMaskStage} onChange={e=>setWallMaskStage(e.target.value)}><option value="combined">Combined mask used for walls</option><option value="walls">Pass 1: structural walls (raw API)</option>{drafts.walls.naturalMaskImagePath&&<option value="natural">Pass 2: natural boundaries (raw API)</option>}</select></label>}
     </div>
     <p className="muted" style={{margin:0}}>{tab==='walls'?'Check wall alignment and keep real passages open. Deselecting a wall also updates door fitting.':tab==='doors'?'Check that each suggestion is a real door. Doors without both adjoining walls are skipped. Applied doors start closed and unlocked.':'Check emitter positions. Lights start warm, with a 20 ft radius, gentle flicker and no added 3D fixture.'}</p>
     <div style={{display:'flex',gap:16,flex:1,minHeight:0,overflow:'auto',flexWrap:'wrap'}}>
