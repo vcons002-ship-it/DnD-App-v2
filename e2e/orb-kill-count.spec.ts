@@ -2,6 +2,7 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { LIVE_COMBAT_TIMEOUT, waitForCombatRoll } from './helpers/combatLive';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -45,6 +46,7 @@ async function joinPlayer(page: Page, code: string) {
 }
 
 test('orb tally shows zero, receives existing manual-damage kill credit and survives reload', async ({ page, request }) => {
+  test.setTimeout(180_000);
   const f = await fixture(request);
   // Minimal generated map: no preview campaign or production assets are read.
   const image = await page.evaluate(() => {
@@ -83,14 +85,16 @@ test('orb tally shows zero, receives existing manual-damage kill credit and surv
   for (let attempt = 0; attempt < 8; attempt++) {
     // Natural 1 is still allowed; retry an actual authoritative attack, never
     // manufacture the roll or bypass the user's second-click damage workflow.
+    const previous = new Set((await f.snapshot()).rollLog.map(entry => entry.id));
     f.socket.emit('combat:attack', { attackerTokenId: attacker.id, targetTokenId: target.id, weaponIndex: 0 });
-    pending = (await f.snapshot()).rollLog.findLast((entry) => entry.pending && !entry.pending.done);
+    const rolled = await waitForCombatRoll(f.snapshot, previous, entry => entry.label === 'Attack' && entry.expr === 'Tally sword');
+    pending = rolled.pending && !rolled.pending.done ? rolled : undefined;
     if (pending) break;
   }
   expect(pending).toBeTruthy();
   await expect(badge).toHaveAttribute('data-kill-count', '0');
   f.socket.emit('combat:damage', { rollId: pending!.id });
-  await expect(badge).toHaveAttribute('data-kill-count', '1');
+  await expect(badge).toHaveAttribute('data-kill-count', '1', { timeout: LIVE_COMBAT_TIMEOUT });
   await expect(badge).toHaveAccessibleName('Druk: 1 kill');
   const killed = await f.snapshot();
   expect(killed.characters.find((entry) => entry.id === f.characterId)!.killCount).toBe(1);

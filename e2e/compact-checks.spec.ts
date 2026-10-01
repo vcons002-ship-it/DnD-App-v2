@@ -7,6 +7,9 @@ import { DM_SECRET, PORT } from './playwright.config';
 
 // All writes go to the e2e config's throwaway DB, never a preview or campaign.
 test('compact checks share advantage, expose all roll types and preserve proficiency edits', async ({ page, request }) => {
+  // Each check now waits for authoritative live dice, rather than writing an
+  // immediately simulated result. Allow the server's bounded settle/reroll path.
+  test.setTimeout(180_000);
   const response = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET },
     data: { name: 'Compact checks regression' },
@@ -24,6 +27,18 @@ test('compact checks share advantage, expose all roll types and preserve profici
     snapshot = joined.snapshot;
     const character = () => snapshot.characters.find((entry) => entry.name === 'Druk')!;
     const entry = (label: string) => snapshot.rollLog.find((roll) => roll.label === label);
+    const assertCheckMath = (label: string, bonus: number) => {
+      const roll = entry(label)!;
+      const reveal = roll.reveal!;
+      expect(reveal.kind).toBe('check');
+      expect(reveal.title).toBe(label);
+      expect(reveal.physical).toBe(true);
+      expect(reveal.d20).toBeGreaterThanOrEqual(1);
+      expect(reveal.d20).toBeLessThanOrEqual(20);
+      expect((reveal.toHit ?? []).reduce((total, step) => total + step.value, 0)).toBe(bonus);
+      expect(roll.total).toBe(reveal.d20! + bonus);
+      expect(reveal.attackTotal).toBe(roll.total);
+    };
     // Fresh sessions seed names, not complete campaign sheets. Supply a real
     // disposable stat block so checks are enabled and equipped bonuses matter.
     observer.emit('character:update', {
@@ -102,7 +117,8 @@ test('compact checks share advantage, expose all roll types and preserve profici
     await strength.press('Enter');
     await expect(chooser).toBeVisible();
     await checks.getByRole('button', { name: `Roll Strength ability check ${signed(abilityTotal)}`, exact: true }).click();
-    await expect.poll(() => entry('STR check')?.detail).toContain('adv');
+    await expect.poll(() => entry('STR check')?.detail, { timeout: 60_000 }).toContain('adv');
+    assertCheckMath('STR check', abilityTotal);
     await expect(checks.getByRole('button', { name: 'Adv', exact: true })).not.toHaveClass(/\bon\b/);
     await expect(page.locator('.roll-reveal')).toBeVisible();
     await expect(page.locator('.roll-reveal canvas[aria-label*="rolling"]')).toHaveCount(0);
@@ -114,7 +130,8 @@ test('compact checks share advantage, expose all roll types and preserve profici
     const saveProficient = character().saveProficiencies.some((name) => name.trim().toUpperCase() === 'STR');
     const saveTotal = abilityTotal + (saveProficient ? proficiencyBonus(character().level) : 0) + saveExtra(character(), 'STR').total;
     await checks.getByRole('button', { name: `Roll Strength saving throw ${signed(saveTotal)}`, exact: true }).click();
-    await expect.poll(() => entry('STR save')?.label).toBe('STR save');
+    await expect.poll(() => entry('STR save')?.label, { timeout: 60_000 }).toBe('STR save');
+    assertCheckMath('STR save', saveTotal);
     expect(entry('STR save')!.detail).not.toContain('adv');
     await expect(page.locator('.roll-reveal')).toBeVisible();
     await expect(page.locator('.roll-reveal canvas[aria-label*="rolling"]')).toHaveCount(0);
@@ -124,7 +141,8 @@ test('compact checks share advantage, expose all roll types and preserve profici
     await page.keyboard.press('Home');
     await expect(checks.getByRole('tab', { name: 'Skills', exact: true })).toBeFocused();
     await checks.getByRole('button', { name: `Roll Acrobatics check ${signed(skillTotal)}`, exact: true }).click();
-    await expect.poll(() => entry('Acrobatics check')?.label).toBe('Acrobatics check');
+    await expect.poll(() => entry('Acrobatics check')?.label, { timeout: 60_000 }).toBe('Acrobatics check');
+    assertCheckMath('Acrobatics check', skillTotal);
     expect(entry('Acrobatics check')!.detail).not.toContain('adv');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(errors).toEqual([]);

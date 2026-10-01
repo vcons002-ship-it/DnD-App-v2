@@ -2,6 +2,8 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { settledLiveDice, dismissSettledRoll } from './helpers/diceLive';
+test.beforeEach(() => test.setTimeout(120_000));
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -76,17 +78,20 @@ async function fixture(request: APIRequestContext, page: Page, slides: boolean) 
 }
 
 async function expectPair(page: Page, mode: 'adv' | 'dis') {
-  const comparison = page.locator(`.rr-comparison[data-mode="${mode}"]`);
-  await expect(comparison.locator('.rr-candidate')).toHaveCount(2);
-  await expect(comparison.locator('.tray-die-result')).toHaveCount(2);
-  await expect(comparison.locator('[data-result="kept"]')).toHaveCount(1, {timeout:15000});
-  await expect(comparison.locator('[data-result="discarded"]')).toHaveCount(1);
-  await expect(comparison.locator('.tray-die-result[data-orientation="settled"]')).toHaveCount(2);
-  const values = await comparison.locator('.tray-die-result').evaluateAll((dice) => dice.map((die) => Number(die.getAttribute('data-value'))));
-  const kept = Number(await comparison.locator('[data-result="kept"]').getAttribute('data-candidate'));
-  await page.locator('.roll-reveal').click();
-  await expect(page.locator('.roll-reveal')).toHaveCount(0);
-  return { values, kept };
+  const live = page.locator('[data-live-dice="true"]');
+  await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-mode', mode);
+  const dice = await settledLiveDice(page, 2);
+  expect(dice.map(die => die.sides)).toEqual([20,20]);
+  const keptDice = dice.filter(die => die.result === 'kept');
+  const droppedDice = dice.filter(die => die.result === 'discarded');
+  expect(keptDice).toHaveLength(1);
+  expect(droppedDice).toHaveLength(1);
+  expect(keptDice[0].color).toBe('rgb(57, 239, 135)');
+  expect(droppedDice[0].color).toBe('rgb(255, 83, 101)');
+  const values = dice.map(die => die.value), kept = keptDice[0].set;
+  expect(values[kept]).toBe(mode === 'adv' ? Math.max(...values) : Math.min(...values));
+  await dismissSettledRoll(page);
+  return {values, kept};
 }
 
 for (const slides of [false, true]) {

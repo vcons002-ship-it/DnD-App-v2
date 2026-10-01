@@ -94,7 +94,7 @@
   box-sizing: border-box;
 }
 .player-fantasy .player-dice-picker .player-dice-menu-region[hidden] { display: none; }
-.player-fantasy .player-dice-picker .player-dice-menu-region .dice-quick-menu {
+.player-fantasy .dice-button-overlay.player-dice-picker .player-dice-menu-region .dice-quick-menu {
   position: static;
   top: auto;
   left: auto;
@@ -104,11 +104,11 @@
   width: 100%;
   box-sizing: border-box;
   padding: 6px;
-  max-height: min(300px, calc((100dvh - 140px) / var(--player-ui-scale, .85)));
+  max-height: min(300px, calc((100dvh - 140px) / var(--player-ui-scale, .85)), var(--dice-menu-available-height, 300px));
   overflow: auto;
   pointer-events: auto;
   opacity: 1;
-  transform: none;
+  transform: translateY(var(--dice-menu-offset-y, 0px));
   transition: none;
   background: #10151aed;
   border-color: #786348;
@@ -128,9 +128,9 @@
     width: 59px;
     padding-top: 8px;
   }
-  .player-fantasy .player-dice-picker .player-dice-menu-region .dice-quick-menu {
+  .player-fantasy .dice-button-overlay.player-dice-picker .player-dice-menu-region .dice-quick-menu {
     width: min(232px, calc((100vw - 20px) / var(--player-ui-scale, .85)));
-    max-height: min(300px, calc((100dvh - 250px) / var(--player-ui-scale, .85)));
+    max-height: min(300px, calc((100dvh - 250px) / var(--player-ui-scale, .85)), var(--dice-menu-available-height, 300px));
   }
 }
 @media (prefers-reduced-motion: reduce) {

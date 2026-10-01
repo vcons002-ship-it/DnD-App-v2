@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import {DM_SECRET,PORT} from './playwright.config';
+test.skip(process.env.DND_DM_DICE_DEMO!=='1','Optional Windows video capture; enable DND_DM_DICE_DEMO=1 explicitly.');
 test('DM affinity dice showcase',async({browser,request},info)=>{
  test.setTimeout(180000);
  const require=createRequire(process.cwd()+'/package.json');const encoder=require('playwright-core/lib/server/registry/index').registry.findExecutable('ffmpeg');const ff=execFileSync('where.exe',['ffmpeg'],{encoding:'utf8'}).trim().split(/\r?\n/)[0];encoder.executablePath=()=>ff;encoder.executablePathOrDie=()=>ff;

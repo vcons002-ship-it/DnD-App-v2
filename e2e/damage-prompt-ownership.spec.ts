@@ -2,14 +2,16 @@ import { test, expect, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { waitForCombatRoll } from './helpers/combatLive';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
 
-// Disposable Playwright database only (port 4099). The big damage prompt is a
+// Disposable Playwright database only. The big damage prompt is a
 // "your hit" control: a player's parked damage belongs to that player, so the
 // DM's map must not offer to take it — while the DM's own hits still prompt.
 test('the DM prompt ignores a player-owned hit and still shows the DM\'s own', async ({ page, browser, request }) => {
+  test.setTimeout(180_000);
   const created = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Prompt ownership' },
   });
@@ -68,9 +70,11 @@ test('the DM prompt ignores a player-owned hit and still shows the DM\'s own', a
     // The player's hit parks damage (a natural 1 still misses; retry, never forge).
     let playerHit;
     for (let attempt = 0; attempt < 5 && !playerHit; attempt++) {
+      const previous = new Set((await snapshot()).rollLog.map(r => r.id));
       await page.locator('.compact-player-combat').getByRole('button', { name: /Owner greatsword/ }).click();
-      await expect.poll(async () => (await snapshot()).rollLog.length).toBeGreaterThan(attempt);
-      playerHit = (await snapshot()).rollLog.findLast((r) => r.pending && !r.pending.done);
+      const result = await waitForCombatRoll(snapshot, previous, r => r.label === 'Attack');
+      if (result.pending && !result.pending.done) playerHit = result;
+      else expect(result.reveal?.outcome).toBe('fumble');
     }
     expect(playerHit).toBeTruthy();
     expect(playerHit!.roller).not.toBe('DM');
@@ -85,9 +89,11 @@ test('the DM prompt ignores a player-owned hit and still shows the DM\'s own', a
     // The DM's own monster hit still gets the big prompt.
     let dmHit;
     for (let attempt = 0; attempt < 5 && !dmHit; attempt++) {
+      const previous = new Set((await snapshot()).rollLog.map(r => r.id));
       socket.emit('combat:attack', { attackerTokenId: enemy.id, targetTokenId: pc.id, weaponIndex: 0 });
-      await expect.poll(async () => (await snapshot()).rollLog.filter((r) => r.roller === 'DM').length).toBeGreaterThan(attempt);
-      dmHit = (await snapshot()).rollLog.findLast((r) => r.roller === 'DM' && r.pending && !r.pending.done);
+      const result = await waitForCombatRoll(snapshot, previous, r => r.roller === 'DM' && r.label === 'Attack');
+      if (result.pending && !result.pending.done) dmHit = result;
+      else expect(result.reveal?.outcome).toBe('fumble');
     }
     expect(dmHit).toBeTruthy();
     await expect(dm.locator('.damage-prompt-btn')).toBeVisible();
