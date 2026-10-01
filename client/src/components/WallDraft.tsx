@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import type {MapState} from '../../../shared/types';
 import {draftWallShape,type MapGeometryDraft} from '../../../shared/mapGeometryDraft';
 import {apiFetch} from '../lib/api';
+import {WallPerformanceNotice} from './WallPerformanceNotice';
 
 export function WallDraft({map,onClose}:{map:MapState;onClose:()=>void}) {
   const [draft,setDraft]=useState<MapGeometryDraft|null>(null);
@@ -51,6 +52,7 @@ export function WallDraft({map,onClose}:{map:MapState;onClose:()=>void}) {
     </div>
     {busy&&<div role="status">{draft?'Processing draft…':method==='local'?'Scanning wall bands and open floor contrast locally...':'Generating the yellow mask, then converting it to walls. Image API retries may take a few minutes.'}</div>}
     {error&&<div role="alert" style={{color:'#ffb6a1'}}>{error}</div>}
+    <WallPerformanceNotice walls={[...(map.walls??[]),...(draft?.items.filter(i=>i.kind==='wall'&&selected.includes(i.id)).map(i=>draftWallShape(i,draft.source))??[])]}/>
     {draft?.maskWarnings?.map(warning=><div key={warning} role="alert" style={{color:'#ffd39a'}}>{warning}</div>)}
     {draft&&<small>Draft from {draft.method==='local'?'local contrast detection (experimental; all walls start unselected)':'AI yellow-mask conversion'}. Analyzes the base map image only. Review alignment and doorway gaps carefully. Yellow-mask percentages describe conversion coverage, not accuracy.</small>}
     {draft?.maskGeometry&&<small>{draft.maskGeometry==='outlines'?'Wall shapes follow the painted outlines, including curves, angles and empty room interiors. Apply saves these exact shapes.':'This mask required rectangular wall fitting. Check curved and angled sections carefully before applying.'}</small>}

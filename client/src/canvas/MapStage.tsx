@@ -2,7 +2,7 @@ import {ObjectControls} from '../components/ObjectControls';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
 import {WallMenu,type WallTool} from '../components/WallMenu';
-import {doorApproachPoints,distanceToWall,MAX_MAP_WALLS,wallEdgeCount,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
+import {doorApproachPoints,distanceToWall,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
@@ -1484,9 +1484,8 @@ export function MapStage({
       if(raw){
         const p=wallTool==='freehand'?raw:wallPoint(raw),[wall]=sanitizeWalls([strokeWall(wallAnchor,p)]);
         if(wall){
-          if(wallEdgeCount(map.walls??[])+wallEdgeCount([wall])>MAX_MAP_WALLS)notify('Wall limit reached. Erase or simplify an unused wall first.');
-          else useStore.getState().editMapWalls(map.id,{add:wall});
-        }else if(Math.hypot(p.x-wallAnchor.x,p.y-wallAnchor.y)>2/view.scale){notify('Wall is too small or too complex. Try a longer, simpler stroke.');
+          useStore.getState().editMapWalls(map.id,{add:wall});
+        }else if(Math.hypot(p.x-wallAnchor.x,p.y-wallAnchor.y)>2/view.scale){notify('Invalid wall shape. Try drawing the stroke again.');
         }
       }
       setWallAnchor(null);setWallPointer(null);

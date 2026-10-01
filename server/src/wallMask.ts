@@ -80,6 +80,6 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
     ('rectangles' in fitted?fitted.rectangles:[]).map((r,index)=>({id:`mask-${index}`,kind:'rectangle',ax:r.x*width/w,ay:r.y*height/h,bx:r.right*width/w,by:r.bottom*height/h}));
   if(!walls.length)throw new Error('No usable yellow wall regions found.');
   const coverage=fitted.coverage;
-  if(coverage<.94)throw new Error('Mask is too complex for the wall limit; simplify it before importing.');
+  if(coverage<.94)throw new Error('The wall shapes do not cover the painted mask accurately enough. Review the mask before importing.');
   return {walls,coverage,filledPixels,workWidth:w,workHeight:h,solidMask:Buffer.from(fitted.solid.map(n=>n*255))};
 }

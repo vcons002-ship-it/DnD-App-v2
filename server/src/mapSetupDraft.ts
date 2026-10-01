@@ -4,7 +4,7 @@ import {geometrySource,prepareWallDraft} from './mapGeometryDraft.js';
 import {prepareDoorDraft} from './mapDoorDraft.js';
 import {lightDraftSource,prepareLightDraft} from './mapLightDraft.js';
 import {getMap,createWallDoorObject,updateMapEnvironment} from './sessions.js';
-import {MAX_MAP_WALLS,sanitizeWalls,wallEdgeCount} from '../../shared/mapWalls.js';
+import {sanitizeWalls} from '../../shared/mapWalls.js';
 import type {MapSetupDrafts,MapSetupSelection} from '../../shared/mapSetupDraft.js';
 
 /** Validate all three independent drafts, then save the reviewed setup together. */
@@ -26,7 +26,7 @@ export async function applyMapSetupDraft(mapId:string,raw:unknown,selection:unkn
     const addedDoors=selected.doors.length?prepareDoorDraft(drafts.doors,selected.doors,source,walls):[];
     walls.push(...addedDoors);
     const addedLights=selected.lights.length?prepareLightDraft(drafts.lights,selected.lights,lightDraftSource(source,map.environment?.lights??[])):[];
-    if(wallEdgeCount(walls)>MAX_MAP_WALLS||sanitizeWalls(walls).length!==walls.length)throw new Error('This setup exceeds the wall limit or contains invalid geometry. Select fewer walls or doors.');
+    if(sanitizeWalls(walls).length!==walls.length)throw new Error('This setup contains invalid geometry. Review the selected walls and doors.');
     // No writes occur until every selected workflow has passed validation.
     for(const door of addedDoors){
       const token=createWallDoorObject(map.sessionId,mapId,(door.ax+door.bx)/2,(door.ay+door.by)/2);

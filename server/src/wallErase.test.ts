@@ -54,10 +54,12 @@ it('persists partial erasing only in the owning campaign and leaves invalid edit
  expect(hasLineOfSight({x:50,y:250},{x:150,y:250},next)).toBe(false);
 });
 
-it('rejects a cut that exceeds the edge budget atomically',()=>{
+it('keeps every wall when an erase increases detail beyond the former edge cap',()=>{
  const session=createSession('Wall detail cap'),map=createMap(session.id,{name:'Many walls'});
  for(let i=0;i<128;i++)expect(editMapWalls(session.id,map.id,{add:{id:'r-'+i,kind:'rectangle',ax:i*100,ay:0,bx:i*100+20,by:100}})).toBeNull();
- const before=getMap(map.id)!.walls;
- expect(editMapWalls(session.id,map.id,{eraseArea:{ax:-10,ay:40,bx:30,by:60}})).toContain('too much boundary detail');
- expect(getMap(map.id)!.walls).toEqual(before);
+ expect(editMapWalls(session.id,map.id,{eraseArea:{ax:-10,ay:40,bx:30,by:60}})).toBeNull();
+ const after=getMap(map.id)!.walls!;
+ expect(after).toHaveLength(129);
+ expect(hasLineOfSight({x:-10,y:50},{x:30,y:50},after)).toBe(true);
+ expect(hasLineOfSight({x:12690,y:50},{x:12730,y:50},after)).toBe(false);
 });

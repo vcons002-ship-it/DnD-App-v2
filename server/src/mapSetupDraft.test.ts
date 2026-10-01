@@ -11,6 +11,9 @@ import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {parseGeometrySuggestions} from '../../shared/mapGeometryDraft.js';
 import {hasLineOfSight,stopAtWalls} from '../../shared/mapWalls.js';
 import type {MapSetupDrafts,MapSetupSelection} from '../../shared/mapSetupDraft.js';
+import {db} from './db.js';
+import {wallEdgeCount} from '../../shared/mapWalls.js';
+import {benchmarkLayout} from '../../tools/wall-benchmark.js';
 
 async function fixture(){
   const session=createSession('Combined map setup'),name=`setup-${session.id}.png`;
@@ -40,6 +43,17 @@ it('fits doors to the selected new walls and saves all three workflows together'
   const a={x:200,y:80},b={x:200,y:220};expect(hasLineOfSight(a,b,map.walls)).toBe(false);expect(stopAtWalls(a,b,10,map.walls).y).toBeLessThan(150);
   expect(setWallDoor(f.session.id,map.id,door.id,true)).toBeNull();expect(hasLineOfSight(a,b,getMap(map.id)!.walls)).toBe(true);expect(stopAtWalls(a,b,10,getMap(map.id)!.walls)).toEqual(b);
   await expect(applyMapSetupDraft(f.map.id,f.drafts,f.selected)).rejects.toThrow('changed');expect(listTokens(map.id)).toHaveLength(1);
+});
+it('applies walls, linked doors and lights above the former edge cap without dropping existing geometry',async()=>{
+ const f=await fixture(),existing=benchmarkLayout(4096,'rooms').map(w=>({...w,ay:w.ay+10000,by:w.by+10000}));
+ db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(existing),f.map.id);
+ const {source}=await geometrySource(f.map.id);
+ f.drafts.walls!.source=source;f.drafts.doors!.source=source;f.drafts.lights!.source=lightDraftSource(source,[]);
+ expect(await applyMapSetupDraft(f.map.id,f.drafts,f.selected)).toEqual({walls:2,doors:1,lights:1});
+ const saved=getMap(f.map.id)!.walls!;
+ expect(saved.slice(0,existing.length)).toEqual(existing);
+ expect(wallEdgeCount(saved)).toBeGreaterThan(4096);
+ expect(listTokens(f.map.id)).toHaveLength(1);
 });
 it('rejects an unsupported selected door before saving any walls or lights',async()=>{
   const f=await fixture();f.selected.walls=['item-0'];

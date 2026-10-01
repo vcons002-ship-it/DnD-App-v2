@@ -95,9 +95,9 @@ describe('map geometry draft',()=>{
       expect(draft.wallMaskImagePath).toBe(`/uploads/${firstName}`);expect(draft.naturalMaskImagePath).toBe(`/uploads/${secondName}`);expect(draft.maskImagePath).toContain('wall-union-');expect(draft.items).toHaveLength(2);
       expect(getMap(f.map.id)!.walls).toEqual([]);await applyGeometryDraft(f.map.id,draft,draft.items.map(i=>i.id));
       expect(hasLineOfSight({x:70,y:200},{x:160,y:200},getMap(f.map.id)!.walls)).toBe(false);expect(hasLineOfSight({x:700,y:300},{x:900,y:300},getMap(f.map.id)!.walls)).toBe(false);
-      // Some real unions exceed the contour budget even when the two masks fit
+      // Some real unions fail contour validation even when the two masks fit
       // separately. Force that failure, then use the real converter for both.
-      const conversion=vi.spyOn(wallMaskTools,'wallsFromYellowMask').mockRejectedValueOnce(new Error('Mask exceeds contour budget'));
+      const conversion=vi.spyOn(wallMaskTools,'wallsFromYellowMask').mockRejectedValueOnce(new Error('Mask fails contour validation'));
       try{
         vi.mocked(generateApiImage).mockResolvedValueOnce({path:`/uploads/${firstName}`}).mockResolvedValueOnce({path:`/uploads/${secondName}`});
         const fallback=await suggestMapGeometry(f.map.id);

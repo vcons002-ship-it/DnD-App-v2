@@ -6,6 +6,7 @@ import {draftWallShape} from '../../../shared/mapGeometryDraft';
 import {fitDoorMarker} from '../../../shared/doorMaskFit';
 import {wallSvgPath} from '../../../shared/wallGeometry';
 import {apiFetch} from '../lib/api';
+import {WallPerformanceNotice} from './WallPerformanceNotice';
 
 const steps:MapSetupStep[]=['walls','doors','lights'];
 const names={walls:'Walls',doors:'Doors',lights:'Lights'};
@@ -67,6 +68,7 @@ export function MapSetupDraft({map,onClose}:{map:MapState;onClose:()=>void}){
     <div role="status">{applying?'Saving selected walls, doors and lights...':running?'Analyzing the map. Completed results appear below while the other masks finish.':'Review complete masks below. Doors fit to your selected walls; lights use the existing map art.'}</div>
     {steps.filter(s=>progress[s].state==='error').map(step=><div key={step} role="alert" style={{color:'#ffd39a'}}>{names[step]}: {progress[step].error} <button className="btn tiny" disabled={busy} onClick={()=>void runStep(step)}>Retry {names[step].toLowerCase()}</button></div>)}
     {error&&<div role="alert" style={{color:'#ffb6a1'}}>{error}</div>}
+    <WallPerformanceNotice walls={[...(map.walls??[]),...wallShapes.filter(w=>effective.walls.includes(w.item.id)).map(w=>w.wall),...fittedDoors.filter(d=>effective.doors.includes(d.id)&&d.wall).map(d=>d.wall!)]}/>
     {drafts.walls?.maskWarnings?.map(warning=><div key={warning} role="alert" style={{color:'#ffd39a'}}>{warning}</div>)}
     <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
       <button className="btn" disabled={busy||!total} onClick={apply}>Apply selected setup</button>

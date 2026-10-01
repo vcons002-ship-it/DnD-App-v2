@@ -10,7 +10,7 @@ import {reportAi} from './ai/status.js';
 import {DOOR_MASK_PROMPT,doorsFromMask} from './doorMask.js';
 import {fitDoorMarker} from '../../shared/doorMaskFit.js';
 import {getMap,createWallDoorObject} from './sessions.js';
-import {MAX_MAP_WALLS,sanitizeWalls,wallEdgeCount} from '../../shared/mapWalls.js';
+import {sanitizeWalls} from '../../shared/mapWalls.js';
 import type {MapDoorDraft} from '../../shared/mapDoorDraft.js';
 import type {MapWall} from '../../shared/mapWalls.js';
 
@@ -54,7 +54,7 @@ export async function applyDoorDraft(mapId:string,raw:unknown,selection:unknown)
     const map=getMap(mapId);
     if(!map||createHash('sha256').update(JSON.stringify(map.walls??[])).digest('hex')!==source.wallsHash)throw new Error('Walls changed during review. Generate a new door draft.');
     const added=prepareDoorDraft(raw,selection,source,map.walls??[]),walls=[...(map.walls??[]),...added];
-    if(wallEdgeCount(walls)>MAX_MAP_WALLS||sanitizeWalls(walls).length!==walls.length)throw new Error('These doors exceed the wall limit or could not be fitted safely. Select fewer doors.');
+    if(sanitizeWalls(walls).length!==walls.length)throw new Error('These doors could not be fitted safely. Review the selected door geometry.');
     for(const door of added){
       const token=createWallDoorObject(map.sessionId,mapId,(door.ax+door.bx)/2,(door.ay+door.by)/2);
       door.tokenId=token.id;

@@ -2,6 +2,9 @@ import type {MapState} from '../../../shared/types';
 import {WallDraft} from './WallDraft';
 import {DoorDraft} from './DoorDraft';
 import {MapSetupDraft} from './MapSetupDraft';
+import {WallPerformanceNotice} from './WallPerformanceNotice';
+import {wallPerformanceWarning} from '../../../shared/mapWalls';
+import {useStore} from '../state/socket';
 import {useEffect,useRef,useState} from 'react';
 
 export type WallTool='off'|'rectangle'|'draw'|'circle'|'freehand'|'edit'|'erase'|'erase-area'|'door';
@@ -16,6 +19,12 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   const [setupDraftOpen,setSetupDraftOpen]=useState(false);
   const button=useRef<HTMLButtonElement>(null);
   const [position,setPosition]=useState<{left:number;top:number}|null>(null);
+  const warnedMaps=useRef(new Set<string>());
+  useEffect(()=>{
+    if(!map)return;
+    const warning=wallPerformanceWarning(map.walls??[]);
+    if(warning&&!warnedMaps.current.has(map.id)){warnedMaps.current.add(map.id);useStore.getState().notify(warning);}
+  },[map?.id,map?.walls]);
   useEffect(()=>{
     if(!position)return;
     const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setPosition(null);};
@@ -34,6 +43,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
         <div className="measure-label">{count} saved {count===1?'wall':'walls'}</div>
+        <WallPerformanceNotice walls={map?.walls??[]}/>
         <button className={`measure-row ${tool==='rectangle'?'on':''}`} onClick={()=>{onTool('rectangle');setPosition(null);}}>Draw wall rectangles</button>
         <button className={`measure-row ${tool==='draw'?'on':''}`} onClick={()=>{onTool('draw');setPosition(null);}}>Draw wall line</button>
         <button className={`measure-row ${tool==='circle'?'on':''}`} onClick={()=>{onTool('circle');setPosition(null);}}>Draw circular wall</button>

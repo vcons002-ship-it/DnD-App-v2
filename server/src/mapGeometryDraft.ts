@@ -11,7 +11,7 @@ import {wallsFromYellowMask} from './wallMask.js';
 import {NATURAL_BOUNDARY_PROMPT,mergeNaturalBoundaryMask} from './naturalBoundaryMask.js';
 import {reportAi} from './ai/status.js';
 import {parseGeometrySuggestions,draftWallShape,type MapGeometryDraft} from '../../shared/mapGeometryDraft.js';
-import {MAX_MAP_WALLS,wallEdgeCount,sanitizeWalls} from '../../shared/mapWalls.js';
+import {wallEdgeCount,sanitizeWalls} from '../../shared/mapWalls.js';
 
 export const YELLOW_WALL_PROMPT='Paint the entire TOP CAPS of the structural stone walls solid opaque bright yellow (#FFFF00), edge to edge at their exact existing width and location. Cover the stone texture and mortar seams with continuous filled yellow bands. Do not draw outlines, border strokes or centerlines. Leave doors and open passages unpainted. Do not include vertical wall faces, wall shadows, furniture or stairs. Preserve all other map pixels, the full composition and exact framing. Do not broaden the walls, black out the map or make a standalone segmentation diagram. No labels.';
 
@@ -77,7 +77,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
     const structural=await wallsFromYellowMask(mask,source.width,source.height,source.gridSizePx,image,true);
     const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true);
     const walls=[...structural.walls,...natural.walls.map(w=>({...w,id:`natural-${w.id}`}))];
-    if(walls.length<=120&&wallEdgeCount(walls)<=MAX_MAP_WALLS&&sanitizeWalls(walls).length===walls.length)return {...structural,walls,coverage:Math.min(structural.coverage,natural.coverage)};
+    if(walls.length<=120&&sanitizeWalls(walls).length===walls.length)return {...structural,walls,coverage:Math.min(structural.coverage,natural.coverage)};
   };
   try {converted=await wallsFromYellowMask(conversionMask,source.width,source.height,source.gridSizePx,image);}
   catch(error){
@@ -97,10 +97,9 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
     }
     if(!converted){if(attempt===1)throw error;reportAi('The first yellow mask could not be converted cleanly. Retrying once with filled wall bands; no walls have been applied.');continue;}
   }
-  // Try the same safe fallback before a nearly-full union uses all remaining
-  // detail needed for doors. A pixel union can add slivers at touching masks;
+  // A pixel union can add slivers at touching masks;
   // separate outlines need no extra simplification or changed gap tolerances.
-  if(naturalImage&&wallEdgeCount(converted.walls)>MAX_MAP_WALLS-32)try{
+  if(naturalImage&&wallEdgeCount(converted.walls)>480)try{
     const separate=await separateLayers();
     if(separate&&wallEdgeCount(separate.walls)<wallEdgeCount(converted.walls))converted=separate;
   }catch{/* Retain the already validated union. */}
@@ -123,7 +122,7 @@ export function prepareWallDraft(raw:unknown,selected:unknown,source:MapGeometry
   if(!Array.isArray(selected)||selected.some(id=>typeof id!=='string'||!items.some(i=>i.id===id&&i.kind==='wall')))throw new Error('Select wall suggestions from this draft.');
   const additions=items.filter(i=>selected.includes(i.id)).map(item=>({...draftWallShape(item,source),id:`draft-${draft.id}-${item.id}`}));
   if(!additions.length)throw new Error('Select at least one wall.');
-  if(sanitizeWalls(additions).length!==additions.length)throw new Error('Some walls are too small or exceed the wall limit.');
+  if(sanitizeWalls(additions).length!==additions.length)throw new Error('Some walls are too small or contain invalid geometry.');
   return additions;
 }
 
@@ -134,7 +133,6 @@ export async function applyGeometryDraft(mapId:string,raw:unknown,selected:unkno
     const map=getMap(mapId);
     if(!map||hash(JSON.stringify(map.walls??[]))!==source.wallsHash)throw new Error('Walls changed during review. Generate a new draft.');
     const walls=[...(map.walls??[]),...additions];
-    if(wallEdgeCount(walls)>MAX_MAP_WALLS)throw new Error('This draft exceeds the map wall limit. Select fewer walls.');
     db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(walls),mapId);
   })();
   return additions.length;

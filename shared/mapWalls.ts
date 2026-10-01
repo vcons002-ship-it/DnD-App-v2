@@ -1,15 +1,21 @@
 /** Opaque, infinitely tall sight barriers in map pixels. Gaps remain open doorways. */
 import {wallBoundarySegments,insideWallGeometry,segmentDistance,pointInRing} from './wallGeometry.js';
+import {closestWallHit,visitWallCrossings} from './wallSpatialIndex.js';
 export type MapWall = {id: string; ax: number; ay: number; bx: number; by: number;
  kind?:'rectangle'|'circle'|'path'|'polygon';points?:WallPoint[];holes?:WallPoint[][];thickness?:number;rotation?:number;
  door?:boolean;open?:boolean;tokenId?:string};
 export type WallPoint = {x: number; y: number};
-export const MAX_MAP_WALLS = 512;
+/** Advisory only: geometry is never dropped or refused based on its edge count. */
+export const WALL_PERFORMANCE_WARNING_EDGES = 2000;
 export const SIGHT_EXTENT = 4_000_000;
 const EPS = 1e-7;
 const cross = (ax: number, ay: number, bx: number, by: number) => ax * by - ay * bx;
 const edgesCache=new WeakMap<readonly MapWall[],MapWall[]>();
 export const wallEdgeCount=(walls:readonly MapWall[])=>walls.reduce((count,w)=>count+wallBoundarySegments(w).length,0);
+export function wallPerformanceWarning(walls:readonly MapWall[]):string|null {
+ const count=wallEdgeCount(walls);
+ return count>=WALL_PERFORMANCE_WARNING_EDGES?`Detailed walls (${count.toLocaleString('en-US')} boundary segments) may slow moving lights and visibility on phones or older devices. You can continue; simplify unused detail if movement feels slow.`:null;
+}
 /** A rectangle is one saved/editable wall; its four edges share the existing ray caster. */
 function wallEdges(walls:readonly MapWall[]):MapWall[]{
   const cached=edgesCache.get(walls);if(cached)return cached;
@@ -20,15 +26,18 @@ const insideWall=(p:WallPoint,w:MapWall)=>!(w.door&&w.open)&&insideWallGeometry(
 const cornersCache=new WeakMap<readonly MapWall[],WallPoint[]>();
 function wallCorners(walls:readonly MapWall[]):WallPoint[]{
   const cached=cornersCache.get(walls);if(cached)return cached;
-  const corners=walls.flatMap(w=>[{x:w.ax,y:w.ay},{x:w.bx,y:w.by}]);
+  const unique=new Map<string,WallPoint>();
+  const add=(x:number,y:number)=>unique.set(`${x},${y}`,{x,y});
+  for(const w of walls){add(w.ax,w.ay);add(w.bx,w.by);}
   // Crossing strokes create corners too; otherwise rays can cut off the small
   // visible wedge between the two nearest wall segments.
-  for(let i=0;i<walls.length;i++)for(let j=i+1;j<walls.length;j++){
-    const a=walls[i],b=walls[j],dx=a.bx-a.ax,dy=a.by-a.ay,sx=b.bx-b.ax,sy=b.by-b.ay;
-    const det=cross(dx,dy,sx,sy);if(Math.abs(det)<EPS)continue;
+  visitWallCrossings(walls,(a,b)=>{
+    const dx=a.bx-a.ax,dy=a.by-a.ay,sx=b.bx-b.ax,sy=b.by-b.ay;
+    const det=cross(dx,dy,sx,sy);if(Math.abs(det)<EPS)return;
     const qx=b.ax-a.ax,qy=b.ay-a.ay,t=cross(qx,qy,sx,sy)/det,u=cross(qx,qy,dx,dy)/det;
-    if(t>EPS&&t<1-EPS&&u>EPS&&u<1-EPS)corners.push({x:a.ax+t*dx,y:a.ay+t*dy});
-  }
+    if(t>EPS&&t<1-EPS&&u>EPS&&u<1-EPS)add(a.ax+t*dx,a.ay+t*dy);
+  });
+  const corners=[...unique.values()];
   cornersCache.set(walls,corners);return corners;
 }
 
@@ -36,8 +45,7 @@ export function sanitizeWalls(input: unknown): MapWall[] {
   if (!Array.isArray(input)) return [];
   const ids = new Set<string>();
   const walls: MapWall[] = [];
-  let edgeCount=0;
-  for (const w of input.slice(0, MAX_MAP_WALLS)) {
+  for (const w of input) {
     if (!w || typeof w.id !== 'string' || !/^[\w-]{1,80}$/.test(w.id) || ids.has(w.id)) continue;
     if (![w.ax,w.ay,w.bx,w.by].every(n => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 1_000_000)) continue;
     if (Math.hypot(w.ax-w.bx,w.ay-w.by) < .1) continue;
@@ -45,7 +53,7 @@ export function sanitizeWalls(input: unknown): MapWall[] {
     if(['rectangle','circle'].includes(w.kind)&&(Math.abs(w.ax-w.bx)<.1||Math.abs(w.ay-w.by)<.1))continue;
     if(w.rotation!==undefined&&(typeof w.rotation!=='number'||!Number.isFinite(w.rotation)||Math.abs(w.rotation)>36000))continue;
     if(w.thickness!==undefined&&(typeof w.thickness!=='number'||!Number.isFinite(w.thickness)||w.thickness<0||w.thickness>10000))continue;
-    const validRing=(r:unknown,min:number):r is WallPoint[]=>Array.isArray(r)&&r.length>=min&&r.length<=MAX_MAP_WALLS&&r.every(p=>p&&[p.x,p.y].every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1_000_000));
+    const validRing=(r:unknown,min:number):r is WallPoint[]=>Array.isArray(r)&&r.length>=min&&r.every(p=>p&&[p.x,p.y].every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1_000_000));
     if(w.kind==='path'||w.kind==='polygon'){
       if(!validRing(w.points,w.kind==='path'?2:3))continue;
       if(w.points.some((p:WallPoint)=>p.x<Math.min(w.ax,w.bx)-EPS||p.x>Math.max(w.ax,w.bx)+EPS||p.y<Math.min(w.ay,w.by)-EPS||p.y>Math.max(w.ay,w.by)+EPS))continue;
@@ -63,8 +71,8 @@ export function sanitizeWalls(input: unknown): MapWall[] {
       const area=Math.abs(ring.reduce((s,p,i)=>{const q=ring[(i+1)%ring.length];return s+p.x*q.y-q.x*p.y;},0));
       if(area<.01||wall.holes?.some(h=>h.some(p=>!pointInRing(p,ring))))continue;
     }
-    const cost=wallEdgeCount([wall]);if(cost<1||edgeCount+cost>MAX_MAP_WALLS)continue;
-    edgeCount+=cost;ids.add(w.id);walls.push(wall);
+    if(wallEdgeCount([wall])<1)continue;
+    ids.add(w.id);walls.push(wall);
   }
   return walls;
 }
@@ -93,7 +101,9 @@ export function hasLineOfSight(a: WallPoint, b: WallPoint, walls: readonly MapWa
 
 export function distanceToWall(p: WallPoint, w: MapWall): number {
   if(insideWallGeometry(p,w))return 0;
-  return Math.min(...wallBoundarySegments(w).map(({a,b})=>segmentDistance(p,a,b)));
+  let distance=Infinity;
+  for(const {a,b} of wallBoundarySegments(w))distance=Math.min(distance,segmentDistance(p,a,b));
+  return distance;
 }
 
 /** Rays just either side of each corner preserve narrow doors and crisp wall shadows.
@@ -101,19 +111,26 @@ export function distanceToWall(p: WallPoint, w: MapWall): number {
 export function wallVisibilityPolygon(origin: WallPoint, walls: readonly MapWall[], radius: number): WallPoint[] {
   if(walls.some(w=>insideWall(origin,w)))return [origin,origin,origin];
   const edges=wallEdges(walls);
-  const relevant=edges.filter(w=>distanceToWall(origin,w)<=radius);
   const angles=Array.from({length:96},(_,i)=>i*Math.PI/48);
   for (const {x,y} of wallCorners(edges)) {
     const a=Math.atan2(y-origin.y,x-origin.x);
     angles.push(a-1e-7,a,a+1e-7);
   }
   const sorted=angles.map(a=>(a+Math.PI*2)%(Math.PI*2)).sort((a,b)=>a-b);
-  return sorted.map(a=>{
+  const points:{point:WallPoint;wall?:MapWall}[]=[];
+  for(const a of sorted){
     const dx=Math.cos(a),dy=Math.sin(a);
-    let d=radius;
-    for (const w of relevant) d=Math.min(d,rayHit(origin,dx,dy,w));
-    return {x:origin.x+dx*d,y:origin.y+dy*d};
-  });
+    const hit:{wall?:MapWall}={};
+    const d=closestWallHit(origin,dx,dy,edges,radius,rayHit,hit);
+    const next={point:{x:origin.x+dx*d,y:origin.y+dy*d},wall:hit.wall};
+    // Consecutive rays stopped by the same straight edge are collinear. Keep
+    // the endpoints only; corners, gaps and radius-limited arcs stay exact.
+    if(hit.wall&&points.length>=2&&points.at(-1)!.wall===hit.wall&&points.at(-2)!.wall===hit.wall)points[points.length-1]=next;
+    else points.push(next);
+  }
+  if(points.length>2&&points[0].wall&&points[0].wall===points[1].wall&&points[0].wall===points.at(-1)!.wall)points.shift();
+  if(points.length>2&&points[0].wall&&points[0].wall===points.at(-1)!.wall&&points[0].wall===points.at(-2)!.wall)points.pop();
+  return points.map(p=>p.point);
 }
 
 /** Sweep the circular base along the whole drag, stopping before first contact.

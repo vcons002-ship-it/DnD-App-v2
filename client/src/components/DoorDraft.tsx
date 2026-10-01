@@ -4,6 +4,7 @@ import type {MapState} from '../../../shared/types';
 import type {MapDoorDraft} from '../../../shared/mapDoorDraft';
 import {wallSvgPath} from '../../../shared/wallGeometry';
 import {apiFetch} from '../lib/api';
+import {WallPerformanceNotice} from './WallPerformanceNotice';
 
 export function DoorDraft({map,onClose}:{map:MapState;onClose:()=>void}){
   const [draft,setDraft]=useState<MapDoorDraft|null>(null),[selected,setSelected]=useState<string[]>([]),[busy,setBusy]=useState<'analyze'|'apply'|null>(null),[error,setError]=useState(''),[mask,setMask]=useState(false);
@@ -23,6 +24,7 @@ export function DoorDraft({map,onClose}:{map:MapState;onClose:()=>void}){
     </div>
     {busy&&<div role="status">{busy==='apply'?'Saving selected doors...':'The image API is marking door widths and angles. This may take a few minutes.'}</div>}
     {error&&<div role="alert">{error}</div>}
+    <WallPerformanceNotice walls={[...(map.walls??[]),...(draft?.doors.filter(d=>selected.includes(d.id)&&d.wall).map(d=>d.wall!)??[])]}/>
     {draft?.doors.length===0&&<p>No door markers found. Use Draw door opening to add one manually.</p>}
     <div style={{display:'flex',gap:16,flex:1,minHeight:0,overflow:'auto',flexWrap:'wrap'}}>
       <div style={{flex:'1 1 500px',minWidth:0,minHeight:300,position:'relative'}}>

@@ -6,6 +6,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Wall shape editing - September 2026
 
+- [x] Remove the 512-edge wall cap; keep all valid geometry, index sight rays, remove redundant straight wall points and compact light overlays. Warn the DM at 2,000 effective edges without blocking edits or imports. See [benchmarks and limits](docs/WALL_COMPLEXITY_PERFORMANCE_2026_09_30.md).
 - [x] Restore the focused masonry mask prompt, then separately add cave/rock outlines and pillars from the annotated image. Preserve first-pass wall paint, reject redundant wall retracing, and expose both raw responses and the combined mask for review.
 - [x] One-click walls, doors and lights: separate parallel mask requests, combined review, doors fitted to selected new walls, per-step retry and atomic application.
 - [x] Separate cyan-mask door analysis, review/select and atomic import of working doors into existing wall gaps. Keep wall/light requests independent and preserve original art.
