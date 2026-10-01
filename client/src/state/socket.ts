@@ -1,11 +1,13 @@
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
+import type { LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { withRollComparison } from '../../../shared/dicePresentation';
 import type {
   AbilityRollPayload,
   CharacterCreatePayload,
+  Character,
   CharacterUpdatePayload,
   ChatSendResult,
   ClientToServerEvents,
@@ -48,6 +50,14 @@ import { safeSetItem } from '../lib/storage';
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+
+async function requestLeveling<T>(socket: TypedSocket | null, status: Status,
+  send: (socket: TypedSocket) => Promise<LevelUpResult<T>>): Promise<LevelUpResult<T>> {
+  if (!socket?.connected || status !== 'connected')
+    return { ok: false, error: 'Reconnect before changing a character level. Your choices have been kept.' };
+  try { return await send(socket); }
+  catch { return { ok: false, error: 'The level-up response was not received. Reopen the current level-up before retrying.' }; }
+}
 
 export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
 
@@ -327,6 +337,12 @@ type Store = {
   restCharacter: (characterId: string, kind: 'short' | 'long') => void;
   /** Spend Hit Dice to heal (rolled on the server's physical dice). */
   spendHitDice: (characterId: string, count: number) => void;
+  grantLevelUp: (characterId: string) => Promise<LevelUpResult<Character>>;
+  cancelLevelUp: (characterId: string, grantId: string) => Promise<LevelUpResult<Character>>;
+  getLevelUpPlan: (characterId: string, subclass?: string) => Promise<LevelUpResult<LevelUpPlan>>;
+  previewLevelUp: (request: LevelUpCommitRequest) => Promise<LevelUpResult<LevelUpPreview>>;
+  applyLevelUp: (request: LevelUpCommitRequest) => Promise<LevelUpResult<Character>>;
+  rollLevelUpHp: (characterId: string, grantId: string) => void;
   /** The party just rested — drives a banner (null when shown). */
   restFx: { id: number; kind: 'short' | 'long' } | null;
   rollDeathSave: (characterId: string) => void;
@@ -1064,6 +1080,20 @@ export const useStore = create<Store>((set, get) => ({
   restParty: (kind) => get().socket?.emit('rest:party', { kind }),
   restCharacter: (characterId, kind) => get().socket?.emit('rest:character', { characterId, kind }),
   spendHitDice: (characterId, count) => get().socket?.emit('hitDice:spend', { characterId, count }),
+  grantLevelUp: (characterId) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelGrant', { characterId })),
+  cancelLevelUp: (characterId, grantId) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelCancel', { characterId, grantId })),
+  getLevelUpPlan: (characterId, subclass) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelPlan', { characterId, subclass })),
+  previewLevelUp: (request) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelPreview', request)),
+  applyLevelUp: (request) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelApply', request)),
+  rollLevelUpHp: (characterId, grantId) => {
+    if (get().status !== 'connected') { get().notify('Reconnect before rolling level-up HP.'); return; }
+    get().socket?.emit('character:levelRollHp', { characterId, grantId });
+  },
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
   sendChat: async (text, speakAsTokenId, options) => {
     const socket = get().socket;

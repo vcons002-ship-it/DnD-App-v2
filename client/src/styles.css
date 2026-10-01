@@ -1089,6 +1089,8 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
   display: flex; align-items: center; justify-content: center;
   pointer-events: none; /* non-blocking — the map stays interactive */
 }
+dialog.level-up-roll-layer { position: fixed; inset: 0; margin: 0; padding: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; background: transparent; color: var(--text); pointer-events: none; }
+dialog.level-up-roll-layer::backdrop { background: transparent; pointer-events: none; }
 .roll-reveal {
   pointer-events: auto; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 8px;

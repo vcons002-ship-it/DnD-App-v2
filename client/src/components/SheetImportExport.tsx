@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Character, SheetAbility } from '../../../shared/types';
 import {
   exportSheetJSON,
+  isNameOnlyImportedAbility,
   parseSheet,
   type SheetPatch,
 } from '../../../shared/sheetIO';
@@ -44,10 +45,15 @@ const FIELD_LABELS: Record<string, string> = {
   gold: 'Gold',
   modifiers: 'Feat / ASI bonuses',
   resources: 'Resources',
+  leveling: '2024 leveling history',
 };
 
 /** A short readable preview of a parsed value. */
 function summarize(key: string, v: unknown): string {
+  if (key === 'leveling' && v && typeof v === 'object') {
+    const history = (v as { history?: unknown[] }).history ?? [];
+    return `2024 rules · ${history.length} completed level-up${history.length === 1 ? '' : 's'}`;
+  }
   if (key === 'sheetAbilities' && Array.isArray(v)) {
     const rollable = v.filter((x) => (x as { roll?: unknown })?.roll).length;
     const names = v.map((x) => (x as { name?: string })?.name).filter(Boolean);
@@ -96,9 +102,10 @@ export function SheetImportExport({ character }: { character: Character }) {
     // Turn parsed spell/mastery NAMES into proper ROLLABLE entries for anything
     // in the local rules DB (so known spells import ready to roll instead of as
     // text-only stubs you'd have to re-add). Unknown names stay as references.
-    if (patch.sheetAbilities?.length) {
+    const unresolved = patch.sheetAbilities?.filter(isNameOnlyImportedAbility) ?? [];
+    if (unresolved.length) {
       try {
-        const names = patch.sheetAbilities.map((a) => a.name);
+        const names = unresolved.map((a) => a.name);
         const r = await fetch('/api/spells/resolve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -106,7 +113,8 @@ export function SheetImportExport({ character }: { character: Character }) {
         });
         if (r.ok) {
           const { resolved } = (await r.json()) as { resolved: Record<string, SheetAbilityHit> };
-          patch.sheetAbilities = patch.sheetAbilities.map((a) => {
+          patch.sheetAbilities = patch.sheetAbilities!.map((a) => {
+            if (!isNameOnlyImportedAbility(a)) return a;
             const hit = resolved[a.name.trim().toLowerCase()];
             return hit
               ? { ...hit, id: a.id, level: a.level ?? hit.level, source: 'srd' as const }

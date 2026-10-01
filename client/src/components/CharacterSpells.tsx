@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/types';
 import { healTargets, validTargets, targetLabel } from '../lib/targets';
 import { useStore } from '../state/socket';
+import { classProgression2024 } from '../../../shared/characterProgression';
 import {
   ACTION_ICON,
   cantripsKnown,
@@ -176,6 +177,9 @@ export function CharacterSpells({
     };
   }, [editable, nameKey]);
   const rulesUpdateFor = (a: SheetAbility): Partial<SheetAbility> | null => {
+    // The general resolver still includes legacy definitions. Keep the guide's
+    // class-granted preparation metadata until it can resolve rules versions.
+    if ('leveling' in character && character.leveling?.rules === '2024' && a.tags?.includes('always-prepared')) return null;
     const hit = current[a.name.trim().toLowerCase()];
     return hit && isOutdated(a, hit) ? hit : null;
   };
@@ -268,12 +272,6 @@ export function CharacterSpells({
     snapshot,
   );
 
-  // Read-only with nothing to show → render nothing. MUST stay below every hook
-  // above: an early return before a hook changes the hook count between renders
-  // and crashes with React #310 ("rendered more hooks than during the previous
-  // render") — e.g. a player console for a character with no abilities.
-  if (character.sheetAbilities.length === 0 && !editable) return null;
-
   const askAI = async () => {
     const name = q.trim();
     if (!name || aiBusy) return;
@@ -304,6 +302,7 @@ export function CharacterSpells({
   // without making a duplicate. Differs from "AI fill": this is grounded in the
   // local rules DB first (exact SRD roll), and targets one named ability.
   const makeRollable = async (a: SheetAbility) => {
+    if (a.tags?.includes('leveling-2024')) return;
     setEnrichId(a.id);
     notify(`Looking up "${a.name}"…`);
     try {
@@ -438,6 +437,8 @@ export function CharacterSpells({
     // Leveled spells carry a prepared state — show prepared ones bright/bold and
     // unprepared ones greyed, so the ready-to-cast set is obvious at a glance.
     const isLeveledSpell = a.type === 'spell' && (a.level ?? 0) > 0;
+    const alwaysPrepared = 'leveling' in character && character.leveling?.rules === '2024' &&
+      !!a.tags?.includes('always-prepared');
     const prepClass = isLeveledSpell ? (a.prepared !== false ? 'prep-on' : 'prep-off') : '';
     return (
       <li key={a.id} className={`spell-entry ${prepClass}`.trim()}>
@@ -461,12 +462,13 @@ export function CharacterSpells({
           {editable && a.type === 'spell' && (a.level ?? 0) > 0 && (
             <button
               className={`btn tiny ${a.prepared !== false ? 'on' : ''}`}
-              title={a.prepared !== false ? 'Prepared — click to unprepare' : 'Not prepared'}
+              disabled={alwaysPrepared}
+              title={alwaysPrepared ? 'Always prepared by a 2024 class feature' : a.prepared !== false ? 'Prepared — click to unprepare' : 'Not prepared'}
               onClick={() =>
                 setSheetAbility(kind, character.id, { ...a, prepared: a.prepared === false })
               }
             >
-              {a.prepared !== false ? '✓ Prep' : 'Prep'}
+              {alwaysPrepared ? 'Always prepared' : a.prepared !== false ? '✓ Prep' : 'Prep'}
             </button>
           )}
 
@@ -603,7 +605,7 @@ export function CharacterSpells({
           )}
           {/* A text-only entry (e.g. imported) → look it up and make it
               rollable in place. Skipped for toggle-driven items. */}
-          {editable && !displayRoll && !hitFeature(a) && !a.mastery && !a.maneuver && !a.stance && (
+          {editable && !a.tags?.includes('leveling-2024') && !displayRoll && !hitFeature(a) && !a.mastery && !a.maneuver && !a.stance && (
             <button
               className="btn tiny"
               disabled={enrichId === a.id}
@@ -953,6 +955,10 @@ export function CharacterSpells({
     return out;
   }, [character.sheetAbilities]);
 
+  // Keep the empty read-only case below every hook, including grouping. A
+  // level-up can add the first ability while the combat panel stays mounted.
+  if (character.sheetAbilities.length === 0 && !editable) return null;
+
   return (
     <div className="spells">
       <h4>Spells, Abilities &amp; Masteries</h4>
@@ -966,33 +972,43 @@ export function CharacterSpells({
             ...character.sheetAbilities.map((a) => a.name),
             ...character.abilities.map((a) => a.name),
           ]);
-          const classCantrips = cantripsKnown(character.className, lvl, character.subclass);
+          const progression = character.leveling?.rules === '2024'
+            ? classProgression2024(character.className, lvl, character.subclass) : null;
+          const classCantrips = progression?.cantrips ?? cantripsKnown(character.className, lvl, character.subclass);
           // Effective scores so a stat item (Headband of Intellect) raises the
           // prepared cap like every other derived number.
-          const cap = spellCapacity(
+          const legacyCap = spellCapacity(
             character.className,
             lvl,
             effectiveStats(character).scores,
             character.subclass,
           );
+          const cap = progression && progression.preparedSpells > 0
+            ? { kind: 'prepared' as const, max: progression.preparedSpells } : legacyCap;
           // Per-LIST budget breakdown so the user sees how many of each list they
           // get ("4 Wizard + 2 Druid"), not one merged number.
           const bd = spellBudgetBreakdown(allowances, classCantrips, cap ? cap.max : null);
           const cantripMax = bd.cantrips.reduce((s, p) => s + p.value, 0);
           const spellMax = bd.spells.reduce((s, p) => s + p.value, 0);
-          const cantripHave = spells.filter((a) => (a.level ?? 0) === 0).length;
+          const bonusCantrip = (a: SheetAbility) => !!progression && !!a.tags?.includes('bonus-cantrip');
+          const alwaysPreparedSpell = (a: SheetAbility) => !!progression &&
+            !!a.tags?.some(tag => tag === 'always-prepared' || tag === 'subclass-spell');
+          const extraCantrips = spells.filter(a => (a.level ?? 0) === 0 && bonusCantrip(a)).length;
+          const extraPrepared = spells.filter(a => (a.level ?? 0) > 0 && alwaysPreparedSpell(a)).length;
+          const cantripHave = spells.filter((a) => (a.level ?? 0) === 0 && !bonusCantrip(a)).length;
           const leveled = spells.filter((a) => (a.level ?? 0) > 0);
           const have = cap?.kind === 'prepared'
-            ? leveled.filter((a) => a.prepared !== false).length
+            ? leveled.filter((a) => a.prepared !== false && !alwaysPreparedSpell(a)).length
             : leveled.length;
-          if (cantripMax === 0 && spellMax === 0 && bd.credits.length === 0) return null;
+          if (cantripMax === 0 && spellMax === 0 && bd.credits.length === 0 && !extraCantrips && !extraPrepared) return null;
           const sum = (parts: { label: string; value: number }[]) =>
             parts.map((p) => `${p.value} ${p.label}`).join(' + ');
           return (
             <div className="spell-caps muted">
-              {cantripMax > 0 && (
+              {(cantripMax > 0 || extraCantrips > 0) && (
                 <div className={cantripHave > cantripMax ? 'over' : ''}>
-                  Cantrips {cantripHave}/{cantripMax}
+                  {cantripMax > 0 ? <>Cantrips {cantripHave}/{cantripMax}</> : 'Cantrips'}
+                  {extraCantrips > 0 && <span className="spell-split">{cantripMax > 0 ? ' + ' : ' '}{extraCantrips} bonus</span>}
                   {bd.cantrips.length > 1 && (
                     <span className="spell-split"> = {sum(bd.cantrips)}</span>
                   )}
@@ -1000,7 +1016,8 @@ export function CharacterSpells({
               )}
               {cap && spellMax > 0 && (
                 <div className={have > spellMax ? 'over' : ''}>
-                  {cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{spellMax}
+                  {progression || cap.kind === 'prepared' ? 'Prepared' : 'Known'} {have}/{spellMax}
+                  {extraPrepared > 0 && <span className="spell-split"> + {extraPrepared} always prepared</span>}
                   {bd.spells.length > 1 && (
                     <span className="spell-split"> = {sum(bd.spells)}</span>
                   )}

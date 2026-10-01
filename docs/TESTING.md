@@ -48,6 +48,7 @@ The relevant regression list includes:
 | Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `compact-checks`, `player-initiative` |
 | Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
+| DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
 | 2D silhouettes and 3D base-only selection | `token-hit-region` |
 | Cache integrity and creature reveal tags | `asset-cache`, `encounter-tags` |
 

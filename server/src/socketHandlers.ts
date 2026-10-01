@@ -7,6 +7,7 @@ import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js'
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
 import { partyRest, restCharacter, describeRest, spendHitDice } from './rests.js';
+import { grantLevelUp, cancelLevelUp, getLevelUpPlan, previewLevelUp, applyLevelUp, rollLevelUpHp } from './leveling.js';
 import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
 import { castMark } from './marks.js';
@@ -280,7 +281,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
       const timer=setTimeout(finish,2500);trayReady.set(id,finish);
     });
-    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
@@ -313,6 +314,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
             if(event==='death:roll')meta.label='Death Saving Throw';
             else if(event==='hitDice:spend')meta.label='Hit Dice';
+            else if(event==='character:levelRollHp')meta.label='Level-up Hit Point Increase';
             else if(ability?.roll?.kind==='heal')meta.label=`${ability.name} — Healing Roll`;
             else if(ability?.roll&&['save','damage'].includes(ability.roll.kind))meta.label=`${ability.name} — Damage Roll`;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
@@ -1105,8 +1107,63 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const c = getCharacter(characterId);
       // The DM or the owning player may edit a character's stat sheet.
       if (!c || c.sessionId !== sessionId() || (!isDm() && c.claimedBy !== socket.id)) return;
+      if (!isDm() && patch.level !== undefined && patch.level !== c.level) {
+        socket.emit('notice', { message: 'Ask the DM to grant a level-up, then use the 2024 level-up guide.' });
+        return;
+      }
       updateCharacter(characterId, patch);
       afterChange();
+    });
+
+    on('character:levelGrant', (payload, ack) => {
+      const sid = sessionId();
+      if (typeof ack !== 'function') return;
+      if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string') { ack({ ok: false, error: 'Choose a character to level up.' }); return; }
+      const { characterId } = payload;
+      if (!sid || !isDm()) { ack({ ok: false, error: 'Only the DM can grant a level-up.' }); return; }
+      const result = grantLevelUp(sid, characterId);
+      ack(result); if (result.ok) afterChange();
+    });
+    on('character:levelCancel', (payload, ack) => {
+      const sid = sessionId();
+      if (typeof ack !== 'function') return;
+      if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string' || typeof payload.grantId !== 'string') { ack({ ok: false, error: 'Choose a pending level-up to cancel.' }); return; }
+      const { characterId, grantId } = payload;
+      if (!sid || !isDm()) { ack({ ok: false, error: 'Only the DM can cancel a level-up.' }); return; }
+      const result = cancelLevelUp(sid, characterId, grantId);
+      ack(result); if (result.ok) afterChange();
+    });
+    on('character:levelPlan', (payload, ack) => {
+      if (typeof ack !== 'function') return;
+      if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string') { ack({ ok: false, error: 'Choose a character to level up.' }); return; }
+      const { characterId, subclass } = payload;
+      const sid = sessionId(), c = getCharacter(characterId);
+      if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) { ack({ ok: false, error: 'Open your claimed character’s level-up guide.' }); return; }
+      ack(getLevelUpPlan(sid, characterId, subclass));
+    });
+    on('character:levelPreview', (request, ack) => {
+      if (typeof ack !== 'function') return;
+      if (!request || typeof request !== 'object' || typeof request.characterId !== 'string') { ack({ ok: false, error: 'Reopen the level-up guide.' }); return; }
+      const sid = sessionId(), c = getCharacter(request.characterId);
+      if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) { ack({ ok: false, error: 'Only the character’s player or DM can preview this level-up.' }); return; }
+      ack(previewLevelUp(sid, request));
+    });
+    on('character:levelApply', (request, ack) => {
+      if (typeof ack !== 'function') return;
+      if (!request || typeof request !== 'object' || typeof request.characterId !== 'string') { ack({ ok: false, error: 'Reopen the level-up guide.' }); return; }
+      const sid = sessionId(), c = getCharacter(request.characterId);
+      if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) { ack({ ok: false, error: 'Only the character’s player or DM can finish this level-up.' }); return; }
+      const result = applyLevelUp(sid, request);
+      ack(result); if (result.ok) afterChange();
+    });
+    on('character:levelRollHp', (payload) => {
+      if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string' || typeof payload.grantId !== 'string') { socket.emit('notice', { message: 'Choose a pending level-up before rolling HP.' }); return; }
+      const { characterId, grantId } = payload;
+      const sid = sessionId(), c = getCharacter(characterId);
+      if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) return;
+      const result = rollLevelUpHp(sid, rollerName(sid, socket.id, isDm()), characterId, grantId);
+      if (!result.ok) socket.emit('notice', { message: result.error });
+      else afterChange();
     });
 
     on('character:delete', ({ characterId }) => {

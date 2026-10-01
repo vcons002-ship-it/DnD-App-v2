@@ -6,7 +6,8 @@ import { PhysicsDiceTray } from './PhysicsDiceTray';
 import type { TrayDie } from '../lib/diceTrayTypes';
 import { diceThemeForRoll } from '../../../shared/diceThemes';
 import { flattenDamageDice } from '../../../shared/diceVisuals';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../state/socket';
 import { playHit, playMiss, playSkill, playCritical } from '../lib/sfx';
 import { ThreeDie, DiceThemeContext } from './ThreeDie';
@@ -178,9 +179,29 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   });
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
-  if(liveDice)return <LiveDiceOverlay />;
-  return rollFx ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!rollFx.reveal.physical} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
+  const content = liveDice ? <LiveDiceOverlay /> : rollFx ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!rollFx.reveal.physical} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
+  return content ? <LevelUpRollLayer player={player}>{content}</LevelUpRollLayer> : null;
 });
+
+/** A native character dialog is above ordinary fixed overlays. Let the real
+ * Hit Die tray sit above the level-up guide without closing or losing its draft. */
+function LevelUpRollLayer({ children, player }: { children: ReactNode; player: boolean }) {
+  const [target] = useState(() => document.querySelector('dialog[data-level-up][open]')
+    ? document.createElement('dialog') : null);
+  useLayoutEffect(() => {
+    if (!target) return;
+    target.className = `level-up-roll-layer ${player ? 'player-fantasy' : 'dm-fantasy'}`;
+    target.setAttribute('aria-label', 'Level-up Hit Die roll');
+    // Escape cannot cancel an authoritative physical toss. The normal result
+    // card still handles skipping once that toss has completed.
+    const preventCancel = (event: Event) => event.preventDefault();
+    target.addEventListener('cancel', preventCancel);
+    document.body.append(target);
+    target.showModal();
+    return () => { target.removeEventListener('cancel', preventCancel); target.close(); target.remove(); };
+  }, [target, player]);
+  return target ? createPortal(children, target) : children;
+}
 
 function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical, dismiss }: {
   rollFx: NonNullable<ReturnType<typeof useStore.getState>['rollFx']>;

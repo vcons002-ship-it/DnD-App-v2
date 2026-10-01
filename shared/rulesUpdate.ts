@@ -44,6 +44,9 @@ function stable(v: unknown): string {
 /** Whether a saved entry's DEFINITION differs from the current rules DB entry of
  *  the same name. Ids, on/off state, marks and prepared flags are ignored. */
 export function isOutdated(saved: SheetAbility, current: Partial<SheetAbility>): boolean {
+  // Reviewed 2024 advancement profiles must not be replaced by an unversioned
+  // legacy database entry with the same name (notably Battle Master maneuvers).
+  if (saved.tags?.includes('leveling-2024') && !current.tags?.includes('leveling-2024')) return false;
   return stable(withoutRuntime(saved)) !== stable(withoutRuntime(current));
 }
 

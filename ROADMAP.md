@@ -4,6 +4,16 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Guided character leveling - October 2026
+
+- [x] DM grants one level; the claimed player or DM completes HP, class/subclass,
+  feat or ability, and spell choices with a server-calculated review before applying.
+- [x] Apply the 2024 core-class progression and Constitution HP changes, preserve
+  wounds and spent resources, and record durable, idempotent advancement history.
+- [x] Use the live dice tray for one saved Hit Die per grant; support mobile sheets
+  and keep the tray visible above the guide. Multiclass and unmodeled choices stay
+  explicit manual DM decisions. See [scope and workflow](docs/CHARACTER_LEVELING_2024.md).
+
 ## Rests, turn hand-off, player settings, dice sounds, recharge - October 2026
 
 - [x] **Short and Long Rest (2024).** DM toolbar **🏕 Rest ▾** (two-click confirm) rests the

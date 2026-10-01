@@ -28,6 +28,7 @@ import { impliedConditions } from '../../shared/conditionEffects.js';
 import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { slotReference2024 } from '../../shared/resourceDisplay.js';
+import { mergePortableLeveling, portableLeveling } from '../../shared/portableLeveling.js';
 import { abilityMod } from '../../shared/skills.js';
 import {
   effectiveStats,
@@ -2210,6 +2211,8 @@ export type CharacterInput = {
   modifiers?: Character['modifiers'];
   items?: Character['items'];
   sheetAbilities?: Character['sheetAbilities'];
+  /** Completed progression may travel with a saved sheet; pending grants may not. */
+  leveling?: Character['leveling'];
   /** When provided (e.g. loading a saved sheet), used verbatim instead of being
    *  derived from class/level — preserves used counts + custom counters. */
   spellSlots?: Character['spellSlots'];
@@ -2251,8 +2254,8 @@ export function createCharacter(
        (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
         armor_class, speed, stats, weapons, resistances, immunities, weaknesses,
         actions, abilities, proficient_skills, save_proficiencies, modifiers, items,
-        sheet_abilities, spell_slots, resources, icon)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sheet_abilities, spell_slots, resources, leveling, icon)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -2281,6 +2284,7 @@ export function createCharacter(
     JSON.stringify(opts.sheetAbilities ?? []),
     JSON.stringify(spellSlots),
     JSON.stringify(resources),
+    JSON.stringify(portableLeveling(opts.leveling) ?? {}),
     opts.icon ?? '',
   );
   return getCharacter(id)!;
@@ -2716,6 +2720,7 @@ export function updateCharacter(
     items: Character['items'];
     gold: number;
     sheetAbilities: Character['sheetAbilities'];
+    leveling: Character['leveling'];
     spellSlots: Character['spellSlots'];
     resources: Character['resources'];
     icon: string;
@@ -2771,6 +2776,10 @@ export function updateCharacter(
     put('gold', Number.isFinite(patch.gold) ? Math.max(0, Math.round(patch.gold)) : 0);
   if (patch.sheetAbilities !== undefined)
     put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
+  if (patch.leveling !== undefined) {
+    const merged = mergePortableLeveling(c.leveling, patch.leveling);
+    if (merged) put('leveling', JSON.stringify(merged));
+  }
   if (patch.spellSlots !== undefined)
     put('spell_slots', JSON.stringify(patch.spellSlots));
   if (patch.resources !== undefined)

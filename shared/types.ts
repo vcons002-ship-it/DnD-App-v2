@@ -3,6 +3,7 @@
 
 import type { AbilityKey } from './skills.js';
 import type { MapEnvironment } from './mapEnvironment.js';
+import type { CharacterLeveling, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from './levelingTypes.js';
 
 export type Role = 'dm' | 'player';
 
@@ -187,6 +188,8 @@ export type Character = {
   subclass: string;
   /** Character level (PCs) — also used by the AI to scale stats. */
   level: number;
+  /** DM-approved guided advances; absent on sheets that have not used the guide. */
+  leveling?: CharacterLeveling;
   maxHp: number;
   curHp: number;
   /** Temporary HP — a flat 2024-rules buffer pool depleted by damage before real
@@ -679,6 +682,8 @@ export type LibraryCharacter = {
   /** Subclass / archetype; optional on older saves. */
   subclass?: string;
   level: number;
+  /** Completed 2024 progression only; pending grants remain with the original character. */
+  leveling?: CharacterLeveling;
   maxHp: number;
   curHp: number;
   armorClass: number;
@@ -1349,6 +1354,8 @@ export type CharacterUpdatePayload = {
   className?: string;
   subclass?: string;
   level?: number;
+  /** Sheet import retains completed progression; the server preserves its own pending grant. */
+  leveling?: CharacterLeveling;
   maxHp?: number;
   curHp?: number;
   tempHp?: number;
@@ -1684,6 +1691,13 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
+  'character:levelGrant': (payload: { characterId: string }, ack?: (result: LevelUpResult<Character>) => void) => void;
+  'character:levelCancel': (payload: { characterId: string; grantId: string }, ack?: (result: LevelUpResult<Character>) => void) => void;
+  'character:levelPlan': (payload: { characterId: string; subclass?: string }, ack?: (result: LevelUpResult<LevelUpPlan>) => void) => void;
+  'character:levelPreview': (payload: LevelUpCommitRequest, ack?: (result: LevelUpResult<LevelUpPreview>) => void) => void;
+  'character:levelApply': (payload: LevelUpCommitRequest, ack?: (result: LevelUpResult<Character>) => void) => void;
+  /** One authoritative Hit Die roll per grant; result arrives in the snapshot. */
+  'character:levelRollHp': (payload: { characterId: string; grantId: string }) => void;
   'character:delete': (payload: CharacterDeletePayload) => void;
   'character:release': () => void;
   'resource:set': (payload: ResourceSetPayload) => void;

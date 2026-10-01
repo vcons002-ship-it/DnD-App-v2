@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Character } from '../../../shared/types';
+import { portableLeveling } from '../../../shared/portableLeveling';
 
 type Existing = { name: string; className: string; level: number; maxHp: number };
 
@@ -42,6 +43,8 @@ export function LibraryCharacterDialog({
     abilities: character.abilities,
     proficientSkills: character.proficientSkills,
     saveProficiencies: character.saveProficiencies,
+    modifiers: character.modifiers,
+    leveling: portableLeveling(character.leveling),
     items: character.items,
     sheetAbilities: character.sheetAbilities,
     icon: character.icon,

@@ -4,8 +4,10 @@ import {
   parseSheetText,
   parseSheetJSON,
   exportSheetJSON,
+  isNameOnlyImportedAbility,
 } from '../../shared/sheetIO.js';
 import { createSession, createCharacter, getCharacter } from './sessions.js';
+import type { Character, SheetAbility } from '../../shared/types.js';
 
 describe('sheet text import', () => {
   it('scrapes core fields with label variants and x/y HP', () => {
@@ -125,6 +127,35 @@ describe('sheet text import', () => {
 });
 
 describe('sheet JSON round-trip', () => {
+  it('keeps completed 2024 advancement and permanent modifiers, without copying a pending grant', () => {
+    const s = createSession('Leveling IO');
+    const c: Character = {
+      ...createCharacter(s.id, { name: 'Leveled Mira', className: 'Wizard', level: 4, maxHp: 27 }),
+      modifiers: [{ id: 'asi-int', source: 'Level 4 Ability Score Improvement', target: { kind: 'ability', ability: 'INT' }, value: 2, slot: true }],
+      leveling: { rules: '2024', pending: { id: 'original-only', fromLevel: 4, toLevel: 5, approvedAt: 1, baseFingerprint: 'original-sheet' },
+        history: [{ id: 'completed-level4', fromLevel: 3, toLevel: 4, hpGain: 6, at: 1, choices: { hpMethod: 'fixed', asi: { INT: 2 } } }] },
+    };
+    const exported = JSON.parse(exportSheetJSON(c));
+    expect(exported.modifiers).toEqual(c.modifiers);
+    expect(exported.leveling).toEqual({ rules: '2024', history: c.leveling!.history });
+    const imported = parseSheetJSON(JSON.stringify({ ...exported, leveling: c.leveling }))!;
+    expect(imported.modifiers).toEqual(c.modifiers);
+    expect(imported.leveling).toEqual({ rules: '2024', history: c.leveling!.history });
+    expect(c.leveling!.pending?.id).toBe('original-only');
+  });
+
+  it('only enriches name-only imports, preserving structured 2024 and custom definitions', () => {
+    const nameOnly: SheetAbility = { id: 'plain-text', name: 'Precision Attack', type: 'maneuver', description: '', source: 'custom' };
+    const profile: SheetAbility = { ...nameOnly, tags: ['2024', 'leveling-2024'], description: 'After an attack misses, add your Superiority Die.', maneuver: { active: false, addDieTo: 'none' } };
+    const customSpell: SheetAbility = { id: 'custom', name: 'Aid', type: 'spell', level: 2, description: '', prepared: true, tags: ['always-prepared'], roll: { kind: 'heal', dice: '1d8' } };
+    expect(isNameOnlyImportedAbility(nameOnly)).toBe(true);
+    expect(isNameOnlyImportedAbility(profile)).toBe(false);
+    expect(isNameOnlyImportedAbility(customSpell)).toBe(false);
+    const parsed = parseSheetJSON(JSON.stringify({ sheetAbilities: [profile, customSpell] }))!;
+    expect(parsed.sheetAbilities).toEqual([profile, customSpell]);
+    expect(parsed.sheetAbilities!.every(ability => !isNameOnlyImportedAbility(ability))).toBe(true);
+  });
+
   it('exports then re-imports identically', () => {
     const s = createSession('IO');
     const c = createCharacter(s.id, {

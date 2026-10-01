@@ -1034,3 +1034,6 @@
     transition: none !important;
   }
 }
+/* A granted level remains discoverable without opening the character window. */
+.player-fantasy .hud-icon-button.level-up-ready { border-color: #e0bd68; box-shadow: 0 0 10px #cfa95070; }
+.level-up-ready-badge { position: absolute; right: -3px; top: -5px; padding: 1px 4px; background: #dec17c; color: #171b21; border: 1px solid #fff0b8; border-radius: 5px; font: bold 10px sans-serif; }

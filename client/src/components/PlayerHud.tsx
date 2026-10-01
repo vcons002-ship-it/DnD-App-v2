@@ -240,9 +240,10 @@ export function PlayerHud({
   return (
     <div className="player-hud" data-testid="player-hud" data-orb-art={art ?? 'generic-orb'}>
       <nav className="hud-actions" aria-label="Player action bar">
-        <button className="btn hud-icon-button" aria-label="Character" onClick={() => setWindowTab('Character')}>
+        <button className={`btn hud-icon-button${character.leveling?.pending ? ' level-up-ready' : ''}`} aria-label="Character" onClick={() => setWindowTab('Character')}>
           <HudIcon name="character" />
-          <span className="hud-tooltip"><strong>Character</strong><small>Stats, equipment & character details</small></span>
+          {character.leveling?.pending && <span className="level-up-ready-badge" aria-label={`Level ${character.leveling.pending.toLevel} ready`}>+1</span>}
+          <span className="hud-tooltip"><strong>Character</strong><small>{character.leveling?.pending ? `Level ${character.leveling.pending.toLevel} is ready — open to choose your upgrades` : 'Stats, equipment & character details'}</small></span>
         </button>
         <button className="btn hud-icon-button" aria-label="Inventory" onClick={() => setWindowTab('Inventory')}>
           <HudIcon name="inventory" />

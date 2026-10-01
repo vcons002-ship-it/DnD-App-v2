@@ -23,6 +23,13 @@ via `PUBLIC_URL`).
 > Up next is deeper AI assistance (spell resolution, rules lookup, enemy
 > dialogue). See [`ROADMAP.md`](ROADMAP.md).
 
+## Character advancement
+
+The DM can grant a level from a character sheet. Players then use a guided 2024
+level-up flow with HP dice, class choices, feats, spells, and a final preview.
+See [character leveling](docs/CHARACTER_LEVELING_2024.md) for the workflow and
+supported rules. Existing sheets and spent resources are preserved.
+
 ## Accepted 3D miniature assets (offline review)
 
 The accepted Druk and Varis models, selected reference art, previews, and validation/rendering instructions are in [assets/miniatures](assets/miniatures/README.md). Their [generation workflow](docs/token-generation/WORKFLOW.md) records how the models were reconstructed and refined. These Git LFS assets are not enabled in the live VTT and do not change campaign data or existing token behavior.

@@ -14,7 +14,9 @@ import {
   searchLibraryCharacters,
   deleteLibraryCharacter,
 } from './library.js';
-import { createSession, createCharacterFromLibrary, getCharacter, createMonsterTemplate, instantiateMonster } from './sessions.js';
+import { createSession, createCharacter, createCharacterFromLibrary, getCharacter, createMonsterTemplate, instantiateMonster } from './sessions.js';
+import { applyLevelUp, grantLevelUp } from './leveling.js';
+import { permanentStats2024 } from '../../shared/characterProgression.js';
 import { setMeta } from './db.js';
 
 describe('creature library', () => {
@@ -160,6 +162,30 @@ describe('creature library', () => {
 });
 
 describe('character library', () => {
+  it('copies a leveled 2024 sheet and its ASI without carrying the original pending grant', () => {
+    const source = createSession('Progression source');
+    const c = createCharacter(source.id, { name: 'Portable champion', className: 'Fighter', subclass: 'Champion', level: 3,
+      stats: { STR: 16, DEX: 14, CON: 14, INT: 10, WIS: 10, CHA: 10 }, maxHp: 30 });
+    const grant = grantLevelUp(source.id, c.id); if (!grant.ok) throw Error(grant.error);
+    const committed = applyLevelUp(source.id, { characterId: c.id, expectedLevel: 3, grantId: grant.value.leveling!.pending!.id,
+      choices: { hpMethod: 'fixed', asi: { STR: 2 } } }); if (!committed.ok) throw Error(committed.error);
+    const next = grantLevelUp(source.id, c.id); if (!next.ok) throw Error(next.error);
+    const originalPending = next.value.leveling!.pending!;
+    saveLibraryCharacter(next.value, true);
+    const saved = getLibraryCharacter(c.name)!;
+    expect(saved.leveling).toEqual({ rules: '2024', history: committed.value.leveling!.history });
+    expect(saved.modifiers).toEqual(committed.value.modifiers);
+    expect(getCharacter(c.id)!.leveling!.pending).toEqual(originalPending);
+    const destination = createSession('Progression destination');
+    const copy = createCharacterFromLibrary(destination.id, c.name)!;
+    expect(copy.leveling).toEqual(saved.leveling);
+    expect(copy.leveling!.pending).toBeUndefined();
+    expect(permanentStats2024(copy).STR).toBe(18);
+    expect(copy.maxHp).toBe(committed.value.maxHp);
+    const copyGrant = grantLevelUp(destination.id, copy.id); if (!copyGrant.ok) throw Error(copyGrant.error);
+    expect(copyGrant.value.leveling!.pending!.id).not.toBe(originalPending.id);
+    deleteLibraryCharacter(c.name);
+  });
   it('round-trips a full sheet (incl. spells/items/resources) + conflict prompt', () => {
     deleteLibraryCharacter('Lirael');
     const sheet = {
