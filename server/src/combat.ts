@@ -66,6 +66,7 @@ import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
 import { smiteChoices, smiteDiceTerms, type SmiteChoice } from '../../shared/smite.js';
 import { criticalDiceExpression, effectiveSheetAbility, isMultiTargetSpell, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
+import { classLevelFor } from '../../shared/multiclass.js';
 import {
   effectiveDice,
   spellAttackBonusDetail,
@@ -463,7 +464,9 @@ export function resolveAttack(
     }
     if (st.onHitSave) onHitStances.push(ab);
     // Level-scaled bonus (Rage +2/+3/+4) where defined, else the plain bonus.
-    const stanceBonus = stanceBonusAt(st, a.c.level);
+    const featureLevel = ch && (ab.sourceClass || ab.name.trim().toLowerCase() === 'rage')
+      ? classLevelFor(ch, ab.sourceClass ?? 'barbarian') : a.c.level;
+    const stanceBonus = stanceBonusAt(st, featureLevel);
     if (stanceBonus) {
       if (/d\d/i.test(stanceBonus)) {
         stanceDice.push({ label: ab.name, dice: stanceBonus });
@@ -1074,8 +1077,8 @@ export function resolveSmite(
     const cur = ch.resources[key];
     setResource(ch.id, 'resources', key, { max: Math.max(1, cur?.max ?? 1), used: (cur?.used ?? 0) + 1 });
   } else {
-    castLevel = choice;
-    spendSpellSlot(ch.id, choice);
+    castLevel = typeof choice==='string'?Number(choice.slice(5)):choice;
+    spendSpellSlot(ch.id, castLevel,typeof choice==='string'?'pact':undefined);
   }
 
   // Roll: every term, twice on a crit (RAW: all of the attack's damage dice).
@@ -1835,7 +1838,7 @@ function resolveSheetAbilityFor(
   // PCs arrive as a full-character spread, so feat/equipped-item modifiers
   // (`modifiers`/`items`) ride along for the flat attack-roll extra; monsters
   // simply have neither.
-  entity: { id: string; stats: Record<string, number>; level: number; className?: string; subclass?: string } & ModSource,
+  entity: { id: string; stats: Record<string, number>; level: number; className?: string; subclass?: string; leveling?: Character['leveling'] } & ModSource,
   ability: SheetAbility,
   castLevel?: number,
   advantage?: Advantage,
@@ -2012,7 +2015,7 @@ function resolveSheetAbilityFor(
     // plain abilities use their dice as written (bake any flat into the dice).
     const bonusKind = roll.healingBonus ?? (ability.type === 'spell' ? 'spellcasting' : 'none');
     const castMod = bonusKind === 'spellcasting' ? spellcastingMod(stats, castingAbility)
-      : bonusKind === 'fighterLevel' && entity.className?.trim().toLowerCase() === 'fighter' ? level : 0;
+      : bonusKind === 'fighterLevel' ? classLevelFor({ ...entity, className: entity.className ?? '' }, 'fighter') : 0;
     const healRoll = dice ? withDiceMetadata({label:`${ability.name} — Healing Roll`},()=>rollDice(dice)) : null;
     const bonusLabel=bonusKind==='fighterLevel'?'Fighter level':`${castingAbility??'Spellcasting'} modifier`;
     const healingId=newId();

@@ -56,6 +56,8 @@ type Props = {
   identity?: IdentityField[];
   /** Label for the level field ("Level" for PCs, "CR" for monsters). */
   levelLabel?: string;
+  /** Player levels advance through the DM-approved guide; the DM can still correct a sheet. */
+  levelEditable?: boolean;
   /** Omit to render read-only (no Edit / AI-fill) — e.g. a player viewing an
    *  ally or a friendly creature's sheet. */
   onSave?: (patch: Record<string, unknown>) => void;
@@ -114,6 +116,7 @@ export function StatBlock({
   subtitle,
   identity = [],
   levelLabel = 'Level',
+  levelEditable = true,
   onSave,
   onAiFill,
   aiBusy,
@@ -224,7 +227,7 @@ export function StatBlock({
       ))}
       {monster && <p className="muted" role="status">CR changes scale HP, AC, damage, attack bonuses and save DCs from the original CR {crLabel(creature.crBaseline?.level ?? creature.level)}. Save the CR change before further manual tuning. Special traits may need review.</p>}
       <div className="sb-meta-edit">
-        {!monster && <label className="mini">{levelLabel}<input type="number" value={d.level} onChange={(e) => set({level:num(e.target.value)})} /></label>}
+        {!monster && <label className="mini">{levelLabel}<input type="number" value={d.level} disabled={!levelEditable} title={levelEditable ? undefined : 'Ask the DM to grant a level-up, then use the level-up guide.'} onChange={(e) => set({level:num(e.target.value)})} /></label>}
         <label className="mini">
           HP
           <input

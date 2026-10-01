@@ -11,6 +11,7 @@ import type {
 } from './types.js';
 import { SKILLS, abilityMod, proficiencyBonus } from './skills.js';
 import { FEAT_LIBRARY } from './featLibrary.js';
+import { portableLeveling } from './portableLeveling.js';
 
 /** Everything an import may set (a character:update without the id). */
 export type SheetPatch = Omit<CharacterUpdatePayload, 'characterId'>;
@@ -389,6 +390,7 @@ export function exportSheetJSON(c: Character): string {
       proficientSkills: c.proficientSkills,
       saveProficiencies: c.saveProficiencies,
       modifiers: c.modifiers,
+      leveling: portableLeveling(c.leveling),
       spellSlots: c.spellSlots,
       resources: c.resources,
       items: c.items,
@@ -441,6 +443,8 @@ export function parseSheetJSON(text: string): SheetPatch | null {
     patch.stats = stats;
   }
   if (Array.isArray(o.modifiers)) patch.modifiers = o.modifiers as SheetPatch['modifiers'];
+  const leveling = portableLeveling(o.leveling);
+  if (leveling) patch.leveling = leveling;
   if (Array.isArray(o.weapons)) patch.weapons = o.weapons as Weapon[];
   if (Array.isArray(o.actions)) patch.actions = o.actions as CreatureAbility[];
   if (Array.isArray(o.abilities)) patch.abilities = o.abilities as CreatureAbility[];
@@ -453,6 +457,14 @@ export function parseSheetJSON(text: string): SheetPatch | null {
     patch.resources = o.resources as SheetPatch['resources'];
 
   return patch;
+}
+
+/** Plain-text names can be resolved from the spell DB. A supplied description,
+ * roll, prepared state, tags or other authored metadata belongs to the imported
+ * sheet and must not be replaced by a same-name rules definition. */
+export function isNameOnlyImportedAbility(ability: SheetAbility): boolean {
+  const nameOnlyKeys = new Set(['id', 'name', 'type', 'level', 'description', 'source']);
+  return !ability.description?.trim() && Object.keys(ability).every(key => nameOnlyKeys.has(key));
 }
 
 /** Auto-detect: JSON when the text looks like an object, else the text scraper. */

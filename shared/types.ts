@@ -3,6 +3,8 @@
 
 import type { AbilityKey } from './skills.js';
 import type { MapEnvironment } from './mapEnvironment.js';
+import type { CharacterLeveling, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from './levelingTypes.js';
+import type { ClassRosterEntry } from './multiclass.js';
 
 export type Role = 'dm' | 'player';
 
@@ -187,6 +189,8 @@ export type Character = {
   subclass: string;
   /** Character level (PCs) — also used by the AI to scale stats. */
   level: number;
+  /** DM-approved guided advances; absent on sheets that have not used the guide. */
+  leveling?: CharacterLeveling;
   maxHp: number;
   curHp: number;
   /** Temporary HP — a flat 2024-rules buffer pool depleted by damage before real
@@ -249,6 +253,8 @@ export type Character = {
   /** Spent Hit Point Dice (available = level − used; die size by class, see
    *  shared/rests.ts). Spent on a Short Rest, all restored by a Long Rest. */
   hitDiceUsed: number;
+  /** Spent Hit Dice by die size for structured multiclass sheets. */
+  hitDiceUsedByDie?: Record<string, number>;
   /** The combat role of this creature's most recent attack (melee/ranged/caster),
    *  so the token badge follows the weapon last used; null until it attacks. */
   lastAttackRole: CombatRole | null;
@@ -483,6 +489,8 @@ export type SmiteOpportunity = {
  * roll button (upcastable spells) or a `mastery` (toggle + auto damage effect).
  */
 export type SheetAbility = {
+  /** The class that prepared/learned this entry; separate from eligible spell lists. */
+  sourceClass?: string;
   mark?: { kind: 'pc' | 'monster'; refId: string; tokenId: string; active: boolean; expiresAt: number; hexAbility?: string };
   hitUsedTurn?: string;
 
@@ -679,6 +687,8 @@ export type LibraryCharacter = {
   /** Subclass / archetype; optional on older saves. */
   subclass?: string;
   level: number;
+  /** Completed 2024 progression only; pending grants remain with the original character. */
+  leveling?: CharacterLeveling;
   maxHp: number;
   curHp: number;
   armorClass: number;
@@ -1349,6 +1359,8 @@ export type CharacterUpdatePayload = {
   className?: string;
   subclass?: string;
   level?: number;
+  /** Sheet import retains completed progression; the server preserves its own pending grant. */
+  leveling?: CharacterLeveling;
   maxHp?: number;
   curHp?: number;
   tempHp?: number;
@@ -1425,6 +1437,7 @@ export type AbilityRollPayload = {
   refId: string;
   abilityId: string;
   castLevel?: number;
+  slotPool?: 'spellcasting' | 'pact';
   advantage?: 'adv' | 'dis';
   /** A choice from the spell's reviewed/authored damageTypeChoices. */
   damageType?: string;
@@ -1684,6 +1697,14 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
+  'character:levelGrant': (payload: { characterId: string }, ack?: (result: LevelUpResult<Character>) => void) => void;
+  'character:levelCancel': (payload: { characterId: string; grantId: string }, ack?: (result: LevelUpResult<Character>) => void) => void;
+  'character:levelPlan': (payload: { characterId: string; subclass?: string; className?: string }, ack?: (result: LevelUpResult<LevelUpPlan>) => void) => void;
+  'character:levelConfigureClasses': (payload: { characterId: string; classes: ClassRosterEntry[] }, ack?: (result: LevelUpResult<Character>) => void) => void;
+  'character:levelPreview': (payload: LevelUpCommitRequest, ack?: (result: LevelUpResult<LevelUpPreview>) => void) => void;
+  'character:levelApply': (payload: LevelUpCommitRequest, ack?: (result: LevelUpResult<Character>) => void) => void;
+  /** One authoritative Hit Die roll per grant; result arrives in the snapshot. */
+  'character:levelRollHp': (payload: { characterId: string; grantId: string; className?: string }) => void;
   'character:delete': (payload: CharacterDeletePayload) => void;
   'character:release': () => void;
   'resource:set': (payload: ResourceSetPayload) => void;
@@ -1705,6 +1726,7 @@ export interface ClientToServerEvents {
     x: number;
     y: number;
     castLevel?: number;
+    slotPool?: 'pact' | 'spellcasting';
   }) => void;
   'ability:set': (payload: AbilitySetPayload) => void;
   'ability:remove': (payload: AbilityRemovePayload) => void;
@@ -1717,7 +1739,7 @@ export interface ClientToServerEvents {
   /** DM: one character takes a Short or Long Rest. */
   'rest:character': (payload: { characterId: string; kind: 'short' | 'long' }) => void;
   /** Spend Hit Dice to heal (the character's player or the DM). */
-  'hitDice:spend': (payload: { characterId: string; count: number }) => void;
+  'hitDice:spend': (payload: { characterId: string; count: number; die?: number }) => void;
   'ability:setRecharge': (payload: { kind: TokenKind; refId: string; abilityId: string; spent: boolean }) => void;
   'death:roll': (payload: { characterId: string }) => void;
   'chat:send': (payload: ChatSendPayload, ack?: (result:ChatSendResult)=>void) => void;
@@ -1776,7 +1798,7 @@ export interface ClientToServerEvents {
   /** Roll (and apply) the damage parked on a hit — the two-step attack's second
    *  click. Allowed for the DM and for the player who made the attack. */
   /** Continue or end a matching-dice Chromatic Orb cast without spending another slot. */
-  'combat:hitFeature': (payload: {rollId: string; abilityId: string; level?: number}) => void;
+  'combat:hitFeature': (payload: {rollId: string; abilityId: string; level?: number; slotPool?: 'pact' | 'spellcasting'}) => void;
   'combat:moveMark': (payload: {kind: TokenKind; refId: string; abilityId: string; targetTokenId: string}) => void;
   'combat:orbLeap': (payload: {rollId: string; targetTokenId?: string; end?: boolean}) => void;
   'combat:damage': (payload: { rollId: string }) => void;
@@ -1784,7 +1806,7 @@ export interface ClientToServerEvents {
    *  free once-per-Long-Rest casting. The DM or the attacking player. */
   'combat:riposte': (payload: { opportunityId: string; weaponIndex?: number; pass?: boolean }) => void;
   'combat:maneuver': (payload: { rollId: string; abilityId: string }) => void;
-  'combat:smite': (payload: { rollId: string; level: number | 'free' }) => void;
+  'combat:smite': (payload: { rollId: string; level: number | 'free' | `pact:${number}` }) => void;
   /** DM: weapon damage is a separate, clickable second roll (default on). */
   'session:setManualDamage': (payload: { manual: boolean }) => void;
   'combat:save': (payload: CombatSavePayload) => void;

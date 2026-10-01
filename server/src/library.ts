@@ -14,6 +14,7 @@ import type {
   Weapon,
 } from '../../shared/types.js';
 import { sanitizeItems, sanitizeModifiers, sanitizeWeapons } from '../../shared/modifiers.js';
+import { portableLeveling } from '../../shared/portableLeveling.js';
 import { getSrd, iconForCreature } from './creatures/srd.js';
 import { starterCreatures, COMMON_CREATURE_BATCH, COMMON_CREATURE_BATCH_2 } from './creatures/starterLibrary.js';
 import { missingCreatureFields } from './creatures/completeness.js';
@@ -284,6 +285,7 @@ type LibCharacterRow = {
   modifiers: string;
   items: string;
   sheet_abilities: string;
+  leveling?: string | null;
   icon: string;
 };
 
@@ -312,6 +314,7 @@ function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
     modifiers: JSON.parse(r.modifiers ?? '[]'),
     items: JSON.parse(r.items ?? '[]') as InventoryItem[],
     sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]') as SheetAbility[],
+    leveling: portableLeveling(JSON.parse(r.leveling ?? '{}')),
     icon: r.icon,
   };
 }
@@ -371,8 +374,8 @@ export function saveLibraryCharacter(
        (id, name, race, class_name, subclass, level, max_hp, cur_hp, armor_class, speed,
         stats, spell_slots, resources, weapons, resistances, immunities, weaknesses, actions,
         abilities, proficient_skills, save_proficiencies, modifiers, items,
-        sheet_abilities, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sheet_abilities, leveling, icon, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -400,6 +403,7 @@ export function saveLibraryCharacter(
     JSON.stringify(sanitizeModifiers(input.modifiers, newId)),
     JSON.stringify(sanitizeItems(input.items, newId)),
     JSON.stringify(input.sheetAbilities ?? []),
+    JSON.stringify(portableLeveling(input.leveling) ?? {}),
     input.icon ?? '',
     Date.now(),
   );

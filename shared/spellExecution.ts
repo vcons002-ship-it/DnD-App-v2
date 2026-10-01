@@ -129,14 +129,14 @@ export function spellcastingKeyFor(
   ability: SheetAbility,
 ): AbilityRoll['castingAbility'] {
   if (['INT', 'WIS', 'CHA'].includes(ability.roll?.castingAbility ?? '')) return ability.roll!.castingAbility;
-  const className = (caster.className ?? '').trim().toLowerCase();
+  const className = (ability.sourceClass ?? caster.className ?? '').trim().toLowerCase();
   const singleClass: Record<string, NonNullable<AbilityRoll['castingAbility']>> = {
     wizard: 'INT', artificer: 'INT', cleric: 'WIS', druid: 'WIS', ranger: 'WIS',
     bard: 'CHA', sorcerer: 'CHA', warlock: 'CHA', paladin: 'CHA',
   };
   if (singleClass[className]) return singleClass[className];
-  if ((className === 'fighter' || className === 'rogue') &&
-      /^(eldritch knight|arcane trickster)$/i.test((caster.subclass ?? '').trim())) return 'INT';
+  if ((className === 'fighter' || className === 'rogue') && (ability.sourceClass ||
+      /^(eldritch knight|arcane trickster)$/i.test((caster.subclass ?? '').trim()))) return 'INT';
   // Unknown/multiclass entries retain the legacy best-stat fallback. The roll
   // editor can explicitly choose the ability without changing the character.
   return undefined;

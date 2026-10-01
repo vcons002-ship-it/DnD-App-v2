@@ -10,8 +10,9 @@ import { abilityMod } from '../../shared/skills.js';
 import { effectiveStats } from '../../shared/modifiers.js';
 import { diceReveal } from '../../shared/rollReveal.js';
 import {
-  hitDieFor, hitDiceLeft, hitDieHealing, isPactCaster, restCounters, type RestKind,
+  hitDiceLeft, hitDieHealing, hitDicePoolsFor, shortRestRecoveryForCharacter, type RestKind,
 } from '../../shared/rests.js';
+import { isLegacyPactPool } from '../../shared/spellSlotPools.js';
 import type { Character } from '../../shared/types.js';
 
 export type RestOutcome = {
@@ -39,8 +40,13 @@ export function restCharacter(sessionId: string, characterId: string, kind: Rest
   if (isDeadEntity('pc', c)) return { ...out, skipped: 'dead' };
   if (kind === 'long' && c.curHp <= 0) return { ...out, skipped: 'down' };
 
-  const resources = restCounters(c.resources, kind, c.className, c.level);
-  const slots = restCounters(c.spellSlots, kind, c.className, c.level, isPactCaster(c.className));
+  const resources: Character['resources'] = {}, slots:Character['spellSlots'] = {};
+  for (const [key,counter] of Object.entries(c.resources)) {
+    const rule=kind==='long'?'all':shortRestRecoveryForCharacter(key,counter,c);
+    if(counter.used>0 && rule!=='none') resources[key]={...counter,used:rule==='all'?0:Math.max(0,counter.used-1)};
+  }
+  for (const [key,counter] of Object.entries(c.spellSlots))
+    if(counter.used>0 && (kind==='long'||/^P[1-5]$/.test(key)||isLegacyPactPool(c))) slots[key]={...counter,used:0};
   for (const [name, next] of Object.entries(resources))
     out.restored.push(`${name} ${left(c.resources[name])}→${left(next)}`);
   for (const [key, next] of Object.entries(slots))
@@ -71,7 +77,7 @@ export function restCharacter(sessionId: string, characterId: string, kind: Rest
   if (kind === 'long') {
     if ((c.hitDiceUsed ?? 0) > 0) {
       out.restored.push(`Hit Dice ${hitDiceLeft(c)}→${Math.max(1, c.level)}`);
-      db.prepare('UPDATE characters SET hit_dice_used = 0 WHERE id = ?').run(characterId);
+      db.prepare("UPDATE characters SET hit_dice_used = 0, hit_dice_used_by_die = '{}' WHERE id = ?").run(characterId);
     }
     // Healing goes through the ordinary HP path, so the token pops a +X floater.
     if (c.curHp < c.maxHp) {
@@ -112,20 +118,25 @@ export type HitDiceResult = { ok: true; healed: number; spent: number } | { ok: 
  * Soft rules like the rest of the app: usable any time, never blocked by a
  * rest prompt — but never more dice than are left, and never for the dead.
  */
-export function spendHitDice(sessionId: string, roller: string, characterId: string, count: number): HitDiceResult {
+export function spendHitDice(sessionId: string, roller: string, characterId: string, count: number, requestedDie?:number): HitDiceResult {
   const c = getCharacter(characterId);
   if (!c || c.sessionId !== sessionId) return { ok: false, reason: 'Character not found.' };
   if (isDeadEntity('pc', c)) return { ok: false, reason: `${c.name} is dead; Hit Dice can't heal them.` };
-  const available = hitDiceLeft(c);
+  const pools=hitDicePoolsFor(c);
+  const pool = requestedDie===undefined ? pools.find(p=>p.left>0)??pools[0] : pools.find(p=>p.die===requestedDie);
+  if(!pool) return {ok:false,reason:'Choose a Hit Die from one of your classes.'};
+  const available = pool.left;
   const n = Math.min(Math.max(1, Math.floor(count)), available);
   if (available <= 0) return { ok: false, reason: `${c.name} has no Hit Dice left — a Long Rest restores them.` };
   if (c.curHp >= c.maxHp) return { ok: false, reason: `${c.name} is already at full HP.` };
-  const die = hitDieFor(c.className);
+  const die = pool.die;
   const result = rollDice(`${n}d${die}`);
   if (!result) return { ok: false, reason: 'The Hit Dice could not be rolled.' };
   const con = abilityMod(effectiveStats(c as Character).scores.CON ?? c.stats.CON ?? 10);
   const healed = result.rolls.reduce((sum, face) => sum + hitDieHealing(face, con), 0);
-  db.prepare('UPDATE characters SET hit_dice_used = ? WHERE id = ?').run((c.hitDiceUsed ?? 0) + n, characterId);
+  const usedByDie=Object.fromEntries(pools.map(p=>[p.key,p.used+(p.key===pool.key?n:0)]));
+  db.prepare('UPDATE characters SET hit_dice_used = ?, hit_dice_used_by_die = ? WHERE id = ?').run(
+    Object.values(usedByDie).reduce((sum,value)=>sum+value,0),JSON.stringify(usedByDie),characterId);
   const hpNote = applyDamageNoted('pc', characterId, -healed);
   const conText = con ? ` ${con > 0 ? '+' : '−'} ${Math.abs(con)} CON each` : '';
   addRollLog(sessionId, {
@@ -133,7 +144,7 @@ export function spendHitDice(sessionId: string, roller: string, characterId: str
     label: 'Hit Dice',
     expr: `${n}d${die}`,
     total: healed,
-    detail: `${c.name} spends ${n} Hit ${n === 1 ? 'Die' : 'Dice'} (d${die}): ${result.rolls.join(' + ')}${conText} → +${healed} HP · ${available - n}/${Math.max(1, c.level)} left`,
+    detail: `${c.name} spends ${n} Hit ${n === 1 ? 'Die' : 'Dice'} (d${die}): ${result.rolls.join(' + ')}${conText} → +${healed} HP · ${pools.reduce((sum,p)=>sum+p.left,0) - n}/${Math.max(1, c.level)} left`,
     hpNote,
     reveal: {
       ...diceReveal(c.name, result, `${c.name} — Hit Dice`),

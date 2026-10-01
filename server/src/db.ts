@@ -531,6 +531,10 @@ ensureColumn('characters', 'owner_player_id', 'owner_player_id TEXT');
 ensureColumn('characters', 'kill_count', 'kill_count INTEGER NOT NULL DEFAULT 0');
 // Spent Hit Point Dice (available = level − used); restored by a Long Rest.
 ensureColumn('characters', 'hit_dice_used', 'hit_dice_used INTEGER NOT NULL DEFAULT 0');
+ensureColumn('characters', 'hit_dice_used_by_die', "hit_dice_used_by_die TEXT NOT NULL DEFAULT '{}' ");
+ensureColumn('characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
+// Character templates retain completed progression, never a session's pending grant.
+ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
 
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
@@ -771,10 +775,13 @@ type CharacterRow = {
   death_failures: number | null;
   kill_count: number | null;
   hit_dice_used?: number | null;
+  hit_dice_used_by_die?: string | null;
+  leveling?: string | null;
   icon: string;
 };
 
 export function rowToCharacter(r: CharacterRow): Character {
+  const leveling = JSON.parse(r.leveling ?? '{}') as Partial<NonNullable<Character['leveling']>>;
   return {
     id: r.id,
     sessionId: r.session_id,
@@ -783,6 +790,8 @@ export function rowToCharacter(r: CharacterRow): Character {
     className: r.class_name,
     subclass: r.subclass ?? '',
     level: r.level ?? 1,
+    ...(leveling.rules === '2024' && Array.isArray(leveling.history)
+      ? { leveling: leveling as NonNullable<Character['leveling']> } : {}),
     maxHp: r.max_hp,
     curHp: r.cur_hp,
     tempHp: r.temp_hp ?? 0,
@@ -814,6 +823,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     },
     killCount: r.kill_count ?? 0,
     hitDiceUsed: r.hit_dice_used ?? 0,
+    hitDiceUsedByDie: JSON.parse(r.hit_dice_used_by_die ?? '{}'),
     icon: r.icon ?? '',
   };
 }

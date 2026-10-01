@@ -1,11 +1,15 @@
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
+import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
+import type { CoreClass } from '../../../shared/characterProgression';
+import type { SmiteChoice } from '../../../shared/smite';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { withRollComparison } from '../../../shared/dicePresentation';
 import type {
   AbilityRollPayload,
   CharacterCreatePayload,
+  Character,
   CharacterUpdatePayload,
   ChatSendResult,
   ClientToServerEvents,
@@ -48,6 +52,14 @@ import { safeSetItem } from '../lib/storage';
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 type Status = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+
+async function requestLeveling<T>(socket: TypedSocket | null, status: Status,
+  send: (socket: TypedSocket) => Promise<LevelUpResult<T>>): Promise<LevelUpResult<T>> {
+  if (!socket?.connected || status !== 'connected')
+    return { ok: false, error: 'Reconnect before changing a character level. Your choices have been kept.' };
+  try { return await send(socket); }
+  catch { return { ok: false, error: 'The level-up response was not received. Reopen the current level-up before retrying.' }; }
+}
 
 export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
 
@@ -223,6 +235,7 @@ type Store = {
     x: number;
     y: number;
     castLevel?: number;
+    slotPool?: 'pact' | 'spellcasting';
   }) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: (mapId: string, mineOnly?: boolean, kind?: Annotation['kind']) => void;
@@ -326,7 +339,14 @@ type Store = {
   restParty: (kind: 'short' | 'long') => void;
   restCharacter: (characterId: string, kind: 'short' | 'long') => void;
   /** Spend Hit Dice to heal (rolled on the server's physical dice). */
-  spendHitDice: (characterId: string, count: number) => void;
+  spendHitDice: (characterId: string, count: number, die?: number) => void;
+  grantLevelUp: (characterId: string) => Promise<LevelUpResult<Character>>;
+  cancelLevelUp: (characterId: string, grantId: string) => Promise<LevelUpResult<Character>>;
+  configureClassLevels: (characterId: string, classes: ClassRosterEntry[]) => Promise<LevelUpResult<Character>>;
+  getLevelUpPlan: (characterId: string, subclass?: string, className?: CoreClass) => Promise<LevelUpResult<LevelUpPlan>>;
+  previewLevelUp: (request: LevelUpCommitRequest) => Promise<LevelUpResult<LevelUpPreview>>;
+  applyLevelUp: (request: LevelUpCommitRequest) => Promise<LevelUpResult<Character>>;
+  rollLevelUpHp: (characterId: string, grantId: string, className?: CoreClass) => void;
   /** The party just rested — drives a banner (null when shown). */
   restFx: { id: number; kind: 'short' | 'long' } | null;
   rollDeathSave: (characterId: string) => void;
@@ -380,12 +400,12 @@ type Store = {
   combatDamage: (rollId: string) => void;
   /** Cast the smite a hit made available, with a slot level or the free casting. */
   initiativeFx: {id: number; mapId: string} | null;
-  combatHitFeature: (rollId:string,abilityId:string,level?:number) => void;
+  combatHitFeature: (rollId:string,abilityId:string,level?:number,slotPool?:'pact'|'spellcasting') => void;
   combatMoveMark: (kind:TokenKind,refId:string,abilityId:string,targetTokenId:string) => void;
   combatOrbLeap: (rollId: string, targetTokenId?: string, end?: boolean) => void;
   combatRiposte: (opportunityId: string, weaponIndex?: number, pass?: boolean) => void;
   combatManeuver: (rollId: string, abilityId: string) => void;
-  combatSmite: (rollId: string, level: number | 'free') => void;
+  combatSmite: (rollId: string, level: SmiteChoice) => void;
   combatSave: (payload: CombatSavePayload) => void;
   /** DM: make weapon damage a separate, clickable second roll. */
   setManualDamage: (manual: boolean) => void;
@@ -1063,7 +1083,23 @@ export const useStore = create<Store>((set, get) => ({
   setAbilityRecharge: (kind, refId, abilityId, spent) => get().socket?.emit('ability:setRecharge', { kind, refId, abilityId, spent }),
   restParty: (kind) => get().socket?.emit('rest:party', { kind }),
   restCharacter: (characterId, kind) => get().socket?.emit('rest:character', { characterId, kind }),
-  spendHitDice: (characterId, count) => get().socket?.emit('hitDice:spend', { characterId, count }),
+  spendHitDice: (characterId, count, die) => get().socket?.emit('hitDice:spend', { characterId, count, die }),
+  grantLevelUp: (characterId) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelGrant', { characterId })),
+  cancelLevelUp: (characterId, grantId) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelCancel', { characterId, grantId })),
+  configureClassLevels: (characterId, classes) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelConfigureClasses', { characterId, classes })),
+  getLevelUpPlan: (characterId, subclass, className) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelPlan', { characterId, subclass, className })),
+  previewLevelUp: (request) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelPreview', request)),
+  applyLevelUp: (request) => requestLeveling(get().socket, get().status,
+    socket => socket.timeout(60_000).emitWithAck('character:levelApply', request)),
+  rollLevelUpHp: (characterId, grantId, className) => {
+    if (get().status !== 'connected') { get().notify('Reconnect before rolling level-up HP.'); return; }
+    get().socket?.emit('character:levelRollHp', { characterId, grantId, className });
+  },
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
   sendChat: async (text, speakAsTokenId, options) => {
     const socket = get().socket;
@@ -1136,7 +1172,7 @@ export const useStore = create<Store>((set, get) => ({
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
   initiativeFx: null,
   restFx: null,
-  combatHitFeature: (rollId,abilityId,level) => get().socket?.emit('combat:hitFeature',{rollId,abilityId,level}),
+  combatHitFeature: (rollId,abilityId,level,slotPool) => get().socket?.emit('combat:hitFeature',{rollId,abilityId,level,slotPool}),
   combatMoveMark: (kind,refId,abilityId,targetTokenId) => get().socket?.emit('combat:moveMark',{kind,refId,abilityId,targetTokenId}),
   combatOrbLeap: (rollId, targetTokenId, end) => get().socket?.emit('combat:orbLeap', {rollId,targetTokenId,end}),
   combatRiposte: (opportunityId, weaponIndex, pass) => get().socket?.emit('combat:riposte', {opportunityId, weaponIndex, pass}),

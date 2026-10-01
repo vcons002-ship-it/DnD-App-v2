@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Character } from '../../../shared/types';
+import { resolveClassRoster, multiclassSpellSlots2024 } from '../../../shared/multiclass';
 import {
   remainingAfterMax,
   remainingAfterPip,
@@ -134,7 +135,7 @@ function AdjustCounter({
       }}
     >
       <div className="hud-heading">
-        <strong>Adjust {name.replace(/^L(\d)$/, 'Level $1')}</strong>
+        <strong>Adjust {resourceSigilPresentation(group, name).name}</strong>
         <button type="button" className="btn tiny" onClick={onClose}>
           Cancel
         </button>
@@ -306,7 +307,8 @@ export function JeweledResources({ character, layout = 'concentric', overflowCus
       document.removeEventListener('keydown', escape);
     };
   }, [expanded]);
-  const reference = slotReference2024(
+  const roster=resolveClassRoster(character);
+  const reference = character.leveling?.classes && roster ? multiclassSpellSlots2024(roster) : slotReference2024(
     character.className,
     character.level,
     character.subclass,

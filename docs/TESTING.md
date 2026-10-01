@@ -48,10 +48,17 @@ The relevant regression list includes:
 | Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `compact-checks`, `player-initiative` |
 | Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
+| DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
+| Multiclass entry, class-level choices, legacy splits, Pact spending, separate class counters | `multiclass-level-up` |
 | 2D silhouettes and 3D base-only selection | `token-hit-region` |
 | Cache integrity and creature reveal tags | `asset-cache`, `encounter-tags` |
 
 Each name above is an `e2e/<name>.spec.ts` file. Other normal UI/map regressions remain enabled too. Component fixtures must provide valid current data, including condition IDs, and explicitly choose 2D/3D mode when checking a particular hit shape. A pulsing button can be clicked at its measured center when its intentional animation prevents Playwright's static-position actionability check; it must still be visible and enabled, and the test must verify the real resulting action.
+
+Multiclass server tests also exercise persisted class rosters, class-specific
+casting scores and combat scaling, mixed Hit Dice, rests, and spent-use
+preservation. A level-up or a change to the recorded class split must not act as
+a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
 

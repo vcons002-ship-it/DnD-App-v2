@@ -11,6 +11,8 @@ import { saveAdvantage, saveAutoFail } from '../../shared/conditionEffects.js';
 import { effectiveStats, saveExtra } from '../../shared/modifiers.js';
 import { spellSaveDC } from '../../shared/spellMath.js';
 import { spellcastingKeyFor } from '../../shared/spellExecution.js';
+import { classLevelFor } from '../../shared/multiclass.js';
+import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../shared/spellSlotPools.js';
 import { newId } from './db.js';
 import { markedEntity } from './marks.js';
 import { getSessionById, getCharacter, getMonster, getMap, getToken, listTokens, getRollEntry,
@@ -23,7 +25,7 @@ export function turnKey(sid:string) {
   return `${s?.activeMapId}:${s?.combatRound}:${s?.activeTurnTokenId}`;
 }
 export function hitLevels(ch:Character, ab:SheetAbility) {
-  return Object.entries(ch.spellSlots).filter(([k,v])=>/^L[1-9]$/.test(k)&&v.used<v.max&&Number(k.slice(1))>=(ab.level??1)).map(([k])=>Number(k.slice(1)));
+  return [...new Set(spellSlotOptions(ch,ab.level??1).filter(o=>o.remaining>0).map(o=>o.level))];
 }
 function spent(ch:Character,key:string,turn:string) {
   if (!getSessionById(ch.sessionId)?.activeTurnTokenId) return false;
@@ -72,7 +74,7 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
       visibilityTarget:{kind:target.kind,refId:target.refId}}});
   return passed;
 }
-export function resolveHitFeature(sid:string,roller:string,rollId:string,abilityId:string,level?:number) {
+export function resolveHitFeature(sid:string,roller:string,rollId:string,abilityId:string,level?:number,slotPool?:SpellSlotPool) {
   const entry=getRollEntry(rollId,sid), p=entry?.pending, offer=p?.hitOptions;
   const ch=p?.attacker.kind==='pc'?getCharacter(p.attacker.refId):null;
   const ab=ch?.sheetAbilities.find(a=>a.id===abilityId), key=ab&&hitFeature(ab);
@@ -82,14 +84,17 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
   const spell=hitSpell(key), w=ch.weapons[offer.weaponIndex], victim=markedEntity(target.kind,target.refId);
   if(!w||victim?.sessionId!==sid) return {ok:false,reason:'The target or weapon is no longer available.'};
   const turn=offer.turn;
+  const slot=spell ? selectSpellSlot(ch,level??ab.level??1,slotPool) : undefined;
+  if(spell && (!slot || slot.remaining<=0)) return {ok:false,reason:'No available spell slot in that pool.'};
+  if(slot) { level=slot.level; slotPool=slot.pool; }
   if(!spell&&spent(ch,key,turn)) return {ok:false,reason:'Already used this turn.'};
   if(spell && (!level||!hitLevels(ch,ab).includes(level)||(getSessionById(sid)?.activeTurnTokenId && ch.sheetAbilities.some(a=>a.hitUsedTurn===`bonus:${turn}`)))) return {ok:false,reason:'No available spell slot or bonus-action spell for this hit.'};
   const pool=['Focus Points','Focus','Ki'].find(k=>ch.resources[k]?.used<ch.resources[k]?.max);
   if(key==='stunning strike'&&!pool) return {ok:false,reason:'No Focus/Ki points remaining.'};
-  if(p.live){materializeLiveDamage(sid,rollId);return resolveHitFeature(sid,roller,rollId,abilityId,level);}
+  if(p.live){materializeLiveDamage(sid,rollId);return resolveHitFeature(sid,roller,rollId,abilityId,level,slotPool);}
   // Claim the optional feature before spending its resource or resolving damage.
   setSheetAbility('pc',ch.id,{...ab,hitUsedTurn:spell?`bonus:${turn}`:turn,stance:ab.stance?{...ab.stance,active:false}:undefined});
-  if(spell) spendSpellSlot(ch.id,level!);
+  if(spell) spendSpellSlot(ch.id,level!,slotPool);
   if(key==='stunning strike') setResource(ch.id,'resources',pool!,{used:ch.resources[pool!].used+1});
   const n=level??1;
   if(key==='hail of thorns') {
@@ -132,7 +137,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
         damageDice:[{label:'Hail of Thorns',value:damage.total,faces:damage.rolls,diceExpression:damage.expr}]}},impactId);
     return {ok:true};
   }
-  const expr=key==='sneak attack'?`${Math.ceil(ch.level/2)}d6`:key==='colossus slayer'?'1d8':key==='divine strike'?(ch.level>=14?'2d8':'1d8'):
+  const expr=key==='sneak attack'?`${Math.ceil(classLevelFor(ch,'rogue')/2)}d6`:key==='colossus slayer'?'1d8':key==='divine strike'?(classLevelFor(ch,'cleric')>=14?'2d8':'1d8'):
     key==='searing smite'?`${n}d6`:key==='thunderous smite'?`${n+1}d6`:key==='wrathful smite'?`${n}d6`:undefined;
   const type=key==='searing smite'?'fire':key==='thunderous smite'?'thunder':key==='wrathful smite'?'necrotic':key==='divine strike'?(ab.roll?.damageType||'radiant'):w.damageType;
   const rolls=expr?rollDicePool(Array.from({length:p.crit?2:1},(_,i)=>({expr,critical:i>0}))).filter((r):r is NonNullable<typeof r>=>r!==null):[];

@@ -3,7 +3,8 @@ import { hitFeature, hitSpell } from '../../../shared/hitFeatures';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { useEffect, useState } from 'react';
 import type { RollEntry, StateSnapshot } from '../../../shared/types';
-import { smiteChoices, type SmiteChoice } from '../../../shared/smite';
+import { smiteChoices, smiteChoiceLabel, type SmiteChoice } from '../../../shared/smite';
+import { spellSlotOptions } from '../../../shared/spellSlotPools';
 import { useStore } from '../state/socket';
 
 /** What a hit still offers: its parked damage, and/or a smite to cast on it. */
@@ -116,10 +117,10 @@ export function DamagePrompt() {
         {snapshot.characters.find(c=>c.id===p.attacker.refId)?.sheetAbilities.filter(a=>p.hitOptions!.abilityIds.includes(a.id)).map(a=> {
           const spell=hitSpell(hitFeature(a)??'');
           const ch=snapshot.characters.find(c=>c.id===p.attacker.refId)!;
-          const levels=Object.entries(ch.spellSlots).filter(([k,v])=>/^L[1-9]$/.test(k)&&v.used<v.max&&Number(k.slice(1))>=(a.level??1));
+          const levels=spellSlotOptions(ch,a.level??1).filter(o=>o.remaining>0);
           return <span key={a.id}>
             <button className="btn tiny" onClick={()=>spell?setFeaturePicker(featurePicker===a.id?undefined:a.id):combatHitFeature(rollId,a.id)}>{a.name}</button>
-            {spell&&featurePicker===a.id&&levels.map(([k])=><button className="btn tiny" key={k} onClick={()=>{if(hitFeature(a)!=='ensnaring strike'||confirmConcentration(ch,{...a,tags:['concentration']})) combatHitFeature(rollId,a.id,Number(k.slice(1)));}}>{k}</button>)}
+            {spell&&featurePicker===a.id&&levels.map(o=><button className="btn tiny" key={o.key} onClick={()=>{if(hitFeature(a)!=='ensnaring strike'||confirmConcentration(ch,{...a,tags:['concentration']})) combatHitFeature(rollId,a.id,o.level,o.pool);}}>{o.label}</button>)}
           </span>;
         })}
       </div>}
@@ -148,10 +149,10 @@ export function DamagePrompt() {
               title={
                 opt === 'free'
                   ? 'Cast it without a slot (once per Long Rest)'
-                  : `Spend a level-${opt} spell slot`
+                  : typeof opt === 'string' ? `Spend a level-${opt.slice(5)} Pact Magic slot` : `Spend a level-${opt} spell slot`
               }
             >
-              {opt === 'free' ? 'Free' : `L${opt}`}
+              {smiteChoiceLabel(opt)}
             </button>
           ))}
         </div>

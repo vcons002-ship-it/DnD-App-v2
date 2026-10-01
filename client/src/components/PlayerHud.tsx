@@ -15,6 +15,7 @@ import { CharacterChecks } from './CharacterChecks';
 import { ActionsTraitsView } from './StatBlock';
 import { effectiveAc } from '../../../shared/modifiers';
 import { resourceSigilPresentation } from '../../../shared/resourceSigils';
+import { multiclassClassSummary } from '../../../shared/multiclass';
 import { PlayerConditionControl } from './PlayerConditionControl';
 import {CarriedLanternControl} from './CarriedLanternControl';
 import { HitDiceHudControl } from './CharacterResources';
@@ -59,6 +60,7 @@ function CharacterWindow({
   onRelease: () => void;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
+  const classSummary = multiclassClassSummary(character);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const el = dialog.current;
@@ -79,8 +81,8 @@ function CharacterWindow({
           <small>CHARACTER RECORD</small>
           <h2>{character.name}</h2>
           <p>
-            {character.race} · {character.subclass} {character.className} ·
-            Level {character.level}
+            {character.race} · {classSummary ?? `${character.subclass} ${character.className}`} ·{' '}
+            {classSummary ? 'Total level' : 'Level'} {character.level}
           </p>
         </div>
         <button
@@ -211,6 +213,7 @@ export function PlayerHud({
 }) {
   const applyDamage = useStore((s) => s.applyDamage);
   const setTempHp = useStore((s) => s.setTempHp);
+  const classSummary = multiclassClassSummary(character);
   const [windowTab, setWindowTab] = useState<WindowTab | null>(null);
   const [vitals, setVitals] = useState(false);
   const [checks, setChecks] = useState(false);
@@ -240,9 +243,10 @@ export function PlayerHud({
   return (
     <div className="player-hud" data-testid="player-hud" data-orb-art={art ?? 'generic-orb'}>
       <nav className="hud-actions" aria-label="Player action bar">
-        <button className="btn hud-icon-button" aria-label="Character" onClick={() => setWindowTab('Character')}>
+        <button className={`btn hud-icon-button${character.leveling?.pending ? ' level-up-ready' : ''}`} aria-label="Character" onClick={() => setWindowTab('Character')}>
           <HudIcon name="character" />
-          <span className="hud-tooltip"><strong>Character</strong><small>Stats, equipment & character details</small></span>
+          {character.leveling?.pending && <span className="level-up-ready-badge" aria-label={`Level ${character.leveling.pending.toLevel} ready`}>+1</span>}
+          <span className="hud-tooltip"><strong>Character</strong><small>{character.leveling?.pending ? `Level ${character.leveling.pending.toLevel} is ready — open to choose your upgrades` : 'Stats, equipment & character details'}</small></span>
         </button>
         <button className="btn hud-icon-button" aria-label="Inventory" onClick={() => setWindowTab('Inventory')}>
           <HudIcon name="inventory" />
@@ -274,7 +278,7 @@ export function PlayerHud({
           <div className="hud-identity-line">
             <button className="hud-identity" aria-label={`Open ${character.name}'s character record`} onClick={() => setWindowTab('Character')}>
               <strong title={character.name}>{character.name}</strong>
-              <small>{character.className} <span aria-label={`Level ${character.level}`}>· Level {character.level}</span></small>
+              <small title={classSummary ?? undefined}>{classSummary ?? character.className} <span aria-label={`Level ${character.level}`}>· {classSummary ? 'Total level' : 'Level'} {character.level}</span></small>
             </button>
           </div>
         <button
