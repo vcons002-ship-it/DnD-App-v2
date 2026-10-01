@@ -303,6 +303,20 @@ ensureColumn('roll_log', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
 ensureColumn('chat_messages', 'dm_only', 'dm_only INTEGER NOT NULL DEFAULT 0');
 // Rulebook page citations on an assistant answer (JSON number[]).
 ensureColumn('chat_messages', 'pages', "pages TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('chat_messages', 'whisper_character_id', 'whisper_character_id TEXT');
+ensureColumn('chat_messages', 'whisper_character_name', 'whisper_character_name TEXT');
+ensureColumn('chat_messages', 'whisper_owner_id', 'whisper_owner_id TEXT');
+ensureColumn('chat_messages', 'image_id', 'image_id TEXT');
+ensureColumn('chat_messages', 'chat_channel', 'chat_channel TEXT');
+ensureColumn('chat_messages', 'chat_audience', "chat_audience TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('chat_messages', 'chat_participants', "chat_participants TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('chat_messages', 'chat_includes_dm', 'chat_includes_dm INTEGER NOT NULL DEFAULT 0');
+db.exec(`CREATE TABLE IF NOT EXISTS chat_images (
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  uploader_owner_id TEXT, name TEXT NOT NULL, file_name TEXT NOT NULL,
+  mime TEXT NOT NULL, created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chat_images_session ON chat_images(session_id);`);
 // Image-decal annotations: uploaded art path + draw size.
 ensureColumn('annotations', 'url', "url TEXT NOT NULL DEFAULT ''");
 ensureColumn('annotations', 'width', 'width REAL NOT NULL DEFAULT 0');

@@ -11,10 +11,11 @@ import { linkify } from '../lib/linkify';
 import { mergeFeed } from '../lib/feed';
 import { resolveToken } from '../lib/entities';
 import { AdvantageToggle } from './AdvantageToggle';
+import { ChatImageAttachment } from './ChatImageAttachment';
 
 const QUICK = ['d20', 'd12', 'd10', 'd8', 'd6', 'd4', 'd100'];
 
-/** Dice roller + shared feed of rolls AND chat (visible to everyone), with a
+/** Dice roller + feed of visible rolls and public/private chat, with a
  *  chat input. Rolls and chat are interleaved chronologically (newest at the
  *  bottom) so they share one log. */
 export function DicePanel({
@@ -32,6 +33,8 @@ export function DicePanel({
   const rollDice = useStore((s) => s.rollDice);
   const clearRollLog = useStore((s) => s.clearRollLog);
   const sendChat = useStore((s) => s.sendChat);
+  const chatAccessToken = useStore((s) => s.chatAccessToken);
+  const notify = useStore((s) => s.notify);
   const chatTyping = useStore((s) => s.chatTyping);
   const askAssistant = useStore((s) => s.askAssistant);
   const assistantThinking = useStore((s) => s.assistantThinking);
@@ -64,6 +67,23 @@ export function DicePanel({
   const [expr, setExpr] = useState('1d20');
   const [label, setLabel] = useState('');
   const [chatText, setChatText] = useState('');
+  const [whisperTo, setWhisperTo] = useState('');
+  // Keep Reply bound to its original audience even after a PC changes owners.
+  const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
+  const [replyRecipientName, setReplyRecipientName] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<{ id: string; name: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const uploadRef = useRef<AbortController | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const privateRecipients = snapshot.characters.filter(c => (c.ownerId || c.claimedBy) && (isDm || c.id !== myChar?.id));
+  const isPrivate = !!whisperTo;
+  const isParty = whisperTo === 'party';
+  const recipient = privateRecipients.find(c => c.id === whisperTo);
+  const recipientAvailable = !isPrivate || !!replyToMessageId || (isDm ? !!recipient : !!myChar && (whisperTo === 'dm' || isParty || !!recipient));
+  const recipientName = replyRecipientName ?? (isParty ? 'Party' : whisperTo === 'dm' ? 'DM' : recipient?.name ?? 'unavailable player');
   // DM "speak as the selected token" — on by default so picking an NPC and
   // typing voices it; toggle off to speak as plain DM. Only relevant when a
   // token is selected.
@@ -154,10 +174,23 @@ export function DicePanel({
     typingRef.current = on;
     chatTyping(on);
   };
-  useEffect(() => () => setTyping(false), []); // stop typing on unmount
+  useEffect(() => () => {
+    if (idleRef.current) clearTimeout(idleRef.current);
+    setTyping(false);
+    uploadRef.current?.abort();
+  }, []);
+  useEffect(() => {
+    if (idleRef.current) clearTimeout(idleRef.current);
+    setTyping(false);
+  }, [whisperTo]);
+  useEffect(() => {
+    uploadRef.current?.abort();
+    uploadRef.current = null;
+    setUploading(false);
+  }, [chatAccessToken]);
   const onType = (text: string) => {
     setChatText(text);
-    const speaking = text.trim().length > 0 && !text.trim().startsWith('/');
+    const speaking = !isPrivate && text.trim().length > 0 && !text.trim().startsWith('/');
     if (idleRef.current) clearTimeout(idleRef.current);
     if (speaking) {
       setTyping(true);
@@ -167,18 +200,85 @@ export function DicePanel({
     }
   };
 
-  const send = () => {
+  const clearAttachment = () => {
+    uploadRef.current?.abort();
+    uploadRef.current = null;
+    setUploading(false);
+    setAttachment(null);
+  };
+  const chooseRecipient = (value: string) => {
+    if (value !== whisperTo) clearAttachment();
+    setReplyToMessageId(null);
+    setReplyRecipientName(null);
+    if (idleRef.current) clearTimeout(idleRef.current);
+    setTyping(false);
+    setWhisperTo(value);
+  };
+  const uploadImage = async (file: File) => {
+    if (!isPrivate || !chatAccessToken || !recipientAvailable || sendingRef.current) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+      notify('Choose a PNG, JPEG, WebP, or GIF image.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      notify('Private chat images must be 10 MB or smaller.');
+      return;
+    }
+    uploadRef.current?.abort();
+    const controller = new AbortController();
+    uploadRef.current = controller;
+    setUploading(true);
+    const form = new FormData();
+    form.append('image', file);
+    try {
+      const response = await fetch('/api/chat-images', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${chatAccessToken}` },
+        body: form,
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not upload the image.');
+      if (typeof data.id !== 'string' || typeof data.name !== 'string') throw new Error('The image upload returned an invalid response.');
+      if (!controller.signal.aborted) setAttachment({ id: data.id, name: data.name });
+    } catch (error) {
+      if (!controller.signal.aborted) notify(error instanceof Error ? error.message : 'Could not upload the image.');
+    } finally {
+      if (uploadRef.current === controller) {
+        uploadRef.current = null;
+        setUploading(false);
+      }
+    }
+  };
+
+  const send = async () => {
+    if (sendingRef.current || uploading || !recipientAvailable) return;
     if (idleRef.current) clearTimeout(idleRef.current);
     setTyping(false);
     const body = chatText.trim();
-    if (!body) return;
+    if (!body && !(isPrivate && attachment)) return;
     // DM-only: "/ask <question>" (or "/rules …") routes to the rules assistant
     // instead of posting public chat; the Q&A appears as DM-only messages.
-    const ask = isDm && body.match(/^\/(ask|rules?)\s+(.+)/is);
-    if (ask) askAssistant(ask[2].trim(), choiceToBackend(aiChoice));
+    const ask = !isPrivate && isDm && body.match(/^\/(ask|rules?)\s+(.+)/is);
+    if (ask) {
+      askAssistant(ask[2].trim(), choiceToBackend(aiChoice));
+      setChatText('');
+      return;
+    }
     // Speak as the selected token when the DM has the toggle on (NPC voice).
-    else sendChat(body, speakAs && speakToken ? speakToken.id : undefined);
-    setChatText('');
+    sendingRef.current = true;
+    setSending(true);
+    try {
+      const sent = await sendChat(body, !isPrivate && speakAs && speakToken ? speakToken.id : undefined,
+        isPrivate ? { whisperTo, imageId: attachment?.id, replyToMessageId: replyToMessageId ?? undefined } : undefined);
+      if (sent) {
+        setChatText('');
+        clearAttachment();
+      }
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
 
   const Controls = compact ? 'details' : Fragment;
@@ -281,9 +381,23 @@ export function DicePanel({
           if (item.kind === 'chat') {
             const m = item.chat;
             return (
-              <div key={item.id} className={`chat-msg ${m.role}`}>
+              <div key={item.id} className={`chat-msg ${m.role} ${m.whisper || m.channel === 'party' ? 'chat-whisper' : ''}`}>
+                {m.channel === 'party' ? <span className="chat-private-label">Party · players only</span> : m.whisper && <span className="chat-private-label">Private · {m.whisper.participantNames?.join(' & ') || `${m.whisper.characterName} & DM`}</span>}
                 <span className="chat-sender">{m.sender}</span>
                 <span className="chat-text">{linkify(m.text)}</span>
+                {(m.whisper || m.channel === 'party') && <button type="button" className="chat-reply" disabled={sending} onClick={() => {
+                  const target = m.channel === 'party' ? 'party' : m.whisper!.replyTo || (isDm ? m.whisper!.characterId : 'dm');
+                  chooseRecipient(target);
+                  if (m.whisper) {
+                    setReplyToMessageId(m.id);
+                    setReplyRecipientName(target === 'dm' ? 'DM' : target === m.whisper.characterId ? m.whisper.characterName :
+                      m.whisper.participantNames?.at(-1) ?? m.whisper.characterName);
+                  }
+                  chatInputRef.current?.focus();
+                }}>Reply</button>}
+                {(m.whisper || m.channel === 'party') && m.image && <ChatImageAttachment image={m.image} onReady={() => {
+                  if (stickRef.current && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+                }} />}
                 {m.pages && m.pages.length > 0 && (
                   <span className="chat-cites">
                     📖 Sources:{' '}
@@ -425,7 +539,7 @@ export function DicePanel({
           </button>
         </div>
       )}
-      {isDm && aiBackends && (aiBackends.ollamaModels.length > 0 || aiBackends.geminiAvailable) && (
+      {isDm && !isPrivate && aiBackends && (aiBackends.ollamaModels.length > 0 || aiBackends.geminiAvailable) && (
         <div className="ai-backend-row" title="Which AI answers /ask rules questions">
           <span className="muted">/ask uses:</span>
           <select value={aiChoice} onChange={(e) => pickBackend(e.target.value)}>
@@ -446,7 +560,7 @@ export function DicePanel({
           </select>
         </div>
       )}
-      {speakName && (
+      {speakName && !isPrivate && (
         <button
           className={`btn tiny speak-as ${speakAs ? 'on' : ''}`}
           onClick={() => setSpeakAs((v) => !v)}
@@ -459,28 +573,59 @@ export function DicePanel({
           🗣 {speakAs ? `As ${speakName}` : 'As DM'}
         </button>
       )}
+      <div className="chat-recipient-row">
+        <label>To <select aria-label="Chat recipient" value={whisperTo} disabled={sending} onChange={event => chooseRecipient(event.target.value)}>
+          <option value="">Everyone</option>
+          {!isDm && <><option value="party">Party (players only)</option><option value="dm">DM</option></>}
+          {privateRecipients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {isPrivate && !recipient && whisperTo !== 'dm' && !isParty && <option value={whisperTo} disabled={!replyToMessageId}>{replyRecipientName ?? 'Player unavailable'}</option>}
+        </select></label>
+        {isPrivate && <>
+          <span className="chat-private-label">{isParty ? 'Players only' : 'Private'}</span>
+          <button type="button" className="btn tiny" disabled={sending || uploading || !chatAccessToken || !recipientAvailable}
+            title={`${isParty ? 'Share with players only' : 'Attach a private image'} (PNG, JPEG, WebP, or GIF; up to 10 MB)`} onClick={() => imageInputRef.current?.click()}>
+            {attachment ? 'Replace image' : 'Attach image'}
+          </button>
+          <input ref={imageInputRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) void uploadImage(file);
+          }} />
+        </>}
+      </div>
+      {isPrivate && !recipientAvailable && <span className="chat-channel-notice" role="status">{!isDm && !myChar ? 'Claim your character to send private messages.' : 'This player is no longer available.'}</span>}
+      {isPrivate && (attachment || uploading) && <div className="chat-attachment-draft">
+        {uploading ? <span className="muted" role="status">Uploading image…</span> : attachment && <ChatImageAttachment image={attachment} preview />}
+        <button type="button" className="btn tiny" disabled={sending} onClick={clearAttachment} aria-label="Remove attached image">{uploading ? 'Cancel' : 'Remove'}</button>
+      </div>}
       <div className="chat-input">
         <input
+          ref={chatInputRef}
           placeholder={
-            speakAs && speakName
+            isPrivate
+              ? isParty ? 'Party message (players only)…' : `Private message to ${recipientName}…`
+              : speakAs && speakName
               ? `Speak as ${speakName}…`
               : isDm
                 ? 'Message… (/roll 2d6+3 · /ask a rule or DC)'
                 : 'Message… (/roll 2d6+3)'
           }
           title={
-            isDm
+            isPrivate
+              ? isParty ? 'Party chat and images are visible to players only.' : `Private message to ${recipientName}. Images are shared only with this recipient.`
+              : isDm
               ? 'Chat · /roll 2d6+3 (optionally adv/dis) to roll · /ask <question> for the DM-only rules assistant — ask a rule or "what DC for …" to get a suggested DC + skill'
               : 'Chat — or type /roll 2d6+3 (optionally adv/dis) to roll dice'
           }
           value={chatText}
+          disabled={sending}
           maxLength={2000}
           onChange={(e) => onType(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => { if (e.key === 'Enter') void send(); }}
           onBlur={() => setTyping(false)}
         />
-        <button className="btn tiny" disabled={!chatText.trim()} onClick={send}>
-          Send
+        <button className="btn tiny" disabled={sending || uploading || !recipientAvailable || (!chatText.trim() && !(isPrivate && attachment))} onClick={() => void send()}>
+          {sending ? 'Sending…' : 'Send'}
         </button>
       </div>
     </div>

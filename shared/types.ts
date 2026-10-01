@@ -901,7 +901,7 @@ export type MapPopup = { title: string; note?: string; items: ShopItem[] };
 /** Attach/replace (or clear with null) a decal's popup — DM only. */
 export type AnnotationSetPopupPayload = { id: string; popup: MapPopup | null };
 
-/** A shared chat message in a session. */
+/** A chat message already filtered for the viewer by the server. */
 export type ChatMessage = {
   id: string;
   /** Display name of the sender (character/DM name). */
@@ -914,7 +914,15 @@ export type ChatMessage = {
   dmOnly?: boolean;
   /** Rulebook page citations on a rules-assistant answer (clickable in the UI). */
   pages?: number[];
+  /** Private conversation or players-only channel; audience keys stay server-side. */
+  channel?: 'whisper' | 'party';
+  whisper?: { characterId: string; characterName: string; participantNames?: string[]; replyTo?: string };
+  /** Private attachment, fetched using the current connection's media credential. */
+  image?: { id: string; name: string };
 };
+
+export type ChatSendPayload = {text:string;speakAsTokenId?:string;whisperTo?:string;imageId?:string;replyToMessageId?:string};
+export type ChatSendResult = {ok:boolean;error?:string};
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
 export type Measurement = {
@@ -1684,7 +1692,7 @@ export interface ClientToServerEvents {
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'death:roll': (payload: { characterId: string }) => void;
-  'chat:send': (payload: { text: string; speakAsTokenId?: string }) => void;
+  'chat:send': (payload: ChatSendPayload, ack?: (result:ChatSendResult)=>void) => void;
   /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
    *  — the server pops a typing bubble over their claimed PC token for others. */
   'chat:typing': (payload: { typing: boolean }) => void;
@@ -1755,7 +1763,7 @@ export interface ClientToServerEvents {
 }
 
 export type JoinAck =
-  | { ok: true; snapshot: StateSnapshot }
+  | { ok: true; snapshot: StateSnapshot; chatAccessToken?: string }
   | { ok: false; error: ServerError };
 
 // Server -> Client event names.

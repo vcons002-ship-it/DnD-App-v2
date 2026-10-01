@@ -60,12 +60,14 @@ export function RollLogOverlay({
           return (
             <div
               key={item.id}
-              className={`chat-msg ${m.role}`}
+              className={`chat-msg ${m.role} ${m.whisper || m.channel === 'party' ? 'chat-whisper' : ''}`}
               style={{ opacity }}
               onMouseEnter={onMouseEnter}
             >
+              {m.channel === 'party' ? <span className="chat-private-label">Party · players only</span> : m.whisper && <span className="chat-private-label">Private · {m.whisper.participantNames?.join(' & ') || `${m.whisper.characterName} & DM`}</span>}
               <span className="chat-sender">{m.sender}</span>
               <span className="chat-text">{m.text}</span>
+              {(m.whisper || m.channel === 'party') && m.image && <span className="chat-image-note"> Image: {m.image.name} (open chat to view)</span>}
             </div>
           );
         }
