@@ -15,6 +15,10 @@ import { AdvantageToggle } from './AdvantageToggle';
 import { CharacterResources } from './CharacterResources';
 import { WeaponButtons } from './WeaponButtons';
 import { effectiveSheetAbility } from '../../../shared/spellExecution';
+import { spellCombatSupport } from '../../../shared/spellSupport';
+import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
+import { confirmConcentration, spellBaseLevel, upcastable } from '../lib/spellcasting';
+import { SpellCombatSupportBadge } from './SpellCombatSupport';
 
 /**
  * The right panel's unified "Combat" section: ONE target dropdown plus every
@@ -56,14 +60,18 @@ export function CombatSection({
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
   const weapons = caster.weapons;
-  const abilities = caster.sheetAbilities.filter((a) => !!effectiveSheetAbility(a).roll);
+  const abilities = caster.sheetAbilities.filter((a) => !!effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly);
+  const [summonLevels, setSummonLevels] = useState<Record<string, number>>({});
+  const [summonPools, setSummonPools] = useState<Record<string, SpellSlotPool>>({});
+  const summonLevel = (a: (typeof caster.sheetAbilities)[number]) => summonLevels[a.id] ?? spellBaseLevel(a);
   // Summon-tagged spells/abilities get a ✋ Summon button right here in the console.
-  const summonAbilities = caster.sheetAbilities.map(a=>effectiveSheetAbility(a)).filter((a) => a.summon);
+  const summonAbilities = caster.sheetAbilities.filter(a=>!spellCombatSupport(a)?.manualCastOnly).map(a=>effectiveSheetAbility(a)).filter((a) => a.summon);
   const castSummon = (a: (typeof summonAbilities)[number]) => {
     if (!summonMap) {
       notify('No active map to summon onto.');
       return;
     }
+    if (!confirmConcentration(caster, a)) return;
     const g = summonMap.gridSizePx || 50;
     summonCast({
       kind,
@@ -72,8 +80,10 @@ export function CombatSection({
       mapId: summonMap.id,
       x: g * 2 + Math.random() * g * 2,
       y: g * 2 + Math.random() * g * 2,
+      castLevel: upcastable(a) ? summonLevel(a) : undefined,
+      slotPool: 'spellSlots' in caster ? summonPools[a.id] ?? selectSpellSlot(caster, summonLevel(a))?.pool : undefined,
     });
-    notify(`Summoned ${a.summon?.name?.trim() || a.name} — drag it into place.`);
+    notify(`Summon requested — drag ${a.summon?.name?.trim() || a.name} into place after it appears.`);
   };
 
   const targets = validTargets(snapshot, attacker);
@@ -241,16 +251,25 @@ export function CombatSection({
       />
       {summonAbilities.length > 0 && (
         <div className="combat-summon-row">
-          {summonAbilities.map((a) => (
+          {summonAbilities.map((a) => <div key={a.id} className="combat-ability-row">
             <button
-              key={a.id}
               className="btn tiny"
               title={`Summon ${a.summon?.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
               onClick={() => castSummon(a)}
             >
               {a.summon?.icon || '✋'} {a.summon?.name?.trim() || a.name}
             </button>
-          ))}
+            <SpellCombatSupportBadge ability={a} />
+            {upcastable(a) && <select aria-label={`${a.name} summon level`} className="spell-level" value={summonLevel(a)} onChange={event => setSummonLevels(values => ({ ...values, [a.id]: Number(event.target.value) }))}>
+              {Array.from({ length: 10 - spellBaseLevel(a) }, (_, index) => spellBaseLevel(a) + index).map(level => <option key={level} value={level}>L{level}</option>)}
+            </select>}
+            {'spellSlots' in caster && upcastable(a) && Object.keys(caster.spellSlots).some(key => /^P[1-5]$/.test(key)) && <select aria-label={`${a.name} summon slot pool`} value={summonPools[a.id] ?? selectSpellSlot(caster, summonLevel(a))?.pool ?? 'spellcasting'} onChange={event => {
+              const pool = event.target.value as SpellSlotPool;
+              setSummonPools(values => ({ ...values, [a.id]: pool }));
+              const slot = spellSlotOptions(caster, spellBaseLevel(a)).find(option => option.pool === pool && option.remaining > 0);
+              if (slot) setSummonLevels(values => ({ ...values, [a.id]: slot.level }));
+            }}><option value="spellcasting">Spellcasting</option><option value="pact">Pact Magic</option></select>}
+          </div>)}
         </div>
       )}
       {/* The compact player HUD already owns the editable resource rack.

@@ -15,6 +15,7 @@
     "start": "npm run build && npm run start -w server",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
     "test": "npm run test -w server",
+    "audit:spells": "node --import tsx tools/audit-spell-support.ts",
     "test:e2e": "npm run build -w client && playwright test -c e2e/playwright.config.ts"
   },
   "engines": {

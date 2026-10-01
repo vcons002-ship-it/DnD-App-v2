@@ -20,6 +20,7 @@ import { newId } from './db.js';
 import { parseRollCommand, rollDice, isValidDiceExpression } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
 import { effectiveSheetAbility, spellDamageTypeChoices } from '../../shared/spellExecution.js';
+import { spellCombatSupport } from '../../shared/spellSupport.js';
 import {
   resolveAttack,
   resolveAttackDamage,
@@ -40,6 +41,7 @@ import {
   resolveCheck,
   resolveDeathSave,
   noteConcentration,
+  isConcentrationSpell,
 } from './combat.js';
 import {
   aiCreateCharacter,
@@ -180,6 +182,7 @@ import {
   setActiveMap,
   setActiveTurn,
   setCondition,
+  setConcentration,
   setTokenInitiative,
   touchSession,
   updateMonster,
@@ -636,6 +639,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const savedAbility = ent?.sheetAbilities.find((a) => a.id === abilityId);
       const ability = savedAbility ? effectiveSheetAbility(savedAbility) : undefined;
       if (!ability?.summon) return;
+      if (spellCombatSupport(ability)?.manualCastOnly) {
+        socket.emit('notice', { message: `Use Cast (manual) for ${ability.name}; its catalogue summon represents older rules.` });
+        return;
+      }
       const name = (ability.summon.name?.trim() || ability.name || 'Summon').slice(0, 60);
       const icon = (ability.summon.icon || '✋').slice(0, 2000);
       // Spend a slot for a leveled spell BEFORE spawning; bail if none left.
@@ -649,6 +656,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         }
       }
       createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
+      if (isConcentrationSpell(ability)) setConcentration(kind, refId, ability.name);
+      addRollLog(sid, {
+        roller: rollerName(sid, socket.id, isDm()), label: ability.name, expr: 'Summon', total: 0,
+        detail: `${ent!.name}: ${ability.name} — placed ${name}. Manual companion stats, commands, duration, and removal remain with the DM.`,
+      });
       afterChange();
       if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
     });

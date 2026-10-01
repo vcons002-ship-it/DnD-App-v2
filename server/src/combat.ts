@@ -66,6 +66,7 @@ import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
 import { smiteChoices, smiteDiceTerms, type SmiteChoice } from '../../shared/smite.js';
 import { criticalDiceExpression, effectiveSheetAbility, isMultiTargetSpell, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
+import { spellCombatSupport } from '../../shared/spellSupport.js';
 import { classLevelFor } from '../../shared/multiclass.js';
 import {
   effectiveDice,
@@ -1812,7 +1813,7 @@ export function resolveDeathSave(sessionId: string, characterId: string): boolea
 
 /** A concentration spell, by its tag or its meta line ("… · Concentration").
  *  Covers spells AND spell-backed stances (e.g. Hunter's Mark). */
-function isConcentrationSpell(a: SheetAbility): boolean {
+export function isConcentrationSpell(a: SheetAbility): boolean {
   if (a.type !== 'spell' && a.type !== 'stance') return false;
   return (
     (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
@@ -1847,9 +1848,29 @@ function resolveSheetAbilityFor(
 ): boolean {
   // Validate before concentration, rolls, HP changes or the caller's slot spend.
   if (targetTokenId && !spellTarget(sessionId, targetTokenId)) return false;
+  const support = spellCombatSupport(ability);
+  if (support?.manualCastOnly) {
+    // A catalogue formula is not safe merely because it has dice. Record the
+    // casting intent without interpreting temporary HP, a curse, mixed damage,
+    // or an older-edition roll as ordinary damage/healing. The caller still
+    // spends the selected slot; neither this path nor the log alters the sheet.
+    const concentrating = isConcentrationSpell(ability);
+    if (concentrating) setConcentration(kind, entity.id, ability.name);
+    setLastAttackRole(kind, entity.id, 'caster');
+    const token = targetTokenId ? getToken(targetTokenId) : null;
+    const target = token ? token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId) : null;
+    const caster = kind === 'pc' ? getCharacter(entity.id) : getMonster(entity.id);
+    const cast = (ability.level ?? 0) > 0 ? ` (level ${castLevel ?? ability.level})` : '';
+    addRollLog(sessionId, {
+      roller, label: ability.name, expr: ability.name, total: 0,
+      detail: `${caster?.name ?? roller}: ${ability.name}${cast}${target ? ` → ${target.name}` : ''} — cast${concentrating ? ', now concentrating' : ''}. Manual effect: ${support.manual[0] ?? 'Resolve its effects with the DM.'}`,
+      description: ability.description || undefined,
+    });
+    return true;
+  }
   if (hitFeature(ability)) return false; // Offered only on a qualifying hit.
   if (markSpell(ability)) return castMark(sessionId,kind,entity.id,ability,targetTokenId,castLevel ?? 1,false,damageTypeChoice);
-  if (isHasteSpell(ability)) {
+  if (isHasteSpell(ability) && ability.source !== 'custom' && ability.executionProfile !== 'manual') {
     const target = targetTokenId ? spellTarget(sessionId, targetTokenId) : undefined;
     if (!target) return false;
     // Recasting on another creature replaces this caster's previous linked buff.

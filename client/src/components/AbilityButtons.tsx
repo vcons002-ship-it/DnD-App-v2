@@ -17,6 +17,8 @@ import { effectiveRecharge } from '../../../shared/monsterAttacks';
 import { RechargeChip } from './RechargeChip';
 import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
+import { spellCombatSupport } from '../../../shared/spellSupport';
+import { SpellCombatSupportBadge } from './SpellCombatSupport';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -69,6 +71,7 @@ export function AbilityButtons({
     if (!confirmConcentration(caster, a)) return;
     const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
+    const manualCast = spellCombatSupport(a)?.manualCastOnly;
     rollAbility({
       kind,
       refId: caster.id,
@@ -78,8 +81,8 @@ export function AbilityButtons({
       damageType: markSpell(a)==='necrotic'?hexAbility:damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.
-      advantage: execution.roll?.kind === 'attack' ? consumeAdvantage(caster.id) : undefined,
-      targetTokenId: execution.roll?.kind === 'heal' ? healTargetId
+      advantage: !manualCast && execution.roll?.kind === 'attack' ? consumeAdvantage(caster.id) : undefined,
+      targetTokenId: manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
         : isMultiTargetSpell(a, level) ? undefined : targetTokenId,
     });
     onAfter?.();
@@ -90,10 +93,12 @@ export function AbilityButtons({
       {abilities.filter(a=>!hitFeature(a)).map((a) => {
         const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
         const execution = effectiveSheetAbility(a, level);
-        const damageTypes = spellDamageTypeChoices(a, level);
+        const support = spellCombatSupport(a);
+        const manualCast = !!support?.manualCastOnly;
+        const damageTypes = manualCast ? [] : spellDamageTypeChoices(a, level);
         const multiple = isMultiTargetSpell(a, level);
         const saveOnly = execution.roll?.kind === 'save' && !execution.roll.dice?.trim();
-        const workflow = multiple
+        const workflow = manualCast ? 'Record this casting and spend its spell slot; resolve its effects manually.' : multiple
           ? execution.roll?.kind === 'attack' ? 'Cast once, then choose a target for each separate spell attack.' : saveOnly ? 'Cast, then choose targets to roll saving throws.' : 'Roll once, then apply to targets on the map.'
           : execution.roll?.healTarget === 'self' ? 'Restore your own health.'
             : saveOnly ? 'Cast and force the selected target to roll its saving throw.' : 'Cast at the selected target.';
@@ -103,11 +108,11 @@ export function AbilityButtons({
           <button
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
-            title={[a.description || 'Ability', workflow, manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!menu && execution.roll?.kind !== 'heal' && !multiple && !targetTokenId}
+            title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
+            disabled={!manualCast && !menu && execution.roll?.kind !== 'heal' && !multiple && !targetTokenId}
             onClick={() => cast(a)}
           >
-            {(isHasteSpell(a) ? '\u2726' : ROLL_ICON[execution.roll!.kind]) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}
+            {manualCast ? 'Cast manually ·' : (isHasteSpell(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}
           </button>
         );
         const damageTypeSelect = damageTypes.length > 0 && (
@@ -130,6 +135,7 @@ export function AbilityButtons({
         return (
           <div key={a.id} className="combat-ability-row" style={damageTypes.length ? { flexWrap: 'wrap' } : undefined}>
             {btn}
+            <SpellCombatSupportBadge ability={a} />
             <RechargeChip ability={a} kind={kind} refId={caster.id} />
             {damageTypeSelect}
             {abilityKey(a)==='hex'&&<select aria-label="Hex ability checks" value={hexAbility} onChange={e=>setHexAbility(e.target.value)}>{['STR','DEX','CON','INT','WIS','CHA'].map(k=><option key={k}>{k}</option>)}</select>}

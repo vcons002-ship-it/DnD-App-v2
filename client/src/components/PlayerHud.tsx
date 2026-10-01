@@ -149,7 +149,7 @@ function CharacterWindow({
               use 2014, 2024 or custom rules; check each description. No saved
               entries are converted.
             </p>
-            <CharacterSpells character={character} editable rollsElsewhere />
+            <CharacterSpells character={character} editable rollsElsewhere onCombatRequest={onClose} />
             <ActionsTraitsView
               actions={character.actions}
               abilities={character.abilities}

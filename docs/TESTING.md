@@ -50,6 +50,7 @@ The relevant regression list includes:
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
 | DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
 | Multiclass entry, class-level choices, legacy splits, Pact spending, separate class counters | `multiclass-level-up` |
+| Spell support badges/filter, manual casts, safe player routing, summon levels/pools, class-scoped browse ownership | `spell-support` |
 | 2D silhouettes and 3D base-only selection | `token-hit-region` |
 | Cache integrity and creature reveal tags | `asset-cache`, `encounter-tags` |
 
@@ -61,6 +62,15 @@ preservation. A level-up or a change to the recorded class split must not act as
 a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
+
+The static Spellbook compatibility report is regenerated with
+`npm run audit:spells -- --write`. It imports only catalogue data and the shared
+support registry; it does not connect to a save or an AI service. The
+`spellbook-compatibility` and `manualSpellCast` server suites cover catalogue-wide
+classification, preserved authored rolls, actual combat paths, manual casts
+without HP changes, selected Spellcasting/Pact spending, and concentration.
+Spell support is a capability flag, not a claim that every spell rule is automated.
+See [the complete audit](SPELLBOOK_COMBAT_SUPPORT.md).
 
 These are recordings or environment-dependent demonstrations, not required CI tests. Their explicit switches keep Windows-only ffmpeg lookup, long walkthroughs, and external API calls out of the normal regression run.
 

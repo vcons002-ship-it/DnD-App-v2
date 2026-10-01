@@ -4,6 +4,21 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Spellbook combat compatibility - October 2026
+
+- [x] Audit all 319 spells and show Combat ready / Partial / Manual badges in
+  browse, add search, and saved spell headers, with an explicit App handles /
+  You handle explanation and a support filter.
+- [x] Record manual casts with selected slot/pool and concentration without
+  applying misleading temporary-HP, mixed-damage, or older catalogue rolls.
+  Preserve custom and edited formulas; route targeted player actions to Combat.
+- [x] Keep summon level/Pact choices, concentration, and class-scoped spell
+  ownership consistent. Summon stat blocks and other unimplemented effects
+  remain flagged. Repeat the static audit with `npm run audit:spells`;
+  [complete support list](docs/SPELLBOOK_COMBAT_SUPPORT.md).
+- [ ] Implement the remaining flagged spell effects and edition-specific
+  catalogue corrections; a roll button alone does not certify full support.
+
 ## Guided character leveling - October 2026
 
 - [x] DM grants one level; the claimed player or DM completes HP, class/subclass,

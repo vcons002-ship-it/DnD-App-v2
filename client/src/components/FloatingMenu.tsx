@@ -2,6 +2,7 @@ import { AdvantageToggle } from './AdvantageToggle';
 import { targetLabel } from '../lib/targets';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { isHasteSpell, effectiveSheetAbility } from '../../../shared/spellExecution';
+import { spellCombatSupport } from '../../../shared/spellSupport';
 import type {
   Character,
   Monster,
@@ -95,7 +96,7 @@ export function FloatingMenu({ snapshot, token, attacker: defaultAttacker, x, y,
   const targetingSelf = !!attacker && attacker.id === token.id;
   const castable = (a: SheetAbility) => {
     const roll = effectiveSheetAbility(a).roll;
-    return !!roll && (!targetingSelf || roll.kind === 'heal' || isHasteSpell(a));
+    return !!spellCombatSupport(a)?.manualCastOnly || !!roll && (!targetingSelf || roll.kind === 'heal' || isHasteSpell(a));
   };
   const pcAbilities: SheetAbility[] =
     aChar && (isDm || aChar.claimedBy === mySocketId)

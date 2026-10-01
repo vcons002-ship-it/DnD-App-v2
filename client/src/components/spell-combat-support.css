@@ -1,0 +1,30 @@
+.spell-support-badge {
+  display: inline-block;
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.spell-support-ready { color: #b7e2c5; border-color: #548366; background: #203c2b; }
+.spell-support-partial { color: #f1d59c; border-color: #8b7545; background: #3a3020; }
+.spell-support-manual { color: #c4cad3; border-color: #606976; background: #292f38; }
+.spell-support-details {
+  border-left: 2px solid #82754b;
+  margin: 6px 0 10px;
+  padding: 2px 8px;
+  color: #ccd1da;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.spell-support-details p { margin: 3px 0; }
+.spellbook-controls { flex-wrap: wrap; }
+.spellbook-controls .spellbook-search { min-width: 150px; }
+.spellbook-learning-class { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.spellbook-row-head .spell-toggle { flex-wrap: wrap; }
+.spell-add .suggest-row { flex-wrap: wrap; gap: 4px 6px; }
+.spell-add .suggest-row .spell-support-badge { margin-left: 0; }
+.combat-manual-row { margin-top: 5px; }
+.combat-manual-row .spell-support-badge { margin-left: 5px; }
