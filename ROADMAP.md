@@ -2211,6 +2211,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 - Independent AI light drafting: Environment > Suggest lights from map art, magenta-marker review and selective apply; preserves wall workflow, map art and existing lights, with hidden fixtures and tested defaults.
 
 - [x] Yellow-mask wall conversion: grid-scaled rectangle fitting, dark-paint seam recognition, protected narrow cuts, and stress tests for offset/diagonal openings. Existing saved walls remain unchanged.
+- [x] Reject muted yellow-green source-art regions without saturated annotation paint; compare safe separate-mask contours near the detail budget. Mossgate frozen-response replay now applies all wall suggestions without manual flower exclusions.
+- [x] DM wall section eraser: drag a rectangle to subtract only that portion from imported/drawn shapes; preserve remaining walls, holes and functional doors. Whole-wall deletion remains separate.
 
 - Complex wall-mask integration verified on a fresh Gemini dungeon with round,
   octagonal, diagonal, curved and cave boundaries. The final cave prompt draws a

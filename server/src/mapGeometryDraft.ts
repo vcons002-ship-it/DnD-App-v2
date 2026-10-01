@@ -72,6 +72,13 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   }
   reportAi('Converting yellow wall regions into an editable draft.');
   let converted;
+  const separateLayers=async()=>{
+    if(!naturalImage)return undefined;
+    const structural=await wallsFromYellowMask(mask,source.width,source.height,source.gridSizePx,image,true);
+    const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true);
+    const walls=[...structural.walls,...natural.walls.map(w=>({...w,id:`natural-${w.id}`}))];
+    if(walls.length<=120&&wallEdgeCount(walls)<=MAX_MAP_WALLS&&sanitizeWalls(walls).length===walls.length)return {...structural,walls,coverage:Math.min(structural.coverage,natural.coverage)};
+  };
   try {converted=await wallsFromYellowMask(conversionMask,source.width,source.height,source.gridSizePx,image);}
   catch(error){
     if(conversionMask!==mask){
@@ -79,10 +86,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
         // A pixel union can fragment otherwise simple touching outlines. Keep
         // the two accepted masks as separate wall pieces, trying all existing
         // safe tolerances instead of stopping at the first adequate candidate.
-        const structural=await wallsFromYellowMask(mask,source.width,source.height,source.gridSizePx,image,true);
-        const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true);
-        const walls=[...structural.walls,...natural.walls.map(w=>({...w,id:`natural-${w.id}`}))];
-        if(walls.length<=120&&wallEdgeCount(walls)<=MAX_MAP_WALLS&&sanitizeWalls(walls).length===walls.length)converted={...structural,walls,coverage:Math.min(structural.coverage,natural.coverage)};
+        converted=await separateLayers();
       }catch{/* If either component fails the same checks, keep structural only. */}
       if(!converted){
       try{
@@ -93,6 +97,13 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
     }
     if(!converted){if(attempt===1)throw error;reportAi('The first yellow mask could not be converted cleanly. Retrying once with filled wall bands; no walls have been applied.');continue;}
   }
+  // Try the same safe fallback before a nearly-full union uses all remaining
+  // detail needed for doors. A pixel union can add slivers at touching masks;
+  // separate outlines need no extra simplification or changed gap tolerances.
+  if(naturalImage&&wallEdgeCount(converted.walls)>MAX_MAP_WALLS-32)try{
+    const separate=await separateLayers();
+    if(separate&&wallEdgeCount(separate.walls)<wallEdgeCount(converted.walls))converted=separate;
+  }catch{/* Retain the already validated union. */}
   const normalize=(p:{x:number;y:number})=>({x:p.x/source.width,y:p.y/source.height});
   const items=parseGeometrySuggestions({items:converted.walls.map((wall,index)=>({kind:'wall',label:`Wall ${index+1}`,ax:wall.ax/source.width,ay:wall.ay/source.height,bx:wall.bx/source.width,by:wall.by/source.height,heightFt:10,confidence:1,
     ...(wall.kind==='polygon'?{shape:'polygon',points:wall.points!.map(normalize),holes:wall.holes?.map(r=>r.map(normalize))}:{})}))});

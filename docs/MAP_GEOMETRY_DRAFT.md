@@ -381,3 +381,43 @@ Type checking and all 26 focused wall/import tests passed.
 Preview: https://dnd.nic024i.app/uploads/previews/cave-outline-20260930/index.html
 Evidence: artifacts/cave-outline/ (prompt, draft/apply response, ray checks,
 actual player positions and recording metadata). Development code only.
+
+### Source-art false positives and local wall erasing (Mossgate follow-up)
+
+The unchanged wall/natural/door prompts were tested on a new grass-to-cave map
+with ruins, doors and stairs. Its first untouched result was **14 wall pieces /
+508 boundary edges**: the structural pass contributed 296 edges (including
+three false flower patches totaling 20), and the natural pass 212. Adding the
+three fitted doors exceeded the app's 512-edge cap and failed atomically. A
+subsequent hand-reviewed walkthrough was diagnostic only, not an unattended
+success. Original responses and the failed receipt remain in
+`artifacts/grass-cave-ruins/` and the public raw-test preview.
+
+The converter now requires surviving saturated yellow paint within each connected
+region. Muted yellow-green artwork cannot establish a wall by itself, while dim
+edges/seams attached to confirmed paint remain unchanged. Existing source-art
+exclusion still applies. Near the edge budget, the converter also compares its
+existing separate-layer contour fallback against the combined pixel mask and
+keeps the lower-edge validated result. Gap/coverage tolerances are unchanged.
+
+Replaying the original response images through production suggestion and apply
+now selects **all** generated wall suggestions and succeeds automatically:
+11 walls + 3 doors / 500 edges. Every non-flower wall shape exactly matches the
+earlier reviewed geometry. All eight route/boundary checks and all three door
+open/closed checks pass. No API regeneration, prompt changes or manual exclusions
+were used. The previous connected cave/door fixture remains geometrically
+identical. The split northern double-door suggestion and the false door marker
+on a solid partition remain unresolved detection issues.
+
+Walls are already custom polygons with holes; the edge count measures their
+outline detail, not separate editable wall objects. The 512-edge limit is an
+application guardrail, not a Gemini restriction or measured performance ceiling.
+This change does not raise it or remove runtime collision/visibility checks.
+
+**Walls > Erase wall section** lets the DM drag a rectangle that subtracts only
+that area from drawn or imported walls. Remaining pieces, circular-room holes
+and transformed geometry retain their shape. Existing doors are preserved;
+**Delete entire wall** remains a distinct tool. Validation is atomic and rejects
+invalid cuts or those exceeding the existing geometry budget. Server tests cover
+partial openings, legacy thin lines, rotated walls, circles, door preservation,
+campaign ownership and rejection without partial writes.

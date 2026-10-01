@@ -154,7 +154,7 @@ export function wallCollisionRadiusFt(occupiedWidthFt:number):number {
 }
 
 
-export type WallEdit={add?:MapWall;update?:MapWall;removeId?:string;door?:{wallId:string;id:string;tokenId?:string;ax:number;ay:number;bx:number;by:number}};
+export type WallEdit={add?:MapWall;update?:MapWall;removeId?:string;eraseArea?:{ax:number;ay:number;bx:number;by:number};door?:{wallId:string;id:string;tokenId?:string;ax:number;ay:number;bx:number;by:number}};
 /** Replace part of a wall with a full-thickness door. Remaining pieces stay solid. */
 export function cutDoor(w:MapWall,d:NonNullable<WallEdit['door']>):MapWall[]|null {
  if((w.kind&&w.kind!=='rectangle')||w.rotation||(w.thickness??0)>0)return null; // Shaped walls are clipped on the server.

@@ -1377,6 +1377,8 @@ export function MapStage({
       if(wallTool==='erase'){
         const wall=(map.walls??[]).reduce<import('../../../shared/mapWalls').MapWall|undefined>((best,w)=>!best||distanceToWall(raw,w)<distanceToWall(raw,best)?w:best,undefined);
         if(wall&&distanceToWall(raw,wall)<14/view.scale)useStore.getState().editMapWalls(map.id,{removeId:wall.id});
+      }else if(wallTool==='erase-area'){
+        setWallAnchor(raw);setWallPointer(raw);
       }else if(wallTool==='door'){
         const wall=(map.walls??[]).filter(w=>!w.door).sort((a,b)=>distanceToWall(raw,a)-distanceToWall(raw,b))[0];
         if(!wall||distanceToWall(raw,wall)>14/view.scale){notify('Start the door on an existing wall, then drag along its width.');return;}
@@ -1463,6 +1465,11 @@ export function MapStage({
   // deselect; a press that moved was a pan → keep the selection. Then run the
   // normal stroke-end handling.
   const handlePointerUp = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if(wallActive&&wallTool==='erase-area'&&wallAnchor&&map&&!pinchRef.current){
+      const stage=e.target.getStage(),p=stage?pointerToImage(stage):null;
+      if(p&&Math.abs(p.x-wallAnchor.x)>=1&&Math.abs(p.y-wallAnchor.y)>=1)useStore.getState().editMapWalls(map.id,{eraseArea:{ax:wallAnchor.x,ay:wallAnchor.y,bx:p.x,by:p.y}});
+      setWallAnchor(null);setWallPointer(null);
+    }
     if(wallActive&&wallTool==='door'&&wallAnchor&&doorWallId&&map&&!pinchRef.current){
       const stage=e.target.getStage(),p=stage?pointerToImage(stage):null;
       if(p)useStore.getState().editMapWalls(map.id,{door:{wallId:doorWallId,id:crypto.randomUUID(),tokenId:snapshot.tokens.find(t=>selectedIds.includes(t.id)&&snapshot.monsters.some(m=>m.id===t.refId&&m.objectKind==='door'))?.id,ax:wallAnchor.x,ay:wallAnchor.y,bx:p.x,by:p.y}});
@@ -1504,7 +1511,7 @@ export function MapStage({
     }
     if(wallActive){const stage=e.target.getStage(),p=stage?pointerToImage(stage):null;
       if(p){
-        setWallPointer(wallTool==='freehand'||wallTool==='edit'?p:wallPoint(p));
+        setWallPointer(wallTool==='freehand'||wallTool==='edit'||wallTool==='erase-area'?p:wallPoint(p));
         if(wallTool==='freehand'&&wallAnchor){const last=wallStroke.current.at(-1)!;if(Math.hypot(p.x-last.x,p.y-last.y)>2/view.scale)wallStroke.current.push(p);}
         const g=wallGesture.current;
         if(g){
@@ -2445,14 +2452,16 @@ export function MapStage({
                   )}
               {wallActive&&<Group name="wall-edit-outlines" listening={false}>
                 {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original;return <Path key={w.id} name="wall-edit-piece" wallId={w.id} data={wallSvgPath(w)} fillRule="evenodd" stroke={w.id===wallSelection?'#6ee7ff':'#ffc76e'} fill={w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={2/view.scale}/>;})}
-                {wallAnchor&&wallPointer&&(wallTool==='door'
+                {wallAnchor&&wallPointer&&(wallTool==='erase-area'
+                  ?<Rect name="wall-erase-preview" x={Math.min(wallAnchor.x,wallPointer.x)} y={Math.min(wallAnchor.y,wallPointer.y)} width={Math.abs(wallPointer.x-wallAnchor.x)} height={Math.abs(wallPointer.y-wallAnchor.y)} fill="#ff667733" stroke="#ff6677" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>
+                  :wallTool==='door'
                   ?<Line points={[wallAnchor.x,wallAnchor.y,wallPointer.x,wallPointer.y]} stroke="#fff1c2" strokeWidth={3/view.scale} dash={[8/view.scale,5/view.scale]}/>
                   :<Path data={wallSvgPath(strokeWall(wallAnchor,wallPointer))} fillRule="evenodd" stroke="#fff1c2" fill="#ffe5b333" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>)}
                 {wallTool==='edit'&&selectedWall&&<Group name="wall-rotation-control">
                   <Line points={[wallCenter(selectedWall).x,wallCenter(selectedWall).y,rotationHandle(selectedWall).x,rotationHandle(selectedWall).y]} stroke="#6ee7ff" strokeWidth={1/view.scale} dash={[5/view.scale,4/view.scale]}/>
                   <Circle name="wall-rotation-handle" x={rotationHandle(selectedWall).x} y={rotationHandle(selectedWall).y} radius={8/view.scale} fill="#142833" stroke="#6ee7ff" strokeWidth={2/view.scale}/>
                 </Group>}
-                {wallPointer&&wallTool!=='edit'&&<Circle x={wallPointer.x} y={wallPointer.y} radius={4/view.scale} fill={wallTool==='erase'?'#ff6677':'#fff1c2'}/>}
+                {wallPointer&&wallTool!=='edit'&&<Circle x={wallPointer.x} y={wallPointer.y} radius={4/view.scale} fill={wallTool==='erase'||wallTool==='erase-area'?'#ff6677':'#fff1c2'}/>}
               </Group>}
               {doors.filter(doorVisible).map(d=>{
                 const token=snapshot.tokens.find(t=>t.id===d.tokenId),object=snapshot.monsters.find(m=>m.id===token?.refId);
@@ -2524,7 +2533,7 @@ export function MapStage({
             {isDm&&<button className="btn tiny" onClick={()=>setSelectedDoor(null)}>Dismiss</button>}
           </div>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
-            <span>{wallTool==='rectangle'?'Drag across the wall’s length and thickness':wallTool==='door'?'Drag along a wall to cut a door opening':wallTool==='draw'?'Drag a line at any angle':wallTool==='circle'?'Drag from the room center to its wall':wallTool==='freehand'?'Hold and trace the wall; release to save':wallTool==='edit'?'Drag a wall to move it / Drag the round handle to rotate':'Click a wall to erase it'}</span>
+            <span>{wallTool==='erase-area'?'Drag a rectangle to erase only that section. Doors are kept.':wallTool==='rectangle'?'Drag across the wall’s length and thickness':wallTool==='door'?'Drag along a wall to cut a door opening':wallTool==='draw'?'Drag a line at any angle':wallTool==='circle'?'Drag from the room center to its wall':wallTool==='freehand'?'Hold and trace the wall; release to save':wallTool==='edit'?'Drag a wall to move it / Drag the round handle to rotate':'Click a wall to delete the entire piece'}</span>
             {['draw','circle','freehand'].includes(wallTool)&&<label>Thickness <input aria-label="Wall thickness in feet" type="number" min={.1} max={20} step={.25} value={wallThickness} onChange={e=>setWallThickness(Math.max(.1,Math.min(20,Number(e.target.value)||.1)))} style={{width:55}}/> ft</label>}
             {wallTool==='edit'&&selectedWall&&<>
               <label>Rotation <input aria-label="Wall rotation in degrees" type="number" min={-360} max={360} step={1} value={Math.round(selectedWall.rotation??0)} onChange={e=>{const rotation=Number(e.target.value);if(Number.isFinite(rotation)&&map)useStore.getState().editMapWalls(map.id,{update:{...selectedWall,rotation:Math.max(-360,Math.min(360,rotation))}});}} style={{width:62}}/> degrees</label>

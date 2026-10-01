@@ -4,8 +4,8 @@ import {DoorDraft} from './DoorDraft';
 import {MapSetupDraft} from './MapSetupDraft';
 import {useEffect,useRef,useState} from 'react';
 
-export type WallTool='off'|'rectangle'|'draw'|'circle'|'freehand'|'edit'|'erase'|'door';
-const toolNames:Record<WallTool,string>={off:'',rectangle:'Rectangle',draw:'Line',circle:'Circle',freehand:'Free draw',edit:'Move / rotate',erase:'Erase',door:'Door'};
+export type WallTool='off'|'rectangle'|'draw'|'circle'|'freehand'|'edit'|'erase'|'erase-area'|'door';
+const toolNames:Record<WallTool,string>={off:'',rectangle:'Rectangle',draw:'Line',circle:'Circle',freehand:'Free draw',edit:'Move / rotate',erase:'Delete wall','erase-area':'Erase section',door:'Door'};
 export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,doors=[],onDoor}:{
   map?:MapState|null;
   tool:WallTool;count:number;snap:boolean;onTool:(tool:WallTool)=>void;
@@ -39,7 +39,8 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         <button className={`measure-row ${tool==='circle'?'on':''}`} onClick={()=>{onTool('circle');setPosition(null);}}>Draw circular wall</button>
         <button className={`measure-row ${tool==='freehand'?'on':''}`} onClick={()=>{onTool('freehand');setPosition(null);}}>Free draw wall</button>
         <button className={`measure-row ${tool==='edit'?'on':''}`} onClick={()=>{onTool('edit');setPosition(null);}}>Move / rotate wall</button>
-        <button className={`measure-row ${tool==='erase'?'on':''}`} onClick={()=>{onTool('erase');setPosition(null);}}>Erase a wall</button>
+        <button className={`measure-row ${tool==='erase-area'?'on':''}`} onClick={()=>{onTool('erase-area');setPosition(null);}}>Erase wall section</button>
+        <button className={`measure-row ${tool==='erase'?'on':''}`} onClick={()=>{onTool('erase');setPosition(null);}}>Delete entire wall</button>
         <button className={`measure-row ${tool==='door'?'on':''}`} onClick={()=>{onTool('door');setPosition(null);}}>Draw door opening</button>
         {doors.map((d,i)=><button key={d.id} className="measure-row" onClick={()=>{onDoor?.(d.id,!d.open);setPosition(null);onTool('off');}}>Door {i+1}: {d.open?'open':'closed'} - Controls</button>)}
         <label className="measure-row"><span>Snap to grid corners</span><input type="checkbox" checked={snap} onChange={e=>onSnap(e.target.checked)}/></label>

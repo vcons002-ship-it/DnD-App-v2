@@ -13,10 +13,15 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
   const {data,info}=await sharp(image,{limitInputPixels:40_000_000}).rotate().resize(w,h,{fit:'fill',kernel:'nearest'}).removeAlpha().toColourspace('srgb').raw().toBuffer({resolveWithObject:true});
   const yellow=new Uint8Array(size);
   const faint=new Uint8Array(size);
+  const paint=new Uint8Array(size);
   for(let p=0;p<size;p++){
     const i=p*info.channels,hue=data[i+2]<115&&data[i]>data[i+2]*1.8&&data[i+1]>data[i+2]*1.8;
     yellow[p]=hue&&data[i]>165&&data[i+1]>155?255:0;
     faint[p]=hue&&data[i]>25&&data[i+1]>20&&Math.min(data[i],data[i+1])-data[i+2]>18?1:0;
+    // An opaque #FFFF00 annotation has a saturated core, even after JPEG loss.
+    // Warm flowers/grass can pass the broader edge test but cannot independently
+    // establish a wall. Keep the broader colors around confirmed paint below.
+    paint[p]=data[i]>=210&&data[i+1]>=210&&Math.min(data[i],data[i+1])-data[i+2]>=150?1:0;
   }
   // Dark yellow paint in stone grooves belongs to the annotation. Grow only from
   // bright annotation seeds; do not classify unrelated warm floor art as walls.
@@ -40,16 +45,17 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
         for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h)yellow[(y+dy)*w+x+dx]=0;
     }
   }
-  // Isolated flecks shorter than half a grid square are not reliable wall bands.
-  // Ignore them rather than turning remaining flame highlights into obstacles.
+  // A region needs surviving opaque paint evidence as well as a useful span.
+  // Retain its dim edges/seams unchanged; do not erode narrow wall bands or
+  // remove small painted pillars just because similarly sized flowers failed.
   const visited=new Uint8Array(size),minSpan=Math.max(4,gridSizePx*scale*.5);
   for(let p=0;p<size;p++)if(yellow[p]&&!visited[p]){
-    const pixels=[p];visited[p]=1;let minX=p%w,maxX=minX,minY=Math.floor(p/w),maxY=minY;
+    const pixels=[p];visited[p]=1;let minX=p%w,maxX=minX,minY=Math.floor(p/w),maxY=minY,hasPaint=false;
     for(let n=0;n<pixels.length;n++){
-      const q=pixels[n],x=q%w,y=Math.floor(q/w);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+      const q=pixels[n],x=q%w,y=Math.floor(q/w);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);hasPaint ||= !!paint[q];
       for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h){const next=(y+dy)*w+x+dx;if(yellow[next]&&!visited[next]){visited[next]=1;pixels.push(next);}}
     }
-    if(Math.max(maxX-minX+1,maxY-minY+1)<minSpan)for(const q of pixels)yellow[q]=0;
+    if(!hasPaint||Math.max(maxX-minX+1,maxY-minY+1)<minSpan)for(const q of pixels)yellow[q]=0;
   }
   const solid=Uint8Array.from(yellow,n=>n?1:0),seen=new Uint8Array(size),queue=new Int32Array(size),distance=new Int32Array(size);
   const neighbors=(p:number)=>[...(p%w?[p-1]:[]),...(p%w<w-1?[p+1]:[]),...(p>=w?[p-w]:[]),...(p<size-w?[p+w]:[])];

@@ -40,6 +40,21 @@ it('does not convert preexisting yellow flames into walls',async()=>{
  expect(hasLineOfSight({x:170,y:90},{x:230,y:90},walls)).toBe(false);
 });
 
+it('rejects shifted yellow-green artwork while retaining small painted obstacles and dim wall edges',async()=>{
+ // Returned map art can be brighter and slightly shifted, escaping the original
+ // yellow-pixel exclusion. Both these flower colors passed the broad seed test.
+ const original=await sharp(Buffer.from('<svg width="400" height="300"><rect width="400" height="300" fill="#324019"/><rect x="70" y="70" width="25" height="30" fill="#818e38"/><rect x="70" y="150" width="25" height="30" fill="#9e8c18"/></svg>')).png().toBuffer();
+ const mask=await sharp(Buffer.from('<svg width="400" height="300"><rect width="400" height="300" fill="#324019"/><rect x="80" y="80" width="25" height="30" fill="#c2c353"/><rect x="80" y="160" width="25" height="30" fill="#dacf49"/><rect x="190" y="20" width="18" height="260" fill="#f6e60c"/><rect x="190" y="20" width="2" height="260" fill="#afa414"/><rect x="280" y="80" width="25" height="30" fill="#ffff00"/></svg>')).png().toBuffer();
+ const {walls}=await wallsFromYellowMask(mask,400,300,40,original);
+ for(const y of [95,175]){
+  expect(hasLineOfSight({x:60,y},{x:120,y},walls),'yellow-green artwork is not a wall').toBe(true);
+  expect(stopAtWalls({x:60,y},{x:120,y},5,walls)).toEqual({x:120,y});
+ }
+ expect(hasLineOfSight({x:260,y:95},{x:325,y:95},walls),'small solid mask-painted obstacle is retained').toBe(false);
+ expect(hasLineOfSight({x:170,y:95},{x:230,y:95},walls),'JPEG-tinted wall paint is retained').toBe(false);
+ expect(stopAtWalls({x:170,y:95},{x:230,y:95},0,walls).x,'dim connected wall edge remains at its original position').toBeLessThan(191);
+});
+
 it('preserves narrow intentional cuts in horizontal and vertical wall bands',async()=>{
  // Widths include a one-pixel arrow slit and gaps smaller than the old closing kernel.
  for(const gap of [1,3,5,10,20]){
