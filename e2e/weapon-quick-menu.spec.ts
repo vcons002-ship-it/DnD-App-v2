@@ -1,9 +1,11 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
-import type { RollEntry, StateSnapshot } from '../shared/types';
+import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { dismissCommittedRoll, waitForCombatRoll } from './helpers/combatLive';
 
 const connections: Socket[] = [];
+test.beforeEach(()=>test.setTimeout(180_000));
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
 
 // Writes only to the Playwright configuration's disposable database/server.
@@ -85,11 +87,7 @@ async function fixture(request: APIRequestContext, page: Page, role: 'dm' | 'pla
     }, id);
     await page.mouse.click(point.x, point.y, { button });
   };
-  const dismissReveal = async () => {
-    await expect(page.locator('.roll-reveal')).toBeVisible();
-    await page.locator('.roll-reveal').click({ position: { x: 10, y: 10 } });
-    await expect(page.locator('.roll-reveal')).toHaveCount(0);
-  };
+  const dismissReveal = (rollId:string) => dismissCommittedRoll(page,rollId);
   await clickToken(pc.id);
   const controls = page.locator('.attack-controls');
   await expect(controls).toBeVisible();
@@ -100,25 +98,45 @@ async function quickAttack(page: Page, f: Awaited<ReturnType<typeof fixture>>, d
   // Do not mock RNG/server mechanics: a natural 1 is a legitimate miss. Retry
   // just that outcome; the authoritative pending damage must then match UI.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const previous = new Set((await f.snapshot()).rollLog.map((roll) => roll.id));
+    const before=await f.snapshot();
+    const hpBefore=before.monsters.find(m=>m.id===f.foe.refId)!.curHp;
+    const previous = new Set(before.rollLog.map((roll) => roll.id));
     await f.clickToken(f.foe.id, 'right');
     const menu = page.locator('.floating-menu');
     const weapon = menu.getByRole('button', { name: new RegExp(`Longsword \\(${dice}\\)`) });
     await expect(weapon).toBeVisible();
     await weapon.click();
-    let result: RollEntry | undefined;
-    await expect.poll(async () => {
-      result = (await f.snapshot()).rollLog.find((roll) => !previous.has(roll.id) && roll.label === 'Attack');
-      return !!result;
-    }).toBe(true);
+    const result = await waitForCombatRoll(f.snapshot,previous,r=>r.label==='Attack');
     if (dice === '1d10') expect(result!.detail).toContain('Longsword (2H)');
     else expect(result!.detail).not.toContain('Longsword (2H)');
-    await f.dismissReveal();
+    await f.dismissReveal(result.id);
     if (result!.pending) {
-      expect(result!.pending.dice[0].label).toBe(dice);
+      // The hit offers damage; physical faces are rolled only after that click.
+      expect(result.pending.dice).toEqual([]);
       const unchangedTarget = (await f.snapshot()).monsters.find((monster) => monster.id === f.foe.refId)!;
-      expect(unchangedTarget.curHp).toBe(200); // Existing manual damage mode stays manual.
-      return result!;
+      expect(unchangedTarget.curHp).toBe(hpBefore);
+      const previousDamage=new Set((await f.snapshot()).rollLog.map(r=>r.id));
+      const damageButton=page.locator('.damage-prompt-btn');
+      await expect(damageButton).toBeVisible();
+      await expect(damageButton).toBeEnabled();
+      // The DM's prompt pulses continuously. Click its visible center through
+      // browser hit-testing instead of waiting for that animation to stop.
+      const bounds=await damageButton.boundingBox();
+      expect(bounds).not.toBeNull();
+      const center={x:bounds!.x+bounds!.width/2,y:bounds!.y+bounds!.height/2};
+      expect(await page.evaluate(({x,y})=>!!document.elementFromPoint(x,y)?.closest('.damage-prompt-btn'),center),
+        'The hit damage control must be in front of the DM encounter bar').toBe(true);
+      if(await page.locator('.dm-fantasy').count())
+        await page.screenshot({path:test.info().outputPath(`dm-damage-prompt-${dice}.png`)});
+      await page.mouse.click(center.x,center.y);
+      const damage=await waitForCombatRoll(f.snapshot,previousDamage,r=>r.label==='Damage');
+      const completed=await f.snapshot();
+      const final=completed.rollLog.find(r=>r.id===result.id)!;
+      expect(final.pending!.dice[0].label).toBe(dice);
+      expect(final.pending!.done).toBe(true);
+      expect(hpBefore-completed.monsters.find(m=>m.id===f.foe.refId)!.curHp).toBe(damage.total);
+      await f.dismissReveal(damage.id);
+      return final;
     }
     expect(result!.reveal?.outcome).toBe('fumble');
   }

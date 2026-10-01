@@ -65,7 +65,7 @@ import { rollDice, rollDicePool, type DiceResult } from '../../shared/dice.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { parseConsumable } from '../../shared/consumables.js';
 import { smiteChoices, smiteDiceTerms, type SmiteChoice } from '../../shared/smite.js';
-import { criticalDiceExpression, effectiveSheetAbility, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
+import { criticalDiceExpression, effectiveSheetAbility, isMultiTargetSpell, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import {
   effectiveDice,
   spellAttackBonusDetail,
@@ -2102,6 +2102,10 @@ function resolveSheetAbilityFor(
   // AOE spell — the dice are rolled once here, applied per target on each click.
   const apply = applyPayload(roll, val, dc);
   if (apply && kind === 'pc') apply.owner = entity.id;
+  // A selected single target belongs on the damage result as well as the later
+  // save. Area casts keep their target selection workflow and have no one target.
+  const selectedToken = targetTokenId && !isMultiTargetSpell(ability, castLevel) ? getToken(targetTokenId) : null;
+  const selectedTarget = selectedToken ? resolve(selectedToken) : null;
   const entry = addRollLog(sessionId, {
     roller,
     label: ability.name,
@@ -2116,6 +2120,7 @@ function resolveSheetAbilityFor(
           reveal: {
             kind: 'damage' as const,
             attacker: title,
+            target: selectedTarget?.name,
             outcome: 'hit' as const,
             damageDice: [{ label: dice, value: dmgRoll.total, faces: dmgRoll.rolls }],
             damage: val,

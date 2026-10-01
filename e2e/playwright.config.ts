@@ -5,7 +5,8 @@ import { mkdtempSync } from 'node:fs';
 
 // A throwaway DB + fixed DM secret + no tunnel, so the smoke test never touches
 // the real save and doesn't need to scrape the generated secret.
-const PORT = 4099;
+// Independent audits can run against separate disposable servers.
+const PORT = Number(process.env.E2E_PORT ?? 4099);
 const DM_SECRET = 'e2e-secret';
 const DATA_ROOT = mkdtempSync(path.join(os.tmpdir(), 'dnd-e2e-'));
 const DB_PATH = path.join(DATA_ROOT, 'game.db');
@@ -20,6 +21,8 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
     // Use the environment's preinstalled Chromium when present (no download).
     launchOptions: process.env.PW_CHROMIUM
       ? { executablePath: process.env.PW_CHROMIUM }

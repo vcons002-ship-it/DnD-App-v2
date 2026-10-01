@@ -31,7 +31,10 @@ npm run dev        # server + client (concurrently); two browser windows = DM + 
 npm run typecheck  # tsc --noEmit for server AND client
 npm run test       # server Vitest (230+ tests across ~26 *.test.ts) — tests are SERVER-ONLY
 npm run build      # client (vite) + server (tsc)
+npm run test:e2e   # Playwright browser regressions against a disposable save
 ```
+
+Browser test contracts and optional capture switches are in [`docs/TESTING.md`](docs/TESTING.md).
 
 Always run `npm run typecheck` and `npm run test` before committing. Manual UX
 is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
@@ -563,7 +566,7 @@ live outside the bundled static catalog and must be backed up with uploads.
   matching entry in `ClientToServerEvents` (`shared/types.ts`); end mutations
   with `afterChange()`.
 - Match the surrounding code's style/comment density.
-- Tests are **server-only** (Vitest). Keep `ROADMAP.md` ticked as features land.
+- `npm test` runs server/shared Vitest; `npm run test:e2e` runs disposable-server browser regressions. Keep `ROADMAP.md` ticked as features land.
 
 ## AI reliability
 

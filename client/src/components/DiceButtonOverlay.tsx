@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
@@ -205,6 +205,42 @@ function PlayerDicePicker({ selectedIds }: { selectedIds: string[] }) {
   };
 
   useEffect(() => clearClose, [clearClose]);
+  useLayoutEffect(() => {
+    if (!open || !root.current || !menu.current) return;
+    const anchor = root.current;
+    const popup = menu.current;
+    const stage = anchor.closest('.stage-wrap');
+    const fit = () => {
+      // Wrapped toolbars can put the map corner close to the bottom of a short
+      // phone window. Keep the existing connected popup, but move its visible
+      // card up only when it would be clipped by the map or visual viewport.
+      const viewport = window.visualViewport;
+      const top = viewport?.offsetTop ?? 0;
+      const bottom = top + (viewport?.height ?? window.innerHeight);
+      const stageBox = stage?.getBoundingClientRect();
+      const minY = Math.max(top + 8, (stageBox?.top ?? top) + 4);
+      const maxY = Math.min(bottom - 8, (stageBox?.bottom ?? bottom) - 4);
+      const scale = anchor.getBoundingClientRect().width / anchor.offsetWidth || 1;
+      popup.style.setProperty('--dice-menu-offset-y', '0px');
+      popup.style.setProperty('--dice-menu-available-height', `${Math.max(0, maxY - minY) / scale}px`);
+      const box = popup.getBoundingClientRect();
+      const fittedTop = Math.max(minY, Math.min(box.top, maxY - box.height));
+      popup.style.setProperty('--dice-menu-offset-y', `${(fittedTop - box.top) / scale}px`);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(anchor);
+    if (stage) observer.observe(stage);
+    window.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('scroll', fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('scroll', fit);
+    };
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {

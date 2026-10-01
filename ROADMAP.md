@@ -44,6 +44,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   a second copy. Using it marks it **Spent**; the DM's ⟳ chip readies it after their own d6
   (`ability:setRecharge`, written in place). Older creatures read the marker from the name.
 
+## Private discoveries and chat - October 2026
+
+- [x] Add DM/player and player/player whispers to existing chat, with explicit recipients, reply buttons and private image attachments.
+- [x] Add a Party channel visible only to players. Filter chat and attachment access on the server, bind whisper history to the original player audience, and keep private messages out of speech bubbles and public AI recaps.
+- [x] Preserve private attachments in campaign backups outside public uploads. Restored private history cannot be inherited by newly claimed characters.
+
 ## Wall shape editing - September 2026
 
 - [x] Remove the 512-edge wall cap; keep all valid geometry, index sight rays, remove redundant straight wall points and compact light overlays. Warn the DM at 2,000 effective edges without blocking edits or imports. See [benchmarks and limits](docs/WALL_COMPLEXITY_PERFORMANCE_2026_09_30.md).

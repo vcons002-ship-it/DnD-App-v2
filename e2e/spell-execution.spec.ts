@@ -2,9 +2,11 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
 import { io, type Socket } from 'socket.io-client';
 import type { SheetAbility, StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { dismissCommittedRoll, LIVE_COMBAT_TIMEOUT, waitForCombatRoll } from './helpers/combatLive';
 
 // Every write is to Playwright's throwaway database. No installed/preview saves.
 const connections: Socket[] = [];
+test.beforeEach(()=>test.setTimeout(180_000));
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
 
 async function fixture(request: APIRequestContext, page: Page, spawnEnemies = true) {
@@ -72,7 +74,8 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
     // A DM-socket snapshot confirms server completion, not that this player's
     // socket has rendered the same roll yet. Wait for the known result before
     // dismissing it, otherwise a late reveal can intercept the next map click.
-    if (expectedRollId) await expect(page.locator('.roll-reveal')).toHaveAttribute('data-roll-id', expectedRollId);
+    if (expectedRollId) return dismissCommittedRoll(page,expectedRollId);
+    await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:LIVE_COMBAT_TIMEOUT});
     if (await page.locator('.roll-reveal').count()) {
       await page.locator('.roll-reveal').click({ position: { x: 10, y: 10 } });
       await expect(page.locator('.roll-reveal')).toHaveCount(0);
@@ -99,7 +102,7 @@ test('single save casts at selected target; area save and damage apply independe
   const targets = f.ready.tokens.filter((token) => token.kind === 'monster');
   await f.combat.getByLabel('Attack target').selectOption(targets[1].id);
   await f.row('Hold Person').getByRole('button').click();
-  await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.label === 'Hold Person')?.apply?.consumedTargets)
+  await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.label === 'Hold Person')?.apply?.consumedTargets,{timeout:LIVE_COMBAT_TIMEOUT})
     .toEqual([targets[1].id]);
   let state = await f.snapshot();
   expect(state.characters.find((character) => character.id === f.characterId)!.sheetAbilities).toEqual(f.abilities);
@@ -120,7 +123,7 @@ test('single save casts at selected target; area save and damage apply independe
   await expect(dock).toContainText('Choose targets on the map');
   for (const target of targets) {
     await f.clickToken(target.id);
-    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === cast.id)?.apply?.consumedTargets)
+    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === cast.id)?.apply?.consumedTargets,{timeout:LIVE_COMBAT_TIMEOUT})
       .toContain(target.id);
     await f.dismissReveal((await f.snapshot()).rollLog.at(-1)!.id);
   }
@@ -141,7 +144,7 @@ test('single save casts at selected target; area save and damage apply independe
   await expect(dock).toContainText('Choose targets on the map');
   for (const target of targets) {
     await f.clickToken(target.id);
-    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === fireball.id)?.apply?.consumedTargets)
+    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === fireball.id)?.apply?.consumedTargets,{timeout:LIVE_COMBAT_TIMEOUT})
       .toContain(target.id);
     await f.dismissReveal((await f.snapshot()).rollLog.at(-1)!.id);
   }
@@ -186,7 +189,7 @@ test('rays roll separate attacks and pause for existing manual damage without an
     const before = await f.snapshot();
     const hp = (before.monsters.find((monster) => monster.id === target.refId) as any).curHp;
     await f.clickToken(target.id);
-    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === cast.id)?.apply?.consumedAttacks).toBe(index + 1);
+    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === cast.id)?.apply?.consumedAttacks,{timeout:LIVE_COMBAT_TIMEOUT}).toBe(index + 1);
     await expect(page.locator('.roll-reveal')).toBeVisible();
     let state = await f.snapshot();
     const attack = state.rollLog.at(-1)!;
@@ -197,7 +200,7 @@ test('rays roll separate attacks and pause for existing manual damage without an
       // a pending spell hit cannot offer damage before its d20 reveal finishes.
       await expect(dock.locator('.damage-prompt-btn')).toHaveCount(0);
     }
-    await f.dismissReveal();
+    await f.dismissReveal(attack.id);
     if (attack.pending) {
       expect(attack.pending.sourceRollId).toBe(cast.id);
       expect((state.monsters.find((monster) => monster.id === target.refId) as any).curHp).toBe(hp);
@@ -209,7 +212,7 @@ test('rays roll separate attacks and pause for existing manual damage without an
         expect((await f.snapshot()).rollLog.find((roll) => roll.id === cast.id)?.apply?.consumedAttacks).toBe(index + 1);
       }
       await dock.locator('.damage-prompt-btn').click();
-      await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === attack.id)?.pending?.done).toBe(true);
+      await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === attack.id)?.pending?.done,{timeout:LIVE_COMBAT_TIMEOUT}).toBe(true);
       await expect(page.locator('.roll-reveal')).toBeVisible();
       await f.dismissReveal();
       state = await f.snapshot();
@@ -235,18 +238,25 @@ test('Chromatic Orb exposes a per-cast type and preserves its saved definition',
   await expect(choice).toHaveValue('acid');
   await expect(choice.locator('option')).toHaveCount(6);
   await choice.selectOption('cold');
+  const previous = new Set((await f.snapshot()).rollLog.map(r=>r.id));
   await row.getByRole('button').click();
   await expect(page.locator('.roll-reveal')).toBeVisible();
+  const cast = await waitForCombatRoll(f.snapshot,previous,r=>r.label==='Attack' && r.expr==='Chromatic Orb');
   const state = await f.snapshot();
-  const cast = state.rollLog.find((roll) => roll.label === 'Attack' && roll.expr === 'Chromatic Orb')!;
   expect(cast).toBeTruthy();
   expect(state.characters.find((character) => character.id === f.characterId)!.sheetAbilities).toEqual(f.abilities);
   expect(state.characters.find((character) => character.id === f.characterId)!.spellSlots.L1.used).toBe(1);
   // A natural 1 may miss: selected type is checked on hits; the backend's
   // deterministic tests additionally verify cold resistance and invalid types.
-  if (cast.pending) expect(cast.pending.damageType).toBe('cold');
-  else expect(cast.reveal?.outcome).toMatch(/miss|fumble/);
-  await f.dismissReveal();
+  await f.dismissReveal(cast.id);
+  if (cast.pending) {
+    const beforeDamage=new Set(state.rollLog.map(r=>r.id));
+    await page.locator('.player-damage-dock .damage-prompt-btn').click();
+    const damage=await waitForCombatRoll(f.snapshot,beforeDamage,r=>r.label==='Damage');
+    expect((await f.snapshot()).rollLog.find(r=>r.id===cast.id)!.pending!.damageType).toBe('cold');
+    expect(damage.reveal?.damageType).toBe('cold');
+    await f.dismissReveal(damage.id);
+  } else expect(cast.reveal?.outcome).toMatch(/miss|fumble/);
   expect(await f.combat.locator('.floating-panel-content').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('chromatic-orb-damage-choice.png') });
 });
@@ -291,17 +301,19 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   // Nine d8 guarantee matching faces. Only a natural 1 can miss this AC-1 target.
   let cast: any;
   for(let i=0;i<4;i++) {
+    const previous=new Set((await f.snapshot()).rollLog.map(r=>r.id));
     await row.getByRole('button').click();
     await expect(page.locator('.roll-reveal')).toBeVisible();
-    cast=(await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)!;
+    cast=await waitForCombatRoll(f.snapshot,previous,r=>r.label==='Attack' && r.expr.startsWith('Chromatic Orb'));
     await f.dismissReveal(cast.id);
     if(cast.pending) break;
   }
   expect(cast.pending).toBeTruthy();
   await expect(page.getByRole('region',{name:'Chromatic Orb',exact:true})).toHaveCount(0);
+  const beforeDamage=new Set((await f.snapshot()).rollLog.map(r=>r.id));
   await page.locator('.player-damage-dock .damage-prompt-btn').click();
-  await expect(page.locator('.roll-reveal')).toBeVisible();
-  await f.dismissReveal();
+  const orbDamage=await waitForCombatRoll(f.snapshot,beforeDamage,r=>r.label==='Damage');
+  await f.dismissReveal(orbDamage.id);
   const prompt=page.getByRole('region',{name:'Chromatic Orb',exact:true});
   await expect(prompt).toContainText('Matching dice');
   await expect(prompt).toContainText('Leap 1 of 7');
@@ -326,13 +338,20 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   await f.clickToken(targets[1].id);
   await page.screenshot({path:testInfo.outputPath('orb-confirm-target.png'),animations:'disabled'});
   const used=(await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used;
+  const beforeLeap=new Set((await f.snapshot()).rollLog.map(r=>r.id));
   await prompt.getByRole('button',{name:'Confirm target'}).click();
-  await expect.poll(async()=> (await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)?.apply?.orb?.leapsUsed).toBe(1);
+  const next=await waitForCombatRoll(f.snapshot,beforeLeap,r=>r.label==='Attack' && r.expr.startsWith('Chromatic Orb'));
   expect((await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used).toBe(used);
-  await expect(page.locator('.roll-reveal')).toBeVisible(); await f.dismissReveal();
-  const next=(await f.snapshot()).rollLog.filter(r=>r.apply?.orb).at(-1)!;
-  if(next.pending) { await page.locator('.player-damage-dock .damage-prompt-btn').click(); await expect(page.locator('.roll-reveal')).toBeVisible(); await f.dismissReveal(); }
-  if(next.apply?.orb?.available) await prompt.getByRole('button',{name:'End spell'}).click();
+  await f.dismissReveal(next.id);
+  if(next.pending) {
+    const beforeDamage=new Set((await f.snapshot()).rollLog.map(r=>r.id));
+    await page.locator('.player-damage-dock .damage-prompt-btn').click();
+    const damage=await waitForCombatRoll(f.snapshot,beforeDamage,r=>r.label==='Damage');
+    await f.dismissReveal(damage.id);
+  }
+  const finalLeap=(await f.snapshot()).rollLog.find(r=>r.id===next.id)!;
+  expect(finalLeap.apply!.orb!.leapsUsed).toBe(1);
+  if(finalLeap.apply?.orb?.available) await prompt.getByRole('button',{name:'End spell'}).click();
   await expect(prompt).toHaveCount(0);
   await f.clickToken(targets[1].id,'right');
   const menu=page.getByRole('dialog',{name:'Token actions'});

@@ -2,6 +2,8 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { SheetAbility, StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { LIVE_COMBAT_TIMEOUT, dismissCommittedRoll, waitForCombatRoll } from './helpers/combatLive';
+import { settledLiveDice } from './helpers/diceLive';
 
 const BASE = `http://localhost:${PORT}`;
 const connections: Socket[] = [];
@@ -96,6 +98,7 @@ async function combatFixture(request: APIRequestContext) {
 }
 
 test('compact player combat keeps keyboard-operable targets, weapons, toggles and upcasts', async ({ page, request }) => {
+  test.setTimeout(180_000);
   const fixture = await combatFixture(request);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -162,33 +165,44 @@ test('compact player combat keeps keyboard-operable targets, weapons, toggles an
   // Drive a real targeted attack from the compact panel, not a generic /roll.
   // Both displayed d20s must match the two faces the server recorded.
   await advantage.press('Space');
+  const previousRolls = new Set((await fixture.snapshot()).rollLog.map(entry => entry.id));
   await weapons.getByRole('button', { name: /Test longsword/ }).press('Enter');
+  const shownDice = await settledLiveDice(page, 2);
+  const rolled = await waitForCombatRoll(fixture.snapshot, previousRolls,
+    roll => roll.label === 'Attack' && roll.expr === 'Test longsword');
   const reveal = page.locator('.roll-reveal');
+  await expect(reveal).toHaveAttribute('data-roll-id', rolled.id);
   await expect(reveal.locator('.rr-comparison')).toHaveAttribute('data-mode', 'adv');
   await expect(reveal.locator('.rr-candidate')).toHaveCount(2);
-  await expect(reveal.locator('.rr-candidate .tray-die-result[data-sides="20"]')).toHaveCount(2);
-  await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Kept - higher$/ })).toHaveCount(1, {timeout:15000});
+  await expect(reveal.locator('.rr-comparison-title')).toContainText('keep higher');
+  await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Kept$/ })).toHaveCount(1);
   await expect(reveal.locator('.rr-candidate-label').filter({ hasText: /^Discarded$/ })).toHaveCount(1);
-  const rolled = (await fixture.snapshot()).rollLog.find((roll) => roll.detail.includes('Test longsword') && /d20\[\d+,\d+\]/.test(roll.detail))!;
   expect(rolled).toBeTruthy();
   const recorded = /d20\[(\d+),(\d+)\]/.exec(rolled.detail)!;
   const values = [Number(recorded[1]), Number(recorded[2])];
+  expect(shownDice.map(die => die.sides)).toEqual([20, 20]);
+  expect(shownDice.map(die => die.value)).toEqual(values);
+  expect(shownDice.find(die => die.result === 'kept')!.value).toBe(Math.max(...values));
+  expect(shownDice.filter(die => die.result === 'discarded')).toHaveLength(1);
+  expect(rolled.reveal?.physical).toBe(true);
+  expect(rolled.total).toBe(Math.max(...values) + (rolled.reveal?.toHit ?? []).reduce((sum, step) => sum + step.value, 0));
   for (let index = 0; index < 2; index++) {
-    await expect(reveal.locator(`.rr-candidate[data-candidate="${index}"] .tray-die-result`)).toHaveAttribute('data-value', String(values[index]));
+    await expect(reveal.locator(`.rr-candidate[data-candidate="${index}"]`).getByRole('img', { name: `d20: ${values[index]}`, exact: true })).toBeVisible();
   }
-  await expect(reveal.locator('.rr-candidate[data-result="kept"] .tray-die-result')).toHaveAttribute('data-value', String(Math.max(...values)));
+  await expect(reveal.locator('.rr-candidate[data-result="kept"]').getByRole('img', { name: `d20: ${Math.max(...values)}`, exact: true })).toBeVisible();
   await expect(advantage).not.toHaveClass(/\bon\b/);
   await page.keyboard.press('Escape');
   await expect(reveal).toHaveCount(0);
   if (rolled.pending && !rolled.pending.done) {
     // Existing two-step damage uses Enter/Space as a global shortcut. Finish
     // this explicit damage step before keyboard-activating another action.
+    const previousDamage = new Set((await fixture.snapshot()).rollLog.map(entry => entry.id));
     await page.getByTitle('Roll the damage for this hit and apply it (Enter / Space)').focus();
     await page.keyboard.press('Enter');
+    const damage = await waitForCombatRoll(fixture.snapshot, previousDamage, entry => entry.label === 'Damage' && entry.expr === 'Test longsword');
     await expect(page.locator('.damage-prompt')).toHaveCount(0);
-    await expect(reveal).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(reveal).toHaveCount(0);
+    expect((await fixture.snapshot()).rollLog.find(entry => entry.id === rolled.id)?.pending?.done).toBe(true);
+    await dismissCommittedRoll(page, damage.id);
   }
 
   const spell = controls.locator('.combat-ability-row').filter({ hasText: 'Arcane test bolt' });
@@ -212,7 +226,7 @@ test('compact player combat keeps keyboard-operable targets, weapons, toggles an
   await expect.poll(async () => {
     const state = await fixture.snapshot();
     return state.characters.find((character) => character.id === fixture.characterId)!.spellSlots.L2.used;
-  }).toBe(1);
+  }, { timeout: LIVE_COMBAT_TIMEOUT }).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -241,6 +255,7 @@ test('DM opens initiative and the full combat inspector from its compact workspa
 });
 
 test('damage dock stays clickable above open panels; spells use the same dock without recasting', async ({ page, request }) => {
+  test.setTimeout(240_000);
   const fixture = await combatFixture(request);
   fixture.socket.emit('character:update', {
     characterId: fixture.characterId,
@@ -260,9 +275,10 @@ test('damage dock stays clickable above open panels; spells use the same dock wi
   const combat = page.getByRole('region', { name: 'Combat panel', exact: true });
   // Bounded retry for a natural 1; no dice result is altered for the UI test.
   for (let attempt = 0; attempt < 5; attempt++) {
+    const previous = new Set((await fixture.snapshot()).rollLog.map(entry => entry.id));
     await combat.getByRole('button', { name: /Certain sword/ }).click();
-    await expect(page.locator('.roll-reveal')).toBeVisible();
-    await page.keyboard.press('Escape');
+    const rolled = await waitForCombatRoll(fixture.snapshot, previous, entry => entry.label === 'Attack' && entry.expr === 'Certain sword');
+    await dismissCommittedRoll(page, rolled.id);
     if (await page.locator('.damage-prompt-btn').count()) break;
   }
   const dock = page.locator('.player-damage-dock');
@@ -279,24 +295,25 @@ test('damage dock stays clickable above open panels; spells use the same dock wi
   await expect(page.getByRole('region', { name: 'Interface settings', exact: true })).toBeVisible();
   expect((await fixture.snapshot()).rollLog.find((roll) => roll.id === before.id)?.pending?.done).not.toBe(true);
   await page.getByRole('button', { name: 'Close interface settings', exact: true }).click();
+  const previousDamage = new Set((await fixture.snapshot()).rollLog.map(entry => entry.id));
   await button.click(); // Real hit-test; force is deliberately not used.
+  const damage = await waitForCombatRoll(fixture.snapshot, previousDamage, entry => entry.label === 'Damage' && entry.expr === 'Certain sword');
   await expect(dock).toHaveCount(0);
-  await expect(page.locator('.roll-reveal')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await dismissCommittedRoll(page, damage.id);
   expect((await fixture.snapshot()).rollLog.find((roll) => roll.id === before.id)?.pending?.done).toBe(true);
 
   for (const [name, level, text] of [['Fireball', 'L3', 'Apply spell damage'], ['Magic Missile', 'L1', 'Roll damage · assign darts']]) {
+    const previous = new Set((await fixture.snapshot()).rollLog.map(entry => entry.id));
     await combat.locator('.combat-ability-row').getByRole('button', { name: new RegExp(name) }).click();
+    const cast = await waitForCombatRoll(fixture.snapshot, previous, entry => entry.label === name);
     if (name === 'Fireball') {
-      await expect(page.locator('.roll-reveal')).toBeVisible();
-      await page.keyboard.press('Escape');
+      await dismissCommittedRoll(page, cast.id);
     }
     await expect(button).toContainText(text);
     const spellPosition = await dock.boundingBox();
     expect(spellPosition!.x).toBe(weaponPosition!.x);
     expect(spellPosition!.y).toBe(weaponPosition!.y);
     const state = await fixture.snapshot();
-    const cast = [...state.rollLog].reverse().find((roll) => roll.label === name)!;
     const character = state.characters.find((c) => c.id === fixture.characterId)!;
     expect(character.spellSlots[level].used).toBe(1);
     const count = state.rollLog.length;
@@ -319,7 +336,11 @@ test('damage dock stays clickable above open panels; spells use the same dock wi
       // Server ownership/budget is unchanged; its three explicit target actions
       // close the prompt, and reconnect does not resurrect spent darts.
       const target = state.tokens.find((token) => token.kind === 'monster')!;
-      for (let i = 0; i < 3; i++) fixture.socket.emit('save:resolve', { rollId: cast.id, tokenId: target.id });
+      for (let i = 0; i < 3; i++) {
+        fixture.socket.emit('save:resolve', { rollId: cast.id, tokenId: target.id });
+        await expect.poll(async () => (await fixture.snapshot()).rollLog.find(roll => roll.id === cast.id)!.apply!.consumedDarts,
+          { timeout: LIVE_COMBAT_TIMEOUT }).toBe(i + 1);
+      }
       expect((await fixture.snapshot()).rollLog.find((roll) => roll.id === cast.id)!.apply!.consumedDarts).toBe(3);
       await page.reload();
       await expect(page.locator('.player-hud')).toBeVisible();

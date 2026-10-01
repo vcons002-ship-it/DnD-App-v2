@@ -1,4 +1,5 @@
 import { starterCreatures } from './creatures/starterLibrary.js';
+import {parseChatPrivacy, type ChatPrivacy, type StoredChatMessage} from './privateChat.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
 import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
@@ -1642,7 +1643,7 @@ export function clearRollLog(sessionId: string): void {
   db.prepare('DELETE FROM roll_log WHERE session_id = ?').run(sessionId);
 }
 
-/** Append a chat message and return it. */
+/** Append a chat message and return it. Private audience keys never leave the server. */
 export function addChatMessage(
   sessionId: string,
   sender: string,
@@ -1650,8 +1651,9 @@ export function addChatMessage(
   text: string,
   dmOnly = false,
   pages: number[] = [],
-): ChatMessage {
-  const msg: ChatMessage = {
+  privateData?: {privacy:ChatPrivacy;image?:{id:string;name:string}},
+): StoredChatMessage {
+  const msg: StoredChatMessage = {
     id: newId(),
     sender,
     role,
@@ -1659,10 +1661,13 @@ export function addChatMessage(
     createdAt: Date.now(),
     ...(dmOnly ? { dmOnly: true } : {}),
     ...(pages.length ? { pages } : {}),
+    ...(privateData?{privacy:privateData.privacy,image:privateData.image}:{}),
   };
   db.prepare(
-    'INSERT INTO chat_messages (id, session_id, sender, role, text, created_at, dm_only, pages) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-  ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt, dmOnly ? 1 : 0, JSON.stringify(pages));
+    `INSERT INTO chat_messages (id, session_id, sender, role, text, created_at, dm_only, pages,
+      chat_channel,chat_audience,chat_participants,chat_includes_dm,image_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(msg.id, sessionId, msg.sender, msg.role, msg.text, msg.createdAt, dmOnly ? 1 : 0, JSON.stringify(pages),
+    privateData?.privacy.channel??null,JSON.stringify(privateData?.privacy.audience??[]),JSON.stringify(privateData?.privacy.participants??[]),privateData?.privacy.includesDm?1:0,privateData?.image?.id??null);
   pruneChat(sessionId);
   return msg;
 }
@@ -1690,10 +1695,11 @@ function safeParsePages(raw: string): number[] {
 }
 
 /** Most-recent chat messages, oldest-first for display (capped). */
-export function listChat(sessionId: string, limit = 100): ChatMessage[] {
+export function listChat(sessionId: string, limit = 100): StoredChatMessage[] {
   const rows = db
     .prepare(
-      'SELECT id, sender, role, text, created_at, dm_only, pages FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+      `SELECT c.*,i.name AS image_name FROM chat_messages c LEFT JOIN chat_images i ON i.id=c.image_id AND i.session_id=c.session_id
+       WHERE c.session_id = ? ORDER BY c.created_at DESC, c.rowid DESC LIMIT ?`,
     )
     .all(sessionId, limit) as {
     id: string;
@@ -1703,10 +1709,13 @@ export function listChat(sessionId: string, limit = 100): ChatMessage[] {
     created_at: number;
     dm_only: number;
     pages: string;
+    image_id:string|null;image_name:string|null;
+    [key:string]:unknown;
   }[];
   return rows
     .map((r) => {
       const pages = safeParsePages(r.pages);
+      const privacy=parseChatPrivacy(r);
       return {
         id: r.id,
         sender: r.sender,
@@ -1715,6 +1724,8 @@ export function listChat(sessionId: string, limit = 100): ChatMessage[] {
         createdAt: r.created_at,
         ...(r.dm_only ? { dmOnly: true } : {}),
         ...(pages.length ? { pages } : {}),
+        ...(privacy?{privacy}:{}),
+        ...(privacy&&r.image_id&&r.image_name?{image:{id:r.image_id,name:r.image_name}}:{}),
       };
     })
     .reverse();

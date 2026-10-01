@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import { DM_SECRET, PORT } from './playwright.config';
+import { settledLiveDice, dismissSettledRoll } from './helpers/diceLive';
 
 const BASE = `http://localhost:${PORT}`;
 const connections: Socket[] = [];
@@ -81,7 +82,10 @@ test('laptop HUD edits resources and keeps chat, character windows and every 3D 
     headers: { 'x-dm-passphrase': DM_SECRET },
     data: { name: 'HUD regression' },
   });
+  test.setTimeout(240_000);
   const { code } = await res.json();
+  const observer = await join(code, 'dm');
+  const snapshot = async () => (await observer.socket.timeout(5000).emitWithAck('join', {sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).snapshot;
   await page.setViewportSize({ width: 1366, height: 768 });
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -169,17 +173,17 @@ test('laptop HUD edits resources and keeps chat, character windows and every 3D 
       .locator('.dice-quick')
       .getByRole('button', { name: `d${sides}`, exact: true })
       .click();
-    const dice = page.locator('.roll-reveal .tray-die-result');
-    await expect(dice).toHaveCount(sides === 100 ? 2 : 1);
-    await expect(dice.first()).toHaveAttribute(
-      'data-sides',
-      String(sides === 100 ? 10 : sides),
-    );
-    await expect(
-      page.locator('.roll-reveal .tray-die-result[aria-label*="rolling"]'),
-    ).toHaveCount(0, {timeout:15000});
-    await expect(page.locator('.roll-reveal .tray-die-result[data-orientation="settled"]')).toHaveCount(sides === 100 ? 2 : 1);
-    await page.locator('.roll-reveal').click();
+    const dice = await settledLiveDice(page, sides === 100 ? 2 : 1);
+    expect(dice.map(die => die.sides)).toEqual(Array(sides === 100 ? 2 : 1).fill(sides === 100 ? 10 : sides));
+    expect(dice.every(die => die.displayed !== '?')).toBe(true);
+    await dismissSettledRoll(page);
+    const roll = (await snapshot()).rollLog.at(-1)!;
+    expect(roll.expr).toBe(`1d${sides}`);
+    expect(roll.reveal?.physical).toBe(true);
+    expect(roll.total).toBeGreaterThanOrEqual(1);
+    expect(roll.total).toBeLessThanOrEqual(sides);
+    const painted = dice.reduce((sum,die) => sum + Number(die.displayed),0);
+    expect(roll.total).toBe(sides === 100 && painted === 0 ? 100 : painted);
   }
   for (const [expr, mode, dicePerSet] of [
     ['1d20', 'adv', 1],
@@ -189,13 +193,18 @@ test('laptop HUD edits resources and keeps chat, character windows and every 3D 
   ] as const) {
     await page.locator('.chat-input input').fill(`/roll ${expr} ${mode}`);
     await page.locator('.chat-input input').press('Enter');
-    const comparison = page.locator(`.rr-comparison[data-mode="${mode}"]`);
-    await expect(comparison.locator('.rr-candidate')).toHaveCount(2);
-    await expect(comparison.locator('.tray-die-result')).toHaveCount(dicePerSet * 2);
-    await expect(comparison.locator('[data-result="kept"]')).toHaveCount(1, {timeout:15000});
-    await expect(comparison.locator('[data-result="discarded"]')).toHaveCount(1);
-    await expect(comparison.locator('.tray-die-result[data-orientation="settled"]')).toHaveCount(dicePerSet * 2);
-    await page.locator('.roll-reveal').click();
+    const dice = await settledLiveDice(page, dicePerSet * 2);
+    expect(dice.filter(die => die.result === 'kept')).toHaveLength(dicePerSet);
+    expect(dice.filter(die => die.result === 'discarded')).toHaveLength(dicePerSet);
+    expect(new Set(dice.map(die => die.set))).toEqual(new Set([0,1]));
+    const sums = [0,1].map(set => dice.filter(die => die.set === set).reduce((sum,die) => sum + Number(die.displayed),0) + (expr.endsWith('+3') ? 3 : 0));
+    // Percentile 00+0 means 100, not zero.
+    if(expr === '1d100') sums.forEach((sum,index) => {if(sum === 0)sums[index]=100;});
+    const kept = dice.find(die => die.result === 'kept')!.set;
+    expect(sums[kept]).toBe(mode === 'adv' ? Math.max(...sums) : Math.min(...sums));
+    await dismissSettledRoll(page);
+    const roll = (await snapshot()).rollLog.at(-1)!;
+    expect(roll.total).toBe(sums[kept]);
   }
   expect(errors).toEqual([]);
 });
@@ -302,7 +311,7 @@ test('reduced-motion and unavailable WebGL have a usable static fallback', async
       kind: any,
       ...args: any[]
     ) {
-      if (kind === 'webgl') return null;
+      if (kind === 'webgl' || kind === 'webgl2') return null;
       return original.call(this, kind, ...args);
     } as typeof original;
   });
@@ -314,10 +323,12 @@ test('reduced-motion and unavailable WebGL have a usable static fallback', async
   await page.locator('.player-chat header button').click();
   await page.locator('.chat-input input').fill('/roll 1d100');
   await page.locator('.chat-input input').press('Enter');
-  await expect(page.locator('.roll-reveal .three-die')).toHaveCount(2);
-  await expect(
-    page.locator('.roll-reveal canvas[aria-label*="rolling"]'),
-  ).toHaveCount(0);
-  await expect(page.locator('.roll-reveal canvas[data-orientation="face-forward"]')).toHaveCount(2);
+  const dice = await settledLiveDice(page, 2);
+  expect(dice.map(die => die.sides)).toEqual([10,10]);
+  expect(dice.every(die => /^\d+$/.test(die.displayed))).toBe(true);
+  await expect(page.locator('[data-live-dice="true"] .dice-tray-status')).toContainText('graphics unavailable');
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:15_000});
+  // The readable arithmetic remains available even without WebGL.
+  await expect(page.locator('.roll-reveal .rr-roll-num')).toBeVisible();
   await context.close();
 });

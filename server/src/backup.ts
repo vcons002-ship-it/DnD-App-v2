@@ -30,6 +30,10 @@ export type SessionBundle = {
   chat: Row[];
   /** uploaded filename (no path) -> base64 contents */
   assets: Record<string, string>;
+  /** Referenced chat attachments live outside the public uploads directory. */
+  chatImages?: Row[];
+  /** Original chat image id -> base64 contents, separate from public assets. */
+  privateChatAssets?: Record<string, string>;
   /** Explicitly report omissions; never label an incomplete export self-contained. */
   assetWarnings?: string[];
 };
@@ -43,6 +47,16 @@ const all = (sql: string, ...args: unknown[]): Row[] =>
 /** A safe uploads filename: no path separators, no traversal. */
 const safeUploadName = (f: string): boolean =>
   !!f && !f.includes('/') && !f.includes('\\') && !f.includes('..');
+
+const PRIVATE_IMAGE_EXT: Record<string, string> = {
+  'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif',
+};
+const privateImagesDir = (): string => path.join(config.dataDir, 'private-chat-images');
+/** Private attachment filenames are generated UUIDs with a known raster type. */
+const safePrivateImage = (row: Row): boolean =>
+  typeof row.file_name === 'string' && typeof row.mime === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/i.test(row.file_name) &&
+  path.extname(row.file_name).toLowerCase() === PRIVATE_IMAGE_EXT[row.mime];
 
 /**
  * Serialise one session (by code) into a portable bundle, or null if the code
@@ -76,6 +90,11 @@ export function exportSession(code: string): SessionBundle | null {
     rollLog: all('SELECT * FROM roll_log WHERE session_id = ?', sid),
     chat: all('SELECT * FROM chat_messages WHERE session_id = ?', sid),
     assets: {},
+    chatImages: all(
+      'SELECT * FROM chat_images WHERE session_id = ? AND id IN (SELECT image_id FROM chat_messages WHERE session_id = ? AND image_id IS NOT NULL)',
+      sid, sid,
+    ),
+    privateChatAssets: {},
   };
 
   // Inline every referenced upload (map images, icons, decals — wherever a
@@ -99,6 +118,29 @@ export function exportSession(code: string): SessionBundle | null {
       bundle.assets[file] = buf.toString('base64');
     } catch {
       warnings.push(`Unreadable upload: ${file}`);
+    }
+  }
+  const imagesById = new Map(bundle.chatImages!.map((image) => [image.id, image]));
+  for (const id of new Set(bundle.chat.map((message) => message.image_id).filter((id) => typeof id === 'string'))) {
+    const image = imagesById.get(id);
+    if (!image) { warnings.push(`Missing private chat image: ${id}`); continue; }
+    if (!safePrivateImage(image)) { warnings.push(`Unsafe private chat image: ${id}`); continue; }
+    try {
+      const file = path.join(privateImagesDir(), image.file_name as string);
+      const size = fs.statSync(file).size;
+      if (total + size > MAX_ASSET_BYTES) {
+        warnings.push(`Asset capacity exceeded: private chat image ${id}`);
+        continue;
+      }
+      const bytes = fs.readFileSync(file);
+      if (total + bytes.length > MAX_ASSET_BYTES) {
+        warnings.push(`Asset capacity exceeded: private chat image ${id}`);
+        continue;
+      }
+      total += bytes.length;
+      bundle.privateChatAssets![id as string] = bytes.toString('base64');
+    } catch {
+      warnings.push(`Unreadable private chat image: ${id}`);
     }
   }
   if (warnings.length) bundle.assetWarnings = warnings;
@@ -149,25 +191,29 @@ function pickCode(custom?: string): string {
  * files). Returns the new code. Throws SessionCodeError for a bad custom code.
  * Atomic: any failure rolls the whole thing back and touches no other session.
  */
-export const importSession = db.transaction(
-  (bundle: SessionBundle, customCode?: string): { code: string; name: string } => {
+const importSessionRows = db.transaction(
+  (bundle: SessionBundle, customCode: string | undefined, writtenPrivateFiles: string[]): { code: string; name: string } => {
     if (!bundle || bundle.version !== 1 || !bundle.session)
       throw new Error('Unrecognized or corrupt backup file.');
 
     // 1. Write each inlined asset under a fresh filename; map old path -> new.
     const pathMap = new Map<string, string>();
+    let totalAssetBytes = 0;
     for (const [file, b64] of Object.entries(bundle.assets ?? {})) {
       if (!safeUploadName(file)) continue;
       const ext = path.extname(file) || '.png';
       const newFile = `${newId()}${ext}`;
-      fs.writeFileSync(path.join(config.uploadsDir, newFile), Buffer.from(b64, 'base64'));
+      const bytes = Buffer.from(b64, 'base64');
+      totalAssetBytes += bytes.length;
+      if (totalAssetBytes > MAX_ASSET_BYTES) throw new Error('Backup image capacity exceeded.');
+      fs.writeFileSync(path.join(config.uploadsDir, newFile), bytes);
       pathMap.set(`/uploads/${file}`, `/uploads/${newFile}`);
     }
 
     // 2. Deep-rewrite every upload path in the rows (covers nested JSON columns),
     //    working on a copy so the caller's bundle is untouched.
     let data: SessionBundle = JSON.parse(
-      JSON.stringify({ ...bundle, assets: undefined }),
+      JSON.stringify({ ...bundle, assets: undefined, privateChatAssets: undefined }),
     );
     if (pathMap.size) {
       let j = JSON.stringify(data);
@@ -219,6 +265,35 @@ export const importSession = db.transaction(
         template_id: newRef(m.template_id, monIds),
       });
 
+    // Restore only attachments referenced by chat. New IDs/files prevent imports
+    // from sharing access with their source campaign, and uploader keys do not
+    // carry into a copy whose character ownership is intentionally cleared.
+    const imageIds = new Map<string, string>();
+    const referencedImages = new Set(data.chat.map((message) => message.image_id));
+    for (const image of data.chatImages ?? []) {
+      if (typeof image.id !== 'string' || !referencedImages.has(image.id)) continue;
+      if (!safePrivateImage(image)) throw new Error('Invalid private chat image metadata.');
+      const encoded = bundle.privateChatAssets?.[image.id];
+      // An incomplete export may retain metadata for a missing file. Keep its
+      // text history, but never link the import back to a source attachment.
+      if (encoded === undefined) continue;
+      if (typeof encoded !== 'string' || !encoded.length || encoded.length % 4 !== 0 ||
+          !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded))
+        throw new Error('Invalid private chat image contents.');
+      const bytes = Buffer.from(encoded, 'base64');
+      totalAssetBytes += bytes.length;
+      if (totalAssetBytes > MAX_ASSET_BYTES) throw new Error('Backup image capacity exceeded.');
+      const id = newId(), fileName = `${id}${PRIVATE_IMAGE_EXT[image.mime as string]}`;
+      fs.mkdirSync(privateImagesDir(), { recursive: true });
+      const file = path.join(privateImagesDir(), fileName);
+      fs.writeFileSync(file, bytes, { flag: 'wx' });
+      writtenPrivateFiles.push(file);
+      insertRow('chat_images', image, {
+        id, session_id: sid, uploader_owner_id: null, file_name: fileName,
+      });
+      imageIds.set(image.id, id);
+    }
+
     // 6. Maps, then their tokens (ref_id -> the remapped creature).
     for (const mp of data.maps)
       insertRow('maps', mp, { id: mapIds.get(mp.id as string), session_id: sid,
@@ -262,8 +337,35 @@ export const importSession = db.transaction(
       });
     for (const r of data.rollLog)
       insertRow('roll_log', r, { id: newId(), session_id: sid });
-    for (const r of data.chat)
-      insertRow('chat_messages', r, { id: newId(), session_id: sid });
+    for (const r of data.chat) {
+      // Clear every imported private audience. DM-participating whispers stay
+      // in the DM's archive; player-only conversations remain inaccessible.
+      // Claiming a copied PC cannot grant a new owner its original history.
+      const legacyWhisper = !r.chat_channel && !!(r.whisper_character_id || r.whisper_character_name || r.whisper_owner_id);
+      const privateRecord = !!r.chat_channel || legacyWhisper;
+      const includesDm = r.chat_channel ? r.chat_includes_dm === 1 : legacyWhisper;
+      let participants: { characterId: string; characterName: string }[] = [];
+      try {
+        const parsed = typeof r.chat_participants === 'string' ? JSON.parse(r.chat_participants) : [];
+        if (Array.isArray(parsed)) participants = parsed.filter((p) => p && typeof p.characterName === 'string')
+          .map((p) => ({ characterId: newRef(p.characterId, charIds) ?? '', characterName: p.characterName }));
+      } catch { /* old or malformed participant metadata has no live audience */ }
+      if (legacyWhisper && !participants.length) participants = [{
+        characterId: newRef(r.whisper_character_id, charIds) ?? '',
+        characterName: String(r.whisper_character_name ?? 'Player'),
+      }];
+      insertRow('chat_messages', r, {
+        id: newId(), session_id: sid,
+        whisper_character_id: newRef(r.whisper_character_id, charIds),
+        whisper_owner_id: null,
+        image_id: newRef(r.image_id, imageIds),
+        chat_channel: r.chat_channel ?? (legacyWhisper ? 'whisper' : null),
+        chat_audience: '[]',
+        chat_participants: JSON.stringify(participants),
+        chat_includes_dm: includesDm ? 1 : 0,
+        ...(privateRecord ? { dm_only: 1 } : {}),
+      });
+    }
 
     // 8. Wire up the active map + turn marker (now that they exist).
     db.prepare(
@@ -277,3 +379,16 @@ export const importSession = db.transaction(
     return { code, name };
   },
 );
+
+/** Database rollback also removes any private files created by a failed import. */
+export function importSession(bundle: SessionBundle, customCode?: string): { code: string; name: string } {
+  const writtenPrivateFiles: string[] = [];
+  try {
+    return importSessionRows(bundle, customCode, writtenPrivateFiles);
+  } catch (error) {
+    for (const file of writtenPrivateFiles) {
+      try { fs.unlinkSync(file); } catch { /* preserve the original restore error */ }
+    }
+    throw error;
+  }
+}

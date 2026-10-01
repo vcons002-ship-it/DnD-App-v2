@@ -221,10 +221,13 @@ describe('spell save workflow', () => {
     vi.spyOn(Math, 'random').mockReturnValue(.99);
     const f = fixture(), t = f.target();
     resolveAbilityRoll(f.session.id, 'Caster', f.caster, spell('Sacred Flame'), 0, undefined, t.token.id);
+    const targetedDamage = listRollLog(f.session.id).find((entry) => entry.reveal?.kind === 'damage')!;
+    expect(targetedDamage.reveal?.target).toBe(t.monster.name);
     expect(listRollLog(f.session.id).at(-1)?.detail).toContain('PASS');
     expect(getMonster(t.monster.id)!.curHp).toBe(100);
     resolveAbilityRoll(f.session.id, 'Caster', f.caster, spell('Fireball'), 3, undefined, t.token.id);
     const cast = listRollLog(f.session.id).at(-1)!;
+    expect(cast.reveal?.target).toBeUndefined(); // area targets are chosen after the cast
     expect(cast.total).toBe(48);
     expect(getMonster(t.monster.id)!.curHp).toBe(100); // no automatic area application
     resolveForcedSave(f.session.id, cast.id, t.token.id);

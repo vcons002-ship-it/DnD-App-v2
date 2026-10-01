@@ -7,6 +7,7 @@ import type {
   AbilityRollPayload,
   CharacterCreatePayload,
   CharacterUpdatePayload,
+  ChatSendResult,
   ClientToServerEvents,
   CombatAttackPayload,
   CombatRole,
@@ -77,6 +78,8 @@ type Store = {
   /** The DM passphrase used to join (if any) — attached to the few REST calls
    *  that are passphrase-gated server-side (e.g. map upload). */
   dmPassphrase: string | null;
+  /** Short-lived authorization for private chat images; never persisted. */
+  chatAccessToken: string | null;
   snapshot: StateSnapshot | null;
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
   toast: { id: number; message: string } | null;
@@ -327,7 +330,7 @@ type Store = {
   /** The party just rested — drives a banner (null when shown). */
   restFx: { id: number; kind: 'short' | 'long' } | null;
   rollDeathSave: (characterId: string) => void;
-  sendChat: (text: string, speakAsTokenId?: string) => void;
+  sendChat: (text: string, speakAsTokenId?: string, options?: { whisperTo?: string; imageId?: string; replyToMessageId?: string }) => Promise<boolean>;
   rollSkill: (payload: SkillRollPayload) => void;
   rollSave: (payload: SaveRollPayload) => void;
   rollCheck: (payload: CheckRollPayload) => void;
@@ -451,6 +454,7 @@ export const useStore = create<Store>((set, get) => ({
   status: 'idle',
   error: null,
   dmPassphrase: null,
+  chatAccessToken: null,
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
@@ -637,6 +641,7 @@ export const useStore = create<Store>((set, get) => ({
       status: 'connecting',
       error: null,
       dmPassphrase: dmPassphrase ?? null,
+      chatAccessToken: null,
       viewMapId: null,
       hpFx: [],
       rollFx: (queuedRollFx.length=0,null),
@@ -876,7 +881,7 @@ export const useStore = create<Store>((set, get) => ({
             // visibilitychange). rollSfxReady stays true so later rolls still cue.
             seenRollIds = new Set((ack.snapshot.rollLog ?? []).map((e) => e.id));
             rollSfxReady = true;
-            set({ status: 'connected', snapshot: ack.snapshot, error: null });
+            set({ status: 'connected', snapshot: ack.snapshot, error: null, chatAccessToken: ack.chatAccessToken ?? null });
             // The server resets the DM's viewed map to the active one on join;
             // re-assert a staged map so a reconnect doesn't yank the DM back to the
             // live map (players never stage, so viewMapId is null for them).
@@ -885,7 +890,7 @@ export const useStore = create<Store>((set, get) => ({
             // Remember the joined session so a reload/background can auto-rejoin.
             saveSession({ code, role, dmPassphrase });
           } else {
-            set({ status: 'error', error: ack.error.message });
+            set({ status: 'error', error: ack.error.message, chatAccessToken: null });
             socket.disconnect();
           }
         },
@@ -895,7 +900,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
-      set({liveDice:null});
+      set({liveDice:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -914,7 +919,7 @@ export const useStore = create<Store>((set, get) => ({
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     heldHpFx.clear();
-    queuedRollFx.length=0;set({ liveDice:null, socket: null, status: 'idle', snapshot: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
+    queuedRollFx.length=0;set({ liveDice:null, socket: null, status: 'idle', snapshot: null, chatAccessToken: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {
@@ -1060,8 +1065,25 @@ export const useStore = create<Store>((set, get) => ({
   restCharacter: (characterId, kind) => get().socket?.emit('rest:character', { characterId, kind }),
   spendHitDice: (characterId, count) => get().socket?.emit('hitDice:spend', { characterId, count }),
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
-  sendChat: (text, speakAsTokenId) =>
-    get().socket?.emit('chat:send', { text, speakAsTokenId }),
+  sendChat: async (text, speakAsTokenId, options) => {
+    const socket = get().socket;
+    if (!socket?.connected || get().status !== 'connected') {
+      get().notify('Chat is reconnecting. Your message has been kept; send it when connected.');
+      return false;
+    }
+    try {
+      // Mutations queue behind live physics; /roll is acknowledged after settling.
+      const result: ChatSendResult = await socket.timeout(60_000).emitWithAck('chat:send', { text, speakAsTokenId, ...options });
+      if (!result?.ok) {
+        get().notify(result?.error || 'Could not send the message.');
+        return false;
+      }
+      return true;
+    } catch {
+      get().notify('Chat delivery was not confirmed. Your message has been kept.');
+      return false;
+    }
+  },
   rollSkill: (payload) => get().socket?.emit('skill:roll', payload),
   rollSave: (payload) => get().socket?.emit('save:roll', payload),
   rollCheck: (payload) => get().socket?.emit('check:roll', payload),

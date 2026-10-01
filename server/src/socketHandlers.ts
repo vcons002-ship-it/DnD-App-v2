@@ -1,4 +1,6 @@
 import {shapeSaveFrame} from './liveSaveFrame.js';
+import {chatAudience,privateChatVisible} from './privateChat.js';
+import {chatImageForSend} from './chatImages.js';
 import {doorApproachPoints,distanceToWall} from '../../shared/mapWalls.js';
 import {visionContains} from '../../shared/playerVision.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
@@ -56,6 +58,7 @@ import {
   roomName,
   sendSnapshot,
   setConn,
+  chatAccessToken,
   type IOServer,
 } from './connections.js';
 import { answerRules, recapSession, creatureLine } from './assistant/index.js';
@@ -282,7 +285,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
         const sid=sessionId();
-        const isRoll=liveEvents.has(event)||(event==='chat:send'&&!!parseRollCommand(String((args[0] as any)?.text??'')));
+        const isRoll=liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
         if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
           enqueueRoll(sid,async()=>{
             if(!socket.connected||commandConnection()?.sessionId!==sid)return;
@@ -441,7 +444,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           error: { code: 'NO_SNAPSHOT', message: 'Could not load session' },
         });
       }
-      ack({ ok: true, snapshot });
+      ack({ ok: true, snapshot, chatAccessToken:chatAccessToken(socket.id) });
       // Let everyone else see the (possibly) re-taken character.
       broadcastSnapshots(io, session.id);
     });
@@ -1461,10 +1464,34 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     // Shared in-session chat (anyone in the session).
-    on('chat:send', ({ text, speakAsTokenId }) => {
+    on('chat:send', ({ text, speakAsTokenId, whisperTo, imageId, replyToMessageId },ack) => {
       const sid = sessionId();
       const body = typeof text === 'string' ? text.trim() : '';
-      if (!sid || !body) return;
+      const fail=(error:string)=>{socket.emit('notice',{message:error});ack?.({ok:false,error});};
+      const conn=commandConnection();
+      if (!sid||!conn){fail('Join a campaign before sending chat.');return;}
+      if(!body&&!imageId){fail('Write a message or attach an image.');return;}
+      if(whisperTo!==undefined&&typeof whisperTo!=='string'){fail('Choose a valid chat recipient.');return;}
+      if(whisperTo){
+        if(/^\/(?:r|roll|ask|recap)(?:\s|$)/i.test(body)){fail('Dice and AI commands use Everyone chat. Private chat sends text and images.');return;}
+        try {
+          let privacy;
+          if(replyToMessageId){
+            const source=typeof replyToMessageId==='string'?listChat(sid,1000).find(m=>m.id===replyToMessageId):undefined;
+            if(!source?.privacy||source.privacy.channel!=='whisper'||!privateChatVisible(source.privacy,conn.role,conn.playerId,!!source.dmOnly)||source.dmOnly||!source.privacy.audience.length){fail('That conversation is no longer available. Choose a recipient to start a new whisper.');return;}
+            // Reuse the original participants even if one PC has changed owners.
+            privacy=source.privacy;
+          }else privacy=chatAudience(conn,socket.id,whisperTo,listCharacters(sid));
+          const image=typeof imageId==='string'?chatImageForSend(conn,imageId):undefined;
+          if(imageId&&!image){fail('Attach an image you uploaded in this campaign.');return;}
+          addChatMessage(sid,rollerName(sid,socket.id,isDm()),isDm()?'dm':'player',body,false,[],{privacy,image});
+          afterChange();
+          ack?.({ok:true});
+        }catch(error){fail(error instanceof Error?error.message:'The private message could not be sent.');}
+        return;
+      }
+      if(replyToMessageId){fail('Choose a private conversation before replying.');return;}
+      if(imageId){fail('Choose a private recipient or Party chat before attaching an image.');return;}
       // "/roll 2d6+3 [adv|dis]" (or "/r …") typed into chat rolls server-side
       // into the shared roll log instead of posting a message — the combined
       // feed shows the result inline where the chat line would have been.
@@ -1473,6 +1500,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const result = rollDice(cmd.expr, cmd.advantage);
         if (!result) {
           socket.emit('notice', { message: `Invalid dice: "${cmd.expr}"` });
+          ack?.({ok:false,error:`Invalid dice: "${cmd.expr}"`});
           return;
         }
         const roller = rollerName(sid, socket.id, isDm());
@@ -1485,6 +1513,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           reveal: diceReveal(roller, result),
         });
         afterChange();
+        ack?.({ok:true});
         return;
       }
       // The DM may "speak as" a selected token (NPC/monster/PC): the message is
@@ -1510,6 +1539,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if (refId) broadcastSay(io, sid, refId, body.slice(0, 240));
       }
       afterChange();
+      ack?.({ok:true});
     });
 
     // Ephemeral "I'm typing" ping → a typing bubble over the player's PC token.
@@ -1601,7 +1631,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         line: `[roll] ${r.roller}: ${r.detail}${r.description ? ` (${r.description})` : ''}`,
       }));
       const chat = listChat(sid, 60)
-        .filter((c) => !c.dmOnly)
+        .filter((c) => !c.dmOnly&&!c.privacy)
         .map((c) => ({ t: c.createdAt, line: `[chat] ${c.sender}: ${c.text}` }));
       const transcript = [...rolls, ...chat]
         .sort((a, b) => a.t - b.t)

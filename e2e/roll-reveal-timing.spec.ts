@@ -105,7 +105,8 @@ test('live damage stays out of HP and history until the dice settle, then expose
   await page.locator('.damage-prompt-btn').click();
   const live=page.locator('[data-live-dice="true"]');
   await expect(live).toBeVisible();
-  await expect(live.locator('.roll-reveal-title')).toContainText('Timing target');
+  await expect(live.locator('.roll-reveal-title')).toContainText('Timing greatsword');
+  await expect(live.locator('.roll-reveal-who')).toContainText('Timing target');
   expect((await f.snapshot()).rollLog.length).toBe(oldCount);
   expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200);
   expect(await floaters(page)).toEqual([]);
@@ -194,16 +195,29 @@ test('a concentration reminder cannot suppress the completed damage reveal',asyn
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
 });
 
-test('a targeted save commits its result and compact map impact after live dice',async({page,request})=>{
+test('a targeted save preserves the damage impact and then shows the separate saving throw result',async({page,request})=>{
   const f=await fixture(request,page);
   await page.locator('.compact-player-combat').getByRole('button',{name:/Timing flame/}).click();
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.locator('[data-live-dice="true"] .roll-reveal-who')).toContainText('Timing target T1');
   await expect.poll(async()=>(await f.snapshot()).rollLog.at(-1)?.reveal?.kind,{timeout:45_000}).toBe('check');
-  const last=(await f.snapshot()).rollLog.at(-1)!;
-  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-roll-id',last.id);
-  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
+  const rolls=(await f.snapshot()).rollLog, save=rolls.at(-1)!, damage=rolls.findLast(r=>r.reveal?.kind==='damage')!;
+  // Damage and saves intentionally have separate arithmetic cards. The earlier
+  // damage card must not be mistaken for the later queued saving throw.
+  const damageCard=page.locator(`.roll-reveal[data-roll-id="${damage.id}"]`);
+  await expect(damageCard).toBeVisible({timeout:15_000});
+  await expect(damageCard.locator('.roll-reveal-who')).toContainText('Timing target T1');
+  await expect(damageCard).toHaveAttribute('data-impact-ready','true');
+  expect(await floaters(page)).toEqual([]);
+  expect((await damageCard.boundingBox())!.height).toBeLessThanOrEqual(180);
+  await damageCard.click();
+  const saveCard=page.locator(`.roll-reveal[data-roll-id="${save.id}"]`);
+  await expect(saveCard).toBeVisible();
+  await expect(saveCard.locator('.rr-title')).toContainText('DEX');
+  await expect(saveCard.locator('.rr-title')).toContainText(/Saving Throw/i);
+  await expect(saveCard.getByRole('status',{name:'Roll result',exact:true})).toHaveText(save.reveal!.outcome==='pass'?'SAVE PASSED':'SAVE FAILED');
+  await expect(saveCard).toHaveAttribute('data-impact-ready','true');
   await expect.poll(()=>floaters(page)).not.toEqual([]);
-  expect((await page.locator('.roll-reveal').boundingBox())!.height).toBeLessThanOrEqual(180);
 });
 
 test('natural twenty check rendering announces the face and retains the total',async({page,request})=>{
@@ -257,7 +271,7 @@ for(const outcome of ['hit','miss','crit','fumble','pass','fail'] as const){
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
   await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
   const result=page.getByRole('status',{name:'Roll result',exact:true});
-  const labels={hit:'HIT',miss:'MISS',crit:'CRITICAL HIT!',fumble:'Fumble!',pass:'PASS',fail:'FAIL'};
+  const labels={hit:'HIT',miss:'MISS',crit:'CRITICAL HIT!',fumble:'Fumble!',pass:'Success',fail:'Failed'};
   await expect(result).toContainText(labels[outcome]);
   await expect(page.locator('.roll-reveal-backdrop')).not.toHaveClass(/is-impact/);
   if(outcome==='fumble')await expect(result).toHaveText('Fumble!');
