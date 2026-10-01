@@ -96,7 +96,8 @@ test('a player spends Hit Dice and tunes sound in their own settings', async ({ 
   await page.getByRole('button', { name: /^Hit Dice: 5 of 5 d12 left/ }).click(); // Druk is a Barbarian
   await page.getByRole('group', { name: 'Spend Hit Dice' }).getByLabel('Hit Dice to spend').selectOption('2');
   await page.getByRole('button', { name: /Spend 2d12/ }).click();
-  await expect.poll(async () => (await f.snapshot()).characters.find((c) => c.id === f.druk.id)!.hitDiceUsed).toBe(2);
+  // Hit Dice roll on the live physical dice, which can take a while headless.
+  await expect.poll(async () => (await f.snapshot()).characters.find((c) => c.id === f.druk.id)!.hitDiceUsed, { timeout: 30_000 }).toBe(2);
   const healed = (await f.snapshot()).characters.find((c) => c.id === f.druk.id)!.curHp;
   expect(healed).toBeGreaterThanOrEqual(9 + 6); // 2 × (d12 + 2 CON), each at least 1 + 2
   await expect(page.getByRole('button', { name: /^Hit Dice: 3 of 5/ })).toBeVisible({ timeout: 30_000 });
@@ -143,4 +144,49 @@ test('the dice make sound from real collisions, and the toggle silences them', a
   await page.evaluate(() => localStorage.setItem('dnd.diceSfxOff', '1'));
   const silent = await roll();
   expect(silent).toEqual([]);
+});
+
+test('the saved dice-sound choice survives a master mute and reopening settings', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const f = await fixture(request, page, 'Dice preference');
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.addInitScript(() => {
+    const starts: { loop: boolean }[] = [];
+    (window as any).__diceSound = starts;
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args: Parameters<AudioBufferSourceNode['start']>) {
+      starts.push({ loop: this.loop });
+      return start.apply(this, args);
+    };
+  });
+  await page.goto(`/join?code=${f.code}`);
+  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await page.locator('.claim-row').filter({ hasText: 'Druk' }).click();
+  await expect(page.locator('.compact-player-combat')).toBeVisible();
+  const settings = page.getByRole('button', { name: 'Interface settings', exact: true });
+  const panel = page.locator('#player-layout-options');
+  const sound = panel.getByRole('checkbox', { name: /^Sound \(/ });
+  const dice = panel.getByRole('checkbox', { name: /^Dice sounds/ });
+
+  // Dice off, then master mute.
+  await settings.click();
+  await dice.uncheck();
+  await sound.uncheck();
+  await panel.getByRole('button', { name: 'Close interface settings' }).click();
+  // Reopen: the dice choice still reads OFF (it used to read checked while muted).
+  await settings.click();
+  await expect(sound).not.toBeChecked();
+  await expect(dice).not.toBeChecked();
+  // Unmute: dice stays off, and the checkbox agrees with what actually plays.
+  await sound.check();
+  await expect(dice).not.toBeChecked();
+  await panel.getByRole('button', { name: 'Close interface settings' }).click();
+  await page.locator('.compact-player-combat').getByRole('button', { name: /Rest greatsword/ }).click();
+  await expect(page.locator('.roll-reveal')).toBeVisible();
+  await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 30_000 });
+  expect(await page.evaluate(() => (window as any).__diceSound.length)).toBe(0);
+  // One click turns it back on — no off-and-on-again dance.
+  await settings.click();
+  await dice.check();
+  expect(await page.evaluate(() => [localStorage.getItem('dnd.diceSfxOff'), localStorage.getItem('dnd.sfxMuted')])).toEqual([null, null]);
 });

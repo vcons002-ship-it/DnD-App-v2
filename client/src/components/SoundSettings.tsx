@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../state/socket';
 import {
-  getSfxVolume, isDiceSfxOn, isSfxMuted, playHit, setDiceSfxOn, setSfxMuted, setSfxVolume,
+  getSfxVolume, isDiceSfxPreferred, isSfxMuted, playHit, setDiceSfxOn, setSfxMuted, setSfxVolume,
 } from '../lib/sfx';
 import { previewDiceClack } from '../lib/diceSfx';
 
@@ -13,7 +13,9 @@ import { previewDiceClack } from '../lib/diceSfx';
 export function SoundSettings() {
   const [muted, setMuted] = useState(isSfxMuted());
   const [volume, setVolume] = useState(getSfxVolume());
-  const [dice, setDice] = useState(isDiceSfxOn() || isSfxMuted());
+  // The saved dice choice, never derived from the master mute (muted + dice off
+  // must still read as off when reopened, and stay off when sound returns).
+  const [dice, setDice] = useState(isDiceSfxPreferred());
   const showRollAnim = useStore((s) => s.showRollAnim);
   const toggleRollAnim = useStore((s) => s.toggleRollAnim);
   return (

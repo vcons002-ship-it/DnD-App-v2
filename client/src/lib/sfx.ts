@@ -47,9 +47,15 @@ export function setSfxVolume(volume: number): void {
   if (master && ctx) master.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
 }
 
-/** Physical dice sounds (clatter, rolling) — on by default, under the master mute. */
+/** The saved "Dice sounds" choice on its own (on by default) — what the setting
+ *  shows. Independent of the master mute, so muting never rewrites it. */
+export function isDiceSfxPreferred(): boolean {
+  return read(DICE_KEY) !== '1';
+}
+
+/** Whether dice sounds actually play: the saved choice AND master sound on. */
 export function isDiceSfxOn(): boolean {
-  return read(DICE_KEY) !== '1' && !isSfxMuted();
+  return isDiceSfxPreferred() && !isSfxMuted();
 }
 
 export function setDiceSfxOn(on: boolean): void {
