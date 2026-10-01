@@ -1,4 +1,5 @@
 import {suggestMapLights,applyLightDraft} from './mapLightDraft.js';
+import {createChatImageRouter} from './chatImages.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
 import {applyMapSetupDraft} from './mapSetupDraft.js';
 import {suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
@@ -195,6 +196,7 @@ const backupUpload = multer({
 
 export function createApiRouter(io: IOServer): Router {
   const router = Router();
+  router.use('/chat-images',createChatImageRouter());
   const analyzingMaps=new Set<string>();
   router.post('/maps/:mapId/wall-draft',async(req,res)=>{
     if(!requireDm(req,res))return;

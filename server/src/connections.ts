@@ -1,4 +1,5 @@
 import {visionContains} from '../../shared/playerVision.js';
+import {randomBytes} from 'node:crypto';
 import {isLiveCommand,afterRollCommit} from './liveRollContext.js';
 import { tokenVisibleAt } from '../../shared/fog.js';
 import type { Server } from 'socket.io';
@@ -24,6 +25,14 @@ export type Conn = {
 };
 
 const conns = new Map<string, Conn>();
+// Connection-scoped credentials never enter shared snapshots or image URLs.
+const mediaTokens=new Map<string,string>();
+export const chatAccessToken=(socketId:string):string|undefined=>mediaTokens.get(socketId);
+export function chatMediaConnection(token:string):Conn|undefined {
+  if(!/^[a-f0-9]{64}$/.test(token))return undefined;
+  for(const [id,key] of mediaTokens)if(key===token)return conns.get(id);
+  return undefined;
+}
 
 /** Backend health is app-wide; operational notices go only to authenticated DMs. */
 export function broadcastAiStatus(io: IOServer, message: string): void {
@@ -39,11 +48,15 @@ export function broadcastAiStatus(io: IOServer, message: string): void {
 }
 
 export const setConn = (socketId: string, conn: Conn): void => {
+  const previous=conns.get(socketId);
   conns.set(socketId, conn);
+  if(!mediaTokens.has(socketId)||previous?.sessionId!==conn.sessionId||previous?.role!==conn.role||previous?.playerId!==conn.playerId)
+    mediaTokens.set(socketId,randomBytes(32).toString('hex'));
 };
 export const getConn = (socketId: string): Conn | undefined => conns.get(socketId);
 export const dropConn = (socketId: string): void => {
   conns.delete(socketId);
+  mediaTokens.delete(socketId);
 };
 
 /** Is this socket id currently connected (i.e. an active player/DM)? Used to

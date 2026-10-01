@@ -1,4 +1,5 @@
 import {doorApproachPoints} from '../../shared/mapWalls.js';
+import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
 import {rememberTerrain} from './exploration.js';
 import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
@@ -231,7 +232,6 @@ export function createSnapshotBuilder(
   let templates: Monster[] | null = null; // DM-only
 
   let playerRollLog: RollEntry[] | null = null;
-  let playerChat: ChatMessage[] | null = null;
   const mapData = new Map<string, MapData>();
 
   /**
@@ -325,7 +325,7 @@ export function createSnapshotBuilder(
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;
     let shapedRollLog = rollLog;
-    let shapedChat = chat;
+    const shapedChat = chatForViewer(chat,role,playerId);
 
     if (role !== 'dm') {
       const grid = map?.gridSizePx ?? 50;
@@ -383,7 +383,6 @@ export function createSnapshotBuilder(
         return { ...c, ownerId: null, claimedBy: c.claimedBy ? '__held__' : null };
       });
       // Rules-assistant Q&A is a DM tool — never leak it to players.
-      shapedChat = playerChat ??= chat.filter((c) => !c.dmOnly);
       shapedRollLog = playerRollLog ??= rollLog
         // DM rolls captured while "hide my rolls" was on never reach players.
         .filter((e) => !e.dmOnly)
