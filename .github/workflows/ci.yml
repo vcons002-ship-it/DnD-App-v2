@@ -43,7 +43,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Install just Chromium (+ its system deps) for the 2-window smoke test.
+      # The normal browser suite excludes opt-in video captures and live AI demos.
       - run: npx playwright install --with-deps chromium
-      - name: E2E smoke (DM + player, real sockets)
+      - name: Browser regressions (DM + player, real sockets)
         run: npm run test:e2e
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

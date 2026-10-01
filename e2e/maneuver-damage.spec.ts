@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { completedDice, LIVE_COMBAT_TIMEOUT, observeCombatDice, waitForCombatRoll } from './helpers/combatLive';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -9,6 +10,7 @@ test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect
 // Real player/DM browsers against an isolated server: normal one-click damage,
 // combined Smite in either mode, duplicate requests, and Pact usage on level-up.
 for (const manual of [false, true]) test(`Fighter offers normal damage and known maneuvers (manual=${manual})`, async ({ page, browser, request }) => {
+  test.setTimeout(180_000);
   const created = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Prompt ownership' },
   });
@@ -16,6 +18,7 @@ for (const manual of [false, true]) test(`Fighter offers normal damage and known
   const { code } = await created.json();
   const socket = io(`http://localhost:${PORT}`, { transports: ['websocket'], forceNew: true });
   connections.push(socket);
+  const frames=observeCombatDice(socket);
   const snapshot = async (): Promise<StateSnapshot> => {
     const result = await socket.timeout(5000).emitWithAck('join', { sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET });
     expect(result.ok).toBe(true);
@@ -64,10 +67,11 @@ for (const manual of [false, true]) test(`Fighter offers normal damage and known
   await expect(page.locator('.compact-player-combat')).toBeVisible();
   const attack = async () => {
     for(let i=0;i<8;i++) {
+      const previous=new Set((await snapshot()).rollLog.map(r=>r.id));
       await page.locator('.compact-player-combat').getByRole('button',{name:/Owner greatsword/}).click();
-      await page.waitForTimeout(200);
-      const hit=(await snapshot()).rollLog.findLast(r=>r.pending && !r.pending.done);
-      if(hit) return hit;
+      const result=await waitForCombatRoll(snapshot,previous,r=>r.label==='Attack');
+      if(result.pending&&!result.pending.done)return result;
+      expect(result.reveal?.outcome).toBe('fumble');
     }
     throw new Error('No hit in eight attacks');
   };
@@ -75,16 +79,26 @@ for (const manual of [false, true]) test(`Fighter offers normal damage and known
   await expect(page.locator('.damage-prompt-btn')).toBeVisible();
   await expect(page.locator('.dp-maneuver-toggle')).toBeVisible();
   await page.locator('.damage-prompt-btn').click();
-  await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===normal.id)!.pending!.done).toBe(true);
+  await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===normal.id)!.pending!.done,
+    {timeout:LIVE_COMBAT_TIMEOUT}).toBe(true);
   expect((await snapshot()).characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(0);
   const hit=await attack();
   const before=(await snapshot()).monsters.find(m=>m.id===enemy.refId)!.curHp;
   await page.locator('.dp-maneuver-toggle').click();
   await expect(page.locator('.dp-maneuver-btn')).toHaveText(['Trip Attack']);
   await page.screenshot({path:test.info().outputPath('maneuver-choices.png'),fullPage:true});
+  const start=frames.length;
   await page.locator('.dp-maneuver-btn').click();
-  await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===hit.id)!.pending!.done).toBe(true);
+  await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===hit.id)!.pending!.done,
+    {timeout:LIVE_COMBAT_TIMEOUT}).toBe(true);
   const after=await snapshot();
+  const stages=completedDice(frames.slice(start));
+  expect(stages[0].sides).toEqual(Array(hit.pending!.crit?4:2).fill(6));
+  expect(stages[0].label).toMatch(/Weapon.*Damage/);
+  expect(stages[1].sides).toEqual(Array(hit.pending!.crit?2:1).fill(8));
+  expect(stages[1].label).toMatch(/Trip Attack/);
+  expect(stages.at(-1)!.sides.every(side=>side===20)).toBe(true);
+  expect(after.rollLog.find(r=>r.id===hit.id)!.pending!.dice.flatMap(d=>d.faces??[])).toEqual(stages.slice(0,-1).flatMap(stage=>stage.values));
   expect(after.characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(1);
   expect(before-after.monsters.find(m=>m.id===enemy.refId)!.curHp).toBe(after.rollLog.find(r=>r.id===hit.id)!.pending!.amount);
   socket.emit('combat:maneuver',{rollId:hit.id,abilityId:'trip'});

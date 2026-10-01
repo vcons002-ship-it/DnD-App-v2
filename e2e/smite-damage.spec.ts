@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { completedDice, LIVE_COMBAT_TIMEOUT, observeCombatDice, waitForCombatRoll } from './helpers/combatLive';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -9,6 +10,7 @@ test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect
 // Real player/DM browsers against an isolated server: normal one-click damage,
 // combined Smite in either mode, duplicate requests, and Pact usage on level-up.
 for (const manual of [false, true]) test(`Smite resolves one hit and preserves spent Pact slots (manual=${manual})`, async ({ page, browser, request }) => {
+  test.setTimeout(180_000);
   const created = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Prompt ownership' },
   });
@@ -16,6 +18,7 @@ for (const manual of [false, true]) test(`Smite resolves one hit and preserves s
   const { code } = await created.json();
   const socket = io(`http://localhost:${PORT}`, { transports: ['websocket'], forceNew: true });
   connections.push(socket);
+  const frames = observeCombatDice(socket);
   const snapshot = async (): Promise<StateSnapshot> => {
     const result = await socket.timeout(5000).emitWithAck('join', { sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET });
     expect(result.ok).toBe(true);
@@ -73,9 +76,11 @@ for (const manual of [false, true]) test(`Smite resolves one hit and preserves s
     // The player's hit parks damage (a natural 1 still misses; retry, never forge).
     let playerHit;
     for (let attempt = 0; attempt < 5 && !playerHit; attempt++) {
+      const previous = new Set((await snapshot()).rollLog.map(r=>r.id));
       await page.locator('.compact-player-combat').getByRole('button', { name: /Owner greatsword/ }).click();
-      await expect.poll(async () => (await snapshot()).rollLog.length).toBeGreaterThan(attempt);
-      playerHit = (await snapshot()).rollLog.findLast((r) => r.pending && !r.pending.done);
+      const attack = await waitForCombatRoll(snapshot, previous, r=>r.label==='Attack');
+      if(attack.pending) playerHit = attack;
+      else expect(attack.reveal?.outcome).toBe('fumble');
     }
     expect(playerHit).toBeTruthy();
     expect(playerHit!.roller).not.toBe('DM');
@@ -88,15 +93,19 @@ for (const manual of [false, true]) test(`Smite resolves one hit and preserves s
     expect((await snapshot()).rollLog.find((r) => r.id === playerHit!.id)!.pending!.done).toBeFalsy();
 
     await page.locator('.damage-prompt-btn').click();
+    await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===playerHit!.id)?.pending?.done,
+      {timeout:LIVE_COMBAT_TIMEOUT}).toBe(true);
     socket.emit('session:setManualDamage', { manual });
     socket.emit('condition:set', { kind: 'monster', refId: enemy.refId,
       condition: { label: 'Concentration: Bless', aura: 'blue', isConcentration: true } });
     await snapshot();
     let smiteHit;
     for(let i=0;i<8 && !smiteHit;i++) {
+      const previous = new Set((await snapshot()).rollLog.map(r=>r.id));
       await page.locator('.compact-player-combat').getByRole('button',{name:/Owner greatsword/}).click();
-      await page.waitForTimeout(150);
-      smiteHit=(await snapshot()).rollLog.findLast(r=>r.smite && !r.smite.used);
+      const attack = await waitForCombatRoll(snapshot, previous, r=>r.label==='Attack');
+      if(attack.smite && !attack.smite.used) smiteHit=attack;
+      else expect(attack.reveal?.outcome).toBe('fumble');
     }
     expect(smiteHit).toBeTruthy();
     await expect(page.locator('.damage-prompt-btn')).toContainText('roll damage', { ignoreCase: true });
@@ -106,12 +115,24 @@ for (const manual of [false, true]) test(`Smite resolves one hit and preserves s
     await expect(page.locator('.dp-smite-btn').getByText('Free',{exact:true})).toBeVisible();
     await page.screenshot({path:test.info().outputPath('smite-before.png'),fullPage:true});
     const targetBefore=(await snapshot()).monsters.find(m=>m.id===enemy.refId)!;
+    const damageStart = frames.length;
+    const previousDamage = new Set((await snapshot()).rollLog.map(r=>r.id));
     await page.locator('.dp-smite-btn').getByText('Free',{exact:true}).click();
-    await expect.poll(async()=> (await snapshot()).characters.find(c=>c.id===character.id)!.resources['Divine Smite (free)']?.used).toBe(1);
+    const combined = await waitForCombatRoll(snapshot, previousDamage, r=>r.label==='Damage');
+    await expect.poll(async()=> (await snapshot()).characters.find(c=>c.id===character.id)!.resources['Divine Smite (free)']?.used,
+      {timeout:LIVE_COMBAT_TIMEOUT}).toBe(1);
     const spent=await snapshot();
     const smiteDamage = spent.rollLog.findLast(r=>r.label==='Divine Smite')!.total;
-    expect(targetBefore.curHp - spent.monsters.find(m=>m.id===enemy.refId)!.curHp).toBe(smiteHit!.pending!.amount + smiteDamage);
-    expect(spent.rollLog.find(r=>r.id===smiteHit!.id)!.pending!.done).toBe(true);
+    const finalHit = spent.rollLog.find(r=>r.id===smiteHit!.id)!;
+    expect(finalHit.pending!.amount).toBe(combined.total);
+    expect(targetBefore.curHp - spent.monsters.find(m=>m.id===enemy.refId)!.curHp).toBe(combined.total);
+    expect(combined.total).toBeGreaterThan(smiteDamage);
+    expect(finalHit.pending!.done).toBe(true);
+    const stages = completedDice(frames.slice(damageStart));
+    expect(stages).toHaveLength(2);
+    expect(stages[0].sides).toEqual(Array(smiteHit!.pending!.crit?4:2).fill(6));
+    expect(stages[1].sides).toEqual(Array(smiteHit!.pending!.crit?4:2).fill(8));
+    expect(finalHit.pending!.dice.flatMap(d=>d.faces??[])).toEqual(stages.flatMap(stage=>stage.values));
     expect(spent.rollLog.filter(r=>r.label==='Concentration')).toHaveLength(1);
     socket.emit('combat:smite',{rollId:smiteHit!.id,level:'free'});
     const retried=await snapshot();
@@ -132,9 +153,11 @@ for (const manual of [false, true]) test(`Smite resolves one hit and preserves s
     // The DM's own monster hit still gets the big prompt.
     let dmHit;
     for (let attempt = 0; attempt < 5 && !dmHit; attempt++) {
+      const previous = new Set((await snapshot()).rollLog.map(r=>r.id));
       socket.emit('combat:attack', { attackerTokenId: enemy.id, targetTokenId: pc.id, weaponIndex: 0 });
-      await expect.poll(async () => (await snapshot()).rollLog.filter((r) => r.roller === 'DM').length).toBeGreaterThan(attempt);
-      dmHit = (await snapshot()).rollLog.findLast((r) => r.roller === 'DM' && r.pending && !r.pending.done);
+      const attack = await waitForCombatRoll(snapshot, previous, r=>r.label==='Attack' && r.roller==='DM');
+      if(attack.pending) dmHit=attack;
+      else expect(attack.reveal?.outcome).toBe('fumble');
     }
     expect(dmHit).toBeTruthy();
     await expect(dm.locator('.damage-prompt-btn')).toBeVisible();

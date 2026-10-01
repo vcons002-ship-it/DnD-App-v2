@@ -1,0 +1,78 @@
+# Automated verification
+
+`npm test` runs server and shared-rule tests. `npm run test:e2e` builds the client and runs the normal Playwright browser suite against a disposable server and save. Neither command uses the installed campaign database. CI runs both suites, typechecking, and the production build.
+
+```sh
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+```
+
+To run a focused browser check after building the client:
+
+```sh
+npx playwright test -c e2e/playwright.config.ts e2e/damage-prompt-ownership.spec.ts
+```
+
+`PW_CHROMIUM` can point to an installed Chromium/Chrome executable. `E2E_PORT` overrides the default disposable port, 4099, for independent audits. Give simultaneous runs distinct `--output` directories; each invocation creates its own temporary database. Do not run these commands against the installed campaign server.
+
+## What a failure means
+
+A regression test checks behavior that should continue to work after a change. A failing old test is not automatically obsolete. Reproduce it on the base branch and compare the assertion with the current feature contract before changing it.
+
+- Fix the app when the expected behavior still applies.
+- Update an assertion when an accepted workflow has changed, while preserving the behavior it protects.
+- Keep missing asset files, incorrect arithmetic, privacy leaks, and broken interactions as failures.
+- Run manual recordings and paid/live AI demonstrations explicitly, separately from automated regressions.
+
+CI uploads browser traces, screenshots, and failure context as `browser-test-results` when the browser job fails. Open a downloaded trace with `npx playwright show-trace <trace.zip>`.
+
+## Live dice regression contracts
+
+The current roller streams server physics before committing a result. Tests must wait for a particular roll or pending-hit ID and its final result, rather than assume it completes within five seconds.
+
+- A hit creates a pending damage choice without precomputed damage faces or modifiers. Rolling damage then commits the weapon, rider, modifiers, and HP change.
+- Compare visible physical faces and persisted arithmetic after settlement. Keep advantage/disadvantage kept/discarded checks, percentile arithmetic, critical extra dice, bonus labels, and class material checks.
+- Check the current live tray and result boxes. The old prerecorded renderer's comparison markup does not describe the live workflow.
+- Initiative starts with the DM; claimed players retain their own Roll initiative button. Your Turn and result announcements should be checked at their intended presentation phase.
+- Unsupported custom polyhedra show an actionable notice without committing a roll. Standard d4, d6, d8, d10, d12, d20, and d100 rolls remain covered. See [Live dice physics](LIVE_DICE_PHYSICS.md).
+- Asset-cache tests require an actual GLB, not a Git LFS pointer, and still verify cached/offline reuse. Reveal-tag, visibility, damage ownership, and roll privacy checks remain active.
+
+The relevant regression list includes:
+
+| Coverage | Specs |
+| --- | --- |
+| Live faces, totals, network privacy, disconnect completion | `live-dice-workflow`, `live-dice-contract`, `player-hud`, `upstream-dice-reconciliation` |
+| Dice picker bounds and keyboard/touch controls | `dice-picker` |
+| Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `compact-checks`, `player-initiative` |
+| Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
+| Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
+| 2D silhouettes and 3D base-only selection | `token-hit-region` |
+| Cache integrity and creature reveal tags | `asset-cache`, `encounter-tags` |
+
+Each name above is an `e2e/<name>.spec.ts` file. Other normal UI/map regressions remain enabled too. Component fixtures must provide valid current data, including condition IDs, and explicitly choose 2D/3D mode when checking a particular hit shape. A pulsing button can be clicked at its measured center when its intentional animation prevents Playwright's static-position actionability check; it must still be visible and enabled, and the test must verify the real resulting action.
+
+## Optional captures and AI demonstrations
+
+These are recordings or environment-dependent demonstrations, not required CI tests. Their explicit switches keep Windows-only ffmpeg lookup, long walkthroughs, and external API calls out of the normal regression run.
+
+| Spec | Opt-in environment variable |
+| --- | --- |
+| `combat-environment-video.spec.ts` | `DND_ENVIRONMENT_DEMO=1` |
+| `dm-affinity-dice.spec.ts` | `DND_DM_DICE_DEMO=1` |
+| `combat-fixes-video.spec.ts` | `DND_FIXES_DEMO=1` |
+| `party-abilities-video.spec.ts` | `DND_PARTY_DEMO=1` |
+| Optional recordings within `miniature-battlefield.spec.ts` | `DND_MOVEMENT_DEMO=1` |
+| Live wall-draft comparison within `miniature-battlefield.spec.ts` | `DND_WALL_DRAFT_DEMO=1` |
+| Recorded mask conversion within `miniature-battlefield.spec.ts` | `DND_MASK_WALL_DEMO=1` |
+
+For example, on Windows PowerShell with ffmpeg installed:
+
+```powershell
+$env:DND_ENVIRONMENT_DEMO = '1'
+npm run test:e2e -- e2e/combat-environment-video.spec.ts
+Remove-Item Env:DND_ENVIRONMENT_DEMO
+```
+
+The ordinary miniature, movement, combat, and visibility regressions still run without those switches.

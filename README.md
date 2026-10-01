@@ -228,7 +228,11 @@ Other useful scripts:
 ```bash
 npm run typecheck   # type-check server + client
 npm test            # run the server/shared unit tests (vitest)
+npm run test:e2e    # browser regressions against a disposable save
 ```
+
+See [Automated verification](docs/TESTING.md) for focused checks, live-dice
+expectations, failure traces, and optional video/AI demonstrations.
 
 ### Run it 24/7 on your PC (Windows service)
 

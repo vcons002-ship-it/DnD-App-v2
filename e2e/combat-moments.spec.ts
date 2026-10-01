@@ -1,14 +1,16 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { dismissSettledRoll } from './helpers/diceLive';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
 
-// Real player/DM browsers against an isolated server: normal one-click damage,
-// combined Smite in either mode, duplicate requests, and Pact usage on level-up.
-test('Initiative, your turn, Riposte and critical celebration', async ({ page, browser, request }) => {
+// Real player UI against an isolated server: player-owned initiative, turn
+// announcements, a melee-miss reaction and a critical result from live physics.
+test('Initiative, your turn, Riposte and critical celebration', async ({ page, request }) => {
+  test.setTimeout(150_000);
   const created = await request.post('/api/sessions', {
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Prompt ownership' },
   });
@@ -16,6 +18,8 @@ test('Initiative, your turn, Riposte and critical celebration', async ({ page, b
   const { code } = await created.json();
   const socket = io(`http://localhost:${PORT}`, { transports: ['websocket'], forceNew: true });
   connections.push(socket);
+  // The headless DM observes server outcomes without rendering a tray.
+  socket.on('dice:frame', frame => socket.emit('dice:ready', {id:frame.id}));
   const snapshot = async (): Promise<StateSnapshot> => {
     const result = await socket.timeout(5000).emitWithAck('join', { sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET });
     expect(result.ok).toBe(true);
@@ -56,12 +60,18 @@ test('Initiative, your turn, Riposte and critical celebration', async ({ page, b
   await page.getByRole('button',{name:'Join',exact:true}).click();
   await page.locator('.claim-row').filter({hasText:'Druk'}).click();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
-  socket.emit('initiative:rollAll');
-  await expect(page.locator('.combat-moment')).toContainText('Roll initiative!');
-  await expect(page.locator('.combat-moment')).toHaveCSS('animation-name', 'combat-spotlight');
-  await page.waitForTimeout(650);
+  socket.emit('initiative:start');
+  const initiativeRequest = page.getByRole('region',{name:'Initiative roll request'});
+  await expect(initiativeRequest).toContainText('Roll initiative!',{timeout:30_000});
+  await expect(initiativeRequest).toHaveCSS('animation-name', 'initiative-arrival');
+  await expect(initiativeRequest.getByRole('button',{name:'Roll initiative',exact:true})).toBeEnabled();
+  expect((await snapshot()).tokens.find(token => token.id === pc.id)!.initiative).toBeNull();
   await page.screenshot({path:test.info().outputPath('roll-initiative.png'),fullPage:true});
-  await page.getByRole('button',{name:'Dismiss announcement'}).click();
+  await initiativeRequest.getByRole('button',{name:'Roll initiative',exact:true}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(initiativeRequest).toHaveCount(0);
+  await expect.poll(async () => (await snapshot()).initiativePending,{timeout:30_000}).toBe(false);
+  await dismissSettledRoll(page);
   if ((await snapshot()).activeTurnTokenId !== pc.id) socket.emit('initiative:next');
   await expect(page.locator('.combat-moment')).toContainText('Your Turn');
   await page.waitForTimeout(700);
@@ -78,7 +88,9 @@ test('Initiative, your turn, Riposte and critical celebration', async ({ page, b
   await expect(page.locator('.combat-moment')).toHaveCount(0);
   let offer;
   for(let i=0;i<8 && !offer;i++) {
+    const previous=(await snapshot()).rollLog.length;
     socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:pc.id,weaponIndex:0});
+    await expect.poll(async () => (await snapshot()).rollLog.length,{timeout:30_000}).toBeGreaterThan(previous);
     offer=(await snapshot()).ripostes?.[0];
   }
   expect(offer).toBeTruthy();
@@ -89,15 +101,65 @@ test('Initiative, your turn, Riposte and critical celebration', async ({ page, b
   expect((await snapshot()).characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(0);
   offer=undefined;
   for(let i=0;i<8 && !offer;i++) {
+    const previous=(await snapshot()).rollLog.length;
     socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:pc.id,weaponIndex:0});
+    await expect.poll(async () => (await snapshot()).rollLog.length,{timeout:30_000}).toBeGreaterThan(previous);
     offer=(await snapshot()).ripostes?.[0];
   }
-  // A prone/unconscious adjacent target makes a landed melee hit a critical hit.
-  socket.emit('condition:set',{kind:'monster',refId:enemy.refId,condition:{label:'Unconscious',aura:'blue',isConcentration:false}});
-  await snapshot();
-  await page.getByRole('region',{name:'Riposte opportunity'}).getByRole('button',{name:/Riposte/}).click();
-  await expect.poll(async()=> (await snapshot()).characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(1);
-  await expect(page.locator('.critical-flourish')).toBeVisible();
-  await page.screenshot({path:test.info().outputPath('critical-hit.png'),fullPage:true});
-  await expect(page.getByRole('region',{name:'Riposte opportunity'})).toHaveCount(0);
+  expect(offer).toBeTruthy();
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  let critical = false;
+  // Advantage can still legitimately roll two natural ones. Each retry needs
+  // a new turn/reaction and a genuine melee miss; never alter the rolled faces
+  // or restore spent Superiority Dice to manufacture a critical result.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    socket.emit('condition:set',{kind:'monster',refId:enemy.refId,condition:{label:'Unconscious',aura:'blue',isConcentration:false}});
+    const before = await snapshot();
+    const spent = before.characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used;
+    await page.getByRole('region',{name:'Riposte opportunity'}).getByRole('button',{name:/Riposte/}).click();
+    await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+    await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30_000});
+    await expect.poll(async()=> (await snapshot()).characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(spent + 1);
+    const after = await snapshot();
+    const attack = after.rollLog.findLast(r=>r.reveal?.kind==='attack' && r.reveal.attacker===character.name)!;
+    expect(after.characters.find(c=>c.id===character.id)!.conditions.some(c=>c.label==='Reaction spent (Riposte)')).toBe(true);
+    await expect(page.getByRole('region',{name:'Riposte opportunity'})).toHaveCount(0);
+    if(attack.reveal!.outcome==='crit') {
+      await expect(page.locator('.critical-flourish')).toBeVisible();
+      await page.screenshot({path:test.info().outputPath('critical-hit.png'),fullPage:true});
+      critical = true;
+      break;
+    }
+    expect(attack.reveal!.outcome).toBe('fumble');
+    expect(attack.reveal!.d20).toBe(1);
+    expect(attack.pending).toBeUndefined();
+    await expect(page.getByRole('status',{name:'Roll result',exact:true})).toHaveText('Fumble!');
+    await dismissSettledRoll(page);
+    if(attempt===2)break;
+
+    // Wake the attacker, then advance through a real new fighter turn so the
+    // reaction refreshes normally while the spent dice remain spent.
+    for(const condition of after.monsters.find(m=>m.id===enemy.refId)!.conditions)
+      if(['Unconscious','Incapacitated','Prone'].includes(condition.label))
+        socket.emit('condition:clear',{kind:'monster',refId:enemy.refId,conditionId:condition.id});
+    await snapshot();
+    socket.emit('initiative:next');
+    await expect.poll(async()=>(await snapshot()).activeTurnTokenId).toBe(enemy.id);
+    socket.emit('initiative:next');
+    await expect.poll(async()=>(await snapshot()).activeTurnTokenId).toBe(pc.id);
+    const refreshed=await snapshot();
+    expect(refreshed.characters.find(c=>c.id===character.id)!.conditions.some(c=>c.label==='Reaction spent (Riposte)')).toBe(false);
+    expect(refreshed.characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(spent + 1);
+    await expect(page.locator('.combat-moment')).toContainText('Your Turn');
+    await page.getByRole('button',{name:'Dismiss announcement'}).click();
+    offer=undefined;
+    for(let i=0;i<8 && !offer;i++) {
+      const previous=(await snapshot()).rollLog.length;
+      socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:pc.id,weaponIndex:0});
+      await expect.poll(async()=>(await snapshot()).rollLog.length,{timeout:30_000}).toBeGreaterThan(previous);
+      offer=(await snapshot()).ripostes?.[0];
+    }
+    expect(offer).toBeTruthy();
+  }
+  expect(critical, 'Three genuine Riposte attempts all fumbled; no critical result was available to show').toBe(true);
 });

@@ -2,9 +2,11 @@ import { test, expect, type APIRequestContext, type Locator, type Page } from '@
 import { io, type Socket } from 'socket.io-client';
 import type { RollEntry, StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import { completedDice, LIVE_COMBAT_TIMEOUT, observeCombatDice, waitForCombatRoll } from './helpers/combatLive';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
+test.beforeEach(() => test.setTimeout(180_000));
 
 // This fixture only writes to Playwright's disposable database on port 4099.
 async function fixture(request: APIRequestContext, page: Page) {
@@ -15,6 +17,7 @@ async function fixture(request: APIRequestContext, page: Page) {
   const { code } = await response.json();
   const socket = io(`http://localhost:${PORT}`, { transports: ['websocket'], forceNew: true });
   connections.push(socket);
+  const frames = observeCombatDice(socket);
   const snapshot = async (): Promise<StateSnapshot> => {
     const result = await socket.timeout(5000).emitWithAck('join', {
       sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET,
@@ -62,7 +65,7 @@ async function fixture(request: APIRequestContext, page: Page) {
   await page.getByRole('button', { name: 'Join', exact: true }).click();
   await page.locator('.claim-row').filter({ hasText: 'Druk' }).click();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
-  return { code, socket, snapshot, character, pc, target };
+  return { code, socket, snapshot, character, pc, target, frames };
 }
 
 async function playerAttack(page: Page, f: Awaited<ReturnType<typeof fixture>>, manual: boolean) {
@@ -70,13 +73,9 @@ async function playerAttack(page: Page, f: Awaited<ReturnType<typeof fixture>>, 
   for (let attempt = 0; attempt < 5; attempt++) {
     const previous = new Set((await f.snapshot()).rollLog.map((entry) => entry.id));
     await page.locator('.compact-player-combat').getByRole('button', { name: /Log greatsword/ }).click();
-    let result: RollEntry | undefined;
-    await expect.poll(async () => {
-      result = (await f.snapshot()).rollLog.find((entry) => !previous.has(entry.id) && entry.label === 'Attack');
-      return !!result;
-    }).toBe(true);
-    if (manual ? !!result!.pending : (result!.reveal?.damage ?? 0) > 0) return result!;
-    expect(result!.reveal?.outcome).toBe('fumble');
+    const result = await waitForCombatRoll(f.snapshot, previous, entry => entry.label === 'Attack');
+    if (manual ? !!result.pending : (result.reveal?.damage ?? 0) > 0) return result;
+    expect(result.reveal?.outcome).toBe('fumble');
   }
   throw new Error('Five consecutive natural-1 attacks produced no damage to inspect');
 }
@@ -103,19 +102,24 @@ test('manual damage keeps its recorded dice and modifiers in full history, the o
   const f = await fixture(request, page);
   await page.getByRole('button', { name: 'Open chat and roll log', exact: true }).click();
   const attack = await playerAttack(page, f, true);
-  expect(attack.pending!.mods).toContainEqual({ label: 'STR', value: 4 });
+  expect(attack.pending!.dice).toEqual([]);
+  expect(attack.pending!.mods).toEqual([]);
+  expect(attack.pending!.amount).toBe(0);
   expect((await f.snapshot()).monsters.find((monster) => monster.id === f.target.refId)!.curHp).toBe(200);
   // The pending payload is not a new public result. Do not reveal damage early.
   await expect(page.locator('.roll-log .roll-damage-breakdown')).toHaveCount(0);
   await expect(page.locator('.roll-log .roll-dmg')).toBeVisible();
+  const frameStart = f.frames.length;
+  const previous = new Set((await f.snapshot()).rollLog.map(r => r.id));
   await page.locator('.roll-log .roll-dmg').click();
-  let damage: RollEntry | undefined;
-  await expect.poll(async () => {
-    damage = (await f.snapshot()).rollLog.findLast((entry) => entry.label === 'Damage');
-    return !!damage;
-  }).toBe(true);
-  expect(damage!.reveal?.damageDice).toEqual(attack.pending!.dice);
-  expect(damage!.reveal?.damageMods).toEqual(attack.pending!.mods);
+  const damage = await waitForCombatRoll(f.snapshot, previous, entry => entry.label === 'Damage');
+  const physical = completedDice(f.frames.slice(frameStart));
+  expect(physical).toHaveLength(1);
+  expect(physical[0].sides).toEqual(Array(attack.pending!.crit ? 4 : 2).fill(6));
+  expect(damage.reveal?.damageDice?.flatMap(step => step.faces ?? [])).toEqual(physical[0].values);
+  expect(damage.reveal?.damageMods).toContainEqual({ label: 'STR', value: 4 });
+  expect((await f.snapshot()).rollLog.find(r => r.id === attack.id)?.pending?.done).toBe(true);
+  expect((await f.snapshot()).monsters.find(m => m.id === f.target.refId)?.curHp).toBe(200 - damage.total);
   await expectRecordedDamage(page.locator('.roll-log .roll-damage-breakdown'), damage!);
   await page.screenshot({ path: testInfo.outputPath('player-full-damage-log.png') });
   await page.getByRole('button', { name: 'Collapse chat and roll log', exact: true }).click();
@@ -151,7 +155,7 @@ test('a targeted saving-throw spell preserves its cast dice in history without t
   await expect.poll(async () => {
     cast = (await f.snapshot()).rollLog.find((entry) => entry.label === 'Log flame');
     return !!cast?.apply?.consumedTargets?.length;
-  }).toBe(true);
+  }, { timeout: LIVE_COMBAT_TIMEOUT }).toBe(true);
   expect(cast!.reveal?.kind).toBe('damage');
   expect((await f.snapshot()).rollLog.at(-1)?.reveal?.kind).toBe('check');
   await page.getByRole('button', { name: 'Open chat and roll log', exact: true }).click();
@@ -166,8 +170,9 @@ test('enemy damage history exposes recorded dice but never restores modifier lab
   await f.snapshot();
   let attack: RollEntry | undefined;
   for (let attempt = 0; attempt < 5; attempt++) {
+    const previous = new Set((await f.snapshot()).rollLog.map(r => r.id));
     f.socket.emit('combat:attack', { attackerTokenId: f.target.id, targetTokenId: f.pc.id, weaponIndex: 0 });
-    attack = (await f.snapshot()).rollLog.at(-1)!;
+    attack = await waitForCombatRoll(f.snapshot, previous, r => r.label === 'Attack' && r.roller === 'DM');
     if ((attack.reveal?.damage ?? 0) > 0) break;
   }
   expect(attack?.hideMods).toBe(true);
@@ -190,8 +195,9 @@ test('enemy damage history exposes recorded dice but never restores modifier lab
     // a hidden roll adds no player history entry at all.
     const playerRows = await page.locator('.roll-log .roll-entry').count();
     f.socket.emit('session:setHideDmRolls', { hide: true });
+    const previous = new Set((await f.snapshot()).rollLog.map(r => r.id));
     f.socket.emit('combat:attack', { attackerTokenId: f.target.id, targetTokenId: f.pc.id, weaponIndex: 0 });
-    const last = (await f.snapshot()).rollLog.at(-1)!;
+    const last = await waitForCombatRoll(f.snapshot, previous, r => r.label === 'Attack' && r.roller === 'DM');
     expect(last.dmOnly).toBe(true);
     await expect(dm.locator('.roll-log .roll-entry')).toHaveCount(playerRows + 1);
     await expect(page.locator('.roll-log .roll-entry')).toHaveCount(playerRows);

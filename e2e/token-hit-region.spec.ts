@@ -9,7 +9,7 @@ const imageUrl = 'https://token-hit.test/portrait.svg';
 const imageFixture = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#4388bf"/></svg>';
 
 type Hit = { name: string; tokenId: string } | null;
-type RenderOptions = { shape?: string; icon?: string; listening?: boolean; adjacent?: boolean; miniatureReady?: boolean };
+type RenderOptions = { shape?: string; icon?: string; listening?: boolean; adjacent?: boolean; miniatureReady?: boolean; miniaturePending?: boolean };
 type QaWindow = Window & { __tokenHitQA: {
   render: (options: RenderOptions) => void;
   hits: (points: number[][]) => Hit[];
@@ -40,17 +40,21 @@ test.beforeAll(async () => {
         };
         const display = { name: 'A wide decorative token name', curHp: 7, maxHp: 10,
           tempHp: 8, icon: '', disposition: 'friendly',
-          conditions: [{ label: 'Poisoned', aura: 'red' }, { label: 'Bless', aura: 'green' }] };
+          conditions: [
+            { id: 'poisoned', label: 'Poisoned', aura: 'red', isConcentration: false },
+            { id: 'bless', label: 'Bless', aura: 'green', isConcentration: false },
+          ] };
         const token = { id: 'front', kind: 'pc', refId: 'pc1', x: 200, y: 200,
           widthFt: 5, shape: 'circle', combatRole: 'caster' };
         const props = { display, gridSizePx: 40, pxPerFoot: 16, draggable: true,
           selected: true, activeTurn: true, initiativeRank: 1, ...callbacks };
-        const render = ({ shape = 'circle', icon = '', listening = true, adjacent = false, miniatureReady = false } = {}) => {
+        const render = ({ shape = 'circle', icon = '', listening = true, adjacent = false, miniatureReady = false, miniaturePending = false } = {}) => {
           flushSync(() => root.render(<Stage width={500} height={420} ref={stageRef}>
             <Layer>
               {adjacent && <TokenShape {...props} activeTurn={false} initiativeRank={null}
+                miniatureReady={miniatureReady} miniaturePending={miniaturePending}
                 token={{ ...token, id: 'behind', kind: 'monster', y: 135 }} />}
-              <TokenShape {...props} miniatureReady={miniatureReady} display={{ ...display, icon }} listening={listening} token={{ ...token, shape }} />
+              <TokenShape {...props} miniatureReady={miniatureReady} miniaturePending={miniaturePending} display={{ ...display, icon }} listening={listening} token={{ ...token, shape }} />
             </Layer>
           </Stage>));
           stageRef.current.draw();
@@ -98,7 +102,7 @@ for (const sample of [
   { shape: 'triangle', inside: [[0, -38], [0, 18]], outside: [[0, 22], [20, -30]] },
 ]) {
   test(`${sample.label ?? sample.shape} hit region matches only its body silhouette`, async ({ page }) => {
-    await mount(page, { shape: sample.shape, icon: sample.icon });
+    await mount(page, { shape: sample.shape, icon: sample.icon, miniatureReady: false, miniaturePending: false });
     const hits = await page.evaluate((points) => (window as unknown as QaWindow).__tokenHitQA.hits(points),
       [...sample.inside, ...sample.outside].map(([x, y]) => [x + 200, y + 200]));
     expect(hits.slice(0, sample.inside.length)).toEqual(sample.inside.map(() => ({ name: 'token-hit-region', tokenId: 'front' })));
@@ -108,9 +112,10 @@ for (const sample of [
   });
 }
 
-test('ready miniatures always hit only their round base, regardless of the old portrait shape', async ({ page }) => {
+for (const phase of ['ready', 'pending'] as const) {
+test(`${phase} miniatures always hit only their round base, regardless of the old portrait shape`, async ({ page }) => {
   for (const shape of ['square', 'image', 'diamond', 'triangle', 'circle']) {
-    await mount(page, { shape, miniatureReady: true, adjacent: true });
+    await mount(page, { shape, miniatureReady: phase === 'ready', miniaturePending: phase === 'pending', adjacent: true });
     expect(await page.evaluate(() => (window as unknown as QaWindow).__tokenHitQA.hits([
       [200, 200], [239, 200], [239, 239], [250, 200], [200, 135], [200, 100], [200, 246],
     ]))).toEqual([
@@ -124,6 +129,7 @@ test('ready miniatures always hit only their round base, regardless of the old p
     expect(await page.evaluate(() => (window as unknown as QaWindow).__tokenHitQA.events.filter(e => e.name === 'select').map(e => e.tokenId))).toEqual(['front']);
   }
 });
+}
 
 test('loading and failed image icons keep the circular fallback hit region', async ({ page }) => {
   await mount(page, { shape: 'image' });

@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import {DM_SECRET,PORT} from './playwright.config';
+test.skip(process.env.DND_ENVIRONMENT_DEMO!=='1','Optional Windows video capture; enable DND_ENVIRONMENT_DEMO=1 explicitly.');
 test.beforeAll(()=>{const require=createRequire(process.cwd()+'/package.json');const e=require('playwright-core/lib/server/registry/index').registry.findExecutable('ffmpeg');const f=execFileSync('where.exe',['ffmpeg'],{encoding:'utf8'}).trim().split(/\r?\n/)[0];e.executablePath=()=>f;e.executablePathOrDie=()=>f;});
 
 test('combat and environment video',async({browser,request},info)=>{

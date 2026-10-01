@@ -61,6 +61,8 @@
 .dm-window .hint { color: #cab386; }
 .dm-empty { padding: 18px; line-height: 1.6; color: var(--muted); }
 .dm-turn-bar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 24; display: flex; align-items: center; gap: 24px; max-width: calc(100% - 32px); padding: 10px 14px; background: linear-gradient(110deg,#28292cec,#11161bf7); border: 1px solid #92784e; border-radius: 5px; box-shadow: 0 8px 25px #0007; }
+/* Keep landed-hit choices above the persistent turn controls, including their pulse. */
+.dm-fantasy .damage-prompt { bottom: 90px; z-index: 25; }
 .dm-turn-summary { background: none; border: 0; color: var(--text); text-align: left; display: grid; grid-template-columns: auto auto; column-gap: 18px; row-gap: 2px; padding: 0; cursor: pointer; }
 .dm-turn-summary .dm-round { grid-row: span 2; align-self: center; font-size: 10px; letter-spacing: .08em; color: #d4b980; border-right: 1px solid #766340; padding-right: 18px; }
 .dm-turn-summary strong { font: 500 15px 'Cinzel HUD', Georgia, serif; white-space: nowrap; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
