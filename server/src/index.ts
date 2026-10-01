@@ -42,6 +42,10 @@ startBackupScheduler(); // periodic on-disk backups of every session (default: b
 
 const app = express();
 app.set('trust proxy', true); // we sit behind the Cloudflare Tunnel
+// Detailed wall drafts include polygon vertices and their review metadata.
+// Keep the ordinary request limit elsewhere; these DM-gated routes need room
+// for the reviewed geometry instead of failing at Express's default 100 KB.
+app.use(['/api/maps/:mapId/wall-draft/apply','/api/maps/:mapId/door-draft/apply','/api/maps/:mapId/setup-draft/apply'],express.json({limit:'8mb'}));
 app.use(express.json());
 
 const server = http.createServer(app);

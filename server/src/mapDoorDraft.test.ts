@@ -7,7 +7,7 @@ import {createSession,createMap,getMap,getToken,getMonster,listTokens,updateMapE
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {generateApiImage} from './ai/imageGateway.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
-import {fitDoorMarker} from './doorMaskFit.js';
+import {fitDoorMarker} from '../../shared/doorMaskFit.js';
 import {hasLineOfSight,stopAtWalls} from '../../shared/mapWalls.js';
 import {translateWall} from '../../shared/wallGeometry.js';
 vi.mock('./ai/imageGateway.js',()=>({generateApiImage:vi.fn()}));

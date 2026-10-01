@@ -8,10 +8,11 @@ import {db} from './db.js';
 import {generateApiImage} from './ai/imageGateway.js';
 import {reportAi} from './ai/status.js';
 import {DOOR_MASK_PROMPT,doorsFromMask} from './doorMask.js';
-import {fitDoorMarker} from './doorMaskFit.js';
+import {fitDoorMarker} from '../../shared/doorMaskFit.js';
 import {getMap,createWallDoorObject} from './sessions.js';
-import {MAX_MAP_WALLS,sanitizeWalls,wallEdgeCount} from '../../shared/mapWalls.js';
+import {sanitizeWalls} from '../../shared/mapWalls.js';
 import type {MapDoorDraft} from '../../shared/mapDoorDraft.js';
+import type {MapWall} from '../../shared/mapWalls.js';
 
 export async function suggestMapDoors(mapId:string):Promise<MapDoorDraft> {
   const {map,image,source}=await geometrySource(mapId);
@@ -28,26 +29,32 @@ export async function suggestMapDoors(mapId:string):Promise<MapDoorDraft> {
   return {version:1,id:randomUUID(),source,maskImagePath:result.path,doors};
 }
 
-/** Append linked doors as one transaction. Geometry and lock defaults are server-owned. */
-export async function applyDoorDraft(mapId:string,raw:unknown,selection:unknown):Promise<number> {
+/** Fit selected markers to the final reviewed walls, including newly drafted walls. */
+export function prepareDoorDraft(raw:unknown,selection:unknown,source:MapDoorDraft['source'],existing:readonly MapWall[]):MapWall[] {
   const draft=raw as MapDoorDraft;
   if(draft?.version!==1||typeof draft.id!=='string'||!/^[\w-]{1,40}$/.test(draft.id)||!Array.isArray(draft.doors)||draft.doors.length>64||draft.doors.some(d=>!d||typeof d.id!=='string'||!/^ai-door-\d{1,2}$/.test(d.id))||new Set(draft.doors.map(d=>d.id)).size!==draft.doors.length)throw new Error('Invalid door draft.');
   if(!Array.isArray(selection)||!selection.length||selection.some(id=>typeof id!=='string'||!draft.doors.some(d=>d.id===id))||new Set(selection).size!==selection.length)throw new Error('Select doors from this draft.');
-  const {source}=await geometrySource(mapId);
   if(JSON.stringify(draft.source)!==JSON.stringify(source))throw new Error('The map image, grid or walls changed. Generate a new door draft.');
   const chosen=draft.doors.filter(d=>selection.includes(d.id));
   if(chosen.some(d=>![d.ax,d.ay,d.bx,d.by,d.thickness].every(v=>typeof v==='number'&&Number.isFinite(v))||d.ax<0||d.bx<0||d.ay<0||d.by<0||d.ax>source.width||d.bx>source.width||d.ay>source.height||d.by>source.height||d.thickness<=0||d.thickness>source.width*.04))throw new Error('Invalid door positions.');
+  const walls=[...existing],added:MapWall[]=[];
+  for(const marker of chosen){
+    const {wall,issue}=fitDoorMarker(marker,walls,source.gridSizePx);
+    if(!wall)throw new Error(`${marker.id}: ${issue}`);
+    const door={...wall,id:`door-${draft.id}-${marker.id}`};
+    walls.push(door);added.push(door);
+  }
+  return added;
+}
+
+/** Append linked doors as one transaction. Geometry and lock defaults are server-owned. */
+export async function applyDoorDraft(mapId:string,raw:unknown,selection:unknown):Promise<number> {
+  const {source}=await geometrySource(mapId);
   return db.transaction(()=>{
     const map=getMap(mapId);
     if(!map||createHash('sha256').update(JSON.stringify(map.walls??[])).digest('hex')!==source.wallsHash)throw new Error('Walls changed during review. Generate a new door draft.');
-    const walls=[...(map.walls??[])],added=[];
-    for(const marker of chosen){
-      const {wall,issue}=fitDoorMarker(marker,walls,source.gridSizePx);
-      if(!wall)throw new Error(`${marker.id}: ${issue}`);
-      const door={...wall,id:`door-${draft.id}-${marker.id}`};
-      walls.push(door);added.push(door);
-    }
-    if(wallEdgeCount(walls)>MAX_MAP_WALLS||sanitizeWalls(walls).length!==walls.length)throw new Error('These doors exceed the wall limit or could not be fitted safely. Select fewer doors.');
+    const added=prepareDoorDraft(raw,selection,source,map.walls??[]),walls=[...(map.walls??[]),...added];
+    if(sanitizeWalls(walls).length!==walls.length)throw new Error('These doors could not be fitted safely. Review the selected door geometry.');
     for(const door of added){
       const token=createWallDoorObject(map.sessionId,mapId,(door.ax+door.bx)/2,(door.ay+door.by)/2);
       door.tokenId=token.id;

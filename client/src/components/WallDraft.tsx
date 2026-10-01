@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import type {MapState} from '../../../shared/types';
 import {draftWallShape,type MapGeometryDraft} from '../../../shared/mapGeometryDraft';
 import {apiFetch} from '../lib/api';
+import {WallPerformanceNotice} from './WallPerformanceNotice';
 
 export function WallDraft({map,onClose}:{map:MapState;onClose:()=>void}) {
   const [draft,setDraft]=useState<MapGeometryDraft|null>(null);
@@ -12,11 +13,13 @@ export function WallDraft({map,onClose}:{map:MapState;onClose:()=>void}) {
   const [threshold,setThreshold]=useState(90),[polarity,setPolarity]=useState('dark'),[minLength,setMinLength]=useState(2);
   const [showArt,setShowArt]=useState(true);
   const [showMask,setShowMask]=useState(false);
+  const [naturalBoundaries,setNaturalBoundaries]=useState(true),[maskStage,setMaskStage]=useState('combined');
+  const maskPath=maskStage==='walls'?draft?.wallMaskImagePath:maskStage==='natural'?draft?.naturalMaskImagePath:draft?.maskImagePath;
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy)onClose();};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[busy,onClose]);
   const analyze=async()=>{
     setBusy(true);setError('');
     try{
-      const response=await apiFetch(`/api/maps/${map.id}/wall-draft`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,options:{threshold,polarity,minLengthSquares:minLength}})}),body=await response.json();
+      const response=await apiFetch(`/api/maps/${map.id}/wall-draft`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method,options:{threshold,polarity,minLengthSquares:minLength,naturalBoundaries}})}),body=await response.json();
       if(!response.ok)throw new Error(body.error||'Map analysis failed.');
       setDraft(body);setSelected(body.items.filter((i:MapGeometryDraft['items'][number])=>i.kind==='wall'&&i.confidence>=.75).map((i:MapGeometryDraft['items'][number])=>i.id));
     }catch(e){setError(e instanceof Error?e.message:'Map analysis failed.');}finally{setBusy(false);}
@@ -39,6 +42,7 @@ export function WallDraft({map,onClose}:{map:MapState;onClose:()=>void}) {
     <p className="muted" style={{margin:0}}>Apply creates full-height walls that block sight and movement. Add working doors afterward with the door tool. Existing walls are preserved.</p>
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
       <label>Detection <select aria-label="Wall detection method" disabled={busy} value={method} onChange={e=>setMethod(e.target.value as 'ai'|'local')}><option value="local">Local contrast / empty space (no API)</option><option value="ai">AI yellow wall mask (recommended)</option></select></label>
+      {method==='ai'&&<label><input type="checkbox" disabled={busy} checked={naturalBoundaries} onChange={e=>setNaturalBoundaries(e.target.checked)}/> Include cave boundaries and pillars (second API pass)</label>}
       {method==='local'&&<><label>Walls <select aria-label="Wall contrast polarity" disabled={busy} value={polarity} onChange={e=>setPolarity(e.target.value)}><option value="dark">Darker than floor</option><option value="light">Lighter than floor</option></select></label>
         <label>Threshold <input aria-label="Wall detection threshold" disabled={busy} type="number" min={0} max={255} value={threshold} onChange={e=>setThreshold(Number(e.target.value))} style={{width:65}}/></label>
         <label>Minimum length (squares) <input aria-label="Minimum wall length" disabled={busy} type="number" min={1} max={10} value={minLength} onChange={e=>setMinLength(Number(e.target.value))} style={{width:50}}/></label></>}
@@ -48,13 +52,16 @@ export function WallDraft({map,onClose}:{map:MapState;onClose:()=>void}) {
     </div>
     {busy&&<div role="status">{draft?'Processing draft…':method==='local'?'Scanning wall bands and open floor contrast locally...':'Generating the yellow mask, then converting it to walls. Image API retries may take a few minutes.'}</div>}
     {error&&<div role="alert" style={{color:'#ffb6a1'}}>{error}</div>}
+    <WallPerformanceNotice walls={[...(map.walls??[]),...(draft?.items.filter(i=>i.kind==='wall'&&selected.includes(i.id)).map(i=>draftWallShape(i,draft.source))??[])]}/>
+    {draft?.maskWarnings?.map(warning=><div key={warning} role="alert" style={{color:'#ffd39a'}}>{warning}</div>)}
     {draft&&<small>Draft from {draft.method==='local'?'local contrast detection (experimental; all walls start unselected)':'AI yellow-mask conversion'}. Analyzes the base map image only. Review alignment and doorway gaps carefully. Yellow-mask percentages describe conversion coverage, not accuracy.</small>}
     {draft?.maskGeometry&&<small>{draft.maskGeometry==='outlines'?'Wall shapes follow the painted outlines, including curves, angles and empty room interiors. Apply saves these exact shapes.':'This mask required rectangular wall fitting. Check curved and angled sections carefully before applying.'}</small>}
     {draft?.maskImagePath&&<label><input type="checkbox" checked={showMask} onChange={e=>setShowMask(e.target.checked)}/> Show generated yellow annotation behind proposed walls</label>}
+    {showMask&&draft?.wallMaskImagePath&&<label>Mask view <select aria-label="Wall mask stage" value={maskStage} onChange={e=>setMaskStage(e.target.value)}><option value="combined">Combined mask used for walls</option><option value="walls">Pass 1: structural walls (raw API)</option>{draft.naturalMaskImagePath&&<option value="natural">Pass 2: natural boundaries (raw API)</option>}</select></label>}
     <div style={{display:'flex',gap:12,flex:1,minHeight:0,overflow:'auto',flexWrap:'wrap'}}>
       <div style={{flex:'1 1 500px',minWidth:0,overflow:'auto',background:'#080c10'}}>
         {draft?<svg aria-label="Wall draft overlay" viewBox={`0 0 ${draft.source.width} ${draft.source.height}`} style={{width:'100%',display:'block'}}>
-          {showArt&&<image href={showMask&&draft.maskImagePath?draft.maskImagePath:map.imagePath!} width={draft.source.width} height={draft.source.height} preserveAspectRatio="none"/>}
+          {showArt&&<image href={showMask?maskPath??draft.maskImagePath:map.imagePath!} width={draft.source.width} height={draft.source.height} preserveAspectRatio="none"/>}
           {draft.items.map(item=>{const r=draftWallShape(item,draft.source),checked=selected.includes(item.id),color=item.kind==='door'?'#58eea5':item.kind==='obstacle'?'#62c9ff':checked?'#ffe068':'#ff974d';return <path key={item.id} data-draft-id={item.id} d={wallSvgPath(r)} fillRule="evenodd" fill={color} fillOpacity={checked?.35:.12} stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeDasharray={checked?undefined:'6 3'} onClick={()=>item.kind==='wall'&&toggle(item.id)} style={{cursor:item.kind==='wall'?'pointer':'default'}}><title>{item.label}: {draft.maskImagePath?'Mask-derived wall':`${Math.round(item.confidence*100)}% confidence`}, estimated {item.heightFt} ft high</title></path>;})}
         </svg>:map.imagePath&&<img src={map.imagePath} alt="Map to analyze" style={{width:'100%'}}/>}
       </div>

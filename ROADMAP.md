@@ -6,6 +6,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Wall shape editing - September 2026
 
+- [x] Remove the 512-edge wall cap; keep all valid geometry, index sight rays, remove redundant straight wall points and compact light overlays. Warn the DM at 2,000 effective edges without blocking edits or imports. See [benchmarks and limits](docs/WALL_COMPLEXITY_PERFORMANCE_2026_09_30.md).
+- [x] Restore the focused masonry mask prompt, then separately add cave/rock outlines and pillars from the annotated image. Preserve first-pass wall paint, reject redundant wall retracing, and expose both raw responses and the combined mask for review.
+- [x] One-click walls, doors and lights: separate parallel mask requests, combined review, doors fitted to selected new walls, per-step retry and atomic application.
 - [x] Separate cyan-mask door analysis, review/select and atomic import of working doors into existing wall gaps. Keep wall/light requests independent and preserve original art.
 - [x] Add angled lines, hollow circular walls and free-draw strokes with map-scaled thickness.
 - [x] Drag and rotate any wall piece; preserve linked door state and object alignment.
@@ -2209,6 +2212,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 - Independent AI light drafting: Environment > Suggest lights from map art, magenta-marker review and selective apply; preserves wall workflow, map art and existing lights, with hidden fixtures and tested defaults.
 
 - [x] Yellow-mask wall conversion: grid-scaled rectangle fitting, dark-paint seam recognition, protected narrow cuts, and stress tests for offset/diagonal openings. Existing saved walls remain unchanged.
+- [x] Reject muted yellow-green source-art regions without saturated annotation paint; compare safe separate-mask contours near the detail budget. Mossgate frozen-response replay now applies all wall suggestions without manual flower exclusions.
+- [x] DM wall section eraser: drag a rectangle to subtract only that portion from imported/drawn shapes; preserve remaining walls, holes and functional doors. Whole-wall deletion remains separate.
 
 - Complex wall-mask integration verified on a fresh Gemini dungeon with round,
   octagonal, diagonal, curved and cave boundaries. The final cave prompt draws a

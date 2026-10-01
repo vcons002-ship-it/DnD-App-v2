@@ -1,5 +1,123 @@
 # Map geometry drafts (experimental)
 
+## One-click walls, doors and lights
+
+DM: **Walls → Suggest walls, doors & lights** starts all three existing image
+API workflows immediately. Walls now use the two-pass process below; doors and
+lights each receive the original base map with their own prompts and masks
+(cyan doors, magenta light sources). Individual workflow buttons remain available.
+
+The combined review shows progress for each analysis and previews the selected
+results together over the map. Switch tabs to select walls, doors or lights;
+**Show mask** displays the selected mask; wall masks have a selector for the raw
+structural response, raw natural-boundary response and combined import. Doors are fitted against
+existing walls plus the new walls currently selected, so deselecting a jamb can
+disable its door until the jamb is selected again. Incorrect doors still need
+to be deselected; suggestions without two suitable jambs cannot be applied.
+
+**Apply selected setup** validates every selected draft and saves the complete
+selection in one transaction, then broadcasts one map update. Doors start
+closed and unlocked. Lights use the existing art, with no added 3D fixture.
+The base image and existing map features are preserved. If one analysis fails,
+**Retry walls/doors/lights** reruns only that step; successful drafts and their
+selections stay available. After all requests finish, successful results can
+also be applied without the failed step. **Run all again** explicitly replaces
+all three drafts. Closing without applying leaves gameplay unchanged.
+
+`POST /api/maps/:mapId/setup-draft/apply` requires DM authentication and accepts
+`{drafts, selected}` with separate `walls`, `doors` and `lights` members. The
+server checks image/grid/wall/light freshness, refits doors itself and enforces
+the combined geometry budget before writing anything. Tiles are not analyzed.
+Normally the button makes four image requests: two sequential wall passes, one
+door request and one light request. The existing connection/conversion retries
+can add requests. It never combines all tasks into one image prompt.
+
+Initial one-pass verification on 30 September 2026: one UI click made three real
+Gemini mask requests on a fresh Lantern Crypt map. The combined endpoint saved
+6 wall pieces, 4 fitted doors and 12 lights, preserving the image and omitting
+3D light fixtures. Evidence is under `artifacts/setup-live/`. This verifies the
+combined workflow, not perfect detection: the wall mask missed the horizontal
+divider between the two left rooms, and door suggestions still require review.
+Three Playwright tests cover one-click launch, review-dependent door fitting,
+real atomic Apply, per-step retry/selection retention and DM authorization
+(image generation is stubbed only in those automated browser tests). The full
+server suite passed 1,059 tests; typecheck and production build passed.
+
+## Two-pass structural walls and natural boundaries
+
+The first request focuses only on masonry. It explicitly requests solid opaque
+yellow across the entire wall-top width, covering texture and mortar seams,
+and excludes outlines, border strokes and centerlines. It has no cave, pillar
+or natural-boundary instructions. The previously restored prompt was the saved
+second Gemini experiment on a different dungeon; its "trace" wording also
+produced outlines on the crypt. The exact successful filled crypt request was
+not retained, so restoring that earlier base prompt did not reproduce it.
+
+The explicit fill prompt was tested on the same crypt image in one real Gemini
+request. The raw response painted the wall tops again (some mortar detail
+remained), and converted into 3 polygon pieces with 194 edges. The divider
+blocked sight and movement; all four doorway routes stayed open. Evidence and
+the exact request are under `artifacts/crypt-solid-pass/`. This correction only
+changes the first-pass prompt; the natural-boundary pass is unchanged.
+
+The second request receives that already annotated image and adds **green**
+cave rim outlines, other solid natural rock boundaries and pillar tops. Cave
+outlines follow the outer rock rim and join the yellow masonry while leaving
+real entrances open. The prompt explicitly leaves ordinary built rooms alone.
+Doors, furniture, stairs and water edges are excluded.
+
+The importer keeps the first response as its base and adds only newly painted
+green pixels, converted to yellow for the existing contour converter. It never
+imports the second response's repainted map art or yellow wall edits. Existing
+green source art is excluded, and green components mostly retracing masonry
+are discarded with a review warning. This matters: an early live second-pass
+test tried to recolor the crypt's walls instead of leaving them alone.
+
+Both raw responses and the combined mask are retained for inspection. A failed
+natural pass leaves the structural draft available with a warning. If the union
+is too complex, the converter tries keeping the two masks as separate editable
+pieces. It evaluates all existing safe tolerances, with the same 1.5-pixel bound,
+wall-core/gap/coverage checks and 512-edge budget. Collapsed zero-area contour
+fragments are discarded before coverage is evaluated. If the separate pieces
+still cannot fit, review receives only the structural result with a warning.
+Pure cave maps can still import a
+natural boundary even when the first pass has no yellow wall pixels.
+
+Standalone wall analysis has **Include cave boundaries and pillars (second API
+pass)** checked by default; uncheck it to request ordinary walls only. The
+one-click setup includes the second pass automatically. Review is still required:
+separating requests does not make image generation deterministic or eliminate
+missed boundaries. New metadata: `wallMaskImagePath`, `naturalMaskImagePath`
+and `maskWarnings`; `maskImagePath` remains the exact mask sent to conversion.
+
+Live test: both new crypt wall masks included the divider omitted in the earlier
+combined-prompt run. The refined natural prompt left the crypt without new
+green markings. On Twisted Vaults, it added the cave rim but missed the pillar
+in the final run (the initial trial included it). The exact saved live responses
+were replayed through the repaired conversion and applied in the isolated app:
+4 editable pieces, 417 edges, 720 cave-enclosure sight probes with no leaks,
+blocked escape through the rock rim and an open entrance. The crypt divider
+blocked both movement and sight. This is workflow and conversion verification,
+not a guarantee that every generated mask finds every feature. Raw images,
+drafts and the explicit saved-response replay receipt are under
+`artifacts/two-pass-walls/`.
+
+Combined verification with the approved solid-fill prompt and the unchanged
+natural-boundary prompt: three fresh API requests (wall, natural, door) on
+Twisted Vaults produced 3 wall polygons using 423 edges and 9 door candidates.
+Review excluded the lower rectangular room's empty archway; all 8 real doors,
+including the cave door, fitted against the final walls. The saved setup uses
+455 edges. All 8 doors passed open/closed/reclosed sight and movement checks,
+184 probes across door spans and jamb joins found no leaks, and 1,440 cave
+enclosure rays plus both masonry-to-cave join checks passed. The cave door's
+lock also prevented opening. The natural prompt already includes other solid
+rock boundaries and pillars, so it was not changed. The central pillar was
+again omitted by the model; the empty archway was again a false door candidate.
+Evidence and exact request metadata: `artifacts/connected-masks/`.
+The real player UI also passed a closed-door drag rejection, Open action,
+successful drag into the cave and Close action from inside. Both prompt strings
+were checked byte-for-byte against their accepted test receipts.
+
 ## Separate door-mask workflow
 
 DM: **Walls → Suggest doors from map art → Find doors**. This makes a separate
@@ -263,3 +381,43 @@ Type checking and all 26 focused wall/import tests passed.
 Preview: https://dnd.nic024i.app/uploads/previews/cave-outline-20260930/index.html
 Evidence: artifacts/cave-outline/ (prompt, draft/apply response, ray checks,
 actual player positions and recording metadata). Development code only.
+
+### Source-art false positives and local wall erasing (Mossgate follow-up)
+
+The unchanged wall/natural/door prompts were tested on a new grass-to-cave map
+with ruins, doors and stairs. Its first untouched result was **14 wall pieces /
+508 boundary edges**: the structural pass contributed 296 edges (including
+three false flower patches totaling 20), and the natural pass 212. Adding the
+three fitted doors exceeded the app's 512-edge cap and failed atomically. A
+subsequent hand-reviewed walkthrough was diagnostic only, not an unattended
+success. Original responses and the failed receipt remain in
+`artifacts/grass-cave-ruins/` and the public raw-test preview.
+
+The converter now requires surviving saturated yellow paint within each connected
+region. Muted yellow-green artwork cannot establish a wall by itself, while dim
+edges/seams attached to confirmed paint remain unchanged. Existing source-art
+exclusion still applies. Near the edge budget, the converter also compares its
+existing separate-layer contour fallback against the combined pixel mask and
+keeps the lower-edge validated result. Gap/coverage tolerances are unchanged.
+
+Replaying the original response images through production suggestion and apply
+now selects **all** generated wall suggestions and succeeds automatically:
+11 walls + 3 doors / 500 edges. Every non-flower wall shape exactly matches the
+earlier reviewed geometry. All eight route/boundary checks and all three door
+open/closed checks pass. No API regeneration, prompt changes or manual exclusions
+were used. The previous connected cave/door fixture remains geometrically
+identical. The split northern double-door suggestion and the false door marker
+on a solid partition remain unresolved detection issues.
+
+Walls are already custom polygons with holes; the edge count measures their
+outline detail, not separate editable wall objects. The 512-edge limit is an
+application guardrail, not a Gemini restriction or measured performance ceiling.
+This change does not raise it or remove runtime collision/visibility checks.
+
+**Walls > Erase wall section** lets the DM drag a rectangle that subtracts only
+that area from drawn or imported walls. Remaining pieces, circular-room holes
+and transformed geometry retain their shape. Existing doors are preserved;
+**Delete entire wall** remains a distinct tool. Validation is atomic and rejects
+invalid cuts or those exceeding the existing geometry budget. Server tests cover
+partial openings, legacy thin lines, rotated walls, circles, door preservation,
+campaign ownership and rejection without partial writes.

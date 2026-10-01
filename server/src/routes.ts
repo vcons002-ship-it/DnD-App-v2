@@ -1,5 +1,6 @@
 import {suggestMapLights,applyLightDraft} from './mapLightDraft.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
+import {applyMapSetupDraft} from './mapSetupDraft.js';
 import {suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
 import {getMap} from './sessions.js';
 import { Router } from 'express';
@@ -255,6 +256,14 @@ export function createApiRouter(io: IOServer): Router {
     if(!map){res.status(404).json({error:'Map not found.'});return;}
     try{const count=await applyDoorDraft(mapId,req.body?.draft,req.body?.selected);broadcastSnapshots(io,map.sessionId);res.json({count});}
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not apply door draft.'});}
+  });
+
+  router.post('/maps/:mapId/setup-draft/apply',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId),map=getMap(mapId);
+    if(!map){res.status(404).json({error:'Map not found.'});return;}
+    try{const counts=await applyMapSetupDraft(mapId,req.body?.drafts,req.body?.selected);broadcastSnapshots(io,map.sessionId);res.json(counts);}
+    catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not apply map setup.'});}
   });
 
   // Catalog is public art only. Work-in-progress names, errors and controls are DM-only.

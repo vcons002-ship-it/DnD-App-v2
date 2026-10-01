@@ -16,6 +16,10 @@ export type MapGeometryDraft = {
   method?: 'ai' | 'local';
   id: string;
   maskImagePath?: string;
+  /** Raw outputs retained separately from the add-only mask used for conversion. */
+  wallMaskImagePath?:string;
+  naturalMaskImagePath?:string;
+  maskWarnings?:string[];
   /** Fraction of mask pixels represented, not an AI accuracy score. */
   maskCoverage?: number;
   maskGeometry?:'outlines'|'rectangles';

@@ -3,6 +3,16 @@ import sharp from 'sharp';
 import {wallsFromYellowMask} from './wallMask.js';
 import {hasLineOfSight,stopAtWalls,sanitizeWalls,wallEdgeCount} from '../../shared/mapWalls.js';
 import {wallMaskStressFixture} from './testFixtures/wallMaskStress.js';
+import {contourWallMask} from './wallMaskContours.js';
+
+it('does not return collapsed zero-area contours as invalid wall pieces',async()=>{
+ const w=80,h=80,mask=new Uint8Array(w*h);
+ for(let y=10;y<70;y++)for(let x=10;x<24;x++)mask[y*w+x]=1;
+ for(let i=0;i<5;i++)mask[(30+i)*w+50+i]=1;
+ const result=await contourWallMask(mask,new Uint8Array(mask.length),w,h,true);
+ expect(result).not.toBeNull();expect(sanitizeWalls(result!.walls)).toHaveLength(result!.walls.length);
+ expect(result!.walls.every(w=>w.points!.length>=3)).toBe(true);
+});
 
 it('fills yellow wall outlines, leaves large room interiors empty and preserves door gaps',async()=>{
  const image=await sharp(Buffer.from('<svg width="400" height="300"><rect width="400" height="300" fill="#222"/><g stroke="#ffff00" stroke-width="3" fill="none"><rect x="190" y="20" width="18" height="100"/><rect x="190" y="180" width="18" height="100"/><rect x="20" y="40" width="130" height="160"/></g></svg>')).png().toBuffer();
@@ -28,6 +38,21 @@ it('does not convert preexisting yellow flames into walls',async()=>{
  const {walls}=await wallsFromYellowMask(mask,400,300,40,original);
  expect(hasLineOfSight({x:60,y:90},{x:120,y:90},walls)).toBe(true);
  expect(hasLineOfSight({x:170,y:90},{x:230,y:90},walls)).toBe(false);
+});
+
+it('rejects shifted yellow-green artwork while retaining small painted obstacles and dim wall edges',async()=>{
+ // Returned map art can be brighter and slightly shifted, escaping the original
+ // yellow-pixel exclusion. Both these flower colors passed the broad seed test.
+ const original=await sharp(Buffer.from('<svg width="400" height="300"><rect width="400" height="300" fill="#324019"/><rect x="70" y="70" width="25" height="30" fill="#818e38"/><rect x="70" y="150" width="25" height="30" fill="#9e8c18"/></svg>')).png().toBuffer();
+ const mask=await sharp(Buffer.from('<svg width="400" height="300"><rect width="400" height="300" fill="#324019"/><rect x="80" y="80" width="25" height="30" fill="#c2c353"/><rect x="80" y="160" width="25" height="30" fill="#dacf49"/><rect x="190" y="20" width="18" height="260" fill="#f6e60c"/><rect x="190" y="20" width="2" height="260" fill="#afa414"/><rect x="280" y="80" width="25" height="30" fill="#ffff00"/></svg>')).png().toBuffer();
+ const {walls}=await wallsFromYellowMask(mask,400,300,40,original);
+ for(const y of [95,175]){
+  expect(hasLineOfSight({x:60,y},{x:120,y},walls),'yellow-green artwork is not a wall').toBe(true);
+  expect(stopAtWalls({x:60,y},{x:120,y},5,walls)).toEqual({x:120,y});
+ }
+ expect(hasLineOfSight({x:260,y:95},{x:325,y:95},walls),'small solid mask-painted obstacle is retained').toBe(false);
+ expect(hasLineOfSight({x:170,y:95},{x:230,y:95},walls),'JPEG-tinted wall paint is retained').toBe(false);
+ expect(stopAtWalls({x:170,y:95},{x:230,y:95},0,walls).x,'dim connected wall edge remains at its original position').toBeLessThan(191);
 });
 
 it('preserves narrow intentional cuts in horizontal and vertical wall bands',async()=>{

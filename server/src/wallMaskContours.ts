@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import clipping from 'polygon-clipping';
 import {pointInRing,simplifyWallPath,wallSvgPath} from '../../shared/wallGeometry.js';
-import {MAX_MAP_WALLS,wallEdgeCount,type WallPoint,type MapWall} from '../../shared/mapWalls.js';
+import {wallEdgeCount,type WallPoint,type MapWall} from '../../shared/mapWalls.js';
 import {polygonWall} from './wallPolygonDoor.js';
 
 const signedArea=(r:WallPoint[])=>r.reduce((sum,p,i)=>{const q=r[(i+1)%r.length];return sum+p.x*q.y-q.x*p.y;},0)/2;
@@ -50,7 +50,7 @@ function restoreGaps(walls:MapWall[],reserved:Uint8Array,raster:Buffer,w:number,
  }
  return result;
 }
-export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Array,w:number,h:number):Promise<{walls:MapWall[];coverage:number}|null>{
+export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Array,w:number,h:number,minimizeEdges=false):Promise<{walls:MapWall[];coverage:number}|null>{
  const raw=trace(solid,w,h),outer=raw.filter(r=>signedArea(r)>0),holes=raw.filter(r=>signedArea(r)<0);
  if(outer.length>120)return null;
  // Assign a hole only to its smallest enclosing component (nested islands stay solid).
@@ -60,15 +60,18 @@ export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Arra
  // Raster stair-steps on a long curve can sit just above the first tolerance.
  // Try small bounded increments before falling back to rectangles. Every candidate
  // still has to preserve protected openings and the full wall core, and meet the
- // same coverage/edge limits; complexity never authorizes closing a doorway.
+ // same coverage checks; complexity never authorizes closing a doorway.
  for(const tolerance of [1.25,1.3,1.35,1.4,1.45,1.5,.8,.45,0]){
   let walls=grouped.map((rs,i)=>polygonWall(`mask-${i}`,rs.map(r=>simplifyRing(r,tolerance))));
-  if(wallEdgeCount(walls)>MAX_MAP_WALLS)continue;
+  // A tiny diagonal fragment can collapse to a two-point, zero-area ring.
+  // Its SVG already paints nothing; do not return it as an invalid saved wall.
+  walls=walls.filter(w=>w.points!.length>=3&&Math.abs(signedArea(w.points!))>.005)
+    .map(w=>({...w,...(w.holes?{holes:w.holes.filter(r=>r.length>=3&&Math.abs(signedArea(r))>.005)}:{})}));
   const render=()=>sharp(Buffer.from(`<svg width="${w}" height="${h}"><rect width="100%" height="100%" fill="black"/>${walls.map(w=>`<path d="${wallSvgPath(w)}" fill="white" fill-rule="evenodd"/>`).join('')}</svg>`)).removeAlpha().greyscale().raw().toBuffer();
   let raster=await render();
   if(protectedPixels.some((n,p)=>n&&raster[p]>100)){
    try{walls=restoreGaps(walls,protectedPixels,raster,w,h);}catch{continue;}
-   if(walls.length>120||wallEdgeCount(walls)>MAX_MAP_WALLS)continue;
+   if(walls.length>120)continue;
    raster=await render();
   }
   let total=0,represented=0,closesGap=false,losesCore=false;
@@ -81,8 +84,9 @@ export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Arra
   // even though every interior/core pixel and every protected opening survives.
   if(!closesGap&&!losesCore&&total&&represented/total>=.96){
    if(!best||wallEdgeCount(walls)<wallEdgeCount(best.walls))best={walls,coverage:represented/total};
-   // Keep some room for subsequent manual edits and doors where possible.
-   if(wallEdgeCount(walls)<=MAX_MAP_WALLS*.85)return best;
+   // Prefer a compact contour when equally faithful candidates exist. This is
+   // only an early-exit target, never a limit on accepted wall geometry.
+   if(!minimizeEdges&&wallEdgeCount(walls)<=432)return best;
   }
  }
  return best;

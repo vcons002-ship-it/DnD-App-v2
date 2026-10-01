@@ -31,6 +31,8 @@ tools/*
 !tools/record-orb-motion.cjs
 !tools/record-resource-gems.cjs
 !tools/preview-nine-resource-rings.cjs
+!tools/wall-benchmark.ts
+!tools/benchmark-walls.mts
 
 # Playwright e2e output
 test-results/

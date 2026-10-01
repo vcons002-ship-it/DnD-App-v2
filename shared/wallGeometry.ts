@@ -18,6 +18,34 @@ export function segmentDistance(p:WallPoint,a:WallPoint,b:WallPoint):number {
  return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
 }
 
+/** Remove duplicate/straight-through vertices, without rounding corners or
+ * simplifying curves. Saved/editable points remain untouched. The tiny distance
+ * tolerance only absorbs floating-point noise from subdividing a straight edge. */
+export function compactWallPoints(points:readonly WallPoint[],closed=false):WallPoint[] {
+ const same=(a:WallPoint,b:WallPoint)=>a.x===b.x&&a.y===b.y;
+ const redundant=(a:WallPoint,b:WallPoint,c:WallPoint)=>{
+  const abx=b.x-a.x,aby=b.y-a.y,bcx=c.x-b.x,bcy=c.y-b.y;
+  // Retain reversals: a hairpin can deliberately double back along a wall.
+  return abx*bcx+aby*bcy>=0&&Math.abs(abx*bcy-aby*bcx)<=1e-8*Math.hypot(c.x-a.x,c.y-a.y);
+ };
+ const result:WallPoint[]=[];
+ for(const p of points){
+  if(result.length&&same(result[result.length-1],p))continue;
+  while(result.length>1&&redundant(result[result.length-2],result[result.length-1],p))result.pop();
+  result.push(p);
+ }
+ if(!closed)return result;
+ if(result.length>1&&same(result[0],result[result.length-1]))result.pop();
+ let start=0;
+ // Handle the seam of a closed ring in linear time, without repeated shifts.
+ while(result.length-start>3){
+  if(redundant(result[result.length-2],result[result.length-1],result[start])){result.pop();continue;}
+  if(redundant(result[result.length-1],result[start],result[start+1])){start++;continue;}
+  break;
+ }
+ return result.slice(start);
+}
+
 /** Mitered stroke, with bounded bevels at sharp turns; a stroke is one wall. */
 function strokeOutline(points:readonly WallPoint[],width:number):WallPoint[] {
  const side=(sign:number)=>points.flatMap((p,i)=>{
@@ -47,18 +75,21 @@ export function wallContours(w:MapWall):WallPoint[][] {
   const ring=(a:number,b:number)=>Array.from({length:n},(_,i)=>({x:cx+a*Math.cos(i*2*Math.PI/n),y:cy+b*Math.sin(i*2*Math.PI/n)}));
   rings=[ring(rx+t,ry+t),ring(Math.max(.01,rx-t),Math.max(.01,ry-t))];
  }else if((w.thickness??0)>0){
-  const points=w.kind==='path'?w.points??[]:[{x:w.ax,y:w.ay},{x:w.bx,y:w.by}];
+  const points=compactWallPoints(w.kind==='path'?w.points??[]:[{x:w.ax,y:w.ay},{x:w.bx,y:w.by}]);
   rings=[strokeOutline(points,w.thickness!)];
  }
- rings=rings.map(r=>r.map(p=>rotateWallPoint(p,w)));contourCache.set(w,rings);return rings;
+ rings=rings.map(r=>compactWallPoints(r,true).map(p=>rotateWallPoint(p,w)));contourCache.set(w,rings);return rings;
 }
 export function wallVertices(w:MapWall):WallPoint[]{
- const contours=wallContours(w);return contours.length?contours.flat():(w.kind==='path'?w.points??[]:[{x:w.ax,y:w.ay},{x:w.bx,y:w.by}]).map(p=>rotateWallPoint(p,w));
+ const contours=wallContours(w);return contours.length?contours.flat():compactWallPoints(w.kind==='path'?w.points??[]:[{x:w.ax,y:w.ay},{x:w.bx,y:w.by}]).map(p=>rotateWallPoint(p,w));
 }
+const boundaryCache=new WeakMap<MapWall,{a:WallPoint;b:WallPoint}[]>();
 export function wallBoundarySegments(w:MapWall):{a:WallPoint;b:WallPoint}[]{
+ const cached=boundaryCache.get(w);if(cached)return cached;
  const contours=wallContours(w);
- if(contours.length)return contours.flatMap(r=>r.map((a,i)=>({a,b:r[(i+1)%r.length]})));
- const points=wallVertices(w);return points.slice(1).map((b,i)=>({a:points[i],b}));
+ const points=contours.length?[]:wallVertices(w);
+ const segments=contours.length?contours.flatMap(r=>r.map((a,i)=>({a,b:r[(i+1)%r.length]}))):points.slice(1).map((b,i)=>({a:points[i],b}));
+ boundaryCache.set(w,segments);return segments;
 }
 export function insideWallGeometry(p:WallPoint,w:MapWall):boolean {
  const rings=wallContours(w);return !!rings.length&&pointInRing(p,rings[0])&&!rings.slice(1).some(r=>pointInRing(p,r));
