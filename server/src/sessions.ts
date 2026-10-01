@@ -37,7 +37,7 @@ import {
   sanitizeWeapons,
 } from '../../shared/modifiers.js';
 import { coveredByFog } from '../../shared/fog.js';
-import { weaponsFromActions, actionsToSheetAbilities, isCleanAttackDuplicate } from '../../shared/monsterAttacks.js';
+import { weaponsFromActions, actionsToSheetAbilities, isCleanAttackDuplicate, effectiveRecharge } from '../../shared/monsterAttacks.js';
 import { isDamageType } from '../../shared/damage.js';
 import type {
   Character,
@@ -2323,7 +2323,7 @@ export function setResource(
   characterId: string,
   group: 'spellSlots' | 'resources',
   key: string,
-  patch: { max?: number; used?: number; remove?: boolean; preserveMax?: boolean },
+  patch: { max?: number; used?: number; remove?: boolean; preserveMax?: boolean; recharge?: 'short' | 'long' },
 ): Character | null {
   const c = getCharacter(characterId);
   if (!c) return null;
@@ -2336,7 +2336,8 @@ export function setResource(
         (patch.used !== undefined && (!Number.isSafeInteger(patch.used) || patch.used < 0))) return c;
     const max = patch.max ?? cur.max;
     const used = Math.max(0, Math.min(max, patch.used ?? cur.used));
-    map[key] = { ...cur, max, used, ...(patch.max !== undefined && (map[key] || patch.preserveMax) ? { maxOverride: true } : {}) };
+    map[key] = { ...cur, max, used, ...(patch.max !== undefined && (map[key] || patch.preserveMax) ? { maxOverride: true } : {}),
+      ...(group === 'resources' && (patch.recharge === 'short' || patch.recharge === 'long') ? { recharge: patch.recharge } : {}) };
   }
   const col = group === 'spellSlots' ? 'spell_slots' : 'resources';
   db.prepare(`UPDATE characters SET ${col} = ? WHERE id = ?`).run(
@@ -2564,6 +2565,27 @@ function takeLootImpl(
 }
 
 /** Upsert a rich spell/ability on a PC or monster sheet (by id). */
+/**
+ * Mark a limited-use ability ("Recharge 5–6", "1/Day") spent or ready. The DM
+ * resolves recharge manually; using the ability also marks it spent. Works on
+ * creatures saved before `recharge` existed (the marker is read from the name).
+ * Returns false when the ability isn't limited-use or doesn't exist.
+ */
+export function setAbilityRechargeSpent(kind: TokenKind, refId: string, abilityId: string, spent: boolean): boolean {
+  const owner = kind === 'monster' ? getMonster(refId) : getCharacter(refId);
+  const ability = owner?.sheetAbilities.find((a) => a.id === abilityId);
+  const recharge = ability && effectiveRecharge(ability);
+  if (!ability || !recharge) return false;
+  if (!!recharge.spent === spent && ability.recharge) return true;
+  const { spent: _old, ...shape } = recharge;
+  // In place: a Ready/Spent toggle must not reorder the creature's actions.
+  const list = owner!.sheetAbilities.map((a) =>
+    a.id === abilityId ? { ...a, recharge: spent ? { ...shape, spent: true } : shape } : a);
+  db.prepare(`UPDATE ${kind === 'monster' ? 'monsters' : 'characters'} SET sheet_abilities = ? WHERE id = ?`)
+    .run(JSON.stringify(list), refId);
+  return true;
+}
+
 export function setSheetAbility(
   kind: TokenKind,
   refId: string,

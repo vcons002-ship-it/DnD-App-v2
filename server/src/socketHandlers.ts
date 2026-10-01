@@ -6,6 +6,7 @@ import {visionContains} from '../../shared/playerVision.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
+import { partyRest, restCharacter, describeRest, spendHitDice } from './rests.js';
 import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
 import { castMark } from './marks.js';
@@ -111,6 +112,7 @@ import {
   setLoot,
   takeLoot,
   setSheetAbility,
+  setAbilityRechargeSpent,
   removeSheetAbility,
   reorderSheetAbilities,
   spendResourceForAbility,
@@ -278,7 +280,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
       const timer=setTimeout(finish,2500);trayReady.set(id,finish);
     });
-    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
@@ -310,6 +312,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
             if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
             if(event==='death:roll')meta.label='Death Saving Throw';
+            else if(event==='hitDice:spend')meta.label='Hit Dice';
             else if(ability?.roll?.kind==='heal')meta.label=`${ability.name} — Healing Roll`;
             else if(ability?.roll&&['save','damage'].includes(ability.roll.kind))meta.label=`${ability.name} — Damage Roll`;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
@@ -1155,11 +1158,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly);
     };
 
-    on('resource:set', ({ characterId, group, key, max, used, remove, preserveMax }) => {
+    on('resource:set', ({ characterId, group, key, max, used, remove, preserveMax, recharge }) => {
       if ((group !== 'spellSlots' && group !== 'resources') ||
           typeof key !== 'string' || !key.trim() ||
           ['__proto__', 'constructor', 'prototype'].includes(key) || !ownsCharacter(characterId)) return;
-      setResource(characterId, group, key, { max, used, remove, preserveMax });
+      setResource(characterId, group, key, { max, used, remove, preserveMax, recharge });
       afterChange();
     });
 
@@ -1177,6 +1180,34 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     // Drink a potion: the server re-reads what the item does, rolls it, applies
     // the healing/temp HP and spends one from the stack.
+    on('rest:party', ({ kind }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || (kind !== 'short' && kind !== 'long')) return;
+      const outcomes = partyRest(sid, kind);
+      addChatMessage(sid, 'DM', 'dm', describeRest(kind, outcomes));
+      io.to(roomName(sid)).emit('fx:rest', { kind });
+      afterChange();
+    });
+
+    on('rest:character', ({ characterId, kind }) => {
+      const sid = sessionId();
+      if (!sid || !isDm() || (kind !== 'short' && kind !== 'long') || typeof characterId !== 'string') return;
+      const outcome = restCharacter(sid, characterId, kind);
+      if (!outcome) return;
+      addChatMessage(sid, 'DM', 'dm', describeRest(kind, [outcome]));
+      afterChange();
+    });
+
+    on('hitDice:spend', ({ characterId, count }) => {
+      const sid = sessionId();
+      if (!sid || typeof characterId !== 'string' || !ownsCharacter(characterId)) return;
+      const n = Number(count);
+      if (!Number.isFinite(n) || n < 1) return;
+      const result = spendHitDice(sid, rollerName(sid, socket.id, isDm()), characterId, Math.min(20, n));
+      if (!result.ok) { socket.emit('notice', { message: result.reason }); return; }
+      afterChange();
+    });
+
     on('item:use', ({ characterId, itemId }) => {
       const sid = sessionId();
       if (!sid || typeof itemId !== 'string' || !ownsCharacter(characterId)) return;
@@ -1329,6 +1360,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
+    on('ability:setRecharge', ({ kind, refId, abilityId, spent }) => {
+      const sid = sessionId();
+      if (!sid || (kind !== 'pc' && kind !== 'monster') || typeof abilityId !== 'string' || !ownsCreature(kind, refId)) return;
+      if (!setAbilityRechargeSpent(kind, refId, abilityId, !!spent)) return;
+      afterChange();
+    });
+
     on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId, damageType }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
@@ -1355,8 +1393,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const m = getMonster(refId);
         const ability = m?.sheetAbilities.find((a) => a.id === abilityId);
         if (!m || !ability || !validDamageChoice(ability)) return;
-        // CR-based DC/to-hit; no spell slots for creatures.
+        // CR-based DC/to-hit; no spell slots for creatures. A limited-use action
+        // (breath weapon) is spent by using it; the DM re-readies it manually.
         if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) {
+          setAbilityRechargeSpent('monster', m.id, ability.id, true);
           afterChange();
           if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
         }

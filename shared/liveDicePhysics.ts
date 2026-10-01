@@ -1,5 +1,6 @@
 import {diceCollider} from './diceCollider.js';
 import {handTumble} from './diceLaunch.js';
+import {recordDiceImpacts,type DiceImpact} from './diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from './diceGeometry.js';
 
@@ -79,6 +80,10 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   });
 
   bodies.forEach(body=>world.addBody(body));
+  // Strikes since the last drain — each published frame carries its own, so the
+  // clients' clatter follows the server's actual collisions.
+  const pendingImpacts:DiceImpact[]=[];let elapsedForImpacts=0;
+  recordDiceImpacts(bodies,walls,metresPerUnit,()=>elapsedForImpacts,pendingImpacts);
   const launch=bodies.map(b=>({position:b.position.clone(),velocity:b.velocity.clone(),spin:b.angularVelocity.clone()}));
   const age=bodies.map(()=>0),rerolls=bodies.map(()=>0),values:(number|null)[]=bodies.map(()=>null);
   const step=1/480;
@@ -109,7 +114,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     const steps=Math.max(1,Math.round(seconds/step));
     for(let n=0;n<steps;n++){
       for(const b of bodies)if(b.position.dot(direction)>-extent+radius)b.collisionFilterMask=3;
-      world.step(step);elapsed+=step;
+      elapsedForImpacts=elapsed+step;world.step(step);elapsed+=step;
       bodies.forEach((b,i)=>{
         age[i]+=step;
         if(b.sleepState===Body.SLEEPING){
@@ -125,5 +130,6 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     return snapshot();
   }
   function snapshot(){return {elapsed,radius,poses:bodies.flatMap(b=>[b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]),values:[...values],rerolls:[...rerolls],done:values.every(v=>v!==null)};}
-  return {advance,snapshot,reroll,bodies};
+  function drainImpacts(){return pendingImpacts.splice(0);}
+  return {advance,snapshot,reroll,bodies,drainImpacts};
 }

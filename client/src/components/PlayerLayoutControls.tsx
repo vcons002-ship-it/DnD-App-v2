@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { SoundSettings } from './SoundSettings';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {EnvironmentQualityControl} from './MapEnvironmentControls';
@@ -147,11 +148,16 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
   }, [open]);
   const controls = <div className={`player-layout-controls${toolbar ? ' in-toolbar' : ''}`} ref={root}
     style={{ '--player-options-shift': `${placement.shift}px`, '--player-options-max-height': `${placement.height}px` } as CSSProperties}>
-    <button type="button" ref={trigger} className="btn player-layout-trigger" aria-label="Interface settings" title="Interface settings: scale and panel sizes" aria-expanded={open} aria-controls="player-layout-options" onClick={() => setOpen((value) => !value)}>
+    <button type="button" ref={trigger} className="btn player-layout-trigger" aria-label="Interface settings" title="Settings: sound, dice, animations, scale and panel sizes" aria-expanded={open} aria-controls="player-layout-options" onClick={() => setOpen((value) => !value)}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 3-1 3-3 1v3l-2 2 2 2v3l3 1 1 3h6l1-3 3-1v-3l2-2-2-2V7l-3-1-1-3Z" /><circle cx="12" cy="12" r="3.5" /></svg>
     </button>
     {open && <section ref={options} id="player-layout-options" className="player-layout-options fantasy-window" aria-label="Interface settings">
-      <header><h2>Interface</h2><button type="button" className="btn tiny" aria-label="Close interface settings" onClick={() => setOpen(false)}>×</button></header>
+      <header><h2>Settings</h2><button type="button" className="btn tiny" aria-label="Close interface settings" onClick={() => setOpen(false)}>×</button></header>
+      <fieldset className="player-sound-settings">
+        <legend>Sound &amp; dice</legend>
+        <SoundSettings />
+      </fieldset>
+      <h3 className="player-settings-sub">Interface</h3>
       <label className="player-scale-label" htmlFor="player-ui-scale">UI scale <output>{Math.round(layout.scale * 100)}%</output></label>
       <input id="player-ui-scale" type="range" min="70" max="115" step="5" value={Math.round(layout.scale * 100)} onChange={(event) => layout.setScale(Number(event.target.value) / 100)} />
       <div className="player-scale-limits"><span>Compact 70%</span><span>Large 115%</span></div>

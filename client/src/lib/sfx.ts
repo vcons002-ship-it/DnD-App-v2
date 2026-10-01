@@ -13,18 +13,53 @@
  */
 
 const MUTE_KEY = 'dnd.sfxMuted';
+const VOLUME_KEY = 'dnd.sfxVolume';
+const DICE_KEY = 'dnd.diceSfxOff';
 
 let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
 let gestureArmed = false;
+
+// Storage can throw (private windows, blocked site data): fall back to defaults.
+const read = (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } };
+const write = (key: string, value: string | null): void => {
+  try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* per-device nicety only */ }
+};
 
 /** Per-user mute flag — default OFF (sound on). */
 export function isSfxMuted(): boolean {
-  return localStorage.getItem(MUTE_KEY) === '1';
+  return read(MUTE_KEY) === '1';
 }
 
 export function setSfxMuted(muted: boolean): void {
-  if (muted) localStorage.setItem(MUTE_KEY, '1');
-  else localStorage.removeItem(MUTE_KEY);
+  write(MUTE_KEY, muted ? '1' : null);
+}
+
+/** Master volume 0–1 for every cue on this device (default 0.8). */
+export function getSfxVolume(): number {
+  const v = Number(read(VOLUME_KEY));
+  return read(VOLUME_KEY) !== null && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.8;
+}
+
+export function setSfxVolume(volume: number): void {
+  const v = Math.max(0, Math.min(1, volume));
+  write(VOLUME_KEY, String(v));
+  if (master && ctx) master.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
+}
+
+/** The saved "Dice sounds" choice on its own (on by default) — what the setting
+ *  shows. Independent of the master mute, so muting never rewrites it. */
+export function isDiceSfxPreferred(): boolean {
+  return read(DICE_KEY) !== '1';
+}
+
+/** Whether dice sounds actually play: the saved choice AND master sound on. */
+export function isDiceSfxOn(): boolean {
+  return isDiceSfxPreferred() && !isSfxMuted();
+}
+
+export function setDiceSfxOn(on: boolean): void {
+  write(DICE_KEY, on ? null : '1');
 }
 
 /** Lazily build the AudioContext and arm a one-time gesture to resume it. */
@@ -33,7 +68,12 @@ function audio(): AudioContext | null {
   const AC =
     window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
-  if (!ctx) ctx = new AC();
+  if (!ctx) {
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = getSfxVolume();
+    master.connect(ctx.destination);
+  }
   if (!gestureArmed) {
     gestureArmed = true;
     const resume = () => ctx?.resume().catch(() => {});
@@ -43,6 +83,15 @@ function audio(): AudioContext | null {
   // Best-effort resume (no-op if already running or still gesture-blocked).
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
+}
+
+/** The running context + master bus for other synths (the dice). Null while
+ *  muted, before a user gesture, or without Web Audio. */
+export function sfxOutput(): { ac: AudioContext; out: AudioNode } | null {
+  if (isSfxMuted()) return null;
+  const ac = audio();
+  if (!ac || ac.state !== 'running' || !master) return null;
+  return { ac, out: master };
 }
 
 /** Play one short tone with an attack/decay envelope. */
@@ -69,7 +118,7 @@ function blip(opts: {
   g.gain.setValueAtTime(0.0001, now);
   g.gain.exponentialRampToValueAtTime(peak, now + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, now + opts.dur);
-  osc.connect(g).connect(ac.destination);
+  osc.connect(g).connect(master ?? ac.destination);
   osc.start(now);
   osc.stop(now + opts.dur + 0.02);
 }
@@ -109,4 +158,10 @@ export function playYourTurn(): void {
   blip({type: 'sine', from: 660, dur: .25, gain: .08});
   blip({type: 'sine', from: 880, dur: .55, gain: .08, delay: .18});
   blip({type: 'triangle', from: 440, dur: .5, gain: .04, delay: .18});
+}
+/** The party rested — a soft, low settling chord. */
+export function playRest(): void {
+  blip({type: 'sine', from: 196, dur: .9, gain: .06});
+  blip({type: 'sine', from: 247, dur: .9, gain: .045, delay: .12});
+  blip({type: 'triangle', from: 294, dur: 1.1, gain: .04, delay: .24});
 }

@@ -1,5 +1,6 @@
 import {diceCollider} from '../../../shared/diceCollider.js';
 import {handTumble} from '../../../shared/diceLaunch.js';
+import {recordDiceImpacts,type DiceImpact} from '../../../shared/diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
 
@@ -87,10 +88,12 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
     return body;
   });
   const frames:number[]=[];const step=1/480;
+  // Every genuine strike (die/wall/floor, speed, place) for the playback's clatter.
+  const impacts:DiceImpact[]=[];let ticks=0;
+  recordDiceImpacts(bodies,walls,metresPerUnit,()=>(ticks+1)*step,impacts);
   const capture=()=>bodies.forEach(b=>frames.push(b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w));
   capture();
   let released=0;
-  let ticks=0;
   const settleTimes=bodies.map(()=>0);
   for(;ticks<5760;ticks++){
     while(released<bodies.length && releases[released]<=ticks*step)world.addBody(bodies[released++]);
@@ -117,5 +120,5 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
       if(z>best){best=z;top=index;}
     });return top;
   });
-  return {settleTimes,wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step};
+  return {settleTimes,wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step,impacts};
 }

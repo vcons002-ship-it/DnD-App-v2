@@ -2,11 +2,46 @@
 // into structured, rollable `weapons`. Pure + framework-free so it can run on
 // the server at spawn time and be unit-tested. Monster damage is baked (the
 // ability mod is already in the dice), matching rollWeaponAttack's isMonster path.
-import type { AbilityRoll, CreatureAbility, SheetAbility, Weapon } from './types.js';
+import type { AbilityRecharge, AbilityRoll, CreatureAbility, SheetAbility, Weapon } from './types.js';
 import { isDamageType } from './damage.js';
 
-/** An action is a weapon attack iff it has BOTH a "+N to hit" and damage dice. */
+/**
+ * Read a limited-use marker from an action's name or text: "(Recharge 5–6)",
+ * "Recharge 6", "(Recharges after a Short or Long Rest)", "(1/Day)". Returns
+ * null for an at-will action. Pure text → data; nothing here rolls the d6.
+ */
+export function parseRecharge(name: string, description = ''): AbilityRecharge | null {
+  const text = `${name} ${description}`;
+  const dice = text.match(/\brecharge\s+([1-6])(?:\s*(?:[–—-]|to)\s*6)?\b/i);
+  if (dice) return { min: Number(dice[1]) };
+  const rest = text.match(/\brecharges?\s+(?:after|on|at the end of)\s+(?:a|an)?\s*(short(?:\s+or\s+long)?|long)\s+rest\b/i);
+  if (rest) return { rest: /^short/i.test(rest[1]) ? 'short' : 'long' };
+  if (/\(\s*\d+\s*\/\s*day(?:\s+each)?\s*\)/i.test(name)) return { rest: 'long' };
+  return null;
+}
+
+/** The ability's recharge: its structured field, else what its name declares
+ *  (so creatures saved before the field existed still show a Ready/Spent chip). */
+export function effectiveRecharge(a: { name: string; description?: string; recharge?: AbilityRecharge }): AbilityRecharge | null {
+  return a.recharge ?? parseRecharge(a.name, a.description);
+}
+
+/** Short chip text: "⟳ 5–6", "⟳ 6", "⟳ short rest", "⟳ long rest". */
+export function rechargeLabel(r: AbilityRecharge): string {
+  if (r.min) return `⟳ ${r.min === 6 ? '6' : `${r.min}–6`}`;
+  return `⟳ ${r.rest === 'short' ? 'short rest' : 'long rest'}`;
+}
+
+/** An action is a weapon attack iff it has BOTH a "+N to hit" and damage dice.
+ *  A limited-use action ("Recharge 5–6") stays an ability, so it keeps its
+ *  Ready/Spent state instead of becoming an at-will weapon. */
 function parseAttack(a: CreatureAbility): Weapon | null {
+  if (a.recharge || parseRecharge(a.name, a.description ?? '')) return null;
+  return parseAttackText(a);
+}
+
+/** "+N to hit … NdM type" as a weapon shape, ignoring any recharge marker. */
+function parseAttackText(a: CreatureAbility): Weapon | null {
   const desc = a.description ?? '';
   const hit = desc.match(/([+-]?\d+)\s*to hit/i);
   const dmg = desc.match(/(\d+d\d+(?:\s*[+-]\s*\d+)?)/i); // first damage clause only
@@ -110,14 +145,23 @@ export function actionsToSheetAbilities(
   actions: CreatureAbility[],
   opts: { makeId: () => string; source?: 'srd' | 'gemini' | 'manual' },
 ): SheetAbility[] {
-  return actions.map((a) => ({
-    id: opts.makeId(),
-    name: a.name,
-    type: 'ability' as const,
-    description: a.description ?? '',
-    roll: a.roll ?? parseActionRoll(a.description ?? '') ?? undefined,
-    source: opts.source === 'manual' || !opts.source ? ('custom' as const) : opts.source,
-  }));
+  return actions.map((a) => {
+    const recharge = a.recharge ?? parseRecharge(a.name, a.description ?? '');
+    // A limited-use ATTACK ("Tail Spike (Recharge 5–6): +7 to hit, 2d8+4") isn't
+    // a weapon (that would make it at-will), so it carries an attack roll instead.
+    const attack = recharge && !a.roll ? parseAttackText(a) : null;
+    return {
+      id: opts.makeId(),
+      name: a.name,
+      type: 'ability' as const,
+      description: a.description ?? '',
+      roll: a.roll ?? parseActionRoll(a.description ?? '') ?? (attack
+        ? { kind: 'attack' as const, dice: attack.damage, damageType: attack.damageType, attackBonus: attack.attackBonus }
+        : undefined),
+      ...(recharge ? { recharge } : {}),
+      source: opts.source === 'manual' || !opts.source ? ('custom' as const) : opts.source,
+    };
+  });
 }
 
 export function parseActionRoll(description: string): AbilityRoll | null {

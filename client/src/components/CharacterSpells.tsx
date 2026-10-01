@@ -1,4 +1,5 @@
 import { hitFeature, markSpell } from '../../../shared/hitFeatures';
+import { RechargeChip } from './RechargeChip';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
 import { applyRulesUpdate, isOutdated } from '../../../shared/rulesUpdate';
 import { classFeatureUses } from '../../../shared/classFeatureUses';
@@ -455,6 +456,7 @@ export function CharacterSpells({
             )}
             {tagFor(a) && <span className="muted spell-tag">{tagFor(a)}</span>}
           </button>
+          <RechargeChip ability={a} kind={kind} refId={character.id} editable={editable} />
 
           {editable && a.type === 'spell' && (a.level ?? 0) > 0 && (
             <button

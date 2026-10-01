@@ -165,6 +165,7 @@ live outside the bundled static catalog and must be backed up with uploads.
   keep it empty. `Character` additionally has `proficientSkills`, `spellSlots`,
   `resources`, `items`, `gold`, `deathSaves`, `killCount` (durable tally of
   enemies dropped to 0 HP — public, shown on the sheet + a shared `KillScoreboard`),
+  `hitDiceUsed` (spent Hit Dice; available = level − used),
   `claimedBy` (live socket) +
   `ownerId` (durable per-browser id of the LAST holder — reconnect priority
   only, does NOT lock others; a char is "taken" only while `claimedBy` is a live
@@ -201,6 +202,10 @@ live outside the bundled static catalog and must be backed up with uploads.
 - `shared/smite.ts` — Divine Smite choices after a hit (slot levels + the
   Paladin-2 free casting); `shared/rulesUpdate.ts` — outdated-entry detection for
   the explicit "⬆ Update" button.
+- `shared/rests.ts` — Short/Long Rest rules (2024): `hitDieFor`, `shortRestRecovery`
+  (all / one use / none per counter), `restCounters`; applied by `server/src/rests.ts`.
+- `shared/diceImpacts.ts` — records real dice strikes from either physics world
+  (tray toss + live server frames) for `client/src/lib/diceSfx.ts`.
 - `shared/spellMath.ts` — `effectiveDice` (upcast: +scaleDice per slot above
   base; cantrips scale by caster level at 5/11/17), `spellAttackBonus`,
   `spellSaveDC` (8 + prof + best of INT/WIS/CHA).
@@ -536,6 +541,16 @@ live outside the bundled static catalog and must be backed up with uploads.
   automatic mode; HP/death/concentration process the whole attack once.
   Warlock Pact Magic slot-level changes transfer spent uses to the new standard
   pool without resetting them; explicit custom pools remain authoritative.
+- **Rests follow 2024 and are DM-granted:** the DM rests the party (toolbar 🏕 Rest) or
+  one sheet; players spend Hit Dice themselves, any time (soft, like everything else).
+  A Long Rest skips the dead and anyone at 0 HP. Custom counters carry `recharge`.
+- **Monster Recharge is manual:** `SheetAbility.recharge` drives a Ready/Spent chip;
+  use marks it spent, the DM readies it after their own d6 — nothing auto-rolls.
+- **Dice sounds come from the simulation, not a canned loop:** impacts recorded per
+  real collision + a per-die rolling level. Built from noise buffers only (the cue
+  timing tests count oscillators), under the shared mute/volume/"Dice sounds" toggle.
+- **Next turn selects DM-run combatants** (monsters, unclaimed PCs) in `DmView` and
+  brings them into view (`MapStage` `focusRequest`) — only on a turn CHANGE.
 - **The big `DamagePrompt` belongs to the roller** — the DM's map ignores a
   player's hit (the log button remains the DM's override).
 

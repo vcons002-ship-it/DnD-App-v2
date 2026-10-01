@@ -1,7 +1,7 @@
 import { MarkTransferPrompt } from '../components/MarkTransferPrompt';
 import { ChromaticOrbPrompt } from '../components/ChromaticOrbPrompt';
 import { CombatMoments } from '../components/CombatMoments';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { MapStage } from '../canvas/MapStage';
 import { DmPanel } from '../components/DmPanel';
@@ -26,6 +26,7 @@ export function DmView() {
   const deleteToken = useStore((s) => s.deleteToken);
   const undo = useStore((s) => s.undo);
   const rightPanelNudge = useStore((s) => s.rightPanelNudge);
+  const nudgeRightPanel = useStore((s) => s.nudgeRightPanel);
   const { selectedIds, setSelectedIds, handleSelect, handleMove, primaryId } =
     useSelection(snapshot, snapshot ? `dm-sel-${snapshot.sessionCode}` : undefined);
   const [pending, setPending] = useState<{
@@ -39,6 +40,28 @@ export function DmView() {
   useSpawnRequests(snapshot?.sessionCode, (req) =>
     setPending({ kind: req.kind === 'pc' ? 'pc' : 'monster', refId: req.refId }),
   );
+
+  // "Next turn" hands the DM the creature whose turn it is: selected (so the
+  // Combat section and the right-click menu attack AS it) and brought into view.
+  // Only DM-run turns (monsters, unclaimed PCs) and only on a CHANGE — joining
+  // or reconnecting mid-combat never steals the current selection.
+  const [focusRequest, setFocusRequest] = useState<{ tokenId: string; nonce: number } | null>(null);
+  const lastTurn = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!snapshot) return; // start tracking from the first real snapshot
+    const turn = snapshot.activeTurnTokenId ?? null;
+    const previous = lastTurn.current;
+    lastTurn.current = turn;
+    if (previous === undefined || !turn || turn === previous) return;
+    const token = snapshot.tokens.find((t) => t.id === turn);
+    if (!token) return;
+    const dmRuns = token.kind === 'monster' ||
+      (token.kind === 'pc' && !snapshot.characters.find((c) => c.id === token.refId)?.claimedBy);
+    if (!dmRuns) return;
+    setSelectedIds([token.id]);
+    setFocusRequest({ tokenId: token.id, nonce: Date.now() });
+    nudgeRightPanel(); // open the inspector, like clicking the token on the map
+  }, [snapshot, setSelectedIds, nudgeRightPanel]);
 
   const selectedToken = useMemo(
     () => snapshot?.tokens.find((t) => t.id === primaryId) ?? null,
@@ -101,6 +124,7 @@ export function DmView() {
             onSelectToken={handleSelect}
             onSelectTokens={setSelectedIds}
             onMoveToken={handleMove}
+            focusRequest={focusRequest}
             onPlaceAt={
               pending && snapshot.map
                 ? (x, y) =>

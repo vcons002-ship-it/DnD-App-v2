@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
-import { playInitiative, playYourTurn } from '../lib/sfx';
+import { playInitiative, playRest, playYourTurn } from '../lib/sfx';
 
 /** Live announcements only: mounting/reconnecting never replays an old turn. */
 export function CombatMoments() {
   const snapshot = useStore(s => s.snapshot);
   const socket = useStore(s => s.socket);
   const initiative = useStore(s => s.initiativeFx);
+  const rest = useStore(s => s.restFx);
   const animate = useStore(s => s.showRollAnim);
   const riposte = useStore(s => s.combatRiposte);
   const rollMyInitiative = useStore(s => s.rollMyInitiative);
@@ -18,9 +19,10 @@ export function CombatMoments() {
   useEffect(()=>{const reset=()=>setInitiativeSubmitted(false);socket?.on('error',reset);return()=>{socket?.off('error',reset);};},[socket]);
   useEffect(()=>{if(liveDice)setQueue(q=>q.filter(b=>b.kind!=='initiative'));},[liveDice?.id]);
   const pendingSeen = useRef(snapshot?.initiativePending);
-  const [queue, setQueue] = useState<{id: string; title: string; detail: string; kind: 'initiative' | 'turn'}[]>([]);
+  const [queue, setQueue] = useState<{id: string; title: string; detail: string; kind: 'initiative' | 'turn' | 'rest'}[]>([]);
   const lastTurn = useRef<string>();
   const lastInitiative = useRef(initiative?.id);
+  const lastRest = useRef(rest?.id);
   const presented = useRef<string>();
   const [now, setNow] = useState(Date.now());
 
@@ -36,6 +38,14 @@ export function CombatMoments() {
     setQueue(q => [...q, {id: `initiative-${initiative.id}`, title: 'Roll initiative!',
       detail: 'The battle begins', kind: 'initiative'}]);
   }, [initiative, snapshot?.map?.id]);
+
+  useEffect(() => {
+    if (!rest || rest.id === lastRest.current) return;
+    lastRest.current = rest.id;
+    setQueue(q => [...q, {id: `rest-${rest.id}`, title: rest.kind === 'long' ? 'Long Rest' : 'Short Rest',
+      detail: rest.kind === 'long' ? 'HP, Hit Dice, slots and features restored'
+        : 'Features refreshed — spend Hit Dice to heal', kind: 'rest'}]);
+  }, [rest]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -62,8 +72,8 @@ export function CombatMoments() {
   useEffect(() => {
     if (!banner) return;
     presented.current = banner.id;
-    banner.kind === 'initiative' ? playInitiative() : playYourTurn();
-    const timer = window.setTimeout(() => setQueue(q => q.slice(1)), banner.kind === 'initiative' ? 4600 : 5400);
+    (banner.kind === 'initiative' ? playInitiative : banner.kind === 'rest' ? playRest : playYourTurn)();
+    const timer = window.setTimeout(() => setQueue(q => q.slice(1)), banner.kind === 'turn' ? 5400 : 4600);
     return () => clearTimeout(timer);
   }, [banner?.id]);
   useEffect(() => {
@@ -90,9 +100,9 @@ export function CombatMoments() {
     </div>}
     {snapshot?.initiativePending && !mine && !dmWaiting && <div className="initiative-waiting" role="status">Waiting for initiative rolls…</div>}
     {banner && <div className={`combat-moment combat-moment-${banner.kind} ${animate ? '' : 'no-motion'}`}
-      style={{animationDuration: banner.kind === 'initiative' ? '4600ms' : '5400ms'}}
+      style={{animationDuration: banner.kind === 'turn' ? '5400ms' : '4600ms'}}
       role="status" aria-live="polite" key={banner.id}>
-      <span className="combat-moment-kicker">{banner.kind === 'initiative' ? 'Combat' : 'Take the spotlight'}</span>
+      <span className="combat-moment-kicker">{banner.kind === 'initiative' ? 'Combat' : banner.kind === 'rest' ? 'The party rests' : 'Take the spotlight'}</span>
       <strong>{banner.title}</strong><span>{banner.detail}</span>
       <button aria-label="Dismiss announcement" onClick={() => setQueue(q => q.slice(1))}>×</button>
     </div>}

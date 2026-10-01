@@ -4,6 +4,46 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Rests, turn hand-off, player settings, dice sounds, recharge - October 2026
+
+- [x] **Short and Long Rest (2024).** DM toolbar **🏕 Rest ▾** (two-click confirm) rests the
+  whole party (`rest:party`); a DM 🏕/☕ on any sheet rests one character
+  (`rest:character`). Rules are pure in `shared/rests.ts`. A **Long Rest** restores HP, all
+  Hit Dice, every slot and counter, and ends temp HP; it skips the dead and anyone at 0 HP
+  (2024 needs ≥ 1 HP). A **Short Rest** fully refills short-rest features (Ki/Focus, Action Surge,
+  Superiority Dice, Bardic Inspiration from bard 5, a single-class Warlock's pact slots) and
+  gives back ONE use of Second Wind / Rage / Channel Divinity / Wild Shape. Custom counters
+  carry their own `recharge` (a chip on the sheet toggles Short ↔ Long). Limited-use
+  abilities ready on their rest. A chat summary lists what each character recovered, plus a
+  "Long Rest" banner and chord for everyone (`fx:rest`).
+- [x] **Hit Dice.** `characters.hit_dice_used` (`ensureColumn`); die size by class (multiclass
+  text → first class). Spend from the sheet's resources or the player HUD's **Hit Dice x/y**
+  button (`hitDice:spend`): rolled on the live physical dice, heals face + CON per die
+  (minimum 1), logged with a reveal. Never more than are left, never for the dead.
+- [x] **Next turn hands the DM the creature.** When the turn moves to a DM-run combatant
+  (a monster or an unclaimed PC), `DmView` selects it (so the Combat section and right-click
+  menu attack AS it), opens the inspector, and brings it into view via `MapStage`'s
+  `focusRequest`: the camera moves only if the token is near the edge, and respects
+  tilt/rotation. Joining or reconnecting mid-turn never steals the selection.
+- [x] **Player settings.** The player's ⚙ Interface panel gains **Sound & dice** — the shared
+  `SoundSettings` block also used by the DM's Settings: sound on/off, master volume,
+  dice sounds, roll animations (per device).
+- [x] **Dice sounds from the real physics.** Both simulations record every genuine strike
+  (`shared/diceImpacts.ts`: cannon-es fires `collide` once per new contact; speed along the
+  normal in m/s, die / wall / floor, stereo position; die–die recorded once). The tray toss
+  carries them in `Toss.impacts`; live server frames carry the strikes since the previous
+  frame (`LiveDiceFrame.impacts`). `client/src/lib/diceSfx.ts` turns each into a
+  filtered-noise clack (bright die-on-die, wooden wall knock, duller floor thud; loudness
+  from impact speed, pitch from die size) timed to the picture, plus a per-die rolling
+  rumble that follows that die's speed and fades as it settles. Noise sources only.
+- [x] **Monster Recharge, manually resolved.** `SheetAbility.recharge` (`{min}` for
+  "Recharge 5–6", `{rest}` for "1/Day" / "after a Short or Long Rest") is parsed at insert
+  (`parseRecharge`) and asked for explicitly in the AI creature prompt. A limited-use attack
+  stays an ability with an attack roll rather than becoming an at-will weapon. AI token fill
+  adds a missing breath weapon even when the creature already has other abilities, but never
+  a second copy. Using it marks it **Spent**; the DM's ⟳ chip readies it after their own d6
+  (`ability:setRecharge`, written in place). Older creatures read the marker from the name.
+
 ## Private discoveries and chat - October 2026
 
 - [x] Add DM/player and player/player whispers to existing chat, with explicit recipients, reply buttons and private image attachments.

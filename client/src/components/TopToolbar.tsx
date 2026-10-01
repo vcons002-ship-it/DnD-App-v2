@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RestMenu } from './RestMenu';
 import { useNavigate } from 'react-router-dom';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
@@ -108,6 +109,7 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
                 📖 Rulebook
               </button>
             )}
+            <RestMenu />
             <button className="btn tiny" onClick={() => setSettingsOpen(true)}>
               ⚙ Settings
             </button>

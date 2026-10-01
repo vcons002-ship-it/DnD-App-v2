@@ -13,6 +13,8 @@ import {
   upcastable,
 } from '../lib/spellcasting';
 import { useStore } from '../state/socket';
+import { effectiveRecharge } from '../../../shared/monsterAttacks';
+import { RechargeChip } from './RechargeChip';
 import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
@@ -92,15 +94,17 @@ export function AbilityButtons({
           ? execution.roll?.kind === 'attack' ? 'Cast once, then choose a target for each separate spell attack.' : saveOnly ? 'Cast, then choose targets to roll saving throws.' : 'Roll once, then apply to targets on the map.'
           : execution.roll?.healTarget === 'self' ? 'Restore your own health.'
             : saveOnly ? 'Cast and force the selected target to roll its saving throw.' : 'Cast at the selected target.';
+        // A spent limited-use action stays clickable (the DM decides), but reads as spent.
+        const spent = !!effectiveRecharge(a)?.spent;
         const btn = (
           <button
             key={menu ? a.id : 'btn'}
-            className={menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}
-            title={[a.description || 'Ability', workflow, manualRiderNote(a)].filter(Boolean).join('\n')}
+            className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
+            title={[a.description || 'Ability', workflow, manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
             disabled={!menu && execution.roll?.kind !== 'heal' && !multiple && !targetTokenId}
             onClick={() => cast(a)}
           >
-            {(isHasteSpell(a) ? '\u2726' : ROLL_ICON[execution.roll!.kind]) ?? '🎲'} {a.name}
+            {(isHasteSpell(a) ? '\u2726' : ROLL_ICON[execution.roll!.kind]) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}
           </button>
         );
         const damageTypeSelect = damageTypes.length > 0 && (
@@ -123,6 +127,7 @@ export function AbilityButtons({
         return (
           <div key={a.id} className="combat-ability-row" style={damageTypes.length ? { flexWrap: 'wrap' } : undefined}>
             {btn}
+            <RechargeChip ability={a} kind={kind} refId={caster.id} />
             {damageTypeSelect}
             {abilityKey(a)==='hex'&&<select aria-label="Hex ability checks" value={hexAbility} onChange={e=>setHexAbility(e.target.value)}>{['STR','DEX','CON','INT','WIS','CHA'].map(k=><option key={k}>{k}</option>)}</select>}
             {upcastable(a) && (
