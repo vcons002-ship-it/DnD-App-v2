@@ -125,7 +125,7 @@ test('DM grants one level; the player previews an ASI before applying it', async
   const copies = await (await request.get(`/api/library/characters?q=${encodeURIComponent(savedName)}`)).json();
   const saved = copies.find((copy: { name: string }) => copy.name === savedName);
   expect(saved.modifiers).toEqual(result.modifiers);
-  expect(saved.leveling).toEqual({ rules: '2024', history: result.leveling!.history });
+  expect(saved.leveling).toEqual({ rules: '2024', classes: result.leveling!.classes, history: result.leveling!.history });
   expect((await f.snapshot()).characters.find(c => c.id === f.characterId)!.leveling?.pending?.toLevel).toBe(5);
   await player.close();
 });

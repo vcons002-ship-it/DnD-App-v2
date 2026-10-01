@@ -49,6 +49,8 @@ const CLASS_SIGILS: Record<string, { kind: ResourceSigilKind; caption: string }>
   'focus points': { kind: 'focus', caption: 'Focus' },
   'bardic inspiration': { kind: 'inspiration', caption: 'Bardic' },
   'channel divinity': { kind: 'divinity', caption: 'Divinity' },
+  'cleric channel divinity': { kind: 'divinity', caption: 'Cleric' },
+  'paladin channel divinity': { kind: 'divinity', caption: 'Paladin' },
   'wild shape': { kind: 'nature', caption: 'Wild Shape' },
   'lay on hands': { kind: 'healing', caption: 'Lay on Hands' },
   'lay on hands hp': { kind: 'healing', caption: 'Lay on Hands' },
@@ -58,10 +60,10 @@ export function resourceSigilPresentation(
   group: 'spellSlots' | 'resources',
   key: string,
 ): ResourceSigilPresentation {
-  const spellLevel = group === 'spellSlots' ? /^L([1-9])$/.exec(key) : null;
+  const spellLevel = group === 'spellSlots' ? /^[LP]([1-9])$/.exec(key) : null;
   if (spellLevel) {
     const level = Number(spellLevel[1]);
-    return { kind: 'spell', name: `Level ${level}`, caption: '', numeral: ROMAN_LEVELS[level - 1] };
+    return { kind: 'spell', name: `${key.startsWith('P')?'Pact ':''}Level ${level}`, caption: key.startsWith('P')?'Pact':'', numeral: ROMAN_LEVELS[level - 1] };
   }
   const normalized = key.trim().toLowerCase();
   const classSigil = group === 'resources' && Object.hasOwn(CLASS_SIGILS, normalized)

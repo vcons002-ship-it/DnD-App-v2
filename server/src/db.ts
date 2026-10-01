@@ -531,6 +531,7 @@ ensureColumn('characters', 'owner_player_id', 'owner_player_id TEXT');
 ensureColumn('characters', 'kill_count', 'kill_count INTEGER NOT NULL DEFAULT 0');
 // Spent Hit Point Dice (available = level − used); restored by a Long Rest.
 ensureColumn('characters', 'hit_dice_used', 'hit_dice_used INTEGER NOT NULL DEFAULT 0');
+ensureColumn('characters', 'hit_dice_used_by_die', "hit_dice_used_by_die TEXT NOT NULL DEFAULT '{}' ");
 ensureColumn('characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
 // Character templates retain completed progression, never a session's pending grant.
 ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
@@ -774,6 +775,7 @@ type CharacterRow = {
   death_failures: number | null;
   kill_count: number | null;
   hit_dice_used?: number | null;
+  hit_dice_used_by_die?: string | null;
   leveling?: string | null;
   icon: string;
 };
@@ -821,6 +823,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     },
     killCount: r.kill_count ?? 0,
     hitDiceUsed: r.hit_dice_used ?? 0,
+    hitDiceUsedByDie: JSON.parse(r.hit_dice_used_by_die ?? '{}'),
     icon: r.icon ?? '',
   };
 }

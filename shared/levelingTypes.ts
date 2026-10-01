@@ -1,8 +1,13 @@
 import type { AbilityKey } from './skills.js';
 import type { ClassProgression } from './characterProgression.js';
 import type { Character } from './types.js';
+import type { ClassRosterEntry } from './multiclass.js';
+import type { CoreClass } from './characterProgression.js';
+export type { ClassRosterEntry } from './multiclass.js';
 
 export type LevelUpChoices = {
+  /** Which class gains this level; omitted by older single-class clients. */
+  className?: CoreClass;
   hpMethod: 'fixed' | 'roll';
   subclass?: string;
   asi?: Partial<Record<AbilityKey, number>>;
@@ -21,6 +26,8 @@ export type PendingLevelUp = {
   baseFingerprint: string;
   hpRoll?: number;
   hpRollId?: string;
+  /** An HP die belongs to this class and cannot be reused for a different class. */
+  hpClassName?: CoreClass;
 };
 export type LevelUpRecord = {
   id: string;
@@ -33,6 +40,8 @@ export type LevelUpRecord = {
 /** Missing on older sheets; opting into the guide never rebuilds their history. */
 export type CharacterLeveling = {
   rules: '2024';
+  /** Ordered class levels; the first class is the original class. */
+  classes?: ClassRosterEntry[];
   pending?: PendingLevelUp;
   history: LevelUpRecord[];
 };
@@ -56,6 +65,12 @@ export type LevelUpFeatureChoice = {
 };
 export type LevelUpPlan = {
   grant: PendingLevelUp;
+  classes: ClassRosterEntry[];
+  classOptions: { className: CoreClass; level: number; eligible: boolean; reason?: string }[];
+  fromClassLevel: number;
+  toClassLevel: number;
+  newClass: boolean;
+  proficiencies: string[];
   progression: ClassProgression;
   previous: ClassProgression;
   features: LevelUpFeature[];
@@ -72,6 +87,7 @@ export type LevelUpPlan = {
   warnings: string[];
 };
 export type LevelUpPreview = {
+  classes?: ClassRosterEntry[];
   fromLevel: number;
   toLevel: number;
   hpGain: number;

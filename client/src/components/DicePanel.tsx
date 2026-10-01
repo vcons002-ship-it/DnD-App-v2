@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { smiteOptionsFor, maneuverOptionsFor } from './DamagePrompt';
+import { smiteChoiceLabel } from '../../../shared/smite';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
 import { RollDamageBreakdown } from './RollDamageBreakdown';
@@ -477,7 +478,7 @@ export function DicePanel({
                       opt === 'free' ? 'free casting (once per Long Rest)' : `level-${opt} slot`
                     }`}
                   >
-                    ✦ {opt === 'free' ? 'Free' : `L${opt}`}
+                    ✦ {smiteChoiceLabel(opt)}
                   </button>
                 ))}
                 {/* The apply payload only reaches a player on their OWN entries

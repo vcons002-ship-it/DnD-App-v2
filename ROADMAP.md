@@ -11,8 +11,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Apply the 2024 core-class progression and Constitution HP changes, preserve
   wounds and spent resources, and record durable, idempotent advancement history.
 - [x] Use the live dice tray for one saved Hit Die per grant; support mobile sheets
-  and keep the tray visible above the guide. Multiclass and unmodeled choices stay
-  explicit manual DM decisions. See [scope and workflow](docs/CHARACTER_LEVELING_2024.md).
+  and keep the tray visible above the guide. Unmodeled choices stay explicit
+  manual DM decisions. See [scope and workflow](docs/CHARACTER_LEVELING_2024.md).
+- [x] **2024 multiclassing.** Choose which core class gains each level, validate
+  entry prerequisites, retain class-specific subclasses/features/spell limits,
+  combine Spellcasting slots, separate Pact Magic and class Channel Divinity
+  pools, preserve spent uses, and select mixed Hit Dice. The DM can record an
+  existing class split explicitly; library/JSON copies retain it without grants.
 
 ## Rests, turn hand-off, player settings, dice sounds, recharge - October 2026
 
@@ -21,13 +26,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   (`rest:character`). Rules are pure in `shared/rests.ts`. A **Long Rest** restores HP, all
   Hit Dice, every slot and counter, and ends temp HP; it skips the dead and anyone at 0 HP
   (2024 needs ≥ 1 HP). A **Short Rest** fully refills short-rest features (Ki/Focus, Action Surge,
-  Superiority Dice, Bardic Inspiration from bard 5, a single-class Warlock's pact slots) and
+  Superiority Dice, Bardic Inspiration from bard 5, Warlock Pact slots) and
   gives back ONE use of Second Wind / Rage / Channel Divinity / Wild Shape. Custom counters
   carry their own `recharge` (a chip on the sheet toggles Short ↔ Long). Limited-use
   abilities ready on their rest. A chat summary lists what each character recovered, plus a
   "Long Rest" banner and chord for everyone (`fx:rest`).
-- [x] **Hit Dice.** `characters.hit_dice_used` (`ensureColumn`); die size by class (multiclass
-  text → first class). Spend from the sheet's resources or the player HUD's **Hit Dice x/y**
+- [x] **Hit Dice.** Track total spending and each die-size pool for structured multiclass
+  sheets. Choose the pool from the sheet's resources or the player HUD's **Hit Dice x/y**
   button (`hitDice:spend`): rolled on the live physical dice, heals face + CON per die
   (minimum 1), logged with a reveal. Never more than are left, never for the dead.
 - [x] **Next turn hands the DM the creature.** When the turn moves to a DM-run combatant

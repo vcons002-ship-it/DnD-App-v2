@@ -29,6 +29,9 @@ import { getLibraryCharacter } from './library.js';
 import { deriveClassResources } from './data/classTables.js';
 import { slotReference2024 } from '../../shared/resourceDisplay.js';
 import { mergePortableLeveling, portableLeveling } from '../../shared/portableLeveling.js';
+import { resolveClassRoster, multiclassSpellSlots2024, multiclassResourceMaxima, resourceNameForClass, mergeProgressionCounters, totalClassLevel } from '../../shared/multiclass.js';
+import { resolveProgressionClass } from '../../shared/characterProgression.js';
+import { selectSpellSlot, type SpellSlotPool } from '../../shared/spellSlotPools.js';
 import { abilityMod } from '../../shared/skills.js';
 import {
   effectiveStats,
@@ -2228,19 +2231,25 @@ export function createCharacter(
   const id = newId();
   const maxHp = opts.maxHp && opts.maxHp > 0 ? Math.round(opts.maxHp) : 10;
   const curHp = opts.curHp !== undefined ? Math.round(opts.curHp) : maxHp;
-  const level = opts.level && opts.level > 0 ? opts.level : 1;
+  const leveling = portableLeveling(opts.leveling);
+  if (opts.leveling?.classes !== undefined && !leveling?.classes) throw new Error('Provide valid core-class levels before importing this character.');
+  const level = opts.level && opts.level > 0 ? opts.level : leveling?.classes ? totalClassLevel(leveling.classes) : 1;
+  const classes = resolveClassRoster({ className: opts.className ?? '', level, subclass: opts.subclass ?? '', leveling });
+  if (leveling?.classes && !classes) throw new Error('Class levels must add up to the character level.');
+  const className = leveling?.classes ? `${leveling.classes[0].className[0].toUpperCase()}${leveling.classes[0].className.slice(1)}` : opts.className ?? '';
+  const subclass = leveling?.classes ? leveling.classes[0].subclass ?? '' : opts.subclass ?? '';
   // Auto-fill spell slots + class resources from 5e class/level tables, unless
   // the caller supplied them (e.g. loading a saved sheet).
   const derived = deriveClassResources(
-    opts.className ?? '',
+    className,
     level,
     opts.stats ?? {},
-    opts.subclass ?? '',
+    subclass,
   );
   // 2024 defaults for newly created, recognized single-class characters ONLY.
   // An explicitly supplied saved counter map (including {}) always wins.
   // Do not re-label legacy resource names: existing ability matching uses them.
-  const reference = slotReference2024(opts.className ?? '', level, opts.subclass ?? '');
+  const reference = leveling?.classes && classes ? multiclassSpellSlots2024(classes) : slotReference2024(className, level, subclass);
   const spellSlots = opts.spellSlots ?? (reference === null ? derived.spellSlots :
     Object.fromEntries(Object.entries(reference).map(([key, max]) => [key, {
       max, used: 0,
@@ -2248,7 +2257,9 @@ export function createCharacter(
       // class/level, without rewriting any existing character JSON.
       ...(derived.spellSlots[key]?.max !== max ? { maxOverride: false } : {}),
     }])));
-  const resources = opts.resources ?? derived.resources;
+  const resources = opts.resources ?? (leveling?.classes && classes
+    ? Object.fromEntries(Object.entries(multiclassResourceMaxima(classes, opts.stats ?? {})).map(([key,max]) => [key,{max,used:0}]))
+    : derived.resources);
   db.prepare(
     `INSERT INTO characters
        (id, session_id, name, race, class_name, subclass, level, max_hp, cur_hp,
@@ -2261,8 +2272,8 @@ export function createCharacter(
     sessionId,
     opts.name.trim() || 'Adventurer',
     opts.race ?? '',
-    opts.className ?? '',
-    opts.subclass ?? '',
+    className,
+    subclass,
     level,
     maxHp,
     Math.max(0, Math.min(maxHp, curHp)),
@@ -2360,14 +2371,16 @@ export function setResource(
 export function spendSpellSlot(
   characterId: string,
   level: number,
+  pool?: SpellSlotPool,
 ): { hasSlot: boolean; spent: boolean; level?: number } {
   const c = getCharacter(characterId);
   if (!c) return { hasSlot: false, spent: false };
   // Pact Magic: a Warlock casts ANY spell up to their pact level with a pact
   // slot, at the pact level — so a level-1 Hex spends the level-3 pact slot.
-  const pact = pactSlotLevel(c);
-  const spendLevel = pact !== null && level <= pact ? pact : level;
-  const key = `L${spendLevel}`;
+  const selected = selectSpellSlot(c, level, pool);
+  const spendLevel = selected?.level ?? level;
+  const key = selected?.key ?? `L${spendLevel}`;
+  if (!selected) return { hasSlot: false, spent: false };
   const slot = c.spellSlots[key];
   if (!slot) return { hasSlot: false, spent: false };
   if (slot.used >= slot.max) return { hasSlot: true, spent: false, level: spendLevel };
@@ -2383,10 +2396,11 @@ export function spendSpellSlot(
  * A single-class Warlock's pact-slot level (all their slots share it), or null
  * for anyone else. Read from the sheet's slots, so a DM's correction wins.
  */
-export function pactSlotLevel(c: Pick<Character, 'className' | 'spellSlots'>): number | null {
-  if (c.className.trim().toLowerCase() !== 'warlock') return null;
+export function pactSlotLevel(c: Pick<Character, 'className' | 'spellSlots'> & Partial<Pick<Character, 'leveling'>>): number | null {
+  const hasExplicit = Object.keys(c.spellSlots).some(k => /^P[1-5]$/.test(k));
+  if (!hasExplicit && c.className.trim().toLowerCase() !== 'warlock') return null;
   const levels = Object.keys(c.spellSlots)
-    .map((k) => Number(/^L(\d)$/.exec(k)?.[1] ?? 0))
+    .map((k) => Number((hasExplicit ? /^P(\d)$/ : /^L(\d)$/).exec(k)?.[1] ?? 0))
     .filter((n) => n > 0);
   return levels.length ? Math.max(...levels) : null;
 }
@@ -2402,10 +2416,14 @@ export function pactSlotLevel(c: Pick<Character, 'className' | 'spellSlots'>): n
 export function spendResourceForAbility(
   characterId: string,
   abilityName: string,
+  sourceClass?: string,
 ): { matched: boolean; spent: boolean } {
   const c = getCharacter(characterId);
   if (!c) return { matched: false, spent: false };
-  const want = abilityName.trim().toLowerCase();
+  const roster = resolveClassRoster(c);
+  const ownedClass = sourceClass ?? c.sheetAbilities.find(a => a.name === abilityName)?.sourceClass;
+  const scoped = roster && ownedClass ? resourceNameForClass(roster, ownedClass, abilityName) : abilityName;
+  const want = scoped.trim().toLowerCase();
   const key = Object.keys(c.resources).find(
     (k) => k.trim().toLowerCase() === want,
   );
@@ -2725,9 +2743,25 @@ export function updateCharacter(
     resources: Character['resources'];
     icon: string;
   }>,
+  options: { skipRosterSync?: boolean } = {},
 ): Character | null {
   const c = getCharacter(characterId);
   if (!c) return null;
+  const metadataChanged = patch.level !== undefined && patch.level !== c.level || patch.className !== undefined && patch.className !== c.className || patch.subclass !== undefined && patch.subclass !== c.subclass;
+  let nextLeveling = patch.leveling !== undefined ? mergePortableLeveling(c.leveling, patch.leveling) : c.leveling;
+  if (patch.leveling?.classes !== undefined && !portableLeveling(patch.leveling)?.classes) throw new Error('Provide valid core-class levels before importing this sheet.');
+  let syncedSoleClass = false;
+  if (!options.skipRosterSync && metadataChanged && c.leveling?.classes?.length === 1 && patch.leveling?.classes === undefined) {
+    const className = resolveProgressionClass(patch.className ?? c.className), level = patch.level ?? c.level;
+    if (!className || !Number.isInteger(level) || level < 1 || level > 20) throw new Error('Use Configure class levels for multiclass sheets; a single-class level must be 1–20 in a supported core class.');
+    nextLeveling = { ...c.leveling, classes: [{ className, level, ...(patch.subclass ?? c.subclass ? { subclass: patch.subclass ?? c.subclass } : {}) }] };
+    syncedSoleClass = true;
+  }
+  if (!options.skipRosterSync && nextLeveling?.classes && !resolveClassRoster({ ...c, level: patch.level ?? c.level, leveling: nextLeveling })) throw new Error('Class levels must add up to the character level.');
+  if (patch.leveling?.classes && nextLeveling?.classes) {
+    const primary = nextLeveling.classes[0];
+    patch = { ...patch, className: `${primary.className[0].toUpperCase()}${primary.className.slice(1)}`, subclass: primary.subclass ?? '' };
+  }
   const sets: string[] = [];
   const vals: unknown[] = [];
   const put = (col: string, v: unknown) => {
@@ -2776,10 +2810,7 @@ export function updateCharacter(
     put('gold', Number.isFinite(patch.gold) ? Math.max(0, Math.round(patch.gold)) : 0);
   if (patch.sheetAbilities !== undefined)
     put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
-  if (patch.leveling !== undefined) {
-    const merged = mergePortableLeveling(c.leveling, patch.leveling);
-    if (merged) put('leveling', JSON.stringify(merged));
-  }
+  if ((patch.leveling !== undefined || syncedSoleClass) && nextLeveling) put('leveling', JSON.stringify(nextLeveling));
   if (patch.spellSlots !== undefined)
     put('spell_slots', JSON.stringify(patch.spellSlots));
   if (patch.resources !== undefined)
@@ -2794,6 +2825,7 @@ export function updateCharacter(
       (patch.subclass !== undefined && patch.subclass !== c.subclass)) &&
     patch.spellSlots === undefined &&
     patch.resources === undefined
+    && !c.leveling?.classes
   ) {
     const derived = deriveClassResources(
       patch.className ?? c.className,
@@ -2833,6 +2865,24 @@ export function updateCharacter(
     }
     put('spell_slots', JSON.stringify(mergedSlots));
     put('resources', JSON.stringify(mergeCounters(c.resources, derived.resources, previous.resources)));
+  }
+
+  // Structured copies/imports use the whole roster. They never infer class
+  // levels from the original class label or replace explicitly saved pools.
+  if ((patch.leveling?.classes || syncedSoleClass) && patch.spellSlots === undefined && patch.resources === undefined) {
+    const roster = resolveClassRoster({ ...c, level: patch.level ?? c.level, leveling: nextLeveling });
+    if (roster) {
+      const maxima = multiclassSpellSlots2024(roster);
+      const previous = resolveClassRoster(c);
+      const oldPact = previous?.length === 1 && previous[0].className === 'warlock' ? Object.keys(multiclassSpellSlots2024(previous))[0] : undefined;
+      const newPact = roster.find(e => e.className === 'warlock');
+      const newPactKey = newPact ? `${roster.length === 1 ? 'L' : 'P'}${Math.min(5, Math.ceil(newPact.level / 2))}` : undefined;
+      put('spell_slots', JSON.stringify(mergeProgressionCounters(c.spellSlots, maxima,
+        previous ? multiclassSpellSlots2024(previous) : {}, oldPact && newPactKey ? { pactKeys: { previous: oldPact, next: newPactKey } } : undefined)));
+      put('resources', JSON.stringify(mergeProgressionCounters(c.resources,
+        multiclassResourceMaxima(roster, patch.stats ?? c.stats),
+        previous ? multiclassResourceMaxima(previous, c.stats) : {})));
+    }
   }
 
   if (sets.length) {

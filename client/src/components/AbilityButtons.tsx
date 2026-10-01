@@ -16,6 +16,7 @@ import { useStore } from '../state/socket';
 import { effectiveRecharge } from '../../../shared/monsterAttacks';
 import { RechargeChip } from './RechargeChip';
 import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -55,6 +56,7 @@ export function AbilityButtons({
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const [hexAbility,setHexAbility] = useState('STR');
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
+  const [slotPools,setSlotPools]=useState<Record<string,SpellSlotPool>>({});
   // Per-cast choice only: never persists a change to the authored spell.
   const [castDamageTypes, setCastDamageTypes] = useState<Record<string, string>>({});
   const damageChoice = (abilityId: string, choices: string[]) => {
@@ -72,6 +74,7 @@ export function AbilityButtons({
       refId: caster.id,
       abilityId: a.id,
       castLevel: level,
+      slotPool: slotPools[a.id] ?? ('spellSlots' in caster ? selectSpellSlot(caster,level??0)?.pool : undefined),
       damageType: markSpell(a)==='necrotic'?hexAbility:damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.
@@ -149,6 +152,15 @@ export function AbilityButtons({
                 })}
               </select>
             )}
+            {kind==='pc'&&'spellSlots' in caster&&Object.keys(caster.spellSlots).some(k=>/^P[1-5]$/.test(k))&&upcastable(a)&&
+              <select aria-label={`${a.name} slot pool`} value={slotPools[a.id]??selectSpellSlot(caster,level??spellBaseLevel(a))?.pool??'spellcasting'}
+                onChange={e=>{
+                  const pool=e.target.value as SpellSlotPool;setSlotPools(p=>({...p,[a.id]:pool}));
+                  const option=spellSlotOptions(caster,spellBaseLevel(a)).find(o=>o.pool===pool&&o.remaining>0);
+                  if(option)setCastLevel(p=>({...p,[a.id]:option.level}));
+                }}>
+                <option value="spellcasting">Spellcasting</option><option value="pact">Pact Magic</option>
+              </select>}
           </div>
         );
       })}

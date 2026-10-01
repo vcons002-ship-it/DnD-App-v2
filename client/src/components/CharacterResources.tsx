@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
-import { hitDieFor, hitDiceLeft, isClassCounter, shortRestRecovery } from '../../../shared/rests';
+import { hitDicePoolsFor, isClassCounter, shortRestRecoveryForCharacter } from '../../../shared/rests';
 
 type Counter = { max: number; used: number; recharge?: 'short' | 'long' };
 
@@ -10,9 +10,10 @@ type Counter = { max: number; used: number; recharge?: 'short' | 'long' };
 function HitDice({ character, editable }: { character: Character; editable: boolean }) {
   const spend = useStore((s) => s.spendHitDice);
   const [count, setCount] = useState(1);
-  const die = hitDieFor(character.className);
-  const total = Math.max(1, character.level);
-  const left = hitDiceLeft(character);
+  const [selectedDie,setSelectedDie]=useState<number>();
+  const pools=hitDicePoolsFor(character);
+  const pool=pools.find(p=>p.die===selectedDie)??pools.find(p=>p.left>0)??pools[0];
+  const {die,max:total,left}=pool;
   const full = character.curHp >= character.maxHp;
   const n = Math.min(count, Math.max(1, left));
   return (
@@ -23,6 +24,9 @@ function HitDice({ character, editable }: { character: Character; editable: bool
       <span className="res-count">{left}/{total}</span>
       {editable && (
         <span className="hit-dice-spend">
+          {pools.length>1&&<select aria-label="Hit Die size" value={die} onChange={e=>{setSelectedDie(Number(e.target.value));setCount(1);}}>
+            {pools.map(p=><option key={p.key} value={p.die}>d{p.die} · {p.left}/{p.max}</option>)}
+          </select>}
           {left > 1 && (
             <select aria-label="Hit Dice to spend" value={n} onChange={(e) => setCount(Number(e.target.value))}>
               {Array.from({ length: left }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}</option>)}
@@ -33,7 +37,7 @@ function HitDice({ character, editable }: { character: Character; editable: bool
             className="btn tiny"
             disabled={left <= 0 || full}
             title={left <= 0 ? 'No Hit Dice left — a Long Rest restores them' : full ? 'Already at full HP' : `Roll ${n}d${die} + CON and heal`}
-            onClick={() => spend(character.id, n)}
+            onClick={() => spend(character.id, n,die)}
           >
             🎲 Spend {n}
           </button>
@@ -49,18 +53,26 @@ export function HitDiceHudControl({ character }: { character: Character }) {
   const spend = useStore((s) => s.spendHitDice);
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
-  const die = hitDieFor(character.className);
-  const left = hitDiceLeft(character);
+  const [selectedDie,setSelectedDie]=useState<number>();
+  const pools=hitDicePoolsFor(character);
+  const pool=pools.find(p=>p.die===selectedDie)??pools.find(p=>p.left>0)??pools[0];
+  const {die,left}=pool;
+  const allLeft=pools.reduce((sum,p)=>sum+p.left,0);
   const full = character.curHp >= character.maxHp;
   const n = Math.min(count, Math.max(1, left));
   return (
     <span className="hit-dice-hud">
-      <button type="button" className="btn tiny" aria-expanded={open} aria-label={`Hit Dice: ${left} of ${Math.max(1, character.level)} d${die} left`}
+      <button type="button" className="btn tiny" aria-expanded={open} aria-label={pools.length>1
+        ? `Hit Dice: ${allLeft} of ${Math.max(1, character.level)} left; selected d${die} pool has ${left}`
+        : `Hit Dice: ${left} of ${Math.max(1, character.level)} d${die} left`}
         title="Spend Hit Dice to heal (roll + CON each); a Long Rest restores them" onClick={() => setOpen((o) => !o)}>
-        Hit Dice {left}/{Math.max(1, character.level)}
+        Hit Dice {allLeft}/{Math.max(1, character.level)}
       </button>
       {open && (
         <span className="hit-dice-hud-pop fantasy-window" role="group" aria-label="Spend Hit Dice">
+          {pools.length>1&&<select aria-label="Hit Die size" value={die} onChange={e=>{setSelectedDie(Number(e.target.value));setCount(1);}}>
+            {pools.map(p=><option key={p.key} value={p.die}>d{p.die} · {p.left}/{p.max}</option>)}
+          </select>}
           {left > 1 && (
             <select aria-label="Hit Dice to spend" value={n} onChange={(e) => setCount(Number(e.target.value))}>
               {Array.from({ length: left }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}</option>)}
@@ -68,7 +80,7 @@ export function HitDiceHudControl({ character }: { character: Character }) {
           )}
           <button type="button" className="btn tiny" disabled={left <= 0 || full}
             title={left <= 0 ? 'No Hit Dice left — a Long Rest restores them' : full ? 'Already at full HP' : `Roll ${n}d${die} + CON and heal`}
-            onClick={() => { spend(character.id, n); setOpen(false); }}>
+            onClick={() => { spend(character.id, n,die); setOpen(false); }}>
             🎲 Spend {n}d{die}
           </button>
         </span>
@@ -82,7 +94,7 @@ export function HitDiceHudControl({ character }: { character: Character }) {
 function RestChip({ name, counter, character, editable, onSet }: {
   name: string; counter: Counter; character: Character; editable: boolean; onSet: (r: 'short' | 'long') => void;
 }) {
-  const rule = shortRestRecovery(name, counter, character.className, character.level);
+  const rule = shortRestRecoveryForCharacter(name, counter, character);
   const text = rule === 'all' ? 'short rest' : rule === 'one' ? '+1 short rest' : 'long rest';
   const custom = editable && !isClassCounter(name);
   return (
@@ -236,7 +248,7 @@ export function CharacterResources({
           <div className="muted res-sub">Spell slots</div>
           {slots.map(([key, c]) => (
             <div key={key} className="res-row">
-              <span className="res-name">{key.replace(/^L/, 'Lvl ')}</span>
+              <span className="res-name">{key.replace(/^L/, 'Lvl ').replace(/^P/, 'Pact Lvl ')}</span>
               <Pips
                 counter={c}
                 editable={editable}

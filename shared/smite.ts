@@ -2,19 +2,21 @@
 // now, and what dice it rolls. Framework-free and shared, so the server's
 // validation and the client's buttons can never disagree about the options.
 import type { Character, SheetAbility, SmiteSpec } from './types.js';
+import { classLevelFor } from './multiclass.js';
+import { spellSlotOptions } from './spellSlotPools.js';
 
 /** A spell-slot level, or the once-per-Long-Rest free casting. */
-export type SmiteChoice = number | 'free';
+export type SmiteChoice = number | 'free' | `pact:${number}`;
+export const smiteChoiceLabel = (choice:SmiteChoice) => choice==='free'?'Free':typeof choice==='string'?`Pact L${choice.slice(5)}`:`L${choice}`;
 
-type Caster = Pick<Character, 'className' | 'level' | 'spellSlots' | 'resources'>;
+type Caster = Pick<Character, 'className' | 'level' | 'spellSlots' | 'resources'> & Partial<Pick<Character,'leveling'>>;
 
 /** Whether the free casting is available: the right class at the right level,
  *  and its counter not yet spent (a missing counter = never used). */
 export function freeSmiteAvailable(ch: Caster, spec: SmiteSpec): boolean {
   const free = spec.freeUse;
   if (!free) return false;
-  const cls = new RegExp(`\\b${free.className}\\b`, 'i');
-  if (!cls.test(ch.className ?? '') || (ch.level ?? 0) < free.minLevel) return false;
+  if (classLevelFor(ch,free.className) < free.minLevel) return false;
   const c = ch.resources?.[free.counter];
   return !c || c.used < Math.max(1, c.max);
 }
@@ -28,11 +30,8 @@ export function smiteChoices(ch: Caster, ability: SheetAbility): SmiteChoice[] {
   const spec = ability.smite;
   if (!spec) return [];
   const base = Math.max(1, ability.level ?? 1);
-  const levels = Object.entries(ch.spellSlots ?? {})
-    .map(([key, slot]) => ({ level: Number(/^L(\d)$/.exec(key)?.[1] ?? 0), slot }))
-    .filter(({ level, slot }) => level >= base && slot.used < slot.max)
-    .map(({ level }) => level)
-    .sort((a, b) => a - b);
+  const levels:SmiteChoice[] = spellSlotOptions(ch,base).filter(option=>option.remaining>0)
+    .map(option=>option.key.startsWith('P')?`pact:${option.level}` as const:option.level);
   return [...(freeSmiteAvailable(ch, spec) ? (['free'] as const) : []), ...levels];
 }
 

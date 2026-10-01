@@ -7,11 +7,12 @@ import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js'
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
 import { partyRest, restCharacter, describeRest, spendHitDice } from './rests.js';
-import { grantLevelUp, cancelLevelUp, getLevelUpPlan, previewLevelUp, applyLevelUp, rollLevelUpHp } from './leveling.js';
+import { grantLevelUp, cancelLevelUp, getLevelUpPlan, previewLevelUp, applyLevelUp, rollLevelUpHp, configureLevelUpClasses } from './leveling.js';
 import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
 import { castMark } from './marks.js';
 import { markSpell } from '../../shared/hitFeatures.js';
+import { selectSpellSlot } from '../../shared/spellSlotPools.js';
 import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
@@ -625,7 +626,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     // Cast a summon-tagged spell/ability: spawn its friendly companion token. The
     // caster must own the creature; players may only place on the ACTIVE map. A
     // leveled spell spends a slot (cantrips/abilities don't).
-    on('summon:cast', ({ kind, refId, abilityId, mapId, x, y, castLevel }) => {
+    on('summon:cast', ({ kind, refId, abilityId, mapId, x, y, castLevel, slotPool }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const map = getMap(mapId);
@@ -641,8 +642,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
         const base = ability.level ?? 1;
         const lvl = typeof castLevel === 'number' && castLevel >= base ? castLevel : base;
-        const { hasSlot, spent } = spendSpellSlot(refId, lvl);
-        if (hasSlot && !spent) {
+        const { spent } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+        if (!spent) {
           socket.emit('notice', { message: `No level ${lvl} spell slots left.` });
           return;
         }
@@ -1107,11 +1108,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const c = getCharacter(characterId);
       // The DM or the owning player may edit a character's stat sheet.
       if (!c || c.sessionId !== sessionId() || (!isDm() && c.claimedBy !== socket.id)) return;
+      const structuredMulticlass = (c.leveling?.classes?.length ?? 0) > 1;
+      const changedRoster = patch.leveling?.classes !== undefined && JSON.stringify(patch.leveling.classes) !== JSON.stringify(c.leveling?.classes);
+      if (!isDm() && changedRoster || structuredMulticlass && (patch.className !== undefined && patch.className !== c.className || patch.subclass !== undefined && patch.subclass !== c.subclass || patch.level !== undefined && patch.level !== c.level)) {
+        socket.emit('notice', { message: 'Ask the DM to configure the class levels, or use the level-up guide to advance a class.' });
+        return;
+      }
       if (!isDm() && patch.level !== undefined && patch.level !== c.level) {
         socket.emit('notice', { message: 'Ask the DM to grant a level-up, then use the 2024 level-up guide.' });
         return;
       }
-      updateCharacter(characterId, patch);
+      try { updateCharacter(characterId, patch); }
+      catch (error) { socket.emit('notice', { message: error instanceof Error ? error.message : 'The sheet could not be updated. Check its class levels.' }); return; }
       afterChange();
     });
 
@@ -1122,6 +1130,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const { characterId } = payload;
       if (!sid || !isDm()) { ack({ ok: false, error: 'Only the DM can grant a level-up.' }); return; }
       const result = grantLevelUp(sid, characterId);
+      ack(result); if (result.ok) afterChange();
+    });
+    on('character:levelConfigureClasses', (payload, ack) => {
+      if (typeof ack !== 'function') return;
+      if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string' || !Array.isArray(payload.classes)) { ack({ ok: false, error: 'Provide the character\'s exact class levels.' }); return; }
+      const sid = sessionId();
+      if (!sid || !isDm()) { ack({ ok: false, error: 'Only the DM can configure class levels.' }); return; }
+      const result = configureLevelUpClasses(sid, payload.characterId, payload.classes);
       ack(result); if (result.ok) afterChange();
     });
     on('character:levelCancel', (payload, ack) => {
@@ -1136,10 +1152,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('character:levelPlan', (payload, ack) => {
       if (typeof ack !== 'function') return;
       if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string') { ack({ ok: false, error: 'Choose a character to level up.' }); return; }
-      const { characterId, subclass } = payload;
+      const { characterId, subclass, className } = payload;
       const sid = sessionId(), c = getCharacter(characterId);
       if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) { ack({ ok: false, error: 'Open your claimed character’s level-up guide.' }); return; }
-      ack(getLevelUpPlan(sid, characterId, subclass));
+      ack(getLevelUpPlan(sid, characterId, subclass, className));
     });
     on('character:levelPreview', (request, ack) => {
       if (typeof ack !== 'function') return;
@@ -1158,10 +1174,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
     on('character:levelRollHp', (payload) => {
       if (!payload || typeof payload !== 'object' || typeof payload.characterId !== 'string' || typeof payload.grantId !== 'string') { socket.emit('notice', { message: 'Choose a pending level-up before rolling HP.' }); return; }
-      const { characterId, grantId } = payload;
+      const { characterId, grantId, className } = payload;
       const sid = sessionId(), c = getCharacter(characterId);
       if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) return;
-      const result = rollLevelUpHp(sid, rollerName(sid, socket.id, isDm()), characterId, grantId);
+      const result = rollLevelUpHp(sid, rollerName(sid, socket.id, isDm()), characterId, grantId, className);
       if (!result.ok) socket.emit('notice', { message: result.error });
       else afterChange();
     });
@@ -1255,12 +1271,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('hitDice:spend', ({ characterId, count }) => {
+    on('hitDice:spend', ({ characterId, count, die }) => {
       const sid = sessionId();
       if (!sid || typeof characterId !== 'string' || !ownsCharacter(characterId)) return;
       const n = Number(count);
       if (!Number.isFinite(n) || n < 1) return;
-      const result = spendHitDice(sid, rollerName(sid, socket.id, isDm()), characterId, Math.min(20, n));
+      if(die !== undefined && ![6,8,10,12].includes(die)) return;
+      const result = spendHitDice(sid, rollerName(sid, socket.id, isDm()), characterId, Math.min(20, n),die);
       if (!result.ok) { socket.emit('notice', { message: result.reason }); return; }
       afterChange();
     });
@@ -1424,7 +1441,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, advantage, targetTokenId, damageType }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1465,15 +1482,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!c || !ability || !validDamageChoice(ability)) return;
       // Pact Magic: a Warlock's leveled spell is cast at the pact-slot level (the
       // only slots they have), so its dice scale like it — roll at that level.
-      const pact = pactSlotLevel(c);
-      const castAt =
-        pact !== null && ability.type === 'spell' && (ability.level ?? 0) >= 1 &&
-        (ability.level ?? 0) <= pact
-          ? Math.max(cast ?? 0, pact)
-          : cast;
+      const preferredPool = slotPool === 'pact' || slotPool === 'spellcasting' ? slotPool : undefined;
+      const requested = castSlotLevel(ability, cast);
+      const slot = requested === null ? undefined : selectSpellSlot(c,requested,preferredPool);
+      const castAt = slot?.level ?? cast;
       if (markSpell(ability)) {
         const needed=castAt??1;
-        if (!c.spellSlots[`L${needed}`] || c.spellSlots[`L${needed}`].used>=c.spellSlots[`L${needed}`].max) {
+        if (!slot || slot.remaining<=0) {
           socket.emit('notice',{message:'No spell slot available for this mark.'}); return;
         }
         if(!tgt || (!isDm()&&!buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===tgt))) {
@@ -1489,7 +1504,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const slotLevel = castSlotLevel(ability, castAt);
       const leveled = slotLevel !== null;
       if (ok && slotLevel !== null) {
-        const { hasSlot, spent } = spendSpellSlot(refId, slotLevel);
+        const { hasSlot, spent } = spendSpellSlot(refId, slotLevel,slot?.pool ?? preferredPool);
         if (hasSlot && !spent) {
           socket.emit('notice', {
             message: `No level-${slotLevel} spell slot remaining for ${ability.name}.`,
@@ -1500,7 +1515,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       // (Second Wind, Bardic Inspiration…) spends one use on cast. Soft: an
       // empty pool never blocks the roll, it just nudges the player.
       if (ok && !leveled) {
-        const { matched, spent } = spendResourceForAbility(refId, ability.name);
+        const { matched, spent } = spendResourceForAbility(refId, ability.name,ability.sourceClass);
         if (matched && !spent) {
           socket.emit('notice', {
             message: `No uses of ${ability.name} remaining.`,
@@ -2188,12 +2203,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     // The caster or DM continues the stored cast; players can only choose visible targets.
-    on('combat:hitFeature', ({rollId,abilityId,level}) => {
+    on('combat:hitFeature', ({rollId,abilityId,level,slotPool}) => {
       const sid=sessionId(); if(!sid||typeof rollId!=='string'||typeof abilityId!=='string') return;
       const pending=getRollEntry(rollId,sid)?.pending;
       const ch=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId):null;
       if(!ch||(!isDm()&&ch.claimedBy!==socket.id)) return;
-      const result=resolveHitFeature(sid,rollerName(sid,socket.id,isDm()),rollId,abilityId,level);
+      const result=resolveHitFeature(sid,rollerName(sid,socket.id,isDm()),rollId,abilityId,level,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
       if(!result.ok) socket.emit('notice',{message:result.reason!});
       afterChange();
     });
@@ -2245,7 +2260,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string') return;
       const choice =
-        level === 'free' ? 'free' : Number.isInteger(level) && level >= 1 && level <= 9 ? level : null;
+        level === 'free' ? 'free' : typeof level==='string' && /^pact:[1-5]$/.test(level) ? level :
+          typeof level==='number' && Number.isInteger(level) && level >= 1 && level <= 9 ? level : null;
       if (choice === null) return;
       const sm = getRollEntry(rollId, sid)?.smite;
       if (!sm) return;

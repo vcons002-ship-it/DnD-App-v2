@@ -55,7 +55,7 @@ describe('durable level-up grants and authoritative HP', () => {
     expect(committed.maxHp).toBe(46);
     const fresh = createCharacter(s.id, { name: 'Imported copy', className: 'Fighter', stats, level: 3,
       leveling: committed.leveling });
-    expect(fresh.leveling).toEqual({ rules: '2024', history: committed.leveling!.history });
+    expect(fresh.leveling).toEqual({ rules: '2024', classes: committed.leveling!.classes, history: committed.leveling!.history });
     expect(fresh.leveling!.pending).toBeUndefined();
   });
   it('grants one level without changing HP or resource spending; repeating the grant is idempotent', () => {
@@ -266,7 +266,7 @@ describe('subclasses, spells and class choices', () => {
     const current = getCharacter(c.id)!, req = request(s.id, current), p = plan(s.id, current);
     const invocation = p.featureChoices.find(f => f.key === 'invocations')!;
     const after = apply(s.id, { ...req, choices: { hpMethod: 'fixed', spellNames: ['Counterspell'], featureSelections: { invocations: invocation.options.slice(0, invocation.count).map(o => o.name) } } });
-    expect(after.spellSlots).toEqual({ L3: { max: 2, used: 2 } }); expect(after.sheetAbilities.map(a => a.name)).toContain('Counterspell');
+    expect(after.spellSlots).toMatchObject({ L3: { max: 2, used: 2 } }); expect(Object.keys(after.spellSlots)).toEqual(['L3']); expect(after.sheetAbilities.map(a => a.name)).toContain('Counterspell');
   });
   it('does not discard a spell unless a valid replacement is selected', () => {
     const { s, c } = setup('Ranger', 4, 'Hunter');
@@ -366,6 +366,35 @@ function harness(sessionId: string, mapId: string, role: 'player' | 'dm') {
   } };
 }
 describe('level-up socket authorization', () => {
+  it('sends a DM notice for an invalid roster import instead of throwing or saving a partial sheet edit', () => {
+    const { s, c } = setup('Fighter', 3, 'Champion'), m = createMap(s.id, { name: 'Camp' }); setActiveMap(s.id, m.id);
+    const dm = harness(s.id, m.id, 'dm');
+    expect(dm.call('character:levelConfigureClasses', { characterId: c.id, classes: [{ className: 'fighter', level: 3, subclass: 'Champion' }] })).toMatchObject({ ok: true });
+    const before = getCharacter(c.id)!;
+    expect(() => dm.send('character:update', { characterId: c.id, name: 'Invalid import', leveling: { rules: '2024', history: [], classes: [{ className: 'fighter', level: 4 }] } })).not.toThrow();
+    expect(getCharacter(c.id)).toEqual(before); expect(dm.notices.at(-1)).toMatch(/add up/);
+    dm.send('character:update', { characterId: c.id, className: 'Fighter / Wizard' });
+    expect(getCharacter(c.id)).toEqual(before); expect(dm.notices.at(-1)).toMatch(/Configure class levels/);
+  });
+  it('allows only DM class configuration and blocks raw multiclass progression changes even through the sheet editor', () => {
+    const { s, c } = setup('Fighter', 4, 'Champion'), m = createMap(s.id, { name: 'Camp' }); setActiveMap(s.id, m.id);
+    const player = harness(s.id, m.id, 'player'), dm = harness(s.id, m.id, 'dm'); claimCharacter(c.id, player.id);
+    const classes = [{ className: 'fighter', level: 3, subclass: 'Champion' }, { className: 'wizard', level: 1 }];
+    expect(player.call('character:levelConfigureClasses', { characterId: c.id, classes })).toMatchObject({ ok: false });
+    expect(dm.call('character:levelConfigureClasses', { characterId: c.id, classes })).toMatchObject({ ok: true });
+    const before = getCharacter(c.id)!;
+    player.send('character:update', { characterId: c.id, leveling: { ...before.leveling, classes: [{ className: 'fighter', level: 4 }] } });
+    expect(getCharacter(c.id)).toEqual(before);
+    dm.send('character:update', { characterId: c.id, level: 5 });
+    expect(getCharacter(c.id)).toEqual(before);
+    dm.send('character:update', { characterId: c.id, className: 'Wizard', subclass: 'Evoker' });
+    expect(getCharacter(c.id)).toEqual(before);
+    player.send('character:update', { characterId: c.id, name: 'Still editable' });
+    expect(getCharacter(c.id)!.name).toBe('Still editable');
+    const other = createSession('Other'), otherMap = createMap(other.id, { name: 'Other camp' }); setActiveMap(other.id, otherMap.id);
+    const otherDm = harness(other.id, otherMap.id, 'dm');
+    expect(otherDm.call('character:levelConfigureClasses', { characterId: c.id, classes })).toMatchObject({ ok: false });
+  });
   it('only a DM grants/cancels and only the claiming player or DM can preview, roll or apply', () => {
     const { s, c } = setup(), m = createMap(s.id, { name: 'Camp' }); setActiveMap(s.id, m.id);
     const player = harness(s.id, m.id, 'player'), other = harness(s.id, m.id, 'player'), dm = harness(s.id, m.id, 'dm'); claimCharacter(c.id, player.id);
@@ -391,7 +420,7 @@ describe('level-up socket authorization', () => {
   it('acknowledges malformed level-up requests instead of leaving the caller waiting', () => {
     const { s, c } = setup(), m = createMap(s.id, { name: 'Camp' }); setActiveMap(s.id, m.id);
     const dm = harness(s.id, m.id, 'dm');
-    for (const event of ['character:levelGrant', 'character:levelCancel', 'character:levelPlan', 'character:levelPreview', 'character:levelApply']) {
+    for (const event of ['character:levelGrant', 'character:levelCancel', 'character:levelPlan', 'character:levelPreview', 'character:levelApply', 'character:levelConfigureClasses']) {
       expect(dm.call(event, null)).toMatchObject({ ok: false }); expect(dm.call(event, {})).toMatchObject({ ok: false });
     }
     expect(getCharacter(c.id)?.level).toBe(1);

@@ -14,7 +14,8 @@ import type {
 } from '../../../shared/types';
 import { healTargets, validTargets, targetLabel } from '../lib/targets';
 import { useStore } from '../state/socket';
-import { classProgression2024 } from '../../../shared/characterProgression';
+import { classProgression2024, type CoreClass } from '../../../shared/characterProgression';
+import { classLevelFor, resolveClassRoster, resourceNameForClass, spellcastingAbilityForClass } from '../../../shared/multiclass';
 import {
   ACTION_ICON,
   cantripsKnown,
@@ -51,7 +52,7 @@ function tagFor(a: SheetAbility): string {
   if (a.type === 'maneuver') return 'Maneuver';
   if (a.type === 'stance')
     return (a.level ?? 0) >= 1
-      ? `Spell · L${a.level}${a.school ? ` · ${a.school}` : ''}`
+      ? `Spell · L${a.level}${a.school ? ` · ${a.school}` : ''}${a.sourceClass ? ` · ${classLabel(a.sourceClass)}` : ''}`
       : a.school || 'Stance';
   const bits: string[] = [];
   if (a.type === 'spell') {
@@ -59,8 +60,10 @@ function tagFor(a: SheetAbility): string {
   }
   if (a.school) bits.push(a.school);
   if (a.roll?.damageType) bits.push(a.roll.damageType);
+  if (a.sourceClass) bits.push(classLabel(a.sourceClass));
   return bits.join(' · ');
 }
+const classLabel = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 
 /** Label for the roll button based on what the roll does. */
 function rollLabel(roll: NonNullable<SheetAbility['roll']>): string {
@@ -196,6 +199,12 @@ export function CharacterSpells({
   // (undefined → open), so an existing sheet shows everything until collapsed.
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
   const [castLevel, setCastLevel] = useState<Record<string, number>>({});
+  const [slotPools, setSlotPools] = useState<Record<string, 'spellcasting' | 'pact'>>({});
+  const classRoster = 'className' in character ? resolveClassRoster(character) : null;
+  const hasPactPool = 'spellSlots' in character && Object.keys(character.spellSlots).some(key => /^P[1-5]$/.test(key));
+  const poolFor = (ability: SheetAbility) => slotPools[ability.id] ?? (ability.sourceClass === 'warlock' ? 'pact' : 'spellcasting');
+  const pactPool = 'spellSlots' in character ? Object.entries(character.spellSlots).find(([key]) => /^P[1-5]$/.test(key)) : undefined;
+  const levelFor = (ability: SheetAbility) => hasPactPool && poolFor(ability) === 'pact' && pactPool ? Number(pactPool[0].slice(1)) : castLevel[ability.id] ?? (spellBaseLevel(ability) || 1);
   // This is an execution choice, not a saved edit to the ability's damage type.
   const [castDamageTypes, setCastDamageTypes] = useState<Record<string, string>>({});
   const damageChoice = (abilityId: string, choices: string[]) => {
@@ -203,6 +212,7 @@ export function CharacterSpells({
     return choices.includes(chosen) ? chosen : choices[0];
   };
   const [adding, setAdding] = useState(false);
+  const [addClass, setAddClass] = useState<CoreClass | ''>('');
   // Monsters have no race; only a PC sheet offers the racial-trait shortcut.
   const myRace = ('race' in character ? character.race : '')?.trim() ?? '';
   const [bookOpen, setBookOpen] = useState(false);
@@ -229,6 +239,12 @@ export function CharacterSpells({
   }, [q, adding]);
 
   const add = (e: SpellHit) => {
+    const sourceClass = e.sourceClass ?? (addClass || (classRoster?.length === 1 ? classRoster[0].className : undefined));
+    if ((e.type === 'spell' || e.useCounter) && (classRoster?.length ?? 0) > 1 && !sourceClass) {
+      notify('Choose the class that learns this spell or feature before adding it.');
+      return;
+    }
+    const resourceName = e.useCounter ? classRoster && sourceClass ? resourceNameForClass(classRoster, sourceClass, e.useCounter.name) : e.useCounter.name : undefined;
     // Hard feat/ASI cap (5e): block adding a feat past the level-based limit.
     if ('className' in character && isFeatAbility(e)) {
       const u = featUsage(character);
@@ -242,21 +258,23 @@ export function CharacterSpells({
       ...e,
       id: crypto.randomUUID?.() ?? String(Date.now()),
       actionType: parseActionType(e.meta),
+      ...((e.type === 'spell' || e.useCounter) && sourceClass ? { sourceClass, ...(e.type === 'spell' && e.roll ? { roll: { ...e.roll, castingAbility: spellcastingAbilityForClass(sourceClass) ?? e.roll.castingAbility } } : {}) } : {}),
+      ...(e.useCounter && resourceName ? { useCounter: { ...e.useCounter, name: resourceName } } : {}),
       // Newly-added leveled spells start prepared for prepared casters.
       ...(e.type === 'spell' && (e.level ?? 0) > 0 ? { prepared: true } : {}),
     });
     // A feature with a linked use-counter (Rage, Channel Divinity…) creates that
     // resource on the sheet so it's tracked alongside spell slots. PC-only —
     // creatures have no resource counters.
-    if ('resources' in character && e.useCounter && !character.resources[e.useCounter.name]) {
+    if ('resources' in character && e.useCounter && resourceName && !character.resources[resourceName]) {
       setResource({
         characterId: character.id,
         group: 'resources',
-        key: e.useCounter.name,
+        key: resourceName,
         // A level-scaled feature (Channel Divinity, Wild Shape) starts at the
         // character's real count, not the entry's generic default.
         max:
-          classFeatureUses(e.useCounter.name, character.className, character.level) ||
+          classFeatureUses(e.useCounter.name, sourceClass ?? character.className, sourceClass ? classLevelFor(character, sourceClass) : character.level) ||
           e.useCounter.max,
         used: 0,
       });
@@ -321,6 +339,7 @@ export function CharacterSpells({
         id: a.id, // replace in place — no duplicate
         level: a.level ?? hit.level,
         ...(a.prepared !== undefined ? { prepared: a.prepared } : {}),
+        ...(a.sourceClass ? { sourceClass: a.sourceClass, ...(hit.roll ? { roll: { ...hit.roll, castingAbility: spellcastingAbilityForClass(a.sourceClass) ?? hit.roll.castingAbility } } : {}) } : {}),
         actionType: parseActionType(hit.meta) ?? a.actionType,
       });
       notify(hit.roll ? `Made "${a.name}" rollable.` : `Updated "${a.name}" (no roll for it).`);
@@ -347,20 +366,22 @@ export function CharacterSpells({
       mapId: summonMap.id,
       x: g * 2 + Math.random() * g * 2,
       y: g * 2 + Math.random() * g * 2,
-      castLevel: upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined,
+      castLevel: upcastable(a) ? levelFor(a) : undefined,
+      slotPool: hasPactPool ? poolFor(a) : undefined,
     });
     notify(`Summoned ${a.summon?.name?.trim() || a.name} — drag it into place.`);
   };
 
   const doRoll = (a: SheetAbility) => {
     if (!confirmConcentration(character, a)) return;
-    const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
+    const level = upcastable(a) ? levelFor(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
     rollAbility({
       kind,
       refId: character.id,
       abilityId: a.id,
       castLevel: level,
+      slotPool: hasPactPool ? poolFor(a) : undefined,
       damageType: damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
@@ -396,6 +417,8 @@ export function CharacterSpells({
   /** Author a homebrew spell from scratch: a leveled spell pre-seeded with a
    *  damage roll + the inline editor open so name/level/dice are editable. */
   const addCustomSpell = () => {
+    const sourceClass = addClass || (classRoster?.length === 1 ? classRoster[0].className : undefined);
+    if ((classRoster?.length ?? 0) > 1 && !sourceClass) { notify('Choose the class that learns this spell before adding it.'); return; }
     const id = crypto.randomUUID?.() ?? String(Date.now());
     setSheetAbility(kind, character.id, {
       id,
@@ -406,8 +429,9 @@ export function CharacterSpells({
       school: '',
       actionType: 'action',
       prepared: true,
+      ...(sourceClass ? { sourceClass } : {}),
       description: '',
-      roll: { kind: 'damage', dice: '1d6' },
+      roll: { kind: 'damage', dice: '1d6', ...(sourceClass ? { castingAbility: spellcastingAbilityForClass(sourceClass) ?? undefined } : {}) },
     });
     setOpen((o) => ({ ...o, [id]: true }));
   };
@@ -430,7 +454,7 @@ export function CharacterSpells({
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
     const summon = effectiveSheetAbility(a).summon;
-    const lvl = castLevel[a.id] ?? (spellBaseLevel(a) || 1);
+    const lvl = levelFor(a);
     const displayRoll = hitFeature(a) ? undefined : effectiveSheetAbility(a, lvl).roll;
     const damageTypes = spellDamageTypeChoices(a, lvl);
     const gi = groupIds.indexOf(a.id);
@@ -545,6 +569,7 @@ export function CharacterSpells({
               <select
                 className="spell-level"
                 value={lvl}
+                disabled={hasPactPool && poolFor(a) === 'pact'}
                 title="Cast at level (upcast)"
                 onChange={(e) =>
                   setCastLevel((c) => ({ ...c, [a.id]: Number(e.target.value) }))
@@ -565,6 +590,13 @@ export function CharacterSpells({
               {rollLabel(displayRoll)}
             </button>
           )}
+          {editable && hasPactPool && (a.type === 'spell' || a.type === 'stance') && spellBaseLevel(a) > 0 && (!rollsElsewhere || a.summon) && !hitFeature(a) && !isStance(a) && <select className="spell-level" aria-label={`${a.name} slot pool`} value={poolFor(a)} onChange={event => {
+            const pool = event.target.value as 'spellcasting' | 'pact';
+            setSlotPools(current => ({ ...current, [a.id]: pool }));
+            setCastLevel(current => ({ ...current, [a.id]: pool === 'pact' && pactPool ? Number(pactPool[0].slice(1)) : spellBaseLevel(a) }));
+          }}>
+            <option value="spellcasting">Spellcasting slots</option><option value="pact">Pact Magic{pactPool ? ` · L${pactPool[0].slice(1)} (${Math.max(0, pactPool[1].max - pactPool[1].used)}/${pactPool[1].max})` : ''}</option>
+          </select>}
           {editable && displayRoll && !rollsElsewhere && damageTypes.length > 0 && (
             <select
               className="spell-level spell-damage-type"
@@ -660,6 +692,10 @@ export function CharacterSpells({
         </div>
         {open[a.id] && (
           <div className="spell-body">
+            {editable && a.type === 'spell' && (classRoster?.length ?? 0) > 1 && <label className="action-type-edit muted">Spell class<select aria-label={`${a.name} spell class`} value={a.sourceClass ?? ''} onChange={event => {
+              const sourceClass = (event.target.value || undefined) as CoreClass | undefined;
+              setSheetAbility(kind, character.id, { ...a, sourceClass, ...(a.roll && sourceClass ? { roll: { ...a.roll, castingAbility: spellcastingAbilityForClass(sourceClass) ?? a.roll.castingAbility } } : {}) });
+            }}><option value="">Unassigned legacy / custom</option>{classRoster?.map(entry => <option key={entry.className} value={entry.className}>{classLabel(entry.className)} {entry.level}</option>)}</select></label>}
             {/* Inline header editor — rename / relevel / set school (homebrew). */}
             {editable && (
               <div className="sb-roll-edit">
@@ -964,6 +1000,8 @@ export function CharacterSpells({
       <h4>Spells, Abilities &amp; Masteries</h4>
       {'className' in character &&
         (() => {
+          if (character.leveling?.rules === '2024' && classRoster && classRoster.length > 1)
+            return <MulticlassSpellCaps character={character} />;
           const lvl = character.level || 1;
           const spells = character.sheetAbilities.filter((a) => a.type === 'spell');
           // Allowed spell lists: class + subclass + feats named in the sheet's
@@ -1100,6 +1138,7 @@ export function CharacterSpells({
           )}
           {adding && (
             <div className="spell-add">
+              {(classRoster?.length ?? 0) > 1 && <label className="action-type-edit muted">Learn spells / features as<select aria-label="Class for added spells" value={addClass} onChange={event => setAddClass(event.target.value as CoreClass | '')}><option value="">Choose a class</option>{classRoster?.map(entry => <option key={entry.className} value={entry.className}>{classLabel(entry.className)} {entry.level}</option>)}</select></label>}
               <input
                 autoFocus
                 placeholder="Search — Fireball, cantrip, maneuver, mastery, racial trait…"
@@ -1168,4 +1207,33 @@ export function CharacterSpells({
       )}
     </div>
   );
+}
+
+/** Spell preparation and cantrips remain separate for each learned class. A
+ * higher shared slot never grants higher-level spells in an individual class. */
+function MulticlassSpellCaps({ character }: { character: Character }) {
+  const classes = resolveClassRoster(character);
+  if (!classes) return null;
+  const spells = character.sheetAbilities.filter(ability => ability.type === 'spell');
+  const unassigned = spells.filter(ability => !ability.sourceClass && !ability.tags?.includes('feat')).length;
+  return <div className="spell-caps muted" aria-label="Spells by class">
+    {classes.map(entry => {
+      const progression = classProgression2024(entry.className, entry.level, entry.subclass);
+      if (!progression || (!progression.cantrips && !progression.preparedSpells)) return null;
+      const own = spells.filter(ability => ability.sourceClass === entry.className);
+      const bonus = own.filter(ability => (ability.level ?? 0) === 0 && ability.tags?.includes('bonus-cantrip')).length;
+      const cantrips = own.filter(ability => (ability.level ?? 0) === 0 && !ability.tags?.includes('bonus-cantrip')).length;
+      const alwaysPrepared = (ability: SheetAbility) => ability.tags?.some(tag => tag === 'always-prepared' || tag === 'subclass-spell');
+      const extraPrepared = own.filter(ability => (ability.level ?? 0) > 0 && alwaysPrepared(ability)).length;
+      const prepared = own.filter(ability => (ability.level ?? 0) > 0 && ability.prepared !== false && !alwaysPrepared(ability)).length;
+      const casting = spellcastingAbilityForClass(entry.className);
+      return <div key={entry.className} data-spell-class={entry.className}>
+        <strong>{classLabel(entry.className)} {entry.level}</strong>{casting ? ` · ${casting}` : ''}{` · spells up to L${progression.maxSpellLevel}`}
+        {(progression.cantrips > 0 || bonus > 0) && <div className={cantrips > progression.cantrips ? 'over' : ''}>Cantrips {cantrips}/{progression.cantrips}{bonus > 0 ? ` + ${bonus} bonus` : ''}</div>}
+        {progression.preparedSpells > 0 && <div className={prepared > progression.preparedSpells ? 'over' : ''}>Prepared {prepared}/{progression.preparedSpells}{extraPrepared > 0 ? ` + ${extraPrepared} always prepared` : ''}</div>}
+      </div>;
+    })}
+    {unassigned > 0 && <div className="spell-credits">{unassigned} legacy / custom spell{unassigned === 1 ? '' : 's'} without a class. Set Spell class in each entry to count it here.</div>}
+    {Object.entries(character.spellSlots).filter(([key]) => /^P[1-5]$/.test(key)).map(([key, counter]) => <div key={key}>Pact Magic · L{key.slice(1)}: {Math.max(0, counter.max - counter.used)}/{counter.max} slots</div>)}
+  </div>;
 }

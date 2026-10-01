@@ -34,9 +34,9 @@ export function eligibleLevelingFeats(c: Character, p: ClassProgression, scores:
   const owned = new Set([...c.sheetAbilities, ...c.abilities].map(a => key(a.name)));
   for (const modifier of c.modifiers) if (LEVELING_FEATS.some(f => key(f.name) === key(modifier.source))) owned.add(key(modifier.source));
   return LEVELING_FEATS.filter(f => !owned.has(key(f.name)) &&
-    (f.category !== 'Epic Boon' || p.level >= 19) &&
-    (f.category !== 'General' || p.level >= 4) &&
-    (!f.spellcasting || p.cantrips > 0 || p.maxSpellLevel > 0) &&
+    (f.category !== 'Epic Boon' || c.level + 1 >= 19) &&
+    (f.category !== 'General' || c.level + 1 >= 4) &&
+    (!f.spellcasting || p.cantrips > 0 || p.maxSpellLevel > 0 || c.sheetAbilities.some(a => a.type === 'spell')) &&
     (['Athlete', 'Sentinel'].includes(f.name) ? Math.max(scores.STR ?? 10, scores.DEX ?? 10) >= 13 :
       Object.entries(f.minimum ?? {}).every(([ab, min]) => (scores[ab] ?? 10) >= min!)))
     .map(({ minimum: _minimum, spellcasting: _spellcasting, ...f }) => f.name === 'Resilient' ? {
@@ -116,7 +116,7 @@ export function levelingFeature(name: string, c: Character, p: ClassProgression)
   const definition = smite ?? existing;
   return {
     ...(definition ?? {}),
-    id: '', name: smite ? 'Divine Smite' : name,
+    id: '', name: smite ? 'Divine Smite' : name, sourceClass: p.classKey,
     type: definition?.type ?? 'ability', source: 'srd',
     school: `${c.className} feature (2024)`, classes: [p.classKey],
     tags: [...new Set([...(definition?.tags ?? []), p.classKey, 'feature', '2024', 'leveling-2024'])],
@@ -139,13 +139,24 @@ const invocationNames = ['Agonizing Blast', 'Repelling Blast', 'Devil’s Sight'
 const invocationMin: Record<string, number> = { 'Agonizing Blast': 2, 'Repelling Blast': 2, 'Devil’s Sight': 2, 'Fiendish Vigor': 2, 'Otherworldly Leap': 2, 'Lessons of the First Ones': 2, 'Pact of the Chain': 2, 'Thirsting Blade': 5, 'Lifedrinker': 9, 'Devouring Blade': 12 };
 const metamagicNames = ['Careful Spell', 'Distant Spell', 'Empowered Spell', 'Extended Spell', 'Heightened Spell', 'Quickened Spell', 'Seeking Spell', 'Subtle Spell', 'Transmuted Spell', 'Twinned Spell'];
 const option = (name: string, description: string) => ({ name, description });
-const invocationCount = (level: number) => level >= 18 ? 10 : level >= 15 ? 9 : level >= 12 ? 8 : level >= 9 ? 7 : level >= 7 ? 6 : level >= 5 ? 5 : level >= 2 ? 3 : 1;
+const invocationCount = (level: number) => level < 1 ? 0 : level >= 18 ? 10 : level >= 15 ? 9 : level >= 12 ? 8 : level >= 9 ? 7 : level >= 7 ? 6 : level >= 5 ? 5 : level >= 2 ? 3 : 1;
 
 export function featureChoices2024(c: Character, p: ClassProgression): LevelUpFeatureChoice[] {
   const own = new Set(c.sheetAbilities.map(a => key(a.name)));
   const choices: LevelUpFeatureChoice[] = [];
   const add = (choice: LevelUpFeatureChoice) => { if (choice.count > 0) choices.push(choice); };
   const hasExpertise = (sk: string) => own.has(key(`Expertise: ${sk}`)) || c.modifiers.some(m => m.target.kind === 'skill' && key(m.target.skill ?? '') === key(sk) && /expertise/i.test(m.source));
+  if (p.features.includes('Divine Order') || p.features.includes('Primal Order')) {
+    const cleric = p.classKey === 'cleric', cantripClass = cleric ? 'cleric' : 'druid';
+    add({ key: 'order', label: cleric ? 'Divine Order' : 'Primal Order', count: 1, options: cleric ? [
+      option('Protector', 'Gain proficiency with Martial weapons and Heavy armor.'),
+      option('Thaumaturge', 'Learn one extra Cleric cantrip. Add your Wisdom modifier, minimum 1, to Arcana and Religion checks.') ] : [
+      option('Warden', 'Gain proficiency with Martial weapons and Medium armor.'),
+      option('Magician', 'Learn one extra Druid cantrip. Add your Wisdom modifier, minimum 1, to Arcana and Nature checks.') ] });
+    add({ key: 'orderCantrip', label: cleric ? 'Thaumaturge cantrip' : 'Magician cantrip', count: 1,
+      when: { key: 'order', option: cleric ? 'Thaumaturge' : 'Magician' },
+      options: getAllSpells().filter(s => s.type === 'spell' && s.level === 0 && s.classes?.includes(cantripClass) && !own.has(key(s.name))).map(s => option(s.name, s.description)) });
+  }
   if (p.features.includes('Expertise') || p.features.includes('Scholar') || p.features.includes('Deft Explorer')) {
     const scholarSkills = ['Arcana', 'History', 'Investigation', 'Medicine', 'Nature', 'Religion'];
     add({ key: 'expertise', label: p.features.includes('Scholar') ? 'Scholar Expertise' : p.features.includes('Deft Explorer') ? 'Deft Explorer Expertise' : 'Expertise', count: p.features.includes('Expertise') ? 2 : 1,
@@ -187,7 +198,7 @@ export function featureChoices2024(c: Character, p: ClassProgression): LevelUpFe
 export function selectedFeatureAbility(choiceKey: string, name: string, c: Character): SheetAbility {
   const prefix: Record<string, string> = { expertise: 'Expertise: ', fightingStyle: 'Fighting Style: ', invocations: 'Eldritch Invocation: ', metamagic: 'Metamagic: ' };
   const base = choiceKey === 'maneuvers' ? maneuver2024(name) : null;
-  return { ...(base ?? {}), id: '', name: `${prefix[choiceKey] ?? ''}${name}`, type: base?.type ?? 'ability', source: 'srd',
+  return { ...(base ?? {}), id: '', name: `${prefix[choiceKey] ?? ''}${name}`, type: base?.type ?? 'ability', source: 'srd', sourceClass: c.className.toLowerCase(),
     school: `${c.className} feature (2024)`, classes: [c.className.toLowerCase()],
     tags: [...new Set([...(base?.tags ?? []), choiceKey, '2024', 'leveling-2024'])],
     description: base?.description ?? (choiceKey === 'fightingStyle' ? styles.find(s => s.name === name)?.description : undefined) ??

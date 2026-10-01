@@ -173,7 +173,7 @@ describe('character library', () => {
     const originalPending = next.value.leveling!.pending!;
     saveLibraryCharacter(next.value, true);
     const saved = getLibraryCharacter(c.name)!;
-    expect(saved.leveling).toEqual({ rules: '2024', history: committed.value.leveling!.history });
+    expect(saved.leveling).toEqual({ rules: '2024', classes: committed.value.leveling!.classes, history: committed.value.leveling!.history });
     expect(saved.modifiers).toEqual(committed.value.modifiers);
     expect(getCharacter(c.id)!.leveling!.pending).toEqual(originalPending);
     const destination = createSession('Progression destination');

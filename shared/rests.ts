@@ -1,5 +1,7 @@
 // Short / Long Rest rules (2024 PHB) as pure data → data, shared by the server
 // (which applies them) and the client (which previews them). Framework-free.
+import { resolveClassRoster, multiclassHitDice, allocateHitDiceUsed, classLevelFor } from './multiclass.js';
+import type { Character } from './types.js';
 
 export type RestKind = 'short' | 'long';
 /** What a Short Rest does to one counter: refill it, give back one use, or nothing. */
@@ -27,6 +29,24 @@ export function hitDieFor(className: string): number {
 /** Hit Dice available = character level − spent (never negative). */
 export function hitDiceLeft(c: { level: number; hitDiceUsed?: number }): number {
   return Math.max(0, Math.max(1, Math.round(c.level || 1)) - (c.hitDiceUsed ?? 0));
+}
+
+/** Mixed Hit Dice are tracked by size, with conservative allocation of legacy
+ * spending when a DM first records an existing multiclass sheet. */
+export function hitDicePoolsFor(c: Pick<Character,'className'|'level'|'hitDiceUsed'> & Partial<Pick<Character,'subclass'|'leveling'|'hitDiceUsedByDie'>>) {
+  const roster = resolveClassRoster(c);
+  const maxima = roster ? multiclassHitDice(roster) : { [`d${hitDieFor(c.className)}`]: c.level };
+  const usage = roster ? allocateHitDiceUsed(roster,c.hitDiceUsed,c.hitDiceUsedByDie)
+    : { [`d${hitDieFor(c.className)}`]: c.hitDiceUsed };
+  return Object.entries(maxima).map(([key,max]) => ({ key, die:Number(key.slice(1)),max,
+    used:Math.min(max,Math.max(0,usage[key]??0)),left:Math.max(0,max-(usage[key]??0)) }));
+}
+
+export function shortRestRecoveryForCharacter(name:string,counter:Counter,c:Pick<Character,'className'|'level'> & Partial<Pick<Character,'leveling'|'subclass'>>) {
+  const owner = /^Cleric Channel Divinity$/i.test(name) ? 'cleric' : /^Paladin Channel Divinity$/i.test(name) ? 'paladin' :
+    /^Bardic Inspiration$/i.test(name) ? 'bard' : undefined;
+  return shortRestRecovery(name.replace(/^(Cleric|Paladin) /i,''),counter,owner??c.className,
+    owner ? classLevelFor(c,owner) : c.level);
 }
 
 /** HP one spent Hit Die restores: the face + CON modifier, minimum 1 (2024). */

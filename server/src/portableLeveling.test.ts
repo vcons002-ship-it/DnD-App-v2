@@ -33,4 +33,16 @@ describe('portable character advancement', () => {
       { ...completed, toLevel: 20 }, { ...completed, at: Infinity }, { ...completed, choices: null }, completed, completed,
     ] })).toEqual({ rules: '2024', history: [completed] });
   });
+  it('copies a valid multiclass roster and chosen advancement class without its rolled grant', () => {
+    const copy=portableLeveling({ ...current,classes:[{className:'fighter',level:3},{className:'wizard',level:1}],
+      history:[{...completed,choices:{hpMethod:'fixed',className:'wizard'}}] });
+    expect(copy?.classes).toEqual([{className:'fighter',level:3},{className:'wizard',level:1}]);
+    expect(copy?.history[0].choices.className).toBe('wizard');
+    expect(copy?.pending).toBeUndefined();
+    expect(portableLeveling({...current,classes:[{className:'fighter',level:3},{className:'fighter',level:1}]})).toBeUndefined();
+  });
+  it('cannot change a pending grant\'s class roster through a portable import', () => {
+    const existing={...current,classes:[{className:'fighter' as const,level:4}]};
+    expect(mergePortableLeveling(existing,{rules:'2024',history:[],classes:[{className:'wizard',level:4}]})?.classes).toEqual(existing.classes);
+  });
 });

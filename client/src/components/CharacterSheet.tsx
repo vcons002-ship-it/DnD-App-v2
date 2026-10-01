@@ -13,6 +13,7 @@ import { LibraryCharacterDialog } from './LibraryCharacterDialog';
 import { MiniatureSizeControl } from './MiniatureSizeControl';
 import { CharacterLevelUp } from './CharacterLevelUp';
 import { resolveMiniature } from '../lib/miniatures';
+import { multiclassClassSummary } from '../../../shared/multiclass';
 
 /**
  * A character's full sheet: the shared tagged stat block (editable + AI fill when
@@ -45,6 +46,7 @@ export function CharacterSheet({
   const aiBusy = useStore((s) => s.aiBusy);
   const role = useStore((s) => s.snapshot?.role);
   const [saving, setSaving] = useState(false);
+  const classSummary = multiclassClassSummary(character) ?? `${character.className}${character.subclass ? ` (${character.subclass})` : ''}`;
 
   return (
     <div className="char-sheet">
@@ -53,9 +55,7 @@ export function CharacterSheet({
       <CharacterLevelUp character={character} editable={editable} />
       <StatBlock
         creature={character}
-        subtitle={`${character.race} · ${character.className}${
-          character.subclass ? ` (${character.subclass})` : ''
-        }`}
+        subtitle={`${character.race} · ${classSummary}`}
         identity={
           editable
             ? [

@@ -1,5 +1,7 @@
 import type { AbilityKey } from './skills.js';
 import type { CharacterLeveling, LevelUpChoices, LevelUpRecord } from './levelingTypes.js';
+import { normalizeClassRoster } from './multiclass.js';
+import { resolveProgressionClass } from './characterProgression.js';
 
 const abilities: AbilityKey[] = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const text = (value: unknown): value is string => typeof value === 'string' && value.length <= 160;
@@ -20,6 +22,8 @@ export function portableLeveling(value: unknown): CharacterLeveling | undefined 
         !['fixed', 'roll'].includes(String(record.choices.hpMethod))) continue;
     const raw = record.choices;
     const choices: LevelUpChoices = { hpMethod: raw.hpMethod as LevelUpChoices['hpMethod'] };
+    const selectedClass = typeof raw.className === 'string' ? resolveProgressionClass(raw.className) : null;
+    if (selectedClass) choices.className = selectedClass;
     if (text(raw.subclass)) choices.subclass = raw.subclass;
     if (text(raw.featName)) choices.featName = raw.featName;
     if (abilities.includes(raw.featAbility as AbilityKey)) choices.featAbility = raw.featAbility as AbilityKey;
@@ -33,7 +37,9 @@ export function portableLeveling(value: unknown): CharacterLeveling | undefined 
       hpGain: Number(record.hpGain), at: record.at, choices });
     ids.add(record.id);
   }
-  return { rules: '2024', history };
+  const classes = value.classes === undefined ? undefined : normalizeClassRoster(value.classes);
+  if (value.classes !== undefined && !classes) return undefined;
+  return { rules: '2024', history, ...(classes ? { classes } : {}) };
 }
 
 /** Import may add historical notes, but never replace server receipts or turn a
@@ -44,5 +50,6 @@ export function mergePortableLeveling(existing: CharacterLeveling | undefined, i
   if (!existing) return incoming;
   const retainedIds = new Set(existing.history.map(record => record.id));
   if (existing.pending) retainedIds.add(existing.pending.id);
-  return { ...existing, history: [...existing.history, ...incoming.history.filter(record => !retainedIds.has(record.id))] };
+  return { ...existing, ...(!existing.pending && incoming.classes ? { classes: incoming.classes } : {}),
+    history: [...existing.history, ...incoming.history.filter(record => !retainedIds.has(record.id))] };
 }
