@@ -67,7 +67,8 @@ export async function physicalFaces(
       const state=world.snapshot();
       const kept=state.done&&info?.advantage&&offset+logical.length===sides.length
         ? keptPhysicalSet([...result,...decode(state.values as number[])],info) : undefined;
-      publish({...state,poses:state.poses.map(v=>Math.round(v*10000)/10000),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
+      const impacts=world.drainImpacts();
+      publish({...state,poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
       return state;
     };
     const prepared=ready?.(id);

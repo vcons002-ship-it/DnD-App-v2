@@ -22,7 +22,7 @@ import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
 import { createMiniatureNameReader } from './miniatureNameLabels';
 import { MiniatureFallback } from './MiniatureFallback';
-import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround } from './miniatureProjection';
+import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround, mapToScreen, projectGround } from './miniatureProjection';
 import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
@@ -67,6 +67,9 @@ type Props = {
   onPlaceAt?: (x: number, y: number) => void;
   /** Presentation-only: avoid duplicating the compact feed beside open chat. */
   fullChatVisible?: boolean;
+  /** Bring a token into view (a new `nonce` = a new request). The camera moves
+   *  only when the token sits outside the comfortable middle of the screen. */
+  focusRequest?: { tokenId: string; nonce: number } | null;
 };
 
 type View = { scale: number; x: number; y: number };
@@ -383,6 +386,7 @@ export function MapStage({
   onMoveToken,
   onPlaceAt,
   fullChatVisible = false,
+  focusRequest,
 }: Props) {
   const miniatureCatalogRevision = useMiniatureCatalog();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1754,6 +1758,26 @@ export function MapStage({
     userAdjusted.current = false;
     setView(fit);
   };
+
+  // Focus requests (DM "Next turn"): centre the token only when it's near the
+  // edge or off-screen — never yank a camera that already shows it. Projecting
+  // through the same tilt/rotation as the box-select keeps 45° views correct;
+  // the screen centre is a fixed point of that projection, so centring solves
+  // directly for the view.
+  const focusNonce = useRef<number>();
+  useEffect(() => {
+    if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
+    focusNonce.current = focusRequest.nonce;
+    const token = snapshot.tokens.find((t) => t.id === focusRequest.tokenId);
+    if (!token || !size.w || !size.h) return;
+    const ground = mapToScreen(token.x, token.y, view, tiltDegrees);
+    const p = projectGround(ground.x, ground.y, size.w, size.h, tiltDegrees, rotationDegrees);
+    const inset = 0.15;
+    if (p.x >= size.w * inset && p.x <= size.w * (1 - inset) && p.y >= size.h * inset && p.y <= size.h * (1 - inset)) return;
+    userAdjusted.current = true;
+    setView((v) => ({ ...v, x: size.w / 2 - token.x * v.scale, y: size.h / 2 - token.y * v.scale * groundYScale(tiltDegrees) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.nonce]);
 
   const paintProjection = (tilt:number,rotation:number,nextView:View) => {
     const previous=projectionState.current;

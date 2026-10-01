@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type {
   Character,
   CharacterUpdatePayload,
+  CreatureAbility,
+  CreatureTemplate,
   Monster,
   MonsterUpdatePayload,
   SheetAbility,
@@ -16,6 +18,7 @@ import {
 } from '../sessions.js';
 import { generateCharacterAI, lookupCreatureAI } from './gemini.js';
 import { aiAvailable } from '../ai/gateway.js';
+import { parseRecharge } from '../../../shared/monsterAttacks.js';
 import { getSpell } from '../spells/srd.js';
 import { getFeature } from '../features/srd.js';
 import { getMastery } from '../masteries/srd.js';
@@ -82,6 +85,31 @@ export type FillResult =
   | { ok: true; filled: number; id: string }
   | { ok: false; reason: 'no-key' | 'lookup-failed' | 'not-found' | 'nothing' };
 
+/** "Fire Breath (Recharge 5–6)" → "fire breath": names compare without markers. */
+const baseActionName = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+
+/** The AI block's recharge / per-day actions that neither the creature nor the
+ *  pending patch already has. */
+export function missingRechargeActions(
+  tpl: Pick<CreatureTemplate, 'actions' | 'sheetAbilities'>,
+  m: { sheetAbilities: { name: string }[]; weapons: { name: string }[] },
+  patch: { actions?: CreatureAbility[]; sheetAbilities?: { name: string }[] } = {},
+): CreatureAbility[] {
+  const have = new Set(
+    [...m.sheetAbilities, ...m.weapons, ...(patch.actions ?? []), ...(patch.sheetAbilities ?? [])]
+      .map((a) => baseActionName(a.name)),
+  );
+  const out: CreatureAbility[] = [];
+  for (const a of [...tpl.actions, ...(tpl.sheetAbilities ?? [])]) {
+    const recharge = a.recharge ?? parseRecharge(a.name, a.description);
+    const key = baseActionName(a.name);
+    if (!recharge || have.has(key)) continue;
+    have.add(key);
+    out.push({ name: a.name, description: a.description ?? '', ...(a.roll ? { roll: a.roll } : {}), recharge });
+  }
+  return out;
+}
+
 /**
  * Back-fill ONLY the empty fields of a creature from an AI stat block, never
  * overwriting DM-entered data. Returns how many fields were filled.
@@ -129,6 +157,11 @@ export async function aiFillCreature(monsterId: string): Promise<FillResult> {
     patch.abilities = tpl.abilities;
   if (m.sheetAbilities.length === 0 && (tpl.sheetAbilities?.length ?? 0) > 0)
     patch.sheetAbilities = tpl.sheetAbilities;
+  // A limited-use action the creature LACKS (its breath weapon, a 1/Day gaze) is
+  // added even when it already has other abilities — never a second copy of one
+  // it has ("Fire Breath" matches "Fire Breath (Recharge 5–6)").
+  const limited = missingRechargeActions(tpl, m, patch);
+  if (limited.length) patch.actions = [...(patch.actions ?? []), ...limited];
 
   const filled = Object.keys(patch).length - 1; // minus monsterId
   if (filled === 0) return { ok: false, reason: 'nothing' };

@@ -3,6 +3,8 @@ import {useContext,useEffect,useRef,useState,type CSSProperties} from 'react';
 import {DiceThemeContext} from './ThreeDie';
 import {physicalDice,diceRevealTimes,dieResultEmphasis,dieResultTier,dieResultLabel,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
 import './PhysicsDiceTray.css';
+import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
+import {metresPerUnitFor} from '../../../shared/diceImpacts';
 import type {RollComparison} from '../../../shared/types';
 // Presentation pacing only; the precomputed gravity/contact simulation is unchanged.
 const ROLL_PLAYBACK_RATE=.6;
@@ -15,6 +17,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
   useEffect(()=>{
     let dead=false,raf=0,renderer:ReturnType<typeof import('../lib/diceTrayRenderer').createTrayRenderer>|undefined;
     let worker:Worker|undefined;
+    let sound:ReturnType<typeof createDiceSound>|undefined;
     const flightAnimations:Animation[]=[];
     const expanded=physicalDice(JSON.parse(key));let completed=false;
     setStatus('loading');setArrived([]);
@@ -41,6 +44,12 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
           const revealTimes=diceRevealTimes(toss.settleTimes,ROLL_PLAYBACK_RATE);
           const finishAt=Math.max(toss.duration/ROLL_PLAYBACK_RATE,...revealTimes.map(t=>t+.85));
           let elapsed=0,previous=performance.now();setStatus('rolling');
+          // Sound follows the recorded simulation: strikes as playback passes
+          // them, and each die's rumble from its own speed in the frames.
+          sound=createDiceSound(expanded.map(d=>d.sides));
+          const bodies=expanded.length,metres=metresPerUnitFor(toss.radius),impacts=toss.impacts??[];
+          let heard=-1;
+          const pose=(frame:number)=>toss.frames.subarray(frame*bodies*7,(frame+1)*bodies*7);
           const draw=(now:number)=>{
             if(dead)return;
             if(!document.hidden)elapsed+=Math.min(.05,(now-previous)/1000);previous=now;
@@ -52,6 +61,15 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
                 finalTrayDrawn=elapsed*ROLL_PLAYBACK_RATE>=toss.duration;
               }
             }catch{fallback();return;}
+            const simNow=Math.min(elapsed*ROLL_PLAYBACK_RATE,toss.duration);
+            if(sound){
+              const due=impacts.filter(i=>i.t>heard&&i.t<=simNow);
+              if(due.length)sound.impacts(due,()=>0);
+              heard=simNow;
+              const frame=Math.min(toss.frameCount-1,Math.floor(simNow/toss.step)),back=Math.max(0,frame-8);
+              if(frame>back)sound.rolling(rollingSpeeds(pose(back),pose(frame),(frame-back)*toss.step,toss.radius,metres));
+              if(simNow>=toss.duration){sound.stop();sound=undefined;}
+            }
             node.dataset.playbackRate=String(ROLL_PLAYBACK_RATE);node.dataset.simulationElapsed=(elapsed*ROLL_PLAYBACK_RATE).toFixed(3);
             node.dataset.wallHits=String(toss.wallHits);node.dataset.elapsed=elapsed.toFixed(3);node.dataset.duration=toss.duration.toFixed(3);
             const starting=expanded.map((_,i)=>i).filter(i=>!launched.has(i)&&elapsed>=revealTimes[i]);
@@ -90,7 +108,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
       if(rollKey){seed[0]=2166136261;for(const char of rollKey)seed[0]=Math.imul(seed[0]^char.charCodeAt(0),16777619)>>>0;}
       worker.postMessage({dice:expanded,seed:seed[0],entrySide});
     }catch{fallback();}
-    return()=>{dead=true;clearTimeout(timeout);worker?.terminate();cancelAnimationFrame(raf);flightAnimations.forEach(a=>a.cancel());renderer?.dispose();};
+    return()=>{dead=true;sound?.stop();clearTimeout(timeout);worker?.terminate();cancelAnimationFrame(raf);flightAnimations.forEach(a=>a.cancel());renderer?.dispose();};
   },[key,theme,rollKey,comparison?.kept,entrySide]);
   const expanded=physicalDice(dice),landed=status==='settled'||status==='fallback';
   return <div ref={root} className="physics-dice-tray" data-entry-side={entrySide} data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':'forest-resin'} role="group" aria-label={label}>

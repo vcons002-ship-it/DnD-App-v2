@@ -317,6 +317,15 @@ type Store = {
   removeSheetAbility: (kind: TokenKind, refId: string, abilityId: string) => void;
   reorderSheetAbilities: (kind: TokenKind, refId: string, orderedIds: string[]) => void;
   rollAbility: (payload: AbilityRollPayload) => void;
+  /** Ready/Spent for a limited-use ability (manual recharge). */
+  setAbilityRecharge: (kind: TokenKind, refId: string, abilityId: string, spent: boolean) => void;
+  /** DM: the whole party / one character takes a Short or Long Rest. */
+  restParty: (kind: 'short' | 'long') => void;
+  restCharacter: (characterId: string, kind: 'short' | 'long') => void;
+  /** Spend Hit Dice to heal (rolled on the server's physical dice). */
+  spendHitDice: (characterId: string, count: number) => void;
+  /** The party just rested — drives a banner (null when shown). */
+  restFx: { id: number; kind: 'short' | 'long' } | null;
   rollDeathSave: (characterId: string) => void;
   sendChat: (text: string, speakAsTokenId?: string) => void;
   rollSkill: (payload: SkillRollPayload) => void;
@@ -663,6 +672,7 @@ export const useStore = create<Store>((set, get) => ({
     });
     socket.on('dice:finished',({id})=>{if(get().liveDice?.id===id)set({liveDice:null});});
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
+    socket.on('fx:rest', ({kind}) => set({restFx: {id: Date.now(), kind}}));
     socket.on('state:snapshot', (snapshot) => {
       // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
       // log is oldest-first, so a new entry is the first one not yet seen.
@@ -1045,6 +1055,10 @@ export const useStore = create<Store>((set, get) => ({
   reorderSheetAbilities: (kind, refId, orderedIds) =>
     get().socket?.emit('ability:reorder', { kind, refId, orderedIds }),
   rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
+  setAbilityRecharge: (kind, refId, abilityId, spent) => get().socket?.emit('ability:setRecharge', { kind, refId, abilityId, spent }),
+  restParty: (kind) => get().socket?.emit('rest:party', { kind }),
+  restCharacter: (characterId, kind) => get().socket?.emit('rest:character', { characterId, kind }),
+  spendHitDice: (characterId, count) => get().socket?.emit('hitDice:spend', { characterId, count }),
   rollDeathSave: (characterId) => get().socket?.emit('death:roll', { characterId }),
   sendChat: (text, speakAsTokenId) =>
     get().socket?.emit('chat:send', { text, speakAsTokenId }),
@@ -1099,6 +1113,7 @@ export const useStore = create<Store>((set, get) => ({
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
   initiativeFx: null,
+  restFx: null,
   combatHitFeature: (rollId,abilityId,level) => get().socket?.emit('combat:hitFeature',{rollId,abilityId,level}),
   combatMoveMark: (kind,refId,abilityId,targetTokenId) => get().socket?.emit('combat:moveMark',{kind,refId,abilityId,targetTokenId}),
   combatOrbLeap: (rollId, targetTokenId, end) => get().socket?.emit('combat:orbLeap', {rollId,targetTokenId,end}),

@@ -17,6 +17,7 @@ import { effectiveAc } from '../../../shared/modifiers';
 import { resourceSigilPresentation } from '../../../shared/resourceSigils';
 import { PlayerConditionControl } from './PlayerConditionControl';
 import {CarriedLanternControl} from './CarriedLanternControl';
+import { HitDiceHudControl } from './CharacterResources';
 import { DamageHealControls } from './DamageHealControls';
 import { DeathSaves } from './DeathSaves';
 import { HudIcon } from './HudIcon';
@@ -321,6 +322,7 @@ export function PlayerHud({
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />
             <CarriedLanternControl token={snapshot.tokens.find(t=>t.kind==='pc'&&t.refId===character.id)}/>
+            <HitDiceHudControl character={character} />
             {!isPlaced && (
               <button onClick={onPlace}>
                 {placing ? 'Click map…' : 'Place token'}

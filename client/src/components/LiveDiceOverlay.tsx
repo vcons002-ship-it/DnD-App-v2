@@ -7,6 +7,8 @@ import {LIVE_DICE_PRESENTATION_RATE} from '../../../shared/liveDiceTypes';
 import {dieResultEmphasis,dieResultTier,dieResultLabel,type Toss} from '../lib/diceTrayTypes';
 import {liveDieResult} from '../../../shared/liveDieResult';
 import './PhysicsDiceTray.css';
+import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
+import {metresPerUnitFor} from '../../../shared/diceImpacts';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
@@ -18,6 +20,22 @@ export function LiveDiceOverlay(){
  const [arrived,setArrived]=useState<number[]>([]),[failed,setFailed]=useState(false);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const frames=useRef<{at:number;frame:LiveDiceFrame}[]>([]);
+ // Dice sounds for this roll: the server publishes each frame's real strikes.
+ // The canvas draws ~80 ms behind the newest frame and physics runs at the
+ // presentation rate, so each strike is scheduled to land with its picture.
+ const sound=useRef<{id:string;player:ReturnType<typeof createDiceSound>}>();
+ useEffect(()=>()=>{sound.current?.player.stop();},[]);
+ useEffect(()=>{
+  if(sound.current?.id!==frame.id){sound.current?.player.stop();sound.current={id:frame.id,player:createDiceSound(frame.sides)};}
+  const player=sound.current.player,previous=frames.current.at(-1)?.frame;
+  const viewer=useStore.getState(),character=viewer.snapshot?.characters.find(c=>c.name===frame.roller);
+  const own=viewer.snapshot?.role==='dm'?(frame.roller==='DM'||!!character&&!character.claimedBy):character?.claimedBy===viewer.socket?.id;
+  if(frame.impacts?.length)player.impacts(own?frame.impacts:frame.impacts.map(i=>({...i,x:-i.x})),
+   i=>.08+(i.t-frame.elapsed)/LIVE_DICE_PRESENTATION_RATE);
+  if(previous?.id===frame.id&&frame.elapsed>previous.elapsed&&!frame.rerolls.some((n,i)=>n!==previous.rerolls[i]))
+   player.rolling(rollingSpeeds(previous.poses,frame.poses,frame.elapsed-previous.elapsed,frame.radius,metresPerUnitFor(frame.radius)));
+  if(frame.done)player.stop();
+ },[frame]);
  useEffect(()=>{
   const list=frames.current,at=performance.now();if(list[0]?.frame.id!==frame.id)list.length=0;
   // The initial pose predates graphics preparation. Anchor it to actual launch,

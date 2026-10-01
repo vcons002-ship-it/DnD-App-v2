@@ -198,7 +198,9 @@ export type Character = {
   /** maxOverride: true = explicit fixed maximum; false = known newer default.
    * Missing metadata on an existing save is supported without a migration. */
   spellSlots: Record<string, { max: number; used: number; maxOverride?: boolean }>;
-  resources: Record<string, { max: number; used: number; maxOverride?: boolean }>;
+  /** `recharge` (custom counters): which rest refills it — class counters
+   *  follow their feature's own rule (shared/rests.ts); unknown → Long Rest. */
+  resources: Record<string, { max: number; used: number; maxOverride?: boolean; recharge?: 'short' | 'long' }>;
   /** Permanent stat/roll adjustments (ASI, Resilient, racial). Magic-item
    *  effects live on the items themselves; both feed the effective-stat math
    *  in shared/modifiers.ts. */
@@ -244,6 +246,9 @@ export type Character = {
   /** Count of enemies this PC has dropped to 0 HP — shown on the sheet + a shared
    *  scoreboard. Visible to everyone (public). */
   killCount: number;
+  /** Spent Hit Point Dice (available = level − used; die size by class, see
+   *  shared/rests.ts). Spent on a Short Rest, all restored by a Long Rest. */
+  hitDiceUsed: number;
   /** The combat role of this creature's most recent attack (melee/ranged/caster),
    *  so the token badge follows the weapon last used; null until it attacks. */
   lastAttackRole: CombatRole | null;
@@ -256,7 +261,17 @@ export type CreatureAbility = {
   description: string;
   /** Optional structured roll (monster actions), resolved server-side like a PC's. */
   roll?: AbilityRoll;
+  /** "Recharge 5–6" / "1/Day": see `AbilityRecharge`. */
+  recharge?: AbilityRecharge;
 };
+
+/**
+ * A limited-use creature action. `min` = the lowest d6 face that recharges it
+ * ("Recharge 5–6" → 5); `rest` = it comes back on a Short or Long Rest (also
+ * "1/Day" → long). The DM resolves recharge MANUALLY (a Ready/Spent chip):
+ * using it marks it spent, and nothing rolls the d6 automatically.
+ */
+export type AbilityRecharge = { min?: number; rest?: 'short' | 'long'; spent?: boolean };
 
 /**
  * A structured roll attached to a sheet spell/ability, resolved server-side so
@@ -534,6 +549,8 @@ export type SheetAbility = {
    *  armed in advance — so the player knows hit / crit before choosing. A hit that
    *  qualifies records a `RollEntry.smite` opportunity the player can take. */
   smite?: SmiteSpec;
+  /** Limited-use creature action ("Recharge 5–6", "1/Day") — manually resolved. */
+  recharge?: AbilityRecharge;
   /** Where it came from. */
   source?: 'srd' | 'gemini' | 'custom';
 };
@@ -1359,6 +1376,8 @@ export type ResourceSetPayload = {
   remove?: boolean;
   /** Explicit fixed total from the manual capacity editor (not a bonus pool). */
   preserveMax?: boolean;
+  /** Which rest refills a custom counter (resources only). */
+  recharge?: 'short' | 'long';
 };
 /** Upsert an inventory item on a character. */
 export type ItemSetPayload = { characterId: string; item: InventoryItem };
@@ -1683,6 +1702,15 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  /** Ready / Spent for a limited-use ability ("Recharge 5–6", "1/Day"). The DM
+   *  resolves recharge manually; the creature's controller may flip it. */
+  /** DM: the whole party takes a Short or Long Rest (2024 rules, shared/rests.ts). */
+  'rest:party': (payload: { kind: 'short' | 'long' }) => void;
+  /** DM: one character takes a Short or Long Rest. */
+  'rest:character': (payload: { characterId: string; kind: 'short' | 'long' }) => void;
+  /** Spend Hit Dice to heal (the character's player or the DM). */
+  'hitDice:spend': (payload: { characterId: string; count: number }) => void;
+  'ability:setRecharge': (payload: { kind: TokenKind; refId: string; abilityId: string; spent: boolean }) => void;
   'death:roll': (payload: { characterId: string }) => void;
   'chat:send': (payload: { text: string; speakAsTokenId?: string }) => void;
   /** Ephemeral "this player is composing a chat message" ping (no DB / snapshot)
@@ -1787,6 +1815,8 @@ export interface ServerToClientEvents {
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;
   'dice:finished': (payload:{id:string})=>void;
   'fx:initiative': (payload: { mapId: string }) => void;
+  /** The party just finished a rest — a banner for everyone. */
+  'fx:rest': (payload: { kind: 'short' | 'long' }) => void;
   'state:snapshot': (snapshot: StateSnapshot) => void;
   error: (err: ServerError) => void;
   notice: (payload: NoticePayload) => void;

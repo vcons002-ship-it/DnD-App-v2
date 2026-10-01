@@ -8,6 +8,8 @@ export type LiveDiceFrame = {
  mode?:'adv'|'dis';sets:number[];critical:boolean[];percentile:('tens'|'ones'|null)[];kept?:number;
  sides:number[];radius:number;poses:number[];values:(number|null)[];rerolls:number[];
  elapsed:number;done:boolean;
+ /** Collisions since the previous frame (physics seconds) — the dice sounds. */
+ impacts?:import('./diceImpacts.js').DiceImpact[];
 };
 /** Shared presentation cadence; physics still advances live with fixed steps. */
 export const LIVE_DICE_PRESENTATION_RATE=.75;

@@ -4,6 +4,7 @@ import { MONSTER_MODEL_TYPES, MONSTER_COLORS, normalizeModelType, normalizeModel
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import type {
+  AbilityRecharge,
   AbilityRoll,
   CreatureAbility,
   CreatureTemplate,
@@ -14,7 +15,7 @@ import type {
 } from '../../../shared/types.js';
 import { iconForCreature, findBaseCreature } from './srd.js';
 import { generateJson, aiAvailable } from '../ai/gateway.js';
-import { parseActionRoll } from '../../../shared/monsterAttacks.js';
+import { parseActionRoll, parseRecharge } from '../../../shared/monsterAttacks.js';
 import { sanitizeModifiers } from '../../../shared/modifiers.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
@@ -76,6 +77,17 @@ function parseRollJSON(v: unknown): AbilityRoll | undefined {
  * masteries/maneuvers/stances, so AI fill can't bleed character-class flavor onto
  * a creature (or vice-versa). Each gets an id + structured roll where present.
  */
+/** `{"min":5}` / `{"rest":"long"}` (or a bare 5) → a recharge; anything else → null. */
+function parseRechargeJSON(v: unknown): AbilityRecharge | null {
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 6) return { min: v };
+  if (!v || typeof v !== 'object') return null;
+  const r = v as { min?: unknown; rest?: unknown };
+  const min = Number(r.min);
+  if (Number.isInteger(min) && min >= 1 && min <= 6) return { min };
+  if (r.rest === 'short' || r.rest === 'long') return { rest: r.rest };
+  return null;
+}
+
 function parseSheetAbilities(v: unknown): SheetAbility[] {
   return Array.isArray(v)
     ? v
@@ -88,9 +100,11 @@ function parseSheetAbilities(v: unknown): SheetAbility[] {
           const description = String(a.description ?? '');
           const roll = parseRollJSON(a.roll) ?? parseActionRoll(description);
           const lvl = Number(a.level);
+          const recharge = parseRechargeJSON(a.recharge) ?? parseRecharge(String(a.name), description);
           return {
             id: randomUUID(),
             name: String(a.name),
+            ...(recharge ? { recharge } : {}),
             type: a.type === 'spell' ? ('spell' as const) : ('ability' as const),
             description,
             source: 'gemini' as const,
@@ -116,7 +130,8 @@ function parseActions(v: unknown): CreatureAbility[] {
           const name = String(a.name);
           const description = String(a.description ?? '');
           const roll = parseRollJSON((a as { roll?: unknown }).roll) ?? parseActionRoll(description);
-          return roll ? { name, description, roll } : { name, description };
+          const recharge = parseRechargeJSON((a as { recharge?: unknown }).recharge) ?? parseRecharge(name, description);
+          return { name, description, ...(roll ? { roll } : {}), ...(recharge ? { recharge } : {}) };
         })
     : [];
 }
@@ -240,9 +255,9 @@ export async function lookupCreatureAI(
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +
     `"weapons":[{"name":string,"kind":"melee"|"ranged","damage":string,"attackBonus":number}],` +
-    `"actions":[{"name":string,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
+    `"actions":[{"name":string,"description":string,"recharge":{"min":number}|{"rest":"short"|"long"},"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}],` +
     `"abilities":[{"name":string,"description":string}],` +
-    `"sheetAbilities":[{"name":string,"type":"ability"|"spell","level":number,"description":string,"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}]}. ` +
+    `"sheetAbilities":[{"name":string,"type":"ability"|"spell","level":number,"description":string,"recharge":{"min":number}|{"rest":"short"|"long"},"roll":{"kind":"save"|"attack"|"damage"|"heal","dice":string,"save":"STR"|"DEX"|"CON"|"INT"|"WIS"|"CHA","dc":number,"damageType":string}}]}. ` +
     `Prefix "creatureType" with the stat-block size (Tiny, Small, Medium, Large, Huge, or Gargantuan), for example "Large giant". "modelColor" is an optional overall color: ${Object.keys(MONSTER_COLORS).join(', ')}. Choose a color only when requested by the name/description or appearance tags, otherwise use an empty string. "modelType" is its physical creature family, independent of its flavorful name or D&D category. Available 3D families: ${MONSTER_MODEL_TYPES.join(', ')}. Use the closest matching physical family when appropriate; otherwise name the actual family (e.g. elephant) for 2D fallback rather than forcing an unrelated model. "visualTags" are only requested visual themes/colors: fire, poison, ice, lightning, undead, red, blue, green, purple, black, white, gold, bronze, silver, brown. Bracket tags such as [fire] count. Do not infer tags from resistances or grant rules from visual tags. ` +
     `"sheetAbilities" are the creature's INNATE / spell-like special abilities ` +
     `(innate spellcasting, gaze, life drain, a recharge breath usable as an ability) ` +
@@ -262,6 +277,14 @@ export async function lookupCreatureAI(
     `structured "roll" ("kind":"save", the "save" ability, "dc", "dice" like "2d6", ` +
     `"damageType"), and phrase the description as "DC <n> <ability> saving throw, ` +
     `<dice> <type> damage". "abilities" are passive traits/features (no roll). ` +
+    `LIMITED-USE actions — a breath weapon, a basilisk's gaze, a big slam or spray ` +
+    `that recharges — are typical for strong or iconic creatures (dragons, ` +
+    `hounds, elementals, CR 3+ brutes): include one wherever a real stat block ` +
+    `would. Put it in "actions" (never "weapons"), keep the marker in its name ` +
+    `("Fire Breath (Recharge 5–6)") and set "recharge": {"min":5} for Recharge ` +
+    `5–6, {"min":6} for Recharge 6, {"rest":"long"} for 1/Day, {"rest":"short"} ` +
+    `for "recharges after a Short or Long Rest". Omit "recharge" for at-will ` +
+    `actions. The DM resolves recharge rolls manually. ` +
     `Use SRD/average HP. Keep each description under 30 words.`;
 
   // If the name extends a known SRD creature (e.g. "Stone Goblin"), pass the

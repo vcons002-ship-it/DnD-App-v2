@@ -1,8 +1,102 @@
 import { useState, type ReactNode } from 'react';
 import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { hitDieFor, hitDiceLeft, isClassCounter, shortRestRecovery } from '../../../shared/rests';
 
-type Counter = { max: number; used: number };
+type Counter = { max: number; used: number; recharge?: 'short' | 'long' };
+
+/** Hit Dice: what's left (level − spent) and Spend buttons. The server rolls them
+ *  on the physical dice and heals roll + CON per die (minimum 1). */
+function HitDice({ character, editable }: { character: Character; editable: boolean }) {
+  const spend = useStore((s) => s.spendHitDice);
+  const [count, setCount] = useState(1);
+  const die = hitDieFor(character.className);
+  const total = Math.max(1, character.level);
+  const left = hitDiceLeft(character);
+  const full = character.curHp >= character.maxHp;
+  const n = Math.min(count, Math.max(1, left));
+  return (
+    <div className="res-row hit-dice-row">
+      <span className="res-name" title={`Hit Point Dice: one d${die} per level. Spend them to heal (roll + CON each); a Long Rest restores them all.`}>
+        Hit Dice <span className="muted">d{die}</span>
+      </span>
+      <span className="res-count">{left}/{total}</span>
+      {editable && (
+        <span className="hit-dice-spend">
+          {left > 1 && (
+            <select aria-label="Hit Dice to spend" value={n} onChange={(e) => setCount(Number(e.target.value))}>
+              {Array.from({ length: left }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          )}
+          <button
+            type="button"
+            className="btn tiny"
+            disabled={left <= 0 || full}
+            title={left <= 0 ? 'No Hit Dice left — a Long Rest restores them' : full ? 'Already at full HP' : `Roll ${n}d${die} + CON and heal`}
+            onClick={() => spend(character.id, n)}
+          >
+            🎲 Spend {n}
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The player HUD's compact Hit Dice control (beside conditions / lantern):
+ *  "Hit Dice 3/5" opens a small spender with the same server roll. */
+export function HitDiceHudControl({ character }: { character: Character }) {
+  const spend = useStore((s) => s.spendHitDice);
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(1);
+  const die = hitDieFor(character.className);
+  const left = hitDiceLeft(character);
+  const full = character.curHp >= character.maxHp;
+  const n = Math.min(count, Math.max(1, left));
+  return (
+    <span className="hit-dice-hud">
+      <button type="button" className="btn tiny" aria-expanded={open} aria-label={`Hit Dice: ${left} of ${Math.max(1, character.level)} d${die} left`}
+        title="Spend Hit Dice to heal (roll + CON each); a Long Rest restores them" onClick={() => setOpen((o) => !o)}>
+        Hit Dice {left}/{Math.max(1, character.level)}
+      </button>
+      {open && (
+        <span className="hit-dice-hud-pop fantasy-window" role="group" aria-label="Spend Hit Dice">
+          {left > 1 && (
+            <select aria-label="Hit Dice to spend" value={n} onChange={(e) => setCount(Number(e.target.value))}>
+              {Array.from({ length: left }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          )}
+          <button type="button" className="btn tiny" disabled={left <= 0 || full}
+            title={left <= 0 ? 'No Hit Dice left — a Long Rest restores them' : full ? 'Already at full HP' : `Roll ${n}d${die} + CON and heal`}
+            onClick={() => { spend(character.id, n); setOpen(false); }}>
+            🎲 Spend {n}d{die}
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Which rest refills a counter, as a chip. A custom (non-class) counter's chip
+ *  toggles Short ↔ Long; class features follow their own 2024 rule. */
+function RestChip({ name, counter, character, editable, onSet }: {
+  name: string; counter: Counter; character: Character; editable: boolean; onSet: (r: 'short' | 'long') => void;
+}) {
+  const rule = shortRestRecovery(name, counter, character.className, character.level);
+  const text = rule === 'all' ? 'short rest' : rule === 'one' ? '+1 short rest' : 'long rest';
+  const custom = editable && !isClassCounter(name);
+  return (
+    <button
+      type="button"
+      className={`rest-chip rest-${rule}`}
+      disabled={!custom}
+      title={custom ? `Refills on a ${rule === 'all' ? 'Short' : 'Long'} Rest — click to change` : `Refills ${rule === 'all' ? 'fully on a Short Rest' : rule === 'one' ? 'one use per Short Rest, all on a Long Rest' : 'on a Long Rest'}`}
+      onClick={() => onSet(rule === 'all' ? 'long' : 'short')}
+    >
+      {text}
+    </button>
+  );
+}
 
 function Pips({
   counter,
@@ -57,6 +151,9 @@ export function CharacterResources({
   displayControl?: (resourceName: string) => ReactNode;
 }) {
   const setResource = useStore((s) => s.setResource);
+  const isDm = useStore((s) => s.snapshot?.role === 'dm');
+  const restOne = useStore((s) => s.restCharacter);
+  const [restConfirm, setRestConfirm] = useState<'short' | 'long' | null>(null);
   const [name, setName] = useState('');
   const [max, setMax] = useState(1);
   const [adding, setAdding] = useState(false);
@@ -65,8 +162,6 @@ export function CharacterResources({
     a.localeCompare(b),
   );
   const resources = Object.entries(character.resources);
-  if (slots.length === 0 && resources.length === 0 && (!editable || compact))
-    return null;
 
   const addCustom = () => {
     if (!name.trim()) return;
@@ -86,6 +181,19 @@ export function CharacterResources({
     <div className="resources">
       <div className="res-header">
         <h4>Resources</h4>
+        {isDm && !compact && (restConfirm ? (
+          <span className="res-rest">
+            <button className="btn tiny primary" onClick={() => { restOne(character.id, restConfirm); setRestConfirm(null); }}>
+              Confirm {restConfirm === 'short' ? 'Short' : 'Long'} Rest
+            </button>
+            <button className="btn tiny" onClick={() => setRestConfirm(null)}>Cancel</button>
+          </span>
+        ) : (
+          <span className="res-rest">
+            <button className="btn tiny" title={`${character.name} takes a Short Rest`} onClick={() => setRestConfirm('short')}>☕ Short</button>
+            <button className="btn tiny" title={`${character.name} takes a Long Rest`} onClick={() => setRestConfirm('long')}>🏕 Long</button>
+          </span>
+        ))}
         {editable && !compact && (managementControl ?? (
           <button
             className="btn tiny"
@@ -120,6 +228,9 @@ export function CharacterResources({
           </button>
         </div>
       )}
+      <div className="res-group">
+        <HitDice character={character} editable={editable} />
+      </div>
       {slots.length > 0 && (
         <div className="res-group">
           <div className="muted res-sub">Spell slots</div>
@@ -156,6 +267,10 @@ export function CharacterResources({
               <span className="res-count muted">
                 {c.max - c.used}/{c.max}
               </span>
+              {!compact && (
+                <RestChip name={key} counter={c} character={character} editable={editable}
+                  onSet={(recharge) => setResource({ characterId: character.id, group: 'resources', key, recharge })} />
+              )}
               {editable && !compact && displayControl?.(key)}
               {editable && !compact && (
                 <button
