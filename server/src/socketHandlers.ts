@@ -7,6 +7,7 @@ import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js'
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
 import { partyRest, restCharacter, describeRest, spendHitDice } from './rests.js';
+import { canonicalClassName } from '../../shared/multiclass.js';
 import { grantLevelUp, cancelLevelUp, getLevelUpPlan, previewLevelUp, applyLevelUp, rollLevelUpHp, configureLevelUpClasses } from './leveling.js';
 import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
@@ -642,8 +643,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
         const base = ability.level ?? 1;
         const lvl = typeof castLevel === 'number' && castLevel >= base ? castLevel : base;
-        const { spent } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
-        if (!spent) {
+        // Soft like ability:roll: only a sheet that HAS slots at this level and
+        // is out of them is refused — no slot table (homebrew) still summons.
+        const { hasSlot, spent } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+        if (hasSlot && !spent) {
           socket.emit('notice', { message: `No level ${lvl} spell slots left.` });
           return;
         }
@@ -1075,10 +1078,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('character:create', (p) => {
       const sid = sessionId();
       if (!sid || !p.name?.trim()) return; // DM or player may add a character
+      const className = canonicalClassName(p.className ?? '');
+      if (className === null)
+        socket.emit('notice', { message: 'That class isn\'t on the list — the character was created without one. Pick a class on its sheet.' });
       const created = createCharacter(sid, {
         name: p.name,
         race: p.race,
-        className: p.className,
+        className: className ?? '',
         maxHp: p.maxHp,
         stats: p.stats,
       });
@@ -1108,6 +1114,16 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const c = getCharacter(characterId);
       // The DM or the owning player may edit a character's stat sheet.
       if (!c || c.sessionId !== sessionId() || (!isDm() && c.claimedBy !== socket.id)) return;
+      // Classes come from the fixed list (canonicalised; an unchanged legacy
+      // name is kept). A name outside it is dropped from the patch — the rest
+      // (e.g. an imported sheet's other sections) still applies.
+      if (patch.className !== undefined) {
+        const canonical = canonicalClassName(patch.className, c.className);
+        if (canonical === null) {
+          socket.emit('notice', { message: `"${String(patch.className).slice(0, 60)}" isn't one of the 12 classes — pick one from the list (the DM sets a multiclass split with Edit class levels).` });
+          delete patch.className;
+        } else patch.className = canonical;
+      }
       const structuredMulticlass = (c.leveling?.classes?.length ?? 0) > 1;
       const changedRoster = patch.leveling?.classes !== undefined && JSON.stringify(patch.leveling.classes) !== JSON.stringify(c.leveling?.classes);
       if (!isDm() && changedRoster || structuredMulticlass && (patch.className !== undefined && patch.className !== c.className || patch.subclass !== undefined && patch.subclass !== c.subclass || patch.level !== undefined && patch.level !== c.level)) {

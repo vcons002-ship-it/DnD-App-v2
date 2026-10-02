@@ -38,6 +38,25 @@ async function fixture(request: APIRequestContext, page: Page, patch: Partial<Ch
   return { code, socket, snapshot, characterId: character.id, token };
 }
 
+/** A sheet saved before classes came from a fixed list ("Fighter / Wizard").
+ *  The sheet editor no longer accepts free text, so — like a real old save — it
+ *  arrives through the character library, which keeps saved values as they are. */
+async function legacyFixture(request: APIRequestContext, page: Page, sheet: Partial<Character> & { name: string }) {
+  const f = await fixture(request, page, {});
+  const saved = await request.post('/api/library/characters?overwrite=true', { data: {
+    race: 'Human', subclass: '', stats: { STR: 16, DEX: 12, CON: 14, INT: 14, WIS: 10, CHA: 10 }, ...sheet } });
+  expect(saved.ok()).toBeTruthy();
+  f.socket.emit('character:loadFromLibrary', { name: sheet.name });
+  await expect.poll(async () => (await f.snapshot()).characters.some(c => c.name === sheet.name)).toBe(true);
+  const character = (await f.snapshot()).characters.find(c => c.name === sheet.name)!;
+  expect(character.className).toBe(sheet.className); // kept verbatim, never rewritten
+  const map = (await f.snapshot()).activeMapId!;
+  f.socket.emit('token:spawn', { mapId: map, kind: 'pc', refId: character.id, x: 500, y: 240 });
+  await expect.poll(async () => (await f.snapshot()).tokens.some(t => t.refId === character.id)).toBe(true);
+  const token = (await f.snapshot()).tokens.find(t => t.kind === 'pc' && t.refId === character.id)!;
+  return { ...f, characterId: character.id, token };
+}
+
 async function grant(f: Awaited<ReturnType<typeof fixture>>) {
   const result = await f.socket.timeout(5000).emitWithAck('character:levelGrant', { characterId: f.characterId });
   expect(result.ok).toBe(true);
@@ -123,16 +142,18 @@ test('Wizard class level governs ASI and spell learning while shared slots can b
 });
 
 test('DM explicitly configures a legacy split without rebuilding its existing stats', async ({ page, request }) => {
-  const f = await fixture(request, page, { className: 'Fighter / Wizard', subclass: '', level: 5, maxHp: 37 });
+  const f = await legacyFixture(request, page, { name: 'Old Druk', className: 'Fighter / Wizard', level: 5, maxHp: 37, curHp: 37 });
   await openDmSheet(page, f);
   await expect(page.getByRole('button', { name: 'Grant level 6', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Edit class levels', exact: true }).click();
-  const config = page.getByRole('dialog', { name: 'Class levels · Druk', exact: true });
+  const config = page.getByRole('dialog', { name: 'Class levels · Old Druk', exact: true });
   await config.getByRole('button', { name: 'Add class', exact: true }).click();
   await config.getByRole('combobox', { name: 'Class 1', exact: true }).selectOption('fighter');
   await config.getByRole('spinbutton', { name: 'Class level 1', exact: true }).fill('3');
   await config.getByRole('combobox', { name: 'Subclass 1', exact: true }).selectOption('Battle Master');
-  await expect(config.getByRole('button', { name: 'Save class levels', exact: true })).toBeDisabled();
+  // A partial split is now a deliberate level correction, clearly labelled.
+  await expect(config.getByRole('button', { name: 'Save and set level 3', exact: true })).toBeEnabled();
+  await expect(config.getByRole('status')).toContainText('level 5 → 3');
   await config.getByRole('button', { name: 'Add class', exact: true }).click();
   await config.getByRole('combobox', { name: 'Class 2', exact: true }).selectOption('wizard');
   await config.getByRole('spinbutton', { name: 'Class level 2', exact: true }).fill('2');
@@ -150,6 +171,26 @@ test('DM explicitly configures a legacy split without rebuilding its existing st
   await guide.getByRole('combobox', { name: 'Subclass', exact: true }).selectOption('Evoker');
   await expect(guide).toContainText('Evocation Savant');
   await page.screenshot({ path: test.info().outputPath('legacy-split-subclass.png'), fullPage: true });
+});
+
+test('Class is picked from the 12-class list; an old free-text class is shown, not rewritten', async ({ page, request }) => {
+  const f = await legacyFixture(request, page, { name: 'Old Sly', className: 'Rogue (Thief)', level: 3, maxHp: 24, curHp: 24 });
+  await openDmSheet(page, f);
+  const sheet = page.locator('.char-sheet');
+  await expect(sheet.locator('.class-offlist')).toContainText('it reads as Rogue');
+  await sheet.getByRole('button', { name: 'Edit', exact: true }).first().click();
+  const pick = sheet.getByRole('combobox', { name: 'Class', exact: true });
+  await expect(pick).toHaveValue('Rogue (Thief)');
+  await expect(pick.locator('option')).toHaveCount(13); // the saved value + 12 classes
+  await expect(pick.locator('option').first()).toHaveText('Rogue (Thief) (not in list)');
+  await pick.selectOption('Rogue');
+  await sheet.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.className).toBe('Rogue');
+  await expect(sheet.locator('.class-offlist')).toHaveCount(0);
+  // Free text is refused at the server too, without losing the rest of the edit.
+  f.socket.emit('character:update', { characterId: f.characterId, className: 'Swashbuckler', curHp: 20 });
+  await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.curHp).toBe(20);
+  expect((await f.snapshot()).characters.find(c => c.id === f.characterId)!.className).toBe('Rogue');
 });
 
 test('A new-class HP roll visibly uses its die and locks that class across reopening on mobile', async ({ page, request }) => {
@@ -319,7 +360,8 @@ async function openDmSheet(page: Page, f: Awaited<ReturnType<typeof fixture>>) {
   await expect.poll(() => page.evaluate((id) => {
     const stages = (window as unknown as { Konva: { stages: any[] } }).Konva.stages;
     return stages.some(stage => stage.find('.token-hit-region').some((node: any) => node.getAttr('tokenId') === id));
-  }, f.token.id)).toBe(true);
+    // 3D miniatures are the default and can take a while to load their models.
+  }, f.token.id), { timeout: 20_000 }).toBe(true);
   await page.getByTitle('Fit to window', { exact: true }).click();
   const point = await page.evaluate((id) => {
     const stage = (window as unknown as { Konva: { stages: any[] } }).Konva.stages.find(stage => stage.find('.token-hit-region').length);

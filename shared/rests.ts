@@ -59,6 +59,8 @@ export function hitDieHealing(face: number, conMod: number): number {
 export const CLASS_COUNTERS = new Set([
   'rage', 'ki', 'sorcery points', 'second wind', 'action surge', 'lay on hands',
   'divine smite (free)', 'bardic inspiration', 'channel divinity', 'wild shape', 'superiority dice',
+  // A Cleric/Paladin multiclass keeps two separate pools under these names.
+  'cleric channel divinity', 'paladin channel divinity',
 ]);
 export const isClassCounter = (name: string) => CLASS_COUNTERS.has(name.trim().toLowerCase());
 

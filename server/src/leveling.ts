@@ -3,13 +3,14 @@ import { db, newId } from './db.js';
 import { addRollLog, getCharacter, updateCharacter } from './sessions.js';
 import { getAllSpells, getSpell } from './spells/srd.js';
 import { diceReveal } from '../../shared/rollReveal.js';
+import { sanitizeLevelUpChoices } from '../../shared/portableLeveling.js';
 import { rollDice } from '../../shared/dice.js';
 import { abilityMod, proficiencyBonus, SKILLS, type AbilityKey } from '../../shared/skills.js';
 import {
   classProgression2024, hpIncrease2024, permanentStats2024, subclassChoices2024,
   subclassFeatures2024, alwaysPreparedSpells2024, resolveProgressionClass, type CoreClass, type ClassProgression,
 } from '../../shared/characterProgression.js';
-import { resolveClassRoster, normalizeClassRoster, totalClassLevel, checkMulticlassPrerequisites,
+import { classTitle, resolveClassRoster, normalizeClassRoster, totalClassLevel, checkMulticlassPrerequisites,
   multiclassProficiencies2024, multiclassSpellSlots2024, multiclassResourceMaxima, mergeProgressionCounters, resourceNameForClass, allocateHitDiceUsed,
 } from '../../shared/multiclass.js';
 import type { Character, SheetAbility, SheetModifier } from '../../shared/types.js';
@@ -60,22 +61,33 @@ export function grantLevelUp(sessionId: string, characterId: string): LevelUpRes
   const leveling = state(c);
   if (leveling.pending && leveling.pending.fromLevel === c.level) return success(c);
   const nextState = { ...leveling, classes };
+  // A roster read off a single-class sheet is recorded for the guide; if the DM
+  // cancels, it's dropped again so the grant leaves the sheet as it found it.
+  const inferredClasses = leveling.classes === undefined;
   return success(putState(c.id, { ...nextState, pending: {
     id: newId(), fromLevel: c.level, toLevel: c.level + 1,
     approvedAt: Date.now(), baseFingerprint: levelUpFingerprint({ ...c, leveling: nextState }),
+    ...(inferredClasses ? { inferredClasses: true } : {}),
   } }));
 }
-/** The DM supplies an explicit baseline for an ambiguous legacy multiclass sheet. */
+/** The DM supplies an explicit baseline for an ambiguous legacy multiclass sheet
+ *  — or CORRECTS one: a split that adds up to a different total also sets the
+ *  character's level (e.g. undoing a level applied by mistake). HP, features and
+ *  history are left for the DM to adjust; slots, class counters and Hit Dice follow. */
 export function configureLevelUpClasses(sessionId: string, characterId: string, input: unknown): LevelUpResult<Character> {
   const found = characterInSession(sessionId, characterId); if (!found.ok) return found;
   const c = found.value, classes = normalizeClassRoster(input);
-  if (!classes || totalClassLevel(classes) !== c.level) return fail('Class levels must be valid core classes and add up to the character\'s current total level.');
+  if (!classes) return fail('Class levels must be valid core classes, levels 1–20, adding up to at most 20.');
+  const total = totalClassLevel(classes);
   if (state(c).pending) return fail('Cancel the pending level-up before changing its class levels.');
+  // The old split is read at the OLD total, so a corrected level still carries
+  // spent slots, counters and Hit Dice over from what the sheet really had.
   const oldClasses = resolveClassRoster(c) ?? classes, scores = permanentStats2024(c);
   return db.transaction(() => {
     const spellSlots = mergeProgressionCounters(c.spellSlots, multiclassSpellSlots2024(classes), multiclassSpellSlots2024(oldClasses), pactTransfer(c, oldClasses, classes));
     const resources = mergeProgressionCounters(c.resources, multiclassResourceMaxima(classes, scores), multiclassResourceMaxima(oldClasses, scores), { renames: resourceRenames(oldClasses, classes) });
-    updateCharacter(c.id, { className: classTitle(classes[0].className), subclass: classes[0].subclass ?? '', spellSlots, resources }, { skipRosterSync: true });
+    updateCharacter(c.id, { className: classTitle(classes[0].className), subclass: classes[0].subclass ?? '', spellSlots, resources,
+      ...(total !== c.level ? { level: total } : {}) }, { skipRosterSync: true });
     const oldSpent = allocateHitDiceUsed(oldClasses, c.hitDiceUsed ?? 0, c.hitDiceUsedByDie);
     db.prepare('UPDATE characters SET hit_dice_used_by_die = ? WHERE id = ?').run(JSON.stringify(allocateHitDiceUsed(classes, c.hitDiceUsed ?? 0, oldSpent)), c.id);
     return success(putState(c.id, { ...state(c), classes }));
@@ -85,7 +97,8 @@ export function cancelLevelUp(sessionId: string, characterId: string, grantId: s
   const found = characterInSession(sessionId, characterId); if (!found.ok) return found;
   const c = found.value, leveling = state(c);
   if (leveling.pending?.id !== grantId) return fail('That level-up is no longer pending.');
-  const { pending: _pending, ...remaining } = leveling;
+  const { pending, ...remaining } = leveling;
+  if (pending.inferredClasses) delete remaining.classes;
   return success(putState(c.id, remaining));
 }
 function pendingGrant(c: Character, id?: string, expectedLevel?: number): LevelUpResult<PendingLevelUp> {
@@ -98,7 +111,6 @@ function pendingGrant(c: Character, id?: string, expectedLevel?: number): LevelU
   return success(grant);
 }
 
-const classTitle = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 function pactTransfer(c: Character, previous: ClassRosterEntry[], next: ClassRosterEntry[]) {
   const pact = previous.find(e => e.className === 'warlock'), current = next.find(e => e.className === 'warlock');
   if (!pact || !current || previous.length !== 1) return undefined;
@@ -383,7 +395,7 @@ function prepareLevelUp(sessionId: string, req: LevelUpCommitRequest): LevelUpRe
   const maxHp = Math.max(1, c.maxHp + hpGain), curHp = c.curHp > 0 ? Math.max(1, Math.min(maxHp, c.curHp + hpGain)) : 0;
   return success({ patch: { level: grant.value.toLevel, subclass: nextClasses[0].subclass ?? c.subclass, maxHp, curHp, modifiers, spellSlots, resources,
     sheetAbilities: [...keptAbilities, ...addedAbilities], proficientSkills: skills, saveProficiencies },
-    plan, choices: structuredClone({ ...choices, className: p.classKey }), additions: added.map(a => a.name), hpGain: maxHp - c.maxHp, resources, classes: nextClasses,
+    plan, choices: sanitizeLevelUpChoices({ ...choices, className: p.classKey }), additions: added.map(a => a.name), hpGain: maxHp - c.maxHp, resources, classes: nextClasses,
     hitDiceUsedByDie: allocateHitDiceUsed(classes, c.hitDiceUsed ?? 0, c.hitDiceUsedByDie) });
 }
 

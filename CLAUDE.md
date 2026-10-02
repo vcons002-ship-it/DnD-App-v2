@@ -544,6 +544,10 @@ live outside the bundled static catalog and must be backed up with uploads.
 - **Rests follow 2024 and are DM-granted:** the DM rests the party (toolbar 🏕 Rest) or
   one sheet; players spend Hit Dice themselves, any time (soft, like everything else).
   A Long Rest skips the dead and anyone at 0 HP. Custom counters carry `recharge`.
+- **Classes come from a fixed list** (`CLASS_OPTIONS`/`canonicalClassName` in
+  `shared/multiclass.ts`): the server canonicalises every class write and refuses
+  free text; saved free-text classes are never rewritten (the sheet prompts, and
+  `legacySingleClass` reads an unambiguous one for features/rests until changed).
 - **Monster Recharge is manual:** `SheetAbility.recharge` drives a Ready/Spent chip;
   use marks it spent, the DM readies it after their own d6 — nothing auto-rolls.
 - **Dice sounds come from the simulation, not a canned loop:** impacts recorded per

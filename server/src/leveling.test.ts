@@ -373,8 +373,10 @@ describe('level-up socket authorization', () => {
     const before = getCharacter(c.id)!;
     expect(() => dm.send('character:update', { characterId: c.id, name: 'Invalid import', leveling: { rules: '2024', history: [], classes: [{ className: 'fighter', level: 4 }] } })).not.toThrow();
     expect(getCharacter(c.id)).toEqual(before); expect(dm.notices.at(-1)).toMatch(/add up/);
+    // Multiclass text isn't a class from the list: refused, sheet unchanged, and
+    // the notice points the DM at Edit class levels.
     dm.send('character:update', { characterId: c.id, className: 'Fighter / Wizard' });
-    expect(getCharacter(c.id)).toEqual(before); expect(dm.notices.at(-1)).toMatch(/Configure class levels/);
+    expect(getCharacter(c.id)).toEqual(before); expect(dm.notices.at(-1)).toMatch(/Edit class levels/);
   });
   it('allows only DM class configuration and blocks raw multiclass progression changes even through the sheet editor', () => {
     const { s, c } = setup('Fighter', 4, 'Champion'), m = createMap(s.id, { name: 'Camp' }); setActiveMap(s.id, m.id);

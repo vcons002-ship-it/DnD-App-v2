@@ -18,6 +18,19 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   combine Spellcasting slots, separate Pact Magic and class Channel Divinity
   pools, preserve spent uses, and select mixed Hit Dice. The DM can record an
   existing class split explicitly; library/JSON copies retain it without grants.
+- [x] **Class is picked from a fixed list.** The sheet editor, new-character form and
+  AI generation use the 12 core 2024 classes (`CLASS_OPTIONS`); the server canonicalises
+  every class write and refuses free text with a notice (the rest of the edit still
+  applies). Old free-text classes are never rewritten: the sheet shows them as
+  "(not in list)" with a prompt, and a name that reads as exactly one class
+  ("Rogue (Thief)") keeps working for features and rests until it's changed.
+- [x] **Multiclass review fixes.** A DM class-level split may change the total (shown
+  as a level correction); cancelling a grant on a pre-roster sheet restores it exactly;
+  map import and library overwrite drop pending grants; level history keeps only
+  sanitised choices; summons follow the soft slot rule again; Cleric/Paladin Channel
+  Divinity recover on a Short Rest; AI fill never overwrites a multiclass subclass;
+  the level-up HP roll lifts above the guide only for its roller; spells default to
+  the right slot pool; the smite tooltip names the free casting and Pact slots.
 
 ## Rests, turn hand-off, player settings, dice sounds, recharge - October 2026
 
