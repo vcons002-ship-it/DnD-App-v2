@@ -12,7 +12,7 @@ import {newId} from './db.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import {applyDamageNoted,noteConcentration,resolveForcedSave,resolveAbilityRoll,resolveMonsterSheetAbility,stanceResistances} from './combat.js';
 import {hitEffectSave,turnKey} from './hitFeatures.js';
-import {getCharacter,getMonster,getMap,getToken,getSessionById,listTokens,setCondition,clearCondition,setConcentration,addRollLog,queueSpellImpact,isDeadEntity} from './sessions.js';
+import {getCharacter,getMonster,getMap,getToken,getSessionById,listTokens,setCondition,clearCondition,setConcentration,addRollLog,queueSpellImpact,isDeadEntity,createSpiritualWeapon,moveToken,wallLimitedMove,faceTokenToward} from './sessions.js';
 
 const entity=(kind:TokenKind,id:string)=>kind==='pc'?getCharacter(id):getMonster(id);
 type Fx=NonNullable<Condition['combatEffect']>;
@@ -37,6 +37,50 @@ export function startSpellUse(ctx:LinkedSpellContext,a:SheetAbility,targetTokenI
   return spellCondition(ctx,ctx.casterKind,ctx.casterId,a.name,{abilityId:a.id,castLevel:ctx.castLevel,targetTokenId,
     spellAction:p.action,concentration:p.concentration,castId:p.concentration?conc!.id:newId(),
     expiresAt:Date.now()+rounds*6000,...(round?{expiresRound:round+rounds}:{}),lastUseTurn:turnKey(caster.sessionId)});
+}
+
+export function spiritualWeaponPlacementError(sid:string,kind:TokenKind,id:string,mapId:string,x:number,y:number):string|undefined {
+  const map=getMap(mapId),actor=listTokens(mapId).find(t=>t.kind===kind&&t.refId===id);
+  if(!map||map.sessionId!==sid||!actor||!Number.isFinite(x)||!Number.isFinite(y))return 'Place your caster on this map first.';
+  if(tokenDistanceFt({...actor,widthFt:0},{x,y,widthFt:0},map)>60+1e-6||!hasLineOfSight(actor,{x,y},map.walls))return 'Place Spiritual Weapon within 60 feet and outside Total Cover.';
+}
+
+export function summonSpiritualWeapon(ctx:LinkedSpellContext,a:SheetAbility,mapId:string,x:number,y:number){
+  const condition=startSpellUse(ctx,a),caster=entity(ctx.casterKind,ctx.casterId)!;
+  const token=createSpiritualWeapon(caster.sessionId,mapId,x,y);
+  setCondition(ctx.casterKind,ctx.casterId,{...condition,combatEffect:{...condition.combatEffect!,summonTokenId:token.id,lastUseTurn:undefined,
+    weaponMoveTurn:turnKey(caster.sessionId),weaponMovedFt:20}});
+  setCondition('monster',token.refId,{id:newId(),label:'Spectral force',aura:'blue',isConcentration:false,
+    combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:a.name,castId:condition.combatEffect!.castId}});
+  addRollLog(caster.sessionId,{roller:caster.name,label:a.name,expr:'Summon',total:0,
+    detail:'Spiritual Weapon appears. Choose a creature within 5 ft for its immediate attack. On later turns, drag the weapon up to 20 ft and use its Bonus Action attack; no new slot.'});
+  return token;
+}
+
+/** Ownership comes from a live caster condition, never a client-supplied name. */
+export function spiritualWeaponOwner(token:Token){
+  const weapon=token.kind==='monster'?getMonster(token.refId):null;
+  if(weapon?.modelType!=='spiritual-weapon'||weapon.objectKind!=='other')return;
+  const fx=weapon.conditions.find(c=>c.combatEffect?.spell==='Spiritual Weapon')?.combatEffect;
+  if(!fx)return;const caster=entity(fx.casterKind,fx.casterId);
+  const condition=caster?.conditions.find(c=>c.combatEffect?.summonTokenId===token.id&&c.combatEffect?.castId===fx.castId);
+  if(caster&&condition&&caster.conditions.some(c=>c.isConcentration&&c.id===fx.castId)&&caster.sessionId===getMap(token.mapId)?.sessionId)return {caster,kind:fx.casterKind,condition};
+}
+
+export function moveSpiritualWeapon(token:Token,x:number,y:number,preview=false){
+  const owner=spiritualWeaponOwner(token);if(!owner)return {error:'That spell has ended.'};
+  const {caster,condition,kind}=owner,fx=condition.combatEffect!,session=getSessionById(caster.sessionId)!,map=getMap(token.mapId)!;
+  if(!Number.isFinite(x)||!Number.isFinite(y))return {error:'Choose a point on the map.'};
+  const actor=listTokens(map.id).find(t=>t.kind===kind&&t.refId===caster.id),turn=turnKey(caster.sessionId);
+  if(session.activeTurnTokenId&&session.activeTurnTokenId!==actor?.id)return {error:'Move Spiritual Weapon on its caster’s turn.'};
+  if(session.activeTurnTokenId&&fx.lastUseTurn===turn)return {error:'The Spiritual Weapon Bonus Action was already used this turn.'};
+  const spent=session.activeTurnTokenId&&fx.weaponMoveTurn===turn?fx.weaponMovedFt??0:0;
+  const remaining=Math.max(0,20-spent),distance=tokenDistanceFt({...token,widthFt:0},{x,y,widthFt:0},map);
+  const factor=distance>remaining?remaining/distance:1,point=wallLimitedMove(token,token.x+(x-token.x)*factor,token.y+(y-token.y)*factor);
+  if(preview)return {point};
+  const moved=moveToken(token.id,point.x,point.y,true)!;
+  setCondition(kind,caster.id,{...condition,combatEffect:{...fx,weaponMoveTurn:turn,weaponMovedFt:spent+tokenDistanceFt({...token,widthFt:0},{...moved,widthFt:0},map)}});
+  return {point:moved};
 }
 
 /** A hit check destroys exactly one duplicate. Area damage never calls this. */
@@ -163,6 +207,12 @@ export function repeatSpell(sid:string,roller:string,kind:TokenKind,id:string,co
   }
   if(locked&&actor&&(tokenDistanceFt(actor,token,getMap(token.mapId))>60||key==='witch bolt'&&!hasLineOfSight(actor,token,getMap(token.mapId)!.walls)))return 'The linked target is beyond 60 feet or behind Total Cover.';
   if(key==='heat metal'&&fx.itemDropped)return 'The heated item was dropped; there is no creature touching it.';
+  if(key==='spiritual weapon'){
+    const weapon=getToken(fx.summonTokenId??'');
+    if(!weapon||!spiritualWeaponOwner(weapon)||weapon.mapId!==token.mapId)return 'The spectral weapon is no longer on this map.';
+    if(tokenDistanceFt(weapon,token,getMap(token.mapId))>5+1e-6||!hasLineOfSight(weapon,token,getMap(token.mapId)!.walls))return 'Choose a creature within 5 feet of Spiritual Weapon, outside Total Cover.';
+    faceTokenToward(sid,weapon.id,token.id);
+  }
   setCondition(kind,id,{...condition!,combatEffect:{...fx,lastUseTurn:current}});
   const ctx:LinkedSpellContext={spell:ability.name,abilityId:ability.id,casterKind:kind,casterId:id,castLevel:fx.castLevel??p.level,dc:fx.dc??10,modifier:spellcastingMod(effectiveStats(caster).scores,kind==='pc'?spellcastingKeyFor(caster as Character,ability):ability.roll?.castingAbility)};
   if(key==='witch bolt'){

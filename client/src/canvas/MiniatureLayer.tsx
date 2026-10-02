@@ -1,4 +1,7 @@
 import {createMirrorImages} from './mirrorImages';
+import {createDeathSkull} from './deathSkull';
+import {createSpiritualWeapon} from './spiritualWeapon';
+import {DEATH_SKULL,SPIRITUAL_WEAPON} from '../lib/miniatures';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
@@ -285,6 +288,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
+    host.dataset.deathSkullCount=String(props.tokens.filter(t=>t.definition.id===DEATH_SKULL.id&&instances.get(t.id)?.url===DEATH_SKULL.url).length);
     const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)).map(t => t.id).sort();
     if (failedIds.join("|") !== lastFailedIds) {
       lastFailedIds = failedIds.join("|");
@@ -613,6 +617,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   // Warm parsed models and their textures without creating hidden token instances.
   const loadDefinition = (definition: MiniatureDefinition) => {
+      if(definition.url===DEATH_SKULL.url||definition.url===SPIRITUAL_WEAPON.url){
+        if(!assets.has(definition.url)){
+          const model=definition.url===DEATH_SKULL.url?createDeathSkull():createSpiritualWeapon();
+          assets.set(definition.url,Promise.resolve({scene:model,scenes:[model],animations:[],cameras:[],asset:{version:'2.0'},userData:{}} as unknown as GLTF));
+        }
+        return;
+      }
       if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
         .then(async gltf => {
           try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
@@ -734,7 +745,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
               // that omission to 1 (solid metal), even for skin and cloth. Give
               // those atlases a diffuse response to local light. Preserve every
               // explicitly authored metal factor and metallic/roughness map.
-              const sourceIndex=gltf.parser.associations.get(material)?.materials;
+              const sourceIndex=gltf.parser?.associations.get(material)?.materials;
               const pbr=sourceIndex===undefined?undefined:gltf.parser.json.materials?.[sourceIndex]?.pbrMetallicRoughness;
               if(copy instanceof MeshStandardMaterial && pbr && pbr.metallicFactor===undefined && !pbr.metallicRoughnessTexture)copy.metalness=0;
               torchLighting.attach(copy);

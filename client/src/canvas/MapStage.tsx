@@ -1,4 +1,5 @@
 import {mirrorImageCount} from '../../../shared/linkedSpells';
+import {DEATH_SKULL} from '../lib/miniatures';
 import {ObjectControls} from '../components/ObjectControls';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
@@ -861,6 +862,7 @@ export function MapStage({
     if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
     else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
+    if(resolveToken(snapshot,tok).dead && !orbTarget && !saveResolve){setDetailsExpanded(true);nudgeRightPanel();}
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
     if(tok.sharedSightOnly)return;
@@ -1133,18 +1135,19 @@ export function MapStage({
     // Only role-filtered tokens can create instances; background assets have no positions.
     if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
-    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
+    const display = resolveToken(snapshot, token), dead = display.dead === true;
+    const definition = dead ? DEATH_SKULL : resolveMiniature(display.name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
-      mirrorImages:mirrorImageCount(resolveToken(snapshot,token).conditions),
+      mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),
       sharedSightOnly: token.sharedSightOnly,
-      carriedLantern:!token.sharedSightOnly && token.carriedLantern,
-      combatRole: !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
-      hunterMarked: !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
-      conditionColors: token.sharedSightOnly ? [] : presentAuras(resolveToken(snapshot, token).conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
+      carriedLantern:!dead && !token.sharedSightOnly && token.carriedLantern,
+      combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
+      hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
+      conditionColors: dead || token.sharedSightOnly ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
       outline: token.sharedSightOnly || !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
-      tint: monster ? monsterTint(monster) : undefined,
-      shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
+      tint: !dead && monster ? monsterTint(monster) : undefined,
+      shade: !dead && monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
       selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
@@ -1871,7 +1874,7 @@ export function MapStage({
     const movable =
       isDm ||
       t.kind === 'pc' ||
-      (d.disposition === 'friendly' && !d.objectKind);
+      (d.disposition === 'friendly' && (!d.objectKind || !!creature && 'modelType' in creature && creature.modelType==='spiritual-weapon' && creature.conditions.some(c=>c.combatEffect?.casterId===snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id)));
     return (
       <TokenShape
         key={t.id}

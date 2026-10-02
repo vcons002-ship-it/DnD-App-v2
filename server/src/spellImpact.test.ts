@@ -7,6 +7,13 @@ import {getSpell} from './spells/srd.js';
 afterEach(()=>vi.restoreAllMocks());
 
 describe('spell impact identity and lighting',()=>{
+ it('Vampiric Touch keeps its red caster aura/healing while Chill Touch retains its own necrotic effect',()=>{
+  for(const delta of [-10,0,5])expect(spellImpactStyle({spell:'Vampiric Touch',delta})).toMatchObject({kind:'aura',color:'#d62c46'});
+  expect(spellImpactStyle({spell:'Chill Touch',delta:-10})).toMatchObject({kind:'drain',color:'#a471df'});
+  const c={id:'touch',label:'Vampiric Touch',aura:'green' as const,isConcentration:false,
+    combatEffect:{casterKind:'pc' as const,casterId:'caster',spell:'Vampiric Touch',spellAction:'Magic action'}};
+  expect(persistentSpellVisual(c)).toBe('Vampiric Touch');expect(persistentSpellVisual({...c,isConcentration:true})).toBeUndefined();
+ });
  it.each(LINKED_SPELL_FX)('%s preserves its cosmetic identity and has an existing-style luminous effect',spell=>{
   expect(spellImpactName(`${spell} + secret modifier 18`)).toBe(spell);
   expect(spellImpactStyle({spell,delta:-10,damageType:'force'})).toMatchObject({color:expect.stringMatching(/^#[a-f0-9]{6}$/),duration:expect.any(Number)});

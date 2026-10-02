@@ -17,7 +17,7 @@ export function ActiveSpellActions({caster,kind,ownTurn,targetTokenId}:{caster:C
         <button className="btn tiny attack-row" disabled={!!spellActionBlock(caster)||inCombat&&(!ownTurn||used)||(!locked&&!targetTokenId)||!!fx.itemDropped}
           onClick={()=>repeat({kind,refId:caster.id,conditionId:c.id,targetTokenId:locked?undefined:targetTokenId,advantage:/^(vampiric touch|flame blade|spiritual weapon)$/i.test(fx.spell)?consume(caster.id):undefined})}>
           {fx.spell} · {fx.spellAction}{used?' (used)':''}
-        </button><small className="muted">{fx.itemDropped?'Heated item dropped':locked?'Original linked target · no new slot':'Selected target · no new slot'}</small>
+        </button><small className="muted">{fx.itemDropped?'Heated item dropped':fx.summonTokenId?'Selected target within 5 ft of the weapon · drag up to 20 ft before attacking · no new slot':locked?'Original linked target · no new slot':'Selected target · no new slot'}</small>
       </div>;
     })}
     {caster.conditions.filter(c=>c.combatEffect?.spell.toLowerCase()==='heat metal'&&!c.isConcentration&&!c.combatEffect.spellAction).map(c=><div key={c.id} className="combat-ability-row">

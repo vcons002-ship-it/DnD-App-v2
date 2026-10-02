@@ -62,6 +62,7 @@ export function ObjectControls({
 
   const m = snapshot.monsters.find((x) => x.id === token.refId);
   if (!m || !m.objectKind) return null;
+  if(m.modelType==='spiritual-weapon')return <div className="object-controls"><strong>Spiritual Weapon</strong><p className="muted">Spectral force · no creature HP or initiative. Its caster can drag it up to 20 ft on later turns, then use its Bonus Action attack from Combat. It disappears when concentration ends.</p></div>;
   const meta = OBJECT_META[m.objectKind];
   const chips = STATE_CHIPS[m.objectKind] ?? STATE_CHIPS.other;
   const has = (label: string) =>

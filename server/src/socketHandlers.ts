@@ -1,4 +1,7 @@
-import {repeatSpell} from './linkedSpells.js';
+import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
+import {linkedSpellProfile,spellKey} from '../../shared/linkedSpells.js';
+import {spellcastingKeyFor} from '../../shared/spellExecution.js';
+import {spellcastingMod} from '../../shared/spellMath.js';
 import {shapeSaveFrame} from './liveSaveFrame.js';
 import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
@@ -193,7 +196,7 @@ import {
   touchSession,
   updateMonster,
 } from './sessions.js';
-import type { Condition, MapPopup, TokenKind } from '../../shared/types.js';
+import type { Character, Condition, MapPopup, TokenKind } from '../../shared/types.js';
 
 /** Grace window after a disconnect before a player's claim is freed, so a brief
  *  connection blip doesn't de-select their character (and others can't snipe it).
@@ -660,6 +663,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         return;
       }
       const name = (ability.summon.name?.trim() || ability.name || 'Summon').slice(0, 60);
+      const spectral=spellKey(ability.name)==='spiritual weapon'&&!!linkedSpellProfile(ability);
+      if(spectral){
+        const error=spiritualWeaponPlacementError(sid,kind,refId,mapId,x,y);
+        if(error){socket.emit('notice',{message:error});return;}
+      }
+      let actualLevel=typeof castLevel==='number'&&castLevel>=(ability.level??1)?Math.min(9,castLevel):ability.level??1;
       const icon = (ability.summon.icon || '✋').slice(0, 2000);
       // Spend a slot for a leveled spell BEFORE spawning; bail if none left.
       if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
@@ -667,11 +676,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const lvl = typeof castLevel === 'number' && castLevel >= base ? castLevel : base;
         // Soft like ability:roll: only a sheet that HAS slots at this level and
         // is out of them is refused — no slot table (homebrew) still summons.
-        const { hasSlot, spent } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+        const { hasSlot, spent,level:spentLevel } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+        actualLevel=spentLevel??lvl;
         if (hasSlot && !spent) {
           socket.emit('notice', { message: `No level ${lvl} spell slots left.` });
           return;
         }
+      }
+      if(spectral){
+        summonSpiritualWeapon({spell:ability.name,abilityId:ability.id,casterKind:kind,casterId:refId,castLevel:actualLevel,dc:0,
+          modifier:spellcastingMod(ent!.stats,kind==='pc'?spellcastingKeyFor(ent as Character,ability):ability.roll?.castingAbility)},ability,mapId,x,y);
+        afterChange();broadcastSpellCast(io,sid,kind,refId);return;
       }
       createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       if (isConcentrationSpell(ability)) setConcentration(kind, refId, ability.name);
@@ -868,6 +883,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const moving=getToken(tokenId);
       if (!sessionId()||!moving||getMap(moving.mapId)?.sessionId!==sessionId()) return;
       if(getMap(moving.mapId)?.walls?.some(w=>w.tokenId===moving.id))return;
+      const spectral=spiritualWeaponOwner(moving);
+      if(spectral){
+        if(!isDm()&&(!ownsCreature(spectral.kind,spectral.caster.id)||moving.isHidden))return;
+        const blocked=spellActionBlockMessage(spectral.caster,{inCombat:!!getSessionById(spectral.caster.sessionId)?.combatRound});
+        const result=blocked?{error:blocked}:moveSpiritualWeapon(moving,x,y);
+        if(result.error){socket.emit('notice',{message:result.error});sendSnapshot(io,socket.id);return;}
+        afterChange();if(result.point&&typeof placed==='function')placed({x:result.point.x,y:result.point.y});return;
+      }
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
       // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
       // Hidden tokens are never sent to players, so a non-DM move of one is
@@ -907,6 +930,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid) return;
       const t = getToken(tokenId);
       if (!t||getMap(t.mapId)?.sessionId!==sid) return;
+      const spectral=spiritualWeaponOwner(t);
+      if(spectral){
+        if(!isDm()&&(!ownsCreature(spectral.kind,spectral.caster.id)||t.isHidden))return;
+        if(spellActionBlock(spectral.caster))return;
+        const result=moveSpiritualWeapon(t,x,y,true);
+        if(result.point)broadcastTokenDrag(io,sid,socket.id,t,result.point.x,result.point.y);return;
+      }
       if (!isDm()) {
         if (t.isHidden) return;
         const creature=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId);

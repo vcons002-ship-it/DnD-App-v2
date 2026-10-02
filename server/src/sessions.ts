@@ -572,6 +572,14 @@ export function createSummon(
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y });
 }
 
+export function createSpiritualWeapon(sessionId:string,mapId:string,x:number,y:number):Token {
+  const m=insertMonster(sessionId,{name:'Spiritual Weapon',maxHp:1,icon:'⚔',objectKind:'other',
+    modelType:'spiritual-weapon',speed:'20 ft.',disposition:'friendly',source:'manual'},
+    {isTemplate:false,templateId:null,name:'Spiritual Weapon'});
+  const token=createToken({mapId,kind:'monster',refId:m.id,x,y});
+  resizeToken(token.id,2.5);return getToken(token.id)!;
+}
+
 /** Set a token's silhouette (DM). */
 export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
   db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);
@@ -3652,6 +3660,12 @@ export function clearCondition(
     JSON.stringify(conditions),
     refId,
   );
+  if(removed?.combatEffect?.summonTokenId){
+    const token=getToken(removed.combatEffect.summonTokenId),weapon=token?.kind==='monster'?getMonster(token.refId):null;
+    if(weapon?.sessionId===entity.sessionId&&weapon.modelType==='spiritual-weapon'){
+      deleteToken(token!.id);deleteMonster(weapon.id);
+    }
+  }
   if (removed?.label.trim().toLowerCase() === 'haste' && removed.combatEffect?.spell.trim().toLowerCase() === 'haste') {
     const round = getSessionById(entity.sessionId)?.combatRound ?? 0;
     const active = getSessionById(entity.sessionId)?.activeTurnTokenId ?? '';

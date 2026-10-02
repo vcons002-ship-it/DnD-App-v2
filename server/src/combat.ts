@@ -1,6 +1,6 @@
 import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
-import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea} from './linkedSpells.js';
+import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea,summonSpiritualWeapon,spiritualWeaponPlacementError} from './linkedSpells.js';
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata} from '../../shared/dice.js';
 import {isLiveCommand} from './liveRollContext.js';
@@ -1738,6 +1738,8 @@ export function resolveTargetedSpellAttack(opts: {
   advantage?: Advantage;
   /** The casting creature — credits a PC's kill count on a killing blow. */
   attacker?: { kind: TokenKind; refId: string };
+  /** A placed spell force supplies reach/facing while its caster owns the roll. */
+  originTokenId?: string;
   sourceRollId?: string;
   orb?: OrbChain;
   liveResume?: {id:string;fixed:{face:number;detail:string;hit:boolean;crit:boolean}};
@@ -1745,7 +1747,8 @@ export function resolveTargetedSpellAttack(opts: {
   const tt = spellTarget(opts.sessionId, opts.targetTokenId);
   const t = tt && resolve(tt);
   if (!t) return false;
-  const attackerToken = opts.attacker && listTokens(tt!.mapId).find((token) =>
+  const origin=opts.originTokenId?getToken(opts.originTokenId):undefined;
+  const attackerToken = origin&&origin.mapId===tt!.mapId&&opts.attacker?{...origin,kind:opts.attacker.kind,refId:opts.attacker.refId}:opts.attacker && listTokens(tt!.mapId).find((token) =>
     token.kind === opts.attacker!.kind && token.refId === opts.attacker!.refId);
   const attacker = opts.attacker && (opts.attacker.kind === 'pc'
     ? getCharacter(opts.attacker.refId) : getMonster(opts.attacker.refId));
@@ -1900,7 +1903,7 @@ export function resolveTargetedSpellAttack(opts: {
     }
     if(!deferDamage)linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,spellDamageAmount);
   }
-  if (!hit && attackerToken && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
+  if (!hit && attackerToken && !opts.originTokenId && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
     createRiposteOpportunity(opts.sessionId, tt!, attackerToken);
   return true;
 }
@@ -2025,6 +2028,13 @@ function resolveSheetAbilityFor(
     }
     if(linkedProfile.kind==='mixed'){mixedSpellDamage(sessionId,roller,linkedContext);return true;}
     if(['repeat','heat'].includes(linkedProfile.kind)){
+      if(key==='spiritual weapon'&&!reuse){
+        const mapId=getSessionById(sessionId)?.activeMapId,actor=mapId&&listTokens(mapId).find(t=>t.kind===kind&&t.refId===entity.id);
+        if(!actor||!mapId)return false;
+        const point=target??actor;
+        if(spiritualWeaponPlacementError(sessionId,kind,entity.id,mapId,point.x,point.y))return false;
+        summonSpiritualWeapon(linkedContext,ability,mapId,point.x,point.y);return true;
+      }
       if(!target&&key!=='flame blade')return false;
       if(!reuse)startSpellUse(linkedContext,ability,targetTokenId);
       if(key==='flame blade'&&!reuse){
@@ -2186,6 +2196,7 @@ function resolveSheetAbilityFor(
       targetTokenId &&
       resolveTargetedSpellAttack({
         linked:linkedContext,
+        originTokenId:reuse&&spellKey(ability.name)==='spiritual weapon'?(kind==='pc'?getCharacter(entity.id):getMonster(entity.id))?.conditions.find(c=>c.id===reuse)?.combatEffect?.summonTokenId:undefined,
         sessionId,
         roller,
         title,

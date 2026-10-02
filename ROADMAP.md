@@ -6,6 +6,20 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Replace Phantasmal Killer wisps with sharp spectral blades; Vampiric
+  Touch keeps a red caster aura and red healing flare, linked to concentration.
+- [x] Spiritual Weapon summons a floating 3D force: owner-controlled movement,
+  shared 20-foot turn budget, attacks measured from the force within 5 feet,
+  upcasting, immediate/repeat attacks and cleanup when concentration ends.
+- [x] Replace confirmed-dead 3D creatures with a low bone skull on a pewter
+  base. Hide dead map labels/badges; click the base to open token info.
+  Downed PCs keep their figures until three failed death saves or a Dead mark.
+- [x] Default all attack/spell/heal/stance target lists to living creatures;
+  viewer-local Show Dead opt-in preserves visibility and distance ordering.
+- [x] Correct spell showcase Vanec's class to Sorcerer so his red glass dice
+  load. Capture new showcases through RTX 5090 AV1 NVENC at 60 fps instead
+  of the software 25 fps recorder; keep browser frame/GPU evidence.
+
 - [x] Add the reviewed linked-spell batch: Mirror Image caster-art duplicates,
   Sorcerous Burst bonus dice, Ice Knife explosion, Acid Arrow delayed damage,
   Vampiric Touch healing, Hold Monster/Phantasmal Killer control, Heat Metal,

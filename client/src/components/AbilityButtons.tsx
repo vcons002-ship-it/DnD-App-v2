@@ -118,7 +118,7 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!!spellActionBlock(caster) || (!manualCast && !menu && !(linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name))) && execution.roll?.kind !== 'heal' && !multiple && !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId))}
+            disabled={!!spellActionBlock(caster) || (!manualCast && !menu && !selfSpell && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
             onClick={() => cast(a)}
           >
             {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}

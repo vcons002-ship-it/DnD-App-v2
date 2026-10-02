@@ -123,12 +123,9 @@ function TokenShapeInner({
     display.maxHp && display.maxHp > 0 && display.curHp !== undefined
       ? Math.max(0, Math.min(1, display.curHp / display.maxHp))
       : null;
-  // Dead = 0 HP where the viewer can see HP, the server-computed `dead` flag on a
-  // public (HP-hidden) enemy, or the DM's manual "Dead" condition.
-  const isDead =
-    (display.curHp !== undefined && display.curHp <= 0) ||
-    display.dead === true ||
-    display.conditions.some((c) => c.label.toLowerCase() === 'dead');
+  // PCs at zero HP are downed, not dead. The resolver preserves public enemy
+  // death flags and recognizes PCs only after three failures or a Dead mark.
+  const isDead = display.dead === true;
 
   // The drag handle follows the pointer, but its art stays at the committed
   // origin. Only the private shadow travels until a server snapshot commits.
@@ -575,8 +572,8 @@ function TokenShapeInner({
         <Circle radius={4} fill="#fff5d2"/>
       </Group>}
 
-      {/* Death marker when downed (visible HP at 0, or a manual "Dead" mark). */}
-      {isDead && (
+      {/* 2D fallback. The 3D layer replaces a confirmed-dead figure with a skull. */}
+      {isDead && !miniatureReady && !miniaturePending && (
         <Text
           text="💀"
           fontSize={radius * 1.4}
@@ -588,7 +585,7 @@ function TokenShapeInner({
           verticalAlign="middle"
         />
       )}
-      <Text
+      {!isDead && <Text
         stroke="#000"
         strokeWidth={3}
         fillAfterStrokeEnabled
@@ -605,9 +602,9 @@ function TokenShapeInner({
         height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
         y={token.kind === 'pc' ? initiativeHudOffset + radius + 4 : labelY}
-      />
+      />}
       {/* HP bar (only when HP is visible to this viewer). */}
-      {hpFrac !== null && (
+      {!isDead && hpFrac !== null && (
         <Group name="token-health" y={initiativeHudOffset + radius + (token.kind === 'pc' ? playerNameSize + 8 : 4)} offsetX={radius}>
           <Rect width={radius * 2} height={6} fill="#0008" cornerRadius={3} />
           <Rect
@@ -630,7 +627,7 @@ function TokenShapeInner({
           )}
         </Group>
       )}
-      {token.revealTag && (
+      {!isDead && token.revealTag && (
         <Group name="token-tracking-tag" x={(nameWidth - tagWidth) / 2} y={labelY}>
           <Text text={token.revealTag} x={4} width={tagWidth - 4} align="left" fontSize={monsterNameSize}
             fontStyle="bold" fill="#fff" stroke="#000" strokeWidth={3} fillAfterStrokeEnabled />
@@ -649,7 +646,7 @@ function TokenShapeInner({
       )}
       {/* Combat-role badge (bottom-left corner): ⚔️ melee · 🏹 ranged · ✨ caster.
           A solid dark disc behind the emoji keeps it legible over any token art. */}
-      {token.kind !== 'pc' && token.combatRole && !miniatureReady && !miniaturePending && (
+      {!isDead && token.kind !== 'pc' && token.combatRole && !miniatureReady && !miniaturePending && (
         <Group name="token-combat-role" x={-radius * 0.72} y={radius * 0.72}>
           <Circle
             radius={roleBadgeR}
@@ -669,7 +666,7 @@ function TokenShapeInner({
           />
         </Group>
       )}
-      {initiativeRank !== null && (
+      {!isDead && initiativeRank !== null && (
         <Group name="token-initiative-rank" x={frontInitiative ? 0 : radius * 0.8} y={frontInitiative ? radius + 12 : -radius * 0.8}>
           <Circle radius={11} fill="#f5c518" stroke="#000" strokeWidth={1} />
           <Text
@@ -685,7 +682,7 @@ function TokenShapeInner({
       )}
       {/* The crown distinguishes 2D player-character tokens. A ready miniature
           provides its own silhouette, so it keeps only the health/status HUD. */}
-      {token.kind === 'pc' && !miniatureReady && !miniaturePending &&
+      {!isDead && token.kind === 'pc' && !miniatureReady && !miniaturePending &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
           return (

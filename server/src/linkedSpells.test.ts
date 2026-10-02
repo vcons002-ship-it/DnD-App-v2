@@ -6,11 +6,11 @@ import {effectiveSpeed,spellActionBlock} from '../../shared/spellBuffs.js';
 import type {SheetAbility} from '../../shared/types.js';
 import {getSpell} from './spells/srd.js';
 import {resolveAbilityRoll,resolveAttack,resolveForcedSave,resolveAttackDamage,resolveCheck} from './combat.js';
-import {repeatSpell} from './linkedSpells.js';
+import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner} from './linkedSpells.js';
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
 import {runLiveCommand} from './liveRolls.js';
 import {drainHpFx} from './sessions.js';
-import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
+import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listTokens,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
 
 afterEach(()=>vi.restoreAllMocks());
 const dice=(value:number,fn:()=>unknown)=>withDiceSource(s=>s.map(n=>Math.min(n,value)),fn);
@@ -153,6 +153,35 @@ describe('linked damage and saving throws',()=>{
 });
 
 describe('repeat actions and hit riders',()=>{
+  it.each([false,true])('Spiritual Weapon is a separate force with its own reach and concentration cleanup (manual damage %s)',manual=>{
+    const f=setup('Spiritual Weapon');setManualDamage(f.session.id,manual);
+    expect(effectiveSheetAbility(f.spell).summon?.name).toBe('Spiritual Weapon');
+    expect(f.cast(3)).toBe(true);expect(monsterHp(f)).toBe(500);
+    const token=getToken(f.fx().combatEffect!.summonTokenId!)!,weapon=getMonster(token.refId)!;
+    expect(weapon).toMatchObject({objectKind:'other',modelType:'spiritual-weapon',disposition:'friendly'});
+    expect(spiritualWeaponOwner(token)?.caster.id).toBe(f.caster.id);
+    moveToken(f.target.id,1000,100);
+    expect(repeatSpell(f.session.id,'Mage','pc',f.caster.id,f.fx().id,f.target.id)).toMatch(/within 5 feet/);
+    expect(listRollLog(f.session.id).filter(r=>r.reveal?.kind==='attack')).toHaveLength(0);
+    moveToken(f.target.id,token.x+30,token.y);
+    dice(15,()=>expect(repeatSpell(f.session.id,'Mage','pc',f.caster.id,f.fx().id,f.target.id)).toBeUndefined());
+    expect(listRollLog(f.session.id).some(r=>r.expr.includes('Spiritual Weapon')&&r.reveal?.kind==='attack')).toBe(true);
+    endConcentration('pc',f.caster.id,'Test');expect(getToken(token.id)).toBeNull();expect(getMonster(weapon.id)).toBeNull();
+    expect(listTokens(f.map.id).some(t=>t.id===token.id)).toBe(false);
+  });
+  it('Spiritual Weapon shares one 20-foot movement budget over multiple drags each turn',()=>{
+    const f=setup('Spiritual Weapon');setCombatRound(f.session.id,1);setActiveTurn(f.session.id,f.actor.id);
+    f.cast();const token=getToken(f.fx().combatEffect!.summonTokenId!)!;
+    expect(moveSpiritualWeapon(token,token.x+100,token.y).point?.x).toBe(token.x); // casting turn: placement, not movement
+    setCombatRound(f.session.id,2);
+    const pxPerFt=f.map.gridSizePx/f.map.feetPerSquare;
+    const first=moveSpiritualWeapon(token,token.x+12*pxPerFt,token.y).point!;
+    const second=moveSpiritualWeapon(getToken(token.id)!,first.x+30*pxPerFt,first.y).point!;
+    expect(second.x-token.x).toBeCloseTo(20*pxPerFt);
+    setActiveTurn(f.session.id,f.target.id);
+    expect(moveSpiritualWeapon(getToken(token.id)!,second.x+20,second.y).error).toMatch(/caster/);
+    expect(spiritualWeaponPlacementError(f.session.id,'pc',f.caster.id,f.map.id,10000,100)).toMatch(/60 feet/);
+  });
   it.each(['Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Heat Metal'])('%s exposes the correct repeat action without a new slot',name=>{
     const f=setup(name);dice(15,()=>expect(f.cast()).toBe(true));expect(f.fx()?.combatEffect?.spellAction).toBeTruthy();const slots=casterNow(f).spellSlots;
     dice(15,()=>expect(repeatSpell(f.session.id,'Mage','pc',f.caster.id,f.fx().id,f.target.id)).toBeUndefined());expect(casterNow(f).spellSlots).toEqual(slots);

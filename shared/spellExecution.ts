@@ -46,7 +46,7 @@ export function effectiveSheetAbility(ability: SheetAbility, castLevel?: number)
   const linked = linkedSpellProfile(ability);
   if (linked) {
     const roll=linkedSpellRoll(ability);
-    return {...ability, ...(ability.name.toLowerCase()==='spiritual weapon'?{summon:undefined}:{}),
+    return {...ability, ...(ability.name.toLowerCase()==='spiritual weapon'?{summon:{name:'Spiritual Weapon',icon:'⚔'}}:{}),
       roll:roll&&{...roll,...(ability.name.toLowerCase()==='hold monster'&&(castLevel??5)>5?{targetMode:'multiple' as const}:{})},
       tags:[...(ability.tags??[]).filter(t=>t!=='concentration'),...(linked.concentration?['concentration']:[])]};
   }

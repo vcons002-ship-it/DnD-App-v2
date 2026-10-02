@@ -53,7 +53,7 @@ export function createSpellImpactEffects(scene:Scene){
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(['haunt','aura'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);

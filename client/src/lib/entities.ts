@@ -50,6 +50,7 @@ export function resolveToken(
       curHp: c.curHp,
       maxHp: c.maxHp,
       tempHp: c.tempHp,
+      dead: c.deathSaves.failures >= 3 || c.conditions.some(c => c.label.trim().toLowerCase() === 'dead'),
       conditions: withMarks(c.conditions),
       icon: c.icon,
     };
@@ -57,14 +58,16 @@ export function resolveToken(
   const m = snapshot.monsters.find((x) => x.id === token.refId);
   if (!m) return { name: 'Unknown', conditions: [], icon: '' };
   if (hasHp(m)) {
+    const force=m.objectKind==='other'&&m.modelType==='spiritual-weapon';
     return {
       name: m.name,
-      curHp: m.curHp,
-      maxHp: m.maxHp,
-      tempHp: m.tempHp,
+      curHp: force?undefined:m.curHp,
+      maxHp: force?undefined:m.maxHp,
+      tempHp: force?undefined:m.tempHp,
       conditions: withMarks(m.conditions),
       disposition: m.disposition,
       objectKind: m.objectKind,
+      dead: !m.objectKind && (m.curHp <= 0 || m.conditions.some(c => c.label.trim().toLowerCase() === 'dead')),
       icon: m.icon,
     };
   }
@@ -76,7 +79,7 @@ export function resolveToken(
     conditions: withMarks(m.conditions),
     disposition: m.disposition,
     objectKind: m.objectKind,
-    dead: m.dead,
+    dead: !m.objectKind && (m.dead || m.conditions.some(c => c.label.trim().toLowerCase() === 'dead')),
     icon: m.icon,
   };
 }

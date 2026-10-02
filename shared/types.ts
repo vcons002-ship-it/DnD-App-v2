@@ -40,6 +40,8 @@ export type Condition = {
     duplicates?: number;
     castLevel?: number; abilityId?: string; targetTokenId?: string;
     spellAction?: string; lastUseTurn?: string; itemDropped?: boolean;
+    /** A spell force is an object token, not a summoned creature with HP. */
+    summonTokenId?: string; weaponMoveTurn?: string; weaponMovedFt?: number;
     speedReduction?: number; preventsHealing?: boolean; noOpportunityAttacks?: boolean;
     attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     untilCasterEnd?: boolean; untilTargetStart?: boolean; casterTurnStarted?: boolean;

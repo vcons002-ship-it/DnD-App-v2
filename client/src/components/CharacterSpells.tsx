@@ -13,6 +13,7 @@ import type {
   TokenKind,
 } from '../../../shared/types';
 import { healTargets, validTargets, targetLabel } from '../lib/targets';
+import {ShowDeadTargets} from './ShowDeadTargets';
 import { useStore } from '../state/socket';
 import { classProgression2024, type CoreClass } from '../../../shared/characterProgression';
 import { classLevelFor, resolveClassRoster, resourceNameForClass, spellcastingAbilityForClass } from '../../../shared/multiclass';
@@ -149,7 +150,8 @@ export function CharacterSpells({
 
   // Attack-roll spells target a token (combat console only). One shared target
   // for the panel, like the Combat section's dropdown.
-  const targets = snapshot && attackerToken ? validTargets(snapshot, attackerToken) : [];
+  const showDead = useStore(s => s.showDeadTargets);
+  const targets = snapshot && attackerToken ? validTargets(snapshot, attackerToken, showDead) : [];
   const hasAttackSpell = character.sheetAbilities.some((a) => {
     const roll = effectiveSheetAbility(a).roll;
     return roll && roll.kind !== 'heal' && !isMultiTargetSpell(a);
@@ -163,9 +165,11 @@ export function CharacterSpells({
     if (validDefault) setTargetId(validDefault);
   }, [validDefault]);
   // Heals pick from allies instead (self first = default) and apply on cast.
-  const healList = snapshot && attackerToken ? healTargets(snapshot, attackerToken) : [];
+  const healList = snapshot && attackerToken ? healTargets(snapshot, attackerToken, showDead) : [];
+  const effectiveTargetId = targets.some(t => t.id === targetId) ? targetId : targets[0]?.id ?? '';
   const hasHealSpell = character.sheetAbilities.some((a) => a.roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
+  const effectiveHealId = healList.some(t => t.id === healTargetId) ? healTargetId : healList[0]?.id ?? '';
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   // The CURRENT rules-DB definition of each entry on the sheet (local DB only,
@@ -371,13 +375,17 @@ export function CharacterSpells({
       return;
     }
     const g = summonMap.gridSizePx || 50;
+    const spectral=a.name.toLowerCase()==='spiritual weapon';
+    const live=snapshot??useStore.getState().snapshot;
+    const anchor=spectral?live?.tokens.find(t=>t.id===effectiveTargetId)??live?.tokens.find(t=>t.kind===kind&&t.refId===character.id):undefined;
+    const reachPx=5*g/(summonMap.feetPerSquare||5);
     summonCast({
       kind,
       refId: character.id,
       abilityId: a.id,
       mapId: summonMap.id,
-      x: g * 2 + Math.random() * g * 2,
-      y: g * 2 + Math.random() * g * 2,
+      x: anchor?anchor.x-reachPx:g * 2 + Math.random() * g * 2,
+      y: anchor?anchor.y:g * 2 + Math.random() * g * 2,
       castLevel: upcastable(a) ? levelFor(a) : undefined,
       slotPool: hasPactPool ? poolFor(a) : undefined,
     });
@@ -388,7 +396,7 @@ export function CharacterSpells({
     if (actionBlock) { explainBlock(); return; }
     const level = upcastable(a) ? levelFor(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
-    if (!spellCombatSupport(a)?.manualCastOnly && execution.roll && execution.roll.kind !== 'heal' && !isMultiTargetSpell(a, level) && !targetId) {
+    if (!spellCombatSupport(a)?.manualCastOnly && execution.roll && execution.roll.kind !== 'heal' && !isMultiTargetSpell(a, level) && !effectiveTargetId) {
       notify('Choose a target in the Combat panel to cast this spell.');
       return;
     }
@@ -406,8 +414,8 @@ export function CharacterSpells({
       // Attack-roll spells resolve to-hit vs the chosen target's AC; heals apply
       // to the chosen ally (combat console).
       targetTokenId:
-        spellCombatSupport(a)?.manualCastOnly ? undefined : execution.roll?.kind === 'heal' ? healTargetId || undefined
-          : isMultiTargetSpell(a, level) ? undefined : targetId || undefined,
+        spellCombatSupport(a)?.manualCastOnly ? undefined : execution.roll?.kind === 'heal' ? effectiveHealId || undefined
+          : isMultiTargetSpell(a, level) ? undefined : effectiveTargetId || undefined,
     });
   };
 
@@ -480,7 +488,7 @@ export function CharacterSpells({
     const support = spellCombatSupport(a);
     const summon = support?.manualCastOnly ? undefined : effectiveSheetAbility(a).summon;
     const lvl = levelFor(a);
-    const displayRoll = hitFeature(a) || support?.manualCastOnly ? undefined : effectiveSheetAbility(a, lvl).roll;
+    const displayRoll = hitFeature(a) || support?.manualCastOnly || summon ? undefined : effectiveSheetAbility(a, lvl).roll;
     const damageTypes = spellDamageTypeChoices(a, lvl);
     const gi = groupIds.indexOf(a.id);
     // Leveled spells carry a prepared state — show prepared ones bright/bold and
@@ -660,7 +668,7 @@ export function CharacterSpells({
               className="btn tiny"
               title={`Summon ${summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
               disabled={!!actionBlock}
-              onClick={() => castSummon(a)}
+              onClick={() => castSummon(effectiveSheetAbility(a))}
             >
               {summon.icon || '✋'} Summon
             </button>
@@ -1100,10 +1108,12 @@ export function CharacterSpells({
       {rollsElsewhere && character.sheetAbilities.some((a) => effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly || a.smite || hitFeature(a)) && (
         <p className="muted spell-tag">Cast and roll from Combat. On-hit spells are offered after a qualifying hit.</p>
       )}
-      {!rollsElsewhere && hasAttackSpell && targets.length > 0 && (
+      {!rollsElsewhere && snapshot && attackerToken && (hasAttackSpell || hasHealSpell || character.sheetAbilities.some(a=>a.stance?.targeted)) && <ShowDeadTargets/>}
+      {!rollsElsewhere && hasAttackSpell && (
         <div className="dice-row">
           <span className="muted spell-tag">Spell target</span>
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          <select aria-label="Spell target" value={effectiveTargetId} onChange={(e) => setTargetId(e.target.value)}>
+            {!targets.length && <option value="">No living targets</option>}
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
                 {targetLabel(snapshot!, t, attackerToken ?? undefined)}
@@ -1115,7 +1125,7 @@ export function CharacterSpells({
       {!rollsElsewhere && hasHealSpell && healList.length > 0 && (
         <div className="dice-row">
           <span className="muted spell-tag">Heal target</span>
-          <select value={healTargetId} onChange={(e) => setHealTargetId(e.target.value)}>
+          <select aria-label="Heal target" value={effectiveHealId} onChange={(e) => setHealTargetId(e.target.value)}>
             {healList.map((t, i) => (
               <option key={t.id} value={t.id}>
                 {targetLabel(snapshot!, t, attackerToken ?? undefined)}

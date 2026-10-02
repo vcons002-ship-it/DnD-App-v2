@@ -197,7 +197,7 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
       'phantasmal killer':'Initial damage/save, attack/check disadvantage on failure, and turn-end saves before recurring damage.',
       'heat metal':'Initial/repeated Fire damage, Constitution saves, heated-item penalties and a drop control, linked to concentration.',
       'witch bolt':'Initial spell attack and subsequent Bonus Action damage, even after a miss; range/Total Cover break the link.',
-      'spiritual weapon':'Initial and repeat Bonus Action attacks with casting-modifier damage, upcasting, and concentration.',
+      'spiritual weapon':'Summoned floating weapon, 20-foot movement, 5-foot reach, initial and repeat Bonus Action attacks, upcasting, and concentration cleanup.',
       'flame blade':'Create the blade, then use its repeat Magic action attacks with casting-modifier damage and concentration.',
       'call lightning':'Initial/repeated 5-foot bursts, one Lightning damage pool followed by grouped Dexterity saves, and concentration.',
       'ice storm':'Separate Bludgeoning/Cold pools, upcasting, per-type defenses, and one combined HP application per creature.',
@@ -210,7 +210,7 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
       'shocking grasp':'Lightning spell attack and a timed no-Opportunity-Attacks condition; other actions/reactions remain available.',
     };
     const limitations:Record<string,string>={
-      'spiritual weapon':'Place/move the floating weapon and adjudicate its 20-foot movement and 5-foot reach; no automatic weapon token is placed.',
+      'spiritual weapon':'Summons beside the selected target; the DM can reposition the force for unusual placement or terrain.',
       'flame blade':'Blade appearance and its continuous light are table-managed.',
       'heat metal':'Select an eligible manufactured metal object; the DM adjudicates whether it can be dropped or armor must be removed.',
       'call lightning':'Choose a point under the cloud and adjudicate cloud space and the existing-storm bonus; burst targeting currently uses a selected creature as its center.',

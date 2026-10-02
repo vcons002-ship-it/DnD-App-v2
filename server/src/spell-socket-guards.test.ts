@@ -51,6 +51,24 @@ function fixture() {
 }
 
 describe('spell socket target and ownership boundaries', () => {
+  it('Spiritual Weapon rejects invalid placement before spending and only its owner can drag the summoned force',()=>{
+    const f=fixture(),owner=harness(f.session.id,f.map.id),other=harness(f.session.id,f.map.id);
+    claimCharacter(f.caster.id,owner.id);setFogLayer(f.map.id,'map',false);setFogLayer(f.map.id,'tokens',false);
+    createToken({mapId:f.map.id,kind:'pc',refId:f.caster.id,x:50,y:50});
+    updateCharacter(f.caster.id,{spellSlots:{L2:{max:3,used:0}}});
+    const spell={...getSpell('Spiritual Weapon')!,id:'spectral'};setSheetAbility('pc',f.caster.id,spell);
+    const payload={kind:'pc',refId:f.caster.id,abilityId:spell.id,mapId:f.map.id,x:10000,y:50,castLevel:2};
+    owner.send('summon:cast',payload);expect(getCharacter(f.caster.id)!.spellSlots.L2.used).toBe(0);
+    expect(owner.emit).toHaveBeenCalledWith('notice',expect.objectContaining({message:expect.stringMatching(/60 feet/)}));
+    owner.send('summon:cast',{...payload,x:100});
+    expect(getCharacter(f.caster.id)!.spellSlots.L2.used).toBe(1);
+    const force=listTokens(f.map.id).find(t=>getMonster(t.refId)?.modelType==='spiritual-weapon')!;
+    expect(force).toBeTruthy();other.send('token:move',{tokenId:force.id,x:150,y:50});
+    expect(listTokens(f.map.id).find(t=>t.id===force.id)!.x).toBe(100);
+    owner.send('token:move',{tokenId:force.id,x:150,y:50});
+    expect(listTokens(f.map.id).find(t=>t.id===force.id)!.x).toBe(150);
+    expect(getCharacter(f.caster.id)!.spellSlots.L2.used).toBe(1);
+  });
   it('rejects shared-only weapon, spell and damage target requests without spending resources, and permits personal sight',()=>{
     const f=fixture(),client=harness(f.session.id,f.map.id),target=f.target();
     claimCharacter(f.caster.id,client.id);

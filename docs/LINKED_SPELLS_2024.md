@@ -10,14 +10,15 @@ Explicit Custom or Manual profiles keep their authored behavior.
 
 The linked spells reuse the existing luminous 3D materials, drifting motes,
 smooth glow envelope, and spell-emitted lighting. Ice spells scatter crystals;
-Acid Arrow splashes; Vampiric Touch uses Necrotic wisps and a green healing
-effect; Spiritual Weapon shows a brief spectral sword strike; Flame Blade
+Acid Arrow splashes; Vampiric Touch keeps a red aura circling its caster,
+including a red healing flare; Spiritual Weapon creates a floating spectral
+sword token and shows its strike; Flame Blade
 shows a glowing Fire blade; storms drop icy shards or lightning and Meteor
-Swarm drops burning rocks. These are visual depictions, not additional summons
-or rules objects.
+Swarm drops burning rocks. Spiritual Weapon is a spell force on the map; the
+other effects are visual depictions of their existing conditions.
 
 Hold Person and Hold Monster keep glowing interlocking chains around the
-affected body. Phantasmal Killer keeps Psychic wisps; Ensnaring Strike keeps
+affected body. Phantasmal Killer keeps sharp, inward-pointing spectral daggers around its victim; Ensnaring Strike keeps
 vines. Heat Metal, Acid Arrow and the timed hit riders keep their matching
 glow while their server-owned condition remains. The caster's Flame Blade and
 Vampiric Touch visuals remain with their active spell. Mirror Image's existing
@@ -93,13 +94,18 @@ once per turn. Ending concentration removes these controls.
 | Spell | Repeat action |
 |---|---|
 | Witch Bolt | Bonus action: automatic 1d12 to the original target, even if the initial attack missed. A broken 60-foot/Total Cover link ends concentration. Only initial damage upcasts. |
-| Spiritual Weapon | Bonus action: spell attack and Force damage plus casting modifier. |
+| Spiritual Weapon | Summon beside the selected target within 60 ft, then use its immediate spell attack. On later turns drag the force up to 20 ft before its Bonus Action attack against a creature within 5 ft. Force damage adds the casting modifier and upcasts. |
 | Flame Blade | Cast to create it; use the Magic action button for its Fire spell attack plus casting modifier. |
 | Vampiric Touch | Magic action: repeat its Necrotic attack and healing. |
 | Call Lightning | Magic action: another burst with grouped Dexterity saves. |
 | Heat Metal | Bonus action: repeat Fire damage on the original creature retaining the object. |
 
-The app does not place/move a Spiritual Weapon object, infer Heat Metal material
+Spiritual Weapon has no creature HP, initiative, loot, or target-list entry.
+Its owner and the DM can move it; multiple drags share the turn's movement budget.
+Concentration ending or expiring removes the force and its controls. Existing
+canonical saved spell entries receive this summon flow without rewriting them.
+
+The app does not infer Heat Metal material
 eligibility, remove worn armor, or model a Call Lightning cloud. Those details
 remain explicit in the Partial badges. Call Lightning currently centers its burst
 on a chosen creature; empty-space cloud targeting and the existing-storm bonus

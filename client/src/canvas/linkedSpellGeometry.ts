@@ -8,6 +8,8 @@ export function createLinkedSpellGeometry(){
   const link=new TorusGeometry(.047,.009,4,9),crystal=new ConeGeometry(.09,.4,5),
     drop=new SphereGeometry(.075,7,5),blade=new BoxGeometry(.075,.85,.025),guard=new BoxGeometry(.36,.055,.045);
   const geometries:BufferGeometry[]=[link,crystal,drop,blade,guard];
+  const dagger=new ConeGeometry(.065,.48,4),auraArc=new TorusGeometry(.44,.012,5,36,Math.PI*1.45);
+  geometries.push(dagger,auraArc);
   const chainLinks:BufferGeometry[]=[],placement=new Mesh(link);
   const place=()=>{placement.updateMatrix();chainLinks.push(link.clone().applyMatrix4(placement.matrix));};
   for(let row=0;row<3;row++)for(let i=0;i<12;i++){
@@ -29,6 +31,13 @@ export function createLinkedSpellGeometry(){
       const sword=add(blade,body);sword.position.y=.76;
       const cross=add(guard);cross.position.y=.31;
       const grip=add(blade);grip.scale.y=.23;grip.position.y=.18;
+    }else if(style.kind==='haunt'){
+      // Sharp spectral daggers hover around the victim, points aimed inward.
+      for(let i=0;i<7;i++){const m=add(dagger,i%2?body:bright);m.userData.index=i;}
+    }else if(style.kind==='aura'){
+      // An open, layered aura encircles the body without hiding the figure.
+      for(let i=0;i<3;i++){const m=add(auraArc,i===1?body:bright);m.userData={band:true,index:i};}
+      for(let i=0;i<10;i++){const m=add(drop);m.scale.set(.18,.5,.18);m.userData={seed:i/10,particle:true};}
     }else if(!['burst','arrows','vines','mark'].includes(style.kind)){
       const count=style.kind==='meteor'?4:style.kind==='flame'?12:18;
       for(let i=0;i<count;i++){
@@ -37,13 +46,26 @@ export function createLinkedSpellGeometry(){
         m.userData={angle:i*2.399963,seed:((i*7)%19)/19,index:i};
         if(style.kind==='flame')m.scale.set(.6,1.8,.6);
         if(style.kind==='meteor')m.scale.setScalar(2.7);
-        if(['haunt','poison','drain'].includes(style.kind))m.scale.set(1.3,2.6,1.3);
+        if(['poison','drain'].includes(style.kind))m.scale.set(1.3,2.6,1.3);
       }
     }
     return {root,parts,update(t:number,persistent:boolean,reduced:boolean,areaScale:number){
       if(style.kind==='chains'){root.rotation.y=reduced?0:Math.sin(t*.7)*.025;return;}
       if(style.kind==='weapon'){
         root.position.set(.45,0,0);root.rotation.z=reduced?-.15:persistent?-.15+Math.sin(t*1.5)*.08:-.85+Math.sin(Math.min(1,t*1.8)*Math.PI)*1.3;return;
+      }
+      if(style.kind==='haunt'){
+        parts.forEach((m,i)=>{const a=i*Math.PI*2/7+(reduced?0:t*.22),r=.62+(reduced?0:Math.sin(t*1.4+i)*.07);
+          m.position.set(Math.cos(a)*r,.4+(i%3)*.27,Math.sin(a)*r);
+          m.quaternion.setFromUnitVectors(new Vector3(0,1,0),new Vector3(-Math.cos(a),.12*Math.sin(i),-Math.sin(a)).normalize());
+        });return;
+      }
+      if(style.kind==='aura'){
+        parts.forEach((m,i)=>{
+          if(m.userData.band){m.position.y=.23+i*.27;m.rotation.set(Math.PI/2+(i-1)*.12,0,i*2.1+(reduced?0:t*(i%2?-.7:.6)));m.scale.setScalar(1+(reduced?0:Math.sin(t*1.6+i)*.035));return;}
+          const phase=reduced?.5:(t*.3+m.userData.seed)%1,a=i*2.399963+(reduced?0:t*.55);
+          m.position.set(Math.cos(a)*.44,.13+phase*.85,Math.sin(a)*.44);
+        });return;
       }
       parts.forEach(m=>{
         const {angle=0,seed=0}=m.userData,phase=reduced?.4:persistent?(t*.24+seed)%1:Math.min(1,Math.max(0,(t-seed*.18)/.72));

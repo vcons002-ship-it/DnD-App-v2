@@ -177,6 +177,8 @@ type Store = {
   /** Right-clicking a token aims the Combat section's target dropdown at it
    *  (n bumps every time so re-clicking the same token re-applies). */
   combatTarget: { id: string; n: number } | null;
+  showDeadTargets: boolean;
+  setShowDeadTargets: (show: boolean) => void;
   setCombatTarget: (id: string) => void;
   /** Armed "Apply damage" from a save/damage roll: clicking tokens rolls their
    *  save and auto-applies full/half. Null = not arming. (DM-only.) */
@@ -602,6 +604,8 @@ export const useStore = create<Store>((set, get) => ({
   rightPanelNudge: 0,
   nudgeRightPanel: () => set((s) => ({ rightPanelNudge: s.rightPanelNudge + 1 })),
   combatTarget: null,
+  showDeadTargets: false,
+  setShowDeadTargets: (showDeadTargets) => set({ showDeadTargets }),
   setCombatTarget: (id) =>
     set((s) => ({ combatTarget: { id, n: (s.combatTarget?.n ?? 0) + 1 } })),
   orbTarget: null,
