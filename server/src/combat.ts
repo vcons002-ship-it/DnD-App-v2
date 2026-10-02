@@ -4,7 +4,8 @@ import {resolvePlacedSpell} from './areaSpells.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea,summonSpiritualWeapon,spiritualWeaponPlacementError} from './linkedSpells.js';
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
-import {isValidDiceExpression,withDiceMetadata} from '../../shared/dice.js';
+import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
+import {rollSaveBatch} from './saveDiceBatch.js';
 import {isLiveCommand} from './liveRollContext.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
@@ -1617,6 +1618,34 @@ export function resolveForcedSave(
   // and it blocks the accidental double-click that would otherwise double the hit.
   if ((apply.consumedTargets ?? []).some(id=>{const t=getToken(id);return t?.kind===tok.kind&&t.refId===tok.refId;})) return;
   if (apply.targetMode === 'single' && (apply.consumedTargets?.length ?? 0) > 0) return;
+  if (apply.saveFirstDamage && apply.save && apply.effect) {
+    // Phantasmal Killer (2024): initial WIS save, then full/half psychic
+    // damage. Area spells deliberately retain their shared damage-first pool.
+    const ability=apply.save,request=areaSaveRequest(tok,ability,apply.dc)!;
+    request.mode=saveAdvantage(r.conditionLabels,ability,advantage,strFeatureAdv(r.kind,r.refId,ability)).state;
+    const [out]=rollSaveBatch([{...request,passEffect:'Half damage; spell ends.',failEffect:'Full damage; disadvantage continues.'}],`${apply.effect.spell} — Initial ${ability} Saving Throw`);
+    const total=out.total+request.extra,pass=!request.autoFail&&total>=apply.dc;
+    addRollLog(sessionId,{roller:src!.roller,label:`${ability} save`,expr:`${apply.effect.spell} — Initial save`,total,
+      detail:`${r.name}: ${ability} save ${total} vs DC ${apply.dc} — ${pass?'PASS: half damage; spell ends.':'FAIL: full damage; disadvantage on attacks and ability checks.'}`,
+      hideMods:r.kind==='monster'&&getMonster(r.refId)?.disposition!=='friendly',
+      reveal:{...checkReveal({who:r.name,title:`${apply.effect.spell} — Initial ${ability} Saving Throw`,face:out.face,total,
+        steps:[{label:`${ability} save modifiers`,value:total-out.face}],outcome:pass?'pass':'fail'}),presentedLive:usingPhysicalDice(),visibilityTarget:{kind:tok.kind,refId:tok.refId}}});
+    const rolled=withDiceMetadata({label:`${apply.effect.spell} — Initial Psychic Damage${pass?' (save for half)':''}`,target:tok},()=>rollDice(apply.saveFirstDamage!))!;
+    const amount=Math.max(0,Math.floor((pass?Math.floor(rolled.total/2):rolled.total)*mult));
+    const hpNote=amount?applyDamageNoted(r.kind,r.refId,amount,apply.damageType,undefined,false,resolutionRollId,apply.effect.spell):undefined;
+    noteConcentration(sessionId,r.kind,r.refId,amount);
+    if(!pass)applyFailedCondition();
+    else if((apply.effect.casterKind==='pc'?getCharacter(apply.effect.casterId):getMonster(apply.effect.casterId))?.conditions.some(c=>c.isConcentration&&c.id===apply.effect!.castId))
+      endConcentration(apply.effect.casterKind,apply.effect.casterId,`${apply.effect.spell} resisted`);
+    if(appliedSpellCondition)queueSpellImpact(sessionId,tok.kind,tok.refId,apply.effect.spell,resolutionRollId);
+    setRollApply(rollId,{...apply,amount:rolled.total,consumedTargets:[...(apply.consumedTargets??[]),tokenId]});
+    addRollLog(sessionId,{roller:src!.roller,label:'Damage',expr:`${apply.effect.spell} — Initial damage`,total:amount,hpNote,
+      detail:`${r.name}: ${rolled.detail}${pass?' ÷ 2 (save for half)':''}; takes ${amount} ${apply.damageType} damage. ${pass?'Spell ends.':'Repeat the WIS save at the end of its turn.'}`,
+      reveal:{kind:'damage',title:`${apply.effect.spell} — Initial Psychic Damage`,attacker:apply.effect.spell,target:r.name,outcome:'none',
+        damageDice:[{label:apply.saveFirstDamage,value:rolled.total,faces:rolled.rolls}],damageMods:amount!==rolled.total?[{label:pass?'Save / damage adjustment':'Damage adjustment',value:amount-rolled.total}]:[],
+        damage:amount,damageType:apply.damageType,visibilityTarget:{kind:tok.kind,refId:tok.refId}}},resolutionRollId);
+    return;
+  }
   if (apply.save) {
     const ability = apply.save;
     // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
@@ -2346,7 +2375,8 @@ function resolveSheetAbilityFor(
   // target DC. The single rolled total is the spell's damage — applying it to each
   // target later (resolveForcedSave) just halves/applies this number, so only the
   // CAST reveals an animation, not each application.
-  const dmgRoll = dice ? rollDice(dice) : null;
+  const saveFirst=!!controlEffect&&spellKey(ability.name)==='phantasmal killer';
+  const dmgRoll = dice && !saveFirst ? rollDice(dice) : null;
   const val = Math.max(0,(dmgRoll?.total ?? 0)+(damageBonus?.value ?? 0));
   const dmgFaces = dmgRoll ? `${dice}[${dmgRoll.rolls.join(',')}]` : dice;
   const note =
@@ -2360,6 +2390,7 @@ function resolveSheetAbilityFor(
   // AOE spell — the dice are rolled once here, applied per target on each click.
   const apply = applyPayload(roll, val, dc);
   if (apply && kind === 'pc') apply.owner = entity.id;
+  if (apply && saveFirst) apply.saveFirstDamage=dice;
   if (apply && controlEffect) {
     const controlKey=spellKey(ability.name);
     apply.maxTargets = controlKey==='phantasmal killer'?1:Math.max(1,(castLevel??ability.level??2)-(ability.level??2)+1);

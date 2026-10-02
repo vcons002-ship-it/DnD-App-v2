@@ -20,7 +20,7 @@ const TERM = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
 const MAX_TERMS = 100;
 const MAX_TOTAL_DICE = 1000;
 
-export type SaveDieInfo={rollKind?:'initiative';target:{kind:'pc'|'monster';refId:string};modifier:number;dc:number;group:string;mode?:Advantage;autoFail?:boolean};
+export type SaveDieInfo={rollKind?:'initiative';target:{kind:'pc'|'monster';refId:string};modifier:number;dc:number;group:string;mode?:Advantage;autoFail?:boolean;passEffect?:string;failEffect?:string};
 export type PhysicalDiceInfo={expr:string;advantage?:Advantage;critical?:boolean;criticalFrom?:number;criticalDice?:boolean[];target?:{kind:'pc'|'monster';refId:string};label?:string;saveDice?:SaveDieInfo[]};
 type DiceSource = (sides:number[],info:PhysicalDiceInfo) => number[];
 let physicalSource:DiceSource|undefined;

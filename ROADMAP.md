@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Resolve Phantasmal Killer's initial WIS save before damage, show the
+  bonus/result and spell consequence together, and retain 2024 initial half
+  damage on success. End-of-turn success ends concentration without damage;
+  failed turn-end saves roll damage afterward. Both damage modes use this order.
+
 - [x] Place catalogue spell areas before casting: measured circles, cylinders,
   emanations, cones, lines, cubes and multiple areas; preview affected bases,
   confirm once, and resolve supported initial effects with grouped saves.

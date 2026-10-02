@@ -70,6 +70,13 @@ occupants, no repeated apply clicks, and cancellation without spending a slot.
 `linked-spells-video` supports `DND_LINKED_VIDEO=1` and an optional pipe-separated
 `DND_LINKED_SPELLS` list for real-physics demonstrations; its `areas` group covers
 circles, cones, lines, cubes, selective healing and persistent utility areas.
+The `aoe-review` group records a single chaptered walkthrough with Heat Metal,
+Call Lightning/repeat strikes, typed Ice Storm damage, grouped save bonuses,
+the area shapes, selected healing, connected Fire Storm cubes and four Meteor
+Swarm areas. Run it with `--grep 'showcase aoe-review'`; use
+`DND_CAPTURE_AV1=1` for the RTX hardware encoder and `DND_CAPTURE_GPU=0`.
+The `phantasmal-review` group exercises the initial save/damage order and
+both end-of-turn outcomes through real server dice and initiative turn hooks.
 
 The static Spellbook compatibility report is regenerated with
 `npm run audit:spells -- --write`. It imports only catalogue data and the shared

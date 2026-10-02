@@ -10,5 +10,5 @@ export function shapeSaveFrame(frame:LiveDiceFrame,saves:SaveDieInfo[],labelFor:
  const pick=<T>(values:T[])=>entries.map(e=>values[e.i]);
  return {...base,sides:pick(frame.sides),sets:pick(frame.sets),critical:pick(frame.critical),percentile:pick(frame.percentile),values:pick(frame.values),rerolls:pick(frame.rerolls),
    poses:entries.flatMap(e=>frame.poses.slice(e.i*7,e.i*7+7)),target:undefined,
-   saveDice:entries.map(({save,label})=>{if(!groups.has(save.group))groups.set(save.group,String(groups.size));return {...(save.rollKind?{rollKind:save.rollKind}:{}),label:label!,modifier:save.modifier,dc:save.dc,group:groups.get(save.group)!,mode:save.mode,autoFail:save.autoFail};})};
+   saveDice:entries.map(({save,label})=>{if(!groups.has(save.group))groups.set(save.group,String(groups.size));return {...(save.rollKind?{rollKind:save.rollKind}:{}),label:label!,modifier:save.modifier,dc:save.dc,group:groups.get(save.group)!,mode:save.mode,autoFail:save.autoFail,passEffect:save.passEffect,failEffect:save.failEffect};})};
 }

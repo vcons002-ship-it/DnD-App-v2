@@ -139,6 +139,7 @@ export function LiveDiceOverlay(){
      <small>{save.rollKind==='initiative'?'Initiative bonus':'Save bonus'} <em>{visible?`${save.modifier>=0?'+':'−'}${Math.abs(save.modifier)}`:'\u00a0'}</em></small>
      <span className="tray-save-equation">{bonusesShown?result?.calculation:'\u00a0'}</span>
      <b>{result?.outcome||'\u00a0'}</b>
+     {bonusesShown&&result?.outcome!=='Discarded'&&(save.passEffect||save.failEffect)&&<small>{result?.outcome==='PASS'?save.passEffect:save.failEffect}</small>}
    </span>;
  };
  const resultStyle=(i:number)=>{

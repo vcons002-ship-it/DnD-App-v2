@@ -13,6 +13,8 @@ const groups:Record<string,string[]>={
   elemental:['Ice Knife',"Melf's Acid Arrow",'Sorcerous Burst','Ice Storm','Flame Strike','Meteor Swarm'],
   riders:['Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'],
   areas:['Fireball','Burning Hands','Lightning Bolt','Thunderwave','Mass Cure Wounds','Fog Cloud','Fire Storm'],
+  'aoe-review':['Heat Metal','Call Lightning','Ice Storm','Fireball','Burning Hands','Lightning Bolt','Thunderwave','Mass Cure Wounds','Fire Storm','Meteor Swarm','Fog Cloud'],
+  'phantasmal-review':['Phantasmal Killer'],
 };
 test.skip(process.env.DND_LINKED_VIDEO!=='1','Opt-in recording with real dice in a disposable campaign');
 test.beforeAll(()=>{
@@ -34,9 +36,9 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   const catalog=(await(await request.get('/api/spells/all')).json()).results as SheetAbility[];
   const abilities=names.map((name,i)=>{
     const spell=catalog.find(s=>s.name.replace(/[’‘]/g,"'")===name)!;expect(spell).toBeTruthy();
-    return {...spell,name,id:`showcase-${i}`,source:'srd' as const,sourceClass:'wizard',roll:spell.roll?{...spell.roll,attackBonus:30,dc:30}:undefined};
+    return {...spell,name,id:`showcase-${i}`,source:'srd' as const,sourceClass:'wizard',roll:spell.roll?{...spell.roll,attackBonus:30,dc:['aoe-review','phantasmal-review'].includes(group)?15:30}:undefined};
   });
-  socket.emit('character:update',{characterId:caster.id,className:'Sorcerer',level:17,maxHp:500,curHp:200,armorClass:12,stats:{STR:10,DEX:10,CON:10,INT:20,WIS:10,CHA:20},conditions:[],sheetAbilities:abilities,
+  socket.emit('character:update',{characterId:caster.id,className:'Sorcerer',level:17,maxHp:group==='aoe-review'?1000:500,curHp:group==='aoe-review'?600:200,armorClass:12,stats:{STR:10,DEX:10,CON:10,INT:20,WIS:10,CHA:20},conditions:[],sheetAbilities:abilities,
     spellSlots:Object.fromEntries(Array.from({length:9},(_,i)=>[`L${i+1}`,{max:20,used:0}]))});
   const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Courtyard spell training',image:{name:'courtyard.png',mimeType:'image/png',buffer:readFileSync('assets/environment-preview/courtyard.png')}}})).json();
   socket.emit('map:setActive',{mapId:map.id});socket.emit('map:setGrid',{mapId:map.id,gridSizePx:64,feetPerSquare:5,widthFt:100,locked:false});
@@ -45,7 +47,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dusk',weather:'none',mist:false,shadows:true,lights:[]}});
   socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:caster.id,x:610,y:575});
   for(const [name,modelType,x,y] of [['Bugbear guard','bugbear',665,535],['Goblin scout','goblin',705,505],['Skeleton','skeleton',755,560]] as const){
-    socket.emit('monster:create',{name,modelType,maxHp:5000,armorClass:8,disposition:'enemy',creatureType:'Humanoid',stats:{STR:10,DEX:16,CON:14,INT:10,WIS:1,CHA:10},weapons:[{name:'Practice sword',kind:'melee',damage:'1d6',attackBonus:30}]});
+    socket.emit('monster:create',{name,modelType,maxHp:5000,armorClass:8,disposition:'enemy',creatureType:'Humanoid',stats:{STR:10,DEX:16,CON:14,INT:10,WIS:group==='phantasmal-review'?10:1,CHA:10},weapons:[{name:'Practice sword',kind:'melee',damage:'1d6',attackBonus:30}]});
     const template=(await state()).monsterTemplates.find(m=>m.name===name)!;
     socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x,y});
   }
@@ -69,13 +71,28 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   const layer=page.getByTestId('miniature-layer'),combat=page.locator('.compact-player-combat');
   const placeArea=async()=>{
     const region=page.getByRole('region',{name:'Place spell area'});if(!await region.isVisible())return;
-    const p=await page.evaluate(id=>{
+    const project=async(offset:{x:number;y:number})=>page.evaluate(({id,offset})=>{
       const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id));
-      const n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();
+      const n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsoluteTransform().point(offset),r=s.container().getBoundingClientRect();
       const v=new DOMPoint(p.x-s.width()/2,p.y-s.height()/2).matrixTransform(new DOMMatrix(getComputedStyle(n.getLayer().getNativeCanvasElement()).transform));
       return {x:r.left+s.width()/2+v.x/v.w,y:r.top+s.height()/2+v.y/v.w};
-    },foe.id);
+    },{id:foe.id,offset});
+    const p=await project({x:0,y:0});
     await page.mouse.move(p.x,p.y,{steps:20});await page.waitForTimeout(700);await page.mouse.click(p.x,p.y);
+    if(group==='aoe-review'&&current==='Fire Storm'){
+      // Lock the cube orientation before moving the pointer to adjacent cubes.
+      await region.getByRole('slider').press('Home');await page.waitForTimeout(500);
+    }
+    if(group==='aoe-review'&&/Fire Storm|Meteor Swarm/.test(current)){
+      const offsets=/Fire Storm/.test(current)?[{x:128,y:0},{x:128,y:128}]:[{x:128,y:0},{x:0,y:128},{x:128,y:128}];
+      for(const offset of offsets){const q=await project(offset);await page.mouse.move(q.x,q.y,{steps:20});await page.waitForTimeout(550);await page.mouse.click(q.x,q.y);await page.waitForTimeout(700);}
+    }
+    if(group==='aoe-review'&&current==='Mass Cure Wounds'){
+      for(const name of ['Bugbear guard','Goblin scout','Skeleton']){
+        const box=region.getByRole('checkbox',{name:new RegExp(name)});if(await box.isChecked())await click(box);
+      }
+      await page.waitForTimeout(900);
+    }
     await page.screenshot({path:info.outputPath('spell-area-placement.png')});await page.waitForTimeout(700);
     await click(region.getByRole('button',{name:/Confirm area/}));
   };
@@ -106,10 +123,10 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
     evidence.push({chapter:current,state:await state()});
   };
   const cast=async(name:string)=>{
-    const before=(await state()).rollLog.length;
+    const before=new Set((await state()).rollLog.map(r=>r.id));
     await click(combat.getByRole('button',{name:new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))}).first());
     await placeArea();
-    await expect.poll(async()=>(await state()).rollLog.length,{timeout:120000}).toBeGreaterThan(before);
+    await expect.poll(async()=>(await state()).rollLog.some(r=>!before.has(r.id)),{timeout:120000}).toBe(true);
     await settle();
     const damage=page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn');
     if(await damage.isVisible()){await click(damage);await settle();}
@@ -123,14 +140,14 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
     await page.mouse.move(870,620);
     for(let i=0;i<8;i++){await page.mouse.wheel(0,-120);await page.waitForTimeout(120);}
     await page.mouse.move(1120,790);await page.mouse.down();await page.mouse.move(1020,635,{steps:25});await page.mouse.up();
-    await page.evaluate(()=>{
+    const installPointer=async()=>page.evaluate(()=>{
       const el=document.createElement('div');el.setAttribute('popover','manual');el.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;margin:0;border:0;background:transparent;pointer-events:none';
       el.innerHTML='<svg id="showcase-pointer" width="30" height="36" style="position:absolute;left:-50px"><path d="M3 2L3 28L10 21L16 34L21 31L15 20L26 20Z" fill="#fff5cd" stroke="#080b11" stroke-width="2"/></svg><div id="showcase-click" style="position:absolute;width:40px;height:40px;border:3px solid #ffe698;border-radius:50%;opacity:0"></div>';
       document.body.append(el);el.showPopover();document.addEventListener('mousemove',e=>{const p=document.getElementById('showcase-pointer')!;p.style.left=e.clientX+'px';p.style.top=e.clientY+'px';});
       document.addEventListener('pointerdown',e=>{const p=document.getElementById('showcase-click')!;p.style.left=e.clientX-22+'px';p.style.top=e.clientY-22+'px';p.animate([{opacity:1,transform:'scale(.6)'},{opacity:0,transform:'scale(1.4)'}],{duration:800});},true);
-    });
+    });await installPointer();
     if(captureAv1){av1=await startAv1Capture(page,info.outputPath('capture-av1.mp4'));started=Date.now();}
-    await chapter('Training setup','Disposable campaign. Vanec has the demonstration spell loadout; high attack bonus and save DC keep outcomes readable. Dice are real.');
+    await chapter('Training setup',group==='phantasmal-review'?'Phantasmal Killer using 2024 rules: real dice, DC 15, initial save before damage, and end-of-turn saves that either trigger damage or end the spell. Practice targets have extra HP.':group==='aoe-review'?'Updated area targeting in a disposable campaign: highlighted bases, real server dice, and grouped bonuses/results. Practice creatures have extra HP; saving throw DC is 15.':'Disposable campaign. Vanec has the demonstration spell loadout; high attack bonus and save DC keep outcomes readable. Dice are real.');
     await page.waitForTimeout(1800);await page.screenshot({path:info.outputPath('poster.png')});
     for(const name of names){
       // Reset the practice targets between unrelated demonstrations, never a
@@ -138,8 +155,56 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
       const before=await state();for(const c of before.characters.find(c=>c.id===caster.id)!.conditions)socket.emit('condition:clear',{kind:'pc',refId:caster.id,conditionId:c.id});
       for(const t of before.tokens.filter(t=>t.kind==='monster'))for(const c of before.monsters.find(m=>m.id===t.refId)!.conditions)socket.emit('condition:clear',{kind:'monster',refId:t.refId,conditionId:c.id});
       await state();await page.waitForTimeout(400);
-      await chapter(name,`Combat → ${name}${['Hold Person','Hold Monster','Phantasmal Killer'].includes(name)?' → WIS save. The active spell stays visible until it ends.':'. Hit spells offer Roll damage; the map effect follows the completed dice.'}`);
+      if(group==='aoe-review'&&/Fire Storm|Meteor Swarm|Fog Cloud/.test(name))await click(page.getByRole('button',{name:'Fit',exact:true}));
+      const notes:Record<string,string>={
+        'Heat Metal':'Combat → Heat Metal. Fire damage rolls before the CON save; readable resting dice finish without a false reroll.',
+        'Call Lightning':'Combat → Call Lightning → place the 5 ft radius → Confirm. Damage rolls, then grouped DEX saves with bonuses and PASS/FAIL. Jagged bolts appear after the rolls finish.',
+        'Ice Storm':'Combat → Ice Storm → place the 20 ft radius → Confirm. Bludgeoning and Cold roll separately, followed by one grouped DEX save screen and typed damage.',
+        'Fireball':'Place the 20 ft radius, review highlighted bases including allies, then Confirm. One damage roll and grouped DEX saves resolve all occupants.',
+        'Burning Hands':'Aim the 15 ft cone from Vanec, click to lock the direction, review the bases, then Confirm. Creatures outside the cone are excluded.',
+        'Lightning Bolt':'Aim the 100 ft long, 5 ft wide line from Vanec, click to lock it, then Confirm. The narrow footprint selects its occupants.',
+        'Thunderwave':'Aim the 15 ft cube from its near face at Vanec, click to lock it, then Confirm. CON saves resolve together.',
+        'Mass Cure Wounds':'Place the 30 ft radius, choose recipients using the checkboxes, then Confirm. One healing roll is applied only to the chosen creatures.',
+        'Fire Storm':'Click to place three connected 10 ft cubes, review the combined footprint, then Confirm. Overlapping effects count each creature once.',
+        'Meteor Swarm':'Place four 40 ft radius areas, then Confirm. Fire and Bludgeoning roll separately; each creature is affected once despite overlap.',
+        'Fog Cloud':'Place the 20 ft radius, then Confirm. Its measured ongoing template stays on the map; entry/turn effects remain DM-managed.',
+      };
+      await chapter(name,group==='phantasmal-review'?'Combat → Phantasmal Killer → initial WIS save with bonus/result → 4d10 Psychic damage, halved on success. Failure leaves attack/check disadvantage and spectral blades.':group==='aoe-review'?notes[name]:`Combat → ${name}${['Hold Person','Hold Monster','Phantasmal Killer'].includes(name)?' → WIS save. The active spell stays visible until it ends.':'. Hit spells offer Roll damage; the map effect follows the completed dice.'}`);
       await cast(name);
+      if(group==='phantasmal-review'){
+        const affected=async()=>(await state()).monsters.find(m=>m.id===foe.refId)!.conditions.some(c=>c.combatEffect?.spell==='Phantasmal Killer');
+        for(let attempt=0;attempt<6&&!await affected();attempt++){
+          await chapter('Initial save passed: recast','The 2024 initial successful WIS save deals half damage and ends the spell. This is a new cast using another slot.');await cast(name);
+        }
+        expect(await affected()).toBe(true);
+        await page.screenshot({path:info.outputPath('phantasmal-killer-active.png')});
+        await chapter('DM view: target turn-end saves','Switch to the DM battlefield to see these NPC saves. The Next turn button triggers the automatic end-of-turn WIS save. DM initiative rolls remain private to players.');
+        await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await click(page.getByRole('button',{name:'Rejoin as DM',exact:true}));
+        await expect(layer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
+        if(await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).getAttribute('aria-pressed')!=='true')await click(page.getByRole('button',{name:'Tilted battlefield view',exact:true}));
+        await installPointer();
+        const actor=(await state()).tokens.find(t=>t.refId===caster.id)!;
+        socket.emit('initiative:set',{tokenId:actor.id,initiative:20});socket.emit('initiative:set',{tokenId:foe.id,initiative:10});socket.emit('initiative:setRound',{round:1});
+        socket.emit('initiative:next');await state();socket.emit('initiative:next');await state();
+        let failed=false,passed=false;
+        for(let attempt=0;attempt<12&&!(failed&&passed);attempt++){
+          if(!await affected()){
+            await chapter('Cast again after the spell ends','The DM requests another training cast through the normal ability handler. Another slot is spent; the dice outcomes are real.');
+            const ids=new Set((await state()).rollLog.map(r=>r.id));socket.emit('ability:roll',{kind:'pc',refId:caster.id,abilityId:abilities[0].id,castLevel:4,targetTokenId:foe.id});
+            await expect.poll(async()=>(await state()).rollLog.some(r=>!ids.has(r.id)),{timeout:120000}).toBe(true);await settle();
+            if(!await affected())continue;
+          }
+          await chapter('Target ends its turn: WIS save first','The DM advances the target\'s turn. PASS ends the spell with no damage; FAIL keeps it active and rolls Psychic damage afterward. Bonuses and the consequence appear before damage.');
+          const ids=new Set((await state()).rollLog.map(r=>r.id));await click(page.getByRole('button',{name:/^Next turn/}));
+          await expect.poll(async()=>(await state()).rollLog.some(r=>!ids.has(r.id)),{timeout:120000}).toBe(true);await settle();
+          const result=(await state()).rollLog.find(r=>!ids.has(r.id)&&r.reveal?.kind==='check'&&r.label==='Phantasmal Killer')!;
+          expect(result).toBeTruthy();failed ||= result.reveal?.outcome==='fail';passed ||= result.reveal?.outcome==='pass';
+          chapters[chapters.length-1].title=`Turn-end WIS save: ${result.reveal?.outcome==='pass'?'PASS — spell ends':'FAIL — roll psychic damage'}`;
+          await page.waitForTimeout(1700);await click(page.getByRole('button',{name:/^Next turn/}));await state();
+        }
+        expect(failed).toBe(true);expect(passed).toBe(true);
+        continue;
+      }
       if(name==='Spiritual Weapon'){
         const live=await state(),weapon=live.tokens.find(t=>live.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon')!;
         expect(weapon).toBeTruthy();await expect(layer).toHaveAttribute('data-miniature-count','5');

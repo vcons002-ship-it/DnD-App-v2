@@ -59,7 +59,9 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
   const labels=e.conditions.map(c=>c.label), extra=saveExtra(e,ab);
   const state=saveAdvantage(labels,ab,adv,strFeatureAdv(target.kind,target.refId,ab)).state;
   const c={...e,stats:effectiveStats(e).scores,isMonster:target.kind==='monster',level:e.level??0};
-  const out=withDiceMetadata({label:`${label} - ${ab} Saving Throw`,target:{kind:target.kind,refId:target.refId}},()=>rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab)));
+  const killer=abilityKey({name:label})==='phantasmal killer';
+  const out=killer?rollSaveBatch([{target,c,ability:ab,dc,mode:state,proficient:(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab),extra:extra.total,autoFail:!!saveAutoFail(labels,ab),passEffect:'Spell ends; no damage.',failEffect:'Spell continues; roll psychic damage.'}],`${label} — End-of-turn ${ab} Saving Throw`)[0]
+    :withDiceMetadata({label:`${label} - ${ab} Saving Throw`,target:{kind:target.kind,refId:target.refId}},()=>rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab)));
   const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
   const ensnaring=abilityKey({name:label})==='ensnaring strike';
   const effectKey=abilityKey({name:label});
@@ -68,9 +70,10 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
     : effectKey==='thunderous smite'?(passed?'Push and knockdown resisted.':'Knocked prone and pushed 10 ft.')
     : effectKey==='wrathful smite'?(passed?'Fear resisted or ended.':'Frightened - the effect continues.')
     : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.')
-    : effectKey==='hold person'?(passed?'Hold Person ends - no longer Paralyzed.':'Hold Person continues - Paralyzed; save again at the end of the next turn.') : undefined;
+    : effectKey==='hold person'?(passed?'Hold Person ends - no longer Paralyzed.':'Hold Person continues - Paralyzed; save again at the end of the next turn.')
+    : killer?(passed?'Phantasmal Killer ends - no damage.':'Phantasmal Killer continues - roll psychic damage.') : undefined;
   addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}${explanation?`. ${explanation}`:''}`,
-    reveal:{kind:'check',title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
+    reveal:{kind:'check',presentedLive:killer&&usingPhysicalDice(),title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
       toHit:[{label:`${ab} save modifiers`,value:total-out.face}],outcome:passed?'pass':'fail',effectOutcome:explanation,
       visibilityTarget:{kind:target.kind,refId:target.refId}}});
   return passed;

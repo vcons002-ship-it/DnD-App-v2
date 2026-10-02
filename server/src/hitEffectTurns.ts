@@ -68,7 +68,10 @@ export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
     if(fx.phase!==phase || fx.lastTick===tick) continue;
     setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,lastTick:tick}});
     if(fx.saveBeforeDamage&&fx.save&&hitEffectSave(sid,token,fx.save,fx.dc!,fx.spell)) {
-      clearCondition(token.kind,token.refId,c.id);continue;
+      clearCondition(token.kind,token.refId,c.id);
+      if(fx.spell.toLowerCase()==='phantasmal killer'&&caster?.conditions.some(v=>v.isConcentration&&v.id===fx.castId))
+        endConcentration(fx.casterKind,fx.casterId,'Phantasmal Killer ended by a successful save');
+      continue;
     }
     if(fx.dice) {
       const roll=withDiceMetadata({label:`${fx.spell} - ${phase==='start'?'Start':'End'}-of-turn Damage`,target:{kind:token.kind,refId:token.refId}},()=>rollDice(fx.dice!))!;

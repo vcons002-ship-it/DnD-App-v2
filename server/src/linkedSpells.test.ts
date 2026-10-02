@@ -156,6 +156,35 @@ describe('linked damage and saving throws',()=>{
   it('Phantasmal Killer saves before recurring damage; success ends it without another damage roll',()=>{
     const f=setup('Phantasmal Killer');dice(1,()=>f.cast());expect(monsterHp(f)).toBe(496);expect(getMonster(f.monster.id)!.conditions.some(c=>c.combatEffect?.checkDisadvantage)).toBe(true);
     const sides:number[]=[];withDiceSource(s=>{sides.push(...s);return s.map(()=>20);},()=>processHitEffects(f.session.id,f.target,'end'));expect(sides).toEqual([20]);expect(monsterHp(f)).toBe(496);expect(getMonster(f.monster.id)!.conditions).toEqual([]);
+    expect(casterNow(f).conditions.some(c=>c.isConcentration)).toBe(false);
+  });
+  it.each([false,true])('Phantasmal Killer initial save precedes damage with manual damage %s',manual=>{
+    const f=setup('Phantasmal Killer');setManualDamage(f.session.id,manual);
+    const sides:number[]=[];withDiceSource(s=>{sides.push(...s);return s.map(()=>1);},()=>f.cast());
+    expect(sides).toEqual([20,10,10,10,10]);expect(monsterHp(f)).toBe(496);
+    expect(getMonster(f.monster.id)!.conditions.some(c=>c.label==='Frightened')).toBe(false);
+    const reveals=listRollLog(f.session.id).filter(r=>r.reveal);
+    expect(reveals.map(r=>r.reveal!.kind)).toEqual(['check','damage']);
+    const source=listRollLog(f.session.id).find(r=>r.apply?.saveFirstDamage)!;
+    dice(1,()=>resolveForcedSave(f.session.id,source.id,f.target.id));expect(monsterHp(f)).toBe(496);
+    const recurring:number[]=[];withDiceSource(s=>{recurring.push(...s);return s.map(()=>1);},()=>processHitEffects(f.session.id,f.target,'end'));
+    expect(recurring).toEqual([20,10,10,10,10]);expect(monsterHp(f)).toBe(492);
+  });
+  it('Phantasmal Killer initial success still rolls half damage and ends concentration',()=>{
+    const f=setup('Phantasmal Killer'),sides:number[]=[];
+    withDiceSource(s=>{sides.push(...s);return s.map(n=>n===20?20:3);},()=>f.cast());
+    expect(sides).toEqual([20,10,10,10,10]);expect(monsterHp(f)).toBe(494);
+    expect(getMonster(f.monster.id)!.conditions).toEqual([]);expect(casterNow(f).conditions.some(c=>c.isConcentration)).toBe(false);
+  });
+  it('Phantasmal Killer live save shows bonuses before requesting damage and keeps HP atomic',async()=>{
+    const f=setup('Phantasmal Killer'),rolls:{sides:number[];label?:string;modifier?:number}[]=[];
+    updateMonster(f.monster.id,{stats:{...f.monster.stats,WIS:14},resistances:['psychic']});
+    await runLiveCommand(()=>{expect(f.cast(5)).toBe(true);},()=>{}, {label:'Phantasmal Killer',roller:'Mage',className:'Wizard'},async(sides,_publish,_meta,_seed,info)=>{
+      expect(monsterHp(f)).toBe(500);rolls.push({sides,label:info?.label,modifier:info?.saveDice?.[0].modifier});
+      return sides.map(n=>n===20?1:4);
+    });
+    expect(rolls).toEqual([{sides:[20],label:expect.stringContaining('Initial WIS Saving Throw'),modifier:2},{sides:[10,10,10,10,10],label:expect.stringContaining('Initial Psychic Damage'),modifier:undefined}]);
+    expect(monsterHp(f)).toBe(490);expect(listRollLog(f.session.id).find(r=>r.reveal?.kind==='check')?.reveal?.presentedLive).toBe(true);
   });
   it.each(['Ice Storm','Flame Strike','Meteor Swarm'])('%s defends separate damage types and applies a creature only once',name=>{
     const f=setup(name);updateMonster(f.monster.id,{immunities:['fire'],resistances:['cold','radiant']});dice(2,()=>f.cast());const source=listRollLog(f.session.id).find(r=>r.apply?.damagePools)!;expect(source.apply?.damagePools).toHaveLength(2);

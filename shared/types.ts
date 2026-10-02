@@ -1162,6 +1162,8 @@ export type RollEntry = {
    *  apply payload. Without save/attack metadata it is automatic damage. */
   apply?: {
     damagePools?: {amount:number;damageType:string}[];
+    /** Single-target control damage rolled only after its initial save. */
+    saveFirstDamage?: string;
     amount: number;
     dc: number;
     /** One healing roll can be assigned to several creatures without recasting. */

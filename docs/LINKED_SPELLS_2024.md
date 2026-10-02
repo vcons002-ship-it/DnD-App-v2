@@ -6,6 +6,13 @@ concentration, and repeat-action timing. Existing saved sheets receive matching
 runtime profiles; their descriptions and authored formulas are not rewritten.
 Explicit Custom or Manual profiles keep their authored behavior.
 
+Recorded review: [Phantasmal Killer save-first example](https://dnd.nic024i.app/uploads/previews/linked-spells-av1-20261002/index-aoe-20261002.html?clip=phantasmal)
+and [measured areas / grouped saves](https://dnd.nic024i.app/uploads/previews/linked-spells-av1-20261002/index-aoe-20261002.html?clip=aoe).
+These are real app interactions and server physics in disposable training
+campaigns, with extra target HP; no campaign save was used. The control
+compilation also contains the corrected Phantasmal Killer section. Recordings
+live under the installed server's uploads; publishing them does not deploy code.
+
 ## Map effects
 
 The linked spells reuse the existing luminous 3D materials, drifting motes,
@@ -72,7 +79,7 @@ The Combat panel shows the current count.
 | Melf's Acid Arrow | Full initial Acid on hit; half initial on miss. A hit schedules one additional Acid roll at the end of the target's next turn. |
 | Vampiric Touch | Heal half the defended spell's Necrotic damage, excluding unrelated mark riders. Deferred damage heals only after the damage click. Repeat attacks use the active concentration. |
 | Hold Monster | Wisdom saves, linked Paralysis/action blocking, upcast target budget, end-turn repeat saves, and concentration cleanup. Undead are eligible. |
-| Phantasmal Killer | Initial Psychic damage with a Wisdom save for half; failure adds attack/check disadvantage. Later turn-end saves occur before damage: success ends the effect; failure deals damage again. |
+| Phantasmal Killer | Initial Wisdom save rolls first, including modifiers/result, then Psychic damage (half on success). Failure adds attack/check disadvantage, not Frightened under the 2024 rules. Later turn-end saves also precede damage: success ends the spell and concentration without damage; failure rolls damage again. |
 | Heat Metal | Initial/repeated Fire damage and Constitution saves; attacks/checks have disadvantage while the heated item is retained, until the caster's next turn. A Drop heated item control ends the contact effect. |
 | Ice Storm | Separate Bludgeoning and Cold pools; only Bludgeoning upcasts. |
 | Flame Strike | Separate Fire and Radiant pools; both upcast. |
