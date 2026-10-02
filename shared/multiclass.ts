@@ -2,7 +2,7 @@
  * free-text class name never supplies an inferred split.
  * Sources: the official 2024 Free Rules' Multiclassing and each class's
  * "As a Multiclass Character" section. */
-import { classProgression2024, resolveProgressionClass, type CoreClass } from './characterProgression.js';
+import { CORE_CLASSES_2024, classProgression2024, resolveProgressionClass, type CoreClass } from './characterProgression.js';
 import { slotReference2024 } from './resourceDisplay.js';
 import { SKILLS, proficiencyBonus, type AbilityKey } from './skills.js';
 
@@ -54,7 +54,49 @@ export function multiclassClassSummary(source: ClassRosterSource): string | null
 export const totalClassLevel = (roster: readonly ClassRosterEntry[]): number => roster.reduce((n, row) => n + row.level, 0);
 export function classLevelFor(source: ClassRosterSource, className: string): number {
   const key = resolveProgressionClass(className);
-  return key ? resolveClassRoster(source)?.find(row => row.className === key)?.level ?? 0 : 0;
+  if (!key) return 0;
+  const roster = resolveClassRoster(source);
+  if (roster) return roster.find(row => row.className === key)?.level ?? 0;
+  // A saved free-text name from before the class list ("Rogue (Thief)",
+  // "Barbarian 5") keeps scaling its features as it always did: exactly one
+  // core class named, no explicit split → that class at the total level. Never
+  // used for an explicit (even invalid) roster, and never infers a multiclass.
+  return source.leveling?.classes === undefined && legacySingleClass(source.className ?? '') === key
+    ? Math.max(0, Math.round(source.level ?? 0)) : 0;
+}
+
+/** Display form of a core class ("rogue" → "Rogue"). */
+export const classTitle = (name: CoreClass): string => name.charAt(0).toUpperCase() + name.slice(1);
+/** The pick-list every class field offers: the 12 core 2024 classes. */
+export const CLASS_OPTIONS: readonly string[] = CORE_CLASSES_2024.map(classTitle);
+
+/**
+ * The class name to STORE for a write (sheet edit, new character, import, AI):
+ * classes come from the fixed list, so a name is canonicalised ("rogue",
+ * "Rogue (Thief)" → "Rogue"), an UNCHANGED saved legacy value is accepted as-is
+ * (editing other fields never fails on an old sheet), '' clears it, and anything
+ * else — homebrew, or multiclass text like "Fighter 5 / Wizard 3", whose split
+ * the DM sets with Edit class levels — is refused (null).
+ */
+export function canonicalClassName(input: unknown, previous?: string): string | null {
+  if (typeof input !== 'string') return null;
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  if (previous !== undefined && trimmed === previous.trim()) return previous;
+  const exact = resolveProgressionClass(trimmed) ?? legacySingleClass(trimmed);
+  return exact ? classTitle(exact) : null;
+}
+
+/** True when a saved class name is outside the list (an older free-text sheet). */
+export const isListedClassName = (className: string): boolean =>
+  !className.trim() || CLASS_OPTIONS.includes(className.trim());
+
+/** The one core class a legacy free-text class name refers to, or null when it
+ *  names none or several ("Fighter / Wizard"). Word-boundary matches only. */
+export function legacySingleClass(className: string): CoreClass | null {
+  if (typeof className !== 'string') return null;
+  const named = CORE_CLASSES_2024.filter(c => new RegExp(`\\b${c}\\b`, 'i').test(className));
+  return named.length === 1 ? named[0] : null;
 }
 export const multiclassProficiencyBonus = (roster: readonly ClassRosterEntry[]): number => proficiencyBonus(totalClassLevel(roster));
 

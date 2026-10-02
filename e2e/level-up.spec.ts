@@ -46,7 +46,8 @@ async function openDmSheet(page: Page, f: Awaited<ReturnType<typeof fixture>>) {
   await expect.poll(() => page.evaluate((id) => {
     const stages = (window as unknown as { Konva: { stages: any[] } }).Konva.stages;
     return stages.some(stage => stage.find('.token-hit-region').some((node: any) => node.getAttr('tokenId') === id));
-  }, f.token.id)).toBe(true);
+    // 3D miniatures are the default and can take a while to load their models.
+  }, f.token.id), { timeout: 20_000 }).toBe(true);
   await page.getByTitle('Fit to window', { exact: true }).click();
   const point = await page.evaluate((id) => {
     const stage = (window as unknown as { Konva: { stages: any[] } }).Konva.stages.find(stage => stage.find('.token-hit-region').length);

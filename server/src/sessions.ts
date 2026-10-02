@@ -950,6 +950,21 @@ function findCharacterIdByName(
 
 /** Copy every stat column from one character row onto another (keeps the target's
  *  id, session, and claim) — used by an "overwrite" import resolution. */
+/** A level-up grant belongs to its original character: a copied row (map
+ *  import) never inherits it — nor the class split the grant itself inferred. */
+function withoutPendingGrant(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw;
+  try {
+    const leveling = JSON.parse(raw) as { pending?: { inferredClasses?: boolean }; classes?: unknown };
+    if (!leveling || typeof leveling !== 'object' || !leveling.pending) return raw;
+    if (leveling.pending.inferredClasses) delete leveling.classes;
+    delete leveling.pending;
+    return JSON.stringify(leveling);
+  } catch {
+    return raw;
+  }
+}
+
 function overwriteCharacterFrom(targetId: string, sourceId: string): void {
   const cols = (
     db.prepare('PRAGMA table_info(characters)').all() as { name: string }[]
@@ -962,7 +977,7 @@ function overwriteCharacterFrom(targetId: string, sourceId: string): void {
   if (!src) return;
   db.prepare(
     `UPDATE characters SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
-  ).run(...cols.map((c) => src[c]), targetId);
+  ).run(...cols.map((c) => (c === 'leveling' ? withoutPendingGrant(src[c]) : src[c])), targetId);
 }
 
 export const importMaps = db.transaction(
@@ -999,11 +1014,15 @@ export const importMaps = db.transaction(
     };
     // Resolve a referenced PC per the DM's choice (default: make a new copy).
     const resolveCharacterRef = (oldRef: string): string => {
-      const fresh = () =>
-        cloneRow('characters', oldRef, {
+      const fresh = () => {
+        const leveling = (db.prepare('SELECT leveling FROM characters WHERE id = ?').get(oldRef) as
+          { leveling?: string } | undefined)?.leveling;
+        return cloneRow('characters', oldRef, {
           session_id: targetSessionId,
           claimed_by: null,
+          ...(typeof leveling === 'string' ? { leveling: withoutPendingGrant(leveling) } : {}),
         });
+      };
       const choice = resolutions[oldRef] ?? 'new';
       if (choice === 'new') return fresh();
       const src = getCharacter(oldRef);

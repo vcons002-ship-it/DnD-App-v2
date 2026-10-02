@@ -35,7 +35,8 @@ describe('2024 multiclass guided advancement', () => {
   });
   it('keeps a sole-class roster and spent Pact Magic in sync during manual DM level corrections', () => {
     const { s, c } = setup('Warlock', 4, 'Fiend Patron');
-    const granted = value(grantLevelUp(s.id, c.id)); value(cancelLevelUp(s.id, c.id, granted.leveling!.pending!.id));
+    // An explicit sole-class roster (a grant + cancel no longer leaves one behind).
+    configure(s.id, c, [{ className: 'warlock', level: 4, subclass: 'Fiend Patron' }]);
     setResource(c.id, 'spellSlots', 'L2', { used: 2 });
     setResource(c.id, 'resources', 'Homebrew', { max: 7, used: 4 });
     const old = getCharacter(c.id)!, updated = updateCharacter(c.id, { level: 5 })!;
@@ -84,7 +85,7 @@ describe('2024 multiclass guided advancement', () => {
   it('requires an explicit valid split for ambiguous legacy sheets, never guesses levels, and preserves the primary display class', () => {
     const { s, c } = setup('Fighter / Wizard', 7, '');
     expect(grantLevelUp(s.id, c.id)).toMatchObject({ ok: false, error: expect.stringContaining('configure') });
-    expect(configureLevelUpClasses(s.id, c.id, [{ className: 'fighter', level: 3 }, { className: 'wizard', level: 3 }]).ok).toBe(false);
+    expect(configureLevelUpClasses(s.id, c.id, [{ className: 'fighter', level: 15 }, { className: 'wizard', level: 6 }]).ok).toBe(false); // > 20
     expect(configureLevelUpClasses(s.id, c.id, [{ className: 'fighter', level: 4 }, { className: 'fighter', level: 3 }]).ok).toBe(false);
     const configured = configure(s.id, c, [{ className: 'fighter', level: 4, subclass: 'Champion' }, { className: 'wizard', level: 3, subclass: 'Evoker' }]);
     expect(configured).toMatchObject({ className: 'Fighter', subclass: 'Champion', level: 7, maxHp: 30 });

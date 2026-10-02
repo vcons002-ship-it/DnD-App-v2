@@ -16,6 +16,7 @@ import type {
 import { iconForCreature, findBaseCreature } from './srd.js';
 import { generateJson, aiAvailable } from '../ai/gateway.js';
 import { parseActionRoll, parseRecharge } from '../../../shared/monsterAttacks.js';
+import { CLASS_OPTIONS } from '../../../shared/multiclass.js';
 import { sanitizeModifiers } from '../../../shared/modifiers.js';
 
 // Models get deprecated over time, so try a list of current ones and fall
@@ -385,7 +386,7 @@ export async function generateCharacterAI(
     `Create a Dungeons & Dragons 5e character or NPC from this description: ` +
     `"${description.trim()}". Choose a sensible level if none is given. ` +
     `Respond ONLY with minified JSON of shape ` +
-    `{"name":string,"race":string,"className":string,"subclass":string,"level":number,"maxHp":number,` +
+    `{"name":string,"race":string,"className":${CLASS_OPTIONS.map((c) => `"${c}"`).join('|')},"subclass":string,"level":number,"maxHp":number,` +
     `"armorClass":number,"speed":string,` +
     `"stats":{"STR":number,"DEX":number,"CON":number,"INT":number,"WIS":number,"CHA":number},` +
     `"resistances":string[],"weaknesses":string[],` +

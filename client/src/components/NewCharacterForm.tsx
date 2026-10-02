@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CLASS_OPTIONS } from '../../../shared/multiclass';
 import { useStore } from '../state/socket';
 
 const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
@@ -76,11 +77,10 @@ export function NewCharacterForm() {
           value={race}
           onChange={(e) => setRace(e.target.value)}
         />
-        <input
-          placeholder="Class"
-          value={className}
-          onChange={(e) => setClassName(e.target.value)}
-        />
+        <select aria-label="Class" value={className} onChange={(e) => setClassName(e.target.value)}>
+          <option value="">Class…</option>
+          {CLASS_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
         <label className="mini">
           Lvl
           <input
