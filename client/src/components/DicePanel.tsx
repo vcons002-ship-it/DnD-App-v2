@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { smiteOptionsFor, maneuverOptionsFor } from './DamagePrompt';
-import { smiteChoiceLabel } from '../../../shared/smite';
+import { smiteChoiceDescription, smiteChoiceLabel } from '../../../shared/smite';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
 import { RollDamageBreakdown } from './RollDamageBreakdown';
@@ -474,9 +474,7 @@ export function DicePanel({
                     key={`smite-${String(opt)}`}
                     className="btn tiny roll-smite"
                     onClick={() => combatSmite(r.id, opt)}
-                    title={`${r.smite!.abilityName} on ${r.smite!.target.name} — ${
-                      opt === 'free' ? 'free casting (once per Long Rest)' : `level-${opt} slot`
-                    }`}
+                    title={`${r.smite!.abilityName} on ${r.smite!.target.name} — ${smiteChoiceDescription(opt)}`}
                   >
                     ✦ {smiteChoiceLabel(opt)}
                   </button>

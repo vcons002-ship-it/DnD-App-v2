@@ -397,7 +397,7 @@ function ClassLevelsDialog({ character, onClose }: { character: Character; onClo
   return createPortal(<dialog ref={dialog} className="character-level-up-dialog fantasy-window" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) onClose(); }}>
     <header className="level-up-header"><h2 id={titleId}>Class levels · {character.name}</h2><button className="btn tiny" disabled={busy} onClick={onClose} aria-label="Close class levels">Close</button></header>
     <div className="level-up-body">
-      <p>Enter the character's existing class levels. They must add up to level {character.level}. The first class is the starting class. This records the split; it does not rebuild HP, equipment, or existing abilities.</p>
+      <p>Enter the character's class levels. The first class is the starting class. This records the split; it does not rebuild HP, equipment, or existing abilities. A different total corrects the character's level (e.g. undoing a level applied by mistake).</p>
       {error && <p className="level-up-error" role="alert">{error}</p>}
       {classes.map((entry, index) => <fieldset className="level-up-class-row" key={index}><legend>{index === 0 ? 'Starting class' : `Additional class ${index}`}</legend>
         <label className="level-up-field">Class {index + 1}<select value={entry.className} disabled={busy} onChange={event => changeEntry(index, { className: event.target.value as ClassRosterEntry['className'], subclass: undefined })}>{CORE_CLASSES_2024.map(name => <option key={name} value={name} disabled={classes.some((other, i) => i !== index && other.className === name)}>{classLabel(name)}</option>)}</select></label>
@@ -406,9 +406,12 @@ function ClassLevelsDialog({ character, onClose }: { character: Character; onClo
         <button className="btn tiny" disabled={busy} onClick={() => setClasses(current => current.filter((_, i) => i !== index))}>Remove class {index + 1}</button>
       </fieldset>)}
       {classes.length < CORE_CLASSES_2024.length && <button className="btn" disabled={busy} onClick={() => { const className = CORE_CLASSES_2024.find(name => !classes.some(entry => entry.className === name)); if (className) setClasses(current => [...current, { className, level: 1 }]); }}>Add class</button>}
-      <p className={total === character.level ? 'level-up-note' : 'level-up-warning'} role="status">Total class levels: {total} / {character.level}</p>
+      <p className={total === character.level ? 'level-up-note' : 'level-up-warning'} role="status">Total class levels: {total}{total === character.level
+        ? ` — matches level ${character.level}`
+        : total >= 1 && total <= 20 ? ` — saving changes ${character.name}'s level ${character.level} → ${total}. Spell slots, class counters and Hit Dice follow; adjust max HP and features yourself.`
+        : ' — must be 1–20'}</p>
     </div>
-    <footer className="level-up-footer"><span className="muted">Existing sheet values remain in place.</span><button className="btn level-up-primary" disabled={busy || !connected || !classes.length || total !== character.level || classes.some(entry => !Number.isInteger(entry.level) || entry.level < 1 || entry.level > 20)} onClick={save}>{busy ? 'Saving…' : 'Save class levels'}</button></footer>
+    <footer className="level-up-footer"><span className="muted">Existing sheet values remain in place.</span><button className="btn level-up-primary" disabled={busy || !connected || !classes.length || total < 1 || total > 20 || classes.some(entry => !Number.isInteger(entry.level) || entry.level < 1 || entry.level > 20)} onClick={save}>{busy ? 'Saving…' : total === character.level ? 'Save class levels' : `Save and set level ${total}`}</button></footer>
   </dialog>, document.body);
 }
 

@@ -80,7 +80,11 @@ export function AbilityButtons({
       refId: caster.id,
       abilityId: a.id,
       castLevel: level,
-      slotPool: slotPools[a.id] ?? ('spellSlots' in caster ? selectSpellSlot(caster,level??0)?.pool : undefined),
+      // A pool only when the player picked one, or for an upcastable spell at its
+      // real cast level. Otherwise the server chooses — a level-0 lookup here
+      // would always favour Pact Magic (e.g. legacy Divine Smite on a
+      // Paladin/Warlock spending the pact slot while ordinary slots remain).
+      slotPool: slotPools[a.id] ?? ('spellSlots' in caster && level !== undefined ? selectSpellSlot(caster, level)?.pool : undefined),
       damageType: markSpell(a)==='necrotic'?hexAbility:damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.

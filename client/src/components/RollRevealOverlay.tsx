@@ -177,17 +177,30 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       : name === 'DM' || !!character && !character.claimedBy;
     return diceEntrySide(own, character?.id ?? name);
   });
+  // Only THIS viewer's own level-up HP roll lifts above an open level-up guide;
+  // everyone else's rolls stay ordinary, non-blocking overlays.
+  const ownLevelUpRoll = useStore(s => {
+    const entry = s.rollFx ? s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId) : undefined;
+    const label = s.liveDice?.label ?? entry?.label;
+    if (label !== 'Level-up Hit Point Increase' && label !== 'Level-up HP') return false;
+    const roller = s.liveDice?.roller ?? entry?.roller;
+    if (s.snapshot?.role === 'dm') return roller === 'DM';
+    return !!s.snapshot?.characters.some(c => c.name === roller && !!c.claimedBy && c.claimedBy === s.socket?.id);
+  });
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
   const content = liveDice ? <LiveDiceOverlay /> : rollFx ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={rollFx.id} rollFx={rollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!rollFx.reveal.physical} dismiss={dismiss} /></DiceThemeContext.Provider> : null;
-  return content ? <LevelUpRollLayer player={player}>{content}</LevelUpRollLayer> : null;
+  if (!content) return null;
+  // Decided per roll, not once per mount: the guide may open or close between
+  // rolls. Keyed so the modal layer comes and goes with the decision.
+  const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
+  return lift ? <LevelUpRollLayer key="lift" player={player}>{content}</LevelUpRollLayer> : content;
 });
 
 /** A native character dialog is above ordinary fixed overlays. Let the real
  * Hit Die tray sit above the level-up guide without closing or losing its draft. */
 function LevelUpRollLayer({ children, player }: { children: ReactNode; player: boolean }) {
-  const [target] = useState(() => document.querySelector('dialog[data-level-up][open]')
-    ? document.createElement('dialog') : null);
+  const [target] = useState(() => document.createElement('dialog'));
   useLayoutEffect(() => {
     if (!target) return;
     target.className = `level-up-roll-layer ${player ? 'player-fantasy' : 'dm-fantasy'}`;

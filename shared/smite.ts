@@ -8,6 +8,8 @@ import { spellSlotOptions } from './spellSlotPools.js';
 /** A spell-slot level, or the once-per-Long-Rest free casting. */
 export type SmiteChoice = number | 'free' | `pact:${number}`;
 export const smiteChoiceLabel = (choice:SmiteChoice) => choice==='free'?'Free':typeof choice==='string'?`Pact L${choice.slice(5)}`:`L${choice}`;
+/** Long form for tooltips: "free casting…", "level-3 Pact Magic slot", "level-2 slot". */
+export const smiteChoiceDescription = (choice:SmiteChoice) => choice==='free'?'free casting (once per Long Rest)':typeof choice==='string'?`level-${choice.slice(5)} Pact Magic slot`:`level-${choice} slot`;
 
 type Caster = Pick<Character, 'className' | 'level' | 'spellSlots' | 'resources'> & Partial<Pick<Character,'leveling'>>;
 

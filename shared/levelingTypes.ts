@@ -28,6 +28,9 @@ export type PendingLevelUp = {
   hpRollId?: string;
   /** An HP die belongs to this class and cannot be reused for a different class. */
   hpClassName?: CoreClass;
+  /** The class roster was inferred from a single-class sheet at grant time;
+   *  cancelling the grant removes it again. */
+  inferredClasses?: boolean;
 };
 export type LevelUpRecord = {
   id: string;

@@ -19,6 +19,7 @@ import {
 import { generateCharacterAI, lookupCreatureAI } from './gemini.js';
 import { aiAvailable } from '../ai/gateway.js';
 import { parseRecharge } from '../../../shared/monsterAttacks.js';
+import { canonicalClassName } from '../../../shared/multiclass.js';
 import { getSpell } from '../spells/srd.js';
 import { getFeature } from '../features/srd.js';
 import { getMastery } from '../masteries/srd.js';
@@ -188,8 +189,12 @@ export async function aiFillCharacter(characterId: string): Promise<FillResult> 
 
   const patch: CharacterUpdatePayload = { characterId };
   if (!c.race && gen.race) patch.race = gen.race;
-  if (!c.className && gen.className) patch.className = gen.className;
-  if (!c.subclass && gen.subclass) patch.subclass = gen.subclass;
+  // Classes come from the fixed list: an off-list AI class is skipped. A
+  // multiclass sheet's subclass belongs to a class in its split (Class levels),
+  // so AI fill never sets one there.
+  const aiClass = gen.className ? canonicalClassName(gen.className) : null;
+  if (!c.className && aiClass) patch.className = aiClass;
+  if (!c.subclass && gen.subclass && (c.leveling?.classes?.length ?? 0) <= 1) patch.subclass = gen.subclass;
   if (c.armorClass === 0 && gen.armorClass > 0) patch.armorClass = gen.armorClass;
   if (!c.speed && gen.speed) patch.speed = gen.speed;
   if (Object.keys(c.stats).length === 0 && Object.keys(gen.stats).length > 0)
@@ -234,6 +239,6 @@ export async function aiCreateCharacter(
   // new AI character uses the canonical, rollable versions (and no internal dups).
   gen.weapons = groundWeapons(gen.weapons ?? []);
   gen.sheetAbilities = groundAbilities(gen.sheetAbilities ?? []);
-  const character = createCharacter(sessionId, gen);
+  const character = createCharacter(sessionId, { ...gen, className: canonicalClassName(gen.className ?? '') ?? '' });
   return { ok: true, character };
 }

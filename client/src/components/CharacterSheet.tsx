@@ -13,7 +13,7 @@ import { LibraryCharacterDialog } from './LibraryCharacterDialog';
 import { MiniatureSizeControl } from './MiniatureSizeControl';
 import { CharacterLevelUp } from './CharacterLevelUp';
 import { resolveMiniature } from '../lib/miniatures';
-import { multiclassClassSummary } from '../../../shared/multiclass';
+import { CLASS_OPTIONS, classTitle, isListedClassName, legacySingleClass, multiclassClassSummary } from '../../../shared/multiclass';
 
 /**
  * A character's full sheet: the shared tagged stat block (editable + AI fill when
@@ -47,12 +47,23 @@ export function CharacterSheet({
   const role = useStore((s) => s.snapshot?.role);
   const [saving, setSaving] = useState(false);
   const classSummary = multiclassClassSummary(character) ?? `${character.className}${character.subclass ? ` (${character.subclass})` : ''}`;
+  const multiclass = (character.leveling?.classes?.length ?? 0) > 1;
+  // A sheet saved before the class list may hold free text ("Rogue (Thief)").
+  // Nothing rewrites it; the sheet asks for a pick instead.
+  const offList = !multiclass && !isListedClassName(character.className);
 
   return (
     <div className="char-sheet">
       {editable && miniatureToken !== undefined && resolveMiniature(character.name, 'pc') &&
         <MiniatureSizeControl token={miniatureToken} />}
       <CharacterLevelUp character={character} editable={editable} />
+      {editable && offList && (
+        <p className="class-offlist" role="status">
+          Class “{character.className}” isn’t one of the 12 classes. Edit the sheet and pick one from the list
+          {legacySingleClass(character.className) ? ` (it reads as ${classTitle(legacySingleClass(character.className)!)})` : ' — a multiclass split is set by the DM with Edit class levels'} so
+          features, rests and level-ups use it.
+        </p>
+      )}
       <StatBlock
         creature={character}
         subtitle={`${character.race} · ${classSummary}`}
@@ -60,8 +71,12 @@ export function CharacterSheet({
           editable
             ? [
                 { key: 'race', label: 'Race', value: character.race },
-                { key: 'className', label: 'Class', value: character.className },
-                { key: 'subclass', label: 'Subclass', value: character.subclass },
+                {
+                  key: 'className', label: 'Class', value: character.className, options: CLASS_OPTIONS,
+                  // A multiclass split is the DM's Class levels setting, not this field.
+                  ...(multiclass ? { disabled: true, hint: 'Multiclass — the DM changes it with Edit class levels.' } : {}),
+                },
+                { key: 'subclass', label: 'Subclass', value: character.subclass, ...(multiclass ? { disabled: true } : {}) },
               ]
             : undefined
         }

@@ -47,8 +47,10 @@ export type StatSheet = {
   killCount?: number;
 };
 
-/** An extra identity text field (Type for monsters; Race/Class for PCs). */
-export type IdentityField = { key: string; label: string; value: string };
+/** An extra identity field (Type for monsters; Race/Class for PCs). With
+ *  `options` it's a pick-list; a saved value outside it shows as "(not in
+ *  list)" until changed, never silently replaced. `disabled` + `hint` lock it. */
+export type IdentityField = { key: string; label: string; value: string; options?: readonly string[]; disabled?: boolean; hint?: string };
 
 type Props = {
   creature: StatSheet;
@@ -216,17 +218,25 @@ export function StatBlock({
         Name
         <input value={d.name} onChange={(e) => set({ name: e.target.value })} />
       </label>
-      {identity.map((f) => (
-        <label key={f.key} className="sb-field">
-          {f.label}
-          <input
-            value={d.identity[f.key] ?? ''}
-            onChange={(e) =>
-              set({ identity: { ...d.identity, [f.key]: e.target.value } })
-            }
-          />
-        </label>
-      ))}
+      {identity.map((f) => {
+        const value = d.identity[f.key] ?? '';
+        const change = (v: string) => set({ identity: { ...d.identity, [f.key]: v } });
+        return (
+          <label key={f.key} className="sb-field" title={f.hint}>
+            {f.label}
+            {f.options ? (
+              <select aria-label={f.label} value={value} disabled={f.disabled} onChange={(e) => change(e.target.value)}>
+                {!value && <option value="">Choose…</option>}
+                {value && !f.options.includes(value) && <option value={value}>{value} (not in list)</option>}
+                {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input value={value} disabled={f.disabled} onChange={(e) => change(e.target.value)} />
+            )}
+            {f.hint && <span className="muted sb-field-hint">{f.hint}</span>}
+          </label>
+        );
+      })}
       {monster && <p className="muted" role="status">CR changes scale HP, AC, damage, attack bonuses and save DCs from the original CR {crLabel(creature.crBaseline?.level ?? creature.level)}. Save the CR change before further manual tuning. Special traits may need review.</p>}
       <div className="sb-meta-edit">
         {!monster && <label className="mini">{levelLabel}<input type="number" value={d.level} disabled={!levelEditable} title={levelEditable ? undefined : 'Ask the DM to grant a level-up, then use the level-up guide.'} onChange={(e) => set({level:num(e.target.value)})} /></label>}

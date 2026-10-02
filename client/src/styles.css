@@ -1859,3 +1859,8 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .hit-dice-hud { position: relative; display: inline-flex; }
 .hit-dice-hud-pop { position: absolute; bottom: calc(100% + 4px); left: 0; z-index: 30; display: flex; gap: 4px;
   align-items: center; padding: 6px; border-radius: 6px; white-space: nowrap; }
+
+/* Class pick-list (StatBlock identity select) and the off-list prompt. */
+.sb-field-hint { display: block; font-size: 11px; margin-top: 2px; }
+.class-offlist { margin: 6px 0; padding: 6px 10px; border-radius: 6px; font-size: 12px;
+  border: 1px solid #b8892f; background: #2c2312; color: #f1d79b; }
