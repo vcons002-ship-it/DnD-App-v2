@@ -34,6 +34,17 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   await expect(layer).toHaveAttribute('data-tilt-degrees','45');
   for(let i=0;i<3;i++)await page.getByRole('group',{name:'Map view controls'}).getByRole('button',{name:'+',exact:true}).click();
   await page.screenshot({path:test.info().outputPath('mirror-image-45.png'),fullPage:true});
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees','0');
+  await page.screenshot({path:test.info().outputPath('mirror-image-overhead.png'),fullPage:true});
+  await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
+  await expect(page.getByRole('button',{name:'2D player tokens',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.screenshot({path:test.info().outputPath('mirror-image-2d.png'),fullPage:true});
+  await page.getByRole('button',{name:'3D player tokens',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-miniature-count','1',{timeout:60000});
+  await expect(layer).toHaveAttribute('data-mirror-image-count','3');
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees','45');
   // The normal attack workflow resolves d20 -> duplicate d6 checks -> removal.
   let duplicates=3;
   for(let attempt=0;attempt<5&&duplicates===3;attempt++){

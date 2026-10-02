@@ -1,4 +1,5 @@
 import {Box3,CanvasTexture,Color,Group,HemisphereLight,DirectionalLight,Mesh,OrthographicCamera,Scene,Sprite,SpriteMaterial,Vector3,WebGLRenderTarget,WebGLRenderer,SRGBColorSpace, type Camera, type Texture} from 'three';
+import {MIRROR_IMAGE_SPREAD} from '../../../shared/linkedSpells';
 
 /** Raster copies of the actual loaded figure. They borrow its geometry and
  * textures only while capturing; each ghost then costs one transparent quad.
@@ -47,7 +48,7 @@ export function createMirrorImages(model:Group,root:Group,renderer:WebGLRenderer
       const ctx=canvas.getContext('2d')!,data=ctx.createImageData(512,512);
       for(let y=0;y<512;y++)data.data.set(pixels.subarray((511-y)*512*4,(512-y)*512*4),y*512*4);
       ctx.putImageData(data,0,0);texture?.dispose();texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;material.map=texture;material.needsUpdate=true;visibilityMaterial.map=texture;visibilityMaterial.needsUpdate=true;
-      copies.forEach((s,i)=>{const angle=i*Math.PI*2/3;s.position.copy(center).add(new Vector3(Math.cos(angle)*diameter*.32,diameter*.03,Math.sin(angle)*diameter*.32));s.scale.set(extent*2,extent*2,1);});
+      copies.forEach((s,i)=>{const angle=i*Math.PI*2/3;s.position.copy(center).add(new Vector3(Math.cos(angle)*diameter*MIRROR_IMAGE_SPREAD,diameter*.03,Math.sin(angle)*diameter*MIRROR_IMAGE_SPREAD));s.scale.set(extent*2,extent*2,1);});
       key=captureKey;
     } finally {renderer.setRenderTarget(oldTarget);renderer.setClearColor(oldColor,oldAlpha);renderer.shadowMap.enabled=oldShadow;target.dispose();}
   }

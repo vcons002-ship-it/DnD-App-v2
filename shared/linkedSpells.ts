@@ -1,6 +1,8 @@
 import type { AbilityRoll, Condition, SheetAbility } from './types.js';
 
 export const spellKey = (name: string) => name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
+/** Cosmetic offsets only: duplicates never change the caster's footprint. */
+export const MIRROR_IMAGE_SPREAD = 1.15;
 type Profile = { level: number; kind: 'attack' | 'control' | 'mixed' | 'repeat' | 'mirror' | 'heat'; roll?: AbilityRoll; concentration?: boolean; rounds?: number; action?: string };
 const profiles: Record<string, Profile> = {
   'sorcerous burst': { level:0,kind:'attack',roll:{kind:'attack',dice:'1d8',scaleDice:'1d8',baseLevel:0,damageTypeChoices:['acid','cold','fire','lightning','poison','psychic','thunder']} },

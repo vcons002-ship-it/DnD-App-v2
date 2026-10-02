@@ -13,7 +13,9 @@ the app captures the already-loaded figure into a transparent image and reuses
 it on three lightweight billboards. In 2D mode it repeats the caster's token
 image or icon. Copies follow movement and facing, share the caster's visibility,
 have no selectable bases, cast no shadows, and require no additional model
-downloads. View changes refresh the captured figure in coarse steps.
+downloads. View changes refresh the captured figure in coarse steps. Each copy
+is offset 1.15 base diameters from the caster so its figure can be distinguished;
+the cosmetic spread does not enlarge the caster's selectable/collision footprint.
 
 After an attack roll hits, the server rolls one d6 per remaining duplicate.
 At least one result of 3+ redirects the hit and destroys exactly one duplicate.

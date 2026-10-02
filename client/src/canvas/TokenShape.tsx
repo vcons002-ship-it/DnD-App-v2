@@ -1,4 +1,4 @@
-import {mirrorImageCount} from '../../../shared/linkedSpells';
+import {mirrorImageCount,MIRROR_IMAGE_SPREAD} from '../../../shared/linkedSpells';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {stopAtWalls,wallCollisionRadiusFt,type MapWall} from '../../../shared/mapWalls';
 import {
@@ -509,7 +509,7 @@ function TokenShapeInner({
         <Circle radius={Math.min(radius * .3, 12)} stroke="#c9bb9b" strokeWidth={1.5} dash={[3, 3]} />
         <Text text="Loading 3D..." x={-45} y={16} width={90} align="center" fontSize={11} fill="#e8ddc6" stroke="#111" strokeWidth={2} fillAfterStrokeEnabled />
       </Group>}
-      {!miniatureReady&&!miniaturePending&&Array.from({length:mirrorImageCount(display.conditions)}).map((_,i)=><Group key={`mirror-${i}`} name="mirror-image-duplicate" opacity={.35} x={Math.cos(i*Math.PI*2/3)*radius*.65} y={Math.sin(i*Math.PI*2/3)*radius*.65} listening={false}>
+      {!miniatureReady&&!miniaturePending&&Array.from({length:mirrorImageCount(display.conditions)}).map((_,i)=><Group key={`mirror-${i}`} name="mirror-image-duplicate" opacity={.35} x={Math.cos(i*Math.PI*2/3)*radius*2*MIRROR_IMAGE_SPREAD} y={Math.sin(i*Math.PI*2/3)*radius*2*MIRROR_IMAGE_SPREAD} listening={false}>
         {iconImg?<KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2}/>:<><Silhouette fill={fill}/><Text text={display.icon||display.name.slice(0,2)} x={-radius} y={-radius} width={radius*2} height={radius*2} fontSize={radius} align="center" verticalAlign="middle"/></>}
       </Group>)}
       <Group ref={tokenBody} name="token-body" visible={!miniatureReady && !miniaturePending}>
