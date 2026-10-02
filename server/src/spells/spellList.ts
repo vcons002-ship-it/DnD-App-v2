@@ -156,8 +156,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['necromancy', 'druid', 'sorcerer', 'warlock', 'wizard', 'poison', 'cantrip'],
     meta: '1 action · 30 ft · V,S',
     description:
-      'You spray toxic gas at a creature. It makes a CON save, taking poison damage on a failure.',
-    roll: { kind: 'save', dice: '1d12', scaleDice: '1d12', baseLevel: 0, save: 'CON', damageType: 'poison' },
+      'Make a ranged spell attack against a creature within 30 feet. A hit deals 1d12 Poison damage, increasing by 1d12 at character levels 5, 11, and 17.',
+    roll: { kind: 'attack', dice: '1d12', scaleDice: '1d12', baseLevel: 0, damageType: 'poison' },
   },
   {
     name: 'Prestidigitation',
@@ -249,8 +249,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'sorcerer', 'cantrip'],
     meta: '1 action · 120 ft · V,S',
     description:
-      'Hurl sorcerous energy at a creature or object you can see. On a hit it takes 1d8 damage of a type you choose (acid, cold, fire, lightning, poison, psychic, or thunder). If you roll the maximum on a damage die you can roll one additional die, up to a number of extra dice equal to your spellcasting ability modifier.',
-    roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageType: 'force' },
+      'Make a ranged spell attack dealing 1d8 of a chosen type: Acid, Cold, Fire, Lightning, Poison, Psychic, or Thunder. Each damage die showing 8 allows another d8; the number of extra dice cannot exceed your casting modifier. Damage grows by 1d8 at levels 5, 11, and 17. Resolve the extra maximum-face dice manually.',
+    roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageTypeChoices: ['acid', 'cold', 'fire', 'lightning', 'poison', 'psychic', 'thunder'] },
   },
   {
     name: 'Spare the Dying',
@@ -283,8 +283,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['divination', 'bard', 'sorcerer', 'warlock', 'wizard', 'cantrip', 'radiant'],
     meta: '1 action · Self · S,M',
     description:
-      'You make a weapon attack using your spellcasting ability; on a hit you can deal radiant damage instead of the weapon type, scaling with level.',
-    roll: { kind: 'attack', dice: '1d6', scaleDice: '1d6', baseLevel: 0, damageType: 'radiant' },
+      'Make an attack with the spell-component weapon using your casting ability for attack and damage. Choose the weapon damage type or Radiant. Add 1d6 Radiant at character level 5, 2d6 at 11, and 3d6 at 17. Resolve the weapon-based attack manually.',
   },
   {
     name: 'Vicious Mockery',
@@ -590,9 +589,9 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['necromancy', 'sorcerer', 'wizard', 'buff'],
     meta: '1 action · Self · V,S,M',
     description:
-      'A necromantic veil grants you temporary hit points (1d4 + 4), increasing by 5 per slot level above 1st.',
-    upcast: '+5 temp HP per slot above 1st.',
-    roll: { kind: 'heal', dice: '1d4+4', baseLevel: 1, damageType: 'healing' },
+      'Gain 2d4 + 4 temporary HP. Add 5 temporary HP per spell-slot level above 1. Temporary HP replace a smaller existing pool; they do not heal or revive you.',
+    upcast: '+5 temporary HP per slot above 1st.',
+    roll: { kind: 'heal', dice: '2d4+4', scaleDice: '5', baseLevel: 1, damageType: 'healing', healingMode: 'temporary', healingBonus: 'none', healTarget: 'self' },
   },
   {
     name: 'Feather Fall',
@@ -773,9 +772,9 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['necromancy', 'cleric', 'necrotic'],
     meta: '1 action · Touch · V,S',
     description:
-      'Make a melee spell attack. On a hit the target takes necrotic damage. +1d10 per slot level above 1st.',
+      'A touched creature makes a Constitution save, taking 2d10 Necrotic damage on failure or half on success. Add 1d10 per slot level above 1.',
     upcast: '+1d10 damage per slot above 1st.',
-    roll: { kind: 'attack', dice: '3d10', scaleDice: '1d10', baseLevel: 1, damageType: 'necrotic' },
+    roll: { kind: 'save', dice: '2d10', scaleDice: '1d10', baseLevel: 1, save: 'CON', saveDamage: 'half', targetMode: 'single', damageType: 'necrotic' },
   },
   {
     name: 'Jump',
@@ -981,11 +980,11 @@ export const SPELL_LIST: SpellEntry[] = [
     school: 'Evocation',
     classes: ['sorcerer', 'warlock', 'wizard'],
     tags: ['evocation', 'sorcerer', 'warlock', 'wizard', 'lightning', 'concentration'],
-    meta: '1 action · 30 ft · V,S,M · Concentration',
+    meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
-      'A beam of lightning links you to a creature (ranged spell attack for lightning). Each later turn you can use an action to zap it again automatically.',
-    upcast: '+1d12 damage per slot above 1st.',
-    roll: { kind: 'attack', dice: '1d12', scaleDice: '1d12', baseLevel: 1, damageType: 'lightning' },
+      'A ranged spell attack deals 2d12 Lightning damage. On later turns, a Bonus Action deals 1d12 automatically, even if the original attack missed. The link ends beyond 60 feet or Total Cover; handle subsequent damage manually. Only initial damage increases with slot level.',
+    upcast: '+1d12 initial damage per slot above 1st.',
+    roll: { kind: 'attack', dice: '2d12', scaleDice: '1d12', baseLevel: 1, damageType: 'lightning' },
   },
   {
     name: 'Wrathful Smite',
@@ -1010,9 +1009,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'cleric', 'paladin', 'buff', 'healing'],
     meta: '1 action · 30 ft · V,S,M',
     description:
-      'Up to three creatures each gain 5 extra maximum and current hit points for 8 hours. The bonus rises by 5 per slot level above 2nd.',
-    upcast: '+5 HP bonus per slot above 2nd.',
-    roll: { kind: 'heal', dice: '5', scaleDice: '5', baseLevel: 2, damageType: 'healing' },
+      'For 8 hours, up to three creatures gain 5 to both current and maximum HP, plus 5 per slot above 2. Apply and later remove the maximum-HP increase manually; this is not ordinary healing.',
+    upcast: '+5 current and maximum HP per slot above 2nd.',
   },
   {
     name: 'Alter Self',
@@ -1221,13 +1219,13 @@ export const SPELL_LIST: SpellEntry[] = [
     type: 'spell',
     level: 2,
     school: 'Evocation',
-    classes: ['druid'],
-    tags: ['evocation', 'druid', 'fire', 'concentration'],
+    classes: ['druid', 'sorcerer'],
+    tags: ['evocation', 'druid', 'sorcerer', 'fire', 'concentration'],
     meta: '1 bonus action · Self · V,S,M · Concentration',
     description:
-      'You conjure a fiery blade you can wield with melee spell attacks for fire damage. It also sheds light. +1d6 per two slot levels above 2nd.',
-    upcast: '+1d6 damage per two slots above 2nd.',
-    roll: { kind: 'attack', dice: '3d6', baseLevel: 2, damageType: 'fire' },
+      'Conjure a fiery blade. A Magic action makes a melee spell attack for 3d6 Fire damage plus your casting modifier. Add 1d6 per slot above 2. The blade sheds light; later attacks use the existing blade rather than spending another slot.',
+    upcast: '+1d6 damage per slot above 2nd.',
+    roll: { kind: 'attack', dice: '3d6', scaleDice: '1d6', baseLevel: 2, damageType: 'fire', damageBonus: 'spellcasting' },
   },
   {
     name: 'Flaming Sphere',
@@ -1436,9 +1434,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'cleric', 'healing'],
     meta: '10 minutes · 30 ft · V',
     description:
-      'Up to six creatures each regain hit points (add your spellcasting modifier). Healing rises by 1d8 per slot level above 2nd.',
+      'Up to five creatures that stay for the 10-minute casting gain a Short Rest and regain 2d8 HP, plus 1d8 per slot above 2. No casting modifier is added. A creature cannot benefit again until a Long Rest. Resolve the rest and shared healing manually.',
     upcast: '+1d8 healing per slot above 2nd.',
-    roll: { kind: 'heal', dice: '2d8', scaleDice: '1d8', baseLevel: 2, damageType: 'healing' },
   },
   {
     name: 'Protection from Poison',
@@ -1457,11 +1454,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 2,
     school: 'Necromancy',
     classes: ['warlock', 'wizard'],
-    tags: ['necromancy', 'warlock', 'wizard', 'concentration', 'control'],
+    tags: ['necromancy', 'warlock', 'wizard', 'control', 'concentration'],
     meta: '1 action · 60 ft · V,S · Concentration',
     description:
-      'A black beam saps a creature’s strength (ranged spell attack). On a hit it deals only half damage with STR-based weapon attacks until the spell ends.',
-    roll: { kind: 'attack', dice: '0', baseLevel: 2, damageType: 'necrotic' },
+      'A Constitution save determines the weakening effect. Success gives disadvantage on the next attack until your next turn. Failure gives disadvantage on Strength d20 tests and subtracts 1d8 from damage; end-of-turn saves can end it. Apply those effects manually.',
+    roll: { kind: 'save', save: 'CON', saveDamage: 'none', targetMode: 'single', baseLevel: 2 },
   },
   {
     name: 'Rope Trick',
@@ -1551,12 +1548,12 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 2,
     school: 'Evocation',
     classes: ['cleric'],
-    tags: ['evocation', 'cleric', 'force'],
-    meta: '1 bonus action · 60 ft · V,S',
+    tags: ['evocation', 'cleric', 'force', 'concentration'],
+    meta: '1 bonus action · 60 ft · V,S · Concentration',
     description:
-      'A floating spectral weapon makes a melee spell attack, dealing force damage plus your spellcasting modifier. +1d8 per two slot levels above 2nd.',
-    upcast: '+1d8 damage per two slots above 2nd.',
-    roll: { kind: 'attack', dice: '1d8', baseLevel: 2, damageType: 'force' },
+      'Create a floating weapon while concentrating. Its melee spell attack deals 1d8 Force damage plus your casting modifier, adding 1d8 per slot above 2. On later turns a Bonus Action moves it up to 20 feet and repeats the attack; handle repeat use without casting again.',
+    upcast: '+1d8 damage per slot above 2nd.',
+    roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 2, damageType: 'force', damageBonus: 'spellcasting' },
     summon: { name: 'Spiritual Weapon', icon: '⚔️' },
   },
   {
@@ -1634,12 +1631,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 3,
     school: 'Necromancy',
     classes: ['bard', 'cleric', 'wizard'],
-    tags: ['necromancy', 'bard', 'cleric', 'wizard', 'necrotic', 'concentration', 'control'],
+    tags: ['necromancy', 'bard', 'cleric', 'wizard', 'necrotic', 'control', 'concentration'],
     meta: '1 action · Touch · V,S · Concentration',
     description:
-      'A creature makes a WIS save or suffers a curse you choose — a disadvantage, lost actions, or extra necrotic damage from your attacks.',
+      'A touched creature makes a Wisdom save. On failure, choose the curse: ability-test disadvantage, attack disadvantage against you, turn-start behavior, or an extra 1d8 Necrotic when you damage it. Resolve the chosen effect manually; the optional rider is not damage dealt on casting.',
     upcast: 'Longer duration per slot above 3rd.',
-    roll: { kind: 'damage', dice: '1d8', baseLevel: 3, damageType: 'necrotic' },
   },
   {
     name: 'Blink',
@@ -1682,12 +1678,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 3,
     school: 'Conjuration',
     classes: ['druid', 'ranger'],
-    tags: ['conjuration', 'druid', 'ranger', 'concentration', 'summon'],
-    meta: '1 action · 60 ft · V,S · Concentration',
+    tags: ['conjuration', 'druid', 'ranger', 'concentration', 'slashing'],
+    meta: '1 action · 60 ft · V,S · Concentration, up to 10 minutes',
     description:
-      'You summon fey spirits in beast form that fight for you. More or larger beasts appear at higher slot levels.',
-    upcast: 'More or larger beasts per slot above 3rd.',
-    summon: { name: 'Conjured Beast', icon: '🐺' },
+      'Create a Large intangible animal-spirit pack. While within 5 feet of it, you have advantage on Strength saves. When you move on your turn, the pack can move up to 30 feet. Creatures the pack moves within 10 feet of, or that enter that range or end a turn there, make Dexterity saves for 3d10 Slashing damage, none on success; a creature saves once per turn. Add 1d10 per slot above 3. Resolve the moving area and its triggers manually; this does not summon a controllable beast.',
+    upcast: '+1d10 Slashing damage per slot above 3rd.',
   },
   {
     name: 'Counterspell',
@@ -1739,11 +1734,10 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 3,
     school: 'Transmutation',
     classes: ['druid', 'paladin', 'ranger'],
-    tags: ['transmutation', 'druid', 'paladin', 'ranger', 'concentration', 'buff'],
+    tags: ['transmutation', 'druid', 'paladin', 'ranger', 'buff', 'concentration'],
     meta: '1 action · Touch · V,S · Concentration',
     description:
-      'A nonmagical weapon gains a +1 bonus and deals extra elemental damage (acid, cold, fire, lightning, or thunder) of your choice.',
-    roll: { kind: 'damage', dice: '1d4', baseLevel: 3 },
+      'A nonmagical weapon becomes magical, gains +1 to attack rolls, and adds 1d4 of a chosen elemental damage type on hits. Higher slots improve both bonuses. Apply the weapon buff manually; casting itself deals no damage.',
   },
   {
     name: 'Fear',
@@ -1812,9 +1806,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'bard', 'cleric', 'wizard', 'control', 'utility'],
     meta: '1 hour · Touch · V,S,M',
     description:
-      'You inscribe a trap glyph that triggers on a condition you set, unleashing a harmful spell or a burst of energy. +1d8 per slot level above 3rd.',
-    upcast: '+1d8 burst damage per slot above 3rd.',
-    roll: { kind: 'save', dice: '5d8', scaleDice: '1d8', baseLevel: 3, save: 'DEX' },
+      'Inscribe a glyph and choose a later trigger. An explosive glyph deals 5d8 of a chosen type (Acid, Cold, Fire, Lightning, or Thunder) with a Dexterity save for half, adding 1d8 per slot above 3. A spell glyph instead stores a spell. Creating the glyph deals no immediate damage.',
+    upcast: '+1d8 explosive damage or a higher stored-spell level per slot above 3rd.',
   },
   {
     name: 'Haste',
@@ -1894,9 +1887,9 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'cleric', 'healing'],
     meta: '1 bonus action · 60 ft · V',
     description:
-      'Up to six creatures each regain hit points (add your spellcasting modifier). Healing rises by 1d4 per slot level above 3rd.',
+      'Choose up to six creatures you can see within 60 feet. Each regains 2d4 HP plus your casting modifier, with another 1d4 per slot above 3.',
     upcast: '+1d4 healing per slot above 3rd.',
-    roll: { kind: 'heal', dice: '2d4', scaleDice: '1d4', baseLevel: 3, damageType: 'healing' },
+    roll: { kind: 'heal', dice: '2d4', scaleDice: '1d4', baseLevel: 3, damageType: 'healing', targetMode: 'multiple', maxTargets: 6, healingBonus: 'spellcasting' },
   },
   {
     name: 'Meld into Stone',
@@ -2084,11 +2077,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 3,
     school: 'Evocation',
     classes: ['druid', 'ranger'],
-    tags: ['evocation', 'druid', 'ranger', 'bludgeoning', 'concentration', 'control', 'aoe'],
+    tags: ['evocation', 'druid', 'ranger', 'bludgeoning', 'control', 'aoe', 'concentration'],
     meta: '1 action · 120 ft · V,S,M · Concentration',
     description:
-      'A wall of strong wind rises. Creatures passing through make a STR save for bludgeoning damage, and it deflects arrows and small flyers.',
-    roll: { kind: 'save', dice: '3d8', baseLevel: 3, save: 'STR', damageType: 'bludgeoning' },
+      'When the wind wall appears, creatures in its area make Strength saves for 4d8 Bludgeoning damage, half on success. The wall blocks specified gases, small flyers, and ordinary projectiles; those wall effects remain manual.',
+    roll: { kind: 'save', dice: '4d8', baseLevel: 3, save: 'STR', saveDamage: 'half', targetMode: 'multiple', damageType: 'bludgeoning' },
   },
 
   // ===================== LEVEL 4 =====================
@@ -2168,12 +2161,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 4,
     school: 'Conjuration',
     classes: ['druid', 'ranger'],
-    tags: ['conjuration', 'druid', 'ranger', 'concentration', 'summon'],
-    meta: '1 action · 60 ft · V,S,M · Concentration',
+    tags: ['conjuration', 'druid', 'ranger', 'concentration', 'force'],
+    meta: '1 action · Self · V,S · Concentration, up to 10 minutes',
     description:
-      'You summon fey creatures that obey you; more or larger fey appear at higher slot levels.',
-    upcast: 'More or larger fey per slot above 4th.',
-    summon: { name: 'Woodland Being', icon: '🍃' },
+      'Woodland spirits form a 10-foot Emanation around you. Creatures make Wisdom saves when the area enters their space, they enter it, or they end a turn there, taking 5d8 Force damage on failure or half on success, at most once per turn. You can Disengage as a Bonus Action while it lasts. Add 1d8 per slot above 4. Resolve the moving area and repeated triggers manually; this does not summon controllable fey creatures.',
+    upcast: '+1d8 Force damage per slot above 4th.',
   },
   {
     name: 'Control Water',
@@ -2251,8 +2243,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'druid', 'sorcerer', 'wizard', 'fire', 'cold', 'buff'],
     meta: '1 action · Self · V,S,M',
     description:
-      'Flames or frost wreathe you, granting resistance to fire or cold and dealing damage of that opposite type to anyone who hits you in melee.',
-    roll: { kind: 'damage', dice: '2d8', baseLevel: 4, damageType: 'fire' },
+      'Choose a warm shield for Cold resistance or a chill shield for Fire resistance. A creature within 5 feet hitting you with a melee attack takes 2d8 Fire or Cold damage respectively. Apply the resistance and retaliation manually; casting deals no immediate damage.',
   },
   {
     name: 'Freedom of Movement',
@@ -2319,9 +2310,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'druid', 'sorcerer', 'wizard', 'bludgeoning', 'cold', 'aoe'],
     meta: '1 action · 300 ft · V,S,M',
     description:
-      'Hail batters a 20-ft cylinder. Each creature makes a DEX save for bludgeoning plus cold damage (half on success), and the ground becomes difficult terrain.',
-    upcast: '+1d8 cold damage per slot above 4th.',
-    roll: { kind: 'save', dice: '2d8', scaleDice: '1d8', baseLevel: 4, save: 'DEX', damageType: 'bludgeoning' },
+      'Creatures in a 20-foot-radius cylinder make Dexterity saves for 2d10 Bludgeoning plus 4d6 Cold damage, half on success. Add 1d10 Bludgeoning per slot above 4. Roll and apply both damage types separately; the area becomes difficult terrain until your next turn.',
+    upcast: '+1d10 Bludgeoning damage per slot above 4th.',
   },
   {
     name: 'Locate Creature',
@@ -2515,11 +2505,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 5,
     school: 'Necromancy',
     classes: ['cleric', 'druid'],
-    tags: ['necromancy', 'cleric', 'druid', 'poison', 'control'],
+    tags: ['necromancy', 'cleric', 'druid', 'necrotic', 'poison', 'control'],
     meta: '1 action · Touch · V,S',
     description:
-      'Your touch (melee spell attack) inflicts a disease. The target makes CON saves; on enough failures the disease takes hold with debilitating effects.',
-    roll: { kind: 'attack', dice: '0', baseLevel: 5, damageType: 'poison' },
+      'A touched creature makes a Constitution save. Failure deals 11d8 Necrotic damage and causes Poisoned, with save disadvantage for a chosen ability. Track the repeated saves, three successes/failures, and long-duration effect manually.',
+    roll: { kind: 'save', dice: '11d8', baseLevel: 5, save: 'CON', saveDamage: 'none', targetMode: 'single', damageType: 'necrotic' },
   },
   {
     name: 'Creation',
@@ -2564,8 +2554,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['illusion', 'bard', 'warlock', 'wizard', 'psychic', 'utility'],
     meta: '1 minute · Special · V,S,M',
     description:
-      'You shape a sleeping creature’s dreams, delivering a message or, as a nightmare, denying it rest and dealing psychic damage.',
-    roll: { kind: 'save', dice: '3d6', baseLevel: 5, save: 'WIS', damageType: 'psychic' },
+      'A messenger enters a sleeping target\'s dream. A terrifying message allows a Wisdom save; failure prevents rest benefits and deals 3d6 Psychic when the target wakes. Casting is not an immediate damaging attack; resolve the dream manually.',
   },
   {
     name: 'Flame Strike',
@@ -2576,9 +2565,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'cleric', 'fire', 'radiant', 'aoe'],
     meta: '1 action · 60 ft · V,S,M',
     description:
-      'A column of divine fire roars down in a 10-ft cylinder. Each creature makes a DEX save for fire plus radiant damage (half on success). +1d6 per slot above 5th.',
-    upcast: '+1d6 fire and +1d6 radiant per slot above 5th.',
-    roll: { kind: 'save', dice: '4d6', scaleDice: '1d6', baseLevel: 5, save: 'DEX', damageType: 'fire' },
+      'Creatures in the 10-foot-radius cylinder make Dexterity saves for 5d6 Fire plus 5d6 Radiant damage, half on success. Each damage type gains 1d6 per slot above 5; roll and apply the two types separately.',
+    upcast: '+1d6 Fire and +1d6 Radiant per slot above 5th.',
   },
   {
     name: 'Geas',
@@ -2589,9 +2577,8 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['enchantment', 'bard', 'cleric', 'druid', 'paladin', 'wizard', 'psychic', 'control'],
     meta: '1 minute · 60 ft · V',
     description:
-      'A creature makes a WIS save or is magically compelled to follow a command for 30 days, taking psychic damage when it disobeys.',
+      'A failed Wisdom save charms the creature and imposes your command. Acting directly against the command can deal 5d10 Psychic at most once per day. Resolve the command and its conditional damage manually; casting is not an immediate damage roll.',
     upcast: 'Longer duration at 7th and 9th level.',
-    roll: { kind: 'damage', dice: '5d10', baseLevel: 5, damageType: 'psychic' },
   },
   {
     name: 'Greater Restoration',
@@ -2660,9 +2647,9 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'bard', 'cleric', 'druid', 'healing'],
     meta: '1 action · 60 ft · V,S',
     description:
-      'Up to six creatures in a 30-ft sphere each regain hit points (add your spellcasting modifier). Healing rises by 1d8 per slot above 5th.',
+      'Choose up to six creatures in a 30-foot-radius sphere. Each regains 5d8 HP plus your casting modifier, with another 1d8 per slot above 5.',
     upcast: '+1d8 healing per slot above 5th.',
-    roll: { kind: 'heal', dice: '3d8', scaleDice: '1d8', baseLevel: 5, damageType: 'healing' },
+    roll: { kind: 'heal', dice: '5d8', scaleDice: '1d8', baseLevel: 5, damageType: 'healing', targetMode: 'multiple', maxTargets: 6, healingBonus: 'spellcasting' },
   },
   {
     name: 'Mislead',
@@ -2815,11 +2802,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 6,
     school: 'Evocation',
     classes: ['cleric'],
-    tags: ['evocation', 'cleric', 'slashing', 'concentration', 'control', 'aoe'],
+    tags: ['evocation', 'cleric', 'force', 'control', 'aoe', 'concentration'],
     meta: '1 action · 90 ft · V,S · Concentration',
     description:
-      'A wall of whirling blades rises as cover. A creature entering or in the wall makes a DEX save for slashing damage (half on success).',
-    roll: { kind: 'save', dice: '6d10', baseLevel: 6, save: 'DEX', damageType: 'slashing' },
+      'A creature in the blade wall makes a Dexterity save for 6d10 Force damage, half on success. Entry or ending a turn there can trigger it once per turn. The wall provides cover and difficult terrain; resolve later triggers manually.',
+    roll: { kind: 'save', dice: '6d10', baseLevel: 6, save: 'DEX', saveDamage: 'half', targetMode: 'multiple', damageType: 'force' },
   },
   {
     name: 'Chain Lightning',
@@ -2843,9 +2830,9 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['necromancy', 'sorcerer', 'warlock', 'wizard', 'necrotic', 'aoe'],
     meta: '1 action · 150 ft · V,S,M',
     description:
-      'Negative energy ripples out in a 60-ft sphere. Each creature makes a CON save for necrotic damage (half on success). +2d6 per slot above 6th.',
-    upcast: '+2d6 damage per slot above 6th.',
-    roll: { kind: 'save', dice: '8d6', scaleDice: '2d6', baseLevel: 6, save: 'CON', damageType: 'necrotic' },
+      'Creatures in a 60-foot-radius sphere make Constitution saves for 8d8 Necrotic damage, half on success. Add 2d8 per slot above 6.',
+    upcast: '+2d8 damage per slot above 6th.',
+    roll: { kind: 'save', dice: '8d8', scaleDice: '2d8', baseLevel: 6, save: 'CON', saveDamage: 'half', targetMode: 'multiple', damageType: 'necrotic' },
   },
   {
     name: 'Conjure Fey',
@@ -3237,11 +3224,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 7,
     school: 'Evocation',
     classes: ['bard', 'wizard'],
-    tags: ['evocation', 'bard', 'wizard', 'force', 'concentration'],
-    meta: '1 action · 60 ft · V,S,M · Concentration',
+    tags: ['evocation', 'bard', 'wizard', 'force'],
+    meta: '1 action · 90 ft · V,S,M · 1 minute',
     description:
-      'A spectral sword of force appears and, each turn, makes a melee spell attack you direct, dealing force damage on a hit.',
-    roll: { kind: 'attack', dice: '3d10', baseLevel: 7, damageType: 'force' },
+      'Create a spectral sword within 90 feet. Its melee spell attack deals 4d12 Force damage plus your casting modifier. On later turns a Bonus Action moves it up to 30 feet and repeats the attack; repeat use remains manual and does not require a new casting.',
+    roll: { kind: 'attack', dice: '4d12', baseLevel: 7, damageType: 'force', damageBonus: 'spellcasting' },
   },
   {
     name: 'Plane Shift',
@@ -3419,11 +3406,10 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 8,
     school: 'Transmutation',
     classes: ['cleric', 'druid', 'sorcerer'],
-    tags: ['transmutation', 'cleric', 'druid', 'sorcerer', 'bludgeoning', 'concentration', 'control', 'aoe'],
+    tags: ['transmutation', 'cleric', 'druid', 'sorcerer', 'bludgeoning', 'control', 'aoe', 'concentration'],
     meta: '1 action · 500 ft · V,S,M · Concentration',
     description:
-      'The ground heaves in a 100-ft circle, knocking creatures prone (DEX save), opening fissures, and collapsing structures for crushing damage.',
-    roll: { kind: 'save', dice: '5d6', baseLevel: 8, save: 'DEX', damageType: 'bludgeoning' },
+      'A tremor creates difficult terrain. Failed Dexterity saves cause Prone and break concentration. Optional fissures and collapsing structures have separate effects; falling debris can deal 5d6 Bludgeoning with a save for half. Creating the tremor does not directly damage every creature.',
   },
   {
     name: 'Feeblemind',
@@ -3582,8 +3568,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'cleric', 'healing'],
     meta: '1 action · 60 ft · V,S',
     description:
-      'A flood of healing energy restores up to 700 hit points divided among creatures you choose, and cures them of blindness, deafness, and disease.',
-    roll: { kind: 'heal', dice: '700', baseLevel: 9, damageType: 'healing' },
+      'Distribute a pool of 700 healing among creatures you can see within range, without adding a casting modifier. The chosen targets also lose Blinded, Deafened, and Poisoned. Allocate and apply the pool manually.',
   },
   {
     name: 'Meteor Swarm',
@@ -3594,8 +3579,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'sorcerer', 'wizard', 'fire', 'bludgeoning', 'aoe'],
     meta: '1 action · 1 mile · V,S',
     description:
-      'Blazing meteors crash down in four 40-ft spheres. Each creature makes a DEX save for massive fire plus bludgeoning damage (half on success).',
-    roll: { kind: 'save', dice: '40d6', baseLevel: 9, save: 'DEX', damageType: 'fire' },
+      'Creatures in four 40-foot-radius spheres make Dexterity saves for 20d6 Fire plus 20d6 Bludgeoning damage, half on success. A creature in overlapping spheres is affected once. Roll and apply each damage type separately.',
   },
   {
     name: 'Power Word Heal',
@@ -3693,11 +3677,11 @@ export const SPELL_LIST: SpellEntry[] = [
     level: 9,
     school: 'Illusion',
     classes: ['warlock', 'wizard'],
-    tags: ['illusion', 'warlock', 'wizard', 'psychic', 'concentration', 'control', 'aoe'],
+    tags: ['illusion', 'warlock', 'wizard', 'psychic', 'control', 'aoe', 'concentration'],
     meta: '1 action · 120 ft · V,S · Concentration',
     description:
-      'Creatures in a 30-ft sphere face their worst fears (WIS save), becoming frightened and taking psychic damage each turn they fail.',
-    roll: { kind: 'save', dice: '4d10', baseLevel: 9, save: 'WIS', damageType: 'psychic' },
+      'Chosen creatures in a 30-foot-radius sphere make Wisdom saves for 10d10 Psychic damage, half on success. Failed saves also cause Frightened. A frightened target repeats the save at turn end, taking 5d10 on failure or ending the effect on success; later damage remains manual.',
+    roll: { kind: 'save', dice: '10d10', baseLevel: 9, save: 'WIS', saveDamage: 'half', targetMode: 'multiple', damageType: 'psychic' },
   },
   {
     name: 'Wish',

@@ -27,13 +27,15 @@ import { effectiveStats } from '../../../shared/modifiers';
 import { featUsage, isFeatAbility } from '../../../shared/feats';
 import {
   confirmConcentration,
-  isConcentration,
   spellBaseLevel,
   upcastable,
 } from '../lib/spellcasting';
 import { useAbilityToggles } from './AbilityToggles';
 import { Spellbook } from './Spellbook';
-import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { isCanonicalHasteProfile, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { spellCombatSupport } from '../../../shared/spellSupport';
+import { SpellCombatSupportBadge, SpellCombatSupportDetails } from './SpellCombatSupport';
+import { spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -106,6 +108,7 @@ export function CharacterSpells({
   attackerToken,
   defaultTargetId,
   rollsElsewhere,
+  onCombatRequest,
 }: {
   /** A PC or a creature — both carry `sheetAbilities`. */
   character: Character | Monster;
@@ -121,6 +124,8 @@ export function CharacterSpells({
    *  hide them here (keep add/edit/prep/stance management) so rolling has ONE
    *  home (naming precedent: CharacterSheet's `abilitiesElsewhere`). */
   rollsElsewhere?: boolean;
+  /** Close a character modal so its owner can use the map's Combat controls. */
+  onCombatRequest?: () => void;
 }) {
   const setSheetAbility = useStore((s) => s.setSheetAbility);
   const removeSheetAbility = useStore((s) => s.removeSheetAbility);
@@ -132,6 +137,12 @@ export function CharacterSpells({
   // on the full sheet too — not just the combat console where `snapshot` is passed).
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
+  const actionBlock = spellActionBlock(character);
+  const explainBlock = () => {
+    const live = useStore.getState().snapshot;
+    const message = spellActionBlockMessage(character, { inCombat: (live?.round ?? 0) > 0 });
+    if (message) notify(`${character.name}: ${message}`, { durationMs: 8000 });
+  };
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
   // skill list / roll log), so it's one switch for all of the character's rolls.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
@@ -342,7 +353,7 @@ export function CharacterSpells({
         ...(a.sourceClass ? { sourceClass: a.sourceClass, ...(hit.roll ? { roll: { ...hit.roll, castingAbility: spellcastingAbilityForClass(a.sourceClass) ?? hit.roll.castingAbility } } : {}) } : {}),
         actionType: parseActionType(hit.meta) ?? a.actionType,
       });
-      notify(hit.roll ? `Made "${a.name}" rollable.` : `Updated "${a.name}" (no roll for it).`);
+      notify(effectiveSheetAbility(hit as SheetAbility).roll ? `Updated "${a.name}" mechanics.` : `Updated "${a.name}"; see its support details for manual effects.`);
     } catch {
       notify('Lookup failed — check your connection.');
     } finally {
@@ -354,6 +365,7 @@ export function CharacterSpells({
   // the active map (with a little jitter so repeats don't stack) — the owner then
   // drags it. The server spends a slot for a leveled summon spell.
   const castSummon = (a: SheetAbility) => {
+    if (actionBlock) { explainBlock(); return; }
     if (!summonMap) {
       notify('No active map to summon onto.');
       return;
@@ -369,13 +381,18 @@ export function CharacterSpells({
       castLevel: upcastable(a) ? levelFor(a) : undefined,
       slotPool: hasPactPool ? poolFor(a) : undefined,
     });
-    notify(`Summoned ${a.summon?.name?.trim() || a.name} — drag it into place.`);
+    notify(`Summon requested — drag ${a.summon?.name?.trim() || a.name} into place after it appears.`);
   };
 
   const doRoll = (a: SheetAbility) => {
-    if (!confirmConcentration(character, a)) return;
+    if (actionBlock) { explainBlock(); return; }
     const level = upcastable(a) ? levelFor(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
+    if (!spellCombatSupport(a)?.manualCastOnly && execution.roll && execution.roll.kind !== 'heal' && !isMultiTargetSpell(a, level) && !targetId) {
+      notify('Choose a target in the Combat panel to cast this spell.');
+      return;
+    }
+    if (!confirmConcentration(character, a)) return;
     rollAbility({
       kind,
       refId: character.id,
@@ -385,13 +402,18 @@ export function CharacterSpells({
       damageType: damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage/disadvantage only affects the d20 of an attack roll; it comes
       // from the character's shared toggle and is consumed when the attack fires.
-      advantage: execution.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
+      advantage: !spellCombatSupport(a)?.manualCastOnly && execution.roll?.kind === 'attack' ? consumeAdvantage(character.id) : undefined,
       // Attack-roll spells resolve to-hit vs the chosen target's AC; heals apply
       // to the chosen ally (combat console).
       targetTokenId:
-        execution.roll?.kind === 'heal' ? healTargetId || undefined
+        spellCombatSupport(a)?.manualCastOnly ? undefined : execution.roll?.kind === 'heal' ? healTargetId || undefined
           : isMultiTargetSpell(a, level) ? undefined : targetId || undefined,
     });
+  };
+
+  const useInCombat = () => {
+    onCombatRequest?.();
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.compact-player-combat select, .attack-controls select')?.focus());
   };
 
   const patchRoll = (
@@ -399,15 +421,17 @@ export function CharacterSpells({
     patch: Partial<NonNullable<SheetAbility['roll']>>,
   ) => {
     const inherited = effectiveSheetAbility(a).roll;
-    // An intentional kind/save change creates an authored variant. Keep the
-    // displayed workflow defaults in that case, rather than silently losing
-    // them when the canonical profile stops matching. Routine edits (DC etc.)
-    // must not bake the base-level single-target mode into later upcasts.
     const changesProfile = (patch.kind !== undefined && patch.kind !== inherited?.kind) ||
       (patch.save !== undefined && patch.save !== inherited?.save);
+    const optOut = a.executionProfile === 'manual' || !!spellCombatSupport(a)?.manualCastOnly ||
+      changesProfile || !!markSpell(a) || isCanonicalHasteProfile(a) || !!hitFeature(a);
+    // Routine edits keep sparse fields so reviewed upcast targeting can still
+    // change per cast. A deliberate mechanics override preserves the displayed
+    // profile and opts out of canonical defaults.
     setSheetAbility(kind, character.id, {
       ...a,
-      roll: { ...((changesProfile ? inherited : a.roll) ?? { kind: inherited?.kind ?? 'damage' }), ...patch },
+      ...(optOut ? { executionProfile: 'manual' as const } : {}),
+      roll: { ...((optOut ? inherited : a.roll) ?? { kind: inherited?.kind ?? 'damage' }), ...patch },
     });
   };
   /** Strip a roll back to a text-only entry. */
@@ -453,9 +477,10 @@ export function CharacterSpells({
 
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
-    const summon = effectiveSheetAbility(a).summon;
+    const support = spellCombatSupport(a);
+    const summon = support?.manualCastOnly ? undefined : effectiveSheetAbility(a).summon;
     const lvl = levelFor(a);
-    const displayRoll = hitFeature(a) ? undefined : effectiveSheetAbility(a, lvl).roll;
+    const displayRoll = hitFeature(a) || support?.manualCastOnly ? undefined : effectiveSheetAbility(a, lvl).roll;
     const damageTypes = spellDamageTypeChoices(a, lvl);
     const gi = groupIds.indexOf(a.id);
     // Leveled spells carry a prepared state — show prepared ones bright/bold and
@@ -480,6 +505,7 @@ export function CharacterSpells({
               </span>
             )}
             {tagFor(a) && <span className="muted spell-tag">{tagFor(a)}</span>}
+            <SpellCombatSupportBadge ability={a} />
           </button>
           <RechargeChip ability={a} kind={kind} refId={character.id} editable={editable} />
 
@@ -521,7 +547,7 @@ export function CharacterSpells({
                   ? 'Armed — spends a Superiority Die on your next attack'
                   : 'Off — click to arm for your next attack'
               }
-              disabled={isOnHitManeuver(a) || a.name.trim().toLowerCase() === 'riposte'}
+              disabled={!!actionBlock || isOnHitManeuver(a) || a.name.trim().toLowerCase() === 'riposte'}
               onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
             >
               {a.name.trim().toLowerCase() === 'riposte' ? 'On enemy miss' : isOnHitManeuver(a) ? 'On hit' : a.maneuver!.active ? 'Armed' : 'Off'}
@@ -565,7 +591,7 @@ export function CharacterSpells({
 
           {editable &&
             upcastable(a) &&
-            !hitFeature(a) && ((displayRoll && !rollsElsewhere) || (!displayRoll && isConcentration(a))) && (
+            !hitFeature(a) && !rollsElsewhere && (displayRoll || support?.manualCastOnly || summon) && (
               <select
                 className="spell-level"
                 value={lvl}
@@ -586,8 +612,8 @@ export function CharacterSpells({
               </select>
             )}
           {editable && displayRoll && !rollsElsewhere && (
-            <button className="btn tiny" title={manualRiderNote(a)} onClick={() => doRoll(a)}>
-              {rollLabel(displayRoll)}
+            <button className="btn tiny" disabled={!!actionBlock} title={manualRiderNote(a)} onClick={() => doRoll(a)}>
+              {isCanonicalHasteProfile(a) ? 'Cast Haste' : markSpell(a) ? 'Cast mark' : rollLabel(displayRoll)}
             </button>
           )}
           {editable && hasPactPool && (a.type === 'spell' || a.type === 'stance') && spellBaseLevel(a) > 0 && (!rollsElsewhere || a.summon) && !hitFeature(a) && !isStance(a) && <select className="spell-level" aria-label={`${a.name} slot pool`} value={poolFor(a)} onChange={event => {
@@ -615,21 +641,25 @@ export function CharacterSpells({
             </select>
           )}
           {hitFeature(a) && <span className="muted spell-meta">{hitFeature(a)==='hail of thorns'?'Ranged hit → Hail of Thorns → slot; automatic 5 ft burst':'Offered after a hit, beside Roll damage'}</span>}
-          {editable && !displayRoll && !hitFeature(a) && isConcentration(a) && (
+          {editable && !rollsElsewhere && !displayRoll && !hitFeature(a) && support?.manualCastOnly && (
             <button
               className="btn tiny"
-              title="Cast — start concentration (drops any spell you were concentrating on)"
+              title="Record this casting and spend its spell slot; resolve its effects manually."
+              disabled={!!actionBlock}
               onClick={() => doRoll(a)}
             >
-              🔮 Cast
+              Cast manually
             </button>
           )}
+          {editable && rollsElsewhere && onCombatRequest && (displayRoll || support?.manualCastOnly || summon || a.smite || hitFeature(a)) &&
+            <button className="btn tiny" onClick={useInCombat} title={a.smite || hitFeature(a) ? 'Attack from Combat; choose this effect after a qualifying hit.' : 'Close the character record and use the Combat panel.'}>Use in Combat</button>}
           {/* Summon-tagged spell/ability: spawn its friendly companion (leveled
               spells spend a slot server-side). Shown even in the combat console. */}
           {editable && summon && (
             <button
               className="btn tiny"
               title={`Summon ${summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
+              disabled={!!actionBlock}
               onClick={() => castSummon(a)}
             >
               {summon.icon || '✋'} Summon
@@ -637,14 +667,14 @@ export function CharacterSpells({
           )}
           {/* A text-only entry (e.g. imported) → look it up and make it
               rollable in place. Skipped for toggle-driven items. */}
-          {editable && !a.tags?.includes('leveling-2024') && !displayRoll && !hitFeature(a) && !a.mastery && !a.maneuver && !a.stance && (
+          {editable && !a.tags?.includes('leveling-2024') && !displayRoll && !hitFeature(a) && !a.mastery && !a.maneuver && !a.stance && !a.smite && !summon && (
             <button
               className="btn tiny"
               disabled={enrichId === a.id}
-              title="Look this up in the rules (local first, AI fallback) and make it rollable — no duplicate"
+              title="Look up rules and supported mechanics (local first, AI fallback); utility effects may remain manual."
               onClick={() => makeRollable(a)}
             >
-              {enrichId === a.id ? '…' : '⚡ Make rollable'}
+              {enrichId === a.id ? '…' : 'Look up mechanics'}
             </button>
           )}
           {/* Reorder within the group (tap ▲/▼ — works on touch too). */}
@@ -692,6 +722,7 @@ export function CharacterSpells({
         </div>
         {open[a.id] && (
           <div className="spell-body">
+            <SpellCombatSupportDetails ability={a} />
             {editable && a.type === 'spell' && (classRoster?.length ?? 0) > 1 && <label className="action-type-edit muted">Spell class<select aria-label={`${a.name} spell class`} value={a.sourceClass ?? ''} onChange={event => {
               const sourceClass = (event.target.value || undefined) as CoreClass | undefined;
               setSheetAbility(kind, character.id, { ...a, sourceClass, ...(a.roll && sourceClass ? { roll: { ...a.roll, castingAbility: spellcastingAbilityForClass(sourceClass) ?? a.roll.castingAbility } } : {}) });
@@ -824,7 +855,7 @@ export function CharacterSpells({
             )}
             {/* Homebrew: add a manual roll to a text-only entry (no AI). The
                 editor below then sets kind/dice/save/dc/type. */}
-            {editable && !displayRoll && !a.mastery && !a.maneuver && !a.stance && (
+            {editable && !displayRoll && !hitFeature(a) && !a.smite && !a.mastery && !a.maneuver && !a.stance && (
               <button
                 className="btn tiny"
                 title="Add a manual damage / save / attack / heal roll (homebrew — no AI needed)"
@@ -833,10 +864,9 @@ export function CharacterSpells({
                 ✏️ Add roll
               </button>
             )}
-            {!isHasteSpell(a) && !a.roll && displayRoll && <p className="muted">A compatible spell profile supplies this saving-throw action without rewriting the saved spell. Conditions and other effects remain manual.</p>}
             {manualRiderNote(a) && <p className="muted">{manualRiderNote(a)}</p>}
-            {isHasteSpell(a) && <p className="muted">Choose a creature in Combat or from its map menu. Haste adds a green buff until the caster?s concentration ends.</p>}
-            {editable && displayRoll && !isHasteSpell(a) && (
+            {isCanonicalHasteProfile(a) && <p className="muted">Choose a willing creature with Buff target in Combat or from its map menu. Haste adds +2 AC, doubles speed, grants Dexterity-save advantage, and supplies one restricted extra action. When it ends, the target is Incapacitated with speed 0 until the end of its next turn.</p>}
+            {editable && displayRoll && !isCanonicalHasteProfile(a) && (
               <div className="sb-roll-edit">
                 <select
                   value={displayRoll.kind}
@@ -1067,8 +1097,8 @@ export function CharacterSpells({
             </div>
           );
         })()}
-      {rollsElsewhere && character.sheetAbilities.some((a) => a.roll) && (
-        <p className="muted spell-tag">Roll these from the Combat section.</p>
+      {rollsElsewhere && character.sheetAbilities.some((a) => effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly || a.smite || hitFeature(a)) && (
+        <p className="muted spell-tag">Cast and roll from Combat. On-hit spells are offered after a qualifying hit.</p>
       )}
       {!rollsElsewhere && hasAttackSpell && targets.length > 0 && (
         <div className="dice-row">
@@ -1132,8 +1162,11 @@ export function CharacterSpells({
               onAdd={add}
               onClose={() => setBookOpen(false)}
               ownedNames={
-                new Set(character.sheetAbilities.map((a) => a.name.toLowerCase()))
+                new Set(character.sheetAbilities.filter(a => (classRoster?.length ?? 0) <= 1 || a.sourceClass === addClass).map((a) => a.name.toLowerCase()))
               }
+              learningClasses={classRoster ?? undefined}
+              learningClass={addClass}
+              onLearningClassChange={name => setAddClass(name as CoreClass | '')}
             />
           )}
           {adding && (
@@ -1166,6 +1199,7 @@ export function CharacterSpells({
                       title={r.description}
                     >
                       {r.name}
+                      <SpellCombatSupportBadge ability={r} />
                       <span className="muted">{tagFor(r as SheetAbility) || r.type}</span>
                     </button>
                   ))}

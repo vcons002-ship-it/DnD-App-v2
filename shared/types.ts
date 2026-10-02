@@ -24,7 +24,18 @@ export type Condition = {
    *  0 HP; healing removes exactly those (Prone excepted) and never a condition
    *  applied independently. Absent = applied by a person or a spell. */
   source?: 'down';
-  combatEffect?: { casterKind: 'pc' | 'monster'; casterId: string; spell: string; dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string; expiresAt?: number; expiresRound?: number; lastTick?: string; untilCasterTurn?: boolean; concentration?: boolean; nextAttackAdvantage?: boolean; slow?: boolean };
+  combatEffect?: {
+    casterKind: 'pc' | 'monster'; casterId: string; spell: string;
+    dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string;
+    expiresAt?: number; expiresRound?: number; lastTick?: string; untilCasterTurn?: boolean;
+    concentration?: boolean; nextAttackAdvantage?: boolean; slow?: boolean;
+    /** Casting identity and provenance keep repeated saves and cleanup scoped. */
+    castId?: string; parentConditionId?: string;
+    /** Haste's restricted extra action is independent of the normal action. */
+    hasteActionUsed?: HasteAction;
+    /** Lethargy lasts through the end of the affected creature's next turn. */
+    lethargyStartedTurn?: string; lethargyTurnStarted?: boolean;
+  };
 
 };
 
@@ -308,6 +319,12 @@ export type AbilityRoll = {
   castingAbility?: 'INT' | 'WIS' | 'CHA';
   /** Explicit healing addition; omitted preserves legacy spell/ability behavior. */
   healingBonus?: 'none' | 'spellcasting' | 'fighterLevel';
+  /** Temporary HP never heals wounds and does not stack with an existing pool. */
+  healingMode?: 'hitPoints' | 'temporary';
+  /** Reviewed spell attacks may add a flat casting modifier to damage, once. */
+  damageBonus?: 'spellcasting';
+  /** Maximum distinct creatures receiving one shared casting's effect. */
+  maxTargets?: number;
   /** Reviewed self-healing features do not use the selected friendly target. */
   healTarget?: 'self' | 'selected';
   /** Explicit save DC (monster stat blocks give one); when unset it's derived. */
@@ -1126,6 +1143,17 @@ export type RollEntry = {
   apply?: {
     amount: number;
     dc: number;
+    /** One healing roll can be assigned to several creatures without recasting. */
+    healing?: boolean;
+    maxTargets?: number;
+    damageBonus?: { label: string; value: number };
+    /** Server-created condition attached after a failed initial saving throw. */
+    effect?: {
+      casterKind: TokenKind; casterId: string; spell: string; condition: string;
+      eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
+      expiresRound?: number; castId: string; concentrationConditionId: string;
+      repeatSave?: string;
+    };
     orb?: OrbChain;
     save?: string;
     saveDamage?: 'none' | 'half';
@@ -1498,6 +1526,12 @@ export type CombatAttackPayload = {
   offhand?: boolean;
   /** Two-handed: use the weapon's `versatileDamage` dice. */
   twoHanded?: boolean;
+  /** Explicitly use the single attack allowed by Haste's additional action. */
+  hasteAction?: boolean;
+};
+export type HasteAction = 'attack' | 'dash' | 'disengage' | 'hide' | 'utilize';
+export type HasteActionPayload = {
+  kind: TokenKind; refId: string; action: Exclude<HasteAction, 'attack'>;
 };
 /** Roll a saving throw (DC vs ability) for one or more tokens. `advantageByToken`
  *  carries each creature's armed adv/dis toggle (keyed by token id). */
@@ -1515,6 +1549,8 @@ export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
 export type NoticePayload = {
   message: string;
+  /** Longer explanations can remain visible without extending ordinary notices. */
+  durationMs?: number;
   /** Set when this notice signals an AI operation finished — the client clears the
    *  "AI is working" spinner only on these, so an unrelated notice (a spell-slot
    *  warning, an undo) fired mid-request doesn't drop the banner early. */
@@ -1732,6 +1768,7 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'haste:action': (payload: HasteActionPayload) => void;
   /** Ready / Spent for a limited-use ability ("Recharge 5–6", "1/Day"). The DM
    *  resolves recharge manually; the creature's controller may flip it. */
   /** DM: the whole party takes a Short or Long Rest (2024 rules, shared/rests.ts). */

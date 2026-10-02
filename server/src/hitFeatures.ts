@@ -67,7 +67,8 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
     : effectKey==='stunning strike'?(passed?'Not stunned - slowed until the caster\'s next turn.':'Stunned until the caster\'s next turn.')
     : effectKey==='thunderous smite'?(passed?'Push and knockdown resisted.':'Knocked prone and pushed 10 ft.')
     : effectKey==='wrathful smite'?(passed?'Fear resisted or ended.':'Frightened - the effect continues.')
-    : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.') : undefined;
+    : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.')
+    : effectKey==='hold person'?(passed?'Hold Person ends - no longer Paralyzed.':'Hold Person continues - Paralyzed; save again at the end of the next turn.') : undefined;
   addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}${explanation?`. ${explanation}`:''}`,
     reveal:{kind:'check',title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
       toHit:[{label:`${ab} save modifiers`,value:total-out.face}],outcome:passed?'pass':'fail',effectOutcome:explanation,

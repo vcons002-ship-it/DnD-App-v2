@@ -15,6 +15,7 @@
   --gold: #f5c518; /* active turn, initiative rank, neutral disposition */
   --cyan-bright: #5ce1ff; /* 2024-PC cyan: temp HP, PC card tint */
   --ok: #3fae6b; /* calmer green for at-rest states (death saves) */
+  --stat-boost: #8fe3a6; /* live spell benefits against dark HUD/sheet surfaces */
   --bad: #c0444b; /* calmer red for at-rest states (death saves) */
   --chat-dm: #d8a657;
   --chat-player: #7daea3;
@@ -281,6 +282,9 @@ textarea:hover:not(:disabled) {
 }
 .sb-type { font-style: italic; color: var(--muted); }
 .sb-meta { display: flex; gap: 12px; margin: 4px 0; font-weight: 600; }
+.haste-stat-boost { color: var(--stat-boost); }
+.haste-save-indicator { font-size: .85em; font-weight: 700; }
+.player-fantasy .hud-orb-cluster .hud-armor.haste-stat-boost strong { color: var(--stat-boost); }
 .sb-abilities { display: flex; gap: 4px; margin: 8px 0; text-align: center; }
 .sb-ability { flex: 1; background: var(--panel); border-radius: 6px; padding: 3px 0; }
 .sb-ab-name { font-size: 10px; color: var(--muted); }

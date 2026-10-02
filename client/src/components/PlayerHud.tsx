@@ -14,6 +14,7 @@ import { CharacterSpells } from './CharacterSpells';
 import { CharacterChecks } from './CharacterChecks';
 import { ActionsTraitsView } from './StatBlock';
 import { effectiveAc } from '../../../shared/modifiers';
+import { activeHasteCondition } from '../../../shared/spellBuffs';
 import { resourceSigilPresentation } from '../../../shared/resourceSigils';
 import { multiclassClassSummary } from '../../../shared/multiclass';
 import { PlayerConditionControl } from './PlayerConditionControl';
@@ -149,7 +150,7 @@ function CharacterWindow({
               use 2014, 2024 or custom rules; check each description. No saved
               entries are converted.
             </p>
-            <CharacterSpells character={character} editable rollsElsewhere />
+            <CharacterSpells character={character} editable rollsElsewhere onCombatRequest={onClose} />
             <ActionsTraitsView
               actions={character.actions}
               abilities={character.abilities}
@@ -318,7 +319,7 @@ export function PlayerHud({
             <small>HIT POINTS</small>
           </span>
         </button>
-            <ArmorClassBadge value={effectiveAc(character) || character.armorClass} />
+            <ArmorClassBadge value={effectiveAc(character) || character.armorClass} hastened={!!activeHasteCondition(character)} />
             <OrbKillCount name={character.name} value={character.killCount ?? 0} />
         </div>
         <div className="hud-attached-panel hud-resource-wing">

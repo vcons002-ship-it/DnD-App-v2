@@ -1,10 +1,10 @@
 import { useId } from 'react';
 
 /** Engraved, beveled metal; the accessible AC value remains ordinary text. */
-export function ArmorClassBadge({ value }: { value: number }) {
+export function ArmorClassBadge({ value, hastened = false }: { value: number; hastened?: boolean }) {
   const id = useId();
   return (
-    <div className="hud-armor" aria-label={`Armor Class ${value}`} title="Armor Class">
+    <div className={`hud-armor${hastened ? ' haste-stat-boost' : ''}`} aria-label={`Armor Class ${value}`} title={hastened ? 'Armor Class · +2 from Haste' : 'Armor Class'}>
       <svg className="hud-shield-art" viewBox="0 0 44 54" aria-hidden="true">
         <defs>
           <linearGradient id={`${id}-rim`} x1="0" y1="0" x2=".8" y2="1">

@@ -6,7 +6,7 @@ import {rollSavingThrow} from '../../shared/combatMath.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import {shapeSaveFrame} from './liveSaveFrame.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
-import {createSession,createCharacter,createMap,setActiveMap,createToken,setResource,applyDamage,listRollLog,drainHpFx,getCharacter,addRollLog,endConcentration,setConcentration} from './sessions.js';
+import {createSession,createCharacter,createMap,setActiveMap,createToken,setResource,applyDamage,listRollLog,drainHpFx,getCharacter,addRollLog,endConcentration,setConcentration,setActiveTurn,setCombatRound} from './sessions.js';
 import {resolveAbilityRoll,resolveForcedSave} from './combat.js';
 import {getSpell} from './spells/srd.js';
 
@@ -34,7 +34,12 @@ describe('save and healing presentation',()=>{
    expect(getCharacter(caster.id)!.conditions.some(c=>c.label==='Haste')).toBe(true);
    setConcentration('pc',caster.id,'Hold Person');
    expect(getCharacter(caster.id)!.conditions.some(c=>c.label==='Haste')).toBe(false);
-   resolveAbilityRoll(s.id,'Vanec',getCharacter(caster.id)!,spell,3,undefined,target.id);
+   expect(resolveAbilityRoll(s.id,'Vanec',getCharacter(caster.id)!,spell,3,undefined,target.id)).toBe(false);
+   expect(getCharacter(ally.id)!.conditions.some(c=>c.label==='Haste')).toBe(false);
+   // Self-Haste ending causes lethargy; recover through the caster's next turn
+   // before attempting a new concentration spell.
+   setCombatRound(s.id,1);setActiveTurn(s.id,self.id);setActiveTurn(s.id,target.id);
+   expect(resolveAbilityRoll(s.id,'Vanec',getCharacter(caster.id)!,spell,3,undefined,target.id)).toBe(true);
    const elsewhere=createMap(s.id,{name:'Elsewhere'});setActiveMap(s.id,elsewhere.id);
    endConcentration('pc',caster.id,'ended');
    expect(getCharacter(ally.id)!.conditions.some(c=>c.label==='Haste')).toBe(false);

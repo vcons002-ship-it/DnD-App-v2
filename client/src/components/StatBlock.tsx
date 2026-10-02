@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { CHALLENGE_RATINGS, crLabel, creatureBaseline, scaleCreature, scaledCurrentHp, validCR, type CreatureBaseline } from '../../../shared/creatureScaling';
-import type { CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
+import type { Condition, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { signed } from '../../../shared/skills';
 import { type ModSource, effectiveAc, effectiveStats } from '../../../shared/modifiers';
 import { damageParts, weaponAttackBonusDetail } from '../../../shared/combatMath';
 import { DAMAGE_TYPES } from '../../../shared/damage';
+import { activeHasteCondition, effectiveSpeed, hasteAcBonus, speedIsZero } from '../../../shared/spellBuffs';
 
 /** Common 5e weapon tags, offered as add-suggestions in the tag editor. */
 const TAG_SUGGESTIONS = [
@@ -31,6 +32,7 @@ export type StatSheet = {
   tempHp: number;
   armorClass: number;
   speed: string;
+  conditions?: Condition[];
   stats: Record<string, number>;
   resistances: string[];
   /** Damage immunities — shown and edited beside resistances. */
@@ -406,6 +408,9 @@ function ReadView({
   // per-ability breakdown for the stat-math tooltip.
   const eff = effectiveStats(m as unknown as ModSource);
   const effAc = effectiveAc(m as unknown as ModSource) || m.armorClass;
+  const speed = effectiveSpeed(m);
+  const hastened = !!activeHasteCondition(m);
+  const hasteSpeedBoosted = hastened && !speedIsZero(m) && speed !== m.speed;
   // PCs (masteries passed) store dice-only damage; show it with the live ability
   // modifier added (finesse-aware). Monsters keep their pre-baked damage as-is.
   const isPc = masteries !== undefined;
@@ -456,9 +461,10 @@ function ReadView({
             actually defends with; the dot + tooltip show the math. */}
         {m.armorClass > 0 && (
           <span
+            className={hastened ? 'haste-stat-boost' : undefined}
             title={
               effAc !== m.armorClass
-                ? `AC ${effAc} = ${m.armorClass} base ${signed(effAc - m.armorClass)} from modifiers`
+                ? `AC ${effAc} = ${m.armorClass} base ${signed(effAc - m.armorClass - hasteAcBonus(m))} from modifiers${hasteAcBonus(m) ? ' +2 Haste' : ''}`
                 : undefined
             }
           >
@@ -470,7 +476,7 @@ function ReadView({
           HP {m.curHp}/{m.maxHp}
           {m.tempHp > 0 && <span className="temp-hp"> +{m.tempHp} temp</span>}
         </span>
-        {m.speed && <span>{m.speed}</span>}
+        {speed && <span className={hasteSpeedBoosted ? 'haste-stat-boost' : undefined} title={speed !== m.speed ? `Base speed: ${m.speed}${hasteSpeedBoosted ? ' · Doubled by Haste' : ''}` : undefined}>Speed {speed}</span>}
         {!!m.killCount && m.killCount > 0 && (
           <span className="kill-badge" title="Enemies this character has defeated">
             💀 {m.killCount}
@@ -549,13 +555,13 @@ function ReadView({
                       <button
                         type="button"
                         className="btn tiny"
-                        title={`${a} saving throw (adds proficiency if proficient)`}
+                        title={`${a} saving throw (adds proficiency if proficient)${a === 'DEX' && hastened ? ' · Haste: advantage' : ''}`}
                         onClick={() => {
                           onRollSave!(a);
                           setRollMenu(null);
                         }}
                       >
-                        🛡 Save
+                        🛡 Save {a === 'DEX' && hastened && <span className="haste-stat-boost haste-save-indicator">ADV</span>}
                       </button>
                     </div>
                   </>

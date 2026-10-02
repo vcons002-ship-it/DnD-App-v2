@@ -50,6 +50,8 @@ The relevant regression list includes:
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
 | DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
 | Multiclass entry, class-level choices, legacy splits, Pact spending, separate class counters | `multiclass-level-up` |
+| Spell support badges/filter, manual casts, safe player routing, summon levels/pools, class-scoped browse ownership | `spell-support` |
+| Haste ally targeting, live benefits, restricted extra action, lethargy, Hold Person repeat saves, and shared healing | `spell-buffs` |
 | 2D silhouettes and 3D base-only selection | `token-hit-region` |
 | Cache integrity and creature reveal tags | `asset-cache`, `encounter-tags` |
 
@@ -61,6 +63,24 @@ preservation. A level-up or a change to the recorded class split must not act as
 a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
+
+The static Spellbook compatibility report is regenerated with
+`npm run audit:spells -- --write`. It imports only catalogue data and the shared
+support registry; it does not connect to a save or an AI service. The
+`spellbook-compatibility` and `manualSpellCast` server suites cover catalogue-wide
+classification, preserved authored rolls, actual combat paths, manual casts
+without HP changes, selected Spellcasting/Pact spending, and concentration.
+Spell support is a capability flag, not a claim that every spell rule is automated.
+See [the complete audit](SPELLBOOK_COMBAT_SUPPORT.md).
+
+The `spellRevisions`, `spellHealing`, `spellBuffs`, and `holdPerson` server suites
+cover corrected 2024 formulas, exact legacy-profile matching, temporary HP versus
+healing, one shared healing roll with six distinct recipients, casting modifiers
+on critical damage, linked control cleanup, turn hooks, and extra-action authority.
+Older save-only Hold Person assertions now expect the supported paralysis effect;
+Prayer of Healing and Conjure tests retain their protection against executing
+unsafe healing or obsolete creature summoning. These are changed feature contracts,
+not disabled regressions. See [implementation scope](SPELL_FIXES_2024.md).
 
 These are recordings or environment-dependent demonstrations, not required CI tests. Their explicit switches keep Windows-only ffmpeg lookup, long walkthroughs, and external API calls out of the normal regression run.
 

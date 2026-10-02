@@ -33,6 +33,7 @@ tools/*
 !tools/preview-nine-resource-rings.cjs
 !tools/wall-benchmark.ts
 !tools/benchmark-walls.mts
+!tools/audit-spell-support.ts
 
 # Playwright e2e output
 test-results/

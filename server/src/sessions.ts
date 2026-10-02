@@ -845,6 +845,11 @@ export function clearTokensConditions(tokenIds: string[]): void {
     for (const id of tokenIds) {
       const t = getToken(id);
       if (!t) continue;
+      // Ending a concentration chip first releases effects on its targets,
+      // including creatures on other maps. Clearing the target's entire sheet
+      // remains the DM's deliberate removal of all its conditions.
+      const entity=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId);
+      if(entity?.conditions.some(c=>c.isConcentration)) endConcentration(t.kind,t.refId,'conditions cleared');
       const table = t.kind === 'pc' ? 'characters' : 'monsters';
       db.prepare(`UPDATE ${table} SET conditions = '[]' WHERE id = ?`).run(
         t.refId,
@@ -1269,7 +1274,7 @@ const DOWNED_LABELS = ['Unconscious', 'Incapacitated', 'Prone'];
 function addDownedConditions(conds: Condition[], round: number): Condition[] {
   const out = [...conds];
   for (const label of DOWNED_LABELS) {
-    if (out.some((c) => c.label.toLowerCase() === label.toLowerCase())) continue;
+    if (out.some((c) => c.label.toLowerCase() === label.toLowerCase() && !c.combatEffect?.parentConditionId)) continue;
     out.push({
       id: newId(),
       label,
@@ -3523,6 +3528,7 @@ export function applyDamage(
       'UPDATE characters SET cur_hp = ?, temp_hp = ?, death_successes = ?, death_failures = ?, conditions = ? WHERE id = ?',
     ).run(nextCur, nextTemp, ds.successes, ds.failures, JSON.stringify(conds), refId);
     if (droppedToZero) endConcentration('pc', refId, massive ? 'killed outright' : 'dropped to 0 HP');
+    if(nextCur===0) clearDeadControlEffects(kind,refId);
     return getCharacter(refId);
   }
   db.prepare(`UPDATE ${table} SET cur_hp = ?, temp_hp = ? WHERE id = ?`).run(
@@ -3531,7 +3537,15 @@ export function applyDamage(
     refId,
   );
   if (droppedToZero) endConcentration('monster', refId, 'dropped to 0 HP');
+  if(nextCur===0) clearDeadControlEffects(kind,refId);
   return getMonster(refId);
+}
+
+function clearDeadControlEffects(kind:TokenKind,refId:string):void {
+  const entity=kind==='pc'?getCharacter(refId):getMonster(refId);
+  if(!entity || !isDeadEntity(kind,entity)) return;
+  for(const c of entity?.conditions??[]) if(!c.isConcentration && !c.combatEffect?.parentConditionId &&
+    c.combatEffect?.spell.toLowerCase()==='hold person' && c.combatEffect.castId) clearCondition(kind,refId,c.id);
 }
 
 /** Set a creature's temporary-HP buffer to an exact amount (mirrors the
@@ -3565,7 +3579,9 @@ export function setCondition(
   const stamp = (c: Condition): Condition =>
     round > 0 && c.round === undefined ? { ...c, round } : c;
   const conditions = entity.conditions.filter(
-    (c) => c.label.toLowerCase() !== condition.label.toLowerCase(),
+    // Spell bundles from different sources coexist. Clearing one spell must not
+    // lift an independently applied Paralysis/Incapacitated condition.
+    (c) => condition.combatEffect ? c.id !== condition.id : c.label.toLowerCase() !== condition.label.toLowerCase(),
   );
   // A condition applied through here comes from a person or a spell, so it is
   // never engine-owned — drop any `source` a client sent, or healing could
@@ -3575,8 +3591,10 @@ export function setCondition(
   // Cascade the implied bundle (Unconscious → Incapacitated + Prone, etc.) so
   // applying one chip sets the conditions it always carries in 5e.
   for (const label of impliedConditions(condition.label)) {
-    if (!conditions.some((c) => c.label.toLowerCase() === label.toLowerCase()))
-      conditions.push(stamp({ id: newId(), label, aura: 'red', isConcentration: false, ...(condition.combatEffect ? {combatEffect:{...condition.combatEffect,phase:undefined,dice:undefined,save:undefined}} : {}) }));
+    const owned = condition.combatEffect ? conditions.some(c => c.label.toLowerCase() === label.toLowerCase() && c.combatEffect?.parentConditionId === condition.id)
+      : conditions.some(c => c.label.toLowerCase() === label.toLowerCase());
+    if (!owned)
+      conditions.push(stamp({ id: newId(), label, aura: 'red', isConcentration: false, ...(condition.combatEffect ? {combatEffect:{...condition.combatEffect,parentConditionId:condition.id,phase:undefined,dice:undefined,save:undefined}} : {}) }));
   }
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),
@@ -3627,10 +3645,22 @@ export function clearCondition(
     endConcentration(kind, refId, 'ended');
     return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   }
-  const conditions = entity.conditions.filter((c) => c.id !== conditionId);
+  const removed = entity.conditions.find(c => c.id === conditionId);
+  const conditions = entity.conditions.filter((c) => c.id !== conditionId && c.combatEffect?.parentConditionId !== conditionId);
   db.prepare(`UPDATE ${table} SET conditions = ? WHERE id = ?`).run(
     JSON.stringify(conditions),
     refId,
   );
+  if (removed?.label.trim().toLowerCase() === 'haste' && removed.combatEffect?.spell.trim().toLowerCase() === 'haste') {
+    const round = getSessionById(entity.sessionId)?.combatRound ?? 0;
+    const active = getSessionById(entity.sessionId)?.activeTurnTokenId ?? '';
+    setCondition(kind, refId, {id:newId(),label:'Haste lethargy',aura:'red',isConcentration:false,
+      customText:'Cannot move or take actions until after the end of your next turn.',
+      combatEffect:{casterKind:removed.combatEffect.casterKind,casterId:removed.combatEffect.casterId,spell:'Haste',
+        castId:removed.combatEffect.castId,phase:'end',lethargyStartedTurn:`${round}:${active}`,
+        lethargyTurnStarted:false,expiresAt:Date.now()+6000}});
+    addRollLog(entity.sessionId,{roller:'DM',label:'Haste ended',expr:'Haste',total:0,
+      detail:`${entity.name}: Haste ends. Cannot move or take actions until the end of their next turn.`});
+  }
   return kind === 'pc' ? getCharacter(refId) : getMonster(refId);
 }

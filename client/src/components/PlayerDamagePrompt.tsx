@@ -30,10 +30,11 @@ export function PlayerDamagePrompt() {
   const remainingAttacks = Math.max(0, attacks - (apply?.consumedAttacks ?? 0));
   const darts = apply?.darts ?? apply?.split?.length ?? 0;
   const remaining = Math.max(0, darts - (apply?.consumedDarts ?? 0));
+  const targetsLeft = apply?.maxTargets ? Math.max(0, apply.maxTargets - (apply.consumedTargets?.length ?? 0)) : undefined;
   const completed = (attacks > 0 && remainingAttacks === 0) || (darts > 0 && remaining === 0) ||
-    (apply?.targetMode === 'single' && !!apply.consumedTargets?.length);
+    (apply?.targetMode === 'single' && !!apply.consumedTargets?.length) || targetsLeft === 0;
   const saveOnly = !!apply?.save && apply.amount === 0 && !darts;
-  const alreadyApplied = !attacks && !darts && !apply?.save && !!apply?.consumedTargets?.length;
+  const alreadyApplied = !attacks && !darts && !apply?.save && !apply?.healing && !!apply?.consumedTargets?.length;
   const active = armed?.rollId === spell?.id && !!armed;
   const showSpell = !!spell && !!apply && !completed && (active || (!alreadyApplied && !dismissed.has(spell.id)));
   // Another client may finish a dart budget while this player is targeting.
@@ -66,11 +67,11 @@ export function PlayerDamagePrompt() {
         // Existing target clicks still roll each dart. Resuming a cast offers
         // only its server-reported remaining darts (no slot spend or new roll).
         splitTotal: darts ? remaining : undefined,
-      })} title={attacks ? 'Choose targets on the map; each click rolls one separate spell attack. Finish its damage before the next ray.' : darts ? 'Choose targets on the map; each click rolls one dart' : saveOnly ? 'Choose targets on the map to roll their saving throws. Apply spell effects manually.' : 'Choose targets on the map; use this cast’s existing damage and saving throws'}>
+      })} title={apply.healing ? 'Choose up to six creatures on the map; each receives the same healing roll without casting again.' : attacks ? 'Choose targets on the map; each click rolls one separate spell attack. Finish its damage before the next ray.' : darts ? 'Choose targets on the map; each click rolls one dart' : saveOnly ? apply.effect ? 'Choose targets on the map; failed saves apply the linked spell condition automatically.' : 'Choose targets on the map to roll their saving throws. Apply spell effects manually.' : 'Choose targets on the map; use this cast’s existing damage and saving throws'}>
         <span className="dp-dice" aria-hidden="true">✦</span>
         <span className="dp-text">
-          <strong>{active ? 'Choose targets on the map' : attacks ? 'Assign rays · roll attacks' : darts ? 'Roll damage · assign darts' : saveOnly ? 'Roll saving throws' : 'Apply spell damage'}</strong>
-          <span className="dp-sub">{spell.label || spell.expr}{attacks ? ` · ${remainingAttacks} attack${remainingAttacks === 1 ? '' : 's'} left` : darts ? ` · ${remaining} dart${remaining === 1 ? '' : 's'} left` : `${saveOnly ? '' : ` · ${apply.amount} damage`}${apply.save ? ` · DC ${apply.dc} ${apply.save}` : ''}`}</span>
+          <strong>{active ? 'Choose targets on the map' : apply.healing ? 'Apply healing' : attacks ? 'Assign rays · roll attacks' : darts ? 'Roll damage · assign darts' : saveOnly ? 'Roll saving throws' : 'Apply spell damage'}</strong>
+          <span className="dp-sub">{spell.label || spell.expr}{attacks ? ` · ${remainingAttacks} attack${remainingAttacks === 1 ? '' : 's'} left` : darts ? ` · ${remaining} dart${remaining === 1 ? '' : 's'} left` : `${saveOnly ? '' : ` · ${apply.amount} ${apply.healing ? 'HP' : 'damage'}`}${apply.save ? ` · DC ${apply.dc} ${apply.save}` : ''}${targetsLeft !== undefined ? ` · ${targetsLeft} targets left` : ''}`}</span>
         </span>
       </button>
       <button type="button" className="damage-prompt-dismiss" onClick={close} title="Close this prompt; the spell remains available in the roll log">{active ? 'Done' : 'Close'}</button>

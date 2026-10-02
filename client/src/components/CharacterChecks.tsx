@@ -2,6 +2,7 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { Character } from '../../../shared/types';
 import { abilityMod, proficiencyBonus, signed } from '../../../shared/skills';
 import { effectiveStats, saveExtra } from '../../../shared/modifiers';
+import { activeHasteCondition } from '../../../shared/spellBuffs';
 import { useStore } from '../state/socket';
 import { AdvantageToggle } from './AdvantageToggle';
 import { CharacterSkills } from './CharacterSkills';
@@ -37,6 +38,7 @@ export function CharacterChecks({
   const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const statButtons = useRef<Record<string, HTMLButtonElement | null>>({});
   const stats = effectiveStats(character).scores;
+  const hastened = !!activeHasteCondition(character);
   const prof = new Set(
     character.saveProficiencies.map((s) => s.trim().toUpperCase()),
   );
@@ -172,14 +174,14 @@ export function CharacterChecks({
                           type="button"
                           className="btn tiny"
                           aria-label={`Roll ${label} saving throw ${signed(saveBonus)}`}
-                          title={`${ability} saving throw${proficient ? ' (proficient)' : ''}`}
+                          title={`${ability} saving throw${proficient ? ' (proficient)' : ''}${ability === 'DEX' && hastened ? ' · Haste: advantage' : ''}`}
                           onClick={() => {
                             roll(ability, true);
                             setRollMenu(null);
                             statButtons.current[ability]?.focus();
                           }}
                         >
-                          🛡 Save <strong>{signed(saveBonus)}</strong>
+                          🛡 Save <strong>{signed(saveBonus)}</strong> {ability === 'DEX' && hastened && <span className="haste-stat-boost haste-save-indicator">ADV</span>}
                         </button>
                       </div>
                     </>
@@ -221,11 +223,12 @@ export function CharacterChecks({
                 disabled={score === undefined}
                 onClick={() => roll(ability, true)}
                 title={
-                  prof.has(ability) ? 'Proficient saving throw' : 'Saving throw'
+                  `${prof.has(ability) ? 'Proficient saving throw' : 'Saving throw'}${ability === 'DEX' && hastened ? ' · Haste: advantage' : ''}`
                 }
               >
                 Save {signed(save)}
                 {prof.has(ability) ? ' •' : ''}
+                {ability === 'DEX' && hastened && <span className="haste-stat-boost haste-save-indicator"> ADV</span>}
               </button>
             </div>
           );

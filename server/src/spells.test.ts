@@ -160,7 +160,9 @@ describe('local spell/ability database', () => {
     const mh = getSpell('Mage Hand');
     expect(mh?.summon?.icon).toBe('✋');
     expect(getSpell('Find Familiar')?.summon).toBeTruthy();
-    expect(getSpell('Conjure Animals')?.summon).toBeTruthy();
+    // 2024 Conjure spells create spirit areas; they do not spawn a creature.
+    expect(getSpell('Conjure Animals')?.summon).toBeUndefined();
+    expect(getSpell('Conjure Woodland Beings')?.summon).toBeUndefined();
     // A plain damage spell is NOT a summon.
     expect(getSpell('Fireball')?.summon).toBeUndefined();
   });

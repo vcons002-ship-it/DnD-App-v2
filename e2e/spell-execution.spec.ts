@@ -57,7 +57,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
   socket.emit('fog:setLayer', { mapId: map.id, layer: 'tokens', enabled: false });
   socket.emit('token:spawn', { mapId: map.id, kind: 'pc', refId: characterId, x: 300, y: 300 });
   if (spawnEnemies) {
-    socket.emit('monster:create', { name: 'Save target', maxHp: 200, armorClass: 1,
+    socket.emit('monster:create', { name: 'Save target', maxHp: 200, armorClass: 1, creatureType: 'Humanoid',
       stats: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }, disposition: 'enemy' });
     const template = (await snapshot()).monsterTemplates.find((monster) => monster.name === 'Save target')!;
     for (const x of [500, 600]) socket.emit('token:spawn', { mapId: map.id, kind: 'monster', refId: template.id, x, y: 300 });
@@ -107,7 +107,10 @@ test('single save casts at selected target; area save and damage apply independe
   let state = await f.snapshot();
   expect(state.characters.find((character) => character.id === f.characterId)!.sheetAbilities).toEqual(f.abilities);
   expect(state.characters.find((character) => character.id === f.characterId)!.spellSlots.L2.used).toBe(1);
-  expect(state.monsters.every((monster: any) => monster.curHp === 200 && monster.conditions.length === 0)).toBe(true);
+  expect(state.monsters.every((monster: any) => monster.curHp === 200)).toBe(true);
+  const firstSave = state.rollLog.at(-1)!;
+  expect(state.monsters.find(monster => monster.id === targets[1].refId)!.conditions.some(condition => condition.label === 'Paralyzed'))
+    .toBe(firstSave.reveal?.outcome === 'fail');
   await f.dismissReveal(state.rollLog.at(-1)!.id);
   await expect(page.locator('.spell-damage-dock')).toHaveCount(0);
 
@@ -130,7 +133,7 @@ test('single save casts at selected target; area save and damage apply independe
   const beforeDuplicate = (await f.snapshot()).rollLog.length;
   await f.clickToken(targets[0].id);
   expect((await f.snapshot()).rollLog).toHaveLength(beforeDuplicate);
-  await dock.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(dock).toHaveCount(0); // Both upcast recipients used; targeting ends automatically.
   expect((await f.snapshot()).characters.find((character) => character.id === f.characterId)!.spellSlots.L3.used).toBe(1);
 
   await f.row('Fireball').getByRole('button').click();
@@ -146,7 +149,9 @@ test('single save casts at selected target; area save and damage apply independe
     await f.clickToken(target.id);
     await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === fireball.id)?.apply?.consumedTargets,{timeout:LIVE_COMBAT_TIMEOUT})
       .toContain(target.id);
-    await f.dismissReveal((await f.snapshot()).rollLog.at(-1)!.id);
+    const resolution = (await f.snapshot()).rollLog.at(-1)!;
+    if (resolution.reveal) await f.dismissReveal(resolution.id);
+    else expect(resolution.detail).toMatch(/auto-fails \(paralyzed\).*FAIL/);
   }
   state = await f.snapshot();
   targets.forEach((target, index) => {

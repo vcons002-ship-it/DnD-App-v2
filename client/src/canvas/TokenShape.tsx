@@ -54,6 +54,8 @@ type Props = {
   viewRotation?: number;
   miniatureDiameterFt?: number;
   movementWalls?: readonly MapWall[];
+  /** A hint, rather than a hard cap; the table handles accumulated movement. */
+  movementAllowanceFt?: number;
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -96,6 +98,7 @@ function TokenShapeInner({
   viewRotation = 0,
   miniatureDiameterFt,
   movementWalls,
+  movementAllowanceFt,
   onSelect,
   onActivate,
   onMove,
@@ -217,7 +220,9 @@ function TokenShapeInner({
     previewArrow.current?.rotation(-facing*180/Math.PI);
     onDragPreview?.(token,visible ? {x:cx,y:cy,facing} : null);
     if (distText.current) {
-      distText.current.text(`${moveDistanceFt(cx-origin.x,cy-origin.y,pxPerFoot)} ft`);
+      const distance = moveDistanceFt(cx-origin.x,cy-origin.y,pxPerFoot);
+      distText.current.text(`${distance} ft${movementAllowanceFt === undefined ? '' : ` / ${movementAllowanceFt} ft`}`);
+      distText.current.fill(movementAllowanceFt !== undefined && distance > movementAllowanceFt ? '#ff9276' : '#ffd21a');
       distText.current.position({x:(origin.x+cx)/2,y:(origin.y+cy)/2-distText.current.fontSize()*1.1});
     }
     dragOverlay.current?.getLayer()?.batchDraw();
@@ -816,6 +821,7 @@ export const TokenShape = memo(
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.movementWalls === n.movementWalls &&
+    p.movementAllowanceFt === n.movementAllowanceFt &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&
