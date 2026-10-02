@@ -1,8 +1,8 @@
-import {AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CurvePath,CylinderGeometry,DoubleSide,Group,LineCurve3,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
+import {AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
 import {spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
-import {createLinkedSpellGeometry} from './linkedSpellGeometry';
+import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 
 export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;persistent?:boolean};
 type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:MeshBasicMaterial[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
@@ -23,9 +23,10 @@ export function createSpellImpactEffects(scene:Scene){
     const root=new Group();root.name=`spell-impact-${style.kind}`;
     const body=new MeshBasicMaterial({color:style.color,transparent:true,depthWrite:false,toneMapped:false});
     const bright=body.clone();bright.blending=AdditiveBlending;
+    const white=bright.clone();white.color.set('#ffffff');
     const haloMaterial=new MeshBasicMaterial({color:style.color,map:glow,transparent:true,blending:AdditiveBlending,side:DoubleSide,depthWrite:false,toneMapped:false});
     const halo=new Mesh(plane,haloMaterial);halo.rotation.x=-Math.PI/2;halo.position.y=.08;root.add(halo);
-    const shape=shapes.build(style,body,bright);root.add(shape.root);
+    const shape=shapes.build(style,body,bright,white);root.add(shape.root);
     const arrows:Group[]=[],vines:Mesh[]=[],sparks:Mesh[]=[];
     const arrowCount=input.event.areaWidthFt?32:style.projectiles??14;
     if(style.kind==='arrows')for(let i=0;i<arrowCount;i++){
@@ -47,9 +48,7 @@ export function createSpellImpactEffects(scene:Scene){
     }
     let bolt:Mesh|undefined;
     if((style.kind==='burst'||style.kind==='storm')&&(input.event.damageType==='lightning'||/witch bolt|shocking grasp|call lightning/i.test(input.event.spell??''))){
-      const path=new CurvePath<Vector3>();
-      const points=[new Vector3(.1,2.1,0),new Vector3(-.17,1.72,.06),new Vector3(.19,1.4,0),new Vector3(-.09,.94,-.04),new Vector3(.14,.65,0),new Vector3(0,.12,0)];
-      for(let i=1;i<points.length;i++)path.add(new LineCurve3(points[i-1],points[i]));
+      const path=lightningStrikePath();
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
@@ -57,7 +56,7 @@ export function createSpellImpactEffects(scene:Scene){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
-    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:now,root,materials:[body,bright,haloMaterial],arrows,vines,sparks,bolt,halo,shape});
+    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:now,root,materials:[body,bright,haloMaterial,white],arrows,vines,sparks,bolt,halo,shape});
   }
   return {
     sync(inputs:readonly SpellImpact[],now:number){
@@ -78,6 +77,7 @@ export function createSpellImpactEffects(scene:Scene){
         const fade=e.input.persistent?persistentGlow:spellLightEnvelope(age,e.style.duration),emission=e.input.persistent?persistentGlow:spellEmissionEnvelope(age,e.style);
         e.materials[0].opacity=fade*(reduced?.5:.85);e.materials[1].opacity=emission*(reduced?.4:1);
         e.materials[2].opacity=e.style.kind==='mark'?emission*.4:0;
+        e.materials[3].opacity=emission*(reduced?.4:1);
         e.halo.scale.setScalar(e.style.kind==='mark'?1.6:2.4);e.halo.rotation.z=reduced?0:t*.7;
         const areaScale=e.input.event.areaWidthFt?e.input.event.areaWidthFt*pixelsPerFoot/size:0;
         e.shape.update(t,!!e.input.persistent,reduced,areaScale);

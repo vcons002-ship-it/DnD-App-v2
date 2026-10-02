@@ -29,16 +29,27 @@ test('server live fireball and manual weapon damage match the streamed faces',as
  {
  await dm.locator('.compact-player-combat').getByRole('combobox').last().selectOption('3');
  await dm.locator('.compact-player-combat').getByRole('button',{name:/Fireball/}).click();
+ const area=dm.getByRole('region',{name:'Place spell area'});await expect(area).toBeVisible();
+ // Place through the visible measured footprint on the empty lower map. The
+ // separate spell-execution regression checks actual automatic occupants.
+ const p=await dm.evaluate(()=>{
+   const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),node=stage.find('.token')[0],point=node.getLayer().getAbsoluteTransform().point({x:100,y:100}),bounds=stage.container().getBoundingClientRect();
+   const v=new DOMPoint(point.x-stage.width()/2,point.y-stage.height()/2).matrixTransform(new DOMMatrix(getComputedStyle(node.getLayer().getNativeCanvasElement()).transform));
+   return {x:bounds.left+stage.width()/2+v.x/v.w,y:bounds.top+stage.height()/2+v.y/v.w};
+ });
+ await dm.mouse.move(p.x,p.y);await dm.mouse.click(p.x,p.y);
+ await area.getByRole('button',{name:/Confirm area/}).click();
  await expect(dm.locator('[data-live-dice="true"]')).toBeVisible();
  await expect(dm.locator('[data-live-dice="true"] .tray-die-result')).toHaveCount(8);
  expect((await snap()).rollLog.filter((r:any)=>r.label==='Fireball')).toHaveLength(0);
  await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
  const result=(await snap()).rollLog.find((r:any)=>r.label==='Fireball');expect(result.reveal.physical).toBe(true);
- const final=liveFrames.findLast((f:any)=>f.done);expect(final).toBeTruthy();expect(final.values).toEqual(result.reveal.damageDice[0].faces);
+ const final=liveFrames.findLast((f:any)=>f.done&&f.sides.length===8);expect(final).toBeTruthy();expect(final.values).toEqual(result.reveal.damageDice[0].faces);
  expect(liveFrames[0].done).toBe(false);expect(liveFrames[0].values).toEqual(Array(8).fill(null));
  }
  // A real weapon hit waits for the player's damage button, then commits once.
  socket.emit('character:update',{characterId:vanec.id,weapons:[{name:'Quarterstaff',kind:'melee',damage:'1d6',damageType:'bludgeoning',attackBonus:100}]});await snap();
+ const hpBeforeWeapon=(await snap()).monsters.find((m:any)=>m.name.startsWith('Goblin')).curHp;
  await dm.keyboard.press('Escape');
  {
    let hit:any;
@@ -52,14 +63,14 @@ test('server live fireball and manual weapon damage match the streamed faces',as
      if(!hit)await dm.keyboard.press('Escape');
    }
    expect(hit).toBeTruthy();const before=await snap();const enemy=before.monsters.find((m:any)=>m.id===hit.pending.target.refId);
-   expect(hit.pending.dice).toEqual([]);expect(enemy.curHp).toBe(100);
+   expect(hit.pending.dice).toEqual([]);expect(enemy.curHp).toBe(hpBeforeWeapon);
    await dm.waitForTimeout(1500);await dm.keyboard.press('Escape');
    await dm.locator('.damage-prompt-btn').click();
    await expect(dm.locator('[data-live-dice="true"]')).toBeVisible();
-   expect((await snap()).monsters.find((m:any)=>m.id===enemy.id).curHp).toBe(100);
+   expect((await snap()).monsters.find((m:any)=>m.id===enemy.id).curHp).toBe(hpBeforeWeapon);
    await expect.poll(async()=> (await snap()).rollLog.find((r:any)=>r.id===hit.id)?.pending?.done,{timeout:30000}).toBe(true);
    const final=await snap();const damage=final.rollLog.findLast((r:any)=>r.label==='Damage');
-   expect(final.monsters.find((m:any)=>m.id===enemy.id).curHp).toBe(100-damage.total);
+   expect(final.monsters.find((m:any)=>m.id===enemy.id).curHp).toBe(hpBeforeWeapon-damage.total);
    expect(damage.reveal.physical).toBe(true);
  }
  socket.disconnect();

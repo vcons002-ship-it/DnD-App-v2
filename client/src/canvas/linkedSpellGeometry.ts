@@ -1,6 +1,14 @@
-import {BoxGeometry,ConeGeometry,Group,Mesh,MeshBasicMaterial,SphereGeometry,TorusGeometry,Vector3,type BufferGeometry} from 'three';
+import {BoxGeometry,ConeGeometry,CurvePath,LineCurve3,TubeGeometry,Group,Mesh,MeshBasicMaterial,SphereGeometry,TorusGeometry,Vector3,type BufferGeometry} from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import type {SpellImpactStyle} from '../../../shared/spellImpact';
+
+/** Same jagged strike used for ordinary lightning damage, not falling shards. */
+export function lightningStrikePath(){
+  const path=new CurvePath<Vector3>();
+  const points=[new Vector3(.1,2.1,0),new Vector3(-.17,1.72,.06),new Vector3(.19,1.4,0),new Vector3(-.09,.94,-.04),new Vector3(.14,.65,0),new Vector3(0,.12,0)];
+  for(let i=1;i<points.length;i++)path.add(new LineCurve3(points[i-1],points[i]));
+  return path;
+}
 
 /** Reuses the impact renderer's luminous materials. Geometry is shared by every
  * instance; the spell only chooses its shape and motion, never a new art style. */
@@ -8,6 +16,8 @@ export function createLinkedSpellGeometry(){
   const link=new TorusGeometry(.047,.009,4,9),crystal=new ConeGeometry(.09,.4,5),
     drop=new SphereGeometry(.075,7,5),blade=new BoxGeometry(.075,.85,.025),guard=new BoxGeometry(.36,.055,.045);
   const geometries:BufferGeometry[]=[link,crystal,drop,blade,guard];
+  const bolt=new TubeGeometry(lightningStrikePath(),30,.023,5,false),core=new TubeGeometry(lightningStrikePath(),30,.008,5,false);
+  geometries.push(bolt,core);
   const dagger=new ConeGeometry(.065,.48,4),auraArc=new TorusGeometry(.44,.012,5,36,Math.PI*1.45);
   geometries.push(dagger,auraArc);
   const chainLinks:BufferGeometry[]=[],placement=new Mesh(link);
@@ -20,10 +30,12 @@ export function createLinkedSpellGeometry(){
     placement.position.set(side?.39:-.39,.3+i*.1,0);placement.rotation.set(0,i%2?Math.PI/2:0,0);place();
   }
   const chains=mergeGeometries(chainLinks)!;chainLinks.forEach(g=>g.dispose());geometries.push(chains);
-  function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial){
+  function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white=bright){
     const root=new Group(),parts:Mesh[]=[];
     const add=(geometry:BufferGeometry,material=bright)=>{const m=new Mesh(geometry,material);root.add(m);parts.push(m);return m;};
-    if(style.kind==='chains'){
+    if(style.kind==='bolts'){
+      for(let i=0;i<14;i++){const m=add(bolt);m.add(new Mesh(core,white));m.userData={index:i,emitterPoint:new Vector3(0,1,0)};}
+    }else if(style.kind==='chains'){
       // Three interlocking chains surround the body, with vertical chains joining
       // them. They stay close enough to read as restraint rather than a dome.
       const m=add(chains);m.userData.emitterPoint=new Vector3(.39,.65,0);
@@ -50,6 +62,13 @@ export function createLinkedSpellGeometry(){
       }
     }
     return {root,parts,update(t:number,persistent:boolean,reduced:boolean,areaScale:number){
+      if(style.kind==='bolts'){
+        parts.forEach((m,i)=>{const angle=i*2.399963,r=i===0?0:Math.sqrt(i/13)*.46*(areaScale||2);
+          m.position.set(Math.cos(angle)*r,0,Math.sin(angle)*r);m.rotation.y=angle;
+          m.scale.setScalar(.85+(i%3)*.09);
+          m.visible=reduced||t>=(i%4)*.035&&((t+(i%3)*.08)% .26)<.20;
+        });return;
+      }
       if(style.kind==='chains'){root.rotation.y=reduced?0:Math.sin(t*.7)*.025;return;}
       if(style.kind==='weapon'){
         root.position.set(.45,0,0);root.rotation.z=reduced?-.15:persistent?-.15+Math.sin(t*1.5)*.08:-.85+Math.sin(Math.min(1,t*1.8)*Math.PI)*1.3;return;

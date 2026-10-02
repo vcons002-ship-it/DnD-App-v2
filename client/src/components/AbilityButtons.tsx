@@ -1,4 +1,5 @@
 import {linkedSpellProfile,spellKey} from '../../../shared/linkedSpells';
+import {spellAreaFor} from '../../../shared/spellAreas';
 import { hitFeature, markSpell, abilityKey } from '../../../shared/hitFeatures';
 import { useState } from 'react';
 import type {
@@ -107,7 +108,8 @@ export function AbilityButtons({
         const multiple = isMultiTargetSpell(a, level);
         const saveOnly = execution.roll?.kind === 'save' && !execution.roll.dice?.trim();
         const selfSpell=linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name));
-        const workflow = selfSpell ? spellKey(a.name)==='mirror image' ? 'Create three duplicates of yourself.' : 'Create the blade, then attack using its Active spell actions button.' : manualCast ? 'Record this casting and spend its spell slot; resolve its effects manually.' : multiple
+        const area=spellAreaFor(a,level);
+          const workflow = area ? 'Place the measured spell area, review affected bases, then confirm. Saves roll together; damage applies automatically. Ongoing or manual effects stay with the DM.' : selfSpell ? spellKey(a.name)==='mirror image' ? 'Create three duplicates of yourself.' : 'Create the blade, then attack using its Active spell actions button.' : manualCast ? 'Record this casting and spend its spell slot; resolve its effects manually.' : multiple
           ? execution.roll?.kind === 'attack' ? 'Cast once, then choose a target for each separate spell attack.' : saveOnly ? 'Cast, then choose targets to roll saving throws.' : 'Roll once, then apply to targets on the map.'
           : execution.roll?.healTarget === 'self' ? 'Restore your own health.'
             : saveOnly ? 'Cast and force the selected target to roll its saving throw.' : 'Cast at the selected target.';
@@ -118,7 +120,7 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!!spellActionBlock(caster) || (!manualCast && !menu && !selfSpell && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
+            disabled={!!spellActionBlock(caster) || (!area && !manualCast && !menu && !selfSpell && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
             onClick={() => cast(a)}
           >
             {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}

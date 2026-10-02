@@ -13,3 +13,5 @@ export type LiveDiceFrame = {
 };
 /** Shared presentation cadence; physics still advances live with fixed steps. */
 export const LIVE_DICE_PRESENTATION_RATE=.75;
+/** Wall-clock wait per throw, including the slower presentation cadence. */
+export const LIVE_DICE_REROLL_WAIT_SECONDS=4;

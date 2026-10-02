@@ -2,7 +2,7 @@ import {materializeLiveDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
-import { rollDice, rollDicePool, withDiceMetadata } from '../../shared/dice.js';
+import { rollDice, rollDicePool, withDiceMetadata, usingPhysicalDice } from '../../shared/dice.js';
 import { hasLineOfSight } from '../../shared/mapWalls.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import { abilityMod, proficiencyBonus } from '../../shared/skills.js';
@@ -128,13 +128,13 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
       addRollLog(sid,{roller:entity.name,label:'Hail of Thorns: DEX save',expr:'DEX save',total,hpNote,
         hideMods:t.kind==='monster'&&getMonster(t.refId)?.disposition!=='friendly',
         detail:`${entity.name}: DEX save ${total} vs DC ${dc}: ${passed?'PASS (half damage)':'FAIL'}; ${amount} piercing damage.`,
-        reveal:{kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',effectOutcome:`${amount} piercing damage${passed?' (save for half)':''}.`,outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
+        reveal:{presentedLive:usingPhysicalDice(),kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',effectOutcome:`${amount} piercing damage${passed?' (save for half)':''}.`,outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
           toHit:[{label:'DEX save modifiers',value:total-out.face}],visibilityTarget:{kind:t.kind,refId:t.refId}}});
     }
     queueSpellImpact(sid,target.kind,target.refId,'Hail of Thorns',impactId,Math.max(map.feetPerSquare,target.widthFt)+10);
     addRollLog(sid,{roller,label:'Hail of Thorns',expr:damage.expr,total:damage.total,
       detail:`${ch.name}: Hail of Thorns (${damage.expr}) → ${victim.name} and creatures within 5 ft. ${damage.detail}. DEX save for half.`,
-      reveal:{kind:'damage',attacker:roller,target:`${victim.name} · 5 ft burst`,outcome:'none',damage:damage.total,damageType:'piercing',
+      reveal:{presentedLive:usingPhysicalDice(),kind:'damage',attacker:roller,target:`${victim.name} · 5 ft burst`,outcome:'none',damage:damage.total,damageType:'piercing',
         damageDice:[{label:'Hail of Thorns',value:damage.total,faces:damage.rolls,diceExpression:damage.expr}]}},impactId);
     return {ok:true};
   }

@@ -12,6 +12,7 @@ const groups:Record<string,string[]>={
   repeat:['Vampiric Touch','Witch Bolt','Spiritual Weapon','Flame Blade','Heat Metal','Call Lightning'],
   elemental:['Ice Knife',"Melf's Acid Arrow",'Sorcerous Burst','Ice Storm','Flame Strike','Meteor Swarm'],
   riders:['Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'],
+  areas:['Fireball','Burning Hands','Lightning Bolt','Thunderwave','Mass Cure Wounds','Fog Cloud','Fire Storm'],
 };
 test.skip(process.env.DND_LINKED_VIDEO!=='1','Opt-in recording with real dice in a disposable campaign');
 test.beforeAll(()=>{
@@ -24,6 +25,10 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   test.setTimeout(1200000);
   const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Linked spells — isolated training arena'}})).json();
   const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
+  const liveRolls=new Map<string,unknown>();
+  socket.on('dice:frame',f=>{
+    if(f.done)liveRolls.set(f.id,{label:f.label,sides:f.sides,values:f.values,rerolls:f.rerolls,elapsed:f.elapsed,saveDice:f.saveDice});
+  });
   const state=async():Promise<StateSnapshot>=>{const r=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
   const initial=await state(),caster=initial.characters.find(c=>c.name==='Vanec')!;
   const catalog=(await(await request.get('/api/spells/all')).json()).results as SheetAbility[];
@@ -40,7 +45,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dusk',weather:'none',mist:false,shadows:true,lights:[]}});
   socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:caster.id,x:610,y:575});
   for(const [name,modelType,x,y] of [['Bugbear guard','bugbear',665,535],['Goblin scout','goblin',705,505],['Skeleton','skeleton',755,560]] as const){
-    socket.emit('monster:create',{name,modelType,maxHp:5000,armorClass:8,disposition:'enemy',creatureType:'Humanoid',stats:{STR:10,DEX:10,CON:10,INT:10,WIS:1,CHA:10},weapons:[{name:'Practice sword',kind:'melee',damage:'1d6',attackBonus:30}]});
+    socket.emit('monster:create',{name,modelType,maxHp:5000,armorClass:8,disposition:'enemy',creatureType:'Humanoid',stats:{STR:10,DEX:16,CON:14,INT:10,WIS:1,CHA:10},weapons:[{name:'Practice sword',kind:'melee',damage:'1d6',attackBonus:30}]});
     const template=(await state()).monsterTemplates.find(m=>m.name===name)!;
     socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x,y});
   }
@@ -62,14 +67,36 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   const chapter=async(title:string,note:string)=>{current=title;chapters.push({title,note,time:(Date.now()-started)/1000});console.log(group,title);await page.waitForTimeout(600);};
   const click=async(locator:Locator)=>{await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();expect(b).toBeTruthy();await page.mouse.move(b!.x+b!.width/2,b!.y+b!.height/2,{steps:18});await page.waitForTimeout(350);await locator.click();};
   const layer=page.getByTestId('miniature-layer'),combat=page.locator('.compact-player-combat');
+  const placeArea=async()=>{
+    const region=page.getByRole('region',{name:'Place spell area'});if(!await region.isVisible())return;
+    const p=await page.evaluate(id=>{
+      const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id));
+      const n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();
+      const v=new DOMPoint(p.x-s.width()/2,p.y-s.height()/2).matrixTransform(new DOMMatrix(getComputedStyle(n.getLayer().getNativeCanvasElement()).transform));
+      return {x:r.left+s.width()/2+v.x/v.w,y:r.top+s.height()/2+v.y/v.w};
+    },foe.id);
+    await page.mouse.move(p.x,p.y,{steps:20});await page.waitForTimeout(700);await page.mouse.click(p.x,p.y);
+    await page.screenshot({path:info.outputPath('spell-area-placement.png')});await page.waitForTimeout(700);
+    await click(region.getByRole('button',{name:/Confirm area/}));
+  };
   const settle=async()=>{
     // Actual server physics completes before the final result is dismissed. Keep
     // successive save/damage reveals, and let the app release each map impact.
-    const deadline=Date.now()+180000;let quiet=0;
+    const deadline=Date.now()+180000;let quiet=0;const captured=new Set<string>();
     while(Date.now()<deadline){
-      if(await page.locator('[data-live-dice="true"]').count()){quiet=0;await page.waitForTimeout(300);continue;}
+      if(await page.locator('[data-live-dice="true"]').count()){
+        const outcomes=page.locator('.tray-save-outcome[data-bonus-phase="complete"]');
+        const rollId=await page.locator('[data-live-dice="true"]').getAttribute('data-roll-id');
+        if(await outcomes.count()&&!captured.has(rollId!)){
+          expect(await outcomes.first().innerText()).toMatch(/Save bonus|Initiative bonus/);
+          await page.screenshot({path:info.outputPath('grouped-saves-bonuses.png')});
+          captured.add(rollId!);
+        }
+        quiet=0;await page.waitForTimeout(300);continue;
+      }
       const reveal=page.locator('.roll-reveal');
       if(await reveal.isVisible()){
+        if(current.startsWith('Call Lightning'))expect(await reveal.innerText()).not.toMatch(/Saving Throw/);
         await expect(reveal).toHaveAttribute('data-impact-ready','true',{timeout:45000});
         await page.waitForTimeout(500);await page.keyboard.press('Escape');quiet=0;
       }else if(++quiet>=6)break;
@@ -81,6 +108,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   const cast=async(name:string)=>{
     const before=(await state()).rollLog.length;
     await click(combat.getByRole('button',{name:new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))}).first());
+    await placeArea();
     await expect.poll(async()=>(await state()).rollLog.length,{timeout:120000}).toBeGreaterThan(before);
     await settle();
     const damage=page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn');
@@ -141,7 +169,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
       if(await repeat.isVisible()){
         await chapter(`${name}: repeat action`,'Combat → Active spell actions. Reuse the spell with its Magic or Bonus action; no additional slot is spent.');
         const slots=(await state()).characters.find(c=>c.id===caster.id)!.spellSlots;
-        await click(repeat);await settle();
+        await click(repeat);await placeArea();await settle();
         const damage=page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn');if(await damage.isVisible()){await click(damage);await settle();}
         expect((await state()).characters.find(c=>c.id===caster.id)!.spellSlots).toEqual(slots);
       }
@@ -149,7 +177,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
         await expect(layer).toHaveAttribute('data-spell-impact-kinds',/aura/);await page.waitForTimeout(1500);
         await page.screenshot({path:info.outputPath('vampiric-touch-aura.png')});
       }
-      if(['Ice Storm','Flame Strike','Meteor Swarm'].includes(name)){
+      if(['Ice Storm','Flame Strike','Meteor Swarm'].includes(name)&&await page.getByRole('button',{name:/Apply spell damage/}).first().isVisible()){
         await chapter(`${name}: apply to targets`,'Spell prompt → Apply spell damage. Click each affected base once; each creature makes its own DEX saving throw.');
         await click(page.getByRole('button',{name:/Apply spell damage/}).first());
         for(const target of (await state()).tokens.filter(t=>t.kind==='monster')){
@@ -187,6 +215,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
     const frameSamples=await page.evaluate(()=>(window as any).captureFrameSamples).catch(()=>[]);
     writeFileSync(info.outputPath('performance.json'),JSON.stringify({gpu:gpu.gpu,frameSamples},null,2));
     writeFileSync(info.outputPath('chapters.json'),JSON.stringify(chapters,null,2));writeFileSync(info.outputPath('evidence.json'),JSON.stringify({errors,evidence},null,2));
+    writeFileSync(info.outputPath('live-rolls.json'),JSON.stringify([...liveRolls.values()],null,2));
     await context.close();socket.disconnect();if(page.video())console.log('VIDEO',await page.video()!.path());
   }
 });

@@ -308,6 +308,8 @@ export type AbilityRecharge = { min?: number; rest?: 'short' | 'long'; spent?: b
  * above it (or, for cantrips at level 0, per caster-level tier).
  */
 export type AbilityRoll = {
+  /** Ground footprint for an authored area spell or creature ability. */
+  area?: import('./spellAreas.js').SpellArea;
   /** Original caster tier retained when CR damage is scaled independently. */
   crCasterLevel?: number;
   /** Explicit monster spell attack bonus, including CR scaling. */
@@ -995,6 +997,8 @@ export type Measurement = {
   tokenId?: string;
   /** Display name of who drew it (the client colours it via `rollerColor`). */
   createdBy: string;
+  /** Exact spell footprint; legacy hand-drawn measurements keep their behavior. */
+  spellArea?: {spec:import('./spellAreas.js').SpellArea;angle:number};
 };
 
 /** An entry in the session's shared dice roll log. */
@@ -1030,6 +1034,8 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** This result (including bonuses) was already presented in the live group tray. */
+  presentedLive?: boolean;
   /** Plain-language effect result alongside the target's save result. */
   effectOutcome?: string;
   /** Automatic area saves are visible only to viewers who can see this creature. */
@@ -1476,6 +1482,7 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  area?: import('./spellAreas.js').SpellAreaPlacement;
   kind: TokenKind;
   refId: string;
   abilityId: string;
@@ -1548,7 +1555,7 @@ export type HasteAction = 'attack' | 'dash' | 'disengage' | 'hide' | 'utilize';
 export type HasteActionPayload = {
   kind: TokenKind; refId: string; action: Exclude<HasteAction, 'attack'>;
 };
-export type SpellRepeatPayload = {kind:TokenKind;refId:string;conditionId:string;targetTokenId?:string;advantage?:'adv'|'dis'};
+export type SpellRepeatPayload = {kind:TokenKind;refId:string;conditionId:string;targetTokenId?:string;advantage?:'adv'|'dis';area?:import('./spellAreas.js').SpellAreaPlacement};
 /** Roll a saving throw (DC vs ability) for one or more tokens. `advantageByToken`
  *  carries each creature's armed adv/dis toggle (keyed by token id). */
 export type CombatSavePayload = {

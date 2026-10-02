@@ -6,6 +6,21 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Place catalogue spell areas before casting: measured circles, cylinders,
+  emanations, cones, lines, cubes and multiple areas; preview affected bases,
+  confirm once, and resolve supported initial effects with grouped saves.
+- [x] Include untagged area fields/utility spells; preserve rotated persistent
+  footprints and line widths. Ongoing entry/turn effects retain explicit manual
+  adjudication. See [spell area workflow](docs/SPELL_AREAS.md).
+- [x] Resolve Ice Storm's Bludgeoning and Cold pools independently against
+  saves, resistance and immunity, then apply their combined HP damage once.
+- [x] Accept readable dice that remain stationary despite tiny resting contact
+  jitter; rethrow genuinely unresolved dice after four presentation seconds.
+- [x] Show grouped save bonuses, equations and PASS/FAIL together before HP
+  changes; keep individual log entries without replaying separate save windows.
+- [x] Give Call Lightning fourteen jagged, white-cored strikes spread across
+  its area, with existing spell lighting; Ice Storm keeps its falling shards.
+
 - [x] Replace Phantasmal Killer wisps with sharp spectral blades; Vampiric
   Touch keeps a red caster aura and red healing flare, linked to concentration.
 - [x] Spiritual Weapon summons a floating 3D force: owner-controlled movement,

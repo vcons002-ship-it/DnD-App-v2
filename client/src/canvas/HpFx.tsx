@@ -302,6 +302,10 @@ function BurstFx({
   const radius = (token.widthFt * pxPerFoot) / 2;
   const { x: cx, y: cy } = token;
   const spell=spellImpactStyle(floater);
+  if(spell?.kind==='bolts')return !spellEffects3D?<>
+    {Array.from({length:14},(_,i)=>{const a=i*2.399963,r=i===0?0:Math.sqrt(i/13)*(floater.areaWidthFt??10)*pxPerFoot*.46;
+      return <LightningBolt key={i} cx={cx+Math.cos(a)*r} cy={cy+Math.sin(a)*r} radius={Math.max(12,radius*.7)}/>;})}
+  </>:null;
   if(spell&&spell.kind!=='burst')return <>
     {!spellEffects3D&&<><RingPulse cx={cx} cy={cy} radius={radius} color={spell.color}/>
       <Particles cx={cx} cy={cy} spread={radius*1.4} palette={[spell.color,'#dcffbd']} count={12} mode="rise"/></>}

@@ -64,6 +64,13 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
 
+Measured-area contracts live in `areaSpells`, `spell-execution` and
+`live-dice-workflow`: place/confirm before casting, grouped saves and automatic
+occupants, no repeated apply clicks, and cancellation without spending a slot.
+`linked-spells-video` supports `DND_LINKED_VIDEO=1` and an optional pipe-separated
+`DND_LINKED_SPELLS` list for real-physics demonstrations; its `areas` group covers
+circles, cones, lines, cubes, selective healing and persistent utility areas.
+
 The static Spellbook compatibility report is regenerated with
 `npm run audit:spells -- --write`. It imports only catalogue data and the shared
 support registry; it does not connect to a save or an AI service. The

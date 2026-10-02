@@ -1864,6 +1864,9 @@ export function setRollApply(id: string, apply: RollEntry['apply']): void {
     id,
   );
 }
+export function setRollReveal(id:string,reveal:RollEntry['reveal']):void{
+  db.prepare('UPDATE roll_log SET reveal = ? WHERE id = ?').run(reveal?JSON.stringify(reveal):'',id);
+}
 
 // ---- Measuring shapes (cone/circle/line) ----
 
@@ -1877,6 +1880,7 @@ type MeasurementRow = {
   target_y: number;
   token_id: string | null;
   created_by: string;
+  spell_area: string | null;
 };
 
 const rowToMeasurement = (r: MeasurementRow): Measurement => ({
@@ -1887,6 +1891,7 @@ const rowToMeasurement = (r: MeasurementRow): Measurement => ({
   target: { x: r.target_x, y: r.target_y },
   ...(r.token_id ? { tokenId: r.token_id } : {}),
   createdBy: r.created_by,
+  ...(r.spell_area ? {spellArea:JSON.parse(r.spell_area)} : {}),
 });
 
 export function addMeasurement(
@@ -1898,14 +1903,15 @@ export function addMeasurement(
     target: { x: number; y: number };
     tokenId?: string;
     createdBy: string;
+    spellArea?: Measurement['spellArea'];
   },
 ): Measurement {
   const id = newId();
   db.prepare(
     `INSERT INTO measurements
        (id, session_id, map_id, kind, origin_x, origin_y, target_x, target_y,
-        token_id, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        token_id, created_by, created_at, spell_area)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1918,6 +1924,7 @@ export function addMeasurement(
     input.tokenId ?? null,
     input.createdBy,
     Date.now(),
+    input.spellArea ? JSON.stringify(input.spellArea) : null,
   );
   return rowToMeasurement(
     db.prepare('SELECT * FROM measurements WHERE id = ?').get(id) as MeasurementRow,

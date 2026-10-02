@@ -1,4 +1,6 @@
 import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
+import type {SpellAreaPlacement} from '../../shared/spellAreas.js';
+import {resolvePlacedSpell} from './areaSpells.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea,summonSpiritualWeapon,spiritualWeaponPlacementError} from './linkedSpells.js';
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
@@ -1472,12 +1474,18 @@ export function resolveCheck(
  * save-less (auto-hit) payload, apply full with no save roll. Logs one entry. The
  * source roll keeps its `apply` so the DM can keep clicking more targets.
  */
+export function areaSaveRequest(tok:Token,ability:string,dc:number){
+ const r=resolve(tok);if(!r)return;
+ return {target:tok,c:r.c,ability,dc,mode:saveAdvantage(r.conditionLabels,ability,undefined,strFeatureAdv(r.kind,r.refId,ability)).state,
+  proficient:r.saveProficiencies.some(s=>s.trim().toUpperCase()===ability.toUpperCase()),extra:saveBonus(r,ability).add,autoFail:!!saveAutoFail(r.conditionLabels,ability)};
+}
 export function resolveForcedSave(
   sessionId: string,
   rollId: string,
   tokenId: string,
   advantage?: Advantage,
   instanceIndex?: number,
+  presentedLive=false,
 ): void {
   const src = getRollEntry(rollId, sessionId);
   const apply = src?.apply;
@@ -1689,7 +1697,7 @@ export function resolveForcedSave(
     detail,
     hpNote: saveNote,
     hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
-    ...(saveReveal ? { reveal: saveReveal } : {}),
+    ...(saveReveal ? { reveal: {...saveReveal,presentedLive,visibilityTarget:{kind:tok.kind,refId:tok.refId}} } : {}),
   }, resolutionRollId);
 }
 
@@ -2012,6 +2020,7 @@ function resolveSheetAbilityFor(
   advantage?: Advantage,
   targetTokenId?: string,
   damageTypeChoice?: string,
+  area?:SpellAreaPlacement,
 ): boolean {
   // Validate before concentration, rolls, HP changes or the caller's slot spend.
   if (targetTokenId && !spellTarget(sessionId, targetTokenId)) return false;
@@ -2035,7 +2044,7 @@ function resolveSheetAbilityFor(
         if(spiritualWeaponPlacementError(sessionId,kind,entity.id,mapId,point.x,point.y))return false;
         summonSpiritualWeapon(linkedContext,ability,mapId,point.x,point.y);return true;
       }
-      if(!target&&key!=='flame blade')return false;
+      if(!target&&key!=='flame blade'&&!(key==='call lightning'&&area))return false;
       if(!reuse)startSpellUse(linkedContext,ability,targetTokenId);
       if(key==='flame blade'&&!reuse){
         const ready=(kind==='pc'?getCharacter(entity.id):getMonster(entity.id))!.conditions.find(c=>c.combatEffect?.abilityId===ability.id&&!c.isConcentration)!;
@@ -2044,7 +2053,13 @@ function resolveSheetAbilityFor(
         addRollLog(sessionId,{roller,label:'Flame Blade',expr:'Flame Blade',total:0,detail:'Flame Blade created. Use its Magic action attack while concentrating; no additional slot is spent.'});return true;
       }
       if(key==='heat metal'){heatMetalDamage(sessionId,roller,linkedContext,target!);return true;}
-      if(key==='call lightning'){resolveSpellArea(sessionId,roller,linkedContext,target!,5,`${linkedContext.castLevel}d10`,'lightning','DEX');return true;}
+      if(key==='call lightning'){
+        if(area){const d=withDiceMetadata({label:'Call Lightning — Lightning Damage'},()=>rollDice(`${linkedContext.castLevel}d10`))!;
+          addRollLog(sessionId,{roller,label:ability.name,expr:ability.name,total:d.total,detail:d.detail,
+            apply:{amount:d.total,dc:linkedContext.dc,save:'DEX',saveDamage:'half',damageType:'lightning',targetMode:'multiple',owner:kind==='pc'?entity.id:undefined},
+            reveal:{kind:'damage',title:'Call Lightning — Lightning Damage',attacker:ability.name,outcome:'none',damage:d.total,damageType:'lightning',damageDice:[{label:'lightning',value:d.total,faces:d.rolls,diceExpression:d.expr}]}});
+        }else resolveSpellArea(sessionId,roller,linkedContext,target!,5,`${linkedContext.castLevel}d10`,'lightning','DEX');return true;
+      }
     }
   }
   const support = spellCombatSupport(ability);
@@ -2400,8 +2415,10 @@ export function resolveAbilityRoll(
   advantage?: Advantage,
   targetTokenId?: string,
   damageTypeChoice?: string,
+  area?:SpellAreaPlacement,
 ): boolean {
   if (character.sessionId !== sessionId) return false;
+  if(area)return resolvePlacedSpell(sessionId,roller,'pc',character,ability,castLevel,area,placementOnly=>resolveSheetAbilityFor(sessionId,roller,'pc',{...character,stats:effectiveStats(character).scores},placementOnly?{...ability,roll:undefined,executionProfile:'manual'}:ability,castLevel,advantage,undefined,damageTypeChoice,area));
   return resolveSheetAbilityFor(
     sessionId,
     roller,
@@ -2426,8 +2443,10 @@ export function resolveMonsterSheetAbility(
   advantage?: Advantage,
   targetTokenId?: string,
   damageTypeChoice?: string,
+  area?:SpellAreaPlacement,
 ): boolean {
   if (monster.sessionId !== sessionId) return false;
+  if(area)return resolvePlacedSpell(sessionId,roller,'monster',monster,ability,castLevel,area,placementOnly=>resolveSheetAbilityFor(sessionId,roller,'monster',monster,placementOnly?{...ability,roll:undefined,executionProfile:'manual'}:ability,castLevel,advantage,undefined,damageTypeChoice,area));
   return resolveSheetAbilityFor(
     sessionId,
     roller,

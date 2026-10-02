@@ -7,6 +7,10 @@ import {getSpell} from './spells/srd.js';
 afterEach(()=>vi.restoreAllMocks());
 
 describe('spell impact identity and lighting',()=>{
+ it('Call Lightning uses jagged area bolts while Ice Storm keeps falling shards',()=>{
+   expect(spellImpactStyle({spell:'Call Lightning',damageType:'lightning',delta:-10})).toMatchObject({kind:'bolts',color:'#96cfff'});
+   expect(spellImpactStyle({spell:'Ice Storm',delta:-10})?.kind).toBe('storm');
+ });
  it('Vampiric Touch keeps its red caster aura/healing while Chill Touch retains its own necrotic effect',()=>{
   for(const delta of [-10,0,5])expect(spellImpactStyle({spell:'Vampiric Touch',delta})).toMatchObject({kind:'aura',color:'#d62c46'});
   expect(spellImpactStyle({spell:'Chill Touch',delta:-10})).toMatchObject({kind:'drain',color:'#a471df'});

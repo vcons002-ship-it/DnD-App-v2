@@ -1,11 +1,12 @@
 import type {Character,Condition,Monster,SheetAbility,Token,TokenKind} from '../../shared/types.js';
+import type {SpellAreaPlacement} from '../../shared/spellAreas.js';
 import {linkedSpellProfile,linkedSpellRoll,mirrorImageCount,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
 import {effectiveStats,saveExtra} from '../../shared/modifiers.js';
 import {effectiveDice,spellcastingMod} from '../../shared/spellMath.js';
 import {spellcastingKeyFor} from '../../shared/spellExecution.js';
 import {saveAdvantage,saveAutoFail} from '../../shared/conditionEffects.js';
 import {damageMultiplier} from '../../shared/combatMath.js';
-import {rollDice,rollDicePool,withDiceMetadata} from '../../shared/dice.js';
+import {rollDice,rollDicePool,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
 import {tokenDistanceFt} from '../../shared/distance.js';
 import {hasLineOfSight} from '../../shared/mapWalls.js';
 import {newId} from './db.js';
@@ -148,7 +149,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
   });
   const damage=withDiceMetadata({label:`${ctx.spell} — ${type} Damage`},()=>rollDice(expression))!,impactId=newId();
   addRollLog(sid,{roller,label:ctx.spell,expr:expression,total:damage.total,detail:`${ctx.spell} → ${entity(center.kind,center.refId)!.name}: ${damage.detail}.`,
-    reveal:{kind:'damage',title:`${ctx.spell} — ${type} Damage`,attacker:ctx.spell,target:entity(center.kind,center.refId)!.name,outcome:'none',damage:damage.total,damageType:type,
+    reveal:{presentedLive:usingPhysicalDice(),kind:'damage',title:`${ctx.spell} — ${type} Damage`,attacker:ctx.spell,target:entity(center.kind,center.refId)!.name,outcome:'none',damage:damage.total,damageType:type,
       damageDice:[{label:type,value:damage.total,faces:damage.rolls,diceExpression:expression}]}},impactId);
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,
     mode:saveAdvantage(labels,save).state,proficient:e.saveProficiencies.includes(save),extra:saveExtra(e,save).total,autoFail:!!saveAutoFail(labels,save)};});
@@ -159,7 +160,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
     const hpNote=applyDamageNoted(r.target.kind,e.id,amount,type,{kind:ctx.casterKind,refId:ctx.casterId},false,impactId,ctx.spell);noteConcentration(sid,r.target.kind,e.id,amount);
     addRollLog(sid,{roller,label:`${ctx.spell}: ${save} save`,expr:`${save} save`,total,hpNote,hideMods:r.target.kind==='monster'&&('disposition'in e&&e.disposition!=='friendly'),
       detail:`${e.name}: ${save} save ${total} — ${pass?'PASS':'FAIL'}; ${amount} ${type} damage.`,
-      reveal:{kind:'check',title:`${ctx.spell} — ${save} Saving Throw`,attacker:e.name,target:e.name,outcome:pass?'pass':'fail',d20:out.face,attackTotal:total,toHit:[{label:`${save} save modifiers`,value:total-out.face}],effectOutcome:`${pass?'Save passed':'Save failed'} — ${amount} ${type} damage.`,visibilityTarget:{kind:r.target.kind,refId:e.id}}});
+      reveal:{presentedLive:usingPhysicalDice(),kind:'check',title:`${ctx.spell} — ${save} Saving Throw`,attacker:e.name,target:e.name,outcome:pass?'pass':'fail',d20:out.face,attackTotal:total,toHit:[{label:`${save} save modifiers`,value:total-out.face}],effectOutcome:`${pass?'Save passed':'Save failed'} — ${amount} ${type} damage.`,visibilityTarget:{kind:r.target.kind,refId:e.id}}});
   });queueSpellImpact(sid,center.kind,center.refId,ctx.spell,impactId,Math.max(map.feetPerSquare,center.widthFt)+radius*2);
 }
 
@@ -188,7 +189,7 @@ export function heatMetalDamage(sid:string,roller:string,ctx:LinkedSpellContext,
   }
 }
 
-export function repeatSpell(sid:string,roller:string,kind:TokenKind,id:string,conditionId:string,targetTokenId?:string,advantage?:'adv'|'dis'):string|undefined {
+export function repeatSpell(sid:string,roller:string,kind:TokenKind,id:string,conditionId:string,targetTokenId?:string,advantage?:'adv'|'dis',area?:SpellAreaPlacement):string|undefined {
   const caster=entity(kind,id),condition=caster?.conditions.find(c=>c.id===conditionId),fx=condition?.combatEffect;
   if(!caster||caster.sessionId!==sid||!fx?.spellAction||!fx.abilityId)return 'That spell is no longer active.';
   if(fx.concentration&&!caster.conditions.some(c=>c.isConcentration&&c.id===fx.castId))return 'Concentration ended.';
@@ -197,7 +198,7 @@ export function repeatSpell(sid:string,roller:string,kind:TokenKind,id:string,co
   const ability=caster.sheetAbilities.find(a=>a.id===fx.abilityId),p=ability&&linkedSpellProfile(ability);
   if(!ability||!p)return 'The original spell is no longer available.';
   const key=spellKey(ability.name),locked=['witch bolt','heat metal'].includes(key);
-  const token=getToken(locked?fx.targetTokenId??'':targetTokenId??fx.targetTokenId??'');
+  const token=getToken(key==='call lightning'&&area?listTokens(area.mapId).find(t=>t.kind===kind&&t.refId===id)?.id??'':locked?fx.targetTokenId??'':targetTokenId??fx.targetTokenId??'');
   if(!token||getMap(token.mapId)?.sessionId!==sid||token.mapId!==getSessionById(sid)?.activeMapId)return 'Choose a target on the active map.';
   const e=entity(token.kind,token.refId);if(!e||('objectKind'in e&&e.objectKind)||isDeadEntity(token.kind,e))return 'Choose a living creature.';
   const current=turnKey(sid),actor=listTokens(token.mapId).find(t=>t.kind===kind&&t.refId===id);
@@ -218,7 +219,12 @@ export function repeatSpell(sid:string,roller:string,kind:TokenKind,id:string,co
   if(key==='witch bolt'){
     const r=rollDice('1d12')!,source=addRollLog(sid,{roller,label:'Witch Bolt — Repeat Damage',expr:'1d12',total:r.total,detail:`Witch Bolt → ${e.name}: ${r.detail}`,apply:{amount:r.total,dc:0,damageType:'lightning',targetMode:'single'},reveal:{kind:'damage',title:'Witch Bolt — Bonus Action Damage',attacker:caster.name,target:e.name,outcome:'none',damage:r.total,damageType:'lightning',damageDice:[{label:'1d12',value:r.total,faces:r.rolls,diceExpression:r.expr}]}});resolveForcedSave(sid,source.id,token.id);
   }else if(key==='heat metal')heatMetalDamage(sid,roller,ctx,token);
-  else if(key==='call lightning')resolveSpellArea(sid,roller,ctx,token,5,`${ctx.castLevel}d10`,'lightning','DEX');
+  else if(key==='call lightning'){
+    if(area){const repeat={...ability,linkedReuse:conditionId} as SheetAbility&{linkedReuse:string};
+      const ok=kind==='pc'?resolveAbilityRoll(sid,roller,caster as Character,repeat,ctx.castLevel,undefined,undefined,undefined,area):resolveMonsterSheetAbility(sid,roller,caster as Monster,repeat,ctx.castLevel,undefined,undefined,undefined,area);
+      if(!ok)return 'Could not place Call Lightning there.';
+    }else resolveSpellArea(sid,roller,ctx,token,5,`${ctx.castLevel}d10`,'lightning','DEX');
+  }
   else {
     // Skip the initial casting branch and slot spend: this is the existing spell.
     const repeat={...ability,linkedReuse:conditionId} as SheetAbility & {linkedReuse:string};

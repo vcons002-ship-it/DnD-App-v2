@@ -1,4 +1,5 @@
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
+import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
 import type { CoreClass } from '../../../shared/characterProgression';
@@ -86,6 +87,8 @@ const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
   liveDice: LiveDiceFrame | null;
+  areaCast:{payload:AbilityRollPayload;spec:SpellArea;name:string;repeat?:import('../../../shared/types').SpellRepeatPayload}|null;
+  clearAreaCast:()=>void;
   socket: TypedSocket | null;
   status: Status;
   error: string | null;
@@ -484,6 +487,8 @@ export function isRollImpactPending(rollId:string|undefined){
 }
 export const useStore = create<Store>((set, get) => ({
   liveDice: null,
+  areaCast:null,
+  clearAreaCast:()=>set({areaCast:null}),
   socket: null,
   status: 'idle',
   error: null,
@@ -675,6 +680,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
+      areaCast:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -748,7 +754,7 @@ export const useStore = create<Store>((set, get) => ({
       // log is oldest-first, so a new entry is the first one not yet seen.
       const log = snapshot.rollLog ?? [];
       if (rollSfxReady) {
-        const unseen = log.filter((e) => !seenRollIds.has(e.id));
+        const unseen = log.filter((e) => !seenRollIds.has(e.id)&&!e.reveal?.presentedLive);
         // Concentration notes can precede Damage, and a targeted cast can emit
         // cast + target-save reveals together. Show the latest actual result;
         // do not let a bookkeeping note hide its animation/correlated effects.
@@ -967,7 +973,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
-      set({liveDice:null, chatAccessToken: null});
+      set({liveDice:null, areaCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -990,7 +996,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   selectMap: (mapId) => {
-    set({ viewMapId: mapId });
+    set({ viewMapId: mapId, areaCast:null });
     get().socket?.emit('map:select', { mapId });
   },
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
@@ -1126,7 +1132,12 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.emit('ability:remove', { kind, refId, abilityId }),
   reorderSheetAbilities: (kind, refId, orderedIds) =>
     get().socket?.emit('ability:reorder', { kind, refId, orderedIds }),
-  rollAbility: (payload) => get().socket?.emit('ability:roll', payload),
+  rollAbility: (payload) => {
+    const view=get().snapshot,caster=payload.kind==='pc'?view?.characters.find(c=>c.id===payload.refId):view?.monsters.find(c=>c.id===payload.refId);
+    const a=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined,spec=a&&spellAreaFor(a,payload.castLevel);
+    if(spec&&!payload.area){set({areaCast:{payload:{...payload,targetTokenId:undefined},spec,name:a!.name},saveResolve:null,orbTarget:null});return;}
+    get().socket?.emit('ability:roll',payload);
+  },
   setAbilityRecharge: (kind, refId, abilityId, spent) => get().socket?.emit('ability:setRecharge', { kind, refId, abilityId, spent }),
   restParty: (kind) => get().socket?.emit('rest:party', { kind }),
   restCharacter: (characterId, kind) => get().socket?.emit('rest:character', { characterId, kind }),
@@ -1216,7 +1227,11 @@ export const useStore = create<Store>((set, get) => ({
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
   undo: () => get().socket?.emit('session:undo'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
-  repeatSpell: payload=>get().socket?.emit('spell:repeat',payload),
+  repeatSpell: payload=>{
+    const view=get().snapshot,caster=payload.kind==='pc'?view?.characters.find(c=>c.id===payload.refId):view?.monsters.find(c=>c.id===payload.refId),fx=caster?.conditions.find(c=>c.id===payload.conditionId)?.combatEffect;
+    if(fx?.spell.toLowerCase()==='call lightning'&&!payload.area){const a=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===fx.abilityId):undefined,spec=a&&spellAreaFor(a,fx.castLevel);if(a&&spec){set({areaCast:{payload:{kind:payload.kind,refId:payload.refId,abilityId:a.id,castLevel:fx.castLevel},spec,name:a.name,repeat:payload}});return;}}
+    get().socket?.emit('spell:repeat',payload);
+  },
   dropHeatedItem: payload=>get().socket?.emit('spell:dropHeatedItem',payload),
   useHasteAction: (payload) => get().socket?.emit('haste:action', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),

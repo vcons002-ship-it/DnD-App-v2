@@ -1,6 +1,6 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:'burst'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export type SpellImpactStyle={kind:'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
 export const LINKED_SPELL_FX=['Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
@@ -18,7 +18,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
     'mirror image':['illusion','force'],'ice knife':['shards','cold'],"melf's acid arrow":['acid','acid'],
     'vampiric touch':['aura','necrotic'],'hold person':['chains','force'],'hold monster':['chains','force'],
     'phantasmal killer':['haunt','psychic'],'heat metal':['flame','fire'],'witch bolt':['burst','lightning'],
-    'spiritual weapon':['weapon','force'],'flame blade':['weapon','fire'],'call lightning':['storm','lightning'],
+    'spiritual weapon':['weapon','force'],'flame blade':['weapon','fire'],'call lightning':['bolts','lightning'],
     'ice storm':['storm','cold'],'flame strike':['flame','radiant'],'meteor swarm':['meteor','fire'],
     'guiding bolt':['burst','radiant'],'ray of frost':['shards','cold'],'ray of sickness':['poison','poison'],
     'chill touch':['drain','necrotic'],'shocking grasp':['burst','lightning'],

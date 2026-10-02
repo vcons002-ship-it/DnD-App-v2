@@ -14,7 +14,7 @@ export function ActiveSpellActions({caster,kind,ownTurn,targetTokenId}:{caster:C
       const fx=c.combatEffect!,locked=/^(witch bolt|heat metal)$/i.test(fx.spell);
       const used=inCombat&&fx.lastUseTurn===turn;
       return <div className="combat-ability-row" key={c.id}>
-        <button className="btn tiny attack-row" disabled={!!spellActionBlock(caster)||inCombat&&(!ownTurn||used)||(!locked&&!targetTokenId)||!!fx.itemDropped}
+        <button className="btn tiny attack-row" disabled={!!spellActionBlock(caster)||inCombat&&(!ownTurn||used)||(!locked&&!targetTokenId&&fx.spell.toLowerCase()!=='call lightning')||!!fx.itemDropped}
           onClick={()=>repeat({kind,refId:caster.id,conditionId:c.id,targetTokenId:locked?undefined:targetTokenId,advantage:/^(vampiric touch|flame blade|spiritual weapon)$/i.test(fx.spell)?consume(caster.id):undefined})}>
           {fx.spell} · {fx.spellAction}{used?' (used)':''}
         </button><small className="muted">{fx.itemDropped?'Heated item dropped':fx.summonTokenId?'Selected target within 5 ft of the weapon · drag up to 20 ft before attacking · no new slot':locked?'Original linked target · no new slot':'Selected target · no new slot'}</small>

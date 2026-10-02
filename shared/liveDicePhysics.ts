@@ -3,6 +3,7 @@ import {handTumble} from './diceLaunch.js';
 import {recordDiceImpacts,type DiceImpact} from './diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from './diceGeometry.js';
+import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from './liveDiceTypes.js';
 
 import {type TrayDie,type DiceEntrySide} from './diceTrayTypes.js';
 export {physicalDice,trayFaceValues} from './diceTrayTypes.js';
@@ -54,6 +55,10 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   const lanes=Math.min(dice.length,Math.max(1,Math.floor((crossExtent*2-radius*2)/(radius*2.2))+1));
   const throwAngle=Math.PI/6; // A shared diagonal heading, relative to the roller's edge.
   const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
+  const faceNormals=meshes.map(mesh=>mesh.faces.map(ids=>{
+    const [a,b,c]=ids.map(k=>new Vec3(...mesh.vertices[k])),n=b.vsub(a).cross(c.vsub(a));
+    if(n.dot(a)<0)n.negate(n);n.normalize();return n;
+  }));
   const bodies=dice.map((die,i)=>{
     const shape=diceCollider(die.sides,radius);
     const {vertices,faces}=shape;
@@ -86,16 +91,19 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   recordDiceImpacts(bodies,walls,metresPerUnit,()=>elapsedForImpacts,pendingImpacts);
   const launch=bodies.map(b=>({position:b.position.clone(),velocity:b.velocity.clone(),spin:b.angularVelocity.clone()}));
   const age=bodies.map(()=>0),rerolls=bodies.map(()=>0),values:(number|null)[]=bodies.map(()=>null);
+  // Resting contact impulses can keep Cannon awake even when a readable face
+  // holds still. Judge that tiny numerical jitter by displacement over time,
+  // not a velocity spike on one solver step. Never adjust the result orientation.
+  const stable=bodies.map(b=>({position:b.position.clone(),rotation:b.quaternion.clone(),since:0,face:null as number|null}));
   const step=1/480;
   let elapsed=0;
   function readable(i:number):number|null {
     const b=bodies[i],shape=b.shapes[0] as ConvexPolyhedron;
-    const bottom=Math.min(...shape.vertices.map(v=>b.quaternion.vmult(v).z+b.position.z));
+    let bottom=Infinity;
+    for(const v of shape.vertices)bottom=Math.min(bottom,b.quaternion.vmult(v).z+b.position.z);
     if(Math.abs(bottom)>radius*.08 || Math.abs(b.position.x)>7 || Math.abs(b.position.y)>4.5)return null;
     let highest=-Infinity,second=-Infinity,face=0;
-    meshes[i].faces.forEach((ids,j)=>{
-      const [a,c,d]=ids.map(k=>new Vec3(...meshes[i].vertices[k]));
-      const normal=c.vsub(a).cross(d.vsub(a));if(normal.dot(a)<0)normal.negate(normal);normal.normalize();
+    faceNormals[i].forEach((normal,j)=>{
       const up=b.quaternion.vmult(normal).z*(dice[i].sides===4?-1:1);
       if(up>highest){second=highest;highest=up;face=j;}else second=Math.max(second,up);
     });
@@ -109,6 +117,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     b.velocity.copy(initial.velocity.scale(.9+random()*.2));b.angularVelocity.copy(initial.spin.scale(.8+random()*.4));
     b.force.setZero();b.torque.setZero();b.collisionFilterMask=1;b.aabbNeedsUpdate=true;b.wakeUp();
     age[i]=0;values[i]=null;rerolls[i]++;
+    stable[i].face=null;stable[i].since=0;
   }
   function advance(seconds:number) {
     const steps=Math.max(1,Math.round(seconds/step));
@@ -116,13 +125,20 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
       for(const b of bodies)if(b.position.dot(direction)>-extent+radius)b.collisionFilterMask=3;
       elapsedForImpacts=elapsed+step;world.step(step);elapsed+=step;
       bodies.forEach((b,i)=>{
+        if(values[i]!==null&&b.sleepState!==Body.SLEEPING)age[i]=0;
         age[i]+=step;
+        const face=readable(i),rest=stable[i];
+        const q=rest.rotation,r=b.quaternion,rotationDot=Math.abs(q.x*r.x+q.y*r.y+q.z*r.z+q.w*r.w);
+        if(face===null||face!==rest.face||rest.position.distanceTo(b.position)>.00015/metresPerUnit||rotationDot<Math.cos(.005/2)){
+          rest.position.copy(b.position);rest.rotation.copy(b.quaternion);rest.since=0;rest.face=face;
+        }else rest.since+=step;
+        if(face!==null&&rest.since>=.3&&b.sleepState!==Body.SLEEPING)b.sleep();
         if(b.sleepState===Body.SLEEPING){
-          values[i]=readable(i);
+          values[i]=face;
           if(values[i]===null)reroll(i);
         }else {
           values[i]=null;
-          if(age[i]>=10||b.position.z< -2)reroll(i);
+          if(age[i]>=LIVE_DICE_REROLL_WAIT_SECONDS*LIVE_DICE_PRESENTATION_RATE||b.position.z< -2)reroll(i);
         }
       });
       if(values.every(v=>v!==null))break;

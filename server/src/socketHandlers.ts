@@ -7,6 +7,7 @@ import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
 import {doorApproachPoints,distanceToWall} from '../../shared/mapWalls.js';
 import {visionContains} from '../../shared/playerVision.js';
+import {areaPlacementError} from './areaSpells.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
@@ -389,7 +390,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                   if(info?.target&&conn.role!=='dm'&&!view?.tokens.some(t=>!t.sharedSightOnly&&t.kind===info.target!.kind&&t.refId===info.target!.refId)){
                     targetLabels.set(labelKey,undefined);continue;
                   }
-                  targetLabels.set(labelKey,(view?liveRollTarget(view,info?.target?[info.target]:targetRefs):undefined)??(ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
+                  targetLabels.set(labelKey,(view?liveRollTarget(view,info?.target?[info.target]:targetRefs):undefined)??(payload?.area?'Placed spell area':ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
                 }
                 // An automatic area save must not expose an unseen bystander.
                 if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
@@ -1528,7 +1529,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1550,6 +1551,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       };
       const roller = rollerName(sid, socket.id, isDm());
       const casterEntity=kind==='pc'?getCharacter(refId):getMonster(refId);
+      if(area){
+        const a=casterEntity?.sheetAbilities.find(a=>a.id===abilityId);
+        const error=a&&areaPlacementError(sid,kind,refId,a,cast,area);
+        if(!a||error){socket.emit('notice',{message:error??'Unknown spell.'});return;}
+        if(!isDm()){
+          const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map;
+          if(!map||map.id!==area.mapId||area.points.some(p=>!visionContains(view.playerVision,p.x,p.y)||(map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(p.x/map.gridSizePx)},${Math.floor(p.y/map.gridSizePx)}`)))){
+            socket.emit('notice',{message:'Place the spell area somewhere you can see yourself.'});return;
+          }
+        }
+      }
       const blocked=casterEntity && spellActionBlockMessage(casterEntity,{inCombat:!!getSessionById(sid)?.combatRound});
       if(blocked) {
         socket.emit('notice',{message:blocked,durationMs:8000}); return;
@@ -1563,7 +1575,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if(targetError){socket.emit('notice',{message:targetError});return;}
         // CR-based DC/to-hit; no spell slots for creatures. A limited-use action
         // (breath weapon) is spent by using it; the DM re-readies it manually.
-        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) {
+        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, area?undefined:tgt, selectedDamageType,area)) {
           setAbilityRechargeSpent('monster', m.id, ability.id, true);
           afterChange();
           if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
@@ -1595,7 +1607,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           socket.emit('notice',{message:'Choose a visible creature for the mark.'}); return;
         }
       }
-      const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, tgt, selectedDamageType);
+      const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, area?undefined:tgt, selectedDamageType,area);
+      if(!ok&&area)socket.emit('notice',{message:'Could not place the area. Check its range, connected pieces, and chosen target limit.'});
       if(!ok && JSON.stringify(c.conditions)!==JSON.stringify(getCharacter(c.id)?.conditions)) {
         afterChange();socket.emit('notice',{message:spellActionBlockMessage(getCharacter(c.id)!,{inCombat:!!getSessionById(sid)?.combatRound})??'Previous concentration ended. Recover from Haste lethargy before casting a new concentration spell.',durationMs:8000});
       }
@@ -2240,16 +2253,21 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('spell:repeat', ({kind,refId,conditionId,targetTokenId,advantage}) => {
+    on('spell:repeat', ({kind,refId,conditionId,targetTokenId,advantage,area}) => {
       const sid=sessionId();if(!sid||!ownsCreature(kind,refId)||typeof conditionId!=='string')return;
       const caster=kind==='pc'?getCharacter(refId):getMonster(refId);
       if(!caster)return;
       const blocked=spellActionBlockMessage(caster,{inCombat:!!getSessionById(sid)?.combatRound});
       if(blocked){socket.emit('notice',{message:blocked,durationMs:8000});return;}
       const fx=caster.conditions.find(c=>c.id===conditionId)?.combatEffect;
+      if(area){const a=caster.sheetAbilities.find(a=>a.id===fx?.abilityId),error=a&&areaPlacementError(sid,kind,refId,a,fx?.castLevel,area);
+        if(!a||fx?.spell.toLowerCase()!=='call lightning'||error){socket.emit('notice',{message:error??'That spell does not use an area repeat.'});return;}
+        if(!isDm()){const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map;
+          if(!map||map.id!==area.mapId||area.points.some(p=>!visionContains(view.playerVision,p.x,p.y)||(map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(p.x/map.gridSizePx)},${Math.floor(p.y/map.gridSizePx)}`)))){socket.emit('notice',{message:'Place the spell area somewhere you can see yourself.'});return;}}
+      }
       const target=/^(witch bolt|heat metal)$/i.test(fx?.spell??'')?fx?.targetTokenId:targetTokenId??fx?.targetTokenId;
-      if(typeof target!=='string'||!canDirectlyTargetToken(target)){socket.emit('notice',{message:'Choose a target you can see yourself.'});return;}
-      const error=repeatSpell(sid,isDm()?'DM':caster.name,kind,refId,conditionId,target,advantage==='adv'||advantage==='dis'?advantage:undefined);
+      if(!area&&(typeof target!=='string'||!canDirectlyTargetToken(target))){socket.emit('notice',{message:'Choose a target you can see yourself.'});return;}
+      const error=repeatSpell(sid,isDm()?'DM':caster.name,kind,refId,conditionId,target,advantage==='adv'||advantage==='dis'?advantage:undefined,area);
       if(error){socket.emit('notice',{message:error});return;}
       broadcastSpellCast(io,sid,kind,refId);afterChange();
     });

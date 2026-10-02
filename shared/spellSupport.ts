@@ -1,4 +1,5 @@
 import {linkedSpellProfile} from './linkedSpells.js';
+import {spellAreaFor} from './spellAreas.js';
 import type { SheetAbility } from './types.js';
 import { abilityKey, hitFeature, markSpell } from './hitFeatures.js';
 import { effectiveSheetAbility, isCanonicalHasteProfile } from './spellExecution.js';
@@ -213,10 +214,10 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
       'spiritual weapon':'Summons beside the selected target; the DM can reposition the force for unusual placement or terrain.',
       'flame blade':'Blade appearance and its continuous light are table-managed.',
       'heat metal':'Select an eligible manufactured metal object; the DM adjudicates whether it can be dropped or armor must be removed.',
-      'call lightning':'Choose a point under the cloud and adjudicate cloud space and the existing-storm bonus; burst targeting currently uses a selected creature as its center.',
-      'ice storm':'Choose the cylinder targets and track temporary difficult terrain.',
-      'flame strike':'Choose targets inside the cylinder.',
-      'meteor swarm':'Choose targets inside the four spheres and adjudicate object/terrain effects.',
+      'call lightning':'Place the measured strike; adjudicate cloud space and the existing-storm bonus.',
+      'ice storm':'Track temporary difficult terrain; cylinder targeting, grouped saves, and typed damage are automatic.',
+      'flame strike':'Cylinder targeting, grouped saves, and typed damage are automatic; adjudicate unusual terrain or elevation.',
+      'meteor swarm':'Sphere targeting avoids duplicate hits; adjudicate object/terrain effects.',
       'shocking grasp':'Opportunity attacks are table-managed; the condition indicates that they cannot be made.',
     };
     return {status:'partial',label:'Partial',automated:[automated[key]??'Linked spell rolls and effects.'],
@@ -227,6 +228,7 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   const authored = ability.source === 'custom' || ability.executionProfile === 'manual' ||
     (!revised && (isEditedUnsafeRoll(ability, key) || !!(ability.roll && spellRevision2024For(ability))));
   const automated = ['Cast record and spell-slot bookkeeping.'];
+  if(spellAreaFor(ability))automated.push('Measured area placement and base-center targeting; supported initial effects use one labelled group of saving throws.');
   const manual: string[] = [];
   if (effective.tags?.some(tag => tag.toLowerCase() === 'concentration')) automated.push('Concentration tracking.');
   const result = (status: SpellCombatSupport['status'], manualCastOnly = false): SpellCombatSupport => ({

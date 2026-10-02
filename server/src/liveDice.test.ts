@@ -8,6 +8,7 @@ import {rollD20Detail} from '../../shared/combatMath.js';
 import {db} from './db.js';
 import {runLiveCommand,keptPhysicalSet,physicalFaces} from './liveRolls.js';
 import {afterRollCommit} from './liveRollContext.js';
+import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
 
 it('uses authoritative faces for expressions, advantage and d20 combat math',()=>{
  expect(withDiceSource(s=>s.map((_,i)=>i+2),()=>rollDice('2d6+3'))?.total).toBe(8);
@@ -105,13 +106,30 @@ it('never substitutes random values for a missing or invalid physical result',()
   expect(keptPhysicalSet([6,6,5,1],{expr:'1d6-1d6',advantage:'adv'})).toBe(1);
   expect(keptPhysicalSet([10,80],{expr:'1d100',advantage:'dis'})).toBe(0);
 });
-it('automatically rerolls a continuously moving die after the live settling deadline',()=>{
+it('automatically rerolls a continuously moving die after four presentation seconds',()=>{
   const w=createLiveWorld([{sides:6,value:1,index:0,set:0}],8);
-  for(let i=0;i<120*11&&!w.snapshot().rerolls[0];i++){
+  const holdMoving=()=>{
     w.bodies[0].wakeUp();w.bodies[0].velocity.z=5;w.bodies[0].position.z=4;
     w.advance(1/120);
-  }
+  };
+  for(let i=0;i<120*(LIVE_DICE_REROLL_WAIT_SECONDS*LIVE_DICE_PRESENTATION_RATE-.05);i++)holdMoving();
+  expect(w.snapshot().rerolls[0]).toBe(0);
+  for(let i=0;i<12&&!w.snapshot().rerolls[0];i++)holdMoving();
   expect(w.snapshot().rerolls[0]).toBe(1);expect(w.snapshot().values[0]).toBeNull();
+  expect(w.snapshot().elapsed/LIVE_DICE_PRESENTATION_RATE).toBeCloseTo(4,1);
+});
+it.each([5,11,13,32])('accepts flat Heat Metal d8s despite resting contact jitter (seed %i)',seed=>{
+ const w=createLiveWorld([8,8].map((sides,index)=>({sides,value:1,index,set:0})),seed);
+ let f=w.snapshot();for(let i=0;i<120*8&&!f.done;i++)f=w.advance(1/120);
+ expect(f.done).toBe(true);expect(f.rerolls).toEqual([0,0]);
+ expect(f.values.every(v=>v!==null&&v>=1&&v<=8)).toBe(true);
+});
+it('still rejects a stationary cocked d8 rather than assigning its nearest face',()=>{
+ const w=createLiveWorld([{sides:8,value:1,index:0,set:0}],42),b=w.bodies[0];
+ b.quaternion.setFromEuler(Math.PI/6,0,0);
+ const shape=b.shapes[0] as import('cannon-es').ConvexPolyhedron;
+ b.position.set(0,0,-Math.min(...shape.vertices.map(v=>b.quaternion.vmult(v).z)));b.sleep();w.advance(1/120);
+ expect(w.snapshot().rerolls).toEqual([1]);expect(w.snapshot().values).toEqual([null]);
 });
 it('does not reroll or repay an attack maneuver on the later damage click',async()=>{
  const session=createSession('Live precision');const map=createMap(session.id,{name:'Test'});setActiveMap(session.id,map.id);setManualDamage(session.id,true);

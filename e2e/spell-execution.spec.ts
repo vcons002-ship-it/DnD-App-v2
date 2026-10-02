@@ -96,7 +96,7 @@ async function fixture(request: APIRequestContext, page: Page, spawnEnemies = tr
   return { socket, snapshot, ready, characterId, abilities, combat, row, dismissReveal, clickToken };
 }
 
-test('single save casts at selected target; area save and damage apply independently without recasting', async ({ page, request }, testInfo) => {
+test('single saves retain targeting; confirmed areas automatically save and damage once', async ({ page, request }, testInfo) => {
   const f = await fixture(request, page);
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
   const targets = f.ready.tokens.filter((token) => token.kind === 'monster');
@@ -137,23 +137,20 @@ test('single save casts at selected target; area save and damage apply independe
   expect((await f.snapshot()).characters.find((character) => character.id === f.characterId)!.spellSlots.L3.used).toBe(1);
 
   await f.row('Fireball').getByRole('button').click();
-  await expect(page.locator('.roll-reveal')).toBeVisible();
-  await f.dismissReveal();
-  await expect(dock).toContainText('Apply spell damage');
+  const area=page.getByRole('region',{name:'Place spell area'});
+  await expect(area).toContainText('20 ft radius');
+  expect((await f.snapshot()).rollLog.some(r=>r.label==='Fireball')).toBe(false);
+  state = await f.snapshot();
+  const hpBefore = targets.map((target) => (state.monsters.find((monster) => monster.id === target.refId) as any).curHp);
+  await f.clickToken(targets[1].id);
+  await area.getByRole('button',{name:/Confirm area/}).click();
+  await expect.poll(async()=>(await f.snapshot()).rollLog.find(r=>r.label==='Fireball')?.total,{timeout:LIVE_COMBAT_TIMEOUT}).toBeGreaterThan(0);
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:LIVE_COMBAT_TIMEOUT});
+  await expect(dock).toHaveCount(0);
+  await expect(page.locator('.roll-reveal')).toHaveCount(0);
   state = await f.snapshot();
   const fireball = state.rollLog.find((roll) => roll.label === 'Fireball')!;
-  const hpBefore = targets.map((target) => (state.monsters.find((monster) => monster.id === target.refId) as any).curHp);
-  await dock.locator('.damage-prompt-btn').click();
-  await expect(dock).toContainText('Choose targets on the map');
-  for (const target of targets) {
-    await f.clickToken(target.id);
-    await expect.poll(async () => (await f.snapshot()).rollLog.find((roll) => roll.id === fireball.id)?.apply?.consumedTargets,{timeout:LIVE_COMBAT_TIMEOUT})
-      .toContain(target.id);
-    const resolution = (await f.snapshot()).rollLog.at(-1)!;
-    if (resolution.reveal) await f.dismissReveal(resolution.id);
-    else expect(resolution.detail).toMatch(/auto-fails \(paralyzed\).*FAIL/);
-  }
-  state = await f.snapshot();
+  expect(fireball.apply).toBeUndefined();
   targets.forEach((target, index) => {
     const amount = hpBefore[index] - (state.monsters.find((monster) => monster.id === target.refId) as any).curHp;
     expect([fireball.total, Math.floor(fireball.total / 2)]).toContain(amount);
@@ -166,16 +163,18 @@ test('single save casts at selected target; area save and damage apply independe
 
 test('area and save-only area spells stay available when there is no hostile target', async ({ page, request }) => {
   const f = await fixture(request, page, false);
-  await expect(f.combat.getByLabel('Attack target')).toHaveCount(0);
+  await expect(f.combat.getByLabel('Attack target').locator('option')).toHaveText(['No living targets']);
   await expect(f.row('Fireball').getByRole('button')).toBeEnabled();
   await expect(f.row('Hypnotic Pattern').getByRole('button')).toBeEnabled();
   await expect(f.row('Magic Missile').getByRole('button')).toBeEnabled();
   await expect(f.row('Hold Person').getByRole('button')).toBeDisabled();
   await f.row('Hypnotic Pattern').getByRole('button').click();
-  await expect(page.locator('.spell-damage-dock')).toContainText('Roll saving throws');
-  await expect(page.locator('.spell-damage-dock')).not.toContainText('0 damage');
-  await page.getByRole('button', { name: 'Open chat and roll log', exact: true }).click();
-  await expect(page.locator('.roll-entry').filter({ hasText: 'Hypnotic Pattern' }).getByRole('button', { name: '🎯 Roll saving throws', exact: true })).toBeVisible();
+  const area=page.getByRole('region',{name:'Place spell area'});
+  await expect(area).toContainText('30 ft cube');
+  expect((await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L3.used).toBe(0);
+  await area.getByRole('button',{name:'Cancel (Esc)',exact:true}).click();
+  await expect(area).toHaveCount(0);
+  expect((await f.snapshot()).rollLog).toHaveLength(0);
 });
 
 test('rays roll separate attacks and pause for existing manual damage without another slot spend', async ({ page, request }, testInfo) => {

@@ -29,6 +29,18 @@ const monsterHp=(f:ReturnType<typeof setup>)=>getMonster(f.monster.id)!.curHp;
 const casterNow=(f:ReturnType<typeof setup>)=>getCharacter(f.caster.id)!;
 
 describe('2024 linked spell profiles',()=>{
+  it('presents area damage and save bonuses once in the live group before applying HP',async()=>{
+    const f=setup('Call Lightning'),rolls:{sides:number[];label?:string}[]=[];
+    await runLiveCommand(()=>{expect(f.cast()).toBe(true);},()=>{}, {label:'Call Lightning',roller:'Mage',className:'Wizard'},async(sides,_publish,_meta,_seed,info)=>{
+      expect(monsterHp(f)).toBe(500);
+      rolls.push({sides,label:info?.label});return sides.map(s=>s===20?10:4);
+    });
+    expect(rolls[0]).toMatchObject({sides:[10,10,10],label:expect.stringContaining('Damage')});
+    expect(rolls[1]).toMatchObject({sides:[20,20],label:expect.stringContaining('DEX Saving Throws')});
+    const log=listRollLog(f.session.id).filter(e=>e.reveal);
+    expect(log).toHaveLength(3);expect(log.every(e=>e.reveal?.presentedLive)).toBe(true);
+    expect(monsterHp(f)).toBe(488);
+  });
   it.each(['Mirror Image','Flame Blade'])('%s emits a casting effect without changing HP',name=>{
     const f=setup(name);expect(f.cast()).toBe(true);
     expect(drainHpFx(f.session.id)).toContainEqual(expect.objectContaining({spell:name,delta:0,refId:f.caster.id}));
