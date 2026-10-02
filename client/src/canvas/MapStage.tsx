@@ -30,7 +30,7 @@ import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
-import {spellImpactStyle} from '../../../shared/spellImpact';
+import {spellImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
 import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
@@ -41,7 +41,7 @@ import { safeSetItem } from '../lib/storage';
 import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { useStableCallback } from '../lib/useStableCallback';
-import { getPlayerId, useStore } from '../state/socket';
+import { getPlayerId, useStore, isRollImpactPending } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
@@ -631,6 +631,7 @@ export function MapStage({
   const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
   const hpFx = useStore((s) => s.hpFx);
+  const spellRollFx = useStore(s=>s.rollFx);
   const dragGhosts = useStore((s) => s.dragGhosts);
   const typingChars = useStore((s) => s.typingChars);
   const sayBubbles = useStore((s) => s.sayBubbles);
@@ -1153,13 +1154,24 @@ export function MapStage({
   }, [miniatureTokens.length, handleMiniatureReady]);
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
-  const spellImpacts=useMemo<SpellImpact[]>(()=>hpFx.flatMap(event=>{
+  const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(event=>{
     if(!spellImpactStyle(event))return [];
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
+    // The active restraint is already the visible impact; stacking an identical
+    // transient mesh would briefly double its brightness and number of links.
+    if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
     return [{id:event.id,event,tokenId:token.id,x:token.x,y:token.y,
       diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
-  }),[hpFx,snapshot.tokens,miniatureTokens,pxPerFoot,isDm]);
+  }),...snapshot.tokens.flatMap(token=>{
+    if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
+    return resolveToken(snapshot,token).conditions.flatMap(condition=>{
+      const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
+      return [{id:`active:${token.id}:${condition.id}`,tokenId:token.id,x:token.x,y:token.y,persistent:true,
+        diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot,
+        event:{kind:token.kind,refId:token.refId,delta:0,spell}}];
+    });
+  })],[hpFx,snapshot,miniatureTokens,pxPerFoot,isDm,spellRollFx]);
   const readSharedNames=useMemo(()=>createMiniatureNameReader(),[]);
   const miniatureNameLabels = useStableCallback(() => [...readMiniatureNames(tokenLayerRef.current,
     id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id), ...readSharedNames(sharedTokenLayerRef.current,()=>false)]);

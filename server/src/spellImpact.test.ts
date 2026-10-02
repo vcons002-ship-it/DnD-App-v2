@@ -1,5 +1,5 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
-import {spellImpactName,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope} from '../../shared/spellImpact.js';
+import {spellImpactName,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,persistentSpellVisual,LINKED_SPELL_FX} from '../../shared/spellImpact.js';
 import {spellEmissionIrradiance,lightIrradiance} from '../../shared/lightFalloff.js';
 import {createSession,createMap,setActiveMap,createCharacter,createMonsterTemplate,instantiateMonster,createToken,drainHpFx,listRollLog,getMonster} from './sessions.js';
 import {resolveAbilityRoll,resolveForcedSave} from './combat.js';
@@ -7,6 +7,17 @@ import {getSpell} from './spells/srd.js';
 afterEach(()=>vi.restoreAllMocks());
 
 describe('spell impact identity and lighting',()=>{
+ it.each(LINKED_SPELL_FX)('%s preserves its cosmetic identity and has an existing-style luminous effect',spell=>{
+  expect(spellImpactName(`${spell} + secret modifier 18`)).toBe(spell);
+  expect(spellImpactStyle({spell,delta:-10,damageType:'force'})).toMatchObject({color:expect.stringMatching(/^#[a-f0-9]{6}$/),duration:expect.any(Number)});
+ });
+ it('renders active restraints from spell provenance, not a manual paralysis or the caster concentration chip',()=>{
+  const condition={id:'hold',label:'Paralyzed',aura:'red' as const,isConcentration:false,combatEffect:{spell:'Hold Person',casterId:'mage',casterKind:'pc' as const,concentration:true}};
+  expect(persistentSpellVisual(condition)).toBe('Hold Person');
+  expect(persistentSpellVisual({...condition,combatEffect:undefined})).toBeUndefined();
+  expect(persistentSpellVisual({...condition,isConcentration:true})).toBeUndefined();
+  expect(persistentSpellVisual({...condition,label:'Incapacitated',combatEffect:{...condition.combatEffect,parentConditionId:'hold'}})).toBeUndefined();
+ });
  it('uses a canonical cosmetic name without forwarding hidden weapon or modifier details',()=>{
   expect(spellImpactName('Secret longbow + Ensnaring Strike CRIT + 12')).toBe('Ensnaring Strike');
   expect(spellImpactName('Hunter’s Mark CRIT')).toBe("Hunter's Mark");

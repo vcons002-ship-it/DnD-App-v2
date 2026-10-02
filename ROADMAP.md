@@ -13,6 +13,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   [Workflow and explicit remaining limitations](docs/LINKED_SPELLS_2024.md).
 - [x] Spread Mirror Image duplicates beyond the caster's base for readable 2D,
   overhead, and tilted views without changing selection/collision size.
+- [x] Animate the linked spell batch with the existing luminous geometry and
+  local spell lighting. Keep condition-backed effects (including Hold Person /
+  Hold Monster chains) on the figure until the server ends the effect; hide them
+  with their token and release save/damage visuals after the dice result.
 
 - [x] Audit all 319 spells and show Combat ready / Partial / Manual badges in
   browse, add search, and saved spell headers, with an explicit App handles /

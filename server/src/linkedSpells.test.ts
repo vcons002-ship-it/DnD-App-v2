@@ -9,6 +9,7 @@ import {resolveAbilityRoll,resolveAttack,resolveForcedSave,resolveAttackDamage,r
 import {repeatSpell} from './linkedSpells.js';
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
 import {runLiveCommand} from './liveRolls.js';
+import {drainHpFx} from './sessions.js';
 import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
 
 afterEach(()=>vi.restoreAllMocks());
@@ -28,6 +29,31 @@ const monsterHp=(f:ReturnType<typeof setup>)=>getMonster(f.monster.id)!.curHp;
 const casterNow=(f:ReturnType<typeof setup>)=>getCharacter(f.caster.id)!;
 
 describe('2024 linked spell profiles',()=>{
+  it.each(['Mirror Image','Flame Blade'])('%s emits a casting effect without changing HP',name=>{
+    const f=setup(name);expect(f.cast()).toBe(true);
+    expect(drainHpFx(f.session.id)).toContainEqual(expect.objectContaining({spell:name,delta:0,refId:f.caster.id}));
+    expect(casterNow(f).curHp).toBe(20);
+  });
+  it('ties Hold Monster restraints to its saving throw and removes them when concentration ends',()=>{
+    const f=setup('Hold Monster');dice(1,()=>f.cast());
+    const held=getMonster(f.monster.id)!.conditions.find(c=>c.label==='Paralyzed')!;
+    const save=listRollLog(f.session.id).find(r=>r.reveal?.kind==='check')!;
+    expect(held.combatEffect?.visualRollId).toBe(save.id);
+    expect(drainHpFx(f.session.id)).toContainEqual(expect.objectContaining({spell:'Hold Monster',delta:0,rollId:save.id}));
+    endConcentration('pc',f.caster.id,'Test concentration ends');
+    expect(getMonster(f.monster.id)!.conditions.some(c=>c.label==='Paralyzed')).toBe(false);
+  });
+  it.each(['Ice Storm','Flame Strike','Meteor Swarm'])('%s keeps its animation identity when typed pools are applied',name=>{
+    const f=setup(name);dice(3,()=>f.cast());
+    const source=listRollLog(f.session.id).find(r=>r.apply?.damagePools)!;
+    dice(1,()=>resolveForcedSave(f.session.id,source.id,f.target.id));
+    expect(drainHpFx(f.session.id)).toContainEqual(expect.objectContaining({spell:name,refId:f.monster.id,delta:expect.any(Number),rollId:expect.any(String)}));
+  });
+  it('a passed Hold Monster save creates no restraint or cosmetic impact',()=>{
+    const f=setup('Hold Monster');dice(20,()=>f.cast());
+    expect(getMonster(f.monster.id)!.conditions.some(c=>c.label==='Paralyzed')).toBe(false);
+    expect(drainHpFx(f.session.id).some(e=>e.spell==='Hold Monster')).toBe(false);
+  });
   it.each(['Sorcerous Burst','Ice Knife',"Melf’s Acid Arrow",'Vampiric Touch','Hold Monster','Mirror Image','Heat Metal','Phantasmal Killer','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'])('%s is usable from the shipped catalog',name=>{
     const spell={...getSpell(name)!,id:'catalog'};expect(spell.name).toBeTruthy();expect(linkedSpellProfile(spell)).toBeTruthy();expect(effectiveSheetAbility(spell).roll).toBeTruthy();
     expect(linkedSpellProfile({...spell,source:'custom'})).toBeUndefined();expect(linkedSpellProfile({...spell,executionProfile:'manual'})).toBeUndefined();
@@ -133,6 +159,7 @@ describe('repeat actions and hit riders',()=>{
   });
   it('Witch Bolt remains repeatable after its initial miss and ends if distance or Total Cover breaks the link',()=>{
     const f=setup('Witch Bolt');dice(1,()=>f.cast());expect(monsterHp(f)).toBe(500);dice(4,()=>repeatSpell(f.session.id,'Mage','pc',f.caster.id,f.fx().id));expect(monsterHp(f)).toBe(496);
+    expect(drainHpFx(f.session.id)).toContainEqual(expect.objectContaining({spell:'Witch Bolt',delta:-4,refId:f.monster.id}));
     moveToken(f.target.id,900,100);expireTimedSpellEffects(f.session.id);expect(casterNow(f).conditions.some(c=>c.isConcentration)).toBe(false);
   });
   it('repeat actions are once on the caster turn, not on someone else turn',()=>{

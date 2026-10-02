@@ -12,7 +12,7 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   const state=async():Promise<StateSnapshot>=>{const j=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(j.ok).toBe(true);return j.snapshot;};
   const initial=await state(),vanec=initial.characters.find(c=>c.name==='Vanec')!;
   const catalog=(await(await request.get('/api/spells/all')).json()).results as SheetAbility[];
-  const abilities=['Mirror Image','Flame Blade'].map((name,i)=>({...catalog.find(a=>a.name===name)!,id:`linked-${i}`,source:'srd' as const,sourceClass:'wizard'}));
+  const abilities=['Mirror Image','Flame Blade','Hold Person'].map((name,i)=>({...catalog.find(a=>a.name===name)!,id:`linked-${i}`,source:'srd' as const,sourceClass:'wizard'}));
   socket.emit('character:update',{characterId:vanec.id,className:'Wizard',level:7,maxHp:200,curHp:200,armorClass:12,stats:{STR:10,DEX:10,CON:10,INT:18,WIS:10,CHA:10},conditions:[],sheetAbilities:abilities,spellSlots:{L2:{max:10,used:0}}});
   const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=700;const x=c.getContext('2d')!;x.fillStyle='#303338';x.fillRect(0,0,1000,700);return c.toDataURL().split(',')[1];});
   const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Illusions arena',image:{name:'arena.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')}}})).json();
@@ -63,5 +63,25 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   const logCount=(await state()).rollLog.length;await actions.getByRole('button',{name:'Flame Blade · Magic action',exact:true}).click();
   await expect.poll(async()=>(await state()).rollLog.length,{timeout:30000}).toBeGreaterThan(logCount);
   expect((await state()).characters.find(c=>c.id===vanec.id)!.spellSlots.L2.used).toBe(slotsBefore);
+  page.on('dialog',d=>d.accept());
+  // A low WIS target guarantees the reviewed fixture fails this save; the save
+  // still runs through the app. Its implied conditions must not duplicate FX.
+  socket.emit('monster:update',{monsterId:enemy.refId,stats:{STR:10,DEX:10,CON:10,INT:10,WIS:1,CHA:10}});
+  for(let attempt=0;attempt<4;attempt++){
+    const count=(await state()).rollLog.length;
+    await combat.getByRole('button',{name:/Hold Person/}).click();
+    await expect.poll(async()=>(await state()).rollLog.length,{timeout:45000}).toBeGreaterThan(count);
+    if((await state()).monsters.find(m=>m.id===enemy.refId)!.conditions.some(c=>c.label==='Paralyzed'))break;
+  }
+  await expect(layer).toHaveAttribute('data-spell-impact-kinds',/chains/);
+  await page.waitForTimeout(2400);
+  await expect(layer).toHaveAttribute('data-spell-impact-kinds','chains');
+  socket.emit('token:setHidden',{tokenId:enemy.id,hidden:true});await state();
+  await expect(layer).not.toHaveAttribute('data-spell-impact-kinds',/chains/);
+  socket.emit('token:setHidden',{tokenId:enemy.id,hidden:false});await state();
+  await expect(layer).toHaveAttribute('data-spell-impact-kinds','chains');
+  const conc=(await state()).characters.find(c=>c.id===vanec.id)!.conditions.find(c=>c.isConcentration)!;
+  socket.emit('condition:clear',{kind:'pc',refId:vanec.id,conditionId:conc.id});await state();
+  await expect(layer).not.toHaveAttribute('data-spell-impact-kinds',/chains/);
   expect(errors).toEqual([]);
 });

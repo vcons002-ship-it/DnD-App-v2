@@ -31,6 +31,8 @@ export type Condition = {
     concentration?: boolean; nextAttackAdvantage?: boolean; slow?: boolean;
     /** Casting identity and provenance keep repeated saves and cleanup scoped. */
     castId?: string; parentConditionId?: string;
+    /** Cosmetic only: wait for this visible saving throw before showing the restraint. */
+    visualRollId?: string;
     /** Haste's restricted extra action is independent of the normal action. */
     hasteActionUsed?: HasteAction;
     /** Lethargy lasts through the end of the affected creature's next turn. */

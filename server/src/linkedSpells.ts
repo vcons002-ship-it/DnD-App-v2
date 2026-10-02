@@ -51,12 +51,14 @@ export function mirrorIntercept(sid:string,attacker:Token,target:Token,roller:st
   const dice=withDiceMetadata({label:`Mirror Image — ${defender.name}: Duplicate Check`,target:{kind:target.kind,refId:target.refId}},()=>rollDice(`${n}d6`))!;
   const diverted=dice.rolls.some(v=>v>=3),condition=defender.conditions.find(c=>spellKey(c.label)==='mirror image')!;
   if(diverted){if(n===1)clearCondition(target.kind,target.refId,condition.id);else setCondition(target.kind,target.refId,{...condition,combatEffect:{...condition.combatEffect!,duplicates:n-1}});}
+  const checkId=newId();
+  if(diverted)queueSpellImpact(sid,target.kind,target.refId,'Mirror Image',checkId);
   addRollLog(sid,{roller,label:'Mirror Image',expr:`${n}d6`,total:dice.total,
     detail:`${defender.name}: ${dice.rolls.join(' + ')} — ${diverted?'duplicate takes the hit and disappears':'attack hits the real creature'}; ${n-(diverted?1:0)} duplicates remain.`,
     reveal:{kind:'damage',title:'Mirror Image — Duplicate Check',attacker:source.name,target:defender.name,outcome:'none',
       effectOutcome:diverted?'Duplicate destroyed — no damage to the caster.':'No duplicate intercepts — roll damage normally.',
       damageDice:[{label:'Duplicate checks (3+ intercepts)',value:dice.total,faces:dice.rolls,diceExpression:dice.expr}],damage:dice.total,
-      visibilityTarget:{kind:target.kind,refId:target.refId}}});return diverted;
+      visibilityTarget:{kind:target.kind,refId:target.refId}}},checkId);return diverted;
 }
 
 export function sorcerousBonus(ctx:LinkedSpellContext,faces:number[]) {
@@ -69,15 +71,15 @@ export function sorcerousBonus(ctx:LinkedSpellContext,faces:number[]) {
   return rolls;
 }
 
-export function linkedHit(ctx:LinkedSpellContext,target:Token) {
+export function linkedHit(ctx:LinkedSpellContext,target:Token,visualRollId?:string) {
   const key=spellKey(ctx.spell);
   const extra:Partial<Fx>=key==='guiding bolt'?{nextAttackAdvantage:true,untilCasterEnd:true}
     :key==='ray of frost'?{speedReduction:10,untilCasterTurn:true}
     :key==='ray of sickness'?{untilCasterEnd:true}
     :key==='chill touch'?{preventsHealing:true,untilCasterEnd:true}
     :key==='shocking grasp'?{noOpportunityAttacks:true,untilTargetStart:true}:{};
-  if(Object.keys(extra).length)spellCondition(ctx,target.kind,target.refId,key==='ray of sickness'?'Poisoned':ctx.spell,extra);
-  if(key==="melf's acid arrow")spellCondition(ctx,target.kind,target.refId,ctx.spell,{phase:'end',dice:`${ctx.castLevel}d4`,damageType:'acid',once:true});
+  if(Object.keys(extra).length)spellCondition(ctx,target.kind,target.refId,key==='ray of sickness'?'Poisoned':ctx.spell,{...extra,visualRollId});
+  if(key==="melf's acid arrow")spellCondition(ctx,target.kind,target.refId,ctx.spell,{visualRollId,phase:'end',dice:`${ctx.castLevel}d4`,damageType:'acid',once:true});
 }
 
 export function linkedDamageComplete(sid:string,roller:string,ctx:LinkedSpellContext,target:Token,amount:number) {

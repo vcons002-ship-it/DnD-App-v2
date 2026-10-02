@@ -6,6 +6,37 @@ concentration, and repeat-action timing. Existing saved sheets receive matching
 runtime profiles; their descriptions and authored formulas are not rewritten.
 Explicit Custom or Manual profiles keep their authored behavior.
 
+## Map effects
+
+The linked spells reuse the existing luminous 3D materials, drifting motes,
+smooth glow envelope, and spell-emitted lighting. Ice spells scatter crystals;
+Acid Arrow splashes; Vampiric Touch uses Necrotic wisps and a green healing
+effect; Spiritual Weapon shows a brief spectral sword strike; Flame Blade
+shows a glowing Fire blade; storms drop icy shards or lightning and Meteor
+Swarm drops burning rocks. These are visual depictions, not additional summons
+or rules objects.
+
+Hold Person and Hold Monster keep glowing interlocking chains around the
+affected body. Phantasmal Killer keeps Psychic wisps; Ensnaring Strike keeps
+vines. Heat Metal, Acid Arrow and the timed hit riders keep their matching
+glow while their server-owned condition remains. The caster's Flame Blade and
+Vampiric Touch visuals remain with their active spell. Mirror Image's existing
+translucent duplicates remain the persistent illusion, with a brief shimmer
+on casting and interception.
+
+Failed-save restraints wait for their saving-throw result. Damage effects use
+the same dice-completion/skip gate as HP floaters. Persistent effects follow
+movement and camera changes and disappear on a successful repeat save,
+concentration cleanup, duration expiry, or condition removal. Implied child
+conditions do not duplicate the visual. Hidden tokens and party-only shared
+sight do not emit spell effects or lights for that viewer. Reduced-motion
+settings keep a still, subdued representation.
+
+All effects share geometry and the existing bounded light field; chains use
+one merged mesh rather than a draw call per link. No image/model downloads or
+extra shadow maps are introduced. Persistent glows are decorative and do not
+expand the rules-based vision radius or replace a spell's light-range rules.
+
 ## Mirror Image
 
 Cast once to create three translucent duplicates of the caster. In 3D mode,

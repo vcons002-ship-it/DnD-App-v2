@@ -1,4 +1,5 @@
 import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
+import {spellImpactName} from '../../shared/spellImpact.js';
 import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea} from './linkedSpells.js';
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata} from '../../shared/dice.js';
@@ -15,6 +16,7 @@ import {
   faceTokenToward,
   isDeadEntity,
   addRollLog,
+  queueSpellImpact,
   applyDamage,
   getCharacter,
   getMonster,
@@ -1512,12 +1514,15 @@ export function resolveForcedSave(
     });
     return;
   }
+  const resolutionRollId = newId();
+  let appliedSpellCondition=false;
   const applyFailedCondition = () => {
     if (apply.effect) {
       const effect = apply.effect;
+      appliedSpellCondition=true;
       setCondition(tok.kind, tok.refId, {id:newId(),label:effect.condition,aura:'red',isConcentration:false,
         combatEffect:{casterKind:effect.casterKind,casterId:effect.casterId,spell:effect.spell,
-          castId:effect.castId,concentration:true,expiresAt:effect.expiresAt,
+          castId:effect.castId,visualRollId:resolutionRollId,concentration:true,expiresAt:effect.expiresAt,
           save:effect.repeatSave,dc:apply.dc,phase:effect.repeatSave ? 'end' : undefined,dice:effect.repeatDamage,damageType:effect.damageType,saveBeforeDamage:!!effect.repeatDamage,attackDisadvantage:effect.attackDisadvantage,checkDisadvantage:effect.checkDisadvantage}});
     } else if (apply.onFail) setTokensCondition([tokenId], {label:apply.onFail,aura:'red',isConcentration:false});
   };
@@ -1576,7 +1581,7 @@ export function resolveForcedSave(
     }
     dmg = Math.floor(base * mult);
     const dartRollId = newId();
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, src?.expr ?? src?.label);
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label));
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
@@ -1660,12 +1665,12 @@ export function resolveForcedSave(
     dmg = defended(false);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  const resolutionRollId = newId();
   // A real save waits for its own result. An auto-hit/auto-fail application
   // without a new reveal may instead share its still-playing cast animation.
   // Clients never wait on a source roll that has already finished or is hidden.
   const fxRollId = saveReveal ? resolutionRollId : src?.reveal ? src.id : undefined;
-  const saveNote = dmg ? applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, src?.expr ?? src?.label) : undefined;
+  if(apply.effect&&appliedSpellCondition)queueSpellImpact(sessionId,tok.kind,tok.refId,apply.effect.spell,fxRollId);
+  const saveNote = dmg ? applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, spellImpactName(src?.expr)??spellImpactName(src?.label)) : undefined;
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   // Mark this target consumed so a repeat click on the same creature is rejected.
   setRollApply(rollId, {
@@ -1761,7 +1766,8 @@ export function resolveTargetedSpellAttack(opts: {
     if(opts.linked&&spellKey(opts.linked.spell)==='ice knife')linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,0);
     return true;
   }
-  if(hit&&!opts.liveResume&&opts.linked)linkedHit(opts.linked,tt!);
+  const attackRollId = opts.liveResume?.id ?? newId();
+  if(hit&&!opts.liveResume&&opts.linked)linkedHit(opts.linked,tt!,attackRollId);
   if(isLiveCommand()&&!opts.liveResume&&hit&&opts.attacker&&getSessionById(opts.sessionId)?.manualDamage){
     addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,
       detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage`,
@@ -1769,7 +1775,7 @@ export function resolveTargetedSpellAttack(opts: {
       reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
       pending:{spellLink:opts.linked,target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
         live:{kind:'spell',args:[opts],fixed:{face,detail:d20detail,hit,crit}}}
-    });return true;
+    },attackRollId);return true;
   }
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
@@ -1823,7 +1829,6 @@ export function resolveTargetedSpellAttack(opts: {
   }
   const deferDamage = (!!opts.liveResume || !!getSessionById(opts.sessionId)?.manualDamage) && hit && applied > 0 && !!opts.attacker;
   consumeHitAdvantage(tt!);
-  const attackRollId = opts.liveResume?.id ?? newId();
   if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId, opts.title);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
@@ -2015,6 +2020,7 @@ function resolveSheetAbilityFor(
     const key=spellKey(ability.name),target=targetTokenId?spellTarget(sessionId,targetTokenId):null;
     if(linkedProfile.kind==='mirror'){
       spellCondition(linkedContext,kind,entity.id,'Mirror Image',{duplicates:3});
+      queueSpellImpact(sessionId,kind,entity.id,'Mirror Image');
       addRollLog(sessionId,{roller,label:'Mirror Image',expr:'Mirror Image',total:0,detail:'Three illusory duplicates appear. A hit rolls one d6 per remaining duplicate; any 3+ destroys one duplicate instead of damaging the caster.'});return true;
     }
     if(linkedProfile.kind==='mixed'){mixedSpellDamage(sessionId,roller,linkedContext);return true;}
@@ -2024,6 +2030,7 @@ function resolveSheetAbilityFor(
       if(key==='flame blade'&&!reuse){
         const ready=(kind==='pc'?getCharacter(entity.id):getMonster(entity.id))!.conditions.find(c=>c.combatEffect?.abilityId===ability.id&&!c.isConcentration)!;
         setCondition(kind,entity.id,{...ready,combatEffect:{...ready.combatEffect!,lastUseTurn:undefined}});
+        queueSpellImpact(sessionId,kind,entity.id,'Flame Blade');
         addRollLog(sessionId,{roller,label:'Flame Blade',expr:'Flame Blade',total:0,detail:'Flame Blade created. Use its Magic action attack while concentrating; no additional slot is spent.'});return true;
       }
       if(key==='heat metal'){heatMetalDamage(sessionId,roller,linkedContext,target!);return true;}

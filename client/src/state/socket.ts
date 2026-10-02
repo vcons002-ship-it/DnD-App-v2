@@ -473,6 +473,13 @@ export function getPlayerId(): string {
 }
 
 const queuedRollFx: NonNullable<Store['rollFx']>[] = [];
+/** Conditions can arrive with the resolved snapshot before their save animation
+ * completes. Use the same queue as damage impacts to avoid revealing early. */
+export function isRollImpactPending(rollId:string|undefined){
+  if(!rollId)return false;
+  const current=useStore.getState().rollFx;
+  return (current?.rollId===rollId&&!current.impactReady)||queuedRollFx.some(fx=>fx.rollId===rollId);
+}
 export const useStore = create<Store>((set, get) => ({
   liveDice: null,
   socket: null,
