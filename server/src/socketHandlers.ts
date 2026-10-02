@@ -21,6 +21,8 @@ import { parseRollCommand, rollDice, isValidDiceExpression } from '../../shared/
 import { diceReveal } from '../../shared/rollReveal.js';
 import { effectiveSheetAbility, spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import { spellCombatSupport } from '../../shared/spellSupport.js';
+import { activeHasteCondition, spellActionBlock } from '../../shared/spellBuffs.js';
+import { expireTimedSpellEffects } from './hitEffectTurns.js';
 import {
   resolveAttack,
   resolveAttackDamage,
@@ -42,6 +44,8 @@ import {
   resolveDeathSave,
   noteConcentration,
   isConcentrationSpell,
+  spellControlTargetError,
+  spellApplyTargetError,
 } from './combat.js';
 import {
   aiCreateCharacter,
@@ -290,11 +294,19 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
         const sid=sessionId();
+        const runHandler=()=>{
+          // Resolve elapsed durations before this action reads AC, movement or
+          // spell conditions. Within a live roll these writes are staged and
+          // replayed with the rest of the command, never published early.
+          if(sid && !['cursor:move','cursor:hide','chat:typing','token:drag'].includes(event) && expireTimedSpellEffects(sid))
+            afterRollCommit(()=>broadcastSnapshots(io,sid));
+          return handler(...args);
+        };
         const isRoll=liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
         if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
           enqueueRoll(sid,async()=>{
             if(!socket.connected||commandConnection()?.sessionId!==sid)return;
-            if(!isRoll){await handler(...args);return;}
+            if(!isRoll){await runHandler();return;}
             const commandConn=commandConnection();
             const roller=rollerName(sid,socket.id,isDm());
             const character=listCharacters(sid).find(c=>c.name===roller);
@@ -350,7 +362,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 // Notices from an aborted pass are not emitted twice.
                 (socket as any).emit=(...values:any[])=>{afterRollCommit(()=>emit.apply(socket,values as any));return socket;};
                 activeCommandConnection=commandConn;
-                try{handler(...args);}finally{socket.emit=emit;activeCommandConnection=undefined;}
+                try{runHandler();}finally{socket.emit=emit;activeCommandConnection=undefined;}
               },(frame,info)=>{for(const id of audience()){
                 if(info?.saveDice){
                   const shaped=shapeSaveFrame(frame,info.saveDice,target=>{
@@ -382,7 +394,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           },failed);
           return;
         }
-        invokeSafely(()=>handler(...args),failed);
+        invokeSafely(runHandler,failed);
       })) as typeof socket.on;
 
     const isDm = () => commandConnection()?.role === 'dm';
@@ -391,7 +403,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     /** Run a mutation, persist, and re-shape snapshots for everyone. */
     const afterChange = () => {
       const sid = sessionId();
-      if (sid) afterRollCommit(() => { finishInitiative(sid); broadcastSnapshots(io, sid); });
+      if (sid) { expireTimedSpellEffects(sid); afterRollCommit(() => { finishInitiative(sid); broadcastSnapshots(io, sid); }); }
     };
 
     on('join', (payload, ack) => {
@@ -636,6 +648,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!map || map.sessionId !== sid) return;
       if (!isDm() && getActiveMapId(sid) !== mapId) return;
       const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
+      const blocked=ent && spellActionBlock(ent);
+      if(blocked){socket.emit('notice',{message:`${blocked}: cannot summon while this effect is active.`});return;}
       const savedAbility = ent?.sheetAbilities.find((a) => a.id === abilityId);
       const ability = savedAbility ? effectiveSheetAbility(savedAbility) : undefined;
       if (!ability?.summon) return;
@@ -857,6 +871,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!isDm()) {
         const t = getToken(tokenId);
         const m = t && t.kind === 'monster' ? getMonster(t.refId) : null;
+        const creature=t?.kind==='pc'?getCharacter(t.refId):m;
+        const blocked=creature && spellActionBlock(creature);
+        if(blocked) {
+          socket.emit('notice',{message:`${blocked}: you cannot move while this effect is active.`});
+          sendSnapshot(io,socket.id); return;
+        }
         const allowed =
           !!t &&
           !t.isHidden &&
@@ -885,6 +905,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!t||getMap(t.mapId)?.sessionId!==sid) return;
       if (!isDm()) {
         if (t.isHidden) return;
+        const creature=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId);
+        if(creature && spellActionBlock(creature)) return;
         if (t.kind === 'monster') {
           const m = getMonster(t.refId);
           if (!m || m.disposition !== 'friendly' || m.objectKind) return;
@@ -1421,6 +1443,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     // ---- Sheet spells/abilities (PC owner, or the DM for creatures) ----
     on('ability:set', ({ kind, refId, ability }) => {
       if (!ability?.name?.trim() || !ownsCreature(kind, refId)) return;
+      const entity=kind==='pc'?getCharacter(refId):getMonster(refId);
+      const previous=entity?.sheetAbilities.find(a=>a.id===ability.id);
+      const blocked=entity && spellActionBlock(entity);
+      if(blocked && ability.stance?.active && !previous?.stance?.active) {
+        socket.emit('notice',{message:`${blocked}: you cannot activate a stance while this effect is active.`});return;
+      }
       // Validate any dice expressions BEFORE persisting: an unrollable string
       // (e.g. "lol") stored here would make every later ability:roll throw. The
       // roll is resolved server-side, so a bad expression is a client bug/abuse.
@@ -1474,17 +1502,28 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         return true;
       };
       const roller = rollerName(sid, socket.id, isDm());
+      const casterEntity=kind==='pc'?getCharacter(refId):getMonster(refId);
+      const blocked=casterEntity && spellActionBlock(casterEntity);
+      if(blocked) {
+        socket.emit('notice',{message:`${blocked}: you cannot cast or take actions while this effect is active.`}); return;
+      }
 
       if (kind === 'monster') {
         const m = getMonster(refId);
         const ability = m?.sheetAbilities.find((a) => a.id === abilityId);
         if (!m || !ability || !validDamageChoice(ability)) return;
+        const targetError=tgt && spellControlTargetError(sid,ability,tgt);
+        if(targetError){socket.emit('notice',{message:targetError});return;}
         // CR-based DC/to-hit; no spell slots for creatures. A limited-use action
         // (breath weapon) is spent by using it; the DM re-readies it manually.
         if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) {
           setAbilityRechargeSpent('monster', m.id, ability.id, true);
           afterChange();
           if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
+        } else if(JSON.stringify(m.conditions)!==JSON.stringify(getMonster(m.id)?.conditions)) {
+          // Ending self-Haste can incapacitate this caster before a replacement
+          // concentration spell starts. Its ended buff still needs publishing.
+          afterChange();socket.emit('notice',{message:'Previous concentration ended. Recover from Haste lethargy before casting a new concentration spell.'});
         }
         return;
       }
@@ -1492,6 +1531,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const c = getCharacter(refId);
       const ability = c?.sheetAbilities.find((a) => a.id === abilityId);
       if (!c || !ability || !validDamageChoice(ability)) return;
+      const targetError=tgt && spellControlTargetError(sid,ability,tgt);
+      if(targetError){socket.emit('notice',{message:targetError});return;}
       // Pact Magic: a Warlock's leveled spell is cast at the pact-slot level (the
       // only slots they have), so its dice scale like it — roll at that level.
       const preferredPool = slotPool === 'pact' || slotPool === 'spellcasting' ? slotPool : undefined;
@@ -1508,6 +1549,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         }
       }
       const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, tgt, selectedDamageType);
+      if(!ok && JSON.stringify(c.conditions)!==JSON.stringify(getCharacter(c.id)?.conditions)) {
+        afterChange();socket.emit('notice',{message:'Previous concentration ended. Recover from Haste lethargy before casting a new concentration spell.'});
+      }
       if(!ok && markSpell(ability)) socket.emit('notice',{message:'Choose a creature within 90 feet of your token.'});
       // Casting a leveled spell (or activating a spell-backed stance like
       // Hunter's Mark) spends a slot at the level it was cast.
@@ -1775,6 +1819,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const allowed =
         isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
       if (!allowed) return;
+      const targetError=spellApplyTargetError(sid,entry,tokenId);
+      if(targetError){socket.emit('notice',{message:targetError});return;}
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const idx = typeof instanceIndex === 'number' ? instanceIndex : undefined;
       resolveForcedSave(sid, rollId, tokenId, adv, idx);
@@ -2147,9 +2193,27 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
+    on('haste:action', ({kind,refId,action}) => {
+      const sid=sessionId();
+      if(!sid || !['dash','disengage','hide','utilize'].includes(action)) return;
+      const entity=kind==='pc'?getCharacter(refId):kind==='monster'?getMonster(refId):null;
+      if(!entity || entity.sessionId!==sid || !(isDm() || kind==='pc' && (entity as import('../../shared/types.js').Character).claimedBy===socket.id ||
+          kind==='monster' && (entity as import('../../shared/types.js').Monster).disposition==='friendly')) return;
+      const active=getToken(getSessionById(sid)?.activeTurnTokenId??'');
+      const haste=activeHasteCondition(entity);
+      if(!active || active.kind!==kind || active.refId!==refId || !haste || haste.combatEffect?.hasteActionUsed) {
+        socket.emit('notice',{message:'Use Haste’s extra action once on the affected creature’s turn.'}); return;
+      }
+      setCondition(kind,refId,{...haste,combatEffect:{...haste.combatEffect!,casterKind:haste.combatEffect?.casterKind??kind,
+        casterId:haste.combatEffect?.casterId??refId,spell:'Haste',hasteActionUsed:action}});
+      addRollLog(sid,{roller:isDm()?'DM':entity.name,label:'Haste extra action',expr:'Haste',total:0,
+        detail:`${entity.name}: uses Haste’s extra action to ${action}. ${action==='hide'?'Roll the appropriate Stealth check.':action==='utilize'?'Resolve the object interaction with the DM.':action==='dash'?'Adds one additional movement allowance for this turn.':'Movement does not provoke Opportunity Attacks this turn.'}`});
+      afterChange();
+    });
+
     on(
       'combat:attack',
-      ({ attackerTokenId, targetTokenId, weaponIndex, advantage, offhand, twoHanded }) => {
+      ({ attackerTokenId, targetTokenId, weaponIndex, advantage, offhand, twoHanded, hasteAction }) => {
         if (!isDm() && !canDirectlyTargetToken(targetTokenId)) {
           socket.emit('notice', {message:'You must see this creature yourself to target it. Party sightings are for awareness only.'});
           return;
@@ -2158,6 +2222,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if (!sid) return;
         const at = getToken(attackerTokenId);
         if (!at) return;
+        const attackerEntity=at.kind==='pc'?getCharacter(at.refId):getMonster(at.refId);
+        const blocked=attackerEntity && spellActionBlock(attackerEntity);
+        if(blocked) {
+          socket.emit('notice',{message:`${blocked}: you cannot attack while this effect is active.`}); return;
+        }
         // DM may attack with anyone. A player may attack with their own claimed
         // PC, or with a friendly creature (e.g. a companion/summon they control).
         if (!isDm()) {
@@ -2183,7 +2252,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const mine = isDm()
           ? undefined
           : listCharacters(sid).find((c) => c.claimedBy === socket.id)?.id;
-        resolveAttack(
+        const haste=attackerEntity&&activeHasteCondition(attackerEntity);
+        if(hasteAction && (!haste || haste.combatEffect?.hasteActionUsed || getSessionById(sid)?.activeTurnTokenId!==at.id ||
+            !Number.isInteger(weaponIndex) || !attackerEntity?.weapons[weaponIndex])) {
+          socket.emit('notice',{message:'Haste permits one weapon attack with its extra action on your turn.'});return;
+        }
+        const attacked=resolveAttack(
           sid,
           roller,
           attackerTokenId,
@@ -2194,6 +2268,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           !!twoHanded,
           mine,
         );
+        // This hit may have dropped the Haste caster and ended concentration.
+        // Record spending only on the still-existing buff, never resurrect it.
+        const remainingHaste=attacked && hasteAction && haste && (at.kind==='pc'?getCharacter(at.refId):getMonster(at.refId))?.conditions.find(c=>c.id===haste.id);
+        if(remainingHaste) setCondition(at.kind,at.refId,{...remainingHaste,combatEffect:{...remainingHaste.combatEffect!,
+          casterKind:remainingHaste.combatEffect?.casterKind??at.kind,casterId:remainingHaste.combatEffect?.casterId??at.refId,
+          spell:'Haste',hasteActionUsed:'attack'}});
         afterChange();
       },
     );

@@ -4,9 +4,10 @@
 // base + matching ability modifiers; flat save/skill/attack/AC bonuses layer on
 // at roll time. Pure + unit-tested; the server computes the authoritative math.
 
-import type { InventoryItem, ModTarget, SheetModifier, Weapon } from './types.js';
+import type { Condition, InventoryItem, ModTarget, SheetModifier, Weapon } from './types.js';
 import type { AbilityKey } from './skills.js';
 import { rollDice } from './dice.js';
+import { hasteAcBonus } from './spellBuffs.js';
 
 const ABILITIES: AbilityKey[] = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
@@ -16,6 +17,7 @@ export type ModSource = {
   armorClass?: number;
   modifiers?: SheetModifier[];
   items?: InventoryItem[];
+  conditions?: readonly Condition[];
 };
 
 /** A modifier the math can safely evaluate (old DB rows / imports may hold
@@ -93,13 +95,13 @@ export function effectiveStats(c: ModSource): {
   return { scores, breakdown };
 }
 
-/** Effective AC = base armorClass + AC-target modifiers. */
+/** Effective AC = base armorClass + AC-target modifiers + live spell buffs. */
 export function effectiveAc(c: ModSource): number {
   return (
     (c.armorClass ?? 0) +
     activeModifiers(c)
       .filter((m) => m.target.kind === 'ac')
-      .reduce((s, m) => s + m.value, 0)
+      .reduce((s, m) => s + m.value, 0) + hasteAcBonus(c)
   );
 }
 

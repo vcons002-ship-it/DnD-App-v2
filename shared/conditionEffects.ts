@@ -92,6 +92,7 @@ const IMPLIED: Record<string, string[]> = {
   paralyzed: ['Incapacitated'],
   stunned: ['Incapacitated'],
   petrified: ['Incapacitated'],
+  'haste lethargy': ['Incapacitated'],
 };
 export function impliedConditions(label: string): string[] {
   return IMPLIED[label.trim().toLowerCase()] ?? [];
@@ -110,9 +111,11 @@ export function saveAdvantage(
   featureAdv: string[] = [],
 ): AdvResult {
   const s = norm(labels);
+  const adv = [...featureAdv];
   const dis: string[] = [];
+  if (s.has('haste') && !s.has('haste lethargy') && ability.toUpperCase() === 'DEX') adv.push('Haste (DEX)');
   if (s.has('restrained') && ability.toUpperCase() === 'DEX') dis.push('restrained (DEX)');
-  return resolve([...featureAdv], dis, manual);
+  return resolve(adv, dis, manual);
 }
 
 /** Conditions that make a creature AUTOMATICALLY FAIL Strength & Dexterity saves

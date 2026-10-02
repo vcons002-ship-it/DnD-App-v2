@@ -26,11 +26,12 @@ Expand an entry for **App handles** and **You handle** details. Use the support 
 in the browse view to find flagged spells. Targeted rolls are performed from Combat
 or the right-click target menu, not from a targetless character panel.
 
-No saved sheet is rewritten or automatically converted between rules editions.
-Explicit custom entries and authored roll opt-outs retain their configured rolls,
-with an unreviewed Partial flag. The catalogue contains older/incomplete descriptions
-and formulas despite its 2024 label; the Manual rows below identify known unsafe
-execution paths. This audit does not certify every description as 2024-correct.
+Saved sheets are not rewritten. Exact, unchanged legacy catalogue formulas receive
+the reviewed runtime corrections described in [2024 spell fixes](SPELL_FIXES_2024.md).
+Explicit custom entries, edited formulas, and authored roll opt-outs retain their
+configured rolls with an unreviewed Partial flag. Other older/incomplete catalogue
+mechanics remain flagged below. This audit does not certify every description or
+every situational rule as 2024-correct.
 Rules checked against [official 2024 Free Rules spell descriptions](https://www.dndbeyond.com/sources/dnd/br-2024/spell-descriptions).
 
 | Level | Spell | Support | App handles | You handle / limitation |

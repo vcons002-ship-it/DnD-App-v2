@@ -15,10 +15,11 @@ import {
 import { useStore } from '../state/socket';
 import { effectiveRecharge } from '../../../shared/monsterAttacks';
 import { RechargeChip } from './RechargeChip';
-import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { isCanonicalHasteProfile, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { SpellCombatSupportBadge } from './SpellCombatSupport';
+import { spellActionBlock } from '../../../shared/spellBuffs';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -43,6 +44,7 @@ export function AbilityButtons({
   caster,
   targetTokenId,
   healTargetId,
+  buffTargetId,
   variant = 'inline',
   onAfter,
 }: {
@@ -51,6 +53,7 @@ export function AbilityButtons({
   caster: Character | Monster;
   targetTokenId?: string;
   healTargetId?: string;
+  buffTargetId?: string;
   variant?: 'menu' | 'inline';
   onAfter?: () => void;
 }) {
@@ -82,7 +85,7 @@ export function AbilityButtons({
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.
       advantage: !manualCast && execution.roll?.kind === 'attack' ? consumeAdvantage(caster.id) : undefined,
-      targetTokenId: manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
+      targetTokenId: isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
         : isMultiTargetSpell(a, level) ? undefined : targetTokenId,
     });
     onAfter?.();
@@ -109,10 +112,10 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!manualCast && !menu && execution.roll?.kind !== 'heal' && !multiple && !targetTokenId}
+            disabled={!!spellActionBlock(caster) || (!manualCast && !menu && execution.roll?.kind !== 'heal' && !multiple && !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId))}
             onClick={() => cast(a)}
           >
-            {manualCast ? 'Cast manually ·' : (isHasteSpell(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}
+            {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}
           </button>
         );
         const damageTypeSelect = damageTypes.length > 0 && (

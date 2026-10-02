@@ -22,7 +22,7 @@ function fixture() {
   const caster = createCharacter(session.id, { name: 'Caster', className: 'Sorcerer', level: 6,
     stats: { INT: 20, WIS: 10, CHA: 16 } });
   const target = (name = 'Target') => {
-    const template = createMonsterTemplate(session.id, { name, maxHp: 100, armorClass: 1, stats: { DEX: 10, WIS: 10 } });
+    const template = createMonsterTemplate(session.id, { name, creatureType: 'Humanoid', maxHp: 100, armorClass: 1, stats: { DEX: 10, WIS: 10 } });
     const monster = instantiateMonster(template.id)!;
     const token = createToken({ mapId: map.id, kind: 'monster', refId: monster.id, x: 100, y: 100 });
     return { monster, token };
@@ -174,14 +174,16 @@ describe('reviewed healing formula fixes', () => {
     expect(getMonster(t.monster.id)!.curHp).toBe(94); // +4d8[1,1,1,1]+15
     resolveAbilityRoll(f.session.id, 'Caster', f.caster, spell('Cure Wounds'), 1, undefined, t.token.id);
     expect(getMonster(t.monster.id)!.curHp).toBe(99); // +2d8[1,1] +CHA3
-    expect(effectiveSheetAbility(spell('Prayer of Healing')).roll?.healingBonus).toBe('none');
+    // The 2024 spell also grants a Short Rest and has a per-target Long-Rest
+    // restriction. A plain healing roll would silently omit those rules.
+    expect(effectiveSheetAbility(spell('Prayer of Healing')).roll).toBeUndefined();
     const edited = { ...spell('Heal'), roll: { ...spell('Heal').roll!, healingBonus: 'spellcasting' as const } };
     expect(effectiveSheetAbility(edited).roll?.healingBonus).toBe('spellcasting');
   });
 });
 
 describe('spell save workflow', () => {
-  it('base Hold Person targets and logs a save without any damage or new target condition', () => {
+  it('base Hold Person saves and paralyzes its Humanoid target without damage', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const f = fixture(), t = f.target();
     const ability = spell('Hold Person');
@@ -191,7 +193,9 @@ describe('spell save workflow', () => {
     expect(cast.apply).toMatchObject({ amount: 0, save: 'WIS', dc: 14, saveDamage: 'none', targetMode: 'single', owner: f.caster.id, consumedTargets: [t.token.id] });
     expect(logs.at(-1)?.detail).toContain('FAIL');
     expect(getMonster(t.monster.id)!.curHp).toBe(100);
-    expect(getMonster(t.monster.id)!.conditions).toEqual([]);
+    expect(getMonster(t.monster.id)!.conditions.map(condition => condition.label)).toEqual(expect.arrayContaining(['Paralyzed', 'Incapacitated']));
+    expect(getMonster(t.monster.id)!.conditions.find(condition => condition.label === 'Paralyzed')?.combatEffect)
+      .toMatchObject({ casterId: f.caster.id, spell: 'Hold Person', save: 'WIS', phase: 'end', dc: 14 });
     expect(getCharacter(f.caster.id)!.sheetAbilities[0]).toEqual(ability);
     expect(getCharacter(f.caster.id)!.conditions.some((c) => c.isConcentration)).toBe(true); // existing behavior
     const other = f.target('Other');
@@ -203,7 +207,7 @@ describe('spell save workflow', () => {
     vi.spyOn(Math, 'random').mockReturnValue(.99);
     const f = fixture(), a = f.target('A'), b = f.target('B');
     for (const [name, level] of [['Hold Person', 3], ['Hypnotic Pattern', 3]] as const) {
-      resolveAbilityRoll(f.session.id, 'Caster', f.caster, spell(name), level, undefined, a.token.id);
+      resolveAbilityRoll(f.session.id, 'Caster', f.caster, spell(name), level);
       const cast = listRollLog(f.session.id).at(-1)!;
       expect(cast.apply).toMatchObject({ amount: 0, targetMode: 'multiple' });
       expect(cast.apply?.consumedTargets).toBeUndefined();

@@ -38,7 +38,7 @@ function character(classes: ClassRosterEntry[], overrides = {}) {
 function arena(classes: ClassRosterEntry[], overrides = {}) {
   const f = character(classes, overrides), map = createMap(f.session.id, { name: 'Arena' });
   setActiveMap(f.session.id, map.id); setManualDamage(f.session.id, false);
-  const monster = instantiateMonster(createMonsterTemplate(f.session.id, { name: 'Target', maxHp: 200, armorClass: 1 }).id)!;
+  const monster = instantiateMonster(createMonsterTemplate(f.session.id, { name: 'Target', creatureType:'Humanoid', maxHp: 200, armorClass: 1 }).id)!;
   const attacker = createToken({ mapId: map.id, kind: 'pc', refId: f.hero.id, x: 100, y: 100 });
   const target = createToken({ mapId: map.id, kind: 'monster', refId: monster.id, x: 150, y: 100 });
   return { ...f, map, monster, attacker, target };
@@ -132,7 +132,7 @@ describe('class-specific combat with total-character proficiency', () => {
     expect(cast.apply).toMatchObject({ dc: 13, save: 'WIS' }); // 8 + total-level PB3 + CHA2, not INT5 or Warlock-only PB2.
     const save = entries.find(entry => entry.label === 'WIS save')!;
     expect(save.expr).toBe('DC 13');
-    expect(save.reveal).toMatchObject({ attackTotal: 13, outcome: 'pass', effectOutcome: 'Hold Person resisted!' });
+    expect(save.reveal).toMatchObject({ attackTotal: 13, outcome: 'pass', effectOutcome: 'Hold Person resisted - not Paralyzed.' });
     expect(getCharacter(f.hero.id)!.sheetAbilities.find(a => a.id === hold.id)!.roll).toBeUndefined();
     expect(getCharacter(f.hero.id)!.spellSlots.L2.used).toBe(1);
   });

@@ -1,4 +1,5 @@
 import {ObjectControls} from '../components/ObjectControls';
+import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
 import {WallMenu,type WallTool} from '../components/WallMenu';
@@ -1846,6 +1847,9 @@ export function MapStage({
     !dragGhosts[token.id]?.hidden && (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
+    const creature = t.kind === 'pc' ? snapshot.characters.find(c => c.id === t.refId) : snapshot.monsters.find(m => m.id === t.refId);
+    const movementSpeed = creature && 'speed' in creature ? walkingSpeedFeet(creature) : undefined;
+    const hasteDash = creature && activeHasteCondition(creature)?.combatEffect?.hasteActionUsed === 'dash';
     // Players may drag only their side: PCs + friendly creatures,
     // never objects. Mirrors the server's token:move gate — without
     // this the drag succeeds locally (a ghost move on the player's
@@ -1869,8 +1873,9 @@ export function MapStage({
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         movementWalls={isDm?undefined:map?.walls}
+        movementAllowanceFt={movementSpeed === undefined ? undefined : movementSpeed * (hasteDash ? 2 : 1)}
         draggable={
-          !t.sharedSightOnly && draggableTokens && movable && !fogActive && !measureActive && !saveResolve && !orbTarget
+          !t.sharedSightOnly && draggableTokens && movable && (isDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
         listening={!t.sharedSightOnly && !measureActive}
         selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id))}
@@ -2595,7 +2600,7 @@ export function MapStage({
               <span>
                 {saveResolve.save
                   ? `Apply ${saveResolve.label} — click targets to roll DC ${saveResolve.dc} ${saveResolve.save} saves`
-                  : `Apply ${saveResolve.label} — click targets to apply damage`}
+                  : `Apply ${saveResolve.label} — click targets to apply ${snapshot.rollLog.find(r => r.id === saveResolve.rollId)?.apply?.healing ? 'healing' : 'damage'}`}
               </span>
               <button className="btn tiny" onClick={clearSaveResolve}>
                 Done (Esc)

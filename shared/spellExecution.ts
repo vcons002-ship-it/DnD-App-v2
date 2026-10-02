@@ -2,13 +2,15 @@ import { markSpell, hitFeature } from './hitFeatures.js';
 import type { AbilityRoll, SheetAbility } from './types.js';
 import { cantripExtraSteps } from './spellMath.js';
 import { isDamageType } from './damage.js';
+import { revisedSpellAbility2024 } from './spellRevisions.js';
 
 /** Small, reviewed execution profiles, not a replacement spell catalogue.
  * Source: 2024 Basic Rules spell descriptions, checked 2026-09-16:
  * https://www.dndbeyond.com/sources/dnd/br-2024/spell-descriptions
  * These fill missing workflow metadata at runtime. Saved sheets are never
  * rewritten; authored roll fields win and explicitly custom entries opt out.
- * Effects, duration, repeated saves and conditions remain manual. */
+ * Haste and Hold Person have dedicated timed effects; other effects and
+ * repeated-condition mechanics are automated only where explicitly supported. */
 type Profile = {
   level: number;
   save: string;
@@ -39,10 +41,11 @@ const PROFILES: Record<string, Profile> = {
 
 export function effectiveSheetAbility(ability: SheetAbility, castLevel?: number): SheetAbility {
   if (ability.source === 'custom' || ability.executionProfile === 'manual') return ability;
+  ability = revisedSpellAbility2024(ability);
   if (hitFeature(ability)) return {...ability,roll:undefined,stance:undefined};
   if (markSpell(ability)) return {...ability,type:'spell',level:1,roll:{kind:'damage',dice:'0',baseLevel:1,targetMode:'single'}};
   const name = ability.name.trim().toLowerCase();
-  if (isHasteSpell(ability)) return {...ability, level:3, tags:[...(ability.tags??[]),'concentration'], roll:{kind:'damage',dice:'0',baseLevel:3,targetMode:'single'}};
+  if (isHasteSpell(ability) && isCanonicalHasteProfile(ability)) return {...ability, level:3, tags:[...(ability.tags??[]),'concentration'], roll:{kind:'damage',dice:'0',baseLevel:3,targetMode:'single',...(ability.roll?.castingAbility?{castingAbility:ability.roll.castingAbility}:{})}};
   if (ability.type==='spell' && name==='mage hand' && !ability.summon) return {...ability,level:0,summon:{name:'Mage Hand',icon:'\u270b'}};
   const savedRoll = ability.roll;
   if (ability.type === 'ability' && name === 'second wind' && savedRoll?.kind === 'heal' &&
@@ -111,6 +114,7 @@ export function spellDamageTypeChoices(ability: SheetAbility, castLevel?: number
 export function isMultiTargetSpell(ability: SheetAbility, castLevel?: number): boolean {
   const roll = effectiveSheetAbility(ability, castLevel).roll;
   if (roll?.kind === 'attack' && roll.instances) return true;
+  if (roll?.kind === 'heal') return roll.targetMode === 'multiple';
   if (!roll || (roll.kind !== 'save' && roll.kind !== 'damage')) return false;
   if (ability.type !== 'spell') return !!roll.instances || roll.targetMode === 'multiple';
   return !!roll.instances || roll.targetMode !== 'single';
@@ -149,3 +153,15 @@ export function criticalDiceExpression(expression: string): string {
 
 /** Recognize existing saved Haste entries without rewriting campaign sheets. */
 export const isHasteSpell = (a: SheetAbility): boolean => a.type === 'spell' && a.name.trim().toLowerCase() === 'haste';
+
+/** Only fill the unchanged no-damage buff profile; edited Haste mechanics win. */
+export function isCanonicalHasteProfile(a: SheetAbility): boolean {
+  if (!isHasteSpell(a) || a.source === 'custom' || a.executionProfile === 'manual' || a.level !== 3) return false;
+  const roll = a.roll;
+  if (!roll) return true;
+  if (roll.kind !== 'damage' || roll.dice?.replace(/\s/g, '') !== '0' ||
+      (roll.baseLevel !== undefined && roll.baseLevel !== 3) ||
+      (roll.targetMode !== undefined && roll.targetMode !== 'single')) return false;
+  return Object.keys(roll).every(key => roll[key as keyof AbilityRoll] === undefined ||
+    ['kind', 'dice', 'baseLevel', 'targetMode', 'castingAbility'].includes(key));
+}

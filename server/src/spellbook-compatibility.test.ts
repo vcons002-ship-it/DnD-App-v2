@@ -75,12 +75,10 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
     expect(spellCombatSupport({ name: 'Second Wind', type: 'ability' })).toBeNull();
   });
   it.each([
-    'False Life', 'Aid', 'Armor of Agathys', 'True Strike', 'Poison Spray', 'Inflict Wounds',
-    'Sorcerous Burst', 'Ice Knife', 'Ice Storm', 'Flame Strike', 'Meteor Swarm',
-    'Mass Cure Wounds', 'Mass Heal', 'Prayer of Healing', 'Conjure Animals',
+    'Aid', 'Armor of Agathys', 'True Strike', 'Ice Knife', 'Ice Storm', 'Flame Strike', 'Meteor Swarm',
+    'Mass Heal', 'Prayer of Healing', 'Conjure Animals',
     'Conjure Woodland Beings', 'Elemental Weapon', 'Bestow Curse',
-    'Wind Wall', 'Circle of Death', 'Blade Barrier', 'Dream', 'Earthquake', 'Weird',
-    "Mordenkainen's Sword", 'Flame Blade', 'Spiritual Weapon', 'Glyph of Warding',
+    'Dream', 'Earthquake', 'Glyph of Warding',
     'Feeblemind', 'Hunger of Hadar',
   ])('blocks the incomplete catalogue effect for %s while retaining the saved spell', name => {
     const entry = spell(name), before = structuredClone(entry);
@@ -105,6 +103,14 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
     expect(effectiveSheetAbility(edited).roll).toEqual(before.roll);
     expect(edited).toEqual(before);
   });
+  it('retains added authored mechanics even when the older dice formula is unchanged', () => {
+    const edited: SheetAbility = { ...spell('False Life'), source: 'srd',
+      roll: { kind: 'heal', dice: '1d4+4', baseLevel: 1, damageType: 'healing', healingBonus: 'none' } };
+    const before = structuredClone(edited);
+    expect(effectiveSheetAbility(edited)).toBe(edited);
+    expect(spellCombatSupport(edited)).toMatchObject({ status: 'partial', manualCastOnly: false });
+    expect(edited).toEqual(before);
+  });
   it('labels edited damage, save and instance metadata as unreviewed rather than combat ready', () => {
     const edits: SheetAbility[] = [
       { ...spell('Cure Wounds'), roll: { ...spell('Cure Wounds').roll!, dice: '7d6' } },
@@ -124,24 +130,26 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
     }
   });
   it('distinguishes post-hit spells, marks and buff markers from fully automated effects', () => {
-    for (const name of ["Hunter's Mark", 'Hex', 'Hail of Thorns', 'Ensnaring Strike', 'Haste'])
+    for (const name of ["Hunter's Mark", 'Hex', 'Hail of Thorns', 'Ensnaring Strike'])
       expect(spellCombatSupport(spell(name)), name).toMatchObject({ status: 'partial', manualCastOnly: false });
-    for (const name of ['Hold Person', 'Hypnotic Pattern', 'Command']) {
+    for (const name of ['Hypnotic Pattern', 'Command']) {
       const support = spellCombatSupport(spell(name))!;
       expect(support).toMatchObject({ status: 'partial', manualCastOnly: false });
       expect(support.manual.length).toBeGreaterThan(0);
     }
     expect(spellCombatSupport(spell('Divine Smite'))).toMatchObject({ status: 'ready', manualCastOnly: false });
+    for (const name of ['Haste', 'Hold Person'])
+      expect(spellCombatSupport(spell(name))).toMatchObject({ status: 'ready', manualCastOnly: false });
   });
   it('does not label all attacks or heals combat ready merely because they have dice', () => {
     expect(spellCombatSupport(spell('Guiding Bolt'))?.status).toBe('partial');
     expect(spellCombatSupport(spell('Mass Healing Word'))?.status).toBe('partial');
     expect(spellCombatSupport(spell('Regenerate'))?.status).toBe('partial');
-    expect(spellCombatSupport(spell('Haste'))!.manual.join(' ')).toMatch(/AC.*speed.*Dexterity/i);
+    expect(spellCombatSupport(spell('Haste'))!.automated.join(' ')).toMatch(/AC.*speed.*Dexterity/i);
     expect(spellCombatSupport(spell('Shield'))).toMatchObject({ status: 'manual', manualCastOnly: true });
   });
   it.each(['Eldritch Blast', 'Chromatic Orb', 'Magic Missile', 'Scorching Ray',
-    'Cure Wounds', 'Healing Word', 'Sacred Flame', 'Divine Smite'])
+    'Cure Wounds', 'Healing Word', 'Sacred Flame', 'Divine Smite', 'False Life', 'Poison Spray', 'Inflict Wounds'])
   ('retains the reviewed core combat path for %s', name => {
     expect(spellCombatSupport(spell(name))).toMatchObject({ status: 'ready', manualCastOnly: false });
   });

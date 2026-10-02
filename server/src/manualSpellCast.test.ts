@@ -71,7 +71,7 @@ describe('recorded casts for spells with manual effects', () => {
     expect(listRollLog(f.session.id).find(entry => entry.label === 'Bless')!.detail).toMatch(/manual/i);
   });
 
-  it.each(['False Life', 'Aid', 'Armor of Agathys', 'True Strike', 'Inflict Wounds', 'Poison Spray', 'Ice Storm', 'Sorcerous Burst'])
+  it.each(['Aid', 'Armor of Agathys', 'True Strike', 'Ice Storm'])
   ('%s records a manual cast instead of applying its misleading saved roll', name => {
     const f = fixture(name), before = getCharacter(f.caster.id)!, targetBefore = getMonster(f.monster.id)!;
     f.cast({ castLevel: f.ability.level, targetTokenId: f.target.id });
@@ -132,7 +132,7 @@ describe('recorded casts for spells with manual effects', () => {
   });
 
   it('blocks an older catalogue Conjure summon without spending a slot, then records the supported manual cast', () => {
-    const f = fixture('Conjure Animals'), before = getCharacter(f.caster.id)!;
+    const f = fixture('Conjure Animals', { summon: { name: 'Beast', icon: '🐺' } }), before = getCharacter(f.caster.id)!;
     f.client.send('summon:cast', { kind: 'pc', refId: f.caster.id, abilityId: f.ability.id, mapId: f.map.id, x: 200, y: 100, castLevel: 3 });
     expect(getCharacter(f.caster.id)!.spellSlots).toEqual(before.spellSlots);
     expect(getCharacter(f.caster.id)!.conditions).toEqual(before.conditions);

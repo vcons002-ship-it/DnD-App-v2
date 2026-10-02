@@ -1,6 +1,7 @@
 import type { SheetAbility } from './types.js';
 import { abilityKey, hitFeature, markSpell } from './hitFeatures.js';
-import { effectiveSheetAbility } from './spellExecution.js';
+import { effectiveSheetAbility, isCanonicalHasteProfile } from './spellExecution.js';
+import { matchesRevisedSpell2024, spellRevision2024For } from './spellRevisions.js';
 
 export type SpellCombatSupport = {
   status: 'ready' | 'partial' | 'manual';
@@ -28,9 +29,9 @@ const MANUAL_ROLLS: Record<string, string> = {
   'ray of enfeeblement': 'Resolve the 2024 saving throw and weakening effect manually; the catalogue uses an older attack.',
   contagion: 'Resolve the 2024 saving throws and disease effects manually; the catalogue uses an older attack.',
   'ice knife': 'Resolve the attack and the separate nearby-creature explosion save/damage manually.',
-  'ice storm': 'Roll and apply bludgeoning and cold separately; the catalogue omits the cold damage.',
-  'flame strike': 'Roll and apply fire and radiant separately; the catalogue damage is incomplete.',
-  'meteor swarm': 'Roll and apply fire and bludgeoning separately; the catalogue incorrectly treats both as fire.',
+  'ice storm': 'The corrected description lists both damage pools; roll and apply Bludgeoning and Cold separately with their own resistances.',
+  'flame strike': 'The corrected description lists both damage pools; roll and apply Fire and Radiant separately with their own resistances.',
+  'meteor swarm': 'Roll and apply Fire and Bludgeoning separately and avoid counting overlapping areas twice.',
   'prismatic spray': 'Resolve the randomly selected ray and its individual effect manually.',
   'prismatic wall': 'Resolve each layer and its distinct damage, save, or condition manually.',
   'storm of vengeance': 'Resolve the round-specific damage types and effects manually.',
@@ -111,10 +112,8 @@ function isEditedUnsafeRoll(ability: SheetAbility, key: string): boolean {
 }
 
 const DETAILS: Record<string, string[]> = {
-  'hold person': ['Apply Paralyzed on a failed save and resolve repeat saves; the app rolls the initial save only.'],
   'hypnotic pattern': ['Apply Charmed/Incapacitated and remove them when the spell ends or its wake-up conditions occur.'],
   command: ['Choose a command and resolve its behavior on the next turn after a failed save.'],
-  haste: ['The app adds a concentration-linked Haste marker. AC, speed, Dexterity-save advantage, the extra action, and ending lethargy remain manual.'],
   'chill touch': ['Prevent healing for the stated duration; the app does not enforce that rider or its range.'],
   'ray of frost': ['Apply and expire the speed reduction.'],
   'shocking grasp': ['Apply the reaction restriction until the next turn.'],
@@ -125,7 +124,15 @@ const DETAILS: Record<string, string[]> = {
   'dissonant whispers': ['Resolve the target reaction and movement.'],
   'disintegrate': ['Resolve the destruction effect if the damage reduces the target to 0 HP.'],
   'finger of death': ['Resolve any undead-creation effect after a kill.'],
-  'mass healing word': ['Apply the same rolled healing to the other chosen targets using DM HP controls; one cast currently heals one selected target. Do not cast again to apply it.'],
+  'mass healing word': ['Choose eligible creatures within range; the app enforces six distinct recipients, not range or line of sight.'],
+  'mass cure wounds': ['Choose up to six eligible creatures inside the spell area; area placement and range remain DM adjudication.'],
+  'witch bolt': ['Resolve later Bonus Action damage, the link, range, and Total Cover manually; Cast starts a new spell and may spend another slot.'],
+  'sorcerous burst': ['Resolve extra dice from maximum faces manually, including the casting-modifier bonus-die limit.'],
+  'wind wall': ['Place the wall and adjudicate gases, flying creatures, and projectile blocking manually.'],
+  weird: ['Apply Frightened and resolve later saves, recurring damage, and effect cleanup manually.'],
+  'ray of enfeeblement': ['Apply the success/failure weakening effects and their repeat saves manually.'],
+  contagion: ['Apply Poisoned, the chosen save disadvantage, repeat saves, and the lasting disease effect manually.'],
+  'spiritual weapon': ['Place and move the weapon, and resolve later Bonus Action attacks without recasting or spending another slot.'],
   blight: ['Resolve automatic save failure for plant creatures and the noncreature-plant effect manually.'],
   harm: ['On a failed save, reduce maximum HP by the damage taken, to a minimum maximum of 1; the app only applies ordinary damage.'],
   'vampiric touch': ['Heal the caster for half the Necrotic damage actually taken by the target.'],
@@ -153,6 +160,9 @@ const READY: Record<string, { level: number; kind: string; dice: string; scale?:
   'cure wounds': { level: 1, kind: 'heal', dice: '2d8', scale: '2d8' },
   'healing word': { level: 1, kind: 'heal', dice: '2d4', scale: '2d4' },
   'sacred flame': { level: 0, kind: 'save', dice: '1d8', scale: '1d8' },
+  'poison spray': { level: 0, kind: 'attack', dice: '1d12', scale: '1d12' },
+  'inflict wounds': { level: 1, kind: 'save', dice: '2d10', scale: '1d10' },
+  'false life': { level: 1, kind: 'heal', dice: '2d4+4', scale: '5' },
 };
 const formula = (value: string | undefined) => (value ?? '').replace(/\s/g, '').toLowerCase();
 function reviewedExtras(key: string, a: SheetAbility): boolean {
@@ -165,6 +175,7 @@ function reviewedExtras(key: string, a: SheetAbility): boolean {
     case 'scorching ray': return r.damageType === 'fire' && r.instances === 3 && r.scaleInstances === 1 && !r.instanceScaling;
     case 'cure wounds': case 'healing word': return r.damageType === 'healing' && (!r.healingBonus || r.healingBonus === 'spellcasting') && (!r.healTarget || r.healTarget === 'selected');
     case 'sacred flame': return r.damageType === 'radiant' && r.save === 'DEX' && r.saveDamage === 'none' && r.targetMode === 'single';
+    case 'poison spray': case 'inflict wounds': case 'false life': return matchesRevisedSpell2024(a);
     default: return false;
   }
 }
@@ -173,16 +184,18 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   if (input.type !== 'spell') return null;
   const ability: SheetAbility = { id: 'support-audit', description: '', ...input };
   const key = abilityKey(ability);
-  const authored = ability.source === 'custom' || ability.executionProfile === 'manual' || isEditedUnsafeRoll(ability, key);
   const effective = effectiveSheetAbility(ability);
+  const revised = matchesRevisedSpell2024(effective);
+  const authored = ability.source === 'custom' || ability.executionProfile === 'manual' ||
+    (!revised && (isEditedUnsafeRoll(ability, key) || !!(ability.roll && spellRevision2024For(ability))));
   const automated = ['Cast record and spell-slot bookkeeping.'];
   const manual: string[] = [];
-  if (ability.tags?.some(tag => tag.toLowerCase() === 'concentration')) automated.push('Concentration tracking.');
+  if (effective.tags?.some(tag => tag.toLowerCase() === 'concentration')) automated.push('Concentration tracking.');
   const result = (status: SpellCombatSupport['status'], manualCastOnly = false): SpellCombatSupport => ({
     status, label: status === 'ready' ? 'Combat ready' : status === 'partial' ? 'Partial' : 'Manual',
     automated, manual, manualCastOnly,
   });
-  if (!authored && MANUAL_ROLLS[key]) {
+  if (!authored && MANUAL_ROLLS[key] && !(revised && effective.roll)) {
     manual.push(MANUAL_ROLLS[key], 'Automatic effect rolls are disabled for this entry; record the cast and resolve its effect with the DM.');
     return result('manual', true);
   }
@@ -213,9 +226,17 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
     return result('partial');
   }
   if (key === 'haste') {
-    automated.push('Targeted concentration-linked buff marker.');
-    manual.push(...DETAILS[key]);
+    if (isCanonicalHasteProfile(ability)) {
+      automated.push('Linked target buff: +2 AC, doubled speed, Dexterity-save advantage, one limited extra action per turn, and ending lethargy through the target’s next turn.');
+      return result('ready');
+    }
+    manual.push('This edited Haste entry uses its configured roll; automatic Haste benefits require the reviewed buff profile.');
     return result('partial');
+  }
+  if (key === 'hold person' && ability.level === 2 && effective.roll?.kind === 'save' &&
+      effective.roll.save === 'WIS' && (!effective.roll.dice || formula(effective.roll.dice) === '0')) {
+    automated.push('Humanoid eligibility, upcast target limit, paralysis with action/movement restrictions on a failed save, end-of-turn repeat saves, and concentration-linked cleanup.');
+    return result('ready');
   }
   if (effective.summon) {
     automated.push('Place a friendly summon token on the map.');
@@ -229,7 +250,10 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   }
   const roll = effective.roll;
   if (roll.kind === 'attack') automated.push('Spell attack, hit/critical result, and subsequent damage roll.');
-  else if (roll.kind === 'heal') automated.push('Initial healing roll and selected-target HP application.');
+  else if (roll.kind === 'heal') automated.push(roll.healingMode === 'temporary'
+    ? 'Temporary-HP roll, upcast scaling, and larger-pool replacement without healing.'
+    : roll.targetMode === 'multiple' ? 'One healing roll plus casting modifier, applied once to each chosen creature up to the target limit.'
+      : 'Initial healing roll and selected-target HP application.');
   else if (roll.kind === 'save') automated.push('Initial saving throw, labelled result, and configured save damage.');
   else automated.push('Configured damage roll and target application.');
   if (roll.scaleDice || roll.scaleInstances) automated.push('Configured level/upcast scaling.');

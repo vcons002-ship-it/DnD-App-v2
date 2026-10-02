@@ -32,9 +32,10 @@ import {
 } from '../lib/spellcasting';
 import { useAbilityToggles } from './AbilityToggles';
 import { Spellbook } from './Spellbook';
-import { isHasteSpell, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
+import { isCanonicalHasteProfile, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { SpellCombatSupportBadge, SpellCombatSupportDetails } from './SpellCombatSupport';
+import { spellActionBlock } from '../../../shared/spellBuffs';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -136,6 +137,7 @@ export function CharacterSpells({
   // on the full sheet too — not just the combat console where `snapshot` is passed).
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
+  const actionBlock = spellActionBlock(character);
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
   // skill list / roll log), so it's one switch for all of the character's rolls.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
@@ -358,6 +360,7 @@ export function CharacterSpells({
   // the active map (with a little jitter so repeats don't stack) — the owner then
   // drags it. The server spends a slot for a leveled summon spell.
   const castSummon = (a: SheetAbility) => {
+    if (actionBlock) { notify(`${actionBlock}: you cannot take actions.`); return; }
     if (!summonMap) {
       notify('No active map to summon onto.');
       return;
@@ -377,6 +380,7 @@ export function CharacterSpells({
   };
 
   const doRoll = (a: SheetAbility) => {
+    if (actionBlock) { notify(`${actionBlock}: you cannot take actions.`); return; }
     const level = upcastable(a) ? levelFor(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
     if (!spellCombatSupport(a)?.manualCastOnly && execution.roll && execution.roll.kind !== 'heal' && !isMultiTargetSpell(a, level) && !targetId) {
@@ -415,7 +419,7 @@ export function CharacterSpells({
     const changesProfile = (patch.kind !== undefined && patch.kind !== inherited?.kind) ||
       (patch.save !== undefined && patch.save !== inherited?.save);
     const optOut = a.executionProfile === 'manual' || !!spellCombatSupport(a)?.manualCastOnly ||
-      changesProfile || !!markSpell(a) || isHasteSpell(a) || !!hitFeature(a);
+      changesProfile || !!markSpell(a) || isCanonicalHasteProfile(a) || !!hitFeature(a);
     // Routine edits keep sparse fields so reviewed upcast targeting can still
     // change per cast. A deliberate mechanics override preserves the displayed
     // profile and opts out of canonical defaults.
@@ -538,7 +542,7 @@ export function CharacterSpells({
                   ? 'Armed — spends a Superiority Die on your next attack'
                   : 'Off — click to arm for your next attack'
               }
-              disabled={isOnHitManeuver(a) || a.name.trim().toLowerCase() === 'riposte'}
+              disabled={!!actionBlock || isOnHitManeuver(a) || a.name.trim().toLowerCase() === 'riposte'}
               onClick={() => patchManeuver(a, { active: !a.maneuver!.active })}
             >
               {a.name.trim().toLowerCase() === 'riposte' ? 'On enemy miss' : isOnHitManeuver(a) ? 'On hit' : a.maneuver!.active ? 'Armed' : 'Off'}
@@ -603,8 +607,8 @@ export function CharacterSpells({
               </select>
             )}
           {editable && displayRoll && !rollsElsewhere && (
-            <button className="btn tiny" title={manualRiderNote(a)} onClick={() => doRoll(a)}>
-              {isHasteSpell(a) ? 'Cast Haste' : markSpell(a) ? 'Cast mark' : rollLabel(displayRoll)}
+            <button className="btn tiny" disabled={!!actionBlock} title={manualRiderNote(a)} onClick={() => doRoll(a)}>
+              {isCanonicalHasteProfile(a) ? 'Cast Haste' : markSpell(a) ? 'Cast mark' : rollLabel(displayRoll)}
             </button>
           )}
           {editable && hasPactPool && (a.type === 'spell' || a.type === 'stance') && spellBaseLevel(a) > 0 && (!rollsElsewhere || a.summon) && !hitFeature(a) && !isStance(a) && <select className="spell-level" aria-label={`${a.name} slot pool`} value={poolFor(a)} onChange={event => {
@@ -636,6 +640,7 @@ export function CharacterSpells({
             <button
               className="btn tiny"
               title="Record this casting and spend its spell slot; resolve its effects manually."
+              disabled={!!actionBlock}
               onClick={() => doRoll(a)}
             >
               Cast manually
@@ -649,6 +654,7 @@ export function CharacterSpells({
             <button
               className="btn tiny"
               title={`Summon ${summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
+              disabled={!!actionBlock}
               onClick={() => castSummon(a)}
             >
               {summon.icon || '✋'} Summon
@@ -853,10 +859,9 @@ export function CharacterSpells({
                 ✏️ Add roll
               </button>
             )}
-            {!isHasteSpell(a) && !a.roll && displayRoll && <p className="muted">A compatible spell profile supplies this saving-throw action without rewriting the saved spell. Conditions and other effects remain manual.</p>}
             {manualRiderNote(a) && <p className="muted">{manualRiderNote(a)}</p>}
-            {isHasteSpell(a) && <p className="muted">Choose a creature in Combat or from its map menu. Haste adds a green buff until the caster?s concentration ends.</p>}
-            {editable && displayRoll && !isHasteSpell(a) && (
+            {isCanonicalHasteProfile(a) && <p className="muted">Choose a willing creature with Buff target in Combat or from its map menu. Haste adds +2 AC, doubles speed, grants Dexterity-save advantage, and supplies one restricted extra action. When it ends, the target is Incapacitated with speed 0 until the end of its next turn.</p>}
+            {editable && displayRoll && !isCanonicalHasteProfile(a) && (
               <div className="sb-roll-edit">
                 <select
                   value={displayRoll.kind}

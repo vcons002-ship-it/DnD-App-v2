@@ -492,7 +492,8 @@ export function DicePanel({
                   const remainingAttacks = Math.max(0, attacks - (r.apply.consumedAttacks ?? 0));
                   const remainingDarts = Math.max(0, (dartCount ?? 0) - (r.apply.consumedDarts ?? 0));
                   const completed = (attacks > 0 && remainingAttacks === 0) || (dartCount ? remainingDarts === 0 : false) ||
-                    (r.apply.targetMode === 'single' && !!r.apply.consumedTargets?.length);
+                    (r.apply.targetMode === 'single' && !!r.apply.consumedTargets?.length) ||
+                    (!!r.apply.maxTargets && (r.apply.consumedTargets?.length ?? 0) >= r.apply.maxTargets);
                   const saveOnly = !!r.apply.save && r.apply.amount === 0 && !dartCount;
                   return (
                   <button
@@ -513,8 +514,8 @@ export function DicePanel({
                         : dartCount
                         ? `Click ${remainingDarts} target(s) to assign the remaining darts (rolls on each hit)`
                         : r.apply!.save
-                          ? `Click targets on the map to roll DC ${r.apply!.dc} ${r.apply!.save} saves${saveOnly ? '; spell effects remain manual' : `; success takes ${r.apply!.saveDamage === 'none' ? 'no' : 'half'} damage`}`
-                          : `Click targets on the map to apply ${r.apply!.amount} damage`
+                          ? `Click targets on the map to roll DC ${r.apply!.dc} ${r.apply!.save} saves${saveOnly ? r.apply!.effect ? '; failed saves apply the linked condition' : '; spell effects remain manual' : `; success takes ${r.apply!.saveDamage === 'none' ? 'no' : 'half'} damage`}`
+                          : `Click targets on the map to apply ${r.apply!.amount} ${r.apply!.healing ? 'HP of healing from this roll' : 'damage'}`
                     }
                   >
                     {completed ? attacks ? '✓ Attacks assigned' : '✓ Resolved' : saveResolve?.rollId === r.id
@@ -523,7 +524,7 @@ export function DicePanel({
                         : '🎯 Targeting… (Esc)'
                       : attacks ? '🎯 Assign rays' : dartCount
                         ? `🎯 Assign darts`
-                        : saveOnly ? '🎯 Roll saving throws' : '🎯 Apply damage'}
+                        : r.apply.healing ? '🎯 Apply healing' : saveOnly ? '🎯 Roll saving throws' : '🎯 Apply damage'}
                   </button>
                   );
                 })()}

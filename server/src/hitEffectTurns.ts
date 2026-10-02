@@ -5,16 +5,50 @@ import { damageMultiplier } from '../../shared/combatMath.js';
 import type { Token } from '../../shared/types.js';
 import { markedEntity } from './marks.js';
 import { hitEffectSave } from './hitFeatures.js';
-import { listTokens,getSessionById,clearCondition,applyDamage,addRollLog,setCondition } from './sessions.js';
+import { listTokens,listCharacters,listMonsters,isDeadEntity,getSessionById,clearCondition,applyDamage,addRollLog,setCondition } from './sessions.js';
 import { noteConcentration, stanceResistances } from './combat.js';
 
+/** Expiration and lost concentration apply even to creatures on another map.
+ * Called before commands publish changes as well as before turn hooks. */
+export function expireTimedSpellEffects(sid:string) {
+  const round=getSessionById(sid)?.combatRound??0;
+  let changed=false;
+  for(const [kind,entities] of [['pc',listCharacters(sid)],['monster',listMonsters(sid)]] as const)
+    for(const e of entities) for(const c of e.conditions) {
+      const fx=c.combatEffect;
+      if(!fx || fx.parentConditionId || !fx.castId) continue;
+      // A one-minute spell begun before initiative retains its remaining
+      // duration when combat begins rather than becoming an endless effect.
+      if(c.isConcentration && round>0 && !fx.expiresRound && fx.expiresAt) {
+        if(fx.expiresAt<=Date.now()) {clearCondition(kind,e.id,c.id);changed=true;continue;}
+        setCondition(kind,e.id,{...c,combatEffect:{...fx,expiresRound:round+Math.ceil((fx.expiresAt-Date.now())/6000)}});
+        changed=true;
+      }
+      const caster=markedEntity(fx.casterKind,fx.casterId);
+      const expired = round > 0 ? !!fx.expiresRound && round>=fx.expiresRound
+        : !!fx.expiresAt && fx.expiresAt<=Date.now();
+      const ended = fx.concentration && !caster?.conditions.some(v=>v.isConcentration&&v.id===fx.castId);
+      const dead = fx.spell.toLowerCase()==='hold person' && !c.isConcentration && isDeadEntity(kind,e);
+      if(expired || ended || dead) {clearCondition(kind,e.id,c.id);changed=true;}
+    }
+  return changed;
+}
+
 export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
+  expireTimedSpellEffects(sid);
   const e=markedEntity(token.kind,token.refId); if(!e) return;
   for(const c of e.conditions) {
-    const fx=c.combatEffect; if(!fx) continue;
+    const fx=c.combatEffect; if(!fx || fx.parentConditionId) continue;
+    if(c.label==='Haste lethargy') {
+      if(phase==='start') setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,lethargyTurnStarted:true}});
+      else if(fx.lethargyTurnStarted) clearCondition(token.kind,token.refId,c.id);
+      continue;
+    }
+    if(phase==='start' && c.label==='Haste') setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,hasteActionUsed:undefined}});
     const caster=markedEntity(fx.casterKind,fx.casterId);
     const round=getSessionById(sid)?.combatRound??0;
-    if((round>0 ? !!fx.expiresRound && round>=fx.expiresRound : !!fx.expiresAt && fx.expiresAt<=Date.now()) || fx.concentration && !caster?.conditions.some(v=>v.isConcentration&&abilityKey({name:v.label.replace(/^Concentration:\s*/i,'')})===abilityKey({name:fx.spell}))) {
+    if((round>0 ? !!fx.expiresRound && round>=fx.expiresRound : !!fx.expiresAt && fx.expiresAt<=Date.now()) || fx.concentration && !caster?.conditions.some(v=>v.isConcentration&&
+      (fx.castId?v.id===fx.castId:abilityKey({name:v.label.replace(/^Concentration:\s*/i,'')})===abilityKey({name:fx.spell})))) {
       clearCondition(token.kind,token.refId,c.id); continue;
     }
     const tick=`${round}:${getSessionById(sid)?.activeTurnTokenId}:${phase}`;
