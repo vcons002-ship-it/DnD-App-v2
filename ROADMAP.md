@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Replace the procedural death skull with a textured four-view 2D-to-3D
+  skull; use all views for shape and texture, compress it with the accepted
+  reduction policy, and preload/share it across defeated tokens.
+
 - [x] Keep creature/DM roll bonuses, proficiency, attack/save totals, AC and
   creature HP bookkeeping private; live grouped saves send raw dice and outcomes
   to players while the DM retains full equations. Own PC bonuses remain visible.

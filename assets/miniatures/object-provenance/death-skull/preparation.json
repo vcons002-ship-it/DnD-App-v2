@@ -1,0 +1,16 @@
+{
+  "sourceSha256": "c2531b6bf348f9114e0f71f7532409b56cff1ab98a658bffd4e45b479d365749",
+  "sourcePreserved": true,
+  "bodyTriangles": 20000,
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "baseTop": 0.055,
+  "bodyHeight": 0.7288509423063415,
+  "uniformScale": 0.3851998802221451,
+  "footprintRadius": 0.41,
+  "orientation": "face-up, 0.22 rad forward tilt"
+}

@@ -6,6 +6,8 @@ import {DM_SECRET,PORT} from './playwright.config';
 test('3D skull replaces only confirmed-dead creatures, opens info and filters targets',async({page,browser,request},info)=>{
   test.setTimeout(120000);
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const skullLoads:Promise<Buffer>[]=[];
+  page.on('response',response=>{if(/\/death-skull-[a-f0-9]+\.glb$/.test(response.url()))skullLoads.push(response.body());});
   const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Death marker visual test'}})).json();
   const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
   let dm:import('@playwright/test').Page|undefined;
@@ -47,6 +49,9 @@ test('3D skull replaces only confirmed-dead creatures, opens info and filters ta
     await expect(layer).toHaveAttribute('data-death-skull-count','1');expect(await names()).toContain('Vanec');
     socket.emit('condition:set',{kind:'pc',refId:vanec.id,condition:{label:'Dead',aura:'red',isConcentration:false}});await state();
     await expect(layer).toHaveAttribute('data-death-skull-count','2');expect(await names()).not.toContain('Vanec');
+    // A real generated GLB is preloaded once and shared by all dead instances.
+    expect(skullLoads).toHaveLength(1);
+    expect((await skullLoads[0]).subarray(0,4).toString()).toBe('glTF');
     socket.emit('damage:apply',{kind:'monster',refId:target.id,amount:-20});await state();
     await expect(layer).toHaveAttribute('data-death-skull-count','1');await expect.poll(names).toContain(publicName);
     dm=await browser.newPage({viewport:{width:1600,height:1000}});

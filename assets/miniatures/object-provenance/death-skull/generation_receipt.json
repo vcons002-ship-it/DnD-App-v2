@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "5e6199ec4be74a35a3f258ee3f74318e",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\object-provenance\\death-skull\\front.png",
+      "sha256": "e81cf5e88f5a8133d86f69ddf8cb427e6b29a1deb7b47d5204cf2923f90c6e08"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\object-provenance\\death-skull\\back.png",
+      "sha256": "bbd2501bcdfee79666e855fe2dfbc718616288fb3c2298605663625c21811fda"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\object-provenance\\death-skull\\left.png",
+      "sha256": "db0a91a3e0be1f2d37a6c7125031e1d8ab1a12b4ab0491a1d5a157d34b8f5247"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\object-provenance\\death-skull\\right.png",
+      "sha256": "7f40dff4d6dfcb848d584168fcffede9e754a194a182b85023fca33eb573dc38"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 101026,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": false
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 101026,
+      "octree_resolution": 512,
+      "check_box_rembg": false,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 2456208,
+    "number_of_vertices": 1228084,
+    "time": {
+      "remove background": 0.0,
+      "shape generation": 60.76296091079712,
+      "export to trimesh": 0.6516153812408447,
+      "face reduction": 28.682844400405884,
+      "texture generation": 40.857104539871216,
+      "total": 131.14615869522095
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 101026,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\skull-generation-v3\\00_white_mesh.glb",
+      "sha256": "a0b6c7fbeba89a14dce7377cd099172b6dfd8791704703cbcee1720c94601018",
+      "bytes": 44212296,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\skull-generation-v3\\01_textured_mesh.glb",
+      "sha256": "fed2831f4b88e2c00e798da28b5635780135bc99671e9daa94a023a1feb4625e",
+      "bytes": 4867364,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 133.407,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

@@ -13,8 +13,14 @@ Objects are not dead creatures. Restoring the creature's living state restores
 its original model. This visual change does not change resurrection/healing rules.
 
 In 2D mode the flat skull is retained as a fallback, also without dead labels.
-The 3D marker is cached local geometry in three material batches, with shared
-geometry for all copies. It needs no additional GLB or texture download.
+The 3D marker is a textured GLB reconstructed from front, back, left and right
+reference art. Both Hunyuan shape and texture generation use the four named
+views. It replaces the earlier procedural geometry. Source art, the prompt and
+verified generation/reduction receipts live in
+`assets/miniatures/object-provenance/death-skull`.
+The asset is preloaded whenever either 3D token mode is enabled, and its parsed
+geometry and textures are shared by all skull copies. Each viewer downloads
+one cached GLB, rather than one asset per defeated creature.
 
 Attack, spell, healing/buff, and stance target lists exclude confirmed-dead
 creatures by default. **Show Dead** beside the target list opts them back in.
