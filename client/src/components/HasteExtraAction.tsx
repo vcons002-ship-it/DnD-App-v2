@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Character, Monster, TokenKind } from '../../../shared/types';
-import { activeHasteCondition, effectiveSpeed, hasHasteLethargy, spellActionBlock } from '../../../shared/spellBuffs';
+import { activeHasteCondition, effectiveSpeed, hasHasteLethargy, spellActionBlock, speedIsZero } from '../../../shared/spellBuffs';
 import { useStore } from '../state/socket';
 import './haste-extra-action.css';
 
@@ -24,7 +24,11 @@ export function HasteExtraAction({ caster, kind, ownTurn, attackArmed, onArmAtta
   const used = haste.combatEffect?.hasteActionUsed;
   const blocked = spellActionBlock(caster);
   return <section className={`haste-action${attackArmed ? ' haste-action-armed' : ''}`} aria-label="Haste benefits">
-    <div className="haste-benefits"><strong>Haste</strong><span>+2 AC · {effectiveSpeed(caster)} · DEX save advantage</span></div>
+    <div className="haste-benefits"><strong>Haste</strong>
+      <span className="haste-stat-boost">+2 AC</span><span aria-hidden="true">·</span>
+      <span className={speedIsZero(caster) ? undefined : 'haste-stat-boost'}>{effectiveSpeed(caster)}</span><span aria-hidden="true">·</span>
+      <span className="haste-stat-boost">DEX save advantage</span>
+    </div>
     <div className="haste-action-controls">
       <span>Extra action</span>
       {used ? <strong className="haste-action-used" role="status">Used: {used}</strong> : <>

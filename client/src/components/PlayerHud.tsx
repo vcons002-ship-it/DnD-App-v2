@@ -14,6 +14,7 @@ import { CharacterSpells } from './CharacterSpells';
 import { CharacterChecks } from './CharacterChecks';
 import { ActionsTraitsView } from './StatBlock';
 import { effectiveAc } from '../../../shared/modifiers';
+import { activeHasteCondition } from '../../../shared/spellBuffs';
 import { resourceSigilPresentation } from '../../../shared/resourceSigils';
 import { multiclassClassSummary } from '../../../shared/multiclass';
 import { PlayerConditionControl } from './PlayerConditionControl';
@@ -318,7 +319,7 @@ export function PlayerHud({
             <small>HIT POINTS</small>
           </span>
         </button>
-            <ArmorClassBadge value={effectiveAc(character) || character.armorClass} />
+            <ArmorClassBadge value={effectiveAc(character) || character.armorClass} hastened={!!activeHasteCondition(character)} />
             <OrbKillCount name={character.name} value={character.killCount ?? 0} />
         </div>
         <div className="hud-attached-panel hud-resource-wing">

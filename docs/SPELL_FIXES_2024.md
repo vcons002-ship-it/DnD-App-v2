@@ -10,6 +10,9 @@ every spell and the exact parts the app handles.
 In Combat, choose an ally or yourself under **Buff target**, then cast Haste.
 The target's base sheet stays intact: its live AC gains 2, each listed movement
 speed doubles, and Dexterity saves gain advantage, cancelling disadvantage normally.
+Boosted AC and speed appear green in the HUD/sheet and Haste summary. Dexterity
+save controls show a green ADV indicator; the ability score and save modifier
+stay unchanged. The highlight disappears when the spell ends.
 The target's Combat panel shows a compact **Haste** control for one extra action
 per turn: one weapon attack, Dash, Disengage, Hide, or Utilize. A missed extra
 attack still spends that action. A spell or full Multiattack cannot use it.

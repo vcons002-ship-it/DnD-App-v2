@@ -16,6 +16,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   ownership consistent. Summon stat blocks and other unimplemented effects
   remain flagged. Repeat the static audit with `npm run audit:spells`;
   [complete support list](docs/SPELLBOOK_COMBAT_SUPPORT.md).
+- [x] Show Haste's boosted AC/speed in green on the HUD and sheet, plus a green
+  ADV indicator on Dexterity-save controls; preserve unmodified ability scores.
 - [x] Implement Haste's live benefits, restricted extra action, and ending
   lethargy, plus Hold Person's Humanoid eligibility, upcast target budget,
   paralysis, end-of-turn repeat saves, and concentration-linked cleanup.
