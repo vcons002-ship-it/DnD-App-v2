@@ -17,7 +17,7 @@ bpy.ops.import_scene.gltf(filepath=str(source))
 meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
 # Hunyuan's named front is +Z glTF, which imports as -Y in Blender.
 # Lie on the back with the face pointing upward, tipped toward the viewer.
-rotation = Matrix.Rotation(-math.pi / 2 + .22, 4, 'X')
+rotation = Matrix.Rotation(-math.pi / 2 + .52, 4, 'X')
 for obj in meshes:
     transform = rotation @ obj.matrix_world
     for vertex in obj.data.vertices:
@@ -59,6 +59,6 @@ bpy.ops.export_scene.gltf(filepath=str(out/'death-skull-board-source.glb'), expo
 assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
 receipt = dict(sourceSha256=source_hash, sourcePreserved=True, bodyTriangles=bone_triangles,
     baseDiameter=1, baseCenter=[0,0,0], baseTop=.055, bodyHeight=(high.z-low.z)*scale,
-    uniformScale=scale, footprintRadius=.41, orientation='face-up, 0.22 rad forward tilt')
+    uniformScale=scale, footprintRadius=.41, orientation='face-up, 0.52 rad forward tilt')
 (out/'preparation.json').write_text(json.dumps(receipt, indent=2), encoding='utf-8')
 print(json.dumps(receipt))

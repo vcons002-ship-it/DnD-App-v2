@@ -1,7 +1,8 @@
 # Defeated tokens
 
 In 3D mode a confirmed-dead creature becomes a small bone skull lying face-up
-on a dark pewter base. Its figure, lantern, combat badge, condition rings,
+on a dark pewter base, tilted about 30 degrees toward its forward direction
+so its face reads clearly in the 45-degree map view. Its figure, lantern, combat badge, condition rings,
 health bar, name, reveal tag, and initiative badge stop rendering. Click its
 base to open the same token info. Fog, shared sight, ownership and base-only
 selection rules still apply. The token itself remains in the campaign.
