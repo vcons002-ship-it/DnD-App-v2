@@ -18,6 +18,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   [complete support list](docs/SPELLBOOK_COMBAT_SUPPORT.md).
 - [x] Show Haste's boosted AC/speed in green on the HUD and sheet, plus a green
   ADV indicator on Dexterity-save controls; preserve unmodified ability scores.
+- [x] Explain Haste lethargy with an automatic player popup and a Why blocked?
+  control; rejected actions name the cause and recovery timing, including Hold Person.
 - [x] Implement Haste's live benefits, restricted extra action, and ending
   lethargy, plus Hold Person's Humanoid eligibility, upcast target budget,
   paralysis, end-of-turn repeat saves, and concentration-linked cleanup.

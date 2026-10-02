@@ -18,4 +18,6 @@
 .haste-action-used { font-size: 12px; text-transform: capitalize; }
 .haste-recovery { border-color: #a57c47; background: #352a1db3; }
 .haste-recovery > span { margin-left: 8px; }
+.haste-recovery-help { margin: 5px 0 0; }
+.spell-action-block .btn { margin: 5px 0 0; }
 .spell-action-block { padding: 6px 8px; border-left: 2px solid #c07771; background: #42262280; color: #efc5bd; font-size: 11px; line-height: 1.4; }

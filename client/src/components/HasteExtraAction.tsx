@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Character, Monster, TokenKind } from '../../../shared/types';
-import { activeHasteCondition, effectiveSpeed, hasHasteLethargy, spellActionBlock, speedIsZero } from '../../../shared/spellBuffs';
+import { activeHasteCondition, effectiveSpeed, hasHasteLethargy, spellActionBlock, spellActionBlockMessage, spellActionRecoveryMessage, speedIsZero } from '../../../shared/spellBuffs';
 import { useStore } from '../state/socket';
 import './haste-extra-action.css';
 
@@ -14,10 +14,16 @@ export function HasteExtraAction({ caster, kind, ownTurn, attackArmed, onArmAtta
   onArmAttack: (armed: boolean) => void;
 }) {
   const useHasteAction = useStore(s => s.useHasteAction);
+  const notify = useStore(s => s.notify);
+  const inCombat = useStore(s => (s.snapshot?.round ?? 0) > 0);
   const [action, setAction] = useState<'attack' | 'dash' | 'disengage' | 'hide' | 'utilize'>('attack');
   if (hasHasteLethargy(caster)) return <div className="haste-action haste-recovery" role="status">
     <strong>Haste lethargy</strong><span>Incapacitated · Speed 0 ft.</span>
-    <small>Recover at the end of your next turn.</small>
+    <small>{spellActionRecoveryMessage(caster, { inCombat })}</small>
+    <button className="btn tiny haste-recovery-help" onClick={() => {
+      const message = spellActionBlockMessage(caster, { inCombat });
+      if (message) notify(`${caster.name}: ${message}`, { durationMs: 8000 });
+    }}>Why blocked?</button>
   </div>;
   const haste = activeHasteCondition(caster);
   if (!haste) return null;

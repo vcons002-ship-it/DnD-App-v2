@@ -6,6 +6,7 @@ import type { SmiteChoice } from '../../../shared/smite';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { withRollComparison } from '../../../shared/dicePresentation';
+import { spellActionBlockMessage } from '../../../shared/spellBuffs';
 import type {
   AbilityRollPayload,
   CharacterCreatePayload,
@@ -95,10 +96,10 @@ type Store = {
   chatAccessToken: string | null;
   snapshot: StateSnapshot | null;
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
-  toast: { id: number; message: string } | null;
+  toast: { id: number; message: string; durationMs?: number } | null;
   dismissToast: () => void;
   /** Show a transient toast from the client (e.g. AI start/failure notices). */
-  notify: (message: string) => void;
+  notify: (message: string, options?: { durationMs?: number }) => void;
   /** True while an AI request (stat-fill / creature lookup) is in flight. */
   aiBusy: boolean;
   setAiBusy: (busy: boolean) => void;
@@ -480,7 +481,7 @@ export const useStore = create<Store>((set, get) => ({
   snapshot: null,
   toast: null,
   dismissToast: () => set({ toast: null }),
-  notify: (message) => set({ toast: { id: Date.now(), message } }),
+  notify: (message, options) => set({ toast: { id: Date.now(), message, durationMs: options?.durationMs } }),
   aiBusy: false,
   hpFx: [],
   presentHpFx: (added) => {
@@ -690,6 +691,35 @@ export const useStore = create<Store>((set, get) => ({
       reconnectionDelayMax: 5000,
     });
 
+    // Explain a newly blocked claimed character once, including a reload while
+    // affected. Keep the ids through automatic reconnects and turn snapshots.
+    const notifiedLethargy = new Set<string>();
+    let lethargyExplanation: { characterId: string; conditionId: string; message: string } | null = null;
+    const explainLethargy = (snapshot: StateSnapshot) => {
+      if (snapshot.role !== 'player') return;
+      const own = snapshot.characters.find(character => character.claimedBy === socket.id);
+      const lethargy = own?.conditions.find(condition => condition.label.trim().toLowerCase() === 'haste lethargy');
+      const previous = lethargyExplanation;
+      const sameEffect = !!own && !!lethargy && previous?.characterId === own.id && previous.conditionId === lethargy.id;
+      if (previous && !sameEffect) {
+        if (get().toast?.message === previous.message) set({ toast: null });
+        lethargyExplanation = null;
+      }
+      if (!own || !lethargy) return;
+      const message = spellActionBlockMessage(own, { inCombat: snapshot.round > 0 });
+      if (!message) return;
+      const explanation = `${own.name}: ${message}`;
+      // A visible automatic/help explanation keeps its timing accurate without
+      // reopening a dismissed popup or changing an unrelated server notice.
+      if (sameEffect && get().toast?.message === previous.message && previous.message !== explanation) {
+        set(state => state.toast ? { toast: { ...state.toast, message: explanation } } : {});
+      }
+      lethargyExplanation = { characterId: own.id, conditionId: lethargy.id, message: explanation };
+      if (notifiedLethargy.has(lethargy.id)) return;
+      notifiedLethargy.add(lethargy.id);
+      get().notify(explanation, { durationMs: 8000 });
+    };
+
     socket.on('dice:frame',frame=>{
       if(!get().showRollAnim){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
@@ -748,6 +778,7 @@ export const useStore = create<Store>((set, get) => ({
       for (const timer of dragGhostTimers.values()) clearTimeout(timer);
       dragGhostTimers.clear();
       set({ snapshot, dragGhosts: {} });
+      explainLethargy(snapshot);
     });
     socket.on('fx:hp', ({ events }) => {
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
@@ -884,10 +915,10 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('error', (err) =>
       set({ error: err.message, toast: { id: Date.now(), message: err.message } }),
     );
-    socket.on('notice', ({ message, aiDone }) =>
+    socket.on('notice', ({ message, aiDone, durationMs }) =>
       // An AI-completion notice (aiDone) clears the spinner; an unrelated notice
       // fired mid-request (slot warning, undo) must NOT drop the banner early.
-      set({ toast: { id: Date.now(), message }, ...(aiDone ? { aiBusy: false } : {}) }),
+      set({ toast: { id: Date.now(), message, durationMs }, ...(aiDone ? { aiBusy: false } : {}) }),
     );
 
     socket.on('connect', () => {
@@ -904,6 +935,7 @@ export const useStore = create<Store>((set, get) => ({
             seenRollIds = new Set((ack.snapshot.rollLog ?? []).map((e) => e.id));
             rollSfxReady = true;
             set({ status: 'connected', snapshot: ack.snapshot, error: null, chatAccessToken: ack.chatAccessToken ?? null });
+            explainLethargy(ack.snapshot);
             // The server resets the DM's viewed map to the active one on join;
             // re-assert a staged map so a reconnect doesn't yank the DM back to the
             // live map (players never stage, so viewMapId is null for them).

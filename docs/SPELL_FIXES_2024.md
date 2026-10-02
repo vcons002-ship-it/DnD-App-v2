@@ -24,6 +24,11 @@ Concentration loss, replacement, or expiration removes the linked buff and cause
 Haste lethargy: Incapacitated and speed zero through the end of the affected
 creature's next turn. Player movement and actions are refused during that recovery.
 DM placement remains available for adjudication. Turn hooks reset the extra action.
+An eight-second popup explains lethargy when it starts or the player reloads while
+affected. **Why blocked?** repeats that explanation; recovery timing changes from
+the end of the next turn to the end of the current recovery turn. Rejected movement,
+attack, spell, summon, and stance requests use the same explanation. Ordinary
+notices keep their shorter display time.
 
 ## Hold Person
 
@@ -33,6 +38,8 @@ and non-Humanoids. Each slot above level 2 permits one additional distinct targe
 repeat clicks and multiple tokens for one creature cannot bypass that limit.
 Linked paralysis blocks attacks, casting, summons, and player movement; DM movement
 corrections, sheet edits, and the target's repeated save remain available.
+Its **Why blocked?** control and rejected-action popup explain that recovery needs
+a successful end-of-turn Wisdom save or the spell to end.
 
 An affected creature repeats its Wisdom save at the end of each turn through the
 existing live-dice flow. Passing removes its spell conditions without spending a

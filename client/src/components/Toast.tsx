@@ -8,13 +8,13 @@ export function Toast() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(dismiss, 3000);
+    const t = setTimeout(dismiss, toast.durationMs ?? 3000);
     return () => clearTimeout(t);
-  }, [toast, dismiss]);
+  }, [toast?.id, toast?.durationMs, dismiss]);
 
   if (!toast) return null;
   return (
-    <div className="toast" onClick={dismiss}>
+    <div className="toast" role="status" aria-live="polite" onClick={dismiss}>
       {toast.message}
     </div>
   );

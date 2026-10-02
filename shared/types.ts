@@ -1549,6 +1549,8 @@ export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
 export type NoticePayload = {
   message: string;
+  /** Longer explanations can remain visible without extending ordinary notices. */
+  durationMs?: number;
   /** Set when this notice signals an AI operation finished — the client clears the
    *  "AI is working" spinner only on these, so an unrelated notice (a spell-slot
    *  warning, an undo) fired mid-request doesn't drop the banner early. */

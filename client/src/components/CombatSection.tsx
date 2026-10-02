@@ -19,7 +19,7 @@ import { spellCombatSupport } from '../../../shared/spellSupport';
 import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
 import { confirmConcentration, spellBaseLevel, upcastable } from '../lib/spellcasting';
 import { SpellCombatSupportBadge } from './SpellCombatSupport';
-import { activeHasteCondition, spellActionBlock } from '../../../shared/spellBuffs';
+import { activeHasteCondition, spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
 import { HasteExtraAction } from './HasteExtraAction';
 
 /**
@@ -203,7 +203,13 @@ export function CombatSection({
   return (
     <div className={`attack-controls${compactPlayer ? ' compact-player-combat' : ''}`}>
       <HasteExtraAction caster={caster} kind={kind} ownTurn={ownTurn} attackArmed={hasteAttackArmed} onArmAttack={setHasteAttackArmed} />
-      {actionBlock === 'Hold Person paralysis' && <p className="spell-action-block" role="status">Hold Person: Paralyzed. You cannot move or take actions; repeat the Wisdom save at the end of your turn.</p>}
+      {actionBlock === 'Hold Person paralysis' && <div className="spell-action-block" role="status">
+        {spellActionBlockMessage(caster, { inCombat: snapshot.round > 0 })}
+        <div><button className="btn tiny" onClick={() => {
+          const message = spellActionBlockMessage(caster, { inCombat: snapshot.round > 0 });
+          if (message) notify(`${caster.name}: ${message}`, { durationMs: 8000 });
+        }}>Why blocked?</button></div>
+      </div>}
       {compactPlayer ? <div className="combat-roll-controls">{rollControls}</div> : rollControls}
       {nothingRollable && (
         <p className="muted">No attacks or rollable abilities.</p>

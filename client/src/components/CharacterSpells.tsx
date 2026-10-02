@@ -35,7 +35,7 @@ import { Spellbook } from './Spellbook';
 import { isCanonicalHasteProfile, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { SpellCombatSupportBadge, SpellCombatSupportDetails } from './SpellCombatSupport';
-import { spellActionBlock } from '../../../shared/spellBuffs';
+import { spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
 
 const manualRiderNote = (ability: SheetAbility): string | undefined => {
   const name = ability.name.replace(/[\u2018\u2019]/g, "'").trim().toLowerCase();
@@ -138,6 +138,11 @@ export function CharacterSpells({
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
   const actionBlock = spellActionBlock(character);
+  const explainBlock = () => {
+    const live = useStore.getState().snapshot;
+    const message = spellActionBlockMessage(character, { inCombat: (live?.round ?? 0) > 0 });
+    if (message) notify(`${character.name}: ${message}`, { durationMs: 8000 });
+  };
   // Spell-attack adv/dis comes from this character's shared toggle (set above the
   // skill list / roll log), so it's one switch for all of the character's rolls.
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
@@ -360,7 +365,7 @@ export function CharacterSpells({
   // the active map (with a little jitter so repeats don't stack) — the owner then
   // drags it. The server spends a slot for a leveled summon spell.
   const castSummon = (a: SheetAbility) => {
-    if (actionBlock) { notify(`${actionBlock}: you cannot take actions.`); return; }
+    if (actionBlock) { explainBlock(); return; }
     if (!summonMap) {
       notify('No active map to summon onto.');
       return;
@@ -380,7 +385,7 @@ export function CharacterSpells({
   };
 
   const doRoll = (a: SheetAbility) => {
-    if (actionBlock) { notify(`${actionBlock}: you cannot take actions.`); return; }
+    if (actionBlock) { explainBlock(); return; }
     const level = upcastable(a) ? levelFor(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
     if (!spellCombatSupport(a)?.manualCastOnly && execution.roll && execution.roll.kind !== 'heal' && !isMultiTargetSpell(a, level) && !targetId) {

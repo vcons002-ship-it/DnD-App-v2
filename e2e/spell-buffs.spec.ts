@@ -69,6 +69,8 @@ async function setup(request: APIRequestContext, page: Page, context: BrowserCon
   const begin = async () => {
     socket.emit('initiative:set', { tokenId: drukToken.id, initiative: 20 });
     socket.emit('initiative:set', { tokenId: vanecToken.id, initiative: 10 });
+    socket.emit('initiative:setRound', { round: 1 });
+    await expect.poll(async () => (await snapshot()).round).toBe(1);
     await next(drukToken.id);
   };
   return { socket, snapshot, character, druk, vanec, drukToken, vanecToken, page, ally, cast, begin, next };
@@ -154,6 +156,23 @@ test('Ending Haste causes visible lethargy, blocks movement, and recovers after 
   await page.getByRole('dialog', { name: 'Conditions', exact: true }).getByRole('button', { name: 'Concentration', exact: true }).click();
   await expect.poll(async () => (await f.character()).conditions.some(c => c.label === 'Haste lethargy')).toBe(true);
   await expect(f.ally.locator('.haste-recovery')).toContainText('Incapacitated');
+  await expect(f.ally.locator('.haste-recovery')).toContainText('Recover at the end of your next turn.');
+  const explanation = f.ally.locator('.toast');
+  await expect(explanation).toContainText('Druk:');
+  await expect(explanation).toContainText('Haste');
+  await expect(explanation).toContainText(/attacks/i);
+  await expect(explanation).toContainText(/spells/i);
+  await expect(explanation).toContainText('end of your next turn');
+  await explanation.click();
+  // Disabled attacks still have an accessible way to ask why and when.
+  await f.ally.locator('.haste-recovery').getByRole('button', { name: 'Why blocked?', exact: true }).click();
+  await expect(explanation).toContainText('end of your next turn');
+  await explanation.click();
+  // A fresh page joining while already affected explains the ongoing block.
+  await f.ally.reload();
+  await expect(f.ally.locator('.haste-recovery')).toBeVisible();
+  await expect(explanation).toContainText('end of your next turn');
+  await explanation.click();
   await expect(f.ally.getByLabel('Armor Class 17', { exact: true })).toBeVisible();
   await expect(f.ally.locator('.compact-player-combat').getByRole('button', { name: /Greatsword/ })).toBeDisabled();
   expect((await f.character()).conditions.some(c => c.label === 'Incapacitated')).toBe(true);
@@ -168,10 +187,22 @@ test('Ending Haste causes visible lethargy, blocks movement, and recovers after 
   expect({ x: still.x, y: still.y }).toEqual({ x: f.drukToken.x, y: f.drukToken.y });
   await f.next(f.vanecToken.id);
   expect((await f.character()).conditions.some(c => c.label === 'Haste lethargy')).toBe(true);
+  await expect(explanation).toHaveCount(0);
+  await f.ally.locator('.haste-recovery').getByRole('button', { name: 'Why blocked?', exact: true }).click();
+  await expect(explanation).toContainText('end of your next turn');
   await f.next(f.drukToken.id);
   expect((await f.character()).conditions.some(c => c.label === 'Haste lethargy')).toBe(true);
+  await expect(f.ally.locator('.haste-recovery')).toContainText('Recover at the end of this turn.');
+  // A popup already being read updates in place as recovery becomes this turn.
+  await expect(explanation).toContainText('end of this turn');
+  await explanation.click();
+  await expect(explanation).toHaveCount(0);
+  await f.ally.locator('.haste-recovery').getByRole('button', { name: 'Why blocked?', exact: true }).click();
+  await expect(explanation).toContainText('end of this turn');
   await f.next(f.vanecToken.id);
   await expect.poll(async () => (await f.character()).conditions.some(c => c.label === 'Haste lethargy')).toBe(false);
+  // Recovery clears this explanation even if its eight seconds have not elapsed.
+  await expect(explanation).toHaveCount(0);
   expect((await f.character()).conditions.some(c => c.label === 'Incapacitated')).toBe(false);
   await expect(f.ally.locator('.compact-player-combat').getByRole('button', { name: /Greatsword/ })).toBeEnabled();
 });
