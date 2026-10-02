@@ -52,11 +52,13 @@ export function attackAdvantage(
    *  target's Reckless Attack…). They join the pile rather than REPLACING the
    *  requested adv/dis, so a requested dis cancels them to a straight roll. */
   featureAdv: string[] = [],
+  /** Named spell/equipment penalties join ordinary conditions and cancel ADV. */
+  featureDis: string[] = [],
 ): AdvResult {
   const a = norm(attackerLabels);
   const t = norm(targetLabels);
   const adv: string[] = [...featureAdv];
-  const dis: string[] = [];
+  const dis: string[] = [...featureDis];
 
   // Advantage for the attacker.
   if (a.has('invisible')) adv.push('attacker invisible');

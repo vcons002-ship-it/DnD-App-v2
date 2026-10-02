@@ -2,11 +2,11 @@ import {materializeLiveDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
-import { rollDice, rollDicePool, withDiceMetadata } from '../../shared/dice.js';
+import { rollDice, rollDicePool, withDiceMetadata, usingPhysicalDice } from '../../shared/dice.js';
 import { hasLineOfSight } from '../../shared/mapWalls.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import { abilityMod, proficiencyBonus } from '../../shared/skills.js';
-import { damageMultiplier, rollSavingThrow, weaponIsMagical } from '../../shared/combatMath.js';
+import { damageMultiplier, weaponIsMagical } from '../../shared/combatMath.js';
 import { saveAdvantage, saveAutoFail } from '../../shared/conditionEffects.js';
 import { effectiveStats, saveExtra } from '../../shared/modifiers.js';
 import { spellSaveDC } from '../../shared/spellMath.js';
@@ -59,18 +59,21 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
   const labels=e.conditions.map(c=>c.label), extra=saveExtra(e,ab);
   const state=saveAdvantage(labels,ab,adv,strFeatureAdv(target.kind,target.refId,ab)).state;
   const c={...e,stats:effectiveStats(e).scores,isMonster:target.kind==='monster',level:e.level??0};
-  const out=withDiceMetadata({label:`${label} - ${ab} Saving Throw`,target:{kind:target.kind,refId:target.refId}},()=>rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab)));
-  const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
+  const killer=abilityKey({name:label})==='phantasmal killer';
   const ensnaring=abilityKey({name:label})==='ensnaring strike';
   const effectKey=abilityKey({name:label});
-  const explanation=ensnaring?(passed?'Resisted - no spell damage.':'Restrained - damage at the start of its turn.')
+  const explain=(passed:boolean)=>ensnaring?(passed?'Resisted - no spell damage.':'Restrained - damage at the start of its turn.')
     : effectKey==='stunning strike'?(passed?'Not stunned - slowed until the caster\'s next turn.':'Stunned until the caster\'s next turn.')
     : effectKey==='thunderous smite'?(passed?'Push and knockdown resisted.':'Knocked prone and pushed 10 ft.')
     : effectKey==='wrathful smite'?(passed?'Fear resisted or ended.':'Frightened - the effect continues.')
     : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.')
-    : effectKey==='hold person'?(passed?'Hold Person ends - no longer Paralyzed.':'Hold Person continues - Paralyzed; save again at the end of the next turn.') : undefined;
+    : effectKey==='hold person'?(passed?'Hold Person ends - no longer Paralyzed.':'Hold Person continues - Paralyzed; save again at the end of the next turn.')
+    : killer?(passed?'Phantasmal Killer ends - no damage.':'Phantasmal Killer continues - roll psychic damage.') : undefined;
+  const [out]=rollSaveBatch([{target,c,ability:ab,dc,mode:state,proficient:(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab),extra:extra.total,autoFail:!!saveAutoFail(labels,ab),passEffect:explain(true),failEffect:explain(false)}],`${label} — ${killer?'End-of-turn ':''}${ab} Saving Throw`);
+  const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
+  const explanation=explain(passed);
   addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}${explanation?`. ${explanation}`:''}`,
-    reveal:{kind:'check',title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
+    reveal:{kind:'check',presentedLive:usingPhysicalDice(),title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
       toHit:[{label:`${ab} save modifiers`,value:total-out.face}],outcome:passed?'pass':'fail',effectOutcome:explanation,
       visibilityTarget:{kind:target.kind,refId:target.refId}}});
   return passed;
@@ -128,13 +131,13 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
       addRollLog(sid,{roller:entity.name,label:'Hail of Thorns: DEX save',expr:'DEX save',total,hpNote,
         hideMods:t.kind==='monster'&&getMonster(t.refId)?.disposition!=='friendly',
         detail:`${entity.name}: DEX save ${total} vs DC ${dc}: ${passed?'PASS (half damage)':'FAIL'}; ${amount} piercing damage.`,
-        reveal:{kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',effectOutcome:`${amount} piercing damage${passed?' (save for half)':''}.`,outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
+        reveal:{presentedLive:usingPhysicalDice(),kind:'check',attacker:entity.name,target:entity.name,title:'Hail of Thorns: DEX save',effectOutcome:`${amount} piercing damage${passed?' (save for half)':''}.`,outcome:passed?'pass':'fail',d20:out.face,attackTotal:total,
           toHit:[{label:'DEX save modifiers',value:total-out.face}],visibilityTarget:{kind:t.kind,refId:t.refId}}});
     }
     queueSpellImpact(sid,target.kind,target.refId,'Hail of Thorns',impactId,Math.max(map.feetPerSquare,target.widthFt)+10);
     addRollLog(sid,{roller,label:'Hail of Thorns',expr:damage.expr,total:damage.total,
       detail:`${ch.name}: Hail of Thorns (${damage.expr}) → ${victim.name} and creatures within 5 ft. ${damage.detail}. DEX save for half.`,
-      reveal:{kind:'damage',attacker:roller,target:`${victim.name} · 5 ft burst`,outcome:'none',damage:damage.total,damageType:'piercing',
+      reveal:{presentedLive:usingPhysicalDice(),kind:'damage',attacker:roller,target:`${victim.name} · 5 ft burst`,outcome:'none',damage:damage.total,damageType:'piercing',
         damageDice:[{label:'Hail of Thorns',value:damage.total,faces:damage.rolls,diceExpression:damage.expr}]}},impactId);
     return {ok:true};
   }

@@ -83,7 +83,7 @@ export function RollLogOverlay({
             style={{ borderLeftColor: color, opacity }}
             onMouseEnter={onMouseEnter}
           >
-            <span className="roll-total">{entry.total}</span>
+            {!entry.hideTotal&&<span className="roll-total">{entry.total}</span>}
             <span className="roll-meta">
               <strong style={{ color }}>{entry.roller}</strong>
               {entry.label ? ` · ${entry.label}` : ''}{' '}

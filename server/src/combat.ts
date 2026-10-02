@@ -1,5 +1,11 @@
+import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
+import type {SpellAreaPlacement} from '../../shared/spellAreas.js';
+import {resolvePlacedSpell} from './areaSpells.js';
+import {spellImpactName} from '../../shared/spellImpact.js';
+import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea,summonSpiritualWeapon,spiritualWeaponPlacementError} from './linkedSpells.js';
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
-import {isValidDiceExpression,withDiceMetadata} from '../../shared/dice.js';
+import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
+import {rollSaveBatch} from './saveDiceBatch.js';
 import {isLiveCommand} from './liveRollContext.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
@@ -13,6 +19,7 @@ import {
   faceTokenToward,
   isDeadEntity,
   addRollLog,
+  queueSpellImpact,
   applyDamage,
   getCharacter,
   getMonster,
@@ -142,7 +149,7 @@ export function strFeatureAdv(kind: TokenKind, refId: string, ability: string): 
 function targetGivesAdvantage(kind: TokenKind, refId: string): string[] {
   const e=kind==='pc'?getCharacter(refId):getMonster(refId);
   return [...activeStances(kind, refId).filter(ab=>ab.stance!.enemiesHaveAdvantage).map(ab=>`target ${ab.name}`),
-    ...(e?.conditions.some(c=>c.combatEffect?.nextAttackAdvantage)?['Stunning Strike']:[])];
+    ...(e?.conditions.filter(c=>c.combatEffect?.nextAttackAdvantage).map(c=>c.combatEffect!.spell)??[])];
 }
 
 /** A stance's flat bonus at this level: the highest `bonusDamageAtLevels`
@@ -151,6 +158,13 @@ function stanceBonusAt(st: NonNullable<SheetAbility['stance']>, level: number): 
   const steps = (st.bonusDamageAtLevels ?? []).filter((x) => level >= x.level);
   if (steps.length === 0) return st.bonusDamage;
   return steps.reduce((best, x) => (x.level > best.level ? x : best)).bonus;
+}
+
+function combatLabels(conditions: Character['conditions']) {
+ return conditions.map(c=>c.label);
+}
+function spellAttackDis(kind:TokenKind,id:string) {
+ return (kind==='pc'?getCharacter(id):getMonster(id))?.conditions.filter(c=>c.combatEffect?.attackDisadvantage).map(c=>c.combatEffect!.spell)??[];
 }
 
 function resolve(token: Token): Resolved | null {
@@ -166,7 +180,7 @@ function resolve(token: Token): Resolved | null {
       ac: effectiveAc(ch),
       kind: 'pc',
       refId: ch.id,
-      conditionLabels: ch.conditions.map((c) => c.label),
+      conditionLabels: combatLabels(ch.conditions),
       resistances: [...ch.resistances, ...stanceResistances('pc', ch.id)],
       weaknesses: ch.weaknesses,
       immunities: ch.immunities ?? [],
@@ -183,7 +197,7 @@ function resolve(token: Token): Resolved | null {
     ac: effectiveAc(m),
     kind: 'monster',
     refId: m.id,
-    conditionLabels: m.conditions.map((c) => c.label),
+    conditionLabels: combatLabels(m.conditions),
     resistances: [...m.resistances, ...stanceResistances('monster', m.id)],
     weaknesses: m.weaknesses,
     immunities: m.immunities ?? [],
@@ -203,7 +217,7 @@ function spellTarget(sessionId: string, tokenId: string): Token | null {
 /** Only the reviewed, damage-free Hold Person profile gains automatic control.
  * An authored roll, custom spell, or manual execution profile keeps its intent. */
 function automatedHoldPerson(a: SheetAbility): boolean {
-  if (a.type !== 'spell' || a.name.trim().toLowerCase() !== 'hold person' || a.level !== 2 ||
+  if (a.type !== 'spell' || !['hold person','hold monster'].includes(a.name.trim().toLowerCase()) || a.level !== (spellKey(a.name)==='hold monster'?5:2) ||
       a.source === 'custom' || a.executionProfile === 'manual') return false;
   const roll = effectiveSheetAbility(a).roll;
   return roll?.kind === 'save' && roll.save?.toUpperCase() === 'WIS' &&
@@ -215,8 +229,8 @@ export function spellControlTargetError(sessionId: string, ability: SheetAbility
   const token = spellTarget(sessionId, tokenId);
   const target = token && (token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId));
   if (!token || !target) return 'Choose a creature in this campaign.';
-  if (isDeadEntity(token.kind, target)) return 'Hold Person requires a living Humanoid.';
-  if (token.kind === 'monster' && (!/^humanoid\b/i.test((target as Monster).creatureType.trim()) || (target as Monster).objectKind))
+  if (isDeadEntity(token.kind, target) || token.kind==='monster' && (target as Monster).objectKind) return `${ability.name} requires a living creature.`;
+  if (spellKey(ability.name)==='hold person' && token.kind === 'monster' && (!/^humanoid\b/i.test((target as Monster).creatureType.trim()) || (target as Monster).objectKind))
     return 'Hold Person only affects Humanoids.';
 }
 
@@ -237,6 +251,7 @@ export function spellApplyTargetError(sessionId: string, entry: RollEntry, token
   const token = spellTarget(sessionId, tokenId);
   const target = token && (token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId));
   if (!token || !target) return 'Choose a creature in this campaign.';
+  if(isDeadEntity(token.kind,target)||token.kind==='monster'&&(target as Monster).objectKind)return 'Choose a living creature.';
   if (effect.eligibleCreatureType === 'humanoid' && (isDeadEntity(token.kind, target) ||
       token.kind === 'monster' && ((target as Monster).objectKind || !/^humanoid\b/i.test((target as Monster).creatureType.trim()))))
     return `${effect.spell} only affects living Humanoids.`;
@@ -322,10 +337,9 @@ function damageBreakdownTotal(detail: DamageBreakdown): number {
   return [...detail.dice, ...detail.mods].reduce((sum, step) => sum + step.value, 0);
 }
 
-/** True when a creature's stats are hidden from players (an enemy/neutral monster),
- *  so its roll's modifier breakdown must be stripped from player logs/reveals. */
+/** Creature roll modifiers are DM-only, including friendly creatures and summons. */
 function hidesMods(kind: TokenKind, refId: string): boolean {
-  return kind === 'monster' && getMonster(refId)?.disposition !== 'friendly';
+  return kind === 'monster';
 }
 
 export function applyDamageNoted(
@@ -574,6 +588,7 @@ export function resolveAttack(
       ...stanceAdvNames,
       ...targetGivesAdvantage(t.kind, t.refId),
     ],
+    spellAttackDis(a.kind,a.refId),
   );
 
   // Flat attack-roll bonus from the attacker's feats / equipped magic items
@@ -591,8 +606,9 @@ export function resolveAttack(
   const offeredFeatures=ch?hitOptions(sessionId,ch,at,tt,weapon,adv.state):[];
   const waitForDamage=isLiveCommand()&&!liveResume&&!!(session?.manualDamage||offeredSmite||offeredManeuvers.length||offeredFeatures.length);
   const armedDamageDice=maneuverFired?.spec.addDieTo==='damage'?[ch?.superiorityDie||'d8']:[];
-  const out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
-    attackOnly:waitForDamage,
+  const mirrorEligible=!liveResume&&!!(t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId))?.conditions.some(c=>c.combatEffect?.duplicates);
+  let out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
+    attackOnly:waitForDamage||mirrorEligible,
     fixedAttack:liveResume?.fixed,
     twoHanded,
     noAbilityMod,
@@ -605,6 +621,21 @@ export function resolveAttack(
     extraCritDie: stanceExtraCritDie, // Savage Attacks (racial)
   });
 
+  if(out.hit&&!liveResume&&mirrorIntercept(sessionId,at,tt,roller)) {
+    consumeHitAdvantage(tt);
+    if(ch)closePreviousHitOptions(sessionId,ch.id);
+    if(maneuverFired&&ch) {
+      const pool=ch.resources['Superiority Dice'];
+      if(pool)setResource(ch.id,'resources','Superiority Dice',{used:pool.used+1});
+      setSheetAbility('pc',ch.id,{...maneuverFired.ability,maneuver:{...maneuverFired.spec,active:false}});
+    }
+    setLastAttackRole(a.kind,a.refId,weapon.kind==='ranged'?'ranged':'melee');
+    addRollLog(sessionId,{roller,label:'Attack',expr:weapon.name,total:out.attackTotal,
+      detail:`${a.name} → ${t.name}: hit intercepted by Mirror Image; a duplicate disappears.`,
+      reveal:{kind:'attack',attacker:a.name,target:t.name,d20:out.face,attackTotal:out.attackTotal,toHit:out.toHitSteps,outcome:'hit',effectOutcome:'Mirror Image — duplicate takes the hit; no damage.'}});
+    return true;
+  }
+  if(mirrorEligible&&!waitForDamage&&out.hit)out=rollWeaponAttack(a.c,weapon,t.ac,adv.state,{fixedAttack:out,twoHanded,noAbilityMod,bonusDamage:flatBonus||undefined,bonusLabel:flatLabels.join('+')||undefined,forceCrit:!!autoCrit,rerollDamageDice:stanceRerollDamage,extraCritDie:stanceExtraCritDie});
   if(waitForDamage && out.hit){
     const id=newId(),smite=offeredSmite,maneuvers=offeredManeuvers,features=offeredFeatures;
     if(ch)closePreviousHitOptions(sessionId,ch.id);
@@ -1243,6 +1274,7 @@ export function resolveAttackDamage(
     [p.weapon,...p.dice.map(d=>d.label)].join(" + "),
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
+  const linkedTarget=p.spellLink&&listTokens(getSessionById(sessionId)?.activeMapId??'').find(t=>t.kind===p.target.kind&&t.refId===p.target.refId);
   addRollLog(sessionId, {
     roller,
     label: 'Damage',
@@ -1263,6 +1295,7 @@ export function resolveAttackDamage(
     },
     hideMods: hidesMods(p.attacker.kind, p.attacker.refId),
   }, damageRollId);
+  if(p.spellLink&&linkedTarget)linkedDamageComplete(sessionId,roller,p.spellLink,linkedTarget,p.spellDamageAmount??p.amount);
   return true;
 }
 
@@ -1410,7 +1443,7 @@ export function resolveCheck(
     isMonster: kind !== 'pc',
   };
   const adv = checkAdvantage(
-    ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab), hexDisadvantage(sessionId,kind,refId,ab),
+    ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab), [...hexDisadvantage(sessionId,kind,refId,ab),...ent.conditions.filter(c=>c.combatEffect?.checkDisadvantage).map(c=>c.combatEffect!.spell)],
   );
   // dc 0 → unused; `proficient: false` makes it a plain ability check.
   const out = rollSavingThrow(c, ab, 0, adv.state, false, `${ab} Check`);
@@ -1441,12 +1474,18 @@ export function resolveCheck(
  * save-less (auto-hit) payload, apply full with no save roll. Logs one entry. The
  * source roll keeps its `apply` so the DM can keep clicking more targets.
  */
+export function areaSaveRequest(tok:Token,ability:string,dc:number){
+ const r=resolve(tok);if(!r)return;
+ return {target:tok,c:r.c,ability,dc,mode:saveAdvantage(r.conditionLabels,ability,undefined,strFeatureAdv(r.kind,r.refId,ability)).state,
+  proficient:r.saveProficiencies.some(s=>s.trim().toUpperCase()===ability.toUpperCase()),extra:saveBonus(r,ability).add,autoFail:!!saveAutoFail(r.conditionLabels,ability)};
+}
 export function resolveForcedSave(
   sessionId: string,
   rollId: string,
   tokenId: string,
   advantage?: Advantage,
   instanceIndex?: number,
+  presentedLive=false,
 ): void {
   const src = getRollEntry(rollId, sessionId);
   const apply = src?.apply;
@@ -1467,6 +1506,7 @@ export function resolveForcedSave(
     const recipient = tok.kind === 'pc' ? getCharacter(tok.refId) : getMonster(tok.refId);
     if (!recipient) return;
     const dead = isDeadEntity(tok.kind, recipient);
+    if(recipient.conditions.some(c=>c.combatEffect?.preventsHealing)){addRollLog(sessionId,{roller:src!.roller,label:'Healing prevented',expr:'Chill Touch',total:0,detail:`${r.name}: Chill Touch prevents healing.`});setRollApply(rollId,{...apply,consumedTargets:[...consumed,tokenId]});return;}
     const amount = Math.max(0, apply.amount);
     const hpNote = !dead && amount > 0
       ? applyDamageNoted(tok.kind, tok.refId, -amount, undefined, undefined, false,
@@ -1482,13 +1522,16 @@ export function resolveForcedSave(
     });
     return;
   }
+  const resolutionRollId = newId();
+  let appliedSpellCondition=false;
   const applyFailedCondition = () => {
     if (apply.effect) {
       const effect = apply.effect;
+      appliedSpellCondition=true;
       setCondition(tok.kind, tok.refId, {id:newId(),label:effect.condition,aura:'red',isConcentration:false,
         combatEffect:{casterKind:effect.casterKind,casterId:effect.casterId,spell:effect.spell,
-          castId:effect.castId,concentration:true,expiresAt:effect.expiresAt,
-          save:effect.repeatSave,dc:apply.dc,phase:effect.repeatSave ? 'end' : undefined}});
+          castId:effect.castId,visualRollId:resolutionRollId,concentration:true,expiresAt:effect.expiresAt,
+          save:effect.repeatSave,dc:apply.dc,phase:effect.repeatSave ? 'end' : undefined,dice:effect.repeatDamage,damageType:effect.damageType,saveBeforeDamage:!!effect.repeatDamage,attackDisadvantage:effect.attackDisadvantage,checkDisadvantage:effect.checkDisadvantage}});
     } else if (apply.onFail) setTokensCondition([tokenId], {label:apply.onFail,aura:'red',isConcentration:false});
   };
   // Spell damage is magical, so "nonmagical" resistances don't apply to it.
@@ -1496,6 +1539,7 @@ export function resolveForcedSave(
     apply.damageType, r.resistances, r.weaknesses, r.immunities, { magical: true },
   );
   const typeTxt = apply.damageType ? ` ${apply.damageType}` : '';
+  const defended=(pass:boolean)=>apply.damagePools?apply.damagePools.reduce((total,pool)=>total+Math.floor((pass?apply.saveDamage==='none'?0:Math.floor(pool.amount/2):pool.amount)*damageMultiplier(pool.damageType,r.resistances,r.weaknesses,r.immunities,{magical:true})),0):Math.max(0,Math.floor((pass?apply.saveDamage==='none'?0:Math.floor(apply.amount/2):apply.amount)*mult));
 
   let dmg: number;
   let detail: string;
@@ -1545,7 +1589,7 @@ export function resolveForcedSave(
     }
     dmg = Math.floor(base * mult);
     const dartRollId = newId();
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, src?.expr ?? src?.label);
+    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label));
     noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
@@ -1571,14 +1615,42 @@ export function resolveForcedSave(
   }
   // Each creature is resolved at most once per cast — RAW (one save vs an AoE),
   // and it blocks the accidental double-click that would otherwise double the hit.
-  if ((apply.consumedTargets ?? []).includes(tokenId)) return;
+  if ((apply.consumedTargets ?? []).some(id=>{const t=getToken(id);return t?.kind===tok.kind&&t.refId===tok.refId;})) return;
   if (apply.targetMode === 'single' && (apply.consumedTargets?.length ?? 0) > 0) return;
+  if (apply.saveFirstDamage && apply.save && apply.effect) {
+    // Phantasmal Killer (2024): initial WIS save, then full/half psychic
+    // damage. Area spells deliberately retain their shared damage-first pool.
+    const ability=apply.save,request=areaSaveRequest(tok,ability,apply.dc)!;
+    request.mode=saveAdvantage(r.conditionLabels,ability,advantage,strFeatureAdv(r.kind,r.refId,ability)).state;
+    const [out]=rollSaveBatch([{...request,passEffect:'Half damage; spell ends.',failEffect:'Full damage; disadvantage continues.'}],`${apply.effect.spell} — Initial ${ability} Saving Throw`);
+    const total=out.total+request.extra,pass=!request.autoFail&&total>=apply.dc;
+    addRollLog(sessionId,{roller:src!.roller,label:`${ability} save`,expr:`${apply.effect.spell} — Initial save`,total,
+      detail:`${r.name}: ${ability} save ${total} vs DC ${apply.dc} — ${pass?'PASS: half damage; spell ends.':'FAIL: full damage; disadvantage on attacks and ability checks.'}`,
+      hideMods:r.kind==='monster'&&getMonster(r.refId)?.disposition!=='friendly',
+      reveal:{...checkReveal({who:r.name,title:`${apply.effect.spell} — Initial ${ability} Saving Throw`,face:out.face,total,
+        steps:[{label:`${ability} save modifiers`,value:total-out.face}],outcome:pass?'pass':'fail'}),presentedLive:usingPhysicalDice(),visibilityTarget:{kind:tok.kind,refId:tok.refId}}});
+    const rolled=withDiceMetadata({label:`${apply.effect.spell} — Initial Psychic Damage${pass?' (save for half)':''}`,target:tok},()=>rollDice(apply.saveFirstDamage!))!;
+    const amount=Math.max(0,Math.floor((pass?Math.floor(rolled.total/2):rolled.total)*mult));
+    const hpNote=amount?applyDamageNoted(r.kind,r.refId,amount,apply.damageType,undefined,false,resolutionRollId,apply.effect.spell):undefined;
+    noteConcentration(sessionId,r.kind,r.refId,amount);
+    if(!pass)applyFailedCondition();
+    else if((apply.effect.casterKind==='pc'?getCharacter(apply.effect.casterId):getMonster(apply.effect.casterId))?.conditions.some(c=>c.isConcentration&&c.id===apply.effect!.castId))
+      endConcentration(apply.effect.casterKind,apply.effect.casterId,`${apply.effect.spell} resisted`);
+    if(appliedSpellCondition)queueSpellImpact(sessionId,tok.kind,tok.refId,apply.effect.spell,resolutionRollId);
+    setRollApply(rollId,{...apply,amount:rolled.total,consumedTargets:[...(apply.consumedTargets??[]),tokenId]});
+    addRollLog(sessionId,{roller:src!.roller,label:'Damage',expr:`${apply.effect.spell} — Initial damage`,total:amount,hpNote,
+      detail:`${r.name}: ${rolled.detail}${pass?' ÷ 2 (save for half)':''}; takes ${amount} ${apply.damageType} damage. ${pass?'Spell ends.':'Repeat the WIS save at the end of its turn.'}`,
+      reveal:{kind:'damage',title:`${apply.effect.spell} — Initial Psychic Damage`,attacker:apply.effect.spell,target:r.name,outcome:'none',
+        damageDice:[{label:apply.saveFirstDamage,value:rolled.total,faces:rolled.rolls}],damageMods:amount!==rolled.total?[{label:pass?'Save / damage adjustment':'Damage adjustment',value:amount-rolled.total}]:[],
+        damage:amount,damageType:apply.damageType,visibilityTarget:{kind:tok.kind,refId:tok.refId}}},resolutionRollId);
+    return;
+  }
   if (apply.save) {
     const ability = apply.save;
     // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
     const autoFail = saveAutoFail(r.conditionLabels, ability);
     if (autoFail) {
-      dmg = Math.floor(apply.amount * mult); // auto-fail → full damage
+      dmg = defended(false); // auto-fail → full damage
       const condTxt = apply.effect?.condition || apply.onFail ? ` · ${apply.effect?.condition ?? apply.onFail}` : '';
       applyFailedCondition();
       detail =
@@ -1591,12 +1663,19 @@ export function resolveForcedSave(
       const adv = saveAdvantage(
         r.conditionLabels, ability, advantage, strFeatureAdv(r.kind, r.refId, ability),
       );
-      const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
       const sb = saveBonus(r, ability);
+      const saveEffect=(pass:boolean)=>{
+        if(apply.amount>0)return `${pass?'Save passed':'Save failed'} - ${defended(pass)} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
+        if(src?.label.trim().toLowerCase()==='pushing attack')return pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
+        if(apply.effect)return pass?`${apply.effect.spell} resisted - not ${apply.effect.condition}.`:`${apply.effect.spell} successful - ${apply.effect.condition}; repeat the save at the end of each turn.`;
+        if(apply.onFail)return pass?`${src?.label??'Effect'} resisted - no ${apply.onFail}.`:`${src?.label??'Effect'} successful - ${apply.onFail}.`;
+        return `${src?.label??'Effect'} ${pass?'resisted':'successful'}!`;
+      };
+      const [out] = rollSaveBatch([{target:tok,c:r.c,ability,dc:apply.dc,mode:adv.state,proficient,extra:sb.add,autoFail:false,passEffect:saveEffect(true),failEffect:saveEffect(false)}],`${src?.label??'Effect'} — ${ability.toUpperCase()} Saving Throw`);
       const total = out.total + sb.add;
       const pass = total >= apply.dc;
       const savedAmount = apply.saveDamage === 'none' ? 0 : Math.floor(apply.amount / 2);
-      dmg = Math.max(0, Math.floor((pass ? savedAmount : apply.amount) * mult));
+      dmg = defended(pass);
       // A Battle Master rider applies its condition to a target that FAILS.
       const condTxt = !pass && (apply.effect?.condition || apply.onFail) ? ` · ${apply.effect?.condition ?? apply.onFail}` : '';
       if (!pass) applyFailedCondition();
@@ -1605,7 +1684,7 @@ export function resolveForcedSave(
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
       saveReveal = checkReveal({
         who: r.name,
-        title: `${src?.label ?? 'Effect'} ? ${ability.toUpperCase()} Saving Throw`,
+        title: `${src?.label ?? 'Effect'} — ${ability.toUpperCase()} Saving Throw`,
         face: out.face,
         total,
         steps: [
@@ -1626,15 +1705,15 @@ export function resolveForcedSave(
       }
     }
   } else {
-    dmg = Math.floor(apply.amount * mult);
+    dmg = defended(false);
     detail = `${r.name}: takes ${dmg}${typeTxt}`;
   }
-  const resolutionRollId = newId();
   // A real save waits for its own result. An auto-hit/auto-fail application
   // without a new reveal may instead share its still-playing cast animation.
   // Clients never wait on a source roll that has already finished or is hidden.
   const fxRollId = saveReveal ? resolutionRollId : src?.reveal ? src.id : undefined;
-  const saveNote = dmg ? applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, src?.expr ?? src?.label) : undefined;
+  if(apply.effect&&appliedSpellCondition)queueSpellImpact(sessionId,tok.kind,tok.refId,apply.effect.spell,fxRollId);
+  const saveNote = dmg ? applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, spellImpactName(src?.expr)??spellImpactName(src?.label)) : undefined;
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   // Mark this target consumed so a repeat click on the same creature is rejected.
   setRollApply(rollId, {
@@ -1653,7 +1732,7 @@ export function resolveForcedSave(
     detail,
     hpNote: saveNote,
     hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
-    ...(saveReveal ? { reveal: saveReveal } : {}),
+    ...(saveReveal ? { reveal: {...saveReveal,presentedLive:presentedLive||usingPhysicalDice(),visibilityTarget:{kind:tok.kind,refId:tok.refId}} } : {}),
   }, resolutionRollId);
 }
 
@@ -1683,7 +1762,8 @@ function autoApplyToTarget(
  * redacts it for players). Returns false if the target token is invalid, so the
  * caller can fall back to the untargeted to-hit-only log.
  */
-function resolveTargetedSpellAttack(opts: {
+export function resolveTargetedSpellAttack(opts: {
+  linked?: LinkedSpellContext;
   sessionId: string;
   roller: string;
   title: string;
@@ -1701,6 +1781,8 @@ function resolveTargetedSpellAttack(opts: {
   advantage?: Advantage;
   /** The casting creature — credits a PC's kill count on a killing blow. */
   attacker?: { kind: TokenKind; refId: string };
+  /** A placed spell force supplies reach/facing while its caster owns the roll. */
+  originTokenId?: string;
   sourceRollId?: string;
   orb?: OrbChain;
   liveResume?: {id:string;fixed:{face:number;detail:string;hit:boolean;crit:boolean}};
@@ -1708,29 +1790,38 @@ function resolveTargetedSpellAttack(opts: {
   const tt = spellTarget(opts.sessionId, opts.targetTokenId);
   const t = tt && resolve(tt);
   if (!t) return false;
-  const attackerToken = opts.attacker && listTokens(tt!.mapId).find((token) =>
+  const origin=opts.originTokenId?getToken(opts.originTokenId):undefined;
+  const attackerToken = origin&&origin.mapId===tt!.mapId&&opts.attacker?{...origin,kind:opts.attacker.kind,refId:opts.attacker.refId}:opts.attacker && listTokens(tt!.mapId).find((token) =>
     token.kind === opts.attacker!.kind && token.refId === opts.attacker!.refId);
   const attacker = opts.attacker && (opts.attacker.kind === 'pc'
     ? getCharacter(opts.attacker.refId) : getMonster(opts.attacker.refId));
   // An orb leap originates at the previous victim; it does not turn its caster.
   if(attackerToken&&!opts.liveResume&&(!opts.orb||opts.orb.visited.length===0))faceTokenToward(opts.sessionId,attackerToken.id,tt!.id);
   const within5 = !!attackerToken && tokensWithin5ft(attackerToken, tt!, getMap(tt!.mapId));
-  const adv = attackAdvantage(attacker?.conditions.map((condition) => condition.label) ?? [],
-    t.conditionLabels, within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId));
+  const adv = attackAdvantage(attacker?combatLabels(attacker.conditions):[],
+    t.conditionLabels, within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId),opts.attacker?spellAttackDis(opts.attacker.kind,opts.attacker.refId):[]);
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   const { face, detail: d20detail } = opts.liveResume?.fixed ?? withDiceMetadata({label:`${opts.title} — Spell Attack Roll`},()=>rollD20Detail(adv.state));
   const fumble = face === 1;
   const attackTotal = face + opts.attackBonus;
   const hit = opts.liveResume?.fixed.hit ?? (face === 20 || (!fumble && attackTotal >= t.ac));
   const crit = opts.liveResume?.fixed.crit ?? (hit && (face === 20 || !!autoCrit));
+  if(hit&&!opts.liveResume&&attackerToken&&mirrorIntercept(opts.sessionId,attackerToken,tt!,opts.roller)) {
+    consumeHitAdvantage(tt!);
+    addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,detail:`${opts.title} → ${t.name}: Mirror Image duplicate destroyed; no damage.`,reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:'hit',effectOutcome:'Duplicate destroyed — no damage to the caster.'}});
+    if(opts.linked&&spellKey(opts.linked.spell)==='ice knife')linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,0);
+    return true;
+  }
+  const attackRollId = opts.liveResume?.id ?? newId();
+  if(hit&&!opts.liveResume&&opts.linked)linkedHit(opts.linked,tt!,attackRollId);
   if(isLiveCommand()&&!opts.liveResume&&hit&&opts.attacker&&getSessionById(opts.sessionId)?.manualDamage){
     addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,
       detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage`,
       hideMods:hidesMods(opts.attacker.kind,opts.attacker.refId),
       reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
-      pending:{target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
+      pending:{spellLink:opts.linked,target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
         live:{kind:'spell',args:[opts],fixed:{face,detail:d20detail,hit,crit}}}
-    });return true;
+    },attackRollId);return true;
   }
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
@@ -1742,6 +1833,9 @@ function resolveTargetedSpellAttack(opts: {
   const [first,second]=hit&&opts.dice?withDiceMetadata({label:`${opts.title} — Spell Damage`},()=>rollDicePool([{expr:opts.dice!},...(crit?[{expr:criticalDiceExpression(opts.dice!),critical:true}]:[])])):[];
   if (hit && opts.dice && first) {
     let dmg = first.total;
+    if(opts.linked&&spellKey(opts.linked.spell)==='sorcerous burst'){
+      for(const bonus of sorcerousBonus(opts.linked,[...first.rolls,...(second?.rolls??[])])){dmg+=bonus.total;revealDice.push({label:'Sorcerous Burst bonus',value:bonus.total,faces:bonus.rolls,diceExpression:bonus.expr});}
+    }
     dmgFaces = `${opts.dice}[${first.rolls.join(',')}]`;
     revealDice.push({ label: opts.dice, value: first.total, faces: first.rolls });
     if (crit) {
@@ -1773,6 +1867,7 @@ function resolveTargetedSpellAttack(opts: {
             : `×2 vulnerable (${opts.damageType})`,
       );
   }
+  const spellDamageAmount=applied;
   const spellDamageFaces = revealDice.flatMap(d => d.faces ?? []);
   if (hit && opts.attacker) {
     const mark=markedDamage(opts.attacker.kind,opts.attacker.refId,tt!,crit);
@@ -1780,7 +1875,6 @@ function resolveTargetedSpellAttack(opts: {
   }
   const deferDamage = (!!opts.liveResume || !!getSessionById(opts.sessionId)?.manualDamage) && hit && applied > 0 && !!opts.attacker;
   consumeHitAdvantage(tt!);
-  const attackRollId = opts.liveResume?.id ?? newId();
   if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId, opts.title);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
@@ -1830,6 +1924,7 @@ function resolveTargetedSpellAttack(opts: {
     hideMods: opts.attacker ? hidesMods(opts.attacker.kind, opts.attacker.refId) : false,
     ...(deferDamage && opts.attacker ? {
       pending: {
+        spellLink:opts.linked, spellDamageAmount,
         ...(opts.sourceRollId ? { sourceRollId: opts.sourceRollId } : {}),
         target: { kind: t.kind, refId: t.refId, name: t.name },
         attacker: opts.attacker,
@@ -1843,7 +1938,15 @@ function resolveTargetedSpellAttack(opts: {
       },
     } : {}),
   }, attackRollId);
-  if (!hit && attackerToken && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
+  if(opts.linked){
+    if(!hit&&spellKey(opts.linked.spell)==="melf's acid arrow"){
+      const splash=rollDice(opts.dice!)!,amount=Math.floor(Math.floor(splash.total/2)*damageMultiplier('acid',t.resistances,t.weaknesses,t.immunities,{magical:true}));
+      const id=newId(),hpNote=applyDamageNoted(t.kind,t.refId,amount,'acid',opts.attacker,false,id,opts.title);noteConcentration(opts.sessionId,t.kind,t.refId,amount);
+      addRollLog(opts.sessionId,{roller:opts.roller,label:'Acid Arrow — Miss Splash',expr:splash.expr,total:amount,hpNote,detail:`${t.name}: missed arrow splashes for ${amount} Acid damage; no delayed damage.`,reveal:{kind:'damage',title:'Acid Arrow — Miss Splash',attacker:opts.roller,target:t.name,outcome:'none',damage:amount,damageType:'acid',damageDice:[{label:splash.expr,value:splash.total,faces:splash.rolls,diceExpression:splash.expr}],damageMods:[{label:'Half on a miss and Acid defense',value:amount-splash.total}]}},id);
+    }
+    if(!deferDamage)linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,spellDamageAmount);
+  }
+  if (!hit && attackerToken && !opts.originTokenId && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
     createRiposteOpportunity(opts.sessionId, tt!, attackerToken);
   return true;
 }
@@ -1952,12 +2055,50 @@ function resolveSheetAbilityFor(
   advantage?: Advantage,
   targetTokenId?: string,
   damageTypeChoice?: string,
+  area?:SpellAreaPlacement,
 ): boolean {
   // Validate before concentration, rolls, HP changes or the caller's slot spend.
   if (targetTokenId && !spellTarget(sessionId, targetTokenId)) return false;
   if (targetTokenId && spellControlTargetError(sessionId, ability, targetTokenId)) return false;
+  const linkedProfile=linkedSpellProfile(ability),reuse=(ability as SheetAbility&{linkedReuse?:string}).linkedReuse;
+  const linkedContext:LinkedSpellContext|undefined=linkedProfile?{spell:ability.name,abilityId:ability.id,casterKind:kind,casterId:entity.id,castLevel:castLevel??linkedProfile.level,
+    dc:ability.roll?.dc??(8+(kind==='pc'?proficiencyBonus(entity.level):profBonusFor({stats:entity.stats,level:entity.level,isMonster:true}))+spellcastingMod(entity.stats,spellcastingKeyFor(entity,ability))),modifier:spellcastingMod(entity.stats,spellcastingKeyFor(entity,ability))}:undefined;
+  if(linkedProfile&&linkedContext){
+    const key=spellKey(ability.name),target=targetTokenId?spellTarget(sessionId,targetTokenId):null;
+    if(linkedProfile.kind==='mirror'){
+      spellCondition(linkedContext,kind,entity.id,'Mirror Image',{duplicates:3});
+      queueSpellImpact(sessionId,kind,entity.id,'Mirror Image');
+      addRollLog(sessionId,{roller,label:'Mirror Image',expr:'Mirror Image',total:0,detail:'Three illusory duplicates appear. A hit rolls one d6 per remaining duplicate; any 3+ destroys one duplicate instead of damaging the caster.'});return true;
+    }
+    if(linkedProfile.kind==='mixed'){mixedSpellDamage(sessionId,roller,linkedContext);return true;}
+    if(['repeat','heat'].includes(linkedProfile.kind)){
+      if(key==='spiritual weapon'&&!reuse){
+        const mapId=getSessionById(sessionId)?.activeMapId,actor=mapId&&listTokens(mapId).find(t=>t.kind===kind&&t.refId===entity.id);
+        if(!actor||!mapId)return false;
+        const point=target??actor;
+        if(spiritualWeaponPlacementError(sessionId,kind,entity.id,mapId,point.x,point.y))return false;
+        summonSpiritualWeapon(linkedContext,ability,mapId,point.x,point.y);return true;
+      }
+      if(!target&&key!=='flame blade'&&!(key==='call lightning'&&area))return false;
+      if(!reuse)startSpellUse(linkedContext,ability,targetTokenId);
+      if(key==='flame blade'&&!reuse){
+        const ready=(kind==='pc'?getCharacter(entity.id):getMonster(entity.id))!.conditions.find(c=>c.combatEffect?.abilityId===ability.id&&!c.isConcentration)!;
+        setCondition(kind,entity.id,{...ready,combatEffect:{...ready.combatEffect!,lastUseTurn:undefined}});
+        queueSpellImpact(sessionId,kind,entity.id,'Flame Blade');
+        addRollLog(sessionId,{roller,label:'Flame Blade',expr:'Flame Blade',total:0,detail:'Flame Blade created. Use its Magic action attack while concentrating; no additional slot is spent.'});return true;
+      }
+      if(key==='heat metal'){heatMetalDamage(sessionId,roller,linkedContext,target!);return true;}
+      if(key==='call lightning'){
+        if(area){const d=withDiceMetadata({label:'Call Lightning — Lightning Damage'},()=>rollDice(`${linkedContext.castLevel}d10`))!;
+          addRollLog(sessionId,{roller,label:ability.name,expr:ability.name,total:d.total,detail:d.detail,
+            apply:{amount:d.total,dc:linkedContext.dc,save:'DEX',saveDamage:'half',damageType:'lightning',targetMode:'multiple',owner:kind==='pc'?entity.id:undefined},
+            reveal:{kind:'damage',title:'Call Lightning — Lightning Damage',attacker:ability.name,outcome:'none',damage:d.total,damageType:'lightning',damageDice:[{label:'lightning',value:d.total,faces:d.rolls,diceExpression:d.expr}]}});
+        }else resolveSpellArea(sessionId,roller,linkedContext,target!,5,`${linkedContext.castLevel}d10`,'lightning','DEX');return true;
+      }
+    }
+  }
   const support = spellCombatSupport(ability);
-  if (support?.manualCastOnly) {
+  if (support?.manualCastOnly && !linkedProfile) {
     // A catalogue formula is not safe merely because it has dice. Record the
     // casting intent without interpreting temporary HP, a curse, mixed damage,
     // or an older-edition roll as ordinary damage/healing. The caller still
@@ -1997,7 +2138,7 @@ function resolveSheetAbilityFor(
     return true;
   }
   const holdPerson = automatedHoldPerson(ability);
-  const controlEffect = holdPerson ? timedConcentration(kind, entity.id, ability.name) : undefined;
+  const controlEffect = holdPerson || spellKey(ability.name)==='phantasmal killer'&&linkedProfile ? timedConcentration(kind, entity.id, ability.name) : undefined;
   if(holdPerson && !controlEffect) return false;
   ability = effectiveSheetAbility(ability, castLevel);
   const damageTypes = spellDamageTypeChoices(ability, castLevel);
@@ -2008,7 +2149,7 @@ function resolveSheetAbilityFor(
   }
   // Casting a concentration spell starts concentration on the caster (replacing
   // any prior one). This fires even for a buff with no damage roll.
-  if (isConcentrationSpell(ability) && !controlEffect) {
+  if (isConcentrationSpell(ability) && !controlEffect && !linkedProfile) {
     const { changed } = setConcentration(kind, entity.id, ability.name);
     if (!ability.roll) {
       setLastAttackRole(kind, entity.id, 'caster');
@@ -2104,6 +2245,8 @@ function resolveSheetAbilityFor(
     if (
       targetTokenId &&
       resolveTargetedSpellAttack({
+        linked:linkedContext,
+        originTokenId:reuse&&spellKey(ability.name)==='spiritual weapon'?(kind==='pc'?getCharacter(entity.id):getMonster(entity.id))?.conditions.find(c=>c.id===reuse)?.combatEffect?.summonTokenId:undefined,
         sessionId,
         roller,
         title,
@@ -2171,8 +2314,9 @@ function resolveSheetAbilityFor(
       ? target.kind === 'pc' ? getCharacter(target.refId) : getMonster(target.refId)
       : null;
     const targetDead = !!(target && targetEntity && isDeadEntity(target.kind, targetEntity));
+    const healingBlocked=!!targetEntity?.conditions.some(c=>c.combatEffect?.preventsHealing);
     const healNote =
-      target && val > 0 && !targetDead && !temporary
+      target && val > 0 && !targetDead && !healingBlocked && !temporary
         ? applyDamageNoted(target.kind, target.refId, -val, undefined, undefined, false, healingId, ability.name)
         : undefined;
     const temporaryTotal = temporary && targetEntity ? Math.max(targetEntity.tempHp, val) : undefined;
@@ -2191,7 +2335,7 @@ function resolveSheetAbilityFor(
             ? ` → ${target.name}: ${temporaryTotal} temporary HP (keeps the larger pool)`
             : targetDead
             ? ` → ${target.name} is dead; healing has no effect`
-            : ` → ${target.name} +${val} HP`
+            : healingBlocked ? ` → ${target.name}: Chill Touch prevents healing` : ` → ${target.name} +${val} HP`
           : multiple ? ` — apply this roll to up to ${roll.maxTargets ?? 6} chosen creatures` : ''),
       description: ability.description || undefined,
       hpNote: healNote,
@@ -2237,7 +2381,8 @@ function resolveSheetAbilityFor(
   // target DC. The single rolled total is the spell's damage — applying it to each
   // target later (resolveForcedSave) just halves/applies this number, so only the
   // CAST reveals an animation, not each application.
-  const dmgRoll = dice ? rollDice(dice) : null;
+  const saveFirst=!!controlEffect&&spellKey(ability.name)==='phantasmal killer';
+  const dmgRoll = dice && !saveFirst ? rollDice(dice) : null;
   const val = Math.max(0,(dmgRoll?.total ?? 0)+(damageBonus?.value ?? 0));
   const dmgFaces = dmgRoll ? `${dice}[${dmgRoll.rolls.join(',')}]` : dice;
   const note =
@@ -2251,11 +2396,13 @@ function resolveSheetAbilityFor(
   // AOE spell — the dice are rolled once here, applied per target on each click.
   const apply = applyPayload(roll, val, dc);
   if (apply && kind === 'pc') apply.owner = entity.id;
+  if (apply && saveFirst) apply.saveFirstDamage=dice;
   if (apply && controlEffect) {
-    apply.maxTargets = Math.max(1, (castLevel ?? 2) - 1);
+    const controlKey=spellKey(ability.name);
+    apply.maxTargets = controlKey==='phantasmal killer'?1:Math.max(1,(castLevel??ability.level??2)-(ability.level??2)+1);
     apply.targetMode = apply.maxTargets > 1 ? 'multiple' : 'single';
-    apply.effect = {...controlEffect, condition:'Paralyzed', eligibleCreatureType:'humanoid',
-      durationRounds:10, repeatSave:'WIS'};
+    apply.effect = {...controlEffect,condition:controlKey==='phantasmal killer'?'Phantasmal Killer':'Paralyzed',eligibleCreatureType:controlKey==='hold person'?'humanoid':undefined,
+      durationRounds:10,repeatSave:'WIS',...(controlKey==='phantasmal killer'?{repeatDamage:dice,damageType:'psychic',attackDisadvantage:true,checkDisadvantage:true}:{})};
   }
   // A selected single target belongs on the damage result as well as the later
   // save. Area casts keep their target selection workflow and have no one target.
@@ -2266,7 +2413,7 @@ function resolveSheetAbilityFor(
     label: ability.name,
     expr: title,
     total: val,
-    detail: controlEffect ? `${title}: choose up to ${apply!.maxTargets} Humanoid${apply!.maxTargets! > 1 ? 's' : ''}; a failed DC ${dc} WIS save causes Paralysis, with another save at the end of each target's turn.`
+    detail: controlEffect ? `${title}: choose up to ${apply!.maxTargets} eligible creature(s); a failed WIS save applies ${apply!.effect!.condition}, with another save at the end of each target's turn.`
       : `${title}:${dice ? ` ${val}${dmgType} damage [${dmgFaces}]` : ''}${note}`,
     description: ability.description || undefined,
     apply,
@@ -2305,8 +2452,10 @@ export function resolveAbilityRoll(
   advantage?: Advantage,
   targetTokenId?: string,
   damageTypeChoice?: string,
+  area?:SpellAreaPlacement,
 ): boolean {
   if (character.sessionId !== sessionId) return false;
+  if(area)return resolvePlacedSpell(sessionId,roller,'pc',character,ability,castLevel,area,placementOnly=>resolveSheetAbilityFor(sessionId,roller,'pc',{...character,stats:effectiveStats(character).scores},placementOnly?{...ability,roll:undefined,executionProfile:'manual'}:ability,castLevel,advantage,undefined,damageTypeChoice,area));
   return resolveSheetAbilityFor(
     sessionId,
     roller,
@@ -2331,8 +2480,10 @@ export function resolveMonsterSheetAbility(
   advantage?: Advantage,
   targetTokenId?: string,
   damageTypeChoice?: string,
+  area?:SpellAreaPlacement,
 ): boolean {
   if (monster.sessionId !== sessionId) return false;
+  if(area)return resolvePlacedSpell(sessionId,roller,'monster',monster,ability,castLevel,area,placementOnly=>resolveSheetAbilityFor(sessionId,roller,'monster',monster,placementOnly?{...ability,roll:undefined,executionProfile:'manual'}:ability,castLevel,advantage,undefined,damageTypeChoice,area));
   return resolveSheetAbilityFor(
     sessionId,
     roller,
@@ -2469,7 +2620,7 @@ export function resolveSkillRoll(
   const adv = checkAdvantage(
     character.conditions.map((x) => x.label),
     advantage,
-    strFeatureAdv('pc', character.id, skill.ability), hexDisadvantage(sessionId,'pc',character.id,skill.ability),
+    strFeatureAdv('pc', character.id, skill.ability), [...hexDisadvantage(sessionId,'pc',character.id,skill.ability),...character.conditions.filter(c=>c.combatEffect?.checkDisadvantage).map(c=>c.combatEffect!.spell)],
   );
   const { face, detail: d20detail } = rollD20Detail(adv.state);
   const total = face + bonus;
@@ -2535,8 +2686,9 @@ export function useConsumable(
         : `${c.name} keeps ${before} temporary HP (${val} is no better)`;
     hpNote = { kind: 'pc', refId: characterId, text: `${c.name} temp HP ${before}→${next}` };
   } else {
-    hpNote = val > 0 ? applyDamageNoted('pc', characterId, -val) : undefined;
-    outcome = `${c.name} regains ${val} HP`;
+    const healingBlocked=c.conditions.some(c=>c.combatEffect?.preventsHealing);
+    hpNote = val > 0 && !healingBlocked ? applyDamageNoted('pc', characterId, -val) : undefined;
+    outcome = healingBlocked ? `${c.name}: Chill Touch prevents healing` : `${c.name} regains ${val} HP`;
   }
 
   // Spend one; an emptied stack leaves the sheet.

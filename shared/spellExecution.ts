@@ -3,6 +3,7 @@ import type { AbilityRoll, SheetAbility } from './types.js';
 import { cantripExtraSteps } from './spellMath.js';
 import { isDamageType } from './damage.js';
 import { revisedSpellAbility2024 } from './spellRevisions.js';
+import { linkedSpellProfile, linkedSpellRoll } from './linkedSpells.js';
 
 /** Small, reviewed execution profiles, not a replacement spell catalogue.
  * Source: 2024 Basic Rules spell descriptions, checked 2026-09-16:
@@ -42,6 +43,13 @@ const PROFILES: Record<string, Profile> = {
 export function effectiveSheetAbility(ability: SheetAbility, castLevel?: number): SheetAbility {
   if (ability.source === 'custom' || ability.executionProfile === 'manual') return ability;
   ability = revisedSpellAbility2024(ability);
+  const linked = linkedSpellProfile(ability);
+  if (linked) {
+    const roll=linkedSpellRoll(ability);
+    return {...ability, ...(ability.name.toLowerCase()==='spiritual weapon'?{summon:{name:'Spiritual Weapon',icon:'⚔'}}:{}),
+      roll:roll&&{...roll,...(ability.name.toLowerCase()==='hold monster'&&(castLevel??5)>5?{targetMode:'multiple' as const}:{})},
+      tags:[...(ability.tags??[]).filter(t=>t!=='concentration'),...(linked.concentration?['concentration']:[])]};
+  }
   if (hitFeature(ability)) return {...ability,roll:undefined,stance:undefined};
   if (markSpell(ability)) return {...ability,type:'spell',level:1,roll:{kind:'damage',dice:'0',baseLevel:1,targetMode:'single'}};
   const name = ability.name.trim().toLowerCase();

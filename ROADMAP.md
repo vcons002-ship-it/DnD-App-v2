@@ -6,6 +6,59 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Keep creature/DM roll bonuses, proficiency, attack/save totals, AC and
+  creature HP bookkeeping private; live grouped saves send raw dice and outcomes
+  to players while the DM retains full equations. Own PC bonuses remain visible.
+- [x] Ice Knife's grouped explosion saves precede Cold damage in both damage
+  modes. All executable catalogue save spells and recurring/rider save paths
+  present results on the live tray once, without later individual save popups.
+
+- [x] Resolve Phantasmal Killer's initial WIS save before damage, show the
+  bonus/result and spell consequence together, and retain 2024 initial half
+  damage on success. End-of-turn success ends concentration without damage;
+  failed turn-end saves roll damage afterward. Both damage modes use this order.
+
+- [x] Place catalogue spell areas before casting: measured circles, cylinders,
+  emanations, cones, lines, cubes and multiple areas; preview affected bases,
+  confirm once, and resolve supported initial effects with grouped saves.
+- [x] Include untagged area fields/utility spells; preserve rotated persistent
+  footprints and line widths. Ongoing entry/turn effects retain explicit manual
+  adjudication. See [spell area workflow](docs/SPELL_AREAS.md).
+- [x] Resolve Ice Storm's Bludgeoning and Cold pools independently against
+  saves, resistance and immunity, then apply their combined HP damage once.
+- [x] Accept readable dice that remain stationary despite tiny resting contact
+  jitter; rethrow genuinely unresolved dice after four presentation seconds.
+- [x] Show grouped save bonuses, equations and PASS/FAIL together before HP
+  changes; keep individual log entries without replaying separate save windows.
+- [x] Give Call Lightning fourteen jagged, white-cored strikes spread across
+  its area, with existing spell lighting; Ice Storm keeps its falling shards.
+
+- [x] Replace Phantasmal Killer wisps with sharp spectral blades; Vampiric
+  Touch keeps a red caster aura and red healing flare, linked to concentration.
+- [x] Spiritual Weapon summons a floating 3D force: owner-controlled movement,
+  shared 20-foot turn budget, attacks measured from the force within 5 feet,
+  upcasting, immediate/repeat attacks and cleanup when concentration ends.
+- [x] Replace confirmed-dead 3D creatures with a low bone skull on a pewter
+  base. Hide dead map labels/badges; click the base to open token info.
+  Downed PCs keep their figures until three failed death saves or a Dead mark.
+- [x] Default all attack/spell/heal/stance target lists to living creatures;
+  viewer-local Show Dead opt-in preserves visibility and distance ordering.
+- [x] Correct spell showcase Vanec's class to Sorcerer so his red glass dice
+  load. Capture new showcases through RTX 5090 AV1 NVENC at 60 fps instead
+  of the software 25 fps recorder; keep browser frame/GPU evidence.
+
+- [x] Add the reviewed linked-spell batch: Mirror Image caster-art duplicates,
+  Sorcerous Burst bonus dice, Ice Knife explosion, Acid Arrow delayed damage,
+  Vampiric Touch healing, Hold Monster/Phantasmal Killer control, Heat Metal,
+  repeat spell actions, typed mixed-damage pools, and timed hit riders.
+  [Workflow and explicit remaining limitations](docs/LINKED_SPELLS_2024.md).
+- [x] Spread Mirror Image duplicates beyond the caster's base for readable 2D,
+  overhead, and tilted views without changing selection/collision size.
+- [x] Animate the linked spell batch with the existing luminous geometry and
+  local spell lighting. Keep condition-backed effects (including Hold Person /
+  Hold Monster chains) on the figure until the server ends the effect; hide them
+  with their token and release save/damage visuals after the dice result.
+
 - [x] Audit all 319 spells and show Combat ready / Partial / Manual badges in
   browse, add search, and saved spell headers, with an explicit App handles /
   You handle explanation and a support filter.

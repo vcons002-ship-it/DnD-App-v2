@@ -31,10 +31,21 @@ export type Condition = {
     concentration?: boolean; nextAttackAdvantage?: boolean; slow?: boolean;
     /** Casting identity and provenance keep repeated saves and cleanup scoped. */
     castId?: string; parentConditionId?: string;
+    /** Cosmetic only: wait for this visible saving throw before showing the restraint. */
+    visualRollId?: string;
     /** Haste's restricted extra action is independent of the normal action. */
     hasteActionUsed?: HasteAction;
     /** Lethargy lasts through the end of the affected creature's next turn. */
     lethargyStartedTurn?: string; lethargyTurnStarted?: boolean;
+    duplicates?: number;
+    castLevel?: number; abilityId?: string; targetTokenId?: string;
+    spellAction?: string; lastUseTurn?: string; itemDropped?: boolean;
+    /** A spell force is an object token, not a summoned creature with HP. */
+    summonTokenId?: string; weaponMoveTurn?: string; weaponMovedFt?: number;
+    speedReduction?: number; preventsHealing?: boolean; noOpportunityAttacks?: boolean;
+    attackDisadvantage?: boolean; checkDisadvantage?: boolean;
+    untilCasterEnd?: boolean; untilTargetStart?: boolean; casterTurnStarted?: boolean;
+    saveBeforeDamage?: boolean; once?: boolean;
   };
 
 };
@@ -297,6 +308,8 @@ export type AbilityRecharge = { min?: number; rest?: 'short' | 'long'; spent?: b
  * above it (or, for cantrips at level 0, per caster-level tier).
  */
 export type AbilityRoll = {
+  /** Ground footprint for an authored area spell or creature ability. */
+  area?: import('./spellAreas.js').SpellArea;
   /** Original caster tier retained when CR damage is scaled independently. */
   crCasterLevel?: number;
   /** Explicit monster spell attack bonus, including CR scaling. */
@@ -984,6 +997,8 @@ export type Measurement = {
   tokenId?: string;
   /** Display name of who drew it (the client colours it via `rollerColor`). */
   createdBy: string;
+  /** Exact spell footprint; legacy hand-drawn measurements keep their behavior. */
+  spellArea?: {spec:import('./spellAreas.js').SpellArea;angle:number};
 };
 
 /** An entry in the session's shared dice roll log. */
@@ -1019,12 +1034,16 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** This result (including bonuses) was already presented in the live group tray. */
+  presentedLive?: boolean;
   /** Plain-language effect result alongside the target's save result. */
   effectOutcome?: string;
   /** Automatic area saves are visible only to viewers who can see this creature. */
   visibilityTarget?: {kind: TokenKind; refId: string};
   /** Faces already rolled by authoritative live physics; do not replay a cosmetic throw. */
   physical?: boolean;
+  /** Server-redacted roll: show dice/outcome without private stat calculations. */
+  hideModifiers?: boolean;
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
    *  AoE/save spell's single damage roll, or one Magic Missile dart); 'check' = a
    *  single d20 + modifier chips → total (a skill/ability check, saving throw,
@@ -1073,6 +1092,9 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  spellLink?: import('./linkedSpells.js').LinkedSpellContext;
+  /** Defended spell damage alone, excluding mark/other riders (Vampiric Touch). */
+  spellDamageAmount?: number;
   /** Server-only continuation. Removed from every outgoing snapshot. */
   live?: {kind: 'weapon' | 'spell'; args: unknown[]; fixed: unknown};
   hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
@@ -1117,6 +1139,8 @@ export type RollEntry = {
   label: string;
   expr: string;
   total: number;
+  /** Player payload has no private attack/check total; its numeric slot is zero. */
+  hideTotal?: boolean;
   detail: string;
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
@@ -1127,20 +1151,21 @@ export type RollEntry = {
   reveal?: RollReveal;
   /** Accounting note for the HP change this roll applied ("Druk HP 42→38";
    *  temp HP shows as "42+5") — helps spot/correct mistakes. Carries the target
-   *  so `visibility.ts` can shape it per viewer: players see it for PCs and
-   *  friendly/neutral creatures; ENEMY creature changes are stripped. */
+   *  so `visibility.ts` can shape it per viewer: players see it for PCs;
+   *  creature HP bookkeeping stays with the DM. */
   hpNote?: { kind: TokenKind; refId: string; text: string };
   /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
   dmOnly?: boolean;
-  /** The roll is by/against an ENEMY/NEUTRAL creature whose stats players can't
-   *  see — so `visibility.ts` strips the labelled ability/proficiency/magic
-   *  modifier breakdown (in `detail` and the reveal) for players, keeping the
-   *  d20, total and outcome. Friendly/PC rolls show their mods normally. */
+  /** Private creature roll statistics: players receive raw dice and outcomes,
+   *  without numeric bonuses or calculated attack/save totals. */
   hideMods?: boolean;
   /** A caster-owned spell application: damage, save-only, darts, or separate
    *  attack rays. The DM and owning caster may target it; others receive no
    *  apply payload. Without save/attack metadata it is automatic damage. */
   apply?: {
+    damagePools?: {amount:number;damageType:string}[];
+    /** Single-target control damage rolled only after its initial save. */
+    saveFirstDamage?: string;
     amount: number;
     dc: number;
     /** One healing roll can be assigned to several creatures without recasting. */
@@ -1152,7 +1177,7 @@ export type RollEntry = {
       casterKind: TokenKind; casterId: string; spell: string; condition: string;
       eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
       expiresRound?: number; castId: string; concentrationConditionId: string;
-      repeatSave?: string;
+      repeatSave?: string; repeatDamage?: string; damageType?: string; attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     };
     orb?: OrbChain;
     save?: string;
@@ -1461,6 +1486,7 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  area?: import('./spellAreas.js').SpellAreaPlacement;
   kind: TokenKind;
   refId: string;
   abilityId: string;
@@ -1533,6 +1559,7 @@ export type HasteAction = 'attack' | 'dash' | 'disengage' | 'hide' | 'utilize';
 export type HasteActionPayload = {
   kind: TokenKind; refId: string; action: Exclude<HasteAction, 'attack'>;
 };
+export type SpellRepeatPayload = {kind:TokenKind;refId:string;conditionId:string;targetTokenId?:string;advantage?:'adv'|'dis';area?:import('./spellAreas.js').SpellAreaPlacement};
 /** Roll a saving throw (DC vs ability) for one or more tokens. `advantageByToken`
  *  carries each creature's armed adv/dis toggle (keyed by token id). */
 export type CombatSavePayload = {
@@ -1769,6 +1796,8 @@ export interface ClientToServerEvents {
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'haste:action': (payload: HasteActionPayload) => void;
+  'spell:repeat': (payload: SpellRepeatPayload) => void;
+  'spell:dropHeatedItem': (payload: {kind:TokenKind;refId:string;conditionId:string}) => void;
   /** Ready / Spent for a limited-use ability ("Recharge 5–6", "1/Day"). The DM
    *  resolves recharge manually; the creature's controller may flip it. */
   /** DM: the whole party takes a Short or Long Rest (2024 rules, shared/rests.ts). */

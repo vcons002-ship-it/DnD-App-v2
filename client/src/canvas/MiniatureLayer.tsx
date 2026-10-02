@@ -1,3 +1,7 @@
+import {createMirrorImages} from './mirrorImages';
+import {createDeathSkull} from './deathSkull';
+import {createSpiritualWeapon} from './spiritualWeapon';
+import {DEATH_SKULL,SPIRITUAL_WEAPON} from '../lib/miniatures';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
@@ -43,6 +47,7 @@ export type MiniatureToken = {
   selected?: boolean;
   conditionColors?: string[];
   hunterMarked?: boolean;
+  mirrorImages?:number;
   combatRole?: CombatRole | null;
   definition: MiniatureDefinition;
 };
@@ -81,6 +86,7 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  mirrors:ReturnType<typeof createMirrorImages>;
   baseDiameter:number;
   lanternAnchor:Vector3;
   torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
@@ -282,6 +288,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
+    host.dataset.deathSkullCount=String(props.tokens.filter(t=>t.definition.id===DEATH_SKULL.id&&instances.get(t.id)?.url===DEATH_SKULL.url).length);
     const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)).map(t => t.id).sort();
     if (failedIds.join("|") !== lastFailedIds) {
       lastFailedIds = failedIds.join("|");
@@ -327,6 +334,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
       const seconds = (now - started) / 1000;
+      host.dataset.mirrorImageCount=String(props.tokens.reduce((n,t)=>n+(instances.has(t.id)?t.mirrorImages??0:0),0));
       for(const [id,move] of moves)if(move.until<now)moves.delete(id);
       for (const token of props.tokens) {
         const instance = instances.get(token.id);
@@ -339,7 +347,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (battlefield && (wasVisible !== instance.root.visible || instance.root.position.x !== position.x || instance.root.position.z !== position.y || instance.root.rotation.y !== (position.facing ?? 0) || (animated && instance.shadowAnimated))) renderer.shadowMap.needsUpdate = true;
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
-        instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
+    instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
         const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
         const selectionPulse = reducedMotion.matches ? 0 : (Math.sin(seconds * Math.PI * 2 / 1.6) + 1) / 2;
         instance.selectionRing.scale.setScalar(token.definition.baseDiameter * (1 + selectionPulse * .045));
@@ -399,6 +407,17 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           const shadowUpdate = renderer.shadowMap.needsUpdate;
           renderer.shadowMap.needsUpdate = false;
           renderer.setRenderTarget(outlineMask); renderer.clear(); renderer.render(scene, camera);
+          if(props.tokens.some(t=>t.mirrorImages)) {
+            // Lift raised duplicate pixels through terrain fog just like the
+            // real figure. Alpha-aware sprites never become rectangle masks.
+            const autoClear=renderer.autoClear;
+            scene.overrideMaterial=null;camera.layers.set(6);renderer.autoClear=false;
+            for(const instance of instances.values())instance.mirrors.setVisibilityPass(true);
+            try {renderer.render(scene,camera);} finally {
+              for(const instance of instances.values())instance.mirrors.setVisibilityPass(false);
+              renderer.autoClear=autoClear;
+            }
+          }
           renderer.shadowMap.needsUpdate = shadowUpdate;
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
@@ -413,7 +432,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // pose, name, appearance and foreground occlusion changes invalidate it.
         const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
           environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
-          props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
+          props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,t.mirrorImages,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
           labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
         if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
           sharedFrameKey=sharedKey;sharedContext.clearRect(0,0,sw,sh);
@@ -505,6 +524,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     queueDraw();
   };
   const disposeInstance = (instance:Instance) => {
+    instance.mirrors.dispose();
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
@@ -547,6 +567,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
+    instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
         instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
     instance.combatBadge.visible=!!token.combatRole;
     instance.combatBadge.scale.setScalar(token.definition.baseDiameter);
@@ -583,6 +604,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
       material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
     });
+    instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
     {
       if(battlefield&&!instance.mistBody)instance.mistBody=instance.measureBody();
       const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden && !token.sharedSightOnly;
@@ -595,6 +617,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   // Warm parsed models and their textures without creating hidden token instances.
   const loadDefinition = (definition: MiniatureDefinition) => {
+      if(definition.url===DEATH_SKULL.url||definition.url===SPIRITUAL_WEAPON.url){
+        if(!assets.has(definition.url)){
+          const model=definition.url===DEATH_SKULL.url?createDeathSkull():createSpiritualWeapon();
+          assets.set(definition.url,Promise.resolve({scene:model,scenes:[model],animations:[],cameras:[],asset:{version:'2.0'},userData:{}} as unknown as GLTF));
+        }
+        return;
+      }
       if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
         .then(async gltf => {
           try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
@@ -716,7 +745,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
               // that omission to 1 (solid metal), even for skin and cloth. Give
               // those atlases a diffuse response to local light. Preserve every
               // explicitly authored metal factor and metallic/roughness map.
-              const sourceIndex=gltf.parser.associations.get(material)?.materials;
+              const sourceIndex=gltf.parser?.associations.get(material)?.materials;
               const pbr=sourceIndex===undefined?undefined:gltf.parser.json.materials?.[sourceIndex]?.pbrMetallicRoughness;
               if(copy instanceof MeshStandardMaterial && pbr && pbr.metallicFactor===undefined && !pbr.metallicRoughnessTexture)copy.metalness=0;
               torchLighting.attach(copy);
@@ -795,6 +824,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
+          mirrors:createMirrorImages(centered,root,renderer,()=>scene.environment,definition.baseDiameter),
           baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
           root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),

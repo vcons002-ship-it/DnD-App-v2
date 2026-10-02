@@ -1,9 +1,14 @@
+import {mirrorImageCount} from '../../../shared/linkedSpells';
+import {pointInSpellArea,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
+import {tokenDistanceFt} from '../../../shared/distance';
+import {SpellAreaShapes} from './SpellAreaShapes';
+import {DEATH_SKULL} from '../lib/miniatures';
 import {ObjectControls} from '../components/ObjectControls';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
 import {WallMenu,type WallTool} from '../components/WallMenu';
-import {doorApproachPoints,distanceToWall,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
+import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
@@ -29,7 +34,7 @@ import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer } from './HpFx';
-import {spellImpactStyle} from '../../../shared/spellImpact';
+import {spellImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
 import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
@@ -40,7 +45,7 @@ import { safeSetItem } from '../lib/storage';
 import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { useStableCallback } from '../lib/useStableCallback';
-import { getPlayerId, useStore } from '../state/socket';
+import { getPlayerId, useStore, isRollImpactPending } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { FogMenu } from '../components/FogMenu';
@@ -629,7 +634,40 @@ export function MapStage({
   const orbTarget = useStore(s => s.orbTarget);
   const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
+  const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
+  const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
+  const areaActor=areaCast?snapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
+  useEffect(()=>{setAreaPoints([]);setAreaPointer(null);setAreaAngle(0);setAreaDirectionLocked(false);setAreaExcluded([]);},[areaCast]);
+  useEffect(()=>{if(areaCast&&(!areaActor||!map||areaActor.mapId!==map.id))clearAreaCast();},[areaCast,areaActor?.mapId,map?.id]);
+  useEffect(()=>{if(!areaCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearAreaCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[areaCast]);
+  const placeSpellArea=(p:Pt)=>{
+    if(!areaCast||!areaActor)return;
+    if(areaCast.spec.self){setAreaPoints([{x:areaActor.x,y:areaActor.y}]);setAreaDirectionLocked(true);return;}
+    if(areaCast.spec.kind==='line'||areaCast.spec.kind==='cone'){
+      if((areaCast.spec.count??1)>1){setAreaPoints(old=>old.length<(areaCast.spec.count??1)?[...old,p]:old);setAreaDirectionLocked(true);}
+      else if(!areaPoints.length)setAreaPoints([p]);else setAreaDirectionLocked(true);
+    }else if((areaCast.spec.count??1)>1)setAreaPoints(old=>{
+      if(old.length>=(areaCast.spec.count??1))return old;
+      if(areaCast.name.trim().toLowerCase()==='fire storm'&&old.length&&map){
+        const grid=areaCast.spec.sizeFt*map.gridSizePx/map.feetPerSquare,dx=p.x-old[0].x,dy=p.y-old[0].y;
+        const x=Math.round((dx*Math.cos(areaAngle)+dy*Math.sin(areaAngle))/grid)*grid,y=Math.round((-dx*Math.sin(areaAngle)+dy*Math.cos(areaAngle))/grid)*grid;
+        p={x:old[0].x+x*Math.cos(areaAngle)-y*Math.sin(areaAngle),y:old[0].y+x*Math.sin(areaAngle)+y*Math.cos(areaAngle)};
+      }
+      return old.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<1e-6)?old:[...old,p];
+    });
+    else setAreaPoints([p]);
+  };
+  const areaPlacement:SpellAreaPlacement={mapId:map?.id??'',points:areaPoints,angle:areaAngle};
+  const areaPreview=areaCast&&areaActor?{...areaPlacement,points:areaPoints.length?areaPoints:areaCast.spec.self?[areaActor]:areaPointer?[areaPointer]:[]}:areaPlacement;
+  const areaTargets=areaCast&&areaActor&&map?snapshot.tokens.filter(t=>{
+    const e=resolveToken(snapshot,t);
+    return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
+      !(areaCast.spec.excludeCaster&&t.id===areaActor.id)&&pointInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
+      areaPreview.points.some((_,i)=>hasLineOfSight(areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
+  }):[];
+  const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
   const hpFx = useStore((s) => s.hpFx);
+  const spellRollFx = useStore(s=>s.rollFx);
   const dragGhosts = useStore((s) => s.dragGhosts);
   const typingChars = useStore((s) => s.typingChars);
   const sayBubbles = useStore((s) => s.sayBubbles);
@@ -839,7 +877,7 @@ export function MapStage({
     setTool(null); setRemoveMode(false); setScaleMode(false); setMatchMode(false);
     setAnnotate(null); setTilesMode(false); setFogBrush('off'); setMenu(null);
   }, [orbTarget?.rollId]);
-  const measureActive = wallActive || !!tool || removeMode || scaleMode || matchMode || !!annotate;
+  const measureActive = !!areaCast || wallActive || !!tool || removeMode || scaleMode || matchMode || !!annotate;
   useEffect(()=>{if(tool||removeMode||scaleMode||matchMode||annotate||fogActive||tilesMode||placingLight||orbTarget){setWallTool('off');setWallAnchor(null);}},[tool,removeMode,scaleMode,matchMode,annotate,fogActive,tilesMode,placingLight,orbTarget]);
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
@@ -855,12 +893,15 @@ export function MapStage({
   // Identity-stable token handlers so the memoized TokenShape only re-renders
   // when its own token/display actually changes (not on every snapshot).
   const handleTokenSelect = useStableCallback((tok: Token, additive: boolean) => {
+    if(areaCast){placeSpellArea(tok);return;}
     if(tok.sharedSightOnly)return;
     if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
     else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
+    if(resolveToken(snapshot,tok).dead && !orbTarget && !saveResolve){setDetailsExpanded(true);nudgeRightPanel();}
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
+    if(areaCast)return;
     if(tok.sharedSightOnly)return;
     if (saveResolve || orbTarget) return;
     onSelectToken(tok, false);
@@ -1131,17 +1172,19 @@ export function MapStage({
     // Only role-filtered tokens can create instances; background assets have no positions.
     if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
-    const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
+    const display = resolveToken(snapshot, token), dead = display.dead === true;
+    const definition = dead ? DEATH_SKULL : resolveMiniature(display.name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),
       sharedSightOnly: token.sharedSightOnly,
-      carriedLantern:!token.sharedSightOnly && token.carriedLantern,
-      combatRole: !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
-      hunterMarked: !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
-      conditionColors: token.sharedSightOnly ? [] : presentAuras(resolveToken(snapshot, token).conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
+      carriedLantern:!dead && !token.sharedSightOnly && token.carriedLantern,
+      combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
+      hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
+      conditionColors: dead || token.sharedSightOnly ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
       outline: token.sharedSightOnly || !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
-      tint: monster ? monsterTint(monster) : undefined,
-      shade: monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
+      tint: !dead && monster ? monsterTint(monster) : undefined,
+      shade: !dead && monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
       selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
@@ -1151,13 +1194,24 @@ export function MapStage({
   }, [miniatureTokens.length, handleMiniatureReady]);
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
-  const spellImpacts=useMemo<SpellImpact[]>(()=>hpFx.flatMap(event=>{
+  const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(event=>{
     if(!spellImpactStyle(event))return [];
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
+    // The active restraint is already the visible impact; stacking an identical
+    // transient mesh would briefly double its brightness and number of links.
+    if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
     return [{id:event.id,event,tokenId:token.id,x:token.x,y:token.y,
       diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
-  }),[hpFx,snapshot.tokens,miniatureTokens,pxPerFoot,isDm]);
+  }),...snapshot.tokens.flatMap(token=>{
+    if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
+    return resolveToken(snapshot,token).conditions.flatMap(condition=>{
+      const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
+      return [{id:`active:${token.id}:${condition.id}`,tokenId:token.id,x:token.x,y:token.y,persistent:true,
+        diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot,
+        event:{kind:token.kind,refId:token.refId,delta:0,spell}}];
+    });
+  })],[hpFx,snapshot,miniatureTokens,pxPerFoot,isDm,spellRollFx]);
   const readSharedNames=useMemo(()=>createMiniatureNameReader(),[]);
   const miniatureNameLabels = useStableCallback(() => [...readMiniatureNames(tokenLayerRef.current,
     id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id), ...readSharedNames(sharedTokenLayerRef.current,()=>false)]);
@@ -1368,6 +1422,7 @@ export function MapStage({
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    if(areaCast&&(!('button'in e.evt)||e.evt.button===0)){const p=pointerToImage(stage);if(p)placeSpellArea(p);return;}
     // Two fingers down → start a pinch-zoom (and suspend panning/drawing).
     const touches = (e.evt as TouchEvent).touches;
     if (touches && touches.length >= 2) {
@@ -1505,6 +1560,10 @@ export function MapStage({
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if(areaCast&&areaActor){const s=e.target.getStage(),p=s?pointerToImage(s):null;if(p){setAreaPointer(p);
+      if(!areaDirectionLocked){const o=areaCast.spec.self?areaActor:areaPoints[0];if(o)setAreaAngle(Math.atan2(p.y-o.y,p.x-o.x));}}
+      return;
+    }
     const touches = (e.evt as TouchEvent).touches;
     if (touches && touches.length >= 2 && pinchRef.current) {
       e.evt.preventDefault();
@@ -1857,7 +1916,7 @@ export function MapStage({
     const movable =
       isDm ||
       t.kind === 'pc' ||
-      (d.disposition === 'friendly' && !d.objectKind);
+      (d.disposition === 'friendly' && (!d.objectKind || !!creature && 'modelType' in creature && creature.modelType==='spiritual-weapon' && creature.conditions.some(c=>c.combatEffect?.casterId===snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id)));
     return (
       <TokenShape
         key={t.id}
@@ -2371,6 +2430,7 @@ export function MapStage({
             >
               {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
+              {areaCast&&areaActor&&map&&<SpellAreaShapes scale={view.scale} spec={areaCast.spec} placement={areaPreview} caster={areaActor} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={areaTargets.filter(t=>!areaExcluded.includes(t.id))}/>}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.
                 let origin = m.origin;
@@ -2383,6 +2443,11 @@ export function MapStage({
                   const radius = Math.hypot(m.target.x - m.origin.x, m.target.y - m.origin.y);
                   origin = { x: tok.x, y: tok.y };
                   target = { x: tok.x + radius, y: tok.y };
+                }
+                if(m.spellArea){const {spec,angle}=m.spellArea;
+                  const caster=m.tokenId?snapshot.tokens.find(t=>t.id===m.tokenId):origin;
+                  if(!caster)return null;
+                  return <SpellAreaShapes key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
                 }
                 return (
                   <MeasureShape
@@ -2595,6 +2660,27 @@ export function MapStage({
             />
           )}
           {mapOverlays}
+          {areaCast&&areaActor&&map&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Place spell area" style={{flexWrap:'wrap',maxWidth:'min(760px,calc(100% - 30px))',zIndex:30,borderColor:'#e0be6b'}}>
+            <strong>{areaCast.name} · {areaCast.spec.sizeFt} ft {['sphere','cylinder','emanation'].includes(areaCast.spec.kind)?'radius':areaCast.spec.kind}</strong>
+            <span>{areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Base centers determine affected creatures; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
+            {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
+            <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
+            {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(snapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}
+            {['cube','line','cone'].includes(areaCast.spec.kind)&&<label>Direction <input aria-label="Spell area rotation" type="range" min="-180" max="180" step="1" value={areaAngle*180/Math.PI} onChange={e=>{
+              const next=+e.target.value*Math.PI/180,delta=next-areaAngle;
+              if(areaCast.name.trim().toLowerCase()==='fire storm')setAreaPoints(old=>old.map(p=>{
+                const anchor=old[0],dx=p.x-anchor.x,dy=p.y-anchor.y;
+                return {x:anchor.x+dx*Math.cos(delta)-dy*Math.sin(delta),y:anchor.y+dx*Math.sin(delta)+dy*Math.cos(delta)};
+              }));
+              setAreaAngle(next);setAreaDirectionLocked(true);
+            }}/></label>}
+            <button className="btn tiny" disabled={!areaPoints.length||!!areaRangeError||!!areaCast.spec.maxTargets&&areaTargets.filter(t=>!areaExcluded.includes(t.id)).length>areaCast.spec.maxTargets||['line','cone'].includes(areaCast.spec.kind)&&!areaDirectionLocked} onClick={()=>{
+              const placement={...areaPlacement,...(areaCast.spec.selective?{selected:areaTargets.filter(t=>!areaExcluded.includes(t.id)).map(t=>t.id)}:{})};
+              if(areaCast.repeat)useStore.getState().repeatSpell({...areaCast.repeat,area:placement});else useStore.getState().rollAbility({...areaCast.payload,area:placement});clearAreaCast();
+            }}>Confirm area · {areaCast.spec.ongoing&&!areaCast.spec.initialEffect?'Place':'Roll'}</button>
+            <button className="btn tiny" onClick={()=>{setAreaPoints(old=>old.slice(0,-1));setAreaDirectionLocked(false);}}>Undo placement</button>
+            <button className="btn tiny" onClick={clearAreaCast}>Cancel (Esc)</button>
+          </div>}
           {isDm && saveResolve && (
             <div className="save-resolve-banner">
               <span>

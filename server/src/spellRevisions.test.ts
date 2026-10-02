@@ -44,12 +44,13 @@ describe('reviewed 2024 catalogue corrections reach the full spell library', () 
     ] as const;
     for (const [name, components] of expected) {
       expect(SPELL_REVISIONS_2024.find(entry => entry.key === name)?.components).toEqual(components);
-      expect(effectiveSheetAbility(spell(name)).roll).toBeUndefined();
+      expect(effectiveSheetAbility(spell(name)).roll).toMatchObject({kind:'save',save:'DEX',saveDamage:'half',targetMode:'multiple'});
+      expect(effectiveSheetAbility(spell(name)).roll?.dice).toBeUndefined(); // pools are rolled independently, not collapsed
     }
   });
   it('offers the seven legal Sorcerous Burst damage types without Force', () => {
     expect(spellDamageTypeChoices(spell('sorcerous burst'))).toEqual(['acid', 'cold', 'fire', 'lightning', 'poison', 'psychic', 'thunder']);
-    expect(spell('sorcerous burst').description).toMatch(/extra.*manually/);
+    expect(spell('sorcerous burst').description).toMatch(/bonus dice.*automatically/);
   });
   it('keeps the revised Conjure spirit areas manual without obsolete creature placeholders', () => {
     for (const name of ['conjure animals', 'conjure woodland beings']) {

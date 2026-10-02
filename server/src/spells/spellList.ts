@@ -29,9 +29,9 @@ export const SPELL_LIST: SpellEntry[] = [
     school: 'Necromancy',
     classes: ['sorcerer', 'warlock', 'wizard'],
     tags: ['necromancy', 'sorcerer', 'warlock', 'wizard', 'necrotic', 'cantrip'],
-    meta: '1 action · 120 ft · V,S',
+    meta: '1 action · Touch · V,S',
     description:
-      'A ghostly hand reaches for a creature. On a hit it takes necrotic damage and cannot regain hit points until your next turn.',
+      'Make a melee spell attack. A hit deals 1d10 Necrotic damage and prevents healing through the end of your next turn. Add 1d10 at character levels 5, 11, and 17.',
     roll: { kind: 'attack', dice: '1d10', scaleDice: '1d10', baseLevel: 0, damageType: 'necrotic' },
   },
   {
@@ -237,7 +237,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'sorcerer', 'wizard', 'lightning', 'cantrip'],
     meta: '1 action · Touch · V,S',
     description:
-      'Lightning leaps from your hand on a melee spell attack, with advantage against a target in metal armor. On a hit it takes lightning damage and cannot take reactions.',
+      'Make a melee spell attack for Lightning damage. A hit prevents Opportunity Attacks until the target starts its next turn; other reactions remain available.',
     roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageType: 'lightning' },
   },
   {
@@ -249,7 +249,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'sorcerer', 'cantrip'],
     meta: '1 action · 120 ft · V,S',
     description:
-      'Make a ranged spell attack dealing 1d8 of a chosen type: Acid, Cold, Fire, Lightning, Poison, Psychic, or Thunder. Each damage die showing 8 allows another d8; the number of extra dice cannot exceed your casting modifier. Damage grows by 1d8 at levels 5, 11, and 17. Resolve the extra maximum-face dice manually.',
+      'Make a ranged spell attack dealing 1d8 of a chosen type: Acid, Cold, Fire, Lightning, Poison, Psychic, or Thunder. Each damage die showing 8 allows another d8; the number of extra dice cannot exceed your casting modifier. Damage grows by 1d8 at levels 5, 11, and 17. Maximum-face bonus dice are rolled automatically, up to the casting modifier.',
     roll: { kind: 'attack', dice: '1d8', scaleDice: '1d8', baseLevel: 0, damageTypeChoices: ['acid', 'cold', 'fire', 'lightning', 'poison', 'psychic', 'thunder'] },
   },
   {
@@ -853,7 +853,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['necromancy', 'sorcerer', 'wizard', 'poison'],
     meta: '1 action · 60 ft · V,S',
     description:
-      'A ray of sickly green energy strikes a creature (ranged spell attack). On a hit it takes poison damage and makes a CON save or is poisoned until your next turn.',
+      'Make a ranged spell attack for Poison damage. On a hit the target is Poisoned through the end of your next turn; no separate Constitution save is required.',
     upcast: '+1d8 damage per slot above 1st.',
     roll: { kind: 'attack', dice: '2d8', scaleDice: '1d8', baseLevel: 1, damageType: 'poison' },
   },
@@ -982,7 +982,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'sorcerer', 'warlock', 'wizard', 'lightning', 'concentration'],
     meta: '1 action · 60 ft · V,S,M · Concentration',
     description:
-      'A ranged spell attack deals 2d12 Lightning damage. On later turns, a Bonus Action deals 1d12 automatically, even if the original attack missed. The link ends beyond 60 feet or Total Cover; handle subsequent damage manually. Only initial damage increases with slot level.',
+      'A ranged spell attack deals 2d12 Lightning damage. On later turns, a Bonus Action deals 1d12 automatically, even if the original attack missed. The link ends beyond 60 feet or Total Cover. Use the active spell action for subsequent damage. Only initial damage increases with slot level.',
     upcast: '+1d12 initial damage per slot above 1st.',
     roll: { kind: 'attack', dice: '2d12', scaleDice: '1d12', baseLevel: 1, damageType: 'lightning' },
   },
@@ -1388,7 +1388,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['illusion', 'bard', 'sorcerer', 'warlock', 'wizard', 'buff'],
     meta: '1 action · Self · V,S',
     description:
-      'Three illusory duplicates of you appear. Each attack against you may strike a duplicate instead, removing it.',
+      'Three duplicates mimic you for one minute. After an attack hits, roll a d6 per remaining duplicate: any 3 or higher destroys exactly one instead of damaging you. Other damage does not affect duplicates. Attackers unable to see you, or using Blindsight or Truesight, bypass them.',
   },
   {
     name: 'Misty Step',
@@ -2310,7 +2310,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'druid', 'sorcerer', 'wizard', 'bludgeoning', 'cold', 'aoe'],
     meta: '1 action · 300 ft · V,S,M',
     description:
-      'Creatures in a 20-foot-radius cylinder make Dexterity saves for 2d10 Bludgeoning plus 4d6 Cold damage, half on success. Add 1d10 Bludgeoning per slot above 4. Roll and apply both damage types separately; the area becomes difficult terrain until your next turn.',
+      'Creatures in a 20-foot-radius cylinder make Dexterity saves for 2d10 Bludgeoning plus 4d6 Cold damage, half on success. Add 1d10 Bludgeoning per slot above 4. The app rolls both damage pools and applies their defenses separately; the area becomes difficult terrain until your next turn.',
     upcast: '+1d10 Bludgeoning damage per slot above 4th.',
   },
   {
@@ -2333,7 +2333,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['illusion', 'wizard', 'psychic', 'concentration'],
     meta: '1 action · 120 ft · V,S · Concentration',
     description:
-      'You manifest a creature’s worst fear. It makes a WIS save or becomes frightened, taking psychic damage each turn it fails. +1d10 per slot above 4th.',
+      'The target makes a Wisdom save for 4d10 Psychic damage, half on success. Failure also imposes disadvantage on attacks and checks while you concentrate. At each turn end it saves again: success ends the spell, failure deals the damage again.',
     upcast: '+1d10 damage per slot above 4th.',
     roll: { kind: 'save', dice: '4d10', scaleDice: '1d10', baseLevel: 4, save: 'WIS', damageType: 'psychic' },
   },
@@ -2565,7 +2565,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'cleric', 'fire', 'radiant', 'aoe'],
     meta: '1 action · 60 ft · V,S,M',
     description:
-      'Creatures in the 10-foot-radius cylinder make Dexterity saves for 5d6 Fire plus 5d6 Radiant damage, half on success. Each damage type gains 1d6 per slot above 5; roll and apply the two types separately.',
+      'Creatures in the 10-foot-radius cylinder make Dexterity saves for 5d6 Fire plus 5d6 Radiant damage, half on success. Each damage type gains 1d6 per slot above 5; the app resolves both damage types with separate defenses.',
     upcast: '+1d6 Fire and +1d6 Radiant per slot above 5th.',
   },
   {
@@ -2611,7 +2611,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['enchantment', 'bard', 'sorcerer', 'warlock', 'wizard', 'concentration', 'control'],
     meta: '1 action · 90 ft · V,S,M · Concentration',
     description:
-      'A creature (not undead) makes a WIS save or is paralyzed, repeating the save each turn. One more target per slot level above 5th.',
+      'One creature makes a Wisdom save or becomes Paralyzed while you concentrate, repeating its save at each turn end. Add one target per slot above 5. Undead are eligible.',
     upcast: '+1 target per slot above 5th.',
   },
   {
@@ -3579,7 +3579,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['evocation', 'sorcerer', 'wizard', 'fire', 'bludgeoning', 'aoe'],
     meta: '1 action · 1 mile · V,S',
     description:
-      'Creatures in four 40-foot-radius spheres make Dexterity saves for 20d6 Fire plus 20d6 Bludgeoning damage, half on success. A creature in overlapping spheres is affected once. Roll and apply each damage type separately.',
+      'Creatures in four 40-foot-radius spheres make Dexterity saves for 20d6 Fire plus 20d6 Bludgeoning damage, half on success. A creature in overlapping spheres is affected once. The app resolves each damage type separately and prevents duplicate creature applications.',
   },
   {
     name: 'Power Word Heal',

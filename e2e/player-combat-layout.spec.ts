@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
+import {readFileSync} from 'node:fs';
 import type { SheetAbility, StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
 import { LIVE_COMBAT_TIMEOUT, dismissCommittedRoll, waitForCombatRoll } from './helpers/combatLive';
@@ -74,7 +75,7 @@ async function combatFixture(request: APIRequestContext) {
       name: 'Local fixture map',
       image: {
         name: 'fixture.png', mimeType: 'image/png',
-        buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j9uoAAAAASUVORK5CYII=', 'base64'),
+        buffer: readFileSync('assets/environment-preview/courtyard.png'),
       },
     },
   });
@@ -302,13 +303,29 @@ test('damage dock stays clickable above open panels; spells use the same dock wi
   await dismissCommittedRoll(page, damage.id);
   expect((await fixture.snapshot()).rollLog.find((roll) => roll.id === before.id)?.pending?.done).toBe(true);
 
-  for (const [name, level, text] of [['Fireball', 'L3', 'Apply spell damage'], ['Magic Missile', 'L1', 'Roll damage · assign darts']]) {
+  // Area spells now place/confirm directly, even with the chat panel open.
+  await combat.locator('.combat-ability-row').getByRole('button',{name:/Fireball/}).click();
+  const area=page.getByRole('region',{name:'Place spell area'});
+  await expect(area).toBeVisible();
+  const p=await page.evaluate(()=>{
+    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),nodes=stage.find('.token'),node=nodes[nodes.length-1],point=node.getAbsoluteTransform().point({x:40,y:0}),bounds=stage.container().getBoundingClientRect();
+    return {x:bounds.left+point.x,y:bounds.top+point.y};
+  });
+  await page.mouse.click(p.x,p.y);
+  const confirm=area.getByRole('button',{name:/Confirm area/});
+  expect(await confirm.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
+  const previousArea=new Set((await fixture.snapshot()).rollLog.map(e=>e.id));
+  await confirm.click();
+  const areaRoll=await waitForCombatRoll(fixture.snapshot,previousArea,e=>e.label==='Fireball');
+  expect(areaRoll.apply).toBeUndefined();
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:LIVE_COMBAT_TIMEOUT});
+  await expect(dock).toHaveCount(0);
+  expect((await fixture.snapshot()).characters.find(c=>c.id===fixture.characterId)!.spellSlots.L3.used).toBe(1);
+
+  for (const [name, level, text] of [['Magic Missile', 'L1', 'Roll damage · assign darts']]) {
     const previous = new Set((await fixture.snapshot()).rollLog.map(entry => entry.id));
     await combat.locator('.combat-ability-row').getByRole('button', { name: new RegExp(name) }).click();
     const cast = await waitForCombatRoll(fixture.snapshot, previous, entry => entry.label === name);
-    if (name === 'Fireball') {
-      await dismissCommittedRoll(page, cast.id);
-    }
     await expect(button).toContainText(text);
     const spellPosition = await dock.boundingBox();
     expect(spellPosition!.x).toBe(weaponPosition!.x);

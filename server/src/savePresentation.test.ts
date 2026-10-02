@@ -84,4 +84,17 @@ describe('save and healing presentation',()=>{
    expect(log.reveal!.damage).toBe(log.reveal!.damageDice!.reduce((n,d)=>n+d.value,0)+1);
    expect(log.detail).toContain('WIS modifier');expect(drainHpFx(s.id)[0].rollId).toBe(log.id);
  });
+ it('keeps NPC save bonuses and DCs off the player wire while preserving outcomes and DM calculations',()=>{
+   const saves=[{target:{kind:'monster' as const,refId:'enemy'},modifier:5,dc:15,group:'a'},
+     {target:{kind:'pc' as const,refId:'hero'},modifier:2,dc:15,group:'b'}];
+   const frame:LiveDiceFrame={id:'private',seq:0,label:'DEX Saving Throws',roller:'Hero',className:'Wizard',sides:[20,20],radius:1,poses:Array(14).fill(0),values:[10,10],rerolls:[0,0],sets:[0,0],critical:[false,false],percentile:[null,null],elapsed:5,done:true};
+   const player=shapeSaveFrame(frame,saves,t=>t.refId,{hideModifiersFor:t=>t.kind==='monster',hideDc:true})!;
+   expect(player.saveDice![0]).toMatchObject({label:'enemy',hideModifiers:true,outcome:'pass'});
+   expect(player.saveDice![0]).not.toHaveProperty('modifier');expect(player.saveDice![0]).not.toHaveProperty('dc');
+   expect(player.saveDice![1]).toMatchObject({modifier:2,outcome:'fail'});expect(player.saveDice![1]).not.toHaveProperty('dc');
+   expect(shapeSaveFrame(frame,saves,t=>t.refId)!.saveDice![0]).toMatchObject({modifier:5,dc:15,outcome:'pass'});
+   const dmInitiated=shapeSaveFrame(frame,saves,t=>t.refId,{hideModifiersFor:()=>true,hideDc:true})!;
+   expect(dmInitiated.saveDice!.every(d=>d.modifier===undefined&&d.dc===undefined)).toBe(true);
+   expect(shapeSaveFrame({...frame,done:false,values:[null,null]},saves,t=>t.refId,{hideModifiersFor:()=>true})!.saveDice![0].outcome).toBeUndefined();
+ });
 });

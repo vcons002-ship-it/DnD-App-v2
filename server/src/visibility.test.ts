@@ -59,7 +59,17 @@ const spawnInstance = (
 import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
-  it('hides monster encounter numbers from players without changing DM names or roll values', () => {
+  it('removes DM dice modifiers from every player result field and keeps their full log intact',()=>{
+    const s=createSession('Private DM dice'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
+    addRollLog(s.id,{roller:'DM',label:'1d20+7',expr:'1d20+7',total:19,detail:'1d20[12]+7 = 19 vs DC 17',description:'Private calculation',
+      reveal:{kind:'dice',attacker:'DM',title:'1d20+7 vs DC 17',outcome:'none',damage:19,damageDice:[{label:'1d20+7',diceExpression:'1d20+7',faces:[12],value:19}],damageMods:[{label:'bonus',value:7}]}});
+    const player=buildSnapshot(s.id,'player')!.rollLog.at(-1)!,dm=buildSnapshot(s.id,'dm')!.rollLog.at(-1)!;
+    expect(player).toMatchObject({hideTotal:true,total:0,hideMods:true});expect(player.description).toBeUndefined();
+    expect(player.expr).toBe('1d20');expect(player.reveal?.title).toBe('1d20');expect(player.reveal?.damage).toBeUndefined();
+    expect(player.reveal?.damageDice).toEqual([{label:'1d20',diceExpression:'1d20',faces:[12],value:12,critical:false}]);
+    expect(player.reveal?.damageMods).toEqual([]);expect(dm).toMatchObject({expr:'1d20+7',total:19});
+  });
+  it('hides encounter numbers and private roll arithmetic without changing the DM log', () => {
     const session = createSession('Number privacy');
     const map = createMap(session.id, { name: 'Arena' });
     setActiveMap(session.id, map.id);
@@ -74,7 +84,9 @@ describe('creature roll redaction + player AOE visibility', () => {
     expect(player.monsters.map(m=>m.name)).toEqual(['Goblin']);
     expect(player.monsters.some(m=>m.id===hidden.id)).toBe(false);
     expect(dm.monsters.find(m=>m.id===visible.id)?.name).toBe('Goblin 27');
-    expect(player.rollLog.at(-1)).toMatchObject({roller:'Goblin G1',label:'Attack by Goblin G1',expr:'1d20+7',total:27,detail:'Goblin G1 attacks: 27 damage, DC 17. Goblin 270 is unrelated.'});
+    expect(player.rollLog.at(-1)).toMatchObject({roller:'Goblin G1',label:'Attack by Goblin G1',hideTotal:true,total:0});
+    expect(player.rollLog.at(-1)?.detail).not.toMatch(/DC 17|1d20\+7/);
+    expect(dm.rollLog.at(-1)).toMatchObject({expr:'1d20+7',total:27});
     expect(dm.rollLog.at(-1)?.roller).toBe('Goblin 27');
     updateMonster(visible.id, {name:'Werebear (2) 4',disposition:'friendly'});
     expect(buildSnapshot(session.id,'player')!.monsters[0].name).toBe('Werebear');
@@ -103,14 +115,14 @@ describe('creature roll redaction + player AOE visibility', () => {
     expect(dmEntry.detail).toMatch(/\[(STR|PROF)\]/);
     expect(plEntry.detail).not.toMatch(/\[(STR|DEX|PROF|MAGIC)\]/);
     expect(plEntry.hideMods).toBe(true);
-    // The player's reveal bonus chips are collapsed (no stat names).
-    expect((plEntry.reveal?.toHit ?? []).every((x) => x.label === '')).toBe(true);
-    // …and the to-hit total still adds up (d20 + the anonymous bonus).
-    const r = plEntry.reveal!;
-    expect((r.d20 ?? 0) + (r.toHit ?? []).reduce((a, x) => a + x.value, 0)).toBe(r.attackTotal);
+    expect(plEntry.reveal?.toHit).toEqual([]);
+    expect(plEntry.reveal?.attackTotal).toBeUndefined();
+    expect(plEntry.reveal?.hideModifiers).toBe(true);
+    expect(plEntry.reveal?.d20).toBe(dmEntry.reveal?.d20);
+    expect(plEntry.reveal?.outcome).toBe(dmEntry.reveal?.outcome);
   });
 
-  it('shows a FRIENDLY creature’s modifiers to players (no redaction)', () => {
+  it('keeps friendly creature sheets accessible but hides their roll modifiers', () => {
     const s = createSession('Friendly');
     const map = createMap(s.id, { name: 'Arena' });
     setActiveMap(s.id, map.id);
@@ -126,8 +138,10 @@ describe('creature roll redaction + player AOE visibility', () => {
     const tgt = createToken({ mapId: map.id, kind: 'pc', refId: pc.id, x: 1, y: 1 });
     resolveAttack(s.id, 'Wolf', atk.id, tgt.id, 0);
     const plEntry = buildSnapshot(s.id, 'player')!.rollLog.at(-1)!;
-    expect(plEntry.hideMods).toBeFalsy();
-    expect(plEntry.detail).toMatch(/\[(STR|PROF)\]/);
+    expect(plEntry.hideMods).toBe(true);
+    expect(plEntry.reveal?.toHit).toEqual([]);
+    expect(plEntry.detail).not.toMatch(/\[(STR|PROF)\]/);
+    expect(buildSnapshot(s.id,'player')!.monsters[0]).toHaveProperty('maxHp',10);
   });
 
   it("keeps a player's own AOE save resolution visible even when DM rolls are hidden", () => {

@@ -8,10 +8,12 @@ import type { StateSnapshot, Token } from '../../../shared/types';
  * monsters) — the DM may target anyone. Shared by weapon and spell attack UIs so
  * the target list can't drift between them.
  */
-export function validTargets(snapshot: StateSnapshot, attacker: Token): Token[] {
+export function validTargets(snapshot: StateSnapshot, attacker: Token, showDead = false): Token[] {
   return snapshot.tokens.filter(
     (t) =>
       t.mapId === attacker.mapId && t.id !== attacker.id &&
+      !(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon') &&
+      (showDead || !resolveToken(snapshot, t).dead) &&
       (snapshot.role !== 'player' || (!t.sharedSightOnly && !isFriendly(snapshot, t))),
   ).sort((a, b) => tokenDistanceFt(attacker, a, snapshot.map) - tokenDistanceFt(attacker, b, snapshot.map) || targetLabel(snapshot, a).localeCompare(targetLabel(snapshot, b)));
 }
@@ -26,12 +28,14 @@ const isFriendly = (snapshot: StateSnapshot, t: Token): boolean => {
  * (PCs + friendly creatures). The DM may heal anyone. Mirror of `validTargets`
  * so the heal dropdown can't drift from the attack one.
  */
-export function healTargets(snapshot: StateSnapshot, caster: Token): Token[] {
+export function healTargets(snapshot: StateSnapshot, caster: Token, showDead = false): Token[] {
   return [
-    caster,
+    ...((showDead || !resolveToken(snapshot, caster).dead) ? [caster] : []),
     ...snapshot.tokens.filter(
       (t) =>
-        t.id !== caster.id &&
+        t.id !== caster.id && t.mapId === caster.mapId &&
+        !(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon') &&
+        (showDead || !resolveToken(snapshot, t).dead) &&
         (snapshot.role !== 'player' || (!t.sharedSightOnly && isFriendly(snapshot, t))),
     ),
   ];

@@ -572,6 +572,14 @@ export function createSummon(
   return createToken({ mapId, kind: 'monster', refId: m.id, x, y });
 }
 
+export function createSpiritualWeapon(sessionId:string,mapId:string,x:number,y:number):Token {
+  const m=insertMonster(sessionId,{name:'Spiritual Weapon',maxHp:1,icon:'⚔',objectKind:'other',
+    modelType:'spiritual-weapon',speed:'20 ft.',disposition:'friendly',source:'manual'},
+    {isTemplate:false,templateId:null,name:'Spiritual Weapon'});
+  const token=createToken({mapId,kind:'monster',refId:m.id,x,y});
+  resizeToken(token.id,2.5);return getToken(token.id)!;
+}
+
 /** Set a token's silhouette (DM). */
 export function setTokenShape(tokenId: string, shape: Token['shape']): Token | null {
   db.prepare('UPDATE tokens SET shape = ? WHERE id = ?').run(shape, tokenId);
@@ -1856,6 +1864,9 @@ export function setRollApply(id: string, apply: RollEntry['apply']): void {
     id,
   );
 }
+export function setRollReveal(id:string,reveal:RollEntry['reveal']):void{
+  db.prepare('UPDATE roll_log SET reveal = ? WHERE id = ?').run(reveal?JSON.stringify(reveal):'',id);
+}
 
 // ---- Measuring shapes (cone/circle/line) ----
 
@@ -1869,6 +1880,7 @@ type MeasurementRow = {
   target_y: number;
   token_id: string | null;
   created_by: string;
+  spell_area: string | null;
 };
 
 const rowToMeasurement = (r: MeasurementRow): Measurement => ({
@@ -1879,6 +1891,7 @@ const rowToMeasurement = (r: MeasurementRow): Measurement => ({
   target: { x: r.target_x, y: r.target_y },
   ...(r.token_id ? { tokenId: r.token_id } : {}),
   createdBy: r.created_by,
+  ...(r.spell_area ? {spellArea:JSON.parse(r.spell_area)} : {}),
 });
 
 export function addMeasurement(
@@ -1890,14 +1903,15 @@ export function addMeasurement(
     target: { x: number; y: number };
     tokenId?: string;
     createdBy: string;
+    spellArea?: Measurement['spellArea'];
   },
 ): Measurement {
   const id = newId();
   db.prepare(
     `INSERT INTO measurements
        (id, session_id, map_id, kind, origin_x, origin_y, target_x, target_y,
-        token_id, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        token_id, created_by, created_at, spell_area)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
@@ -1910,6 +1924,7 @@ export function addMeasurement(
     input.tokenId ?? null,
     input.createdBy,
     Date.now(),
+    input.spellArea ? JSON.stringify(input.spellArea) : null,
   );
   return rowToMeasurement(
     db.prepare('SELECT * FROM measurements WHERE id = ?').get(id) as MeasurementRow,
@@ -3429,6 +3444,7 @@ export function applyDamage(
   const table = kind === 'pc' ? 'characters' : 'monsters';
   let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity || !Number.isFinite(amount)) return null;
+  if(amount<0&&!opts?.correction&&entity.conditions.some(c=>c.combatEffect?.preventsHealing))return entity;
   // Clamp to a sane magnitude so a buggy/forged event can't apply absurd values.
   amount = Math.trunc(Math.max(-10000, Math.min(10000, amount)));
   // Dead creatures can't regain hit points. Ordinary healing is refused outright
@@ -3545,7 +3561,7 @@ function clearDeadControlEffects(kind:TokenKind,refId:string):void {
   const entity=kind==='pc'?getCharacter(refId):getMonster(refId);
   if(!entity || !isDeadEntity(kind,entity)) return;
   for(const c of entity?.conditions??[]) if(!c.isConcentration && !c.combatEffect?.parentConditionId &&
-    c.combatEffect?.spell.toLowerCase()==='hold person' && c.combatEffect.castId) clearCondition(kind,refId,c.id);
+    ['hold person','hold monster'].includes(c.combatEffect?.spell.toLowerCase()??'') && c.combatEffect?.castId) clearCondition(kind,refId,c.id);
 }
 
 /** Set a creature's temporary-HP buffer to an exact amount (mirrors the
@@ -3651,6 +3667,12 @@ export function clearCondition(
     JSON.stringify(conditions),
     refId,
   );
+  if(removed?.combatEffect?.summonTokenId){
+    const token=getToken(removed.combatEffect.summonTokenId),weapon=token?.kind==='monster'?getMonster(token.refId):null;
+    if(weapon?.sessionId===entity.sessionId&&weapon.modelType==='spiritual-weapon'){
+      deleteToken(token!.id);deleteMonster(weapon.id);
+    }
+  }
   if (removed?.label.trim().toLowerCase() === 'haste' && removed.combatEffect?.spell.trim().toLowerCase() === 'haste') {
     const round = getSessionById(entity.sessionId)?.combatRound ?? 0;
     const active = getSessionById(entity.sessionId)?.activeTurnTokenId ?? '';

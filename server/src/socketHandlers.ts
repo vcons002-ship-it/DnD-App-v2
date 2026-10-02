@@ -1,8 +1,13 @@
+import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
+import {linkedSpellProfile,spellKey} from '../../shared/linkedSpells.js';
+import {spellcastingKeyFor} from '../../shared/spellExecution.js';
+import {spellcastingMod} from '../../shared/spellMath.js';
 import {shapeSaveFrame} from './liveSaveFrame.js';
 import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
 import {doorApproachPoints,distanceToWall} from '../../shared/mapWalls.js';
 import {visionContains} from '../../shared/playerVision.js';
+import {areaPlacementError} from './areaSpells.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
@@ -192,7 +197,7 @@ import {
   touchSession,
   updateMonster,
 } from './sessions.js';
-import type { Condition, MapPopup, TokenKind } from '../../shared/types.js';
+import type { Character, Condition, MapPopup, TokenKind } from '../../shared/types.js';
 
 /** Grace window after a disconnect before a player's claim is freed, so a brief
  *  connection blip doesn't de-select their character (and others can't snipe it).
@@ -290,7 +295,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
       const timer=setTimeout(finish,2500);trayReady.set(id,finish);
     });
-    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    const liveEvents=new Set(['spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
@@ -374,7 +379,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                       targetLabels.set(key,token?(token.kind==='monster'&&token.revealTag&&token.revealTag!=='U'?token.revealTag:liveRollTarget(view!,[target])):undefined);
                     }
                     return targetLabels.get(key);
-                  });
+                  },{hideModifiersFor:target=>getConn(id)?.role!=='dm'&&(target.kind==='monster'||isDm()),hideDc:getConn(id)?.role!=='dm'});
                   if(shaped){io.to(id).emit('dice:frame',shaped);lastDelivered.set(id,frame.id);}
                   continue;
                 }
@@ -385,7 +390,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                   if(info?.target&&conn.role!=='dm'&&!view?.tokens.some(t=>!t.sharedSightOnly&&t.kind===info.target!.kind&&t.refId===info.target!.refId)){
                     targetLabels.set(labelKey,undefined);continue;
                   }
-                  targetLabels.set(labelKey,(view?liveRollTarget(view,info?.target?[info.target]:targetRefs):undefined)??(ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
+                  targetLabels.set(labelKey,(view?liveRollTarget(view,info?.target?[info.target]:targetRefs):undefined)??(payload?.area?'Placed spell area':ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
                 }
                 // An automatic area save must not expose an unseen bystander.
                 if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
@@ -659,6 +664,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         return;
       }
       const name = (ability.summon.name?.trim() || ability.name || 'Summon').slice(0, 60);
+      const spectral=spellKey(ability.name)==='spiritual weapon'&&!!linkedSpellProfile(ability);
+      if(spectral){
+        const error=spiritualWeaponPlacementError(sid,kind,refId,mapId,x,y);
+        if(error){socket.emit('notice',{message:error});return;}
+      }
+      let actualLevel=typeof castLevel==='number'&&castLevel>=(ability.level??1)?Math.min(9,castLevel):ability.level??1;
       const icon = (ability.summon.icon || '✋').slice(0, 2000);
       // Spend a slot for a leveled spell BEFORE spawning; bail if none left.
       if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
@@ -666,11 +677,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const lvl = typeof castLevel === 'number' && castLevel >= base ? castLevel : base;
         // Soft like ability:roll: only a sheet that HAS slots at this level and
         // is out of them is refused — no slot table (homebrew) still summons.
-        const { hasSlot, spent } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+        const { hasSlot, spent,level:spentLevel } = spendSpellSlot(refId, lvl,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+        actualLevel=spentLevel??lvl;
         if (hasSlot && !spent) {
           socket.emit('notice', { message: `No level ${lvl} spell slots left.` });
           return;
         }
+      }
+      if(spectral){
+        summonSpiritualWeapon({spell:ability.name,abilityId:ability.id,casterKind:kind,casterId:refId,castLevel:actualLevel,dc:0,
+          modifier:spellcastingMod(ent!.stats,kind==='pc'?spellcastingKeyFor(ent as Character,ability):ability.roll?.castingAbility)},ability,mapId,x,y);
+        afterChange();broadcastSpellCast(io,sid,kind,refId);return;
       }
       createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       if (isConcentrationSpell(ability)) setConcentration(kind, refId, ability.name);
@@ -867,6 +884,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const moving=getToken(tokenId);
       if (!sessionId()||!moving||getMap(moving.mapId)?.sessionId!==sessionId()) return;
       if(getMap(moving.mapId)?.walls?.some(w=>w.tokenId===moving.id))return;
+      const spectral=spiritualWeaponOwner(moving);
+      if(spectral){
+        if(!isDm()&&(!ownsCreature(spectral.kind,spectral.caster.id)||moving.isHidden))return;
+        const blocked=spellActionBlockMessage(spectral.caster,{inCombat:!!getSessionById(spectral.caster.sessionId)?.combatRound});
+        const result=blocked?{error:blocked}:moveSpiritualWeapon(moving,x,y);
+        if(result.error){socket.emit('notice',{message:result.error});sendSnapshot(io,socket.id);return;}
+        afterChange();if(result.point&&typeof placed==='function')placed({x:result.point.x,y:result.point.y});return;
+      }
       // Players may move PCs and FRIENDLY creatures (companions/summons) only —
       // enemy/neutral tokens and OBJECTS (chests/doors/traps) are the DM's.
       // Hidden tokens are never sent to players, so a non-DM move of one is
@@ -906,6 +931,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid) return;
       const t = getToken(tokenId);
       if (!t||getMap(t.mapId)?.sessionId!==sid) return;
+      const spectral=spiritualWeaponOwner(t);
+      if(spectral){
+        if(!isDm()&&(!ownsCreature(spectral.kind,spectral.caster.id)||t.isHidden))return;
+        if(spellActionBlock(spectral.caster))return;
+        const result=moveSpiritualWeapon(t,x,y,true);
+        if(result.point)broadcastTokenDrag(io,sid,socket.id,t,result.point.x,result.point.y);return;
+      }
       if (!isDm()) {
         if (t.isHidden) return;
         const creature=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId);
@@ -1497,7 +1529,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1519,6 +1551,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       };
       const roller = rollerName(sid, socket.id, isDm());
       const casterEntity=kind==='pc'?getCharacter(refId):getMonster(refId);
+      if(area){
+        const a=casterEntity?.sheetAbilities.find(a=>a.id===abilityId);
+        const error=a&&areaPlacementError(sid,kind,refId,a,cast,area);
+        if(!a||error){socket.emit('notice',{message:error??'Unknown spell.'});return;}
+        if(!isDm()){
+          const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map;
+          if(!map||map.id!==area.mapId||area.points.some(p=>!visionContains(view.playerVision,p.x,p.y)||(map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(p.x/map.gridSizePx)},${Math.floor(p.y/map.gridSizePx)}`)))){
+            socket.emit('notice',{message:'Place the spell area somewhere you can see yourself.'});return;
+          }
+        }
+      }
       const blocked=casterEntity && spellActionBlockMessage(casterEntity,{inCombat:!!getSessionById(sid)?.combatRound});
       if(blocked) {
         socket.emit('notice',{message:blocked,durationMs:8000}); return;
@@ -1532,7 +1575,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if(targetError){socket.emit('notice',{message:targetError});return;}
         // CR-based DC/to-hit; no spell slots for creatures. A limited-use action
         // (breath weapon) is spent by using it; the DM re-readies it manually.
-        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, tgt, selectedDamageType)) {
+        if (resolveMonsterSheetAbility(sid, roller, m, ability, cast, adv, area?undefined:tgt, selectedDamageType,area)) {
           setAbilityRechargeSpent('monster', m.id, ability.id, true);
           afterChange();
           if (ability.type === 'spell') broadcastSpellCast(io, sid, kind, refId);
@@ -1564,7 +1607,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           socket.emit('notice',{message:'Choose a visible creature for the mark.'}); return;
         }
       }
-      const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, tgt, selectedDamageType);
+      const ok = resolveAbilityRoll(sid, roller, c, ability, castAt, adv, area?undefined:tgt, selectedDamageType,area);
+      if(!ok&&area)socket.emit('notice',{message:'Could not place the area. Check its range, connected pieces, and chosen target limit.'});
       if(!ok && JSON.stringify(c.conditions)!==JSON.stringify(getCharacter(c.id)?.conditions)) {
         afterChange();socket.emit('notice',{message:spellActionBlockMessage(getCharacter(c.id)!,{inCombat:!!getSessionById(sid)?.combatRound})??'Previous concentration ended. Recover from Haste lethargy before casting a new concentration spell.',durationMs:8000});
       }
@@ -2207,6 +2251,35 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || !isDm()) return; // clearing the shared roll log is a DM action
       clearRollLog(sid);
       afterChange();
+    });
+
+    on('spell:repeat', ({kind,refId,conditionId,targetTokenId,advantage,area}) => {
+      const sid=sessionId();if(!sid||!ownsCreature(kind,refId)||typeof conditionId!=='string')return;
+      const caster=kind==='pc'?getCharacter(refId):getMonster(refId);
+      if(!caster)return;
+      const blocked=spellActionBlockMessage(caster,{inCombat:!!getSessionById(sid)?.combatRound});
+      if(blocked){socket.emit('notice',{message:blocked,durationMs:8000});return;}
+      const fx=caster.conditions.find(c=>c.id===conditionId)?.combatEffect;
+      if(area){const a=caster.sheetAbilities.find(a=>a.id===fx?.abilityId),error=a&&areaPlacementError(sid,kind,refId,a,fx?.castLevel,area);
+        if(!a||fx?.spell.toLowerCase()!=='call lightning'||error){socket.emit('notice',{message:error??'That spell does not use an area repeat.'});return;}
+        if(!isDm()){const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map;
+          if(!map||map.id!==area.mapId||area.points.some(p=>!visionContains(view.playerVision,p.x,p.y)||(map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(p.x/map.gridSizePx)},${Math.floor(p.y/map.gridSizePx)}`)))){socket.emit('notice',{message:'Place the spell area somewhere you can see yourself.'});return;}}
+      }
+      const target=/^(witch bolt|heat metal)$/i.test(fx?.spell??'')?fx?.targetTokenId:targetTokenId??fx?.targetTokenId;
+      if(!area&&(typeof target!=='string'||!canDirectlyTargetToken(target))){socket.emit('notice',{message:'Choose a target you can see yourself.'});return;}
+      const error=repeatSpell(sid,isDm()?'DM':caster.name,kind,refId,conditionId,target,advantage==='adv'||advantage==='dis'?advantage:undefined,area);
+      if(error){socket.emit('notice',{message:error});return;}
+      broadcastSpellCast(io,sid,kind,refId);afterChange();
+    });
+    on('spell:dropHeatedItem', ({kind,refId,conditionId})=>{
+      if(!ownsCreature(kind,refId))return;
+      const target=kind==='pc'?getCharacter(refId):getMonster(refId),condition=target?.conditions.find(c=>c.id===conditionId),fx=condition?.combatEffect;
+      if(!target||!fx||fx.spell.toLowerCase()!=='heat metal'||condition!.isConcentration||fx.spellAction)return;
+      const caster=fx.casterKind==='pc'?getCharacter(fx.casterId):getMonster(fx.casterId);
+      for(const c of caster?.conditions??[])if(c.combatEffect?.spellAction&&c.combatEffect.castId===fx.castId)
+        setCondition(fx.casterKind,fx.casterId,{...c,combatEffect:{...c.combatEffect,itemDropped:true}});
+      clearCondition(kind,refId,conditionId);
+      addRollLog(target.sessionId,{roller:isDm()?'DM':target.name,label:'Heat Metal',expr:'Drop heated item',total:0,detail:`${target.name} drops the heated held item; its penalties end. Worn armor must be removed normally.`});afterChange();
     });
 
     on('haste:action', ({kind,refId,action}) => {

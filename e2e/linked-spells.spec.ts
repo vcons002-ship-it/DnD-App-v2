@@ -1,0 +1,87 @@
+import {test,expect} from '@playwright/test';
+import {io,type Socket} from 'socket.io-client';
+import type {SheetAbility,StateSnapshot} from '../shared/types';
+import {DM_SECRET,PORT} from './playwright.config';
+let socket:Socket;
+test.afterEach(()=>socket?.disconnect());
+
+test('Mirror Image casts from Combat, renders the caster duplicates, and removes them when real attacks intercept',async({page,request})=>{
+  test.setTimeout(180000);
+  const response=await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Linked spell showcase'}}),{code}=await response.json();
+  socket=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});
+  const state=async():Promise<StateSnapshot>=>{const j=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(j.ok).toBe(true);return j.snapshot;};
+  const initial=await state(),vanec=initial.characters.find(c=>c.name==='Vanec')!;
+  const catalog=(await(await request.get('/api/spells/all')).json()).results as SheetAbility[];
+  const abilities=['Mirror Image','Flame Blade','Hold Person'].map((name,i)=>({...catalog.find(a=>a.name===name)!,id:`linked-${i}`,source:'srd' as const,sourceClass:'wizard'}));
+  socket.emit('character:update',{characterId:vanec.id,className:'Wizard',level:7,maxHp:200,curHp:200,armorClass:12,stats:{STR:10,DEX:10,CON:10,INT:18,WIS:10,CHA:10},conditions:[],sheetAbilities:abilities,spellSlots:{L2:{max:10,used:0}}});
+  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=700;const x=c.getContext('2d')!;x.fillStyle='#303338';x.fillRect(0,0,1000,700);return c.toDataURL().split(',')[1];});
+  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Illusions arena',image:{name:'arena.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')}}})).json();
+  socket.emit('map:setActive',{mapId:map.id});for(const layer of ['map','tokens'])socket.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
+  socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:vanec.id,x:480,y:330});
+  socket.emit('monster:create',{name:'Practice guard',maxHp:500,armorClass:12,disposition:'enemy',creatureType:'Humanoid',weapons:[{name:'Practice sword',kind:'melee',damage:'1d6',attackBonus:100}]});
+  const template=(await state()).monsterTemplates.find(m=>m.name==='Practice guard')!;
+  socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:610,y:330});socket.emit('session:setManualDamage',{manual:false});
+  const ready=await state(),actor=ready.tokens.find(t=>t.refId===vanec.id)!,enemy=ready.tokens.find(t=>t.kind==='monster')!;
+  await page.addInitScript(()=>{localStorage.setItem('dnd.rollAnimOff','1');});await page.setViewportSize({width:1440,height:1000});
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:'Vanec'}).click();
+  const combat=page.locator('.compact-player-combat');await expect(combat).toBeVisible();
+  await combat.getByRole('button',{name:/Mirror Image/}).click();
+  await expect.poll(async()=>(await state()).characters.find(c=>c.id===vanec.id)!.conditions.find(c=>c.label==='Mirror Image')?.combatEffect?.duplicates).toBe(3);
+  await expect(combat.getByRole('region',{name:'Active spell actions'})).toContainText('3 duplicates remaining');
+  const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','1',{timeout:60000});await expect(layer).toHaveAttribute('data-mirror-image-count','3');
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees','45');
+  for(let i=0;i<3;i++)await page.getByRole('group',{name:'Map view controls'}).getByRole('button',{name:'+',exact:true}).click();
+  await page.screenshot({path:test.info().outputPath('mirror-image-45.png'),fullPage:true});
+  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees','0');
+  await page.screenshot({path:test.info().outputPath('mirror-image-overhead.png'),fullPage:true});
+  await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
+  await expect(page.getByRole('button',{name:'2D player tokens',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.screenshot({path:test.info().outputPath('mirror-image-2d.png'),fullPage:true});
+  await page.getByRole('button',{name:'3D player tokens',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-miniature-count','1',{timeout:60000});
+  await expect(layer).toHaveAttribute('data-mirror-image-count','3');
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  await expect(layer).toHaveAttribute('data-tilt-degrees','45');
+  // The normal attack workflow resolves d20 -> duplicate d6 checks -> removal.
+  let duplicates=3;
+  for(let attempt=0;attempt<5&&duplicates===3;attempt++){
+    const count=(await state()).rollLog.length;socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:actor.id,weaponIndex:0});
+    await expect.poll(async()=>(await state()).rollLog.length,{timeout:30000}).toBeGreaterThan(count);
+    duplicates=(await state()).characters.find(c=>c.id===vanec.id)!.conditions.find(c=>c.label==='Mirror Image')?.combatEffect?.duplicates??0;
+  }
+  expect(duplicates).toBe(2);await expect(layer).toHaveAttribute('data-mirror-image-count','2');
+  await expect(combat.getByRole('region',{name:'Active spell actions'})).toContainText('2 duplicates remaining');
+  expect((await state()).characters.find(c=>c.id===vanec.id)!.curHp).toBe(200);
+  await page.screenshot({path:test.info().outputPath('mirror-image-after-hit.png'),fullPage:true});
+  await combat.getByRole('button',{name:/Flame Blade/}).click();
+  const actions=combat.getByRole('region',{name:'Active spell actions'});
+  await expect(actions.getByRole('button',{name:'Flame Blade · Magic action',exact:true})).toBeVisible();
+  const slotsBefore=(await state()).characters.find(c=>c.id===vanec.id)!.spellSlots.L2.used;
+  const logCount=(await state()).rollLog.length;await actions.getByRole('button',{name:'Flame Blade · Magic action',exact:true}).click();
+  await expect.poll(async()=>(await state()).rollLog.length,{timeout:30000}).toBeGreaterThan(logCount);
+  expect((await state()).characters.find(c=>c.id===vanec.id)!.spellSlots.L2.used).toBe(slotsBefore);
+  page.on('dialog',d=>d.accept());
+  // A low WIS target guarantees the reviewed fixture fails this save; the save
+  // still runs through the app. Its implied conditions must not duplicate FX.
+  socket.emit('monster:update',{monsterId:enemy.refId,stats:{STR:10,DEX:10,CON:10,INT:10,WIS:1,CHA:10}});
+  for(let attempt=0;attempt<4;attempt++){
+    const count=(await state()).rollLog.length;
+    await combat.getByRole('button',{name:/Hold Person/}).click();
+    await expect.poll(async()=>(await state()).rollLog.length,{timeout:45000}).toBeGreaterThan(count);
+    if((await state()).monsters.find(m=>m.id===enemy.refId)!.conditions.some(c=>c.label==='Paralyzed'))break;
+  }
+  await expect(layer).toHaveAttribute('data-spell-impact-kinds',/chains/);
+  await page.waitForTimeout(2400);
+  await expect(layer).toHaveAttribute('data-spell-impact-kinds','chains');
+  socket.emit('token:setHidden',{tokenId:enemy.id,hidden:true});await state();
+  await expect(layer).not.toHaveAttribute('data-spell-impact-kinds',/chains/);
+  socket.emit('token:setHidden',{tokenId:enemy.id,hidden:false});await state();
+  await expect(layer).toHaveAttribute('data-spell-impact-kinds','chains');
+  const conc=(await state()).characters.find(c=>c.id===vanec.id)!.conditions.find(c=>c.isConcentration)!;
+  socket.emit('condition:clear',{kind:'pc',refId:vanec.id,conditionId:conc.id});await state();
+  await expect(layer).not.toHaveAttribute('data-spell-impact-kinds',/chains/);
+  expect(errors).toEqual([]);
+});

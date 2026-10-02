@@ -71,7 +71,7 @@ describe('recorded casts for spells with manual effects', () => {
     expect(listRollLog(f.session.id).find(entry => entry.label === 'Bless')!.detail).toMatch(/manual/i);
   });
 
-  it.each(['Aid', 'Armor of Agathys', 'True Strike', 'Ice Storm'])
+  it.each(['Aid', 'Armor of Agathys', 'True Strike'])
   ('%s records a manual cast instead of applying its misleading saved roll', name => {
     const f = fixture(name), before = getCharacter(f.caster.id)!, targetBefore = getMonster(f.monster.id)!;
     f.cast({ castLevel: f.ability.level, targetTokenId: f.target.id });
@@ -81,6 +81,21 @@ describe('recorded casts for spells with manual effects', () => {
     expect(entries).toHaveLength(1); expect(entries[0].label).toBe(name); expect(entries[0].detail).toMatch(/manual/i);
     expect(entries[0].detail).toContain('Recipient');
     expect(entries[0].apply).toBeUndefined(); expect(entries[0].pending).toBeUndefined(); expect(entries[0].reveal).toBeUndefined();
+    expect(after.sheetAbilities.find(a => a.id === f.ability.id)).toEqual(f.ability);
+  });
+
+  it('Ice Storm rolls separate damage types and waits for target saves without rewriting the saved spell', () => {
+    const f = fixture('Ice Storm');
+    updateCharacter(f.caster.id, { level: 9 });
+    const before = getCharacter(f.caster.id)!, targetBefore = getMonster(f.monster.id)!;
+    withDiceSource(sides => sides.map(() => 3), () => f.cast({ castLevel: 4 }));
+    const after = getCharacter(f.caster.id)!, entry = listRollLog(f.session.id)[0];
+    expect(after.spellSlots.L4.used).toBe(before.spellSlots.L4.used + 1);
+    expect(getMonster(f.monster.id)!.curHp).toBe(targetBefore.curHp);
+    expect(entry.apply).toMatchObject({ save: 'DEX', targetMode: 'multiple', damagePools: [
+      { amount: 6, damageType: 'bludgeoning' }, { amount: 12, damageType: 'cold' },
+    ] });
+    expect(entry.reveal?.damageDice?.map(pool => pool.diceExpression)).toEqual(['2d10', '4d6']);
     expect(after.sheetAbilities.find(a => a.id === f.ability.id)).toEqual(f.ability);
   });
 

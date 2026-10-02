@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig,configDefaults } from 'vitest/config';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -8,6 +8,7 @@ const testRoot = mkdtempSync(path.join(tmpdir(), 'dnd-unit-'));
 
 export default defineConfig({
   test: {
+    include:[...configDefaults.include,'../client/src/lib/**/*.test.ts'],
     env: {
       DATA_ROOT: testRoot,
       DB_PATH: path.join(testRoot, 'game.db'),

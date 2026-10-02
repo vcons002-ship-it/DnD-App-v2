@@ -7,6 +7,7 @@ import type {
   TokenKind,
 } from '../../../shared/types';
 import { healTargets, validTargets, targetLabel } from '../lib/targets';
+import {ShowDeadTargets} from './ShowDeadTargets';
 import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
 import { AbilityButtons } from './AbilityButtons';
@@ -20,6 +21,7 @@ import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../
 import { confirmConcentration, spellBaseLevel, upcastable } from '../lib/spellcasting';
 import { SpellCombatSupportBadge } from './SpellCombatSupport';
 import { activeHasteCondition, spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
+import {ActiveSpellActions} from './ActiveSpellActions';
 import { HasteExtraAction } from './HasteExtraAction';
 
 /**
@@ -69,7 +71,7 @@ export function CombatSection({
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
   const weapons = caster.weapons;
-  const abilities = caster.sheetAbilities.filter((a) => !!effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly);
+  const abilities = caster.sheetAbilities.filter((a) => !effectiveSheetAbility(a).summon && (!!effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly));
   const [summonLevels, setSummonLevels] = useState<Record<string, number>>({});
   const [summonPools, setSummonPools] = useState<Record<string, SpellSlotPool>>({});
   const summonLevel = (a: (typeof caster.sheetAbilities)[number]) => summonLevels[a.id] ?? spellBaseLevel(a);
@@ -82,20 +84,24 @@ export function CombatSection({
     }
     if (!confirmConcentration(caster, a)) return;
     const g = summonMap.gridSizePx || 50;
+    const spectral=a.name.toLowerCase()==='spiritual weapon';
+    const anchor=spectral?snapshot.tokens.find(t=>t.id===effectiveTargetId)??attacker:undefined;
+    const reachPx=5*g/(summonMap.feetPerSquare||5);
     summonCast({
       kind,
       refId: caster.id,
       abilityId: a.id,
       mapId: summonMap.id,
-      x: g * 2 + Math.random() * g * 2,
-      y: g * 2 + Math.random() * g * 2,
+      x: anchor?anchor.x-reachPx:g * 2 + Math.random() * g * 2,
+      y: anchor?anchor.y:g * 2 + Math.random() * g * 2,
       castLevel: upcastable(a) ? summonLevel(a) : undefined,
       slotPool: 'spellSlots' in caster ? summonPools[a.id] ?? selectSpellSlot(caster, summonLevel(a))?.pool : undefined,
     });
-    notify(`Summon requested — drag ${a.summon?.name?.trim() || a.name} into place after it appears.`);
+    notify(spectral?'Spiritual Weapon requested beside the selected target. Use its active spell attack; on later turns drag it up to 20 ft.':`Summon requested — drag ${a.summon?.name?.trim() || a.name} into place after it appears.`);
   };
 
-  const targets = validTargets(snapshot, attacker);
+  const showDead = useStore(s => s.showDeadTargets);
+  const targets = validTargets(snapshot, attacker, showDead);
   const validDefault =
     defaultTargetId && targets.some((t) => t.id === defaultTargetId)
       ? defaultTargetId
@@ -121,7 +127,7 @@ export function CombatSection({
   }, [combatTarget]);
 
   // Heals pick from allies instead (self first = default) and apply on cast.
-  const healList = healTargets(snapshot, attacker);
+  const healList = healTargets(snapshot, attacker, showDead);
   const hasHeal = abilities.some((a) => effectiveSheetAbility(a).roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
   const buffList = healList.filter(token => token.mapId === attacker.mapId && !token.sharedSightOnly);
@@ -144,7 +150,7 @@ export function CombatSection({
   const effectiveHealId = healList.some((t) => t.id === healTargetId)
     ? healTargetId
     : healList[0]?.id ?? '';
-  const effectiveBuffId = buffList.some(token => token.id === buffTargetId) ? buffTargetId : attacker.id;
+  const effectiveBuffId = buffList.some(token => token.id === buffTargetId) ? buffTargetId : buffList[0]?.id ?? '';
 
   // A 2H toggle only matters when some weapon is versatile (has 2H damage).
   const anyVersatile = weapons.some(
@@ -155,16 +161,18 @@ export function CombatSection({
 
   const rollControls = (
     <>
-      {targets.length > 0 && !nothingRollable && (
+      {!nothingRollable && (
         <div className="dice-row combat-target-row">
           <span className="muted spell-tag">Target</span>
           <select aria-label="Attack target" value={effectiveTargetId} onChange={(e) => setTargetId(e.target.value)}>
+            {!targets.length && <option value="">No living targets</option>}
             {targets.map((t) => (
               <option key={t.id} value={t.id}>
                 {targetLabel(snapshot, t, attacker)}
               </option>
             ))}
           </select>
+          <ShowDeadTargets/>
         </div>
       )}
       {!nothingRollable && (
@@ -202,6 +210,7 @@ export function CombatSection({
 
   return (
     <div className={`attack-controls${compactPlayer ? ' compact-player-combat' : ''}`}>
+      <ActiveSpellActions caster={caster} kind={kind} ownTurn={ownTurn} targetTokenId={effectiveTargetId||undefined} />
       <HasteExtraAction caster={caster} kind={kind} ownTurn={ownTurn} attackArmed={hasteAttackArmed} onArmAttack={setHasteAttackArmed} />
       {actionBlock === 'Hold Person paralysis' && <div className="spell-action-block" role="status">
         {spellActionBlockMessage(caster, { inCombat: snapshot.round > 0 })}
@@ -287,7 +296,7 @@ export function CombatSection({
               title={`Summon ${a.summon?.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
               onClick={() => castSummon(a)}
             >
-              {a.summon?.icon || '✋'} {a.summon?.name?.trim() || a.name}
+              {a.summon?.icon || '✋'} Summon {a.summon?.name?.trim() || a.name}
             </button>
             <SpellCombatSupportBadge ability={a} />
             {upcastable(a) && <select aria-label={`${a.name} summon level`} className="spell-level" value={summonLevel(a)} onChange={event => setSummonLevels(values => ({ ...values, [a.id]: Number(event.target.value) }))}>
