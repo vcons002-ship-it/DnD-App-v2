@@ -1,3 +1,4 @@
+import {repeatSpell} from './linkedSpells.js';
 import {shapeSaveFrame} from './liveSaveFrame.js';
 import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
@@ -290,7 +291,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
       const timer=setTimeout(finish,2500);trayReady.set(id,finish);
     });
-    const liveEvents=new Set(['dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    const liveEvents=new Set(['spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
@@ -2207,6 +2208,30 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || !isDm()) return; // clearing the shared roll log is a DM action
       clearRollLog(sid);
       afterChange();
+    });
+
+    on('spell:repeat', ({kind,refId,conditionId,targetTokenId,advantage}) => {
+      const sid=sessionId();if(!sid||!ownsCreature(kind,refId)||typeof conditionId!=='string')return;
+      const caster=kind==='pc'?getCharacter(refId):getMonster(refId);
+      if(!caster)return;
+      const blocked=spellActionBlockMessage(caster,{inCombat:!!getSessionById(sid)?.combatRound});
+      if(blocked){socket.emit('notice',{message:blocked,durationMs:8000});return;}
+      const fx=caster.conditions.find(c=>c.id===conditionId)?.combatEffect;
+      const target=/^(witch bolt|heat metal)$/i.test(fx?.spell??'')?fx?.targetTokenId:targetTokenId??fx?.targetTokenId;
+      if(typeof target!=='string'||!canDirectlyTargetToken(target)){socket.emit('notice',{message:'Choose a target you can see yourself.'});return;}
+      const error=repeatSpell(sid,isDm()?'DM':caster.name,kind,refId,conditionId,target,advantage==='adv'||advantage==='dis'?advantage:undefined);
+      if(error){socket.emit('notice',{message:error});return;}
+      broadcastSpellCast(io,sid,kind,refId);afterChange();
+    });
+    on('spell:dropHeatedItem', ({kind,refId,conditionId})=>{
+      if(!ownsCreature(kind,refId))return;
+      const target=kind==='pc'?getCharacter(refId):getMonster(refId),condition=target?.conditions.find(c=>c.id===conditionId),fx=condition?.combatEffect;
+      if(!target||!fx||fx.spell.toLowerCase()!=='heat metal'||condition!.isConcentration||fx.spellAction)return;
+      const caster=fx.casterKind==='pc'?getCharacter(fx.casterId):getMonster(fx.casterId);
+      for(const c of caster?.conditions??[])if(c.combatEffect?.spellAction&&c.combatEffect.castId===fx.castId)
+        setCondition(fx.casterKind,fx.casterId,{...c,combatEffect:{...c.combatEffect,itemDropped:true}});
+      clearCondition(kind,refId,conditionId);
+      addRollLog(target.sessionId,{roller:isDm()?'DM':target.name,label:'Heat Metal',expr:'Drop heated item',total:0,detail:`${target.name} drops the heated held item; its penalties end. Worn armor must be removed normally.`});afterChange();
     });
 
     on('haste:action', ({kind,refId,action}) => {

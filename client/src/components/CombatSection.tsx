@@ -20,6 +20,7 @@ import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../
 import { confirmConcentration, spellBaseLevel, upcastable } from '../lib/spellcasting';
 import { SpellCombatSupportBadge } from './SpellCombatSupport';
 import { activeHasteCondition, spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
+import {ActiveSpellActions} from './ActiveSpellActions';
 import { HasteExtraAction } from './HasteExtraAction';
 
 /**
@@ -202,6 +203,7 @@ export function CombatSection({
 
   return (
     <div className={`attack-controls${compactPlayer ? ' compact-player-combat' : ''}`}>
+      <ActiveSpellActions caster={caster} kind={kind} ownTurn={ownTurn} targetTokenId={effectiveTargetId||undefined} />
       <HasteExtraAction caster={caster} kind={kind} ownTurn={ownTurn} attackArmed={hasteAttackArmed} onArmAttack={setHasteAttackArmed} />
       {actionBlock === 'Hold Person paralysis' && <div className="spell-action-block" role="status">
         {spellActionBlockMessage(caster, { inCombat: snapshot.round > 0 })}

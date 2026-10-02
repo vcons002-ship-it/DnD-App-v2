@@ -75,7 +75,7 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
     expect(spellCombatSupport({ name: 'Second Wind', type: 'ability' })).toBeNull();
   });
   it.each([
-    'Aid', 'Armor of Agathys', 'True Strike', 'Ice Knife', 'Ice Storm', 'Flame Strike', 'Meteor Swarm',
+    'Aid', 'Armor of Agathys', 'True Strike',
     'Mass Heal', 'Prayer of Healing', 'Conjure Animals',
     'Conjure Woodland Beings', 'Elemental Weapon', 'Bestow Curse',
     'Dream', 'Earthquake', 'Glyph of Warding',
@@ -84,6 +84,10 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
     const entry = spell(name), before = structuredClone(entry);
     expect(spellCombatSupport(entry)).toMatchObject({ status: 'manual', manualCastOnly: true });
     expect(entry).toEqual(before);
+  });
+  it.each(['Ice Knife','Ice Storm','Flame Strike','Meteor Swarm'])('enables reviewed linked damage for %s without rewriting the saved sheet',name=>{
+    const entry=spell(name),before=structuredClone(entry);
+    expect(spellCombatSupport(entry)).toMatchObject({status:'partial',manualCastOnly:false});expect(entry).toEqual(before);
   });
   it('preserves authored roll variants instead of forcing catalogue rules onto homebrew', () => {
     for (const flag of [{ source: 'custom' as const }, { executionProfile: 'manual' as const }]) {

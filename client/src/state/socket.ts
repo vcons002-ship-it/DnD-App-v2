@@ -397,6 +397,8 @@ type Store = {
   /** Undo the DM's last destructive action (delete token/creature, cover fog). */
   undo: () => void;
   combatAttack: (payload: CombatAttackPayload) => void;
+  repeatSpell: (payload: import("../../../shared/types").SpellRepeatPayload) => void;
+  dropHeatedItem: (payload:{kind:TokenKind;refId:string;conditionId:string}) => void;
   useHasteAction: (payload: HasteActionPayload) => void;
   /** Roll (and apply) the damage parked on a hit — the two-step attack's
    *  second click. */
@@ -1203,6 +1205,8 @@ export const useStore = create<Store>((set, get) => ({
   clearRollLog: () => get().socket?.emit('dice:clearLog'),
   undo: () => get().socket?.emit('session:undo'),
   combatAttack: (payload) => get().socket?.emit('combat:attack', payload),
+  repeatSpell: payload=>get().socket?.emit('spell:repeat',payload),
+  dropHeatedItem: payload=>get().socket?.emit('spell:dropHeatedItem',payload),
   useHasteAction: (payload) => get().socket?.emit('haste:action', payload),
   combatDamage: (rollId) => get().socket?.emit('combat:damage', { rollId }),
   initiativeFx: null,

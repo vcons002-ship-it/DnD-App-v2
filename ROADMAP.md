@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Add the reviewed linked-spell batch: Mirror Image caster-art duplicates,
+  Sorcerous Burst bonus dice, Ice Knife explosion, Acid Arrow delayed damage,
+  Vampiric Touch healing, Hold Monster/Phantasmal Killer control, Heat Metal,
+  repeat spell actions, typed mixed-damage pools, and timed hit riders.
+  [Workflow and explicit remaining limitations](docs/LINKED_SPELLS_2024.md).
+
 - [x] Audit all 319 spells and show Combat ready / Partial / Manual badges in
   browse, add search, and saved spell headers, with an explicit App handles /
   You handle explanation and a support filter.

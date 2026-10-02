@@ -1,3 +1,4 @@
+import {mirrorImageCount} from '../../../shared/linkedSpells';
 import {ObjectControls} from '../components/ObjectControls';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
@@ -1134,6 +1135,7 @@ export function MapStage({
     const definition = resolveMiniature(resolveToken(snapshot, token).name, token.kind, monster, token.refId);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
+      mirrorImages:mirrorImageCount(resolveToken(snapshot,token).conditions),
       sharedSightOnly: token.sharedSightOnly,
       carriedLantern:!token.sharedSightOnly && token.carriedLantern,
       combatRole: !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,

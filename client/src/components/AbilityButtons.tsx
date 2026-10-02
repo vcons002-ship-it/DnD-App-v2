@@ -1,3 +1,4 @@
+import {linkedSpellProfile,spellKey} from '../../../shared/linkedSpells';
 import { hitFeature, markSpell, abilityKey } from '../../../shared/hitFeatures';
 import { useState } from 'react';
 import type {
@@ -88,8 +89,8 @@ export function AbilityButtons({
       damageType: markSpell(a)==='necrotic'?hexAbility:damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.
-      advantage: !manualCast && execution.roll?.kind === 'attack' ? consumeAdvantage(caster.id) : undefined,
-      targetTokenId: isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
+      advantage: !manualCast && execution.roll?.kind === 'attack' && !(linkedSpellProfile(a)&&spellKey(a.name)==='flame blade') ? consumeAdvantage(caster.id) : undefined,
+      targetTokenId: linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name)) ? undefined : isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
         : isMultiTargetSpell(a, level) ? undefined : targetTokenId,
     });
     onAfter?.();
@@ -105,7 +106,8 @@ export function AbilityButtons({
         const damageTypes = manualCast ? [] : spellDamageTypeChoices(a, level);
         const multiple = isMultiTargetSpell(a, level);
         const saveOnly = execution.roll?.kind === 'save' && !execution.roll.dice?.trim();
-        const workflow = manualCast ? 'Record this casting and spend its spell slot; resolve its effects manually.' : multiple
+        const selfSpell=linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name));
+        const workflow = selfSpell ? spellKey(a.name)==='mirror image' ? 'Create three duplicates of yourself.' : 'Create the blade, then attack using its Active spell actions button.' : manualCast ? 'Record this casting and spend its spell slot; resolve its effects manually.' : multiple
           ? execution.roll?.kind === 'attack' ? 'Cast once, then choose a target for each separate spell attack.' : saveOnly ? 'Cast, then choose targets to roll saving throws.' : 'Roll once, then apply to targets on the map.'
           : execution.roll?.healTarget === 'self' ? 'Restore your own health.'
             : saveOnly ? 'Cast and force the selected target to roll its saving throw.' : 'Cast at the selected target.';
@@ -116,7 +118,7 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!!spellActionBlock(caster) || (!manualCast && !menu && execution.roll?.kind !== 'heal' && !multiple && !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId))}
+            disabled={!!spellActionBlock(caster) || (!manualCast && !menu && !(linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name))) && execution.roll?.kind !== 'heal' && !multiple && !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId))}
             onClick={() => cast(a)}
           >
             {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}

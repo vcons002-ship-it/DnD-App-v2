@@ -35,6 +35,13 @@ export type Condition = {
     hasteActionUsed?: HasteAction;
     /** Lethargy lasts through the end of the affected creature's next turn. */
     lethargyStartedTurn?: string; lethargyTurnStarted?: boolean;
+    duplicates?: number;
+    castLevel?: number; abilityId?: string; targetTokenId?: string;
+    spellAction?: string; lastUseTurn?: string; itemDropped?: boolean;
+    speedReduction?: number; preventsHealing?: boolean; noOpportunityAttacks?: boolean;
+    attackDisadvantage?: boolean; checkDisadvantage?: boolean;
+    untilCasterEnd?: boolean; untilTargetStart?: boolean; casterTurnStarted?: boolean;
+    saveBeforeDamage?: boolean; once?: boolean;
   };
 
 };
@@ -1073,6 +1080,9 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  spellLink?: import('./linkedSpells.js').LinkedSpellContext;
+  /** Defended spell damage alone, excluding mark/other riders (Vampiric Touch). */
+  spellDamageAmount?: number;
   /** Server-only continuation. Removed from every outgoing snapshot. */
   live?: {kind: 'weapon' | 'spell'; args: unknown[]; fixed: unknown};
   hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
@@ -1141,6 +1151,7 @@ export type RollEntry = {
    *  attack rays. The DM and owning caster may target it; others receive no
    *  apply payload. Without save/attack metadata it is automatic damage. */
   apply?: {
+    damagePools?: {amount:number;damageType:string}[];
     amount: number;
     dc: number;
     /** One healing roll can be assigned to several creatures without recasting. */
@@ -1152,7 +1163,7 @@ export type RollEntry = {
       casterKind: TokenKind; casterId: string; spell: string; condition: string;
       eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
       expiresRound?: number; castId: string; concentrationConditionId: string;
-      repeatSave?: string;
+      repeatSave?: string; repeatDamage?: string; damageType?: string; attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     };
     orb?: OrbChain;
     save?: string;
@@ -1533,6 +1544,7 @@ export type HasteAction = 'attack' | 'dash' | 'disengage' | 'hide' | 'utilize';
 export type HasteActionPayload = {
   kind: TokenKind; refId: string; action: Exclude<HasteAction, 'attack'>;
 };
+export type SpellRepeatPayload = {kind:TokenKind;refId:string;conditionId:string;targetTokenId?:string;advantage?:'adv'|'dis'};
 /** Roll a saving throw (DC vs ability) for one or more tokens. `advantageByToken`
  *  carries each creature's armed adv/dis toggle (keyed by token id). */
 export type CombatSavePayload = {
@@ -1769,6 +1781,8 @@ export interface ClientToServerEvents {
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
   'haste:action': (payload: HasteActionPayload) => void;
+  'spell:repeat': (payload: SpellRepeatPayload) => void;
+  'spell:dropHeatedItem': (payload: {kind:TokenKind;refId:string;conditionId:string}) => void;
   /** Ready / Spent for a limited-use ability ("Recharge 5–6", "1/Day"). The DM
    *  resolves recharge manually; the creature's controller may flip it. */
   /** DM: the whole party takes a Short or Long Rest (2024 rules, shared/rests.ts). */

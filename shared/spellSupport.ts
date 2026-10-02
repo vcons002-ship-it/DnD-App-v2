@@ -1,3 +1,4 @@
+import {linkedSpellProfile} from './linkedSpells.js';
 import type { SheetAbility } from './types.js';
 import { abilityKey, hitFeature, markSpell } from './hitFeatures.js';
 import { effectiveSheetAbility, isCanonicalHasteProfile } from './spellExecution.js';
@@ -184,6 +185,43 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   if (input.type !== 'spell') return null;
   const ability: SheetAbility = { id: 'support-audit', description: '', ...input };
   const key = abilityKey(ability);
+  const linked=linkedSpellProfile(ability);
+  if(linked) {
+    const automated:Record<string,string>={
+      'mirror image':'Three translucent copies of the caster; per-hit duplicate checks, removal, sight exceptions, and one-minute expiry.',
+      'sorcerous burst':'Chosen damage type, cantrip/critical dice, and recursive maximum-face bonus dice capped by the casting modifier.',
+      'ice knife':'Piercing attack, then a Cold explosion on hit or miss, with one damage roll and grouped nearby-creature saves.',
+      "melf's acid arrow":'Initial Acid damage, half initial damage on a miss, and one delayed damage roll at target turn end after a hit.',
+      'vampiric touch':'Melee spell attack, critical damage, healing from defended Necrotic damage, and concentration-linked repeat attacks.',
+      'hold monster':'Initial and turn-end Wisdom saves, Paralysis and action restrictions, upcast targets, and concentration cleanup; Undead are eligible.',
+      'phantasmal killer':'Initial damage/save, attack/check disadvantage on failure, and turn-end saves before recurring damage.',
+      'heat metal':'Initial/repeated Fire damage, Constitution saves, heated-item penalties and a drop control, linked to concentration.',
+      'witch bolt':'Initial spell attack and subsequent Bonus Action damage, even after a miss; range/Total Cover break the link.',
+      'spiritual weapon':'Initial and repeat Bonus Action attacks with casting-modifier damage, upcasting, and concentration.',
+      'flame blade':'Create the blade, then use its repeat Magic action attacks with casting-modifier damage and concentration.',
+      'call lightning':'Initial/repeated 5-foot bursts, one Lightning damage pool followed by grouped Dexterity saves, and concentration.',
+      'ice storm':'Separate Bludgeoning/Cold pools, upcasting, per-type defenses, and one combined HP application per creature.',
+      'flame strike':'Separate Fire/Radiant pools, upcasting both, per-type defenses, and one combined HP application per creature.',
+      'meteor swarm':'Separate Fire/Bludgeoning pools, per-type defenses, and prevention of duplicate damage to a creature in overlapping areas.',
+      'guiding bolt':'Radiant spell attack and next-attack advantage, consumed by that attack or expired at the end of the caster next turn.',
+      'ray of frost':'Cold spell attack and live speed reduction until the caster next turn.',
+      'ray of sickness':'Poison damage and Poisoned on a hit, without an extra save; expires at the end of the caster next turn.',
+      'chill touch':'Melee d10 spell attack, cantrip scaling, and healing prevention through the end of the caster next turn.',
+      'shocking grasp':'Lightning spell attack and a timed no-Opportunity-Attacks condition; other actions/reactions remain available.',
+    };
+    const limitations:Record<string,string>={
+      'spiritual weapon':'Place/move the floating weapon and adjudicate its 20-foot movement and 5-foot reach; no automatic weapon token is placed.',
+      'flame blade':'Blade appearance and its continuous light are table-managed.',
+      'heat metal':'Select an eligible manufactured metal object; the DM adjudicates whether it can be dropped or armor must be removed.',
+      'call lightning':'Choose a point under the cloud and adjudicate cloud space and the existing-storm bonus; burst targeting currently uses a selected creature as its center.',
+      'ice storm':'Choose the cylinder targets and track temporary difficult terrain.',
+      'flame strike':'Choose targets inside the cylinder.',
+      'meteor swarm':'Choose targets inside the four spheres and adjudicate object/terrain effects.',
+      'shocking grasp':'Opportunity attacks are table-managed; the condition indicates that they cannot be made.',
+    };
+    return {status:'partial',label:'Partial',automated:[automated[key]??'Linked spell rolls and effects.'],
+      manual:[limitations[key]??'Range, targeting eligibility, and situational rules remain table adjudication.'],manualCastOnly:false};
+  }
   const effective = effectiveSheetAbility(ability);
   const revised = matchesRevisedSpell2024(effective);
   const authored = ability.source === 'custom' || ability.executionProfile === 'manual' ||

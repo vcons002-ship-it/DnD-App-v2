@@ -3,7 +3,9 @@
 Haste and Hold Person now execute their core combat effects. The catalog and
 runtime also correct reviewed older formulas while keeping unsupported mechanics
 flagged. The [full Spellbook support audit](SPELLBOOK_COMBAT_SUPPORT.md) lists
-every spell and the exact parts the app handles.
+every spell and the exact parts the app handles. The later
+[linked spell batch](LINKED_SPELLS_2024.md) adds follow-up damage, control, repeat
+actions, and Mirror Image; its workflow details supersede the earlier scope below.
 
 ## Haste
 
@@ -54,11 +56,11 @@ concentration. An old Apply button cannot revive a completed casting.
 | --- | --- |
 | Poison Spray | Ranged spell attack, 1d12 with cantrip scaling. |
 | Inflict Wounds | Constitution save, 2d10 Necrotic, half on success, +1d10 per upcast. |
-| Sorcerous Burst | Seven permitted damage types; Force removed. Bonus dice from maximum faces remain manual. |
+| Sorcerous Burst | Seven permitted damage types; Force removed. Bonus dice from maximum faces now roll automatically, capped at the casting modifier. |
 | False Life | 2d4 + 4 temporary HP, +5 per upcast. Keeps the larger existing pool; never heals wounds. |
-| Witch Bolt | Initial 2d12 Lightning, +1d12 per upcast, 60-foot range. Later Bonus Action damage/link rules remain manual. |
-| Flame Blade | 3d6 + casting modifier, +1d6 per upcast. Later attacks and blade light remain manual. |
-| Spiritual Weapon | Casting modifier, +1d8 per upcast, and 2024 concentration. Placeholder movement and repeat attacks remain manual. |
+| Witch Bolt | Initial 2d12 Lightning, +1d12 per upcast, 60-foot range. Active spell actions handles later Bonus Action damage and the distance/Total Cover link. |
+| Flame Blade | 3d6 + casting modifier, +1d6 per upcast. Active spell actions handles later attacks; continuous blade light remains manual. |
+| Spiritual Weapon | Casting modifier, +1d8 per upcast, and 2024 concentration. Repeat attacks use Active spell actions; weapon placement and movement remain manual. |
 | Mordenkainen's Sword | 4d12 + casting modifier, 90-foot range, no concentration. Later attacks remain manual. |
 | Wind Wall | Initial 4d8 Bludgeoning with Strength save for half. Physical wall behavior remains manual. |
 | Mass Cure Wounds | 5d8 + casting modifier, +1d8 per upcast; one roll for up to six recipients. |
@@ -68,9 +70,9 @@ concentration. An old Apply button cannot revive a completed casting.
 | Weird | Initial 10d10; ongoing 5d10, fear, and repeat saves remain manual. |
 | Ray of Enfeeblement | Initial Constitution save replaces the older attack. Success/failure weakening and repeat saves remain manual. |
 | Contagion | Constitution save and 11d8 Necrotic on failure. Disease, Poisoned, and repeat-save progression remain manual. |
-| Ice Storm | Description/components: 2d10 Bludgeoning + 4d6 Cold; +1d10 Bludgeoning per upcast. Both types remain manual. |
-| Flame Strike | Description/components: 5d6 Fire + 5d6 Radiant; +1d6 of each per upcast. Both types remain manual. |
-| Meteor Swarm | Description/components: 20d6 Fire + 20d6 Bludgeoning. Separate resistances and overlapping areas remain manual. |
+| Ice Storm | Description/components: 2d10 Bludgeoning + 4d6 Cold; +1d10 Bludgeoning per upcast. Separate typed pools now apply their defenses correctly; area selection remains table-managed. |
+| Flame Strike | Description/components: 5d6 Fire + 5d6 Radiant; +1d6 of each per upcast. Separate typed pools now apply their defenses correctly; area selection remains table-managed. |
+| Meteor Swarm | Description/components: 20d6 Fire + 20d6 Bludgeoning. Separate defenses and once-per-creature application are now enforced; sphere placement remains table-managed. |
 | True Strike, Aid, Prayer of Healing, Mass Heal | Correct descriptions; weapon-based attacks, max-HP changes, rests, or allocated healing pools are not ordinary single-target rolls. Remain manual. |
 | Glyph of Warding, Dream, Earthquake, Fire Shield, Geas, Elemental Weapon, Bestow Curse | Correct conditional timing: casting does not immediately apply their damage riders. Remain manual. |
 | Conjure Animals, Conjure Woodland Beings | New catalog entries describe the 2024 spirit areas and omit obsolete creature placeholders. Area/turn effects remain manual. |
@@ -98,12 +100,13 @@ spell slots, target limits, live repeat saves, critical modifiers, and preserved
 authored formulas. Browser tests run a disposable campaign with real Combat,
 Conditions, movement, initiative, and healing controls; no production save is used.
 
-Small next candidates that fit the existing condition/turn machinery:
+Linked hit riders below are implemented; Heal condition removal remains a candidate:
 
-- Guiding Bolt: grant and consume the next attack's advantage, with expiration.
-- Ray of Frost: apply and expire the speed reduction.
+- Guiding Bolt: now grants and consumes the next attack's advantage, with expiration.
+- Ray of Frost: now applies and expires the speed reduction.
 - Heal: remove Blinded, Deafened, and Poisoned with its existing fixed healing.
-- Shocking Grasp: prevent reactions for its stated duration.
+- Shocking Grasp: now marks Opportunity Attacks as unavailable for its duration;
+  other reactions remain available under the 2024 rule.
 
 Rules sources: [2024 Free Rules spell descriptions](https://www.dndbeyond.com/sources/dnd/br-2024/spell-descriptions)
 and [Witch Bolt, licensed 2024 PHB compendium](https://roll20.net/compendium/dnd5e/Spells%3AWitch%20Bolt?expansion=32231&from_listings=true).

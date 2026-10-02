@@ -3429,6 +3429,7 @@ export function applyDamage(
   const table = kind === 'pc' ? 'characters' : 'monsters';
   let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   if (!entity || !Number.isFinite(amount)) return null;
+  if(amount<0&&!opts?.correction&&entity.conditions.some(c=>c.combatEffect?.preventsHealing))return entity;
   // Clamp to a sane magnitude so a buggy/forged event can't apply absurd values.
   amount = Math.trunc(Math.max(-10000, Math.min(10000, amount)));
   // Dead creatures can't regain hit points. Ordinary healing is refused outright
@@ -3545,7 +3546,7 @@ function clearDeadControlEffects(kind:TokenKind,refId:string):void {
   const entity=kind==='pc'?getCharacter(refId):getMonster(refId);
   if(!entity || !isDeadEntity(kind,entity)) return;
   for(const c of entity?.conditions??[]) if(!c.isConcentration && !c.combatEffect?.parentConditionId &&
-    c.combatEffect?.spell.toLowerCase()==='hold person' && c.combatEffect.castId) clearCondition(kind,refId,c.id);
+    ['hold person','hold monster'].includes(c.combatEffect?.spell.toLowerCase()??'') && c.combatEffect?.castId) clearCondition(kind,refId,c.id);
 }
 
 /** Set a creature's temporary-HP buffer to an exact amount (mirrors the
