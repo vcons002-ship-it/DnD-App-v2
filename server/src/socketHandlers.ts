@@ -379,7 +379,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                       targetLabels.set(key,token?(token.kind==='monster'&&token.revealTag&&token.revealTag!=='U'?token.revealTag:liveRollTarget(view!,[target])):undefined);
                     }
                     return targetLabels.get(key);
-                  });
+                  },{hideModifiersFor:target=>getConn(id)?.role!=='dm'&&(target.kind==='monster'||isDm()),hideDc:getConn(id)?.role!=='dm'});
                   if(shaped){io.to(id).emit('dice:frame',shaped);lastDelivered.set(id,frame.id);}
                   continue;
                 }

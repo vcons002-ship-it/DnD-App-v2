@@ -20,13 +20,24 @@ that permit chosen recipients show checkboxes and enforce their target limit.
 Overlapping areas affect each creature once.
 
 Damage is rolled once, retaining separate damage types. Saves then roll together
-with each creature's tag/name, bonus, equation and PASS/FAIL in the same display.
+with each creature's tag/name and PASS/FAIL in the same display. The DM sees
+creature bonuses and equations; players receive raw creature dice and outcomes
+without those private statistics or DCs. Player-initiated PC rolls keep their
+own bonuses. Creature attack/save totals, stat chips and HP bookkeeping also
+stay out of player roll logs and result popups.
 Advantage/disadvantage belongs to the appropriate creature. HP and effects commit
 after the physical roll presentations finish. Individual log entries remain,
 without replaying the saves one by one. Hidden creatures' save dice and identities
 are filtered for each viewer. A player may place an origin only in their own
 current vision and revealed map fog; a confirmed blast can still hit unseen
 bystanders behind that origin when they have no Total Cover.
+
+Ice Knife first resolves its Piercing attack, then nearby creatures make their
+Dexterity saves together, then the shared Cold explosion damage is rolled.
+The save results do not replay after the explosion. The same once-only result
+presentation applies to single-target spell saves, hit riders and recurring
+spell saves; their PASS/FAIL and supported effect explanation appear on the
+live tray rather than on an additional result popup.
 
 ## Coverage and boundaries
 

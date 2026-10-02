@@ -337,10 +337,9 @@ function damageBreakdownTotal(detail: DamageBreakdown): number {
   return [...detail.dice, ...detail.mods].reduce((sum, step) => sum + step.value, 0);
 }
 
-/** True when a creature's stats are hidden from players (an enemy/neutral monster),
- *  so its roll's modifier breakdown must be stripped from player logs/reveals. */
+/** Creature roll modifiers are DM-only, including friendly creatures and summons. */
 function hidesMods(kind: TokenKind, refId: string): boolean {
-  return kind === 'monster' && getMonster(refId)?.disposition !== 'friendly';
+  return kind === 'monster';
 }
 
 export function applyDamageNoted(
@@ -1664,8 +1663,15 @@ export function resolveForcedSave(
       const adv = saveAdvantage(
         r.conditionLabels, ability, advantage, strFeatureAdv(r.kind, r.refId, ability),
       );
-      const out = rollSavingThrow(r.c, ability, apply.dc, adv.state, proficient);
       const sb = saveBonus(r, ability);
+      const saveEffect=(pass:boolean)=>{
+        if(apply.amount>0)return `${pass?'Save passed':'Save failed'} - ${defended(pass)} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
+        if(src?.label.trim().toLowerCase()==='pushing attack')return pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
+        if(apply.effect)return pass?`${apply.effect.spell} resisted - not ${apply.effect.condition}.`:`${apply.effect.spell} successful - ${apply.effect.condition}; repeat the save at the end of each turn.`;
+        if(apply.onFail)return pass?`${src?.label??'Effect'} resisted - no ${apply.onFail}.`:`${src?.label??'Effect'} successful - ${apply.onFail}.`;
+        return `${src?.label??'Effect'} ${pass?'resisted':'successful'}!`;
+      };
+      const [out] = rollSaveBatch([{target:tok,c:r.c,ability,dc:apply.dc,mode:adv.state,proficient,extra:sb.add,autoFail:false,passEffect:saveEffect(true),failEffect:saveEffect(false)}],`${src?.label??'Effect'} — ${ability.toUpperCase()} Saving Throw`);
       const total = out.total + sb.add;
       const pass = total >= apply.dc;
       const savedAmount = apply.saveDamage === 'none' ? 0 : Math.floor(apply.amount / 2);
@@ -1678,7 +1684,7 @@ export function resolveForcedSave(
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
       saveReveal = checkReveal({
         who: r.name,
-        title: `${src?.label ?? 'Effect'} ? ${ability.toUpperCase()} Saving Throw`,
+        title: `${src?.label ?? 'Effect'} — ${ability.toUpperCase()} Saving Throw`,
         face: out.face,
         total,
         steps: [
@@ -1726,7 +1732,7 @@ export function resolveForcedSave(
     detail,
     hpNote: saveNote,
     hideMods: r.kind === 'monster' && getMonster(r.refId)?.disposition !== 'friendly',
-    ...(saveReveal ? { reveal: {...saveReveal,presentedLive,visibilityTarget:{kind:tok.kind,refId:tok.refId}} } : {}),
+    ...(saveReveal ? { reveal: {...saveReveal,presentedLive:presentedLive||usingPhysicalDice(),visibilityTarget:{kind:tok.kind,refId:tok.refId}} } : {}),
   }, resolutionRollId);
 }
 

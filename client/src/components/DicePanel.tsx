@@ -428,7 +428,7 @@ export function DicePanel({
               className={`roll-entry cat-${rollCategory(r)}`}
               style={{ borderLeftColor: color }}
             >
-              <span className="roll-total">{r.total}</span>
+              {!r.hideTotal&&<span className="roll-total">{r.total}</span>}
               <span className="roll-meta">
                 <strong style={{ color }}>{r.roller}</strong>
                 {r.label ? ` · ${r.label}` : ''}{' '}

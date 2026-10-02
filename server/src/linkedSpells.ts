@@ -139,7 +139,7 @@ export function linkedDamageComplete(sid:string,roller:string,ctx:LinkedSpellCon
   if(spellKey(ctx.spell)==='ice knife')resolveSpellArea(sid,roller,ctx,target,5,`${ctx.castLevel+1}d6`,'cold','DEX','none');
 }
 
-/** One damage pool, then a single grouped throw with labeled per-creature saves. */
+/** One shared damage pool and grouped save throw; Ice Knife saves before exploding. */
 export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext,center:Token,radius:number,expression:string,type:string,save:string,saveDamage:'half'|'none'='half') {
   const map=getMap(center.mapId)!,seen=new Set<string>();
   const targets=listTokens(center.mapId).filter(t=>{
@@ -147,13 +147,17 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
     if(!e||('objectKind'in e&&e.objectKind)||seen.has(key)||tokenDistanceFt(t,center,map)>radius+1e-6||!hasLineOfSight(center,t,map.walls))return false;
     seen.add(key);return true;
   });
-  const damage=withDiceMetadata({label:`${ctx.spell} — ${type} Damage`},()=>rollDice(expression))!,impactId=newId();
-  addRollLog(sid,{roller,label:ctx.spell,expr:expression,total:damage.total,detail:`${ctx.spell} → ${entity(center.kind,center.refId)!.name}: ${damage.detail}.`,
-    reveal:{presentedLive:usingPhysicalDice(),kind:'damage',title:`${ctx.spell} — ${type} Damage`,attacker:ctx.spell,target:entity(center.kind,center.refId)!.name,outcome:'none',damage:damage.total,damageType:type,
-      damageDice:[{label:type,value:damage.total,faces:damage.rolls,diceExpression:expression}]}},impactId);
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,
     mode:saveAdvantage(labels,save).state,proficient:e.saveProficiencies.includes(save),extra:saveExtra(e,save).total,autoFail:!!saveAutoFail(labels,save)};});
-  const saves=rollSaveBatch(requests,`${ctx.spell} — ${save} Saving Throws`);
+  const saveFirst=spellKey(ctx.spell)==='ice knife';
+  const rollSaves=()=>rollSaveBatch(requests,`${ctx.spell} — ${save} Saving Throws`);
+  const before=saveFirst?rollSaves():undefined;
+  const damage=withDiceMetadata({label:`${ctx.spell} — ${type} Damage`},()=>rollDice(expression))!,impactId=newId();
+  const addDamageLog=()=>addRollLog(sid,{roller,label:ctx.spell,expr:expression,total:damage.total,detail:`${ctx.spell} → ${entity(center.kind,center.refId)!.name}: ${damage.detail}.`,
+    reveal:{presentedLive:usingPhysicalDice(),kind:'damage',title:`${ctx.spell} — ${type} Damage`,attacker:ctx.spell,target:entity(center.kind,center.refId)!.name,outcome:'none',damage:damage.total,damageType:type,
+      damageDice:[{label:type,value:damage.total,faces:damage.rolls,diceExpression:expression}]}},impactId);
+  if(!saveFirst)addDamageLog();
+  const saves=before??rollSaves();
   requests.forEach((r,i)=>{
     const e=entity(r.target.kind,r.target.refId)!,out=saves[i],total=out.total+r.extra,pass=!r.autoFail&&total>=ctx.dc;
     const amount=Math.floor((pass?(saveDamage==='none'?0:Math.floor(damage.total/2)):damage.total)*damageMultiplier(type,[...e.resistances,...stanceResistances(r.target.kind,e.id)],e.weaknesses,e.immunities,{magical:true}));
@@ -161,7 +165,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
     addRollLog(sid,{roller,label:`${ctx.spell}: ${save} save`,expr:`${save} save`,total,hpNote,hideMods:r.target.kind==='monster'&&('disposition'in e&&e.disposition!=='friendly'),
       detail:`${e.name}: ${save} save ${total} — ${pass?'PASS':'FAIL'}; ${amount} ${type} damage.`,
       reveal:{presentedLive:usingPhysicalDice(),kind:'check',title:`${ctx.spell} — ${save} Saving Throw`,attacker:e.name,target:e.name,outcome:pass?'pass':'fail',d20:out.face,attackTotal:total,toHit:[{label:`${save} save modifiers`,value:total-out.face}],effectOutcome:`${pass?'Save passed':'Save failed'} — ${amount} ${type} damage.`,visibilityTarget:{kind:r.target.kind,refId:e.id}}});
-  });queueSpellImpact(sid,center.kind,center.refId,ctx.spell,impactId,Math.max(map.feetPerSquare,center.widthFt)+radius*2);
+  });if(saveFirst)addDamageLog();queueSpellImpact(sid,center.kind,center.refId,ctx.spell,impactId,Math.max(map.feetPerSquare,center.widthFt)+radius*2);
 }
 
 export function mixedSpellDamage(sid:string,roller:string,ctx:LinkedSpellContext) {

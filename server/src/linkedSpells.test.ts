@@ -1,10 +1,11 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {withDiceSource} from '../../shared/dice.js';
 import {effectiveSheetAbility} from '../../shared/spellExecution.js';
+import {spellCombatSupport} from '../../shared/spellSupport.js';
 import {linkedSpellProfile,mirrorImageCount} from '../../shared/linkedSpells.js';
 import {effectiveSpeed,spellActionBlock} from '../../shared/spellBuffs.js';
 import type {SheetAbility} from '../../shared/types.js';
-import {getSpell} from './spells/srd.js';
+import {getSpell,getAllSpells} from './spells/srd.js';
 import {resolveAbilityRoll,resolveAttack,resolveForcedSave,resolveAttackDamage,resolveCheck} from './combat.js';
 import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner} from './linkedSpells.js';
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
@@ -29,6 +30,35 @@ const monsterHp=(f:ReturnType<typeof setup>)=>getMonster(f.monster.id)!.curHp;
 const casterNow=(f:ReturnType<typeof setup>)=>getCharacter(f.caster.id)!;
 
 describe('2024 linked spell profiles',()=>{
+  it.each([false,true])('Ice Knife resolves its explosion saves once before cold damage (manual damage: %s)',async manual=>{
+    const f=setup('Ice Knife');setManualDamage(f.session.id,manual);
+    const rolls:{sides:number[];label?:string}[]=[];
+    const live=async(run:()=>void)=>runLiveCommand(run,()=>{}, {label:'Ice Knife',roller:'Mage',className:'Wizard'},async(sides,_publish,_meta,_seed,info)=>{
+      rolls.push({sides,label:info?.label});return sides.map(s=>s===20?15:4);
+    });
+    await live(()=>{expect(f.cast()).toBe(true);});
+    if(manual){const hit=listRollLog(f.session.id).find(r=>r.pending&&!r.pending.done)!;expect(hit).toBeTruthy();await live(()=>{expect(resolveAttackDamage(f.session.id,'Mage',hit.id)).toBe(true);});}
+    const savesIndex=rolls.findIndex(r=>r.label?.includes('DEX Saving Throws'));
+    const coldIndex=rolls.findIndex(r=>r.label?.includes('cold Damage'));
+    expect(savesIndex).toBeGreaterThan(0);expect(coldIndex).toBe(savesIndex+1);
+    expect(rolls[savesIndex].sides).toEqual([20,20]);expect(rolls[coldIndex].sides).toEqual([6,6]);
+    const checks=listRollLog(f.session.id).filter(r=>r.reveal?.kind==='check');
+    expect(checks).toHaveLength(2);expect(checks.every(r=>r.reveal?.presentedLive)).toBe(true);
+    const log=listRollLog(f.session.id);expect(log.findIndex(r=>r.id===checks[1].id)).toBeLessThan(log.findIndex(r=>r.reveal?.title?.includes('cold Damage')));
+    expect(log.filter(r=>r.reveal&&!r.reveal.presentedLive).some(r=>r.reveal?.kind==='check')).toBe(false);
+  });
+  it.each(getAllSpells().filter(s=>!spellCombatSupport(s)?.manualCastOnly&&effectiveSheetAbility({...s,id:'catalog'}).roll?.kind==='save').map(s=>s.name))('%s uses the common live save result without a later individual save popup',async name=>{
+    const f=setup(name);
+    updateMonster(f.monster.id,{creatureType:'Humanoid'});
+    const metadata:any[]=[];
+    const live=async(run:()=>void)=>runLiveCommand(run,()=>{}, {label:name,roller:'Mage',className:'Wizard'},async(sides,_publish,_meta,_seed,info)=>{metadata.push(info);return sides.map(n=>Math.min(10,n));});
+    await live(()=>{expect(f.cast()).toBe(true);});
+    const source=listRollLog(f.session.id).find(r=>r.apply?.save);
+    if(source&&!source.apply?.consumedTargets?.includes(f.target.id))await live(()=>resolveForcedSave(f.session.id,source.id,f.target.id));
+    const checks=listRollLog(f.session.id).filter(r=>r.reveal?.kind==='check');
+    expect(checks.length).toBeGreaterThan(0);expect(checks.every(r=>r.reveal?.presentedLive)).toBe(true);
+    expect(metadata.some(info=>info?.saveDice?.length)).toBe(true);
+  });
   it('presents area damage and save bonuses once in the live group before applying HP',async()=>{
     const f=setup('Call Lightning'),rolls:{sides:number[];label?:string}[]=[];
     await runLiveCommand(()=>{expect(f.cast()).toBe(true);},()=>{}, {label:'Call Lightning',roller:'Mage',className:'Wizard'},async(sides,_publish,_meta,_seed,info)=>{

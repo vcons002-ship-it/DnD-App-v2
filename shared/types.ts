@@ -1042,6 +1042,8 @@ export type RollReveal = {
   visibilityTarget?: {kind: TokenKind; refId: string};
   /** Faces already rolled by authoritative live physics; do not replay a cosmetic throw. */
   physical?: boolean;
+  /** Server-redacted roll: show dice/outcome without private stat calculations. */
+  hideModifiers?: boolean;
   /** 'attack' = a to-hit + damage reveal; 'damage' = a damage-only burst (a cast
    *  AoE/save spell's single damage roll, or one Magic Missile dart); 'check' = a
    *  single d20 + modifier chips → total (a skill/ability check, saving throw,
@@ -1137,6 +1139,8 @@ export type RollEntry = {
   label: string;
   expr: string;
   total: number;
+  /** Player payload has no private attack/check total; its numeric slot is zero. */
+  hideTotal?: boolean;
   detail: string;
   /** Optional long text (e.g. a cast spell's full rules text) — shown in the
    *  full roll log for others to read, but NOT in the compact map overlay. */
@@ -1147,15 +1151,13 @@ export type RollEntry = {
   reveal?: RollReveal;
   /** Accounting note for the HP change this roll applied ("Druk HP 42→38";
    *  temp HP shows as "42+5") — helps spot/correct mistakes. Carries the target
-   *  so `visibility.ts` can shape it per viewer: players see it for PCs and
-   *  friendly/neutral creatures; ENEMY creature changes are stripped. */
+   *  so `visibility.ts` can shape it per viewer: players see it for PCs;
+   *  creature HP bookkeeping stays with the DM. */
   hpNote?: { kind: TokenKind; refId: string; text: string };
   /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
   dmOnly?: boolean;
-  /** The roll is by/against an ENEMY/NEUTRAL creature whose stats players can't
-   *  see — so `visibility.ts` strips the labelled ability/proficiency/magic
-   *  modifier breakdown (in `detail` and the reveal) for players, keeping the
-   *  d20, total and outcome. Friendly/PC rolls show their mods normally. */
+  /** Private creature roll statistics: players receive raw dice and outcomes,
+   *  without numeric bonuses or calculated attack/save totals. */
   hideMods?: boolean;
   /** A caster-owned spell application: damage, save-only, darts, or separate
    *  attack rays. The DM and owning caster may target it; others receive no

@@ -41,10 +41,6 @@ import { deriveCombatRole } from '../../shared/combatRole.js';
 import { coveredByFog, tokenVisibleAt } from '../../shared/fog.js';
 import { peekUndo } from './undo.js';
 
-/** Sum a list of reveal steps' values. */
-const sumSteps = (steps?: { value: number }[]): number =>
-  (steps ?? []).reduce((s, x) => s + x.value, 0);
-
 /** A map shaped for the snapshot's map LIST (a picker): keep the metadata + the
  *  fog ENABLED flags, but drop the (potentially thousands of) revealed-cell
  *  strings — the canvas reads those only from the dedicated `map` field. */
@@ -56,19 +52,17 @@ const stripListFog = (m: MapState): MapState => ({
 
 /**
  * Shape a roll-log entry for PLAYERS: always redact the target AC (`vs AC ?`), and
- * for an ENEMY/NEUTRAL creature roll (`hideMods`) strip the creature's modifier
- * breakdown — the bracketed ability/proficiency/magic terms (`+4[DEX] +2[PROF]`,
- * `+4[STR]+1[MAGIC]`) and a save roll's `(+5 prof)` — plus collapse the reveal's
- * labelled bonus chips into one anonymous step so the count-up still reaches the
- * total without naming the creature's stats. The d20, total and outcome stay.
+ * for creature/DM rolls strip numeric modifiers and calculated attack/save
+ * totals. Keep the raw faces and outcome, without exposing an anonymous bonus
+ * that lets a player recover the creature's statistics.
  */
-function redactCreatureMods(e: RollEntry): RollEntry {
+function redactCreatureMods(e: RollEntry,privateStats=false): RollEntry {
   if(/^(Pick lock|Disarm trap)$/i.test(e.label??'')){
     const hideDc=(text:string)=>text.replace(/\s*vs DC\s+-?\d+/gi,'');
     e={...e,expr:hideDc(e.expr),detail:hideDc(e.detail)};
   }
   let detail = e.detail.replace(/vs AC -?\d+/g, 'vs AC ?');
-  if (!e.hideMods) return { ...e, detail };
+  if (!e.hideMods&&!privateStats) return { ...e, detail };
   detail = detail
     // Bracketed stat/proficiency/magic/mastery terms (content has a letter, so
     // dice faces like `[4,6]` are kept).
@@ -79,34 +73,43 @@ function redactCreatureMods(e: RollEntry): RollEntry {
     .trim();
   let reveal = e.reveal;
   if (reveal) {
-    const anon = (total: number, base: number) => {
-      const diff = total - base;
-      return diff !== 0 ? [{ label: '', value: diff }] : [];
-    };
+    const privateText=(text:string)=>text.replace(/(?:vs\s+)?(?:DC|AC)\s*-?\d+/gi,'').replace(/([dD]\d+|\])\s*[+-]\s*\d+/g,'$1').trim();
     const anonymousDice = (step: NonNullable<RollReveal['damageDice']>[number]) => {
-      const expression = step.diceExpression ?? step.label.match(/\d*d\d+/gi)?.join('+');
-      return {...step, critical:step.critical ?? /\bCRIT\b/i.test(step.label), ...(expression ? {diceExpression:expression} : {}),
+      const expression = (step.diceExpression ?? step.label).match(/\d*d\d+/gi)?.join('+');
+      return {...step, value:step.faces?.reduce((n,face)=>n+face,0)??step.value,
+        critical:step.critical ?? /\bCRIT\b/i.test(step.label), diceExpression:expression,
         label: expression ?? (step.label === 'CRIT' ? 'CRIT' : 'dice')};
     };
     reveal = {
       ...reveal,
+      title:reveal.title?privateText(reveal.title):undefined,
+      effectOutcome:reveal.effectOutcome?privateText(reveal.effectOutcome):undefined,
+      comparison:reveal.comparison?{...reveal.comparison,sets:reveal.comparison.sets.map(set=>({...set,total:set.dice.reduce((n,die)=>n+(die.negative?-die.value:die.value),0)})) as NonNullable<RollReveal['comparison']>['sets']}:undefined,
+      hideModifiers:true,attackTotal:undefined,
+      ...(reveal.kind==='dice'?{damage:undefined}:{}),
       ...(reveal.damageDice ? {damageDice:reveal.damageDice.map(anonymousDice)} : {}),
-      ...(reveal.toHit ? { toHit: anon(reveal.attackTotal ?? reveal.d20 ?? 0, reveal.d20 ?? 0) } : {}),
+      toHit:[],
       ...(reveal.damageMods
-        ? { damageMods: anon(reveal.damage ?? 0, sumSteps(reveal.damageDice)) }
+        ? { damageMods: [] }
         : {}),
       ...(reveal.damageBreakdown ? {
         damageBreakdown: {
           // Retain visible die faces but never disclose the creature feature,
           // rider or item name carried only by this richer log-only payload.
           dice: reveal.damageBreakdown.dice.map(anonymousDice),
-          mods: anon(reveal.damage ?? 0, sumSteps(reveal.damageBreakdown.dice)),
+          mods: [],
           ...(reveal.damageBreakdown.mixedTypes ? { mixedTypes: true } : {}),
         },
       } : {}),
     };
   }
-  return { ...e, detail, reveal };
+  const hideTotal=!reveal||reveal.kind!=='damage';
+  // No anonymous bonus: raw dice plus a final attack/save total would disclose
+  // exactly the stat addition. Free-form calculations/descriptions also stay DM-only.
+  const outcome=reveal?.outcome&&reveal.outcome!=='none'?reveal.outcome.toUpperCase():'';
+  const title=(reveal?.title??e.label).replace(/(?:vs\s+)?(?:DC|AC)\s*-?\d+/gi,'').trim();
+  return {...e,hideMods:true,hideTotal,total:hideTotal?0:e.total,description:undefined,
+    expr:title,detail:`${title}${reveal?.target?` → ${reveal.target}`:''}${outcome?` — ${outcome}`:''}${reveal?.kind==='damage'&&reveal.damage!==undefined?` — ${reveal.damage} ${reveal.damageType??''} damage`:''}.`,reveal};
 }
 
 // Moved to shared/ so `sessions.ts` (which visibility.ts imports) can use the
@@ -291,13 +294,9 @@ export function createSnapshotBuilder(
   if (activeMapId && mapById.has(activeMapId)) loadMapData(activeMapId);
 
   // Players see the attack resolution (HIT/MISS) but not the target's AC.
-  // The HP-accounting note ("Druk HP 42→38") follows the disposition tiers:
-  // players keep it for PCs and FRIENDLY creatures (whose HP they can see), but
-  // neutral/enemy HP changes are stripped like their hidden HP bar.
+  // Players keep PC HP-accounting notes; creature bookkeeping stays DM-only.
   const hpNoteVisible = (n: NonNullable<RollEntry['hpNote']>): boolean =>
-    n.kind === 'pc'
-      ? true
-      : monById.get(n.refId)?.disposition === 'friendly';
+    n.kind === 'pc';
 
   return (role, dmViewMapId, socketId, playerId) => {
     // Players are locked to the active map; the DM may view any map for prep.
@@ -387,13 +386,13 @@ export function createSnapshotBuilder(
         // DM rolls captured while "hide my rolls" was on never reach players.
         .filter((e) => !e.dmOnly)
         .map((e) => ({
-          ...redactCreatureMods(e),
+          ...redactCreatureMods(e,e.roller==='DM'||monsters.some(m=>m.name===e.roller)||e.reveal?.kind==='check'&&e.reveal.visibilityTarget?.kind==='monster'),
           // The "Apply damage" payload is a DM-only adjudication tool, and the
           // parked weapon damage is the attacker's own button.
           apply: undefined,
           pending: undefined,
           smite: undefined,
-          hpNote: e.hpNote && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
+          hpNote: e.hpNote?.kind==='pc' && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
       // …except the OWNER keeps their own entry's payload (both are stamped with
       // an `owner` character id): the player who cast Magic Missile assigns its

@@ -171,8 +171,10 @@ describe('itemized damage accounting', () => {
       expect(dm.damageBreakdown?.mods.map((step) => step.label)).toContain('MAGIC');
       expect(JSON.stringify(player.damageBreakdown)).not.toMatch(/MAGIC|flat|rider|fire|STR|vulnerable/);
       expect(player.damageBreakdown?.dice.map((step) => step.label)).toEqual(['2d6', '1d4']);
-      expect(player.damageBreakdown?.mods.every((step) => step.label === '')).toBe(true);
-      expect(total(player.damageBreakdown!)).toBe(player.damage);
+      expect(player.damageBreakdown?.mods).toEqual([]);
+      expect(player.hideModifiers).toBe(true);
+      expect(total(player.damageBreakdown!)).toBe(player.damageBreakdown!.dice.reduce((n,step)=>n+(step.faces??[]).reduce((a,b)=>a+b,0),0));
+      expect(player.damage).toBe(dm.damage); // Public damage dealt, without private arithmetic.
       expect(total(dm.damageBreakdown!)).toBe(dm.damage);
     });
   }

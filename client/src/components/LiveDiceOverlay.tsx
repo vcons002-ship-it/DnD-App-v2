@@ -131,13 +131,13 @@ export function LiveDiceOverlay(){
    const indices=frame.saveDice!.flatMap((s,j)=>s.group===save.group?[j]:[]);
    const faces=indices.map(j=>frame.values[j]??0),face=save.mode==='dis'?Math.min(...faces):Math.max(...faces);
    if(indices.length>1&&i!==indices[faces.indexOf(face)])return {calculation:'',outcome:'Discarded'};
-   const total=face+save.modifier;return {calculation:`${face} ${save.modifier>=0?'+':'−'} ${Math.abs(save.modifier)} = ${total}`,outcome:bonusesShown?(save.rollKind==='initiative'?`Initiative ${total}`:!save.autoFail&&total>=save.dc?'PASS':'FAIL'):'Adding bonuses…'};
+   const modifier=save.modifier??0,total=face+modifier;return {calculation:save.hideModifiers?'':`${face} ${modifier>=0?'+':'−'} ${Math.abs(modifier)} = ${total}`,outcome:bonusesShown?(save.rollKind==='initiative'?save.hideModifiers?'Initiative rolled':`Initiative ${total}`:(save.outcome??(!save.autoFail&&save.dc!==undefined&&total>=save.dc?'pass':'fail')).toUpperCase()):save.hideModifiers?'Resolving…':'Adding bonuses…'};
  };
  const saveBonus=(i:number)=>{
    const result=saveResult(i),save=frame.saveDice![i],visible=!!result;
    return <span className="tray-save-outcome" data-outcome={result?.outcome} data-bonus-phase={visible?(bonusesShown?'complete':'adding'):'waiting'}>
-     <small>{save.rollKind==='initiative'?'Initiative bonus':'Save bonus'} <em>{visible?`${save.modifier>=0?'+':'−'}${Math.abs(save.modifier)}`:'\u00a0'}</em></small>
-     <span className="tray-save-equation">{bonusesShown?result?.calculation:'\u00a0'}</span>
+     {!save.hideModifiers&&<><small>{save.rollKind==='initiative'?'Initiative bonus':'Save bonus'} <em>{visible?`${(save.modifier??0)>=0?'+':'−'}${Math.abs(save.modifier??0)}`:'\u00a0'}</em></small>
+     <span className="tray-save-equation">{bonusesShown?result?.calculation:'\u00a0'}</span></>}
      <b>{result?.outcome||'\u00a0'}</b>
      {bonusesShown&&result?.outcome!=='Discarded'&&(save.passEffect||save.failEffect)&&<small>{result?.outcome==='PASS'?save.passEffect:save.failEffect}</small>}
    </span>;

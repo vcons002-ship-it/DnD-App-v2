@@ -105,7 +105,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
         const outcomes=page.locator('.tray-save-outcome[data-bonus-phase="complete"]');
         const rollId=await page.locator('[data-live-dice="true"]').getAttribute('data-roll-id');
         if(await outcomes.count()&&!captured.has(rollId!)){
-          expect(await outcomes.first().innerText()).toMatch(/Save bonus|Initiative bonus/);
+          expect(await outcomes.first().innerText()).toMatch(/PASS|FAIL|Discarded/);
           await page.screenshot({path:info.outputPath('grouped-saves-bonuses.png')});
           captured.add(rollId!);
         }

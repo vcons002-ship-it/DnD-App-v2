@@ -48,6 +48,9 @@ export function damageRollBreakdown(entry: RollEntry): string | null {
   if ((entry.pending && !entry.pending.done) || !reveal ||
       (reveal.kind && reveal.kind !== 'attack' && reveal.kind !== 'damage') ||
       typeof reveal.damage !== 'number' || !Number.isFinite(reveal.damage)) return null;
+  // Never reconstruct an "unitemized" bonus from a redacted creature's raw
+  // dice and public damage dealt. The missing arithmetic is deliberately private.
+  if(reveal.hideModifiers)return `Damage: ${reveal.damage}${reveal.damageType?` ${reveal.damageType}`:''}`;
   const dice = reveal.damageBreakdown?.dice ?? reveal.damageDice ?? [];
   const mods = reveal.damageBreakdown?.mods ?? reveal.damageMods ?? [];
   if (!dice.length && !mods.length) return null;

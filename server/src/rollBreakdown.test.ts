@@ -44,6 +44,9 @@ describe('recorded damage breakdown formatting', () => {
       damageMods: [{ label: '', value: 3 }],
     }))).toBe('Damage: 1d8 [6] + 3 Modifier = 9');
   });
+  it('does not recreate a private creature bonus as an unitemized adjustment',()=>{
+    expect(damageRollBreakdown(entry({hideModifiers:true,damage:19,damageType:'fire',damageDice:[{label:'1d8',value:6,faces:[6]}],damageMods:[]}))).toBe('Damage: 19 fire');
+  });
   it('preserves arbitrary custom feature names without object-prototype lookups', () => {
     expect(damageRollBreakdown(entry({ damage: 2, damageMods: [{ label: 'constructor', value: 2 }] })))
       .toBe('Damage: 2 constructor = 2');

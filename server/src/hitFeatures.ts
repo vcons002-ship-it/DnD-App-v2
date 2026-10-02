@@ -6,7 +6,7 @@ import { rollDice, rollDicePool, withDiceMetadata, usingPhysicalDice } from '../
 import { hasLineOfSight } from '../../shared/mapWalls.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import { abilityMod, proficiencyBonus } from '../../shared/skills.js';
-import { damageMultiplier, rollSavingThrow, weaponIsMagical } from '../../shared/combatMath.js';
+import { damageMultiplier, weaponIsMagical } from '../../shared/combatMath.js';
 import { saveAdvantage, saveAutoFail } from '../../shared/conditionEffects.js';
 import { effectiveStats, saveExtra } from '../../shared/modifiers.js';
 import { spellSaveDC } from '../../shared/spellMath.js';
@@ -60,20 +60,20 @@ function save(sid:string,target:Token,ab:string,dc:number,label:string,adv?:'adv
   const state=saveAdvantage(labels,ab,adv,strFeatureAdv(target.kind,target.refId,ab)).state;
   const c={...e,stats:effectiveStats(e).scores,isMonster:target.kind==='monster',level:e.level??0};
   const killer=abilityKey({name:label})==='phantasmal killer';
-  const out=killer?rollSaveBatch([{target,c,ability:ab,dc,mode:state,proficient:(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab),extra:extra.total,autoFail:!!saveAutoFail(labels,ab),passEffect:'Spell ends; no damage.',failEffect:'Spell continues; roll psychic damage.'}],`${label} — End-of-turn ${ab} Saving Throw`)[0]
-    :withDiceMetadata({label:`${label} - ${ab} Saving Throw`,target:{kind:target.kind,refId:target.refId}},()=>rollSavingThrow(c,ab,dc,state,(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab)));
-  const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
   const ensnaring=abilityKey({name:label})==='ensnaring strike';
   const effectKey=abilityKey({name:label});
-  const explanation=ensnaring?(passed?'Resisted - no spell damage.':'Restrained - damage at the start of its turn.')
+  const explain=(passed:boolean)=>ensnaring?(passed?'Resisted - no spell damage.':'Restrained - damage at the start of its turn.')
     : effectKey==='stunning strike'?(passed?'Not stunned - slowed until the caster\'s next turn.':'Stunned until the caster\'s next turn.')
     : effectKey==='thunderous smite'?(passed?'Push and knockdown resisted.':'Knocked prone and pushed 10 ft.')
     : effectKey==='wrathful smite'?(passed?'Fear resisted or ended.':'Frightened - the effect continues.')
     : effectKey==='searing smite'?(passed?'Flames end after this turn\'s damage.':'Flames continue burning.')
     : effectKey==='hold person'?(passed?'Hold Person ends - no longer Paralyzed.':'Hold Person continues - Paralyzed; save again at the end of the next turn.')
     : killer?(passed?'Phantasmal Killer ends - no damage.':'Phantasmal Killer continues - roll psychic damage.') : undefined;
+  const [out]=rollSaveBatch([{target,c,ability:ab,dc,mode:state,proficient:(e.saveProficiencies??[]).some(v=>v.toUpperCase()===ab),extra:extra.total,autoFail:!!saveAutoFail(labels,ab),passEffect:explain(true),failEffect:explain(false)}],`${label} — ${killer?'End-of-turn ':''}${ab} Saving Throw`);
+  const total=out.total+extra.total, passed=!saveAutoFail(labels,ab)&&total>=dc;
+  const explanation=explain(passed);
   addRollLog(sid,{roller:e.name,label,expr:`${ab} save`,total,detail:`${e.name}: ${label} ${ab} save ${total} vs DC ${dc}: ${passed?'PASS':'FAIL'}${explanation?`. ${explanation}`:''}`,
-    reveal:{kind:'check',presentedLive:killer&&usingPhysicalDice(),title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
+    reveal:{kind:'check',presentedLive:usingPhysicalDice(),title:`${label} - ${ab} Saving Throw`,attacker:e.name,d20:out.face,attackTotal:total,
       toHit:[{label:`${ab} save modifiers`,value:total-out.face}],outcome:passed?'pass':'fail',effectOutcome:explanation,
       visibilityTarget:{kind:target.kind,refId:target.refId}}});
   return passed;

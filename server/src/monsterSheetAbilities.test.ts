@@ -177,7 +177,7 @@ describe('legacy action merge (ONE rollable system)', () => {
 });
 
 describe('hpNote disposition shaping for players', () => {
-  it('players see friendly/neutral/PC HP changes but never enemy ones', () => {
+  it('keeps creature HP bookkeeping private even when a friendly sheet is accessible', () => {
     const s = createSession('HpNote');
     // This test examines an applied HP note. Spell attacks now honor the same
     // two-step setting as weapons; its parked-damage flow has separate tests.
@@ -207,11 +207,9 @@ describe('hpNote disposition shaping for players', () => {
     expect(buildSnapshot(s.id, 'dm')!.rollLog.at(-1)!.hpNote?.text).toContain('HP');
     // Default disposition is enemy → the note is stripped for players.
     expect(buildSnapshot(s.id, 'player')!.rollLog.at(-1)!.hpNote).toBeUndefined();
-    // Friendly (HP visible to players) → the note shows. (Neutral now hides like
-    // enemy — only friendly creatures expose HP to players.)
+    // Friendly sheet access does not make the DM's roll/HP bookkeeping public.
     updateMonster(enemy.id, { disposition: 'friendly' });
-    expect(
-      buildSnapshot(s.id, 'player')!.rollLog.at(-1)!.hpNote?.text,
-    ).toContain('HP');
+    expect(buildSnapshot(s.id,'player')!.rollLog.at(-1)!.hpNote).toBeUndefined();
+    expect(buildSnapshot(s.id,'dm')!.rollLog.at(-1)!.hpNote?.text).toContain('HP');
   });
 });

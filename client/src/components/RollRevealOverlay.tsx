@@ -429,7 +429,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
           {reveal.attacker}
           {reveal.target ? <span className="rr-arrow"> &rarr; {reveal.target}</span> : reveal.kind==='damage' ? <span className="rr-arrow"> &middot; Targets not selected</span> : ''}
         </div>
-        {mapImpact && <div className="roll-impact-summary" role="status">
+        {mapImpact && (!reveal.hideModifiers||reveal.kind==='damage') && <div className="roll-impact-summary" role="status">
           <strong>{reveal.damage !== undefined ? reveal.damage : reveal.attackTotal}</strong>
           <span>{reveal.damage !== undefined ? isDice ? /healing/i.test(reveal.title??'')?'healing':'total' : `${reveal.damageType ?? ''} damage` : isCheck ? /save|saving throw/i.test(reveal.title??'')?'Save total':'Check total' : 'Attack total'}</span>
         </div>}
@@ -443,7 +443,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
                 locked={stage.phase === 'rolling' || stage.phase === 'landing' ? 0 : 1} tick={stage.dieFace}
                 onSettled={(_, set) => landings.current.d20?.(set)} />
               : <DieShape sides={20} value={stage.dieFace || 0} big rolling={stage.phase === 'rolling'} onSettled={() => landings.current.d20?.(0)} />}
-            <div className="rr-buildup rr-equation" aria-label="Roll calculation">
+            {!reveal.hideModifiers&&<div className="rr-buildup rr-equation" aria-label="Roll calculation">
               {stage.phase !== 'rolling' && stage.phase !== 'landing' && <>
                 <span className="rr-equation-base"><strong>{reveal.d20}</strong><small>{comparison?'Kept d20':'d20 roll'}</small></span>
                 {toHit.slice(0, stage.toHitShown).map((s, i) => (
@@ -454,7 +454,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
                 <span className="rr-equals">=</span>
               </>}
               <span className="rr-equation-total"><strong className="rr-total">{toHitShownNum}</strong><small>{stage.phase==='rolling'||stage.phase==='landing'?'Rolling...':stage.toHitShown<toHit.length?'Adding modifiers...':'Total'}</small></span>
-            </div>
+            </div>}
           </div>
         )}
 
@@ -488,7 +488,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
                 );
               })}
             </div>}
-            <div className="rr-equation" aria-label="Damage or dice calculation">
+            {reveal.hideModifiers ? (reveal.kind==='damage'&&reveal.damage!==undefined&&<div className="rr-equation"><strong className="rr-dmg-num">{reveal.damage}</strong><small>{reveal.damageType??''} damage</small></div>) : <div className="rr-equation" aria-label="Damage or dice calculation">
               {(stage.diceLocked>0 || staticReveal || !faces.length) && <>
                 <span className="rr-equation-base"><strong>{faces.slice(0,positiveDiceLocked).reduce((sum,die)=>sum+die.value,0)}</strong><small>Dice subtotal</small></span>
                 {mods.slice(0, stage.modsShown).map((m, i) => (
@@ -501,7 +501,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
               <span className="rr-equation-total"><strong className={isDice ? 'rr-roll-num' : 'rr-dmg-num'}>{dmgShownNum}</strong>
                 <small>{stage.diceLocked<faces.length?'Rolling...':stage.modsShown<mods.length?'Applying modifiers...':isDice?'Total':`${reveal.damageBreakdown?.mixedTypes?'Mixed':reveal.damageType??''} damage`}</small>
               </span>
-            </div>
+            </div>}
           </div>
         )}
       </div>
