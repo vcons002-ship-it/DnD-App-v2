@@ -29,6 +29,7 @@ import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
+import {createArchArtStudy} from './archArtStudy';
 import {
   miniatureCameraTarget,
   perspectiveDistance,
@@ -401,7 +402,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
-        if (props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        if (archArtStudy || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -463,6 +464,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
+        archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
+          [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})));
         visionLift.render(!!props.personalVision);
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();
@@ -504,7 +507,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
+    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -637,6 +640,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const raisedStudy=import.meta.env.VITE_COURTYARD_STUDY==='1'&&new URLSearchParams(location.search).get('raisedWalls')==='1'
     ?createRaisedMapStudy(scene,host,invalidate):null;
+  const archArtStudy=import.meta.env.VITE_ARCH_ART_STUDY==='1'&&new URLSearchParams(location.search).get('archArt')==='1'
+    ?createArchArtStudy(renderer,outlineMask.texture,host,invalidate):null;
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
@@ -879,6 +884,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     shaderWarmup.dispose();
     raisedStudy?.dispose();
+    archArtStudy?.dispose();
     spellImpacts.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());

@@ -12,7 +12,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   repainting supports. A stricter prompt rejects the courtyard's two lower
   wall-top false positives. Verify the two upper openings against existing jambs,
   player movement and vision; keep uncertain candidates review-only. Retain a
-  separate interactive under-arch fade prototype, not enabled in the app.
+  corrected 2D arch-art overlay test that fades only figure-covered pixels,
+  not enabled in normal builds. The extruded arch preview is retired.
 
 - [x] Compare a reusable generated old-stone wall material against the ordinary
   map after running the real automatic wall workflow. Record matched player

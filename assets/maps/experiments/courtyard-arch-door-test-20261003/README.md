@@ -37,17 +37,29 @@ of a supported overhead bridge and visible passage, excluding broken wall tops.
 `v2-supports.json` is obsolete experimental geometry, never used in the latest
 conversion or production workflow.
 
-## Depth preview
+## Corrected 2D art test
 
-The separate interactive prototype lifts only one detected arch span, using
-original map pixels on its top and the prior reusable stone material on its
-sides. Druk crosses beneath it; the overhead span smoothly fades to 16% opacity
-while the supporting masonry stays solid. This is NOT integrated into the
-battlefield. Clearance and thickness are illustrative estimates. The hidden
-floor uses a nearby floor-art sample because the original image cannot reveal
-pixels underneath the arch. No new floor art was generated.
+The earlier extruded arch preview misunderstood the request and is retired.
+Raised walls remain parked. The current test copies masked ORIGINAL arch pixels
+above the tokens on the normal 2D map. A token under the arch activates a local
+88% opacity reduction only at opaque body-silhouette pixels. Surrounding arch
+art stays fully opaque. The effect smoothly restores when the token leaves.
+The floor image is untouched; there are no raised surfaces, height estimates,
+new materials, floor patches or additional model loads.
 
-Preview, raw masks, actual app walkthrough and interactive fade:
+The effect uses the already-rendered GPU body mask, with no CPU pixel readback
+or second figure render. It is gated by VITE_ARCH_ART_STUDY=1 plus archArt=1,
+and /uploads/arch-art-study.json restricts it to one disposable map. Normal
+builds omit this experiment. Darkness/weather and 2D token fallback modes are
+not established by this clear-map test.
+
+Four actual player drags pass in 45-degree and overhead views. Browser errors
+are empty, local fade returns to zero after exit, and an on/off comparison
+checks the silhouette-specific overlay. See art-2d-receipt.json and
+art-2d-comparison.json. Previous depth viewer sources/receipts are retained
+only as superseded experiment history and are no longer loaded by the preview.
+
+Preview, latest mask and corrected 2D app walkthrough:
 https://dnd.nic024i.app/uploads/previews/courtyard-arch-door-test-20261003/index.html
 
 ## Repeat
@@ -72,4 +84,4 @@ open a wall or its sight line, and jambs remain solid. Repeat with:
 node --import tsx server/tools/asset-production/check_door_arch_confidence.mts
 ```
 Typecheck and all 145 server test files / 1,627 tests passed. Browser checks
-verified 16%/100% span opacity, playable mobile video, and no JavaScript errors.
+verified local 2D silhouette fading, playable mobile video, and no JavaScript errors.
