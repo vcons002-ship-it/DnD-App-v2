@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "22898de8cf254963a6c26a9afde80841",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\experiments\\druk-3d-render-20261002\\references\\front.png",
+      "sha256": "7e5160d97e755da320f9727ffc8a6bc30705fd4483b3dade9bfc46f230f88408"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\experiments\\druk-3d-render-20261002\\references\\back.png",
+      "sha256": "017b73b6df712937ead0dd86d9efca3c08a3a0030cefca1d24400762177ab614"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\experiments\\druk-3d-render-20261002\\references\\left.png",
+      "sha256": "ac5f19ca9bb40e1b692bc8be03e7bc38b3bba2c7acd6273d073cf5961315d861"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\miniatures\\experiments\\druk-3d-render-20261002\\references\\right.png",
+      "sha256": "9528e87fbbff0efa7819dbe4677bd99bd8e0b6d8012b0da2d0decabf82e58e18"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 101026,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 101026,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 753280,
+    "number_of_vertices": 376637,
+    "time": {
+      "remove background": 1.1748325824737549,
+      "shape generation": 60.18351936340332,
+      "export to trimesh": 0.1866295337677002,
+      "face reduction": 7.895627737045288,
+      "texture generation": 40.63476204872131,
+      "total": 110.11496472358704
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 101026,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\druk-3d-style-generation\\00_white_mesh.glb",
+      "sha256": "f0f872879d534b157c38a3f220649c7b1b0ab606b50d759808f6ee9dad14f07e",
+      "bytes": 13559792,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\druk-3d-style-generation\\01_textured_mesh.glb",
+      "sha256": "20312a3970e92913fdca828578524d62e9e28b499008e6c61f2ebb1d1ec11be4",
+      "bytes": 4783588,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 111.578,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

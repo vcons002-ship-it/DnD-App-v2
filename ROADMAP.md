@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Test Druk using four references prompted as a rendered 3D sculpt; retain
+  the full textured reconstruction and a standalone interactive comparison.
+  This experiment does not replace the current runtime character model.
+
 - [x] Replace the procedural death skull with a textured four-view 2D-to-3D
   skull; use all views for shape and texture, compress it with the accepted
   reduction policy, and preload/share it across defeated tokens.

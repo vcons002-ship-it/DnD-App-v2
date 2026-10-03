@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Druk — rendered 3D reference experiment</title>
+<style>
+body{margin:0;background:#11151a;color:#eee;font:16px/1.5 system-ui}main{max-width:1300px;margin:auto;padding:18px}h1{font-size:26px;margin:0 0 8px}p{color:#bdc6d1}button,a{color:#edd8ab}button{background:#29313c;border:1px solid #697484;border-radius:6px;padding:9px 13px;margin:3px;cursor:pointer}.labels{display:flex;text-align:center;font-weight:700}.labels>div{width:50%;padding:10px}#viewport{width:100%;height:650px;max-height:75vh;touch-action:none;border-radius:10px;overflow:hidden}canvas{display:block}.references{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.references img{width:100%;background:#31353b;border-radius:8px}@media(max-width:600px){main{padding:10px}.labels{font-size:13px}#viewport{height:500px}.references{grid-template-columns:repeat(2,1fr)}}
+</style>
+<main>
+<h1>Druk: “rendered 3D sculpt” reference test</h1>
+<p>Left: current assembled miniature. Right: fresh reconstruction from four images explicitly prompted as a rendered 3D sculpt, before head, hand or weapon repairs. Both use the same preview lighting and a unit-width base.</p>
+<div><button data-view="front">Front</button><button data-view="tilted">45°</button><button data-view="overhead">Overhead</button><button data-view="face">Face detail</button><button id="rotate">Rotate together</button></div>
+<div><button data-model="both">Both models</button><button data-model="0">Current only</button><button data-model="1">New only</button></div>
+<div class="labels"><div>Current Druk</div><div>Rendered 3D reference test</div></div>
+<div id="viewport"></div><p id="status">Loading both models…</p>
+<p>This is a visual comparison, not a controlled proof that a phrase improves reconstruction. The current model includes earlier manual head, hand and weapon assembly; this candidate has none. The image generator can also vary pose and proportions between views.</p>
+<p><a href="candidate.glb">Download new candidate GLB</a> · <a href="prompts.json">Exact image prompts</a> · <a href="generation_receipt.json">Verified multi-view receipt</a></p>
+<h2>New 2D references</h2><p>These are generated images depicting a 3D sculpt, not actual 3D renders. The comparison above loads the actual reconstructed meshes.</p>
+<div class="references"><img src="references/front.png" alt="Front reference"><img src="references/back.png" alt="Back reference"><img src="references/left.png" alt="Left reference"><img src="references/right.png" alt="Right reference"></div>
+</main><script type="module" src="viewer.bundle.js"></script></html>
