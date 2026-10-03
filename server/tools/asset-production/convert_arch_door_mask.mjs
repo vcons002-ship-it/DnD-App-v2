@@ -1,6 +1,6 @@
 /** Disposable door/arch mask conversion. Does not alter a saved map. */
-import fs from 'node:fs/promises';import path from 'node:path';import sharp from 'sharp';import clipping from 'polygon-clipping';
-import {wallsFromYellowMask} from '../../src/wallMask.ts';import {doorsFromMask} from '../../src/doorMask.ts';import {wallContours} from '../../../shared/wallGeometry.ts';import {polygonWall,cutPolygonDoor} from '../../src/wallPolygonDoor.ts';import {stopAtWalls,hasLineOfSight,sanitizeWalls,wallCollisionRadiusFt} from '../../../shared/mapWalls.ts';
+import fs from 'node:fs/promises';import path from 'node:path';import sharp from 'sharp';
+import {wallsFromYellowMask} from '../../src/wallMask.ts';import {doorsFromMask} from '../../src/doorMask.ts';import {cutArchOpening} from '../../src/archOpeningCut.ts';import {stopAtWalls,hasLineOfSight,sanitizeWalls,wallCollisionRadiusFt} from '../../../shared/mapWalls.ts';
 const [directory,baselinePath]=process.argv.slice(2);if(!directory||!baselinePath)throw Error('Usage: node --import tsx convert_arch_door_mask.mjs DIRECTORY BASELINE_WALLS');
 const out=path.resolve(directory),original=await fs.readFile(out+'/original.png'),mask=await fs.readFile(path.join(out,path.basename(JSON.parse(await fs.readFile(out+'/api-receipt-v4.json','utf8')).file))),meta=await sharp(original).metadata(),width=meta.width,height=meta.height;
 const rgba=await sharp(mask).resize(width,height,{fit:'fill'}).removeAlpha().raw().toBuffer();const src=await sharp(original).removeAlpha().raw().toBuffer();
@@ -11,21 +11,11 @@ const archResult=await geometry(magenta,64),uncertainResult=await geometry(uncer
 const baseline=JSON.parse(await fs.readFile(baselinePath,'utf8'));
 
 let walls=[...baseline];
-for(const arch of arches){
- const cut=wallContours(arch).map(r=>r.map(p=>[p.x,p.y])),cx=(arch.ax+arch.bx)/2,cy=(arch.ay+arch.by)/2,horizontal=arch.bx-arch.ax>arch.by-arch.ay;
- walls=walls.flatMap(w=>{
-  if(w.door)return [w];const source=wallContours(w).map(r=>r.map(p=>[p.x,p.y]));if(!clipping.intersection(source,cut).length)return [w];
-  // Reuse the app's local full-thickness doorway cut. Removing only painted
-  // cap pixels can leave tiny blocking strips from different API samplings.
-  const d={id:arch.id+'-'+w.id,ax:horizontal?arch.ax:cx,ay:horizontal?cy:arch.ay,bx:horizontal?arch.bx:cx,by:horizontal?cy:arch.by};
-  const split=cutPolygonDoor(w,d);if(split)return split.filter(p=>!p.door);
-  return clipping.difference(source,cut).map((poly,i)=>polygonWall(i?w.id+'-arch-part-'+i:w.id,poly.map(r=>r.slice(0,-1).map(([x,y])=>({x,y})))));
- });
-}
+for(const arch of arches)walls=cutArchOpening(walls,arch);
 if(sanitizeWalls(walls).length!==walls.length)throw Error('Invalid converted walls');
 const radius=wallCollisionRadiusFt(3.5)*64/5;
 const passageChecks=arches.map(w=>{const cx=(w.ax+w.bx)/2,cy=(w.ay+w.by)/2,horizontal=w.bx-w.ax>w.by-w.ay,start=horizontal?{x:cx,y:w.ay-35}:{x:w.ax-35,y:cy},end=horizontal?{x:cx,y:w.by+35}:{x:w.bx+35,y:cy},actual=stopAtWalls(start,end,radius,walls);return {id:w.id,start,end,actual,passes:Math.hypot(actual.x-end.x,actual.y-end.y)<.01,visionThrough:hasLineOfSight(start,end,walls),baselineBlocked:!hasLineOfSight(start,end,baseline)};});
 const doors=await doorsFromMask(mask,original,width,height);
 await fs.writeFile(out+'/arches.json',JSON.stringify(arches,null,2));await fs.writeFile(out+'/uncertain-arches.json',JSON.stringify(ambiguous,null,2));await fs.writeFile(out+'/walls.json',JSON.stringify(walls,null,2));
-const receipt={arches:arches.length,supportsAdded:0,uncertain:ambiguous.length,uncertainApplied:false,reviewRequired:true,doors:doors.length,wallPiecesBefore:baseline.length,wallPiecesAfter:walls.length,radius,passageChecks,allPassagesClear:passageChecks.every(p=>p.passes&&p.visionThrough),manuallyEditedMask:false,liveCampaignChanged:false};
+const receipt={arches:arches.length,supportsAdded:0,uncertain:ambiguous.length,uncertainApplied:false,reviewRequired:true,doors:doors.length,wallPiecesBefore:baseline.length,wallPiecesAfter:walls.length,supportFractionEachEnd:.15,radius,passageChecks,allPassagesClear:passageChecks.every(p=>p.passes&&p.visionThrough),manuallyEditedMask:false,liveCampaignChanged:false};
 await fs.writeFile(out+'/conversion-receipt.json',JSON.stringify(receipt,null,2));console.log(JSON.stringify(receipt,null,2));

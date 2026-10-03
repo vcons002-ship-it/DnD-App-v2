@@ -14,6 +14,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   player movement and vision; keep uncertain candidates review-only. Retain a
   corrected 2D arch-art overlay test that fades only figure-covered pixels,
   not enabled in normal builds. The extruded arch preview is retired.
+- [x] Keep the accepted wall and arch prompts; narrow the ordinary arch wall
+  cut to its central 70%, leaving 15% at each end uncut for existing supports.
+  Verify both passages with actual player drags and support blocking checks in
+  the disposable app. Full arch artwork footprints remain unchanged.
 
 - [x] Compare a reusable generated old-stone wall material against the ordinary
   map after running the real automatic wall workflow. Record matched player

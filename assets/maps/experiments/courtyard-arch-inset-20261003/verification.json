@@ -1,0 +1,232 @@
+{
+  "mapId": "4db17960-95b6-4d9f-829a-3ac7149a50c8",
+  "applied": {
+    "count": 20
+  },
+  "checks": [
+    {
+      "name": "left arch passage",
+      "a": {
+        "x": 365.56,
+        "y": 234.22
+      },
+      "b": {
+        "x": 365.56,
+        "y": 339.2
+      },
+      "open": true,
+      "visible": true,
+      "actual": {
+        "x": 365.56,
+        "y": 339.2
+      },
+      "reached": true
+    },
+    {
+      "name": "right arch passage",
+      "a": {
+        "x": 814.72,
+        "y": 232.7
+      },
+      "b": {
+        "x": 814.72,
+        "y": 339.2
+      },
+      "open": true,
+      "visible": true,
+      "actual": {
+        "x": 814.72,
+        "y": 339.2
+      },
+      "reached": true
+    },
+    {
+      "name": "right arch preserved left edge",
+      "a": {
+        "x": 775,
+        "y": 230
+      },
+      "b": {
+        "x": 775,
+        "y": 375
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 775,
+        "y": 264.0953016453382
+      },
+      "reached": false
+    },
+    {
+      "name": "left arch preserved right edge",
+      "a": {
+        "x": 400,
+        "y": 230
+      },
+      "b": {
+        "x": 400,
+        "y": 375
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 400,
+        "y": 265.3833089003566
+      },
+      "reached": false
+    },
+    {
+      "name": "left supporting pier",
+      "a": {
+        "x": 290,
+        "y": 230
+      },
+      "b": {
+        "x": 290,
+        "y": 375
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 290,
+        "y": 264.5009820063103
+      },
+      "reached": false
+    },
+    {
+      "name": "right supporting pier",
+      "a": {
+        "x": 895,
+        "y": 230
+      },
+      "b": {
+        "x": 895,
+        "y": 375
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 895,
+        "y": 260.38227382570136
+      },
+      "reached": false
+    },
+    {
+      "name": "left adjacent wall",
+      "a": {
+        "x": 455,
+        "y": 230
+      },
+      "b": {
+        "x": 455,
+        "y": 375
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 455,
+        "y": 230
+      },
+      "reached": false
+    },
+    {
+      "name": "right adjacent wall",
+      "a": {
+        "x": 735,
+        "y": 230
+      },
+      "b": {
+        "x": 735,
+        "y": 375
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 735,
+        "y": 230
+      },
+      "reached": false
+    },
+    {
+      "name": "lower-left solid wall",
+      "a": {
+        "x": 365,
+        "y": 480
+      },
+      "b": {
+        "x": 365,
+        "y": 595
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 365,
+        "y": 516.7722834953969
+      },
+      "reached": false
+    },
+    {
+      "name": "lower-right solid wall",
+      "a": {
+        "x": 810,
+        "y": 480
+      },
+      "b": {
+        "x": 810,
+        "y": 595
+      },
+      "open": false,
+      "visible": false,
+      "actual": {
+        "x": 810,
+        "y": 516.4294186607542
+      },
+      "reached": false
+    }
+  ],
+  "moves": [
+    {
+      "name": "left arch passage",
+      "requested": {
+        "x": 365.56,
+        "y": 339.2
+      },
+      "actual": {
+        "x": 365.56,
+        "y": 339.1960166840459
+      }
+    },
+    {
+      "name": "right arch passage",
+      "requested": {
+        "x": 814.72,
+        "y": 339.2
+      },
+      "actual": {
+        "x": 814.72,
+        "y": 339.411157455683
+      }
+    }
+  ],
+  "remainingNotches": [
+    {
+      "x": 335,
+      "y0": 480,
+      "y1": 595,
+      "visionThrough": true
+    },
+    {
+      "x": 850,
+      "y0": 480,
+      "y1": 595,
+      "visionThrough": true
+    }
+  ],
+  "errors": [],
+  "originalMapUnchanged": true,
+  "manualMaskEdits": false,
+  "archCutRequired": true,
+  "supportFractionEachEnd": 0.15,
+  "liveCampaignChanged": false
+}
