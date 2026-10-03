@@ -1,0 +1,18 @@
+{
+  "models": [
+    {
+      "file": "generated.glb",
+      "bytes": 5678696,
+      "triangles": 40000,
+      "sha256": "b5e3919dc02c70d0419e60d79964b11aae5c9982d34f021c9c6320dd0597280e"
+    },
+    {
+      "file": "original-top.glb",
+      "bytes": 8482836,
+      "triangles": 40000,
+      "sha256": "7d4e7295d387a4d56d1d1bfa3f56f65b59153cf4b50048f221d6a834969fa546"
+    }
+  ],
+  "originalTexturePixelsPreserved": true,
+  "manualGeometryRepairs": false
+}

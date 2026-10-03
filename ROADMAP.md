@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Test an existing courtyard map through Gemini directional diorama views,
+  true multi-view Hunyuan shape/texture generation, and original-art projection.
+  Retain a standalone rotatable comparison; generated geometry remains too rough
+  for gameplay and does not replace any map.
+
 - [x] Test Druk using four references prompted as a rendered 3D sculpt; retain
   the full textured reconstruction and a standalone interactive comparison.
   This experiment does not replace the current runtime character model.

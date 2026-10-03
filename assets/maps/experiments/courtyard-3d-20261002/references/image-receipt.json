@@ -1,0 +1,43 @@
+{
+  "requestedModel": "gemini-3-pro-image",
+  "sourceSha256": "b6f47c1f0917ced9a691113b5513ed3e42a955e30ff40f0aed5920e90fda524d",
+  "cameraElevationDegrees": 50,
+  "views": [
+    {
+      "name": "front",
+      "file": "front.jpg",
+      "prompt": "Reconstruct the supplied courtyard battle map as a realistic textured 3D tabletop diorama. Preserve its exact rectangular layout: four roofless ruined rooms, their door openings, central cross-shaped paths, furniture, pots and stonework in the original locations. Give stone walls and furniture real height; keep the walkable ground flat. Show the ENTIRE rectangular map slab, including all four corners, centered with white margin on a plain white background. No labels, grid, characters, added buildings or new decorations. The map is one isolated object. Render with clear realistic materials and neutral even lighting. Camera elevation 50 degrees above the floor, perspective close to orthographic. Keep identical geometry and layout in every view. The supplied map plan has already been rotated to the requested viewing direction. Its BOTTOM edge must be the NEAR edge of the diorama; its TOP edge must be the FAR edge. Match the supplied plan orientation exactly. Rebuild the walls in this orientation rather than retaining the wall-face directions painted in the 2D reference. Camera looks north from the south (bottom) edge of the original map. North is the far edge.",
+      "referenceRotationDegrees": 0,
+      "referenceMimeType": "image/png",
+      "elapsedSeconds": 19.664,
+      "sha256": "29a99e8ee3b59527ed7bf314dcd06900c7e582231201fd16c72a1367a5497741"
+    },
+    {
+      "name": "right",
+      "file": "right.jpg",
+      "prompt": "Reconstruct the supplied courtyard battle map as a realistic textured 3D tabletop diorama. Preserve its exact rectangular layout: four roofless ruined rooms, their door openings, central cross-shaped paths, furniture, pots and stonework in the original locations. Give stone walls and furniture real height; keep the walkable ground flat. Show the ENTIRE rectangular map slab, including all four corners, centered with white margin on a plain white background. No labels, grid, characters, added buildings or new decorations. The map is one isolated object. Render with clear realistic materials and neutral even lighting. Camera elevation 50 degrees above the floor, perspective close to orthographic. Keep identical geometry and layout in every view. The supplied map plan has already been rotated to the requested viewing direction. Its BOTTOM edge must be the NEAR edge of the diorama; its TOP edge must be the FAR edge. Match the supplied plan orientation exactly. Rebuild the walls in this orientation rather than retaining the wall-face directions painted in the 2D reference. This is the right view, a 90 degree rotation of the original map plan.",
+      "referenceRotationDegrees": 90,
+      "referenceMimeType": "image/png",
+      "elapsedSeconds": 20.298,
+      "sha256": "7ae6598826a6567835d6de314e47b0899a7202af00f6e14c750ef183848a231a"
+    },
+    {
+      "name": "left",
+      "file": "left.jpg",
+      "prompt": "Reconstruct the supplied courtyard battle map as a realistic textured 3D tabletop diorama. Preserve its exact rectangular layout: four roofless ruined rooms, their door openings, central cross-shaped paths, furniture, pots and stonework in the original locations. Give stone walls and furniture real height; keep the walkable ground flat. Show the ENTIRE rectangular map slab, including all four corners, centered with white margin on a plain white background. No labels, grid, characters, added buildings or new decorations. The map is one isolated object. Render with clear realistic materials and neutral even lighting. Camera elevation 50 degrees above the floor, perspective close to orthographic. Keep identical geometry and layout in every view. The supplied map plan has already been rotated to the requested viewing direction. Its BOTTOM edge must be the NEAR edge of the diorama; its TOP edge must be the FAR edge. Match the supplied plan orientation exactly. Rebuild the walls in this orientation rather than retaining the wall-face directions painted in the 2D reference. This is the left view, a 270 degree rotation of the original map plan.",
+      "referenceRotationDegrees": 270,
+      "referenceMimeType": "image/png",
+      "elapsedSeconds": 21.432,
+      "sha256": "7b7121e290c407c1c5243d8ae97c5b6670692ee614046831525fdb4aa1bbbfed"
+    },
+    {
+      "name": "back",
+      "file": "back.jpg",
+      "prompt": "Reconstruct the supplied courtyard battle map as a realistic textured 3D tabletop diorama. Preserve its exact rectangular layout: four roofless ruined rooms, their door openings, central cross-shaped paths, furniture, pots and stonework in the original locations. Give stone walls and furniture real height; keep the walkable ground flat. Show the ENTIRE rectangular map slab, including all four corners, centered with white margin on a plain white background. No labels, grid, characters, added buildings or new decorations. The map is one isolated object. Render with clear realistic materials and neutral even lighting. Camera elevation 50 degrees above the floor, perspective close to orthographic. Keep identical geometry and layout in every view. The supplied map plan has already been rotated to the requested viewing direction. Its BOTTOM edge must be the NEAR edge of the diorama; its TOP edge must be the FAR edge. Match the supplied plan orientation exactly. Rebuild the walls in this orientation rather than retaining the wall-face directions painted in the 2D reference. This is the back view, a 180 degree rotation of the original map plan.",
+      "referenceRotationDegrees": 180,
+      "referenceMimeType": "image/png",
+      "elapsedSeconds": 21.899,
+      "sha256": "2a4bae1f9de137620ce21ebe7e9d4f7ed8c90905325232931983d021a0fbdb2b"
+    }
+  ]
+}
