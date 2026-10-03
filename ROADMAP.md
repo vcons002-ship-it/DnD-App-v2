@@ -2417,3 +2417,5 @@ Smaller refinements on top of the shipped Phase 2 work.
   22 sight-and-movement probes, 720 cave-boundary rays and real player dragging
   passed. Protected gaps survive bounded contour simplification. See
   docs/MAP_GEOMETRY_DRAFT.md for the earlier cave-gap finding and successful retest.
+
+- [x] Independent AI window pass using the accepted simple prompt; full map setup reviews windows alongside walls, doors and lights. Windows pass sight/light but block movement, with individual removal restoring the original opaque wall. See docs/AI_WINDOWS_2026_10_03.md.

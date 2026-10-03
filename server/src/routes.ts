@@ -2,6 +2,7 @@ import {suggestMapLights,applyLightDraft} from './mapLightDraft.js';
 import {createChatImageRouter} from './chatImages.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
 import {applyMapSetupDraft} from './mapSetupDraft.js';
+import {suggestMapWindows} from './mapWindowDraft.js';
 import {suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
 import {getMap} from './sessions.js';
 import { Router } from 'express';
@@ -260,6 +261,17 @@ export function createApiRouter(io: IOServer): Router {
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not apply door draft.'});}
   });
 
+  const draftingWindows=new Set<string>();
+  router.post('/maps/:mapId/window-draft',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId);
+    if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
+    if(draftingWindows.has(mapId)){res.status(409).json({error:'Window analysis is already running.'});return;}
+    draftingWindows.add(mapId);
+    try{res.json(await suggestMapWindows(mapId));}
+    catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft windows.'});}
+    finally{draftingWindows.delete(mapId);}
+  });
   router.post('/maps/:mapId/setup-draft/apply',async(req,res)=>{
     if(!requireDm(req,res))return;
     const mapId=String(req.params.mapId),map=getMap(mapId);

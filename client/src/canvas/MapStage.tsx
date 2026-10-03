@@ -2544,7 +2544,7 @@ export function MapStage({
                     />
                   )}
               {wallActive&&<Group name="wall-edit-outlines" listening={false}>
-                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original;return <Path key={w.id} name="wall-edit-piece" wallId={w.id} data={wallSvgPath(w)} fillRule="evenodd" stroke={w.id===wallSelection?'#6ee7ff':'#ffc76e'} fill={w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={2/view.scale}/>;})}
+                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original;return <Path key={w.id} name="wall-edit-piece" wallId={w.id} data={wallSvgPath(w)} fillRule="evenodd" stroke={w.id===wallSelection?'#6ee7ff':w.window?'#398cff':'#ffc76e'} fill={w.window?'#398cff55':w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={2/view.scale}/>;})}
                 {wallAnchor&&wallPointer&&(wallTool==='erase-area'
                   ?<Rect name="wall-erase-preview" x={Math.min(wallAnchor.x,wallPointer.x)} y={Math.min(wallAnchor.y,wallPointer.y)} width={Math.abs(wallPointer.x-wallAnchor.x)} height={Math.abs(wallPointer.y-wallAnchor.y)} fill="#ff667733" stroke="#ff6677" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>
                   :wallTool==='door'
@@ -2630,7 +2630,7 @@ export function MapStage({
             {['draw','circle','freehand'].includes(wallTool)&&<label>Thickness <input aria-label="Wall thickness in feet" type="number" min={.1} max={20} step={.25} value={wallThickness} onChange={e=>setWallThickness(Math.max(.1,Math.min(20,Number(e.target.value)||.1)))} style={{width:55}}/> ft</label>}
             {wallTool==='edit'&&selectedWall&&<>
               <label>Rotation <input aria-label="Wall rotation in degrees" type="number" min={-360} max={360} step={1} value={Math.round(selectedWall.rotation??0)} onChange={e=>{const rotation=Number(e.target.value);if(Number.isFinite(rotation)&&map)useStore.getState().editMapWalls(map.id,{update:{...selectedWall,rotation:Math.max(-360,Math.min(360,rotation))}});}} style={{width:62}}/> degrees</label>
-              <button className="btn tiny" onClick={()=>{if(map)useStore.getState().editMapWalls(map.id,{removeId:selectedWall.id});setWallSelection(null);}}>Delete wall</button>
+              <button className="btn tiny" onClick={()=>{if(map)useStore.getState().editMapWalls(map.id,{removeId:selectedWall.id});setWallSelection(null);}}>{selectedWall.window?'Remove window':'Delete wall'}</button>
             </>}
             <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
           </div>}

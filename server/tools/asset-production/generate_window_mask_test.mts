@@ -18,9 +18,10 @@ if(!config.geminiApiKey){
 }
 if(!config.geminiApiKey)throw Error('Configure the image API before running this test');
 const {generateApiImage}=await import('../../src/ai/imageGateway.js');
+const {WINDOW_MASK_PROMPT}=await import('../../src/windowMask.js');
 const prompt=enhanced
  ? 'The first image is the original map. The second makes shadowed wall details easier to see. On the first image, paint existing window openings or narrow viewing slits solid blue (#0000FF). Look for openings through the wall, including light passing through them. Leave solid walls, broken wall tops, doors and arches unmarked. Do not place windows based on assumed symmetry. Keep everything else unchanged. If none are visible, add no marks.'
- : 'Look at the walls of this battle map. Paint only visible window openings or viewing slits solid blue (#0000FF). Do not place windows based on assumed symmetry. Keep everything else unchanged. If none are visible, add no marks.';
+ : WINDOW_MASK_PROMPT;
 const original=await fs.readFile(sourcePath),metadata=await sharp(original).metadata();
 if(!metadata.width||!metadata.height)throw Error('Invalid source image');
 const out=path.resolve(outputPath);await fs.mkdir(out,{recursive:true});

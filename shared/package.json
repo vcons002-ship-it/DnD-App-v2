@@ -5,5 +5,8 @@
   "license": "MIT",
   "type": "module",
   "main": "types.ts",
-  "types": "types.ts"
+  "types": "types.ts",
+  "dependencies": {
+    "polygon-clipping": "^0.15.7"
+  }
 }

@@ -39,10 +39,11 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     }} aria-label="Walls" title="Draw walls that block player movement, light and sight">Walls{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu" style={{...position,width:238}}>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupDraftOpen(true);}}>Suggest walls, doors &amp; lights</button>
+        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
-        <div className="measure-label">{count} saved {count===1?'wall':'walls'}</div>
+        <div className="measure-label">{count} saved wall pieces</div>
+        {(map?.walls??[]).filter(w=>w.window).map((w,i)=><button key={w.id} className="measure-row" onClick={()=>{if(map)useStore.getState().editMapWalls(map.id,{removeId:w.id});setPosition(null);}}>Remove window {i+1}</button>)}
         <WallPerformanceNotice walls={map?.walls??[]}/>
         <button className={`measure-row ${tool==='rectangle'?'on':''}`} onClick={()=>{onTool('rectangle');setPosition(null);}}>Draw wall rectangles</button>
         <button className={`measure-row ${tool==='draw'?'on':''}`} onClick={()=>{onTool('draw');setPosition(null);}}>Draw wall line</button>

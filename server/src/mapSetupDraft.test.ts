@@ -44,6 +44,23 @@ it('fits doors to the selected new walls and saves all three workflows together'
   expect(setWallDoor(f.session.id,map.id,door.id,true)).toBeNull();expect(hasLineOfSight(a,b,getMap(map.id)!.walls)).toBe(true);expect(stopAtWalls(a,b,10,getMap(map.id)!.walls)).toEqual(b);
   await expect(applyMapSetupDraft(f.map.id,f.drafts,f.selected)).rejects.toThrow('changed');expect(listTokens(map.id)).toHaveLength(1);
 });
+it('applies windows to new walls without cutting saved movement geometry, and removing a window restores the view barrier',async()=>{
+ const f=await fixture(),source=f.drafts.walls!.source;
+ f.drafts.windows={version:1,id:'windows-test',source,maskImagePath:'/uploads/windows.png',windows:[{id:'ai-window-1',kind:'rectangle',ax:80,ay:150,bx:110,by:180}]};
+ f.selected.windows=['ai-window-1'];
+ expect(await applyMapSetupDraft(f.map.id,f.drafts,f.selected)).toEqual({walls:2,doors:1,windows:1,lights:1});
+ const saved=getMap(f.map.id)!.walls!,win=saved.find(w=>w.window)!;
+ const a={x:95,y:80},b={x:95,y:220};
+ expect(hasLineOfSight(a,b,saved)).toBe(true);expect(stopAtWalls(a,b,10,saved).y).toBeLessThan(140);
+ expect(editMapWalls(f.session.id,f.map.id,{removeId:win.id})).toBeNull();
+ expect(hasLineOfSight(a,b,getMap(f.map.id)!.walls)).toBe(false);expect(listTokens(f.map.id)).toHaveLength(1);
+});
+it('invalid windows reject the entire combined setup before any map writes',async()=>{
+ const f=await fixture();
+ f.drafts.windows={version:1,id:'windows-test',source:f.drafts.walls!.source,maskImagePath:'/uploads/windows.png',windows:[{id:'ai-window-1',kind:'rectangle',ax:50,ay:20,bx:70,by:40}]};f.selected.windows=['ai-window-1'];
+ await expect(applyMapSetupDraft(f.map.id,f.drafts,f.selected)).rejects.toThrow('No nearby wall');
+ expect(getMap(f.map.id)!.walls).toEqual([]);expect(listTokens(f.map.id)).toEqual([]);
+});
 it('applies walls, linked doors and lights above the former edge cap without dropping existing geometry',async()=>{
  const f=await fixture(),existing=benchmarkLayout(4096,'rooms').map(w=>({...w,ay:w.ay+10000,by:w.by+10000}));
  db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(existing),f.map.id);
