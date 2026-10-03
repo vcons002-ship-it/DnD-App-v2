@@ -13,11 +13,12 @@ import type {TorchLight} from './miniatureTorchLighting';
 import {stormLightningAt} from '../../../shared/stormLighting';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 import {localCreatureShadowStrength} from './creatureShadowStyle';
+import {terrainDarknessOpacity} from '../../../shared/terrainLighting';
 
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
 const colors={warm:new Color(0xffb258),cool:new Color(0x89bbff),green:new Color(0x85eab5)};
-export type CarriedLanternLight={id:string;x:number;y:number;height:number;fixtureHeight:number;facing:number};
+export type CarriedLanternLight={id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight:number;facing:number};
 export const torchFieldGlsl=`
   uniform sampler2D torchField;
   uniform vec4 torchBounds;
@@ -199,7 +200,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       const seed=phase(source.id),f=Math.sin(time*6.3+seed)*.10+Math.sin(time*11.1+seed*3)*.06+Math.sin(time*2.7+seed)*.08;
       const color=colors[source.color];
       return {id:source.id,x:source.x,y:source.y,height:source.height,fixtureHeight:source.fixtureHeight,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
-        strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing};
+        strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing,fixtureX:'fixtureX' in source?source.fixtureX:source.x,fixtureY:'fixtureY' in source?source.fixtureY:source.y};
     }):[];
     if(plane.visible)lights.push(...transient);
     ensureCapacity(lights.length);let visible=0,lanterns=0;
@@ -210,7 +211,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
         const size=ppf*(light.carried?.8:1.2),angle=light.facing??0,c=Math.cos(angle),s=Math.sin(angle);
         const part=(mesh:InstancedMesh,index:number,x:number,y:number,z:number,w:number,h:number,d:number)=>{
           matrix.makeRotationY(angle).scale(new Vector3(w*size,h*size,d*size));
-          matrix.setPosition(light.x+(x*c+z*s)*size,(light.fixtureHeight??light.height)+y*size,light.y+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
+          matrix.setPosition((light.fixtureX??light.x)+(x*c+z*s)*size,(light.fixtureHeight??light.height)+y*size,(light.fixtureY??light.y)+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
         };
         part(windows,lanterns,0,0,0,.48,.73,.32);
         windows.setColorAt(lanterns,new Color().setScalar(.85+light.strength*.15));
@@ -243,7 +244,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     const maxSize=next.mistQuality==='low'?512:1024,ratio=next.mapWidth/next.mapHeight;
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
     uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);
-    uniforms.gradeOpacity.value=Math.min(next.dmVisibility ? .25 : 1,1-(1-preset.opacity)*level);
+    uniforms.gradeOpacity.value=terrainDarknessOpacity(next,!!next.dmVisibility);
     uniforms.wetness.value=next.groundWetness??0;uniforms.surfaceScale.value=next.pixelsPerFoot??12.8;uniforms.wetLight.value=Math.max(.12,preset.ambient*level);
     const tintAmount=next.sceneTintStrength??0;
     uniforms.sceneTint.value.set(next.sceneTint??'#ffffff');uniforms.sceneTintStrength.value=tintAmount;

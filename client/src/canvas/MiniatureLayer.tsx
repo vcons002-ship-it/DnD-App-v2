@@ -30,6 +30,7 @@ import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
 import {createArchArtStudy} from './archArtStudy';
+import {CARRIED_LANTERN_LIGHT_HEIGHT_FT} from '../../../shared/lightFalloff';
 import {
   miniatureCameraTarget,
   perspectiveDistance,
@@ -117,7 +118,7 @@ type Instance = {
 type Engine = MiniatureLayerHandle & { sync: (props: Props) => void; dispose: () => void };
 
 // Lift illumination above humanoid figures; the fixture remains on the hip.
-const CARRIED_LIGHT_HEIGHT_FT=9;
+const CARRIED_LIGHT_HEIGHT_FT=CARRIED_LANTERN_LIGHT_HEIGHT_FT;
 
 function disposeAsset(gltf: GLTF) {
   const geometries = new Set<Mesh['geometry']>();
@@ -385,10 +386,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           if(!(props.isVisibleAt?.(token.id,x,y)??true))return [];
           if(instance){
             const belt=instance.root.localToWorld(instance.lanternAnchor.clone()),facing=instance.root.rotation.y;
-            return [{id:token.id,x:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,y:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:belt.y-ppf*.52,facing}];
+            return [{id:token.id,x,y,fixtureX:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,fixtureY:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:belt.y-ppf*.52,facing}];
           }
           const facing=move?.facing??token.facing,dx=-token.diameter*.30,dz=token.diameter*.10;
-          return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:ppf*2.8,facing}];
+          return [{id:token.id,x,y,fixtureX:x+dx*Math.cos(facing)+dz*Math.sin(facing),fixtureY:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:ppf*2.8,facing}];
         }));
         battlefield.tick(reducedMotion.matches?0:seconds);
         props.onVisionLights?.(battlefield.lighting.lights);
@@ -465,7 +466,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
         archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
-          [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})));
+          [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         visionLift.render(!!props.personalVision);
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();

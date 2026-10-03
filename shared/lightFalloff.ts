@@ -1,5 +1,7 @@
 /** Radius means useful illumination; the final soft spill ends at 1.5 radii. */
 export const LIGHT_SPILL_MULTIPLIER=1.5;
+/** Approved lantern source height; fixture stays at the hip. Shared with sight. */
+export const CARRIED_LANTERN_LIGHT_HEIGHT_FT=9;
 /** Luminous spell geometry has a soft energy falloff, not a torch's useful-radius pool. */
 export function spellEmissionIrradiance(distance:number,radius:number,strength:number){
  if(radius<=0||strength<=0)return 0;
