@@ -1,112 +1,107 @@
 {
   "errors": [],
   "metrics": {
-    "triangles": 20748,
+    "triangles": 10423,
     "wallStats": [
       {
-        "id": "mask-0",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-0",
         "maxHeightFt": 8,
-        "triangles": 2316
+        "triangles": 714
       },
       {
-        "id": "mask-1",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-1",
         "maxHeightFt": 12,
-        "triangles": 1906
+        "triangles": 773
       },
       {
-        "id": "mask-2",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-2",
         "maxHeightFt": 12,
-        "triangles": 1292
+        "triangles": 259
       },
       {
-        "id": "mask-3",
-        "maxHeightFt": 8,
-        "triangles": 43
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-3",
+        "maxHeightFt": 12,
+        "triangles": 239
       },
       {
-        "id": "mask-4",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-4",
         "maxHeightFt": 8,
-        "triangles": 88
+        "triangles": 151
       },
       {
-        "id": "mask-5",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-5",
         "maxHeightFt": 8,
-        "triangles": 579
+        "triangles": 126
       },
       {
-        "id": "mask-6",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-6",
         "maxHeightFt": 8,
-        "triangles": 880
+        "triangles": 74
       },
       {
-        "id": "mask-7",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-7",
         "maxHeightFt": 8,
-        "triangles": 287
+        "triangles": 66
       },
       {
-        "id": "mask-8",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-8",
         "maxHeightFt": 8,
-        "triangles": 243
+        "triangles": 281
       },
       {
-        "id": "mask-9",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-9",
         "maxHeightFt": 8,
-        "triangles": 929
+        "triangles": 310
       },
       {
-        "id": "mask-10",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-10",
         "maxHeightFt": 8,
-        "triangles": 284
+        "triangles": 65
       },
       {
-        "id": "mask-11",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-11",
         "maxHeightFt": 8,
-        "triangles": 1706
+        "triangles": 64
       },
       {
-        "id": "mask-12",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-12",
         "maxHeightFt": 8,
-        "triangles": 309
+        "triangles": 132
       },
       {
-        "id": "mask-13",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-13",
         "maxHeightFt": 8,
-        "triangles": 217
+        "triangles": 99
       },
       {
-        "id": "mask-14",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-14",
         "maxHeightFt": 8,
-        "triangles": 696
+        "triangles": 156
       },
       {
-        "id": "mask-15",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-15",
         "maxHeightFt": 8,
-        "triangles": 559
+        "triangles": 117
       },
       {
-        "id": "mask-16",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-16",
         "maxHeightFt": 8,
-        "triangles": 25
+        "triangles": 348
       },
       {
-        "id": "mask-17",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-17",
         "maxHeightFt": 8,
-        "triangles": 1029
+        "triangles": 63
       },
       {
-        "id": "mask-18",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-18",
         "maxHeightFt": 8,
-        "triangles": 152
+        "triangles": 347
       },
       {
-        "id": "mask-19",
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-19",
         "maxHeightFt": 8,
-        "triangles": 1000
-      },
-      {
-        "id": "mask-20",
-        "maxHeightFt": 8,
-        "triangles": 226
+        "triangles": 53
       }
     ],
     "invalid": false,
@@ -204,7 +199,7 @@
       {
         "id": "scenery-18",
         "heightFt": 1,
-        "triangles": 74
+        "triangles": 84
       },
       {
         "id": "scenery-19",
@@ -264,7 +259,7 @@
       {
         "id": "scenery-30",
         "heightFt": 1,
-        "triangles": 110
+        "triangles": 104
       },
       {
         "id": "scenery-31",
