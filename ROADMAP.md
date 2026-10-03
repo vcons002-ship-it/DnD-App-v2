@@ -18,6 +18,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   cut to its central 70%, leaving 15% at each end uncut for existing supports.
   Verify both passages with actual player drags and support blocking checks in
   the disposable app. Full arch artwork footprints remain unchanged.
+- [x] Join structural wall-mask paint breaks up to one quarter of a grid square.
+  Keep wider cuts reserved, retain precise colored-opening extraction, and
+  verify the same courtyard masks with normal draft application and player drags.
+  Details and remaining larger gaps: `docs/WALL_MASK_GAP_REPAIR.md`.
 
 - [x] Compare a reusable generated old-stone wall material against the ordinary
   map after running the real automatic wall workflow. Record matched player

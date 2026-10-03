@@ -25,7 +25,7 @@ async function fixture(){
   return {session,map,draft};
 }
 describe('map geometry draft',()=>{
-  it('keeps difficult gaps open through the normal draft and apply workflow',async()=>{
+  it('closes small paint breaks while keeping wider passages through normal draft application',async()=>{
     const f=wallMaskStressFixture(),session=createSession('Narrow gap draft'),oldKey=config.geminiApiKey;
     const originalName=`stress-original-${session.id}.png`,maskName=`stress-mask-${session.id}.png`;
     await fs.mkdir(config.uploadsDir,{recursive:true});
@@ -37,7 +37,12 @@ describe('map geometry draft',()=>{
       vi.mocked(generateApiImage).mockResolvedValue({path:`/uploads/${maskName}`});
       const draft=await suggestMapGeometry(map.id);await applyGeometryDraft(map.id,draft,draft.items.map(i=>i.id));
       const saved=getMap(map.id)!;expect(saved.imagePath).toBe(map.imagePath);
-      for(const {name,a,b,radius} of f.routes){expect(hasLineOfSight(a,b,saved.walls),name).toBe(true);expect(stopAtWalls(a,b,radius,saved.walls),name).toEqual(b);}
+      for(const {name,a,b,radius} of f.routes){
+        const repaired=/^(Horizontal gap|Vertical slit) (0\.3|0\.5|1) ft$/.test(name)||name==='Diagonal slit';
+        expect(hasLineOfSight(a,b,saved.walls),name).toBe(!repaired);
+        if(repaired)expect(stopAtWalls(a,b,radius,saved.walls),name).not.toEqual(b);
+        else expect(stopAtWalls(a,b,radius,saved.walls),name).toEqual(b);
+      }
       expect(generateApiImage).toHaveBeenCalledTimes(2);
     }finally{config.geminiApiKey=oldKey;}
   },15000);

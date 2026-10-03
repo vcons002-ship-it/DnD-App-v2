@@ -6,7 +6,7 @@ const out=path.resolve(directory),original=await fs.readFile(out+'/original.png'
 const rgba=await sharp(mask).resize(width,height,{fit:'fill'}).removeAlpha().raw().toBuffer();const src=await sharp(original).removeAlpha().raw().toBuffer();
 const magenta=new Uint8Array(width*height),uncertain=new Uint8Array(width*height);
 for(let p=0;p<magenta.length;p++){const i=p*3,r=rgba[i],g=rgba[i+1],b=rgba[i+2],changed=Math.max(Math.abs(r-src[i]),Math.abs(g-src[i+1]),Math.abs(b-src[i+2]))>50;magenta[p]=changed&&r>170&&b>170&&g<115&&Math.min(r,b)>g*1.8?1:0;uncertain[p]=changed&&r>210&&g>75&&g<185&&b<80?1:0;}
-async function geometry(bits,grid){if(!bits.some(v=>v))return {walls:[]};const rgb=Buffer.alloc(width*height*3);for(let p=0;p<bits.length;p++)if(bits[p]){rgb[p*3]=255;rgb[p*3+1]=255;}try{return await wallsFromYellowMask(await sharp(rgb,{raw:{width,height,channels:3}}).png().toBuffer(),width,height,grid);}catch(error){if(error.message.includes("No usable yellow wall regions"))return {walls:[]};throw error;}}
+async function geometry(bits,grid){if(!bits.some(v=>v))return {walls:[]};const rgb=Buffer.alloc(width*height*3);for(let p=0;p<bits.length;p++)if(bits[p]){rgb[p*3]=255;rgb[p*3+1]=255;}try{return await wallsFromYellowMask(await sharp(rgb,{raw:{width,height,channels:3}}).png().toBuffer(),width,height,grid,undefined,false,false);}catch(error){if(error.message.includes("No usable yellow wall regions"))return {walls:[]};throw error;}}
 const archResult=await geometry(magenta,64),uncertainResult=await geometry(uncertain,64),arches=archResult.walls.map((w,i)=>({...w,id:'arch-'+(i+1)}));const ambiguous=uncertainResult.walls.map((w,i)=>({...w,id:'uncertain-arch-'+(i+1)}));
 const baseline=JSON.parse(await fs.readFile(baselinePath,'utf8'));
 

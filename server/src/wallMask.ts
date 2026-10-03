@@ -6,8 +6,9 @@ import type {MapWall} from '../../shared/mapWalls.js';
 /** Yellow-mask import. No AI inference or hand-authored coordinates in conversion.
  * Fill only narrow enclosed regions, then trace solid contours with room holes.
  * Complex noisy masks retain the conservative rectangle-fitting fallback.
- * Large enclosed rooms remain empty. Narrow unpainted cuts are protected during fitting. */
-export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer,minimizeEdges=false) {
+ * Large enclosed rooms remain empty. Small structural paint breaks are joined;
+ * wider cuts remain protected. Opening-mask extraction can opt into precise mode. */
+export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer,minimizeEdges=false,repairSmallGaps=true) {
   if(![width,height,gridSizePx].every(n=>Number.isFinite(n)&&n>0)||width>20000||height>20000)throw new Error('Invalid map dimensions.');
   const scale=Math.min(1,800/Math.max(width,height)),w=Math.round(width*scale),h=Math.round(height*scale),size=w*h;
   const {data,info}=await sharp(image,{limitInputPixels:40_000_000}).rotate().resize(w,h,{fit:'fill',kernel:'nearest'}).removeAlpha().toColourspace('srgb').raw().toBuffer({resolveWithObject:true});
@@ -72,14 +73,15 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
     while(head<tail){const p=queue[head++];depth=Math.max(depth,distance[p]);for(const q of neighbors(p))if(!solid[q]&&distance[q]===-1){distance[q]=distance[p]+1;queue[tail++]=q;}}
     if(depth<=Math.max(3,gridSizePx*scale*.45)){for(const p of component)solid[p]=1;filledPixels+=component.length;}
   }
-  const prepared=prepareWallMask(solid,w,h,gridSizePx*scale);
+  const prepared=prepareWallMask(solid,w,h,gridSizePx*scale,repairSmallGaps);
   const contours=await contourWallMask(prepared.solid,prepared.protectedPixels,w,h,minimizeEdges);
-  const fitted=contours?{...contours,solid:prepared.solid}:await fitWallMask(solid,w,h,gridSizePx*scale);
+  const fitted=contours?{...contours,solid:prepared.solid}:await fitWallMask(solid,w,h,gridSizePx*scale,120,repairSmallGaps);
   const scalePoint=(p:{x:number;y:number})=>({x:p.x*width/w,y:p.y*height/h});
   const walls:MapWall[]=contours?contours.walls.map(wall=>({...wall,ax:wall.ax*width/w,ay:wall.ay*height/h,bx:wall.bx*width/w,by:wall.by*height/h,points:wall.points!.map(scalePoint),...(wall.holes?{holes:wall.holes.map(r=>r.map(scalePoint))}:{})})):
     ('rectangles' in fitted?fitted.rectangles:[]).map((r,index)=>({id:`mask-${index}`,kind:'rectangle',ax:r.x*width/w,ay:r.y*height/h,bx:r.right*width/w,by:r.bottom*height/h}));
   if(!walls.length)throw new Error('No usable yellow wall regions found.');
   const coverage=fitted.coverage;
   if(coverage<.94)throw new Error('The wall shapes do not cover the painted mask accurately enough. Review the mask before importing.');
-  return {walls,coverage,filledPixels,workWidth:w,workHeight:h,solidMask:Buffer.from(fitted.solid.map(n=>n*255))};
+  const joinedPixels=prepared.solid.reduce((count,n,p)=>count+Number(!!n&&!solid[p]),0);
+  return {walls,coverage,filledPixels,joinedPixels,gapRepairLimitPx:repairSmallGaps?Math.max(1,Math.min(16,Math.floor(gridSizePx*scale*.25)))/scale:0,workWidth:w,workHeight:h,solidMask:Buffer.from(fitted.solid.map(n=>n*255))};
 }
