@@ -35,7 +35,9 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
        float alpha=gradeOpacity+sceneTintStrength*(1.-gradeOpacity);
        vec3 tint=(gradeColor*gradeOpacity*(1.-sceneTintStrength)+sceneTint*sceneTintStrength)/max(.001,alpha);
        vec3 ground=mix(source.rgb,linearToOutputTexel(vec4(tint,1.)).rgb,alpha);
-       float remembered=dot(mix(ground,vec3(.55),recovery),vec3(.2126,.7152,.0722));
+       // Softer memory highlights for contours, bright artwork and the grid.
+       // Keep the darker ground grade and current-sight recovery unchanged.
+       float remembered=dot(mix(ground,vec3(.35),recovery),vec3(.2126,.7152,.0722));
        gl_FragColor=vec4(vec3(remembered*${HEAVY_DARKVISION_MEMORY_BRIGHTNESS}),source.a);
       }else {
        // Preserve the artwork's hue in recovered detail without lifting its

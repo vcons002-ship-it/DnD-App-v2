@@ -10,6 +10,9 @@ Current sight in heavy darkness retains muted original color in recovered
 detail, at the same brightness. Desaturation is now 20%, down from 35% in the
 previous comparison. Heavy-darkness remembered terrain stays fully grayscale
 and is 12% darker, including its contour/grid detail and the fallback image.
+Remembered heavy-darkness highlights now use a 0.35 gray recovery target instead
+of 0.55, softening contours, bright artwork and grid lines further. Current
+sight and the underlying dark ground grade are unchanged.
 
 Carried lantern vision used a 2.8-ft source height while the renderer used 9 ft.
 Both now use the approved 9-ft source at the token center, including wall
@@ -31,4 +34,4 @@ real player drags, memory-filter assertions and arch activation/fade assertions.
 Fresh map copies start without exploration history. The live save is untouched.
 
 Replacement recordings and an opaque/faded arch close-up comparison:
-https://dnd.nic024i.app/uploads/previews/repaired-wall-gaps-20261003/darkness-v5.html
+https://dnd.nic024i.app/uploads/previews/repaired-wall-gaps-20261003/darkness-v6.html
