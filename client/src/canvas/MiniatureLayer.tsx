@@ -28,6 +28,7 @@ import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
+import {createRaisedMapStudy} from './raisedMapStudy';
 import {
   miniatureCameraTarget,
   perspectiveDistance,
@@ -459,6 +460,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
+        raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
         visionLift.render(!!props.personalVision);
@@ -633,9 +635,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
       }
   };
+  const raisedStudy=import.meta.env.VITE_COURTYARD_STUDY==='1'&&new URLSearchParams(location.search).get('raisedWalls')==='1'
+    ?createRaisedMapStudy(scene,host,invalidate):null;
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
+    raisedStudy?.sync(useStore.getState().snapshot?.map?.id);
     spellImpacts.sync(next.spellImpacts??[],performance.now());
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
@@ -873,6 +878,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     shaderWarmup.dispose();
+    raisedStudy?.dispose();
     spellImpacts.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());

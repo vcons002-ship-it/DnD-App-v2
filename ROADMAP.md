@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Compare a reusable generated old-stone wall material against the ordinary
+  map after running the real automatic wall workflow. Record matched player
+  walks, room reveals and blocked moves; gate raised surfaces behind an explicit
+  study build flag while keeping ordinary builds unchanged.
+
 - [x] Test mask-derived 3D map walls and a separate Gemini hypsometric height
   pass while retaining original map texture and dimensions. Provide independent
   height controls and exportable GLBs in an isolated comparison preview.
