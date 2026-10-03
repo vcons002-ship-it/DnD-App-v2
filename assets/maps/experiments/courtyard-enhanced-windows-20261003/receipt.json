@@ -1,0 +1,57 @@
+{
+  "model": "gemini-3-pro-image",
+  "prompt": "The first image is the original map. The second makes shadowed wall details easier to see. On the first image, paint existing window openings or narrow viewing slits solid blue (#0000FF). Look for openings through the wall, including light passing through them. Leave solid walls, broken wall tops, doors and arches unmarked. Do not place windows based on assumed symmetry. Keep everything else unchanged. If none are visible, add no marks.",
+  "input": "client/src/exploration-preview/courtyard.png",
+  "inputSha256": "b6f47c1f0917ced9a691113b5513ed3e42a955e30ff40f0aed5920e90fda524d",
+  "referenceSha256": "218fd067382532bcb2b0a8df6dbfd4e27fb6cc576b82aa82aa929e9d193ff6db",
+  "referenceOrder": [
+    "original.png",
+    "enhanced-reference.png"
+  ],
+  "enhancement": {
+    "file": "enhanced-reference.png",
+    "method": "grayscale luminance; up to 12/255 shadow lift below 128/255; 35% blend of local contrast",
+    "clahe": {
+      "width": 128,
+      "height": 128,
+      "maxSlope": 2
+    },
+    "dimensions": {
+      "width": 1216,
+      "height": 832
+    },
+    "sha256": "28b7f0c819754c6c8b1dad8b22972941460a0ffc3e47f562e6d5a76ed9e5082e",
+    "generatedDetails": false
+  },
+  "maskSha256": "5713bf7dc4b296633643198e8e97683ee2a10d780aa34ed8d5ef5d6b19302ea9",
+  "file": "window-mask.jpg",
+  "elapsedSeconds": 23.52,
+  "metadata": {
+    "format": "jpeg",
+    "mediaType": "image/jpeg",
+    "size": 3672000,
+    "width": 2528,
+    "height": 1696,
+    "space": "srgb",
+    "channels": 3,
+    "depth": "uchar",
+    "density": 72,
+    "chromaSubsampling": "4:2:0",
+    "isProgressive": false,
+    "isPalette": false,
+    "hasProfile": false,
+    "hasAlpha": false,
+    "autoOrient": {
+      "width": 2528,
+      "height": 1696
+    }
+  },
+  "manualEdits": false,
+  "geometryConverted": false,
+  "applied": false,
+  "intendedBehavior": {
+    "allowsVisibility": true,
+    "allowsPlayerMovement": false
+  },
+  "productionPromptsChanged": false
+}
