@@ -5,11 +5,11 @@ of atmosphere. Live dungeon terrain retains only 16% before its grade color,
 so remembered floors could appear brighter. Memory now follows the same unlit
 grade (16% for the regular dungeon at full light level). This is a small lift
 from the previous 13.6%, without retaining the brightness of an old lantern.
-Daylight memory and the existing heavy-darkvision contour pass are preserved.
+Daylight and regular-darkness memory are preserved.
 Current sight in heavy darkness retains muted original color in recovered
-detail, at the same brightness. Desaturation is now 35% instead of 80%, because
-the previous trace of color was too faint to distinguish on mobile.
-Remembered terrain stays fully grayscale.
+detail, at the same brightness. Desaturation is now 20%, down from 35% in the
+previous comparison. Heavy-darkness remembered terrain stays fully grayscale
+and is 12% darker, including its contour/grid detail and the fallback image.
 
 Carried lantern vision used a 2.8-ft source height while the renderer used 9 ft.
 Both now use the approved 9-ft source at the token center, including wall
@@ -31,4 +31,4 @@ real player drags, memory-filter assertions and arch activation/fade assertions.
 Fresh map copies start without exploration history. The live save is untouched.
 
 Replacement recordings and an opaque/faded arch close-up comparison:
-https://dnd.nic024i.app/uploads/previews/repaired-wall-gaps-20261003/darkness-v4.html
+https://dnd.nic024i.app/uploads/previews/repaired-wall-gaps-20261003/darkness-v5.html

@@ -23,7 +23,7 @@ it('preserves daylight memory, heavy darkvision and DM working-view grading',()=
  expect(exploredTerrainBrightness(undefined)).toBe(.48);
  expect(exploredTerrainBrightness({enabled:false,lighting:'dungeon'})).toBe(.48);
  expect(exploredTerrainBrightness({enabled:true,lighting:'day'})).toBe(.48);
- expect(exploredTerrainBrightness({enabled:true,lighting:'dungeon',heavyDarkness:true},true)).toBe(.025);
+ expect(exploredTerrainBrightness({enabled:true,lighting:'dungeon',heavyDarkness:true},true)).toBeCloseTo(.022);
  expect(terrainDarknessOpacity({lighting:'dungeon',heavyDarkness:true})).toBeCloseTo(.984);
  expect(terrainDarknessOpacity({lighting:'dungeon'},true)).toBe(.25);
 });
