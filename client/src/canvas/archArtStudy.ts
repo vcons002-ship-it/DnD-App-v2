@@ -1,6 +1,7 @@
 import {CanvasTexture,Color,DoubleSide,Mesh,OrthographicCamera,PlaneGeometry,Scene,ShaderMaterial,Vector2,Vector4,type Texture,type WebGLRenderer} from 'three';
 import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
 import {lightFalloffGlsl} from '../../../shared/lightFalloff';
+import {HEAVY_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 import {pointInRing,wallContours} from '../../../shared/wallGeometry';
 import type {MapWall} from '../../../shared/mapWalls';
 import {groundYScale,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
@@ -39,7 +40,7 @@ export function createArchArtStudy(renderer:WebGLRenderer,bodyMask:Texture,host:
        float tintAlpha=sceneTintStrength*(1.-coverage*.75);float combined=alpha+tintAlpha*(1.-alpha);
        color=(color*alpha*(1.-tintAlpha)+sceneTint*tintAlpha)/max(.001,combined);
        pixel.rgb=mix(pixel.rgb,linearToOutputTexel(vec4(color,1.)).rgb,combined);
-       pixel.rgb=mix(pixel.rgb,vec3(dot(pixel.rgb,vec3(.2126,.7152,.0722))),heavy*(1.-coverage));
+       pixel.rgb=mix(pixel.rgb,vec3(dot(pixel.rgb,vec3(.2126,.7152,.0722))),${HEAVY_DARKVISION_DESATURATION}*heavy*(1.-coverage));
       }
       pixel.a*=1.-fade*silhouette.r*silhouette.a;gl_FragColor=pixel;}`});
    const mesh=new Mesh(geometry,material);mesh.frustumCulled=false;scene.add(mesh);entries.push({rings,material,texture,fade:0});
@@ -53,7 +54,9 @@ export function createArchArtStudy(renderer:WebGLRenderer,bodyMask:Texture,host:
    let active=0;
    for(const entry of entries){
     const under=tokens.some(t=>t.visible&&pointInRing(t,entry.rings[0])&&!entry.rings.slice(1).some(h=>pointInRing(t,h)));
-    const target=under&&fadeEnabled?.88:0;entry.fade+=(target-entry.fade)*(1-Math.exp(-dt*16));if(Math.abs(entry.fade-target)>.002)moving=true;if(under)active++;
+    // Retain more actual arch stone over the figure in overhead view, where
+    // there is no perspective cue that the figure is underneath it.
+    const target=under&&fadeEnabled?.58+.20*Math.min(1,Math.max(0,tilt)/45):0;entry.fade+=(target-entry.fade)*(1-Math.exp(-dt*16));if(Math.abs(entry.fade-target)>.002)moving=true;if(under)active++;
     const u=entry.material.uniforms;u.screen.value.set(width,height);u.resolution.value.set(renderer.domElement.width,renderer.domElement.height);
     u.offset.value.set(view.x,view.y);u.scale.value=view.scale;u.sy.value=groundYScale(tilt);u.angle.value=rotation*Math.PI/180;u.slope.value=perspectiveSlope(width,height,tilt);u.fade.value=entry.fade;
     u.litGrade.value=lighting?1:0;u.heavy.value=heavy?1:0;

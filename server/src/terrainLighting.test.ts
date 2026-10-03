@@ -11,13 +11,13 @@ it('uses the approved lantern source height and token center for authoritative s
  expect(vision.lights[0]).toMatchObject({x:400,y:190,height:CARRIED_LANTERN_LIGHT_HEIGHT_FT*64/5});
  expect(CARRIED_LANTERN_LIGHT_HEIGHT_FT).toBe(9);
 });
-it('keeps regular dungeon memory dimmer than unlit live terrain and follows light level',()=>{
+it('matches regular dungeon memory to the unlit terrain budget and follows light level',()=>{
  const settings={enabled:true,lighting:'dungeon' as const,lightLevel:1};
  expect(terrainDarknessOpacity(settings)).toBeCloseTo(.84);
- expect(exploredTerrainBrightness(settings)).toBeCloseTo(.136);
- expect(exploredTerrainBrightness(settings)).toBeLessThan(1-terrainDarknessOpacity(settings));
- expect(exploredTerrainBrightness({...settings,lightLevel:.5})).toBeCloseTo(.068);
- expect(exploredTerrainBrightness({...settings,lighting:'night'})).toBeCloseTo(.2295);
+ expect(exploredTerrainBrightness(settings)).toBeCloseTo(.16);
+ expect(exploredTerrainBrightness(settings)).toBeLessThanOrEqual(1-terrainDarknessOpacity(settings));
+ expect(exploredTerrainBrightness({...settings,lightLevel:.5})).toBeCloseTo(.08);
+ expect(exploredTerrainBrightness({...settings,lighting:'night'})).toBeCloseTo(.27);
 });
 it('preserves daylight memory, heavy darkvision and DM working-view grading',()=>{
  expect(exploredTerrainBrightness(undefined)).toBe(.48);

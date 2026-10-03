@@ -36,7 +36,13 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
        vec3 ground=mix(source.rgb,linearToOutputTexel(vec4(tint,1.)).rgb,alpha);
        float remembered=dot(mix(ground,vec3(.55),recovery),vec3(.2126,.7152,.0722));
        gl_FragColor=vec4(vec3(remembered),source.a);
-      }else gl_FragColor=vec4(vec3(.55),recovery*unlit*source.a);
+      }else {
+       // Preserve the artwork's hue in recovered detail without lifting its
+       // brightness. The current-sight overlay desaturates almost all of it;
+       // the memory pass above remains completely grayscale.
+       vec3 recovered=mix(vec3(.55),clamp(source.rgb*.55/max(l,.05),0.,1.),.65);
+       gl_FragColor=vec4(recovered,recovery*unlit*source.a);
+      }
      }`});
    const mesh=new Mesh(new PlaneGeometry(tile.w,tile.h),material);mesh.rotation.x=-Math.PI/2;mesh.position.set(tile.x+tile.w/2,.006,tile.y+tile.h/2);mesh.renderOrder=3+index*.001;mesh.frustumCulled=false;mesh.visible=false;scene.add(mesh);
    const memoryMaterial=material.clone();
