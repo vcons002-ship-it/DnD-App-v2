@@ -2,25 +2,29 @@
   "models": [
     {
       "file": "walls.glb",
-      "bytes": 3208020,
-      "triangles": 3466,
-      "sha256": "4305e3e4264d0136ed3f7409232d5e058b407fab76a533ef5a629c5bc32b076e",
+      "bytes": 4354012,
+      "triangles": 14768,
+      "sha256": "f37798429b3f2883216b56a1ad32c9a178bd3c8bbbaf946083c99cb79b6ec58a",
       "originalTexturePixelsPreserved": true,
       "finite": true,
       "capArea": 1.0217956929994578,
       "expectedCapArea": 1.0217956461005666,
-      "capAreaRelativeError": 4.589850367241853e-8
+      "capAreaRelativeError": 4.589850367241853e-8,
+      "sceneryMeshes": 0,
+      "sceneryHeightsVerified": true
     },
     {
       "file": "relief.glb",
-      "bytes": 6006712,
-      "triangles": 129928,
-      "sha256": "b92dfc59940dc3acb0a0c97f3772d32a5e10cba4e7f26f35d45479273870efe9",
+      "bytes": 5047548,
+      "triangles": 20746,
+      "sha256": "2f412bb723d8d8d9cd71d332239b8f738479f6e78f77baaa50d36c8ae8b93c55",
       "originalTexturePixelsPreserved": true,
       "finite": true,
       "capArea": 1.0217956929994578,
       "expectedCapArea": 1.0217956461005666,
-      "capAreaRelativeError": 4.589850367241853e-8
+      "capAreaRelativeError": 4.589850367241853e-8,
+      "sceneryMeshes": 63,
+      "sceneryHeightsVerified": true
     }
   ],
   "manualMaskEdits": false,

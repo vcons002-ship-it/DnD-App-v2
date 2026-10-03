@@ -9,6 +9,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Test mask-derived 3D map walls and a separate Gemini hypsometric height
   pass while retaining original map texture and dimensions. Provide independent
   height controls and exportable GLBs in an isolated comparison preview.
+  Reuse each wall/item's own top-surface texture on its vertical sides; raise
+  scenery as separate extruded footprints and open the preview with items shown.
   Elevation remains approximate; no gameplay map renderer was replaced.
 
 - [x] Test an existing courtyard map through Gemini directional diorama views,

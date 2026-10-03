@@ -4,6 +4,6 @@
   "encoder": "av1_nvenc",
   "gpu": "0",
   "fps": 60,
-  "frames": 2104,
-  "stderr": "[swscaler @ 000001c414f220c0] deprecated pixel format used, make sure you did set range correctly\r\n"
+  "frames": 2727,
+  "stderr": "[swscaler @ 000002a4292aec00] deprecated pixel format used, make sure you did set range correctly\r\n"
 }

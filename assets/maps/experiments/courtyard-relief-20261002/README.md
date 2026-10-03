@@ -24,14 +24,18 @@ It does not replace a campaign map or alter the existing wall/door/light workflo
    their holes and open passages. Wall cap vertices take nearby high elevation
    values (8/12 ft), with an 8 ft fallback at ambiguous cap edges. Height sampling
    does not create wall footprints outside the structural mask.
-5. A 305 × 209 height grid raises ground/scenery at 0–4 ft. Structural-height
-   pixels and samples inside wall footprints are kept at ground height in this
-   grid, so wall geometry is not duplicated. The image is mapped by original
-   XY position onto both the floor and raised surfaces.
-6. New wall sides reuse an unchanged 80 × 32 original wall-face patch directly
-   below a long horizontal cap, selected programmatically. It repeats at its
-   source map scale. Side texture and lighting remain approximate: the source
-   patch contains painted lighting and does not describe all hidden wall faces.
+5. Revision 2 converts the 0.5/1/2/4-foot palette regions into 63 separate
+   scenery contours, excluding structural wall interiors. The same contour
+   converter preserves empty pixels between objects. Each shape is extruded
+   with a horizontal top and visible vertical sides instead of being a sloping
+   bump in a dense floor grid. The preview opens with walls AND scenery shown.
+6. Every wall side samples a strip immediately inside its own cap boundary in
+   the original image. Wall sides repeat those local strips vertically, in
+   bands no taller than 2.5 feet. Scenery sides use their own original top art;
+   wood stays wood instead of taking the old shared stone tile. Sampling stops
+   at the first boundary so it cannot reach across a doorway into another cap.
+   All top UVs still use original map coordinates. No new texture image or API
+   call was needed for this revision.
 
 No walls, props or elevation pixels were manually selected, removed or repainted.
 The mask converter's existing smoothing/protected-opening rules are unchanged.
@@ -40,32 +44,38 @@ The mask converter's existing smoothing/protected-opening rules are unchanged.
 
 | Version | File size | Triangles |
 |---|---:|---:|
-| Raised walls + flat original floor | 3,208,020 bytes | 3,466 |
-| Raised walls + ground/scenery relief | 6,006,712 bytes | 129,928 |
+| Raised walls + flat original floor | 4,354,012 bytes | 14,768 |
+| Raised walls + separate scenery shapes | 5,047,548 bytes | 20,746 |
 
 `model-receipt.json` confirms that the GLBs retain the original texture's decoded
 pixels, contain finite coordinates, and have cap areas matching the original
-wall polygons to floating-point precision. Holes remain unfilled. The wall-only
-version uses a two-triangle floor instead of the denser terrain grid.
+wall polygons to floating-point precision. Holes remain unfilled. The full model
+also passes a check that all 63 scenery
+meshes reach their requested heights. Both versions now use a two-triangle floor.
+The full model has about 84% fewer triangles than the previous height-field version.
 
 This is cleaner and more predictable than the earlier whole-map Hunyuan mesh,
-but scenery heights and silhouettes still need review. Height fields cannot
-reconstruct table legs, arches or overhangs. The original painted vertical wall
+but scenery heights and silhouettes still need review. Simple extrusion cannot
+reconstruct table legs, arches or overhangs. Some item
+heights are only 0.5-1 foot because that is what the existing AI data supplied.
+Local cap strips can still stretch or repeat, and painted lighting remains baked
+into the original art; this is not a physically correct material reconstruction. The original painted
+vertical wall
 faces and shadows remain in the floor art; new geometry can therefore duplicate
 some visual cues. This preview does not validate movement, vision or token height
 in the real battlefield renderer.
 
 ## Review and reproduce
 
-Interactive comparison and 35-second rotation video:
+Interactive comparison and 45-second rotation and item-height comparison video:
 https://dnd.nic024i.app/uploads/previews/courtyard-relief-20261002/index.html
 
-Controls: original flat map, raised walls, walls+elevation; independent wall and
-ground/scenery height sliders; camera views, orbit, zoom and GLB export.
+Controls: original flat map, raised walls, walls+raised items; independent wall and
+item height sliders and an item close-up; camera views, orbit, zoom and GLB export.
 
 ```powershell
 node --import tsx server/tools/asset-production/generate_map_relief.mts assets/environment-preview/courtyard.png artifacts/map-relief-new
-node server/tools/asset-production/build_relief_assets.mjs artifacts/map-relief-new
+node --import tsx server/tools/asset-production/build_relief_assets.mjs artifacts/map-relief-new
 Copy-Item assets/maps/experiments/courtyard-relief-20261002/index.html artifacts/map-relief-new/index.html
 npx.cmd esbuild assets/maps/experiments/courtyard-relief-20261002/viewer.js --bundle --format=esm --minify --outfile=artifacts/map-relief-new/viewer.bundle.js
 python -m http.server 4131 --bind 127.0.0.1 --directory artifacts/map-relief-new
@@ -79,5 +89,7 @@ values changed before generation.
 
 Verification: desktop and phone-size browser views loaded without JavaScript
 errors; original image pixels, cap geometry and exported meshes passed checks.
-Phone viewport testing is not a hardware performance test. Typecheck and all
+Phone viewport testing is not a hardware performance test.
+Export validation can be repeated after downloading both models:
+`node --import tsx server/tools/asset-production/validate_map_relief.mjs OUTPUT_DIRECTORY`. Typecheck and all
 145 server test files / 1,627 tests passed. Video captured using RTX 5090 AV1.
