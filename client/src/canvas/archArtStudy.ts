@@ -14,7 +14,8 @@ export function createArchArtStudy(renderer:WebGLRenderer,bodyMask:Texture,host:
  let mapId='',disposed=false,last=performance.now(),moving=false;
  const fadeEnabled=new URLSearchParams(location.search).get('archFade')!=='0';
  const load=async()=>{
-  const response=await fetch('/uploads/arch-art-study.json');if(!response.ok)throw Error('Missing arch art study');
+  const previewSource=new URLSearchParams(location.search).get('archData');
+  const response=await fetch(previewSource?.startsWith('/uploads/previews/')?previewSource:'/uploads/arch-art-study.json');if(!response.ok)throw Error('Missing arch art study');
   const data=await response.json() as {mapId:string;imagePath:string;width:number;height:number;arches:MapWall[]};
   const image=new Image();image.src=data.imagePath;await image.decode();if(disposed)return;
   mapId=data.mapId;
