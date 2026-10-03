@@ -17,7 +17,7 @@ if(!config.geminiApiKey){
 }
 if(!config.geminiApiKey)throw Error('Configure the image API before running this test');
 const {generateApiImage}=await import('../../src/ai/imageGateway.js');
-const prompt='Look at the walls of this battle map. Paint existing window openings or narrow viewing slits solid blue (#0000FF). Leave solid walls, broken wall tops, doors and arches unmarked. Keep the map unchanged otherwise. If there are no windows or slits, add no marks.';
+const prompt='Look at the walls of this battle map. Paint only visible window openings or viewing slits solid blue (#0000FF). Do not place windows based on assumed symmetry. Keep everything else unchanged. If none are visible, add no marks.';
 const original=await fs.readFile(sourcePath),metadata=await sharp(original).metadata();
 if(!metadata.width||!metadata.height)throw Error('Invalid source image');
 const out=path.resolve(outputPath);await fs.mkdir(out,{recursive:true});
