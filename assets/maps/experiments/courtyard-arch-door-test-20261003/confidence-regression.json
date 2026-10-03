@@ -1,0 +1,9 @@
+{
+  "clearCandidates": 1,
+  "uncertainCandidates": 1,
+  "doors": 1,
+  "clearPasses": true,
+  "uncertainBlocksVision": true,
+  "uncertainStopsMovement": true,
+  "jambsRemainSolid": true
+}

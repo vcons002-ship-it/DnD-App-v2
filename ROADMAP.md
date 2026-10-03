@@ -6,6 +6,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [ ] Raised-wall rendering parked at user request. Retain the isolated studies;
+  prioritize accurate functional wall and opening masks.
+- [x] Test arches as a separate class in the door-mask experiment, without
+  repainting supports. A stricter prompt rejects the courtyard's two lower
+  wall-top false positives. Verify the two upper openings against existing jambs,
+  player movement and vision; keep uncertain candidates review-only. Retain a
+  separate interactive under-arch fade prototype, not enabled in the app.
+
 - [x] Compare a reusable generated old-stone wall material against the ordinary
   map after running the real automatic wall workflow. Record matched player
   walks, room reveals and blocked moves; gate raised surfaces behind an explicit

@@ -2,6 +2,7 @@
 
 The original 1216 x 832 courtyard map and grid (64 px / 5 ft) are unchanged.
 This study compares the ordinary app map with a raised wall/scenery prototype.
+Raised-wall rendering is parked at user request; the normal app build remains flat.
 
 ## Material
 

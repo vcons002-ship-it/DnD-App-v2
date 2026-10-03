@@ -1,0 +1,30 @@
+{
+  "model": "gemini-3-pro-image",
+  "prompt": "Annotate this battle map. Mark visible wooden or metal door leaves with bright cyan (#00FFFF) straight lines from jamb to jamb, about 8 pixels thick. Paint only CLEAR overhead stone arch spans solid magenta (#FF00FF), edge to edge: a supported bridge of stone with a visible opening and walkable floor beneath. Broken, lowered or notched wall tops are not arches. If a possible arch is genuinely ambiguous, mark its stone span orange (#FF8800) instead of magenta. Do not mark supports, walls or vertical stone faces. Keep the floor beneath each arch unmarked. Ignore rubble, shadows, stairs, furniture and ordinary empty openings. Preserve all other map pixels, exact framing and aspect ratio. No labels or invented structures.",
+  "elapsedSeconds": 21.14,
+  "sourceSha256": "b6f47c1f0917ced9a691113b5513ed3e42a955e30ff40f0aed5920e90fda524d",
+  "maskSha256": "f7e3fac713eb952931eb8c0ccb97afd0131ac2863eecaf65e109c5afc5b076c8",
+  "file": "door-arch-mask-v4.jpg",
+  "metadata": {
+    "format": "jpeg",
+    "mediaType": "image/jpeg",
+    "size": 3718001,
+    "width": 2528,
+    "height": 1696,
+    "space": "srgb",
+    "channels": 3,
+    "depth": "uchar",
+    "density": 72,
+    "chromaSubsampling": "4:2:0",
+    "isProgressive": false,
+    "isPalette": false,
+    "hasProfile": false,
+    "hasAlpha": false,
+    "autoOrient": {
+      "width": 2528,
+      "height": 1696
+    }
+  },
+  "manualEdits": false,
+  "experimentalOnly": true
+}

@@ -1,0 +1,128 @@
+{
+  "arches": 4,
+  "supports": 8,
+  "doors": 0,
+  "wallPiecesBefore": 20,
+  "wallPiecesAfter": 28,
+  "radius": 11.2,
+  "passageChecks": [
+    {
+      "id": "arch-1",
+      "start": {
+        "x": 818.52,
+        "y": 232.70018281535647
+      },
+      "end": {
+        "x": 818.52,
+        "y": 342.24680073126143
+      },
+      "actual": {
+        "x": 818.52,
+        "y": 342.24680073126143
+      },
+      "passes": true,
+      "visionThrough": true,
+      "baselineBlocked": true
+    },
+    {
+      "id": "arch-2",
+      "start": {
+        "x": 366.32,
+        "y": 234.22120658135282
+      },
+      "end": {
+        "x": 366.32,
+        "y": 342.24680073126143
+      },
+      "actual": {
+        "x": 366.32,
+        "y": 342.24680073126143
+      },
+      "passes": true,
+      "visionThrough": true,
+      "baselineBlocked": true
+    },
+    {
+      "id": "arch-3",
+      "start": {
+        "x": 812.44,
+        "y": 492.7952468007312
+      },
+      "end": {
+        "x": 812.44,
+        "y": 591.6946983546618
+      },
+      "actual": {
+        "x": 812.44,
+        "y": 591.6946983546618
+      },
+      "passes": true,
+      "visionThrough": true,
+      "baselineBlocked": true
+    },
+    {
+      "id": "arch-4",
+      "start": {
+        "x": 379.24,
+        "y": 494.31627056672755
+      },
+      "end": {
+        "x": 379.24,
+        "y": 591.6946983546618
+      },
+      "actual": {
+        "x": 379.24,
+        "y": 591.6946983546618
+      },
+      "passes": true,
+      "visionThrough": true,
+      "baselineBlocked": true
+    }
+  ],
+  "supportChecks": [
+    {
+      "id": "arch-support-1",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-2",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-3",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-4",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-5",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-6",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-7",
+      "blocked": true,
+      "visionBlocked": true
+    },
+    {
+      "id": "arch-support-8",
+      "blocked": true,
+      "visionBlocked": true
+    }
+  ],
+  "allPassagesClear": true,
+  "allSupportsSolid": true,
+  "manuallyEditedMask": false,
+  "liveCampaignChanged": false
+}
