@@ -1,0 +1,14 @@
+{
+  "id": "death-skull",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "bytes": 1587596,
+  "triangles": 20764,
+  "sha256": "c1d9470a2def91135e5b124414a590462a7b3d683a762d2d7ed8fc66e04549d6",
+  "policy": "monster-reduction-v1",
+  "sourceViewCount": 4
+}

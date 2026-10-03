@@ -15,7 +15,8 @@ export type MiniatureDefinition = {
   fxUrl?: string;
   baseTextureUrl?: string;
 };
-export const DEATH_SKULL: MiniatureDefinition = {id:'death-skull',url:'builtin:death-skull',baseDiameter:1,baseCenter:[0,0,0]};
+/** Four-view Hunyuan reconstruction, shared by all defeated creature markers. */
+export const DEATH_SKULL: MiniatureDefinition = {id:'death-skull',url:'/miniatures/objects/death-skull-c1d9470a2def.glb',baseDiameter:1,baseCenter:[0,0,0]};
 export const SPIRITUAL_WEAPON: MiniatureDefinition = {id:'spiritual-weapon',url:'builtin:spiritual-weapon',baseDiameter:1,baseCenter:[0,0,0]};
 export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
 const generated: Record<string, MiniatureDefinition> = Object.create(null);

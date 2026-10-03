@@ -1161,10 +1161,10 @@ export function MapStage({
   },[snapshot,readyMiniatures,presentation,tokenVisibleAtPosition]);
 
   // The public party roster contains names, not hidden token positions.
-  const preloadMiniatures = useMemo(() => use3dTokens ? snapshot.characters.flatMap(character => {
+  const preloadMiniatures = useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
     const definition = resolveMiniature(character.name, 'pc');
     return definition ? [definition] : [];
-  }) : [], [snapshot.characters, use3dTokens]);
+  }) : [])], [snapshot.characters, use3dTokens, use3dMonsters]);
 
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
     if(map?.walls?.some(w=>w.tokenId===token.id))return [];

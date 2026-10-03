@@ -1,5 +1,4 @@
 import {createMirrorImages} from './mirrorImages';
-import {createDeathSkull} from './deathSkull';
 import {createSpiritualWeapon} from './spiritualWeapon';
 import {DEATH_SKULL,SPIRITUAL_WEAPON} from '../lib/miniatures';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
@@ -617,9 +616,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   // Warm parsed models and their textures without creating hidden token instances.
   const loadDefinition = (definition: MiniatureDefinition) => {
-      if(definition.url===DEATH_SKULL.url||definition.url===SPIRITUAL_WEAPON.url){
+      if(definition.url===SPIRITUAL_WEAPON.url){
         if(!assets.has(definition.url)){
-          const model=definition.url===DEATH_SKULL.url?createDeathSkull():createSpiritualWeapon();
+          const model=createSpiritualWeapon();
           assets.set(definition.url,Promise.resolve({scene:model,scenes:[model],animations:[],cameras:[],asset:{version:'2.0'},userData:{}} as unknown as GLTF));
         }
         return;

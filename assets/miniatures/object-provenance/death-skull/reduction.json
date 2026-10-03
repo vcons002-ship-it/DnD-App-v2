@@ -1,0 +1,41 @@
+{
+  "policy": {
+    "id": "monster-reduction-v1",
+    "targetTriangles": 20000,
+    "errorLimit": 0.01,
+    "colorEncoding": "jpeg",
+    "quality": 95,
+    "chromaSubsampling": "4:4:4",
+    "resize": false,
+    "geometryCompression": false
+  },
+  "source": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\skull-generation-v3\\01_textured_mesh.glb",
+  "sourceSha256": "fed2831f4b88e2c00e798da28b5635780135bc99671e9daa94a023a1feb4625e",
+  "sourceBytes": 4867364,
+  "originalTriangles": 40000,
+  "triangles": 20000,
+  "bytes": 1553552,
+  "reductionPercent": 68.08227204704642,
+  "sha256": "c2531b6bf348f9114e0f71f7532409b56cff1ab98a658bffd4e45b479d365749",
+  "textures": [
+    {
+      "index": 0,
+      "action": "jpeg95",
+      "width": 2048,
+      "height": 2048,
+      "beforeBytes": 3632124,
+      "afterBytes": 1007589,
+      "sha256": "8a2fdc217aa751113805d3ae651b915b22965f301ad46b0469c56a11d45ac101"
+    }
+  ],
+  "simplifyMs": 30.837400000000002,
+  "totalMs": 593.2249,
+  "peakRssMiB": 163.39453125,
+  "versions": {
+    "gltfTransform": "4.5.0",
+    "meshoptimizer": "1.2.0",
+    "sharp": "0.35.4"
+  },
+  "validation": "export reloaded; finite positions; indices in range; textures unchanged on export; source preserved",
+  "targetReached": true
+}
