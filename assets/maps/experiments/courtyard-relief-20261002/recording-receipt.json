@@ -1,0 +1,9 @@
+{
+  "output": "artifacts/courtyard-relief-rotation.mp4",
+  "codec": "av1",
+  "encoder": "av1_nvenc",
+  "gpu": "0",
+  "fps": 60,
+  "frames": 2104,
+  "stderr": "[swscaler @ 000001c414f220c0] deprecated pixel format used, make sure you did set range correctly\r\n"
+}

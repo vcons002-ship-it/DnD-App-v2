@@ -1,0 +1,116 @@
+{
+  "errors": [],
+  "metrics": {
+    "triangles": 129932,
+    "wallStats": [
+      {
+        "id": "mask-0",
+        "maxHeightFt": 8,
+        "triangles": 620
+      },
+      {
+        "id": "mask-1",
+        "maxHeightFt": 12,
+        "triangles": 272
+      },
+      {
+        "id": "mask-2",
+        "maxHeightFt": 12,
+        "triangles": 404
+      },
+      {
+        "id": "mask-3",
+        "maxHeightFt": 8,
+        "triangles": 16
+      },
+      {
+        "id": "mask-4",
+        "maxHeightFt": 8,
+        "triangles": 36
+      },
+      {
+        "id": "mask-5",
+        "maxHeightFt": 8,
+        "triangles": 112
+      },
+      {
+        "id": "mask-6",
+        "maxHeightFt": 8,
+        "triangles": 260
+      },
+      {
+        "id": "mask-7",
+        "maxHeightFt": 8,
+        "triangles": 64
+      },
+      {
+        "id": "mask-8",
+        "maxHeightFt": 8,
+        "triangles": 48
+      },
+      {
+        "id": "mask-9",
+        "maxHeightFt": 8,
+        "triangles": 200
+      },
+      {
+        "id": "mask-10",
+        "maxHeightFt": 8,
+        "triangles": 84
+      },
+      {
+        "id": "mask-11",
+        "maxHeightFt": 8,
+        "triangles": 460
+      },
+      {
+        "id": "mask-12",
+        "maxHeightFt": 8,
+        "triangles": 88
+      },
+      {
+        "id": "mask-13",
+        "maxHeightFt": 8,
+        "triangles": 72
+      },
+      {
+        "id": "mask-14",
+        "maxHeightFt": 8,
+        "triangles": 164
+      },
+      {
+        "id": "mask-15",
+        "maxHeightFt": 8,
+        "triangles": 96
+      },
+      {
+        "id": "mask-16",
+        "maxHeightFt": 8,
+        "triangles": 8
+      },
+      {
+        "id": "mask-17",
+        "maxHeightFt": 8,
+        "triangles": 184
+      },
+      {
+        "id": "mask-18",
+        "maxHeightFt": 8,
+        "triangles": 36
+      },
+      {
+        "id": "mask-19",
+        "maxHeightFt": 8,
+        "triangles": 164
+      },
+      {
+        "id": "mask-20",
+        "maxHeightFt": 8,
+        "triangles": 76
+      }
+    ],
+    "invalid": false,
+    "groundMax": 4,
+    "raisedGroundSamples": 8453
+  }
+}
