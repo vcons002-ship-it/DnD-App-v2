@@ -8,12 +8,14 @@
     "dev": "vite",
     "prebuild": "node ../scripts/token-assets/validate-runtime.mjs",
     "build": "vite build",
+    "build:exploration-preview": "vite build --config vite.exploration-preview.config.ts && node --import tsx scripts/package-exploration-preview.mts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "cannon-es": "^0.20.0",
     "konva": "^9.3.18",
+    "polygon-clipping": "0.15.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-konva": "^18.2.10",

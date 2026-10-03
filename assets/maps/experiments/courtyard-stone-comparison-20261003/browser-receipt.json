@@ -1,0 +1,427 @@
+{
+  "errors": [],
+  "metrics": {
+    "triangles": 10423,
+    "wallStats": [
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-0",
+        "maxHeightFt": 8,
+        "triangles": 714
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-1",
+        "maxHeightFt": 12,
+        "triangles": 773
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-2",
+        "maxHeightFt": 12,
+        "triangles": 259
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-3",
+        "maxHeightFt": 12,
+        "triangles": 239
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-4",
+        "maxHeightFt": 8,
+        "triangles": 151
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-5",
+        "maxHeightFt": 8,
+        "triangles": 126
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-6",
+        "maxHeightFt": 8,
+        "triangles": 74
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-7",
+        "maxHeightFt": 8,
+        "triangles": 66
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-8",
+        "maxHeightFt": 8,
+        "triangles": 281
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-9",
+        "maxHeightFt": 8,
+        "triangles": 310
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-10",
+        "maxHeightFt": 8,
+        "triangles": 65
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-11",
+        "maxHeightFt": 8,
+        "triangles": 64
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-12",
+        "maxHeightFt": 8,
+        "triangles": 132
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-13",
+        "maxHeightFt": 8,
+        "triangles": 99
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-14",
+        "maxHeightFt": 8,
+        "triangles": 156
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-15",
+        "maxHeightFt": 8,
+        "triangles": 117
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-16",
+        "maxHeightFt": 8,
+        "triangles": 348
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-17",
+        "maxHeightFt": 8,
+        "triangles": 63
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-18",
+        "maxHeightFt": 8,
+        "triangles": 347
+      },
+      {
+        "id": "draft-742dd06c-df2b-4e30-ab1c-51a6b1e558e5-item-19",
+        "maxHeightFt": 8,
+        "triangles": 53
+      }
+    ],
+    "invalid": false,
+    "sceneryStats": [
+      {
+        "id": "scenery-0",
+        "heightFt": 0.5,
+        "triangles": 64
+      },
+      {
+        "id": "scenery-1",
+        "heightFt": 0.5,
+        "triangles": 94
+      },
+      {
+        "id": "scenery-2",
+        "heightFt": 0.5,
+        "triangles": 48
+      },
+      {
+        "id": "scenery-3",
+        "heightFt": 0.5,
+        "triangles": 58
+      },
+      {
+        "id": "scenery-4",
+        "heightFt": 0.5,
+        "triangles": 72
+      },
+      {
+        "id": "scenery-5",
+        "heightFt": 0.5,
+        "triangles": 51
+      },
+      {
+        "id": "scenery-6",
+        "heightFt": 0.5,
+        "triangles": 77
+      },
+      {
+        "id": "scenery-7",
+        "heightFt": 0.5,
+        "triangles": 57
+      },
+      {
+        "id": "scenery-8",
+        "heightFt": 0.5,
+        "triangles": 102
+      },
+      {
+        "id": "scenery-9",
+        "heightFt": 0.5,
+        "triangles": 92
+      },
+      {
+        "id": "scenery-10",
+        "heightFt": 0.5,
+        "triangles": 56
+      },
+      {
+        "id": "scenery-11",
+        "heightFt": 1,
+        "triangles": 62
+      },
+      {
+        "id": "scenery-12",
+        "heightFt": 1,
+        "triangles": 150
+      },
+      {
+        "id": "scenery-13",
+        "heightFt": 1,
+        "triangles": 390
+      },
+      {
+        "id": "scenery-14",
+        "heightFt": 1,
+        "triangles": 140
+      },
+      {
+        "id": "scenery-15",
+        "heightFt": 1,
+        "triangles": 244
+      },
+      {
+        "id": "scenery-16",
+        "heightFt": 1,
+        "triangles": 46
+      },
+      {
+        "id": "scenery-17",
+        "heightFt": 1,
+        "triangles": 128
+      },
+      {
+        "id": "scenery-18",
+        "heightFt": 1,
+        "triangles": 84
+      },
+      {
+        "id": "scenery-19",
+        "heightFt": 1,
+        "triangles": 48
+      },
+      {
+        "id": "scenery-20",
+        "heightFt": 1,
+        "triangles": 146
+      },
+      {
+        "id": "scenery-21",
+        "heightFt": 1,
+        "triangles": 42
+      },
+      {
+        "id": "scenery-22",
+        "heightFt": 1,
+        "triangles": 58
+      },
+      {
+        "id": "scenery-23",
+        "heightFt": 1,
+        "triangles": 68
+      },
+      {
+        "id": "scenery-24",
+        "heightFt": 1,
+        "triangles": 50
+      },
+      {
+        "id": "scenery-25",
+        "heightFt": 1,
+        "triangles": 30
+      },
+      {
+        "id": "scenery-26",
+        "heightFt": 1,
+        "triangles": 58
+      },
+      {
+        "id": "scenery-27",
+        "heightFt": 1,
+        "triangles": 40
+      },
+      {
+        "id": "scenery-28",
+        "heightFt": 1,
+        "triangles": 118
+      },
+      {
+        "id": "scenery-29",
+        "heightFt": 1,
+        "triangles": 138
+      },
+      {
+        "id": "scenery-30",
+        "heightFt": 1,
+        "triangles": 104
+      },
+      {
+        "id": "scenery-31",
+        "heightFt": 1,
+        "triangles": 78
+      },
+      {
+        "id": "scenery-32",
+        "heightFt": 1,
+        "triangles": 30
+      },
+      {
+        "id": "scenery-33",
+        "heightFt": 1,
+        "triangles": 156
+      },
+      {
+        "id": "scenery-34",
+        "heightFt": 1,
+        "triangles": 50
+      },
+      {
+        "id": "scenery-35",
+        "heightFt": 1,
+        "triangles": 148
+      },
+      {
+        "id": "scenery-36",
+        "heightFt": 1,
+        "triangles": 166
+      },
+      {
+        "id": "scenery-37",
+        "heightFt": 1,
+        "triangles": 112
+      },
+      {
+        "id": "scenery-38",
+        "heightFt": 2,
+        "triangles": 183
+      },
+      {
+        "id": "scenery-39",
+        "heightFt": 2,
+        "triangles": 38
+      },
+      {
+        "id": "scenery-40",
+        "heightFt": 2,
+        "triangles": 54
+      },
+      {
+        "id": "scenery-41",
+        "heightFt": 2,
+        "triangles": 59
+      },
+      {
+        "id": "scenery-42",
+        "heightFt": 4,
+        "triangles": 47
+      },
+      {
+        "id": "scenery-43",
+        "heightFt": 4,
+        "triangles": 88
+      },
+      {
+        "id": "scenery-44",
+        "heightFt": 4,
+        "triangles": 34
+      },
+      {
+        "id": "scenery-45",
+        "heightFt": 4,
+        "triangles": 36
+      },
+      {
+        "id": "scenery-46",
+        "heightFt": 4,
+        "triangles": 39
+      },
+      {
+        "id": "scenery-47",
+        "heightFt": 4,
+        "triangles": 122
+      },
+      {
+        "id": "scenery-48",
+        "heightFt": 4,
+        "triangles": 76
+      },
+      {
+        "id": "scenery-49",
+        "heightFt": 4,
+        "triangles": 31
+      },
+      {
+        "id": "scenery-50",
+        "heightFt": 4,
+        "triangles": 76
+      },
+      {
+        "id": "scenery-51",
+        "heightFt": 4,
+        "triangles": 131
+      },
+      {
+        "id": "scenery-52",
+        "heightFt": 4,
+        "triangles": 84
+      },
+      {
+        "id": "scenery-53",
+        "heightFt": 4,
+        "triangles": 42
+      },
+      {
+        "id": "scenery-54",
+        "heightFt": 4,
+        "triangles": 84
+      },
+      {
+        "id": "scenery-55",
+        "heightFt": 4,
+        "triangles": 74
+      },
+      {
+        "id": "scenery-56",
+        "heightFt": 4,
+        "triangles": 61
+      },
+      {
+        "id": "scenery-57",
+        "heightFt": 4,
+        "triangles": 367
+      },
+      {
+        "id": "scenery-58",
+        "heightFt": 4,
+        "triangles": 211
+      },
+      {
+        "id": "scenery-59",
+        "heightFt": 4,
+        "triangles": 155
+      },
+      {
+        "id": "scenery-60",
+        "heightFt": 4,
+        "triangles": 49
+      },
+      {
+        "id": "scenery-61",
+        "heightFt": 4,
+        "triangles": 88
+      },
+      {
+        "id": "scenery-62",
+        "heightFt": 4,
+        "triangles": 98
+      }
+    ],
+    "sceneryMax": 4
+  }
+}

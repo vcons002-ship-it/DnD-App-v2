@@ -26,11 +26,11 @@ function morphology(mask:Uint8Array,w:number,h:number,radius:number,erode=false)
  return out;
 }
 
-/** Reserve unpainted cuts BEFORE any closing or fitting. A narrow cut is ambiguous:
- * it may be a stone seam, slit, doorway or passage, so preserving it wins over merging.
+/** Reserve unpainted cuts BEFORE closing or fitting. Structural masks may repair
+ * tiny cuts as paint breaks; precise mode reserves even one-pixel openings.
  * Both axes also protect offset corridors. Enclosed wall-outline interiors are filled
  * by the caller first; these reservations concern still-empty pixels only. */
-function protectedGaps(mask:Uint8Array,w:number,h:number,maxSpan:number,gridPixels:number){
+function protectedGaps(mask:Uint8Array,w:number,h:number,maxSpan:number,gridPixels:number,repairSpan=0){
  const protectedPixels=new Uint8Array(mask.length);
  for(const transpose of [false,true]){
   const length=transpose?h:w,lines=transpose?w:h,index=(x:number,y:number)=>transpose?x*w+y:y*w+x;
@@ -39,7 +39,7 @@ function protectedGaps(mask:Uint8Array,w:number,h:number,maxSpan:number,gridPixe
    while(x<length){
     if(mask[index(x,y)]){x++;continue;}
     const start=x;while(x<length&&!mask[index(x,y)])x++;
-    if(start===0||x===length||x-start>maxSpan)continue;
+    if(start===0||x===length||x-start>maxSpan||x-start<=repairSpan)continue;
     let reserved=true;for(let p=start;p<x;p++)if(!protectedPixels[index(p,y)]){reserved=false;break;}
     if(reserved)continue;
     // A notch or fleck inside a wall is not a through-opening. Inspect a small
@@ -70,19 +70,38 @@ function protectedGaps(mask:Uint8Array,w:number,h:number,maxSpan:number,gridPixe
 
 function paint(mask:Uint8Array,w:number,r:MaskRectangle){for(let y=r.y;y<r.bottom;y++)mask.fill(1,y*w+r.x,y*w+r.right);}
 
+/** A wider chipped end of the same seam can reserve its entire connected empty
+ * region. Release only locally short, paint-supported runs that closing filled. */
+function releaseSmallCuts(protectedPixels:Uint8Array,input:Uint8Array,closed:Uint8Array,w:number,h:number,span:number){
+ for(const transpose of [false,true]){
+  const length=transpose?h:w,lines=transpose?w:h,index=(x:number,y:number)=>transpose?x*w+y:y*w+x;
+  for(let y=0;y<lines;y++)for(let x=0;x<length;){
+   if(input[index(x,y)]){x++;continue;}
+   const start=x;while(x<length&&!input[index(x,y)])x++;
+   if(!start||x===length||x-start>span)continue;
+   for(let q=start;q<x;q++){const p=index(q,y);if(closed[p])protectedPixels[p]=0;}
+  }
+ }
+}
+
 /** Fits broad supported wall bands instead of allocating a wall to every edge sliver.
  * The limits are fractions of one grid square, capped in the 800px working raster.
  * Nothing in fitting, merging or connector creation may occupy a reserved gap. */
-export function prepareWallMask(input:Uint8Array,w:number,h:number,gridPixels:number){
+export function prepareWallMask(input:Uint8Array,w:number,h:number,gridPixels:number,repairSmallGaps=false){
  const tolerance=Math.max(1,Math.min(2,Math.round(gridPixels*.06)));
- const repairRadius=Math.max(1,Math.min(5,Math.round(gridPixels*.15)));
- const protectedPixels=protectedGaps(input,w,h,2*(repairRadius+tolerance)+1,gridPixels);
+ const repairSpan=repairSmallGaps?Math.max(1,Math.min(16,Math.floor(gridPixels*.25))):0;
+ const repairRadius=Math.max(1,Math.min(5,Math.round(gridPixels*.15)),Math.ceil(repairSpan/2));
+ // Structural top-cap masks may contain mortar seams and partial paint breaks.
+ // Close cuts up to one quarter of a grid square; wider passages stay reserved.
+ // Natural boundaries and colored opening footprints can retain every cut.
+ const protectedPixels=protectedGaps(input,w,h,2*(repairRadius+tolerance)+1,gridPixels,repairSpan);
  const solid=morphology(morphology(input,w,h,repairRadius),w,h,repairRadius,true);
+ if(repairSmallGaps)releaseSmallCuts(protectedPixels,input,solid,w,h,repairSpan);
  for(let p=0;p<solid.length;p++)if(protectedPixels[p])solid[p]=0;
  return {solid,protectedPixels,tolerance};
 }
-export async function fitWallMask(input:Uint8Array,w:number,h:number,gridPixels:number,limit=120){
- const {solid,protectedPixels,tolerance}=prepareWallMask(input,w,h,gridPixels);
+export async function fitWallMask(input:Uint8Array,w:number,h:number,gridPixels:number,limit=120,repairSmallGaps=false){
+ const {solid,protectedPixels,tolerance}=prepareWallMask(input,w,h,gridPixels,repairSmallGaps);
  const allowed=morphology(solid,w,h,tolerance);
  for(let p=0;p<allowed.length;p++)if(protectedPixels[p])allowed[p]=0;
  const count=integral(solid,w,h),forbidden=integral(Uint8Array.from(allowed,n=>Number(!n)),w,h);

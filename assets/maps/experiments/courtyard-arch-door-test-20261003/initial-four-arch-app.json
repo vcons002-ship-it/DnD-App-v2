@@ -1,0 +1,106 @@
+{
+  "mapId": "fa08c07a-34df-42c2-a265-4ddee119b9df",
+  "moves": [
+    {
+      "arch": "arch-1",
+      "requested": {
+        "x": 818.52,
+        "y": 342.24680073126143
+      },
+      "actual": {
+        "x": 818.8722408235546,
+        "y": 342.8953987569014
+      }
+    },
+    {
+      "arch": "arch-1",
+      "requested": {
+        "x": 818.52,
+        "y": 232.70018281535647
+      },
+      "actual": {
+        "x": 818.6884800302208,
+        "y": 231.06805562082207
+      }
+    },
+    {
+      "arch": "arch-2",
+      "requested": {
+        "x": 366.32,
+        "y": 342.24680073126143
+      },
+      "actual": {
+        "x": 366.33539201545574,
+        "y": 342.60301056559
+      }
+    },
+    {
+      "arch": "arch-2",
+      "requested": {
+        "x": 366.32,
+        "y": 234.22120658135282
+      },
+      "actual": {
+        "x": 366.3200000000001,
+        "y": 234.22120658135282
+      }
+    },
+    {
+      "arch": "arch-3",
+      "requested": {
+        "x": 812.44,
+        "y": 591.6946983546618
+      },
+      "actual": {
+        "x": 812.5600381607784,
+        "y": 590.9946669324838
+      }
+    },
+    {
+      "arch": "arch-3",
+      "requested": {
+        "x": 812.44,
+        "y": 492.7952468007312
+      },
+      "actual": {
+        "x": 812.4399999999999,
+        "y": 492.7952468007312
+      }
+    },
+    {
+      "arch": "arch-4",
+      "requested": {
+        "x": 379.24,
+        "y": 591.6946983546618
+      },
+      "actual": {
+        "x": 379.3141087179722,
+        "y": 591.1168107072356
+      }
+    },
+    {
+      "arch": "arch-4",
+      "requested": {
+        "x": 379.24,
+        "y": 494.31627056672755
+      },
+      "actual": {
+        "x": 379.2399999999999,
+        "y": 494.3162705667273
+      }
+    }
+  ],
+  "recording": {
+    "output": "artifacts/archway-player-walk.mp4",
+    "codec": "av1",
+    "encoder": "av1_nvenc",
+    "gpu": "0",
+    "fps": 60,
+    "frames": 2152,
+    "stderr": "[swscaler @ 000001d4377cb800] deprecated pixel format used, make sure you did set range correctly\r\n"
+  },
+  "errors": [],
+  "realPlayerDrag": true,
+  "serverAuthoritative": true,
+  "transparencyInApp": false
+}

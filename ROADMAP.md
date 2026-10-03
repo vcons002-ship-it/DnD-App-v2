@@ -6,6 +6,44 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [ ] Raised-wall rendering parked at user request. Retain the isolated studies;
+  prioritize accurate functional wall and opening masks.
+- [x] Test arches as a separate class in the door-mask experiment, without
+  repainting supports. A stricter prompt rejects the courtyard's two lower
+  wall-top false positives. Verify the two upper openings against existing jambs,
+  player movement and vision; keep uncertain candidates review-only. Retain a
+  corrected 2D arch-art overlay test that fades only figure-covered pixels,
+  not enabled in normal builds. The extruded arch preview is retired.
+- [x] Keep the accepted wall and arch prompts; narrow the ordinary arch wall
+  cut to its central 70%, leaving 15% at each end uncut for existing supports.
+  Verify both passages with actual player drags and support blocking checks in
+  the disposable app. Full arch artwork footprints remain unchanged.
+- [x] Join structural wall-mask paint breaks up to one quarter of a grid square.
+  Keep wider cuts reserved, retain precise colored-opening extraction, and
+  verify the same courtyard masks with normal draft application and player drags.
+  Details and remaining larger gaps: `docs/WALL_MASK_GAP_REPAIR.md`.
+
+- [x] Compare a reusable generated old-stone wall material against the ordinary
+  map after running the real automatic wall workflow. Record matched player
+  walks, room reveals and blocked moves; gate raised surfaces behind an explicit
+  study build flag while keeping ordinary builds unchanged.
+
+- [x] Test mask-derived 3D map walls and a separate Gemini hypsometric height
+  pass while retaining original map texture and dimensions. Provide independent
+  height controls and exportable GLBs in an isolated comparison preview.
+  Reuse each wall/item's own top-surface texture on its vertical sides; raise
+  scenery as separate extruded footprints and open the preview with items shown.
+  Elevation remains approximate; no gameplay map renderer was replaced.
+
+- [x] Test an existing courtyard map through Gemini directional diorama views,
+  true multi-view Hunyuan shape/texture generation, and original-art projection.
+  Retain a standalone rotatable comparison; generated geometry remains too rough
+  for gameplay and does not replace any map.
+
+- [x] Test Druk using four references prompted as a rendered 3D sculpt; retain
+  the full textured reconstruction and a standalone interactive comparison.
+  This experiment does not replace the current runtime character model.
+
 - [x] Replace the procedural death skull with a textured four-view 2D-to-3D
   skull; use all views for shape and texture, compress it with the accepted
   reduction policy, and preload/share it across defeated tokens.

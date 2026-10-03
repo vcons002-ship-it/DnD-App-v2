@@ -1,0 +1,23 @@
+{
+  "name": "druk-3d-render-test",
+  "source": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\druk-3d-style-generation\\01_textured_mesh.glb",
+  "sourceSha256": "20312a3970e92913fdca828578524d62e9e28b499008e6c61f2ebb1d1ec11be4",
+  "bodyTriangles": 40000,
+  "sourceBodyTriangles": 40000,
+  "uniformScale": 0.8222206614323291,
+  "bodyHeight": 1.6396534206442128,
+  "baseDiameter": 1.0,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "sourcePreserved": true,
+  "baseTop": 0.055,
+  "footRadiusAfterScale": 0.465,
+  "footRadiusLimit": 0.465,
+  "targetHeight": 1.7,
+  "orientation": "upright",
+  "note": "Full 40k-triangle textured worker output fitted to a round base; no additional simplification or JPEG recompression.",
+  "removedSpeckVertices": 0
+}

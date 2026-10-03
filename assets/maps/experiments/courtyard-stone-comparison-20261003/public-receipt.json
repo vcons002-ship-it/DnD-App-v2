@@ -1,0 +1,20 @@
+{
+  "url": "https://dnd.nic024i.app/uploads/previews/courtyard-stone-comparison-20261003/index.html",
+  "errors": [],
+  "videos": [
+    {
+      "src": "https://dnd.nic024i.app/uploads/previews/courtyard-stone-comparison-20261003/raised-walkthrough.mp4",
+      "width": 1280,
+      "height": 800,
+      "duration": 56.583333,
+      "currentTime": 0.504024
+    },
+    {
+      "src": "https://dnd.nic024i.app/uploads/previews/courtyard-stone-comparison-20261003/flat-walkthrough.mp4",
+      "width": 1280,
+      "height": 800,
+      "duration": 56.183333,
+      "currentTime": 0.504065
+    }
+  ]
+}

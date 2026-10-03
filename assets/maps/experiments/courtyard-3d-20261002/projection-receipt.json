@@ -1,0 +1,31 @@
+{
+  "source": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\courtyard-3d-mesh-v2\\01_textured_mesh.glb",
+  "originalImage": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\environment-preview\\courtyard.png",
+  "inputBounds": {
+    "min": [
+      -0.9994414448738098,
+      -0.9957762360572815,
+      -0.42170023918151855
+    ],
+    "max": [
+      0.9961135387420654,
+      0.9987581372261047,
+      0.2221720665693283
+    ]
+  },
+  "normalizedWidth": 1,
+  "normalizedDepth": 0.9994885581500542,
+  "normalizedHeight": 0.3226532523720158,
+  "sourceAspect": 1.4615384615384615,
+  "meshAspect": 1.0005117035565594,
+  "projection": "Planar XY, original north -> positive Blender Y / negative glTF Z",
+  "upwardNormalThreshold": 0.35,
+  "faceCounts": {
+    "projected": 16252,
+    "generatedSides": 23748
+  },
+  "limitations": [
+    "Original art is aligned to overall rectangular mesh bounds, without manual layout repairs.",
+    "Projection cannot recover hidden sides or correct invented/moved geometry."
+  ]
+}

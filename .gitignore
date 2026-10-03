@@ -5,6 +5,7 @@ node_modules/
 /preview-evidence/
 dist/
 client/environment-dist/
+client/exploration-dist/
 build/
 
 # Local game state & uploads (never commit)

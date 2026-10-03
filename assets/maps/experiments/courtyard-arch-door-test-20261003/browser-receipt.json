@@ -1,0 +1,25 @@
+{
+  "url": "https://dnd.nic024i.app/uploads/previews/courtyard-arch-door-test-20261003/index.html",
+  "transparent": {
+    "progress": 0.5,
+    "opacity": 0.1601056526863711
+  },
+  "solid": {
+    "progress": 0.5,
+    "opacity": 0.9998953056020831
+  },
+  "playback": {
+    "currentTime": 0.741333,
+    "duration": 18.616667
+  },
+  "errors": [],
+  "recording": {
+    "output": "artifacts/arch-depth-demo.mp4",
+    "codec": "av1",
+    "encoder": "av1_nvenc",
+    "gpu": "0",
+    "fps": 60,
+    "frames": 962,
+    "stderr": "[swscaler @ 00000205f993a000] deprecated pixel format used, make sure you did set range correctly\r\n"
+  }
+}

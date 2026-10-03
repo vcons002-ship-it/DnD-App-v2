@@ -4,7 +4,7 @@ import type {MiniatureDefinition} from '../lib/miniatures';
 import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 
-export type TorchLight = {id:string;x:number;y:number;height:number;fixtureHeight?:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean};
+export type TorchLight = {id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight?:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){

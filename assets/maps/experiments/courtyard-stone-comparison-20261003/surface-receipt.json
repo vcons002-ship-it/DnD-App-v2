@@ -1,0 +1,32 @@
+{
+  "method": "Separate low-height palette contours, excluding structural wall interiors. Vertical faces sample their own original top-surface pixels, not a shared wall tile.",
+  "levels": [
+    {
+      "heightFt": 0.5,
+      "pixels": 1636,
+      "pieces": 11,
+      "coverage": 0.9767726161369193
+    },
+    {
+      "heightFt": 1,
+      "pixels": 4354,
+      "pieces": 27,
+      "coverage": 1
+    },
+    {
+      "heightFt": 2,
+      "pixels": 654,
+      "pieces": 4,
+      "coverage": 1
+    },
+    {
+      "heightFt": 4,
+      "pixels": 1799,
+      "pieces": 21,
+      "coverage": 0.9677598665925514
+    }
+  ],
+  "pieces": 63,
+  "manualMaskEdits": false,
+  "manualElevationEdits": false
+}

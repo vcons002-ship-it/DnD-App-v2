@@ -1,3 +1,4 @@
+import {CARRIED_LANTERN_LIGHT_HEIGHT_FT} from './lightFalloff.js';
 import {lightIrradiance,lightColorCoverage,spellEmissionIrradiance} from './lightFalloff.js';
 import {tokenVisibleAt} from './fog.js';
 import {hasLineOfSight,type MapWall} from './mapWalls.js';
@@ -33,6 +34,6 @@ export function createPlayerVision(map:MapState|null|undefined,tokens:Token[],ow
  const tokenFog=map!.tokenFogEnabled?new Set(map!.tokenFogRevealed):null;
  const sourceVisible=lightTokenAllowed??((t:Token)=>tokenVisibleAt({role:'player',hidden:t.isHidden,owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster',mapFog:fog,tokenFog,grid:map!.gridSizePx,x:t.x,y:t.y}));
  vision.lights=[...(map.environment?.enabled?map.environment.lights:[]).filter(l=>permitted(l.x,l.y)).map(l=>({id:l.id,x:l.x,y:l.y,radius:l.radiusFt*px,height:l.heightFt*px,strength:l.intensity})),
- ...tokens.filter(t=>t.carriedLantern&&!t.isHidden&&permitted(t.x,t.y)&&sourceVisible(t)&&origins.some(o=>hasLineOfSight(o,t,map.walls))).map(t=>({id:t.id,x:t.x,y:t.y,radius:20*px,height:2.8*px,strength:.85}))];
+ ...tokens.filter(t=>t.carriedLantern&&!t.isHidden&&permitted(t.x,t.y)&&sourceVisible(t)&&origins.some(o=>hasLineOfSight(o,t,map.walls))).map(t=>({id:t.id,x:t.x,y:t.y,radius:20*px,height:CARRIED_LANTERN_LIGHT_HEIGHT_FT*px,strength:.85}))];
  return vision;
 }

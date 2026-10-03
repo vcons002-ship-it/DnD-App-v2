@@ -1,0 +1,62 @@
+{
+  "mapId": "28b588ed-53fa-46ac-98f9-5c88ff5b89ec",
+  "recording": {
+    "output": "artifacts/arch-art-2d-walk.mp4",
+    "codec": "av1",
+    "encoder": "av1_nvenc",
+    "gpu": "0",
+    "fps": 60,
+    "frames": 1240,
+    "stderr": "[swscaler @ 000001de0ef08f40] deprecated pixel format used, make sure you did set range correctly\r\n"
+  },
+  "moves": [
+    {
+      "requested": {
+        "x": 365.56,
+        "y": 286.71297989031075
+      },
+      "actual": {
+        "x": 365.41470451991546,
+        "y": 286.0802224622446
+      }
+    },
+    {
+      "requested": {
+        "x": 365.56,
+        "y": 339.20475319926874
+      },
+      "actual": {
+        "x": 365.83563051354173,
+        "y": 339.8920534407623
+      }
+    },
+    {
+      "requested": {
+        "x": 365.56,
+        "y": 286.71297989031075
+      },
+      "actual": {
+        "x": 365.83563051354173,
+        "y": 287.17231319622215
+      }
+    },
+    {
+      "requested": {
+        "x": 365.56,
+        "y": 234.22120658135282
+      },
+      "actual": {
+        "x": 365.83563051354173,
+        "y": 234.45257295168204
+      }
+    }
+  ],
+  "errors": [],
+  "originalMapArt": true,
+  "extrudedArch": false,
+  "additionalModels": false,
+  "localBodySilhouetteFade": true,
+  "wholeArchFade": false,
+  "fadeAfterExit": "0.0005013363277569095",
+  "normalAppBuild": false
+}

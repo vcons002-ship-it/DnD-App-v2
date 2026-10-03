@@ -1,0 +1,32 @@
+{
+  "models": [
+    {
+      "file": "walls.glb",
+      "bytes": 7755828,
+      "triangles": 4439,
+      "sha256": "8eb13ffbc3c13eca767e360ba0c96f18862b0c9e4069361e02e87b588e0028da",
+      "originalTexturePixelsPreserved": true,
+      "finite": true,
+      "capArea": 1.0030648493726944,
+      "expectedCapArea": 1.0030649002560579,
+      "capAreaRelativeError": 5.0727887606942196e-8,
+      "sceneryMeshes": 0,
+      "sceneryHeightsVerified": true
+    },
+    {
+      "file": "relief.glb",
+      "bytes": 8449612,
+      "triangles": 10421,
+      "sha256": "5b9c67eacbf06ffc8a41ee4ba93852c0dee63ef82e89f62fa2fcfc71fd132d5b",
+      "originalTexturePixelsPreserved": true,
+      "finite": true,
+      "capArea": 1.0030648493726944,
+      "expectedCapArea": 1.0030649002560579,
+      "capAreaRelativeError": 5.0727887606942196e-8,
+      "sceneryMeshes": 63,
+      "sceneryHeightsVerified": true
+    }
+  ],
+  "manualMaskEdits": false,
+  "manualElevationEdits": false
+}

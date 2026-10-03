@@ -1,0 +1,8 @@
+{
+  "tool": "Built-in image_gen",
+  "prompt": "Use case: stylized-concept. Asset type: a seamless repeating diffuse/albedo texture for the vertical walls of an old ruined stone courtyard in a fantasy tabletop game. Create a square, edge-to-edge, straight-on orthographic texture of large irregular hand-cut grey-beige limestone blocks in staggered courses, worn chipped edges, dark recessed mortar, subtle age staining and small sparse moss patches. Detailed natural stone surface with restrained color variation. Flat neutral diffuse lighting, no directional cast shadows, no perspective, no vignette, no border, no writing, no objects. The pattern should tile seamlessly on every edge. A single stone wall material only, not a scene or preview sphere.",
+  "file": "old-stone.png",
+  "tileWidthFt": 8,
+  "tileHeightFt": 8,
+  "perWallApiCalls": false
+}

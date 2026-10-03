@@ -1,0 +1,17 @@
+{
+  "id": "druk-3d-render-test",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "bytes": 4577452,
+  "triangles": 40764,
+  "sha256": "cf968d275a1ce266ac3d72b7a472516e6bfc61b08ecc903651b8aeba7635e01e",
+  "policy": "quality-experiment-full-texture-v1",
+  "sourceViewCount": 4,
+  "geometrySimplified": false,
+  "texturePixelsResized": false,
+  "textureBytesPreserved": true
+}

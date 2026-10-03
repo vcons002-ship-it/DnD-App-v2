@@ -1,0 +1,89 @@
+{
+  "endpoint": "generation_all",
+  "event_id": "0c9f70a71c52409ea7c2eb8ff2b4f0d6",
+  "inputs": {
+    "front": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\maps\\experiments\\courtyard-3d-20261002\\references-v2\\front.jpg",
+      "sha256": "29a99e8ee3b59527ed7bf314dcd06900c7e582231201fd16c72a1367a5497741"
+    },
+    "back": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\maps\\experiments\\courtyard-3d-20261002\\references-v2\\back.jpg",
+      "sha256": "2a4bae1f9de137620ce21ebe7e9d4f7ed8c90905325232931983d021a0fbdb2b"
+    },
+    "left": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\maps\\experiments\\courtyard-3d-20261002\\references-v2\\left.jpg",
+      "sha256": "7b7121e290c407c1c5243d8ae97c5b6670692ee614046831525fdb4aa1bbbfed"
+    },
+    "right": {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\assets\\maps\\experiments\\courtyard-3d-20261002\\references-v2\\right.jpg",
+      "sha256": "7ae6598826a6567835d6de314e47b0899a7202af00f6e14c750ef183848a231a"
+    }
+  },
+  "view_count": 4,
+  "settings": {
+    "steps": 50,
+    "guidance": 5.5,
+    "seed": 102026,
+    "octree_resolution": 512,
+    "num_chunks": 10000,
+    "remove_background": true
+  },
+  "mesh_stats": {
+    "model": {
+      "shapegen": "tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv",
+      "texgen": "tencent/Hunyuan3D-2"
+    },
+    "params": {
+      "caption": null,
+      "steps": 50,
+      "guidance_scale": 5.5,
+      "seed": 102026,
+      "octree_resolution": 512,
+      "check_box_rembg": true,
+      "num_chunks": 10000
+    },
+    "number_of_faces": 2917494,
+    "number_of_vertices": 1458561,
+    "time": {
+      "remove background": 1.3024375438690186,
+      "shape generation": 60.85297083854675,
+      "export to trimesh": 0.7655951976776123,
+      "face reduction": 36.82793736457825,
+      "texture generation": 45.70928359031677,
+      "total": 145.64250349998474
+    },
+    "texture_reference_views": [
+      "front",
+      "back",
+      "left",
+      "right"
+    ],
+    "texture_policy": "named-multiview-texture-v1"
+  },
+  "returned_seed": 102026,
+  "artifacts": [
+    {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\courtyard-3d-mesh-v2\\00_white_mesh.glb",
+      "sha256": "1a7f3a2b62a8d7f2d9af2f922351d1bb7cdb20dce78798f35182fefa1cba316b",
+      "bytes": 52513452,
+      "result_index": 0
+    },
+    {
+      "path": "C:\\Users\\vcons\\codex-work\\dnd-undead-fiends\\artifacts\\courtyard-3d-mesh-v2\\01_textured_mesh.glb",
+      "sha256": "cc1b760ea0be9fde8793a396c5554d99b35089a92088a379765e2ee9b086bf1c",
+      "bytes": 5917916,
+      "result_index": 1
+    }
+  ],
+  "elapsed_seconds": 147.125,
+  "actual_multiview_model_verified": true,
+  "texture_view_count": 4,
+  "texture_reference_views": [
+    "front",
+    "back",
+    "left",
+    "right"
+  ],
+  "multiview_texture_verified": true,
+  "texture_policy": "named-multiview-texture-v1"
+}

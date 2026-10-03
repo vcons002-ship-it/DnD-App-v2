@@ -1,0 +1,30 @@
+{
+  "model": "gemini-3-pro-image",
+  "prompt": "Annotate this battle map. Mark visible wooden or metal door leaves with bright cyan (#00FFFF) straight lines from jamb to jamb, about 8 pixels thick. Paint overhead stone spans of open archways solid magenta (#FF00FF), edge to edge. Do not mark supports, walls or vertical stone faces. Keep the floor beneath each arch unmarked. Ignore rubble, shadows, stairs, furniture and ordinary empty openings. Preserve all other map pixels, exact framing and aspect ratio. No labels or invented structures.",
+  "elapsedSeconds": 21.498,
+  "sourceSha256": "b6f47c1f0917ced9a691113b5513ed3e42a955e30ff40f0aed5920e90fda524d",
+  "maskSha256": "999bfd8ee1a9e15b493c92b01c4fa08bf7a3627a3080262fdca2a4ef9706de6e",
+  "file": "door-arch-mask-v3.jpg",
+  "metadata": {
+    "format": "jpeg",
+    "mediaType": "image/jpeg",
+    "size": 3788161,
+    "width": 2528,
+    "height": 1696,
+    "space": "srgb",
+    "channels": 3,
+    "depth": "uchar",
+    "density": 72,
+    "chromaSubsampling": "4:2:0",
+    "isProgressive": false,
+    "isPalette": false,
+    "hasProfile": false,
+    "hasAlpha": false,
+    "autoOrient": {
+      "width": 2528,
+      "height": 1696
+    }
+  },
+  "manualEdits": false,
+  "experimentalOnly": true
+}

@@ -1,0 +1,101 @@
+{
+  "model": "gemini-3-pro-image",
+  "sourceSha256": "b6f47c1f0917ced9a691113b5513ed3e42a955e30ff40f0aed5920e90fda524d",
+  "width": 1216,
+  "height": 832,
+  "gridSizePx": 64,
+  "feetPerSquare": 5,
+  "palette": [
+    {
+      "hex": "#000000",
+      "feet": 0,
+      "label": "ground"
+    },
+    {
+      "hex": "#0044FF",
+      "feet": 0.5,
+      "label": "half-foot rise"
+    },
+    {
+      "hex": "#00BB88",
+      "feet": 1,
+      "label": "one-foot rise"
+    },
+    {
+      "hex": "#FFFF00",
+      "feet": 2,
+      "label": "two feet"
+    },
+    {
+      "hex": "#FF8800",
+      "feet": 4,
+      "label": "four feet"
+    },
+    {
+      "hex": "#FF0000",
+      "feet": 8,
+      "label": "eight feet"
+    },
+    {
+      "hex": "#FFFFFF",
+      "feet": 12,
+      "label": "twelve feet"
+    }
+  ],
+  "requests": [
+    {
+      "name": "wall-mask",
+      "file": "wall-mask.jpg",
+      "prompt": "Paint the entire TOP CAPS of the structural stone walls solid opaque bright yellow (#FFFF00), edge to edge at their exact existing width and location. Cover the stone texture and mortar seams with continuous filled yellow bands. Do not draw outlines, border strokes or centerlines. Leave doors and open passages unpainted. Do not include vertical wall faces, wall shadows, furniture or stairs. Preserve all other map pixels, the full composition and exact framing. Do not broaden the walls, black out the map or make a standalone segmentation diagram. No labels.",
+      "elapsedSeconds": 19.219,
+      "sha256": "c48778a3f38576d7f9d4afdf078651942269b884d2a4e659823df9f8bc16350d"
+    },
+    {
+      "name": "elevation",
+      "file": "elevation.jpg",
+      "prompt": "Create a pure flat-color hypsometric HEIGHT DATA MAP of this courtyard, exactly aligned with the FIRST image, at the same framing and aspect ratio. Replace the art with elevation colors; do not overlay or keep its texture. Each pixel means the height of the top surface above the courtyard floor. Use ONLY this palette: black #000000 = floor at 0 ft; blue #0044FF = 0.5 ft; green #00BB88 = 1 ft; yellow #FFFF00 = 2 ft; orange #FF8800 = 4 ft; red #FF0000 = 8 ft; white #FFFFFF = 12 ft. The second image marks structural wall top caps in yellow: use red for these wall caps, white only for obviously taller sections. Keep flat walkable ground black, including dark floor shadows and painted wall-side shadows. For tables, crates, benches, pots, stairs and rubble, fill their actual top footprints with the closest plausible height color (usually 1, 2 or 4 ft). No labels, legend, outlines, lighting, shadows, perspective, texture, color gradients or invented terrain. Preserve every doorway gap and the precise original object positions. This is elevation data, not a new map illustration.",
+      "elapsedSeconds": 23.663,
+      "sha256": "33fe328d442e8ae848135b344f05c15a053ec95a2200caa96f820775d061a1b3"
+    },
+    {
+      "name": "elevation-retry",
+      "file": "elevation-retry.jpg",
+      "prompt": "Create a pure flat-color hypsometric HEIGHT DATA MAP of this courtyard, exactly aligned with the FIRST image, at the same framing and aspect ratio. Replace the art with elevation colors; do not overlay or keep its texture. Each pixel means the height of the top surface above the courtyard floor. Use ONLY this palette: black #000000 = floor at 0 ft; blue #0044FF = 0.5 ft; green #00BB88 = 1 ft; yellow #FFFF00 = 2 ft; orange #FF8800 = 4 ft; red #FF0000 = 8 ft; white #FFFFFF = 12 ft. The second image marks structural wall top caps in yellow: use red for these wall caps, white only for obviously taller sections. Keep flat walkable ground black, including dark floor shadows and painted wall-side shadows. For tables, crates, benches, pots, stairs and rubble, fill their actual top footprints with the closest plausible height color (usually 1, 2 or 4 ft). No labels, legend, outlines, lighting, shadows, perspective, texture, color gradients or invented terrain. Preserve every doorway gap and the precise original object positions. This is elevation data, not a new map illustration. IMPORTANT: the previous result left original art in the central courtyard. That is unusable height data. EVERY pixel must be replaced by one of the specified solid data colors. Paint ALL ground solid pure black, across the entire center and every room. Leave absolutely NO photographic/painted texture, lighting, stone pattern or original art visible anywhere. Do not use a translucent overlay. Render a completely flat palette segmentation diagram.",
+      "elapsedSeconds": 24.371,
+      "sha256": "09be7c2fbdb7d44bdfd4faa8a8ca1d47bd93c139934d7b9b6f782f248e1b64f1"
+    }
+  ],
+  "wallConversion": {
+    "count": 21,
+    "coverage": 0.9915065556196916,
+    "workWidth": 800,
+    "workHeight": 547
+  },
+  "elevationConversion": {
+    "terrainWidth": 305,
+    "terrainHeight": 209,
+    "bins": {
+      "0": 45434,
+      "1": 4368,
+      "2": 654,
+      "4": 1807,
+      "8": 9305,
+      "12": 541,
+      "0.5": 1636
+    },
+    "offPalettePixels": 6001,
+    "totalPixels": 63745,
+    "candidates": [
+      {
+        "file": "elevation.jpg",
+        "offPalettePixels": 6001
+      },
+      {
+        "file": "elevation-retry.jpg",
+        "offPalettePixels": 14199
+      }
+    ],
+    "decoding": "Closest RGB palette within distance 80; unknown/art pixels remain flat at 0 ft. Lowest unknown-pixel candidate wins. No brightness/shadow inference."
+  },
+  "selectedElevation": "elevation.jpg"
+}

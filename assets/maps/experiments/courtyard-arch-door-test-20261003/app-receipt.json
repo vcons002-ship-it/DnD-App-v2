@@ -1,0 +1,62 @@
+{
+  "mapId": "28b588ed-53fa-46ac-98f9-5c88ff5b89ec",
+  "moves": [
+    {
+      "arch": "arch-1",
+      "requested": {
+        "x": 814.72,
+        "y": 339.20475319926874
+      },
+      "actual": {
+        "x": 814.4708689390652,
+        "y": 339.62327904996687
+      }
+    },
+    {
+      "arch": "arch-1",
+      "requested": {
+        "x": 814.72,
+        "y": 232.70018281535647
+      },
+      "actual": {
+        "x": 814.885444349147,
+        "y": 231.0628099715217
+      }
+    },
+    {
+      "arch": "arch-2",
+      "requested": {
+        "x": 365.56,
+        "y": 339.20475319926874
+      },
+      "actual": {
+        "x": 366.35754133537915,
+        "y": 339.3308908586555
+      }
+    },
+    {
+      "arch": "arch-2",
+      "requested": {
+        "x": 365.56,
+        "y": 234.22120658135282
+      },
+      "actual": {
+        "x": 365.56,
+        "y": 234.22120658135282
+      }
+    }
+  ],
+  "recording": {
+    "output": "artifacts/archway-player-walk.mp4",
+    "codec": "av1",
+    "encoder": "av1_nvenc",
+    "gpu": "0",
+    "fps": 60,
+    "frames": 1124,
+    "stderr": "[swscaler @ 0000021273949dc0] deprecated pixel format used, make sure you did set range correctly\r\n"
+  },
+  "errors": [],
+  "realPlayerDrag": true,
+  "serverAuthoritative": true,
+  "transparencyInApp": false
+}

@@ -1,0 +1,107 @@
+{
+  "arches": 2,
+  "supportsAdded": 0,
+  "uncertain": 0,
+  "uncertainApplied": false,
+  "reviewRequired": true,
+  "doors": 0,
+  "wallPiecesBefore": 20,
+  "wallPiecesAfter": 20,
+  "radius": 11.2,
+  "passageChecks": [
+    {
+      "id": "arch-1",
+      "start": {
+        "x": 814.72,
+        "y": 232.70018281535647
+      },
+      "end": {
+        "x": 814.72,
+        "y": 339.20475319926874
+      },
+      "actual": {
+        "x": 814.72,
+        "y": 339.20475319926874
+      },
+      "passes": true,
+      "visionThrough": true,
+      "baselineBlocked": true
+    },
+    {
+      "id": "arch-2",
+      "start": {
+        "x": 365.56,
+        "y": 234.22120658135282
+      },
+      "end": {
+        "x": 365.56,
+        "y": 339.20475319926874
+      },
+      "actual": {
+        "x": 365.56,
+        "y": 339.20475319926874
+      },
+      "passes": true,
+      "visionThrough": true,
+      "baselineBlocked": true
+    }
+  ],
+  "allPassagesClear": true,
+  "manuallyEditedMask": false,
+  "liveCampaignChanged": false,
+  "jambFit": [
+    {
+      "id": "arch-1",
+      "fits": true
+    },
+    {
+      "id": "arch-2",
+      "fits": true
+    }
+  ],
+  "rejectedLowerSpans": [
+    {
+      "id": "arch-3",
+      "start": {
+        "x": 812.44,
+        "y": 492.7952468007312
+      },
+      "end": {
+        "x": 812.44,
+        "y": 591.6946983546618
+      },
+      "actual": {
+        "x": 812.44,
+        "y": 516.4540817255405
+      },
+      "passes": false,
+      "visionThrough": false,
+      "baselineBlocked": true,
+      "stillBlocksVision": true
+    },
+    {
+      "id": "arch-4",
+      "start": {
+        "x": 379.24,
+        "y": 494.31627056672755
+      },
+      "end": {
+        "x": 379.24,
+        "y": 591.6946983546618
+      },
+      "actual": {
+        "x": 379.24,
+        "y": 517.1198344971265
+      },
+      "passes": false,
+      "visionThrough": false,
+      "baselineBlocked": true,
+      "stillBlocksVision": true
+    }
+  ],
+  "confidencePolicy": {
+    "magenta": "AI-marked clear candidate; DM review required",
+    "orange": "Uncertain; never cut geometry automatically",
+    "percentages": "Not calibrated or provided"
+  }
+}

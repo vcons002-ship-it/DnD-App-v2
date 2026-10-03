@@ -1,0 +1,428 @@
+{
+  "errors": [],
+  "moves": [
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 608,
+        "y": 450
+      },
+      "requested": {
+        "x": 420,
+        "y": 420
+      },
+      "actual": {
+        "x": 419.90853370798504,
+        "y": 420.213133512549
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 419.90853370798504,
+        "y": 420.213133512549
+      },
+      "requested": {
+        "x": 190,
+        "y": 420
+      },
+      "actual": {
+        "x": 189.91067855298235,
+        "y": 420.213133512549
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 189.91067855298235,
+        "y": 420.213133512549
+      },
+      "requested": {
+        "x": 180,
+        "y": 270
+      },
+      "actual": {
+        "x": 180.5663019342485,
+        "y": 270.129932271243
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 180.5663019342485,
+        "y": 270.129932271243
+      },
+      "requested": {
+        "x": 330,
+        "y": 210
+      },
+      "actual": {
+        "x": 330.509037738877,
+        "y": 210.65420685824222
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 330.509037738877,
+        "y": 210.65420685824222
+      },
+      "requested": {
+        "x": 550,
+        "y": 210
+      },
+      "actual": {
+        "x": 420.3945989037169,
+        "y": 210.65420685824222
+      },
+      "blocked": true
+    },
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 420.3945989037169,
+        "y": 210.65420685824222
+      },
+      "requested": {
+        "x": 180,
+        "y": 270
+      },
+      "actual": {
+        "x": 180.51941584675143,
+        "y": 270.129932271243
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "from": {
+        "x": 180.51941584675143,
+        "y": 270.129932271243
+      },
+      "requested": {
+        "x": 190,
+        "y": 420
+      },
+      "actual": {
+        "x": 189.8637924654853,
+        "y": 420.2131335125491
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Varis",
+      "from": {
+        "x": 665,
+        "y": 430
+      },
+      "requested": {
+        "x": 850,
+        "y": 430
+      },
+      "actual": {
+        "x": 850.1908273428418,
+        "y": 430.0000000000001
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Varis",
+      "from": {
+        "x": 850.1908273428418,
+        "y": 430.0000000000001
+      },
+      "requested": {
+        "x": 970,
+        "y": 340
+      },
+      "actual": {
+        "x": 970.5820337714507,
+        "y": 340.07047264896346
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Varis",
+      "from": {
+        "x": 970.5820337714507,
+        "y": 340.07047264896346
+      },
+      "requested": {
+        "x": 970,
+        "y": 240
+      },
+      "actual": {
+        "x": 970.7611179023623,
+        "y": 241.0279780386495
+      },
+      "blocked": false
+    },
+    {
+      "mode": "flat",
+      "actor": "Varis",
+      "from": {
+        "x": 970.7611179023623,
+        "y": 241.0279780386495
+      },
+      "requested": {
+        "x": 910,
+        "y": 205
+      },
+      "actual": {
+        "x": 910.722809782968,
+        "y": 205.7451812394388
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 608,
+        "y": 450
+      },
+      "requested": {
+        "x": 420,
+        "y": 420
+      },
+      "actual": {
+        "x": 419.90853370798504,
+        "y": 420.213133512549
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 419.90853370798504,
+        "y": 420.213133512549
+      },
+      "requested": {
+        "x": 190,
+        "y": 420
+      },
+      "actual": {
+        "x": 189.91067855298235,
+        "y": 420.213133512549
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 189.91067855298235,
+        "y": 420.213133512549
+      },
+      "requested": {
+        "x": 180,
+        "y": 270
+      },
+      "actual": {
+        "x": 180.5663019342485,
+        "y": 270.129932271243
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 180.5663019342485,
+        "y": 270.129932271243
+      },
+      "requested": {
+        "x": 330,
+        "y": 210
+      },
+      "actual": {
+        "x": 330.509037738877,
+        "y": 210.65420685824222
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 330.509037738877,
+        "y": 210.65420685824222
+      },
+      "requested": {
+        "x": 550,
+        "y": 210
+      },
+      "actual": {
+        "x": 420.3945989037169,
+        "y": 210.65420685824222
+      },
+      "blocked": true
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 420.3945989037169,
+        "y": 210.65420685824222
+      },
+      "requested": {
+        "x": 180,
+        "y": 270
+      },
+      "actual": {
+        "x": 180.51941584675143,
+        "y": 270.129932271243
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "from": {
+        "x": 180.51941584675143,
+        "y": 270.129932271243
+      },
+      "requested": {
+        "x": 190,
+        "y": 420
+      },
+      "actual": {
+        "x": 189.8637924654853,
+        "y": 420.2131335125491
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Varis",
+      "from": {
+        "x": 665,
+        "y": 430
+      },
+      "requested": {
+        "x": 850,
+        "y": 430
+      },
+      "actual": {
+        "x": 850.1908273428418,
+        "y": 430.0000000000001
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Varis",
+      "from": {
+        "x": 850.1908273428418,
+        "y": 430.0000000000001
+      },
+      "requested": {
+        "x": 970,
+        "y": 340
+      },
+      "actual": {
+        "x": 970.5820337714507,
+        "y": 340.07047264896346
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Varis",
+      "from": {
+        "x": 970.5820337714507,
+        "y": 340.07047264896346
+      },
+      "requested": {
+        "x": 970,
+        "y": 240
+      },
+      "actual": {
+        "x": 970.7611179023623,
+        "y": 241.0279780386495
+      },
+      "blocked": false
+    },
+    {
+      "mode": "raised",
+      "actor": "Varis",
+      "from": {
+        "x": 970.7611179023623,
+        "y": 241.0279780386495
+      },
+      "requested": {
+        "x": 910,
+        "y": 205
+      },
+      "actual": {
+        "x": 910.722809782968,
+        "y": 205.7451812394388
+      },
+      "blocked": false
+    }
+  ],
+  "recordings": [
+    {
+      "mode": "flat",
+      "actor": "Druk",
+      "output": "artifacts/courtyard-flat-Druk.mp4",
+      "codec": "av1",
+      "encoder": "av1_nvenc",
+      "gpu": "0",
+      "fps": 60,
+      "frames": 1912,
+      "stderr": "[swscaler @ 000001e0dc19ddc0] deprecated pixel format used, make sure you did set range correctly\r\n"
+    },
+    {
+      "mode": "flat",
+      "actor": "Varis",
+      "output": "artifacts/courtyard-flat-Varis.mp4",
+      "codec": "av1",
+      "encoder": "av1_nvenc",
+      "gpu": "0",
+      "fps": 60,
+      "frames": 1459,
+      "stderr": "[swscaler @ 00000189debfccc0] deprecated pixel format used, make sure you did set range correctly\r\n"
+    },
+    {
+      "mode": "raised",
+      "actor": "Druk",
+      "output": "artifacts/courtyard-raised-Druk.mp4",
+      "codec": "av1",
+      "encoder": "av1_nvenc",
+      "gpu": "0",
+      "fps": 60,
+      "frames": 1920,
+      "stderr": "[swscaler @ 00000222b8b25300] deprecated pixel format used, make sure you did set range correctly\r\n"
+    },
+    {
+      "mode": "raised",
+      "actor": "Varis",
+      "output": "artifacts/courtyard-raised-Varis.mp4",
+      "codec": "av1",
+      "encoder": "av1_nvenc",
+      "gpu": "0",
+      "fps": 60,
+      "frames": 1475,
+      "stderr": "[swscaler @ 000001d829c68500] deprecated pixel format used, make sure you did set range correctly\r\n"
+    }
+  ],
+  "realPlayerDrag": true,
+  "serverAuthoritative": true,
+  "sameAutomaticWalls": true
+}

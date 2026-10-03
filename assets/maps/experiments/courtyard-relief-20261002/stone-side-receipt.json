@@ -1,0 +1,11 @@
+{
+  "method": "Wall-face patch immediately below the longest horizontal cap; unchanged original pixels",
+  "crop": {
+    "left": 220,
+    "top": 51,
+    "width": 80,
+    "height": 32
+  },
+  "tileWidthFt": 6.25,
+  "tileHeightFt": 2.5
+}

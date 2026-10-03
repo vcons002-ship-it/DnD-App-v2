@@ -1,0 +1,33 @@
+{
+  "models": [
+    {
+      "id": "current-druk",
+      "url": "current.glb",
+      "baseDiameter": 1.3600000143051147,
+      "baseCenter": [
+        0.03537392616271973,
+        -1.1119999885559082,
+        0.0656827986240387
+      ],
+      "sha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+      "bytes": 24966816,
+      "triangles": 880404
+    },
+    {
+      "id": "druk-3d-render-test",
+      "url": "candidate.glb",
+      "baseDiameter": 1,
+      "baseCenter": [
+        0,
+        0,
+        0
+      ],
+      "sha256": "cf968d275a1ce266ac3d72b7a472516e6bfc61b08ecc903651b8aeba7635e01e",
+      "bytes": 4577452,
+      "triangles": 40764
+    }
+  ],
+  "scale": "equal base diameter; candidate total height about 1.76 base diameters",
+  "light": "shared neutral studio environment, identical lights, exposure and camera",
+  "candidateAssembly": "generated full character plus measured base; no replacement head, hands or weapons"
+}

@@ -28,6 +28,9 @@ import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
+import {createRaisedMapStudy} from './raisedMapStudy';
+import {createArchArtStudy} from './archArtStudy';
+import {CARRIED_LANTERN_LIGHT_HEIGHT_FT} from '../../../shared/lightFalloff';
 import {
   miniatureCameraTarget,
   perspectiveDistance,
@@ -115,7 +118,7 @@ type Instance = {
 type Engine = MiniatureLayerHandle & { sync: (props: Props) => void; dispose: () => void };
 
 // Lift illumination above humanoid figures; the fixture remains on the hip.
-const CARRIED_LIGHT_HEIGHT_FT=9;
+const CARRIED_LIGHT_HEIGHT_FT=CARRIED_LANTERN_LIGHT_HEIGHT_FT;
 
 function disposeAsset(gltf: GLTF) {
   const geometries = new Set<Mesh['geometry']>();
@@ -383,10 +386,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           if(!(props.isVisibleAt?.(token.id,x,y)??true))return [];
           if(instance){
             const belt=instance.root.localToWorld(instance.lanternAnchor.clone()),facing=instance.root.rotation.y;
-            return [{id:token.id,x:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,y:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:belt.y-ppf*.52,facing}];
+            return [{id:token.id,x,y,fixtureX:belt.x-Math.cos(facing)*ppf*.34+Math.sin(facing)*ppf*.08,fixtureY:belt.z+Math.sin(facing)*ppf*.34+Math.cos(facing)*ppf*.08,height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:belt.y-ppf*.52,facing}];
           }
           const facing=move?.facing??token.facing,dx=-token.diameter*.30,dz=token.diameter*.10;
-          return [{id:token.id,x:x+dx*Math.cos(facing)+dz*Math.sin(facing),y:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:ppf*2.8,facing}];
+          return [{id:token.id,x,y,fixtureX:x+dx*Math.cos(facing)+dz*Math.sin(facing),fixtureY:y-dx*Math.sin(facing)+dz*Math.cos(facing),height:ppf*CARRIED_LIGHT_HEIGHT_FT,fixtureHeight:ppf*2.8,facing}];
         }));
         battlefield.tick(reducedMotion.matches?0:seconds);
         props.onVisionLights?.(battlefield.lighting.lights);
@@ -400,7 +403,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
-        if (props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        if (archArtStudy || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -459,8 +462,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
+        raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
+        archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
+          [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         visionLift.render(!!props.personalVision);
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();
@@ -502,7 +508,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
+    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -633,9 +639,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
       }
   };
+  const raisedStudy=import.meta.env.VITE_COURTYARD_STUDY==='1'&&new URLSearchParams(location.search).get('raisedWalls')==='1'
+    ?createRaisedMapStudy(scene,host,invalidate):null;
+  const archArtStudy=import.meta.env.VITE_ARCH_ART_STUDY==='1'&&new URLSearchParams(location.search).get('archArt')==='1'
+    ?createArchArtStudy(renderer,outlineMask.texture,host,invalidate):null;
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
+    raisedStudy?.sync(useStore.getState().snapshot?.map?.id);
     spellImpacts.sync(next.spellImpacts??[],performance.now());
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
@@ -873,6 +884,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     shaderWarmup.dispose();
+    raisedStudy?.dispose();
+    archArtStudy?.dispose();
     spellImpacts.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());

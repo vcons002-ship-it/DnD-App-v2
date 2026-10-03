@@ -1,4 +1,5 @@
 import {lightFalloffGlsl} from '../../../shared/lightFalloff';
+import {HEAVY_DARKVISION_MEMORY_BRIGHTNESS} from '../../../shared/terrainLighting';
 import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,Vector2,Scene,type Texture,type Camera,type WebGLRenderer} from 'three';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
@@ -29,14 +30,22 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
       float grid=0.;if(gridSize>0.){vec2 cell=(world.xz-gridOffset)/gridSize;vec2 d=abs(fract(cell-.5)-.5)/max(fwidth(cell),vec2(.0001));grid=1.-smoothstep(.35,1.15,min(d.x,d.y));}
       float recovery=max(detail,grid*.30);vec4 source=texture2D(art,artUv);
       if(memoryPass>.5){
-       // The exact unlit ground grade plus the same darkvision detail recovery.
+       // The unlit ground grade and darkvision detail, slightly dimmed for memory.
        // Memory contains artwork/grid only: no torches, creatures or weather.
        float alpha=gradeOpacity+sceneTintStrength*(1.-gradeOpacity);
        vec3 tint=(gradeColor*gradeOpacity*(1.-sceneTintStrength)+sceneTint*sceneTintStrength)/max(.001,alpha);
        vec3 ground=mix(source.rgb,linearToOutputTexel(vec4(tint,1.)).rgb,alpha);
-       float remembered=dot(mix(ground,vec3(.55),recovery),vec3(.2126,.7152,.0722));
-       gl_FragColor=vec4(vec3(remembered),source.a);
-      }else gl_FragColor=vec4(vec3(.55),recovery*unlit*source.a);
+       // Softer memory highlights for contours, bright artwork and the grid.
+       // Keep the darker ground grade and current-sight recovery unchanged.
+       float remembered=dot(mix(ground,vec3(.35),recovery),vec3(.2126,.7152,.0722));
+       gl_FragColor=vec4(vec3(remembered*${HEAVY_DARKVISION_MEMORY_BRIGHTNESS}),source.a);
+      }else {
+       // Preserve the artwork's hue in recovered detail without lifting its
+       // brightness. The current-sight overlay keeps its color muted;
+       // the memory pass above remains completely grayscale.
+       vec3 recovered=mix(vec3(.55),clamp(source.rgb*.55/max(l,.05),0.,1.),.65);
+       gl_FragColor=vec4(recovered,recovery*unlit*source.a);
+      }
      }`});
    const mesh=new Mesh(new PlaneGeometry(tile.w,tile.h),material);mesh.rotation.x=-Math.PI/2;mesh.position.set(tile.x+tile.w/2,.006,tile.y+tile.h/2);mesh.renderOrder=3+index*.001;mesh.frustumCulled=false;mesh.visible=false;scene.add(mesh);
    const memoryMaterial=material.clone();

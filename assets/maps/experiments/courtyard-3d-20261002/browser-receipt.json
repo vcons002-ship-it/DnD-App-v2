@@ -1,0 +1,26 @@
+{
+  "errors": [],
+  "metrics": [
+    {
+      "name": "generated",
+      "triangles": 40000
+    },
+    {
+      "name": "original-top",
+      "triangles": 40000
+    },
+    {
+      "name": "original",
+      "triangles": 2
+    }
+  ],
+  "recording": {
+    "output": "artifacts/courtyard-3d-rotation.mp4",
+    "codec": "av1",
+    "encoder": "av1_nvenc",
+    "gpu": "0",
+    "fps": 60,
+    "frames": 2076,
+    "stderr": "[swscaler @ 00000264e7dac3c0] deprecated pixel format used, make sure you did set range correctly\r\n"
+  }
+}
