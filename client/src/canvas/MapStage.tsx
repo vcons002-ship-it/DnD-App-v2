@@ -9,6 +9,7 @@ import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay
 import {TokenPresentation} from './tokenPresentation';
 import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
+import {doorInReach} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
@@ -882,6 +883,8 @@ export function MapStage({
   // While a token is dragging (or measuring) the grid brightens for alignment.
   const [draggingToken, setDraggingToken] = useState(false);
   const privateDrag = useRef(false);
+  const [doorDragPreview,setDoorDragPreview]=useState<{tokenId:string;ids:string[]}|null>(null);
+  useEffect(()=>setDoorDragPreview(null),[map?.id,mySocketId]);
   const handleDragActive = useStableCallback((active: boolean) => {
     privateDrag.current=active;
     setDraggingToken(active);
@@ -911,9 +914,16 @@ export function MapStage({
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) =>
     onMoveToken(tok.id, x, y, placed),
   );
-  const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) =>
-    miniatureRef.current?.previewMove(tok.id, point),
-  );
+  const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) => {
+    miniatureRef.current?.previewMove(tok.id, point);
+    if(!point||isDm||tok.kind!=='pc'||!snapshot.characters.some(c=>c.id===tok.refId&&c.claimedBy===mySocketId)){
+      setDoorDragPreview(old=>old?.tokenId===tok.id?null:old);return;
+    }
+    const ids=doors.filter(d=>doorVisible(d)&&doorInReach({...tok,...point},d,pxPerFoot)).map(d=>d.id);
+    // Enter/leave updates only: pointer motion within the same doorway zone
+    // should not rerender the battlefield on every frame.
+    setDoorDragPreview(old=>old?.tokenId===tok.id&&old.ids.join('|')===ids.join('|')?old:{tokenId:tok.id,ids});
+  });
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
     if(tok.sharedSightOnly)return;
     setHover(null);
@@ -1115,7 +1125,7 @@ export function MapStage({
 
   const doors=(map?.walls??[]).filter(w=>w.door);
   const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>visionContains(snapshot.playerVision,p.x,p.y)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
-  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&distanceToWall(t,d)<=5*pxPerFoot)));
+  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
     const ownerId = useStore.getState().socket?.id;
@@ -2559,7 +2569,8 @@ export function MapStage({
               {doors.filter(doorVisible).map(d=>{
                 const token=snapshot.tokens.find(t=>t.id===d.tokenId),object=snapshot.monsters.find(m=>m.id===token?.refId);
                 const locked=!!object?.conditions.some(c=>c.label.toLowerCase()==='locked'),hidden=!!token?.isHidden;
-                const color=hidden?'#a2a8b1':locked?'#efb05f':d.open?'#94d6b0':'#f1d49c';
+                const previewed=!!doorDragPreview?.ids.includes(d.id);
+                const color=previewed?'#78e6ff':hidden?'#a2a8b1':locked?'#efb05f':d.open?'#94d6b0':'#f1d49c';
                 const label=hidden?'Hidden':locked?'Locked':d.open?'Open':'Door';
                 // One full-width line on each outer face. The ordinary vision
                 // mask hides the far face of a closed door, including in daylight.
@@ -2571,10 +2582,10 @@ export function MapStage({
                 }else{
                   faces=wallBoundarySegments(d).map(({a,b})=>[a.x,a.y,b.x,b.y]);
                 }
-                const activate=()=>{if(isDm)setSelectedDoor(d.id);else if(!nearbyDoors.some(door=>door.id===d.id))notify('Move your character within 5 ft of this door to open it or pick its lock.');};
-                return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} opacity={hidden ? .45 : 1} listening={!wallActive}
+                const activate=()=>{if(isDm)setSelectedDoor(d.id);else if(!nearbyDoors.some(door=>door.id===d.id))notify('Move your character’s footprint within 5 ft of this door to open it or pick its lock.');};
+                return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} doorPreview={previewed} opacity={hidden ? .45 : 1} listening={!wallActive}
                   onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
-                  {faces.map((points,i)=><Line key={i} name="wall-door-face" points={points} stroke={color} strokeWidth={4/view.scale} hitStrokeWidth={16/view.scale} lineCap="butt" dash={d.open||hidden?[7/view.scale,5/view.scale]:undefined}/>)}
+                  {faces.map((points,i)=><Line key={i} name="wall-door-face" points={points} stroke={color} strokeWidth={(previewed?6:4)/view.scale} shadowColor={previewed?'#78e6ff':undefined} shadowBlur={previewed?8/view.scale:0} hitStrokeWidth={16/view.scale} lineCap="butt" dash={d.open||hidden?[7/view.scale,5/view.scale]:undefined}/>)}
                 </Group>;
               })}
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
@@ -2618,7 +2629,8 @@ export function MapStage({
           </Suspense></MiniatureFallback>}
           {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
-          {!wallActive&&nearbyDoors.length>0&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>
+          {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
+          {!wallActive&&nearbyDoors.length>0&&!doorDragPreview&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>
             {nearbyDoors.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div key={d.id}>
               <strong>Door {doors.indexOf(d)+1}</strong>
               {token?<><ObjectControls snapshot={snapshot} token={token} editable={isDm}/>{isDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}

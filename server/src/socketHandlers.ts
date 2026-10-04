@@ -5,7 +5,8 @@ import {spellcastingMod} from '../../shared/spellMath.js';
 import {shapeSaveFrame} from './liveSaveFrame.js';
 import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
-import {doorApproachPoints,distanceToWall} from '../../shared/mapWalls.js';
+import {doorApproachPoints} from '../../shared/mapWalls.js';
+import {doorInReach} from '../../shared/doorInteraction.js';
 import {visionContains} from '../../shared/playerVision.js';
 import {areaPlacementError} from './areaSpells.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
@@ -519,8 +520,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid=sessionId()!;
       const snapshot=buildSnapshot(sid,'player',null,socket.id,commandConnection()?.playerId);
       const visible=snapshot?.map?.id===map.id&&(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(point=>visionContains(snapshot?.playerVision,point.x,point.y)&&(!map.mapFogEnabled||map.mapFogRevealed.includes(`${Math.floor(point.x/map.gridSizePx)},${Math.floor(point.y/map.gridSizePx)}`)));
-      const nearby=listTokens(map.id).some(t=>t.kind==='pc'&&!t.isHidden&&ownsCharacter(t.refId)&&distanceToWall(t,door)<=5*map.gridSizePx/map.feetPerSquare);
-      if(!visible||!nearby)socket.emit('notice',{message:'Move your character within 5 ft of a visible door to use it.'});
+      const nearby=listTokens(map.id).some(t=>t.kind==='pc'&&!t.isHidden&&ownsCharacter(t.refId)&&doorInReach(t,door,map.gridSizePx/map.feetPerSquare));
+      if(!visible||!nearby)socket.emit('notice',{message:'Move your character’s footprint within 5 ft of a visible door to use it.'});
       return visible&&nearby;
     };
     const linkedWallDoor=(refId:string)=>{

@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Measure player door reach from the normal creature footprint, with 5 ft
+  beyond its edge. Highlight visible nearby doors during the private drag
+  preview and show "Release to interact"; controls use the committed placement.
+  Preserve locked/hidden door checks and ignore decorative miniature scaling.
+  Covered by shared-range, server-handler and real player browser regressions.
+
 - [ ] Raised-wall rendering parked at user request. Retain the isolated studies;
   prioritize accurate functional wall and opening masks.
 - [x] Test arches as a separate class in the door-mask experiment, without
