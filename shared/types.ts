@@ -1705,6 +1705,7 @@ export interface ClientToServerEvents {
   'map:setGrid': (payload: MapSetGridPayload) => void;
   'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
   'map:editWalls': (payload: {mapId: string} & import('./mapWalls.js').WallEdit) => void;
+  'map:deleteFeatures': (payload:{mapId:string;wallIds:string[];lightIds:string[]})=>void;
   'map:setDoor': (payload:{mapId:string;doorId:string;open:boolean})=>void;
   'measure:add': (payload: MeasureAddPayload) => void;
   'measure:remove': (payload: MeasureRemovePayload) => void;

@@ -8,7 +8,7 @@ type Gesture = { start: Point; end: Point; pointerId: number; additive: boolean;
 
 /** Capture before Konva's pan/token handlers. Rectangle and base centres share
  * screen coordinates, including the tilted camera's perspective projection. */
-export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds, onSelectTokens, onSelectToken, view, width, height, tilt, rotation = 0 }: {
+export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds, onSelectTokens, onSelectToken, view, width, height, tilt, rotation = 0, items, onClickAt }: {
   enabled: boolean;
   mapId?: string;
   stageRef: RefObject<Konva.Stage | null>;
@@ -21,6 +21,8 @@ export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds,
   height: number;
   tilt: number;
   rotation?: number;
+  items?:{id:string;x:number;y:number;points?:Point[]}[];
+  onClickAt?:(point:Point)=>void;
 }) {
   const gesture = useRef<Gesture | null>(null);
   const [box, setBox] = useState<{ start: Point; end: Point } | null>(null);
@@ -68,14 +70,19 @@ export function useBoxSelection({ enabled, mapId, stageRef, tokens, selectedIds,
       const end = point(event);
       if (Math.hypot(end.x - current.start.x, end.y - current.start.y) < 4) {
         // Preserve the existing Ctrl-click toggle when no box was drawn.
-        if (current.clicked) onSelectToken(current.clicked, true);
+        if(onClickAt)onClickAt(end);
+        else if (current.clicked) onSelectToken(current.clicked, true);
       } else {
         const left = Math.min(current.start.x, end.x), right = Math.max(current.start.x, end.x);
         const top = Math.min(current.start.y, end.y), bottom = Math.max(current.start.y, end.y);
-        const ids = tokens.filter(token => {
-          const ground = mapToScreen(token.x, token.y, view, tilt);
-          const p = projectGround(ground.x, ground.y, width, height, tilt, rotation);
-          return p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
+        const ids = (items??tokens).filter(token => {
+          // Full containment for map shapes prevents a small box around a
+          // window from also selecting the connected building underneath it.
+          return ('points'in token&&token.points?.length?token.points:[token]).every(point=>{
+            const ground = mapToScreen(point.x, point.y, view, tilt);
+            const p = projectGround(ground.x, ground.y, width, height, tilt, rotation);
+            return p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
+          });
         }).map(token => token.id);
         onSelectTokens?.(current.additive ? [...new Set([...selectedIds, ...ids])] : ids);
       }

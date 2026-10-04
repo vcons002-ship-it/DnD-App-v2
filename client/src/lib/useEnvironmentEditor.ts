@@ -4,4 +4,6 @@ import {create} from 'zustand';
 export const useEnvironmentEditor=create<{
   placement:{mapId:string;lightId?:string}|null;
   place:(placement:{mapId:string;lightId?:string}|null)=>void;
-}>(set=>({placement:null,place:placement=>set({placement})}));
+  editMapId:string|null;
+  edit:(mapId:string|null)=>void;
+}>(set=>({placement:null,place:placement=>set({placement}),editMapId:null,edit:editMapId=>set({editMapId,placement:null})}));

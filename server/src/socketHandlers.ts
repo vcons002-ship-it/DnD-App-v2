@@ -11,6 +11,7 @@ import {visionContains} from '../../shared/playerVision.js';
 import {areaPlacementError} from './areaSpells.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
+import {deleteMapFeatures} from './mapFeatureDelete.js';
 import {enqueueRoll,rollInProgress,runLiveCommand,UnsupportedPhysicalDice} from './liveRolls.js';
 import { partyRest, restCharacter, describeRest, spendHitDice } from './rests.js';
 import { canonicalClassName } from '../../shared/multiclass.js';
@@ -512,6 +513,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid=sessionId();
       if(!sid||!isDm()||!p||typeof p.mapId!=='string')return;
       const error=editMapWalls(sid,p.mapId,p);
+      if(error)socket.emit('notice',{message:error});else afterChange();
+    });
+    on('map:deleteFeatures',p=>{
+      const sid=sessionId();if(!sid||!isDm()||!p||typeof p.mapId!=='string')return;
+      const error=deleteMapFeatures(sid,p.mapId,p.wallIds,p.lightIds);
       if(error)socket.emit('notice',{message:error});else afterChange();
     });
 

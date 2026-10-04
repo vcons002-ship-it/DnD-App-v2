@@ -6,6 +6,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] DM map-feature editing: click selects walls, doors, windows and placed
+  lights; Shift/Ctrl-click toggles multiple pieces; Ctrl-drag selects fully
+  enclosed shapes. Delete/Backspace or the on-screen Delete button removes
+  the selection as one undoable action, including linked door tokens.
+  Ctrl+Z restores it without replacing later unrelated edits. Editor selection
+  never deletes creature tokens; text inputs retain their normal keyboard
+  behavior. Verified in overhead and 45-degree browser tests.
+
 - [x] Measure player door reach from the normal creature footprint, with 5 ft
   beyond its edge to a full-width doorstep extending 5 ft from each door face.
   Mark this approach area without widening collision or sight openings.

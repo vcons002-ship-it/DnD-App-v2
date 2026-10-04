@@ -470,7 +470,7 @@ export function MapStage({
     if (hover && !ids.has(hover.token.id)) setHover(null);
   }, [snapshot.tokens, menu, hover]);
   const map = snapshot.map;
-  const {placement:lightPlacement,place:placeLight}=useEnvironmentEditor();
+  const {placement:lightPlacement,place:placeLight,editMapId,edit:requestFeatureEdit}=useEnvironmentEditor();
   const placingLight=snapshot.role==='dm'&&lightPlacement?.mapId===map?.id&&!!lightPlacement;
   useEffect(()=>{
     if(lightPlacement&&(lightPlacement.mapId!==map?.id||snapshot.role!=='dm'))placeLight(null);
@@ -715,7 +715,9 @@ export function MapStage({
   const [wallSnap,setWallSnap]=useState(false);
   const [wallAnchor,setWallAnchor]=useState<Pt|null>(null),[wallPointer,setWallPointer]=useState<Pt|null>(null);
   const [wallThickness,setWallThickness]=useState(1);
-  const [wallSelection,setWallSelection]=useState<string|null>(null),[wallPreview,setWallPreview]=useState<MapWall|null>(null);
+  const [featureSelection,setFeatureSelection]=useState<string[]>([]),[wallPreview,setWallPreview]=useState<MapWall|null>(null);
+  const wallSelection=featureSelection.length===1&&featureSelection[0].startsWith('wall:')?featureSelection[0].slice(5):null;
+  const setWallSelection=(id:string|null)=>setFeatureSelection(id?[`wall:${id}`]:[]);
   const wallStroke=useRef<Pt[]>([]);
   const wallGesture=useRef<{mode:'move'|'rotate';wall:MapWall;start:Pt}|null>(null);
   const wallActive=isDm&&wallTool!=='off';
@@ -723,6 +725,29 @@ export function MapStage({
   const rotationHandle=(w:MapWall)=>{const c=wallCenter(w),r=Math.max(...wallVertices(w).map(p=>Math.hypot(p.x-c.x,p.y-c.y)))+26/view.scale,a=((w.rotation??0)-90)*Math.PI/180;return {x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r};};
   const cancelWallStroke=()=>{setWallAnchor(null);setWallPointer(null);setWallPreview(null);wallGesture.current=null;wallStroke.current=[];};
   useEffect(()=>{cancelWallStroke();setWallSelection(null);},[wallTool,map?.id]);
+  useEffect(()=>{if(editMapId===map?.id&&isDm){setWallTool('edit');requestFeatureEdit(null);}},[editMapId,map?.id,isDm,requestFeatureEdit]);
+  useEffect(()=>{if(wallActive){if(onSelectTokens)onSelectTokens([]);else onSelectToken(null);}},[wallActive]);
+  const pickFeature=(p:Pt):string|null=>{
+    const light=map?.environment?.lights.filter(l=>Math.hypot(l.x-p.x,l.y-p.y)<14/view.scale).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
+    if(light)return `light:${light.id}`;
+    const wall=[...(map?.walls??[])].filter(w=>distanceToWall(p,w)<14/view.scale).sort((a,b)=>Number(!!b.window||!!b.door)-Number(!!a.window||!!a.door)||distanceToWall(p,a)-distanceToWall(p,b))[0];
+    return wall?`wall:${wall.id}`:null;
+  };
+  const selectFeature=(id:string|null,additive=false)=>setFeatureSelection(old=>!id?additive?old:[]:additive?old.includes(id)?old.filter(x=>x!==id):[...old,id]:[id]);
+  const deleteFeatures=useStableCallback(()=>{
+    if(!isDm||!map||!featureSelection.length)return;
+    useStore.getState().socket?.emit('map:deleteFeatures',{mapId:map.id,wallIds:featureSelection.filter(id=>id.startsWith('wall:')).map(id=>id.slice(5)),lightIds:featureSelection.filter(id=>id.startsWith('light:')).map(id=>id.slice(6))});
+    setFeatureSelection([]);cancelWallStroke();
+  });
+  useEffect(()=>{
+    if(!wallActive||wallTool!=='edit')return;
+    const key=(e:KeyboardEvent)=>{
+      const el=e.target as HTMLElement|null;if(el?.closest('input,textarea,select,[contenteditable=true]')||document.querySelector('[role=dialog]'))return;
+      if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)deleteFeatures();}
+      else if(e.key==='Escape'&&featureSelection.length){e.preventDefault();e.stopImmediatePropagation();setFeatureSelection([]);cancelWallStroke();}
+    };
+    window.addEventListener('keydown',key,true);return()=>window.removeEventListener('keydown',key,true);
+  },[wallActive,wallTool,featureSelection,deleteFeatures]);
   const strokeWall=(a:Pt,b:Pt):MapWall=>{
     const thickness=wallThickness*grid/(map?.feetPerSquare??5),id=crypto.randomUUID();
     if(wallTool==='circle'){const r=Math.hypot(b.x-a.x,b.y-a.y);return {id,kind:'circle',ax:a.x-r,ay:a.y-r,bx:a.x+r,by:a.y+r,thickness};}
@@ -1269,6 +1294,11 @@ export function MapStage({
     mapId: map?.id, stageRef, tokens: snapshot.tokens, selectedIds, onSelectTokens, onSelectToken,
     view, width: size.w, height: size.h, tilt: tiltDegrees, rotation: rotationDegrees,
   });
+  const featureBox=useBoxSelection({enabled:wallActive&&wallTool==='edit',mapId:map?.id,stageRef,tokens:[],selectedIds:featureSelection,onSelectTokens:setFeatureSelection,onSelectToken:()=>{},
+    items:[...(map?.walls??[]).map(w=>({...wallCenter(w),id:`wall:${w.id}`,points:wallVertices(w)})),...(map?.environment?.lights??[]).map(l=>({id:`light:${l.id}`,x:l.x,y:l.y}))],
+    onClickAt:p=>{const flat=unprojectGround(p.x,p.y,size.w,size.h,tiltDegrees,rotationDegrees);selectFeature(pickFeature(screenToMap(flat.x,flat.y,view,tiltDegrees)),true);},
+    view,width:size.w,height:size.h,tilt:tiltDegrees,rotation:rotationDegrees});
+  const activeSelectionBox=wallActive&&wallTool==='edit'?featureBox:selectionBox;
 
   /**
    * Map-corner overlays that belong to the map REGARDLESS of how it's drawn —
@@ -1454,9 +1484,12 @@ export function MapStage({
         if(!wall||distanceToWall(raw,wall)>14/view.scale){notify('Start the door on an existing wall, then drag along its width.');return;}
         setDoorWallId(wall.id);setWallAnchor(raw);setWallPointer(raw);
       }else if(wallTool==='edit'){
+        const additive='shiftKey'in e.evt&&(e.evt.shiftKey||e.evt.ctrlKey||e.evt.metaKey);
+        if(additive){selectFeature(pickFeature(raw),true);return;}
         if(selectedWall&&Math.hypot(raw.x-rotationHandle(selectedWall).x,raw.y-rotationHandle(selectedWall).y)<14/view.scale){wallGesture.current={mode:'rotate',wall:selectedWall,start:raw};return;}
-        const wall=[...(map.walls??[])].reverse().sort((a,b)=>distanceToWall(raw,a)-distanceToWall(raw,b))[0];
-        if(wall&&distanceToWall(raw,wall)<14/view.scale){setWallSelection(wall.id);wallGesture.current={mode:'move',wall,start:raw};}else setWallSelection(null);
+        const id=pickFeature(raw);selectFeature(id);
+        const wall=id?.startsWith('wall:')?map.walls?.find(w=>w.id===id.slice(5)):undefined;
+        if(wall)wallGesture.current={mode:'move',wall,start:raw};
       }else{
         const p=wallPoint(raw);setWallAnchor(p);setWallPointer(p);wallStroke.current=[p];
       }
@@ -1965,16 +1998,16 @@ export function MapStage({
   });
 
   return (
-    <div className="stage-wrap" ref={containerRef} {...selectionBox.handlers}
-      onPointerDownCapture={e=>{if(!rotateStart(e))selectionBox.handlers.onPointerDownCapture(e);}}
-      onPointerMoveCapture={e=>{if(!rotateMove(e))selectionBox.handlers.onPointerMoveCapture(e);}}
-      onPointerUpCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onPointerUpCapture(e);}}
-      onPointerCancelCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onPointerCancelCapture();}}
-      onLostPointerCapture={e=>{if(!rotateEnd(e))selectionBox.handlers.onLostPointerCapture();}}
+    <div className="stage-wrap" ref={containerRef} {...activeSelectionBox.handlers}
+      onPointerDownCapture={e=>{if(!rotateStart(e))activeSelectionBox.handlers.onPointerDownCapture(e);}}
+      onPointerMoveCapture={e=>{if(!rotateMove(e))activeSelectionBox.handlers.onPointerMoveCapture(e);}}
+      onPointerUpCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onPointerUpCapture(e);}}
+      onPointerCancelCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onPointerCancelCapture();}}
+      onLostPointerCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onLostPointerCapture();}}
       onContextMenuCapture={e=>{if((e.target as HTMLElement).closest?.('.konvajs-content'))e.preventDefault();}}>
-      {selectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
-        style={{ left: Math.min(selectionBox.box.start.x, selectionBox.box.end.x), top: Math.min(selectionBox.box.start.y, selectionBox.box.end.y),
-          width: Math.abs(selectionBox.box.end.x - selectionBox.box.start.x), height: Math.abs(selectionBox.box.end.y - selectionBox.box.start.y) }} />}
+      {activeSelectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
+        style={{ left: Math.min(activeSelectionBox.box.start.x, activeSelectionBox.box.end.x), top: Math.min(activeSelectionBox.box.start.y, activeSelectionBox.box.end.y),
+          width: Math.abs(activeSelectionBox.box.end.x - activeSelectionBox.box.start.x), height: Math.abs(activeSelectionBox.box.end.y - activeSelectionBox.box.start.y) }} />}
       {placingLight&&<div className="environment-placement-hint" role="status">Click map to {lightPlacement?.lightId?'move':'place'} light · <button onClick={()=>placeLight(null)}>Cancel</button></div>}
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
@@ -2554,7 +2587,11 @@ export function MapStage({
                     />
                   )}
               {wallActive&&<Group name="wall-edit-outlines" listening={false}>
-                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original;return <Path key={w.id} name="wall-edit-piece" wallId={w.id} data={wallSvgPath(w)} fillRule="evenodd" stroke={w.id===wallSelection?'#6ee7ff':w.window?'#398cff':'#ffc76e'} fill={w.window?'#398cff55':w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={2/view.scale}/>;})}
+                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original,selected=featureSelection.includes(`wall:${w.id}`);return <Path key={w.id} name="wall-edit-piece" wallId={w.id} featureSelected={selected} data={wallSvgPath(w)} fillRule="evenodd" stroke={selected?'#6ee7ff':w.window?'#398cff':'#ffc76e'} fill={selected?'#6ee7ff35':w.window?'#398cff55':w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={(selected?3:2)/view.scale}/>;})}
+                {wallTool==='edit'&&(map?.environment?.lights??[]).map((light,i)=><Group key={light.id} name="light-edit-marker" lightId={light.id} featureSelected={featureSelection.includes(`light:${light.id}`)} x={light.x} y={light.y}>
+                  <Circle radius={10/view.scale} fill={featureSelection.includes(`light:${light.id}`)?'#6ee7ff':'#ffbf65'} stroke="#152230" strokeWidth={2/view.scale}/>
+                  <Text text={String(i+1)} x={-10/view.scale} y={-6/view.scale} width={20/view.scale} align="center" fontSize={12/view.scale} fill="#142331"/>
+                </Group>)}
                 {wallAnchor&&wallPointer&&(wallTool==='erase-area'
                   ?<Rect name="wall-erase-preview" x={Math.min(wallAnchor.x,wallPointer.x)} y={Math.min(wallAnchor.y,wallPointer.y)} width={Math.abs(wallPointer.x-wallAnchor.x)} height={Math.abs(wallPointer.y-wallAnchor.y)} fill="#ff667733" stroke="#ff6677" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>
                   :wallTool==='door'
@@ -2642,12 +2679,12 @@ export function MapStage({
             {isDm&&<button className="btn tiny" onClick={()=>setSelectedDoor(null)}>Dismiss</button>}
           </div>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
-            <span>{wallTool==='erase-area'?'Drag a rectangle to erase only that section. Doors are kept.':wallTool==='rectangle'?'Drag across the wall’s length and thickness':wallTool==='door'?'Drag along a wall to cut a door opening':wallTool==='draw'?'Drag a line at any angle':wallTool==='circle'?'Drag from the room center to its wall':wallTool==='freehand'?'Hold and trace the wall; release to save':wallTool==='edit'?'Drag a wall to move it / Drag the round handle to rotate':'Click a wall to delete the entire piece'}</span>
+            <span>{wallTool==='erase-area'?'Drag a rectangle to erase only that section. Doors are kept.':wallTool==='rectangle'?'Drag across the wall’s length and thickness':wallTool==='door'?'Drag along a wall to cut a door opening':wallTool==='draw'?'Drag a line at any angle':wallTool==='circle'?'Drag from the room center to its wall':wallTool==='freehand'?'Hold and trace the wall; release to save':wallTool==='edit'?'Click to select · Shift/Ctrl-click to add · Ctrl-drag a box · Delete to remove · Ctrl+Z to undo':'Click a wall to delete the entire piece'}</span>
             {['draw','circle','freehand'].includes(wallTool)&&<label>Thickness <input aria-label="Wall thickness in feet" type="number" min={.1} max={20} step={.25} value={wallThickness} onChange={e=>setWallThickness(Math.max(.1,Math.min(20,Number(e.target.value)||.1)))} style={{width:55}}/> ft</label>}
             {wallTool==='edit'&&selectedWall&&<>
               <label>Rotation <input aria-label="Wall rotation in degrees" type="number" min={-360} max={360} step={1} value={Math.round(selectedWall.rotation??0)} onChange={e=>{const rotation=Number(e.target.value);if(Number.isFinite(rotation)&&map)useStore.getState().editMapWalls(map.id,{update:{...selectedWall,rotation:Math.max(-360,Math.min(360,rotation))}});}} style={{width:62}}/> degrees</label>
-              <button className="btn tiny" onClick={()=>{if(map)useStore.getState().editMapWalls(map.id,{removeId:selectedWall.id});setWallSelection(null);}}>{selectedWall.window?'Remove window':'Delete wall'}</button>
             </>}
+            {wallTool==='edit'&&featureSelection.length>0&&<button data-testid="delete-map-features" className="btn tiny" onClick={deleteFeatures}>Delete {featureSelection.length} selected</button>}
             <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
           </div>}
           <DecalPopup snapshot={snapshot} />
