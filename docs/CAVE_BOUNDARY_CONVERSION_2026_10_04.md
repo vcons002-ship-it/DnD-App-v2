@@ -18,7 +18,7 @@ excluded. Imports with this layer use a working raster capped at 1600 pixels;
 ordinary structural imports retain their existing resolution and filtering.
 Both union conversion and separate-layer fallback receive this evidence.
 
-The accepted prompt is now:
+The initial floor-edge prompt was:
 
 ```
 Draw one continuous bright green (#00FF00) line where the walkable cave floor meets the surrounding rock wall. Leave entrances and passages open. Keep the rest of the image unchanged.
@@ -39,3 +39,30 @@ flame art, movement blocking and an open cave entrance. Typecheck and all 1650
 tests passed. The saved response was reused without another image-API request
 or manual mask edits. Runtime drag verification and comparison assets are
 recorded under `artifacts/cave-wall-conversion-fixed-20261004/`.
+
+## Keep the interior wall art visible
+
+The player walkthrough exposed a separate placement problem: a boundary at the
+floor/wall seam puts the painted vertical wall faces and hearth behind the sight
+barrier. Repairing its gaps made that clipping more obvious.
+
+The current natural-pass prompt uses one top edge around the visible interior:
+
+```
+Draw one continuous bright green (#00FF00) line along the top edge of the visible interior cave walls. Keep the wall faces and built-in features such as the hearth inside the boundary. Leave entrances and passages open. Keep the rest of the image unchanged.
+```
+
+One real image-API request on the same unchanged structural input returned one
+boundary above the interior walls. Only its green additions are imported; any
+other changes to the returned artwork are ignored, preserving the original map.
+The confirmed-paint conversion repair remains in place.
+
+Sight checks from the cave floor reach the hearth face, its upper structure,
+and sampled left, right and back wall faces. Rays through the back, left and
+right rock remain blocked. Real player drags enter and exit through the opening
+and stop at the back boundary. This moves the mechanical boundary to the painted
+top edge; it does not add raised walls or independently collidable furniture.
+
+Evidence is under `assets/maps/experiments/cave-wall-art-boundary-20261004/` and
+`artifacts/cave-wall-art-visible-20261004/`. The prompt change affects new drafts;
+existing walls are not automatically replaced.

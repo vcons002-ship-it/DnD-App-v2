@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-export const NATURAL_BOUNDARY_PROMPT='Draw one continuous bright green (#00FF00) line where the walkable cave floor meets the surrounding rock wall. Leave entrances and passages open. Keep the rest of the image unchanged.';
+export const NATURAL_BOUNDARY_PROMPT='Draw one continuous bright green (#00FF00) line along the top edge of the visible interior cave walls. Keep the wall faces and built-in features such as the hearth inside the boundary. Leave entrances and passages open. Keep the rest of the image unchanged.';
 
 const green=(r:number,g:number,b:number)=>g>165&&r<135&&b<135&&g>r*1.8&&g>b*1.8;
 const yellow=(r:number,g:number,b:number)=>r>25&&g>20&&r>b*1.8&&g>b*1.8;
