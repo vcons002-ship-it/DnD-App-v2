@@ -47,6 +47,12 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
       // Unchanged warm art in an intentional gap is not faint paint. Do not grow
       // annotation into it merely because a bright yellow edge is nearby.
       const p=y*w+x,j=p*info.channels;
+      // Image-API paint can be muted rather than exact #FFFF00. Require a
+      // bright, saturated yellow core AND a substantial source-image change
+      // before accepting it as paint evidence; unchanged warm artwork remains
+      // subject to the exclusion below.
+      if(yellow[p]&&data[j]>=190&&data[j+1]>=190&&Math.min(data[j],data[j+1])-data[j+2]>=150
+        &&Math.max(Math.abs(original[i]-data[j]),Math.abs(original[i+1]-data[j+1]),Math.abs(original[i+2]-data[j+2]))>=50)paint[p]=1;
       if(confirmed[p]<64&&!seeds[p]&&Math.max(Math.abs(original[i]-data[j]),Math.abs(original[i+1]-data[j+1]),Math.abs(original[i+2]-data[j+2]))<=20)yellow[p]=0;
       if(original[i]>165&&original[i+1]>145&&original[i+2]<130&&original[i]>original[i+2]*1.6&&original[i+1]>original[i+2]*1.6)
         for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h){const q=(y+dy)*w+x+dx;if(confirmed[q]<64)yellow[q]=0;}
