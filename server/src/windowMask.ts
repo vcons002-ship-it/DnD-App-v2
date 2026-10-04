@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import type {MapWall} from '../../shared/mapWalls.js';
-/** Visible window art, including wall faces; independent of wall-gap detection. */
-export const WINDOW_MASK_PROMPT='Paint every visible window and viewing slit in this battle map solid blue (#0000FF), including windows shown on wall faces. Mark only windows actually shown. Keep the map unchanged otherwise.';
+/** Visible window art; independent of wall-gap detection. */
+export const WINDOW_MASK_PROMPT='Paint every visible window and viewing slit in this battle map solid blue (#0000FF). Mark only windows actually shown. Keep the map unchanged otherwise.';
 export async function windowsFromMask(mask:Buffer,source:Buffer,width:number,height:number,grid:number){
  const meta=await sharp(mask).metadata();
  if(!meta.width||!meta.height||Math.abs(Math.log((meta.width/meta.height)/(width/height)))>.04)throw Error('Window mask changed the map framing.');

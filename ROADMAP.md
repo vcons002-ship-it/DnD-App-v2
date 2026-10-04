@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Remove the wall-face clause from the window prompt. Same-map real API
+  retry detects/fits four cabin windows (two front, two back), compared with
+  two previously; conversion, natural boundaries and structural walls unchanged.
+
 - [x] Simplify the window mask prompt to mark visible windows on wall faces,
   rather than relying on wall gaps. Narrow the second wall pass to enclosing
   boundaries of caves and other natural interiors; exclude outdoor rocks,

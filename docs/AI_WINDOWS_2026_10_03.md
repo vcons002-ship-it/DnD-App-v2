@@ -7,7 +7,7 @@ simple visible-window prompt and the original map only. No exaggerated reference
 assumed window count, wall-guide image or symmetry instruction is supplied.
 
 ```
-Paint every visible window and viewing slit in this battle map solid blue (#0000FF), including windows shown on wall faces. Mark only windows actually shown. Keep the map unchanged otherwise.
+Paint every visible window and viewing slit in this battle map solid blue (#0000FF). Mark only windows actually shown. Keep the map unchanged otherwise.
 ```
 
 Blue connected regions become window candidates, with original blue artwork

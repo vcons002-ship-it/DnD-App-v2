@@ -35,5 +35,5 @@ it('extracts blue windows without treating blue art in the original as a new mar
  const mask=await sharp(src).composite([{input:await sharp({create:{width:20,height:40,channels:3,background:'#0000ff'}}).png().toBuffer(),left:100,top:100}]).png().toBuffer();
  const windows=await windowsFromMask(mask,src,400,300,64);expect(windows).toHaveLength(1);expect(windows[0].ax).toBeLessThan(130);
  expect(await windowsFromMask(src,src,400,300,64)).toEqual([]);
- expect(WINDOW_MASK_PROMPT).toBe('Paint every visible window and viewing slit in this battle map solid blue (#0000FF), including windows shown on wall faces. Mark only windows actually shown. Keep the map unchanged otherwise.');
+ expect(WINDOW_MASK_PROMPT).toBe('Paint every visible window and viewing slit in this battle map solid blue (#0000FF). Mark only windows actually shown. Keep the map unchanged otherwise.');
 });

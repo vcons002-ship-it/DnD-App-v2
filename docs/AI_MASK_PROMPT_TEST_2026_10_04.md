@@ -50,3 +50,22 @@ checks small divided windows on a full-resolution map and verifies they remain
 two windows instead of being discarded or joined into one. Live campaign data
 and the running app installation were not changed; only a new static preview
 folder was published there.
+
+## Window-only follow-up
+
+At the user's request, remove the clause about windows on wall faces:
+
+```
+Paint every visible window and viewing slit in this battle map solid blue (#0000FF). Mark only windows actually shown. Keep the map unchanged otherwise.
+```
+
+One fresh image-API request on the same original map detects four windows:
+two front-facing and two back-facing. All four fit the unchanged wall geometry.
+The parser and fitting logic are unchanged from the prior comparison; no
+candidates were manually corrected. This is an improvement on this run, not
+a guarantee across maps or repeated generations. No natural or structural
+wall request was rerun.
+
+[Raw response and fitted windows](https://dnd.nic024i.app/uploads/previews/field-cabin-cave-windows-v4-20261004/).
+Local evidence: `assets/maps/experiments/field-cabin-cave-windows-v4-20261004/`.
+Typecheck and all 1,649 server tests passed again.
