@@ -3,15 +3,17 @@
 The full map setup is under **Walls → Suggest walls, doors, windows & lights**.
 Each workflow makes an independent image API request; structural walls still
 receive their existing natural-boundary follow-up. Window generation uses the
-accepted simple prompt and the original map only. No exaggerated reference,
+simple visible-window prompt and the original map only. No exaggerated reference,
 assumed window count, wall-guide image or symmetry instruction is supplied.
 
 ```
-Look at the walls of this battle map. Paint existing window openings or narrow viewing slits solid blue (#0000FF). Leave solid walls, broken wall tops, doors and arches unmarked. Keep the map unchanged otherwise. If there are no windows or slits, add no marks.
+Paint every visible window and viewing slit in this battle map solid blue (#0000FF), including windows shown on wall faces. Mark only windows actually shown. Keep the map unchanged otherwise.
 ```
 
 Blue connected regions become window candidates, with original blue artwork
-excluded. Each candidate is projected onto a nearby wall cap and fitted through
+excluded. Small panes are retained at map resolution rather than filtered by
+the structural-wall minimum size; adjacent panes separated by a narrow mullion
+are grouped. Each candidate is projected onto a nearby wall cap and fitted through
 its full thickness. Candidates without a safe nearby wall are skipped and shown
 with an explanation. The DM can deselect candidates in the Windows review tab.
 
@@ -46,3 +48,6 @@ Raw masks, reviews and recordings are retained in
 `artifacts/inn-window-full-flow-20261003/`. The static comparison and video page is
 published under `/uploads/previews/inn-window-full-flow-20261003/` on the DnD domain.
 The test runs against an isolated save, not the campaign database.
+
+The later field/cabin/cave prompt comparison is documented in
+[AI_MASK_PROMPT_TEST_2026_10_04.md](AI_MASK_PROMPT_TEST_2026_10_04.md).

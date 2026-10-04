@@ -4,6 +4,13 @@ import {sanitizeWalls,hasLineOfSight,stopAtWalls,wallVisibilityPolygon,type MapW
 import {windowsFromMask,WINDOW_MASK_PROMPT} from './windowMask.js';
 import {createSession,createMap,getMap} from './sessions.js';
 import {editMapWalls} from './mapWalls.js';
+it('retains small windows and combines divided panes without joining separate windows',async()=>{
+ const src=await sharp({create:{width:1536,height:1024,channels:3,background:'#222'}}).png().toBuffer();
+ const pane=await sharp({create:{width:5,height:10,channels:3,background:'#0000ff'}}).png().toBuffer();
+ const mask=await sharp(src).composite([100,107,160,167].map(left=>({input:pane,left,top:100}))).png().toBuffer();
+ const windows=await windowsFromMask(mask,src,1536,1024,48);
+ expect(windows.map(w=>[w.ax,w.ay,w.bx,w.by])).toEqual([[100,100,112,110],[160,100,172,110]]);
+});
 const solid:MapWall={id:'solid',kind:'rectangle',ax:100,ay:0,bx:130,by:300};
 const marker:MapWall={id:'ai-window-1',kind:'rectangle',ax:120,ay:120,bx:140,by:160};
 it('windows pass sight and light rays through the full wall but always block movement; removal restores sight blocking',()=>{
@@ -28,5 +35,5 @@ it('extracts blue windows without treating blue art in the original as a new mar
  const mask=await sharp(src).composite([{input:await sharp({create:{width:20,height:40,channels:3,background:'#0000ff'}}).png().toBuffer(),left:100,top:100}]).png().toBuffer();
  const windows=await windowsFromMask(mask,src,400,300,64);expect(windows).toHaveLength(1);expect(windows[0].ax).toBeLessThan(130);
  expect(await windowsFromMask(src,src,400,300,64)).toEqual([]);
- expect(WINDOW_MASK_PROMPT).toBe('Look at the walls of this battle map. Paint existing window openings or narrow viewing slits solid blue (#0000FF). Leave solid walls, broken wall tops, doors and arches unmarked. Keep the map unchanged otherwise. If there are no windows or slits, add no marks.');
+ expect(WINDOW_MASK_PROMPT).toBe('Paint every visible window and viewing slit in this battle map solid blue (#0000FF), including windows shown on wall faces. Mark only windows actually shown. Keep the map unchanged otherwise.');
 });
