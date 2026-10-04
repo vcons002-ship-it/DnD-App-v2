@@ -49,7 +49,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   let maskImagePath=result.path,naturalMaskImagePath:string|undefined;
   const maskWarnings:string[]=[];
   if(includeNatural){
-    reportAi('Wall mask ready. Running a separate pass for cave boundaries and pillars.');
+    reportAi('Wall mask ready. Running a separate pass for caves and other natural interiors.');
     try{
       const reference=await sharp(mask).resize({width:2048,height:2048,fit:'inside',withoutEnlargement:true}).png().toBuffer();
       const natural=await generateApiImage(NATURAL_BOUNDARY_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:reference.toString('base64')}]);
@@ -66,7 +66,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
       }
     }catch(error){
       const reason=error instanceof Error?error.message:'Image analysis failed.';
-      maskWarnings.push(`Natural-boundary pass failed: ${reason} Only the structural wall mask is available. Check caves and pillars manually or analyze again.`);
+      maskWarnings.push(`Natural-boundary pass failed: ${reason} Only the structural wall mask is available. Check natural interiors manually or analyze again.`);
       reportAi('Natural-boundary pass failed. Keeping the structural wall mask for review.');
     }
   }
@@ -75,11 +75,11 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   const separateLayers=async()=>{
     if(!naturalImage)return undefined;
     const structural=await wallsFromYellowMask(mask,source.width,source.height,source.gridSizePx,image,true);
-    const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true,false);
+    const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true,false,naturalImage);
     const walls=[...structural.walls,...natural.walls.map(w=>({...w,id:`natural-${w.id}`}))];
     if(walls.length<=120&&sanitizeWalls(walls).length===walls.length)return {...structural,walls,coverage:Math.min(structural.coverage,natural.coverage)};
   };
-  try {converted=await wallsFromYellowMask(conversionMask,source.width,source.height,source.gridSizePx,image);}
+  try {converted=await wallsFromYellowMask(conversionMask,source.width,source.height,source.gridSizePx,image,false,true,naturalImage);}
   catch(error){
     if(conversionMask!==mask){
       if(naturalImage)try{
@@ -91,7 +91,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
       if(!converted){
       try{
         converted=await wallsFromYellowMask(mask,source.width,source.height,source.gridSizePx,image);maskImagePath=result.path;
-        maskWarnings.push('The combined boundary mask could not be converted safely. Keeping the structural walls only; review caves and pillars manually.');
+        maskWarnings.push('The combined boundary mask could not be converted safely. Keeping the structural walls only; review natural interiors manually.');
       }catch{/* Both masks failed: use the existing single filled-band retry. */}
       }
     }

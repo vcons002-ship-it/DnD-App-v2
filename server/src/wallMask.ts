@@ -8,13 +8,16 @@ import type {MapWall} from '../../shared/mapWalls.js';
  * Complex noisy masks retain the conservative rectangle-fitting fallback.
  * Large enclosed rooms remain empty. Small structural paint breaks are joined;
  * wider cuts remain protected. Opening-mask extraction can opt into precise mode. */
-export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer,minimizeEdges=false,repairSmallGaps=true) {
+export async function wallsFromYellowMask(image:Buffer,width:number,height:number,gridSizePx:number,originalImage?:Buffer,minimizeEdges=false,repairSmallGaps=true,confirmedPaint?:Buffer) {
   if(![width,height,gridSizePx].every(n=>Number.isFinite(n)&&n>0)||width>20000||height>20000)throw new Error('Invalid map dimensions.');
-  const scale=Math.min(1,800/Math.max(width,height)),w=Math.round(width*scale),h=Math.round(height*scale),size=w*h;
+  // Natural-pass additions have known paint provenance. Keep these thin lines
+  // at a higher working resolution so curved joins survive raster conversion.
+  const scale=Math.min(1,(confirmedPaint?1600:800)/Math.max(width,height)),w=Math.round(width*scale),h=Math.round(height*scale),size=w*h;
   const {data,info}=await sharp(image,{limitInputPixels:40_000_000}).rotate().resize(w,h,{fit:'fill',kernel:'nearest'}).removeAlpha().toColourspace('srgb').raw().toBuffer({resolveWithObject:true});
   const yellow=new Uint8Array(size);
   const faint=new Uint8Array(size);
   const paint=new Uint8Array(size);
+  const confirmed=confirmedPaint?await sharp(confirmedPaint,{limitInputPixels:40_000_000}).rotate().removeAlpha().greyscale().resize(w,h,{fit:'fill',kernel:'linear'}).raw().toBuffer():new Uint8Array(size);
   for(let p=0;p<size;p++){
     const i=p*info.channels,hue=data[i+2]<115&&data[i]>data[i+2]*1.8&&data[i+1]>data[i+2]*1.8;
     yellow[p]=hue&&data[i]>165&&data[i+1]>155?255:0;
@@ -23,6 +26,9 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
     // Warm flowers/grass can pass the broader edge test but cannot independently
     // establish a wall. Keep the broader colors around confirmed paint below.
     paint[p]=data[i]>=210&&data[i+1]>=210&&Math.min(data[i],data[i+1])-data[i+2]>=150?1:0;
+    // This is the additions-only yellow-on-black raster from the green pass,
+    // not the returned map art. Its paint must win over underlying firelight.
+    if(confirmed[p]>=64){yellow[p]=255;paint[p]=1;}
   }
   // Dark yellow paint in stone grooves belongs to the annotation. Grow only from
   // bright annotation seeds; do not classify unrelated warm floor art as walls.
@@ -41,9 +47,9 @@ export async function wallsFromYellowMask(image:Buffer,width:number,height:numbe
       // Unchanged warm art in an intentional gap is not faint paint. Do not grow
       // annotation into it merely because a bright yellow edge is nearby.
       const p=y*w+x,j=p*info.channels;
-      if(!seeds[p]&&Math.max(Math.abs(original[i]-data[j]),Math.abs(original[i+1]-data[j+1]),Math.abs(original[i+2]-data[j+2]))<=20)yellow[p]=0;
+      if(confirmed[p]<64&&!seeds[p]&&Math.max(Math.abs(original[i]-data[j]),Math.abs(original[i+1]-data[j+1]),Math.abs(original[i+2]-data[j+2]))<=20)yellow[p]=0;
       if(original[i]>165&&original[i+1]>145&&original[i+2]<130&&original[i]>original[i+2]*1.6&&original[i+1]>original[i+2]*1.6)
-        for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h)yellow[(y+dy)*w+x+dx]=0;
+        for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++)if(x+dx>=0&&x+dx<w&&y+dy>=0&&y+dy<h){const q=(y+dy)*w+x+dx;if(confirmed[q]<64)yellow[q]=0;}
     }
   }
   // A region needs surviving opaque paint evidence as well as a useful span.

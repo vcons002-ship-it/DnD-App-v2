@@ -6,6 +6,19 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Remove the wall-face clause from the window prompt. Same-map real API
+  retry detects/fits four cabin windows (two front, two back), compared with
+  two previously; conversion, natural boundaries and structural walls unchanged.
+
+- [x] Simplify the window mask prompt to mark visible windows on wall faces,
+  rather than relying on wall gaps. Narrow the second wall pass to enclosing
+  boundaries of caves and other natural interiors; exclude outdoor rocks,
+  cliffs, riverbanks and bridges. Keep the structural wall and light prompts
+  unchanged. Retain small divided window panes during conversion. Real API
+  comparison: 2 cabin windows detected/fitted (3 missed); natural pass excludes
+  outdoor rocks and leaves the cave entrance open, but still traces both rim
+  edges. See docs/AI_MASK_PROMPT_TEST_2026_10_04.md for raw results.
+
 - [x] DM map-feature editing: click selects walls, doors, windows and placed
   lights; Shift/Ctrl-click toggles multiple pieces; Ctrl-drag selects fully
   enclosed shapes. Delete/Backspace or the on-screen Delete button removes

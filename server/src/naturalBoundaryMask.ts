@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-export const NATURAL_BOUNDARY_PROMPT='This is a SECOND pass for natural caves and pillars only. Yellow wall marks are finished: do not trace over, recolor, erase or move them. A map of only built rooms and corridors needs NO new marks; return it unchanged. If there are natural caves, add bright green (#00FF00) continuous opaque lines, about 10 pixels wide, along the OUTER edge of the rock rim where it meets solid rock or black background. Keep the entire rim artwork inside the outline. Join green lines to adjoining yellow walls without gaps; keep entrances and passages open. Include other solid natural rock boundaries that block movement and sight. Paint unmarked solid pillar top surfaces green. Ignore masonry walls, furniture, floor seams, shadows, stairs and water edges. Preserve all other pixels and the exact framing. No labels.';
+export const NATURAL_BOUNDARY_PROMPT='Draw one continuous bright green (#00FF00) line along the top edge of the visible interior cave walls. Keep the wall faces and built-in features such as the hearth inside the boundary. Leave entrances and passages open. Keep the rest of the image unchanged.';
 
 const green=(r:number,g:number,b:number)=>g>165&&r<135&&b<135&&g>r*1.8&&g>b*1.8;
 const yellow=(r:number,g:number,b:number)=>r>25&&g>20&&r>b*1.8&&g>b*1.8;
