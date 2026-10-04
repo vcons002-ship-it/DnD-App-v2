@@ -5,6 +5,8 @@ import sharp from 'sharp';
 import {geometrySource} from './mapGeometryDraft.js';
 import {config} from './config.js';
 import {generateApiImage} from './ai/imageGateway.js';
+import {generateMapRegionMask} from './mapRegionMask.js';
+import {parseMapAnalysisRegions} from '../../shared/mapAnalysisRegions.js';
 import {reportAi} from './ai/status.js';
 import {LIGHT_MASK_PROMPT,lightsFromMask} from './lightMask.js';
 import {updateMapEnvironment} from './sessions.js';
@@ -14,12 +16,13 @@ import type {MapLightDraft} from '../../shared/mapLightDraft.js';
 const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export function lightDraftSource(source:MapGeometryDraft['source'],lights:readonly MapEnvironmentLight[]){const {wallsHash,...rest}=source;return {...rest,lightsHash:hash(lights)};}
 async function lightSource(mapId:string){const {map,image,source}=await geometrySource(mapId);return {map,image,source:lightDraftSource(source,map.environment?.lights??[]) };}
-export async function suggestMapLights(mapId:string):Promise<MapLightDraft>{
+export async function suggestMapLights(mapId:string,rawRegions?:unknown):Promise<MapLightDraft>{
  const {map,image,source}=await lightSource(mapId);
+ const regions=parseMapAnalysisRegions(rawRegions);
  if(!config.geminiApiKey)throw new Error('Configure the image API in Settings before suggesting lights.');
  reportAi('Marking visible light emitters with the image API. This is separate from wall drafting.');
  const preview=await sharp(image).rotate().png().toBuffer();
- const result=await generateApiImage(LIGHT_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
+ const result=regions?await generateMapRegionMask(LIGHT_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(LIGHT_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
  if('error' in result)throw new Error(result.error);
  const root=path.resolve(config.uploadsDir),file=path.resolve(root,result.path.slice('/uploads/'.length));
  if(!result.path.startsWith('/uploads/')||!file.startsWith(root+path.sep))throw new Error('Invalid mask path.');

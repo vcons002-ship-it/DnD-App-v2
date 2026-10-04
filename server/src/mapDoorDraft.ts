@@ -6,6 +6,8 @@ import {geometrySource} from './mapGeometryDraft.js';
 import {config} from './config.js';
 import {db} from './db.js';
 import {generateApiImage} from './ai/imageGateway.js';
+import {generateMapRegionMask} from './mapRegionMask.js';
+import {parseMapAnalysisRegions} from '../../shared/mapAnalysisRegions.js';
 import {reportAi} from './ai/status.js';
 import {DOOR_MASK_PROMPT,doorsFromMask} from './doorMask.js';
 import {fitDoorMarker} from '../../shared/doorMaskFit.js';
@@ -14,12 +16,13 @@ import {sanitizeWalls} from '../../shared/mapWalls.js';
 import type {MapDoorDraft} from '../../shared/mapDoorDraft.js';
 import type {MapWall} from '../../shared/mapWalls.js';
 
-export async function suggestMapDoors(mapId:string):Promise<MapDoorDraft> {
+export async function suggestMapDoors(mapId:string,rawRegions?:unknown):Promise<MapDoorDraft> {
   const {map,image,source}=await geometrySource(mapId);
+  const regions=parseMapAnalysisRegions(rawRegions);
   if(!config.geminiApiKey)throw new Error('Configure the image API in Settings before suggesting doors.');
   reportAi('Marking visible doors with the image API. This is a separate request from walls and lights.');
   const preview=await sharp(image).rotate().png().toBuffer();
-  const result=await generateApiImage(DOOR_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
+  const result=regions?await generateMapRegionMask(DOOR_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(DOOR_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
   if('error' in result)throw new Error(result.error);
   const root=path.resolve(config.uploadsDir),file=path.resolve(root,result.path.slice('/uploads/'.length));
   if(!result.path.startsWith('/uploads/')||!file.startsWith(root+path.sep))throw new Error('Invalid door mask path.');
