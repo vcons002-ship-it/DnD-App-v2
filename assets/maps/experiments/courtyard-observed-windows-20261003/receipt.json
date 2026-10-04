@@ -1,0 +1,38 @@
+{
+  "model": "gemini-3-pro-image",
+  "prompt": "Look at the walls of this battle map. Paint only visible window openings or viewing slits solid blue (#0000FF). Do not place windows based on assumed symmetry. Keep everything else unchanged. If none are visible, add no marks.",
+  "input": "client/src/exploration-preview/courtyard.png",
+  "inputSha256": "b6f47c1f0917ced9a691113b5513ed3e42a955e30ff40f0aed5920e90fda524d",
+  "referenceSha256": "218fd067382532bcb2b0a8df6dbfd4e27fb6cc576b82aa82aa929e9d193ff6db",
+  "maskSha256": "522e774b516c9d80115dcfb850b4b88434a0d36248f82fb98159a53d58884afd",
+  "file": "window-mask.jpg",
+  "elapsedSeconds": 19.907,
+  "metadata": {
+    "format": "jpeg",
+    "mediaType": "image/jpeg",
+    "size": 3776170,
+    "width": 2528,
+    "height": 1696,
+    "space": "srgb",
+    "channels": 3,
+    "depth": "uchar",
+    "density": 72,
+    "chromaSubsampling": "4:2:0",
+    "isProgressive": false,
+    "isPalette": false,
+    "hasProfile": false,
+    "hasAlpha": false,
+    "autoOrient": {
+      "width": 2528,
+      "height": 1696
+    }
+  },
+  "manualEdits": false,
+  "geometryConverted": false,
+  "applied": false,
+  "intendedBehavior": {
+    "allowsVisibility": true,
+    "allowsPlayerMovement": false
+  },
+  "productionPromptsChanged": false
+}

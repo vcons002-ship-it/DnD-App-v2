@@ -32,7 +32,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
   const [lightDraftOpen,setLightDraftOpen]=useState(false);
   const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
   const save=useStore(s=>s.setMapEnvironment);
-  const {placement,place}=useEnvironmentEditor();
+  const {placement,place,edit}=useEnvironmentEditor();
   const update=(patch:Partial<MapEnvironment>)=>save(map.id,patch);
   const toggle=(key:'enabled'|'heavyDarkness'|'shadows'|'mist'|'mistShadows'|'mistInteraction'|'lightning',label:string)=><label className="environment-toggle">
     <input type="checkbox" checked={settings[key]} onChange={e=>update({[key]:e.target.checked})}/>{label}
@@ -61,6 +61,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         {toggle('heavyDarkness','Heavy darkness')}
         <small>Heavy darkness is nonmagical: Darkvision is grayscale. Regular darkness preserves color. Lantern-lit areas keep their color.</small>
         <small>Night and Dungeon limit each player to 60 ft around their own token, even with effects off. The DM sees the full map. Fog still applies; painted walls do not block sight.</small>
+        <button onClick={()=>edit(map.id)}>Edit lights on map</button>
         <div className="environment-light-list">{settings.lights.map((light,index)=>{
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});
           return <details key={light.id}><summary>Light {index+1} · {light.color}</summary>

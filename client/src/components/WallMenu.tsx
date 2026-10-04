@@ -39,16 +39,18 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     }} aria-label="Walls" title="Draw walls that block player movement, light and sight">Walls{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu" style={{...position,width:238}}>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupDraftOpen(true);}}>Suggest walls, doors &amp; lights</button>
+        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
-        <div className="measure-label">{count} saved {count===1?'wall':'walls'}</div>
+        <div className="measure-label">{count} saved wall pieces</div>
+        {(map?.walls??[]).filter(w=>w.window).map((w,i)=><button key={w.id} className="measure-row" onClick={()=>{if(map)useStore.getState().editMapWalls(map.id,{removeId:w.id});setPosition(null);}}>Remove window {i+1}</button>)}
         <WallPerformanceNotice walls={map?.walls??[]}/>
         <button className={`measure-row ${tool==='rectangle'?'on':''}`} onClick={()=>{onTool('rectangle');setPosition(null);}}>Draw wall rectangles</button>
         <button className={`measure-row ${tool==='draw'?'on':''}`} onClick={()=>{onTool('draw');setPosition(null);}}>Draw wall line</button>
         <button className={`measure-row ${tool==='circle'?'on':''}`} onClick={()=>{onTool('circle');setPosition(null);}}>Draw circular wall</button>
         <button className={`measure-row ${tool==='freehand'?'on':''}`} onClick={()=>{onTool('freehand');setPosition(null);}}>Free draw wall</button>
         <button className={`measure-row ${tool==='edit'?'on':''}`} onClick={()=>{onTool('edit');setPosition(null);}}>Move / rotate wall</button>
+        <button className="measure-row" onClick={()=>{onTool('edit');setPosition(null);}}>Select walls, windows, doors &amp; lights</button>
         <button className={`measure-row ${tool==='erase-area'?'on':''}`} onClick={()=>{onTool('erase-area');setPosition(null);}}>Erase wall section</button>
         <button className={`measure-row ${tool==='erase'?'on':''}`} onClick={()=>{onTool('erase');setPosition(null);}}>Delete entire wall</button>
         <button className={`measure-row ${tool==='door'?'on':''}`} onClick={()=>{onTool('door');setPosition(null);}}>Draw door opening</button>
@@ -58,7 +60,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         <button className="measure-row" disabled={!count} onClick={onUndo}>Undo last wall</button>
         {tool!=='off'&&<button className="measure-row" onClick={()=>{onFinish();setPosition(null);}}>Cancel current stroke</button>}
         <button className="measure-row" onClick={()=>{onTool('off');setPosition(null);}}>Done drawing</button>
-        <p className="muted" style={{padding:'0 10px',fontSize:12}}>Drag a rectangle, angled line, circle or free-draw stroke. Circles enclose an empty room. Use Move / rotate to reposition any wall; drag its round handle to rotate. Use Draw door opening along a wall to add a working door. Select an existing door token first to attach it with its saved settings. Walls block sight in every lighting mode. Outlines hide when you finish editing.</p>
+        <p className="muted" style={{padding:'0 10px',fontSize:12}}>In selection mode, click a feature; Shift/Ctrl-click adds or removes it. Ctrl-drag selects fully enclosed pieces. Delete removes the selection; Ctrl+Z restores it. A connected wall shape is one piece: use Erase wall section for a partial correction. Drag a wall to move it; use its round handle to rotate. Walls block sight in every lighting mode. Outlines hide when you finish editing.</p>
       </div>
     </>}
   </>;

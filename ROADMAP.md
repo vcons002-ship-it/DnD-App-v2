@@ -6,6 +6,22 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] DM map-feature editing: click selects walls, doors, windows and placed
+  lights; Shift/Ctrl-click toggles multiple pieces; Ctrl-drag selects fully
+  enclosed shapes. Delete/Backspace or the on-screen Delete button removes
+  the selection as one undoable action, including linked door tokens.
+  Ctrl+Z restores it without replacing later unrelated edits. Editor selection
+  never deletes creature tokens; text inputs retain their normal keyboard
+  behavior. Verified in overhead and 45-degree browser tests.
+
+- [x] Measure player door reach from the normal creature footprint, with 5 ft
+  beyond its edge to a full-width doorstep extending 5 ft from each door face.
+  Mark this approach area without widening collision or sight openings.
+  Highlight visible nearby doors during the private drag
+  preview and show "Release to interact"; controls use the committed placement.
+  Preserve locked/hidden door checks and ignore decorative miniature scaling.
+  Covered by shared-range, server-handler and real player browser regressions.
+
 - [ ] Raised-wall rendering parked at user request. Retain the isolated studies;
   prioritize accurate functional wall and opening masks.
 - [x] Test arches as a separate class in the door-mask experiment, without
@@ -2417,3 +2433,5 @@ Smaller refinements on top of the shipped Phase 2 work.
   22 sight-and-movement probes, 720 cave-boundary rays and real player dragging
   passed. Protected gaps survive bounded contour simplification. See
   docs/MAP_GEOMETRY_DRAFT.md for the earlier cave-gap finding and successful retest.
+
+- [x] Independent AI window pass using the accepted simple prompt; full map setup reviews windows alongside walls, doors and lights. Windows pass sight/light but block movement, with individual removal restoring the original opaque wall. See docs/AI_WINDOWS_2026_10_03.md.
