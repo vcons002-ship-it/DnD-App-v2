@@ -20,3 +20,22 @@ it('keeps a confirmed thin cave boundary continuous over firelight without impor
  expect(stopAtWalls({x:420,y:740},{x:420,y:500},2,walls)).toEqual({x:420,y:500});
  expect(walls.length).toBeLessThanOrEqual(2);
 });
+
+it('repairs short diagonal paint breaks in every orientation without closing a larger passage',async()=>{
+ const width=240,height=240,grid=48;
+ const svg=(body:string,angle:number)=>sharp(Buffer.from(`<svg width="${width}" height="${height}"><rect width="100%" height="100%" fill="black"/><g transform="rotate(${angle} 120 120)">${body}</g></svg>`)).png().toBuffer();
+ const rotate=(p:{x:number;y:number},angle:number)=>{const a=angle*Math.PI/180;return{x:120+(p.x-120)*Math.cos(a)-(p.y-120)*Math.sin(a),y:120+(p.x-120)*Math.sin(a)+(p.y-120)*Math.cos(a)};};
+ for(const angle of [0,90,180,270]){
+  const paint=await svg('<path d="M20 30L100 70M106 73L220 130" fill="none" stroke="#ffff00" stroke-width="2"/>',angle);
+  const from=rotate({x:103,y:35},angle),to=rotate({x:103,y:105},angle);
+  const {walls}=await wallsFromYellowMask(paint,width,height,grid,undefined,false,true);
+  expect(hasLineOfSight(from,to,walls),`short angled seam at ${angle} blocks sight`).toBe(false);
+  const stopped=stopAtWalls(from,to,.1,walls);
+  expect(Math.hypot(stopped.x-to.x,stopped.y-to.y)).toBeGreaterThan(1);
+  const open=await svg('<path d="M20 30L100 70M135 87.5L220 130" fill="none" stroke="#ffff00" stroke-width="2"/>',angle);
+  const passage=await wallsFromYellowMask(open,width,height,grid,undefined,false,true);
+  expect(hasLineOfSight(rotate({x:117,y:35},angle),rotate({x:117,y:130},angle),passage.walls),'larger entrance stays open').toBe(true);
+  const precise=await wallsFromYellowMask(paint,width,height,grid,undefined,false,false,paint);
+  expect(hasLineOfSight(from,to,precise.walls),'precise mode keeps explicit cuts').toBe(true);
+ }
+});

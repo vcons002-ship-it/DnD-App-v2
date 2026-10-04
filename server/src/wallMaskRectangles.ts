@@ -84,6 +84,35 @@ function releaseSmallCuts(protectedPixels:Uint8Array,input:Uint8Array,closed:Uin
  }
 }
 
+/** Square closing cannot reconnect a thin diagonal stroke: erosion removes the
+ * bridge again. Join only short breaks supported by continuing paint on both
+ * ends, using the original raster so repairs never grow into longer chains. */
+function repairShortPaintBreaks(input:Uint8Array,w:number,h:number,span:number){
+ const repaired=input.slice();
+ const at=(x:number,y:number)=>x>=0&&x<w&&y>=0&&y<h&&!!input[y*w+x];
+ const directions=[[1,0],[0,1],[1,1],[1,-1],[2,1],[2,-1],[1,2],[1,-2]];
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(input[y*w+x])for(const [dx,dy] of directions){
+  if(!at(x-dx,y-dy)||at(x+dx,y+dy))continue;
+  const steps=Math.floor(span/Math.hypot(dx,dy));
+  for(let n=2;n<=steps;n++){
+   const endX=x+n*dx,endY=y+n*dy;
+   if(endX<0||endX>=w||endY<0||endY>=h)break;
+   if(!at(endX,endY))continue;
+   if(at(endX+dx,endY+dy)){
+    // A supercover line joins the pixel cells, including steep diagonals.
+    const count=Math.max(Math.abs(endX-x),Math.abs(endY-y));
+    for(let i=1;i<count;i++){
+     const px=x+(endX-x)*i/count,py=y+(endY-y)*i/count;
+     repaired[Math.floor(py)*w+Math.floor(px)]=1;
+     repaired[Math.ceil(py)*w+Math.ceil(px)]=1;
+    }
+   }
+   break;
+  }
+ }
+ return repaired;
+}
+
 /** Fits broad supported wall bands instead of allocating a wall to every edge sliver.
  * The limits are fractions of one grid square, capped in the 800px working raster.
  * Nothing in fitting, merging or connector creation may occupy a reserved gap. */
@@ -94,9 +123,10 @@ export function prepareWallMask(input:Uint8Array,w:number,h:number,gridPixels:nu
  // Structural top-cap masks may contain mortar seams and partial paint breaks.
  // Close cuts up to one quarter of a grid square; wider passages stay reserved.
  // Natural boundaries and colored opening footprints can retain every cut.
- const protectedPixels=protectedGaps(input,w,h,2*(repairRadius+tolerance)+1,gridPixels,repairSpan);
- const solid=morphology(morphology(input,w,h,repairRadius),w,h,repairRadius,true);
- if(repairSmallGaps)releaseSmallCuts(protectedPixels,input,solid,w,h,repairSpan);
+ const supported=repairSmallGaps?repairShortPaintBreaks(input,w,h,repairSpan):input;
+ const protectedPixels=protectedGaps(supported,w,h,2*(repairRadius+tolerance)+1,gridPixels,repairSpan);
+ const solid=morphology(morphology(supported,w,h,repairRadius),w,h,repairRadius,true);
+ if(repairSmallGaps)releaseSmallCuts(protectedPixels,supported,solid,w,h,repairSpan);
  for(let p=0;p<solid.length;p++)if(protectedPixels[p])solid[p]=0;
  return {solid,protectedPixels,tolerance};
 }

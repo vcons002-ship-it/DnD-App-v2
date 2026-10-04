@@ -66,3 +66,32 @@ top edge; it does not add raised walls or independently collidable furniture.
 Evidence is under `assets/maps/experiments/cave-wall-art-boundary-20261004/` and
 `artifacts/cave-wall-art-visible-20261004/`. The prompt change affects new drafts;
 existing walls are not automatically replaced.
+
+
+## Automatic repair of short angled seams
+
+A thin diagonal paint break can survive square morphological closing: the
+subsequent erosion removes its connecting pixels again. This is a conversion
+problem, not a reason to hand-edit a particular map or change the approved prompt.
+
+`prepareWallMask` now joins short, paint-supported breaks along horizontal,
+vertical and diagonal directions before reserving openings and tracing walls.
+A join requires continuing original paint on both ends, uses the existing repair
+limit (one quarter of a grid square, capped at 16 working pixels), and never
+chains from another generated join. Precise mode bypasses this step entirely.
+Both contour conversion and the rectangle fallback use the same preparation.
+
+A new regression first failed with the old converter. It checks short angled
+seams in four orientations, sight and movement blocking, larger open passages,
+and precise-mode preservation of explicit cuts. Existing opening regressions
+also remain green.
+
+Reusing the exact approved saved top-edge mask, the former tiny front-boundary
+sight leak is blocked. Full-map shapes fall from 6 to 4 (the cave becomes one
+connected wall), and edges from 311 to 287. Real player click-and-drag testing
+enters and exits through the entrance and stops at the back wall, without any
+browser errors. No new API request, manual mask edit or live-campaign change
+was made. Evidence: `artifacts/cave-diagonal-gap-repair-20261004/`.
+
+Verification: typecheck and all 1651 server tests passed. The new regression
+also exercises ordinary yellow-mask conversion without confirmed-paint input.
