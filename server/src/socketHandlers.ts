@@ -521,7 +521,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const snapshot=buildSnapshot(sid,'player',null,socket.id,commandConnection()?.playerId);
       const visible=snapshot?.map?.id===map.id&&(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(point=>visionContains(snapshot?.playerVision,point.x,point.y)&&(!map.mapFogEnabled||map.mapFogRevealed.includes(`${Math.floor(point.x/map.gridSizePx)},${Math.floor(point.y/map.gridSizePx)}`)));
       const nearby=listTokens(map.id).some(t=>t.kind==='pc'&&!t.isHidden&&ownsCharacter(t.refId)&&doorInReach(t,door,map.gridSizePx/map.feetPerSquare));
-      if(!visible||!nearby)socket.emit('notice',{message:'Move your character’s footprint within 5 ft of a visible door to use it.'});
+      if(!visible||!nearby)socket.emit('notice',{message:'Move your character’s footprint within 5 ft of a visible door’s approach area to use it.'});
       return visible&&nearby;
     };
     const linkedWallDoor=(refId:string)=>{

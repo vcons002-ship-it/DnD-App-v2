@@ -9,7 +9,7 @@ import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay
 import {TokenPresentation} from './tokenPresentation';
 import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
-import {doorInReach} from '../../../shared/doorInteraction';
+import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
 import {visionContains,visionLit} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
@@ -2570,6 +2570,7 @@ export function MapStage({
                 const token=snapshot.tokens.find(t=>t.id===d.tokenId),object=snapshot.monsters.find(m=>m.id===token?.refId);
                 const locked=!!object?.conditions.some(c=>c.label.toLowerCase()==='locked'),hidden=!!token?.isHidden;
                 const previewed=!!doorDragPreview?.ids.includes(d.id);
+                const approached=nearbyDoors.some(door=>door.id===d.id);
                 const color=previewed?'#78e6ff':hidden?'#a2a8b1':locked?'#efb05f':d.open?'#94d6b0':'#f1d49c';
                 const label=hidden?'Hidden':locked?'Locked':d.open?'Open':'Door';
                 // One full-width line on each outer face. The ordinary vision
@@ -2582,9 +2583,12 @@ export function MapStage({
                 }else{
                   faces=wallBoundarySegments(d).map(({a,b})=>[a.x,a.y,b.x,b.y]);
                 }
-                const activate=()=>{if(isDm)setSelectedDoor(d.id);else if(!nearbyDoors.some(door=>door.id===d.id))notify('Move your character’s footprint within 5 ft of this door to open it or pick its lock.');};
+                const activate=()=>{if(isDm)setSelectedDoor(d.id);else if(!nearbyDoors.some(door=>door.id===d.id))notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
                 return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} doorPreview={previewed} opacity={hidden ? .45 : 1} listening={!wallActive}
                   onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
+                  <Line name="door-approach-area" points={wallVertices(doorInteractionArea(d,pxPerFoot)).flatMap(p=>[p.x,p.y])} closed listening={false}
+                    stroke={color} strokeWidth={(previewed?2:1)/view.scale} dash={[5/view.scale,4/view.scale]} opacity={previewed ? .85 : approached ? .6 : .25}
+                    fill={previewed?'#78e6ff20':approached?'#f1d49c15':undefined}/>
                   {faces.map((points,i)=><Line key={i} name="wall-door-face" points={points} stroke={color} strokeWidth={(previewed?6:4)/view.scale} shadowColor={previewed?'#78e6ff':undefined} shadowBlur={previewed?8/view.scale:0} hitStrokeWidth={16/view.scale} lineCap="butt" dash={d.open||hidden?[7/view.scale,5/view.scale]:undefined}/>)}
                 </Group>;
               })}
