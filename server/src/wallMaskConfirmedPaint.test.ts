@@ -39,3 +39,15 @@ it('repairs short diagonal paint breaks in every orientation without closing a l
   expect(hasLineOfSight(from,to,precise.walls),'precise mode keeps explicit cuts').toBe(true);
  }
 });
+
+
+it('keeps muted opaque wall paint that changed from the source, without importing unchanged yellow art',async()=>{
+ const svg=(body:string)=>sharp(Buffer.from(`<svg width="300" height="220">${body}</svg>`)).png().toBuffer();
+ const art='<rect width="300" height="220" fill="#555"/><rect x="240" y="80" width="25" height="70" fill="#e0ca14"/>';
+ const original=await svg(art),mask=await svg(`${art}<path d="M35 180L35 35L180 35L180 180" fill="none" stroke="#e0ca14" stroke-width="8"/>`);
+ const {walls}=await wallsFromYellowMask(mask,300,220,48,original);
+ expect(hasLineOfSight({x:100,y:100},{x:100,y:0},walls),'muted painted wall blocks sight').toBe(false);
+ expect(stopAtWalls({x:100,y:100},{x:100,y:0},2,walls).y).toBeGreaterThan(0);
+ expect(hasLineOfSight({x:220,y:110},{x:280,y:110},walls),'unchanged yellow art stays nonblocking').toBe(true);
+ expect(hasLineOfSight({x:100,y:100},{x:100,y:210},walls),'unpainted entrance stays open').toBe(true);
+});
