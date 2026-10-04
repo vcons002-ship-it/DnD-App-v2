@@ -96,7 +96,7 @@ describe('map geometry draft',()=>{
       await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#222"/><circle cx="700" cy="300" r="120" fill="none" stroke="#00ff00" stroke-width="20"/></svg>')).png().toFile(path.join(config.uploadsDir,secondName));
       vi.mocked(generateApiImage).mockResolvedValueOnce({path:`/uploads/${firstName}`}).mockResolvedValueOnce({path:`/uploads/${secondName}`});
       const draft=await suggestMapGeometry(f.map.id),reference=await sharp(structural).resize({width:2048,height:2048,fit:'inside',withoutEnlargement:true}).png().toBuffer();
-      expect(vi.mocked(generateApiImage).mock.calls[1][0].toLowerCase()).toContain('second pass');expect(vi.mocked(generateApiImage).mock.calls[1][2]).toEqual([{mimeType:'image/png',data:reference.toString('base64')}]);
+      expect(vi.mocked(generateApiImage).mock.calls[1][0].toLowerCase()).toContain('walkable cave floor');expect(vi.mocked(generateApiImage).mock.calls[1][2]).toEqual([{mimeType:'image/png',data:reference.toString('base64')}]);
       expect(draft.wallMaskImagePath).toBe(`/uploads/${firstName}`);expect(draft.naturalMaskImagePath).toBe(`/uploads/${secondName}`);expect(draft.maskImagePath).toContain('wall-union-');expect(draft.items).toHaveLength(2);
       expect(getMap(f.map.id)!.walls).toEqual([]);await applyGeometryDraft(f.map.id,draft,draft.items.map(i=>i.id));
       expect(hasLineOfSight({x:70,y:200},{x:160,y:200},getMap(f.map.id)!.walls)).toBe(false);expect(hasLineOfSight({x:700,y:300},{x:900,y:300},getMap(f.map.id)!.walls)).toBe(false);

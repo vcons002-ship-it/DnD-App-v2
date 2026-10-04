@@ -75,11 +75,11 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   const separateLayers=async()=>{
     if(!naturalImage)return undefined;
     const structural=await wallsFromYellowMask(mask,source.width,source.height,source.gridSizePx,image,true);
-    const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true,false);
+    const natural=await wallsFromYellowMask(naturalImage,source.width,source.height,source.gridSizePx,undefined,true,false,naturalImage);
     const walls=[...structural.walls,...natural.walls.map(w=>({...w,id:`natural-${w.id}`}))];
     if(walls.length<=120&&sanitizeWalls(walls).length===walls.length)return {...structural,walls,coverage:Math.min(structural.coverage,natural.coverage)};
   };
-  try {converted=await wallsFromYellowMask(conversionMask,source.width,source.height,source.gridSizePx,image);}
+  try {converted=await wallsFromYellowMask(conversionMask,source.width,source.height,source.gridSizePx,image,false,true,naturalImage);}
   catch(error){
     if(conversionMask!==mask){
       if(naturalImage)try{
